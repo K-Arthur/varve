@@ -12,10 +12,12 @@
 
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
+import { validateRasterMaskDocument } from './masks';
 import type { NodeId, Page, SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
+  normalizeLegacyBackgroundRemoval,
   serializeDocument as serializeVersionedDocument,
 } from './version';
 
@@ -73,6 +75,9 @@ function maxNumericNodeId(nodes: Record<NodeId, SceneNode>): number {
 }
 
 function normalizeDocument(doc: Document): DocumentNormalizeResult {
+  doc = normalizeLegacyBackgroundRemoval(
+    doc as unknown as Record<string, unknown>,
+  ) as unknown as Document;
   const warnings: DocumentCodecWarning[] = [];
   const nodes: Record<NodeId, SceneNode> = {};
 
@@ -188,19 +193,21 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   const minNextId = maxNumericNodeId(nodes) + 1;
   const nextId = Math.max(doc.nextId, minNextId, 1);
 
-  return {
-    document: {
-      ...doc,
-      formatVersion: CURRENT_DOCUMENT_VERSION,
-      rootChildren,
-      nodes,
-      nextId,
-      components: doc.components ?? {},
-      pages,
-      activePageId,
-    },
-    warnings,
+  const document: Document = {
+    ...doc,
+    formatVersion: CURRENT_DOCUMENT_VERSION,
+    rootChildren,
+    nodes,
+    nextId,
+    components: doc.components ?? {},
+    pages,
+    activePageId,
   };
+  const maskError = validateRasterMaskDocument(document);
+  if (maskError) {
+    warnings.push(warning('document.invalid-raster-mask', maskError, 'error', 'rasterMaskAssets'));
+  }
+  return { document, warnings };
 }
 
 function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
@@ -252,6 +259,15 @@ export const DocumentCodec = {
         ok: false,
         error: shapeError,
         warnings: [warning('document.invalid-shape', shapeError, 'error')],
+      };
+    }
+
+    const maskError = validateRasterMaskDocument(migration.document as unknown as Document);
+    if (maskError) {
+      return {
+        ok: false,
+        error: maskError,
+        warnings: [warning('document.invalid-raster-mask', maskError, 'error')],
       };
     }
 

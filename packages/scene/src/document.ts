@@ -174,6 +174,9 @@ export interface Document {
 
   /** Facing pages configuration. */
   facingPages?: import('./types').FacingPagesConfig;
+
+  /** Immutable PNG alpha-mask payloads keyed by asset id (v2.1+). */
+  rasterMaskAssets?: Record<string, import('./types').RasterMaskAsset>;
 }
 
 export interface NodeEntry {
