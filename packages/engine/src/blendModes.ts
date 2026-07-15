@@ -18,7 +18,8 @@
  * The non-separable modes (hue, saturation, color, luminosity) are in
  * §10.2 and live in nonSeparable.ts.
  *
- * Canvas2D composites: plus-lighter, plus-darker, pass-through.
+ * Plus-lighter is a premultiplied composite operation. Plus-darker is legacy,
+ * and pass-through is group policy rather than a pixel blend mode.
  */
 
 import { blendNonSeparable, type NonSeparableMode } from './nonSeparable';
@@ -211,7 +212,10 @@ export function blendNonSeparableDispatch(
 
 // ── Plus modes ───────────────────────────────────────────────────────────────
 
-/** Plus-darker: max(0, Cs + Cb - 1). */
+/**
+ * Plus-darker scalar helper retained for compatibility.
+ * The unified `blend()` API rejects this legacy non-pixel mode.
+ */
 export function blendPlusDarker(
   br: number,
   bg: number,
@@ -223,7 +227,11 @@ export function blendPlusDarker(
   return [Math.max(0, br + sr - 1), Math.max(0, bg + sg - 1), Math.max(0, bb + sb - 1)];
 }
 
-/** Plus-lighter: min(1, Cs + Cb). */
+/**
+ * Plus-lighter scalar helper retained for compatibility.
+ * The unified `blend()` API models plus-lighter as a premultiplied composite,
+ * not as a source-over blend function.
+ */
 export function blendPlusLighter(
   br: number,
   bg: number,
@@ -278,12 +286,8 @@ function getBlendFn(
     case 'color':
     case 'luminosity':
       return (br, bg, bb, sr, sg, sb) => blendNonSeparableDispatch(br, bg, bb, sr, sg, sb, mode);
-    case 'plusDarker':
-      return blendPlusDarker;
-    case 'plusLighter':
-      return blendPlusLighter;
     default:
-      return blendNormal;
+      throw new Error(`Unsupported blend mode: ${mode}`);
   }
 }
 
@@ -305,22 +309,48 @@ export function blend(
   const [br, bg, bb, ba] = backdrop;
   const [srIn, sgIn, sbIn, saIn] = source;
 
+  // Resolve the pixel blend mode before alpha shortcuts so invalid modes are
+  // rejected consistently regardless of pixel content.
+  const blendFn = mode === 'plusLighter' ? blendNormal : getBlendFn(mode);
   const sa = Math.max(0, Math.min(1, saIn * opacity));
   if (sa === 0) return [br, bg, bb, ba];
   if (ba === 0) return [srIn, sgIn, sbIn, sa];
 
-  const blendFn = getBlendFn(mode);
-  const [mr, mg, mb] = blendFn(br, bg, bb, srIn, sgIn, sbIn);
+  const clamp = (v: number) => Math.max(0, Math.min(1, v));
 
+  if (mode === 'plusLighter') {
+    const ao = Math.min(1, sa + ba);
+    if (ao === 0) return [0, 0, 0, 0];
+
+    const compositeChannel = (sourceChannel: number, backdropChannel: number): number =>
+      clamp(Math.min(1, sa * sourceChannel + ba * backdropChannel) / ao);
+
+    return [compositeChannel(srIn, br), compositeChannel(sgIn, bg), compositeChannel(sbIn, bb), ao];
+  }
+
+  const [mr, mg, mb] = blendFn(br, bg, bb, srIn, sgIn, sbIn);
+  const sourceUncovered = sa * (1 - ba);
+  const overlap = sa * ba;
+  const backdropUncovered = (1 - sa) * ba;
   const ao = sa + ba * (1 - sa);
   if (ao === 0) return [0, 0, 0, 0];
 
-  const clamp = (v: number) => Math.max(0, Math.min(1, v));
+  const compositeChannel = (
+    sourceChannel: number,
+    blendedChannel: number,
+    backdropChannel: number,
+  ): number =>
+    clamp(
+      (sourceUncovered * sourceChannel +
+        overlap * blendedChannel +
+        backdropUncovered * backdropChannel) /
+        ao,
+    );
 
   return [
-    clamp((sa * mr + ba * (1 - sa) * br) / ao),
-    clamp((sa * mg + ba * (1 - sa) * bg) / ao),
-    clamp((sa * mb + ba * (1 - sa) * bb) / ao),
+    compositeChannel(srIn, mr, br),
+    compositeChannel(sgIn, mg, bg),
+    compositeChannel(sbIn, mb, bb),
     clamp(ao),
   ];
 }
