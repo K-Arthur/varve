@@ -844,6 +844,11 @@ export function removeNode(doc: Document, id: NodeId): Document {
     }
   }
   collect(id);
+  const removedRasterAssetIds = new Set(
+    [...toRemove]
+      .map((nodeId) => nodes[nodeId]?.mask?.rasterMask?.assetId)
+      .filter((assetId): assetId is string => Boolean(assetId)),
+  );
 
   // Remove from parent's children list
   const parentId = getParent(doc, id);
@@ -882,7 +887,19 @@ export function removeNode(doc: Document, id: NodeId): Document {
     delete nodes[nid];
   }
 
-  const result = { ...doc, rootChildren, nodes };
+  const rasterMaskAssets = { ...doc.rasterMaskAssets };
+  for (const assetId of removedRasterAssetIds) {
+    const stillReferenced = Object.values(nodes).some(
+      (node) => node.mask?.rasterMask?.assetId === assetId,
+    );
+    if (!stillReferenced) delete rasterMaskAssets[assetId];
+  }
+  const result = {
+    ...doc,
+    rootChildren,
+    nodes,
+    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
   devValidate(result);
   return result;
 }

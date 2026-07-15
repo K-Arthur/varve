@@ -63,6 +63,35 @@ describe('vector masks', () => {
     expect(resolveMask(doc.nodes.f1!)).toBeNull();
   });
 
+  it('removes an emptied vector-only mask and preserves a structural source mask', () => {
+    const shape = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    let doc = addNode(createDocument(), shape);
+    const vectorOnly = makeFrameNode('vector', { children: [] });
+    vectorOnly.mask = {
+      type: 'clip',
+      visible: true,
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    };
+    const structural = makeFrameNode('structural', { children: ['n1'] });
+    structural.mask = {
+      type: 'clip',
+      visible: true,
+      sourceNodeId: 'n1',
+      vectorMask: vectorOnly.mask.vectorMask,
+    };
+    doc = addNode(addNode(doc, vectorOnly), structural);
+
+    const withoutVector = setMaskVectorPath(doc, 'vector', [], true);
+    expect(withoutVector.nodes.vector?.mask).toBeUndefined();
+    const structuralOnly = setMaskVectorPath(doc, 'structural', [], true);
+    expect(structuralOnly.nodes.structural?.mask).toMatchObject({ sourceNodeId: 'n1' });
+    expect(structuralOnly.nodes.structural?.mask?.vectorMask).toBeUndefined();
+  });
+
   it('hasVectorMask returns true only for masks with points', () => {
     const emptyMask = {
       type: 'clip' as const,

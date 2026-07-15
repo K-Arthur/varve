@@ -40,6 +40,7 @@ export interface DocumentNormalizeResult {
 export interface DocumentClosure {
   nodeIds: Set<NodeId>;
   nodes: Record<NodeId, SceneNode>;
+  rasterMaskAssets?: Document['rasterMaskAssets'];
 }
 
 function warning(
@@ -62,6 +63,21 @@ function validateShape(raw: Record<string, unknown>): string | null {
   if (!isRecord(raw.nodes)) return 'Document nodes must be an object';
   if (!isRecord(raw.components)) return 'Document components must be an object';
   if (typeof raw.nextId !== 'number') return 'Document nextId must be a number';
+  return null;
+}
+
+function validateRuntimeCollections(raw: Record<string, unknown>): string | null {
+  if (isRecord(raw.nodes)) {
+    for (const [nodeId, node] of Object.entries(raw.nodes)) {
+      if (!isRecord(node)) return `Document node ${nodeId} must be an object`;
+    }
+  }
+  if (raw.rasterMaskAssets !== undefined) {
+    if (!isRecord(raw.rasterMaskAssets)) return 'Document rasterMaskAssets must be an object';
+    for (const [assetId, asset] of Object.entries(raw.rasterMaskAssets)) {
+      if (!isRecord(asset)) return `Raster mask asset ${assetId} must be an object`;
+    }
+  }
   return null;
 }
 
@@ -161,6 +177,22 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   const warnings = malformedLegacyBackgroundRemovalWarnings(
     doc as unknown as Record<string, unknown>,
   );
+  const safeNodes: Record<NodeId, SceneNode> = {};
+  for (const [nodeId, node] of Object.entries(doc.nodes ?? {}) as [string, unknown][]) {
+    if (isRecord(node)) {
+      safeNodes[nodeId] = node as unknown as SceneNode;
+    } else {
+      warnings.push(
+        warning(
+          'document.invalid-node',
+          `Document node ${nodeId} was not an object and was removed`,
+          'error',
+          `nodes.${nodeId}`,
+        ),
+      );
+    }
+  }
+  doc = { ...doc, nodes: safeNodes };
   doc = normalizeLegacyBackgroundRemoval(
     doc as unknown as Record<string, unknown>,
   ) as unknown as Document;
@@ -308,7 +340,17 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   }
 
   for (const id of rootIds) visit(id);
-  return { nodeIds, nodes };
+  const rasterMaskAssets: NonNullable<Document['rasterMaskAssets']> = {};
+  for (const node of Object.values(nodes)) {
+    const assetId = node.mask?.rasterMask?.assetId;
+    const asset = assetId ? doc.rasterMaskAssets?.[assetId] : undefined;
+    if (assetId && asset) rasterMaskAssets[assetId] = asset;
+  }
+  return {
+    nodeIds,
+    nodes,
+    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
 }
 
 export const DocumentCodec = {
@@ -325,6 +367,17 @@ export const DocumentCodec = {
     }
 
     const legacyWarnings = isRecord(parsed) ? malformedLegacyBackgroundRemovalWarnings(parsed) : [];
+
+    if (isRecord(parsed)) {
+      const runtimeError = validateRuntimeCollections(parsed);
+      if (runtimeError) {
+        return {
+          ok: false,
+          error: runtimeError,
+          warnings: [warning('document.invalid-shape', runtimeError, 'error')],
+        };
+      }
+    }
 
     const migration = migrateDocumentDetailed(parsed);
     if (!migration) {

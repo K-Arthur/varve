@@ -6,7 +6,7 @@
  * updates at document boundaries.
  */
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeShapeNode } from '../document';
+import { addNode, createDocument, makeShapeNode, removeNode } from '../document';
 import { DocumentCodec } from '../documentCodec';
 import type { Document, RasterMaskAsset, ShapeNode } from '../index';
 import {
@@ -23,16 +23,18 @@ import {
   validateMaskSource,
 } from '../masks';
 
-const PNG_DATA_URL = 'data:image/png;base64,iVBORw0KGgo=';
+const PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+const PNG_BYTE_LENGTH = 68;
 
-function makeRasterAsset(id: string, width = 64, height = 32): RasterMaskAsset {
+function makeRasterAsset(id: string, width = 1, height = 1): RasterMaskAsset {
   return {
     id,
     mimeType: 'image/png',
     dataUrl: PNG_DATA_URL,
     width,
     height,
-    byteLength: 8,
+    byteLength: PNG_BYTE_LENGTH,
   };
 }
 
@@ -63,11 +65,11 @@ describe('native raster masks', () => {
       rasterMask: {
         assetId: 'mask-1',
         coordinateSpace: 'source-image-pixels',
-        sourceFingerprint: 'sha256:image-a',
+        sourceFingerprint: 'source:image-a',
         sourcePixelRevision: 1,
       },
     });
-    expect(next.rasterMaskAssets?.['mask-1']?.width).toBe(64);
+    expect(next.rasterMaskAssets?.['mask-1']?.width).toBe(1);
     expect(resolveMask(next.nodes[imageId]!)).toEqual(next.nodes[imageId]?.mask);
   });
 
@@ -89,7 +91,7 @@ describe('native raster masks', () => {
             rasterMask: {
               assetId: 'missing',
               coordinateSpace: 'source-image-pixels',
-              sourceFingerprint: 'sha256:image-a',
+              sourceFingerprint: 'source:image-a',
               sourcePixelRevision: 1,
             },
           },
@@ -121,11 +123,65 @@ describe('native raster masks', () => {
     expect(allRemoved.rasterMaskAssets?.['edited-mask']).toBeUndefined();
   });
 
+  it('preserves mask presentation and source metadata when replacing an asset', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'), {
+      sourceFingerprint: 'source:original',
+      sourcePixelRevision: 7,
+      editRevision: 3,
+      provenance: {
+        method: 'ai-quality',
+        runtime: 'wasm',
+        generatedAt: 42,
+        confidence: 0.9,
+      },
+    });
+    const configured = {
+      ...attached,
+      nodes: {
+        ...attached.nodes,
+        [imageId]: {
+          ...attached.nodes[imageId]!,
+          mask: {
+            ...attached.nodes[imageId]!.mask!,
+            visible: false,
+            inverted: true,
+            feather: 2,
+            density: 0.8,
+            linked: false,
+            transform: [1, 0, 0, 1, 4, 5],
+            fillRule: 'evenodd',
+            hideMaskSource: true,
+          },
+        } as ShapeNode,
+      },
+    } as Document;
+
+    const updated = updateRasterMaskAsset(configured, imageId, makeRasterAsset('mask-2'));
+    expect(updated.nodes[imageId]?.mask).toMatchObject({
+      visible: false,
+      inverted: true,
+      feather: 2,
+      density: 0.8,
+      linked: false,
+      transform: [1, 0, 0, 1, 4, 5],
+      fillRule: 'evenodd',
+      hideMaskSource: true,
+      rasterMask: {
+        assetId: 'mask-2',
+        sourceFingerprint: 'source:original',
+        sourcePixelRevision: 7,
+        editRevision: 4,
+        provenance: { method: 'ai-quality', runtime: 'wasm', generatedAt: 42, confidence: 0.9 },
+      },
+    });
+  });
+
   it('requires exactly one meaningful mask source', () => {
     const rasterMask = {
       assetId: 'mask-1',
       coordinateSpace: 'source-image-pixels' as const,
-      sourceFingerprint: 'sha256:image-a',
+      sourceFingerprint: 'source:image-a',
       sourcePixelRevision: 1,
     };
     expect(validateMaskSource(undefined, { type: 'alpha', visible: true })).toMatch(/exactly one/i);
@@ -150,7 +206,7 @@ describe('native raster masks', () => {
     const rasterMask = {
       assetId: 'mask-1',
       coordinateSpace: 'source-image-pixels' as const,
-      sourceFingerprint: 'sha256:image-a',
+      sourceFingerprint: 'source:image-a',
       sourcePixelRevision: 1,
     };
     expect(
@@ -190,13 +246,30 @@ describe('native raster masks', () => {
     expect(
       setMaskVectorPath(attached, imageId, [{ x: 0, y: 0, handleIn: null, handleOut: null }], true),
     ).toBe(attached);
+    expect(setMaskVisible(attached, imageId, true)).toBe(attached);
+  });
+
+  it('garbage-collects a removed node mask asset but preserves shared assets', () => {
+    const { doc, imageId } = makeImageDocument();
+    const copy = { ...(doc.nodes[imageId] as ShapeNode), id: 'image-2' };
+    let shared = addNode(doc, copy);
+    shared = addRasterMaskAsset(shared, imageId, makeRasterAsset('shared'));
+    shared = addRasterMaskAsset(shared, copy.id, makeRasterAsset('shared'));
+    const oneRemoved = removeNode(shared, imageId);
+    expect(oneRemoved.rasterMaskAssets?.shared).toBeDefined();
+    const allRemoved = removeNode(oneRemoved, copy.id);
+    expect(allRemoved.rasterMaskAssets?.shared).toBeUndefined();
   });
 });
 
 describe('raster mask document boundary validation', () => {
   it.each([
     ['invalid PNG MIME', { dataUrl: 'data:image/jpeg;base64,iVBORw0KGgo=' }, /PNG data URL/i],
-    ['invalid PNG signature', { dataUrl: 'data:image/png;base64,AA==' }, /PNG signature/i],
+    [
+      'signature-only PNG',
+      { dataUrl: 'data:image/png;base64,iVBORw0KGgo=', byteLength: 8 },
+      /IHDR/i,
+    ],
     ['malformed base64', { dataUrl: 'data:image/png;base64,%%%%' }, /PNG data URL/i],
     ['zero width', { width: 0 }, /positive dimensions/i],
     ['dimension above limit', { width: 16_385 }, /dimension limit/i],
@@ -217,6 +290,43 @@ describe('raster mask document boundary validation', () => {
     expect(decoded.ok).toBe(false);
     if (decoded.ok) return;
     expect(decoded.error).toMatch(error);
+  });
+
+  it('rejects decoded length, IHDR type, and declared dimension mismatches', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const bytes = atob(PNG_DATA_URL.slice(PNG_DATA_URL.indexOf(',') + 1))
+      .split('')
+      .map((char) => char.charCodeAt(0));
+    bytes[12] = 'X'.charCodeAt(0);
+    const badIhdr = `data:image/png;base64,${btoa(String.fromCharCode(...bytes))}`;
+    const variants = [
+      { ...makeRasterAsset('mask-1'), byteLength: PNG_BYTE_LENGTH - 1 },
+      { ...makeRasterAsset('mask-1'), dataUrl: badIhdr },
+      { ...makeRasterAsset('mask-1'), width: 2 },
+    ];
+    for (const asset of variants) {
+      const decoded = DocumentCodec.decode(
+        JSON.stringify({
+          ...attached,
+          rasterMaskAssets: { 'mask-1': asset },
+        }),
+      );
+      expect(decoded.ok).toBe(false);
+    }
+  });
+
+  it.each([
+    ['null node', { nodes: { bad: null } }],
+    ['array node', { nodes: { bad: [] } }],
+    ['primitive node', { nodes: { bad: 7 } }],
+    ['null asset', { rasterMaskAssets: { bad: null } }],
+    ['array asset', { rasterMaskAssets: { bad: [] } }],
+    ['primitive asset', { rasterMaskAssets: { bad: 7 } }],
+  ])('returns a decode error without throwing for a %s', (_label, patch) => {
+    const { doc } = makeImageDocument();
+    expect(() => DocumentCodec.decode(JSON.stringify({ ...doc, ...patch }))).not.toThrow();
+    expect(DocumentCodec.decode(JSON.stringify({ ...doc, ...patch })).ok).toBe(false);
   });
 
   it('rejects a missing raster asset reference', () => {
@@ -299,6 +409,13 @@ describe('raster mask document boundary validation', () => {
     expect(normalized.document.rasterMaskAssets?.['mask-1']).toBeUndefined();
     expect(normalized.document.rasterMaskAssets?.unrelated).toEqual(makeRasterAsset('unrelated'));
     expect(DocumentCodec.decode(DocumentCodec.encode(invalid)).ok).toBe(true);
+  });
+
+  it('collects raster mask assets with a copied node closure', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const closure = DocumentCodec.collectNodeClosure(attached, [imageId]);
+    expect(closure.rasterMaskAssets).toEqual({ 'mask-1': makeRasterAsset('mask-1') });
   });
 
   it('removes malformed legacy background removal state with an error warning', () => {
