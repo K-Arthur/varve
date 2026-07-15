@@ -7,7 +7,7 @@
  * Research basis: Strata FloatingToolbar; Canva contextual action bar.
  */
 import { Icon, type IconName, Tooltip } from '@strata/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { QuickBarAction, QuickBarActionId, QuickBarProfile } from './resolveQuickBarProfile';
 import './SelectionQuickBar.css';
 
@@ -15,6 +15,8 @@ export interface SelectionQuickBarProps {
   profile: QuickBarProfile;
   /** Canvas-local screen bounds of the selection (from worldToCanvas). */
   screenBounds: { x: number; y: number; w: number; h: number };
+  /** Canvas's own rendered height (CSS px), for clamping the bar on-screen. */
+  containerHeight: number;
   onAction: (id: QuickBarActionId) => void;
   /** Action ids currently processing (buttons disabled). */
   pendingActionIds?: readonly QuickBarActionId[];
@@ -63,6 +65,8 @@ const SHORT_LABELS: Partial<Record<QuickBarActionId, string>> = {
 const ICON_ONLY = new Set<QuickBarActionId>(['flipH', 'flipV']);
 
 const PADDING = 8;
+/** Conservative estimate used before the bar's real height is measured. */
+const ESTIMATED_BAR_HEIGHT = 44;
 
 function needsSeparatorBefore(actions: QuickBarAction[], index: number): boolean {
   if (index === 0) return false;
@@ -86,14 +90,27 @@ function needsSeparatorBefore(actions: QuickBarAction[], index: number): boolean
 export function SelectionQuickBar({
   profile,
   screenBounds,
+  containerHeight,
   onAction,
   pendingActionIds = [],
   activeActionIds = [],
 }: SelectionQuickBarProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(ESTIMATED_BAR_HEIGHT);
   const pending = useMemo(() => new Set(pendingActionIds), [pendingActionIds]);
   const active = useMemo(() => new Set(activeActionIds), [activeActionIds]);
+
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const measure = () => setBarHeight(el.getBoundingClientRect().height || ESTIMATED_BAR_HEIGHT);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -114,10 +131,17 @@ export function SelectionQuickBar({
   }, [moreOpen]);
 
   const { left, top } = useMemo(() => {
-    const preferredTop = screenBounds.y + screenBounds.h + PADDING;
+    const belowTop = screenBounds.y + screenBounds.h + PADDING;
     const centeredLeft = screenBounds.x + screenBounds.w / 2;
-    return { left: centeredLeft, top: preferredTop };
-  }, [screenBounds]);
+    // The canvas paints an opaque page background across its full bounds and
+    // whatever sits below it (page tabs, selection info, status bar) is a
+    // separate sibling — rendering past the canvas's own bottom edge means
+    // overlapping that chrome instead of being clipped by it. Flip above the
+    // selection when there isn't room below.
+    const fitsBelow = belowTop + barHeight <= containerHeight;
+    const top = fitsBelow ? belowTop : Math.max(0, screenBounds.y - PADDING - barHeight);
+    return { left: centeredLeft, top };
+  }, [screenBounds, containerHeight, barHeight]);
 
   const handleAction = useCallback(
     (id: QuickBarActionId) => {
@@ -131,6 +155,7 @@ export function SelectionQuickBar({
 
   return (
     <div
+      ref={barRef}
       className="selection-quick-bar"
       style={{ left, top }}
       data-kind={profile.kind}
