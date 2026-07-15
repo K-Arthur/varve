@@ -38,17 +38,12 @@ pub struct TraceOptions {
     pub foreground: Foreground,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Foreground {
+    #[default]
     Dark,
     Light,
-}
-
-impl Default for Foreground {
-    fn default() -> Self {
-        Foreground::Dark
-    }
 }
 
 impl Default for TraceOptions {

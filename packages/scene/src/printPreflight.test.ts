@@ -231,6 +231,162 @@ describe('runPrintPreflight', () => {
     expect(fontIssue?.message).toContain('MissingFont');
   });
 
+  it('reports low effective DPI for an image stretched well beyond its native resolution', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        img1: {
+          id: 'img1',
+          kind: 'shape',
+          name: 'Stretched Photo',
+          layerColor: null,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          shape: { kind: 'rect', x: 0, y: 0, w: 2000, h: 2000 },
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+          fills: [
+            {
+              type: 'image',
+              image: { src: 'data:image/png;base64,x', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 300, imageHeight: 300 },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [],
+          effects: [],
+        } as import('./types').ShapeNode,
+      },
+    });
+    const result = runPrintPreflight(doc, { minDpi: 300 });
+    const dpiIssue = result.issues.find(
+      (i) => i.category === 'resolution' && i.nodeId === 'img1',
+    );
+    expect(dpiIssue).toBeDefined();
+    expect(dpiIssue?.severity).toBe('warning');
+    expect(dpiIssue?.message).toContain('Stretched Photo');
+  });
+
+  it('does not report low effective DPI for an image at its native size or smaller', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        img1: {
+          id: 'img1',
+          kind: 'shape',
+          name: 'Crisp Photo',
+          layerColor: null,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          // 300px box at 96px/in = 3.125in; 3000px native / 3.125in = 960 effective DPI.
+          shape: { kind: 'rect', x: 0, y: 0, w: 300, h: 300 },
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+          fills: [
+            {
+              type: 'image',
+              image: { src: 'data:image/png;base64,x', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 3000, imageHeight: 3000 },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [],
+          effects: [],
+        } as import('./types').ShapeNode,
+      },
+    });
+    const result = runPrintPreflight(doc, { minDpi: 300 });
+    const dpiIssue = result.issues.find(
+      (i) => i.category === 'resolution' && i.nodeId === 'img1',
+    );
+    expect(dpiIssue).toBeUndefined();
+  });
+
+  it('reports color-space warning for an RGB fill when CMYK output is required', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        rect1: {
+          id: 'rect1',
+          kind: 'shape',
+          name: 'RGB Rectangle',
+          layerColor: null,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+          fills: [
+            {
+              type: 'solid',
+              color: { space: 'rgb' as const, r: 255, g: 0, b: 0, a: 255 },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [],
+          effects: [],
+        } as import('./types').ShapeNode,
+      },
+    });
+    const result = runPrintPreflight(doc, { requiredColorMode: 'cmyk' });
+    const colorIssue = result.issues.find(
+      (i) => i.category === 'color-space' && i.nodeId === 'rect1',
+    );
+    expect(colorIssue).toBeDefined();
+    expect(colorIssue?.severity).toBe('warning');
+  });
+
+  it('does not report node color-space warning for a CMYK fill', () => {
+    const doc = makePrintDoc({
+      nodes: {
+        rect1: {
+          id: 'rect1',
+          kind: 'shape',
+          name: 'CMYK Rectangle',
+          layerColor: null,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+          fills: [
+            {
+              type: 'solid',
+              color: { space: 'cmyk' as const, c: 0, m: 0, y: 0, k: 100, a: 255 },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [],
+          effects: [],
+        } as import('./types').ShapeNode,
+      },
+    });
+    const result = runPrintPreflight(doc, { requiredColorMode: 'cmyk' });
+    const colorIssue = result.issues.find(
+      (i) => i.category === 'color-space' && i.nodeId === 'rect1',
+    );
+    expect(colorIssue).toBeUndefined();
+  });
+
   it('reports broken-chain error for text chain referencing missing frame', () => {
     const doc = makePrintDoc({
       textChains: {

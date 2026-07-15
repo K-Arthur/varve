@@ -131,6 +131,7 @@ function defaultEffect(type: Effect['type']): Effect {
         edgeHighlightColor: { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 120 },
         edgeHighlightOpacity: 0.4,
         visible: true,
+      };
     case 'chromaticAberration':
       return {
         type,
