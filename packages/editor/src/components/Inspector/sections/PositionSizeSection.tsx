@@ -91,6 +91,96 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     return wRaw / hRaw;
   }, [wRaw, hRaw]);
 
+  // Line/arrow-specific: compute length and angle from from/to points.
+  const isLineOrArrow =
+    nodes.length > 0 &&
+    nodes.every((n) => {
+      if (n.kind !== 'shape') return false;
+      return n.shape.kind === 'line' || n.shape.kind === 'arrow';
+    });
+
+  const lineShape = isLineOrArrow
+    ? ((nodes[0] as import('@strata/scene').ShapeNode).shape as
+        | { kind: 'line'; from: readonly [number, number]; to: readonly [number, number] }
+        | { kind: 'arrow'; from: readonly [number, number]; to: readonly [number, number] })
+    : null;
+
+  const lineLength = lineShape
+    ? Math.sqrt(
+        (lineShape.to[0] - lineShape.from[0]) ** 2 + (lineShape.to[1] - lineShape.from[1]) ** 2,
+      )
+    : 0;
+
+  const lineAngle = lineShape
+    ? (Math.atan2(lineShape.to[1] - lineShape.from[1], lineShape.to[0] - lineShape.from[0]) * 180) /
+      Math.PI
+    : 0;
+
+  const handleLineLength = useCallback(
+    (len: number) => {
+      if (!lineShape || len < 0) return;
+      const dx = lineShape.to[0] - lineShape.from[0];
+      const dy = lineShape.to[1] - lineShape.from[1];
+      const currentLen = Math.sqrt(dx * dx + dy * dy);
+      if (currentLen === 0) return;
+      const scale = len / currentLen;
+      const newTo: [number, number] = [
+        lineShape.from[0] + dx * scale,
+        lineShape.from[1] + dy * scale,
+      ];
+      editor.beginTransaction();
+      for (const n of nodes) {
+        if (n.kind !== 'shape') continue;
+        const s = n.shape;
+        if (s.kind !== 'line' && s.kind !== 'arrow') continue;
+        const ndx = s.to[0] - s.from[0];
+        const ndy = s.to[1] - s.from[1];
+        const nLen = Math.sqrt(ndx * ndx + ndy * ndy);
+        if (nLen === 0) continue;
+        const nScale = len / nLen;
+        editor.updateNode(n.id, (node) => {
+          if (node.kind !== 'shape') return node;
+          const ns = node.shape;
+          if (ns.kind !== 'line' && ns.kind !== 'arrow') return node;
+          return {
+            ...node,
+            shape: { ...ns, to: [ns.from[0] + ndx * nScale, ns.from[1] + ndy * nScale] },
+          } as typeof node;
+        });
+      }
+      editor.commitTransaction();
+    },
+    [editor, lineShape, nodes],
+  );
+
+  const handleLineAngle = useCallback(
+    (deg: number) => {
+      if (!lineShape) return;
+      const rad = (deg * Math.PI) / 180;
+      editor.beginTransaction();
+      for (const n of nodes) {
+        if (n.kind !== 'shape') continue;
+        const s = n.shape;
+        if (s.kind !== 'line' && s.kind !== 'arrow') continue;
+        const len = Math.sqrt((s.to[0] - s.from[0]) ** 2 + (s.to[1] - s.from[1]) ** 2);
+        editor.updateNode(n.id, (node) => {
+          if (node.kind !== 'shape') return node;
+          const ns = node.shape;
+          if (ns.kind !== 'line' && ns.kind !== 'arrow') return node;
+          return {
+            ...node,
+            shape: {
+              ...ns,
+              to: [ns.from[0] + len * Math.cos(rad), ns.from[1] + len * Math.sin(rad)],
+            },
+          } as typeof node;
+        });
+      }
+      editor.commitTransaction();
+    },
+    [editor, lineShape, nodes],
+  );
+
   const handleW = useCallback(
     (w: number) => {
       const sel = nodes.map((n) => n.id);
@@ -167,64 +257,84 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       </div>
       {allSizable && (
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
-          <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
-            <NumberField
-              label="W"
-              unit="px"
-              value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
-              mixed={wRaw !== null && isMixed(wRaw)}
-              min={0}
-              onChange={handleW}
-              fieldName="width"
-              onShiftClick={() => editor.setBindingField('width')}
-            />
-            <label aria-label="Constrain proportions" className="insp-proportion-lock">
-              <input
-                type="checkbox"
-                className="insp-checkbox--icon-only"
-                checked={locked}
-                onChange={() => setLocked((p) => !p)}
-                style={{
-                  width: 0,
-                  height: 0,
-                  opacity: 0,
-                  position: 'absolute',
-                  pointerEvents: 'none',
-                }}
+          {isLineOrArrow ? (
+            <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
+              <NumberField
+                label="L"
+                unit="px"
+                value={lineLength}
+                min={0}
+                onChange={handleLineLength}
               />
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                role="img"
-                aria-label="Constrain proportions"
-                className="insp-proportion-icon"
-                style={{
-                  color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
-                }}
-              >
-                <title>Constrain proportions</title>
-                <path d="M12 3v18" />
-                <path d="M8 21h8" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </label>
-            <NumberField
-              label="H"
-              unit="px"
-              value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
-              mixed={hRaw !== null && isMixed(hRaw)}
-              min={0}
-              onChange={handleH}
-              fieldName="height"
-              onShiftClick={() => editor.setBindingField('height')}
-            />
-          </div>
+              <NumberField
+                label="A"
+                unit="°"
+                value={lineAngle}
+                min={-180}
+                max={360}
+                onChange={handleLineAngle}
+              />
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'flex-start' }}>
+              <NumberField
+                label="W"
+                unit="px"
+                value={wRaw !== null && !isMixed(wRaw) ? wRaw : 0}
+                mixed={wRaw !== null && isMixed(wRaw)}
+                min={0}
+                onChange={handleW}
+                fieldName="width"
+                onShiftClick={() => editor.setBindingField('width')}
+              />
+              <label aria-label="Constrain proportions" className="insp-proportion-lock">
+                <input
+                  type="checkbox"
+                  className="insp-checkbox--icon-only"
+                  checked={locked}
+                  onChange={() => setLocked((p) => !p)}
+                  style={{
+                    width: 0,
+                    height: 0,
+                    opacity: 0,
+                    position: 'absolute',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  role="img"
+                  aria-label="Constrain proportions"
+                  className="insp-proportion-icon"
+                  style={{
+                    color: locked ? 'var(--color-interactive-default)' : 'var(--color-text-muted)',
+                  }}
+                >
+                  <title>Constrain proportions</title>
+                  <path d="M12 3v18" />
+                  <path d="M8 21h8" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </label>
+              <NumberField
+                label="H"
+                unit="px"
+                value={hRaw !== null && !isMixed(hRaw) ? hRaw : 0}
+                mixed={hRaw !== null && isMixed(hRaw)}
+                min={0}
+                onChange={handleH}
+                fieldName="height"
+                onShiftClick={() => editor.setBindingField('height')}
+              />
+            </div>
+          )}
         </div>
       )}
       {/* Rotation + Flip row */}

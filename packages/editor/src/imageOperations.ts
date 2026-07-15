@@ -4,6 +4,7 @@
  * Research basis: nondestructive image-editing workflows retain the source
  * raster and place derived results beside it as ordinary editable layers.
  */
+import { fitBezierToContour } from '@strata/engine';
 import type { RasterTracePath } from '@strata/engine';
 import {
   addChild,
@@ -139,13 +140,10 @@ export function insertTraceGroup(
   let result = insertAfter(groupAllocation.doc, sourceId, group);
   const scaleX = sourceWidth / input.width;
   const scaleY = sourceHeight / input.height;
-  const scaleRing = (points: Array<{ x: number; y: number }>) =>
-    points.map((point) => ({
-      x: point.x * scaleX,
-      y: point.y * scaleY,
-      handleIn: null as [number, number] | null,
-      handleOut: null as [number, number] | null,
-    }));
+  const scaleAndFit = (points: Array<{ x: number; y: number }>, closed: boolean) => {
+    const scaled = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+    return fitBezierToContour(scaled, closed, { maxError: 0.5, cornerAngle: 135 });
+  };
 
   for (let index = 0; index < input.paths.length; index += 1) {
     const allocation = nextNodeId(result);
@@ -154,7 +152,7 @@ export function insertTraceGroup(
       RasterTracePath,
       'closed' | 'points' | 'holes' | 'fill'
     >;
-    const holes = traced.holes?.map(scaleRing);
+    const holes = traced.holes?.map((h) => scaleAndFit(h, true));
     const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
     const child = makeShapeNode(
       allocation.id,
@@ -162,7 +160,7 @@ export function insertTraceGroup(
         kind: 'path',
         closed: traced.closed,
         tolerance: 1,
-        points: scaleRing(traced.points),
+        points: scaleAndFit(traced.points, traced.closed),
         ...(holes && holes.length > 0 ? { holes, fillRule: 'evenodd' as const } : {}),
       },
       {
@@ -178,5 +176,75 @@ export function insertTraceGroup(
     );
     result = addChild(result, group.id, child);
   }
+  return { doc: result, nodeId: group.id };
+}
+
+/**
+ * Insert a live trace group at the source's position and hide the source.
+ * The source remains in the tree (visible: false) so parameters can be edited
+ * and the trace can be cancelled or re-traced.
+ */
+export function insertLiveTraceGroup(
+  doc: Document,
+  sourceId: NodeId,
+  input: TraceGroupInput,
+): { doc: Document; nodeId: NodeId } {
+  const source = doc.nodes[sourceId];
+  if (source?.kind !== 'shape' || !isImageShape(source))
+    throw new Error('Source must be an image-filled shape');
+
+  const groupAllocation = nextNodeId(doc);
+  const sourceWidth = source.shape.kind === 'rect' ? source.shape.w : input.width;
+  const sourceHeight = source.shape.kind === 'rect' ? source.shape.h : input.height;
+  const group = makeGroupNode(groupAllocation.id, {
+    name: `${source.name} trace`,
+    transform: source.transform,
+    locked: true,
+    visible: true,
+  });
+  let result = insertAfter(groupAllocation.doc, sourceId, group);
+
+  const scaleX = sourceWidth / input.width;
+  const scaleY = sourceHeight / input.height;
+  const scaleAndFit = (points: Array<{ x: number; y: number }>, closed: boolean) => {
+    const scaled = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
+    return fitBezierToContour(scaled, closed, { maxError: 0.5, cornerAngle: 135 });
+  };
+
+  for (let index = 0; index < input.paths.length; index += 1) {
+    const allocation = nextNodeId(result);
+    result = allocation.doc;
+    const traced = input.paths[index] as Pick<
+      RasterTracePath,
+      'closed' | 'points' | 'holes' | 'fill'
+    >;
+    const holes = traced.holes?.map((h) => scaleAndFit(h, true));
+    const fillColor = traced.fill ?? { r: 0, g: 0, b: 0, a: 255 };
+    const child = makeShapeNode(
+      allocation.id,
+      {
+        kind: 'path',
+        closed: traced.closed,
+        tolerance: 1,
+        points: scaleAndFit(traced.points, traced.closed),
+        ...(holes && holes.length > 0 ? { holes, fillRule: 'evenodd' as const } : {}),
+      },
+      {
+        name: `Trace ${index + 1}`,
+        fill: {
+          space: 'rgb',
+          r: fillColor.r,
+          g: fillColor.g,
+          b: fillColor.b,
+          a: fillColor.a,
+        },
+      },
+    );
+    result = addChild(result, group.id, child);
+  }
+
+  const hiddenSource = { ...source, visible: false };
+  result = { ...result, nodes: { ...result.nodes, [sourceId]: hiddenSource } };
+
   return { doc: result, nodeId: group.id };
 }

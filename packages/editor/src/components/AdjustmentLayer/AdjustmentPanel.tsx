@@ -32,6 +32,7 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'photoFilter',
   'halftone',
   'gradientMap',
+  'tritone',
 ];
 
 const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [

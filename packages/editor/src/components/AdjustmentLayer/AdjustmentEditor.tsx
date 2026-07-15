@@ -1,5 +1,11 @@
 import type { Adjustment } from '@strata/scene';
-import { useCallback } from 'react';
+import type { ManagedColor } from '@strata/scene';
+import { rgbFromTuple } from '@strata/scene';
+import type { Color } from '@strata/engine';
+import { TRITONE_PRESETS } from '@strata/engine';
+import { managedColorToRgba } from '@strata/shared';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { useCallback, useMemo } from 'react';
 import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
 import './adjustment.css';
 
@@ -373,6 +379,9 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
         />
       );
     }
+
+    case 'tritone':
+      return <TritoneEditor adjustment={adjustment} onChange={onChange} />;
 
     default:
       return (
@@ -933,6 +942,58 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           disabled={adj.channel === 'cmyk'}
         />
       </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Threshold</span>
+          <span>{adj.threshold ?? 128}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={255}
+          step={1}
+          value={adj.threshold ?? 128}
+          onChange={handleNumber('threshold')}
+          aria-label="Halftone threshold"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Intensity</span>
+          <span>{Math.round((adj.intensity ?? 1) * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round((adj.intensity ?? 1) * 100)}
+          onChange={(e) =>
+            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Halftone intensity"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Softness</span>
+          <span>{Math.round((adj.softness ?? 0) * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round((adj.softness ?? 0) * 100)}
+          onChange={(e) =>
+            onChange({ softness: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Dot edge softness"
+        />
+      </div>
       {adj.channel === 'cmyk' && (
         <div className="adj-editor__row">
           <span
@@ -972,6 +1033,163 @@ function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
           {adj.density}
         </span>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preserve Luminosity</span>
+        <input
+          type="checkbox"
+          checked={adj.preserveLuminosity}
+          onChange={(e) =>
+            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Preserve luminosity"
+        />
+      </div>
+    </div>
+  );
+}
+
+function colorToManaged(c: Color): ManagedColor {
+  return rgbFromTuple(c);
+}
+
+function managedToColor(c: ManagedColor): Color {
+  if (c.space === 'rgb') return [c.r, c.g, c.b, c.a] as Color;
+  const [r, g, b, a] = managedColorToRgba(c as Parameters<typeof managedColorToRgba>[0]);
+  return [r, g, b, a] as Color;
+}
+
+function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').TritoneAdjustment;
+  const handleColor =
+    (key: 'shadowColor' | 'midtoneColor' | 'highlightColor') => (c: ManagedColor) => {
+      onChange({ [key]: managedToColor(c) } as unknown as Partial<Adjustment>);
+    };
+
+  const currentPresetId = useMemo(() => {
+    const match = TRITONE_PRESETS.find(
+      (p) =>
+        p.shadowColor[0] === adj.shadowColor[0] &&
+        p.shadowColor[1] === adj.shadowColor[1] &&
+        p.shadowColor[2] === adj.shadowColor[2] &&
+        p.midtoneColor[0] === adj.midtoneColor[0] &&
+        p.midtoneColor[1] === adj.midtoneColor[1] &&
+        p.midtoneColor[2] === adj.midtoneColor[2] &&
+        p.highlightColor[0] === adj.highlightColor[0] &&
+        p.highlightColor[1] === adj.highlightColor[1] &&
+        p.highlightColor[2] === adj.highlightColor[2] &&
+        Math.abs(p.shadowPoint - adj.shadowPoint) < 0.01 &&
+        Math.abs(p.highlightPoint - adj.highlightPoint) < 0.01,
+    );
+    return match?.id ?? '';
+  }, [adj]);
+
+  const handlePresetSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const preset = TRITONE_PRESETS.find((p) => p.id === e.target.value);
+    if (preset) {
+      onChange({
+        shadowColor: [...preset.shadowColor] as Color,
+        midtoneColor: [...preset.midtoneColor] as Color,
+        highlightColor: [...preset.highlightColor] as Color,
+        shadowPoint: preset.shadowPoint,
+        highlightPoint: preset.highlightPoint,
+      } as unknown as Partial<Adjustment>);
+    }
+  };
+
+  return (
+    <div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preset</span>
+        <select
+          className="adj-editor__select"
+          value={currentPresetId}
+          onChange={handlePresetSelect}
+          aria-label="Tritone preset"
+        >
+          <option value="">Custom</option>
+          {TRITONE_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Shadow Color</span>
+      </div>
+      <ColorPicker value={colorToManaged(adj.shadowColor)} onChange={handleColor('shadowColor')} />
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Midtone Color</span>
+      </div>
+      <ColorPicker
+        value={colorToManaged(adj.midtoneColor)}
+        onChange={handleColor('midtoneColor')}
+      />
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Highlight Color</span>
+      </div>
+      <ColorPicker
+        value={colorToManaged(adj.highlightColor)}
+        onChange={handleColor('highlightColor')}
+      />
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Shadow Point</span>
+          <span>{Math.round(adj.shadowPoint * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.shadowPoint * 100)}
+          onChange={(e) =>
+            onChange({
+              shadowPoint: Number(e.target.value) / 100,
+            } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Shadow point"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Highlight Point</span>
+          <span>{Math.round(adj.highlightPoint * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.highlightPoint * 100)}
+          onChange={(e) =>
+            onChange({
+              highlightPoint: Number(e.target.value) / 100,
+            } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Highlight point"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Intensity</span>
+          <span>{Math.round(adj.intensity * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.intensity * 100)}
+          onChange={(e) =>
+            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Tritone intensity"
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preserve Luminosity</span>

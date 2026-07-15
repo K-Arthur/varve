@@ -1,11 +1,17 @@
-import type { RasterTraceResult } from '../rasterTrace';
+import type { RasterTraceOptions, RasterTraceResult } from '../rasterTrace';
 import { tryLoadTraceWasm } from '../wasmLoader';
 import type { TraceProvider } from './types';
+
+function wasmSupportsOptions(options: RasterTraceOptions): boolean {
+  // The wasm binding currently only supports threshold/foreground monochrome tracing.
+  return (options.mode ?? 'monochrome') === 'monochrome';
+}
 
 export const wasmTraceProvider: TraceProvider = {
   id: 'wasm-trace',
   label: 'CPU (WASM)',
-  async isAvailable() {
+  async isAvailable(options) {
+    if (!wasmSupportsOptions(options)) return false;
     try {
       const mod = await tryLoadTraceWasm();
       return mod !== null;
@@ -22,6 +28,11 @@ export const wasmTraceProvider: TraceProvider = {
     const pixels = new Uint8Array(imageData.data.buffer);
     const threshold = options.threshold ?? 128;
     const minPixels = options.minArea ?? 4;
+    const foreground = options.foreground ?? 'dark';
+
+    if (typeof mod.trace_contours_json !== 'function') {
+      throw new Error('WASM trace module missing trace_contours_json');
+    }
 
     const resultJson = mod.trace_contours_json(
       pixels,
@@ -29,6 +40,7 @@ export const wasmTraceProvider: TraceProvider = {
       imageData.height,
       threshold,
       minPixels,
+      foreground === 'light' ? 'light' : 'dark',
     );
     const result: RasterTraceResult = JSON.parse(resultJson);
     return {

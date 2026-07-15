@@ -1,9 +1,10 @@
 import type { Color, GradientMapStop } from '@strata/engine';
+import { GRADIENT_MAP_PRESETS } from '@strata/engine';
 import type { ManagedColor } from '@strata/scene';
 import { rgbFromTuple } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
-import { useCallback, useId, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 
 function colorToManaged(c: Color): ManagedColor {
   return rgbFromTuple(c);
@@ -171,8 +172,52 @@ export function GradientMapEditor({
     [currentStop, addStop],
   );
 
+  const currentPresetId = useMemo(() => {
+    const match = GRADIENT_MAP_PRESETS.find(
+      (p) =>
+        p.stops.length === stops.length &&
+        p.stops.every(
+          (ps, i) =>
+            Math.abs(ps.position - stops[i]!.position) < 0.01 &&
+            ps.color[0] === stops[i]!.color[0] &&
+            ps.color[1] === stops[i]!.color[1] &&
+            ps.color[2] === stops[i]!.color[2],
+        ),
+    );
+    return match?.id ?? '';
+  }, [stops]);
+
+  const handlePresetSelect = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const preset = GRADIENT_MAP_PRESETS.find((p) => p.id === e.target.value);
+      if (preset) {
+        onChange({
+          stops: preset.stops.map((s) => ({ position: s.position, color: [...s.color] as Color })),
+        });
+        setSelectedStop(0);
+      }
+    },
+    [onChange],
+  );
+
   return (
     <div className="gm-editor">
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Preset</span>
+        <select
+          className="adj-editor__select"
+          value={currentPresetId}
+          onChange={handlePresetSelect}
+          aria-label="Gradient map preset"
+        >
+          <option value="">Custom</option>
+          {GRADIENT_MAP_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div
         ref={barRef}
         role="slider"
