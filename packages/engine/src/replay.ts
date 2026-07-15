@@ -36,6 +36,8 @@ export interface ReplayTarget {
   save(): void;
   restore(): void;
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  translate(x: number, y: number): void;
+  rotate(angle: number): void;
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
   beginPath(): void;
