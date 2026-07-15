@@ -174,6 +174,12 @@ class Recorder implements ReplayTarget {
   transform(a: number, b: number, c: number, d: number, e: number, f: number) {
     this.calls.push(`transform(${a},${b},${c},${d},${e},${f})`);
   }
+  translate(x: number, y: number) {
+    this.calls.push(`translate(${x},${y})`);
+  }
+  rotate(angle: number) {
+    this.calls.push(`rotate(${angle})`);
+  }
   fillRect(x: number, y: number, w: number, h: number) {
     this.calls.push(`fillRect(${x},${y},${w},${h})`);
   }

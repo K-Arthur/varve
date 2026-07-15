@@ -26,12 +26,16 @@ const MAX_DIAG_FRAMES = 120;
 const diagRing: FrameDiagnostics[] = [];
 let diagEnabled = false;
 
-export function enableDrawDiagnostics(): void {
-  diagEnabled = import.meta.env.DEV;
+export function enableDrawDiagnostics(force = false): void {
+  diagEnabled = force || import.meta.env.DEV;
 }
 
 export function isDiagnosticsEnabled(): boolean {
   return diagEnabled;
+}
+
+export function resetDiagnostics(): void {
+  diagRing.length = 0;
 }
 
 export function recordFrame(frame: FrameDiagnostics): void {

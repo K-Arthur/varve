@@ -1,76 +1,74 @@
-/**
- * Visual verification: captures screenshots of effects in action.
- * Run this first, then review the screenshots.
- */
-import { test } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'fs';
 
 const DIR = '/tmp/e2e-effects';
 
-test('capture effect screenshots', async ({ page }) => {
+test('visual verification of effects pipeline', async ({ page }) => {
   mkdirSync(DIR, { recursive: true });
 
-  // 1. App home page
+  // Navigate and wait for app to fully load
   await page.goto('/');
-  await page.waitForTimeout(3000);
-  await page.screenshot({ path: `${DIR}/01-home.png`, fullPage: true });
+  await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 30000 });
+  await page.getByRole('button', { name: /^new$/i }).click();
+  await page.locator('dialog').getByRole('button', { name: /^create$/i }).waitFor({ timeout: 10000 });
+  await page.locator('dialog').getByRole('button', { name: /^create$/i }).click();
+  await page.locator('.layers-panel').waitFor({ timeout: 15000 });
 
-  // 2. Create new file
-  const newBtn = page.getByRole('button', { name: /^new$/i });
-  if (await newBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-    await newBtn.click();
-    const createBtn = page.locator('dialog').getByRole('button', { name: /^create$/i });
-    await createBtn.waitFor({ timeout: 5000 });
-    await createBtn.click();
-    await page.locator('.layers-panel').waitFor({ timeout: 10000 });
-  }
-
-  // Dismiss welcome modal
+  // Dismiss welcome
   const welcomeClose = page.getByRole('dialog').getByRole('button', { name: /close|get started/i });
-  if (await welcomeClose.first().isVisible({ timeout: 1000 }).catch(() => false)) {
+  if (await welcomeClose.first().isVisible({ timeout: 2000 }).catch(() => false)) {
     await welcomeClose.first().click();
   }
-
   await page.waitForTimeout(1000);
-  await page.screenshot({ path: `${DIR}/02-editor-blank.png`, fullPage: true });
 
-  // 3. Draw a rectangle
-  await page.getByRole('button', { name: /^rectangle$/i }).click();
+  // Screenshot 1: Blank editor
+  await page.screenshot({ path: `${DIR}/01-editor-blank.png`, fullPage: true });
+
+  // Draw a rectangle
+  await page.getByRole('button', { name: /rect/i }).first().click();
   const canvas = page.locator('canvas').first();
-  const box = await canvas.boundingBox()!;
-  await page.mouse.move(box.x + 150, box.y + 150);
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('canvas not found');
+  await page.mouse.move(box.x + 200, box.y + 200);
   await page.mouse.down();
-  await page.mouse.move(box.x + 450, box.y + 350, { steps: 15 });
+  await page.mouse.move(box.x + 500, box.y + 400, { steps: 10 });
   await page.mouse.up();
   await page.keyboard.press('v');
   await page.waitForTimeout(500);
-  await page.screenshot({ path: `${DIR}/03-shape-drawn.png`, fullPage: true });
 
-  // 4. Get a zoomed-in view of just the canvas area
-  const canvasBox = await canvas.boundingBox();
-  if (canvasBox) {
-    await page.screenshot({
-      path: `${DIR}/04-canvas-only.png`,
-      clip: { x: canvasBox.x, y: canvasBox.y, width: canvasBox.width, height: canvasBox.height },
-    });
-  }
+  // Screenshot 2: Shape drawn
+  await page.screenshot({ path: `${DIR}/02-shape-drawn.png`, fullPage: true });
 
-  // 5. Check what panels/sections are visible
-  const panels = await page.evaluate(() => {
-    const results: string[] = [];
-    document.querySelectorAll('[class*="insp"], [class*="panel"], [class*="layers"], [class*="adjust"]').forEach(el => {
-      if (el instanceof HTMLElement && el.offsetHeight > 0) {
-        results.push(el.className.split(' ').filter(c => c).slice(0, 3).join(' '));
-      }
-    });
-    return [...new Set(results)];
+  // Check canvas has content
+  const canvasInfo = await page.evaluate(() => {
+    const c = document.querySelector('canvas') as HTMLCanvasElement;
+    if (!c) return null;
+    const ctx = c.getContext('2d')!;
+    const center = ctx.getImageData(c.width / 2, c.height / 2, 1, 1).data;
+    return {
+      size: { w: c.width, h: c.height },
+      centerPixel: [center[0], center[1], center[2], center[3]],
+      hasContent: center[0] > 0 || center[1] > 0 || center[2] > 0,
+    };
   });
-  console.log('Visible panels:', JSON.stringify(panels, null, 2));
+  console.log('Canvas info:', JSON.stringify(canvasInfo));
+  expect(canvasInfo).not.toBeNull();
+  expect(canvasInfo!.hasContent).toBe(true);
 
-  // 6. Check inspector content
-  const inspectorText = await page.evaluate(() => {
-    const inspector = document.querySelector('.insp-panel, [class*="properties"], [class*="inspector"]');
-    return inspector?.textContent?.slice(0, 500) ?? 'no inspector found';
+  // Verify layers panel has a shape row
+  const layerCount = await page.locator('.layers-row').count();
+  console.log('Layer rows:', layerCount);
+  expect(layerCount).toBeGreaterThan(0);
+
+  // Verify inspector is visible (right panel)
+  const inspectorVisible = await page.evaluate(() => {
+    return document.querySelector('.insp-panel, [class*="properties-panel"]') !== null;
   });
-  console.log('Inspector text:', inspectorText);
+  console.log('Inspector visible:', inspectorVisible);
+
+  // Screenshot 3: Zoomed canvas
+  await page.screenshot({
+    path: `${DIR}/03-canvas-zoomed.png`,
+    clip: { x: box.x, y: box.y, width: box.width, height: box.height },
+  });
 });

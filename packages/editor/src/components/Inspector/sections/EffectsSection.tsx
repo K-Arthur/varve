@@ -330,9 +330,14 @@ function EffectRow({
         >
           <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
-        {type && type !== 'layerBlur' && type !== 'backgroundBlur' && type !== 'glassMaterial' && type !== 'chromaticAberration' && type !== 'glitch' && (
-          <EffectColorSwatch nodes={nodes} index={index} onChange={onChange} />
-        )}
+        {type &&
+          type !== 'layerBlur' &&
+          type !== 'backgroundBlur' &&
+          type !== 'glassMaterial' &&
+          type !== 'chromaticAberration' &&
+          type !== 'glitch' && (
+            <EffectColorSwatch nodes={nodes} index={index} onChange={onChange} />
+          )}
         {type === 'glassMaterial' && (
           <GlassTintSwatch nodes={nodes} index={index} onChange={onChange} />
         )}
@@ -436,7 +441,14 @@ function LinkedChannelOffsets({
     return Math.max(...vals.map(Math.abs));
   }, [value]);
   return (
-    <div style={{ paddingLeft: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
       <button
         type="button"
         className={`insp-toggle-btn${linked ? ' --active' : ''}`}
@@ -459,25 +471,70 @@ function LinkedChannelOffsets({
             const sG = sign(value.greenX || value.greenY);
             const sB = sign(value.blueX || value.blueY);
             onChange({
-              redX: sR * v, redY: sR * v,
-              greenX: sG * v, greenY: sG * v,
-              blueX: sB * v, blueY: sB * v,
+              redX: sR * v,
+              redY: sR * v,
+              greenX: sG * v,
+              greenY: sG * v,
+              blueX: sB * v,
+              blueY: sB * v,
             });
           }}
         />
       ) : (
         <>
           <FieldRow label="Red">
-            <NumberField label="X" value={value.redX} step={0.5} min={-100} max={100} onChange={(v) => onChange({ ...value, redX: v })} />
-            <NumberField label="Y" value={value.redY} step={0.5} min={-100} max={100} onChange={(v) => onChange({ ...value, redY: v })} />
+            <NumberField
+              label="X"
+              value={value.redX}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, redX: v })}
+            />
+            <NumberField
+              label="Y"
+              value={value.redY}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, redY: v })}
+            />
           </FieldRow>
           <FieldRow label="Green">
-            <NumberField label="X" value={value.greenX} step={0.5} min={-100} max={100} onChange={(v) => onChange({ ...value, greenX: v })} />
-            <NumberField label="Y" value={value.greenY} step={0.5} min={-100} max={100} onChange={(v) => onChange({ ...value, greenY: v })} />
+            <NumberField
+              label="X"
+              value={value.greenX}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, greenX: v })}
+            />
+            <NumberField
+              label="Y"
+              value={value.greenY}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, greenY: v })}
+            />
           </FieldRow>
           <FieldRow label="Blue">
-            <NumberField label="X" value={value.blueX} step={0.5} min={-100} max={100} onChange={(v) => onChange({ ...value, blueX: v })} />
-            <NumberField label="Y" value={value.blueY} step={0.5} min={-100} max={100} onChange={(v) => onChange({ ...value, blueY: v })} />
+            <NumberField
+              label="X"
+              value={value.blueX}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, blueX: v })}
+            />
+            <NumberField
+              label="Y"
+              value={value.blueY}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, blueY: v })}
+            />
           </FieldRow>
         </>
       )}
@@ -517,7 +574,14 @@ function ChromaticAberrationParams({
   const offsets = offsetsRaw && !isMixed(offsetsRaw) ? offsetsRaw : null;
 
   return (
-    <div style={{ paddingLeft: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
       <div className="insp-field">
         <NumberField
           label="Intensity"
@@ -526,7 +590,9 @@ function ChromaticAberrationParams({
           step={0.1}
           min={0}
           max={10}
-          onChange={(v) => onChange((e) => (e.type === 'chromaticAberration' ? { ...e, intensity: v } : e))}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, intensity: v } : e))
+          }
         />
         <NumberField
           label="Opacity"
@@ -535,7 +601,9 @@ function ChromaticAberrationParams({
           step={0.05}
           min={0}
           max={1}
-          onChange={(v) => onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity: v } : e))}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity: v } : e))
+          }
         />
       </div>
       <FieldRow label="Blend">
@@ -548,7 +616,9 @@ function ChromaticAberrationParams({
           ]}
           onChange={(v) => {
             if (!v) return;
-            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, blendMode: v as BlendMode } : e));
+            onChange((e) =>
+              e.type === 'chromaticAberration' ? { ...e, blendMode: v as BlendMode } : e,
+            );
           }}
           placeholder="Mixed"
         />
@@ -556,7 +626,9 @@ function ChromaticAberrationParams({
       {offsets && (
         <LinkedChannelOffsets
           value={offsets}
-          onChange={(v) => onChange((e) => (e.type === 'chromaticAberration' ? { ...e, offsets: v } : e))}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, offsets: v } : e))
+          }
         />
       )}
     </div>
@@ -600,7 +672,14 @@ function GlitchParams({
   });
 
   return (
-    <div style={{ paddingLeft: 'var(--space-2)', display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
       <div className="insp-field">
         <NumberField
           label="Strength"
@@ -653,7 +732,11 @@ function GlitchParams({
           ]}
           onChange={(v) => {
             if (!v) return;
-            onChange((e) => (e.type === 'glitch' ? { ...e, direction: v as 'horizontal' | 'vertical' | 'both' } : e));
+            onChange((e) =>
+              e.type === 'glitch'
+                ? { ...e, direction: v as 'horizontal' | 'vertical' | 'both' }
+                : e,
+            );
           }}
           placeholder="Mixed"
         />
@@ -670,75 +753,147 @@ function GlitchParams({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
           <NumberField
             label="Slice Height"
-            value={isMixed(commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.sliceHeight;
-              return 8;
-            })) ? 8 : (commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.sliceHeight;
-              return 8;
-            }) as number)}
+            value={
+              isMixed(
+                commonValue(nodes, (n) => {
+                  const e = getEffect(n, index);
+                  if (e && e.type === 'glitch') return e.sliceHeight;
+                  return 8;
+                }),
+              )
+                ? 8
+                : (commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.sliceHeight;
+                    return 8;
+                  }) as number)
+            }
             step={1}
             min={1}
             max={200}
             onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, sliceHeight: v } : e))}
           />
           <FieldRow label="Block">
-            <NumberField label="Count" value={isMixed(commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.blockCount;
-              return 0;
-            })) ? 0 : (commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.blockCount;
-              return 0;
-            }) as number)} step={1} min={0} max={100}
-              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockCount: v } : e))} />
-            <NumberField label="Size" value={isMixed(commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.blockSize;
-              return 20;
-            })) ? 20 : (commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.blockSize;
-              return 20;
-            }) as number)} step={1} min={1} max={200}
-              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockSize: v } : e))} />
+            <NumberField
+              label="Count"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.blockCount;
+                    return 0;
+                  }),
+                )
+                  ? 0
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.blockCount;
+                      return 0;
+                    }) as number)
+              }
+              step={1}
+              min={0}
+              max={100}
+              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockCount: v } : e))}
+            />
+            <NumberField
+              label="Size"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.blockSize;
+                    return 20;
+                  }),
+                )
+                  ? 20
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.blockSize;
+                      return 20;
+                    }) as number)
+              }
+              step={1}
+              min={1}
+              max={200}
+              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockSize: v } : e))}
+            />
           </FieldRow>
           <FieldRow label="Noise">
-            <NumberField label="Intensity" value={isMixed(commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.noiseIntensity;
-              return 0;
-            })) ? 0 : (commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.noiseIntensity;
-              return 0;
-            }) as number)} step={0.01} min={0} max={1}
-              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, noiseIntensity: v } : e))} />
+            <NumberField
+              label="Intensity"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.noiseIntensity;
+                    return 0;
+                  }),
+                )
+                  ? 0
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.noiseIntensity;
+                      return 0;
+                    }) as number)
+              }
+              step={0.01}
+              min={0}
+              max={1}
+              onChange={(v) =>
+                onChange((e) => (e.type === 'glitch' ? { ...e, noiseIntensity: v } : e))
+              }
+            />
           </FieldRow>
           <FieldRow label="Scanline">
-            <NumberField label="Intensity" value={isMixed(commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.scanlineIntensity;
-              return 0;
-            })) ? 0 : (commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.scanlineIntensity;
-              return 0;
-            }) as number)} step={0.01} min={0} max={1}
-              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, scanlineIntensity: v } : e))} />
-            <NumberField label="Spacing" value={isMixed(commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.scanlineSpacing;
-              return 4;
-            })) ? 4 : (commonValue(nodes, (n) => {
-              const e = getEffect(n, index);
-              if (e && e.type === 'glitch') return e.scanlineSpacing;
-              return 4;
-            }) as number)} step={1} min={1} max={50}
-              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, scanlineSpacing: v } : e))} />
+            <NumberField
+              label="Intensity"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.scanlineIntensity;
+                    return 0;
+                  }),
+                )
+                  ? 0
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.scanlineIntensity;
+                      return 0;
+                    }) as number)
+              }
+              step={0.01}
+              min={0}
+              max={1}
+              onChange={(v) =>
+                onChange((e) => (e.type === 'glitch' ? { ...e, scanlineIntensity: v } : e))
+              }
+            />
+            <NumberField
+              label="Spacing"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.scanlineSpacing;
+                    return 4;
+                  }),
+                )
+                  ? 4
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.scanlineSpacing;
+                      return 4;
+                    }) as number)
+              }
+              step={1}
+              min={1}
+              max={50}
+              onChange={(v) =>
+                onChange((e) => (e.type === 'glitch' ? { ...e, scanlineSpacing: v } : e))
+              }
+            />
           </FieldRow>
         </div>
       )}
