@@ -26,6 +26,9 @@ import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
+/** Screen-pixel hit tolerance for zoom-aware selection. */
+const HIT_TOLERANCE_PX = 8;
+
 export class SelectTool extends BaseTool {
   id = 'select' as const;
 
@@ -556,6 +559,21 @@ export class SelectTool extends BaseTool {
       }
       if (rectContains(bbox, [world.x, world.y])) {
         results.push({ nodeId: entry.nodeId, node: entry.node });
+        continue;
+      }
+      // Zoom-aware tolerance: at low zoom, expand the bbox by screen-pixel
+      // tolerance so visually-small objects are still selectable.
+      const tol = HIT_TOLERANCE_PX / Math.max(0.001, ctx.zoom);
+      if (tol > 0) {
+        const expanded = {
+          x: bbox.x - tol,
+          y: bbox.y - tol,
+          w: bbox.w + 2 * tol,
+          h: bbox.h + 2 * tol,
+        };
+        if (rectContains(expanded, [world.x, world.y])) {
+          results.push({ nodeId: entry.nodeId, node: entry.node });
+        }
       }
     }
     return results;

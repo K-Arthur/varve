@@ -38,23 +38,28 @@ function visibleHandles(
   boxW: number,
   boxH: number,
   zoom: number,
+  isSingle: boolean,
 ): { indices: Set<number>; showRotation: boolean } {
   const sw = boxW * zoom;
   const sh = boxH * zoom;
-  // Tiny: only center pivot (show none of the 8, rotation shown if space)
+  // Single selection: always show all 8 handles + rotation, even at extreme
+  // zoom. The handles are screen-space sized (HANDLE_HALF) so they don't
+  // become microscopic — only the spacing changes.
+  if (isSingle) {
+    return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation: true };
+  }
+  // Multi-select: show all handles if box is large enough on screen.
+  if (sw >= MIN_HANDLE_SPACING_PX && sh >= MIN_HANDLE_SPACING_PX) {
+    return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation: false };
+  }
+  // Tiny multi-select: only center pivot
   if (sw < MIN_HANDLE_SPACING_PX && sh < MIN_HANDLE_SPACING_PX) {
     return { indices: new Set<number>(), showRotation: false };
   }
   if (sw < MIN_HANDLE_SPACING_PX) {
-    // Narrow: show only N, center, S
-    return { indices: new Set([1, 5]), showRotation: true };
+    return { indices: new Set([1, 5]), showRotation: false };
   }
-  if (sh < MIN_HANDLE_SPACING_PX) {
-    // Flat: show only W, center, E
-    return { indices: new Set([3, 7]), showRotation: true };
-  }
-  // Normal: show all 8
-  return { indices: new Set([0, 1, 2, 3, 4, 5, 6, 7]), showRotation: true };
+  return { indices: new Set([3, 7]), showRotation: false };
 }
 
 /** Cursor per handle index: TL, T, TR, R, BR, B, BL, L */
@@ -479,7 +484,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {hasInteractiveHandles &&
         (() => {
-          const { showRotation } = visibleHandles(box.w, box.h, state.zoom);
+          const { showRotation } = visibleHandles(box.w, box.h, state.zoom, isSingle);
           if (!showRotation) return null;
           return (
             <>
@@ -514,7 +519,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         })()}
 
       {(() => {
-        const { indices } = visibleHandles(box.w, box.h, state.zoom);
+        const { indices } = visibleHandles(box.w, box.h, state.zoom, isSingle);
         return HANDLE_KEYS.slice(0, 8).map((key, i) => {
           if (!indices.has(i)) return null;
           const [hx, hy] = handles[key];
