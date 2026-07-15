@@ -2025,13 +2025,17 @@
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
   user-select: none;
+  /* Reserve space for stop handles at the edges so they don't overflow
+   * or get clipped by the bar's border/padding. */
+  padding: 0 10px;
 }
 .gradient-editor__stop {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: var(--space-3);
-  height: var(--space-3);
+  /* WCAG 2.2 §2.5.8 target size minimum: 24×24 CSS px */
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   cursor: grab;
   padding: 0;
@@ -2161,13 +2165,17 @@
   border: 1px solid var(--color-border-subtle);
   cursor: copy;
   user-select: none;
+  /* Reserve space for stop handles at the edges so they don't overflow
+   * or get clipped by the bar's border/padding. */
+  padding: 0 10px;
 }
 .gradient-editor__stop {
   position: absolute;
   top: 50%;
   transform: translate(-50%, -50%);
-  width: var(--space-3);
-  height: var(--space-3);
+  /* WCAG 2.2 §2.5.8 target size minimum: 24×24 CSS px */
+  width: 24px;
+  height: 24px;
   border-radius: 50%;
   cursor: grab;
   padding: 0;
