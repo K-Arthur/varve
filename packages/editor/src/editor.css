@@ -123,6 +123,42 @@
   }
 }
 
+/* Distraction-free canvas mode: menubar/tabs/panels/status bar are not
+ * rendered (see Shell.tsx), so the grid collapses to a single canvas area
+ * rather than reserving empty fixed-height/width tracks for them. */
+.editor-shell--distraction-free {
+  grid-template-areas: "canvas";
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.editor-shell__exit-focus {
+  grid-area: canvas;
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-full, 999px);
+  box-shadow: var(--elevation-shadow-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.editor-shell__exit-focus:hover {
+  background: var(--color-interactive-hover);
+}
+.editor-shell__exit-focus:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 .editor-menubar {
   grid-area: menubar;
   position: relative;
