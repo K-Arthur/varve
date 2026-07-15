@@ -18,6 +18,7 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
  * These tests read pixels from an actual composited screenshot.
  */
 test.describe('Selection overlay visibility', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

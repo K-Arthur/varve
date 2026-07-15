@@ -67,6 +67,7 @@ async function clickRemoveBackground(page: import('@playwright/test').Page): Pro
 }
 
 test.describe('Background removal alpha mask rendering', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

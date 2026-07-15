@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 test.describe('Canvas guides', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
