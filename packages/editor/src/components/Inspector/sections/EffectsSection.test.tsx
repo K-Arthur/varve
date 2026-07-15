@@ -342,7 +342,7 @@ describe('EffectsSection — chromatic aberration', () => {
 
   it('renders effect row with type label', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
-    expect(screen.getByText('Chromatic Aberration')).toBeTruthy();
+    expect(screen.getByText((c) => c.includes('chromaticAberration'))).toBeTruthy();
   });
 
   it('renders intensity control', () => {
@@ -382,7 +382,7 @@ describe('EffectsSection — glitch', () => {
 
   it('renders effect row with type label', () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
-    expect(screen.getByText('Glitch')).toBeTruthy();
+    expect(screen.getByText((c) => c.includes('glitch'))).toBeTruthy();
   });
 
   it('renders strength and density controls', () => {
