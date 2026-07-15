@@ -399,7 +399,12 @@ export const DocumentCodec = {
       };
     }
 
-    const maskError = validateRasterMaskDocument(migration.document as unknown as Document);
+    let maskError: string | null;
+    try {
+      maskError = validateRasterMaskDocument(migration.document as unknown as Document);
+    } catch (error) {
+      maskError = `Invalid raster mask structure: ${error instanceof Error ? error.message : 'unknown validation error'}`;
+    }
     if (maskError) {
       return {
         ok: false,
