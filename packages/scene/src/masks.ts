@@ -35,22 +35,40 @@ export const RASTER_MASK_MAX_ENCODED_BYTES = 128 * 1024 * 1024;
 const PNG_DATA_URL_PATTERN =
   /^data:image\/png;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
+const PNG_DATA_URL_PREFIX = 'data:image/png;base64,';
 
-function hasPngSignature(dataUrl: string): boolean {
-  const payload = dataUrl.slice('data:image/png;base64,'.length);
-  if (payload.length < 12) return false;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function decodedBase64Length(payload: string): number {
+  const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+  return Math.floor((payload.length * 3) / 4) - padding;
+}
+
+function decodeBase64Prefix(payload: string, byteCount: number): string | null {
+  const characterCount = Math.ceil((byteCount * 4) / 3);
+  const prefix = payload.slice(0, characterCount);
+  const padded = prefix.padEnd(Math.ceil(prefix.length / 4) * 4, '=');
   try {
-    // Eleven payload characters plus padding decode exactly eight bytes. This
-    // verifies the magic bytes without allocating or parsing the full PNG.
-    const prefix = atob(`${payload.slice(0, 11)}=`);
-    return PNG_SIGNATURE.every((byte, index) => prefix.charCodeAt(index) === byte);
+    return atob(padded);
   } catch {
-    return false;
+    return null;
   }
+}
+
+function readU32Be(bytes: string, offset: number): number {
+  return (
+    bytes.charCodeAt(offset) * 0x1000000 +
+    bytes.charCodeAt(offset + 1) * 0x10000 +
+    bytes.charCodeAt(offset + 2) * 0x100 +
+    bytes.charCodeAt(offset + 3)
+  );
 }
 
 /** Validate declared raster asset metadata without decoding PNG headers. */
 export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
+  if (!isRecord(asset)) return 'Raster mask asset must be an object';
   if (
     asset.mimeType !== 'image/png' ||
     !PNG_DATA_URL_PATTERN.test(asset.dataUrl) ||
@@ -58,8 +76,20 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
   ) {
     return `Raster mask ${asset.id} must use a valid PNG data URL`;
   }
-  if (!hasPngSignature(asset.dataUrl)) {
+  const payload = asset.dataUrl.slice(PNG_DATA_URL_PREFIX.length);
+  const actualByteLength = decodedBase64Length(payload);
+  if (asset.byteLength > RASTER_MASK_MAX_ENCODED_BYTES) {
+    return `Raster mask ${asset.id} exceeds the encoded byte limit`;
+  }
+  if (!Number.isInteger(asset.byteLength) || asset.byteLength !== actualByteLength) {
+    return `Raster mask ${asset.id} byteLength must match its decoded PNG payload`;
+  }
+  const header = decodeBase64Prefix(payload, 24);
+  if (!header || !PNG_SIGNATURE.every((byte, index) => header.charCodeAt(index) === byte)) {
     return `Raster mask ${asset.id} must contain the PNG signature`;
+  }
+  if (header.length < 24 || readU32Be(header, 8) !== 13 || header.slice(12, 16) !== 'IHDR') {
+    return `Raster mask ${asset.id} must contain a valid IHDR chunk`;
   }
   if (
     !Number.isInteger(asset.width) ||
@@ -75,11 +105,8 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
   if (asset.width > RASTER_MASK_MAX_DIMENSION || asset.height > RASTER_MASK_MAX_DIMENSION) {
     return `Raster mask ${asset.id} exceeds the per-dimension limit of ${RASTER_MASK_MAX_DIMENSION}`;
   }
-  if (!Number.isInteger(asset.byteLength) || asset.byteLength <= 0) {
-    return `Raster mask ${asset.id} must declare a positive encoded byte length`;
-  }
-  if (asset.byteLength > RASTER_MASK_MAX_ENCODED_BYTES) {
-    return `Raster mask ${asset.id} exceeds the encoded byte limit`;
+  if (asset.width !== readU32Be(header, 16) || asset.height !== readU32Be(header, 20)) {
+    return `Raster mask ${asset.id} declared dimensions must match its PNG IHDR`;
   }
   return null;
 }
@@ -118,12 +145,15 @@ export function validateMaskSource(doc: Document | undefined, mask: Mask): strin
 
 /** Validate every mask source and document-owned raster payload. */
 export function validateRasterMaskDocument(doc: Document): string | null {
-  for (const asset of Object.values(doc.rasterMaskAssets ?? {})) {
-    const error = validateRasterMaskAsset(asset);
+  for (const asset of Object.values(doc.rasterMaskAssets ?? {}) as unknown[]) {
+    const error = validateRasterMaskAsset(asset as RasterMaskAsset);
     if (error) return error;
   }
-  for (const node of Object.values(doc.nodes)) {
+  for (const nodeValue of Object.values(doc.nodes) as unknown[]) {
+    if (!isRecord(nodeValue)) return 'Document node must be an object';
+    const node = nodeValue as unknown as SceneNode;
     if (!node.mask) continue;
+    if (!isRecord(node.mask)) return `${node.id}: Mask must be an object`;
     const error = validateMaskSource(doc, node.mask);
     if (error) return `${node.id}: ${error}`;
     if (node.mask.rasterMask && !isImageShape(node)) {
@@ -258,7 +288,19 @@ const VALID_MASK_TYPES: MaskType[] = ['clip', 'alpha', 'luminance'];
 function imageSourceFingerprint(node: ShapeNode): string {
   const src =
     node.fills?.find((fill) => fill.type === 'image' && fill.image)?.image?.src ?? node.id;
-  return src.startsWith('sha256:') ? src : `sha256:${src}`;
+  return src.startsWith('source:') ? src : `source:${src}`;
+}
+
+function rasterAssetsEqual(left: RasterMaskAsset, right: RasterMaskAsset): boolean {
+  return (
+    left.id === right.id &&
+    left.mimeType === right.mimeType &&
+    left.dataUrl === right.dataUrl &&
+    left.width === right.width &&
+    left.height === right.height &&
+    left.byteLength === right.byteLength &&
+    left.checksum === right.checksum
+  );
 }
 
 function isRasterAssetReferenced(doc: Document, assetId: string, exceptNodeId?: NodeId): boolean {
@@ -290,7 +332,7 @@ export function addRasterMaskAsset(
   const node = doc.nodes[nodeId];
   if (!node || !isImageShape(node) || validateRasterMaskAsset(asset)) return doc;
   const existing = doc.rasterMaskAssets?.[asset.id];
-  if (existing && JSON.stringify(existing) !== JSON.stringify(asset)) return doc;
+  if (existing && !rasterAssetsEqual(existing, asset)) return doc;
 
   const maskData: RasterMaskData = {
     assetId: asset.id,
@@ -325,13 +367,30 @@ export function updateRasterMaskAsset(
   asset: RasterMaskAsset,
 ): Document {
   const node = doc.nodes[nodeId];
-  const current = node?.mask?.rasterMask;
-  if (!node || !current) return doc;
-  const updated = addRasterMaskAsset(doc, nodeId, asset, {
-    ...current,
-    editRevision: (current.editRevision ?? 0) + 1,
-  });
-  if (updated === doc) return doc;
+  const currentMask = node?.mask;
+  const current = currentMask?.rasterMask;
+  if (!node || !currentMask || !current) return doc;
+  if (validateRasterMaskAsset(asset)) return doc;
+  const existing = doc.rasterMaskAssets?.[asset.id];
+  if (existing && !rasterAssetsEqual(existing, asset)) return doc;
+  const updated: Document = {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...node,
+        mask: {
+          ...currentMask,
+          rasterMask: {
+            ...current,
+            assetId: asset.id,
+            editRevision: (current.editRevision ?? 0) + 1,
+          },
+        },
+      },
+    },
+    rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset },
+  };
   return withoutUnreferencedAsset(updated, current.assetId);
 }
 
@@ -544,6 +603,10 @@ function updateMaskProperty<T>(
   if (!isContainerNode(container) && !isLeafRasterProperty) return doc;
 
   const include = shouldInclude ? shouldInclude(value) : value !== undefined;
+  const currentValue = (container.mask as unknown as Record<string, unknown>)[key];
+  if ((include && Object.is(currentValue, value)) || (!include && !(key in container.mask))) {
+    return doc;
+  }
   const cleaned: Mask = include
     ? ({ ...container.mask, [key]: value } as Mask)
     : (() => {
@@ -634,6 +697,11 @@ export function setMaskVectorPath(
   closed: boolean,
   fillRule?: MaskFillRule,
 ): Document {
+  if (points.length === 0) {
+    const node = doc.nodes[containerId];
+    if (!node || !isContainerNode(node) || !node.mask?.vectorMask) return doc;
+    if (!node.mask.sourceNodeId) return removeMask(doc, containerId);
+  }
   return updateMaskProperty(
     doc,
     containerId,

@@ -341,6 +341,32 @@ function legacyImageMetadata(node: Record<string, unknown>): {
   };
 }
 
+function sameLegacyRasterAsset(
+  existing: Record<string, unknown>,
+  candidate: Record<string, unknown>,
+): boolean {
+  return (
+    existing.mimeType === candidate.mimeType &&
+    existing.dataUrl === candidate.dataUrl &&
+    existing.width === candidate.width &&
+    existing.height === candidate.height &&
+    existing.byteLength === candidate.byteLength &&
+    existing.checksum === candidate.checksum
+  );
+}
+
+function collisionSafeLegacyAssetId(
+  baseId: string,
+  candidate: Record<string, unknown>,
+  assets: Record<string, Record<string, unknown>>,
+): string {
+  for (let suffix = 0; ; suffix += 1) {
+    const id = suffix === 0 ? baseId : `${baseId}:${suffix}`;
+    const existing = assets[id];
+    if (!existing || sameLegacyRasterAsset(existing, candidate)) return id;
+  }
+}
+
 /** Convert deprecated inline background-removal payloads to v2.1 mask assets. */
 export function normalizeLegacyBackgroundRemoval(
   raw: Record<string, unknown>,
@@ -369,15 +395,19 @@ export function normalizeLegacyBackgroundRemoval(
     }
 
     const metadata = legacyImageMetadata(node);
-    const assetId = `raster-mask:legacy:${encodeURIComponent(nodeId)}`;
-    rasterMaskAssets[assetId] = {
-      id: assetId,
+    const assetData = {
       mimeType: 'image/png',
       dataUrl: legacy.maskDataUrl,
       width: metadata.width,
       height: metadata.height,
       byteLength: decodedBase64Length(legacy.maskDataUrl),
     };
+    const assetId = collisionSafeLegacyAssetId(
+      `raster-mask:legacy:${encodeURIComponent(nodeId)}`,
+      assetData,
+      rasterMaskAssets,
+    );
+    rasterMaskAssets[assetId] ??= { id: assetId, ...assetData };
     normalizedNode.mask = {
       type: 'alpha',
       visible: true,
