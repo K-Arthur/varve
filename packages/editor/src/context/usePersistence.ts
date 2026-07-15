@@ -4,6 +4,7 @@ import type { Viewport } from '@strata/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
 import type { EditorState } from './types';
+import { getCanvasViewport } from './viewportOps';
 
 export interface PersistenceAPI {
   newDocument: () => void;
@@ -92,11 +93,7 @@ export function usePersistence(
         const sessions = state.sessions.map((s) =>
           s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
         );
-        const vp: Viewport =
-          typeof window !== 'undefined'
-            ? { width: window.innerWidth, height: window.innerHeight - 120 }
-            : { width: 1200, height: 700 };
-        const cam = computeFitAllCamera(doc, vp);
+        const cam = computeFitAllCamera(doc, getCanvasViewport());
         patch({
           document: doc,
           selection: [],
