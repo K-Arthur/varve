@@ -167,10 +167,12 @@ function ShellInner({
 
   // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid
   // column so the canvas reclaims the space.
-  const { leftPanelVisible, rightPanelVisible } = editor.state;
+  const { leftPanelVisible, rightPanelVisible, workspaceMode } = editor.state;
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
+  // Hide pagenav in drawing mode
+  const hidePageNav = workspaceMode === 'drawing';
 
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
@@ -209,9 +211,11 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
-        <div className="page-nav-container">
-          <PageNav />
-        </div>
+        {!hidePageNav && (
+          <div className="page-nav-container">
+            <PageNav />
+          </div>
+        )}
         <div
           className="editor__layers-panel editor__panel--glass"
           data-panel="layers"
