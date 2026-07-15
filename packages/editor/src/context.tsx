@@ -2482,7 +2482,10 @@ export function EditorProvider({
       },
 
       hitTestNode: (world) => {
-        const engine = new HitTestEngine(state.document, { isolatedNodeId: state.isolatedNodeId });
+        const engine = new HitTestEngine(state.document, {
+          isolatedNodeId: state.isolatedNodeId,
+          zoom: state.zoom,
+        });
         const hit = engine.hitTest(world);
         return hit ? { nodeId: hit.nodeId, node: hit.node } : null;
       },
@@ -2921,7 +2924,10 @@ export function EditorProvider({
         });
       },
 
-      // F6: batch-edit flip H — negate the full X-basis vector [a, b]
+      // F6: batch-edit flip H — negate the X-basis vector [a, b] while
+      // preserving the visual centre.  The local-space centre is derived
+      // from nodeLocalBounds; when bounds are unavailable (groups, etc.)
+      // the translation is left unchanged (identity-local case).
       setSelectedFlipH: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -2930,23 +2936,23 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
+            const [a, b, c, d, e, f] = node.transform as Affine;
+            const lb = nodeLocalBounds(node, doc);
+            const lcx = lb ? lb.x + lb.w / 2 : 0;
+            // Negate X-basis and shift both e and f to keep world centre fixed.
+            //   e' = e + 2·a·localCentreX
+            //   f' = f + 2·b·localCentreX
             nodes[id] = {
               ...node,
-              transform: [
-                -node.transform[0],
-                -node.transform[1],
-                node.transform[2],
-                node.transform[3],
-                node.transform[4],
-                node.transform[5],
-              ] as Affine,
+              transform: [-a, -b, c, d, e + 2 * a * lcx, f + 2 * b * lcx] as Affine,
             } as SceneNode;
           }
           return { ...doc, nodes };
         });
       },
 
-      // F6: batch-edit flip V — negate the full Y-basis vector [c, d]
+      // F6: batch-edit flip V — negate the Y-basis vector [c, d] while
+      // preserving the visual centre.
       setSelectedFlipV: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -2955,16 +2961,15 @@ export function EditorProvider({
           for (const id of sel) {
             const node = nodes[id];
             if (!node) continue;
+            const [a, b, c, d, e, f] = node.transform as Affine;
+            const lb = nodeLocalBounds(node, doc);
+            const lcy = lb ? lb.y + lb.h / 2 : 0;
+            // Negate Y-basis and shift both e and f to keep world centre fixed:
+            //   e' = e + 2·c·localCentreY
+            //   f' = f + 2·d·localCentreY
             nodes[id] = {
               ...node,
-              transform: [
-                node.transform[0],
-                node.transform[1],
-                -node.transform[2],
-                -node.transform[3],
-                node.transform[4],
-                node.transform[5],
-              ] as Affine,
+              transform: [a, b, -c, -d, e + 2 * c * lcy, f + 2 * d * lcy] as Affine,
             } as SceneNode;
           }
           return { ...doc, nodes };

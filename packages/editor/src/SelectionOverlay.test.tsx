@@ -504,29 +504,29 @@ describe('SelectionOverlay — touch targets', () => {
     }
   });
 
-  // G: Handle collapse for tiny objects
-  it('collapses to 0 handles for a very small box (< 14px screen)', () => {
+  // G: Handle visibility at extreme zoom — single selections always show all 8 handles
+  it('shows all 8 handles even for a very small box (single selection)', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }),
     ]);
-    // No handle rects (just the 1 bbox rect)
+    // 1 bbox + 8 handles × (1 hit + 1 visual) = 1 + 16 = 17
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(1);
+    expect(rects.length).toBe(17);
   });
 
-  it('collapses to N/S handles for a narrow box', () => {
+  it('shows all 8 handles for a narrow box (single selection)', () => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 100 })],
       {},
       { x: 0, y: 0 },
       1,
     );
-    // 1 bbox + 2 handles × (1 hit + 1 visual) = 1 + 4 = 5. No E/W handles.
+    // Single selection: all 8 handles visible = 1 bbox + 16 = 17
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(5);
+    expect(rects.length).toBe(17);
   });
 
-  it('collapses to W/E handles for a flat box', () => {
+  it('shows all 8 handles for a flat box (single selection)', () => {
     const container = renderOverlay(
       [makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 4 })],
       {},
@@ -534,6 +534,6 @@ describe('SelectionOverlay — touch targets', () => {
       1,
     );
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(5);
+    expect(rects.length).toBe(17);
   });
 });

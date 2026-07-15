@@ -424,6 +424,7 @@
   grid-area: canvas;
   position: relative;
   overflow: hidden;
+  contain: layout style;
   background-color: var(--color-surface-sunken);
   outline: none;
 }
@@ -574,6 +575,8 @@
 /* Neo-Bento status bar — deep surface, crisp top edge, monospace zoom chip */
 .editor-status {
   grid-area: status;
+  position: relative;
+  z-index: 50;
   display: flex;
   align-items: center;
   gap: var(--space-2);
