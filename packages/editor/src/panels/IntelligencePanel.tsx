@@ -8,9 +8,9 @@
  * Research basis: Figma's "Design review" + "Smart selection" panel concepts;
  * APG Disclosure pattern for collapsible groups.
  */
-import type { AuditIssue } from '@strata/scene';
+import { runIntelligenceAudit } from '@strata/scene';
 import { Icon } from '@strata/ui';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
 import { type NamingSuggestion, renameSelected, suggestName } from '../intelligence/autoNamer';
 import {
@@ -22,9 +22,6 @@ import {
 import '../components/Inspector/inspector.css';
 
 type IntelligenceTab = 'audit' | 'spacing' | 'naming';
-
-/** Mock audit issues — replace with real audit runner when available. */
-const MOCK_ISSUES: AuditIssue[] = [];
 
 export function IntelligencePanel() {
   const [tab, setTab] = useState<IntelligenceTab>('audit');
@@ -59,8 +56,8 @@ export function IntelligencePanel() {
 /* ------------------------------------------------------------------ */
 
 function AuditTab() {
-  const { setSelection, updateDoc } = useEditor();
-  const issues = MOCK_ISSUES;
+  const { state, setSelection, updateDoc } = useEditor();
+  const issues = useMemo(() => runIntelligenceAudit(state.document), [state.document]);
 
   if (issues.length === 0) {
     return (
