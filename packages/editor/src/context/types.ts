@@ -365,6 +365,13 @@ export interface EditorContextValue {
   setMaskSourceNode: (sourceNodeId: string) => void;
   setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
   setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
+
+  // ── Clipping masks (non-destructive) ──
+  /** Create a clipping mask group from selected nodes (mask shape + content). */
+  createClippingMaskFromSelected: (selectionOverride?: NodeId[]) => void;
+  /** Release a clipping mask, restoring original content and mask source. */
+  releaseClippingMaskFromSelected: () => void;
+
   bulkSetNodeLocked: (ids: NodeId[], locked: boolean) => void;
   bulkSetNodeVisible: (ids: NodeId[], visible: boolean) => void;
   bulkSetLayerColor: (ids: NodeId[], color: LayerColor) => void;
@@ -401,6 +408,7 @@ export interface EditorContextValue {
   // Adjustment layers
   createAdjustmentLayer: (initialAdjustments?: Adjustment[]) => void;
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: Adjustment) => void;
+  addLutAdjustment: (lutAdjustment: Adjustment) => void;
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
   updateAdjustmentInLayer: (
     nodeId: NodeId,
