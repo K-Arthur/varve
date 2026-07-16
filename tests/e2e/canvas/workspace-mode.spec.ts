@@ -114,6 +114,22 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
     await expect(radios.nth(3)).toHaveAttribute('aria-checked', 'false');
   });
 
+  test('workspace switcher sits with the utility controls, not the document title', async ({
+    page,
+  }) => {
+    // Grouped with undo/redo/zoom at the trailing edge of the menubar, not
+    // crowding the centered document-name field.
+    const switcher = page.locator('.editor-menubar__controls .editor-menubar__workspace');
+    await expect(switcher).toBeVisible();
+    await expect(page.locator('.editor-menubar__center .editor-menubar__workspace')).toHaveCount(0);
+    // Icon + label per mode.
+    const radios = switcher.locator('[role="radio"]');
+    await expect(radios.first().locator('svg')).toBeVisible();
+    await expect(radios.first().locator('.editor-menubar__workspace-btn-label')).toHaveText(
+      'Design',
+    );
+  });
+
   test('narrow window does not break layout', async ({ page }) => {
     await page.setViewportSize({ width: 800, height: 600 });
     await page.waitForTimeout(500);
