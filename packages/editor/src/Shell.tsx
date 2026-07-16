@@ -124,14 +124,20 @@ function ShellInner({
 
   // Test-only: allow direct LUT import via custom event (bypasses file input)
   useEffect(() => {
+    // Expose a global function for E2E tests to call directly
+    (window as any).__importLut = (adj: any) => {
+      editor.addLutAdjustment(adj);
+    };
     const handler = (e: Event) => {
       const ce = e as CustomEvent;
       const { adjustment } = ce.detail ?? {};
-      console.log('[Shell] strata:test-import-lut received', adjustment?.kind, adjustment?.originalFilename);
       if (adjustment) editor.addLutAdjustment(adjustment);
     };
     window.addEventListener('strata:test-import-lut', handler as EventListener);
-    return () => window.removeEventListener('strata:test-import-lut', handler as EventListener);
+    return () => {
+      delete (window as any).__importLut;
+      window.removeEventListener('strata:test-import-lut', handler as EventListener);
+    };
   }, [editor]);
 
   // Dispatch host file-open requests into tabs (dedupe/reuse handled by
@@ -437,7 +443,9 @@ function ShellInner({
               // Route LUT files to the LUT-specific handler
               const lutFiles = files.filter((f) => /\.(cube|3dl)$/i.test(f.name));
               if (lutFiles.length > 0) {
-                const { parseCubeData, parse3dlData, makeAdjustment } = await import('@strata/engine');
+                const { parseCubeData, parse3dlData, makeAdjustment } = await import(
+                  '@strata/engine'
+                );
                 for (const file of lutFiles) {
                   const text = await file.text();
                   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
