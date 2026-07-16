@@ -403,12 +403,41 @@ export interface EnginePatternFillData {
   imageHeight?: number;
 }
 
+/**
+ * A vector shape within a pattern tile for engine IR transport.
+ */
+export interface EngineVecPatternShape {
+  kind: string;
+  params: Record<string, unknown>;
+  fill?: EngineColor;
+  stroke?: {
+    color: EngineColor;
+    weight: number;
+    cap?: string;
+    join?: string;
+    dashPattern?: number[];
+    dashOffset?: number;
+  };
+  transform?: [number, number, number, number, number, number];
+}
+
+export interface EngineVecPatternFillData {
+  shapes: EngineVecPatternShape[];
+  tileWidth: number;
+  tileHeight: number;
+  spacing: number;
+  rotation: number;
+  transform?: [number, number, number, number, number, number];
+  docRelative?: boolean;
+}
+
 export interface EngineFill {
-  type: 'solid' | 'gradient' | 'image' | 'pattern';
+  type: 'solid' | 'gradient' | 'image' | 'pattern' | 'vec-pattern';
   color?: EngineColor;
   gradient?: EngineGradientFill;
   image?: EngineImageFillData;
   pattern?: EnginePatternFillData;
+  vecPattern?: EngineVecPatternFillData;
   opacity: number;
   blendMode: BlendMode;
   visible: boolean;
@@ -623,14 +652,53 @@ export type FilterIR =
       threshold?: number;
       intensity?: number;
       softness?: number;
+      channelAngles?: { c?: number; m?: number; y?: number; k?: number };
+      registrationOffset?: {
+        c?: [number, number];
+        m?: [number, number];
+        y?: [number, number];
+        k?: [number, number];
+      };
+      tacLimit?: number;
+      blackGeneration?: 'none' | 'gcr' | 'ucr';
+      gcrStrength?: number;
+      previewChannel?: 'composite' | 'c' | 'm' | 'y' | 'k';
+      dotGain?: number;
       opacity: number;
       blendMode: string;
     }
   | {
       kind: 'gradientMap';
-      stops: { position: number; color: readonly [number, number, number, number] }[];
+      stops: {
+        position: number;
+        color: readonly [number, number, number, number];
+        opacity?: number;
+        midpoint?: number;
+      }[];
       dither: boolean;
       preserveLuminosity: boolean;
+      ditherSize?: 4 | 8;
+      mode?: 'luminance' | 'channel';
+      channelStops?: {
+        r?: {
+          position: number;
+          color: readonly [number, number, number, number];
+          opacity?: number;
+          midpoint?: number;
+        }[];
+        g?: {
+          position: number;
+          color: readonly [number, number, number, number];
+          opacity?: number;
+          midpoint?: number;
+        }[];
+        b?: {
+          position: number;
+          color: readonly [number, number, number, number];
+          opacity?: number;
+          midpoint?: number;
+        }[];
+      };
       opacity: number;
       blendMode: string;
     }
@@ -643,6 +711,24 @@ export type FilterIR =
       highlightPoint: number;
       intensity: number;
       preserveLuminosity: boolean;
+      interpolation?: 'smoothstep' | 'linear';
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'lut';
+      /** Serialized LUT transform (JSON) embedded in the document */
+      lutJson: string;
+      /** Original filename for display */
+      originalFilename?: string;
+      /** Assumed input colour space */
+      inputSpace: string;
+      /** Interpolation method: 'nearest' | 'trilinear' | 'tetrahedral' */
+      interpolation: string;
+      /** Mix/intensity (0..1) */
+      intensity: number;
+      /** Whether to linearize sRGB before applying the LUT */
+      linearize: boolean;
       opacity: number;
       blendMode: string;
     };
@@ -686,6 +772,19 @@ export type FillIR =
       imageWidth?: number;
       /** Tile height override in px. When omitted, natural image height is used. */
       imageHeight?: number;
+      opacity: number;
+      blendMode: BlendMode;
+      visible: boolean;
+    }
+  | {
+      type: 'vec-pattern';
+      shapes: EngineVecPatternShape[];
+      tileWidth: number;
+      tileHeight: number;
+      spacing: number;
+      rotation: number;
+      transform?: [number, number, number, number, number, number];
+      docRelative?: boolean;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;
