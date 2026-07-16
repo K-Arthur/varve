@@ -111,6 +111,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
+  markMaskStale,
   moveGuide as moveGuideDoc,
   moveNode,
   nextNodeId,
@@ -319,6 +320,13 @@ function insertImportedSubtree(
 
   const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
 
+  // Merge raster mask assets from the source document into the target.
+  // Cloned nodes reference the same assetIds; the assets must exist in
+  // the target document for the masks to render.
+  const mergedRasterAssets = sourceDoc.rasterMaskAssets
+    ? { ...(targetDoc.rasterMaskAssets ?? {}), ...sourceDoc.rasterMaskAssets }
+    : targetDoc.rasterMaskAssets;
+
   // For paged documents, add to the active page's contentRoot so the node
   // is visible to the page-scoped renderer (activePageNodes). Adding to
   // rootChildren bypasses the page system and the node is never traversed.
@@ -342,6 +350,9 @@ function insertImportedSubtree(
           ...nodes,
           [contentRootId]: updatedContentRoot,
         },
+        ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
+          ? { rasterMaskAssets: mergedRasterAssets }
+          : {}),
       },
     };
   }
@@ -353,6 +364,9 @@ function insertImportedSubtree(
       nextId: cloned.nextId,
       rootChildren: [...targetDoc.rootChildren, cloned.rootId],
       nodes: { ...targetDoc.nodes, ...nodes },
+      ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
+        ? { rasterMaskAssets: mergedRasterAssets }
+        : {}),
     },
   };
 }
@@ -2761,17 +2775,29 @@ export function EditorProvider({
         const sel = state.selection;
         if (sel.length === 0) return;
         updateDoc((doc) => {
-          const nodes = { ...doc.nodes };
+          let d = { ...doc, nodes: { ...doc.nodes } };
           for (const id of sel) {
-            const node = nodes[id];
+            const node = d.nodes[id];
             if (!node) continue;
             const current = resolveNodeFills(node);
             const next = [...current];
             if (index >= 0 && index < next.length) next[index] = fill;
             else next.push(fill);
-            nodes[id] = { ...node, fills: next } as SceneNode;
+            d.nodes[id] = { ...node, fills: next } as SceneNode;
+            // When an image fill's src changes and the node has a raster mask,
+            // mark the mask stale so the user knows to re-run background removal.
+            if (
+              node.mask?.rasterMask &&
+              fill.type === 'image' &&
+              fill.image?.src &&
+              current[index]?.type === 'image' &&
+              current[index]?.image?.src &&
+              current[index]?.image?.src !== fill.image.src
+            ) {
+              d = markMaskStale(d, id, 'source-replaced');
+            }
           }
-          return { ...doc, nodes };
+          return d;
         });
       },
 
@@ -4285,7 +4311,9 @@ export function EditorProvider({
         if (sel.length === 0) return;
         const nodes = gatherSubtreeNodes(state.document, sel);
         if (nodes.length === 0) return;
-        writeToClipboard(nodes);
+        const nodeIds = nodes.map((n) => n.id);
+        const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
+        writeToClipboard(nodes, closure.rasterMaskAssets);
         announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
@@ -4379,7 +4407,13 @@ export function EditorProvider({
             for (const node of strataData.nodes) {
               tempNodes[node.id] = node;
             }
-            const tempDoc: Document = { ...doc, nodes: tempNodes };
+            const tempDoc: Document = {
+              ...doc,
+              nodes: tempNodes,
+              ...(strataData.rasterMaskAssets
+                ? { rasterMaskAssets: strataData.rasterMaskAssets }
+                : {}),
+            };
             // copySelected()/cutSelected() serialize each selected node plus
             // its full descendant subtree (gatherSubtreeNodes), so a node
             // referenced as another copied node's child is a descendant, not
