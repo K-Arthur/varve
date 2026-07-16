@@ -83,6 +83,16 @@ export {
   interpolateManagedColor,
   sampleGradientColor,
 } from './colorInterpolation';
+export {
+  autoFixContrast,
+  contrastRatio,
+  relativeLuminance,
+  WCAG_AA_LARGE,
+  WCAG_AA_NORMAL,
+  WCAG_AAA_LARGE,
+  WCAG_AAA_NORMAL,
+  wcagLevel,
+} from './contrast';
 export type { RulerMode } from './coordinates';
 export {
   artboardToWorld,

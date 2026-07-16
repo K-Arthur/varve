@@ -161,3 +161,12 @@ export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   drawing: 'Draw',
   image: 'Photo',
 };
+
+/** Lucide icon name per mode, for the workspace switcher (icon + label,
+ *  Affinity-persona / Figma-Dev-Mode style rather than text-only tabs). */
+export const WORKSPACE_ICONS: Record<WorkspaceMode, import('@strata/ui').IconName> = {
+  design: 'PenTool',
+  print: 'Printer',
+  drawing: 'Paintbrush',
+  image: 'Image',
+};
