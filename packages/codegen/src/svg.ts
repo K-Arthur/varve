@@ -121,9 +121,11 @@ function shapeClipPath(node: import('@strata/scene').SceneNode): string {
       return `<path d="${pathToData(s)}"${fillRuleAttr} />`;
     }
     case 'line':
-      return `<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="black" stroke-width="${s.tolerance * 2}" />`;
-    case 'arrow':
-      return `<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="black" stroke-width="${s.tolerance * 2}" />`;
+    case 'arrow': {
+      const stroke = node.strokes?.[0];
+      const sw = stroke?.weight ?? s.tolerance * 2;
+      return `<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="black" stroke-width="${sw}" />`;
+    }
     default:
       return '';
   }
@@ -354,8 +356,12 @@ function renderSourceNodeAsMaskContent(
         case 'circle':
           return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillColor}"${withTransform} />`;
         case 'line':
-        case 'arrow':
-          return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fillColor}" stroke-width="${s.tolerance * 2}" stroke-linecap="round"${withTransform} />`;
+        case 'arrow': {
+          const stroke = node.strokes?.[0];
+          const sw = stroke?.weight ?? s.tolerance * 2;
+          const strokeColor = stroke?.color ? rgba(stroke.color) : fillColor;
+          return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="round"${withTransform} />`;
+        }
         case 'polygon':
         case 'star':
           return `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillColor}"${withTransform} />`;
@@ -598,6 +604,73 @@ function buildTextContent(node: TextNode, indent: string): string {
   return spans.join('\n');
 }
 
+const ARROW_SPREAD = Math.PI / 7;
+
+function arrowheadSvgPath(
+  from: readonly [number, number],
+  to: readonly [number, number],
+  size: number,
+  style: 'arrow' | 'circle' | 'square' | 'diamond',
+  isStart: boolean,
+): string {
+  const tip = isStart ? from : to;
+  const tail = isStart ? to : from;
+  const angle = Math.atan2(tip[1] - tail[1], tip[0] - tail[0]);
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const transform = (lx: number, ly: number): string => {
+    const x = tip[0] + lx * cos - ly * sin;
+    const y = tip[1] + lx * sin + ly * cos;
+    return `${x.toFixed(2)} ${y.toFixed(2)}`;
+  };
+
+  switch (style) {
+    case 'arrow': {
+      const x1 = -size * Math.cos(-ARROW_SPREAD);
+      const y1 = -size * Math.sin(-ARROW_SPREAD);
+      const x2 = -size * Math.cos(ARROW_SPREAD);
+      const y2 = -size * Math.sin(ARROW_SPREAD);
+      return `M ${transform(0, 0)} L ${transform(x1, y1)} L ${transform(x2, y2)} Z`;
+    }
+    case 'circle': {
+      const r = size * 0.5;
+      return `M ${transform(-r, 0)} A ${r} ${r} 0 1 0 ${transform(r, 0)} A ${r} ${r} 0 1 0 ${transform(-r, 0)} Z`;
+    }
+    case 'square': {
+      const s = size * 0.7;
+      return `M ${transform(-s, -s * 0.5)} L ${transform(0, -s * 0.5)} L ${transform(0, s * 0.5)} L ${transform(-s, s * 0.5)} Z`;
+    }
+    case 'diamond': {
+      const s = size * 0.6;
+      return `M ${transform(0, 0)} L ${transform(-s, -s * 0.5)} L ${transform(-s * 2, 0)} L ${transform(-s, s * 0.5)} Z`;
+    }
+  }
+}
+
+function lineArrowheadSvgTags(node: SceneNode, indent: string, withTransform: string): string[] {
+  if (node.kind !== 'shape') return [];
+  const s = node.shape;
+  if (s.kind !== 'line' && s.kind !== 'arrow') return [];
+  const strokes = node.strokes ?? [];
+  if (strokes.length === 0) return [];
+  const stroke = strokes[0]!;
+  const weight = stroke.weight || 1;
+  const strokeColor = stroke.color ? rgba(stroke.color) : 'black';
+  const headSize = s.kind === 'arrow' ? Math.max(s.arrowheadSize, weight * 3) : weight * 3;
+  const arrowStart = stroke.arrowStart ?? (s.kind === 'arrow' ? 'none' : 'none');
+  const arrowEnd = stroke.arrowEnd ?? (s.kind === 'arrow' ? 'arrow' : 'none');
+  const tags: string[] = [];
+  if (arrowStart !== 'none') {
+    const d = arrowheadSvgPath(s.from, s.to, headSize, arrowStart, true);
+    tags.push(`${indent}<path d="${d}" fill="${strokeColor}"${withTransform} />`);
+  }
+  if (arrowEnd !== 'none') {
+    const d = arrowheadSvgPath(s.from, s.to, headSize, arrowEnd, false);
+    tags.push(`${indent}<path d="${d}" fill="${strokeColor}"${withTransform} />`);
+  }
+  return tags;
+}
+
 function nodeToSvgTag(
   node: SceneNode,
   doc: SceneDocument,
@@ -633,7 +706,14 @@ function nodeToSvgTag(
         case 'circle':
           return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${withTransform} />`;
         case 'line':
-          return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fillAttr}" stroke-width="${s.tolerance * 2}" stroke-linecap="round"${withTransform} />`;
+        case 'arrow': {
+          const stroke = node.strokes?.[0];
+          const sw = stroke?.weight ?? s.tolerance * 2;
+          const strokeColor = stroke?.color ? rgba(stroke.color) : fillAttr;
+          const lineTag = `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="${stroke?.cap ?? 'round'}"${withTransform} />`;
+          const headTags = lineArrowheadSvgTags(node, indent, withTransform);
+          return headTags.length > 0 ? `${lineTag}\n${headTags.join('\n')}` : lineTag;
+        }
         case 'polygon':
         case 'star':
           return `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform} />`;

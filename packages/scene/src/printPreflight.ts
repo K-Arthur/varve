@@ -13,6 +13,7 @@ import { DEFAULT_ARTWORK_FONT_FAMILY, physicalToPx } from '@strata/shared';
 import type { ColorMode } from './colorManagement';
 import type { Document } from './document';
 import { isImageShape } from './fills';
+import { shapeHeight, shapeWidth } from './types';
 import type { NodeId, ShapeNode } from './types';
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -187,7 +188,10 @@ export function runPrintPreflight(
   // ── Node-level checks ─────────────────────────────────────────────────
   for (const node of Object.values(doc.nodes)) {
     if (isImageShape(node)) {
-      checkImageNode(node as ShapeNode, doc, opts, issues);
+      checkImageNode(node as ShapeNode, opts, issues);
+    }
+    if (node.kind === 'shape') {
+      checkNodeColorSpace(node, opts, issues);
     }
     if (opts.checkFonts && node.kind === 'text') {
       checkTextNodeForPrint(node, opts, issues);
@@ -274,22 +278,92 @@ function checkTextNodeForPrint(
   }
 }
 
+/**
+ * Computes the effective DPI of a placed image: its native pixel dimensions
+ * divided by the physical size it is displayed at (box size × node transform
+ * scale, at the standard 96px/inch document scale). This is independent of
+ * the document's target export DPI (`doc.dpi`, checked separately above) —
+ * a document can be configured for 300 DPI output while an individual image
+ * is stretched far beyond its native resolution, and vice versa.
+ */
 function checkImageNode(
   node: ShapeNode,
-  doc: Document,
   opts: PrintPreflightOptions,
   issues: PrintPreflightIssue[],
 ): void {
-  if (opts.minDpi !== undefined && doc.dpi && doc.dpi > 0) {
-    const effectiveDpi = doc.dpi;
-    if (effectiveDpi < opts.minDpi) {
-      issues.push({
-        severity: 'warning',
-        category: 'resolution',
-        message: `Image "${node.name}" may be low resolution for ${doc.dpi} DPI print output.`,
-        nodeId: node.id,
-      });
-    }
+  if (opts.minDpi === undefined) return;
+  const fill = node.fills?.find((f) => f.type === 'image');
+  const img = fill?.image;
+  if (!img?.imageWidth || !img.imageHeight) return; // native size unknown; nothing to compare against
+
+  const scaleX = Math.hypot(node.transform[0], node.transform[1]);
+  const scaleY = Math.hypot(node.transform[2], node.transform[3]);
+  const boxWidthPx = shapeWidth(node.shape) * scaleX;
+  const boxHeightPx = shapeHeight(node.shape) * scaleY;
+  if (boxWidthPx <= 0 || boxHeightPx <= 0) return;
+
+  let displayedWidthPx: number;
+  let displayedHeightPx: number;
+  if (img.fit === 'tile') {
+    // Repeating pattern — a single placed-image DPI figure isn't meaningful.
+    return;
+  }
+  if (img.fit === 'fit') {
+    displayedWidthPx = img.imageWidth * img.scale;
+    displayedHeightPx = img.imageHeight * img.scale;
+  } else {
+    // 'fill' | 'stretch': the image is scaled to match its box exactly.
+    displayedWidthPx = boxWidthPx;
+    displayedHeightPx = boxHeightPx;
+  }
+  if (displayedWidthPx <= 0 || displayedHeightPx <= 0) return;
+
+  const effectiveDpiX = img.imageWidth / (displayedWidthPx / 96);
+  const effectiveDpiY = img.imageHeight / (displayedHeightPx / 96);
+  const effectiveDpi = Math.min(effectiveDpiX, effectiveDpiY);
+
+  if (effectiveDpi < opts.minDpi) {
+    issues.push({
+      severity: 'warning',
+      category: 'resolution',
+      message: `Image "${node.name}" is placed at approximately ${Math.round(effectiveDpi)} effective DPI, below the recommended ${opts.minDpi} DPI for print quality.`,
+      nodeId: node.id,
+    });
+  }
+}
+
+/**
+ * Flags shapes with an RGB fill or stroke color when the export target
+ * requires CMYK. Only solid colors are checked (gradients/patterns resolve
+ * per-stop and are out of scope for this pass).
+ */
+function checkNodeColorSpace(
+  node: ShapeNode,
+  opts: PrintPreflightOptions,
+  issues: PrintPreflightIssue[],
+): void {
+  if (opts.requiredColorMode !== 'cmyk') return;
+
+  const hasRgbFill = node.fills?.some(
+    (f) => f.type === 'solid' && f.visible !== false && f.color?.space === 'rgb',
+  );
+  if (hasRgbFill) {
+    issues.push({
+      severity: 'warning',
+      category: 'color-space',
+      message: `"${node.name}" uses an RGB fill color; convert to CMYK for accurate print output.`,
+      nodeId: node.id,
+    });
+  }
+
+  const hasRgbStroke = node.strokes?.some((s) => s.visible && s.color?.space === 'rgb');
+  if (hasRgbStroke) {
+    issues.push({
+      severity: 'warning',
+      category: 'color-space',
+      message: `"${node.name}" uses an RGB stroke color; convert to CMYK for accurate print output.`,
+      nodeId: node.id,
+    });
   }
 }
 

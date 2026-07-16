@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
+import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Plugins' | 'Help';
 
@@ -154,6 +155,10 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
         action: 'canvasModePreview',
       },
+      { label: '---' },
+      { label: 'Workspace: Design', action: 'workspaceDesign' },
+      { label: 'Workspace: Print', action: 'workspacePrint' },
+      { label: 'Workspace: Draw', action: 'workspaceDrawing' },
       { label: '---' },
       {
         label: 'Fit Active Page',
@@ -333,6 +338,7 @@ function itemRole(item: MenuItem): string {
   if (item.action?.startsWith('theme:')) return 'menuitemradio';
   if (item.action?.startsWith('canvasMode')) return 'menuitemcheckbox';
   if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
+  if (item.action?.startsWith('workspace')) return 'menuitemradio';
   return 'menuitem';
 }
 
@@ -375,6 +381,7 @@ export function Menubar({
     assignMasterToPage,
     createMaster,
     toggleFacingPages,
+    setWorkspaceMode,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -521,6 +528,16 @@ export function Menubar({
           break;
       }
 
+      // Workspace mode switching (outside the registry to avoid no-op stubs)
+      if (
+        action === 'workspaceDesign' ||
+        action === 'workspacePrint' ||
+        action === 'workspaceDrawing'
+      ) {
+        setWorkspaceMode(action.replace('workspace', '').toLowerCase() as WorkspaceMode);
+        return;
+      }
+
       // Fallback to shared action registry
       const registry = getActionRegistry();
       const registered = registry.get(action);
@@ -565,6 +582,7 @@ export function Menubar({
       assignMasterToPage,
       createMaster,
       toggleFacingPages,
+      setWorkspaceMode,
     ],
   );
 
@@ -755,6 +773,9 @@ export function Menubar({
               const colorBlindType = item.action?.startsWith('colorBlindness')
                 ? item.action.slice('colorBlindness'.length).toLowerCase()
                 : null;
+              const workspaceType = item.action?.startsWith('workspace')
+                ? item.action.replace('workspace', '').toLowerCase()
+                : null;
               const isChecked =
                 item.action === 'canvasModeOutline'
                   ? state.canvasMode === 'outline'
@@ -762,7 +783,9 @@ export function Menubar({
                     ? state.canvasMode === 'preview'
                     : colorBlindType !== null
                       ? state.colorBlindnessView === colorBlindType
-                      : undefined;
+                      : workspaceType !== null
+                        ? state.workspaceMode === workspaceType
+                        : undefined;
               return (
                 // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role per ARIA spec
                 <button
@@ -778,7 +801,9 @@ export function Menubar({
                           ? state.canvasMode === 'preview'
                           : colorBlindType !== null
                             ? state.colorBlindnessView === colorBlindType
-                            : undefined
+                            : workspaceType !== null
+                              ? state.workspaceMode === workspaceType
+                              : undefined
                   }
                   disabled={!item.action}
                   className={`editor-menubar__menu-item${isActive || isChecked ? ' editor-menubar__menu-item--active' : ''}`}
@@ -795,39 +820,56 @@ export function Menubar({
         </FloatingPortal>
       )}
 
-      {/* ── Center: Document name (absolutely centered in menubar) ── */}
-      <div className="editor-menubar__doc-name">
-        {editingName ? (
-          <input
-            ref={nameInputRef}
-            className="editor-menubar__doc-name-input"
-            value={nameDraft}
-            onChange={(e) => setNameDraft(e.target.value)}
-            onBlur={commitName}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitName();
-              if (e.key === 'Escape') setEditingName(false);
-            }}
-            aria-label="Document name"
-          />
-        ) : (
-          // biome-ignore lint/a11y/useSemanticElements: span with role="button" is intentional for inline clickable text; keyboard + click handlers present
-          <span
-            role="button"
-            tabIndex={0}
-            className="editor-menubar__doc-name-text"
-            onClick={startNameEdit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                startNameEdit();
-              }
-            }}
-            title="Click to rename"
-          >
-            {state.document.name || 'Untitled'}
-          </span>
-        )}
+      {/* ── Center: Workspace mode switcher + Document name ── */}
+      <div className="editor-menubar__center">
+        <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
+          {(['design', 'print', 'drawing'] as WorkspaceMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={state.workspaceMode === mode}
+              className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
+              onClick={() => setWorkspaceMode(mode)}
+              title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${mode === 'design' ? '1' : mode === 'print' ? '2' : '3'})`}
+            >
+              {WORKSPACE_LABELS[mode]}
+            </button>
+          ))}
+        </div>
+        <div className="editor-menubar__doc-name">
+          {editingName ? (
+            <input
+              ref={nameInputRef}
+              className="editor-menubar__doc-name-input"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitName();
+                if (e.key === 'Escape') setEditingName(false);
+              }}
+              aria-label="Document name"
+            />
+          ) : (
+            // biome-ignore lint/a11y/useSemanticElements: span with role="button" is intentional for inline clickable text; keyboard + click handlers present
+            <span
+              role="button"
+              tabIndex={0}
+              className="editor-menubar__doc-name-text"
+              onClick={startNameEdit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  startNameEdit();
+                }
+              }}
+              title="Click to rename"
+            >
+              {state.document.name || 'Untitled'}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* ── Right: Zoom + Undo/Redo ── */}

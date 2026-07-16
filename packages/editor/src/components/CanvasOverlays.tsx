@@ -415,6 +415,7 @@ export function CanvasOverlays({
         textEditTargetId={textEditTargetId}
         setTextEditTargetId={setTextEditTargetId}
         setNodeEditTargetId={setNodeEditTargetId}
+        containerHeight={canvasSize.height}
       />
       {renderCropOverlay}
       {renderTextEdit}

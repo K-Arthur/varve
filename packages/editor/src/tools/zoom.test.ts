@@ -40,6 +40,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     hasCoalescedEvents: false,
     hasPredictedEvents: false,
     sourceEvents: [],
+    foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
     snapEnabled: false,
     snapGrid: 8,
     createShapeAt: vi.fn(),
@@ -92,6 +93,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     setNodeEditSelectedAnchors: vi.fn(),
     setTextEditTargetId: vi.fn(),
     duplicateSelected: vi.fn(),
+    createRasterLayer: vi.fn(() => null),
     snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
       x: b.x,
       y: b.y,

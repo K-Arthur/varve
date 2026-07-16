@@ -3,25 +3,9 @@
  */
 
 import { decodeMaskDataUrl } from './maskDecode';
+import { maskToDataUrl } from './heuristic';
 import { filterMaskByComponents, findConnectedComponents } from './maskOps';
 import type { BackgroundRemovalResult } from './types';
-
-function maskToDataUrlLocal(mask: Uint8Array, width: number, height: number): string {
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d')!;
-  const imageData = ctx.createImageData(width, height);
-  for (let i = 0; i < mask.length; i++) {
-    const v = mask[i] ?? 0;
-    imageData.data[i * 4] = v;
-    imageData.data[i * 4 + 1] = v;
-    imageData.data[i * 4 + 2] = v;
-    imageData.data[i * 4 + 3] = v;
-  }
-  ctx.putImageData(imageData, 0, 0);
-  return canvas.toDataURL('image/png');
-}
 
 export interface FinalizeMaskOptions {
   /** Component ids to keep. When omitted and multiple blobs exist, keeps largest only. */
@@ -36,9 +20,16 @@ export interface FinalizeMaskResult extends BackgroundRemovalResult {
   needsSubjectPicker?: boolean;
 }
 
+function computeMinArea(width: number, height: number): number {
+  // Reject isolated noise: a single blob must be at least as large as the
+  // image diagonal (in pixels) and never smaller than 50 px.
+  return Math.max(50, Math.round(Math.sqrt(width * height)));
+}
+
 /**
  * Filter mask to selected (or largest) connected components.
- * When `promptIfMultiple` is set, signals picker instead of auto-filtering.
+ * When `promptIfMultiple` is set and multiple significant blobs remain,
+ * signals picker instead of auto-filtering.
  */
 export async function finalizeMaskResult(
   result: BackgroundRemovalResult,
@@ -46,25 +37,46 @@ export async function finalizeMaskResult(
 ): Promise<FinalizeMaskResult> {
   const { mask, width, height } = await decodeMaskDataUrl(result.maskDataUrl);
   const components = findConnectedComponents(mask, width, height);
+  const minArea = computeMinArea(width, height);
+  const significant = components.filter((c) => c.pixelCount >= minArea);
 
-  if (components.length <= 1) {
-    return { ...result, components, needsSubjectPicker: false };
+  if (significant.length === 0) {
+    // All components were noise; clear the mask so the user isn't misled.
+    const emptyMask = new Uint8Array(mask.length);
+    return {
+      ...result,
+      maskDataUrl: maskToDataUrl(emptyMask, width, height),
+      components: [],
+      needsSubjectPicker: false,
+    };
+  }
+
+  if (significant.length === 1) {
+    const keepIds = new Set([significant[0]!.id]);
+    const filtered = filterMaskByComponents(mask, width, height, keepIds);
+    return {
+      ...result,
+      maskDataUrl: maskToDataUrl(filtered, width, height),
+      components: significant,
+      needsSubjectPicker: false,
+    };
   }
 
   if (opts.promptIfMultiple) {
     return {
       ...result,
-      components,
+      components: significant,
       needsSubjectPicker: true,
     };
   }
 
-  const keepIds = opts.keepComponentIds ?? (components[0] ? [components[0].id] : []);
-  const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
+  const keepIds = new Set(opts.keepComponentIds ?? [significant[0]!.id]);
+  const filtered = filterMaskByComponents(mask, width, height, keepIds);
+  const keptComponents = significant.filter((c) => keepIds.has(c.id));
   return {
     ...result,
-    maskDataUrl: maskToDataUrlLocal(filtered, width, height),
-    components,
+    maskDataUrl: maskToDataUrl(filtered, width, height),
+    components: keptComponents,
     needsSubjectPicker: false,
   };
 }

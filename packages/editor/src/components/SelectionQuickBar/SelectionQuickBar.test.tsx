@@ -33,6 +33,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={vi.fn()}
       />,
     );
@@ -47,6 +48,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={onAction}
       />,
     );
@@ -59,6 +61,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={vi.fn()}
         pendingActionIds={['removeBg']}
       />,
@@ -72,6 +75,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={onAction}
       />,
     );
@@ -85,6 +89,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={vi.fn()}
       />,
     );
@@ -98,6 +103,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={vi.fn()}
         activeActionIds={['flipH']}
       />,
@@ -114,6 +120,7 @@ describe('SelectionQuickBar', () => {
       <SelectionQuickBar
         profile={imageProfile}
         screenBounds={{ x: 200, y: 100, w: 180, h: 220 }}
+        containerHeight={900}
         onAction={vi.fn()}
       />,
     );

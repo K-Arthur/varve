@@ -486,3 +486,41 @@
   font-size: var(--font-size-xs);
   color: var(--text-tertiary);
 }
+
+.adj-lut-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.adj-lut-editor__import-btn {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--bg-control);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.15s;
+}
+
+.adj-lut-editor__import-btn:hover {
+  border-color: var(--color-accent-primary);
+  color: var(--text-primary);
+}
+
+.adj-lut-editor__status {
+  font-size: var(--font-size-xs);
+  color: var(--text-tertiary);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+}
+
+.adj-lut-editor__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+}

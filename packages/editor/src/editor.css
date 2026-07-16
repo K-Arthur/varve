@@ -89,6 +89,15 @@
 
 .editor-shell {
   display: grid;
+  /* position:relative is load-bearing, not decorative: CSS Grid only lets a
+   * position:absolute grid item (e.g. .floating-toolbar's grid-area:canvas)
+   * use its grid area as the containing block when the grid container
+   * itself establishes a containing block (i.e. is not position:static).
+   * Without this, such children fall back to the initial containing block
+   * (the document), silently ignoring the grid entirely and overlapping
+   * whatever real content sits below the "canvas" row (pagenav/selinfo/
+   * status) instead of being confined to it. */
+  position: relative;
   grid-template-areas:
     "menubar  menubar   menubar"
     "tabs     tabs      tabs"
@@ -418,6 +427,9 @@
   height: 100%;
   pointer-events: none;
   color: var(--color-accent-primary);
+  /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
+   * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
+  z-index: 10;
 }
 
 .editor-canvas {
@@ -429,6 +441,23 @@
   outline: none;
 }
 
+/*
+ * Canvas stacking scale (lowest to highest):
+ *   0   .editor-canvas__grid-layer
+ *   1   .editor-canvas__pixel-grid
+ *   2   .editor-canvas__content-layer   (opaque page background + shapes)
+ *   3   .editor-canvas__overlay-layer   (opaque; draft shapes, layout grid)
+ *   4   .editor-canvas__color-blindness
+ *   9   .ruler-container
+ *   10  interactive overlays (selection/gradient/node-edit/crop/alignment/
+ *       measure/snap-guide handles) — see CANVAS_INTERACTIVE_OVERLAY_Z_INDEX
+ *       in canvas/overlayZIndex.ts. These MUST set this explicitly: the
+ *       content/overlay canvases above paint an opaque background across
+ *       their full bounds, so a sibling left at the CSS default `z-index:
+ *       auto` renders completely hidden behind them, not just where a shape
+ *       is drawn.
+ *   100 .editor-canvas__zoom-indicator
+ */
 .editor-canvas__grid-layer {
   position: absolute;
   inset: 0;
@@ -716,14 +745,64 @@
   }
 }
 
-/* ── Docs name in menubar ── */
-.editor-menubar__doc-name {
+/* ── Center section (mode switcher + doc name) ── */
+.editor-menubar__center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
+  max-width: 50%;
+  min-width: 0;
+}
+
+.editor-menubar__workspace {
   display: flex;
   align-items: center;
-  max-width: 240px;
+  gap: 2px;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-md);
+  padding: 2px;
+  flex-shrink: 0;
+}
+
+.editor-menubar__workspace-btn {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  padding: var(--space-05) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-muted);
+  cursor: default;
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
+}
+
+.editor-menubar__workspace-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.editor-menubar__workspace-btn--active {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+
+.editor-menubar__workspace-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* ── Docs name in menubar ── */
+.editor-menubar__doc-name {
+  display: flex;
+  align-items: center;
+  max-width: 200px;
   min-width: 0;
   pointer-events: auto;
 }

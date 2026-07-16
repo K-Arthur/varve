@@ -1,8 +1,10 @@
 import { type Platform, upsertPreservingMeta } from '@strata/platform';
-import { createDocument, DocumentCodec, validateDocument } from '@strata/scene';
+import { createDocument, type Document, DocumentCodec, validateDocument } from '@strata/scene';
+import type { Viewport } from '@strata/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
 import type { EditorState } from './types';
+import { getCanvasViewport } from './viewportOps';
 
 export interface PersistenceAPI {
   newDocument: () => void;
@@ -20,6 +22,15 @@ export function usePersistence(
   snapshotSession: () => void,
   resetUndo: () => void,
   recoveryRef: React.MutableRefObject<RecoveryManager | null>,
+  // The document format has no saved camera, so opening a file whose content
+  // lives far from world origin needs an explicit fit-to-content fallback —
+  // shares the exact same "Fit all" computation used elsewhere, passed in
+  // rather than duplicated (it depends on walkNodes/nodeWorldBounds/
+  // fitBoundsCamera already imported in context.tsx).
+  computeFitAllCamera: (
+    doc: Document,
+    viewport: Viewport,
+  ) => { zoom: number; pan: { x: number; y: number } } | null,
 ): PersistenceAPI {
   const newDocument = useCallback(() => {
     snapshotSession();
@@ -82,17 +93,19 @@ export function usePersistence(
         const sessions = state.sessions.map((s) =>
           s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
         );
+        const cam = computeFitAllCamera(doc, getCanvasViewport());
         patch({
           document: doc,
           selection: [],
           sessions,
           dirty: false,
+          ...(cam ? { zoom: cam.zoom, pan: cam.pan } : {}),
         });
       } catch {
         // invalid JSON — ignore silently
       }
     },
-    [patch, resetUndo, state.sessions, state.activeId],
+    [patch, resetUndo, state.sessions, state.activeId, computeFitAllCamera],
   );
 
   return { newDocument, serializeDocument, save, saveAs, loadDocument };

@@ -4,6 +4,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 test.describe('Background removal — all modes', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     // Dismiss ALL overlays: Welcome dialog + Getting Started panel

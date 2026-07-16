@@ -52,7 +52,7 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
         max={1}
         onChange={setSelectedOpacity}
       />
-      <FieldRow label="Blend">
+      <FieldRow label="Blend mode">
         <Select
           label="Blend mode"
           value={isMixed(blendRaw) ? '' : blendRaw}

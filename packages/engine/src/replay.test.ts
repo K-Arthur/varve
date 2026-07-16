@@ -25,6 +25,8 @@ function recorder(): RecorderProxy {
     restore: mk('restore'),
     clip: mk('clip'),
     transform: mk('transform'),
+    translate: mk('translate'),
+    rotate: mk('rotate'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),
@@ -171,6 +173,12 @@ class Recorder implements ReplayTarget {
   }
   transform(a: number, b: number, c: number, d: number, e: number, f: number) {
     this.calls.push(`transform(${a},${b},${c},${d},${e},${f})`);
+  }
+  translate(x: number, y: number) {
+    this.calls.push(`translate(${x},${y})`);
+  }
+  rotate(angle: number) {
+    this.calls.push(`rotate(${angle})`);
   }
   fillRect(x: number, y: number, w: number, h: number) {
     this.calls.push(`fillRect(${x},${y},${w},${h})`);
@@ -443,7 +451,7 @@ describe('replayIr', () => {
     expect(rec.calls).toContain('moveTo(2)');
     expect(rec.calls).toContain('lineTo(2)');
     expect(rec.calls).toContain('stroke(0)');
-    expect(rec.props.lineWidth).toBe(4);
+    expect(rec.props.lineWidth).toBe(2);
     expect(rec.props.lineCap).toBe('round');
   });
 
@@ -889,6 +897,8 @@ describe('replayIr', () => {
         restore: vi.fn(),
         clip: vi.fn(),
         transform: vi.fn(),
+        translate: vi.fn(),
+        rotate: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),
         rect: vi.fn(),

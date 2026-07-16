@@ -16,14 +16,17 @@ export class LineTool extends BaseTool {
 
   override onDragMove(ctx: ToolContext): void {
     const line = this.computeDragLine(ctx);
-    const len = Math.sqrt((line.x2 - line.x1) ** 2 + (line.y2 - line.y1) ** 2);
+    const dx = line.x2 - line.x1;
+    const dy = line.y2 - line.y1;
+    const len = Math.sqrt(dx * dx + dy * dy);
+    const angle = Math.round(Math.atan2(dy, dx) * (180 / Math.PI));
     ctx.setDraft({
       kind: 'line',
       x1: line.x1,
       y1: line.y1,
       x2: line.x2,
       y2: line.y2,
-      label: `${Math.round(len)}px`,
+      label: `${Math.round(len)}px · ${angle}°`,
     });
   }
 

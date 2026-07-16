@@ -36,6 +36,8 @@ function canvasTarget(canvas: HTMLCanvasElement) {
     transform: (a0: number, a1: number, a2: number, a3: number, a4: number, a5: number) =>
       ctx.transform(a0, a1, a2, a3, a4, a5),
     clip: () => ctx.clip(),
+    translate: (x: number, y: number) => ctx.translate(x, y),
+    rotate: (angle: number) => ctx.rotate(angle),
     fillRect: (x: number, y: number, w: number, h: number) => ctx.fillRect(x, y, w, h),
     strokeRect: (x: number, y: number, w: number, h: number) => ctx.strokeRect(x, y, w, h),
     beginPath: () => ctx.beginPath(),

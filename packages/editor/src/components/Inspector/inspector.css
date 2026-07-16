@@ -929,6 +929,29 @@
   padding: 0 var(--space-1);
 }
 
+/* Image placement actions */
+.insp-image-placement__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+/* Fill row properties */
+.insp-fill-row__properties {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-left: var(--space-4);
+}
+
+/* Add new fill controls */
+.insp-fill-add__controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
 /* Image fill controls */
 .insp-image-fill {
   display: flex;
@@ -944,6 +967,15 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--color-border-subtle);
   background: var(--elevation-surface-sunken);
+  cursor: pointer;
+}
+.insp-image-fill__preview:hover {
+  border-color: var(--color-border-focus);
+}
+.insp-image-fill__src {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .insp-image-fill__preview-img {
   display: block;

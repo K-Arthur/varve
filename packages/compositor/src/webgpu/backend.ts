@@ -50,9 +50,7 @@ function fillToRgba(fill: RenderItem['fill']): [number, number, number, number] 
     }
     // For CMYK/Gray/Spot, convert via shared colour pipeline
     try {
-      const [r, g, b, a] = managedColorToRgba(
-        fill as { space: string; r: number; g: number; b: number; a: number },
-      );
+      const [r, g, b, a] = managedColorToRgba(fill);
 
       return [r / 255, g / 255, b / 255, a / 255];
     } catch {
