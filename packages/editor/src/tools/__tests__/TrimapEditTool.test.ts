@@ -24,7 +24,11 @@ function makeMockImageNode(overrides?: Record<string, unknown>) {
     mask: {
       type: 'alpha' as const,
       visible: true,
-      rasterMask: { assetId, coordinateSpace: 'source-image-pixels' as const, sourceIdentity: { kind: 'source-metadata' as const, locator: 'test-src', revision: 1 } },
+      rasterMask: {
+        assetId,
+        coordinateSpace: 'source-image-pixels' as const,
+        sourceIdentity: { kind: 'source-metadata' as const, locator: 'test-src', revision: 1 },
+      },
     },
     transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
     strokes: [],
@@ -79,7 +83,10 @@ describe('TrimapEditTool', () => {
     (tool as any).options.penMode = 'foreground';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
+    tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
 
     const centerIdx = 25 * 50 + 25;
     expect(trimap[centerIdx]).toBe(255);
@@ -103,7 +110,10 @@ describe('TrimapEditTool', () => {
     };
     (tool as any).mapper = mockMapper;
 
-    tool.onPointerDown({ altKey: false, clientX: 50, clientY: 50, pointerId: 1, pressure: 0.5 } as any, ctx);
+    tool.onPointerDown(
+      { altKey: false, clientX: 50, clientY: 50, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
 
     expect(mockMapper.mapWorldPoint).toHaveBeenCalledWith({ x: 50, y: 50 });
   });
@@ -127,7 +137,10 @@ describe('TrimapEditTool', () => {
     (tool as any).mapper = mockMapper;
 
     const ctx = makeMinimalCtx();
-    tool.onPointerDown({ altKey: false, clientX: 10, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
+    tool.onPointerDown(
+      { altKey: false, clientX: 10, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
 
     // The mapper maps world x=10 to source x=40 (flipped).
     // Brush radius 2: paints cols 38-42, rows 23-27.
@@ -149,7 +162,10 @@ describe('TrimapEditTool', () => {
     (tool as any).options.penMode = 'foreground';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: false, clientX: 5, clientY: 5, pointerId: 1, pressure: 0.1 } as any, ctx);
+    tool.onPointerDown(
+      { altKey: false, clientX: 5, clientY: 5, pointerId: 1, pressure: 0.1 } as any,
+      ctx,
+    );
 
     const postAvg = trimap.reduce((a, b) => a + b, 0) / trimap.length;
     expect(postAvg).toBeGreaterThanOrEqual(preAvg);
@@ -201,7 +217,10 @@ describe('TrimapEditTool', () => {
     (tool as any).options.penMode = 'unknown';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: false, clientX: 10, clientY: 10, pointerId: 1, pressure: 0.5 } as any, ctx);
+    tool.onPointerDown(
+      { altKey: false, clientX: 10, clientY: 10, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
 
     const idx = 10 * 50 + 10;
     expect(trimap[idx]).toBe(128);
@@ -233,7 +252,10 @@ describe('TrimapEditTool', () => {
     const tool = new TrimapEditTool();
     const ctx = makeMinimalCtx({ selection: [] });
 
-    const result = tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
+    const result = tool.onPointerDown(
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
+      ctx,
+    );
 
     expect(result.consumed).toBe(false);
   });
