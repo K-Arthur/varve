@@ -58,6 +58,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+function ownRasterMaskAsset(
+  doc: Pick<Document, 'rasterMaskAssets'>,
+  assetId: string,
+): RasterMaskAsset | undefined {
+  const assets = doc.rasterMaskAssets;
+  return assets && Object.hasOwn(assets, assetId) ? assets[assetId] : undefined;
+}
+
 function decodedBase64Length(payload: string): number {
   const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
   return Math.floor((payload.length * 3) / 4) - padding;
@@ -302,7 +310,7 @@ export function validateMaskSource(
       const provenanceError = validateProvenance(mask.rasterMask.provenance);
       if (provenanceError) return provenanceError;
     }
-    if (doc && !doc.rasterMaskAssets?.[mask.rasterMask.assetId]) {
+    if (doc && !ownRasterMaskAsset(doc, mask.rasterMask.assetId)) {
       return `Missing raster mask asset ${mask.rasterMask.assetId}`;
     }
   }
@@ -393,7 +401,7 @@ export function validateRasterMaskDocument(doc: Document): string | null {
       return `${node.id}: Raster masks may only attach to image-filled shape nodes`;
     }
     if (node.mask.rasterMask) {
-      const asset = doc.rasterMaskAssets?.[node.mask.rasterMask.assetId];
+      const asset = ownRasterMaskAsset(doc, node.mask.rasterMask.assetId);
       if (asset) {
         const dimensionError = validateSourcePixelDimensions(
           doc,
@@ -449,11 +457,12 @@ export function resolveRasterMaskAsset(
     mask.type !== 'alpha' ||
     mask.visible === false ||
     'sourceNodeId' in mask ||
-    'vectorMask' in mask
+    'vectorMask' in mask ||
+    !ASSET_ID_PATTERN.test(mask.rasterMask.assetId)
   ) {
     return null;
   }
-  return doc.rasterMaskAssets?.[mask.rasterMask.assetId] ?? null;
+  return ownRasterMaskAsset(doc, mask.rasterMask.assetId) ?? null;
 }
 
 /** True if the container has an active (visible, valid) mask. */
@@ -578,7 +587,7 @@ function isRasterAssetReferenced(doc: Document, assetId: string, exceptNodeId?: 
 }
 
 function withoutUnreferencedAsset(doc: Document, assetId: string): Document {
-  if (isRasterAssetReferenced(doc, assetId) || !doc.rasterMaskAssets?.[assetId]) return doc;
+  if (isRasterAssetReferenced(doc, assetId) || !ownRasterMaskAsset(doc, assetId)) return doc;
   const rasterMaskAssets = { ...doc.rasterMaskAssets };
   delete rasterMaskAssets[assetId];
   return {
@@ -599,7 +608,7 @@ export function addRasterMaskAsset(
 ): Document {
   const node = doc.nodes[nodeId];
   if (!node || !isImageShape(node) || validateRasterMaskAsset(asset)) return doc;
-  const existing = doc.rasterMaskAssets?.[asset.id];
+  const existing = ownRasterMaskAsset(doc, asset.id);
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
 
   const revision = rasterMask?.sourceIdentity?.revision ?? 1;
@@ -641,9 +650,16 @@ export function updateRasterMaskAsset(
   const current = currentMask?.rasterMask;
   if (!node || !currentMask || !current) return doc;
   if (validateRasterMaskAsset(asset)) return doc;
-  const existing = doc.rasterMaskAssets?.[asset.id];
+  const existing = ownRasterMaskAsset(doc, asset.id);
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
   if (validateSourcePixelDimensions(doc, node, current, asset)) return doc;
+  const currentEditRevision = current.editRevision ?? 0;
+  if (
+    !isSafeNonnegativeInteger(currentEditRevision) ||
+    currentEditRevision === Number.MAX_SAFE_INTEGER
+  ) {
+    return doc;
+  }
   const updated: Document = {
     ...doc,
     nodes: {
@@ -655,7 +671,7 @@ export function updateRasterMaskAsset(
           rasterMask: {
             ...current,
             assetId: asset.id,
-            editRevision: (current.editRevision ?? 0) + 1,
+            editRevision: currentEditRevision + 1,
           },
         },
       },
