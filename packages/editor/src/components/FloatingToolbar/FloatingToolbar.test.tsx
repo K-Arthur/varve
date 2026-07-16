@@ -1,0 +1,67 @@
+// @vitest-environment jsdom
+
+import '@testing-library/jest-dom/vitest';
+import { render, screen } from '@testing-library/react';
+import { useEffect } from 'react';
+import { describe, expect, it } from 'vitest';
+import { EditorProvider, useEditor } from '../../context';
+import type { WorkspaceMode } from '../../workspace/workspaceTypes';
+import { FloatingToolbar } from './FloatingToolbar';
+
+function SetWorkspaceMode({ mode }: { mode: WorkspaceMode }) {
+  const { setWorkspaceMode } = useEditor();
+  useEffect(() => {
+    setWorkspaceMode(mode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+  return null;
+}
+
+function renderInMode(mode: WorkspaceMode) {
+  return render(
+    <EditorProvider>
+      <SetWorkspaceMode mode={mode} />
+      <FloatingToolbar />
+    </EditorProvider>,
+  );
+}
+
+describe('FloatingToolbar — per-mode tool adaptation', () => {
+  it('Design mode hides raster paint/retouch tools but keeps shape and boolean tools', () => {
+    renderInMode('design');
+    expect(screen.queryByLabelText('Paint Brush')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Eraser')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Clone Stamp')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Healing Brush')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Pencil')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Shapes menu')).toBeInTheDocument();
+    expect(screen.getByLabelText('Boolean operations menu')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select')).toBeInTheDocument();
+  });
+
+  it('Print mode hides raster paint/retouch tools but keeps shape and boolean tools', () => {
+    renderInMode('print');
+    expect(screen.queryByLabelText('Paint Brush')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Eraser')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Shapes menu')).toBeInTheDocument();
+    expect(screen.getByLabelText('Boolean operations menu')).toBeInTheDocument();
+  });
+
+  it('Drawing mode shows paint/retouch tools and hides boolean ops', () => {
+    renderInMode('drawing');
+    expect(screen.getByLabelText('Paint Brush')).toBeInTheDocument();
+    expect(screen.getByLabelText('Eraser')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Boolean operations menu')).not.toBeInTheDocument();
+  });
+
+  it('Image mode hides the frame tool and boolean ops, keeps retouch tools', () => {
+    renderInMode('image');
+    expect(screen.queryByLabelText('Frame')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Boolean operations menu')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Clone Stamp')).toBeInTheDocument();
+    expect(screen.getByLabelText('Healing Brush')).toBeInTheDocument();
+    expect(screen.getByLabelText('Spot Heal')).toBeInTheDocument();
+    // Shape tool remains available (useful for selection marquees on a photo).
+    expect(screen.getByLabelText('Shapes menu')).toBeInTheDocument();
+  });
+});

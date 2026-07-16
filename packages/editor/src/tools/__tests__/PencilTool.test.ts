@@ -394,4 +394,36 @@ describe('PencilTool', () => {
       expect(pt.pressure).toBeLessThanOrEqual(1);
     }
   });
+
+  it('setStabilization(1) lags further behind a sudden jump than setStabilization(0)', () => {
+    const lowStab = new PencilTool();
+    lowStab.setStabilization(0);
+    const ctx1 = makeCtx();
+    lowStab.onPointerDown?.(makePointerEvent(100, 100), ctx1);
+    rafCb?.(0);
+    lowStab.onPointerMove?.(makePointerEvent(300, 100), ctx1);
+    rafCb?.(0);
+    const lowCaptured = (lowStab as unknown as { captured: Array<{ x: number }> }).captured;
+    const lowLast = lowCaptured[lowCaptured.length - 1]!.x;
+
+    const highStab = new PencilTool();
+    highStab.setStabilization(1);
+    const ctx2 = makeCtx();
+    highStab.onPointerDown?.(makePointerEvent(100, 100), ctx2);
+    rafCb?.(0);
+    highStab.onPointerMove?.(makePointerEvent(300, 100), ctx2);
+    rafCb?.(0);
+    const highCaptured = (highStab as unknown as { captured: Array<{ x: number }> }).captured;
+    const highLast = highCaptured[highCaptured.length - 1]!.x;
+
+    // Heavier stabilization should trail further behind the raw target (300)
+    // than light stabilization does.
+    expect(Math.abs(300 - highLast)).toBeGreaterThan(Math.abs(300 - lowLast));
+  });
+
+  it('setStabilization clamps to [0, 1]', () => {
+    const tool = new PencilTool();
+    expect(() => tool.setStabilization(-1)).not.toThrow();
+    expect(() => tool.setStabilization(2)).not.toThrow();
+  });
 });

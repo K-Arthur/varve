@@ -121,6 +121,15 @@ export interface EditorState {
   softProofEnabled: boolean;
   leftPanelVisible: boolean;
   rightPanelVisible: boolean;
+  /** Distraction-free canvas mode: hides chrome (menubar, side panels, status
+   *  bar, page nav) while keeping the canvas, floating toolbar, and an exit
+   *  affordance. Save/undo/zoom remain reachable via keyboard shortcuts,
+   *  which are not panel-dependent. */
+  distractionFreeMode: boolean;
+  /** Before/after image comparison: when a single image-fill shape is
+   *  selected, overlays its original source pixels for visual comparison.
+   *  A transient view flag, not a document mutation. */
+  beforeAfterCompare: boolean;
   timelinePanelVisible: boolean;
   /** Active workspace mode (design / print / drawing). */
   workspaceMode: WorkspaceMode;
@@ -241,6 +250,7 @@ export interface EditorContextValue {
   // Workspace
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
+  toggleDistractionFreeMode: () => void;
   // Selection
   setSelection: (id: NodeId | null) => void;
   toggleSelection: (id: NodeId, additive?: boolean) => void;
