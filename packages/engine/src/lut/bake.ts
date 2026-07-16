@@ -107,36 +107,51 @@ export function bakeFiltersToLut(filters: FilterIR[], options: BakeOptions): Bak
 
     return { lut, incompatibleFilters: incompatible };
   } else {
-    // 1D LUT — per-channel curves only
-    // For a 1D LUT, we bake only per-channel adjustments
+    // 1D LUT — sample each channel independently
     const r = new Float64Array(size);
     const g = new Float64Array(size);
     const b = new Float64Array(size);
 
     for (let i = 0; i < size; i++) {
       const t = i / (size - 1);
-      r[i] = t;
-      g[i] = t;
-      b[i] = t;
 
-      const surface = createRasterSurface(1, 1);
-      surface.context.fillStyle = `rgb(${Math.round(t * 255)}, ${Math.round(t * 255)}, ${Math.round(t * 255)})`;
-      surface.context.fillRect(0, 0, 1, 1);
-
+      // Sample red channel
+      const surfR = createRasterSurface(1, 1);
+      surfR.context.fillStyle = `rgb(${Math.round(t * 255)}, 0, 0)`;
+      surfR.context.fillRect(0, 0, 1, 1);
       for (const filter of usable) {
-        applySoftwareFilter(surface.context, filter, 1, 1);
+        applySoftwareFilter(surfR.context, filter, 1, 1);
       }
+      const imgR = surfR.context.getImageData(0, 0, 1, 1);
+      r[i] = imgR.data[0]! / 255;
 
-      const imageData = surface.context.getImageData(0, 0, 1, 1);
-      r[i] = imageData.data[0]! / 255;
+      // Sample green channel
+      const surfG = createRasterSurface(1, 1);
+      surfG.context.fillStyle = `rgb(0, ${Math.round(t * 255)}, 0)`;
+      surfG.context.fillRect(0, 0, 1, 1);
+      for (const filter of usable) {
+        applySoftwareFilter(surfG.context, filter, 1, 1);
+      }
+      const imgG = surfG.context.getImageData(0, 0, 1, 1);
+      g[i] = imgG.data[1]! / 255;
+
+      // Sample blue channel
+      const surfB = createRasterSurface(1, 1);
+      surfB.context.fillStyle = `rgb(0, 0, ${Math.round(t * 255)})`;
+      surfB.context.fillRect(0, 0, 1, 1);
+      for (const filter of usable) {
+        applySoftwareFilter(surfB.context, filter, 1, 1);
+      }
+      const imgB = surfB.context.getImageData(0, 0, 1, 1);
+      b[i] = imgB.data[2]! / 255;
     }
 
     const lut: Lut1D = {
       kind: '1d',
       size,
       r,
-      g: r,
-      b: r,
+      g,
+      b,
       inputMin: domainMin,
       inputMax: domainMax,
       metadata: {
