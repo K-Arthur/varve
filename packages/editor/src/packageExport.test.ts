@@ -4,6 +4,7 @@ import {
   type Fill,
   makeShapeNode,
   makeTextNode,
+  type RasterMaskAsset,
   type ShapeNode,
 } from '@strata/scene';
 import { strFromU8, unzipSync } from 'fflate';
@@ -67,5 +68,35 @@ describe('buildPackageExport', () => {
       family: 'Inter',
       bundled: false,
     });
+  });
+
+  it('includes raster mask assets in the package', () => {
+    const maskDataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPj/HwADBwIAMCbHYQAAAABJRU5ErkJggg==';
+    const maskAsset: RasterMaskAsset = {
+      id: 'mask-img-1',
+      mimeType: 'image/png',
+      dataUrl: maskDataUrl,
+      width: 1,
+      height: 1,
+      byteLength: 68,
+    };
+    const doc: Document = {
+      ...createDocument('MaskDoc', true),
+      rasterMaskAssets: { 'mask-img-1': maskAsset },
+    };
+    const result = buildPackageExport(doc);
+    const entries = unzipSync(result.bytes);
+
+    // The mask asset should be stored in the masks/ directory
+    expect(entries['masks/mask-img-1.png']).toBeDefined();
+
+    const manifest = readJson<PackageManifest>(entries, 'manifest.json');
+    const maskEntry = manifest.assets.find((a) => a.nodeId === 'mask-img-1');
+    expect(maskEntry).toBeDefined();
+    expect(maskEntry!.path).toBe('masks/mask-img-1.png');
+    expect(maskEntry!.mimeType).toBe('image/png');
+    expect(maskEntry!.status).toBe('embedded');
+    expect(maskEntry!.fillIndex).toBe(-1);
   });
 });

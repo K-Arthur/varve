@@ -319,6 +319,24 @@ function docBuildMaskDef(doc: Document, containerId: string, mask: Mask): string
   const maskId = `mask-${containerId}`;
   const lines: string[] = [];
 
+  // Raster mask: embedded alpha image from rasterMaskAssets.
+  if (mask.type === 'alpha' && 'rasterMask' in mask && mask.rasterMask) {
+    const assetId = mask.rasterMask.assetId;
+    const asset =
+      doc.rasterMaskAssets && Object.hasOwn(doc.rasterMaskAssets, assetId)
+        ? doc.rasterMaskAssets[assetId]
+        : undefined;
+    if (asset?.dataUrl) {
+      lines.push(`    <mask id="${maskId}">`);
+      lines.push(
+        `      <image href="${asset.dataUrl}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />`,
+      );
+      lines.push(`    </mask>`);
+      return lines.join('\n');
+    }
+    return null;
+  }
+
   const hasVectorMask = mask.vectorMask && mask.vectorMask.points.length > 0;
   const hasSourceNode = mask.sourceNodeId && doc.nodes[mask.sourceNodeId];
 
@@ -476,6 +494,10 @@ function nodeToSvg(
   const fill = rgba(node.fill);
   const transform = affineToSvg(node.transform);
 
+  const mask = resolveMask(node);
+  const maskAttr = mask ? (mask.type === 'clip' && !mask.inverted ? `clip-path` : `mask`) : null;
+  const maskUri = maskAttr ? `url(#mask-${node.id})` : null;
+
   switch (node.kind) {
     case 'shape': {
       const s = node.shape;
@@ -493,36 +515,56 @@ function nodeToSvg(
           const href = escapeXml(img.src);
           const w = fmtNum(s.kind === 'rect' ? s.w : 200, precision);
           const h = fmtNum(s.kind === 'rect' ? s.h : 160, precision);
-          return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="${par}" transform="${transform}" />`;
+          let tag = `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="${par}" transform="${transform}" />`;
+          if (maskUri) {
+            tag = `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
+          }
+          return tag;
         }
       }
+      let tag: string;
       switch (s.kind) {
         case 'rect':
-          return `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}" transform="${transform}" />`;
+          break;
         case 'ellipse':
-          return `${indent}<ellipse cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" rx="${fmtNum(s.rx, precision)}" ry="${fmtNum(s.ry, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<ellipse cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" rx="${fmtNum(s.rx, precision)}" ry="${fmtNum(s.ry, precision)}" fill="${fill}" transform="${transform}" />`;
+          break;
         case 'circle':
-          return `${indent}<circle cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" r="${fmtNum(s.r, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<circle cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" r="${fmtNum(s.r, precision)}" fill="${fill}" transform="${transform}" />`;
+          break;
         case 'line':
-          return `${indent}<line x1="${fmtNum(s.from[0], precision)}" y1="${fmtNum(s.from[1], precision)}" x2="${fmtNum(s.to[0], precision)}" y2="${fmtNum(s.to[1], precision)}" stroke="${fill}" stroke-width="${fmtNum(s.tolerance * 2, precision)}" stroke-linecap="round" transform="${transform}" />`;
+          tag = `${indent}<line x1="${fmtNum(s.from[0], precision)}" y1="${fmtNum(s.from[1], precision)}" x2="${fmtNum(s.to[0], precision)}" y2="${fmtNum(s.to[1], precision)}" stroke="${fill}" stroke-width="${fmtNum(s.tolerance * 2, precision)}" stroke-linecap="round" transform="${transform}" />`;
+          break;
         case 'polygon':
-          return `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+          break;
         case 'star':
-          return `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+          break;
         case 'path': {
           const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
           const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
-          return `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillRuleAttr} transform="${transform}" />`;
+          tag = `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillRuleAttr} transform="${transform}" />`;
+          break;
         }
         default:
-          return `${indent}<!-- unsupported shape: ${s.kind} -->`;
+          tag = `${indent}<!-- unsupported shape: ${s.kind} -->`;
       }
+      if (maskUri) {
+        return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
+      }
+      return tag;
     }
-    case 'text':
-      return `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}">${escapeXml(node.text)}</text>`;
+    case 'text': {
+      const tag = `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}">${escapeXml(node.text)}</text>`;
+      if (maskUri) {
+        return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
+      }
+      return tag;
+    }
     case 'frame':
     case 'group': {
-      const mask = resolveMask(node);
       const filtered = (node.children ?? []).filter(
         (cid) => !(mask?.hideMaskSource && mask.sourceNodeId === cid),
       );

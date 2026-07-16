@@ -166,4 +166,19 @@ describe('thumbnailCacheKey', () => {
     const k2 = thumbnailCacheKey({ id: 'abc', kind: 'shape', fill: undefined });
     expect(k1).toBe(k2);
   });
+
+  it('produces different key when mask editRevision changes', () => {
+    const base = { id: 'n1', kind: 'shape', fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } };
+    const withoutMask = thumbnailCacheKey(base);
+    const withMask = thumbnailCacheKey({
+      ...base,
+      mask: { visible: true, rasterMask: { editRevision: 1 } },
+    });
+    const bumped = thumbnailCacheKey({
+      ...base,
+      mask: { visible: true, rasterMask: { editRevision: 2 } },
+    });
+    expect(withoutMask).not.toBe(withMask);
+    expect(withMask).not.toBe(bumped);
+  });
 });

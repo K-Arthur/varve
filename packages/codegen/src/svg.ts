@@ -398,6 +398,25 @@ function buildMaskDef(doc: SceneDocument, containerId: string, mask: Mask): stri
   const lines: string[] = [];
   const indent = '      ';
 
+  // Raster mask: embedded alpha image from rasterMaskAssets.
+  if (mask.type === 'alpha' && 'rasterMask' in mask && mask.rasterMask) {
+    const assetId = mask.rasterMask.assetId;
+    const asset =
+      doc.rasterMaskAssets && Object.hasOwn(doc.rasterMaskAssets, assetId)
+        ? doc.rasterMaskAssets[assetId]
+        : undefined;
+    if (asset?.dataUrl) {
+      lines.push(`    <mask id="${maskId}">`);
+      lines.push(
+        `      <image href="${asset.dataUrl}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />`,
+      );
+      lines.push(`    </mask>`);
+      return lines.join('\n');
+    }
+    // Missing asset: empty mask (fully transparent)
+    return null;
+  }
+
   // Determine mask content
   const hasVectorMask = mask.vectorMask && mask.vectorMask.points.length > 0;
   const hasSourceNode = mask.sourceNodeId && doc.nodes[mask.sourceNodeId];
@@ -506,14 +525,15 @@ function buildMaskDef(doc: SceneDocument, containerId: string, mask: Mask): stri
   return lines.join('\n');
 }
 
-/** Walk a subtree and collect mask defs from every masked container. */
+/** Walk a subtree and collect mask defs from every masked node. */
 function collectSubtreeMaskDefs(doc: SceneDocument, node: SceneNode): string[] {
   const defs: string[] = [];
-  const mask = resolveMask(node);
+  const mask = resolveMask(node, doc);
   if (mask) {
     const def = buildMaskDef(doc, node.id, mask);
     if (def) defs.push(def);
   }
+  // Recurse into containers (frame, group) to check children.
   if (node.kind === 'frame' || node.kind === 'group') {
     for (const child of getChildren(doc, node)) {
       defs.push(...collectSubtreeMaskDefs(doc, child));
@@ -598,6 +618,22 @@ function buildTextContent(node: TextNode, indent: string): string {
   return spans.join('\n');
 }
 
+/**
+ * Build an SVG tag with optional mask wrapper for any node type.
+ */
+function buildMaskedNode(
+  inner: string,
+  node: SceneNode,
+  doc: SceneDocument,
+  indent: string,
+): string {
+  const mask = resolveMask(node, doc);
+  if (!mask) return inner;
+  const maskId = `url(#mask-${node.id})`;
+  const attr = mask.type === 'clip' && !mask.inverted ? `clip-path` : `mask`;
+  return `${indent}<g ${attr}="${maskId}">\n${inner}\n${indent}</g>`;
+}
+
 function nodeToSvgTag(
   node: SceneNode,
   doc: SceneDocument,
@@ -618,29 +654,41 @@ function nodeToSvgTag(
         const img = imgFill.image;
         const par = fitToPreserveAspectRatio(img.fit);
         const href = escapeXml(img.src);
+        let shapeInner: string;
         if (s.kind === 'rect') {
-          return `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform} />`;
+          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform} />`;
+        } else {
+          const clipId = `clip-${node.id}`;
+          const bounds = shapeBounds(s);
+          shapeInner = `${indent}<g${withTransform}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
         }
-        const clipId = `clip-${node.id}`;
-        const bounds = shapeBounds(s);
-        return `${indent}<g${withTransform}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
+        return buildMaskedNode(shapeInner, node, doc, indent);
       }
+      let shapeInner: string;
       switch (s.kind) {
         case 'rect':
-          return `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${withTransform} />`;
+          break;
         case 'ellipse':
-          return `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${withTransform} />`;
+          break;
         case 'circle':
-          return `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${withTransform} />`;
+          break;
         case 'line':
-          return `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fillAttr}" stroke-width="${s.tolerance * 2}" stroke-linecap="round"${withTransform} />`;
+          shapeInner = `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${fillAttr}" stroke-width="${s.tolerance * 2}" stroke-linecap="round"${withTransform} />`;
+          break;
         case 'polygon':
         case 'star':
-          return `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform} />`;
+          break;
         case 'path':
-          return `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${withTransform} />`;
+          break;
+        default:
+          shapeInner = '';
       }
-      break;
+      return buildMaskedNode(shapeInner, node, doc, indent);
     }
     case 'text': {
       const textNode = node as TextNode;
@@ -686,14 +734,13 @@ function nodeToSvgTag(
       }
       if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
 
-      const t = affineToSvg(transform);
-      const withTransform = ` transform="${t}"`;
       const content = buildTextContent(textNode, indent);
-      return `${indent}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+      const textTag = `${indent}<text ${attrs.join(' ')}${withTransform}>\n${content}\n${indent}</text>`;
+      return buildMaskedNode(textTag, node, doc, indent);
     }
     case 'frame':
     case 'group': {
-      const mask = resolveMask(node);
+      const mask = resolveMask(node, doc);
       const filteredChildren = getChildren(doc, node).filter(
         (child) => !(mask?.hideMaskSource && mask.sourceNodeId === child.id),
       );
