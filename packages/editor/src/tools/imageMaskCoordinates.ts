@@ -7,28 +7,50 @@
  * share identical pixel targeting.
  */
 import { computeImagePlacement, type ImagePlacement, localToSourcePixel } from '@strata/engine';
-import type { Document, SceneNode } from '@strata/scene';
-import { getImageFill } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@strata/scene';
+import { buildParentIndexMap, resolveNodePaints } from '@strata/scene';
 import { applyAffine, tryInvertAffine } from '@strata/shared';
 import { nodeLocalBounds, nodeWorldTransform } from '../scene/world';
 
-export interface WorldPointToImageMaskPixelOptions {
+export interface PrepareImageMaskMapperOptions {
   document: Document;
   node: SceneNode;
   sourceWidth: number;
   sourceHeight: number;
-  worldPoint: { x: number; y: number };
   /** Reuse placement computed by a hot pointer path when available. */
   placement?: ImagePlacement;
+  /** Reuse a document-level parent index when preparing multiple nodes. */
+  parentIndex?: Map<NodeId, NodeId>;
 }
 
-/** Convert a world pointer to a source-image mask pixel, or null when unpainted. */
-export function worldPointToImageMaskPixel(
-  options: WorldPointToImageMaskPixelOptions,
-): { x: number; y: number } | null {
-  const { document, node, sourceWidth, sourceHeight, worldPoint } = options;
-  if (node.kind !== 'shape') return null;
-  const image = getImageFill(node)?.image;
+export interface PreparedImageMaskMapper {
+  readonly placement: ImagePlacement;
+  mapWorldPoint(worldPoint: { x: number; y: number }): { x: number; y: number } | null;
+}
+
+export interface WorldPointToImageMaskPixelOptions extends PrepareImageMaskMapperOptions {
+  worldPoint: { x: number; y: number };
+}
+
+/**
+ * Prepare a reusable world-to-source mapper for a pointer stroke.
+ *
+ * Paint resolution, parent indexing, world-transform composition, and matrix
+ * inversion happen once here. Per-sample mapping performs only affine and
+ * placement arithmetic.
+ */
+export function prepareImageMaskMapper(
+  options: PrepareImageMaskMapperOptions,
+): PreparedImageMaskMapper | null {
+  const { document, node, sourceWidth, sourceHeight } = options;
+  // Identity matters: an immutable document may replace a node while a
+  // pointer stroke is active. Never edit a detached stale object with the
+  // same id as the current node.
+  if (document.nodes[node.id] !== node || node.kind !== 'shape') return null;
+  const image = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    document,
+  ).find((fill) => fill.type === 'image')?.image;
   const bounds = nodeLocalBounds(node, document);
   if (!image || !bounds) return null;
 
@@ -45,8 +67,22 @@ export function worldPointToImageMaskPixel(
     });
   if (!placement) return null;
 
-  const inverseWorld = tryInvertAffine(nodeWorldTransform(document, node.id));
+  const parentIndex = options.parentIndex ?? buildParentIndexMap(document);
+  const inverseWorld = tryInvertAffine(nodeWorldTransform(document, node.id, parentIndex));
   if (!inverseWorld) return null;
-  const [x, y] = applyAffine(inverseWorld, [worldPoint.x, worldPoint.y]);
-  return localToSourcePixel(placement, { x, y });
+  return {
+    placement,
+    mapWorldPoint(worldPoint) {
+      const [x, y] = applyAffine(inverseWorld, [worldPoint.x, worldPoint.y]);
+      return localToSourcePixel(placement, { x, y });
+    },
+  };
+}
+
+/** Convert one world pointer to a source-image mask pixel, or null when unpainted. */
+export function worldPointToImageMaskPixel(
+  options: WorldPointToImageMaskPixelOptions,
+): { x: number; y: number } | null {
+  const mapper = prepareImageMaskMapper(options);
+  return mapper?.mapWorldPoint(options.worldPoint) ?? null;
 }

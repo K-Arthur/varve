@@ -11,12 +11,23 @@ import {
   createDocument,
   imageFill,
   makeFrameNode,
+  makePaint,
   makeShapeNode,
 } from '@strata/scene';
-import { applyAffine } from '@strata/shared';
-import { describe, expect, it } from 'vitest';
+import { applyAffine, tryInvertAffine } from '@strata/shared';
+import { describe, expect, it, vi } from 'vitest';
 import { nodeWorldTransform } from '../scene/world';
-import { worldPointToImageMaskPixel } from './imageMaskCoordinates';
+import { prepareImageMaskMapper, worldPointToImageMaskPixel } from './imageMaskCoordinates';
+
+vi.mock('../scene/world', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../scene/world')>();
+  return { ...actual, nodeWorldTransform: vi.fn(actual.nodeWorldTransform) };
+});
+
+vi.mock('@strata/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@strata/shared')>();
+  return { ...actual, tryInvertAffine: vi.fn(actual.tryInvertAffine) };
+});
 
 function makeImageNode(transform: readonly [number, number, number, number, number, number]) {
   return {
@@ -84,6 +95,34 @@ function expectMapsThrough(
 }
 
 describe('worldPointToImageMaskPixel', () => {
+  it('resolves an image fill through paintRefs like scene rendering', () => {
+    let doc = createDocument('coords', true);
+    const node = {
+      ...makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 800, h: 800 }),
+      paintRefs: ['shared-image'],
+    };
+    doc = addNode(doc, node);
+    doc = {
+      ...doc,
+      paints: {
+        'shared-image': makePaint(
+          'shared-image',
+          'Shared image',
+          imageFill('asset', { fit: 'stretch' }),
+        ),
+      },
+    };
+    expect(
+      worldPointToImageMaskPixel({
+        document: doc,
+        node: doc.nodes.image!,
+        sourceWidth: 4000,
+        sourceHeight: 3000,
+        worldPoint: { x: 400, y: 400 },
+      }),
+    ).toEqual({ x: 2000, y: 1500 });
+  });
+
   it('maps through nested parent transforms', () => {
     expectMapsThrough([1, 0, 0, 1, 40, 70], 0, [1.2, 0.3, -0.2, 0.8, 100, -50]);
   });
@@ -146,5 +185,40 @@ describe('worldPointToImageMaskPixel', () => {
         worldPoint: { x: 10, y: 400 },
       }),
     ).toBeNull();
+  });
+});
+
+describe('prepareImageMaskMapper', () => {
+  it('prepares world inversion once for repeated samples', () => {
+    let doc = createDocument('coords', true);
+    const image = makeImageNode([1, 0, 0, 1, 20, 30]);
+    doc = addNode(doc, image);
+    const transformSpy = vi.mocked(nodeWorldTransform);
+    const inversionSpy = vi.mocked(tryInvertAffine);
+    transformSpy.mockClear();
+    inversionSpy.mockClear();
+
+    const mapper = prepareImageMaskMapper({
+      document: doc,
+      node: doc.nodes.image!,
+      sourceWidth: 4000,
+      sourceHeight: 3000,
+    });
+    expect(mapper).not.toBeNull();
+    mapper?.mapWorldPoint({ x: 400, y: 400 });
+    mapper?.mapWorldPoint({ x: 500, y: 500 });
+    mapper?.mapWorldPoint({ x: 600, y: 600 });
+    expect(transformSpy).toHaveBeenCalledTimes(1);
+    expect(inversionSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects detached, replaced, and deleted nodes', () => {
+    let doc = createDocument('coords', true);
+    const image = makeImageNode([1, 0, 0, 1, 0, 0]);
+    doc = addNode(doc, image);
+    const options = { document: doc, sourceWidth: 4000, sourceHeight: 3000 };
+    expect(prepareImageMaskMapper({ ...options, node: { ...image } })).toBeNull();
+    const deletedDoc = { ...doc, nodes: {} };
+    expect(prepareImageMaskMapper({ ...options, document: deletedDoc, node: image })).toBeNull();
   });
 });

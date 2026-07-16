@@ -15,6 +15,8 @@ function makeCtx(overrides?: Record<string, unknown>) {
     metaKey: false,
     pointerType: 'mouse' as const,
     pointerPressure: 0,
+    maskPreviewMode: 'none' as const,
+    setMaskPreviewMode: vi.fn(),
     snapEnabled: false,
     snapGrid: 8,
     isolatedNodeId: null as string | null,

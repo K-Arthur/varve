@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getImageCache, resetImageCache } from './imageCache';
+import { computeImagePlacement, localToSourcePixel } from './imagePlacement';
 import { replayIr } from './replay';
 import type { FillIR, RenderItem } from './types';
 
@@ -133,6 +134,13 @@ function rectItem(w: number, h: number, fill: FillIR): RenderItem {
   };
 }
 
+function offsetRectItem(x: number, y: number, w: number, h: number, fill: FillIR): RenderItem {
+  return {
+    ...rectItem(w, h, fill),
+    primitive: { kind: 'rect', x, y, w, h },
+  };
+}
+
 beforeEach(() => {
   resetImageCache();
   const cache = getImageCache();
@@ -259,6 +267,56 @@ describe('image fill modes', () => {
     expect(draw[0]).toBe('drawImage img5 0.0 0.0 40.0 40.0');
   });
 
+  it.each([
+    {
+      label: 'positive offsets',
+      x: 7,
+      y: -3,
+      firstDraw: 'drawImage img2 -183.0 17.0 200.0 100.0',
+      sample: { x: 193, y: 3 },
+    },
+    {
+      label: 'negative offsets',
+      x: -7,
+      y: -103,
+      firstDraw: 'drawImage img2 3.0 17.0 200.0 100.0',
+      sample: { x: 7, y: 3 },
+    },
+  ])('tiles cover non-zero bounds for $label and mapping observes replay anchors', (testCase) => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      offsetRectItem(
+        10,
+        20,
+        250,
+        140,
+        imageFill({
+          type: 'image',
+          src: 'img2',
+          fit: 'tile',
+          x: testCase.x,
+          y: testCase.y,
+          scale: 1,
+        }),
+      ),
+    ]);
+    const placement = computeImagePlacement({
+      fit: 'tile',
+      sourceWidth: 200,
+      sourceHeight: 100,
+      bounds: { x: 10, y: 20, w: 250, h: 140 },
+      x: testCase.x,
+      y: testCase.y,
+    });
+    expect(calls.find((call) => call.startsWith('drawImage'))).toBe(testCase.firstDraw);
+    expect(placement?.drawRect.x).toBe(Number(testCase.firstDraw.split(' ')[2]));
+    expect(placement?.drawRect.y).toBe(Number(testCase.firstDraw.split(' ')[3]));
+    const sampled = localToSourcePixel(placement!, { x: 10, y: 20 });
+    expect(sampled?.x).toBeCloseTo(testCase.sample.x, 12);
+    expect(sampled?.y).toBeCloseTo(testCase.sample.y, 12);
+    expect(localToSourcePixel(placement!, { x: 259.999, y: 159.999 })).not.toBeNull();
+  });
+
   it('applies image scale', () => {
     const { target, calls } = makeRecorder();
     replayIr(target, [
@@ -378,12 +436,19 @@ describe('worker image lookup parity', () => {
       name: 'tile with offsets and scale',
       fill: imageFill({ type: 'image', src: 'worker', fit: 'tile', x: 7, y: 9, scale: 0.5 }),
       expected: [
+        'drawImage worker -43.0 -16.0 50.0 25.0',
+        'drawImage worker 7.0 -16.0 50.0 25.0',
+        'drawImage worker 57.0 -16.0 50.0 25.0',
+        'drawImage worker -43.0 9.0 50.0 25.0',
         'drawImage worker 7.0 9.0 50.0 25.0',
         'drawImage worker 57.0 9.0 50.0 25.0',
+        'drawImage worker -43.0 34.0 50.0 25.0',
         'drawImage worker 7.0 34.0 50.0 25.0',
         'drawImage worker 57.0 34.0 50.0 25.0',
+        'drawImage worker -43.0 59.0 50.0 25.0',
         'drawImage worker 7.0 59.0 50.0 25.0',
         'drawImage worker 57.0 59.0 50.0 25.0',
+        'drawImage worker -43.0 84.0 50.0 25.0',
         'drawImage worker 7.0 84.0 50.0 25.0',
         'drawImage worker 57.0 84.0 50.0 25.0',
       ],
