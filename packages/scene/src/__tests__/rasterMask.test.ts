@@ -8,7 +8,13 @@
 import { describe, expect, it } from 'vitest';
 import { addNode, createDocument, makeShapeNode, removeNode } from '../document';
 import { DocumentCodec } from '../documentCodec';
-import type { Document, RasterMaskAsset, ShapeNode } from '../index';
+import {
+  type Document,
+  imageFill,
+  makePaint,
+  type RasterMaskAsset,
+  type ShapeNode,
+} from '../index';
 import {
   addRasterMaskAsset,
   removeRasterMaskAsset,
@@ -29,13 +35,51 @@ const PNG_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const PNG_BYTE_LENGTH = 68;
 
+function pngBytes(dataUrl = PNG_DATA_URL): Uint8Array {
+  const payload = dataUrl.slice(dataUrl.indexOf(',') + 1);
+  return Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
+}
+
+function crc32(bytes: Uint8Array, start: number, end: number): number {
+  let crc = 0xffffffff;
+  for (let index = start; index < end; index += 1) {
+    crc ^= bytes[index]!;
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function refreshChunkCrc(bytes: Uint8Array, chunkOffset: number): void {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const length = view.getUint32(chunkOffset);
+  const crcOffset = chunkOffset + 8 + length;
+  view.setUint32(crcOffset, crc32(bytes, chunkOffset + 4, crcOffset));
+}
+
+function pngDataUrl(bytes: Uint8Array): string {
+  return `data:image/png;base64,${btoa(String.fromCharCode(...bytes))}`;
+}
+
 function pngWithIhdrDimensions(width: number, height: number): string {
-  const payload = PNG_DATA_URL.slice(PNG_DATA_URL.indexOf(',') + 1);
-  const bytes = Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
-  const view = new DataView(bytes.buffer);
+  const bytes = pngBytes();
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   view.setUint32(16, width);
   view.setUint32(20, height);
-  return `data:image/png;base64,${btoa(String.fromCharCode(...bytes))}`;
+  refreshChunkCrc(bytes, 8);
+  return pngDataUrl(bytes);
+}
+
+function rasterAssetFromDataUrl(id: string, dataUrl: string): RasterMaskAsset {
+  return {
+    id,
+    mimeType: 'image/png',
+    dataUrl,
+    width: 1,
+    height: 1,
+    byteLength: pngBytes(dataUrl).byteLength,
+  };
 }
 
 function makeRasterAsset(id: string, width = 1, height = 1): RasterMaskAsset {
@@ -126,6 +170,85 @@ describe('native raster masks', () => {
     expect(validateMaskSource(dangling, dangling.nodes[imageId]!.mask!)).toMatch(/missing/i);
   });
 
+  it('uses effective paintRefs consistently for raster mask eligibility and identity', () => {
+    const imageId = 'paint-ref-image';
+    const image = {
+      ...makeShapeNode(imageId, { kind: 'rect', x: 0, y: 0, w: 1, h: 1 }),
+      fills: undefined,
+      paintRefs: ['image-paint'],
+    };
+    let doc = addNode(createDocument('Paint ref mask', true), image);
+    doc = {
+      ...doc,
+      paints: {
+        'image-paint': makePaint('image-paint', 'Image', {
+          ...imageFill('paint-ref-source'),
+          image: {
+            ...imageFill('paint-ref-source').image!,
+            imageWidth: 1,
+            imageHeight: 1,
+          },
+        }),
+      },
+    };
+
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    expect(attached).not.toBe(doc);
+    expect(attached.nodes[imageId]?.mask?.rasterMask?.sourceIdentity).toMatchObject({
+      kind: 'source-metadata',
+      locator: 'paint-ref-source',
+      pixelWidth: 1,
+      pixelHeight: 1,
+    });
+    expect(DocumentCodec.decode(JSON.stringify(attached)).ok).toBe(true);
+    expect(resolveMask(attached.nodes[imageId]!, attached)).toEqual(attached.nodes[imageId]?.mask);
+    expect(resolveRasterMaskAsset(attached, attached.nodes[imageId]!)).toEqual(
+      makeRasterAsset('mask-1'),
+    );
+  });
+
+  it.each([
+    ['missing paint reference', undefined],
+    [
+      'non-image paint reference',
+      makePaint('paint', 'Solid', {
+        type: 'solid',
+        color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      }),
+    ],
+  ] as const)('rejects raster masks for a %s', (_label, paint) => {
+    const imageId = 'paint-ref-negative';
+    const image = {
+      ...makeShapeNode(imageId, { kind: 'rect', x: 0, y: 0, w: 1, h: 1 }),
+      fills: undefined,
+      paintRefs: ['paint'],
+    };
+    let doc = addNode(createDocument('Paint ref negative', true), image);
+    if (paint) doc = { ...doc, paints: { paint } };
+
+    expect(addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'))).toBe(doc);
+
+    const inlineAttached = addRasterMaskAsset(
+      makeImageDocument().doc,
+      'image-1',
+      makeRasterAsset('mask-1'),
+    );
+    const masked = {
+      ...inlineAttached.nodes['image-1']!,
+      fills: undefined,
+      paintRefs: ['paint'],
+    } as ShapeNode;
+    const resolutionDoc = {
+      ...inlineAttached,
+      nodes: { ...inlineAttached.nodes, 'image-1': masked },
+      paints: paint ? { paint } : undefined,
+    };
+    expect(resolveRasterMaskAsset(resolutionDoc, masked)).toBeNull();
+  });
+
   it('rejects source-pixel assets that differ from known oriented source dimensions', () => {
     const { doc, imageId } = makeImageDocument();
     const mismatched = {
@@ -181,6 +304,29 @@ describe('native raster masks', () => {
 
     const allRemoved = removeRasterMaskAsset(oneRemoved, imageId);
     expect(allRemoved.rasterMaskAssets?.['edited-mask']).toBeUndefined();
+  });
+
+  it('garbage-collects an unshared prior asset when add replaces a raster mask', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('old-mask'));
+    const replaced = addRasterMaskAsset(attached, imageId, makeRasterAsset('new-mask'));
+
+    expect(replaced.nodes[imageId]?.mask?.rasterMask?.assetId).toBe('new-mask');
+    expect(replaced.rasterMaskAssets?.['new-mask']).toBeDefined();
+    expect(replaced.rasterMaskAssets?.['old-mask']).toBeUndefined();
+  });
+
+  it('preserves a shared prior asset when add replaces only one raster mask', () => {
+    const { doc, imageId } = makeImageDocument();
+    const copy = { ...(doc.nodes[imageId] as ShapeNode), id: 'image-2' };
+    let shared = addNode(doc, copy);
+    shared = addRasterMaskAsset(shared, imageId, makeRasterAsset('old-mask'));
+    shared = addRasterMaskAsset(shared, copy.id, makeRasterAsset('old-mask'));
+
+    const replaced = addRasterMaskAsset(shared, imageId, makeRasterAsset('new-mask'));
+    expect(replaced.nodes[imageId]?.mask?.rasterMask?.assetId).toBe('new-mask');
+    expect(replaced.nodes[copy.id]?.mask?.rasterMask?.assetId).toBe('old-mask');
+    expect(replaced.rasterMaskAssets?.['old-mask']).toBeDefined();
   });
 
   it.each([
@@ -307,6 +453,27 @@ describe('native raster masks', () => {
     expect(exhausted.rasterMaskAssets?.['mask-3']).toBeUndefined();
   });
 
+  it('preserves identity and revision for an exact raster asset update no-op', () => {
+    const { doc, imageId } = makeImageDocument();
+    const asset = makeRasterAsset('mask-1');
+    const attached = addRasterMaskAsset(doc, imageId, asset, { editRevision: 4 });
+
+    const unchanged = updateRasterMaskAsset(attached, imageId, { ...asset });
+    expect(unchanged).toBe(attached);
+    expect(unchanged.nodes[imageId]?.mask?.rasterMask?.editRevision).toBe(4);
+
+    const descriptorChanged = updateRasterMaskAsset(
+      attached,
+      imageId,
+      makeRasterAsset('equivalent-payload-new-id'),
+    );
+    expect(descriptorChanged).not.toBe(attached);
+    expect(descriptorChanged.nodes[imageId]?.mask?.rasterMask).toMatchObject({
+      assetId: 'equivalent-payload-new-id',
+      editRevision: 5,
+    });
+  });
+
   it('requires exactly one meaningful mask source', () => {
     const rasterMask = {
       assetId: 'mask-1',
@@ -414,6 +581,47 @@ describe('raster mask document boundary validation', () => {
     expect(decoded.ok).toBe(false);
     if (decoded.ok) return;
     expect(decoded.error).toMatch(/missing raster mask asset/i);
+  });
+
+  it('rejects structurally corrupt PNG mask payloads', () => {
+    const base = pngBytes();
+    const truncatedIhdr = base.slice(0, 24);
+    const missingIend = base.slice(0, -12);
+    const badCrc = base.slice();
+    badCrc[29] = badCrc[29]! ^ 0xff;
+    const badChunkBounds = base.slice();
+    new DataView(
+      badChunkBounds.buffer,
+      badChunkBounds.byteOffset,
+      badChunkBounds.byteLength,
+    ).setUint32(33, 0xfffffff0);
+    const badIhdrFields = base.slice();
+    badIhdrFields[26] = 1;
+    refreshChunkCrc(badIhdrFields, 8);
+    const badIdatHeader = base.slice();
+    badIdatHeader[41] = 0;
+    refreshChunkCrc(badIdatHeader, 33);
+    const idatLength = new DataView(base.buffer, base.byteOffset, base.byteLength).getUint32(33);
+    const idatEnd = 33 + 12 + idatLength;
+    const missingIdat = new Uint8Array(33 + (base.byteLength - idatEnd));
+    missingIdat.set(base.slice(0, 33));
+    missingIdat.set(base.slice(idatEnd), 33);
+
+    const variants = [
+      ['truncated IHDR', truncatedIhdr, /IHDR.*(truncated|complete)|chunk bounds/i],
+      ['missing IEND', missingIend, /IEND/i],
+      ['bad CRC', badCrc, /CRC/i],
+      ['bad chunk bounds', badChunkBounds, /chunk bounds|truncated/i],
+      ['illegal IHDR fields', badIhdrFields, /IHDR fields/i],
+      ['illegal IDAT zlib header', badIdatHeader, /IDAT.*zlib/i],
+      ['missing IDAT', missingIdat, /IDAT/i],
+    ] as const;
+
+    for (const [index, [_label, bytes, expected]] of variants.entries()) {
+      expect(
+        validateRasterMaskAsset(rasterAssetFromDataUrl(`case-${index}`, pngDataUrl(bytes))),
+      ).toMatch(expected);
+    }
   });
 
   it('accepts the portable decoded-pixel boundary and rejects the next row', () => {
@@ -792,6 +1000,24 @@ describe('raster mask document boundary validation', () => {
     const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
     const closure = DocumentCodec.collectNodeClosure(attached, [imageId]);
     expect(closure.rasterMaskAssets).toEqual({ 'mask-1': makeRasterAsset('mask-1') });
+  });
+
+  it.each([
+    'toString',
+    'constructor',
+  ])('collects only an own %s raster asset in a copied node closure', (assetId) => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset(assetId));
+    const ownClosure = DocumentCodec.collectNodeClosure(attached, [imageId]);
+    expect(Object.hasOwn(ownClosure.rasterMaskAssets ?? {}, assetId)).toBe(true);
+    expect(ownClosure.rasterMaskAssets?.[assetId]).toEqual(makeRasterAsset(assetId));
+
+    const missing = {
+      ...attached,
+      rasterMaskAssets: {},
+    };
+    const missingClosure = DocumentCodec.collectNodeClosure(missing, [imageId]);
+    expect(missingClosure.rasterMaskAssets).toBeUndefined();
   });
 
   it('removes malformed legacy background removal state with an error warning', () => {
