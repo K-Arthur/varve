@@ -429,9 +429,9 @@ describe('bakeFiltersToLut 1D per-channel', () => {
       kind: 'curves',
       channel: 'red',
       points: [
-        { x: 0, y: 0 },
-        { x: 0.5, y: 0.7 },
-        { x: 1, y: 1 },
+        { input: 0, output: 0 },
+        { input: 0.5, output: 0.7 },
+        { input: 1, output: 1 },
       ],
       opacity: 1,
       blendMode: 'normal',

@@ -17,12 +17,6 @@ export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
-export {
-  adjustmentStackCacheKey,
-  filterCacheKey,
-  filtersEquivalent,
-  fullStackCacheKey,
-} from './adjustmentCache';
 export type { AlphaContour, ContourOptions, ContourShapeNodeData } from './alphaContour';
 export { alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 export type {
@@ -92,7 +86,6 @@ export {
   blendSoftLight,
 } from './blendModes';
 export { gaussianBlurSeparable } from './blur';
-export { BufferPool, sharedBufferPool } from './bufferPool';
 export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
 export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
 export {
@@ -117,8 +110,6 @@ export {
 } from './effectPipeline';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
-export type { OutlineVertex, PathOutline } from './expandPathOutline';
-export { buildVariableWidthOutline, outlineToSvgPathData } from './expandPathOutline';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
@@ -181,7 +172,6 @@ export * from './geometry';
 export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type {
-  GradientMapMode,
   GradientMapParams,
   GradientMapStop as GradientMapFilterStop,
 } from './gradientMap';
@@ -316,16 +306,6 @@ export {
 } from './porterDuff';
 export type { GradientPreset, TritonePreset } from './presets';
 export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
-export {
-  applyTaper,
-  hasVariablePressure,
-  interpolatePressure,
-  MIN_STROKE_WIDTH,
-  MOUSE_DEFAULT_PRESSURE,
-  normalizePressure,
-  OneEuroPressureFilter,
-  pressureToWidth,
-} from './pressure';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
@@ -371,7 +351,7 @@ export { renderThumbnail } from './thumbnail';
 export type { BezierFitOptions } from './traceBezierFit';
 export { fitBezierToContour } from './traceBezierFit';
 export { traceSceneNodeOutline } from './tracing';
-export type { TritoneInterpolation, TritoneParams } from './tritone';
+export type { TritoneParams } from './tritone';
 export { applyTritone, tritoneMap } from './tritone';
 export type {
   Affine,
@@ -403,9 +383,7 @@ export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/disp
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export {
   dispatchTrace,
-  parallelWasmTraceProvider,
   TRACE_PROVIDER_CHAIN,
-  vtracerTraceProvider,
 } from './upscaleProviders/traceDispatch';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';

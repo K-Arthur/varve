@@ -2242,9 +2242,10 @@ export function CanvasArea({
           ctx.clip();
           for (let py = 0; py < h; py += sz) {
             for (let px = 0; px < w; px += sz) {
-              ctx.fillStyle = (Math.floor(px / sz) + Math.floor(py / sz)) % 2 === 0
-                ? 'rgba(0,0,0,0.15)'
-                : 'rgba(255,255,255,0.15)';
+              ctx.fillStyle =
+                (Math.floor(px / sz) + Math.floor(py / sz)) % 2 === 0
+                  ? 'rgba(0,0,0,0.15)'
+                  : 'rgba(255,255,255,0.15)';
               ctx.fillRect(px, py, sz, sz);
             }
           }

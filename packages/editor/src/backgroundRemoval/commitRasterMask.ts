@@ -13,11 +13,7 @@
  * asset model, immutable Document pattern.
  */
 import type { BackgroundRemovalProvenance, Document, NodeId, RasterMaskAsset } from '@strata/scene';
-import {
-  addRasterMaskAsset,
-  removeRasterMaskAsset,
-  updateRasterMaskAsset,
-} from '@strata/scene';
+import { addRasterMaskAsset, removeRasterMaskAsset, updateRasterMaskAsset } from '@strata/scene';
 
 export interface RasterMaskCommitFields {
   dataUrl: string;
@@ -38,9 +34,7 @@ function dataUrlByteLength(dataUrl: string): number {
   return Math.floor((base64.length * 3) / 4) - padding;
 }
 
-function makeProvenance(
-  fields: RasterMaskCommitFields,
-): BackgroundRemovalProvenance | undefined {
+function makeProvenance(fields: RasterMaskCommitFields): BackgroundRemovalProvenance | undefined {
   if (!fields.method && !fields.generatedAt) return undefined;
   return {
     method: (fields.method ?? 'quick') as 'quick' | 'ai-balanced' | 'ai-quality',

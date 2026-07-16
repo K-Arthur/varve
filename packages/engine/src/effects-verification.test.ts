@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { applyTritone, tritoneMap, type TritoneParams } from './tritone';
-import { applyGradientMapFilter, buildGradientLUT, type GradientMapParams } from './gradientMap';
+import { applyGradientMapFilter, buildGradientLUT, type GradientMapParams, type GradientMapStop } from './gradientMap';
 import { applyHalftone, type HalftoneParams } from './halftone';
 
 function createImageData(width: number, height: number, pixels: number[]): ImageData {
@@ -164,7 +164,7 @@ describe('gradient map pixel verification', () => {
       1,
       Array.from({ length: 64 }, (_, i) => (i % 4 === 3 ? 255 : Math.round((i / 60) * 255))),
     );
-    const stops = [
+    const stops: GradientMapStop[] = [
       { position: 0, color: [0, 0, 0, 255] },
       { position: 1, color: [255, 255, 255, 255] },
     ];
@@ -183,7 +183,7 @@ describe('gradient map pixel verification', () => {
     );
     const img4 = createImageData(16, 1, [...base]);
     const img8 = createImageData(16, 1, [...base]);
-    const stops = [
+    const stops: GradientMapStop[] = [
       { position: 0, color: [0, 0, 0, 255] },
       { position: 1, color: [255, 255, 255, 255] },
     ];
@@ -222,7 +222,10 @@ describe('halftone pixel verification', () => {
     const px = extract(img);
     // Should have at least 2 distinct gray values
     const grays = new Set<number>();
-    for (let i = 0; i < size; i++) grays.add(px[i * 4]);
+    for (let i = 0; i < size; i++) {
+      const v = px[i * 4];
+      if (v !== undefined) grays.add(v);
+    }
     expect(grays.size).toBeGreaterThanOrEqual(2);
   });
 
@@ -276,7 +279,10 @@ describe('halftone pixel verification', () => {
     const px = extract(img);
     // FM produces mostly 0 or 255 (binary) with some intermediate values
     const grays = new Set<number>();
-    for (let i = 0; i < size; i++) grays.add(px[i * 4]);
+    for (let i = 0; i < size; i++) {
+      const v = px[i * 4];
+      if (v !== undefined) grays.add(v);
+    }
     expect(grays.size).toBeGreaterThanOrEqual(2);
   });
 
