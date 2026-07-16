@@ -167,6 +167,10 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: 'Workspace: Print', action: 'workspacePrint' },
       { label: 'Workspace: Draw', action: 'workspaceDrawing' },
       { label: 'Workspace: Photo', action: 'workspaceImage' },
+      {
+        label: 'Reset Workspace to Default',
+        action: 'resetWorkspace',
+      },
       { label: '---' },
       {
         label: 'Distraction-Free Mode',
