@@ -13,6 +13,7 @@ import {
   addRasterMaskAsset,
   removeRasterMaskAsset,
   resolveMask,
+  resolveRasterMaskAsset,
   setMaskDensity,
   setMaskFeather,
   setMaskInverted,
@@ -182,6 +183,65 @@ describe('native raster masks', () => {
     expect(allRemoved.rasterMaskAssets?.['edited-mask']).toBeUndefined();
   });
 
+  it.each([
+    'toString',
+    'constructor',
+  ])('treats %s as an asset id only when it is an own table entry', (assetId) => {
+    const { doc, imageId } = makeImageDocument();
+    const nodeWithInheritedReference = {
+      ...doc.nodes[imageId]!,
+      mask: {
+        type: 'alpha' as const,
+        visible: true,
+        rasterMask: {
+          assetId,
+          coordinateSpace: 'source-image-pixels' as const,
+          sourceIdentity: metadataIdentity(),
+        },
+      },
+    } as ShapeNode;
+    expect(resolveRasterMaskAsset({ rasterMaskAssets: {} }, nodeWithInheritedReference)).toBeNull();
+
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset(assetId));
+    expect(attached).not.toBe(doc);
+    expect(Object.hasOwn(attached.rasterMaskAssets ?? {}, assetId)).toBe(true);
+    expect(resolveRasterMaskAsset(attached, attached.nodes[imageId]!)).toEqual(
+      makeRasterAsset(assetId),
+    );
+
+    const removed = removeRasterMaskAsset(attached, imageId);
+    expect(Object.hasOwn(removed.rasterMaskAssets ?? {}, assetId)).toBe(false);
+  });
+
+  it('does not resolve an inherited __proto__ value as a raster asset', () => {
+    const { doc, imageId } = makeImageDocument();
+    const node = {
+      ...doc.nodes[imageId]!,
+      mask: {
+        type: 'alpha' as const,
+        visible: true,
+        rasterMask: {
+          assetId: '__proto__',
+          coordinateSpace: 'source-image-pixels' as const,
+          sourceIdentity: metadataIdentity(),
+        },
+      },
+    } as ShapeNode;
+
+    expect(resolveRasterMaskAsset({ rasterMaskAssets: {} }, node)).toBeNull();
+  });
+
+  it('updates to a prototype-named own asset without treating the prototype as a collision', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const updated = updateRasterMaskAsset(attached, imageId, makeRasterAsset('constructor'));
+
+    expect(updated).not.toBe(attached);
+    expect(updated.nodes[imageId]?.mask?.rasterMask?.assetId).toBe('constructor');
+    expect(Object.hasOwn(updated.rasterMaskAssets ?? {}, 'constructor')).toBe(true);
+    expect(updated.rasterMaskAssets?.['mask-1']).toBeUndefined();
+  });
+
   it('preserves mask presentation and source metadata when replacing an asset', () => {
     const { doc, imageId } = makeImageDocument();
     const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'), {
@@ -232,6 +292,19 @@ describe('native raster masks', () => {
         provenance: { method: 'ai-quality', runtime: 'wasm', generatedAt: 42, confidence: 0.9 },
       },
     });
+  });
+
+  it('rejects edits after the safe edit revision is exhausted', () => {
+    const { doc, imageId } = makeImageDocument();
+    const beforeLimit = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'), {
+      editRevision: Number.MAX_SAFE_INTEGER - 1,
+    });
+    const atLimit = updateRasterMaskAsset(beforeLimit, imageId, makeRasterAsset('mask-2'));
+    expect(atLimit.nodes[imageId]?.mask?.rasterMask?.editRevision).toBe(Number.MAX_SAFE_INTEGER);
+
+    const exhausted = updateRasterMaskAsset(atLimit, imageId, makeRasterAsset('mask-3'));
+    expect(exhausted).toBe(atLimit);
+    expect(exhausted.rasterMaskAssets?.['mask-3']).toBeUndefined();
   });
 
   it('requires exactly one meaningful mask source', () => {
@@ -318,6 +391,31 @@ describe('native raster masks', () => {
 });
 
 describe('raster mask document boundary validation', () => {
+  it.each([
+    'toString',
+    'constructor',
+  ])('rejects an inherited %s asset reference during decode', (assetId) => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
+    raw.rasterMaskAssets = {};
+    const node = (raw.nodes as Record<string, Record<string, unknown>>)[imageId]!;
+    const fill = (node.fills as Record<string, unknown>[])[0]!;
+    const image = fill.image as Record<string, unknown>;
+    delete image.imageWidth;
+    delete image.imageHeight;
+    const rasterMask = (node.mask as Record<string, unknown>).rasterMask as Record<string, unknown>;
+    rasterMask.assetId = assetId;
+    const identity = rasterMask.sourceIdentity as Record<string, unknown>;
+    delete identity.pixelWidth;
+    delete identity.pixelHeight;
+
+    const decoded = DocumentCodec.decode(JSON.stringify(raw));
+    expect(decoded.ok).toBe(false);
+    if (decoded.ok) return;
+    expect(decoded.error).toMatch(/missing raster mask asset/i);
+  });
+
   it('accepts the portable decoded-pixel boundary and rejects the next row', () => {
     const atLimitUrl = pngWithIhdrDimensions(16_384, 8192);
     const overLimitUrl = pngWithIhdrDimensions(16_384, 8193);
