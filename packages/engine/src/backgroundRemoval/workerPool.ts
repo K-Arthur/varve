@@ -7,25 +7,31 @@
  * - Each worker maintains a warm ONNX session for its assigned model
  * - Shared cancellation across all workers
  * - Per-job timeout: 120s, including a large-model cold start
+ *
+ * Revision safety:
+ * - Every command/result carries a request ID for correlation
+ * - Each worker tracks a generation counter; late results from old
+ *   generations are silently discarded
+ * - Abort listeners are removed when a request settles
  */
-import type {
-  BackgroundRemovalOptions,
-  BackgroundRemovalResult,
-  WorkerCommand,
-  WorkerModelId,
-} from './types';
+
+import { generateRequestId } from './protocol';
+import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId } from './types';
 
 /** Sentinel indicating a job is queued but not yet assigned to a worker. */
 const UNASSIGNED = -1;
 
 interface PoolJob {
   id: number;
+  requestId: string;
   resolve: (r: BackgroundRemovalResult) => void;
   reject: (e: Error) => void;
   abort: AbortController;
   timeout: ReturnType<typeof setTimeout>;
   /** Index of the worker this job is dispatched to; -1 while queued. */
   workerIndex: number;
+  /** Worker generation at dispatch time; stale results are rejected. */
+  generation: number;
   imageData: ImageData;
   modelPath: string;
   modelId: WorkerModelId;
@@ -33,6 +39,8 @@ interface PoolJob {
   feather?: number;
   decontaminate?: boolean;
   previewMaxDimension?: number;
+  /** Abort signal event listeners — removed on settle to prevent leaks. */
+  abortListeners: Array<{ signal: AbortSignal; handler: () => void }>;
 }
 
 interface PoolWorker {
@@ -40,6 +48,8 @@ interface PoolWorker {
   busy: boolean;
   ready: boolean;
   jobCount: number;
+  /** Incremented on worker replacement so stale results are rejected. */
+  generation: number;
 }
 
 let nextJobId = 1;
@@ -71,7 +81,13 @@ function initPool(): PoolWorker[] {
     pool = [];
     for (let i = 0; i < count; i++) {
       const w = createWorker()!;
-      const pw: PoolWorker = { worker: w, busy: false, ready: false, jobCount: 0 };
+      const pw: PoolWorker = {
+        worker: w,
+        busy: false,
+        ready: false,
+        jobCount: 0,
+        generation: 0,
+      };
       w.addEventListener('message', (e: MessageEvent) => onWorkerMessage(e, pw));
       w.addEventListener('error', (e: ErrorEvent) => onWorkerError(e, pw));
       pool.push(pw);
@@ -97,63 +113,121 @@ function findIdleWorker(): PoolWorker | null {
   return best;
 }
 
+/**
+ * Remove abort signal listeners registered for a job.
+ * Called when a job settles (resolves/rejects) to prevent memory leaks.
+ */
+function cleanupAbortListeners(job: PoolJob): void {
+  for (const { signal, handler } of job.abortListeners) {
+    signal.removeEventListener('abort', handler);
+  }
+  job.abortListeners.length = 0;
+}
+
+/**
+ * Settle a job: clean up listeners, remove from pending, resolve/reject.
+ * This is the single exit point for all job completions.
+ */
+function settleJob(
+  job: PoolJob,
+  pw: PoolWorker,
+  result: BackgroundRemovalResult | null,
+  error: Error | null,
+): void {
+  cleanupAbortListeners(job);
+  clearTimeout(job.timeout);
+
+  // Remove from pending
+  const idx = pending.indexOf(job);
+  if (idx >= 0) pending.splice(idx, 1);
+
+  pw.busy = false;
+  pw.jobCount = Math.max(0, pw.jobCount - 1);
+
+  if (error) {
+    job.reject(error);
+  } else if (result) {
+    job.resolve(result);
+  }
+
+  processQueue();
+}
+
 function onWorkerMessage(e: MessageEvent, pw: PoolWorker): void {
   if (e.data?.type === 'ready') {
     pw.ready = true;
     return;
   }
 
-  const workerIndex = getPool().indexOf(pw);
-  const jobIdx = pending.findIndex((j) => j.workerIndex === workerIndex);
+  const data = e.data as
+    | { type: string; requestId?: string; result?: unknown; message?: string }
+    | undefined;
+  if (!data?.requestId) return;
+
+  // Find job by requestId (not workerIndex) to prevent race conditions
+  const jobIdx = pending.findIndex((j) => j.requestId === data.requestId);
   if (jobIdx < 0) {
-    // Defensive: a message arrived for a job that already timed out or was
-    // cancelled. Release the worker so it doesn't become permanently busy.
-    pw.busy = false;
-    pw.jobCount = Math.max(0, pw.jobCount - 1);
-    processQueue();
+    // Stale message from a cancelled/timed-out job — silently discard.
+    // Release the worker if it's not serving any other job.
+    if (pw.busy) {
+      pw.busy = false;
+      pw.jobCount = Math.max(0, pw.jobCount - 1);
+      processQueue();
+    }
     return;
   }
 
-  const [job] = pending.splice(jobIdx, 1);
-  if (!job) return;
-  clearTimeout(job.timeout);
-  pw.busy = false;
-  pw.jobCount = Math.max(0, pw.jobCount - 1);
-  if (e.data?.type === 'result') {
-    job.resolve(e.data.result as BackgroundRemovalResult);
-  } else if (e.data?.type === 'error') {
-    job.reject(new Error(String(e.data.message)));
+  const job = pending[jobIdx]!;
+  // Generation check: reject results from old workers after replacement
+  if (job.generation !== pw.generation) {
+    settleJob(job, pw, null, new Error('generation-mismatch: stale result from previous worker'));
+    return;
   }
-  // Process next queued job if any
-  processQueue();
+
+  if (data.type === 'result') {
+    settleJob(job, pw, data.result as BackgroundRemovalResult, null);
+  } else if (data.type === 'error') {
+    settleJob(job, pw, null, new Error(String(data.message)));
+  }
 }
 
 function onWorkerError(e: ErrorEvent, pw: PoolWorker): void {
   const workerIndex = getPool().indexOf(pw);
-  const jobIdx = pending.findIndex((j) => j.workerIndex === workerIndex);
+  // Find any job assigned to this worker
+  const jobIdx = pending.findIndex(
+    (j) => j.workerIndex === workerIndex && j.generation === pw.generation,
+  );
   if (jobIdx >= 0) {
-    const [job] = pending.splice(jobIdx, 1);
-    if (job) {
-      clearTimeout(job.timeout);
-      job.reject(new Error(e.message));
-    }
+    settleJob(pending[jobIdx]!, pw, null, new Error(e.message));
+  } else {
+    pw.ready = false;
+    pw.busy = false;
+    pw.jobCount = Math.max(0, pw.jobCount - 1);
   }
-  pw.ready = false;
-  pw.busy = false;
-  pw.jobCount = Math.max(0, pw.jobCount - 1);
+
   // Replace the dead worker
   if (workerIndex >= 0) {
-    pw.worker.terminate();
-    const newWorker = createWorker()!;
-    newWorker.addEventListener('message', (msg: MessageEvent) => onWorkerMessage(msg, pw));
-    newWorker.addEventListener('error', (err: ErrorEvent) => onWorkerError(err, pw));
-    pw.worker = newWorker;
+    replaceWorker(pw);
   }
   processQueue();
 }
 
+/**
+ * Replace a worker, incrementing its generation so stale results are rejected.
+ */
+function replaceWorker(pw: PoolWorker): void {
+  pw.worker.terminate();
+  pw.generation++;
+  pw.ready = false;
+  const newWorker = createWorker()!;
+  newWorker.addEventListener('message', (msg: MessageEvent) => onWorkerMessage(msg, pw));
+  newWorker.addEventListener('error', (err: ErrorEvent) => onWorkerError(err, pw));
+  pw.worker = newWorker;
+}
+
 function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: number): void {
   job.workerIndex = workerIndex;
+  job.generation = worker.generation;
   worker.busy = true;
   worker.jobCount++;
   // Transfer the ImageData buffer to avoid doubling peak RAM in the main
@@ -163,6 +237,7 @@ function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: numb
   worker.worker.postMessage(
     {
       type: 'infer',
+      requestId: job.requestId,
       imageData: job.imageData,
       modelPath: job.modelPath,
       modelId: job.modelId,
@@ -171,7 +246,7 @@ function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: numb
       feather: job.feather,
       decontaminate: job.decontaminate,
       previewMaxDimension: job.previewMaxDimension,
-    } satisfies WorkerCommand & { reuseSession?: boolean },
+    },
     transfer,
   );
 }
@@ -204,6 +279,7 @@ export function cancelAllWorkerJobs(): void {
   // Reject after clearing, so the abort handler does not try to remove
   // the job from a now-empty pending list (avoids double-reject).
   for (const job of jobs) {
+    cleanupAbortListeners(job);
     clearTimeout(job.timeout);
     job.reject(new Error('cancelled'));
   }
@@ -228,6 +304,7 @@ export async function runPooledInference(
 ): Promise<BackgroundRemovalResult> {
   initPool();
   const abort = new AbortController();
+  const requestId = generateRequestId();
 
   return new Promise((resolve, reject) => {
     if (signal?.aborted || abort.signal.aborted) {
@@ -235,7 +312,17 @@ export async function runPooledInference(
       return;
     }
 
-    const jobBase: Omit<PoolJob, 'id' | 'resolve' | 'reject' | 'timeout' | 'workerIndex'> = {
+    const jobBase: Omit<
+      PoolJob,
+      | 'id'
+      | 'requestId'
+      | 'resolve'
+      | 'reject'
+      | 'timeout'
+      | 'workerIndex'
+      | 'generation'
+      | 'abortListeners'
+    > = {
       abort,
       imageData,
       modelPath,
@@ -246,14 +333,28 @@ export async function runPooledInference(
       previewMaxDimension: options.previewMaxDimension,
     };
 
+    const _cleanup = () => {
+      // Abort listeners are cleaned up by settleJob, but if we reject early
+      // (before a job is created), we need to clean up here.
+    };
+
     // Find an idle worker; if none, queue the job.
     const target = findIdleWorker();
     if (!target) {
       const timeoutMs = options.method === 'ai-quality' ? 300_000 : 120_000;
       const timeout = setTimeout(() => {
-        const idx = pending.findIndex((j) => j.reject === wrappedReject);
-        if (idx >= 0) pending.splice(idx, 1);
-        reject(new Error('All workers busy — inference timed out'));
+        const idx = pending.findIndex((j) => j.requestId === requestId);
+        if (idx >= 0) {
+          const [job] = pending.splice(idx, 1);
+          settleJob(
+            job!,
+            target ?? getPool()[0]!,
+            null,
+            new Error('All workers busy — inference timed out'),
+          );
+        } else {
+          reject(new Error('All workers busy — inference timed out'));
+        }
       }, timeoutMs);
 
       const wrappedResolve = (r: BackgroundRemovalResult) => {
@@ -265,26 +366,29 @@ export async function runPooledInference(
         reject(e);
       };
 
+      const abortListeners: PoolJob['abortListeners'] = [];
+
       const job: PoolJob = {
         ...jobBase,
         id: nextJobId++,
+        requestId,
         resolve: wrappedResolve,
         reject: wrappedReject,
         timeout,
         workerIndex: UNASSIGNED,
+        generation: 0,
+        abortListeners,
       };
 
       pending.push(job);
 
       const onAbort = () => {
-        const idx = pending.indexOf(job);
-        if (idx >= 0) pending.splice(idx, 1);
-        clearTimeout(timeout);
-        reject(new Error('cancelled'));
-        processQueue();
+        settleJob(job, target ?? getPool()[0]!, null, new Error('cancelled'));
       };
       signal?.addEventListener('abort', onAbort, { once: true });
       abort.signal.addEventListener('abort', onAbort, { once: true });
+      abortListeners.push({ signal: signal ?? abort.signal, handler: onAbort });
+      if (signal) abortListeners.push({ signal: abort.signal, handler: onAbort });
       return;
     }
 
@@ -293,24 +397,15 @@ export async function runPooledInference(
     // Determine timeout: cold start (first inference on this worker) vs warm
     const timeoutMs = options.method === 'ai-quality' ? 300_000 : 120_000;
     const timeout = setTimeout(() => {
-      const idx = pending.findIndex((j) => j.reject === wrappedReject);
-      if (idx >= 0) pending.splice(idx, 1);
-      target.busy = false;
-      target.jobCount = Math.max(0, target.jobCount - 1);
-      if (!target.ready) {
-        // Cold start timeout — replace the hung worker
-        const workerIdx = getPool().indexOf(target);
-        if (workerIdx >= 0) {
-          target.worker.terminate();
-          const newWorker = createWorker()!;
-          newWorker.addEventListener('message', (msg: MessageEvent) =>
-            onWorkerMessage(msg, target),
-          );
-          newWorker.addEventListener('error', (err: ErrorEvent) => onWorkerError(err, target));
-          target.worker = newWorker;
-        }
+      const idx = pending.findIndex((j) => j.requestId === requestId);
+      if (idx >= 0) {
+        const [job] = pending.splice(idx, 1);
+        // Replace the hung worker (cold-start or warm — both should be replaced)
+        replaceWorker(target);
+        settleJob(job!, target, null, new Error('Worker inference timed out'));
+      } else {
+        reject(new Error('Worker inference timed out'));
       }
-      reject(new Error('Worker inference timed out'));
       processQueue();
     }, timeoutMs);
 
@@ -323,27 +418,28 @@ export async function runPooledInference(
       reject(e);
     };
 
+    const abortListeners: PoolJob['abortListeners'] = [];
+
     const job: PoolJob = {
       ...jobBase,
       id: nextJobId++,
+      requestId,
       resolve: wrappedResolve,
       reject: wrappedReject,
       timeout,
       workerIndex,
+      generation: target.generation,
+      abortListeners,
     };
     pending.push(job);
 
     const onAbort = () => {
-      const idx = pending.indexOf(job);
-      if (idx >= 0) pending.splice(idx, 1);
-      clearTimeout(timeout);
-      target.busy = false;
-      target.jobCount = Math.max(0, target.jobCount - 1);
-      reject(new Error('cancelled'));
-      processQueue();
+      settleJob(job, target, null, new Error('cancelled'));
     };
     signal?.addEventListener('abort', onAbort, { once: true });
     abort.signal.addEventListener('abort', onAbort, { once: true });
+    abortListeners.push({ signal: signal ?? abort.signal, handler: onAbort });
+    if (signal) abortListeners.push({ signal: abort.signal, handler: onAbort });
 
     dispatchJobToWorker(job, target, workerIndex);
   });
