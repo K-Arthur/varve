@@ -91,4 +91,52 @@ describe('commitImageCrop', () => {
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
     expect(commitImageCrop(doc, 'i1', { x: 0, y: 0, w: 80, h: 60 })).toBe(doc);
   });
+
+  it('preserves raster mask through crop', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,SRC',
+      w: 100,
+      h: 100,
+    });
+    const withMask = {
+      ...img,
+      mask: {
+        type: 'alpha' as const,
+        visible: true,
+        rasterMask: {
+          assetId: 'mask-i1',
+          coordinateSpace: 'source-image-pixels' as const,
+          sourceIdentity: {
+            kind: 'source-metadata' as const,
+            locator: 'data:image/png;base64,SRC',
+            pixelWidth: 100,
+            pixelHeight: 100,
+            revision: 1,
+          },
+        },
+      },
+    };
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, i1: withMask },
+      rootChildren: ['i1'],
+      rasterMaskAssets: {
+        'mask-i1': {
+          id: 'mask-i1',
+          mimeType: 'image/png' as const,
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          width: 100,
+          height: 100,
+          byteLength: 68,
+        },
+      },
+    };
+    const next = commitImageCrop(doc, 'i1', { x: 20, y: 20, w: 60, h: 60 });
+    expect(next.nodes.i1?.mask?.rasterMask?.assetId).toBe('mask-i1');
+    expect(next.nodes.i1?.mask?.visible).toBe(true);
+    expect(next.nodes.i1?.mask?.rasterMask?.sourceIdentity.revision).toBe(1);
+    expect(next.rasterMaskAssets?.['mask-i1']).toBeDefined();
+  });
 });
