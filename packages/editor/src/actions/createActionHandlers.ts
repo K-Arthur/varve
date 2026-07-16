@@ -104,6 +104,7 @@ export function createActionHandlers(
     workspacePrint: () => e.setWorkspaceMode('print'),
     workspaceDrawing: () => e.setWorkspaceMode('drawing'),
     workspaceImage: () => e.setWorkspaceMode('image'),
+    resetWorkspace: () => e.resetWorkspaceToDefault(),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
     canvasModeFull: () => {
