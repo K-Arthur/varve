@@ -27,9 +27,10 @@ import {
   type HalftoneMethod,
   type HalftonePattern,
 } from './halftone';
+import { applyLutToImageData, type LutTransform } from './lut';
 import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
-import type { FilterIR } from './types';
 import { applyTritone } from './tritone';
+import type { FilterIR } from './types';
 
 /** Build a CSS filter string from all CSS-compatible filters, ignoring opacity/blend. */
 function filterChainToCssSimple(filters: FilterIR[]): string | null {
@@ -365,6 +366,18 @@ export function applySoftwareFilter(
         threshold?: number;
         intensity?: number;
         softness?: number;
+        channelAngles?: { c?: number; m?: number; y?: number; k?: number };
+        registrationOffset?: {
+          c?: [number, number];
+          m?: [number, number];
+          y?: [number, number];
+          k?: [number, number];
+        };
+        tacLimit?: number;
+        blackGeneration?: 'none' | 'gcr' | 'ucr';
+        gcrStrength?: number;
+        previewChannel?: 'composite' | 'c' | 'm' | 'y' | 'k';
+        dotGain?: number;
       };
       applyHalftone(imageData, {
         pattern: hf.pattern as HalftonePattern,
@@ -376,6 +389,13 @@ export function applySoftwareFilter(
         threshold: hf.threshold,
         intensity: hf.intensity,
         softness: hf.softness,
+        channelAngles: hf.channelAngles,
+        registrationOffset: hf.registrationOffset,
+        tacLimit: hf.tacLimit,
+        blackGeneration: hf.blackGeneration,
+        gcrStrength: hf.gcrStrength,
+        previewChannel: hf.previewChannel,
+        dotGain: hf.dotGain,
       });
       ctx.putImageData(imageData, 0, 0);
       break;
@@ -386,9 +406,35 @@ export function applySoftwareFilter(
     }
     case 'gradientMap': {
       const gf = filter as {
-        stops: readonly { position: number; color: readonly [number, number, number, number] }[];
+        stops: readonly {
+          position: number;
+          color: readonly [number, number, number, number];
+          opacity?: number;
+          midpoint?: number;
+        }[];
         dither: boolean;
         preserveLuminosity: boolean;
+        mode?: 'luminance' | 'channel';
+        channelStops?: {
+          r?: readonly {
+            position: number;
+            color: readonly [number, number, number, number];
+            opacity?: number;
+            midpoint?: number;
+          }[];
+          g?: readonly {
+            position: number;
+            color: readonly [number, number, number, number];
+            opacity?: number;
+            midpoint?: number;
+          }[];
+          b?: readonly {
+            position: number;
+            color: readonly [number, number, number, number];
+            opacity?: number;
+            midpoint?: number;
+          }[];
+        };
       };
       applyGradientMapFilter(imageData, gf);
       ctx.putImageData(imageData, 0, 0);
@@ -403,6 +449,7 @@ export function applySoftwareFilter(
         highlightPoint: number;
         intensity: number;
         preserveLuminosity: boolean;
+        interpolation?: 'smoothstep' | 'linear';
       };
       applyTritone(imageData, {
         shadowColor: tf.shadowColor,
@@ -412,7 +459,30 @@ export function applySoftwareFilter(
         highlightPoint: tf.highlightPoint,
         intensity: tf.intensity,
         preserveLuminosity: tf.preserveLuminosity,
+        interpolation: tf.interpolation,
       });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'lut': {
+      const lf = filter as {
+        lutJson: string;
+        interpolation?: string;
+        intensity?: number;
+        linearize?: boolean;
+      };
+      if (lf.lutJson) {
+        try {
+          const transform = JSON.parse(lf.lutJson) as LutTransform;
+          const interpolation =
+            (lf.interpolation as 'nearest' | 'trilinear' | 'tetrahedral') ?? 'tetrahedral';
+          const intensity = lf.intensity ?? 1;
+          const linearize = lf.linearize ?? false;
+          applyLutToImageData(imageData, transform, intensity, interpolation, linearize);
+        } catch {
+          // Parse failure: leave image unchanged
+        }
+      }
       ctx.putImageData(imageData, 0, 0);
       break;
     }
