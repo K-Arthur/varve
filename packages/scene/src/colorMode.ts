@@ -1,4 +1,9 @@
-import type { ColorConfig, ColorMode, ManagedColor } from './colorManagement';
+import {
+  type ColorConfig,
+  type ColorMode,
+  defaultColorConfig,
+  type ManagedColor,
+} from './colorManagement';
 import type { Document } from './document';
 import type { Effect, Fill, GradientStop, SceneNode, Stroke } from './types';
 
@@ -83,11 +88,12 @@ function withProfile<T extends { a: number }>(result: T, source: ManagedColor): 
   return result;
 }
 
-function updateColorConfig(
-  config: ColorConfig | undefined,
-  newMode: ColorMode,
-): ColorConfig | undefined {
-  if (!config) return config;
+function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode): ColorConfig {
+  // A document created without an explicit colorMode has no colorConfig at
+  // all (see document.ts) — that's the normal case, not an edge case.
+  // defaultColorConfig() only branches on 'cmyk' vs everything else, so it
+  // can't be trusted to set .mode to 'grayscale'; set it explicitly here.
+  if (!config) return { ...defaultColorConfig(newMode), mode: newMode };
   return { ...config, mode: newMode };
 }
 

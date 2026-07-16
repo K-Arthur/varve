@@ -6,6 +6,7 @@ function getCanvas(page: import('@playwright/test').Page) {
 }
 
 test.describe('Spec Panel Measurement', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

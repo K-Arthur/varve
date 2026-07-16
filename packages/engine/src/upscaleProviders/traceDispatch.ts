@@ -12,10 +12,10 @@ export { wasmTraceProvider } from './wasmTraceProvider';
 
 /** Ordered providers — first available success wins. */
 export const TRACE_PROVIDER_CHAIN: TraceProvider[] = [
-  nativeTraceProvider,
-  wasmTraceProvider,
   workerTraceProvider,
   directTraceProvider,
+  wasmTraceProvider,
+  nativeTraceProvider,
 ];
 
 export async function dispatchTrace(

@@ -71,11 +71,11 @@ function hasStrokes(n: SceneNode): n is StrokeNode {
   return n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame';
 }
 
-/** True if any selected node is a line or open path (supports arrowheads). */
+/** True if any selected node is a line, arrow, or open path (supports arrowheads). */
 function isLineOrPath(n: SceneNode): boolean {
   if (n.kind !== 'shape') return false;
   const s = n.shape;
-  return s.kind === 'line' || s.kind === 'path';
+  return s.kind === 'line' || s.kind === 'arrow' || s.kind === 'path';
 }
 
 /** True if any selected node is a rect or frame (supports per-side weights). */

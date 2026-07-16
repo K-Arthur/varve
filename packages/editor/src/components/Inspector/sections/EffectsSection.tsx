@@ -9,6 +9,7 @@
 import type {
   AdjustmentNode,
   BlendMode,
+  ChannelOffset,
   Effect,
   FrameNode,
   ManagedColor,
@@ -131,6 +132,35 @@ function defaultEffect(type: Effect['type']): Effect {
         edgeHighlightOpacity: 0.4,
         visible: true,
       };
+    case 'chromaticAberration':
+      return {
+        type,
+        offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
+        intensity: 1,
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      };
+    case 'glitch':
+      return {
+        type,
+        seed: 42,
+        strength: 8,
+        density: 0.3,
+        sliceHeight: 8,
+        blockCount: 5,
+        blockSize: 20,
+        blockStrength: 10,
+        noiseIntensity: 0.05,
+        scanlineIntensity: 0.15,
+        scanlineSpacing: 4,
+        direction: 'horizontal',
+        channelShift: { redX: 0, redY: 0, greenX: 0, greenY: 0, blueX: 0, blueY: 0 },
+        channelShiftMode: 'static',
+        blendMode: 'normal',
+        opacity: 1,
+        visible: true,
+      };
   }
 }
 
@@ -147,6 +177,8 @@ const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
   { value: 'layerBlur', label: 'Layer Blur' },
   { value: 'backgroundBlur', label: 'Background Blur' },
   { value: 'glassMaterial', label: 'Glass Material' },
+  { value: 'chromaticAberration', label: 'Chromatic Aberration' },
+  { value: 'glitch', label: 'Glitch' },
 ];
 
 export function EffectsSection({ nodes }: EffectsSectionProps) {
@@ -298,9 +330,14 @@ function EffectRow({
         >
           <Icon name={visibility ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
-        {type && type !== 'layerBlur' && type !== 'backgroundBlur' && type !== 'glassMaterial' && (
-          <ShadowColorSwatch nodes={nodes} index={index} onChange={onChange} />
-        )}
+        {type &&
+          type !== 'layerBlur' &&
+          type !== 'backgroundBlur' &&
+          type !== 'glassMaterial' &&
+          type !== 'chromaticAberration' &&
+          type !== 'glitch' && (
+            <EffectColorSwatch nodes={nodes} index={index} onChange={onChange} />
+          )}
         {type === 'glassMaterial' && (
           <GlassTintSwatch nodes={nodes} index={index} onChange={onChange} />
         )}
@@ -350,7 +387,19 @@ function EffectRow({
   );
 }
 
-function ShadowColorSwatch({
+function getEffectColor(e: Effect): ManagedColor | undefined {
+  if (e.type === 'dropShadow' || e.type === 'innerShadow') return e.color;
+  if (e.type === 'outerGlow' || e.type === 'innerGlow') return e.color;
+  return undefined;
+}
+
+function setEffectColor(e: Effect, color: ManagedColor): Effect {
+  if (e.type === 'dropShadow' || e.type === 'innerShadow') return { ...e, color };
+  if (e.type === 'outerGlow' || e.type === 'innerGlow') return { ...e, color };
+  return e;
+}
+
+function EffectColorSwatch({
   nodes,
   index,
   onChange,
@@ -362,7 +411,7 @@ function ShadowColorSwatch({
   const { documentColorMode } = useEditor();
   const colorRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
-    if (e && (e.type === 'dropShadow' || e.type === 'innerShadow')) return e.color;
+    if (e) return getEffectColor(e);
     return { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
   });
   const color = isMixed(colorRaw) ? null : colorRaw;
@@ -372,16 +421,483 @@ function ShadowColorSwatch({
     <InspectorColorPopover
       label="Effect colour"
       value={color ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 255 }}
-      onChange={(c) =>
-        onChange((e) =>
-          e.type === 'dropShadow' || e.type === 'innerShadow'
-            ? { ...e, color: c as ManagedColor }
-            : e,
-        )
-      }
+      onChange={(c) => onChange((e) => setEffectColor(e, c as ManagedColor))}
       swatchStyle={{ background: swatchBg }}
       documentColorMode={documentColorMode}
     />
+  );
+}
+
+function LinkedChannelOffsets({
+  value,
+  onChange,
+}: {
+  value: ChannelOffset;
+  onChange: (v: ChannelOffset) => void;
+}) {
+  const [linked, setLinked] = useState(true);
+  const maxOffset = useMemo(() => {
+    const vals = [value.redX, value.redY, value.greenX, value.greenY, value.blueX, value.blueY];
+    return Math.max(...vals.map(Math.abs));
+  }, [value]);
+  return (
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
+      <button
+        type="button"
+        className={`insp-toggle-btn${linked ? ' --active' : ''}`}
+        aria-label="Link channel offsets"
+        aria-pressed={linked}
+        onClick={() => setLinked(!linked)}
+      >
+        {linked ? 'Linked' : 'Independent'}
+      </button>
+      {linked ? (
+        <NumberField
+          label="Offset"
+          value={maxOffset}
+          step={0.5}
+          min={0}
+          max={100}
+          onChange={(v) => {
+            const sign = (orig: number) => (orig < 0 ? -1 : orig > 0 ? 1 : 0);
+            const sR = sign(value.redX || value.redY);
+            const sG = sign(value.greenX || value.greenY);
+            const sB = sign(value.blueX || value.blueY);
+            onChange({
+              redX: sR * v,
+              redY: sR * v,
+              greenX: sG * v,
+              greenY: sG * v,
+              blueX: sB * v,
+              blueY: sB * v,
+            });
+          }}
+        />
+      ) : (
+        <>
+          <FieldRow label="Red">
+            <NumberField
+              label="X"
+              value={value.redX}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, redX: v })}
+            />
+            <NumberField
+              label="Y"
+              value={value.redY}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, redY: v })}
+            />
+          </FieldRow>
+          <FieldRow label="Green">
+            <NumberField
+              label="X"
+              value={value.greenX}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, greenX: v })}
+            />
+            <NumberField
+              label="Y"
+              value={value.greenY}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, greenY: v })}
+            />
+          </FieldRow>
+          <FieldRow label="Blue">
+            <NumberField
+              label="X"
+              value={value.blueX}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, blueX: v })}
+            />
+            <NumberField
+              label="Y"
+              value={value.blueY}
+              step={0.5}
+              min={-100}
+              max={100}
+              onChange={(v) => onChange({ ...value, blueY: v })}
+            />
+          </FieldRow>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ChromaticAberrationParams({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const intensityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'chromaticAberration') return e.intensity;
+    return 1;
+  });
+  const opacityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'chromaticAberration') return e.opacity;
+    return 1;
+  });
+  const blendRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'chromaticAberration') return e.blendMode;
+    return 'normal';
+  });
+  const offsetsRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'chromaticAberration') return e.offsets;
+    return null;
+  });
+  const offsets = offsetsRaw && !isMixed(offsetsRaw) ? offsetsRaw : null;
+
+  return (
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
+      <div className="insp-field">
+        <NumberField
+          label="Intensity"
+          value={isMixed(intensityRaw) ? 1 : intensityRaw}
+          mixed={isMixed(intensityRaw)}
+          step={0.1}
+          min={0}
+          max={10}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, intensity: v } : e))
+          }
+        />
+        <NumberField
+          label="Opacity"
+          value={isMixed(opacityRaw) ? 1 : opacityRaw}
+          mixed={isMixed(opacityRaw)}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, opacity: v } : e))
+          }
+        />
+      </div>
+      <FieldRow label="Blend">
+        <Select
+          label="Aberration blend mode"
+          value={isMixed(blendRaw) ? '' : (blendRaw as string)}
+          options={[
+            ...(isMixed(blendRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            ...BLEND_OPTIONS,
+          ]}
+          onChange={(v) => {
+            if (!v) return;
+            onChange((e) =>
+              e.type === 'chromaticAberration' ? { ...e, blendMode: v as BlendMode } : e,
+            );
+          }}
+          placeholder="Mixed"
+        />
+      </FieldRow>
+      {offsets && (
+        <LinkedChannelOffsets
+          value={offsets}
+          onChange={(v) =>
+            onChange((e) => (e.type === 'chromaticAberration' ? { ...e, offsets: v } : e))
+          }
+        />
+      )}
+    </div>
+  );
+}
+
+function GlitchParams({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const strengthRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glitch') return e.strength;
+    return 0;
+  });
+  const densityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glitch') return e.density;
+    return 0;
+  });
+  const seedRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glitch') return e.seed;
+    return 42;
+  });
+  const opacityRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glitch') return e.opacity;
+    return 1;
+  });
+  const dirRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    if (e && e.type === 'glitch') return e.direction;
+    return 'horizontal';
+  });
+
+  return (
+    <div
+      style={{
+        paddingLeft: 'var(--space-2)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--space-1)',
+      }}
+    >
+      <div className="insp-field">
+        <NumberField
+          label="Strength"
+          value={isMixed(strengthRaw) ? 0 : strengthRaw}
+          mixed={isMixed(strengthRaw)}
+          step={1}
+          min={0}
+          max={200}
+          onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, strength: v } : e))}
+        />
+        <NumberField
+          label="Density"
+          value={isMixed(densityRaw) ? 0 : densityRaw}
+          mixed={isMixed(densityRaw)}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, density: v } : e))}
+        />
+      </div>
+      <div className="insp-field">
+        <NumberField
+          label="Seed"
+          value={isMixed(seedRaw) ? 42 : seedRaw}
+          mixed={isMixed(seedRaw)}
+          step={1}
+          min={0}
+          max={999999}
+          onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, seed: v } : e))}
+        />
+        <NumberField
+          label="Opacity"
+          value={isMixed(opacityRaw) ? 1 : opacityRaw}
+          mixed={isMixed(opacityRaw)}
+          step={0.05}
+          min={0}
+          max={1}
+          onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, opacity: v } : e))}
+        />
+      </div>
+      <FieldRow label="Direction">
+        <Select
+          label="Glitch direction"
+          value={isMixed(dirRaw) ? '' : (dirRaw as string)}
+          options={[
+            ...(isMixed(dirRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            { value: 'horizontal', label: 'Horizontal' },
+            { value: 'vertical', label: 'Vertical' },
+            { value: 'both', label: 'Both' },
+          ]}
+          onChange={(v) => {
+            if (!v) return;
+            onChange((e) =>
+              e.type === 'glitch'
+                ? { ...e, direction: v as 'horizontal' | 'vertical' | 'both' }
+                : e,
+            );
+          }}
+          placeholder="Mixed"
+        />
+      </FieldRow>
+      <button
+        type="button"
+        className="insp-inline-btn"
+        style={{ fontSize: 'var(--font-size-2xs)', color: 'var(--color-text-muted)' }}
+        onClick={() => setAdvancedOpen(!advancedOpen)}
+      >
+        {advancedOpen ? 'Hide advanced' : 'Advanced...'}
+      </button>
+      {advancedOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+          <NumberField
+            label="Slice Height"
+            value={
+              isMixed(
+                commonValue(nodes, (n) => {
+                  const e = getEffect(n, index);
+                  if (e && e.type === 'glitch') return e.sliceHeight;
+                  return 8;
+                }),
+              )
+                ? 8
+                : (commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.sliceHeight;
+                    return 8;
+                  }) as number)
+            }
+            step={1}
+            min={1}
+            max={200}
+            onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, sliceHeight: v } : e))}
+          />
+          <FieldRow label="Block">
+            <NumberField
+              label="Count"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.blockCount;
+                    return 0;
+                  }),
+                )
+                  ? 0
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.blockCount;
+                      return 0;
+                    }) as number)
+              }
+              step={1}
+              min={0}
+              max={100}
+              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockCount: v } : e))}
+            />
+            <NumberField
+              label="Size"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.blockSize;
+                    return 20;
+                  }),
+                )
+                  ? 20
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.blockSize;
+                      return 20;
+                    }) as number)
+              }
+              step={1}
+              min={1}
+              max={200}
+              onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockSize: v } : e))}
+            />
+          </FieldRow>
+          <FieldRow label="Noise">
+            <NumberField
+              label="Intensity"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.noiseIntensity;
+                    return 0;
+                  }),
+                )
+                  ? 0
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.noiseIntensity;
+                      return 0;
+                    }) as number)
+              }
+              step={0.01}
+              min={0}
+              max={1}
+              onChange={(v) =>
+                onChange((e) => (e.type === 'glitch' ? { ...e, noiseIntensity: v } : e))
+              }
+            />
+          </FieldRow>
+          <FieldRow label="Scanline">
+            <NumberField
+              label="Intensity"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.scanlineIntensity;
+                    return 0;
+                  }),
+                )
+                  ? 0
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.scanlineIntensity;
+                      return 0;
+                    }) as number)
+              }
+              step={0.01}
+              min={0}
+              max={1}
+              onChange={(v) =>
+                onChange((e) => (e.type === 'glitch' ? { ...e, scanlineIntensity: v } : e))
+              }
+            />
+            <NumberField
+              label="Spacing"
+              value={
+                isMixed(
+                  commonValue(nodes, (n) => {
+                    const e = getEffect(n, index);
+                    if (e && e.type === 'glitch') return e.scanlineSpacing;
+                    return 4;
+                  }),
+                )
+                  ? 4
+                  : (commonValue(nodes, (n) => {
+                      const e = getEffect(n, index);
+                      if (e && e.type === 'glitch') return e.scanlineSpacing;
+                      return 4;
+                    }) as number)
+              }
+              step={1}
+              min={1}
+              max={50}
+              onChange={(v) =>
+                onChange((e) => (e.type === 'glitch' ? { ...e, scanlineSpacing: v } : e))
+              }
+            />
+          </FieldRow>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -439,6 +955,10 @@ function EffectParams({
       return <SingleBlurParam nodes={nodes} index={index} onChange={onChange} />;
     case 'glassMaterial':
       return <GlassMaterialParams nodes={nodes} index={index} onChange={onChange} />;
+    case 'chromaticAberration':
+      return <ChromaticAberrationParams nodes={nodes} index={index} onChange={onChange} />;
+    case 'glitch':
+      return <GlitchParams nodes={nodes} index={index} onChange={onChange} />;
   }
 }
 

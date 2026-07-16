@@ -346,6 +346,7 @@ export function makeShapeNode(
       | 'strokes'
       | 'effects'
       | 'cornerRadius'
+      | 'cornerSmoothing'
       | 'order'
     >
   > = {},
@@ -367,6 +368,7 @@ export function makeShapeNode(
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
     cornerRadius: opts.cornerRadius,
+    cornerSmoothing: opts.cornerSmoothing,
   };
 }
 

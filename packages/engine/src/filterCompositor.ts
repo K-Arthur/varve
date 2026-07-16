@@ -19,6 +19,7 @@ import { applySelectiveColor } from './adjustment/selectiveColor';
 import { gaussianBlurSeparable } from './blur';
 import { mapBlendMode } from './compositeCanvas';
 import { filterToCss, supportsCanvasFilter } from './filters';
+import { applyGradientMapFilter } from './gradientMap';
 import {
   applyHalftone,
   type HalftoneChannel,
@@ -26,7 +27,9 @@ import {
   type HalftoneMethod,
   type HalftonePattern,
 } from './halftone';
+import { applyLutToImageData, type LutTransform } from './lut';
 import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
+import { applyTritone } from './tritone';
 import type { FilterIR } from './types';
 
 /** Build a CSS filter string from all CSS-compatible filters, ignoring opacity/blend. */
@@ -360,6 +363,21 @@ export function applySoftwareFilter(
         dotShape: string;
         channel: string;
         method: string;
+        threshold?: number;
+        intensity?: number;
+        softness?: number;
+        channelAngles?: { c?: number; m?: number; y?: number; k?: number };
+        registrationOffset?: {
+          c?: [number, number];
+          m?: [number, number];
+          y?: [number, number];
+          k?: [number, number];
+        };
+        tacLimit?: number;
+        blackGeneration?: 'none' | 'gcr' | 'ucr';
+        gcrStrength?: number;
+        previewChannel?: 'composite' | 'c' | 'm' | 'y' | 'k';
+        dotGain?: number;
       };
       applyHalftone(imageData, {
         pattern: hf.pattern as HalftonePattern,
@@ -368,6 +386,16 @@ export function applySoftwareFilter(
         dotShape: hf.dotShape as HalftoneDotShape,
         channel: hf.channel as HalftoneChannel,
         method: hf.method as HalftoneMethod,
+        threshold: hf.threshold,
+        intensity: hf.intensity,
+        softness: hf.softness,
+        channelAngles: hf.channelAngles,
+        registrationOffset: hf.registrationOffset,
+        tacLimit: hf.tacLimit,
+        blackGeneration: hf.blackGeneration,
+        gcrStrength: hf.gcrStrength,
+        previewChannel: hf.previewChannel,
+        dotGain: hf.dotGain,
       });
       ctx.putImageData(imageData, 0, 0);
       break;
@@ -378,11 +406,83 @@ export function applySoftwareFilter(
     }
     case 'gradientMap': {
       const gf = filter as {
-        stops: readonly { position: number; color: readonly [number, number, number, number] }[];
+        stops: readonly {
+          position: number;
+          color: readonly [number, number, number, number];
+          opacity?: number;
+          midpoint?: number;
+        }[];
         dither: boolean;
         preserveLuminosity: boolean;
+        mode?: 'luminance' | 'channel';
+        channelStops?: {
+          r?: readonly {
+            position: number;
+            color: readonly [number, number, number, number];
+            opacity?: number;
+            midpoint?: number;
+          }[];
+          g?: readonly {
+            position: number;
+            color: readonly [number, number, number, number];
+            opacity?: number;
+            midpoint?: number;
+          }[];
+          b?: readonly {
+            position: number;
+            color: readonly [number, number, number, number];
+            opacity?: number;
+            midpoint?: number;
+          }[];
+        };
       };
-      applyGradientMap(imageData, gf);
+      applyGradientMapFilter(imageData, gf);
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'tritone': {
+      const tf = filter as {
+        shadowColor: readonly [number, number, number, number];
+        midtoneColor: readonly [number, number, number, number];
+        highlightColor: readonly [number, number, number, number];
+        shadowPoint: number;
+        highlightPoint: number;
+        intensity: number;
+        preserveLuminosity: boolean;
+        interpolation?: 'smoothstep' | 'linear';
+      };
+      applyTritone(imageData, {
+        shadowColor: tf.shadowColor,
+        midtoneColor: tf.midtoneColor,
+        highlightColor: tf.highlightColor,
+        shadowPoint: tf.shadowPoint,
+        highlightPoint: tf.highlightPoint,
+        intensity: tf.intensity,
+        preserveLuminosity: tf.preserveLuminosity,
+        interpolation: tf.interpolation,
+      });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'lut': {
+      const lf = filter as {
+        lutJson: string;
+        interpolation?: string;
+        intensity?: number;
+        linearize?: boolean;
+      };
+      if (lf.lutJson) {
+        try {
+          const transform = JSON.parse(lf.lutJson) as LutTransform;
+          const interpolation =
+            (lf.interpolation as 'nearest' | 'trilinear' | 'tetrahedral') ?? 'tetrahedral';
+          const intensity = lf.intensity ?? 1;
+          const linearize = lf.linearize ?? false;
+          applyLutToImageData(imageData, transform, intensity, interpolation, linearize);
+        } catch {
+          // Parse failure: leave image unchanged
+        }
+      }
       ctx.putImageData(imageData, 0, 0);
       break;
     }
@@ -733,104 +833,6 @@ function applyPhotoFilter(
  * Vibrance: intelligently boost saturation, protecting skin tones.
  * Applies more saturation to less-saturated areas.
  */
-/**
- * Gradient map: maps luminance of each pixel to a position along a gradient stop
- * ramp. The darkest pixels take the leftmost stop, lightest take the rightmost.
- * Supports dithering for banding reduction and optional luminance preservation.
- *
- * Research basis: Adobe Photoshop Gradient Map adjustment layer, Affinity Photo
- * Gradient Map, photographic split-toning concepts.
- */
-function applyGradientMap(
-  data: ImageData,
-  params: {
-    stops: readonly { position: number; color: readonly [number, number, number, number] }[];
-    dither: boolean;
-    preserveLuminosity: boolean;
-  },
-): void {
-  const { stops, dither, preserveLuminosity } = params;
-  if (stops.length < 2) return;
-
-  const pixels = data.data;
-  const w = data.width;
-
-  // Pre-compute interpolated LUT: for each 0-255 luminance value, compute the mapped color
-  const lutR = new Uint8Array(256);
-  const lutG = new Uint8Array(256);
-  const lutB = new Uint8Array(256);
-
-  for (let lum = 0; lum < 256; lum++) {
-    const t = lum / 255;
-
-    // Find the two surrounding stops
-    let lower = stops[0]!;
-    let upper = stops[stops.length - 1]!;
-
-    for (let i = 0; i < stops.length - 1; i++) {
-      if (t >= stops[i]!.position && t <= stops[i + 1]!.position) {
-        lower = stops[i]!;
-        upper = stops[i + 1]!;
-        break;
-      }
-    }
-
-    // Interpolate between lower and upper
-    const range = upper.position - lower.position;
-    const localT = range > 0 ? (t - lower.position) / range : 0;
-
-    const lc = lower.color;
-    const uc = upper.color;
-    lutR[lum] = Math.round(lc[0] + (uc[0] - lc[0]) * localT);
-    lutG[lum] = Math.round(lc[1] + (uc[1] - lc[1]) * localT);
-    lutB[lum] = Math.round(lc[2] + (uc[2] - lc[2]) * localT);
-  }
-
-  // Apply LUT to each pixel
-  for (let i = 0; i < pixels.length; i += 4) {
-    const r = pixels[i]!;
-    const g = pixels[i + 1]!;
-    const b = pixels[i + 2]!;
-
-    // Luminance (Rec. 709 luma coefficients)
-    const lum = clampByte(0.2126 * r + 0.7152 * g + 0.0722 * b);
-
-    let mappedLum = lum;
-
-    // Optional ordered dithering for banding reduction
-    if (dither) {
-      const x = Math.round((i / 4) % w);
-      const y = Math.floor(i / 4 / w);
-      const ditherVal = ((BAYER_4X4[y & 3]?.[x & 3] ?? 0.5) - 0.5) * 1.5;
-      mappedLum = clampByte(lum + Math.round(ditherVal));
-    }
-
-    const nr = lutR[mappedLum]!;
-    const ng = lutG[mappedLum]!;
-    const nb = lutB[mappedLum]!;
-
-    if (preserveLuminosity) {
-      // Scale mapped color to preserve original luminance
-      const mappedLum2 = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
-      const scale = mappedLum > 0 ? lum / mappedLum2 : 1;
-      pixels[i] = clampByte(nr * scale);
-      pixels[i + 1] = clampByte(ng * scale);
-      pixels[i + 2] = clampByte(nb * scale);
-    } else {
-      pixels[i] = clampByte(nr);
-      pixels[i + 1] = clampByte(ng);
-      pixels[i + 2] = clampByte(nb);
-    }
-  }
-}
-
-/** 4x4 Bayer ordered dither matrix for banding reduction. */
-const BAYER_4X4: number[][] = [
-  [0.0625, 0.5625, 0.1875, 0.6875],
-  [0.8125, 0.3125, 0.9375, 0.4375],
-  [0.1875, 0.6875, 0.0625, 0.5625],
-  [0.9375, 0.4375, 0.8125, 0.3125],
-];
 
 function applyVibrance(data: ImageData, value: number): void {
   const pixels = data.data;

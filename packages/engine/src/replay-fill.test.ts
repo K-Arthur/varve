@@ -60,6 +60,8 @@ function recorder(): RecorderProxy {
     save: mk('save'),
     restore: mk('restore'),
     transform: mk('transform'),
+    translate: mk('translate'),
+    rotate: mk('rotate'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),

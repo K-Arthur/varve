@@ -1,5 +1,15 @@
-import type { Adjustment } from '@strata/scene';
-import { useCallback } from 'react';
+import type { Color } from '@strata/engine';
+import {
+  LUT_INPUT_SPACE_LABELS,
+  TRITONE_PRESETS,
+  parseCubeData,
+  parse3dlData,
+} from '@strata/engine';
+import type { Adjustment, ManagedColor } from '@strata/scene';
+import { rgbFromTuple } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
 import './adjustment.css';
 
@@ -369,10 +379,17 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
           stops={adj.stops}
           dither={adj.dither}
           preserveLuminosity={adj.preserveLuminosity}
+          ditherSize={adj.ditherSize}
           onChange={(patch) => onChange(patch as unknown as Partial<Adjustment>)}
         />
       );
     }
+
+    case 'tritone':
+      return <TritoneEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'lut':
+      return <LutEditor adjustment={adjustment} onChange={onChange} />;
 
     default:
       return (
@@ -382,6 +399,196 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
           </span>
         </div>
       );
+  }
+
+  function LutEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+    const adj = adjustment as import('@strata/engine').LutAdjustment;
+    const fileRef = useRef<HTMLInputElement>(null);
+    const [status, setStatus] = useState<string | null>(null);
+    const [lutMeta, setLutMeta] = useState<{ name: string; format: string; size: number } | null>(
+      null,
+    );
+
+    const handleFileChange = useCallback(
+      (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          const text = typeof reader.result === 'string' ? reader.result : null;
+          if (!text) {
+            setStatus('Failed to read file');
+            return;
+          }
+          try {
+            const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+            if (ext === 'cube') {
+              const result = parseCubeData(text);
+              const json = JSON.stringify(result.transform);
+              onChange({
+                lutJson: json,
+                originalFilename: file.name,
+                inputSpace: 'sRGB',
+                interpolation: 'tetrahedral',
+                intensity: 1,
+                linearize: false,
+              } as unknown as Partial<Adjustment>);
+              const kind = result.transform.kind;
+              const size =
+                result.transform.kind === '3d'
+                  ? result.transform.size
+                  : result.transform.kind === '1d'
+                    ? result.transform.size
+                    : 0;
+              setLutMeta({ name: result.title ?? file.name, format: ext, size });
+              setStatus(
+                `Imported ${ext.toUpperCase()} (${kind === '1d' ? '1D' : '3D'} ${size}^${kind === '3d' ? '3' : '1'})`,
+              );
+            } else if (ext === '3dl') {
+              const result = parse3dlData(text);
+              const json = JSON.stringify(result.transform);
+              onChange({
+                lutJson: json,
+                originalFilename: file.name,
+                inputSpace: 'sRGB',
+                interpolation: 'tetrahedral',
+                intensity: 1,
+                linearize: false,
+              } as unknown as Partial<Adjustment>);
+              setLutMeta({ name: file.name, format: '3dl', size: result.transform.size });
+              setStatus(`Imported 3DL (${result.transform.size}^3)`);
+            } else {
+              setStatus(`Unsupported format: .${ext}`);
+            }
+          } catch (err) {
+            setStatus(`Parse error: ${err instanceof Error ? err.message : String(err)}`);
+          }
+          e.target.value = '';
+        };
+        reader.readAsText(file);
+      },
+      [onChange],
+    );
+
+    return (
+      <div className="adj-lut-editor">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".cube,.3dl"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
+        />
+
+        <button
+          type="button"
+          className="adj-editor__row adj-lut-editor__import-btn"
+          onClick={() => fileRef.current?.click()}
+        >
+          <span
+            className="adj-editor__label"
+            style={{ minWidth: 'auto', flex: 1, textAlign: 'center' }}
+          >
+            {lutMeta ? 'Replace LUT File' : 'Import LUT File'}
+          </span>
+        </button>
+
+        {status && (
+          <div className="adj-lut-editor__status">
+            <span>{status}</span>
+          </div>
+        )}
+
+        {lutMeta && (
+          <div className="adj-lut-editor__meta">
+            <span className="adj-editor__label">{lutMeta.name}</span>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+              {lutMeta.format.toUpperCase()} | {lutMeta.size}^
+              {lutMeta.format === '3dl' ||
+              (adj.lutJson &&
+                (() => {
+                  try {
+                    return JSON.parse(adj.lutJson)?.kind === '3d';
+                  } catch {
+                    return false;
+                  }
+                })())
+                ? '3'
+                : '1'}
+            </span>
+          </div>
+        )}
+
+        <div className="adj-editor__slider-row">
+          <div className="adj-editor__slider-label">
+            <span>Intensity</span>
+            <span>{Math.round((adj.intensity ?? 1) * 100)}%</span>
+          </div>
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round((adj.intensity ?? 1) * 100)}
+            onChange={(e) =>
+              onChange({
+                intensity: Number(e.target.value) / 100,
+              } as unknown as Partial<Adjustment>)
+            }
+            aria-label="LUT intensity"
+          />
+        </div>
+
+        <div className="adj-editor__row">
+          <span className="adj-editor__label">Interpolation</span>
+          <select
+            className="adj-editor__select"
+            value={adj.interpolation ?? 'tetrahedral'}
+            onChange={(e) =>
+              onChange({
+                interpolation: e.target.value as 'nearest' | 'trilinear' | 'tetrahedral',
+              } as unknown as Partial<Adjustment>)
+            }
+            aria-label="Interpolation method"
+          >
+            <option value="nearest">Nearest</option>
+            <option value="trilinear">Trilinear</option>
+            <option value="tetrahedral">Tetrahedral</option>
+          </select>
+        </div>
+
+        <div className="adj-editor__row">
+          <span className="adj-editor__label">Input Space</span>
+          <select
+            className="adj-editor__select"
+            value={adj.inputSpace ?? 'sRGB'}
+            onChange={(e) =>
+              onChange({ inputSpace: e.target.value } as unknown as Partial<Adjustment>)
+            }
+            aria-label="Input colour space"
+          >
+            {Object.entries(LUT_INPUT_SPACE_LABELS).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="adj-editor__row">
+          <span className="adj-editor__label">Linearize</span>
+          <input
+            type="checkbox"
+            checked={adj.linearize ?? false}
+            onChange={(e) =>
+              onChange({ linearize: e.target.checked } as unknown as Partial<Adjustment>)
+            }
+            aria-label="Linearize before applying"
+          />
+        </div>
+      </div>
+    );
   }
 }
 
@@ -933,6 +1140,58 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           disabled={adj.channel === 'cmyk'}
         />
       </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Threshold</span>
+          <span>{adj.threshold ?? 128}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={255}
+          step={1}
+          value={adj.threshold ?? 128}
+          onChange={handleNumber('threshold')}
+          aria-label="Halftone threshold"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Intensity</span>
+          <span>{Math.round((adj.intensity ?? 1) * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round((adj.intensity ?? 1) * 100)}
+          onChange={(e) =>
+            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Halftone intensity"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Softness</span>
+          <span>{Math.round((adj.softness ?? 0) * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round((adj.softness ?? 0) * 100)}
+          onChange={(e) =>
+            onChange({ softness: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Dot edge softness"
+        />
+      </div>
       {adj.channel === 'cmyk' && (
         <div className="adj-editor__row">
           <span
@@ -972,6 +1231,163 @@ function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         <span style={{ fontSize: 'var(--font-size-2xs)', minWidth: 24, textAlign: 'right' }}>
           {adj.density}
         </span>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preserve Luminosity</span>
+        <input
+          type="checkbox"
+          checked={adj.preserveLuminosity}
+          onChange={(e) =>
+            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Preserve luminosity"
+        />
+      </div>
+    </div>
+  );
+}
+
+function colorToManaged(c: Color): ManagedColor {
+  return rgbFromTuple(c);
+}
+
+function managedToColor(c: ManagedColor): Color {
+  if (c.space === 'rgb') return [c.r, c.g, c.b, c.a] as Color;
+  const [r, g, b, a] = managedColorToRgba(c as Parameters<typeof managedColorToRgba>[0]);
+  return [r, g, b, a] as Color;
+}
+
+function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').TritoneAdjustment;
+  const handleColor =
+    (key: 'shadowColor' | 'midtoneColor' | 'highlightColor') => (c: ManagedColor) => {
+      onChange({ [key]: managedToColor(c) } as unknown as Partial<Adjustment>);
+    };
+
+  const currentPresetId = useMemo(() => {
+    const match = TRITONE_PRESETS.find(
+      (p) =>
+        p.shadowColor[0] === adj.shadowColor[0] &&
+        p.shadowColor[1] === adj.shadowColor[1] &&
+        p.shadowColor[2] === adj.shadowColor[2] &&
+        p.midtoneColor[0] === adj.midtoneColor[0] &&
+        p.midtoneColor[1] === adj.midtoneColor[1] &&
+        p.midtoneColor[2] === adj.midtoneColor[2] &&
+        p.highlightColor[0] === adj.highlightColor[0] &&
+        p.highlightColor[1] === adj.highlightColor[1] &&
+        p.highlightColor[2] === adj.highlightColor[2] &&
+        Math.abs(p.shadowPoint - adj.shadowPoint) < 0.01 &&
+        Math.abs(p.highlightPoint - adj.highlightPoint) < 0.01,
+    );
+    return match?.id ?? '';
+  }, [adj]);
+
+  const handlePresetSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const preset = TRITONE_PRESETS.find((p) => p.id === e.target.value);
+    if (preset) {
+      onChange({
+        shadowColor: [...preset.shadowColor] as Color,
+        midtoneColor: [...preset.midtoneColor] as Color,
+        highlightColor: [...preset.highlightColor] as Color,
+        shadowPoint: preset.shadowPoint,
+        highlightPoint: preset.highlightPoint,
+      } as unknown as Partial<Adjustment>);
+    }
+  };
+
+  return (
+    <div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preset</span>
+        <select
+          className="adj-editor__select"
+          value={currentPresetId}
+          onChange={handlePresetSelect}
+          aria-label="Tritone preset"
+        >
+          <option value="">Custom</option>
+          {TRITONE_PRESETS.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Shadow Color</span>
+      </div>
+      <ColorPicker value={colorToManaged(adj.shadowColor)} onChange={handleColor('shadowColor')} />
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Midtone Color</span>
+      </div>
+      <ColorPicker
+        value={colorToManaged(adj.midtoneColor)}
+        onChange={handleColor('midtoneColor')}
+      />
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Highlight Color</span>
+      </div>
+      <ColorPicker
+        value={colorToManaged(adj.highlightColor)}
+        onChange={handleColor('highlightColor')}
+      />
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Shadow Point</span>
+          <span>{Math.round(adj.shadowPoint * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.shadowPoint * 100)}
+          onChange={(e) =>
+            onChange({
+              shadowPoint: Number(e.target.value) / 100,
+            } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Shadow point"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Highlight Point</span>
+          <span>{Math.round(adj.highlightPoint * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.highlightPoint * 100)}
+          onChange={(e) =>
+            onChange({
+              highlightPoint: Number(e.target.value) / 100,
+            } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Highlight point"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Intensity</span>
+          <span>{Math.round(adj.intensity * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.intensity * 100)}
+          onChange={(e) =>
+            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Tritone intensity"
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preserve Luminosity</span>

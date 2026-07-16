@@ -1,4 +1,5 @@
 import { DEFAULT_PREVIEW_MAX_DIMENSION } from '@strata/engine';
+import type { ImageCache } from '@strata/engine';
 import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@strata/scene';
 import { useCallback } from 'react';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
@@ -28,6 +29,25 @@ export interface BackgroundRemovalAPI {
   cancelSubjectPicker: () => void;
   getTrimapData: (nodeId: NodeId) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
+}
+
+/**
+ * Warm the ImageCache for a freshly-generated mask so the next render can
+ * composite it synchronously. Uses a short timeout so a slow or failing load
+ * never blocks the document update; the renderer will retry asynchronously.
+ */
+async function warmMaskCache(cache: ImageCache, maskDataUrl?: string | null): Promise<void> {
+  if (!maskDataUrl || cache.isLoaded(maskDataUrl)) return;
+  try {
+    await Promise.race([
+      cache.load(maskDataUrl),
+      new Promise<void>((_, reject) => {
+        setTimeout(() => reject(new Error('mask preload timeout')), 1000);
+      }),
+    ]);
+  } catch {
+    // Errors/timeouts are recorded in the cache entry; the renderer will retry.
+  }
 }
 
 export function useBackgroundRemoval(
@@ -129,6 +149,10 @@ export function useBackgroundRemoval(
           );
           return;
         }
+        // Warm the ImageCache so the first post-update render can composite the
+        // mask immediately instead of drawing the image unmasked and waiting for
+        // an async load to trigger a second frame.
+        await warmMaskCache(cache, result.maskDataUrl);
         updateDoc((d) =>
           setBackgroundRemoval(d, imageNode.id, {
             maskDataUrl: result.maskDataUrl,
@@ -240,6 +264,10 @@ export function useBackgroundRemoval(
           return;
         }
 
+        // Warm the ImageCache so the first post-update render composites the mask
+        // synchronously instead of flashing the original background.
+        await warmMaskCache(cache, finalized.maskDataUrl);
+
         updateDoc((d) =>
           setBackgroundRemoval(d, imageNode.id, {
             maskDataUrl: finalized.maskDataUrl,
@@ -318,15 +346,16 @@ export function useBackgroundRemoval(
       const session = stateRef.current.subjectPickerSession;
       if (!session) return;
       void (async () => {
-        const { decodeMaskDataUrl, filterMaskByComponents, maskArrayToDataUrl } = await import(
-          '@strata/engine'
-        );
+        const { decodeMaskDataUrl, filterMaskByComponents, getImageCache, maskArrayToDataUrl } =
+          await import('@strata/engine');
         const { setBackgroundRemoval } = await import('@strata/scene');
         const { mask, width, height } = await decodeMaskDataUrl(session.pendingMaskDataUrl);
         const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
+        const maskDataUrl = maskArrayToDataUrl(filtered, width, height);
+        await warmMaskCache(getImageCache(), maskDataUrl);
         updateDoc((d) =>
           setBackgroundRemoval(d, session.nodeId, {
-            maskDataUrl: maskArrayToDataUrl(filtered, width, height),
+            maskDataUrl,
             method: session.method,
             confidence: session.confidence,
             appliedAt: Date.now(),
@@ -376,10 +405,12 @@ export function useBackgroundRemoval(
       const imageData = ctx.getImageData(0, 0, w, h);
       const { mask } = await decodeMaskDataUrl(imageNode.backgroundRemoval.maskDataUrl);
       const refined = refineHairMatting(imageData, mask);
+      const maskDataUrl = maskArrayToDataUrl(refined, w, h);
+      await warmMaskCache(getImageCache(), maskDataUrl);
       updateDoc((d) =>
         setBackgroundRemoval(d, imageNode.id, {
           ...imageNode.backgroundRemoval!,
-          maskDataUrl: maskArrayToDataUrl(refined, w, h),
+          maskDataUrl,
           appliedAt: Date.now(),
         }),
       );
@@ -433,10 +464,12 @@ export function useBackgroundRemoval(
       ctx.drawImage(img, 0, 0, w, h);
       const imageData = ctx.getImageData(0, 0, w, h);
       const matte = solveTrimapMatting(imageData, trimapEntry.data);
+      const maskDataUrl = maskArrayToDataUrl(matte, w, h);
+      await warmMaskCache(getImageCache(), maskDataUrl);
       updateDoc((d) =>
         setBackgroundRemoval(d, nodeId, {
           ...node.backgroundRemoval!,
-          maskDataUrl: maskArrayToDataUrl(matte, w, h),
+          maskDataUrl,
           appliedAt: Date.now(),
         }),
       );

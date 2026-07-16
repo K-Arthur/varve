@@ -6,8 +6,9 @@ import type { RemovalProvider } from './types';
 export const workerRemovalProvider: RemovalProvider = {
   id: 'worker-onnx',
 
-  isAvailable(_options: BackgroundRemovalOptions): boolean {
-    return typeof Worker !== 'undefined';
+  isAvailable(_options: BackgroundRemovalOptions): Promise<boolean> {
+    if (_options.method === 'quick') return Promise.resolve(false);
+    return Promise.resolve(typeof Worker !== 'undefined');
   },
 
   async remove(

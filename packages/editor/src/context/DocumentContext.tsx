@@ -143,6 +143,7 @@ export interface DocumentContextValue {
   closeTab: (id: string, force?: boolean) => boolean;
   createAdjustmentLayer: (initialAdjustments?: Adjustment[]) => void;
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: Adjustment) => void;
+  addLutAdjustment: (lutAdjustment: Adjustment) => void;
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
   updateAdjustmentInLayer: (
     nodeId: NodeId,

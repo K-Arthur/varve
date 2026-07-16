@@ -218,6 +218,15 @@ export function defaultStroke(): Stroke {
   };
 }
 
+export interface ChannelOffset {
+  redX: number;
+  redY: number;
+  greenX: number;
+  greenY: number;
+  blueX: number;
+  blueY: number;
+}
+
 export type Effect =
   | {
       type: 'dropShadow';
@@ -273,6 +282,33 @@ export type Effect =
       edgeHighlightWidth: number;
       edgeHighlightColor: ManagedColor;
       edgeHighlightOpacity: number;
+      visible: boolean;
+    }
+  | {
+      type: 'chromaticAberration';
+      offsets: ChannelOffset;
+      intensity: number;
+      blendMode: BlendMode;
+      opacity: number;
+      visible: boolean;
+    }
+  | {
+      type: 'glitch';
+      seed: number;
+      strength: number;
+      density: number;
+      sliceHeight: number;
+      blockCount: number;
+      blockSize: number;
+      blockStrength: number;
+      noiseIntensity: number;
+      scanlineIntensity: number;
+      scanlineSpacing: number;
+      direction: 'horizontal' | 'vertical' | 'both';
+      channelShift: ChannelOffset;
+      channelShiftMode: 'static' | 'seeded';
+      blendMode: BlendMode;
+      opacity: number;
       visible: boolean;
     };
 
@@ -629,6 +665,10 @@ export interface FrameNode extends NodeBase {
   strokes: Stroke[];
   /** F6: effects on frame. */
   effects: Effect[];
+  /** Uniform or per-corner radius for frame corners. */
+  cornerRadius?: number | [number, number, number, number];
+  /** Corner smoothing percentage (0-100, Sketch-style continuous corners). */
+  cornerSmoothing?: number;
 }
 
 // ── Background Removal Types ─────────────────────────────────────────────────
@@ -677,6 +717,8 @@ export interface LiveTraceState {
   params: LiveTraceParams;
   resolvedAt: number | null;
   lastError: string | null;
+  /** ID of the generated vector group that visually replaces the source while live trace is active. */
+  traceGroupId?: NodeId;
 }
 
 /** @deprecated Use ShapeNode with imageFill(). ImageNode no longer exists as a distinct node kind. */

@@ -21,7 +21,9 @@ import {
   transformRect,
   tryInvertAffine,
 } from '@strata/shared';
+import type { ShapeNode } from '@strata/scene';
 import { Fragment, useCallback, useMemo, useRef } from 'react';
+import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
@@ -97,6 +99,32 @@ interface DragState {
   initialAngle: number;
   canvasOffsetX: number;
   canvasOffsetY: number;
+}
+
+/** Drag state for corner-radius handle drag. */
+interface CornerRadiusDragState {
+  nodeId: string;
+  initialCornerRadius: number | [number, number, number, number];
+  cornerTL: number;
+  initialPointer: Point;
+  localBox: { x: number; y: number; w: number; h: number };
+  invWorldTransform: Affine;
+  canvasOffsetX: number;
+  canvasOffsetY: number;
+}
+
+/** Drag state for line/arrow endpoint handles. */
+interface EndpointDragState {
+  nodeId: string;
+  /** 0 = from (start), 1 = to (end) */
+  endpointIndex: 0 | 1;
+  initialFrom: readonly [number, number];
+  initialTo: readonly [number, number];
+  initialPointer: Point;
+  canvasOffsetX: number;
+  canvasOffsetY: number;
+  worldTransform: Affine;
+  invWorldTransform: Affine;
 }
 
 const MIN_SIZE = 1;
@@ -290,6 +318,8 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const { state, selectedNodes, updateDoc, beginTransaction, commitTransaction } = useEditor();
   const sel = selectedNodes();
   const dragRef = useRef<DragState | null>(null);
+  const endpointDragRef = useRef<EndpointDragState | null>(null);
+  const cornerRadiusDragRef = useRef<CornerRadiusDragState | null>(null);
 
   const box = useMemo<SelectionBox | null>(() => {
     const candidates = state.selection
@@ -317,6 +347,49 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const isFrame = node?.kind === 'frame';
   const isText = node?.kind === 'text';
   const hasInteractiveHandles = isSingle && (isShape || isFrame || isText);
+
+  const isLineOrArrow =
+    isSingle &&
+    isShape &&
+    node?.kind === 'shape' &&
+    (node.shape?.kind === 'line' || node.shape?.kind === 'arrow');
+
+  let fromWorld: Point | null = null;
+  let toWorld: Point | null = null;
+  if (isLineOrArrow && node) {
+    const sn = node as ShapeNode;
+    const shape = sn.shape;
+    if (shape.kind === 'line' || shape.kind === 'arrow') {
+      const worldMat = nodeWorldTransform(state.document, node.id);
+      fromWorld = applyAffine(worldMat, shape.from);
+      toWorld = applyAffine(worldMat, shape.to);
+    }
+  }
+
+  const cornerHandlePos: Point | null = useMemo(() => {
+    if (!isSingle || !node) return null;
+    if (node.kind === 'frame') {
+      const r = node.cornerRadius ?? 0;
+      const uniform = typeof r === 'number' ? r : Array.isArray(r) ? r[0] : 0;
+      if (uniform <= 0) return null;
+      const localBounds = nodeLocalBounds(node);
+      if (!localBounds) return null;
+      const worldMat = nodeWorldTransform(state.document, node.id);
+      const [wx, wy] = applyAffine(worldMat, [localBounds.x + uniform, localBounds.y]);
+      return [wx, wy] as Point;
+    }
+    if (node.kind === 'shape') {
+      const s = (node as ShapeNode).shape;
+      if (s.kind !== 'rect') return null;
+      const r = node.cornerRadius ?? 0;
+      const uniform = typeof r === 'number' ? r : Array.isArray(r) ? r[0] : 0;
+      if (uniform <= 0) return null;
+      const worldMat = nodeWorldTransform(state.document, node.id);
+      const [wx, wy] = applyAffine(worldMat, [s.x + uniform, s.y]);
+      return [wx, wy] as Point;
+    }
+    return null;
+  }, [isSingle, node, state.document]);
 
   const snapOptions = useMemo<SnapBoxOptions>(() => {
     const otherBounds: Array<{ x: number; y: number; w: number; h: number }> = [];
@@ -388,8 +461,138 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     ],
   );
 
+  const handleEndpointPointerDown = useCallback(
+    (e: React.PointerEvent, endpointIndex: 0 | 1) => {
+      if (!isLineOrArrow || !node) return;
+      e.stopPropagation();
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+      const canvasEl = canvasRef?.current;
+      const rect = canvasEl?.getBoundingClientRect();
+      const canvasOffsetX = rect?.left ?? 0;
+      const canvasOffsetY = rect?.top ?? 0;
+      const pointerScreenX = e.clientX - canvasOffsetX;
+      const pointerScreenY = e.clientY - canvasOffsetY;
+      const pw: Point = simpleScreenToWorld(pointerScreenX, pointerScreenY, state.zoom, state.pan);
+      const sn = node as ShapeNode;
+      const shape = sn.shape;
+      if (shape.kind !== 'line' && shape.kind !== 'arrow') return;
+      const worldMat = nodeWorldTransform(state.document, node.id);
+      const invMat = tryInvertAffine(worldMat);
+      if (!invMat) return;
+      beginTransaction();
+      endpointDragRef.current = {
+        nodeId: node.id,
+        endpointIndex,
+        initialFrom: [...shape.from] as [number, number],
+        initialTo: [...shape.to] as [number, number],
+        initialPointer: pw,
+        canvasOffsetX,
+        canvasOffsetY,
+        worldTransform: worldMat,
+        invWorldTransform: invMat,
+      };
+    },
+    [isLineOrArrow, node, canvasRef, state.zoom, state.pan, state.document, beginTransaction],
+  );
+
+  const handleCornerRadiusPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      if (!isSingle || !node) return;
+      let localRect: { x: number; y: number; w: number; h: number } | null = null;
+      if (node.kind === 'frame') {
+        localRect = nodeLocalBounds(node);
+      } else if (node.kind === 'shape') {
+        const s = (node as ShapeNode).shape;
+        if (s.kind === 'rect') localRect = { x: s.x, y: s.y, w: s.w, h: s.h };
+      }
+      if (!localRect) return;
+      const cr = node.cornerRadius ?? 0;
+      const uniform = typeof cr === 'number' ? cr : Array.isArray(cr) ? cr[0] : 0;
+      if (uniform <= 0) return;
+
+      e.stopPropagation();
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+      const canvasEl = canvasRef?.current;
+      const rect = canvasEl?.getBoundingClientRect();
+      const canvasOffsetX = rect?.left ?? 0;
+      const canvasOffsetY = rect?.top ?? 0;
+      const pointerScreenX = e.clientX - canvasOffsetX;
+      const pointerScreenY = e.clientY - canvasOffsetY;
+      const pw: Point = simpleScreenToWorld(pointerScreenX, pointerScreenY, state.zoom, state.pan);
+      const worldMat = nodeWorldTransform(state.document, node.id);
+      const invMat = tryInvertAffine(worldMat);
+      if (!invMat) return;
+      beginTransaction();
+      cornerRadiusDragRef.current = {
+        nodeId: node.id,
+        initialCornerRadius: cr as number | [number, number, number, number],
+        cornerTL: uniform,
+        initialPointer: pw,
+        localBox: localRect,
+        invWorldTransform: invMat,
+        canvasOffsetX,
+        canvasOffsetY,
+      };
+    },
+    [isSingle, node, canvasRef, state.zoom, state.pan, state.document, beginTransaction],
+  );
+
   const handlePointerMove = useCallback(
     (e: React.PointerEvent) => {
+      // Handle endpoint drag
+      const epDrag = endpointDragRef.current;
+      if (epDrag) {
+        const pointerScreenX = e.clientX - epDrag.canvasOffsetX;
+        const pointerScreenY = e.clientY - epDrag.canvasOffsetY;
+        const pw: Point = simpleScreenToWorld(
+          pointerScreenX,
+          pointerScreenY,
+          state.zoom,
+          state.pan,
+        );
+        const worldDx = pw[0] - epDrag.initialPointer[0];
+        const worldDy = pw[1] - epDrag.initialPointer[1];
+        // Convert world delta to local delta
+        const localDelta = applyAffine(epDrag.invWorldTransform, [
+          epDrag.initialPointer[0] + worldDx,
+          epDrag.initialPointer[1] + worldDy,
+        ]);
+        const originalLocal = applyAffine(epDrag.invWorldTransform, epDrag.initialPointer);
+        const dLocalX = localDelta[0] - originalLocal[0];
+        const dLocalY = localDelta[1] - originalLocal[1];
+        let newFrom = epDrag.initialFrom;
+        let newTo = epDrag.initialTo;
+        if (epDrag.endpointIndex === 0) {
+          newFrom = [epDrag.initialFrom[0] + dLocalX, epDrag.initialFrom[1] + dLocalY] as [
+            number,
+            number,
+          ];
+        } else {
+          newTo = [epDrag.initialTo[0] + dLocalX, epDrag.initialTo[1] + dLocalY] as [
+            number,
+            number,
+          ];
+        }
+        updateDoc((doc) => {
+          const n = doc.nodes[epDrag.nodeId];
+          if (!n || n.kind !== 'shape') return doc;
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [epDrag.nodeId]: {
+                ...n,
+                shape: {
+                  ...n.shape,
+                  from: newFrom,
+                  to: newTo,
+                } as import('@strata/scene').Shape,
+              },
+            },
+          } as import('@strata/scene').Document;
+        });
+        return;
+      }
       const g = dragRef.current;
       if (!g) return;
       const pointerScreenX = e.clientX - g.canvasOffsetX;
@@ -418,16 +621,60 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           ),
         );
       }
+      // Handle corner radius drag
+      const crDrag = cornerRadiusDragRef.current;
+      if (crDrag) {
+        const pointerScreenX = e.clientX - crDrag.canvasOffsetX;
+        const pointerScreenY = e.clientY - crDrag.canvasOffsetY;
+        const pw: Point = simpleScreenToWorld(
+          pointerScreenX,
+          pointerScreenY,
+          state.zoom,
+          state.pan,
+        );
+        const localP = applyAffine(crDrag.invWorldTransform, pw);
+        // Distance from top-left corner to pointer in local space
+        const dx = localP[0] - crDrag.localBox.x;
+        const dy = localP[1] - crDrag.localBox.y;
+        const maxR = Math.min(crDrag.localBox.w, crDrag.localBox.h) / 2;
+        const newRadius = Math.max(0, Math.min(Math.max(dx, dy), maxR));
+        updateDoc((doc) => {
+          const nn = doc.nodes[crDrag.nodeId];
+          if (!nn) return doc;
+          return {
+            ...doc,
+            nodes: {
+              ...doc.nodes,
+              [crDrag.nodeId]: {
+                ...nn,
+                cornerRadius: newRadius,
+              } as import('@strata/scene').SceneNode,
+            },
+          } as import('@strata/scene').Document;
+        });
+        return;
+      }
     },
     [updateDoc, state.pan, state.zoom],
   );
 
   const handlePointerUp = useCallback(() => {
-    if (dragRef.current) {
-      updateDoc((doc) => dragRef.current!.engine.commit(doc));
+    const drag = dragRef.current;
+    dragRef.current = null;
+    if (drag) {
+      updateDoc((doc) => drag.engine.commit(doc));
       commitTransaction();
     }
-    dragRef.current = null;
+    const epDrag = endpointDragRef.current;
+    endpointDragRef.current = null;
+    if (epDrag) {
+      commitTransaction();
+    }
+    const crDrag = cornerRadiusDragRef.current;
+    cornerRadiusDragRef.current = null;
+    if (crDrag) {
+      commitTransaction();
+    }
   }, [updateDoc, commitTransaction]);
 
   if (!box || box.w === 0 || box.h === 0) return null;
@@ -458,6 +705,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         width: '100%',
         height: '100%',
         touchAction: 'none',
+        zIndex: CANVAS_INTERACTIVE_OVERLAY_Z_INDEX,
       }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
@@ -557,12 +805,18 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {hasInteractiveHandles && (
         <>
+          {/* Transform-origin indicator is display-only: it has no drag
+              handler, so it must stay pointer-events:none or it silently
+              steals move-drag gestures that start at the selection center
+              (confirmed via an E2E regression once the overlay's stacking
+              was fixed to actually sit above the canvas — see
+              overlayZIndex.ts). */}
           <circle
             cx={centerScreen[0]}
             cy={centerScreen[1]}
             r={8}
             fill="transparent"
-            style={{ pointerEvents: 'auto', cursor: 'move' }}
+            pointerEvents="none"
           />
           <circle
             cx={centerScreen[0]}
@@ -574,6 +828,98 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             aria-label="Transform origin"
             pointerEvents="none"
           />
+        </>
+      )}
+
+      {cornerHandlePos &&
+        (() => {
+          const [sx, sy] = simpleWorldToScreen(
+            cornerHandlePos[0],
+            cornerHandlePos[1],
+            state.zoom,
+            state.pan,
+          );
+          return (
+            <Fragment key="cr-handle">
+              <circle
+                cx={sx}
+                cy={sy}
+                r={8}
+                fill="transparent"
+                style={{ pointerEvents: 'auto', cursor: 'nwse-resize' }}
+                onPointerDown={handleCornerRadiusPointerDown}
+              />
+              <rect
+                x={sx - HANDLE_HALF}
+                y={sy - HANDLE_HALF}
+                width={HANDLE_HALF * 2}
+                height={HANDLE_HALF * 2}
+                rx={1}
+                fill="var(--color-surface-overlay)"
+                stroke="var(--color-accent-primary)"
+                strokeWidth={1.5}
+                transform={`rotate(45, ${sx}, ${sy})`}
+                aria-label="Corner radius handle"
+                pointerEvents="none"
+              />
+            </Fragment>
+          );
+        })()}
+
+      {isLineOrArrow && fromWorld && toWorld && (
+        <>
+          {/* Endpoint handle: from (start) */}
+          {(() => {
+            const [sx, sy] = simpleWorldToScreen(fromWorld[0], fromWorld[1], state.zoom, state.pan);
+            return (
+              <Fragment key="ep-from">
+                <circle
+                  cx={sx}
+                  cy={sy}
+                  r={8}
+                  fill="transparent"
+                  style={{ pointerEvents: 'auto', cursor: 'move' }}
+                  onPointerDown={(e) => handleEndpointPointerDown(e, 0)}
+                />
+                <circle
+                  cx={sx}
+                  cy={sy}
+                  r={HANDLE_HALF}
+                  fill="var(--color-surface-overlay)"
+                  stroke="var(--color-accent-primary)"
+                  strokeWidth={2}
+                  aria-label="Line start point"
+                  pointerEvents="none"
+                />
+              </Fragment>
+            );
+          })()}
+          {/* Endpoint handle: to (end) */}
+          {(() => {
+            const [sx, sy] = simpleWorldToScreen(toWorld[0], toWorld[1], state.zoom, state.pan);
+            return (
+              <Fragment key="ep-to">
+                <circle
+                  cx={sx}
+                  cy={sy}
+                  r={8}
+                  fill="transparent"
+                  style={{ pointerEvents: 'auto', cursor: 'move' }}
+                  onPointerDown={(e) => handleEndpointPointerDown(e, 1)}
+                />
+                <circle
+                  cx={sx}
+                  cy={sy}
+                  r={HANDLE_HALF}
+                  fill="var(--color-interactive-default)"
+                  stroke="var(--color-surface-overlay)"
+                  strokeWidth={2}
+                  aria-label="Line end point"
+                  pointerEvents="none"
+                />
+              </Fragment>
+            );
+          })()}
         </>
       )}
 

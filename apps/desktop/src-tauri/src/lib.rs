@@ -262,6 +262,8 @@ struct TraceImageOptions {
     threshold: u8,
     min_pixels: usize,
     max_colors: u8,
+    #[serde(default)]
+    foreground: Option<String>,
 }
 
 #[tauri::command]
@@ -270,10 +272,18 @@ fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<st
     let gray = img.to_luma8();
     let (width, height) = gray.dimensions();
     let pixels = gray.into_raw();
+    let foreground = options.foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
+        if v.eq_ignore_ascii_case("light") {
+            strata_trace::Foreground::Light
+        } else {
+            strata_trace::Foreground::Dark
+        }
+    });
     let opts = strata_trace::TraceOptions {
         threshold: options.threshold,
         min_pixels: options.min_pixels,
         max_colors: options.max_colors,
+        foreground,
     };
     Ok(strata_trace::trace_contours(&pixels, width, height, &opts))
 }

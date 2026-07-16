@@ -7,6 +7,7 @@
 
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
+import { BLEND_CONFORMANCE_CASES } from './blendConformance';
 import {
   blend,
   blendColorBurn,
@@ -301,6 +302,15 @@ describe('non-separable (W3C)', () => {
 // ── blend() with alpha compositing ───────────────────────────────────────────
 
 describe('blend (unified)', () => {
+  for (const testCase of BLEND_CONFORMANCE_CASES) {
+    it(testCase.name, () => {
+      const actual = blend(testCase.backdrop, testCase.source, testCase.mode, testCase.opacity);
+      for (const [channel, expected] of testCase.expected.entries()) {
+        expect(actual[channel]).toBeCloseTo(expected, 8);
+      }
+    });
+  }
+
   it('opaque normal: source over backdrop', () => {
     const [r, g, b, a] = blend([0.5, 0.3, 0.7, 1], [0.2, 0.8, 0.4, 1], 'normal', 1);
     expect(r).toBeCloseTo(0.2);
@@ -325,6 +335,11 @@ describe('blend (unified)', () => {
     expect(a).toBeCloseTo(0.8, 0);
   });
 
+  it('canonicalizes fully transparent standard-mode output', () => {
+    const actual = blend([0.8, 0.2, 0.1, 0], [0.2, 0.4, 0.6, 0], 'screen', 1);
+    expect(actual).toEqual([0, 0, 0, 0]);
+  });
+
   it('partial opacity blends', () => {
     const [r, g, b, a] = blend([0, 0, 0, 1], [1, 1, 1, 1], 'normal', 0.5);
     expect(r).toBeCloseTo(0.5, 1);
@@ -339,10 +354,37 @@ describe('blend (unified)', () => {
     expect(r).toBeLessThan(0.8);
   });
 
-  it('plusLighter additive blend', () => {
-    const r = blend([0.3, 0.3, 0.3, 1], [0.4, 0.4, 0.4, 0.5], 'plusLighter', 1)[0];
-    expect(r).toBeLessThanOrEqual(1);
-    expect(r).toBeGreaterThan(0.3);
+  it('rejects an unknown blend mode', () => {
+    expect(() => blend([1, 0, 0, 1], [0, 0, 1, 1], 'mystery', 1)).toThrow(
+      'Unsupported blend mode: mystery',
+    );
+  });
+
+  it.each([
+    'passThrough',
+    'plusDarker',
+  ])('rejects non-pixel or unsupported %s before transparent-pixel early returns', (mode) => {
+    expect(() => blend([0, 0, 0, 0], [0, 0, 0, 0], mode, 1)).toThrow(
+      `Unsupported blend mode: ${mode}`,
+    );
+  });
+
+  it('composites plusLighter in premultiplied space', () => {
+    const actual = blend([1, 0, 0, 0.5], [0, 0, 1, 0.5], 'plusLighter', 1);
+    expect(actual).toEqual([0.5, 0, 0.5, 1]);
+  });
+
+  it('canonicalizes fully transparent plusLighter output', () => {
+    const actual = blend([1, 0, 0, 0], [0, 0, 1, 0], 'plusLighter', 1);
+    expect(actual).toEqual([0, 0, 0, 0]);
+  });
+
+  it('applies opacity to plusLighter source alpha', () => {
+    const actual = blend([1, 0, 0, 0.5], [0, 0, 1, 0.5], 'plusLighter', 0.5);
+    expect(actual[0]).toBeCloseTo(2 / 3, 8);
+    expect(actual[1]).toBe(0);
+    expect(actual[2]).toBeCloseTo(1 / 3, 8);
+    expect(actual[3]).toBeCloseTo(0.75, 8);
   });
 });
 
@@ -447,11 +489,12 @@ describe('blendPixels', () => {
     expect(result.data[0]).toBeGreaterThan(0);
   });
 
-  it('plusDarker subtracts from 1', () => {
+  it('rejects plusDarker as a legacy non-pixel mode', () => {
     const backdrop = makePixelData(128, 128, 128, 255);
     const source = makePixelData(128, 128, 128, 255);
-    const result = blendPixels(backdrop, source, 'plusDarker', 1);
-    expect(result.data[0]).toBe(128 + 128 - 255);
+    expect(() => blendPixels(backdrop, source, 'plusDarker', 1)).toThrow(
+      'Unsupported blend mode: plusDarker',
+    );
   });
 
   it('plusLighter adds clamped', () => {
@@ -514,13 +557,13 @@ describe('blendPixels', () => {
   });
 
   it('handles both transparent (alpha 0)', () => {
-    const backdrop = makePixelData(0, 0, 0, 0);
-    const source = makePixelData(0, 0, 0, 0);
+    const backdrop = makePixelData(204, 51, 26, 0);
+    const source = makePixelData(51, 102, 153, 0);
     const result = blendPixels(backdrop, source, 'normal', 1);
-    expect(result.data[3]).toBe(0);
+    expect(Array.from(result.data)).toEqual([0, 0, 0, 0]);
   });
 
-  it('handles all 19 blend modes without error', () => {
+  it('handles all supported pixel blend modes without error', () => {
     const b = makePixelData(100, 100, 100, 255);
     const s = makePixelData(200, 50, 50, 200);
     const modes = [
@@ -540,9 +583,7 @@ describe('blendPixels', () => {
       'saturation',
       'color',
       'luminosity',
-      'plusDarker',
       'plusLighter',
-      'passThrough',
     ];
     for (const mode of modes) {
       const result = blendPixels(b, s, mode, 1);
