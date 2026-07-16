@@ -241,11 +241,147 @@ export function buildFilename(nodeName: string, ext: string): string {
   return `${safe}.${ext}`;
 }
 
+/**
+ * Check if any node in the subtree rooted at `node` has an active raster mask.
+ */
+function subtreeHasRasterMask(node: SceneNode, doc: SceneDocument): boolean {
+  if ('mask' in node && node.mask?.visible === true && 'rasterMask' in node.mask) {
+    return true;
+  }
+  if ('children' in node) {
+    for (const childId of node.children) {
+      const child = doc.nodes[childId];
+      if (child && subtreeHasRasterMask(child, doc)) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Generate a minimal 1-page PDF with an embedded RGB image.
+ * Standard PDF structure: header, objects, cross-reference table, trailer.
+ */
+function makeSimpleImagePdf(rgbaPixels: Uint8Array, width: number, height: number): Uint8Array {
+  // Strip alpha → RGB for the PDF image XObject
+  const rgb = new Uint8Array(width * height * 3);
+  for (let i = 0; i < width * height; i++) {
+    const off = i * 4;
+    rgb[off] = rgbaPixels[off];
+    rgb[off + 1] = rgbaPixels[off + 1];
+    rgb[off + 2] = rgbaPixels[off + 2];
+  }
+
+  const streamData = rgb;
+  const streamLen = streamData.length;
+
+  // Object numbers
+  const CATALOG = 1;
+  const PAGES = 2;
+  const PAGE = 3;
+  const STREAM = 4;
+  const XREF = 5;
+
+  const sb: string[] = [];
+  const push = (s: string) => sb.push(s);
+  const emitObj = (num: number, body: string) => {
+    push(`${num} 0 obj`);
+    push(body);
+    push('endobj');
+  };
+
+  push('%PDF-1.4');
+
+  // Catalog
+  emitObj(CATALOG, `<< /Type /Catalog /Pages ${PAGES} 0 R >>`);
+  // Pages
+  emitObj(PAGES, `<< /Type /Pages /Kids [ ${PAGE} 0 R ] /Count 1 >>`);
+  // Page with image
+  const pageContent = `q\n${width} 0 0 ${height} 0 0 cm\n/Im0 Do\nQ`;
+  emitObj(
+    PAGE,
+    `<< /Type /Page /Parent ${PAGES} 0 R /MediaBox [ 0 0 ${width} ${height} ] /Contents ${STREAM + 1} 0 R /Resources << /XObject << /Im0 ${STREAM} 0 R >> >> >>`,
+  );
+  // Image XObject stream
+  emitObj(
+    STREAM,
+    `<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Length ${streamLen} >>\nstream\n<NOT_ESCAPED>\nendstream`,
+  );
+  // Content stream
+  emitObj(STREAM + 1, `<< /Length ${pageContent.length} >>\nstream\n${pageContent}\nendstream`);
+
+  const body = sb.join('\n');
+  const bodyBytes = new TextEncoder().encode(body);
+
+  // Build the final bytes: body then xref then trailer
+  const xrefOffset = bodyBytes.length + 1; // +1 for newline
+  const xref = `xref\n0 ${XREF + 1}\n0000000000 65535 f \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \n${'0'.repeat(10)} 00000 n \ntrailer\n<< /Size ${XREF + 1} /Root ${CATALOG} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+
+  const xrefBytes = new TextEncoder().encode(xref);
+
+  // Now construct the actual file with stream data inserted
+  const result = new Uint8Array(bodyBytes.length + streamLen + xrefBytes.length + 64);
+  let pos = 0;
+
+  // Write body up to the placeholder marker
+  const bodyStr = body;
+  const marker = '<NOT_ESCAPED>';
+  const markerIdx = bodyStr.indexOf(marker);
+  // Write everything before the marker
+  const beforeMarker = new TextEncoder().encode(bodyStr.slice(0, markerIdx));
+  result.set(beforeMarker, pos);
+  pos += beforeMarker.length;
+  // Write the stream data
+  result.set(streamData, pos);
+  pos += streamData.length;
+  // Write everything after the marker
+  const afterMarker = new TextEncoder().encode(bodyStr.slice(markerIdx + marker.length));
+  result.set(afterMarker, pos);
+  pos += afterMarker.length;
+  // Write xref/trailer
+  result.set(xrefBytes, pos);
+  pos += xrefBytes.length;
+
+  return result.slice(0, pos);
+}
+
 export async function exportNodeAsPdf(
   node: SceneNode,
   doc: SceneDocument,
   scale: number,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
+  // ── Raster mask detection: fall back to rasterized PNG-in-PDF ─────
+  // The Rust print engine does not yet support alpha masks via PDF SMask.
+  // When a raster mask is present, render the subtree via canvas at 1x
+  // and embed the result as a flat RGB image in a minimal PDF wrapper.
+  if (subtreeHasRasterMask(node, doc)) {
+    const rasterResult = await exportNodeAsRaster(
+      node,
+      doc,
+      {
+        buildIr: async () => [],
+      } as unknown as Engine,
+      {
+        format: 'image/png',
+        scale,
+      },
+    );
+    const blob = rasterResult.blob;
+
+    // Decode PNG to RGBA pixels for embedding as RGB in PDF
+    const img = await createImageBitmap(blob);
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width;
+    canvas.height = img.height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
+    const imageData = ctx.getImageData(0, 0, img.width, img.height);
+    img.close();
+
+    const pdfBytes = makeSimpleImagePdf(imageData.data, img.width, img.height);
+    const filename = buildFilename(node.name, 'pdf');
+    return { bytes: pdfBytes, filename };
+  }
+
   const subtree = flattenSceneToEngine(doc, [node.id]);
   // Same font-readiness guard as raster export: worldBBox measures text via
   // canvas metrics that depend on the requested font actually being loaded.
@@ -280,6 +416,8 @@ export async function exportNodeAsPdf(
         );
       }
     } else if ('mask' in current && current.mask?.visible === true) {
+      // Should not reach here — raster mask case handled above, but keep
+      // the guard for other mask types (clip, vector, sourceNodeId).
       throw new Error(
         `PDF export cannot yet preserve the mask on "${current.name}". Export PNG for exact Canvas 2D appearance.`,
       );
