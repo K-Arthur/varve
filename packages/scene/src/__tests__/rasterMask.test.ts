@@ -21,11 +21,21 @@ import {
   setMaskVisible,
   updateRasterMaskAsset,
   validateMaskSource,
+  validateRasterMaskAsset,
 } from '../masks';
 
 const PNG_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const PNG_BYTE_LENGTH = 68;
+
+function pngWithIhdrDimensions(width: number, height: number): string {
+  const payload = PNG_DATA_URL.slice(PNG_DATA_URL.indexOf(',') + 1);
+  const bytes = Uint8Array.from(atob(payload), (char) => char.charCodeAt(0));
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return `data:image/png;base64,${btoa(String.fromCharCode(...bytes))}`;
+}
 
 function makeRasterAsset(id: string, width = 1, height = 1): RasterMaskAsset {
   return {
@@ -38,13 +48,23 @@ function makeRasterAsset(id: string, width = 1, height = 1): RasterMaskAsset {
   };
 }
 
+function metadataIdentity(locator = 'image-a', revision = 1) {
+  return {
+    kind: 'source-metadata' as const,
+    locator,
+    pixelWidth: 1,
+    pixelHeight: 1,
+    revision,
+  };
+}
+
 function makeImageDocument(): { doc: Document; imageId: string } {
   const imageId = 'image-1';
   const image = makeShapeNode(imageId, { kind: 'rect', x: 0, y: 0, w: 64, h: 32 });
   image.fills = [
     {
       type: 'image',
-      image: { src: 'image-a', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 64, imageHeight: 32 },
+      image: { src: 'image-a', fit: 'fill', x: 0, y: 0, scale: 1, imageWidth: 1, imageHeight: 1 },
       opacity: 1,
       blendMode: 'normal',
       visible: true,
@@ -65,8 +85,13 @@ describe('native raster masks', () => {
       rasterMask: {
         assetId: 'mask-1',
         coordinateSpace: 'source-image-pixels',
-        sourceFingerprint: 'source:image-a',
-        sourcePixelRevision: 1,
+        sourceIdentity: {
+          kind: 'source-metadata',
+          locator: 'image-a',
+          pixelWidth: 1,
+          pixelHeight: 1,
+          revision: 1,
+        },
       },
     });
     expect(next.rasterMaskAssets?.['mask-1']?.width).toBe(1);
@@ -91,14 +116,48 @@ describe('native raster masks', () => {
             rasterMask: {
               assetId: 'missing',
               coordinateSpace: 'source-image-pixels',
-              sourceFingerprint: 'source:image-a',
-              sourcePixelRevision: 1,
+              sourceIdentity: metadataIdentity(),
             },
           },
         } as ShapeNode,
       },
     };
     expect(validateMaskSource(dangling, dangling.nodes[imageId]!.mask!)).toMatch(/missing/i);
+  });
+
+  it('rejects source-pixel assets that differ from known oriented source dimensions', () => {
+    const { doc, imageId } = makeImageDocument();
+    const mismatched = {
+      ...makeRasterAsset('wrong-size', 2, 1),
+      dataUrl: pngWithIhdrDimensions(2, 1),
+    };
+
+    expect(addRasterMaskAsset(doc, imageId, mismatched)).toBe(doc);
+
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    expect(updateRasterMaskAsset(attached, imageId, mismatched)).toBe(attached);
+  });
+
+  it('preserves a verified source content checksum when the caller provides one', () => {
+    const { doc, imageId } = makeImageDocument();
+    const sha256 = 'a'.repeat(64);
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'), {
+      sourceIdentity: {
+        kind: 'content-sha256',
+        sha256,
+        pixelWidth: 1,
+        pixelHeight: 1,
+        revision: 2,
+      },
+    });
+
+    expect(attached.nodes[imageId]?.mask?.rasterMask?.sourceIdentity).toEqual({
+      kind: 'content-sha256',
+      sha256,
+      pixelWidth: 1,
+      pixelHeight: 1,
+      revision: 2,
+    });
   });
 
   it('updates shared assets copy-on-write and removes only unreferenced payloads', () => {
@@ -126,8 +185,7 @@ describe('native raster masks', () => {
   it('preserves mask presentation and source metadata when replacing an asset', () => {
     const { doc, imageId } = makeImageDocument();
     const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'), {
-      sourceFingerprint: 'source:original',
-      sourcePixelRevision: 7,
+      sourceIdentity: metadataIdentity('original', 7),
       editRevision: 3,
       provenance: {
         method: 'ai-quality',
@@ -169,8 +227,7 @@ describe('native raster masks', () => {
       hideMaskSource: true,
       rasterMask: {
         assetId: 'mask-2',
-        sourceFingerprint: 'source:original',
-        sourcePixelRevision: 7,
+        sourceIdentity: metadataIdentity('original', 7),
         editRevision: 4,
         provenance: { method: 'ai-quality', runtime: 'wasm', generatedAt: 42, confidence: 0.9 },
       },
@@ -181,8 +238,7 @@ describe('native raster masks', () => {
     const rasterMask = {
       assetId: 'mask-1',
       coordinateSpace: 'source-image-pixels' as const,
-      sourceFingerprint: 'source:image-a',
-      sourcePixelRevision: 1,
+      sourceIdentity: metadataIdentity(),
     };
     expect(validateMaskSource(undefined, { type: 'alpha', visible: true })).toMatch(/exactly one/i);
     expect(
@@ -206,8 +262,7 @@ describe('native raster masks', () => {
     const rasterMask = {
       assetId: 'mask-1',
       coordinateSpace: 'source-image-pixels' as const,
-      sourceFingerprint: 'source:image-a',
-      sourcePixelRevision: 1,
+      sourceIdentity: metadataIdentity(),
     };
     expect(
       validateMaskSource(undefined, {
@@ -263,6 +318,206 @@ describe('native raster masks', () => {
 });
 
 describe('raster mask document boundary validation', () => {
+  it('accepts the portable decoded-pixel boundary and rejects the next row', () => {
+    const atLimitUrl = pngWithIhdrDimensions(16_384, 8192);
+    const overLimitUrl = pngWithIhdrDimensions(16_384, 8193);
+    expect(
+      validateRasterMaskAsset({
+        id: 'at-limit',
+        mimeType: 'image/png',
+        dataUrl: atLimitUrl,
+        width: 16_384,
+        height: 8192,
+        byteLength: PNG_BYTE_LENGTH,
+      }),
+    ).toBeNull();
+    expect(
+      validateRasterMaskAsset({
+        id: 'over-limit',
+        mimeType: 'image/png',
+        dataUrl: overLimitUrl,
+        width: 16_384,
+        height: 8193,
+        byteLength: PNG_BYTE_LENGTH,
+      }),
+    ).toMatch(/decoded pixel limit/i);
+  });
+
+  it.each([
+    ['asset', 'id', 'different-id'],
+    ['asset', 'id', 'bad id'],
+    ['asset', 'checksum', 'not-a-sha256'],
+    ['raster', 'editRevision', -1],
+    ['raster', 'editRevision', 'one'],
+    ['raster', 'editRevision', Number.MAX_SAFE_INTEGER + 1],
+    ['raster', 'staleReason', 'unknown-reason'],
+    ['raster', 'coordinateSpace', 'canvas-pixels'],
+    ['raster', 'sourceIdentity', null],
+    ['raster', 'provenance', null],
+    ['identity', 'revision', -1],
+    ['identity', 'revision', Number.MAX_SAFE_INTEGER + 1],
+    ['identity', 'locator', ''],
+    ['identity', 'pixelWidth', 0],
+    ['provenance', 'method', 'unknown-method'],
+    ['provenance', 'runtime', 'unknown-runtime'],
+    ['provenance', 'generatedAt', -1],
+    ['provenance', 'confidence', 2],
+    ['provenance', 'modelId', 42],
+    ['provenance', 'modelChecksum', 'not-a-sha256'],
+    ['provenance', 'decontaminate', 'yes'],
+    ['provenance', 'origin', 'unknown-origin'],
+  ] as const)('rejects untrusted %s.%s metadata', (section, field, value) => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'), {
+      provenance: { method: 'quick', runtime: 'typescript', generatedAt: 1 },
+    });
+    const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
+    const assets = raw.rasterMaskAssets as Record<string, Record<string, unknown>>;
+    const nodes = raw.nodes as Record<string, Record<string, unknown>>;
+    const mask = nodes[imageId]!.mask as Record<string, unknown>;
+    const raster = mask.rasterMask as Record<string, unknown>;
+    const identity = raster.sourceIdentity as Record<string, unknown>;
+    const provenance = raster.provenance as Record<string, unknown>;
+    const target =
+      section === 'asset'
+        ? assets['mask-1']!
+        : section === 'raster'
+          ? raster
+          : section === 'identity'
+            ? identity
+            : provenance;
+    target[field] = value;
+
+    const decoded = DocumentCodec.decode(JSON.stringify(raw));
+    expect(decoded.ok).toBe(false);
+  });
+
+  it('rejects malformed source identity descriptors from decoded JSON', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const image = attached.nodes[imageId] as ShapeNode;
+    const malformed = {
+      ...attached,
+      nodes: {
+        ...attached.nodes,
+        [imageId]: {
+          ...image,
+          mask: {
+            ...image.mask!,
+            rasterMask: {
+              ...image.mask!.rasterMask!,
+              sourceIdentity: { kind: 'content-sha256', sha256: 'not-a-digest', revision: 1 },
+            },
+          },
+        },
+      },
+    };
+
+    const decoded = DocumentCodec.decode(JSON.stringify(malformed));
+    expect(decoded.ok).toBe(false);
+    if (decoded.ok) return;
+    expect(decoded.error).toMatch(/source identity.*sha-256/i);
+  });
+
+  it.each([
+    {
+      label: 'metadata identity with digest fields',
+      sourceIdentity: {
+        kind: 'source-metadata',
+        locator: 'image-a',
+        sha256: 'a'.repeat(64),
+        revision: 1,
+      },
+    },
+    {
+      label: 'content identity with locator fields',
+      sourceIdentity: {
+        kind: 'content-sha256',
+        sha256: 'a'.repeat(64),
+        locator: 'image-a',
+        revision: 1,
+      },
+    },
+  ])('rejects $label', ({ sourceIdentity }) => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
+    const node = (raw.nodes as Record<string, Record<string, unknown>>)[imageId]!;
+    const rasterMask = (node.mask as Record<string, unknown>).rasterMask as Record<string, unknown>;
+    rasterMask.sourceIdentity = sourceIdentity;
+
+    const decoded = DocumentCodec.decode(JSON.stringify(raw));
+    expect(decoded.ok).toBe(false);
+    if (decoded.ok) return;
+    expect(decoded.error).toMatch(/source identity.*field/i);
+  });
+
+  it('rejects legacy-preview status on an exact source-pixel mask', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
+    const node = (raw.nodes as Record<string, Record<string, unknown>>)[imageId]!;
+    const rasterMask = (node.mask as Record<string, unknown>).rasterMask as Record<string, unknown>;
+    rasterMask.staleReason = 'legacy-preview-resolution';
+    rasterMask.provenance = {
+      method: 'quick',
+      runtime: 'typescript',
+      generatedAt: 1,
+      origin: 'legacy-background-removal-preview',
+    };
+
+    const decoded = DocumentCodec.decode(JSON.stringify(raw));
+    expect(decoded.ok).toBe(false);
+    if (decoded.ok) return;
+    expect(decoded.error).toMatch(/legacy preview.*coordinate space/i);
+  });
+
+  it('rejects source identities whose dimensions disagree with the source-space asset', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const raw = JSON.parse(JSON.stringify(attached)) as Record<string, unknown>;
+    const node = (raw.nodes as Record<string, Record<string, unknown>>)[imageId]!;
+    const rasterMask = (node.mask as Record<string, unknown>).rasterMask as Record<string, unknown>;
+    rasterMask.sourceIdentity = {
+      kind: 'source-metadata',
+      locator: 'image-a',
+      pixelWidth: 2,
+      pixelHeight: 1,
+      revision: 1,
+    };
+
+    const decoded = DocumentCodec.decode(JSON.stringify(raw));
+    expect(decoded.ok).toBe(false);
+    if (decoded.ok) return;
+    expect(decoded.error).toMatch(/source identity dimensions/i);
+  });
+
+  it('rejects exact source-pixel masks that do not match known oriented source dimensions', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const image = attached.nodes[imageId] as ShapeNode;
+    const mismatched = {
+      ...attached,
+      nodes: {
+        ...attached.nodes,
+        [imageId]: {
+          ...image,
+          fills: [
+            {
+              ...image.fills![0]!,
+              image: { ...image.fills![0]!.image!, imageWidth: 64, imageHeight: 32 },
+            },
+          ],
+        },
+      },
+    };
+
+    const decoded = DocumentCodec.decode(JSON.stringify(mismatched));
+    expect(decoded.ok).toBe(false);
+    if (decoded.ok) return;
+    expect(decoded.error).toMatch(/oriented source dimensions/i);
+  });
+
   it.each([
     ['invalid PNG MIME', { dataUrl: 'data:image/jpeg;base64,iVBORw0KGgo=' }, /PNG data URL/i],
     [
@@ -477,5 +732,47 @@ describe('raster mask document boundary validation', () => {
       ]),
     );
     expect('backgroundRemoval' in decoded.document.nodes[imageId]!).toBe(false);
+  });
+
+  it('decodes legacy preview dimensions from PNG IHDR without claiming source-pixel precision', () => {
+    const { doc, imageId } = makeImageDocument();
+    const image = doc.nodes[imageId] as ShapeNode;
+    const legacy = {
+      ...doc,
+      formatVersion: '2.0',
+      nodes: {
+        ...doc.nodes,
+        [imageId]: {
+          ...image,
+          fills: [
+            {
+              ...image.fills![0]!,
+              image: {
+                ...image.fills![0]!.image!,
+                imageWidth: 4096,
+                imageHeight: 4096,
+              },
+            },
+          ],
+          backgroundRemoval: {
+            maskDataUrl: pngWithIhdrDimensions(2048, 2048),
+            method: 'ai-balanced',
+            appliedAt: 10,
+          },
+        },
+      },
+    };
+
+    const decoded = DocumentCodec.decode(JSON.stringify(legacy));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    const mask = decoded.document.nodes[imageId]?.mask?.rasterMask;
+    const asset = mask ? decoded.document.rasterMaskAssets?.[mask.assetId] : undefined;
+    expect(asset).toMatchObject({ width: 2048, height: 2048 });
+    expect(mask).toMatchObject({
+      coordinateSpace: 'legacy-preview-pixels',
+      staleReason: 'legacy-preview-resolution',
+      provenance: { origin: 'legacy-background-removal-preview' },
+    });
   });
 });

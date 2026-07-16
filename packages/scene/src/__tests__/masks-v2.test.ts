@@ -10,9 +10,41 @@ import {
   resolveMaskType,
   setMaskFillRule,
   setMaskVectorPath,
+  validateMaskSource,
 } from '../masks';
+import type { Mask } from '../types';
 
 describe('vector masks', () => {
+  it('distinguishes vector geometry from an optional visual source node', () => {
+    const vectorWithVisualSource: Mask = {
+      type: 'clip',
+      visible: true,
+      sourceNodeId: 'visual-child',
+      vectorMask: {
+        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
+        closed: true,
+        fillRule: 'nonzero',
+      },
+    };
+    expect(validateMaskSource(undefined, vectorWithVisualSource)).toBeNull();
+    expect(hasVectorMask(vectorWithVisualSource)).toBe(true);
+    expect(hasSourceNode(vectorWithVisualSource)).toBe(true);
+
+    const rasterMask = {
+      assetId: 'mask',
+      coordinateSpace: 'source-image-pixels' as const,
+      sourceIdentity: { kind: 'source-metadata' as const, locator: 'image', revision: 1 },
+    };
+    // @ts-expect-error Raster geometry is exclusive with structural sources.
+    const invalidRasterWithVisualSource: Mask = {
+      type: 'alpha',
+      visible: true,
+      sourceNodeId: 'visual-child',
+      rasterMask,
+    };
+    expect(validateMaskSource(undefined, invalidRasterWithVisualSource)).toMatch(/exclusive/i);
+  });
+
   it('adds mask with vector path data (no sourceNodeId)', () => {
     const frame = makeFrameNode('f1', { children: [] });
     let doc = addNode(createDocument(), frame);
