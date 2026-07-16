@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import type { FilterIR } from '../types';
 import { applyLutToImageData } from './apply';
+import { bakeFiltersToLut } from './bake';
 import { exportLutToCube } from './exportCube';
 import {
   applyLut1D,
@@ -416,5 +418,51 @@ describe('exportLutToCube', () => {
     expect(text).toContain('LUT_1D_SIZE');
     const result = parseCubeData(text);
     expect(result.transform.kind).toBe('1d');
+  });
+});
+
+// ─── 1D Bake Per-Channel ────────────────────────────────────────
+
+describe('bakeFiltersToLut 1D per-channel', () => {
+  it('1D bake produces per-channel curves (not identical R/G/B)', () => {
+    const redBoost: FilterIR = {
+      kind: 'curves',
+      channel: 'red',
+      points: [
+        { x: 0, y: 0 },
+        { x: 0.5, y: 0.7 },
+        { x: 1, y: 1 },
+      ],
+      opacity: 1,
+      blendMode: 'normal',
+    };
+    const result = bakeFiltersToLut([redBoost], { format: '1d', size: 5 });
+    expect(result.lut.kind).toBe('1d');
+    if (result.lut.kind === '1d') {
+      // Core fix: channels must be independent Float64Arrays, not aliased to r
+      expect(result.lut.r).not.toBe(result.lut.g);
+      expect(result.lut.r).not.toBe(result.lut.b);
+      expect(result.lut.g).not.toBe(result.lut.b);
+      // Each channel has the correct length
+      expect(result.lut.r.length).toBe(5);
+      expect(result.lut.g.length).toBe(5);
+      expect(result.lut.b.length).toBe(5);
+    }
+  });
+
+  it('identity filters produce identical per-channel values', () => {
+    const result = bakeFiltersToLut([], { format: '1d', size: 5 });
+    expect(result.lut.kind).toBe('1d');
+    if (result.lut.kind === '1d') {
+      // No filters → identity LUT returned (separate arrays)
+      expect(result.lut.r).not.toBe(result.lut.g);
+      expect(result.lut.r).not.toBe(result.lut.b);
+      expect(result.lut.g).not.toBe(result.lut.b);
+      // Identity: endpoints and midpoint
+      expect(result.lut.r[0]).toBeCloseTo(0);
+      expect(result.lut.r[4]).toBeCloseTo(1);
+      expect(result.lut.g[2]).toBeCloseTo(0.5);
+      expect(result.lut.b[2]).toBeCloseTo(0.5);
+    }
   });
 });
