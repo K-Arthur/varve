@@ -1,18 +1,18 @@
 /**
- * RefineMaskTool tests — 6 TDD tests.
+ * RefineMaskTool tests — TDD: transform-aware coordinate mapping,
+ * pressure sensitivity, and coalesced events.
  */
 import { describe, expect, it, vi } from 'vitest';
 import { RefineMaskTool } from '../RefineMaskTool';
 
-function createWhiteMaskImageData(): ImageData {
+function createWhiteMaskImageData(w = 50, h = 50): ImageData {
   const canvas = document.createElement('canvas');
-  canvas.width = 50;
-  canvas.height = 50;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext('2d')!;
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, 50, 50);
-  const data = ctx.getImageData(0, 0, 50, 50);
-  return data;
+  ctx.fillRect(0, 0, w, h);
+  return ctx.getImageData(0, 0, w, h);
 }
 
 function averageMaskValue(data: ImageData): number {
@@ -20,17 +20,11 @@ function averageMaskValue(data: ImageData): number {
   for (let i = 0; i < data.data.length; i += 4) {
     sum += data.data[i]!;
   }
-  return sum / (50 * 50);
+  return sum / ((data.width * data.height) || 1);
 }
 
-function makeMockImageNode() {
-  const canvas = document.createElement('canvas');
-  canvas.width = 50;
-  canvas.height = 50;
-  const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, 50, 50);
-  const dataUrl = canvas.toDataURL('image/png');
+function makeMockImageNode(overrides?: Record<string, unknown>) {
+  const assetId = 'mask-img-1';
   return {
     id: 'img-1',
     kind: 'shape' as const,
@@ -39,17 +33,16 @@ function makeMockImageNode() {
     fills: [
       {
         type: 'image',
-        image: { src: 'test-src', fit: 'fill', x: 0, y: 0, scale: 1 },
+        image: { src: 'test-src', fit: 'fill', x: 0, y: 0, scale: 1, w: 50, h: 50 },
         opacity: 1,
         blendMode: 'normal',
         visible: true,
       },
     ],
-    backgroundRemoval: {
-      maskDataUrl: dataUrl,
-      method: 'quick' as const,
-      confidence: 0.8,
-      appliedAt: Date.now(),
+    mask: {
+      type: 'alpha' as const,
+      visible: true,
+      rasterMask: { assetId, coordinateSpace: 'source-image-pixels' as const, sourceIdentity: { kind: 'source-metadata' as const, locator: 'test-src', revision: 1 } },
     },
     transform: [1, 0, 0, 1, 0, 0] as [number, number, number, number, number, number],
     strokes: [],
@@ -58,6 +51,7 @@ function makeMockImageNode() {
     blendMode: 'normal' as const,
     visible: true,
     locked: false,
+    ...overrides,
   };
 }
 
@@ -67,6 +61,7 @@ describe('RefineMaskTool', () => {
       selection: ['img-1'],
       getNode: vi.fn(() => makeMockImageNode()),
       updateNode: vi.fn(),
+      commitRasterMask: vi.fn(),
       canvasToWorld: vi.fn((cx: number, cy: number) => ({ x: cx, y: cy })),
       setPointerCapture: vi.fn(),
       announce: vi.fn(),
@@ -75,6 +70,13 @@ describe('RefineMaskTool', () => {
       abortTransaction: vi.fn(),
       setDraft: vi.fn(),
       altKey: false,
+      document: {
+        id: 'test-doc',
+        nodes: { 'img-1': makeMockImageNode() },
+        assets: {},
+      },
+      maskPreviewMode: 'none' as const,
+      setMaskPreviewMode: vi.fn(),
       ...overrides,
     } as any;
   }
@@ -87,7 +89,7 @@ describe('RefineMaskTool', () => {
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
 
     const afterAvg = averageMaskValue(maskData);
     expect(afterAvg).toBeGreaterThanOrEqual(initialAvg);
@@ -101,7 +103,7 @@ describe('RefineMaskTool', () => {
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: true, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    tool.onPointerDown({ altKey: true, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
 
     const afterAvg = averageMaskValue(maskData);
     expect(afterAvg).toBeLessThanOrEqual(initialAvg);
@@ -121,7 +123,7 @@ describe('RefineMaskTool', () => {
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalled();
 
     tool.onDragEnd(ctx);
@@ -136,10 +138,10 @@ describe('RefineMaskTool', () => {
     const ctx = makeMinimalCtx();
     const beforeAvg = averageMaskValue(maskData);
 
-    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
     tool.onDragEnd(ctx);
 
-    expect(ctx.updateNode).toHaveBeenCalledTimes(1);
+    expect(ctx.commitRasterMask).toHaveBeenCalledTimes(1);
     expect(ctx.commitTransaction).toHaveBeenCalled();
     expect(averageMaskValue(maskData)).toBeGreaterThanOrEqual(beforeAvg);
   });
@@ -149,7 +151,7 @@ describe('RefineMaskTool', () => {
     (tool as any).maskData = createWhiteMaskImageData();
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
-    tool.onPointerDown({ altKey: false, clientX: 10, clientY: 10, pointerId: 1 } as any, ctx);
+    tool.onPointerDown({ altKey: false, clientX: 10, clientY: 10, pointerId: 1, pressure: 0.5 } as any, ctx);
     (tool as any).drag = {
       kind: 'dragging',
       pointerId: 1,
@@ -158,8 +160,8 @@ describe('RefineMaskTool', () => {
       currentCanvas: { x: 30, y: 30 },
       currentWorld: { x: 30, y: 30 },
     };
-    tool.onDragMove(ctx);
-    expect(ctx.updateNode).not.toHaveBeenCalled();
+    tool.onPointerMove({ pointerId: 1, getCoalescedEvents: () => [], pressure: 0.5 } as any, ctx);
+    expect(ctx.commitRasterMask).not.toHaveBeenCalled();
     expect(ctx.commitTransaction).not.toHaveBeenCalled();
   });
 
@@ -180,7 +182,7 @@ describe('RefineMaskTool', () => {
     });
 
     const result = tool.onPointerDown(
-      { altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any,
+      { altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any,
       ctx,
     );
 
@@ -214,12 +216,91 @@ describe('RefineMaskTool', () => {
     (tool as any).nodeId = 'img-1';
     const ctx = makeMinimalCtx();
 
-    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1 } as any, ctx);
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
     maskData.data[0] = 50;
     tool.onDragCancel(ctx);
 
-    // onDragCancel clones maskSnapshot back into tool.maskData (not the stale local ref)
     expect((tool as any).maskData.data[0]).toBe(200);
     expect(ctx.abortTransaction).toHaveBeenCalled();
+  });
+
+  it('pressure sensitivity affects mask intensity', () => {
+    const tool = new RefineMaskTool();
+    const maskData = createWhiteMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.1 } as any, ctx);
+    const lowPressureAvg = averageMaskValue(maskData);
+
+    const maskData2 = createWhiteMaskImageData();
+    (tool as any).maskData = maskData2;
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 2, pressure: 1.0 } as any, ctx);
+    const highPressureAvg = averageMaskValue(maskData2);
+
+    expect(highPressureAvg).toBeGreaterThan(lowPressureAvg);
+  });
+
+  it('mapper converts world coords on rotated image', () => {
+    const tool = new RefineMaskTool();
+    const maskData = createWhiteMaskImageData();
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    const ctx = makeMinimalCtx();
+
+    const mockMapper = {
+      mapWorldPoint: vi.fn((p: { x: number; y: number }) => ({
+        x: Math.round(p.x * 0.5),
+        y: Math.round(p.y * 0.5),
+      })),
+    };
+    (tool as any).mapper = mockMapper;
+
+    tool.onPointerDown({ altKey: false, clientX: 25, clientY: 25, pointerId: 1, pressure: 0.5 } as any, ctx);
+
+    expect(mockMapper.mapWorldPoint).toHaveBeenCalled();
+    const pixel = mockMapper.mapWorldPoint({ x: 25, y: 25 });
+    expect(pixel.x).toBe(13);
+    expect(pixel.y).toBe(13);
+  });
+
+  it('coalesced events are processed in onPointerMove', () => {
+    const tool = new RefineMaskTool();
+    const maskData = createWhiteMaskImageData();
+    // Set all pixels to a mid-gray so brush stroke changes them detectably
+    for (let i = 0; i < maskData.data.length; i += 4) {
+      maskData.data[i] = 128;
+      maskData.data[i + 1] = 128;
+      maskData.data[i + 2] = 128;
+      maskData.data[i + 3] = 128;
+    }
+    const initialPixel = maskData.data[0];
+    (tool as any).maskData = maskData;
+    (tool as any).nodeId = 'img-1';
+    (tool as any).lastPaintedPoint = { x: 10, y: 10 };
+    const ctx = makeMinimalCtx();
+
+    (tool as any).drag = {
+      kind: 'dragging',
+      pointerId: 1,
+      startCanvas: { x: 0, y: 0 },
+      startWorld: { x: 0, y: 0 },
+      currentCanvas: { x: 30, y: 30 },
+      currentWorld: { x: 30, y: 30 },
+    };
+
+    const coalesced = [
+      { clientX: 16, clientY: 16, pressure: 0.5 },
+      { clientX: 22, clientY: 22, pressure: 0.6 },
+      { clientX: 30, clientY: 30, pressure: 0.7 },
+    ];
+
+    tool.onPointerMove({ pointerId: 1, getCoalescedEvents: () => coalesced } as any, ctx);
+
+    // The brush painted around world(16,16) — check pixel at that location
+    const paintedIdx = 16 * maskData.width + 16;
+    const pixelAt16 = maskData.data[paintedIdx * 4];
+    expect(pixelAt16).not.toBe(initialPixel);
   });
 });

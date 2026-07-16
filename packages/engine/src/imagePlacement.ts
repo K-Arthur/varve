@@ -87,17 +87,23 @@ export function computeImagePlacement(
     if (!finitePositive(tileWidth) || !finitePositive(tileHeight)) return null;
     const offsetOriginX = bounds.x + offsetX;
     const offsetOriginY = bounds.y + offsetY;
+    // Tile offsets define an anchor relative to the local bounds. Normalize
+    // that anchor to the nearest occurrence at or before the bounds origin so
+    // replay always paints the complete clipped area, including positive
+    // offset leading edges.
+    const drawRect = {
+      x: offsetOriginX + Math.floor((bounds.x - offsetOriginX) / tileWidth) * tileWidth,
+      y: offsetOriginY + Math.floor((bounds.y - offsetOriginY) / tileHeight) * tileHeight,
+      w: tileWidth,
+      h: tileHeight,
+    };
+    if (!finiteRect(drawRect)) return null;
     return {
       fit,
       sourceWidth,
       sourceHeight,
       bounds: { ...bounds },
-      drawRect: {
-        x: offsetOriginX - Math.floor(offsetOriginX / tileWidth) * tileWidth,
-        y: offsetOriginY - Math.floor(offsetOriginY / tileHeight) * tileHeight,
-        w: tileWidth,
-        h: tileHeight,
-      },
+      drawRect,
     };
   }
 
@@ -133,17 +139,19 @@ export function computeImagePlacement(
   }
 
   if (!finitePositive(drawWidth) || !finitePositive(drawHeight)) return null;
+  const drawRect = {
+    x: bounds.x + offsetX + (bounds.w - drawWidth) / 2,
+    y: bounds.y + offsetY + (bounds.h - drawHeight) / 2,
+    w: drawWidth,
+    h: drawHeight,
+  };
+  if (!finiteRect(drawRect)) return null;
   return {
     fit,
     sourceWidth,
     sourceHeight,
     bounds: { ...bounds },
-    drawRect: {
-      x: bounds.x + offsetX + (bounds.w - drawWidth) / 2,
-      y: bounds.y + offsetY + (bounds.h - drawHeight) / 2,
-      w: drawWidth,
-      h: drawHeight,
-    },
+    drawRect,
   };
 }
 

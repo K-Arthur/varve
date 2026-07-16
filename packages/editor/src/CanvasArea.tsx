@@ -744,6 +744,8 @@ export function CanvasArea({
       hasPredictedEvents: typeof ev.getPredictedEvents === 'function',
       sourceEvents,
       foregroundColor: s.foregroundColor,
+      maskPreviewMode: s.maskPreviewMode,
+      setMaskPreviewMode: (mode) => e.setMaskPreviewMode(mode),
       snapEnabled: s.snapEnabled,
       snapGrid: s.snapGrid,
 
@@ -939,6 +941,11 @@ export function CanvasArea({
         if (!nodeId) return;
         const entry = e.getTrimapData(nodeId);
         if (entry) e.setTrimapData(nodeId, trimap, entry.width, entry.height);
+      },
+      commitRasterMask: (nodeId, dataUrl, width, height) => {
+        import('./backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
+          e.updateDoc((doc) => commitRasterMask(doc, nodeId, { dataUrl, width, height }));
+        });
       },
       createRasterLayer: (width, height) => {
         const s2 = stateRef.current;
@@ -2037,6 +2044,60 @@ export function CanvasArea({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // ── Mask preview overlay ──────────────────────────────────────────────
+    const previewMode: import('./context/types').MaskPreviewMode = s.maskPreviewMode;
+    const previewNodeId = s.selection[0];
+    const previewNode = previewNodeId ? doc.nodes[previewNodeId] : undefined;
+    if (previewMode !== 'none' && previewNode && previewNode.kind === 'shape') {
+      const worldBounds = getCachedWorldBounds(cache, doc, previewNodeId);
+      if (worldBounds) {
+        ctx.save();
+        const worldMat = getCachedWorldTransform(cache, doc, previewNodeId);
+        const [a, b, c2, d2, e2, f2] = worldMat;
+        ctx.transform(a, b, c2, d2, e2, f2);
+        const w = worldBounds.w;
+        const h = worldBounds.h;
+        if (previewMode === 'checkerboard') {
+          const sz = 8 / s.zoom;
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(0, 0, w, h);
+          ctx.clip();
+          for (let py = 0; py < h; py += sz) {
+            for (let px = 0; px < w; px += sz) {
+              ctx.fillStyle = (Math.floor(px / sz) + Math.floor(py / sz)) % 2 === 0
+                ? 'rgba(0,0,0,0.15)'
+                : 'rgba(255,255,255,0.15)';
+              ctx.fillRect(px, py, sz, sz);
+            }
+          }
+          ctx.restore();
+        } else if (previewMode === 'overlay') {
+          ctx.fillStyle = 'rgba(0,120,255,0.2)';
+          ctx.fillRect(0, 0, w, h);
+          ctx.strokeStyle = 'rgba(0,120,255,0.5)';
+          ctx.lineWidth = 2 / s.zoom;
+          ctx.strokeRect(0, 0, w, h);
+        } else if (previewMode === 'black') {
+          ctx.fillStyle = 'rgba(0,0,0,0.5)';
+          ctx.fillRect(0, 0, w, h);
+        } else if (previewMode === 'white') {
+          ctx.fillStyle = 'rgba(255,255,255,0.5)';
+          ctx.fillRect(0, 0, w, h);
+        } else if (previewMode === 'mask-only') {
+          ctx.fillStyle = 'rgba(128,128,128,0.4)';
+          ctx.fillRect(0, 0, w, h);
+        } else if (previewMode === 'edge') {
+          ctx.strokeStyle = 'rgba(255,50,50,0.8)';
+          ctx.lineWidth = 2 / s.zoom;
+          ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
+          ctx.strokeRect(0, 0, w, h);
+          ctx.setLineDash([]);
+        }
+        ctx.restore();
+      }
+    }
+
     applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
     // ── Drop target container highlight for drag operations ───────────────
@@ -2307,6 +2368,7 @@ export function CanvasArea({
     state.pan.x,
     state.pan.y,
     state.cameraRotation,
+    state.maskPreviewMode,
     displayDpr,
   ]);
 
