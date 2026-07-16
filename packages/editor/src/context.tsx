@@ -69,7 +69,10 @@ import {
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
   buildParentIndexMap,
+  canBeClipMaskSource,
   clearGuides,
+  clearLiveTrace as clearLiveTraceDoc,
+  createClippingMask as createClippingMaskDoc,
   createComponent,
   createDocument,
   createGuideId,
@@ -92,7 +95,6 @@ import {
   type Guide,
   activePageNodes as getActivePageNodes,
   activePageNodesWithMaster as getActivePageNodesWithMaster,
-  clearLiveTrace as clearLiveTraceDoc,
   getCurrentStateTimelineId,
   getFormattedPageNumber as getFormattedPageNumberDoc,
   getGuidesForPage,
@@ -104,6 +106,7 @@ import {
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
+  isClippingMaskGroup,
   isContainer,
   isPageOnLeftSide as isPageOnLeftSideDoc,
   type MaskType,
@@ -118,6 +121,7 @@ import {
   pasteGuides as pasteGuidesDoc,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
+  releaseClippingMask as releaseClippingMaskDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
@@ -717,10 +721,16 @@ export interface EditorContextValue {
   setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
   /** Set a vector path mask on the selected container. */
   setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
+  /** Create a clipping mask group from selected nodes (mask shape + content). */
+  createClippingMaskFromSelected: (selectionOverride?: NodeId[]) => void;
+  /** Release a clipping mask, restoring original content and mask source. */
+  releaseClippingMaskFromSelected: () => void;
   /** Create an adjustment layer node with optional initial adjustments and select it. */
   createAdjustmentLayer: (initialAdjustments?: import('@strata/engine').Adjustment[]) => void;
   /** Append an adjustment to an adjustment layer node. */
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: import('@strata/engine').Adjustment) => void;
+  /** Create a new adjustment layer node with a LUT adjustment. */
+  addLutAdjustment: (lutAdjustment: import('@strata/engine').Adjustment) => void;
   /** Remove an adjustment by id from an adjustment layer node. */
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
   /** Patch properties on an existing adjustment by id. */
@@ -1750,10 +1760,12 @@ export function EditorProvider({
     };
   }, []);
 
-  const patch = useCallback(
-    (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
-    [],
-  );
+  const patch = useCallback((partial: Partial<EditorState>) => {
+    // Update stateRef synchronously so async callbacks (menu actions,
+    // keyboard shortcuts) see the latest state even before React flushes.
+    stateRef.current = { ...stateRef.current, ...partial };
+    setState((s) => ({ ...s, ...partial }));
+  }, []);
 
   /** Persistence (save/load/document lifecycle). */
   const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
@@ -2166,23 +2178,22 @@ export function EditorProvider({
         patch({ selection: newSelection });
       },
 
-      // F1: additive = shift+click behaviour
+      // F1: additive = shift+click behaviour.
+      // Read from stateRef.current.selection (not the closed-over state.selection)
+      // so callers that batch setSelection + toggleSelection (e.g. selectAll)
+      // see the accumulation from prior calls in the same synchronous tick.
       toggleSelection: (id, additive = false) => {
-        setState((s) => {
+        const currentSel = stateRef.current.selection;
+        const nextSelection = (() => {
           if (additive) {
-            const already = s.selection.includes(id);
-            const newSelection = already
-              ? s.selection.filter((x) => x !== id)
-              : [...s.selection, id];
-            selectionHistory.push(newSelection);
-            return {
-              ...s,
-              selection: newSelection,
-            };
+            const already = currentSel.includes(id);
+            return already ? currentSel.filter((x) => x !== id) : [...currentSel, id];
           }
-          selectionHistory.push([id]);
-          return { ...s, selection: [id] };
-        });
+          return [id];
+        })();
+        selectionHistory.push(nextSelection);
+        stateRef.current = { ...stateRef.current, selection: nextSelection };
+        setState((s) => ({ ...s, selection: nextSelection }));
       },
 
       // F1: helpers that work for nested nodes
@@ -4131,6 +4142,101 @@ export function EditorProvider({
         updateDoc((doc) => setMaskVectorPathDoc(doc, id, points, closed));
       },
 
+      // ── Clipping masks ──
+
+      createClippingMaskFromSelected: (selectionOverride?: NodeId[]) => {
+        // Read selection inside setState callback where React guarantees the latest
+        // state, avoiding stale reads from stateRef when called after selectAll
+        // (React 18 batching may not have flushed yet).
+        setState((s) => {
+          const sel = selectionOverride ?? s.selection;
+          if (sel.length < 2) {
+            announcerRef.current?.announce('Select a mask shape and at least one content layer');
+            return s;
+          }
+          let maskIdx = -1;
+          for (let i = 0; i < sel.length; i++) {
+            const id = sel[i]!;
+            const node = s.document.nodes[id];
+            if (node && canBeClipMaskSource(node)) {
+              maskIdx = i;
+              break;
+            }
+          }
+          if (maskIdx < 0) {
+            announcerRef.current?.announce(
+              'No node in selection can be used as a clipping mask shape',
+            );
+            return s;
+          }
+
+          const maskNodeId = sel[maskIdx]!;
+          const contentIds = sel.filter((id) => id !== maskNodeId);
+
+          const maskNode = s.document.nodes[maskNodeId];
+          if (!maskNode || !canBeClipMaskSource(maskNode)) {
+            announcerRef.current?.announce('Selected node cannot be used as a clipping mask shape');
+            return s;
+          }
+
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          try {
+            const result = createClippingMaskDoc(s.document, maskNodeId, contentIds, {
+              type: 'clip',
+              hideMaskSource: true,
+              linked: true,
+            });
+            return {
+              ...s,
+              document: result.doc,
+              selection: [result.groupId],
+              dirty: true,
+            };
+          } catch (err) {
+            announcerRef.current?.announce(
+              err instanceof Error ? err.message : 'Failed to create clipping mask',
+            );
+            return s;
+          }
+        });
+      },
+
+      releaseClippingMaskFromSelected: () => {
+        const sel = stateRef.current.selection;
+        const id = sel[0];
+        if (!id) return;
+
+        const node = stateRef.current.document.nodes[id];
+        if (!node || !isClippingMaskGroup(node)) {
+          announcerRef.current?.announce('Selected node is not a clipping mask group');
+          return;
+        }
+        // node is a GroupNode or FrameNode (has children) — safe after isClippingMaskGroup check
+        const groupNode = node as { children: string[] };
+
+        setState((s) => {
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          const childIds = [...groupNode.children];
+          const newDoc = releaseClippingMaskDoc(s.document, id);
+          return {
+            ...s,
+            document: newDoc,
+            selection: childIds,
+            dirty: true,
+          };
+        });
+      },
+
       enterQuickMask: () => {
         setState((s) => {
           const w = s.document.canvasWidth ?? 1920;
@@ -4262,6 +4368,34 @@ export function EditorProvider({
           const existing = (n as AdjustmentNode).adjustments ?? [];
           return { ...n, adjustments: [...existing, adjustment] } as SceneNode;
         });
+      },
+
+      addLutAdjustment: (lutAdjustment: Adjustment) => {
+        undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        redoStackRef.current = [];
+        const { id, doc: newDoc } = nextNodeId(state.document);
+        const node = makeAdjustmentNode(
+          id,
+          'levels',
+          {
+            channel: 'rgb' as const,
+            inputBlack: 0,
+            inputWhite: 255,
+            gamma: 1,
+            outputBlack: 0,
+            outputWhite: 255,
+          },
+          {
+            name: `LUT ${lutAdjustment.originalFilename ?? id.slice(0, 4)}`,
+            opacity: 1,
+            blendMode: 'normal',
+            effects: [],
+          },
+        );
+        const withLut = { ...node, adjustments: [lutAdjustment] };
+        const doc = addNode(newDoc, withLut as import('@strata/scene').SceneNode);
+        patch({ document: doc, selection: [id] });
+        announcerRef.current?.announce('Created LUT adjustment layer');
       },
 
       removeAdjustmentFromLayer: (nodeId, adjustmentId) => {
@@ -5303,6 +5437,7 @@ export function EditorProvider({
               maxPaths: options.maxPaths ?? 1000,
               maxColors: options.maxColors ?? 8,
               compoundHoles: options.compoundHoles ?? true,
+              cornerAngle: options.cornerAngle ?? 135,
             };
             const withParams = setLiveTraceParamsDoc(current.document, processingNodeId, ltParams);
             const inserted = insertLiveTraceGroup(withParams, processingNodeId, tracedPaths);
@@ -5690,6 +5825,8 @@ export function EditorProvider({
       setMaskSourceNode: value.setMaskSourceNode,
       setMaskFillRule: value.setMaskFillRule,
       setMaskVectorPath: value.setMaskVectorPath,
+      createClippingMaskFromSelected: value.createClippingMaskFromSelected,
+      releaseClippingMaskFromSelected: value.releaseClippingMaskFromSelected,
       detachSelected: value.detachSelected,
       copySelected: value.copySelected,
       cutSelected: value.cutSelected,
@@ -5740,6 +5877,7 @@ export function EditorProvider({
       closeTab: value.closeTab,
       createAdjustmentLayer: value.createAdjustmentLayer,
       addAdjustmentToLayer: value.addAdjustmentToLayer,
+      addLutAdjustment: value.addLutAdjustment,
       removeAdjustmentFromLayer: value.removeAdjustmentFromLayer,
       updateAdjustmentInLayer: value.updateAdjustmentInLayer,
       reorderAdjustmentInLayer: value.reorderAdjustmentInLayer,
