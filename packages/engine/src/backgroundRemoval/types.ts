@@ -27,6 +27,25 @@ export interface BackgroundRemovalResult {
   height: number;
   /** Which ONNX execution provider succeeded (Worker/direct AI paths only). */
   executionProvider?: 'webgl' | 'wasm';
+  /** Raw single-channel mask data at the result's width/height (0-255).
+   *  Set by providers alongside maskDataUrl to avoid redundant PNG decode
+   *  during source-resolution reconstruction. */
+  rawMask?: Uint8Array;
+  /** Source-resolution composited alpha (0-255 per pixel), set when
+   *  source dimensions differ from preview dimensions. Reconstructed
+   *  via letterbox-aware bilinear interpolation from the model mask. */
+  sourceAlpha?: Uint8Array;
+  sourceWidth?: number;
+  sourceHeight?: number;
+  /** Dimensions and transform used to reconstruct the source-resolution matte. */
+  sourceResolutionInfo?: SourceResolutionInfo;
+}
+
+export interface SourceResolutionInfo {
+  modelWidth: number;
+  modelHeight: number;
+  sourceWidth: number;
+  sourceHeight: number;
 }
 
 export interface ModelMetadata {
@@ -60,6 +79,8 @@ export function workerModelIdForMethod(method: RemovalMethod): WorkerModelId | n
 
 export interface WorkerCommand {
   type: 'infer';
+  /** Unique request ID for correlation between command and result. */
+  requestId: string;
   imageData: ImageData;
   modelPath: string;
   modelId: WorkerModelId;
