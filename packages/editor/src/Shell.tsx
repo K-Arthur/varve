@@ -415,13 +415,56 @@ function ShellInner({
         <input
           id="file-import-input"
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch"
+          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch,.cube,.3dl"
           multiple
           style={{ display: 'none' }}
           onChange={async (e) => {
             const files = Array.from(e.target.files ?? []);
             if (files.length === 0) return;
             try {
+              // Route LUT files to the LUT-specific handler
+              const lutFiles = files.filter((f) => /\.(cube|3dl)$/i.test(f.name));
+              if (lutFiles.length > 0) {
+                const mod = await import('@strata/engine');
+                for (const file of lutFiles) {
+                  const text = await file.text();
+                  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+                  try {
+                    let result;
+                    if (ext === 'cube') {
+                      result = mod.parseCubeData(text);
+                    } else {
+                      result = mod.parse3dlData(text);
+                    }
+                    const json = JSON.stringify(result.transform);
+                    const lutAdj = mod.makeAdjustment(
+                      `lut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                      'lut',
+                      {
+                        lutJson: json,
+                        originalFilename: file.name,
+                        inputSpace: 'sRGB' as const,
+                        interpolation: 'tetrahedral' as const,
+                        intensity: 1,
+                        linearize: false,
+                      },
+                    );
+                    editor.addLutAdjustment(lutAdj);
+                    editor.announce(`Imported LUT: ${file.name}`);
+                  } catch (err) {
+                    editor.announce(
+                      `LUT import failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  }
+                }
+                // Filter out LUT files from the remaining import
+                const remaining = files.filter((f) => !/\.(cube|3dl)$/i.test(f.name));
+                if (remaining.length === 0) {
+                  e.target.value = '';
+                  return;
+                }
+                // Fall through to normal import for remaining files
+              }
               const { ImportService } = await import('@strata/import');
               const report = await ImportService.importFiles(
                 await Promise.all(
