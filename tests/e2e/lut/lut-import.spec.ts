@@ -4,57 +4,67 @@ import fs from 'node:fs';
 
 const FIXTURES = path.resolve(__dirname, 'fixtures');
 
+/** Pre-seed localStorage so the welcome dialog never appears in tests. */
+async function skipOnboarding(page: import('@playwright/test').Page) {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      'strata:onboarding',
+      JSON.stringify({
+        onboardingComplete: true,
+        onboardingVersion: 1,
+        skillLevel: 'unclassified',
+        checklistProgress: [],
+        dismissedTips: [],
+        seenFeatureBadges: [],
+        tutorialFileCompleted: false,
+      }),
+    );
+  });
+}
+
 async function setupEditor(page: import('@playwright/test').Page) {
+  await skipOnboarding(page);
   await page.goto('/');
   await page.waitForTimeout(3000);
-  try {
-    const blankBtn = page.getByRole('button', { name: /blank canvas/i });
-    await blankBtn.waitFor({ state: 'visible', timeout: 5000 });
-    await blankBtn.click();
-    await page.waitForTimeout(2000);
-  } catch {
-    const newBtn = page.getByRole('button', { name: /^new$/i });
-    if (await newBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await newBtn.click();
-      await page.locator('dialog').getByRole('button', { name: /^create$/i }).click();
-      await page.waitForTimeout(1000);
-    }
-  }
-  await page.locator('[data-panel="layers"]').waitFor({ state: 'visible', timeout: 5000 });
+
+  // We're on the home page — create a new document
+  const newBtn = page.getByRole('button', { name: /^new$/i });
+  await newBtn.waitFor({ state: 'visible', timeout: 5000 });
+  await newBtn.click();
+
+  // In the New dialog, click "Create" for a blank document
+  const createBtn = page.locator('dialog').getByRole('button', { name: /^create$/i });
+  await createBtn.waitFor({ state: 'visible', timeout: 5000 });
+  await createBtn.click();
+
+  // Wait for the editor layers panel to appear
+  await page.locator('[data-panel="layers"]').waitFor({ state: 'visible', timeout: 10000 });
 }
 
 /**
- * Parse a .cube/.3dl file in Node.js and dispatch the adjustment via custom event.
- * The Shell has a listener for 'strata:test-import-lut' that calls addLutAdjustment.
+ * Import a LUT file by dispatching a custom event.
+ * Parses the .cube file in Node.js, builds a LUT JSON, and sends it
+ * to the Shell's strata:test-import-lut listener.
  */
 async function importLutFile(page: import('@playwright/test').Page, filename: string) {
   const content = fs.readFileSync(path.join(FIXTURES, filename), 'utf-8');
-  // Simple cube parser — extract data lines as [r,g,b] triples
+  // Minimal .cube parser — extract LUT_3D_SIZE and data lines
   const lines = content.split('\n');
-  const dataLines: string[] = [];
   let lutSize = 0;
   let is3d = true;
+  const dataLines: string[] = [];
   for (const line of lines) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('#') || trimmed.length === 0) continue;
-    if (trimmed.startsWith('TITLE') || trimmed.startsWith('DOMAIN') || trimmed.startsWith('LUT_1D')) continue;
-    if (trimmed.startsWith('LUT_3D_SIZE')) {
-      lutSize = parseInt(trimmed.split(/\s+/)[1] || '0', 10);
-      is3d = true;
-      continue;
-    }
-    if (/^[\d\s.\-+eE]+$/.test(trimmed) && trimmed.split(/\s+/).length >= 3) {
-      dataLines.push(trimmed);
-    }
+    const t = line.trim();
+    if (t.startsWith('#') || t.length === 0 || t.startsWith('TITLE') || t.startsWith('DOMAIN')) continue;
+    if (t.startsWith('LUT_3D_SIZE')) { lutSize = parseInt(t.split(/\s+/)[1] || '0', 10); is3d = true; continue; }
+    if (t.startsWith('LUT_1D_SIZE')) { lutSize = parseInt(t.split(/\s+/)[1] || '0', 10); is3d = false; continue; }
+    if (/^[\d\s.\-+eE]+$/.test(t) && t.split(/\s+/).length >= 3) dataLines.push(t);
   }
 
-  // Build a minimal LUT JSON that the browser can construct
   const lutJson = JSON.stringify({
     kind: is3d ? '3d' : '1d',
     size: lutSize || 3,
-    data: is3d
-      ? dataLines.flatMap((l) => l.split(/\s+/).slice(0, 3).map(Number))
-      : undefined,
+    data: is3d ? dataLines.flatMap((l) => l.split(/\s+/).slice(0, 3).map(Number)) : undefined,
     r: !is3d ? dataLines.slice(0, lutSize).map((l) => Number(l.split(/\s+/)[0])) : undefined,
     g: !is3d ? dataLines.slice(lutSize, lutSize * 2).map((l) => Number(l.split(/\s+/)[0])) : undefined,
     b: !is3d ? dataLines.slice(lutSize * 2, lutSize * 3).map((l) => Number(l.split(/\s+/)[0])) : undefined,
@@ -63,7 +73,11 @@ async function importLutFile(page: import('@playwright/test').Page, filename: st
     metadata: { title: filename.replace(/\.\w+$/, ''), sourceFormat: filename.split('.').pop() },
   });
 
-  // Dispatch via custom event that Shell listens to
+  // Wait for Shell to mount and expose __importLut
+  await page.waitForFunction(() => typeof (window as any).__importLut === 'function', {
+    timeout: 10000,
+  });
+
   await page.evaluate(
     ({ filename, lutJson }) => {
       const adj = {
@@ -79,21 +93,15 @@ async function importLutFile(page: import('@playwright/test').Page, filename: st
         intensity: 1,
         linearize: false,
       };
-      console.log('[TEST] Dispatching lut import event', adj.kind, adj.originalFilename);
-      window.dispatchEvent(new CustomEvent('strata:test-import-lut', { detail: { adjustment: adj } }));
+      (window as any).__importLut(adj);
     },
     { filename, lutJson },
   );
-  await page.waitForTimeout(2000);
-  // Check console for the test log
-  const logs = await page.evaluate(() => {
-    return (window as any).__lutImportLogs ?? 'no logs';
-  });
-  console.log('Import logs:', logs);
+  await page.waitForTimeout(1500);
 }
 
 test.describe('LUT import and application', () => {
-  test('can import a .cube 3D LUT via custom event', async ({ page }) => {
+  test('can import a .cube 3D LUT', async ({ page }) => {
     await setupEditor(page);
     await importLutFile(page, 'warm-shift.cube');
     const text = await page.locator('[data-panel="layers"]').textContent();
@@ -124,13 +132,17 @@ test.describe('LUT import and application', () => {
     expect(text).toContain('cool-shift');
   });
 
-  test('intensity slider visible when LUT selected', async ({ page }) => {
+  test('intensity slider visible when LUT filter selected', async ({ page }) => {
     await setupEditor(page);
     await importLutFile(page, 'warm-shift.cube');
-    const lutRow = page.locator('[data-panel="layers"]').getByText(/warm-shift|LUT/i);
-    if (await lutRow.isVisible({ timeout: 2000 }).catch(() => false)) {
-      await lutRow.click();
+
+    // The adjustment layer is auto-selected. Click the "LUT" entry in the filter stack
+    // to select the individual LUT adjustment and show its editor controls.
+    const lutFilter = page.getByText('LUT', { exact: true }).first();
+    if (await lutFilter.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await lutFilter.click();
       await page.waitForTimeout(500);
+
       const slider = page.locator('input[aria-label="LUT intensity"]');
       expect(await slider.isVisible({ timeout: 2000 }).catch(() => false)).toBeTruthy();
     }
