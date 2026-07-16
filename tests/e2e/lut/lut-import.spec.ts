@@ -55,9 +55,18 @@ async function importLutFile(page: import('@playwright/test').Page, filename: st
   const dataLines: string[] = [];
   for (const line of lines) {
     const t = line.trim();
-    if (t.startsWith('#') || t.length === 0 || t.startsWith('TITLE') || t.startsWith('DOMAIN')) continue;
-    if (t.startsWith('LUT_3D_SIZE')) { lutSize = parseInt(t.split(/\s+/)[1] || '0', 10); is3d = true; continue; }
-    if (t.startsWith('LUT_1D_SIZE')) { lutSize = parseInt(t.split(/\s+/)[1] || '0', 10); is3d = false; continue; }
+    if (t.startsWith('#') || t.length === 0 || t.startsWith('TITLE') || t.startsWith('DOMAIN'))
+      continue;
+    if (t.startsWith('LUT_3D_SIZE')) {
+      lutSize = parseInt(t.split(/\s+/)[1] || '0', 10);
+      is3d = true;
+      continue;
+    }
+    if (t.startsWith('LUT_1D_SIZE')) {
+      lutSize = parseInt(t.split(/\s+/)[1] || '0', 10);
+      is3d = false;
+      continue;
+    }
     if (/^[\d\s.\-+eE]+$/.test(t) && t.split(/\s+/).length >= 3) dataLines.push(t);
   }
 
@@ -66,8 +75,12 @@ async function importLutFile(page: import('@playwright/test').Page, filename: st
     size: lutSize || 3,
     data: is3d ? dataLines.flatMap((l) => l.split(/\s+/).slice(0, 3).map(Number)) : undefined,
     r: !is3d ? dataLines.slice(0, lutSize).map((l) => Number(l.split(/\s+/)[0])) : undefined,
-    g: !is3d ? dataLines.slice(lutSize, lutSize * 2).map((l) => Number(l.split(/\s+/)[0])) : undefined,
-    b: !is3d ? dataLines.slice(lutSize * 2, lutSize * 3).map((l) => Number(l.split(/\s+/)[0])) : undefined,
+    g: !is3d
+      ? dataLines.slice(lutSize, lutSize * 2).map((l) => Number(l.split(/\s+/)[0]))
+      : undefined,
+    b: !is3d
+      ? dataLines.slice(lutSize * 2, lutSize * 3).map((l) => Number(l.split(/\s+/)[0]))
+      : undefined,
     inputMin: [0, 0, 0],
     inputMax: [1, 1, 1],
     metadata: { title: filename.replace(/\.\w+$/, ''), sourceFormat: filename.split('.').pop() },
