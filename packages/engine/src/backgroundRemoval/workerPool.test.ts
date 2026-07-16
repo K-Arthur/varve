@@ -4,8 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 class MockWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: ((e: ErrorEvent) => void) | null = null;
-  private _listeners: Record<string, Array<(...args: never[]) => void>> = {};
-  private _lastMessage: { imageData?: { width: number; height: number }; requestId?: string } | null = null;
+  private _listeners: Record<string, Array<(e: MessageEvent) => void>> = {};
+  private _lastMessage: {
+    imageData?: { width: number; height: number };
+    requestId?: string;
+  } | null = null;
 
   constructor(_url: string | URL, _opts?: WorkerOptions) {
     // Simulate ready after construction
@@ -36,12 +39,12 @@ class MockWorker {
     }, 0);
   }
 
-  addEventListener(type: string, fn: (...args: never[]) => void) {
+  addEventListener(type: string, fn: (e: MessageEvent) => void) {
     if (!this._listeners[type]) this._listeners[type] = [];
     this._listeners[type]!.push(fn);
   }
 
-  removeEventListener(type: string, fn: (...args: never[]) => void) {
+  removeEventListener(type: string, fn: (e: MessageEvent) => void) {
     const arr = this._listeners[type];
     if (arr) this._listeners[type] = arr.filter((f) => f !== fn);
   }
@@ -53,7 +56,7 @@ class MockWorker {
   private _dispatch(data: unknown) {
     const handlers = this._listeners.message || [];
     for (const fn of handlers) {
-      fn({ data } as MessageEvent);
+      fn({ data } as unknown as MessageEvent);
     }
   }
 }
@@ -69,7 +72,7 @@ describe('workerPool', () => {
 
   beforeEach(async () => {
     origWorker = globalThis.Worker;
-    (globalThis as { Worker: typeof MockWorker }).Worker = MockWorker as unknown as typeof Worker;
+    (globalThis as any).Worker = MockWorker;
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.resetModules();
     workerPool = await import('./workerPool');
@@ -77,7 +80,7 @@ describe('workerPool', () => {
 
   afterEach(() => {
     workerPool.terminateWorkerPool();
-    (globalThis as { Worker: typeof MockWorker }).Worker = origWorker;
+    (globalThis as any).Worker = origWorker;
     vi.useRealTimers();
   });
 

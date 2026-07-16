@@ -29,12 +29,22 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
     const size = 10;
     const cx = Math.floor(canvas.width / 2);
     const cy = Math.floor(canvas.height / 2);
-    const data = ctx.getImageData(cx - size/2, cy - size/2, size, size).data;
-    let r = 0, g = 0, b = 0, count = 0;
+    const data = ctx.getImageData(cx - size / 2, cy - size / 2, size, size).data;
+    let r = 0,
+      g = 0,
+      b = 0,
+      count = 0;
     for (let i = 0; i < data.length; i += 4) {
-      if (data[i+3] > 0) { r += data[i]; g += data[i+1]; b += data[i+2]; count++; }
+      if (data[i + 3] > 0) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
     }
-    return count > 0 ? { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) } : null;
+    return count > 0
+      ? { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) }
+      : null;
   });
   console.log('BEFORE LUT — avg color:', colorBefore);
 
@@ -62,12 +72,22 @@ test('LUT changes real photo colors — nature photograph', async ({ page }) => 
     const size = 10;
     const cx = Math.floor(canvas.width / 2);
     const cy = Math.floor(canvas.height / 2);
-    const data = ctx.getImageData(cx - size/2, cy - size/2, size, size).data;
-    let r = 0, g = 0, b = 0, count = 0;
+    const data = ctx.getImageData(cx - size / 2, cy - size / 2, size, size).data;
+    let r = 0,
+      g = 0,
+      b = 0,
+      count = 0;
     for (let i = 0; i < data.length; i += 4) {
-      if (data[i+3] > 0) { r += data[i]; g += data[i+1]; b += data[i+2]; count++; }
+      if (data[i + 3] > 0) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
     }
-    return count > 0 ? { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) } : null;
+    return count > 0
+      ? { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) }
+      : null;
   });
   console.log('AFTER LUT — avg color:', colorAfter);
 
@@ -107,12 +127,22 @@ test('LUT changes real photo colors — portrait', async ({ page }) => {
     const size = 10;
     const cx = Math.floor(canvas.width / 2);
     const cy = Math.floor(canvas.height / 2);
-    const data = ctx.getImageData(cx - size/2, cy - size/2, size, size).data;
-    let r = 0, g = 0, b = 0, count = 0;
+    const data = ctx.getImageData(cx - size / 2, cy - size / 2, size, size).data;
+    let r = 0,
+      g = 0,
+      b = 0,
+      count = 0;
     for (let i = 0; i < data.length; i += 4) {
-      if (data[i+3] > 0) { r += data[i]; g += data[i+1]; b += data[i+2]; count++; }
+      if (data[i + 3] > 0) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
     }
-    return count > 0 ? { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) } : null;
+    return count > 0
+      ? { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) }
+      : null;
   });
   console.log('Portrait BEFORE LUT:', colorBefore);
 
@@ -132,12 +162,22 @@ test('LUT changes real photo colors — portrait', async ({ page }) => {
     const size = 10;
     const cx = Math.floor(canvas.width / 2);
     const cy = Math.floor(canvas.height / 2);
-    const data = ctx.getImageData(cx - size/2, cy - size/2, size, size).data;
-    let r = 0, g = 0, b = 0, count = 0;
+    const data = ctx.getImageData(cx - size / 2, cy - size / 2, size, size).data;
+    let r = 0,
+      g = 0,
+      b = 0,
+      count = 0;
     for (let i = 0; i < data.length; i += 4) {
-      if (data[i+3] > 0) { r += data[i]; g += data[i+1]; b += data[i+2]; count++; }
+      if (data[i + 3] > 0) {
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
     }
-    return count > 0 ? { r: Math.round(r/count), g: Math.round(g/count), b: Math.round(b/count) } : null;
+    return count > 0
+      ? { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count) }
+      : null;
   });
   console.log('Portrait AFTER LUT:', colorAfter);
 
