@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.1');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.2');
     expect(SUPPORTED_VERSIONS).toContain('2.1');
   });
   it('stamps current version on new documents', () => {
@@ -40,6 +40,77 @@ describe('Document Versioning', () => {
 });
 
 describe('Legacy background removal migration', () => {
+  it('migrates v2.1 source fingerprints into honest metadata identities', () => {
+    const migrated = migrateDocument({
+      id: 'v21',
+      name: 'v21',
+      formatVersion: '2.1',
+      rootChildren: ['image'],
+      components: {},
+      nextId: 1,
+      nodes: {
+        image: {
+          id: 'image',
+          kind: 'shape',
+          mask: {
+            type: 'alpha',
+            visible: true,
+            rasterMask: {
+              assetId: 'mask',
+              coordinateSpace: 'source-image-pixels',
+              sourceFingerprint: 'source:asset/image.png',
+              sourcePixelRevision: 4,
+            },
+          },
+        },
+      },
+      rasterMaskAssets: {},
+    })!;
+    const rasterMask = (
+      (migrated.nodes as Record<string, Record<string, unknown>>).image?.mask as Record<
+        string,
+        unknown
+      >
+    ).rasterMask as Record<string, unknown>;
+    expect(migrated.formatVersion).toBe('2.2');
+    expect(rasterMask.sourceIdentity).toEqual({
+      kind: 'source-metadata',
+      locator: 'asset/image.png',
+      revision: 4,
+    });
+    expect(rasterMask).not.toHaveProperty('sourceFingerprint');
+    expect(rasterMask).not.toHaveProperty('sourcePixelRevision');
+  });
+
+  it('preserves a verified v2.1 SHA-256 fingerprint as content identity', () => {
+    const sha256 = 'a'.repeat(64);
+    const migrated = migrateDocument({
+      formatVersion: '2.1',
+      nodes: {
+        image: {
+          mask: {
+            rasterMask: {
+              sourceFingerprint: `sha256:${sha256}`,
+              sourcePixelRevision: 2,
+            },
+          },
+        },
+      },
+    })!;
+    const rasterMask = (
+      (migrated.nodes as Record<string, Record<string, unknown>>).image?.mask as Record<
+        string,
+        unknown
+      >
+    ).rasterMask as Record<string, unknown>;
+
+    expect(rasterMask.sourceIdentity).toEqual({
+      kind: 'content-sha256',
+      sha256,
+      revision: 2,
+    });
+  });
+
   it('migrates legacy backgroundRemoval into a stable native raster mask asset', () => {
     const raw = {
       id: 'legacy-mask-doc',
@@ -100,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.1');
+    expect(migrated.formatVersion).toBe('2.2');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -118,7 +189,7 @@ describe('Legacy background removal migration', () => {
     const doc = {
       id: 'd1',
       name: 'Legacy',
-      formatVersion: '2.1',
+      formatVersion: '2.2',
       rootChildren: ['image-1'],
       nodes: {
         'image-1': {
@@ -132,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.1');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.2');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -167,8 +238,11 @@ describe('Legacy background removal migration', () => {
             rasterMask: {
               assetId: baseId,
               coordinateSpace: 'source-image-pixels',
-              sourceFingerprint: 'source:existing',
-              sourcePixelRevision: 1,
+              sourceIdentity: {
+                kind: 'source-metadata',
+                locator: 'existing',
+                revision: 1,
+              },
             },
           },
         },
