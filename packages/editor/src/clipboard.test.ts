@@ -145,4 +145,42 @@ describe('readFromClipboardEvent', () => {
     expect(result.strataData?.nodes).toHaveLength(1);
     expect(result.strataData?.nodes[0]?.id).toBe('n1');
   });
+
+  it('reads clipboard data including raster mask assets', async () => {
+    const strataData = {
+      nodes: [
+        {
+          id: 'img-1',
+          kind: 'shape',
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+          name: 'Image 1',
+        },
+      ],
+      rasterMaskAssets: {
+        'mask-img-1': {
+          id: 'mask-img-1',
+          mimeType: 'image/png',
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+          width: 1,
+          height: 1,
+          byteLength: 68,
+        },
+      },
+    };
+    const strataJson = JSON.stringify(strataData);
+    const file = new File([strataJson], 'data.strata', { type: 'application/vnd.strata+json' });
+    const dt = createDataTransferWithFiles([file]);
+    dt.getData = (format: string) => {
+      if (format === 'application/vnd.strata+json') return strataJson;
+      return '';
+    };
+    const event = { type: 'paste', clipboardData: dt } as unknown as ClipboardEvent;
+
+    const result = await readFromClipboardEvent(event);
+    expect(result.strataData).not.toBeNull();
+    expect(result.strataData?.rasterMaskAssets).toBeDefined();
+    expect(result.strataData?.rasterMaskAssets?.['mask-img-1']).toBeDefined();
+    expect(result.strataData?.rasterMaskAssets?.['mask-img-1']?.mimeType).toBe('image/png');
+  });
 });

@@ -415,5 +415,6 @@ export async function removeBackgroundHeuristic(
     processingTimeMs: Math.round(processingTimeMs),
     width: img.width,
     height: img.height,
+    rawMask: mask,
   };
 }

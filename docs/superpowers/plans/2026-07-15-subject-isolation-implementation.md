@@ -10,6 +10,43 @@
 
 ---
 
+## Audit-Corrected Execution Order
+
+The original plan was audited after Tasks 1 and 2 began. Execute the remaining
+work in this dependency order; where a later task's original file list conflicts
+with this section, this section wins:
+
+1. Close Task 1 schema/migration gaps: exact-one-source validation, real legacy
+   PNG-dimension migration, source-dimension enforcement, content fingerprints,
+   and untrusted JSON validation.
+2. Finish and review Task 2 canonical placement without leaving the mapper
+   orphaned or changing render pixels unintentionally.
+3. Complete Task 3 protocol and cancellation safety, including request IDs,
+   worker generations, abort-after-settle cleanup, warm timeouts,
+   `cancelAllWorkerJobs`, unknown/progress messages, and immutable fallback
+   buffers.
+4. Pull the security/governance subset of Task 10 forward: strict manifest
+   validation, mandatory checksums, removal of automatic cloud fallback, and an
+   explicit provider capability contract.
+5. Split Task 5 so natural-source decode, orientation normalization, source
+   fingerprints/revisions, document identity, placement revision, and immutable
+   request tokens exist before source-resolution reconstruction.
+6. Expand Task 4 across Quick, worker, direct, and native paths. Include
+   `index.ts`, heuristic code, protocol/types, Tauri wire types/commands, source
+   alpha, raw-alpha transfer, and bounded single-channel encoding.
+7. Complete the native-mask commit service before any UI/refinement work. No new
+   code may write `ShapeNode.backgroundRemoval`.
+8. Continue Tasks 6–9 for refinement, access-path unification, persistence,
+   rendering, thumbnails, and exports.
+9. Complete native provisioning/provider packaging and model governance from
+   Task 10.
+10. Establish Task 11 fixture thresholds and performance budgets before changing
+    the default model/runtime. Then perform Task 12 release verification.
+
+Each numbered item is a reviewable milestone: RED test, minimal implementation,
+focused GREEN test, mandatory repository regression protocol for architecture
+changes, spec review, code-quality review, exact-file commit, and push.
+
 ## File Map
 
 - `packages/scene/src/types.ts`: native raster mask and asset contracts.
@@ -47,6 +84,15 @@
 - Modify: `packages/scene/src/documentCodec.ts`
 - Test: `packages/scene/src/__tests__/rasterMask.test.ts`
 - Test: `packages/scene/src/version.test.ts`
+
+**Audit closure requirements:** this task remains open until the implementation
+also rejects simultaneous node/vector/raster sources; derives migrated asset
+dimensions from decoded PNG IHDR rather than shape/source guesses; verifies
+source-space asset dimensions against oriented source dimensions when known;
+uses a content/source revision fingerprint rather than `source:${url}`; validates
+asset IDs, table-key consistency, checksum syntax, edit revisions, stale reasons,
+and provenance from untrusted JSON; and covers a real mismatched legacy preview
+mask through `DocumentCodec.decode`.
 
 - [ ] **Step 1: Write failing scene tests**
 
@@ -250,6 +296,12 @@ git commit -m "refactor(engine): centralize image pixel placement"
 - Test: `packages/engine/src/backgroundRemoval/__tests__/workerPool.test.ts`
 - Test: `packages/engine/src/backgroundRemoval/__tests__/dispatchCancellation.test.ts`
 
+Also modify `providers/workerProvider.ts` and test model-unavailable capability,
+abort-after-resolution, active and warm-worker timeout replacement, worker
+generation mismatch, unknown/progress messages, `cancelAllWorkerJobs`, listener
+cleanup, and structured-clone transfer semantics. Provider timeouts must abort
+their child operation before fallback begins.
+
 - [ ] **Step 1: Write race and detached-buffer reproductions**
 
 ```ts
@@ -302,6 +354,17 @@ git commit -m "fix(engine): make subject isolation cancellation race-safe"
 - Modify: `packages/engine/src/backgroundRemoval/providers/directOnnxProvider.ts`
 - Modify: `crates/strata-bgremove/src/inference.rs`
 - Test: `crates/strata-bgremove/src/lib.rs`
+- Modify: `packages/engine/src/backgroundRemoval/index.ts`
+- Modify: `packages/engine/src/backgroundRemoval/heuristic.ts`
+- Modify: `packages/engine/src/backgroundRemoval/types.ts`
+- Modify: `packages/engine/src/backgroundRemoval/providers/tauriProvider.ts`
+- Modify: `apps/desktop/src-tauri/src/lib.rs`
+
+This task consumes orientation-normalized natural source pixels from the service;
+it must not rasterize the placed shape as its source. Quick and every AI provider
+return the same raw single-channel source-space result contract. PNG encoding is
+deferred to the document asset boundary and no full-resolution RGBA staging
+buffer is allowed in the worker.
 
 - [ ] **Step 1: Write failing reconstruction tests**
 
@@ -533,6 +596,13 @@ git commit -m "feat(export): preserve native raster masks everywhere"
 - Modify: `apps/desktop/src-tauri/Cargo.toml`
 - Test: provider capability and manifest tests
 
+The strict manifest schema/checksum and automatic-cloud-removal subset executes
+immediately after Task 3. The remaining native packaging work executes after
+render/export integration. Add `providers/dispatch.ts`,
+`providers/directOnnxProvider.ts`, `providers/tauriProvider.ts`, background
+removal `types.ts`, Tauri command/model provisioning code, and release workflow
+configuration to this task's actual change set.
+
 - [ ] **Step 1: Write failing provider self-test cases**
 
 Mock WebGPU supported/unsupported operators, device loss, absent cross-origin isolation, WASM single/multithread, and native-provider failure. Assert ordered fallback and explicit runtime telemetry.
@@ -547,7 +617,7 @@ Import the WebGPU ORT build in the app-owned worker, run a bundled known-output 
 
 - [ ] **Step 4: Pin model provenance**
 
-Record source URL, upstream checkpoint/commit, license, SHA-256, conversion script/tool versions, opset, quantization calibration corpus, file size, input/output contract, and acceptance metrics. Do not ship BiRefNet weights until legal review confirms packaged-weight rights.
+Record source URL, upstream checkpoint/commit, license, SHA-256, conversion script/tool versions, opset, quantization calibration corpus, file size, input/output contract, and acceptance metrics. Use the exact official `ZhengPeng7/BiRefNet_lite-matting` checkpoint as the primary candidate and BEN2 Base as the publisher-supplied ONNX challenger. Do not ship any converted weights until legal review confirms packaged-weight rights and the reproducible conversion is reviewed.
 
 - [ ] **Step 5: Commit**
 

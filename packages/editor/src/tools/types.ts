@@ -127,6 +127,9 @@ export interface ToolContext {
   hasPredictedEvents: boolean;
   /** Normalized source events from coalesced/predicted input. */
   sourceEvents: NormalizedInputEvent[];
+  /** Overlay preview mode for mask refinement visualization. */
+  maskPreviewMode: import('../context/types').MaskPreviewMode;
+  setMaskPreviewMode: (mode: import('../context/types').MaskPreviewMode) => void;
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];
   snapEnabled: boolean;
@@ -208,6 +211,8 @@ export interface ToolContext {
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;
   commitTrimapEdit?: (trimap: Uint8Array) => void;
+  /** Commit a raster mask as a native RasterMaskAsset. */
+  commitRasterMask?: (nodeId: string, dataUrl: string, width: number, height: number) => void;
   createRasterLayer: (width: number, height: number) => string | null;
 }
 

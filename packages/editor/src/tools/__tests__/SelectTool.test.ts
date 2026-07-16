@@ -27,6 +27,8 @@ function makeCtx(overrides?: Record<string, unknown>) {
     hasPredictedEvents: false,
     sourceEvents: [],
     foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
+    maskPreviewMode: 'none' as const,
+    setMaskPreviewMode: vi.fn(),
     snapEnabled: false,
     snapGrid: 8,
     isolatedNodeId: null as string | null,

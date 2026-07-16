@@ -23,6 +23,7 @@ import {
   getEffectiveNode,
   resolveAllStyles,
   resolveNodePaints,
+  resolveRasterMaskAsset,
 } from '@strata/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@strata/shared';
 import { nodeWorldTransform } from '../scene/world';
@@ -52,7 +53,7 @@ function resolvePaintRefs(
 export function sceneNodeToEngineNode(
   node: SceneNode,
   options: SceneNodeConversionOptions = {},
-  doc?: { paints?: Record<string, import('@strata/scene').Paint> },
+  doc?: Pick<Document, 'paints' | 'rasterMaskAssets'>,
 ): EngineNode {
   // Resolve paintRefs → paints → fills before converting
   const resolvedNode = resolvePaintRefs(node, doc);
@@ -77,6 +78,7 @@ export function sceneNodeToEngineNode(
     // track the trace link and parameter state; the engine always reads the
     // shape directly, so no special case is needed here.
     const shapeless = 'shapeless' in node && node.shapeless === true;
+    const nativeRasterMask = doc ? resolveRasterMaskAsset(doc, node) : null;
     return {
       ...base,
       shape: node.shape,
@@ -86,7 +88,7 @@ export function sceneNodeToEngineNode(
       alphaMask:
         options.showOriginalBackgroundNodeId === node.id
           ? undefined
-          : node.backgroundRemoval?.maskDataUrl,
+          : (nativeRasterMask?.dataUrl ?? node.backgroundRemoval?.maskDataUrl),
     };
   }
 

@@ -90,7 +90,10 @@ describe('removeBackground dispatch', () => {
     vi.stubGlobal('Worker', class {});
     const { removeBackground } = await import('../index');
     const result = await removeBackground(makeImage(), { method: 'quick' });
-    expect(result).toEqual(HEURISTIC_RESULT);
+    expect(result).toMatchObject(HEURISTIC_RESULT);
+    expect(result.sourceWidth).toBe(4);
+    expect(result.sourceHeight).toBe(4);
+    expect(result.sourceResolutionInfo).toBeDefined();
     expect(mockHeuristic).toHaveBeenCalledTimes(1);
     expect(mockRunPooledInference).not.toHaveBeenCalled();
     expect(mockInvoke).not.toHaveBeenCalled();

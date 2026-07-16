@@ -4,6 +4,47 @@
 **Status:** Approved by user direction to proceed with the best modular, extensible, functional solution
 **Scope:** Strata scene model, raster-mask rendering, offline inference, refinement tools, persistence, export, desktop/browser UI, and verification
 
+## Approved Audit Corrections
+
+The 2026-07-15 implementation audit was repeated against the active
+`feature/subject-isolation` worktree before further code changes. The following
+corrections are normative and override older wording in this document:
+
+- The live legacy `ShapeNode.backgroundRemoval` field is a compatibility input
+  only. Production commands, refinement, rendering, thumbnails, clipboard,
+  persistence, and exports must read and write the native raster-mask contract.
+  Encoding may migrate legacy data, but no new runtime state may be committed to
+  the legacy field.
+- Worker protocol safety precedes source-resolution inference. Every command,
+  progress event, result, and error carries a request ID and worker generation.
+  Cancelling or timing out active inference terminates and replaces that worker;
+  abort listeners are removed when a request settles.
+- Providers receive independent immutable pixel buffers. A worker transfer must
+  never detach the source used by a later fallback. Timeouts abort provider work
+  rather than merely rejecting the caller.
+- Automatic cloud fallback is removed. Uploads are available only through an
+  explicitly invoked, per-operation consent flow and are not required for any
+  supported workflow.
+- Natural, orientation-normalized source decoding and immutable request tokens
+  are established before reconstruction. Quick and AI paths both produce masks
+  in exact source-pixel space and multiply subject alpha by original source alpha.
+- Inference workers exchange bounded raw single-channel alpha plus transform and
+  provenance metadata. PNG encoding occurs once at the document asset boundary;
+  the pipeline must not allocate multiple full-resolution RGBA intermediates.
+- Runtime limits are platform-aware and fail with actionable messages. The
+  portable document validator permits at most 16,384 pixels per dimension and
+  134,217,728 mask pixels; the browser inference default is 67,108,864 pixels.
+  Higher desktop limits require a measured memory budget and must not create a
+  document the browser cannot safely inspect.
+- Desktop releases bundle the accepted high-quality model. Browser builds use an
+  explicit first-use download with checksum verification and persistent local
+  caching, after which inference is fully offline. Quick heuristic removal remains
+  available without a model.
+- The primary bake-off candidate is the exact official MIT-tagged
+  `ZhengPeng7/BiRefNet_lite-matting` checkpoint. BEN2 Base is the permissive ONNX
+  challenger. U2-Net Light remains only if its packaged weight rights are cleared;
+  BRIA RMBG models remain excluded without a commercial agreement.
+
 ## Outcome
 
 Strata will isolate common foreground subjects offline, produce a source-resolution soft matte, and store that matte as an editable native raster-alpha mask. The source image remains unchanged. Users can disable, invert, refine, regenerate, reset, rasterize, replace the background, and export the isolated result.
@@ -99,7 +140,15 @@ Tauri uses the same request/result schema. A bounded native ONNX Runtime task is
 
 ### Model Decision
 
-The existing U2-Net Light stays as the small offline fallback until measured replacements pass the fixture gate. The primary candidate is an exact, checksum-pinned conversion of official BiRefNet Lite (44.4M parameters, 1024 input). FP16 targets WebGPU/native GPU; a calibrated UINT8 QDQ artifact may target WASM/CPU only if boundary quality passes. BEN2 is a high-quality challenger, not a default download, due to its larger memory/startup cost. BRIA RMBG-2.0 is excluded without a commercial agreement. MODNet may later be a portrait specialization but cannot satisfy the general-subject objective.
+The primary candidate is an exact, checksum-pinned conversion of the official
+MIT-tagged BiRefNet Lite Matting checkpoint (44.4M parameters). FP16 targets
+tested WebGPU/native GPU paths; a calibrated UINT8 QDQ artifact may target
+WASM/CPU only if boundary quality passes. BEN2 Base is the permissive,
+publisher-supplied ONNX challenger, not the default due to its roughly 223 MB
+download and higher startup cost. U2-Net Light may remain only as a tiny fallback
+after packaged-weight rights are cleared. BRIA RMBG-2.0 is excluded without a
+commercial agreement. MODNet may later be a portrait specialization but cannot
+satisfy the general-subject objective.
 
 No model is selected from a model card alone. The bake-off must compare raw masks and refined results on licensed portrait/hair, pet/fur, white-on-white product, dark-on-dark object, vehicle, multi-subject, boundary-touching, transparent, lace/wire, glass/shadow, panorama, and compressed-image fixtures. Record cold/warm load, inference time, peak memory, foreground retention, background leakage, boundary SAD/gradient/connectivity, and zoomed edge crops.
 

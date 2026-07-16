@@ -18,6 +18,7 @@ import type { BackgroundRemovalResult } from './types';
 
 interface WorkerCommand {
   type: 'infer';
+  requestId: string;
   imageData: ImageData;
   modelPath: string;
   modelId: 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
@@ -30,11 +31,13 @@ interface WorkerCommand {
 
 interface WorkerResponse {
   type: 'result';
+  requestId: string;
   result: BackgroundRemovalResult;
 }
 
 interface WorkerError {
   type: 'error';
+  requestId: string;
   message: string;
 }
 
@@ -85,8 +88,13 @@ async function getSession(
   return { session: cachedSession, executionProvider: cachedExecutionProvider };
 }
 
-self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
+self.onmessage = async (e: MessageEvent<unknown>) => {
+  const data = e.data as Partial<WorkerCommand> | undefined;
+  if (!data || typeof data !== 'object' || data.type !== 'infer' || !data.requestId) {
+    return;
+  }
   const {
+    requestId,
     imageData,
     modelPath,
     modelId,
@@ -95,7 +103,7 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     feather,
     decontaminate,
     previewMaxDimension,
-  } = e.data;
+  } = data as WorkerCommand;
 
   try {
     const start = performance.now();
@@ -180,6 +188,7 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
 
     const response: WorkerResponse = {
       type: 'result',
+      requestId,
       result: {
         maskDataUrl,
         confidence: computeMaskConfidence(Float32Array.from(mask, (value) => value / 255)),
@@ -192,7 +201,7 @@ self.onmessage = async (e: MessageEvent<WorkerCommand>) => {
     };
     self.postMessage(response);
   } catch (err) {
-    const error: WorkerError = { type: 'error', message: (err as Error).message };
+    const error: WorkerError = { type: 'error', requestId, message: (err as Error).message };
     self.postMessage(error);
   }
 };

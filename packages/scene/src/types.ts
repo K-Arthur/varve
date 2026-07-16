@@ -65,6 +65,63 @@ export interface VectorMaskData {
   fillRule: MaskFillRule;
 }
 
+/** Reproducibility metadata for an automatically generated subject mask. */
+export interface BackgroundRemovalProvenance {
+  method: 'quick' | 'ai-balanced' | 'ai-quality';
+  modelId?: string;
+  modelVersion?: string;
+  modelChecksum?: string;
+  runtime: 'typescript' | 'wasm' | 'webgpu' | 'native-cpu' | 'native-accelerated';
+  generatedAt: number;
+  confidence?: number;
+  /** Legacy edge-colour cleanup setting retained during v2.0 migration. */
+  decontaminate?: boolean;
+  /** How this raster mask entered the native asset table. */
+  origin?: 'native' | 'legacy-background-removal-preview';
+}
+
+/** Immutable PNG payload stored once at the document level. */
+export interface RasterMaskAsset {
+  id: string;
+  mimeType: 'image/png';
+  dataUrl: string;
+  width: number;
+  height: number;
+  byteLength: number;
+  checksum?: string;
+}
+
+/**
+ * Identity of the source pixels used to generate a raster mask.
+ * `source-metadata` is deterministic but deliberately does not claim to be a
+ * content digest. Callers with a verified digest should use `content-sha256`.
+ */
+export type RasterMaskSourceIdentity =
+  | {
+      kind: 'source-metadata';
+      locator: string;
+      pixelWidth?: number;
+      pixelHeight?: number;
+      revision: number;
+    }
+  | {
+      kind: 'content-sha256';
+      sha256: string;
+      pixelWidth?: number;
+      pixelHeight?: number;
+      revision: number;
+    };
+
+/** Placement and source-revision metadata for a raster alpha mask. */
+export interface RasterMaskData {
+  assetId: string;
+  coordinateSpace: 'source-image-pixels' | 'legacy-preview-pixels';
+  sourceIdentity: RasterMaskSourceIdentity;
+  editRevision?: number;
+  staleReason?: 'source-replaced' | 'source-changed' | 'legacy-preview-resolution';
+  provenance?: BackgroundRemovalProvenance;
+}
+
 /**
  * A mask on a container node (FrameNode, GroupNode, or AdjustmentNode).
  *
@@ -90,13 +147,10 @@ export interface VectorMaskData {
  * Research basis: Figma mask model, Adobe Photoshop layer masks,
  * Affinity Designer pixel/vector masks, SVG <clipPath>/<mask> specs.
  */
-export interface Mask {
+interface MaskPresentation {
   /** How the mask source controls visibility of masked content. */
   type: MaskType;
   /** Id of the child node used as the mask source. Must be a child of the container. */
-  sourceNodeId?: NodeId;
-  /** Independent vector mask path data (overrides sourceNodeId for geometry). */
-  vectorMask?: VectorMaskData;
   /** Whether the mask is active. When false, the mask is ignored during rendering. */
   visible: boolean;
   /**
@@ -143,6 +197,18 @@ export interface Mask {
    */
   hideMaskSource?: boolean;
 }
+
+/**
+ * Exactly one effective mask source is present. A vector mask may additionally
+ * reference a child node as optional visual content; vectorMask remains the
+ * sole geometry source in that form.
+ */
+export type Mask = MaskPresentation &
+  (
+    | { sourceNodeId: NodeId; vectorMask?: never; rasterMask?: never }
+    | { vectorMask: VectorMaskData; sourceNodeId?: NodeId; rasterMask?: never }
+    | { rasterMask: RasterMaskData; sourceNodeId?: never; vectorMask?: never }
+  );
 
 // ── Guide interface ──────────────────────────────────────────────────────────
 
@@ -483,6 +549,8 @@ export interface NodeBase {
   styleOverrides?: Record<string, unknown>;
   /** When true, this node is excluded from snapping calculations. */
   snapExcluded?: boolean;
+  /** Native non-destructive mask. Leaf image shapes may own raster masks. */
+  mask?: Mask;
 }
 
 export interface ShapeNode extends NodeBase {
@@ -583,8 +651,6 @@ export interface GroupNode extends NodeBase {
   transform: Affine;
   /** Child node ids in paint order. */
   children: NodeId[];
-  /** Optional mask applied to children (clip or alpha). */
-  mask?: Mask;
   /**
    * When true, the group composites as an isolated group (backdrop is
    * transparent black). Default false (non-isolated = pass-through behavior
@@ -653,8 +719,6 @@ export interface FrameNode extends NodeBase {
   layoutStyle?: LayoutStyle;
   /** Toggle clipping of children outside the frame bounds. Default true. */
   clipContent?: boolean;
-  /** Optional mask applied to children (clip or alpha). */
-  mask?: Mask;
   /** Active variant id for this component instance. */
   variant?: string;
   /** Per-property overrides on top of the variant/base component. */
@@ -776,8 +840,6 @@ export interface AdjustmentNode extends NodeBase {
   transform: Affine;
   /** When true, only affects the layer directly below this adjustment. */
   clipping: boolean;
-  /** Adjustments can optionally have their own mask. */
-  mask?: Mask;
   effects: Effect[];
   /** Nondestructive adjustment entries applied in sequence. */
   adjustments?: Adjustment[];

@@ -4,9 +4,15 @@
  * Quick mode bypasses AI providers entirely. AI modes try Worker ONNX first
  * (all platforms), then Tauri native IPC, then main-thread ONNX, then cloud API
  * fallback. AI requests never silently return heuristic output.
+ *
+ * Provider dispatch safety: each provider receives an independent immutable
+ * pixel buffer clone. A worker transfer must never detach the source used by
+ * a later fallback. Timeouts abort provider work rather than merely rejecting
+ * the caller.
  */
 import { removeBackgroundHeuristic } from '../heuristic';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
+import { cloneImageData } from '../protocol';
 import { cloudRemovalProvider } from './cloudProvider';
 import { directOnnxRemovalProvider } from './directOnnxProvider';
 import { tauriRemovalProvider } from './tauriProvider';
@@ -32,11 +38,17 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSi
       return;
     }
 
+    const controller = new AbortController();
     const timeout = setTimeout(() => {
+      controller.abort();
       reject(new Error('Provider timed out'));
     }, timeoutMs);
 
-    const cleanup = () => clearTimeout(timeout);
+    const cleanup = () => {
+      clearTimeout(timeout);
+      controller.abort();
+    };
+
     promise.then(
       (value) => {
         cleanup();
@@ -97,8 +109,12 @@ export async function dispatchBackgroundRemoval(
     attempted = true;
 
     try {
+      // Clone the image data for each provider so destructive operations
+      // (like Worker transfer) never detach the source buffer needed by
+      // fallback providers.
+      const clonedImage = cloneImageData(imageData);
       return await withTimeout(
-        provider.remove(imageData, options, signal),
+        provider.remove(clonedImage, options, signal),
         providerTimeout,
         signal,
       );

@@ -4,8 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 class MockWorker {
   onmessage: ((e: MessageEvent) => void) | null = null;
   onerror: ((e: ErrorEvent) => void) | null = null;
-  private _listeners: Record<string, Array<(...args: any[]) => void>> = {};
-  private _lastMessage: { imageData?: { width: number; height: number } } | null = null;
+  private _listeners: Record<string, Array<(...args: never[]) => void>> = {};
+  private _lastMessage: { imageData?: { width: number; height: number }; requestId?: string } | null = null;
 
   constructor(_url: string | URL, _opts?: WorkerOptions) {
     // Simulate ready after construction
@@ -14,14 +14,15 @@ class MockWorker {
     }, 0);
   }
 
-  postMessage(msg: any) {
-    this._lastMessage = msg as { imageData?: { width: number; height: number } };
+  postMessage(msg: { imageData?: { width: number; height: number }; requestId?: string }) {
+    this._lastMessage = msg;
     // Defer the "inference" completion so tests can queue more jobs
     // before any worker completes.
     setTimeout(() => {
       if (this._lastMessage) {
         this._dispatch({
           type: 'result',
+          requestId: this._lastMessage.requestId,
           result: {
             maskDataUrl: 'data:image/png;base64,test',
             confidence: 0.95,
@@ -35,12 +36,12 @@ class MockWorker {
     }, 0);
   }
 
-  addEventListener(type: string, fn: (...args: any[]) => void) {
+  addEventListener(type: string, fn: (...args: never[]) => void) {
     if (!this._listeners[type]) this._listeners[type] = [];
     this._listeners[type]!.push(fn);
   }
 
-  removeEventListener(type: string, fn: (...args: any[]) => void) {
+  removeEventListener(type: string, fn: (...args: never[]) => void) {
     const arr = this._listeners[type];
     if (arr) this._listeners[type] = arr.filter((f) => f !== fn);
   }
@@ -49,7 +50,7 @@ class MockWorker {
     this._listeners = {};
   }
 
-  private _dispatch(data: any) {
+  private _dispatch(data: unknown) {
     const handlers = this._listeners.message || [];
     for (const fn of handlers) {
       fn({ data } as MessageEvent);
@@ -68,7 +69,7 @@ describe('workerPool', () => {
 
   beforeEach(async () => {
     origWorker = globalThis.Worker;
-    (globalThis as any).Worker = MockWorker;
+    (globalThis as { Worker: typeof MockWorker }).Worker = MockWorker as unknown as typeof Worker;
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.resetModules();
     workerPool = await import('./workerPool');
@@ -76,7 +77,7 @@ describe('workerPool', () => {
 
   afterEach(() => {
     workerPool.terminateWorkerPool();
-    (globalThis as any).Worker = origWorker;
+    (globalThis as { Worker: typeof MockWorker }).Worker = origWorker;
     vi.useRealTimers();
   });
 
@@ -98,7 +99,7 @@ describe('workerPool', () => {
       if (orig) {
         Object.defineProperty(navigator, 'hardwareConcurrency', orig);
       } else {
-        delete (navigator as any).hardwareConcurrency;
+        delete (navigator as { hardwareConcurrency?: number }).hardwareConcurrency;
       }
     });
   });
@@ -135,18 +136,24 @@ describe('workerPool', () => {
       const mockReject = vi.fn();
       pending.push({
         id: 1,
+        requestId: 'req_test_1',
         reject: mockReject,
         abort: { abort: vi.fn() },
         timeout: setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>,
         workerIndex: 0,
-      } as any);
+        generation: 0,
+        abortListeners: [],
+      } as never);
       pending.push({
         id: 2,
+        requestId: 'req_test_2',
         reject: vi.fn(),
         abort: { abort: vi.fn() },
         timeout: setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>,
         workerIndex: 0,
-      } as any);
+        generation: 0,
+        abortListeners: [],
+      } as never);
 
       workerPool.cancelAllWorkerJobs();
 

@@ -12,8 +12,15 @@
 // text node was present. These tests lock the wire contract in place.
 
 import type { NodeId } from '@strata/scene';
-import { makeTextNode } from '@strata/scene';
+import {
+  addNode,
+  addRasterMaskAsset,
+  createDocument,
+  makeShapeNode,
+  makeTextNode,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
+import { toEngineNode as canvasToEngineNode } from './CanvasArea';
 import { sceneNodeToEngineNode as toEngineNode } from './render/sceneToEngine';
 
 const REQUIRED_TEXT_SHAPE_FIELDS = [
@@ -30,6 +37,31 @@ const REQUIRED_TEXT_SHAPE_FIELDS = [
 ] as const;
 
 describe('toEngineNode text contract', () => {
+  it('passes the live canvas document through native raster-mask resolution', () => {
+    const image = makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    image.fills = [
+      {
+        type: 'image',
+        image: { src: 'image', fit: 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ];
+    let doc = addNode(createDocument('Canvas mask', true), image);
+    const dataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+    doc = addRasterMaskAsset(doc, image.id, {
+      id: 'mask',
+      mimeType: 'image/png',
+      dataUrl,
+      width: 1,
+      height: 1,
+      byteLength: 68,
+    });
+    expect(canvasToEngineNode(doc.nodes[image.id]!, doc).alphaMask).toBe(dataUrl);
+  });
+
   it('emits a shape:{kind:"text"} with every field the Rust deserializer requires', () => {
     const node = makeTextNode('t1' as NodeId, 'Hello', { fontSize: 24 });
     const engineNode = toEngineNode(node);
