@@ -123,6 +123,60 @@
   }
 }
 
+/* Distraction-free canvas mode: menubar/tabs/panels/status bar are not
+ * rendered (see Shell.tsx), so the grid collapses to a single canvas area
+ * rather than reserving empty fixed-height/width tracks for them. */
+.editor-shell--distraction-free {
+  grid-template-areas: "canvas";
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+}
+
+.editor-shell__exit-focus {
+  grid-area: canvas;
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-full, 999px);
+  box-shadow: var(--elevation-shadow-overlay);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.editor-shell__exit-focus:hover {
+  background: var(--color-interactive-hover);
+}
+.editor-shell__exit-focus:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+.image-compare-overlay {
+  outline: 2px solid var(--color-accent-primary);
+  outline-offset: -2px;
+}
+.image-compare-overlay__label {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+  padding: 2px var(--space-2);
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .editor-menubar {
   grid-area: menubar;
   position: relative;
@@ -749,25 +803,32 @@
 .editor-menubar__center {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  max-width: 50%;
+  max-width: 40%;
   min-width: 0;
 }
 
+/* Workspace switcher — an icon+label segmented control, grouped with the
+ * other utility controls at the trailing edge of the menubar (Figma's Dev
+ * Mode toggle and Affinity's Persona bar both keep mode-switching next to
+ * the toolbar's utility cluster, not glued to the document title). */
 .editor-menubar__workspace {
   display: flex;
   align-items: center;
   gap: 2px;
   background: var(--color-surface-sunken);
+  border: var(--border-micro);
   border-radius: var(--radius-md);
   padding: 2px;
   flex-shrink: 0;
 }
 
 .editor-menubar__workspace-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   padding: var(--space-05) var(--space-2);
@@ -775,7 +836,7 @@
   border-radius: var(--radius-sm);
   background: none;
   color: var(--color-text-muted);
-  cursor: default;
+  cursor: pointer;
   white-space: nowrap;
   transition:
     background var(--duration-fast) var(--ease-default),
@@ -783,8 +844,14 @@
     box-shadow var(--duration-fast) var(--ease-default);
 }
 
+.editor-menubar__workspace-btn-label {
+  /* Labels drop at narrow widths — the icon plus tooltip/aria-label still
+   * identify the mode; see the narrow-window media query below. */
+}
+
 .editor-menubar__workspace-btn:hover {
   color: var(--color-text-primary);
+  background: var(--color-interactive-hover);
 }
 
 .editor-menubar__workspace-btn--active {
@@ -796,6 +863,15 @@
 .editor-menubar__workspace-btn:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
+}
+
+@media (max-width: 900px) {
+  .editor-menubar__workspace-btn-label {
+    display: none;
+  }
+  .editor-menubar__workspace-btn {
+    padding: var(--space-05) var(--space-1);
+  }
 }
 
 /* ── Docs name in menubar ── */

@@ -5,7 +5,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 
 interface BrushSectionProps {
-  tool: 'paint' | 'eraser';
+  tool: 'paint' | 'eraser' | 'pencil';
 }
 
 const BUILTIN_OPTIONS = Object.values(BUILT_IN_BRUSH_PRESETS).map((p) => ({
@@ -16,9 +16,30 @@ const BUILTIN_OPTIONS = Object.values(BUILT_IN_BRUSH_PRESETS).map((p) => ({
 export function BrushSection({ tool }: BrushSectionProps) {
   const { state, setBrushSetting } = useEditor();
   const isEraser = tool === 'eraser';
+  const isPencil = tool === 'pencil';
   const { brushSettings } = state;
 
-  const heading = isEraser ? 'Eraser' : 'Brush';
+  const heading = isPencil ? 'Pencil' : isEraser ? 'Eraser' : 'Brush';
+
+  // The pencil tool draws vector strokes: preset/radius/opacity/flow/hardness/
+  // spacing are raster-brush concepts that don't apply. Only stroke
+  // stabilization (smoothing) carries over — it drives PencilTool's stabilizer.
+  if (isPencil) {
+    return (
+      <DisclosureSection title={heading}>
+        <NumberField
+          label="Stabilization"
+          value={Math.round(brushSettings.smoothing * 100)}
+          min={0}
+          max={100}
+          step={1}
+          shiftStep={10}
+          unit="%"
+          onChange={(v) => setBrushSetting('smoothing', v / 100)}
+        />
+      </DisclosureSection>
+    );
+  }
 
   const handlePresetChange = useCallback(
     (e: React.ChangeEvent<HTMLSelectElement>) => {

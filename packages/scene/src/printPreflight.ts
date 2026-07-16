@@ -13,8 +13,8 @@ import { DEFAULT_ARTWORK_FONT_FAMILY, physicalToPx } from '@strata/shared';
 import type { ColorMode } from './colorManagement';
 import type { Document } from './document';
 import { isImageShape } from './fills';
-import { shapeHeight, shapeWidth } from './types';
 import type { NodeId, ShapeNode } from './types';
+import { shapeHeight, shapeWidth } from './types';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 

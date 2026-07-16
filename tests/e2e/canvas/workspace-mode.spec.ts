@@ -90,6 +90,7 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Design' })).toBeVisible();
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Print' })).toBeVisible();
     await expect(page.getByRole('menuitemradio', { name: 'Workspace: Draw' })).toBeVisible();
+    await expect(page.getByRole('menuitemradio', { name: 'Workspace: Photo' })).toBeVisible();
   });
 
   test('mode switch preserves zoom', async ({ page }) => {
@@ -107,10 +108,27 @@ test.describe('Workspace Mode Switching — Functional Assertions', () => {
   test('ARIA radiogroup and radio roles', async ({ page }) => {
     await expect(page.locator('[role="radiogroup"][aria-label="Workspace"]')).toBeVisible();
     const radios = page.locator('.editor-menubar__workspace-btn[role="radio"]');
-    await expect(radios).toHaveCount(3);
+    await expect(radios).toHaveCount(4);
     await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'true');
     await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false');
     await expect(radios.nth(2)).toHaveAttribute('aria-checked', 'false');
+    await expect(radios.nth(3)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('workspace switcher sits with the utility controls, not the document title', async ({
+    page,
+  }) => {
+    // Grouped with undo/redo/zoom at the trailing edge of the menubar, not
+    // crowding the centered document-name field.
+    const switcher = page.locator('.editor-menubar__controls .editor-menubar__workspace');
+    await expect(switcher).toBeVisible();
+    await expect(page.locator('.editor-menubar__center .editor-menubar__workspace')).toHaveCount(0);
+    // Icon + label per mode.
+    const radios = switcher.locator('[role="radio"]');
+    await expect(radios.first().locator('svg')).toBeVisible();
+    await expect(radios.first().locator('.editor-menubar__workspace-btn-label')).toHaveText(
+      'Design',
+    );
   });
 
   test('narrow window does not break layout', async ({ page }) => {

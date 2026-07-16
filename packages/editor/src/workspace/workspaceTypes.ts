@@ -6,7 +6,7 @@
  * or fork editing commands.
  */
 
-export type WorkspaceMode = 'design' | 'print' | 'drawing';
+export type WorkspaceMode = 'design' | 'print' | 'drawing' | 'image';
 
 export interface WorkspaceConfig {
   /** Panels always rendered (grid cells in Shell). */
@@ -123,6 +123,32 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       preflight: false,
     },
   },
+  image: {
+    visiblePanels: {
+      layers: true,
+      inspector: true,
+      timeline: false,
+      pagenav: false,
+      library: false,
+    },
+    floatingToolbar: true,
+    statusBar: true,
+    tabStrip: true,
+    canvasOverlays: {
+      rulers: true,
+      guides: true,
+      pixelGrid: true,
+      dotGrid: false,
+    },
+    statusSections: {
+      toolName: true,
+      cursorPos: true,
+      zoom: true,
+      selectionInfo: true,
+      unit: true,
+      preflight: false,
+    },
+  },
 };
 
 export function getWorkspaceConfig(mode: WorkspaceMode): WorkspaceConfig {
@@ -133,4 +159,14 @@ export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   design: 'Design',
   print: 'Print',
   drawing: 'Draw',
+  image: 'Photo',
+};
+
+/** Lucide icon name per mode, for the workspace switcher (icon + label,
+ *  Affinity-persona / Figma-Dev-Mode style rather than text-only tabs). */
+export const WORKSPACE_ICONS: Record<WorkspaceMode, import('@strata/ui').IconName> = {
+  design: 'PenTool',
+  print: 'Printer',
+  drawing: 'Paintbrush',
+  image: 'Image',
 };
