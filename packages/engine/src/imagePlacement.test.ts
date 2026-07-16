@@ -95,7 +95,7 @@ describe('computeImagePlacement', () => {
       y: -3,
       scale: 2,
     });
-    expect(placement?.drawRect).toEqual({ x: 17, y: 17, w: 200, h: 100 });
+    expect(placement?.drawRect).toEqual({ x: -183, y: 17, w: 200, h: 100 });
     expect(localToSourcePixel(placement!, { x: 227, y: 127 })).toEqual({ x: 5, y: 5 });
     expect(sourcePixelToLocal(placement!, { x: 5, y: 5 })).toEqual({ x: 27, y: 27 });
   });
@@ -121,6 +121,18 @@ describe('computeImagePlacement', () => {
     });
     // A square cover crop hides 500 source pixels from each horizontal edge.
     expect(sourcePixelToLocal(fill!, { x: 100, y: 1500 })).toBeNull();
+  });
+
+  it('rejects finite inputs whose computed destination overflows', () => {
+    expect(
+      computeImagePlacement({
+        fit: 'stretch',
+        sourceWidth: 10,
+        sourceHeight: 10,
+        bounds: { x: Number.MAX_VALUE, y: 0, w: Number.MAX_VALUE, h: 10 },
+        x: Number.MAX_VALUE,
+      }),
+    ).toBeNull();
   });
 
   it('retains precision for extreme source dimensions', () => {

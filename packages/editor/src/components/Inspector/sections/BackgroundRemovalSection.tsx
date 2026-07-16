@@ -46,6 +46,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     updateNode,
     announce,
     setShowOriginalBg,
+    setMaskPreviewMode,
     setTool,
     setRefineMaskOptions,
     refineHairEdges,
@@ -406,6 +407,27 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       {refiningMask && bg && (
         <div className="insp-nested-panel">
           <p className="insp-subsection__label">Refine mask</p>
+          <FieldRow label="Preview" htmlFor="bg-mask-preview">
+            <select
+              id="bg-mask-preview"
+              className="insp-select"
+              value={state.maskPreviewMode}
+              aria-label="Mask preview mode"
+              onChange={(e) =>
+                setMaskPreviewMode(
+                  e.target.value as import('../../../context/types').MaskPreviewMode,
+                )
+              }
+            >
+              <option value="checkerboard">Checkerboard</option>
+              <option value="overlay">Overlay</option>
+              <option value="black">Black bg</option>
+              <option value="white">White bg</option>
+              <option value="mask-only">Mask only</option>
+              <option value="edge">Edge detection</option>
+              <option value="none">None</option>
+            </select>
+          </FieldRow>
           <FieldRow label="Brush size" htmlFor="bg-refine-brush">
             <input
               id="bg-refine-brush"

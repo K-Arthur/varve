@@ -830,6 +830,7 @@ export interface EditorContextValue {
   cancelImageProcessing: () => void;
   /** Toggle preview of original image (without background removal mask). */
   setShowOriginalBg: (nodeId: import('@strata/scene').NodeId | null) => void;
+  setMaskPreviewMode: (mode: import('./context/types').MaskPreviewMode) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
   setTrimapEditOptions: (
     opts: Partial<{
@@ -1554,6 +1555,7 @@ export function EditorProvider({
       currentPageId: null,
       isolatedNodeId: null,
       showOriginalBgNodeId: null,
+      maskPreviewMode: 'checkerboard' as const,
       refineMaskOptions: { brushSize: 20, hardness: 0.8 },
       trimapEditOptions: { brushSize: 20, hardness: 0.8, penMode: 'unknown' as const },
       brushSettings: {
@@ -5321,7 +5323,7 @@ export function EditorProvider({
       removeBackgroundWithOptions: bgRemoval.removeBackgroundWithOptions,
 
       setShowOriginalBg: bgRemoval.setShowOriginalBg,
-
+      setMaskPreviewMode: bgRemoval.setMaskPreviewMode,
       setRefineMaskOptions: bgRemoval.setRefineMaskOptions,
 
       setTrimapEditOptions: bgRemoval.setTrimapEditOptions,
