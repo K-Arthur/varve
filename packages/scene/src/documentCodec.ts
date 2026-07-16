@@ -12,7 +12,13 @@
 
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
-import { validateMaskSource, validateRasterMaskAsset, validateRasterMaskDocument } from './masks';
+import {
+  getOwnRasterMaskAsset,
+  validateMaskSource,
+  validateRasterMaskAsset,
+  validateRasterMaskDocument,
+} from './masks';
+import { resolveNodePaints } from './paint';
 import type { NodeId, Page, SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -116,10 +122,12 @@ function malformedLegacyBackgroundRemovalWarnings(
   return warnings;
 }
 
-function hasImageFill(node: SceneNode): boolean {
+function hasImageFill(doc: Document, node: SceneNode): boolean {
   return (
     node.kind === 'shape' &&
-    Boolean(node.fills?.some((fill) => fill.type === 'image' && fill.image))
+    resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc).some(
+      (fill) => fill.type === 'image' && fill.image,
+    )
   );
 }
 
@@ -147,7 +155,9 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
     }
     const error =
       validateMaskSource(candidate, node.mask!) ??
-      (!hasImageFill(node) ? 'Raster masks may only attach to image-filled shape nodes' : null);
+      (!hasImageFill(candidate, node)
+        ? 'Raster masks may only attach to image-filled shape nodes'
+        : null);
     if (error) {
       warnings.push(
         warning('document.invalid-raster-mask', `${nodeId}: ${error}`, 'error', `${nodeId}.mask`),
@@ -343,7 +353,7 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   const rasterMaskAssets: NonNullable<Document['rasterMaskAssets']> = {};
   for (const node of Object.values(nodes)) {
     const assetId = node.mask?.rasterMask?.assetId;
-    const asset = assetId ? doc.rasterMaskAssets?.[assetId] : undefined;
+    const asset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
     if (assetId && asset) rasterMaskAssets[assetId] = asset;
   }
   return {

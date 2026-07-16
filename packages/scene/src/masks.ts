@@ -41,6 +41,14 @@ const PNG_DATA_URL_PATTERN =
   /^data:image\/png;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 const PNG_DATA_URL_PREFIX = 'data:image/png;base64,';
+const PNG_MAX_CHUNKS = 65_536;
+const PNG_CRC_TABLE = Uint32Array.from({ length: 256 }, (_, value) => {
+  let crc = value;
+  for (let bit = 0; bit < 8; bit += 1) {
+    crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+  }
+  return crc >>> 0;
+});
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const ASSET_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:%-]{0,255}$/;
 const STALE_REASONS = ['source-replaced', 'source-changed', 'legacy-preview-resolution'] as const;
@@ -58,7 +66,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function ownRasterMaskAsset(
+export function getOwnRasterMaskAsset(
   doc: Pick<Document, 'rasterMaskAssets'>,
   assetId: string,
 ): RasterMaskAsset | undefined {
@@ -71,12 +79,9 @@ function decodedBase64Length(payload: string): number {
   return Math.floor((payload.length * 3) / 4) - padding;
 }
 
-function decodeBase64Prefix(payload: string, byteCount: number): string | null {
-  const characterCount = Math.ceil((byteCount * 4) / 3);
-  const prefix = payload.slice(0, characterCount);
-  const padded = prefix.padEnd(Math.ceil(prefix.length / 4) * 4, '=');
+function decodeBase64(payload: string): string | null {
   try {
-    return atob(padded);
+    return atob(payload);
   } catch {
     return null;
   }
@@ -89,6 +94,145 @@ function readU32Be(bytes: string, offset: number): number {
     bytes.charCodeAt(offset + 2) * 0x100 +
     bytes.charCodeAt(offset + 3)
   );
+}
+
+function pngCrc32(bytes: string, start: number, end: number): number {
+  let crc = 0xffffffff;
+  for (let index = start; index < end; index += 1) {
+    crc = (crc >>> 8) ^ PNG_CRC_TABLE[(crc ^ bytes.charCodeAt(index)) & 0xff]!;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function isLegalPngSampleFormat(bitDepth: number, colorType: number): boolean {
+  if (colorType === 0) return [1, 2, 4, 8, 16].includes(bitDepth);
+  if (colorType === 2 || colorType === 4 || colorType === 6) {
+    return bitDepth === 8 || bitDepth === 16;
+  }
+  return colorType === 3 && [1, 2, 4, 8].includes(bitDepth);
+}
+
+type PngStructureResult = { width: number; height: number } | { error: string };
+
+/** Bounded structural PNG validation; input is capped before this full scan. */
+function validatePngStructure(payload: string): PngStructureResult {
+  const bytes = decodeBase64(payload);
+  if (!bytes || bytes.length < PNG_SIGNATURE.length) {
+    return { error: 'must contain the complete PNG signature' };
+  }
+  if (!PNG_SIGNATURE.every((byte, index) => bytes.charCodeAt(index) === byte)) {
+    return { error: 'must contain the PNG signature' };
+  }
+
+  let offset: number = PNG_SIGNATURE.length;
+  let width = 0;
+  let height = 0;
+  let bitDepth = -1;
+  let colorType = -1;
+  let sawIhdr = false;
+  let sawIdat = false;
+  let sawPlte = false;
+  let idatEnded = false;
+  let idatByteCount = 0;
+  let idatPrefix = '';
+  let chunkCount = 0;
+
+  while (offset < bytes.length) {
+    chunkCount += 1;
+    if (chunkCount > PNG_MAX_CHUNKS) return { error: 'contains too many PNG chunks' };
+    if (bytes.length - offset < 12) return { error: 'has truncated PNG chunk bounds' };
+    const length = readU32Be(bytes, offset);
+    const type = bytes.slice(offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const chunkEnd = dataEnd + 4;
+    if (dataEnd < dataStart || chunkEnd > bytes.length) {
+      return { error: 'has truncated PNG chunk bounds' };
+    }
+    if (!/^[A-Za-z]{4}$/.test(type)) return { error: 'has an invalid PNG chunk type' };
+    if (readU32Be(bytes, dataEnd) !== pngCrc32(bytes, offset + 4, dataEnd)) {
+      return { error: `has an invalid ${type} CRC` };
+    }
+
+    if (!sawIhdr) {
+      if (type !== 'IHDR' || length !== 13) {
+        return { error: 'must contain a complete 13-byte first IHDR chunk' };
+      }
+      width = readU32Be(bytes, dataStart);
+      height = readU32Be(bytes, dataStart + 4);
+      bitDepth = bytes.charCodeAt(dataStart + 8);
+      colorType = bytes.charCodeAt(dataStart + 9);
+      const compression = bytes.charCodeAt(dataStart + 10);
+      const filter = bytes.charCodeAt(dataStart + 11);
+      const interlace = bytes.charCodeAt(dataStart + 12);
+      if (
+        width === 0 ||
+        height === 0 ||
+        !isLegalPngSampleFormat(bitDepth, colorType) ||
+        compression !== 0 ||
+        filter !== 0 ||
+        (interlace !== 0 && interlace !== 1)
+      ) {
+        return { error: 'has invalid IHDR fields' };
+      }
+      sawIhdr = true;
+    } else if (type === 'IHDR') {
+      return { error: 'contains multiple IHDR chunks' };
+    } else if (type === 'PLTE') {
+      const paletteEntries = length / 3;
+      if (
+        sawPlte ||
+        sawIdat ||
+        length === 0 ||
+        length % 3 !== 0 ||
+        length > 768 ||
+        colorType === 0 ||
+        colorType === 4 ||
+        (colorType === 3 && paletteEntries > 2 ** bitDepth)
+      ) {
+        return { error: 'has an invalid PLTE chunk' };
+      }
+      sawPlte = true;
+    } else if (type === 'IDAT') {
+      if (idatEnded || length === 0) return { error: 'has invalid IDAT structure' };
+      sawIdat = true;
+      idatByteCount += length;
+      if (idatPrefix.length < 2) {
+        idatPrefix += bytes.slice(dataStart, dataStart + Math.min(length, 2 - idatPrefix.length));
+      }
+    } else if (type === 'IEND') {
+      const cmf = idatPrefix.charCodeAt(0);
+      const flg = idatPrefix.charCodeAt(1);
+      const validZlibHeader =
+        idatPrefix.length === 2 &&
+        (cmf & 0x0f) === 8 &&
+        cmf >>> 4 <= 7 &&
+        ((cmf << 8) + flg) % 31 === 0 &&
+        (flg & 0x20) === 0;
+      if (
+        length !== 0 ||
+        !sawIdat ||
+        idatByteCount < 6 ||
+        !validZlibHeader ||
+        (colorType === 3 && !sawPlte)
+      ) {
+        if (sawIdat && !validZlibHeader) return { error: 'has an invalid IDAT zlib header' };
+        return { error: 'has invalid IDAT/IEND structure' };
+      }
+      if (chunkEnd !== bytes.length) return { error: 'must have a terminal IEND chunk' };
+      return { width, height };
+    } else {
+      if (sawIdat) idatEnded = true;
+      if ((type.charCodeAt(0) & 0x20) === 0) {
+        return { error: `contains unsupported critical PNG chunk ${type}` };
+      }
+    }
+    offset = chunkEnd;
+  }
+
+  if (!sawIhdr) return { error: 'must contain a complete 13-byte first IHDR chunk' };
+  if (!sawIdat) return { error: 'must contain image data in an IDAT chunk' };
+  return { error: 'must contain a terminal IEND chunk' };
 }
 
 function isSafeNonnegativeInteger(value: unknown): value is number {
@@ -216,13 +360,8 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
   if (!Number.isInteger(asset.byteLength) || asset.byteLength !== actualByteLength) {
     return `Raster mask ${asset.id} byteLength must match its decoded PNG payload`;
   }
-  const header = decodeBase64Prefix(payload, 24);
-  if (!header || !PNG_SIGNATURE.every((byte, index) => header.charCodeAt(index) === byte)) {
-    return `Raster mask ${asset.id} must contain the PNG signature`;
-  }
-  if (header.length < 24 || readU32Be(header, 8) !== 13 || header.slice(12, 16) !== 'IHDR') {
-    return `Raster mask ${asset.id} must contain a valid IHDR chunk`;
-  }
+  const png = validatePngStructure(payload);
+  if ('error' in png) return `Raster mask ${asset.id} ${png.error}`;
   if (
     !Number.isInteger(asset.width) ||
     !Number.isInteger(asset.height) ||
@@ -237,7 +376,7 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
   if (asset.width > RASTER_MASK_MAX_DIMENSION || asset.height > RASTER_MASK_MAX_DIMENSION) {
     return `Raster mask ${asset.id} exceeds the per-dimension limit of ${RASTER_MASK_MAX_DIMENSION}`;
   }
-  if (asset.width !== readU32Be(header, 16) || asset.height !== readU32Be(header, 20)) {
+  if (asset.width !== png.width || asset.height !== png.height) {
     return `Raster mask ${asset.id} declared dimensions must match its PNG IHDR`;
   }
   return null;
@@ -310,7 +449,7 @@ export function validateMaskSource(
       const provenanceError = validateProvenance(mask.rasterMask.provenance);
       if (provenanceError) return provenanceError;
     }
-    if (doc && !ownRasterMaskAsset(doc, mask.rasterMask.assetId)) {
+    if (doc && !getOwnRasterMaskAsset(doc, mask.rasterMask.assetId)) {
       return `Missing raster mask asset ${mask.rasterMask.assetId}`;
     }
   }
@@ -329,10 +468,7 @@ function knownOrientedSourceDimensions(
   doc: Document,
   node: SceneNode,
 ): { width: number; height: number } | null {
-  const image = resolveNodePaints(
-    node as unknown as Parameters<typeof resolveNodePaints>[0],
-    doc,
-  ).find((fill) => fill.type === 'image')?.image;
+  const image = resolvedImageFill(doc, node);
   return image &&
     Number.isInteger(image.imageWidth) &&
     Number.isInteger(image.imageHeight) &&
@@ -397,11 +533,11 @@ export function validateRasterMaskDocument(doc: Document): string | null {
     }
     const error = validateMaskSource(doc, node.mask);
     if (error) return `${node.id}: ${error}`;
-    if (node.mask.rasterMask && !isImageShape(node)) {
+    if (node.mask.rasterMask && !isImageShape(doc, node)) {
       return `${node.id}: Raster masks may only attach to image-filled shape nodes`;
     }
     if (node.mask.rasterMask) {
-      const asset = ownRasterMaskAsset(doc, node.mask.rasterMask.assetId);
+      const asset = getOwnRasterMaskAsset(doc, node.mask.rasterMask.assetId);
       if (asset) {
         const dimensionError = validateSourcePixelDimensions(
           doc,
@@ -419,9 +555,9 @@ export function validateRasterMaskDocument(doc: Document): string | null {
 // ── Resolution ──────────────────────────────────────────────────────────────
 
 /** Return the effective mask for a container or eligible image leaf. */
-export function resolveMask(node: SceneNode): Mask | null {
+export function resolveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): Mask | null {
   if (!node.mask || node.mask.visible === false) return null;
-  if (node.kind === 'shape' && node.mask.rasterMask && isImageShape(node)) {
+  if (node.kind === 'shape' && node.mask.rasterMask && isImageShape(doc ?? {}, node)) {
     return validateMaskSource(undefined, node.mask) ? null : node.mask;
   }
   if (node.kind !== 'frame' && node.kind !== 'group' && node.kind !== 'adjustment') return null;
@@ -448,7 +584,7 @@ export function resolveMask(node: SceneNode): Mask | null {
 
 /** Resolve an active leaf raster mask to its document-owned PNG payload. */
 export function resolveRasterMaskAsset(
-  doc: Pick<Document, 'rasterMaskAssets'>,
+  doc: Pick<Document, 'paints' | 'rasterMaskAssets'>,
   node: SceneNode,
 ): RasterMaskAsset | null {
   const mask = node.mask;
@@ -458,21 +594,22 @@ export function resolveRasterMaskAsset(
     mask.visible === false ||
     'sourceNodeId' in mask ||
     'vectorMask' in mask ||
-    !ASSET_ID_PATTERN.test(mask.rasterMask.assetId)
+    !ASSET_ID_PATTERN.test(mask.rasterMask.assetId) ||
+    !isImageShape(doc, node)
   ) {
     return null;
   }
-  return ownRasterMaskAsset(doc, mask.rasterMask.assetId) ?? null;
+  return getOwnRasterMaskAsset(doc, mask.rasterMask.assetId) ?? null;
 }
 
 /** True if the container has an active (visible, valid) mask. */
-export function isMasked(node: SceneNode): boolean {
-  return resolveMask(node) !== null;
+export function isMasked(node: SceneNode, doc?: Pick<Document, 'paints'>): boolean {
+  return resolveMask(node, doc) !== null;
 }
 
 /** Return the effective mask type for a container, or null if no active mask. */
-export function resolveMaskType(node: SceneNode): MaskType | null {
-  const mask = resolveMask(node);
+export function resolveMaskType(node: SceneNode, doc?: Pick<Document, 'paints'>): MaskType | null {
+  const mask = resolveMask(node, doc);
   return mask ? mask.type : null;
 }
 
@@ -538,27 +675,35 @@ function isContainerNode(node: SceneNode): node is SceneNode & { mask?: Mask; ch
   return node.kind === 'frame' || node.kind === 'group' || node.kind === 'adjustment';
 }
 
-function isImageShape(node: SceneNode): node is ShapeNode {
-  return (
-    node.kind === 'shape' &&
-    Boolean(node.fills?.some((fill) => fill.type === 'image' && fill.image))
-  );
+function resolvedImageFill(doc: Pick<Document, 'paints'>, node: SceneNode) {
+  if (node.kind !== 'shape') return undefined;
+  return resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc).find(
+    (fill) => fill.type === 'image' && fill.image,
+  )?.image;
+}
+
+function isImageShape(doc: Pick<Document, 'paints'>, node: SceneNode): node is ShapeNode {
+  return node.kind === 'shape' && Boolean(resolvedImageFill(doc, node));
 }
 
 /**
  * Returns true if the node can own a mask. Containers own structural masks;
  * image-filled ShapeNodes own source-pixel raster alpha masks.
  */
-export function canNodeHaveMask(node: SceneNode): boolean {
-  return isContainerNode(node) || isImageShape(node);
+export function canNodeHaveMask(node: SceneNode, doc?: Pick<Document, 'paints'>): boolean {
+  return isContainerNode(node) || isImageShape(doc ?? {}, node);
 }
 
 // ── CRUD Operations ─────────────────────────────────────────────────────────
 
 const VALID_MASK_TYPES: MaskType[] = ['clip', 'alpha', 'luminance'];
 
-function imageSourceIdentity(node: ShapeNode, revision: number): RasterMaskSourceIdentity {
-  const image = node.fills?.find((fill) => fill.type === 'image' && fill.image)?.image;
+function imageSourceIdentity(
+  doc: Pick<Document, 'paints'>,
+  node: ShapeNode,
+  revision: number,
+): RasterMaskSourceIdentity {
+  const image = resolvedImageFill(doc, node);
   return {
     kind: 'source-metadata',
     locator: image?.src ?? node.id,
@@ -587,7 +732,7 @@ function isRasterAssetReferenced(doc: Document, assetId: string, exceptNodeId?: 
 }
 
 function withoutUnreferencedAsset(doc: Document, assetId: string): Document {
-  if (isRasterAssetReferenced(doc, assetId) || !ownRasterMaskAsset(doc, assetId)) return doc;
+  if (isRasterAssetReferenced(doc, assetId) || !getOwnRasterMaskAsset(doc, assetId)) return doc;
   const rasterMaskAssets = { ...doc.rasterMaskAssets };
   delete rasterMaskAssets[assetId];
   return {
@@ -607,15 +752,15 @@ export function addRasterMaskAsset(
   rasterMask?: Partial<Omit<RasterMaskData, 'assetId' | 'coordinateSpace'>>,
 ): Document {
   const node = doc.nodes[nodeId];
-  if (!node || !isImageShape(node) || validateRasterMaskAsset(asset)) return doc;
-  const existing = ownRasterMaskAsset(doc, asset.id);
+  if (!node || !isImageShape(doc, node) || validateRasterMaskAsset(asset)) return doc;
+  const existing = getOwnRasterMaskAsset(doc, asset.id);
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
 
   const revision = rasterMask?.sourceIdentity?.revision ?? 1;
   const maskData: RasterMaskData = {
     assetId: asset.id,
     coordinateSpace: 'source-image-pixels',
-    sourceIdentity: rasterMask?.sourceIdentity ?? imageSourceIdentity(node, revision),
+    sourceIdentity: rasterMask?.sourceIdentity ?? imageSourceIdentity(doc, node, revision),
     ...(rasterMask?.editRevision !== undefined ? { editRevision: rasterMask.editRevision } : {}),
     ...(rasterMask?.staleReason !== undefined ? { staleReason: rasterMask.staleReason } : {}),
     ...(rasterMask?.provenance !== undefined ? { provenance: rasterMask.provenance } : {}),
@@ -632,11 +777,15 @@ export function addRasterMaskAsset(
     return doc;
   }
 
-  return {
+  const updated: Document = {
     ...doc,
     nodes: { ...doc.nodes, [nodeId]: { ...node, mask } },
     rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset },
   };
+  const priorAssetId = node.mask?.rasterMask?.assetId;
+  return priorAssetId && priorAssetId !== asset.id
+    ? withoutUnreferencedAsset(updated, priorAssetId)
+    : updated;
 }
 
 /** Replace one image node's raster asset without mutating shared payloads. */
@@ -648,10 +797,11 @@ export function updateRasterMaskAsset(
   const node = doc.nodes[nodeId];
   const currentMask = node?.mask;
   const current = currentMask?.rasterMask;
-  if (!node || !currentMask || !current) return doc;
+  if (!node || !currentMask || !current || !isImageShape(doc, node)) return doc;
   if (validateRasterMaskAsset(asset)) return doc;
-  const existing = ownRasterMaskAsset(doc, asset.id);
+  const existing = getOwnRasterMaskAsset(doc, asset.id);
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
+  if (current.assetId === asset.id && existing && rasterAssetsEqual(existing, asset)) return doc;
   if (validateSourcePixelDimensions(doc, node, current, asset)) return doc;
   const currentEditRevision = current.editRevision ?? 0;
   if (
@@ -800,30 +950,23 @@ export function addMask(
     if (children && !children.includes(sourceNodeId)) return doc;
   }
 
-  const mask = {
+  const presentation = {
     type,
     visible: opts?.visible ?? true,
-    inverted: opts?.inverted,
-    feather: opts?.feather,
-    density: opts?.density,
-    linked: opts?.linked,
-    transform: opts?.transform,
-    hideMaskSource: opts?.hideMaskSource,
-    vectorMask: opts?.vectorMask,
-    fillRule: opts?.fillRule,
+    ...(opts?.inverted ? { inverted: true } : {}),
+    ...(opts?.feather !== undefined && opts.feather > 0 ? { feather: opts.feather } : {}),
+    ...(opts?.density !== undefined && opts.density < 1 ? { density: opts.density } : {}),
+    ...(opts?.linked === false ? { linked: false } : {}),
+    ...(opts?.transform ? { transform: opts.transform } : {}),
+    ...(opts?.hideMaskSource ? { hideMaskSource: true } : {}),
+    ...(opts?.fillRule ? { fillRule: opts.fillRule } : {}),
   };
-
-  // Only set sourceNodeId if provided
-  const cleaned = { type: mask.type, visible: mask.visible } as unknown as Mask;
-  if (sourceNodeId) cleaned.sourceNodeId = sourceNodeId;
-  if (mask.inverted) cleaned.inverted = true;
-  if (mask.feather !== undefined && mask.feather > 0) cleaned.feather = mask.feather;
-  if (mask.density !== undefined && mask.density < 1) cleaned.density = mask.density;
-  if (mask.linked === false) cleaned.linked = false;
-  if (mask.transform) cleaned.transform = mask.transform;
-  if (mask.hideMaskSource) cleaned.hideMaskSource = true;
-  if (mask.vectorMask && mask.vectorMask.points.length > 0) cleaned.vectorMask = mask.vectorMask;
-  if (mask.fillRule) cleaned.fillRule = mask.fillRule;
+  const vectorMask = opts?.vectorMask?.points.length ? opts.vectorMask : undefined;
+  const cleaned: Mask = vectorMask
+    ? sourceNodeId
+      ? { ...presentation, vectorMask, sourceNodeId }
+      : { ...presentation, vectorMask }
+    : { ...presentation, sourceNodeId: sourceNodeId! };
 
   // Check for cycles before adding the mask
   const testDoc = {
@@ -884,7 +1027,7 @@ function updateMaskProperty<T>(
   if (!container) return doc;
   if (!container.mask) return doc;
   const isLeafRasterProperty =
-    isImageShape(container) &&
+    isImageShape(doc, container) &&
     Boolean(container.mask.rasterMask) &&
     (key === 'visible' || key === 'inverted' || key === 'feather' || key === 'density');
   if (!isContainerNode(container) && !isLeafRasterProperty) return doc;
