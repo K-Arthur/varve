@@ -8,6 +8,7 @@
  * Research basis: CSS filter functions, SVG filters, Photoshop adjustment layers.
  */
 
+import type { LutInputSpace, LutInterpolation } from './lut/types';
 import type { Color, FilterIR } from './types';
 
 export type AdjustmentKind =
@@ -32,7 +33,9 @@ export type AdjustmentKind =
   | 'channelMixer'
   | 'photoFilter'
   | 'halftone'
-  | 'gradientMap';
+  | 'gradientMap'
+  | 'tritone'
+  | 'lut';
 
 export type AdjustmentBlendMode =
   | 'normal'
@@ -192,11 +195,37 @@ export interface HalftoneAdjustment extends AdjustmentBase {
   dotShape: 'round' | 'elliptical' | 'square' | 'diamond' | 'line';
   channel: 'k' | 'c' | 'm' | 'y' | 'cmyk';
   method: 'am' | 'fm';
+  threshold?: number;
+  intensity?: number;
+  softness?: number;
+  /** Per-channel screen angle overrides (degrees). */
+  channelAngles?: { c?: number; m?: number; y?: number; k?: number };
+  /** Sub-pixel registration offset per channel. */
+  registrationOffset?: {
+    c?: [number, number];
+    m?: [number, number];
+    y?: [number, number];
+    k?: [number, number];
+  };
+  /** Total area coverage limit (0-1). Default 1 (400%). */
+  tacLimit?: number;
+  /** Black generation method. Default 'none'. */
+  blackGeneration?: 'none' | 'gcr' | 'ucr';
+  /** GCR strength 0-1. Default 0.5. */
+  gcrStrength?: number;
+  /** Preview channel for CMYK mode. Default 'composite'. */
+  previewChannel?: 'composite' | 'c' | 'm' | 'y' | 'k';
+  /** Dot gain compensation 0-1. Default 0. */
+  dotGain?: number;
 }
 
 export interface GradientMapStop {
   position: number;
   color: Color;
+  /** Per-stop opacity (0-1, default 1). */
+  opacity?: number;
+  /** Midpoint position (0-1, default 0.5) between this stop and the next. */
+  midpoint?: number;
 }
 
 export interface GradientMapAdjustment extends AdjustmentBase {
@@ -204,6 +233,47 @@ export interface GradientMapAdjustment extends AdjustmentBase {
   stops: GradientMapStop[];
   dither: boolean;
   preserveLuminosity: boolean;
+  /** Bayer matrix size: 4 or 8. 8×8 gives 64 dither levels, 4×4 gives 16. Default 8. */
+  ditherSize?: 4 | 8;
+  /** Mapping mode: 'luminance' (default) maps luma through one gradient;
+   *  'channel' maps R, G, B independently through channelStops. */
+  mode?: 'luminance' | 'channel';
+  /** Per-channel gradient stops for channel-aware mode. */
+  channelStops?: {
+    r?: GradientMapStop[];
+    g?: GradientMapStop[];
+    b?: GradientMapStop[];
+  };
+}
+
+export interface TritoneAdjustment extends AdjustmentBase {
+  kind: 'tritone';
+  shadowColor: Color;
+  midtoneColor: Color;
+  highlightColor: Color;
+  shadowPoint: number;
+  highlightPoint: number;
+  intensity: number;
+  preserveLuminosity: boolean;
+  /** Interpolation shape: 'smoothstep' (default) for natural transitions,
+   *  'linear' for sharp photographic splits. */
+  interpolation?: 'smoothstep' | 'linear';
+}
+
+export interface LutAdjustment extends AdjustmentBase {
+  kind: 'lut';
+  /** Serialized LUT transform (embedded in document) */
+  lutJson: string;
+  /** Original filename for display */
+  originalFilename?: string;
+  /** Assumed input colour space */
+  inputSpace: LutInputSpace;
+  /** Interpolation method */
+  interpolation: LutInterpolation;
+  /** Mix amount (0..1) */
+  intensity: number;
+  /** Whether to linearize sRGB before applying */
+  linearize: boolean;
 }
 
 export type Adjustment =
@@ -228,7 +298,9 @@ export type Adjustment =
   | ColorBalanceAdjustment
   | ChannelMixerAdjustment
   | PhotoFilterAdjustment
-  | GradientMapAdjustment;
+  | GradientMapAdjustment
+  | TritoneAdjustment
+  | LutAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
   const base = { opacity: adjustment.opacity, blendMode: adjustment.blendMode };
@@ -334,6 +406,16 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         dotShape: adjustment.dotShape,
         channel: adjustment.channel,
         method: adjustment.method,
+        threshold: adjustment.threshold,
+        intensity: adjustment.intensity,
+        softness: adjustment.softness,
+        channelAngles: adjustment.channelAngles,
+        registrationOffset: adjustment.registrationOffset,
+        tacLimit: adjustment.tacLimit,
+        blackGeneration: adjustment.blackGeneration,
+        gcrStrength: adjustment.gcrStrength,
+        previewChannel: adjustment.previewChannel,
+        dotGain: adjustment.dotGain,
         ...base,
       };
     case 'gradientMap':
@@ -342,9 +424,59 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         stops: adjustment.stops.map((s) => ({
           position: s.position,
           color: s.color as readonly [number, number, number, number],
+          opacity: s.opacity,
+          midpoint: s.midpoint,
         })),
         dither: adjustment.dither,
         preserveLuminosity: adjustment.preserveLuminosity,
+        ditherSize: adjustment.ditherSize,
+        mode: adjustment.mode,
+        channelStops: adjustment.channelStops
+          ? {
+              r: adjustment.channelStops.r?.map((s) => ({
+                position: s.position,
+                color: s.color as readonly [number, number, number, number],
+                opacity: s.opacity,
+                midpoint: s.midpoint,
+              })),
+              g: adjustment.channelStops.g?.map((s) => ({
+                position: s.position,
+                color: s.color as readonly [number, number, number, number],
+                opacity: s.opacity,
+                midpoint: s.midpoint,
+              })),
+              b: adjustment.channelStops.b?.map((s) => ({
+                position: s.position,
+                color: s.color as readonly [number, number, number, number],
+                opacity: s.opacity,
+                midpoint: s.midpoint,
+              })),
+            }
+          : undefined,
+        ...base,
+      };
+    case 'tritone':
+      return {
+        kind: 'tritone',
+        shadowColor: adjustment.shadowColor as readonly [number, number, number, number],
+        midtoneColor: adjustment.midtoneColor as readonly [number, number, number, number],
+        highlightColor: adjustment.highlightColor as readonly [number, number, number, number],
+        shadowPoint: adjustment.shadowPoint,
+        highlightPoint: adjustment.highlightPoint,
+        intensity: adjustment.intensity,
+        preserveLuminosity: adjustment.preserveLuminosity,
+        interpolation: adjustment.interpolation,
+        ...base,
+      };
+    case 'lut':
+      return {
+        kind: 'lut',
+        lutJson: adjustment.lutJson,
+        originalFilename: adjustment.originalFilename,
+        inputSpace: adjustment.inputSpace,
+        interpolation: adjustment.interpolation,
+        intensity: adjustment.intensity,
+        linearize: adjustment.linearize,
         ...base,
       };
     default:
@@ -392,8 +524,11 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'photoFilter':
     case 'halftone':
     case 'gradientMap':
+    case 'tritone':
       // No direct CSS equivalent; use identity or a placeholder.
       return null;
+    case 'lut':
+      return null; // LUT has no CSS equivalent; software-only
     case 'chain':
       return filterChainToCss(filter.filters);
     default:
@@ -434,6 +569,10 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Selective Color';
     case 'gradientMap':
       return 'Gradient Map';
+    case 'lut':
+      return 'LUT';
+    case 'tritone':
+      return 'Tritone';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -523,6 +662,9 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         dotShape: 'round',
         channel: 'k',
         method: 'am',
+        threshold: 128,
+        intensity: 1,
+        softness: 0,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'gradientMap':
       return {
@@ -533,6 +675,27 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         ],
         dither: true,
         preserveLuminosity: false,
+        ditherSize: 8,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'tritone':
+      return {
+        ...base,
+        shadowColor: [20, 30, 80, 255] as Color,
+        midtoneColor: [180, 160, 140, 255] as Color,
+        highlightColor: [255, 245, 220, 255] as Color,
+        shadowPoint: 0.35,
+        highlightPoint: 0.65,
+        intensity: 1,
+        preserveLuminosity: false,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'lut':
+      return {
+        ...base,
+        lutJson: '{}',
+        inputSpace: 'sRGB' as LutInputSpace,
+        interpolation: 'tetrahedral' as LutInterpolation,
+        intensity: 1,
+        linearize: false,
       } as Omit<Adjustment, 'id' | 'kind'>;
     default:
       return { ...base } as Omit<Adjustment, 'id' | 'kind'>;

@@ -1,9 +1,10 @@
 /**
- * ImagePlacementSection — crop, scale, fit-to-frame, and reset controls
+ * ImagePlacementSection — fit mode, scale, offset, and reset controls
  * for shapes with image fills.
  *
  * Appears when a single ShapeNode with an image fill is selected.
- * Modifies the image fill's offset, scale, and fit mode in a single undo step.
+ * Scale and offset are disabled when the fit mode is "stretch" because the
+ * image is stretched to the shape bounds and offset/scale are irrelevant.
  *
  * Research basis: Figma image fill controls, Sketch image cropping,
  * Adobe Illustrator clip group placement.
@@ -75,17 +76,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
     updateImage({ x: 0, y: 0, scale: 1, fit: 'fill' });
   }, [updateImage]);
 
-  const fitToFrame = useCallback(() => {
-    updateImage({ x: 0, y: 0, scale: 1, fit: 'fit' });
-  }, [updateImage]);
-
-  const fillFrame = useCallback(() => {
-    updateImage({ x: 0, y: 0, scale: 1, fit: 'fill' });
-  }, [updateImage]);
-
-  const stretchToFrame = useCallback(() => {
-    updateImage({ x: 0, y: 0, scale: 1, fit: 'stretch' });
-  }, [updateImage]);
+  const placementLocked = img.fit === 'stretch';
 
   return (
     <DisclosureSection title="Image Placement" defaultExpanded>
@@ -108,65 +99,43 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
             step={0.1}
             onChange={handleScale}
             unit="x"
+            disabled={placementLocked}
           />
         </FieldRow>
 
-        <FieldRow label="Offset X">
-          <NumberField
-            label="Image offset X"
-            value={img.x ?? 0}
-            step={1}
-            onChange={handleOffsetX}
-            unit="px"
-          />
-        </FieldRow>
+        <div className="insp-field">
+          <span className="insp-field__label" style={{ cursor: 'default' }}>
+            Offset
+          </span>
+          <div className="insp-field__control">
+            <NumberField
+              label="X"
+              value={img.x ?? 0}
+              step={1}
+              onChange={handleOffsetX}
+              unit="px"
+              disabled={placementLocked}
+            />
+            <NumberField
+              label="Y"
+              value={img.y ?? 0}
+              step={1}
+              onChange={handleOffsetY}
+              unit="px"
+              disabled={placementLocked}
+            />
+          </div>
+        </div>
 
-        <FieldRow label="Offset Y">
-          <NumberField
-            label="Image offset Y"
-            value={img.y ?? 0}
-            step={1}
-            onChange={handleOffsetY}
-            unit="px"
-          />
-        </FieldRow>
-
-        <div className="insp-field-row insp-image-placement__actions">
+        <div className="insp-image-placement__actions">
           <button
             type="button"
-            className="insp-inline-btn"
-            onClick={fitToFrame}
-            title="Fit image to frame (contain)"
-          >
-            <Icon name="Maximize2" size="0.85em" />
-            <span>Fit to frame</span>
-          </button>
-          <button
-            type="button"
-            className="insp-inline-btn"
-            onClick={fillFrame}
-            title="Fill frame (cover)"
-          >
-            <Icon name="Maximize" size="0.85em" />
-            <span>Fill frame</span>
-          </button>
-          <button
-            type="button"
-            className="insp-inline-btn"
-            onClick={stretchToFrame}
-            title="Stretch to frame"
-          >
-            <Icon name="StretchHorizontal" size="0.85em" />
-            <span>Stretch</span>
-          </button>
-          <button
-            type="button"
-            className="insp-inline-btn"
+            className="insp-btn-sm"
             onClick={resetPlacement}
             title="Reset image placement"
           >
             <Icon name="RotateCcw" size="0.85em" />
-            <span>Reset</span>
+            <span>Reset placement</span>
           </button>
         </div>
       </div>

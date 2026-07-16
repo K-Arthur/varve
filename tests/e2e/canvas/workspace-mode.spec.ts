@@ -1,0 +1,133 @@
+import { expect, test } from '@playwright/test';
+import { navigateToEditor } from '../shared';
+
+const VIEWPORT = { width: 1280, height: 800 };
+
+test.describe('Workspace Mode Switching — Functional Assertions', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(VIEWPORT);
+    await navigateToEditor(page);
+  });
+
+  test('design mode is default with all panels', async ({ page }) => {
+    const designBtn = page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Design$/ });
+    await expect(designBtn).toHaveAttribute('aria-checked', 'true');
+    await expect(page.locator('[data-panel="layers"]')).toBeVisible();
+    await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
+    await expect(page.locator('.page-nav-container')).toBeVisible();
+    await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
+    await expect(page.locator('.editor-status')).toBeVisible();
+  });
+
+  test('print mode via toolbar button', async ({ page }) => {
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Print$/ })
+      .click();
+    await expect(page.locator('.editor-menubar__workspace-btn--active')).toHaveText('Print');
+    await expect(page.locator('[data-panel="layers"]')).toBeVisible();
+    await expect(page.locator('[data-panel="inspector"]')).toBeVisible();
+    await expect(page.locator('.page-nav-container')).toBeVisible();
+    await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
+  });
+
+  test('drawing mode hides page nav and shows brush controls', async ({ page }) => {
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Draw$/ })
+      .click();
+    await expect(page.locator('.editor-menubar__workspace-btn--active')).toHaveText('Draw');
+    await expect(page.locator('.page-nav-container')).not.toBeVisible();
+    await expect(page.locator('.floating-toolbar__drawing')).toBeVisible();
+    await expect(page.locator('.floating-toolbar__colors')).toBeVisible();
+  });
+
+  test('print mode hides paint/retouch tools', async ({ page }) => {
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Print$/ })
+      .click();
+    await expect(page.locator('[data-tool="paint"]')).not.toBeVisible();
+    await expect(page.locator('[data-tool="eraser"]')).not.toBeVisible();
+    await expect(page.locator('[data-tool="cloneStamp"]')).not.toBeVisible();
+    await expect(page.locator('[data-tool="rect"]')).toBeVisible();
+    await expect(page.locator('[data-tool="select"]')).toBeVisible();
+  });
+
+  test('mode switch round-trip preserves layers', async ({ page }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 200, box.y + 200);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 300, box.y + 300);
+    await page.mouse.up();
+    await page.keyboard.press('v');
+
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Print$/ })
+      .click();
+    await expect(page.getByRole('treeitem').first()).toBeVisible();
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Draw$/ })
+      .click();
+    await expect(page.getByRole('treeitem').first()).toBeVisible();
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Design$/ })
+      .click();
+    await expect(page.getByRole('treeitem').first()).toBeVisible();
+  });
+
+  test('workspace entries in View menu', async ({ page }) => {
+    await page.getByRole('menuitem', { name: 'View' }).click();
+    await expect(page.getByRole('menuitemradio', { name: 'Workspace: Design' })).toBeVisible();
+    await expect(page.getByRole('menuitemradio', { name: 'Workspace: Print' })).toBeVisible();
+    await expect(page.getByRole('menuitemradio', { name: 'Workspace: Draw' })).toBeVisible();
+  });
+
+  test('mode switch preserves zoom', async ({ page }) => {
+    const zoomInput = page.locator('#menubar-zoom');
+    await zoomInput.fill('200');
+    await zoomInput.press('Enter');
+    await expect(zoomInput).toHaveValue('200');
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Print$/ })
+      .click();
+    await expect(zoomInput).toHaveValue('200');
+  });
+
+  test('ARIA radiogroup and radio roles', async ({ page }) => {
+    await expect(page.locator('[role="radiogroup"][aria-label="Workspace"]')).toBeVisible();
+    const radios = page.locator('.editor-menubar__workspace-btn[role="radio"]');
+    await expect(radios).toHaveCount(3);
+    await expect(radios.nth(0)).toHaveAttribute('aria-checked', 'true');
+    await expect(radios.nth(1)).toHaveAttribute('aria-checked', 'false');
+    await expect(radios.nth(2)).toHaveAttribute('aria-checked', 'false');
+  });
+
+  test('narrow window does not break layout', async ({ page }) => {
+    await page.setViewportSize({ width: 800, height: 600 });
+    await page.waitForTimeout(500);
+    await expect(page.locator('.editor-menubar__workspace')).toBeVisible();
+    await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
+    await expect(page.locator('.editor-status')).toBeVisible();
+  });
+
+  test('status bar stays below canvas', async ({ page }) => {
+    const status = await page.locator('.editor-status').boundingBox();
+    const canvas = await page.locator('.editor-canvas').boundingBox();
+    expect(status).toBeTruthy();
+    expect(canvas).toBeTruthy();
+    if (status && canvas) {
+      expect(status.y).toBeGreaterThanOrEqual(canvas.y + canvas.height - 10);
+    }
+  });
+});

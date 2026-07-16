@@ -13,7 +13,9 @@
 import { expandGradientStops, managedColorToRgba } from '@strata/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import {
+  applyChromaticAberration,
   applyGlassMaterialBackdrop,
+  applyGlitch,
   applyLayerBlur,
   clampByte,
   computeScreenBounds,
@@ -26,7 +28,7 @@ import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { createRasterSurface } from './rasterSurface';
 import { layoutRichText } from './textLayout';
-import type { EngineColor, FillIR, RenderItem } from './types';
+import type { ArrowheadStyle, EngineColor, FillIR, RenderItem, Stroke } from './types';
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
 
@@ -34,6 +36,8 @@ export interface ReplayTarget {
   save(): void;
   restore(): void;
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  translate(x: number, y: number): void;
+  rotate(angle: number): void;
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
   beginPath(): void;
@@ -197,6 +201,11 @@ type BackgroundBlurEffect = Extract<
   { type: 'backgroundBlur' }
 >;
 type LayerBlurEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'layerBlur' }>;
+type ChromaticAberrationEffect = Extract<
+  NonNullable<RenderItem['effects']>[number],
+  { type: 'chromaticAberration' }
+>;
+type GlitchEffect = Extract<NonNullable<RenderItem['effects']>[number], { type: 'glitch' }>;
 type InnerShadowEffect = Extract<
   NonNullable<RenderItem['effects']>[number],
   { type: 'innerShadow' }
@@ -226,6 +235,45 @@ function createEffectBuffer(
   return null;
 }
 
+/** Maximum padding needed to keep content effects from being cropped. */
+function contentEffectPadding(
+  effects: readonly (LayerBlurEffect | ChromaticAberrationEffect | GlitchEffect)[],
+): number {
+  let padding = 0;
+  for (const e of effects) {
+    if (e.type === 'layerBlur') {
+      padding = Math.max(padding, Math.max(0, e.radius) * 3);
+    } else if (e.type === 'chromaticAberration') {
+      const intensity = Math.max(0, e.intensity ?? 1);
+      const o = e.offsets;
+      const maxOff = Math.max(
+        Math.abs(o.redX),
+        Math.abs(o.redY),
+        Math.abs(o.greenX),
+        Math.abs(o.greenY),
+        Math.abs(o.blueX),
+        Math.abs(o.blueY),
+      );
+      padding = Math.max(padding, Math.ceil(maxOff * intensity));
+    } else if (e.type === 'glitch') {
+      const cs = e.channelShift;
+      const maxChannel = Math.max(
+        Math.abs(cs.redX),
+        Math.abs(cs.redY),
+        Math.abs(cs.greenX),
+        Math.abs(cs.greenY),
+        Math.abs(cs.blueX),
+        Math.abs(cs.blueY),
+      );
+      padding = Math.max(
+        padding,
+        Math.ceil(Math.max(Math.max(0, e.strength), Math.max(0, e.blockStrength), maxChannel)),
+      );
+    }
+  }
+  return padding;
+}
+
 /** Paint fills and strokes to `target` (shared by direct and layerBlur offscreen paths). */
 function paintFillsAndStrokes(
   target: ReplayTarget,
@@ -253,11 +301,27 @@ function paintFillsAndStrokes(
     paintShapeFill(target, item);
   }
 
-  if (item.strokes && item.strokes.length > 0) {
-    for (const stroke of item.strokes) {
-      if (!stroke.visible) continue;
+  const visibleStrokes = item.strokes?.filter((s) => s.visible) ?? [];
+  if (visibleStrokes.length > 0) {
+    for (const stroke of visibleStrokes) {
       paintStroke(target, stroke, item);
     }
+  } else if (item.primitive.kind === 'line' || item.primitive.kind === 'arrow') {
+    // Backward-compat fallback: lines/arrows with no visible stroke still render
+    // with a default stroke so they don't vanish after the fill-pass removal.
+    const fallback: Stroke = {
+      color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      weight: item.primitive.kind === 'arrow' ? 2 : 2,
+      align: 'center',
+      dashPattern: [],
+      dashOffset: 0,
+      cap: 'round',
+      join: 'miter',
+      miterLimit: 4,
+      visible: true,
+      ...(item.primitive.kind === 'arrow' ? { arrowEnd: 'arrow' as const } : {}),
+    };
+    paintStroke(target, fallback, item);
   }
 }
 
@@ -625,9 +689,14 @@ export function replayIr(
           }
         }
 
-        const layerBlurEffect = item.effects?.find(
-          (e): e is LayerBlurEffect => e.visible && e.type === 'layerBlur',
-        );
+        // Collect content effects that need to be applied to the rendered shape
+        // (layerBlur, chromaticAberration, glitch) in the order they are listed.
+        const contentEffects =
+          item.effects?.filter(
+            (e): e is LayerBlurEffect | ChromaticAberrationEffect | GlitchEffect =>
+              e.visible &&
+              (e.type === 'layerBlur' || e.type === 'chromaticAberration' || e.type === 'glitch'),
+          ) ?? [];
 
         // ── Backdrop-based effects (before fills — captures true backdrop) ───
         // Both backgroundBlur and glassMaterial render the backdrop behind the item.
@@ -643,32 +712,38 @@ export function replayIr(
           }
         }
 
-        // ── Fills + strokes pass (offscreen when layerBlur present) ───
-        if (layerBlurEffect) {
+        // ── Fills + strokes pass (offscreen when content effects present) ───
+        if (contentEffects.length > 0) {
           const bounds = primitiveBounds(item.primitive);
           if (bounds.w > 0 && bounds.h > 0) {
-            // A Gaussian blur extends beyond the source bounds. Allocate three
-            // radii of transparent padding so the kernel is not visibly cropped.
-            const radius = Math.max(0, layerBlurEffect.radius);
-            const blurPadding = Math.ceil(radius * 3);
-            const surfaceWidth = Math.max(1, Math.ceil(bounds.w + blurPadding * 2));
-            const surfaceHeight = Math.max(1, Math.ceil(bounds.h + blurPadding * 2));
+            const padding = contentEffectPadding(contentEffects);
+            const surfaceWidth = Math.max(1, Math.ceil(bounds.w + padding * 2));
+            const surfaceHeight = Math.max(1, Math.ceil(bounds.h + padding * 2));
             const cc = new CompositeCanvas({
               width: surfaceWidth,
               height: surfaceHeight,
               devicePixelRatio: 1,
             });
-            cc.ctx.translate(-bounds.x + blurPadding, -bounds.y + blurPadding);
+            cc.ctx.translate(-bounds.x + padding, -bounds.y + padding);
             paintFillsAndStrokes(cc.ctx as unknown as ReplayTarget, item, itemAlpha, itemBlend);
 
+            for (const effect of contentEffects) {
+              if (effect.type === 'layerBlur') {
+                cc.applyBlur(Math.max(0, effect.radius));
+              } else if (effect.type === 'chromaticAberration') {
+                applyChromaticAberration(cc, cc.width, cc.height, effect);
+              } else if (effect.type === 'glitch') {
+                applyGlitch(cc, cc.width, cc.height, effect);
+              }
+            }
+
             target.save();
-            target.globalAlpha = itemAlpha;
-            applyLayerBlur(
-              target,
-              cc,
-              radius,
-              bounds.x - blurPadding,
-              bounds.y - blurPadding,
+            target.globalAlpha = 1;
+            target.globalCompositeOperation = itemBlend;
+            target.drawImage?.(
+              cc.canvas as unknown as CanvasImageSource,
+              bounds.x - padding,
+              bounds.y - padding,
               surfaceWidth,
               surfaceHeight,
             );
@@ -682,7 +757,13 @@ export function replayIr(
         if (item.effects && item.effects.length > 0) {
           for (const effect of item.effects) {
             if (!effect.visible) continue;
-            if (effect.type === 'layerBlur' || effect.type === 'backgroundBlur') continue;
+            if (
+              effect.type === 'layerBlur' ||
+              effect.type === 'backgroundBlur' ||
+              effect.type === 'chromaticAberration' ||
+              effect.type === 'glitch'
+            )
+              continue;
             if (effect.type === 'glassMaterial') continue; // backdrop handled before fills
             if (effect.type === 'dropShadow') {
               target.save();
@@ -1269,14 +1350,30 @@ function traceSquirclePath(
   smoothing: number,
 ): void {
   const maxR = Math.min(w, h) / 2;
-  const [tl, tr, br, bl] = (
+  let [tl, tr, br, bl] = (
     Array.isArray(cornerRadius)
       ? cornerRadius
       : [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
-  ).map((v) => Math.min(v, maxR)) as [number, number, number, number];
+  ).map((v) => Math.max(0, Math.min(v, maxR))) as [number, number, number, number];
+
+  // Clamp adjacent corners so they don't overlap on the same edge.
+  // Each edge's two corners (extended by smoothing) must not exceed the edge length.
   const s = Math.max(0, Math.min(1, smoothing));
+  const extFactor = 1 + s * 0.55;
+  const clampPair = (a: number, b: number, edgeLen: number): [number, number] => {
+    const extA = a * extFactor;
+    const extB = b * extFactor;
+    if (extA + extB <= edgeLen) return [a, b];
+    const ratio = edgeLen / (extA + extB);
+    return [a * ratio, b * ratio];
+  };
+  [tl, tr] = clampPair(tl, tr, w);
+  [tr, br] = clampPair(tr, br, h);
+  [br, bl] = clampPair(br, bl, w);
+  [bl, tl] = clampPair(bl, tl, h);
+
   // How far from the corner vertex the straight edge ends (> r when s > 0).
-  const ext = (r: number) => Math.min(r * (1 + s * 0.55), maxR);
+  const ext = (r: number) => Math.min(r * extFactor, maxR);
   // Bezier handle length for the arc (circle-arc approximation constant × r).
   const hnd = (r: number) => r * 0.5523;
 
@@ -1569,23 +1666,9 @@ function paintShapeFill(target: ReplayTarget, item: RenderItem): void {
       target.fill();
       break;
     case 'line':
-      // Lines stroke — handled in main loop via strokes pass.
-      // For fill-only path, stroke the segment.
-      target.lineWidth = p.tolerance * 2;
-      target.lineCap = 'round';
-      target.beginPath();
-      target.moveTo(p.from[0], p.from[1]);
-      target.lineTo(p.to[0], p.to[1]);
-      target.stroke();
-      break;
     case 'arrow':
-      target.lineWidth = p.tolerance * 2;
-      target.lineCap = 'round';
-      target.beginPath();
-      target.moveTo(p.from[0], p.from[1]);
-      target.lineTo(p.to[0], p.to[1]);
-      target.stroke();
-      drawArrowhead(target, p.from, p.to, p.arrowheadSize);
+      // Lines and arrows are stroke-only primitives; the fill pass intentionally
+      // draws nothing here. The stroke pass renders the segment and arrowheads.
       break;
     case 'polygon': {
       target.beginPath();
@@ -2195,19 +2278,55 @@ function paintStroke(
       target.stroke();
       break;
     }
-    case 'line':
+    case 'line': {
+      // Lines can also have arrowheads via stroke.arrowStart/arrowEnd.
+      const arrowStart = stroke.arrowStart ?? 'none';
+      const arrowEnd = stroke.arrowEnd ?? 'none';
+      const hasArrowheads = arrowStart !== 'none' || arrowEnd !== 'none';
+      if (hasArrowheads) {
+        target.lineCap = 'butt';
+      }
       target.beginPath();
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
+      if (hasArrowheads) {
+        const headSize = arrowheadSize(undefined, stroke.weight);
+        target.fillStyle = rgba(stroke.color);
+        if (arrowStart !== 'none') {
+          drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
+        }
+        if (arrowEnd !== 'none') {
+          drawArrowhead(target, p.from, p.to, headSize, arrowEnd, false);
+        }
+      }
       break;
-    case 'arrow':
+    }
+    case 'arrow': {
+      // When arrowheads are present, use butt cap so the stroke doesn't
+      // extend past the arrowhead base (round cap creates a visible bump).
+      const arrowStart = stroke.arrowStart ?? 'none';
+      const arrowEnd = stroke.arrowEnd ?? 'arrow';
+      const hasArrowheads = arrowStart !== 'none' || arrowEnd !== 'none';
+      if (hasArrowheads) {
+        target.lineCap = 'butt';
+      }
       target.beginPath();
       target.moveTo(p.from[0], p.from[1]);
       target.lineTo(p.to[0], p.to[1]);
       target.stroke();
-      // Arrowhead is drawn in the fill pass only to avoid double-draw.
+      // Draw arrowheads using stroke color, respecting per-stroke arrowStart/arrowEnd.
+      // Default: arrow tool produces an end arrowhead.
+      const headSize = arrowheadSize(p.arrowheadSize, stroke.weight);
+      target.fillStyle = rgba(stroke.color);
+      if (arrowStart !== 'none') {
+        drawArrowhead(target, p.from, p.to, headSize, arrowStart, true);
+      }
+      if (arrowEnd !== 'none') {
+        drawArrowhead(target, p.from, p.to, headSize, arrowEnd, false);
+      }
       break;
+    }
     case 'path': {
       const hasPressure = p.points.some((pp) => pp.pressure !== undefined && pp.pressure !== 0.5);
       if (hasPressure && stroke.weight > 0) {
@@ -2370,25 +2489,84 @@ function paintVariableWidthPathStroke(
   target.restore();
 }
 
-/** Draw a filled triangular arrowhead at `to`, oriented along the from→to direction. */
+/** Compute effective arrowhead size, respecting both the primitive's arrowheadSize
+ * and the stroke weight. Ensure a minimum visible size. */
+function arrowheadSize(primitiveSize: number | undefined, strokeWeight: number): number {
+  const fromWeight = Math.max(strokeWeight * 3, 4);
+  if (primitiveSize && primitiveSize > 0) {
+    return Math.min(Math.max(primitiveSize, fromWeight), Math.max(strokeWeight * 6, fromWeight));
+  }
+  return fromWeight;
+}
+
+/** Draw a filled arrowhead oriented along the from→to direction.
+ * Handles degenerate (zero-length) segments by skipping rendering. */
 function drawArrowhead(
   target: ReplayTarget,
   from: readonly [number, number],
   to: readonly [number, number],
   size: number,
+  style: ArrowheadStyle,
+  isStart: boolean,
 ): void {
-  const angle = Math.atan2(to[1] - from[1], to[0] - from[0]);
-  const spread = Math.PI / 7;
-  const x1 = to[0] - size * Math.cos(angle - spread);
-  const y1 = to[1] - size * Math.sin(angle - spread);
-  const x2 = to[0] - size * Math.cos(angle + spread);
-  const y2 = to[1] - size * Math.sin(angle + spread);
-  target.beginPath();
-  target.moveTo(to[0], to[1]);
-  target.lineTo(x1, y1);
-  target.lineTo(x2, y2);
-  target.closePath();
-  target.fill();
+  if (style === 'none') return;
+  // Guard against degenerate segments: skip if endpoints coincide.
+  const dx = to[0] - from[0];
+  const dy = to[1] - from[1];
+  if (Math.abs(dx) < 0.001 && Math.abs(dy) < 0.001) return;
+
+  // For start arrowheads, the direction is reversed (pointing away from `to`).
+  const tip = isStart ? from : to;
+  const tail = isStart ? to : from;
+  const angle = Math.atan2(tip[1] - tail[1], tip[0] - tail[0]);
+  const spread = Math.PI / 9;
+  const safeSize = Math.max(size, 1);
+
+  target.save();
+  target.translate(tip[0], tip[1]);
+  target.rotate(angle);
+
+  switch (style) {
+    case 'arrow': {
+      // Elongated arrowhead: tip at origin, base set back by the full size.
+      // The base width is controlled by spread (narrower = more elongated).
+      const baseX = -safeSize;
+      const halfW = safeSize * Math.sin(spread);
+      target.beginPath();
+      target.moveTo(0, 0);
+      target.lineTo(baseX, -halfW);
+      target.lineTo(baseX, halfW);
+      target.closePath();
+      target.fill();
+      break;
+    }
+    case 'circle': {
+      const r = safeSize * 0.5;
+      target.beginPath();
+      target.arc(-r, 0, r, 0, TAU);
+      target.fill();
+      break;
+    }
+    case 'square': {
+      const s = safeSize * 0.7;
+      target.beginPath();
+      target.rect(-s, -s * 0.5, s, s);
+      target.fill();
+      break;
+    }
+    case 'diamond': {
+      const s = safeSize * 0.6;
+      target.beginPath();
+      target.moveTo(0, 0);
+      target.lineTo(-s, -s * 0.5);
+      target.lineTo(-s * 2, 0);
+      target.lineTo(-s, s * 0.5);
+      target.closePath();
+      target.fill();
+      break;
+    }
+  }
+  target.restore();
 }
 
 /** Trace the outline of a primitive without filling. Covers all shape types
@@ -2396,7 +2574,9 @@ function drawArrowhead(
 function traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void {
   switch (p.kind) {
     case 'rect':
-      if (p.cornerRadius && target.roundRect) {
+      if (p.cornerRadius && p.cornerSmoothing && p.cornerSmoothing > 0) {
+        traceSquirclePath(target, p.x, p.y, p.w, p.h, p.cornerRadius, p.cornerSmoothing);
+      } else if (p.cornerRadius && target.roundRect) {
         target.roundRect(p.x, p.y, p.w, p.h, p.cornerRadius);
       } else {
         target.rect(p.x, p.y, p.w, p.h);
@@ -2487,13 +2667,21 @@ export function primitiveBounds(p: RenderItem['primitive']): {
     case 'circle':
       return { x: p.cx - p.r, y: p.cy - p.r, w: p.r * 2, h: p.r * 2 };
     case 'line':
-    case 'arrow':
       return {
         x: Math.min(p.from[0], p.to[0]),
         y: Math.min(p.from[1], p.to[1]),
         w: Math.max(Math.abs(p.to[0] - p.from[0]), 4),
         h: Math.max(Math.abs(p.to[1] - p.from[1]), 4),
       };
+    case 'arrow': {
+      const pad = p.arrowheadSize;
+      return {
+        x: Math.min(p.from[0], p.to[0]) - pad,
+        y: Math.min(p.from[1], p.to[1]) - pad,
+        w: Math.max(Math.abs(p.to[0] - p.from[0]), 4) + pad * 2,
+        h: Math.max(Math.abs(p.to[1] - p.from[1]), 4) + pad * 2,
+      };
+    }
     case 'polygon':
       return { x: p.cx - p.radius, y: p.cy - p.radius, w: p.radius * 2, h: p.radius * 2 };
     case 'star':

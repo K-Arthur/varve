@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { createTimelineInEditor, navigateToEditor } from './helpers';
 
 test.describe('Timeline playback', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

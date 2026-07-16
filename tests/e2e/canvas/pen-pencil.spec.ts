@@ -17,6 +17,7 @@ async function clickOnCanvas(page: import('@playwright/test').Page, x: number, y
 }
 
 test.describe('Pen and Pencil tools', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

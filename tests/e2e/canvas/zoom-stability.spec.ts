@@ -55,6 +55,7 @@ async function expectSelectionPainted(canvas: Locator, selection: SelectionRect)
 }
 
 test.describe('Zoom camera stability', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

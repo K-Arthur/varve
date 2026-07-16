@@ -1,51 +1,66 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   endFrameTiming,
-  FRAME_BUDGET_MS,
-  getPreviousFrameMs,
+  getAverageFrameTime,
+  getFrameBudgetHealth,
+  getFrameBudgetMs,
+  getOverBudgetCount,
+  getPercentileFrameTime,
+  initFrameBudget,
   startFrameTiming,
 } from '../frameBudget';
 
 describe('frameBudget', () => {
-  it('getPreviousFrameMs returns 0 initially', () => {
-    expect(getPreviousFrameMs()).toBe(0);
-  });
-
-  it('FRAME_BUDGET_MS is 16', () => {
-    expect(FRAME_BUDGET_MS).toBe(16);
-  });
-
-  it('startFrameTiming returns a timestamp', () => {
-    const start = startFrameTiming();
-    expect(typeof start).toBe('number');
-    expect(start).toBeGreaterThan(0);
-  });
-
-  it('endFrameTiming returns a BudgetReport', () => {
-    const start = startFrameTiming();
-    const report = endFrameTiming(start);
-    expect(report).toHaveProperty('elapsedMs');
-    expect(report).toHaveProperty('withinBudget');
-    expect(report).toHaveProperty('overByMs');
-    expect(typeof report.elapsedMs).toBe('number');
-    expect(typeof report.withinBudget).toBe('boolean');
-    expect(typeof report.overByMs).toBe('number');
-    expect(report.elapsedMs).toBeGreaterThanOrEqual(0);
-    expect(report.overByMs).toBeGreaterThanOrEqual(0);
-  });
-
-  it('endFrameTiming reports withinBudget for very fast operations', () => {
+  it('reports within budget for fast operations', () => {
     const start = startFrameTiming();
     const report = endFrameTiming(start);
     expect(report.withinBudget).toBe(true);
     expect(report.overByMs).toBe(0);
+    expect(report.elapsedMs).toBeGreaterThanOrEqual(0);
   });
 
-  it('getPreviousFrameMs returns the last elapsed time', () => {
+  it('reports phases when provided', () => {
     const start = startFrameTiming();
-    endFrameTiming(start);
-    const prev = getPreviousFrameMs();
-    expect(prev).toBeGreaterThanOrEqual(0);
-    expect(typeof prev).toBe('number');
+    const report = endFrameTiming(start, {
+      cacheLookupMs: 0.5,
+      irBuildMs: 2.0,
+      drawSubmitMs: 1.0,
+    });
+    expect(report.phases.cacheLookupMs).toBe(0.5);
+    expect(report.phases.irBuildMs).toBe(2.0);
+  });
+
+  it('getFrameBudgetHealth returns valid state', () => {
+    const health = getFrameBudgetHealth();
+    expect(['good', 'warning', 'critical']).toContain(health);
+  });
+
+  it('accumulates rolling timings for average', () => {
+    // Fast frames
+    for (let i = 0; i < 5; i++) {
+      const start = startFrameTiming();
+      endFrameTiming(start);
+    }
+    const avg = getAverageFrameTime();
+    expect(avg).toBeGreaterThanOrEqual(0);
+  });
+
+  it('getPercentileFrameTime returns valid percentile', () => {
+    const p50 = getPercentileFrameTime(50);
+    const p95 = getPercentileFrameTime(95);
+    expect(p95).toBeGreaterThanOrEqual(p50);
+  });
+
+  it('getFrameBudgetMs returns positive value', () => {
+    expect(getFrameBudgetMs()).toBeGreaterThan(0);
+  });
+
+  it('initFrameBudget runs without error', () => {
+    initFrameBudget();
+    expect(getFrameBudgetMs()).toBeGreaterThan(0);
+  });
+
+  it('getOverBudgetCount returns number of over-budget frames', () => {
+    expect(getOverBudgetCount()).toBeGreaterThanOrEqual(0);
   });
 });

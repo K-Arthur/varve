@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Glass Material Effects', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
@@ -17,7 +18,7 @@ test.describe('Glass Material Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Open the Effects disclosure section if collapsed, then add a new effect
-    const effectsSection = page.locator('.insp-section').filter({ hasText: 'Effects' });
+    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     // The Select combobox for effect type uses aria-label "New effect type"
@@ -60,7 +61,7 @@ test.describe('Glass Material Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Add glass material via Effects section
-    const effectsSection = page.locator('.insp-section').filter({ hasText: 'Effects' });
+    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     const effectTypeSelect = effectsSection.locator(
@@ -106,7 +107,7 @@ test.describe('Glass Material Effects', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
     // Add glass material
-    const effectsSection = page.locator('.insp-section').filter({ hasText: 'Effects' });
+    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     const effectTypeSelect = effectsSection.locator(
@@ -164,7 +165,7 @@ test.describe('Glass Material Effects', () => {
     await page.waitForTimeout(200);
 
     // Add glass material to the group
-    const effectsSection = page.locator('.insp-section').filter({ hasText: 'Effects' });
+    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
     await expect(effectsSection).toBeVisible({ timeout: 5000 });
 
     const effectTypeSelect = effectsSection.locator(

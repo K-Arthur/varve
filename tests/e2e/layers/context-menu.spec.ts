@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Layers Panel - Context Menu', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
     await seedLayers(page, 3);

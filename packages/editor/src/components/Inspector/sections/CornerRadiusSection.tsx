@@ -25,7 +25,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const radiusRaw = commonValue(nodes, (n) => {
-    if (n.kind !== 'shape') return undefined;
+    if (n.kind !== 'shape' && n.kind !== 'frame') return undefined;
     return n.cornerRadius ?? 0;
   });
 
@@ -36,7 +36,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
       : null;
 
   const smoothingRaw = commonValue(nodes, (n) => {
-    if (n.kind !== 'shape') return undefined;
+    if (n.kind !== 'shape' && n.kind !== 'frame') return undefined;
     return n.cornerSmoothing ?? 0;
   });
   const smoothingMixed = isMixed(smoothingRaw);

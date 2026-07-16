@@ -174,6 +174,19 @@ export abstract class BaseTool implements Tool {
       y2 = start.y + len * Math.sin(snapped);
     }
 
+    if (ctx.altKey) {
+      // Alt-drag: draw from center — start point is the midpoint,
+      // line extends equally in both directions.
+      const dx = x2 - start.x;
+      const dy = y2 - start.y;
+      return {
+        x1: start.x - dx,
+        y1: start.y - dy,
+        x2: start.x + dx,
+        y2: start.y + dy,
+      };
+    }
+
     return { x1: start.x, y1: start.y, x2, y2 };
   }
 

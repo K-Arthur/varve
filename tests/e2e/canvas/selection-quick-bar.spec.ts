@@ -6,6 +6,7 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Selection quick bar', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });

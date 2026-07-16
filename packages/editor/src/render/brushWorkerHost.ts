@@ -68,14 +68,15 @@ export class BrushWorkerHost {
     preset: BrushPreset,
     jitterSeed: number,
   ): Promise<DabResult> {
-    // Cancel any older request for the same stroke
+    // Cancel any older request for the same stroke.
+    // strokeId is now stable per pointer-down (includes generation counter),
+    // so this correctly deduplicates within a stroke.
     if (this.currentStrokeId === strokeId && this.currentRequestId > 0) {
       this.pendingRequests.delete(this.currentRequestId);
     }
 
     return new Promise<DabResult>((resolve, reject) => {
       if (this.fallback || !this.worker) {
-        // Main-thread fallback
         seedJitter(jitterSeed);
         const smoothed = smoothStrokePoints(points, preset.smoothing);
         const dabs = generateDabs(smoothed, preset);
@@ -88,10 +89,15 @@ export class BrushWorkerHost {
       this.currentStrokeId = strokeId;
       this.currentRequestId = requestId;
 
+      // Generous timeout — long strokes with many points and complex
+      // dynamics evaluation can take several seconds.
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId);
-        reject(new Error('Brush worker timeout'));
-      }, 100);
+        this.fallback = true;
+        this.worker?.terminate();
+        this.worker = null;
+        reject(new Error('Brush worker timeout — falling back to main thread'));
+      }, 5000);
 
       this.pendingRequests.set(requestId, { strokeId, requestId, resolve, reject, timeout });
 

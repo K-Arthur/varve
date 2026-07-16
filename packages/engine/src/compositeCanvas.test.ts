@@ -101,6 +101,7 @@ describe('CompositeCanvas', () => {
 
 describe('mapBlendMode', () => {
   it('maps all standard modes', () => {
+    expect(mapBlendMode('normal')).toBe('source-over');
     expect(mapBlendMode('multiply')).toBe('multiply');
     expect(mapBlendMode('screen')).toBe('screen');
     expect(mapBlendMode('overlay')).toBe('overlay');
@@ -116,11 +117,38 @@ describe('mapBlendMode', () => {
     expect(mapBlendMode('saturation')).toBe('saturation');
     expect(mapBlendMode('color')).toBe('color');
     expect(mapBlendMode('luminosity')).toBe('luminosity');
-    expect(mapBlendMode('plusDarker')).toBe('plus-darker');
-    expect(mapBlendMode('plusLighter')).toBe('plus-lighter');
-    expect(mapBlendMode('passThrough')).toBe('source-over');
-    expect(mapBlendMode('normal')).toBe('source-over');
-    expect(mapBlendMode('unknown' as any)).toBe('source-over');
+    expect(mapBlendMode('plusLighter')).toBe('lighter');
+  });
+
+  it.each(['unknown', 'passThrough', 'plusDarker'])(
+    'rejects Canvas2D-incompatible mode %s',
+    (mode) => {
+      expect(() => mapBlendMode(mode)).toThrow(
+        `Blend mode is not available in Canvas2D: ${mode}`,
+      );
+    },
+  );
+});
+
+describe('blendPixels', () => {
+  it('composites partially transparent multiplied pixels using source-over coverage terms', () => {
+    const backdrop = new ImageData(new Uint8ClampedArray([255, 0, 0, 128]), 1, 1);
+    const source = new ImageData(new Uint8ClampedArray([0, 0, 255, 128]), 1, 1);
+
+    const result = blendPixels(backdrop, source, 'multiply', 1);
+
+    // With alpha 128/255, each visible channel is
+    // ((128/255) * (127/255)) / (128/255 + (128/255) * (127/255)), rounded to 85.
+    expect([...result.data]).toEqual([85, 0, 85, 192]);
+  });
+
+  it('rejects an unknown software blend mode', () => {
+    const backdrop = makePixelData(100, 100, 100, 255);
+    const source = makePixelData(200, 50, 50, 255);
+
+    expect(() => blendPixels(backdrop, source, 'unknown', 1)).toThrow(
+      'Unsupported blend mode: unknown',
+    );
   });
 });
 

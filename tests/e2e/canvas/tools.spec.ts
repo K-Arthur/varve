@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Canvas drawing tools — drag-to-create', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
@@ -66,8 +67,14 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     // Compare only the clipped region we're about to draw into — proves the
     // shape rendered exactly at the drag coordinates, not just "somewhere".
     const clip = { x: 150, y: 150, width: 200, height: 150 };
-    const canvasBox = await contentCanvas.boundingBox();
-    if (!canvasBox) throw new Error('content canvas not found');
+    // After an extreme pan the canvas element may re-render and briefly have
+    // no bounding box. Wait for layout to settle.
+    let canvasBox = await contentCanvas.boundingBox();
+    for (let i = 0; i < 5 && !canvasBox; i++) {
+      await page.waitForTimeout(500);
+      canvasBox = await contentCanvas.boundingBox();
+    }
+    if (!canvasBox) throw new Error('content canvas not found after pan');
     const pageClip = { ...clip, x: canvasBox.x + clip.x, y: canvasBox.y + clip.y };
     const before = await page.screenshot({ clip: pageClip });
     await page.waitForTimeout(500);

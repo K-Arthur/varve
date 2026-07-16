@@ -69,6 +69,7 @@ struct TraceResultJson {
 /// `width`, `height`: image dimensions
 /// `threshold`: binarization threshold (0–255)
 /// `min_pixels`: minimum contour pixel count
+/// `foreground`: "dark" or "light" (default "dark")
 ///
 /// Returns a JSON string matching the TS `RasterTraceResult` shape.
 #[wasm_bindgen]
@@ -78,6 +79,7 @@ pub fn trace_contours_json(
     height: u32,
     threshold: u8,
     min_pixels: u32,
+    foreground: Option<String>,
 ) -> Result<String, JsValue> {
     let expected_len = (width * height * 4) as usize;
     if pixels.len() != expected_len {
@@ -102,10 +104,19 @@ pub fn trace_contours_json(
         gray.push(luma);
     }
 
+    let foreground = foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
+        if v.eq_ignore_ascii_case("light") {
+            strata_trace::Foreground::Light
+        } else {
+            strata_trace::Foreground::Dark
+        }
+    });
+
     let opts = strata_trace::TraceOptions {
         threshold,
         min_pixels: min_pixels as usize,
         max_colors: 0,
+        foreground,
     };
 
     // Detect hardware concurrency via navigator.hardwareConcurrency,

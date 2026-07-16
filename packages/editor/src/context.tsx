@@ -69,7 +69,10 @@ import {
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
   buildParentIndexMap,
+  canBeClipMaskSource,
   clearGuides,
+  clearLiveTrace as clearLiveTraceDoc,
+  createClippingMask as createClippingMaskDoc,
   createComponent,
   createDocument,
   createGuideId,
@@ -103,6 +106,7 @@ import {
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
+  isClippingMaskGroup,
   isContainer,
   isPageOnLeftSide as isPageOnLeftSideDoc,
   type MaskType,
@@ -117,6 +121,7 @@ import {
   pasteGuides as pasteGuidesDoc,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
+  releaseClippingMask as releaseClippingMaskDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
@@ -243,12 +248,22 @@ import type {
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { usePersistence } from './context/usePersistence';
-import { computeZoomStep, computeZoomTo } from './context/viewportOps';
+import {
+  computeFitAllCamera,
+  computeZoomStep,
+  computeZoomTo,
+  getCanvasViewport,
+} from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
-import { insertDerivedImageShape, insertTraceGroup, selectedImageShape } from './imageOperations';
+import {
+  insertDerivedImageShape,
+  insertLiveTraceGroup,
+  insertTraceGroup,
+  selectedImageShape,
+} from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
@@ -274,9 +289,33 @@ import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
+import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
+
+/**
+ * Flatten `ids` and all of their descendants into a single node list, for
+ * clipboard serialization. Copying only the directly-selected node(s) (not
+ * their descendants) means a pasted group/frame has nothing for
+ * deepCloneSubtree to find its children in — they'd be silently dropped.
+ */
+function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
+  const seen = new Set<NodeId>();
+  const result: SceneNode[] = [];
+  const visit = (id: NodeId): void => {
+    if (seen.has(id)) return;
+    seen.add(id);
+    const node = doc.nodes[id];
+    if (!node) return;
+    result.push(node);
+    if (isContainer(node)) {
+      for (const childId of node.children) visit(childId);
+    }
+  };
+  for (const id of ids) visit(id);
+  return result;
+}
 
 function insertImportedSubtree(
   targetDoc: Document,
@@ -356,6 +395,12 @@ export interface EditorContextValue {
   toggleLeftPanel: () => void;
   /** Toggle inspector (right) panel visibility; persists to editor settings. */
   toggleRightPanel: () => void;
+  /** Active workspace mode (design/print/drawing). */
+  workspaceMode: import('./workspace/workspaceTypes').WorkspaceMode;
+  /** Switch to a different workspace mode. */
+  setWorkspaceMode: (mode: import('./workspace/workspaceTypes').WorkspaceMode) => void;
+  /** Reset current workspace to its default panel/tool configuration. */
+  resetWorkspaceToDefault: () => void;
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
@@ -676,10 +721,16 @@ export interface EditorContextValue {
   setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
   /** Set a vector path mask on the selected container. */
   setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
+  /** Create a clipping mask group from selected nodes (mask shape + content). */
+  createClippingMaskFromSelected: (selectionOverride?: NodeId[]) => void;
+  /** Release a clipping mask, restoring original content and mask source. */
+  releaseClippingMaskFromSelected: () => void;
   /** Create an adjustment layer node with optional initial adjustments and select it. */
   createAdjustmentLayer: (initialAdjustments?: import('@strata/engine').Adjustment[]) => void;
   /** Append an adjustment to an adjustment layer node. */
   addAdjustmentToLayer: (nodeId: NodeId, adjustment: import('@strata/engine').Adjustment) => void;
+  /** Create a new adjustment layer node with a LUT adjustment. */
+  addLutAdjustment: (lutAdjustment: import('@strata/engine').Adjustment) => void;
   /** Remove an adjustment by id from an adjustment layer node. */
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
   /** Patch properties on an existing adjustment by id. */
@@ -791,6 +842,8 @@ export interface EditorContextValue {
   setSelectedLiveTraceParams: (params: Partial<import('@strata/scene').LiveTraceParams>) => void;
   /** Flatten the first selected live-traced node to ordinary vector geometry. */
   flattenSelectedLiveTrace: () => void;
+  /** Cancel the first selected live-traced node and restore the source image. */
+  clearSelectedLiveTrace: () => void;
   /** Cancel an in-progress image enlargement or trace job. */
   cancelImageProcessing: () => void;
   /** Toggle preview of original image (without background removal mask). */
@@ -1014,6 +1067,20 @@ export interface EditorContextValue {
 
   /** Record a user action for analytics/onboarding/intelligence. */
   recordAction: (actionId: string) => void;
+
+  /** Set foreground painting color (RGBA 0-255). */
+  setForegroundColor: (color: [number, number, number, number]) => void;
+  /** Set background painting color (RGBA 0-255). */
+  setBackgroundColor: (color: [number, number, number, number]) => void;
+  /** Swap foreground and background colors. */
+  swapColors: () => void;
+  /** Reset foreground/background to defaults (black/white). */
+  resetColors: () => void;
+  /** Update a single brush setting field. */
+  setBrushSetting: <K extends keyof import('./context/types').EditorState['brushSettings']>(
+    key: K,
+    value: import('./context/types').EditorState['brushSettings'][K],
+  ) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -1496,6 +1563,7 @@ export function EditorProvider({
       timelinePanelVisible: false,
       motion: createInitialMotionState(),
       canvasMode: 'full',
+      workspaceMode: 'design' as WorkspaceMode,
       cameraRotation: 0,
       rulerMode: vpDefaults.rulerMode as RulerMode,
       gridOverlayMode: vpDefaults.gridOverlayMode as GridOverlayMode,
@@ -1692,10 +1760,12 @@ export function EditorProvider({
     };
   }, []);
 
-  const patch = useCallback(
-    (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
-    [],
-  );
+  const patch = useCallback((partial: Partial<EditorState>) => {
+    // Update stateRef synchronously so async callbacks (menu actions,
+    // keyboard shortcuts) see the latest state even before React flushes.
+    stateRef.current = { ...stateRef.current, ...partial };
+    setState((s) => ({ ...s, ...partial }));
+  }, []);
 
   /** Persistence (save/load/document lifecycle). */
   const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
@@ -1706,6 +1776,7 @@ export function EditorProvider({
     snapshotSession,
     resetUndo,
     recoveryRef,
+    computeFitAllCamera,
   );
 
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
@@ -2032,28 +2103,44 @@ export function EditorProvider({
         patch({ rightPanelVisible: next });
         updateSettings({ panel: { rightPanelVisible: next } });
       },
+      workspaceMode: state.workspaceMode,
+      setWorkspaceMode: (mode: WorkspaceMode) => {
+        const config = getWorkspaceConfig(mode);
+        const patchObj: Partial<EditorState> & Record<string, unknown> = {
+          workspaceMode: mode,
+          leftPanelVisible: config.visiblePanels.layers,
+          rightPanelVisible: config.visiblePanels.inspector,
+          timelinePanelVisible: config.visiblePanels.timeline,
+        };
+        if (config.defaultTool && config.defaultTool !== state.tool) {
+          patchObj.tool = config.defaultTool as ToolId;
+        }
+        patch(patchObj as Partial<EditorState>);
+        updateSettings({
+          panel: {
+            leftPanelVisible: config.visiblePanels.layers,
+            rightPanelVisible: config.visiblePanels.inspector,
+          },
+        });
+        announcerRef.current?.announce(`Switched to ${mode} workspace`);
+      },
+      resetWorkspaceToDefault: () => {
+        const mode = state.workspaceMode;
+        const config = getWorkspaceConfig(mode);
+        const patchObj: Partial<EditorState> & Record<string, unknown> = {
+          leftPanelVisible: config.visiblePanels.layers,
+          rightPanelVisible: config.visiblePanels.inspector,
+          timelinePanelVisible: config.visiblePanels.timeline,
+        };
+        if (config.defaultTool) {
+          patchObj.tool = config.defaultTool as ToolId;
+        }
+        patch(patchObj as Partial<EditorState>);
+        announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
+      },
       fitAll: () => {
-        const vpW = typeof window !== 'undefined' ? window.innerWidth : 1200;
-        const vpH = typeof window !== 'undefined' ? window.innerHeight - 120 : 700;
-        const entries = walkNodes(state.document);
-        let union: { x: number; y: number; w: number; h: number } | null = null;
-        for (const [id] of entries) {
-          const b = nodeWorldBounds(state.document, id);
-          if (!b) continue;
-          if (!union) {
-            union = { ...b };
-            continue;
-          }
-          const minX = Math.min(union.x, b.x);
-          const minY = Math.min(union.y, b.y);
-          const maxX = Math.max(union.x + union.w, b.x + b.w);
-          const maxY = Math.max(union.y + union.h, b.y + b.h);
-          union = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-        }
-        if (union) {
-          const cam = fitBoundsCamera(union, { width: vpW, height: vpH }, 40);
-          patch({ zoom: cam.zoom, pan: cam.pan });
-        }
+        const cam = computeFitAllCamera(state.document, getCanvasViewport());
+        if (cam) patch({ zoom: cam.zoom, pan: cam.pan });
       },
       revealSelection: (opts) => {
         const id = opts?.nodeId ?? state.selection[0];
@@ -2091,23 +2178,22 @@ export function EditorProvider({
         patch({ selection: newSelection });
       },
 
-      // F1: additive = shift+click behaviour
+      // F1: additive = shift+click behaviour.
+      // Read from stateRef.current.selection (not the closed-over state.selection)
+      // so callers that batch setSelection + toggleSelection (e.g. selectAll)
+      // see the accumulation from prior calls in the same synchronous tick.
       toggleSelection: (id, additive = false) => {
-        setState((s) => {
+        const currentSel = stateRef.current.selection;
+        const nextSelection = (() => {
           if (additive) {
-            const already = s.selection.includes(id);
-            const newSelection = already
-              ? s.selection.filter((x) => x !== id)
-              : [...s.selection, id];
-            selectionHistory.push(newSelection);
-            return {
-              ...s,
-              selection: newSelection,
-            };
+            const already = currentSel.includes(id);
+            return already ? currentSel.filter((x) => x !== id) : [...currentSel, id];
           }
-          selectionHistory.push([id]);
-          return { ...s, selection: [id] };
-        });
+          return [id];
+        })();
+        selectionHistory.push(nextSelection);
+        stateRef.current = { ...stateRef.current, selection: nextSelection };
+        setState((s) => ({ ...s, selection: nextSelection }));
       },
 
       // F1: helpers that work for nested nodes
@@ -2225,7 +2311,42 @@ export function EditorProvider({
             const shape: Shape = size
               ? buildShapeWithSize(activeTool, size)
               : shapeForTool(activeTool);
-            node = makeShapeNode(id, shape, { name: autoName, transform });
+            const strokeOpts =
+              activeTool === 'arrow'
+                ? {
+                    strokes: [
+                      {
+                        color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+                        weight: 2,
+                        align: 'center' as const,
+                        dashPattern: [],
+                        dashOffset: 0,
+                        cap: 'round' as const,
+                        join: 'miter' as const,
+                        miterLimit: 4,
+                        visible: true,
+                        arrowEnd: 'arrow' as const,
+                      },
+                    ],
+                  }
+                : activeTool === 'line'
+                  ? {
+                      strokes: [
+                        {
+                          color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 },
+                          weight: 2,
+                          align: 'center' as const,
+                          dashPattern: [],
+                          dashOffset: 0,
+                          cap: 'round' as const,
+                          join: 'miter' as const,
+                          miterLimit: 4,
+                          visible: true,
+                        },
+                      ],
+                    }
+                  : {};
+            node = makeShapeNode(id, shape, { name: autoName, transform, ...strokeOpts });
           }
 
           const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
@@ -2976,7 +3097,7 @@ export function EditorProvider({
         });
       },
 
-      // F6: batch-edit corner radius on shape nodes
+      // F6: batch-edit corner radius on shape/frame nodes
       setSelectedCornerRadius: (value) => {
         const sel = state.selection;
         if (sel.length === 0) return;
@@ -2984,7 +3105,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape') continue;
+            if (node?.kind !== 'shape' && node?.kind !== 'frame') continue;
             nodes[id] = { ...node, cornerRadius: value } as SceneNode;
           }
           return { ...doc, nodes };
@@ -4021,6 +4142,101 @@ export function EditorProvider({
         updateDoc((doc) => setMaskVectorPathDoc(doc, id, points, closed));
       },
 
+      // ── Clipping masks ──
+
+      createClippingMaskFromSelected: (selectionOverride?: NodeId[]) => {
+        // Read selection inside setState callback where React guarantees the latest
+        // state, avoiding stale reads from stateRef when called after selectAll
+        // (React 18 batching may not have flushed yet).
+        setState((s) => {
+          const sel = selectionOverride ?? s.selection;
+          if (sel.length < 2) {
+            announcerRef.current?.announce('Select a mask shape and at least one content layer');
+            return s;
+          }
+          let maskIdx = -1;
+          for (let i = 0; i < sel.length; i++) {
+            const id = sel[i]!;
+            const node = s.document.nodes[id];
+            if (node && canBeClipMaskSource(node)) {
+              maskIdx = i;
+              break;
+            }
+          }
+          if (maskIdx < 0) {
+            announcerRef.current?.announce(
+              'No node in selection can be used as a clipping mask shape',
+            );
+            return s;
+          }
+
+          const maskNodeId = sel[maskIdx]!;
+          const contentIds = sel.filter((id) => id !== maskNodeId);
+
+          const maskNode = s.document.nodes[maskNodeId];
+          if (!maskNode || !canBeClipMaskSource(maskNode)) {
+            announcerRef.current?.announce('Selected node cannot be used as a clipping mask shape');
+            return s;
+          }
+
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          try {
+            const result = createClippingMaskDoc(s.document, maskNodeId, contentIds, {
+              type: 'clip',
+              hideMaskSource: true,
+              linked: true,
+            });
+            return {
+              ...s,
+              document: result.doc,
+              selection: [result.groupId],
+              dirty: true,
+            };
+          } catch (err) {
+            announcerRef.current?.announce(
+              err instanceof Error ? err.message : 'Failed to create clipping mask',
+            );
+            return s;
+          }
+        });
+      },
+
+      releaseClippingMaskFromSelected: () => {
+        const sel = stateRef.current.selection;
+        const id = sel[0];
+        if (!id) return;
+
+        const node = stateRef.current.document.nodes[id];
+        if (!node || !isClippingMaskGroup(node)) {
+          announcerRef.current?.announce('Selected node is not a clipping mask group');
+          return;
+        }
+        // node is a GroupNode or FrameNode (has children) — safe after isClippingMaskGroup check
+        const groupNode = node as { children: string[] };
+
+        setState((s) => {
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+          const childIds = [...groupNode.children];
+          const newDoc = releaseClippingMaskDoc(s.document, id);
+          return {
+            ...s,
+            document: newDoc,
+            selection: childIds,
+            dirty: true,
+          };
+        });
+      },
+
       enterQuickMask: () => {
         setState((s) => {
           const w = s.document.canvasWidth ?? 1920;
@@ -4154,6 +4370,36 @@ export function EditorProvider({
         });
       },
 
+      addLutAdjustment: (lutAdjustment: Adjustment) => {
+        undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        redoStackRef.current = [];
+        const { id, doc: newDoc } = nextNodeId(state.document);
+        // Adjustment layers must have opacity=0 to trigger the adjustment-layer
+        // rendering path in replay.ts (line 679: item.opacity <= 0)
+        const node = makeAdjustmentNode(
+          id,
+          'levels',
+          {
+            channel: 'rgb' as const,
+            inputBlack: 0,
+            inputWhite: 255,
+            gamma: 1,
+            outputBlack: 0,
+            outputWhite: 255,
+          },
+          {
+            name: `LUT ${lutAdjustment.originalFilename ?? id.slice(0, 4)}`,
+            opacity: 0,
+            blendMode: 'normal',
+            effects: [],
+          },
+        );
+        const withLut = { ...node, adjustments: [lutAdjustment] };
+        const doc = addNode(newDoc, withLut as import('@strata/scene').SceneNode);
+        patch({ document: doc, selection: [id] });
+        announcerRef.current?.announce('Created LUT adjustment layer');
+      },
+
       removeAdjustmentFromLayer: (nodeId, adjustmentId) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
@@ -4214,22 +4460,16 @@ export function EditorProvider({
         }
         const sel = state.selection;
         if (sel.length === 0) return;
-        const nodes = sel
-          .map((id) => state.document.nodes[id])
-          .filter((n): n is SceneNode => Boolean(n));
+        const nodes = gatherSubtreeNodes(state.document, sel);
         if (nodes.length === 0) return;
         writeToClipboard(nodes);
-        announcerRef.current?.announce(
-          `Copied ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`,
-        );
+        announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
       cutSelected: () => {
         const sel = state.selection;
         if (sel.length === 0) return;
-        const nodes = sel
-          .map((id) => state.document.nodes[id])
-          .filter((n): n is SceneNode => Boolean(n));
+        const nodes = gatherSubtreeNodes(state.document, sel);
         if (nodes.length === 0) return;
         writeToClipboard(nodes);
         updateDoc((doc) => {
@@ -4238,7 +4478,7 @@ export function EditorProvider({
           return d;
         });
         patch({ selection: [] });
-        announcerRef.current?.announce(`Cut ${nodes.length} layer${nodes.length > 1 ? 's' : ''}`);
+        announcerRef.current?.announce(`Cut ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
       paste: async () => {
@@ -4317,23 +4557,29 @@ export function EditorProvider({
               tempNodes[node.id] = node;
             }
             const tempDoc: Document = { ...doc, nodes: tempNodes };
+            // copySelected()/cutSelected() serialize each selected node plus
+            // its full descendant subtree (gatherSubtreeNodes), so a node
+            // referenced as another copied node's child is a descendant, not
+            // an independent paste target — only the roots of the original
+            // selection should become new top-level pastes.
+            const childIds = new Set<NodeId>();
             for (const node of strataData.nodes) {
               if (isContainer(node)) {
-                const result = deepCloneSubtree(tempDoc, node.id);
-                if (result.rootId) {
-                  doc = { ...doc, nextId: result.nextId };
-                  for (const cloned of Object.values(result.nodes)) {
-                    doc = addNode(doc, cloned);
-                    newIds.push(cloned.id);
-                  }
-                }
-              } else {
-                const { id, doc: d2 } = nextNodeId(doc);
-                doc = d2;
-                const cloned = { ...node, id } as SceneNode;
-                doc = addNode(doc, cloned);
-                newIds.push(id);
+                for (const childId of node.children) childIds.add(childId);
               }
+            }
+            for (const node of strataData.nodes) {
+              if (childIds.has(node.id)) continue;
+              // insertImportedSubtree deep-clones from tempDoc (handling
+              // containers and leaves alike), merges every cloned descendant
+              // into doc.nodes, and hooks only the subtree root into the
+              // active page's contentRoot (or doc.rootChildren for flat
+              // documents) — the same page-scoping every other insertion
+              // path (importNode, drag-and-drop) already relies on.
+              const inserted = insertImportedSubtree(doc, tempDoc, node.id, (n) => n);
+              if (!inserted) continue;
+              doc = inserted.doc;
+              newIds.push(inserted.rootId);
             }
           }
 
@@ -4467,7 +4713,7 @@ export function EditorProvider({
           const nodes = { ...doc.nodes };
           for (const id of sel) {
             const node = nodes[id];
-            if (node?.kind !== 'shape') continue;
+            if (node?.kind !== 'shape' && node?.kind !== 'frame') continue;
             nodes[id] = { ...node, cornerSmoothing: value } as SceneNode;
           }
           return { ...doc, nodes };
@@ -4856,6 +5102,20 @@ export function EditorProvider({
           undoSelStackRef.current = [];
           redoSelStackRef.current = [];
 
+          // The document format has no saved camera to restore, and this
+          // branch is for a file that isn't already open in another tab (so
+          // there's no in-memory session snapshot either) — without an
+          // explicit fit, a document whose content lives far from world
+          // origin would open with the camera still sitting at (0,0),
+          // rendering a blank canvas despite the content existing and
+          // showing correctly in the Layers panel. Use the canvas element's
+          // own rendered size (not window size) so the fit is actually
+          // centered in the visible canvas area, not shifted by however much
+          // the layers/inspector side panels currently take up.
+          const openCam = computeFitAllCamera(doc, getCanvasViewport());
+          const openZoom = openCam?.zoom ?? 1;
+          const openPan = openCam?.pan ?? { x: 0, y: 0 };
+
           // Reuse a pristine active tab (fresh Untitled, empty, unmodified)
           // instead of leaving a stray blank tab behind.
           const activeMeta = s.sessions.find((sess) => sess.id === s.activeId);
@@ -4870,8 +5130,8 @@ export function EditorProvider({
               ...s,
               document: doc,
               selection: [],
-              zoom: 1,
-              pan: { x: 0, y: 0 },
+              zoom: openZoom,
+              pan: openPan,
               dirty: false,
               sessions: s.sessions.map((sess) =>
                 sess.id === s.activeId ? { ...sess, name, filePath, fileId } : sess,
@@ -4886,8 +5146,8 @@ export function EditorProvider({
             ...s,
             document: doc,
             selection: [],
-            zoom: 1,
-            pan: { x: 0, y: 0 },
+            zoom: openZoom,
+            pan: openPan,
             dirty: false,
             sessions: [...syncedSessions, { id: newId, name, dirty: false, filePath, fileId }],
             activeId: newId,
@@ -5133,8 +5393,14 @@ export function EditorProvider({
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
-          const width = Math.max(1, image.naturalWidth || image.width);
-          const height = Math.max(1, image.naturalHeight || image.height);
+          let width = Math.max(1, image.naturalWidth || image.width);
+          let height = Math.max(1, image.naturalHeight || image.height);
+          const MAX_TRACE_DIM = 4096;
+          if (width > MAX_TRACE_DIM || height > MAX_TRACE_DIM) {
+            const scale = Math.min(MAX_TRACE_DIM / width, MAX_TRACE_DIM / height);
+            width = Math.round(width * scale);
+            height = Math.round(height * scale);
+          }
           const canvas = document.createElement('canvas');
           canvas.width = width;
           canvas.height = height;
@@ -5154,9 +5420,15 @@ export function EditorProvider({
           )
             return;
 
-          // Live trace mode: set params + resolved geometry on the source node
-          // instead of inserting a separate GroupNode beside it.
+          // Live trace mode: generate a trace group at the source's position,
+          // hide the source, and link the group via the source's liveTrace state.
           if (options.liveTrace) {
+            const existingTraceGroupId =
+              current.document.nodes[processingNodeId]?.liveTrace?.traceGroupId;
+            if (existingTraceGroupId) {
+              current.document = removeNode(current.document, existingTraceGroupId);
+            }
+
             const ltParams: LiveTraceParams = {
               mode: options.mode ?? 'monochrome',
               threshold: options.threshold ?? 128,
@@ -5167,11 +5439,17 @@ export function EditorProvider({
               maxPaths: options.maxPaths ?? 1000,
               maxColors: options.maxColors ?? 8,
               compoundHoles: options.compoundHoles ?? true,
+              cornerAngle: options.cornerAngle ?? 135,
             };
-            updateDoc((d) => {
-              const withParams = setLiveTraceParamsDoc(d, processingNodeId, ltParams);
-              return setLiveTraceResolvedDoc(withParams, processingNodeId, Date.now());
-            });
+            const withParams = setLiveTraceParamsDoc(current.document, processingNodeId, ltParams);
+            const inserted = insertLiveTraceGroup(withParams, processingNodeId, tracedPaths);
+            const withResolved = setLiveTraceResolvedDoc(
+              inserted.doc,
+              processingNodeId,
+              Date.now(),
+              inserted.nodeId,
+            );
+            updateDoc(() => withResolved);
             announcerRef.current?.announce(
               `Traced ${tracedPaths.paths.length} paths as live trace`,
             );
@@ -5231,6 +5509,17 @@ export function EditorProvider({
         }
         updateDoc((d) => flattenLiveTraceDoc(d, sel[0]!));
         announcerRef.current?.announce('Live trace flattened');
+      },
+
+      clearSelectedLiveTrace: () => {
+        const sel = stateRef.current.selection;
+        const node = sel.length > 0 ? stateRef.current.document.nodes[sel[0]!] : undefined;
+        if (node?.kind !== 'shape' || !('liveTrace' in node) || !node.liveTrace) {
+          announcerRef.current?.announce('Select a live-traced image layer first');
+          return;
+        }
+        updateDoc((d) => clearLiveTraceDoc(d, sel[0]!));
+        announcerRef.current?.announce('Live trace cancelled');
       },
 
       removeBackground: bgRemoval.removeBackground,
@@ -5538,6 +5827,8 @@ export function EditorProvider({
       setMaskSourceNode: value.setMaskSourceNode,
       setMaskFillRule: value.setMaskFillRule,
       setMaskVectorPath: value.setMaskVectorPath,
+      createClippingMaskFromSelected: value.createClippingMaskFromSelected,
+      releaseClippingMaskFromSelected: value.releaseClippingMaskFromSelected,
       detachSelected: value.detachSelected,
       copySelected: value.copySelected,
       cutSelected: value.cutSelected,
@@ -5588,6 +5879,7 @@ export function EditorProvider({
       closeTab: value.closeTab,
       createAdjustmentLayer: value.createAdjustmentLayer,
       addAdjustmentToLayer: value.addAdjustmentToLayer,
+      addLutAdjustment: value.addLutAdjustment,
       removeAdjustmentFromLayer: value.removeAdjustmentFromLayer,
       updateAdjustmentInLayer: value.updateAdjustmentInLayer,
       reorderAdjustmentInLayer: value.reorderAdjustmentInLayer,

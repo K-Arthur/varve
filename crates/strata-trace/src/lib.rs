@@ -27,13 +27,23 @@ pub struct Path {
 /// Options for raster-to-vector tracing.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TraceOptions {
-    /// Grayscale threshold (0-255) for binarization (pixels above threshold
-    /// are foreground).
+    /// Grayscale threshold (0-255) for binarization.
     pub threshold: u8,
     /// Minimum contour pixel count to include (filters noise).
     pub min_pixels: usize,
     /// Maximum number of colors for color quantization (0 = grayscale).
     pub max_colors: u8,
+    /// Which luminance direction is treated as foreground. Matches the JS
+    /// rasterTrace.ts default of dark foreground.
+    pub foreground: Foreground,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Foreground {
+    #[default]
+    Dark,
+    Light,
 }
 
 impl Default for TraceOptions {
@@ -42,6 +52,7 @@ impl Default for TraceOptions {
             threshold: 128,
             min_pixels: 10,
             max_colors: 8,
+            foreground: Foreground::default(),
         }
     }
 }
@@ -56,7 +67,7 @@ pub fn trace_contours(pixels: &[u8], width: u32, height: u32, opts: &TraceOption
     }
 
     // Step 1: Binarize
-    let binary = binarize(pixels, opts.threshold);
+    let binary = binarize(pixels, opts.threshold, opts.foreground);
 
     // Step 2: Find contour seeds (foreground pixels adjacent to background)
     let seeds: Vec<(u32, u32)> = find_seeds(&binary, width, height);
@@ -102,8 +113,14 @@ fn trace_chunk(
     traced
 }
 
-fn binarize(pixels: &[u8], threshold: u8) -> Vec<bool> {
-    pixels.iter().map(|&p| p > threshold).collect()
+fn binarize(pixels: &[u8], threshold: u8, foreground: Foreground) -> Vec<bool> {
+    pixels
+        .iter()
+        .map(|&p| match foreground {
+            Foreground::Light => p > threshold,
+            Foreground::Dark => p < threshold,
+        })
+        .collect()
 }
 
 fn find_seeds(binary: &[bool], width: u32, height: u32) -> Vec<(u32, u32)> {
@@ -167,7 +184,7 @@ fn trace_one(
         visited[idx] = true;
 
         let px = cx as f64;
-        let py = -(cy as f64); // flip Y for vector space
+        let py = cy as f64;
         if path.is_empty() || path.last() != Some(&Point::new(px, py)) {
             path.push(Point::new(px, py));
         }
@@ -286,17 +303,18 @@ mod tests {
 
     #[test]
     fn trace_empty_bitmap() {
-        let pixels = vec![0u8; 100];
+        // All-white with dark foreground means no foreground to trace.
+        let pixels = vec![255u8; 100];
         let paths = trace_contours(&pixels, 10, 10, &TraceOptions::default());
         assert!(paths.is_empty());
     }
 
     #[test]
     fn trace_full_bitmap() {
-        let pixels = vec![255u8; 100];
+        // All-black with dark foreground means the whole image is foreground;
+        // the boundary should be traced.
+        let pixels = vec![0u8; 100];
         let paths = trace_contours(&pixels, 10, 10, &TraceOptions::default());
-        // Full white bitmap has no interior background to create contours
-        // But the entire shape boundary should be traced
         assert!(!paths.is_empty());
     }
 

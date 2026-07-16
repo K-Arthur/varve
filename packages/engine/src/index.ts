@@ -17,6 +17,12 @@ export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
+export {
+  adjustmentStackCacheKey,
+  filterCacheKey,
+  filtersEquivalent,
+  fullStackCacheKey,
+} from './adjustmentCache';
 export type { AlphaContour, ContourOptions, ContourShapeNodeData } from './alphaContour';
 export { alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 export type {
@@ -55,6 +61,18 @@ export {
   trimapFromMask,
   workerModelIdForMethod,
 } from './backgroundRemoval';
+export type {
+  BlendCategory,
+  BlendDomain,
+  BlendModeDefinition,
+  CanvasBlendOperation,
+  PdfBlendModeName,
+} from './blendModeCatalog';
+export {
+  BLEND_MODE_DEFINITIONS,
+  blendModeDefinition,
+  blendModesForDomain,
+} from './blendModeCatalog';
 export {
   blend,
   blendColorBurn,
@@ -73,6 +91,8 @@ export {
   blendScreen,
   blendSoftLight,
 } from './blendModes';
+export { gaussianBlurSeparable } from './blur';
+export { BufferPool, sharedBufferPool } from './bufferPool';
 export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
 export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
 export {
@@ -88,15 +108,20 @@ export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export {
   applyBackgroundBlurBackdrop,
+  applyChromaticAberration,
   applyGlassMaterialBackdrop,
+  applyGlitch,
   applyLayerBlur,
   clampByte,
   computeScreenBounds,
 } from './effectPipeline';
 export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
+export type { OutlineVertex, PathOutline } from './expandPathOutline';
+export { buildVariableWidthOutline, outlineToSvgPathData } from './expandPathOutline';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
+export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,
   AdjustmentBase,
@@ -118,6 +143,7 @@ export type {
   HueRotateAdjustment,
   InvertAdjustment,
   LevelsAdjustment,
+  LutAdjustment,
   OpacityAdjustment,
   PhotoFilterAdjustment,
   SaturationAdjustment,
@@ -126,6 +152,7 @@ export type {
   SharpenAdjustment,
   TemperatureAdjustment,
   TintAdjustment,
+  TritoneAdjustment,
   VibranceAdjustment,
 } from './filters';
 export {
@@ -153,7 +180,19 @@ export {
 export * from './geometry';
 export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
-export type { HalftoneDotShape, HalftoneMethod, HalftoneParams, HalftonePattern } from './halftone';
+export type {
+  GradientMapMode,
+  GradientMapParams,
+  GradientMapStop as GradientMapFilterStop,
+} from './gradientMap';
+export { applyGradientMapFilter, buildGradientLUT } from './gradientMap';
+export type {
+  HalftoneChannel,
+  HalftoneDotShape,
+  HalftoneMethod,
+  HalftoneParams,
+  HalftonePattern,
+} from './halftone';
 export { applyBayerDithering, applyHalftone, BAYER_DEFAULT_SIZE, bayerMatrix } from './halftone';
 export type {
   ConvertedImage,
@@ -190,6 +229,39 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
+export type {
+  Lut1D,
+  Lut3D,
+  LutAdjustmentParams,
+  LutInputSpace,
+  LutInterpolation,
+  LutMetadata,
+  LutTransform,
+  Shaper3D,
+} from './lut';
+export {
+  applyLutToImageData,
+  bakeFiltersToLut,
+  CubeParseError,
+  DEFAULT_LUT_INTERPOLATION,
+  deserializeLutFromDocument,
+  detectLutFormat,
+  estimateLutMemoryUsage,
+  exportLutToCube,
+  LUT_FORMAT_LABELS,
+  LUT_INPUT_SPACE_LABELS,
+  LUT_SUPPORTED_EXTENSIONS,
+  lutFormatSupports,
+  makeIdentityLut1D,
+  makeIdentityLut3D,
+  parse3dlData,
+  parseCubeData,
+  parseLutFile,
+  sampleLut3D,
+  sampleLut3DTetrahedral,
+  sampleLut3DTrilinear,
+  serializeLutForDocument,
+} from './lut';
 export type { EnhancedMaskOptions } from './maskCompositing';
 export {
   applyMaskPostProcess,
@@ -230,6 +302,18 @@ export {
   mapPorterDuffOp,
   porterDuffCompositing,
 } from './porterDuff';
+export type { GradientPreset, TritonePreset } from './presets';
+export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
+export {
+  applyTaper,
+  hasVariablePressure,
+  interpolatePressure,
+  MIN_STROKE_WIDTH,
+  MOUSE_DEFAULT_PRESSURE,
+  normalizePressure,
+  OneEuroPressureFilter,
+  pressureToWidth,
+} from './pressure';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
 export { computeOutputDimensions, estimateFileSize, renderRaster, supportsFormat } from './raster';
 export type {
@@ -272,9 +356,14 @@ export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textW
 export { warpTextToMesh } from './textWarpPipeline';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
+export type { BezierFitOptions } from './traceBezierFit';
+export { fitBezierToContour } from './traceBezierFit';
 export { traceSceneNodeOutline } from './tracing';
+export type { TritoneInterpolation, TritoneParams } from './tritone';
+export { applyTritone, tritoneMap } from './tritone';
 export type {
   Affine,
+  ArrowheadStyle,
   Backend,
   BlendMode,
   Color,
@@ -300,7 +389,12 @@ export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
-export { dispatchTrace } from './upscaleProviders/traceDispatch';
+export {
+  dispatchTrace,
+  parallelWasmTraceProvider,
+  TRACE_PROVIDER_CHAIN,
+  vtracerTraceProvider,
+} from './upscaleProviders/traceDispatch';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
 export type {

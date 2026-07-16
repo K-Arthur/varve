@@ -23,6 +23,11 @@ if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
 }
 
+// Polyfill scrollIntoView for jsdom — used by FloatingPortal/Select components
+if (typeof Element !== 'undefined' && !Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
 /**
  * Research basis: jsdom intentionally omits CanvasRenderingContext2D unless the
  * optional native canvas package is installed; shell tests only need a no-op

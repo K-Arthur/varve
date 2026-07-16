@@ -122,6 +122,24 @@ function ShellInner({
     return () => window.removeEventListener('paste', handler);
   }, [editor]);
 
+  // Test-only: allow direct LUT import via custom event (bypasses file input)
+  useEffect(() => {
+    // Expose a global function for E2E tests to call directly
+    (window as any).__importLut = (adj: any) => {
+      editor.addLutAdjustment(adj);
+    };
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent;
+      const { adjustment } = ce.detail ?? {};
+      if (adjustment) editor.addLutAdjustment(adjustment);
+    };
+    window.addEventListener('strata:test-import-lut', handler as EventListener);
+    return () => {
+      delete (window as any).__importLut;
+      window.removeEventListener('strata:test-import-lut', handler as EventListener);
+    };
+  }, [editor]);
+
   // Dispatch host file-open requests into tabs (dedupe/reuse handled by
   // editor.openFile). seq guards against re-dispatch on unrelated re-renders.
   const lastOpenSeq = useRef(0);
@@ -167,10 +185,12 @@ function ShellInner({
 
   // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid
   // column so the canvas reclaims the space.
-  const { leftPanelVisible, rightPanelVisible } = editor.state;
+  const { leftPanelVisible, rightPanelVisible, workspaceMode } = editor.state;
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
+  // Hide pagenav in drawing mode
+  const hidePageNav = workspaceMode === 'drawing';
 
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
@@ -209,9 +229,11 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
-        <div className="page-nav-container">
-          <PageNav />
-        </div>
+        {!hidePageNav && (
+          <div className="page-nav-container">
+            <PageNav />
+          </div>
+        )}
         <div
           className="editor__layers-panel editor__panel--glass"
           data-panel="layers"
@@ -411,13 +433,60 @@ function ShellInner({
         <input
           id="file-import-input"
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch"
+          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch,.cube,.3dl,.clf,.ctf"
           multiple
           style={{ display: 'none' }}
           onChange={async (e) => {
             const files = Array.from(e.target.files ?? []);
             if (files.length === 0) return;
             try {
+              // Route LUT files to the LUT-specific handler
+              const lutFiles = files.filter((f) => /\.(cube|3dl|clf|ctf)$/i.test(f.name));
+              if (lutFiles.length > 0) {
+                const { parseCubeData, parse3dlData, makeAdjustment } = await import(
+                  '@strata/engine'
+                );
+                for (const file of lutFiles) {
+                  const text = await file.text();
+                  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+                  try {
+                    let result;
+                    if (ext === 'cube') {
+                      result = parseCubeData(text);
+                    } else {
+                      result = parse3dlData(text);
+                    }
+                    const json = JSON.stringify(result.transform);
+                    const lutAdj = makeAdjustment(
+                      `lut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                      'lut',
+                      {
+                        lutJson: json,
+                        originalFilename: file.name,
+                        inputSpace: 'sRGB' as const,
+                        interpolation: 'tetrahedral' as const,
+                        intensity: 1,
+                        linearize: false,
+                        visible: true,
+                        opacity: 0,
+                      },
+                    );
+                    editor.addLutAdjustment(lutAdj);
+                    editor.announce(`Imported LUT: ${file.name}`);
+                  } catch (err) {
+                    editor.announce(
+                      `LUT import failed: ${err instanceof Error ? err.message : String(err)}`,
+                    );
+                  }
+                }
+                // Filter out LUT files from the remaining import
+                const remaining = files.filter((f) => !/\.(cube|3dl)$/i.test(f.name));
+                if (remaining.length === 0) {
+                  e.target.value = '';
+                  return;
+                }
+                // Fall through to normal import for remaining files
+              }
               const { ImportService } = await import('@strata/import');
               const report = await ImportService.importFiles(
                 await Promise.all(

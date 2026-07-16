@@ -13,7 +13,9 @@ import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
 import {
   applyBackgroundBlurBackdrop,
+  applyChromaticAberration,
   applyGlassMaterialBackdrop,
+  applyGlitch,
   applyLayerBlur,
   applyStyleOverrides,
   CompositeCanvas,
@@ -198,12 +200,174 @@ function subtreeEffectPadding(document: Document, rootIds: readonly NodeId[]): n
           padding = Math.max(padding, effect.blur * 3 + effect.spread);
         } else if (effect.type === 'layerBlur') {
           padding = Math.max(padding, effect.radius * 3);
+        } else if (effect.type === 'chromaticAberration') {
+          const intensity = effect.intensity ?? 1;
+          const o = effect.offsets;
+          padding = Math.max(
+            padding,
+            Math.ceil(
+              Math.max(
+                Math.abs(o.redX),
+                Math.abs(o.redY),
+                Math.abs(o.greenX),
+                Math.abs(o.greenY),
+                Math.abs(o.blueX),
+                Math.abs(o.blueY),
+              ) * intensity,
+            ),
+          );
+        } else if (effect.type === 'glitch') {
+          const o = effect.channelShift;
+          padding = Math.max(
+            padding,
+            Math.ceil(
+              Math.max(
+                effect.strength,
+                effect.blockStrength,
+                Math.abs(o.redX),
+                Math.abs(o.redY),
+                Math.abs(o.greenX),
+                Math.abs(o.greenY),
+                Math.abs(o.blueX),
+                Math.abs(o.blueY),
+              ),
+            ),
+          );
         }
       }
     }
     if ('children' in node) stack.push(...node.children);
   }
   return Math.ceil(padding);
+}
+
+/**
+ * Render an inner shadow or inner glow effect on a pre-flattened group canvas.
+ * Uses the same silhouette-difference technique as paintInsetEffect in replay.ts
+ * but operates on a CompositeCanvas containing the full group's rendered content.
+ */
+function renderGroupInsetEffect(
+  effect: {
+    type: 'innerShadow' | 'innerGlow';
+    blur: number;
+    spread: number;
+    color: import('@strata/engine').EngineColor;
+    opacity: number;
+    blendMode: import('@strata/scene').BlendMode;
+  },
+  gCanvas: CompositeCanvas,
+  renderScale: number,
+  mode: 'shadow' | 'glow',
+): void {
+  const w = gCanvas.width;
+  const h = gCanvas.height;
+  if (w <= 0 || h <= 0) return;
+
+  const blur = effect.blur * renderScale;
+  const spread = effect.spread * renderScale;
+  const ctx = gCanvas.ctx;
+
+  // Get full silhouette of the group content
+  const silhouetteData = ctx.getImageData(0, 0, w, h);
+
+  // Create an offscreen canvas for the inset effect
+  const insetCanvas = document.createElement('canvas');
+  insetCanvas.width = w;
+  insetCanvas.height = h;
+  const insetCtx = insetCanvas.getContext('2d');
+  if (!insetCtx) return;
+
+  if (mode === 'shadow') {
+    // Inner shadow: offset the silhouette and subtract from original
+    // Draw full silhouette first
+    insetCtx.putImageData(silhouetteData, 0, 0);
+    // Apply shadow color via source-in
+    insetCtx.globalCompositeOperation = 'source-in';
+    const { r, g, b } = 'r' in effect.color ? effect.color : { r: 0, g: 0, b: 0 };
+    insetCtx.fillStyle = `rgba(${r},${g},${b},1)`;
+    insetCtx.fillRect(0, 0, w, h);
+    insetCtx.globalCompositeOperation = 'source-over';
+
+    // Blur the solid silhouette
+    const blurData = insetCtx.getImageData(0, 0, w, h);
+    if (blur > 0) {
+      const { gaussianBlurSeparable } = require('@strata/engine');
+      const blurred = gaussianBlurSeparable(blurData, Math.max(1, blur));
+      insetCtx.putImageData(blurred, 0, 0);
+    }
+
+    // Cut hole where original content was
+    insetCtx.globalCompositeOperation = 'destination-out';
+    insetCtx.putImageData(silhouetteData, 0, 0);
+    insetCtx.globalCompositeOperation = 'source-over';
+
+    // Composite the inset shadow onto the group canvas with effect opacity
+    const insetImage = insetCtx.getImageData(0, 0, w, h).data;
+    const dst = ctx.getImageData(0, 0, w, h);
+    const opacity = effect.opacity ?? 1;
+    for (let i = 3; i < dst.data.length; i += 4) {
+      const sa = insetImage[i]! / 255;
+      dst.data[i - 3] = dst.data[i - 3]! * (1 - sa * opacity);
+      dst.data[i - 2] = dst.data[i - 2]! * (1 - sa * opacity);
+      dst.data[i - 1] = dst.data[i - 1]! * (1 - sa * opacity);
+      dst.data[i] = Math.max(dst.data[i]!, insetImage[i]! * opacity);
+    }
+    ctx.putImageData(dst, 0, 0);
+  } else {
+    // Inner glow: shrink silhouette, blur the ring between original and shrunken
+    const shrinkPx = Math.max(1, Math.round(spread));
+    // Draw full silhouette
+    insetCtx.putImageData(silhouetteData, 0, 0);
+    // Erode by spread (darken at edges)
+    if (spread > 0) {
+      const erodeCanvas = document.createElement('canvas');
+      erodeCanvas.width = w;
+      erodeCanvas.height = h;
+      const erodeCtx = erodeCanvas.getContext('2d');
+      if (erodeCtx) {
+        erodeCtx.putImageData(silhouetteData, 0, 0);
+        erodeCtx.filter = `blur(${shrinkPx}px)`;
+        erodeCtx.globalCompositeOperation = 'source-over';
+        erodeCtx.drawImage(insetCanvas, 0, 0);
+        const erodeResult = erodeCtx.getImageData(0, 0, w, h);
+        insetCtx.putImageData(erodeResult, 0, 0);
+      }
+    }
+    // Colorize to glow color
+    insetCtx.globalCompositeOperation = 'source-in';
+    const { r: gr, g: gg, b: gb } = 'r' in effect.color ? effect.color : { r: 200, g: 200, b: 255 };
+    insetCtx.fillStyle = `rgba(${gr},${gg},${gb},1)`;
+    insetCtx.fillRect(0, 0, w, h);
+    insetCtx.globalCompositeOperation = 'source-over';
+
+    // Blur
+    const gData = insetCtx.getImageData(0, 0, w, h);
+    if (blur > 0) {
+      const { gaussianBlurSeparable } = require('@strata/engine');
+      const blurred = gaussianBlurSeparable(gData, Math.max(1, blur));
+      insetCtx.putImageData(blurred, 0, 0);
+    }
+
+    // Subtract original silhouette (glow only where content exists)
+    insetCtx.globalCompositeOperation = 'destination-in';
+    insetCtx.putImageData(silhouetteData, 0, 0);
+    insetCtx.globalCompositeOperation = 'source-over';
+
+    // Composite
+    const glowImage = insetCtx.getImageData(0, 0, w, h);
+    const dst = ctx.getImageData(0, 0, w, h);
+    const opacity = effect.opacity ?? 1;
+    for (let i = 0; i < dst.data.length; i += 4) {
+      const ga = glowImage.data[i + 3]! / 255;
+      dst.data[i] = dst.data[i]! * (1 - ga * opacity) + glowImage.data[i]! * ga * opacity;
+      dst.data[i + 1] =
+        dst.data[i + 1]! * (1 - ga * opacity) + glowImage.data[i + 1]! * ga * opacity;
+      dst.data[i + 2] =
+        dst.data[i + 2]! * (1 - ga * opacity) + glowImage.data[i + 2]! * ga * opacity;
+      dst.data[i + 3] = Math.max(dst.data[i + 3]!, glowImage.data[i + 3]!);
+    }
+    ctx.putImageData(dst, 0, 0);
+  }
 }
 
 /**
@@ -1198,7 +1362,7 @@ export function CanvasArea({
               nodeId,
               fn.transform,
               styleKey,
-              cacheContentParts(fn),
+              cacheContentParts(fn).parts,
             );
             const cached = subtreeIrCacheRef.current.get(nodeId, hash);
             if (cached) {
@@ -1225,7 +1389,7 @@ export function CanvasArea({
                 nodeId,
                 fn.transform,
                 styleKey,
-                cacheContentParts(fn),
+                cacheContentParts(fn).parts,
               );
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
@@ -1244,7 +1408,7 @@ export function CanvasArea({
                 nodeId,
                 fn.transform,
                 styleKey,
-                cacheContentParts(fn),
+                cacheContentParts(fn).parts,
               );
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
@@ -1782,11 +1946,14 @@ export function CanvasArea({
                     );
                     targetCtx.restore();
                   }
-                } else if (
-                  effect.type !== 'dropShadow' &&
-                  effect.type !== 'outerGlow' &&
-                  effect.type !== 'backgroundBlur'
-                ) {
+                } else if (effect.type === 'chromaticAberration') {
+                  applyChromaticAberration(gCanvas, groupWidth, groupHeight, effect);
+                } else if (effect.type === 'glitch') {
+                  applyGlitch(gCanvas, groupWidth, groupHeight, effect);
+                } else if (effect.type === 'innerShadow') {
+                  renderGroupInsetEffect(effect, gCanvas, renderScale, 'shadow');
+                } else if (effect.type === 'innerGlow') {
+                  renderGroupInsetEffect(effect, gCanvas, renderScale, 'glow');
                 }
               }
               const bm = n.blendMode ?? 'passThrough';

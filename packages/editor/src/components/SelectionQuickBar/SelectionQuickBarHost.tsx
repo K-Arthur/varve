@@ -14,12 +14,15 @@ export interface SelectionQuickBarHostProps {
   textEditTargetId: string | null;
   setTextEditTargetId: (id: string | null) => void;
   setNodeEditTargetId: (id: string | null) => void;
+  /** Canvas's own rendered height (CSS px), for clamping the bar on-screen. */
+  containerHeight: number;
 }
 
 export function SelectionQuickBarHost({
   textEditTargetId,
   setTextEditTargetId,
   setNodeEditTargetId,
+  containerHeight,
 }: SelectionQuickBarHostProps) {
   const editor = useEditor();
   const { state } = editor;
@@ -157,6 +160,7 @@ export function SelectionQuickBarHost({
     <SelectionQuickBar
       profile={profile}
       screenBounds={screenBounds}
+      containerHeight={containerHeight}
       onAction={(id) => {
         void onAction(id);
       }}
