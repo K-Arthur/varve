@@ -76,6 +76,8 @@ export interface BackgroundRemovalProvenance {
   confidence?: number;
   /** Legacy edge-colour cleanup setting retained during v2.0 migration. */
   decontaminate?: boolean;
+  /** How this raster mask entered the native asset table. */
+  origin?: 'native' | 'legacy-background-removal-preview';
 }
 
 /** Immutable PNG payload stored once at the document level. */
@@ -89,14 +91,34 @@ export interface RasterMaskAsset {
   checksum?: string;
 }
 
+/**
+ * Identity of the source pixels used to generate a raster mask.
+ * `source-metadata` is deterministic but deliberately does not claim to be a
+ * content digest. Callers with a verified digest should use `content-sha256`.
+ */
+export type RasterMaskSourceIdentity =
+  | {
+      kind: 'source-metadata';
+      locator: string;
+      pixelWidth?: number;
+      pixelHeight?: number;
+      revision: number;
+    }
+  | {
+      kind: 'content-sha256';
+      sha256: string;
+      pixelWidth?: number;
+      pixelHeight?: number;
+      revision: number;
+    };
+
 /** Placement and source-revision metadata for a raster alpha mask. */
 export interface RasterMaskData {
   assetId: string;
-  coordinateSpace: 'source-image-pixels';
-  sourceFingerprint: string;
-  sourcePixelRevision: number;
+  coordinateSpace: 'source-image-pixels' | 'legacy-preview-pixels';
+  sourceIdentity: RasterMaskSourceIdentity;
   editRevision?: number;
-  staleReason?: 'source-replaced' | 'source-changed';
+  staleReason?: 'source-replaced' | 'source-changed' | 'legacy-preview-resolution';
   provenance?: BackgroundRemovalProvenance;
 }
 
@@ -125,15 +147,10 @@ export interface RasterMaskData {
  * Research basis: Figma mask model, Adobe Photoshop layer masks,
  * Affinity Designer pixel/vector masks, SVG <clipPath>/<mask> specs.
  */
-export interface Mask {
+interface MaskPresentation {
   /** How the mask source controls visibility of masked content. */
   type: MaskType;
   /** Id of the child node used as the mask source. Must be a child of the container. */
-  sourceNodeId?: NodeId;
-  /** Independent vector mask path data (overrides sourceNodeId for geometry). */
-  vectorMask?: VectorMaskData;
-  /** Source-resolution alpha matte owned by the document asset table. */
-  rasterMask?: RasterMaskData;
   /** Whether the mask is active. When false, the mask is ignored during rendering. */
   visible: boolean;
   /**
@@ -180,6 +197,18 @@ export interface Mask {
    */
   hideMaskSource?: boolean;
 }
+
+/**
+ * Exactly one effective mask source is present. A vector mask may additionally
+ * reference a child node as optional visual content; vectorMask remains the
+ * sole geometry source in that form.
+ */
+export type Mask = MaskPresentation &
+  (
+    | { sourceNodeId: NodeId; vectorMask?: never; rasterMask?: never }
+    | { vectorMask: VectorMaskData; sourceNodeId?: NodeId; rasterMask?: never }
+    | { rasterMask: RasterMaskData; sourceNodeId?: never; vectorMask?: never }
+  );
 
 // ── Guide interface ──────────────────────────────────────────────────────────
 

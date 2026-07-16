@@ -1,4 +1,4 @@
-export const CURRENT_DOCUMENT_VERSION = '2.1';
+export const CURRENT_DOCUMENT_VERSION = '2.2';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -14,6 +14,7 @@ export const SUPPORTED_VERSIONS = [
   '1.10',
   '2.0',
   '2.1',
+  '2.2',
 ];
 
 export interface DocumentMigration {
@@ -284,6 +285,11 @@ const migrations: DocumentMigration[] = [
     to: '2.1',
     migrate: (raw) => normalizeLegacyBackgroundRemoval({ ...raw, formatVersion: '2.1' }),
   },
+  {
+    from: '2.1',
+    to: '2.2',
+    migrate: (raw) => normalizeV21RasterMaskIdentity({ ...raw, formatVersion: '2.2' }),
+  },
 ];
 
 export interface MigrationResult {
@@ -323,6 +329,24 @@ function decodedBase64Length(dataUrl: string): number {
   if (!payload) return 0;
   const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
+}
+
+function legacyPngDimensions(dataUrl: string): { width: number; height: number } | null {
+  if (!dataUrl.startsWith('data:image/png;base64,')) return null;
+  try {
+    const header = atob(dataUrl.slice(dataUrl.indexOf(',') + 1, dataUrl.indexOf(',') + 33));
+    if (header.length < 24 || header.slice(1, 4) !== 'PNG' || header.slice(12, 16) !== 'IHDR') {
+      return null;
+    }
+    const readU32 = (offset: number) =>
+      header.charCodeAt(offset) * 0x1000000 +
+      header.charCodeAt(offset + 1) * 0x10000 +
+      header.charCodeAt(offset + 2) * 0x100 +
+      header.charCodeAt(offset + 3);
+    return { width: readU32(16), height: readU32(20) };
+  } catch {
+    return null;
+  }
 }
 
 function legacyImageMetadata(node: Record<string, unknown>): {
@@ -367,6 +391,42 @@ function collisionSafeLegacyAssetId(
   }
 }
 
+function normalizeV21RasterMaskIdentity(raw: Record<string, unknown>): Record<string, unknown> {
+  const rawNodes = (raw.nodes as Record<string, Record<string, unknown>> | undefined) ?? {};
+  const nodes: Record<string, Record<string, unknown>> = {};
+  for (const [nodeId, node] of Object.entries(rawNodes)) {
+    const mask = node.mask as Record<string, unknown> | undefined;
+    const rasterMask = mask?.rasterMask as Record<string, unknown> | undefined;
+    if (!mask || !rasterMask || rasterMask.sourceIdentity) {
+      nodes[nodeId] = node;
+      continue;
+    }
+    const fingerprint =
+      typeof rasterMask.sourceFingerprint === 'string' ? rasterMask.sourceFingerprint : nodeId;
+    const checksumMatch = /^sha256:([a-f0-9]{64})$/.exec(fingerprint);
+    const locator = fingerprint.replace(/^(?:source|legacy):/, '');
+    const revision =
+      Number.isInteger(rasterMask.sourcePixelRevision) &&
+      (rasterMask.sourcePixelRevision as number) >= 0
+        ? (rasterMask.sourcePixelRevision as number)
+        : 1;
+    const { sourceFingerprint: _fingerprint, sourcePixelRevision: _revision, ...rest } = rasterMask;
+    nodes[nodeId] = {
+      ...node,
+      mask: {
+        ...mask,
+        rasterMask: {
+          ...rest,
+          sourceIdentity: checksumMatch
+            ? { kind: 'content-sha256', sha256: checksumMatch[1], revision }
+            : { kind: 'source-metadata', locator, revision },
+        },
+      },
+    };
+  }
+  return { ...raw, nodes };
+}
+
 /** Convert deprecated inline background-removal payloads to v2.1 mask assets. */
 export function normalizeLegacyBackgroundRemoval(
   raw: Record<string, unknown>,
@@ -395,11 +455,16 @@ export function normalizeLegacyBackgroundRemoval(
     }
 
     const metadata = legacyImageMetadata(node);
+    const previewDimensions = legacyPngDimensions(legacy.maskDataUrl);
+    if (!previewDimensions) {
+      nodes[nodeId] = normalizedNode;
+      continue;
+    }
     const assetData = {
       mimeType: 'image/png',
       dataUrl: legacy.maskDataUrl,
-      width: metadata.width,
-      height: metadata.height,
+      width: previewDimensions.width,
+      height: previewDimensions.height,
       byteLength: decodedBase64Length(legacy.maskDataUrl),
     };
     const assetId = collisionSafeLegacyAssetId(
@@ -415,9 +480,19 @@ export function normalizeLegacyBackgroundRemoval(
         typeof legacy.feather === 'number' && legacy.feather > 0 ? legacy.feather : undefined,
       rasterMask: {
         assetId,
-        coordinateSpace: 'source-image-pixels',
-        sourceFingerprint: `legacy:${metadata.src}`,
-        sourcePixelRevision: 1,
+        coordinateSpace: 'legacy-preview-pixels',
+        sourceIdentity: {
+          kind: 'source-metadata',
+          locator: metadata.src,
+          ...(Number.isInteger(metadata.width) && metadata.width > 0
+            ? { pixelWidth: metadata.width }
+            : {}),
+          ...(Number.isInteger(metadata.height) && metadata.height > 0
+            ? { pixelHeight: metadata.height }
+            : {}),
+          revision: 1,
+        },
+        staleReason: 'legacy-preview-resolution',
         provenance: {
           method:
             legacy.method === 'quick' ||
@@ -430,6 +505,7 @@ export function normalizeLegacyBackgroundRemoval(
           confidence: typeof legacy.confidence === 'number' ? legacy.confidence : undefined,
           decontaminate:
             typeof legacy.decontaminate === 'boolean' ? legacy.decontaminate : undefined,
+          origin: 'legacy-background-removal-preview',
         },
       },
     };

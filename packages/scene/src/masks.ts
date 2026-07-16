@@ -16,6 +16,7 @@
  */
 import type { Affine, PathPoint } from '@strata/engine';
 import type { Document } from './document';
+import { resolveNodePaints } from './paint';
 import type {
   Mask,
   MaskFillRule,
@@ -23,19 +24,35 @@ import type {
   NodeId,
   RasterMaskAsset,
   RasterMaskData,
+  RasterMaskSourceIdentity,
   SceneNode,
   ShapeNode,
   VectorMaskData,
 } from './types';
 
 export const RASTER_MASK_MAX_DIMENSION = 16_384;
-export const RASTER_MASK_MAX_DECODED_PIXELS = 268_435_456;
+// Portable decoders reliably support 128 Mi pixels; the prior 256 Mi-pixel
+// ceiling admitted 16K-square assets that could not be decoded cross-platform.
+// Existing supported assets at or below this bound remain unaffected.
+export const RASTER_MASK_MAX_DECODED_PIXELS = 134_217_728;
 export const RASTER_MASK_MAX_ENCODED_BYTES = 128 * 1024 * 1024;
 
 const PNG_DATA_URL_PATTERN =
   /^data:image\/png;base64,(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] as const;
 const PNG_DATA_URL_PREFIX = 'data:image/png;base64,';
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const ASSET_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:%-]{0,255}$/;
+const STALE_REASONS = ['source-replaced', 'source-changed', 'legacy-preview-resolution'] as const;
+const PROVENANCE_METHODS = ['quick', 'ai-balanced', 'ai-quality'] as const;
+const PROVENANCE_RUNTIMES = [
+  'typescript',
+  'wasm',
+  'webgpu',
+  'native-cpu',
+  'native-accelerated',
+] as const;
+const PROVENANCE_ORIGINS = ['native', 'legacy-background-removal-preview'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -66,9 +83,116 @@ function readU32Be(bytes: string, offset: number): number {
   );
 }
 
+function isSafeNonnegativeInteger(value: unknown): value is number {
+  return Number.isSafeInteger(value) && (value as number) >= 0;
+}
+
+function validateSourceIdentity(value: unknown): string | null {
+  if (!isRecord(value)) return 'Raster mask source identity must be an object';
+  if (!isSafeNonnegativeInteger(value.revision)) {
+    return 'Raster mask source identity revision must be a safe nonnegative integer';
+  }
+  for (const key of ['pixelWidth', 'pixelHeight'] as const) {
+    if (
+      value[key] !== undefined &&
+      (!Number.isInteger(value[key]) ||
+        (value[key] as number) <= 0 ||
+        (value[key] as number) > RASTER_MASK_MAX_DIMENSION)
+    ) {
+      return `Raster mask source identity ${key} must be a supported positive integer`;
+    }
+  }
+  if ((value.pixelWidth === undefined) !== (value.pixelHeight === undefined)) {
+    return 'Raster mask source identity pixel dimensions must be provided together';
+  }
+  if (value.kind === 'source-metadata') {
+    if ('sha256' in value) {
+      return 'Raster mask source identity contains a field from another identity kind';
+    }
+    if (
+      typeof value.locator !== 'string' ||
+      value.locator.length === 0 ||
+      value.locator.length > 8192
+    ) {
+      return 'Raster mask source identity locator must be a nonempty string';
+    }
+    return null;
+  }
+  if (value.kind === 'content-sha256') {
+    if ('locator' in value) {
+      return 'Raster mask source identity contains a field from another identity kind';
+    }
+    if (typeof value.sha256 !== 'string' || !SHA256_PATTERN.test(value.sha256)) {
+      return 'Raster mask source identity SHA-256 must be 64 lowercase hexadecimal characters';
+    }
+    return null;
+  }
+  return 'Raster mask source identity kind is unsupported';
+}
+
+function validateProvenance(value: unknown): string | null {
+  if (!isRecord(value)) return 'Raster mask provenance must be an object';
+  if (!PROVENANCE_METHODS.includes(value.method as (typeof PROVENANCE_METHODS)[number])) {
+    return 'Raster mask provenance method is unsupported';
+  }
+  if (!PROVENANCE_RUNTIMES.includes(value.runtime as (typeof PROVENANCE_RUNTIMES)[number])) {
+    return 'Raster mask provenance runtime is unsupported';
+  }
+  if (
+    typeof value.generatedAt !== 'number' ||
+    !Number.isFinite(value.generatedAt) ||
+    value.generatedAt < 0 ||
+    value.generatedAt > Number.MAX_SAFE_INTEGER
+  ) {
+    return 'Raster mask provenance generatedAt must be a supported nonnegative timestamp';
+  }
+  for (const key of ['modelId', 'modelVersion'] as const) {
+    if (
+      value[key] !== undefined &&
+      (typeof value[key] !== 'string' || value[key].length === 0 || value[key].length > 1024)
+    ) {
+      return `Raster mask provenance ${key} must be a nonempty string`;
+    }
+  }
+  if (
+    value.modelChecksum !== undefined &&
+    (typeof value.modelChecksum !== 'string' || !SHA256_PATTERN.test(value.modelChecksum))
+  ) {
+    return 'Raster mask provenance modelChecksum must be a lowercase SHA-256 digest';
+  }
+  if (
+    value.confidence !== undefined &&
+    (typeof value.confidence !== 'number' ||
+      !Number.isFinite(value.confidence) ||
+      value.confidence < 0 ||
+      value.confidence > 1)
+  ) {
+    return 'Raster mask provenance confidence must be between zero and one';
+  }
+  if (value.decontaminate !== undefined && typeof value.decontaminate !== 'boolean') {
+    return 'Raster mask provenance decontaminate must be boolean';
+  }
+  if (
+    value.origin !== undefined &&
+    !PROVENANCE_ORIGINS.includes(value.origin as (typeof PROVENANCE_ORIGINS)[number])
+  ) {
+    return 'Raster mask provenance origin is unsupported';
+  }
+  return null;
+}
+
 /** Validate declared raster asset metadata without decoding PNG headers. */
 export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
   if (!isRecord(asset)) return 'Raster mask asset must be an object';
+  if (typeof asset.id !== 'string' || !ASSET_ID_PATTERN.test(asset.id)) {
+    return 'Raster mask asset id must use the portable asset-id syntax';
+  }
+  if (
+    asset.checksum !== undefined &&
+    (typeof asset.checksum !== 'string' || !SHA256_PATTERN.test(asset.checksum))
+  ) {
+    return `Raster mask ${asset.id} checksum must be a lowercase SHA-256 digest`;
+  }
   if (
     asset.mimeType !== 'image/png' ||
     !PNG_DATA_URL_PATTERN.test(asset.dataUrl) ||
@@ -112,7 +236,16 @@ export function validateRasterMaskAsset(asset: RasterMaskAsset): string | null {
 }
 
 /** Validate the source union and, when supplied, its document asset reference. */
-export function validateMaskSource(doc: Document | undefined, mask: Mask): string | null {
+export function validateMaskSource(
+  doc: Document | undefined,
+  mask: {
+    type: MaskType;
+    visible?: boolean;
+    sourceNodeId?: NodeId;
+    vectorMask?: VectorMaskData;
+    rasterMask?: RasterMaskData;
+  },
+): string | null {
   if (mask.rasterMask && ('sourceNodeId' in mask || 'vectorMask' in mask)) {
     return 'A raster mask source must be exclusive of structural source properties';
   }
@@ -124,17 +257,50 @@ export function validateMaskSource(doc: Document | undefined, mask: Mask): strin
   if (sourceCount !== 1) return 'A mask must define exactly one meaningful source';
   if (mask.rasterMask) {
     if (mask.type !== 'alpha') return 'A raster mask must use alpha mask type';
-    if (mask.rasterMask.coordinateSpace !== 'source-image-pixels') {
-      return 'A raster mask must use source-image-pixels coordinate space';
-    }
-    if (!mask.rasterMask.assetId || !mask.rasterMask.sourceFingerprint) {
-      return 'A raster mask must identify its asset and source fingerprint';
+    if (
+      mask.rasterMask.coordinateSpace !== 'source-image-pixels' &&
+      mask.rasterMask.coordinateSpace !== 'legacy-preview-pixels'
+    ) {
+      return 'A raster mask must use a supported pixel coordinate space';
     }
     if (
-      !Number.isInteger(mask.rasterMask.sourcePixelRevision) ||
-      mask.rasterMask.sourcePixelRevision < 0
+      mask.rasterMask.coordinateSpace === 'legacy-preview-pixels' &&
+      (mask.rasterMask.staleReason !== 'legacy-preview-resolution' ||
+        mask.rasterMask.provenance?.origin !== 'legacy-background-removal-preview')
     ) {
-      return 'A raster mask source pixel revision must be a nonnegative integer';
+      return 'A legacy preview raster mask must retain preview provenance and staleness';
+    }
+    if (
+      mask.rasterMask.coordinateSpace === 'source-image-pixels' &&
+      (mask.rasterMask.staleReason === 'legacy-preview-resolution' ||
+        mask.rasterMask.provenance?.origin === 'legacy-background-removal-preview')
+    ) {
+      return 'Legacy preview status requires the legacy preview coordinate space';
+    }
+    if (
+      typeof mask.rasterMask.assetId !== 'string' ||
+      !ASSET_ID_PATTERN.test(mask.rasterMask.assetId) ||
+      !mask.rasterMask.sourceIdentity
+    ) {
+      return 'A raster mask must identify its asset and source identity';
+    }
+    const identityError = validateSourceIdentity(mask.rasterMask.sourceIdentity);
+    if (identityError) return identityError;
+    if (
+      mask.rasterMask.editRevision !== undefined &&
+      !isSafeNonnegativeInteger(mask.rasterMask.editRevision)
+    ) {
+      return 'A raster mask edit revision must be a safe nonnegative integer';
+    }
+    if (
+      mask.rasterMask.staleReason !== undefined &&
+      !STALE_REASONS.includes(mask.rasterMask.staleReason)
+    ) {
+      return 'A raster mask stale reason is unsupported';
+    }
+    if (mask.rasterMask.provenance !== undefined) {
+      const provenanceError = validateProvenance(mask.rasterMask.provenance);
+      if (provenanceError) return provenanceError;
     }
     if (doc && !doc.rasterMaskAssets?.[mask.rasterMask.assetId]) {
       return `Missing raster mask asset ${mask.rasterMask.assetId}`;
@@ -143,11 +309,66 @@ export function validateMaskSource(doc: Document | undefined, mask: Mask): strin
   return null;
 }
 
+function knownIdentityDimensions(
+  identity: RasterMaskSourceIdentity,
+): { width: number; height: number } | null {
+  return identity.pixelWidth !== undefined && identity.pixelHeight !== undefined
+    ? { width: identity.pixelWidth, height: identity.pixelHeight }
+    : null;
+}
+
+function knownOrientedSourceDimensions(
+  doc: Document,
+  node: SceneNode,
+): { width: number; height: number } | null {
+  const image = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  ).find((fill) => fill.type === 'image')?.image;
+  return image &&
+    Number.isInteger(image.imageWidth) &&
+    Number.isInteger(image.imageHeight) &&
+    image.imageWidth! > 0 &&
+    image.imageHeight! > 0
+    ? { width: image.imageWidth!, height: image.imageHeight! }
+    : null;
+}
+
+function validateSourcePixelDimensions(
+  doc: Document,
+  node: SceneNode,
+  rasterMask: RasterMaskData,
+  asset: RasterMaskAsset,
+): string | null {
+  if (rasterMask.coordinateSpace !== 'source-image-pixels') return null;
+  const identityDimensions = knownIdentityDimensions(rasterMask.sourceIdentity);
+  if (
+    identityDimensions &&
+    (asset.width !== identityDimensions.width || asset.height !== identityDimensions.height)
+  ) {
+    return `${node.id}: Raster mask source identity dimensions must match its asset dimensions`;
+  }
+  const sourceDimensions = knownOrientedSourceDimensions(doc, node);
+  if (
+    sourceDimensions &&
+    (asset.width !== sourceDimensions.width || asset.height !== sourceDimensions.height)
+  ) {
+    return `${node.id}: Raster mask dimensions must match the oriented source dimensions`;
+  }
+  return null;
+}
+
 /** Validate every mask source and document-owned raster payload. */
 export function validateRasterMaskDocument(doc: Document): string | null {
-  for (const asset of Object.values(doc.rasterMaskAssets ?? {}) as unknown[]) {
+  for (const [tableKey, asset] of Object.entries(doc.rasterMaskAssets ?? {}) as [
+    string,
+    unknown,
+  ][]) {
     const error = validateRasterMaskAsset(asset as RasterMaskAsset);
     if (error) return error;
+    if ((asset as RasterMaskAsset).id !== tableKey) {
+      return `Raster mask asset table key ${tableKey} must match asset id`;
+    }
   }
   for (const nodeValue of Object.values(doc.nodes) as unknown[]) {
     if (!isRecord(nodeValue)) return 'Document node must be an object';
@@ -170,6 +391,18 @@ export function validateRasterMaskDocument(doc: Document): string | null {
     if (error) return `${node.id}: ${error}`;
     if (node.mask.rasterMask && !isImageShape(node)) {
       return `${node.id}: Raster masks may only attach to image-filled shape nodes`;
+    }
+    if (node.mask.rasterMask) {
+      const asset = doc.rasterMaskAssets?.[node.mask.rasterMask.assetId];
+      if (asset) {
+        const dimensionError = validateSourcePixelDimensions(
+          doc,
+          node,
+          node.mask.rasterMask,
+          asset,
+        );
+        if (dimensionError) return dimensionError;
+      }
     }
   }
   return null;
@@ -315,10 +548,15 @@ export function canNodeHaveMask(node: SceneNode): boolean {
 
 const VALID_MASK_TYPES: MaskType[] = ['clip', 'alpha', 'luminance'];
 
-function imageSourceFingerprint(node: ShapeNode): string {
-  const src =
-    node.fills?.find((fill) => fill.type === 'image' && fill.image)?.image?.src ?? node.id;
-  return src.startsWith('source:') ? src : `source:${src}`;
+function imageSourceIdentity(node: ShapeNode, revision: number): RasterMaskSourceIdentity {
+  const image = node.fills?.find((fill) => fill.type === 'image' && fill.image)?.image;
+  return {
+    kind: 'source-metadata',
+    locator: image?.src ?? node.id,
+    ...(image?.imageWidth !== undefined ? { pixelWidth: image.imageWidth } : {}),
+    ...(image?.imageHeight !== undefined ? { pixelHeight: image.imageHeight } : {}),
+    revision,
+  };
 }
 
 function rasterAssetsEqual(left: RasterMaskAsset, right: RasterMaskAsset): boolean {
@@ -364,21 +602,23 @@ export function addRasterMaskAsset(
   const existing = doc.rasterMaskAssets?.[asset.id];
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
 
+  const revision = rasterMask?.sourceIdentity?.revision ?? 1;
   const maskData: RasterMaskData = {
     assetId: asset.id,
     coordinateSpace: 'source-image-pixels',
-    sourceFingerprint: rasterMask?.sourceFingerprint ?? imageSourceFingerprint(node),
-    sourcePixelRevision: rasterMask?.sourcePixelRevision ?? 1,
-    editRevision: rasterMask?.editRevision,
-    staleReason: rasterMask?.staleReason,
-    provenance: rasterMask?.provenance,
+    sourceIdentity: rasterMask?.sourceIdentity ?? imageSourceIdentity(node, revision),
+    ...(rasterMask?.editRevision !== undefined ? { editRevision: rasterMask.editRevision } : {}),
+    ...(rasterMask?.staleReason !== undefined ? { staleReason: rasterMask.staleReason } : {}),
+    ...(rasterMask?.provenance !== undefined ? { provenance: rasterMask.provenance } : {}),
   };
   const mask: Mask = { type: 'alpha', visible: true, rasterMask: maskData };
+  const candidate = {
+    ...doc,
+    rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset },
+  };
   if (
-    validateMaskSource(
-      { ...doc, rasterMaskAssets: { ...doc.rasterMaskAssets, [asset.id]: asset } },
-      mask,
-    )
+    validateMaskSource(candidate, mask) ||
+    validateSourcePixelDimensions(candidate, node, maskData, asset)
   ) {
     return doc;
   }
@@ -403,6 +643,7 @@ export function updateRasterMaskAsset(
   if (validateRasterMaskAsset(asset)) return doc;
   const existing = doc.rasterMaskAssets?.[asset.id];
   if (existing && !rasterAssetsEqual(existing, asset)) return doc;
+  if (validateSourcePixelDimensions(doc, node, current, asset)) return doc;
   const updated: Document = {
     ...doc,
     nodes: {
@@ -543,7 +784,7 @@ export function addMask(
     if (children && !children.includes(sourceNodeId)) return doc;
   }
 
-  const mask: Mask = {
+  const mask = {
     type,
     visible: opts?.visible ?? true,
     inverted: opts?.inverted,
@@ -557,7 +798,7 @@ export function addMask(
   };
 
   // Only set sourceNodeId if provided
-  const cleaned: Mask = { type: mask.type, visible: mask.visible };
+  const cleaned = { type: mask.type, visible: mask.visible } as unknown as Mask;
   if (sourceNodeId) cleaned.sourceNodeId = sourceNodeId;
   if (mask.inverted) cleaned.inverted = true;
   if (mask.feather !== undefined && mask.feather > 0) cleaned.feather = mask.feather;
@@ -752,12 +993,22 @@ export function setMaskFillRule(
 }
 
 /** Check if a mask has a self-contained vector path (not dependent on a child node). */
-export function hasVectorMask(mask: Mask): boolean {
+export function hasVectorMask(mask: {
+  type?: MaskType;
+  visible?: boolean;
+  sourceNodeId?: NodeId;
+  vectorMask?: VectorMaskData;
+}): boolean {
   return !!mask.vectorMask && mask.vectorMask.points.length > 0;
 }
 
 /** Check if a mask has a source node reference. */
-export function hasSourceNode(mask: Mask): boolean {
+export function hasSourceNode(mask: {
+  type?: MaskType;
+  visible?: boolean;
+  sourceNodeId?: NodeId;
+  vectorMask?: VectorMaskData;
+}): boolean {
   return !!mask.sourceNodeId;
 }
 
