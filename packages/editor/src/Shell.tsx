@@ -433,7 +433,7 @@ function ShellInner({
         <input
           id="file-import-input"
           type="file"
-          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch,.cube,.3dl"
+          accept=".svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd,.psb,.sketch,.cube,.3dl,.clf,.ctf"
           multiple
           style={{ display: 'none' }}
           onChange={async (e) => {
@@ -441,7 +441,7 @@ function ShellInner({
             if (files.length === 0) return;
             try {
               // Route LUT files to the LUT-specific handler
-              const lutFiles = files.filter((f) => /\.(cube|3dl)$/i.test(f.name));
+              const lutFiles = files.filter((f) => /\.(cube|3dl|clf|ctf)$/i.test(f.name));
               if (lutFiles.length > 0) {
                 const { parseCubeData, parse3dlData, makeAdjustment } = await import(
                   '@strata/engine'
@@ -467,6 +467,8 @@ function ShellInner({
                         interpolation: 'tetrahedral' as const,
                         intensity: 1,
                         linearize: false,
+                        visible: true,
+                        opacity: 0,
                       },
                     );
                     editor.addLutAdjustment(lutAdj);
