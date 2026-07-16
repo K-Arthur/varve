@@ -74,8 +74,10 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   spotHeal: 'J 3x',
 };
 
-/** Tools hidden in print mode (painting/retouch). */
-const PRINT_HIDDEN_TOOLS = new Set<ToolId>([
+/** Tools hidden in structured-layout modes (Print, Design): raster painting
+ *  and photo retouching aren't part of page-layout or UI-component work —
+ *  those live in Drawing and Image Editing mode respectively. */
+const STRUCTURED_MODE_HIDDEN_TOOLS = new Set<ToolId>([
   'paint',
   'eraser',
   'cloneStamp',
@@ -84,6 +86,10 @@ const PRINT_HIDDEN_TOOLS = new Set<ToolId>([
   'patch',
   'pencil',
 ]);
+
+/** Tools hidden in Image Editing mode: artboard creation isn't relevant when
+ *  editing an existing photo (retouch/mask tools stay — see INDIVIDUAL_TOOLS). */
+const IMAGE_HIDDEN_TOOLS = new Set<ToolId>(['frame']);
 
 /** Tools for the drawing toolbar subset (painting tools at front). */
 const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
@@ -271,10 +277,15 @@ export function FloatingToolbar() {
     : ('booleanUnion' as ToolId);
   const isDrawingMode = workspaceMode === 'drawing';
   const isPrintMode = workspaceMode === 'print';
+  const isImageMode = workspaceMode === 'image';
+  const isDesignMode = workspaceMode === 'design';
   const activeTools = isDrawingMode ? DRAWING_TOOLS : INDIVIDUAL_TOOLS;
-  const filteredTools = isPrintMode
-    ? activeTools.filter((t) => !PRINT_HIDDEN_TOOLS.has(t.id))
-    : activeTools;
+  const filteredTools =
+    isPrintMode || isDesignMode
+      ? activeTools.filter((t) => !STRUCTURED_MODE_HIDDEN_TOOLS.has(t.id))
+      : isImageMode
+        ? activeTools.filter((t) => !IMAGE_HIDDEN_TOOLS.has(t.id))
+        : activeTools;
 
   const shapeItems: MenuEntry[] = SHAPE_SUB_TOOLS.map((id) => ({
     id,
@@ -332,7 +343,7 @@ export function FloatingToolbar() {
           {filteredTools.map((t) => (
             <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
           ))}
-          {!isDrawingMode && (
+          {!isDrawingMode && !isImageMode && (
             <>
               <Tooltip
                 label={

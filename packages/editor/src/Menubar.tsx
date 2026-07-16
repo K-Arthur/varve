@@ -1,11 +1,18 @@
-import { AlertDialog, CHROME_ICONS, FloatingPortal, IconButton, StrataLogo } from '@strata/ui';
+import {
+  AlertDialog,
+  CHROME_ICONS,
+  FloatingPortal,
+  Icon,
+  IconButton,
+  StrataLogo,
+} from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
-import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
+import { WORKSPACE_ICONS, WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Plugins' | 'Help';
 
@@ -159,6 +166,22 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: 'Workspace: Design', action: 'workspaceDesign' },
       { label: 'Workspace: Print', action: 'workspacePrint' },
       { label: 'Workspace: Draw', action: 'workspaceDrawing' },
+      { label: 'Workspace: Photo', action: 'workspaceImage' },
+      {
+        label: 'Reset Workspace to Default',
+        action: 'resetWorkspace',
+      },
+      { label: '---' },
+      {
+        label: 'Distraction-Free Mode',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleDistractionFree.binding),
+        action: 'toggleDistractionFree',
+      },
+      {
+        label: 'Compare Before/After',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleBeforeAfterCompare.binding),
+        action: 'toggleBeforeAfterCompare',
+      },
       { label: '---' },
       {
         label: 'Fit Active Page',
@@ -382,6 +405,7 @@ export function Menubar({
     createMaster,
     toggleFacingPages,
     setWorkspaceMode,
+    toggleDistractionFreeMode,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -499,6 +523,9 @@ export function Menubar({
         case 'toggleFacingPages':
           toggleFacingPages();
           return;
+        case 'toggleDistractionFree':
+          toggleDistractionFreeMode();
+          return;
         case 'createMaster':
           createMaster('Master', 1920, 1080);
           return;
@@ -526,16 +553,6 @@ export function Menubar({
             return;
           }
           break;
-      }
-
-      // Workspace mode switching (outside the registry to avoid no-op stubs)
-      if (
-        action === 'workspaceDesign' ||
-        action === 'workspacePrint' ||
-        action === 'workspaceDrawing'
-      ) {
-        setWorkspaceMode(action.replace('workspace', '').toLowerCase() as WorkspaceMode);
-        return;
       }
 
       // Fallback to shared action registry
@@ -583,6 +600,7 @@ export function Menubar({
       createMaster,
       toggleFacingPages,
       setWorkspaceMode,
+      toggleDistractionFreeMode,
     ],
   );
 
@@ -820,23 +838,8 @@ export function Menubar({
         </FloatingPortal>
       )}
 
-      {/* ── Center: Workspace mode switcher + Document name ── */}
+      {/* ── Center: Document name ── */}
       <div className="editor-menubar__center">
-        <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
-          {(['design', 'print', 'drawing'] as WorkspaceMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              role="radio"
-              aria-checked={state.workspaceMode === mode}
-              className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-              onClick={() => setWorkspaceMode(mode)}
-              title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${mode === 'design' ? '1' : mode === 'print' ? '2' : '3'})`}
-            >
-              {WORKSPACE_LABELS[mode]}
-            </button>
-          ))}
-        </div>
         <div className="editor-menubar__doc-name">
           {editingName ? (
             <input
@@ -872,8 +875,27 @@ export function Menubar({
         </div>
       </div>
 
-      {/* ── Right: Zoom + Undo/Redo ── */}
+      {/* ── Right: Workspace switcher + Zoom + Undo/Redo ── */}
       <div className="editor-menubar__controls">
+        <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
+          {(['design', 'print', 'drawing', 'image'] as WorkspaceMode[]).map((mode, idx) => (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={state.workspaceMode === mode}
+              className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
+              onClick={() => setWorkspaceMode(mode)}
+              title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
+            >
+              <Icon name={WORKSPACE_ICONS[mode]} size={13} />
+              <span className="editor-menubar__workspace-btn-label">{WORKSPACE_LABELS[mode]}</span>
+            </button>
+          ))}
+        </div>
+        <span aria-hidden className="editor-menubar__zoom-divider">
+          |
+        </span>
         <IconButton icon={CHROME_ICONS.undo} label="Undo" size="sm" onClick={undo} />
         <IconButton icon={CHROME_ICONS.redo} label="Redo" size="sm" onClick={redo} />
         <div className="editor-menubar__zoom">

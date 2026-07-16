@@ -19,6 +19,18 @@ if (process.env.CI || process.env.NODE_ENV === 'ci') {
   process.exit(0);
 }
 
+// In a linked git worktree, `.git` is a file (pointing at the main repo's
+// worktrees/<name> gitdir), not a directory — hooks live at the main repo
+// instead. Skip rather than crash the install.
+try {
+  if (!statSync(join(repoRoot, '.git')).isDirectory()) {
+    console.log('install-git-hooks: skipping (linked worktree, not the main .git directory)');
+    process.exit(0);
+  }
+} catch {
+  process.exit(0);
+}
+
 function install(name) {
   const source = join(sourceDir, name);
   const target = join(targetDir, name);
