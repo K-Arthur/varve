@@ -1151,6 +1151,44 @@ export function setMaskFillRule(
   return updateMaskProperty(doc, containerId, 'fillRule', fillRule);
 }
 
+/**
+ * Mark a node's raster mask as stale when its source image has changed.
+ *
+ * Increments the source identity revision, sets the stale reason, and
+ * disables the mask (visible: false). The existing mask asset is preserved
+ * in the document so the user can re-enable it or re-run background removal.
+ */
+export function markMaskStale(
+  doc: Document,
+  nodeId: NodeId,
+  reason: 'source-replaced' | 'source-changed',
+): Document {
+  const node = doc.nodes[nodeId];
+  if (!node?.mask?.rasterMask) return doc;
+  const currentRevision = node.mask.rasterMask.sourceIdentity.revision;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...node,
+        mask: {
+          ...node.mask,
+          visible: false,
+          rasterMask: {
+            ...node.mask.rasterMask,
+            staleReason: reason,
+            sourceIdentity: {
+              ...node.mask.rasterMask.sourceIdentity,
+              revision: Number.isSafeInteger(currentRevision + 1) ? currentRevision + 1 : 1,
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 /** Check if a mask has a self-contained vector path (not dependent on a child node). */
 export function hasVectorMask(mask: {
   type?: MaskType;

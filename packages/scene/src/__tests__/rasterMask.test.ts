@@ -17,6 +17,7 @@ import {
 } from '../index';
 import {
   addRasterMaskAsset,
+  markMaskStale,
   removeRasterMaskAsset,
   resolveMask,
   resolveRasterMaskAsset,
@@ -542,6 +543,23 @@ describe('native raster masks', () => {
       setMaskVectorPath(attached, imageId, [{ x: 0, y: 0, handleIn: null, handleOut: null }], true),
     ).toBe(attached);
     expect(setMaskVisible(attached, imageId, true)).toBe(attached);
+  });
+
+  it('marks a raster mask stale when the source image is replaced', () => {
+    const { doc, imageId } = makeImageDocument();
+    const attached = addRasterMaskAsset(doc, imageId, makeRasterAsset('mask-1'));
+    const stale = markMaskStale(attached, imageId, 'source-replaced');
+    const mask = stale.nodes[imageId]?.mask;
+    expect(mask?.rasterMask?.staleReason).toBe('source-replaced');
+    expect(mask?.visible).toBe(false);
+    expect(mask?.rasterMask?.sourceIdentity.revision).toBe(2);
+    // Asset is preserved so user can re-enable or re-run
+    expect(stale.rasterMaskAssets?.['mask-1']).toBeDefined();
+  });
+
+  it('returns the same document when marking stale on a maskless node', () => {
+    const { doc, imageId } = makeImageDocument();
+    expect(markMaskStale(doc, imageId, 'source-replaced')).toBe(doc);
   });
 
   it('garbage-collects a removed node mask asset but preserves shared assets', () => {
