@@ -109,6 +109,7 @@ function stableHash(input: string): number {
  *   rx/ry, path points, line tolerance) for ShapeNodes — hashing only `fill`
  *   would leave a stale thumbnail after a resize/reshape that didn't also
  *   touch the fill.
+ * - mask `editRevision`, so editing a raster mask invalidates the thumbnail.
  */
 export function thumbnailCacheKey(
   node: {
@@ -117,6 +118,7 @@ export function thumbnailCacheKey(
     fill?: unknown;
     shape?: unknown;
     fills?: Array<{ type: string; image?: { src: string } }>;
+    mask?: { rasterMask?: { editRevision?: number }; visible?: boolean };
   },
   docId?: string,
 ): string {
@@ -125,5 +127,6 @@ export function thumbnailCacheKey(
   const imageSrcHash = stableHash(
     node.fills?.find((f) => f.type === 'image' && f.image?.src)?.image?.src ?? 'none',
   );
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}`;
+  const maskRev = node.mask?.rasterMask?.editRevision ?? 0;
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:mask${maskRev}`;
 }

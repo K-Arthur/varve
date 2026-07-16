@@ -90,6 +90,53 @@ describe('exportDocumentToSvg', () => {
     expect(svg).toContain('href="data:image/png;base64,FAKE"');
     expect(svg).toContain('preserveAspectRatio="xMidYMid slice"');
   });
+
+  it('exports a shape with a raster mask as an SVG <mask> element', () => {
+    let doc = createDocument('MaskedImage');
+    const { id, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const node = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 64, h: 64 }, { name: 'Masked' });
+    doc = addNode(doc, {
+      ...node,
+      fills: [imageFill('data:image/png;base64,FAKE', { fit: 'fill' })],
+    });
+    // Attach a raster mask and its asset to the document
+    const maskDataUrl =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPj/HwADBwIAMCbHYQAAAABJRU5ErkJggg==';
+    doc = {
+      ...doc,
+      rasterMaskAssets: {
+        'mask-1': {
+          id: 'mask-1',
+          mimeType: 'image/png',
+          dataUrl: maskDataUrl,
+          width: 1,
+          height: 1,
+          byteLength: 68,
+        },
+      },
+      nodes: {
+        ...doc.nodes,
+        [id]: {
+          ...doc.nodes[id]!,
+          mask: {
+            visible: true,
+            type: 'alpha',
+            rasterMask: {
+              assetId: 'mask-1',
+              coordinateSpace: 'source-image-pixels',
+              sourceIdentity: { kind: 'source-metadata', locator: 'test', revision: 1 },
+            },
+          },
+        },
+      },
+    };
+    const svg = exportDocumentToSvg(doc);
+    expect(svg).toContain('<mask');
+    expect(svg).toContain(`id="mask-${id}"`);
+    expect(svg).toContain(maskDataUrl);
+    expect(svg).toContain(`mask="url(#mask-${id})"`);
+  });
 });
 
 describe('exportDocumentToSvgAdvanced', () => {
