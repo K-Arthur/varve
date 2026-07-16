@@ -12,7 +12,7 @@
 import { applySoftwareFilter } from '../filterCompositor';
 import { createRasterSurface } from '../rasterSurface';
 import type { FilterIR } from '../types';
-import type { Lut1D, Lut3D } from './types';
+import type { Lut1D, Lut3D, LutInputSpace } from './types';
 import { makeIdentityLut1D, makeIdentityLut3D } from './types';
 
 export interface BakeOptions {

@@ -122,6 +122,18 @@ function ShellInner({
     return () => window.removeEventListener('paste', handler);
   }, [editor]);
 
+  // Test-only: allow direct LUT import via custom event (bypasses file input)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent;
+      const { adjustment } = ce.detail ?? {};
+      console.log('[Shell] strata:test-import-lut received', adjustment?.kind, adjustment?.originalFilename);
+      if (adjustment) editor.addLutAdjustment(adjustment);
+    };
+    window.addEventListener('strata:test-import-lut', handler as EventListener);
+    return () => window.removeEventListener('strata:test-import-lut', handler as EventListener);
+  }, [editor]);
+
   // Dispatch host file-open requests into tabs (dedupe/reuse handled by
   // editor.openFile). seq guards against re-dispatch on unrelated re-renders.
   const lastOpenSeq = useRef(0);
@@ -425,19 +437,19 @@ function ShellInner({
               // Route LUT files to the LUT-specific handler
               const lutFiles = files.filter((f) => /\.(cube|3dl)$/i.test(f.name));
               if (lutFiles.length > 0) {
-                const mod = await import('@strata/engine');
+                const { parseCubeData, parse3dlData, makeAdjustment } = await import('@strata/engine');
                 for (const file of lutFiles) {
                   const text = await file.text();
                   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
                   try {
                     let result;
                     if (ext === 'cube') {
-                      result = mod.parseCubeData(text);
+                      result = parseCubeData(text);
                     } else {
-                      result = mod.parse3dlData(text);
+                      result = parse3dlData(text);
                     }
                     const json = JSON.stringify(result.transform);
-                    const lutAdj = mod.makeAdjustment(
+                    const lutAdj = makeAdjustment(
                       `lut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                       'lut',
                       {
