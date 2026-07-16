@@ -1,5 +1,10 @@
 import { downscaleImageData } from './previewDownscale';
 import { dispatchBackgroundRemoval } from './providers/dispatch';
+import {
+  composeSourceAndSubjectAlpha,
+  computeLetterboxTransform,
+  reconstructModelMask,
+} from './reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 
@@ -39,6 +44,14 @@ export { downscaleImageData } from './previewDownscale';
 export { cloudRemovalProvider } from './providers/cloudProvider';
 export { AI_PROVIDER_CHAIN } from './providers/dispatch';
 export type { RemovalProvider } from './providers/types';
+export type { ModelToSourceTransform, ReconstructionResult } from './reconstructMask';
+export {
+  composeSourceAndSubjectAlpha,
+  computeLetterboxTransform,
+  extractAlignedEdgeBand,
+  reconstructModelMask,
+  refineEdgeBand,
+} from './reconstructMask';
 export type { HairMattingOptions } from './refineHairMatting';
 export { refineHairMatting, TRIMap } from './refineHairMatting';
 export type { TrimapMattingOptions } from './trimapMatting';
@@ -56,6 +69,7 @@ export type {
   ModelMetadata,
   ModelState,
   RemovalMethod,
+  SourceResolutionInfo,
   WorkerModelId,
 } from './types';
 export { AVAILABLE_MODELS, DEFAULT_PREVIEW_MAX_DIMENSION, workerModelIdForMethod } from './types';
@@ -77,6 +91,10 @@ function withPreviewDefaults(options: BackgroundRemovalOptions): BackgroundRemov
  * 1. `method: 'quick'` — pure TypeScript heuristic (always available).
  * 2. AI methods — Worker ONNX → Tauri IPC → direct ONNX → cloud API.
  *
+ * After inference completes, the preview-resolution mask is reconstructed
+ * to the original source resolution via letterbox-aware bilinear
+ * interpolation, then composited with the source image's alpha channel.
+ *
  * AI requests fail when every AI provider is unavailable. The Quick heuristic
  * runs only when the caller explicitly requests `method: 'quick'`.
  */
@@ -91,9 +109,52 @@ export async function removeBackground(
 
   const resolved = withPreviewDefaults(options);
   const maxDim = resolved.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
-  const workingBuffer =
-    imageData.width > maxDim || imageData.height > maxDim
-      ? downscaleImageData(imageData, maxDim)
-      : imageData;
-  return dispatchBackgroundRemoval(workingBuffer, resolved, signal);
+  const needsDownscale = imageData.width > maxDim || imageData.height > maxDim;
+  const workingBuffer = needsDownscale ? downscaleImageData(imageData, maxDim) : imageData;
+
+  const result = await dispatchBackgroundRemoval(workingBuffer, resolved, signal);
+  const srcW = imageData.width;
+  const srcH = imageData.height;
+
+  const sourceInfo = {
+    modelWidth: result.width,
+    modelHeight: result.height,
+    sourceWidth: srcW,
+    sourceHeight: srcH,
+  };
+
+  const previewMask = result.rawMask;
+  const canReconstruct = needsDownscale && previewMask && previewMask.length > 0;
+
+  if (!canReconstruct) {
+    return {
+      ...result,
+      width: srcW,
+      height: srcH,
+      sourceWidth: srcW,
+      sourceHeight: srcH,
+      sourceResolutionInfo: sourceInfo,
+    };
+  }
+
+  const transform = computeLetterboxTransform(srcW, srcH, result.width, result.height);
+
+  const reconstruction = reconstructModelMask(previewMask, result.width, result.height, transform);
+
+  const srcData = imageData.data;
+  const sourceAlpha = new Uint8Array(srcW * srcH);
+  for (let i = 0; i < srcW * srcH; i++) {
+    sourceAlpha[i] = srcData[i * 4 + 3] ?? 255;
+  }
+  const finalAlpha = composeSourceAndSubjectAlpha(sourceAlpha, reconstruction.alpha);
+
+  return {
+    ...result,
+    width: srcW,
+    height: srcH,
+    sourceAlpha: finalAlpha,
+    sourceWidth: srcW,
+    sourceHeight: srcH,
+    sourceResolutionInfo: sourceInfo,
+  };
 }

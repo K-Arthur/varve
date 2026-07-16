@@ -12,10 +12,18 @@
 
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
+import {
+  getOwnRasterMaskAsset,
+  validateMaskSource,
+  validateRasterMaskAsset,
+  validateRasterMaskDocument,
+} from './masks';
+import { resolveNodePaints } from './paint';
 import type { NodeId, Page, SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
+  normalizeLegacyBackgroundRemoval,
   serializeDocument as serializeVersionedDocument,
 } from './version';
 
@@ -38,6 +46,7 @@ export interface DocumentNormalizeResult {
 export interface DocumentClosure {
   nodeIds: Set<NodeId>;
   nodes: Record<NodeId, SceneNode>;
+  rasterMaskAssets?: Document['rasterMaskAssets'];
 }
 
 function warning(
@@ -63,6 +72,21 @@ function validateShape(raw: Record<string, unknown>): string | null {
   return null;
 }
 
+function validateRuntimeCollections(raw: Record<string, unknown>): string | null {
+  if (isRecord(raw.nodes)) {
+    for (const [nodeId, node] of Object.entries(raw.nodes)) {
+      if (!isRecord(node)) return `Document node ${nodeId} must be an object`;
+    }
+  }
+  if (raw.rasterMaskAssets !== undefined) {
+    if (!isRecord(raw.rasterMaskAssets)) return 'Document rasterMaskAssets must be an object';
+    for (const [assetId, asset] of Object.entries(raw.rasterMaskAssets)) {
+      if (!isRecord(asset)) return `Raster mask asset ${assetId} must be an object`;
+    }
+  }
+  return null;
+}
+
 function maxNumericNodeId(nodes: Record<NodeId, SceneNode>): number {
   let max = 0;
   for (const id of Object.keys(nodes)) {
@@ -72,8 +96,116 @@ function maxNumericNodeId(nodes: Record<NodeId, SceneNode>): number {
   return max;
 }
 
-function normalizeDocument(doc: Document): DocumentNormalizeResult {
+function malformedLegacyBackgroundRemovalWarnings(
+  raw: Record<string, unknown>,
+): DocumentCodecWarning[] {
+  if (!isRecord(raw.nodes)) return [];
   const warnings: DocumentCodecWarning[] = [];
+  for (const [nodeId, value] of Object.entries(raw.nodes)) {
+    if (!isRecord(value) || !('backgroundRemoval' in value)) continue;
+    const legacy = value.backgroundRemoval;
+    if (
+      legacy === null ||
+      typeof legacy !== 'object' ||
+      typeof (legacy as { maskDataUrl?: unknown }).maskDataUrl !== 'string'
+    ) {
+      warnings.push(
+        warning(
+          'document.invalid-legacy-background-removal',
+          `Node ${nodeId} had malformed legacy background removal state; it was removed`,
+          'error',
+          `${nodeId}.backgroundRemoval`,
+        ),
+      );
+    }
+  }
+  return warnings;
+}
+
+function hasImageFill(doc: Document, node: SceneNode): boolean {
+  return (
+    node.kind === 'shape' &&
+    resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc).some(
+      (fill) => fill.type === 'image' && fill.image,
+    )
+  );
+}
+
+function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  const validAssets = Object.fromEntries(
+    Object.entries(doc.rasterMaskAssets ?? {}).filter(([assetId, asset]) => {
+      const error = validateRasterMaskAsset(asset);
+      if (!error) return true;
+      warnings.push(
+        warning('document.invalid-raster-mask', error, 'error', `rasterMaskAssets.${assetId}`),
+      );
+      return false;
+    }),
+  );
+  const candidate = { ...doc, rasterMaskAssets: validAssets };
+  const nodes: Record<NodeId, SceneNode> = {};
+  const referencedAssets = new Set<string>();
+  const invalidatedAssets = new Set<string>();
+
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    const rasterMask = node.mask?.rasterMask;
+    if (!rasterMask) {
+      nodes[nodeId] = node;
+      continue;
+    }
+    const error =
+      validateMaskSource(candidate, node.mask!) ??
+      (!hasImageFill(candidate, node)
+        ? 'Raster masks may only attach to image-filled shape nodes'
+        : null);
+    if (error) {
+      warnings.push(
+        warning('document.invalid-raster-mask', `${nodeId}: ${error}`, 'error', `${nodeId}.mask`),
+      );
+      invalidatedAssets.add(rasterMask.assetId);
+      const { mask: _invalidMask, ...rest } = node;
+      nodes[nodeId] = rest as SceneNode;
+      continue;
+    }
+    referencedAssets.add(rasterMask.assetId);
+    nodes[nodeId] = node;
+  }
+
+  const rasterMaskAssets = Object.fromEntries(
+    Object.entries(validAssets).filter(
+      ([assetId]) => !invalidatedAssets.has(assetId) || referencedAssets.has(assetId),
+    ),
+  );
+  return {
+    ...doc,
+    nodes,
+    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
+}
+
+function normalizeDocument(doc: Document): DocumentNormalizeResult {
+  const warnings = malformedLegacyBackgroundRemovalWarnings(
+    doc as unknown as Record<string, unknown>,
+  );
+  const safeNodes: Record<NodeId, SceneNode> = {};
+  for (const [nodeId, node] of Object.entries(doc.nodes ?? {}) as [string, unknown][]) {
+    if (isRecord(node)) {
+      safeNodes[nodeId] = node as unknown as SceneNode;
+    } else {
+      warnings.push(
+        warning(
+          'document.invalid-node',
+          `Document node ${nodeId} was not an object and was removed`,
+          'error',
+          `nodes.${nodeId}`,
+        ),
+      );
+    }
+  }
+  doc = { ...doc, nodes: safeNodes };
+  doc = normalizeLegacyBackgroundRemoval(
+    doc as unknown as Record<string, unknown>,
+  ) as unknown as Document;
   const nodes: Record<NodeId, SceneNode> = {};
 
   for (const [id, node] of Object.entries(doc.nodes)) {
@@ -188,19 +320,18 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   const minNextId = maxNumericNodeId(nodes) + 1;
   const nextId = Math.max(doc.nextId, minNextId, 1);
 
-  return {
-    document: {
-      ...doc,
-      formatVersion: CURRENT_DOCUMENT_VERSION,
-      rootChildren,
-      nodes,
-      nextId,
-      components: doc.components ?? {},
-      pages,
-      activePageId,
-    },
-    warnings,
+  let document: Document = {
+    ...doc,
+    formatVersion: CURRENT_DOCUMENT_VERSION,
+    rootChildren,
+    nodes,
+    nextId,
+    components: doc.components ?? {},
+    pages,
+    activePageId,
   };
+  document = sanitizeRasterMaskState(document, warnings);
+  return { document, warnings };
 }
 
 function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
@@ -219,7 +350,17 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
   }
 
   for (const id of rootIds) visit(id);
-  return { nodeIds, nodes };
+  const rasterMaskAssets: NonNullable<Document['rasterMaskAssets']> = {};
+  for (const node of Object.values(nodes)) {
+    const assetId = node.mask?.rasterMask?.assetId;
+    const asset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
+    if (assetId && asset) rasterMaskAssets[assetId] = asset;
+  }
+  return {
+    nodeIds,
+    nodes,
+    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
 }
 
 export const DocumentCodec = {
@@ -233,6 +374,19 @@ export const DocumentCodec = {
         error: err instanceof Error ? err.message : 'Invalid JSON',
         warnings: [warning('document.invalid-json', 'Document JSON could not be parsed', 'error')],
       };
+    }
+
+    const legacyWarnings = isRecord(parsed) ? malformedLegacyBackgroundRemovalWarnings(parsed) : [];
+
+    if (isRecord(parsed)) {
+      const runtimeError = validateRuntimeCollections(parsed);
+      if (runtimeError) {
+        return {
+          ok: false,
+          error: runtimeError,
+          warnings: [warning('document.invalid-shape', runtimeError, 'error')],
+        };
+      }
     }
 
     const migration = migrateDocumentDetailed(parsed);
@@ -255,8 +409,31 @@ export const DocumentCodec = {
       };
     }
 
+    let maskError: string | null;
+    try {
+      maskError = validateRasterMaskDocument(migration.document as unknown as Document);
+    } catch (error) {
+      maskError = `Invalid raster mask structure: ${error instanceof Error ? error.message : 'unknown validation error'}`;
+    }
+    if (maskError) {
+      return {
+        ok: false,
+        error: maskError,
+        warnings: [warning('document.invalid-raster-mask', maskError, 'error')],
+      };
+    }
+
     const normalized = normalizeDocument(migration.document as unknown as Document);
     const warnings = [...normalized.warnings];
+    for (const legacyWarning of legacyWarnings) {
+      if (
+        !warnings.some(
+          (item) => item.code === legacyWarning.code && item.path === legacyWarning.path,
+        )
+      ) {
+        warnings.push(legacyWarning);
+      }
+    }
     if (migration.migrated) {
       warnings.unshift(
         warning(

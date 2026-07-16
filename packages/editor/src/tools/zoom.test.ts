@@ -41,6 +41,8 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     hasPredictedEvents: false,
     sourceEvents: [],
     foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
+    maskPreviewMode: 'none',
+    setMaskPreviewMode: vi.fn(),
     snapEnabled: false,
     snapGrid: 8,
     createShapeAt: vi.fn(),

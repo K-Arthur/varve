@@ -15,7 +15,7 @@
  */
 
 import { getImageCache } from '@strata/engine';
-import type { SceneNode, ShapeNode } from '@strata/scene';
+import type { Document, SceneNode, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -25,7 +25,11 @@ const THUMB_W = 28;
 const THUMB_H = 28;
 const PADDING = 2;
 
-async function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTMLCanvasElement) {
+async function renderNodeToCanvas(
+  node: SceneNode,
+  canvas: OffscreenCanvas | HTMLCanvasElement,
+  doc?: Pick<Document, 'rasterMaskAssets'>,
+) {
   const ctx = canvas.getContext('2d') as OffscreenCanvasRenderingContext2D | null;
   if (!ctx) return null;
 
@@ -124,14 +128,34 @@ async function renderNodeToCanvas(node: SceneNode, canvas: OffscreenCanvas | HTM
     ctx.fillRect(ox, oy, area, area);
   }
 
+  // Apply raster mask: mask image's alpha channel clips the rendered content.
+  const rasterMaskRef = node.mask?.rasterMask?.assetId;
+  const maskAsset = rasterMaskRef && doc ? doc.rasterMaskAssets?.[rasterMaskRef] : undefined;
+  if (maskAsset?.dataUrl) {
+    try {
+      const maskImg = await getImageCache().load(maskAsset.dataUrl);
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.drawImage(maskImg, ox, oy, area, area);
+      ctx.globalCompositeOperation = 'source-over';
+    } catch {
+      // Mask unavailable: thumbnail shows unmasked content
+    }
+  }
+
   return canvas;
 }
 
 /** Shared across every row — thumbnails survive virtualizer mount/unmount. */
 export const sharedThumbnailCache = new ThumbnailCache();
 
-export function useThumbnail(node: SceneNode, docId?: string): string | null {
+export function useThumbnail(
+  node: SceneNode,
+  docId?: string,
+  doc?: Pick<Document, 'rasterMaskAssets'>,
+): string | null {
   const cacheKey = thumbnailCacheKey(node, docId);
+  const docRef = useRef(doc);
+  docRef.current = doc;
   const [dataUrl, setDataUrl] = useState<string | null>(
     () => sharedThumbnailCache.get(cacheKey) ?? null,
   );
@@ -153,7 +177,7 @@ export function useThumbnail(node: SceneNode, docId?: string): string | null {
       canvas.height = THUMB_H;
     }
 
-    await renderNodeToCanvas(nodeRef.current, canvas);
+    await renderNodeToCanvas(nodeRef.current, canvas, docRef.current);
 
     if (useOffscreen) {
       const blob = await (canvas as OffscreenCanvas).convertToBlob();

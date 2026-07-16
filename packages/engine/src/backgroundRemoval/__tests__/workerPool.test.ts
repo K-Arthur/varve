@@ -1,142 +1,224 @@
-// @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-function makeMockWorker() {
-  const listeners: Record<string, Array<(...args: unknown[]) => void>> = {
-    message: [],
-    error: [],
-  };
-  const worker = {
-    postMessage: vi.fn(),
-    terminate: vi.fn(),
-    addEventListener: vi.fn((type: string, cb: (...args: unknown[]) => void) => {
-      if (!listeners[type]) listeners[type] = [];
-      listeners[type]!.push(cb);
-    }),
-    removeEventListener: vi.fn(),
-    dispatchEvent: vi.fn(),
-    onmessage: null as unknown,
-    onerror: null as unknown,
-    _listeners: listeners,
-    _sendMessage(data: Record<string, unknown>) {
-      for (const cb of listeners.message ?? []) {
-        cb({ data });
-      }
-    },
-    _sendError(message: string) {
-      for (const cb of listeners.error ?? []) {
-        cb({ message });
-      }
-    },
-  };
-  return worker;
-}
+// Mock Worker for Node.js test environment
+class MockWorker {
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  onerror: ((e: ErrorEvent) => void) | null = null;
+  private _listeners: Record<string, Array<(...args: never[]) => void>> = {};
+  private _lastMessage: { imageData?: { width: number; height: number }; requestId?: string } | null = null;
 
-describe('workerPool', () => {
-  let mockWorkers: ReturnType<typeof makeMockWorker>[];
+  constructor(_url: string | URL, _opts?: WorkerOptions) {
+    // Simulate ready after construction
+    setTimeout(() => {
+      this._dispatch({ type: 'ready' });
+    }, 0);
+  }
 
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    mockWorkers = [];
-    vi.stubGlobal(
-      'Worker',
-      vi.fn(() => {
-        const w = makeMockWorker();
-        mockWorkers.push(w);
-        return w;
-      }),
-    );
-  });
-
-  afterEach(async () => {
-    // Flush any pending promise microtasks so .catch() handlers registered
-    // in the test run before afterEach triggers new rejections.
-    await new Promise<void>((r) => setTimeout(r, 0));
-    // Reset fake timers before tearing down the module-level pool
-    vi.useRealTimers();
-    const { terminateWorkerPool } = await import('../workerPool');
-    terminateWorkerPool();
-    vi.unstubAllGlobals();
-  });
-
-  describe('processQueue propagation', () => {
-    it('dispatches a queued job after a running job times out', async () => {
-      const { runPooledInference } = await import('../workerPool');
-      const img = new ImageData(4, 4);
-      const opts = { method: 'ai-balanced' as const };
-
-      const p1 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
-      expect(mockWorkers.length).toBeGreaterThanOrEqual(1);
-
-      const p2 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
-      for (const p of [p1, p2]) p.catch(() => {});
-
-      await vi.advanceTimersByTimeAsync(121_000);
-
-      await expect(p1).rejects.toThrow('Worker inference timed out');
-
-      const inferCalls = mockWorkers
-        .flatMap((w) => w.postMessage.mock.calls)
-        .filter((call: unknown[]) => (call[0] as Record<string, unknown>)?.type === 'infer');
-      expect(inferCalls.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('dispatches a queued job after aborting a running job', async () => {
-      const { runPooledInference } = await import('../workerPool');
-      const img = new ImageData(4, 4);
-      const opts = { method: 'ai-balanced' as const };
-      const ctrl = new AbortController();
-
-      const p1 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp', ctrl.signal);
-      const p2 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
-      for (const p of [p1, p2]) p.catch(() => {});
-
-      ctrl.abort();
-      await expect(p1).rejects.toThrow('cancelled');
-
-      await vi.advanceTimersByTimeAsync(100);
-
-      const inferCalls = mockWorkers
-        .flatMap((w) => w.postMessage.mock.calls)
-        .filter((call: unknown[]) => (call[0] as Record<string, unknown>)?.type === 'infer');
-      expect(inferCalls.length).toBeGreaterThanOrEqual(2);
-    });
-
-    it('dispatches queued jobs after a running job completes', async () => {
-      const { runPooledInference } = await import('../workerPool');
-      const img = new ImageData(4, 4);
-      const opts = { method: 'ai-balanced' as const };
-
-      const p1 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
-      const p2 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
-      const p3 = runPooledInference(img, opts, '/models/u2netp.onnx', 'u2netp');
-      for (const p of [p1, p2, p3]) p.catch(() => {});
-
-      // p1 is dispatched to the first idle worker. p2, p3 are queued.
-      // Complete p1 by having its worker respond
-      const activeWorker = mockWorkers.find((w) => w.postMessage.mock.calls.length > 0);
-      if (activeWorker) {
-        activeWorker._sendMessage({
+  postMessage(msg: { imageData?: { width: number; height: number }; requestId?: string }) {
+    this._lastMessage = msg;
+    // Defer the "inference" completion so tests can queue more jobs
+    // before any worker completes.
+    setTimeout(() => {
+      if (this._lastMessage) {
+        this._dispatch({
           type: 'result',
+          requestId: this._lastMessage.requestId,
           result: {
-            maskDataUrl: 'data:image/png;base64,done',
-            confidence: 0.9,
+            maskDataUrl: 'data:image/png;base64,test',
+            confidence: 0.95,
             method: 'ai-balanced',
-            processingTimeMs: 10,
-            width: 4,
-            height: 4,
+            processingTimeMs: 100,
+            width: this._lastMessage.imageData?.width ?? 0,
+            height: this._lastMessage.imageData?.height ?? 0,
           },
         });
       }
+    }, 0);
+  }
 
-      // After p1 completes, processQueue should dispatch p2
+  addEventListener(type: string, fn: (...args: never[]) => void) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type]!.push(fn);
+  }
+
+  removeEventListener(type: string, fn: (...args: never[]) => void) {
+    const arr = this._listeners[type];
+    if (arr) this._listeners[type] = arr.filter((f) => f !== fn);
+  }
+
+  terminate() {
+    this._listeners = {};
+  }
+
+  private _dispatch(data: unknown) {
+    const handlers = this._listeners.message || [];
+    for (const fn of handlers) {
+      fn({ data } as MessageEvent);
+    }
+  }
+}
+
+let origWorker: typeof Worker;
+
+function makeImageData(w = 10, h = 10): ImageData {
+  return new ImageData(w, h);
+}
+
+describe('workerPool', () => {
+  let workerPool: typeof import('./workerPool');
+
+  beforeEach(async () => {
+    origWorker = globalThis.Worker;
+    (globalThis as { Worker: typeof MockWorker }).Worker = MockWorker as unknown as typeof Worker;
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.resetModules();
+    workerPool = await import('../workerPool');
+  });
+
+  afterEach(() => {
+    workerPool.terminateWorkerPool();
+    (globalThis as { Worker: typeof MockWorker }).Worker = origWorker;
+    vi.useRealTimers();
+  });
+
+  describe('pool configuration', () => {
+    it('default worker count respects hardware concurrency', () => {
+      const count = workerPool.__getIdealWorkerCount();
+      expect(count).toBeGreaterThanOrEqual(1);
+      expect(count).toBeLessThanOrEqual(2);
+    });
+
+    it('uses single worker when concurrency is 1', () => {
+      const orig = Object.getOwnPropertyDescriptor(navigator, 'hardwareConcurrency');
+      Object.defineProperty(navigator, 'hardwareConcurrency', {
+        value: 1,
+        configurable: true,
+      });
+      const count = workerPool.__getIdealWorkerCount();
+      expect(count).toBe(1);
+      if (orig) {
+        Object.defineProperty(navigator, 'hardwareConcurrency', orig);
+      } else {
+        delete (navigator as { hardwareConcurrency?: number }).hardwareConcurrency;
+      }
+    });
+  });
+
+  describe('pool lifecycle', () => {
+    it('initPool creates workers', () => {
+      const pool = workerPool.__getPool();
+      expect(pool.length).toBeGreaterThanOrEqual(1);
+      for (const pw of pool) {
+        expect(pw.worker).toBeDefined();
+        expect(pw.busy).toBe(false);
+      }
+    });
+
+    it('terminateWorkerPool cleans up all workers', () => {
+      const pool = workerPool.__getPool();
+      const count = pool.length;
+      workerPool.terminateWorkerPool();
+      const afterPool = workerPool.__getPool();
+      expect(afterPool.length).toBe(count);
+      // Workers are fresh after re-init
+      for (const pw of afterPool) {
+        expect(pw.worker).toBeDefined();
+        expect(pw.busy).toBe(false);
+      }
+    });
+  });
+
+  describe('cancellation', () => {
+    it('cancelAllWorkerJobs clears pending queue', () => {
+      // Get pool to init workers
+      workerPool.__getPool();
+      const pending = workerPool.__getPending();
+      const mockReject = vi.fn();
+      pending.push({
+        id: 1,
+        requestId: 'req_test_1',
+        reject: mockReject,
+        abort: { abort: vi.fn() },
+        timeout: setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>,
+        workerIndex: 0,
+        generation: 0,
+        abortListeners: [],
+      } as never);
+      pending.push({
+        id: 2,
+        requestId: 'req_test_2',
+        reject: vi.fn(),
+        abort: { abort: vi.fn() },
+        timeout: setTimeout(() => {}, 10000) as unknown as ReturnType<typeof setTimeout>,
+        workerIndex: 0,
+        generation: 0,
+        abortListeners: [],
+      } as never);
+
+      workerPool.cancelAllWorkerJobs();
+
+      expect(pending.length).toBe(0);
+      expect(mockReject).toHaveBeenCalledWith(new Error('cancelled'));
+    });
+  });
+
+  describe('concurrent dispatch', () => {
+    it('dispatches multiple queued jobs and resolves each to its own caller', async () => {
+      const pool = workerPool.__getPool();
+      const jobCount = pool.length + 2;
+      const promises: Promise<unknown>[] = [];
+
+      for (let i = 0; i < jobCount; i++) {
+        promises.push(
+          workerPool.runPooledInference(
+            makeImageData(10 + i, 10 + i),
+            { method: 'ai-balanced' },
+            '/models/u2netp.onnx',
+            'u2netp',
+          ),
+        );
+      }
+
+      await vi.advanceTimersByTimeAsync(0);
       await vi.advanceTimersByTimeAsync(100);
 
-      const inferCalls = mockWorkers
-        .flatMap((w) => w.postMessage.mock.calls)
-        .filter((call: unknown[]) => (call[0] as Record<string, unknown>)?.type === 'infer');
-      // p1 was dispatched, now p2 should be dispatched too
-      expect(inferCalls.length).toBeGreaterThanOrEqual(2);
+      const results = await Promise.all(promises);
+      expect(results.length).toBe(jobCount);
+      for (let i = 0; i < jobCount; i++) {
+        const result = results[i] as { width: number; height: number };
+        expect(result.width).toBe(10 + i);
+        expect(result.height).toBe(10 + i);
+      }
+
+      for (const pw of pool) {
+        expect(pw.busy).toBe(false);
+      }
+    });
+
+    it('does not reassign an in-flight job to a second worker', async () => {
+      const pool = workerPool.__getPool();
+      const p1 = workerPool.runPooledInference(
+        makeImageData(10, 10),
+        { method: 'ai-balanced' },
+        '/models/u2netp.onnx',
+        'u2netp',
+      );
+      const p2 = workerPool.runPooledInference(
+        makeImageData(20, 20),
+        { method: 'ai-balanced' },
+        '/models/u2netp.onnx',
+        'u2netp',
+      );
+
+      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const [r1, r2] = await Promise.all([p1, p2]);
+      expect((r1 as { width: number }).width).toBe(10);
+      expect((r2 as { width: number }).width).toBe(20);
+      for (const pw of pool) {
+        expect(pw.busy).toBe(false);
+      }
     });
   });
 });

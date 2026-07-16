@@ -1,9 +1,12 @@
-import { DEFAULT_PREVIEW_MAX_DIMENSION } from '@strata/engine';
-import type { ImageCache } from '@strata/engine';
 import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@strata/scene';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
+import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
+import {
+  computeSourceFingerprint,
+  SubjectIsolationService,
+} from '../backgroundRemoval/SubjectIsolationService';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
-import type { EditorState, TrimapPenMode } from './types';
+import type { EditorState, MaskPreviewMode, TrimapPenMode } from './types';
 
 export interface BackgroundRemovalAPI {
   removeBackground: (method: BackgroundRemovalMethod) => Promise<void>;
@@ -14,6 +17,7 @@ export interface BackgroundRemovalAPI {
     decontaminate: boolean,
   ) => Promise<void>;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
+  setMaskPreviewMode: (mode: MaskPreviewMode) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
   setTrimapEditOptions: (
     opts: Partial<{ brushSize: number; hardness: number; penMode: TrimapPenMode }>,
@@ -32,11 +36,66 @@ export interface BackgroundRemovalAPI {
 }
 
 /**
- * Warm the ImageCache for a freshly-generated mask so the next render can
- * composite it synchronously. Uses a short timeout so a slow or failing load
- * never blocks the document update; the renderer will retry asynchronously.
+ * Decode source image at a preview resolution and return orientation-normalized
+ * pixel data together with source metadata.
  */
-async function warmMaskCache(cache: ImageCache, maskDataUrl?: string | null): Promise<void> {
+async function decodeSource(
+  src: string,
+  w: number,
+  h: number,
+  announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
+): Promise<{ imageData: ImageData; extractW: number; extractH: number } | null> {
+  const { getImageCache } = await import('@strata/engine');
+  const cache = getImageCache();
+  let img: HTMLImageElement | ImageBitmap | null = null;
+  try {
+    img = await cache.load(src);
+  } catch {
+    announcerRef.current?.announce(
+      'Could not load image: the image source may be cross-origin or unavailable',
+    );
+    return null;
+  }
+  if (!img) {
+    announcerRef.current?.announce('Could not load image');
+    return null;
+  }
+  const maxDim = 2048;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  const extractW = Math.ceil(w * scale);
+  const extractH = Math.ceil(h * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = extractW;
+  canvas.height = extractH;
+  const ctx = canvas.getContext('2d')!;
+  try {
+    ctx.drawImage(img, 0, 0, extractW, extractH);
+  } catch {
+    announcerRef.current?.announce(
+      'Could not render image: the image may be cross-origin (CORS blocked)',
+    );
+    return null;
+  }
+  let imageData: ImageData;
+  try {
+    imageData = ctx.getImageData(0, 0, extractW, extractH);
+  } catch {
+    announcerRef.current?.announce(
+      'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
+    );
+    return null;
+  }
+  return { imageData, extractW, extractH };
+}
+
+/**
+ * Warm the ImageCache for a freshly-generated mask so the next render can
+ * composite it synchronously.
+ */
+async function warmMaskCache(
+  cache: { isLoaded: (url: string) => boolean; load: (url: string) => Promise<unknown> },
+  maskDataUrl?: string | null,
+): Promise<void> {
   if (!maskDataUrl || cache.isLoaded(maskDataUrl)) return;
   try {
     await Promise.race([
@@ -63,6 +122,18 @@ export function useBackgroundRemoval(
     Map<string, { data: Uint8Array; width: number; height: number }>
   >,
 ): BackgroundRemovalAPI {
+  const serviceRef = useRef<SubjectIsolationService | null>(null);
+
+  if (!serviceRef.current) {
+    serviceRef.current = new SubjectIsolationService();
+  }
+
+  useEffect(() => {
+    return () => {
+      serviceRef.current?.dispose();
+    };
+  }, []);
+
   const removeBackground = useCallback(
     async (method: BackgroundRemovalMethod) => {
       const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
@@ -80,96 +151,58 @@ export function useBackgroundRemoval(
       const w = imageShapeW(imageNode);
       const h = imageShapeH(imageNode);
       announcerRef.current?.announce(`Removing background using ${method}...`);
+
+      const decoded = await decodeSource(src, w, h, announcerRef);
+      if (!decoded) return;
+
+      const service = serviceRef.current!;
+      bgRemovalAbortRef.current?.abort();
+      bgRemovalAbortRef.current = new AbortController();
+      processingBgNodeRef.current = processingNodeId;
+
+      const sourceFingerprint = await computeSourceFingerprint(src, decoded.imageData);
+
+      const request = {
+        requestId: `si-${Date.now()}-${processingNodeId}`,
+        documentId: state.document.id,
+        documentRevision: 1,
+        nodeId: processingNodeId,
+        sourceFingerprint,
+        sourcePixelRevision: 1,
+        placementRevision: 1,
+        sourceWidth: decoded.extractW,
+        sourceHeight: decoded.extractH,
+        imageData: decoded.imageData,
+        options: { method },
+      };
+
       try {
-        const { getImageCache } = await import('@strata/engine');
-        const { setBackgroundRemoval } = await import('@strata/scene');
+        const result = await service.isolate(request);
+
+        if (service.isStale(request, stateRef.current).stale) {
+          announcerRef.current?.announce(
+            'Background removal completed but the image state changed',
+          );
+          return;
+        }
+
         const cache = getImageCache();
-        bgRemovalAbortRef.current?.abort();
-        bgRemovalAbortRef.current = new AbortController();
-        processingBgNodeRef.current = processingNodeId;
-        const signal = bgRemovalAbortRef.current.signal;
-        let img: HTMLImageElement | ImageBitmap | null = null;
-        try {
-          img = await cache.load(src);
-        } catch {
-          announcerRef.current?.announce(
-            'Could not load image: the image source may be cross-origin or unavailable',
-          );
-          return;
-        }
-        if (!img) {
-          announcerRef.current?.announce('Could not load image');
-          return;
-        }
-        const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
-        const scale = Math.min(1, maxDim / Math.max(w, h));
-        const extractW = Math.ceil(w * scale);
-        const extractH = Math.ceil(h * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = extractW;
-        canvas.height = extractH;
-        const ctx = canvas.getContext('2d')!;
-        try {
-          ctx.drawImage(img, 0, 0, extractW, extractH);
-        } catch {
-          announcerRef.current?.announce(
-            'Could not render image: the image may be cross-origin (CORS blocked)',
-          );
-          return;
-        }
-        let imageData: ImageData;
-        try {
-          imageData = ctx.getImageData(0, 0, extractW, extractH);
-        } catch {
-          announcerRef.current?.announce(
-            'Could not read image pixels: the image source may be cross-origin (CORS blocked)',
-          );
-          return;
-        }
-        const result = await import('@strata/engine').then((m) =>
-          m.removeBackground(
-            imageData,
-            {
-              method,
-              feather: 0.5,
-              decontaminate: true,
-            },
-            signal,
-          ),
-        );
-        if (signal.aborted) return;
-        if (method !== 'quick' && result.method === 'quick') {
-          throw new Error('AI provider returned a Quick result');
-        }
-        const currentSelection = stateRef.current.selection;
-        const stillSelected = currentSelection.includes(processingNodeId);
-        if (!stillSelected) {
-          announcerRef.current?.announce(
-            'Background removal completed but the image is no longer selected',
-          );
-          return;
-        }
-        // Warm the ImageCache so the first post-update render can composite the
-        // mask immediately instead of drawing the image unmasked and waiting for
-        // an async load to trigger a second frame.
         await warmMaskCache(cache, result.maskDataUrl);
         updateDoc((d) =>
-          setBackgroundRemoval(d, imageNode.id, {
-            maskDataUrl: result.maskDataUrl,
-            method: result.method,
-            confidence: result.confidence,
-            appliedAt: Date.now(),
-            feather: 0.5,
+          commitRasterMask(d, processingNodeId, {
+            dataUrl: result.maskDataUrl,
+            width: result.maskWidth,
+            height: result.maskHeight,
+            method: result.provenance.method as BackgroundRemovalMethod,
+            generatedAt: Date.now(),
+            confidence: 0.95,
             decontaminate: true,
           }),
         );
         announcerRef.current?.announce('Background removed');
       } catch (e) {
-        if (bgRemovalAbortRef.current?.signal.aborted) {
-          throw new Error('cancelled');
-        }
+        if ((e as Error).message === 'cancelled') return;
         announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
-        throw e;
       } finally {
         if (processingBgNodeRef.current === processingNodeId) {
           bgRemovalAbortRef.current = null;
@@ -184,6 +217,7 @@ export function useBackgroundRemoval(
     bgRemovalAbortRef.current?.abort();
     bgRemovalAbortRef.current = null;
     processingBgNodeRef.current = null;
+    serviceRef.current?.cancel();
   }, [bgRemovalAbortRef, processingBgNodeRef]);
 
   const removeBackgroundWithOptions = useCallback(
@@ -203,58 +237,63 @@ export function useBackgroundRemoval(
       const w = imageShapeW(imageNode);
       const h = imageShapeH(imageNode);
       announcerRef.current?.announce(`Removing background using ${method}...`);
+
+      const decoded = await decodeSource(src, w, h, announcerRef);
+      if (!decoded) return;
+
+      const service = serviceRef.current!;
+      bgRemovalAbortRef.current?.abort();
+      bgRemovalAbortRef.current = new AbortController();
+      processingBgNodeRef.current = processingNodeId;
+
+      const sourceFingerprint = await computeSourceFingerprint(src, decoded.imageData);
+
+      const request = {
+        requestId: `si-${Date.now()}-${processingNodeId}`,
+        documentId: state.document.id,
+        documentRevision: 1,
+        nodeId: processingNodeId,
+        sourceFingerprint,
+        sourcePixelRevision: 1,
+        placementRevision: 1,
+        sourceWidth: decoded.extractW,
+        sourceHeight: decoded.extractH,
+        imageData: decoded.imageData,
+        options: { method },
+      };
+
       try {
-        const { getImageCache } = await import('@strata/engine');
-        const { setBackgroundRemoval } = await import('@strata/scene');
-        const cache = getImageCache();
-        bgRemovalAbortRef.current?.abort();
-        bgRemovalAbortRef.current = new AbortController();
-        processingBgNodeRef.current = processingNodeId;
-        const signal = bgRemovalAbortRef.current.signal;
-        const img = await cache.load(src);
-        if (!img) {
-          announcerRef.current?.announce('Could not load image');
+        const isoResult = await service.isolate(request);
+
+        if (service.isStale(request, stateRef.current).stale) {
+          announcerRef.current?.announce(
+            'Background removal completed but the image state changed',
+          );
           return;
         }
-        const maxDim = DEFAULT_PREVIEW_MAX_DIMENSION;
-        const scale = Math.min(1, maxDim / Math.max(w, h));
-        const extractW = Math.ceil(w * scale);
-        const extractH = Math.ceil(h * scale);
-        const canvas = document.createElement('canvas');
-        canvas.width = extractW;
-        canvas.height = extractH;
-        const ctx = canvas.getContext('2d')!;
-        ctx.drawImage(img, 0, 0, extractW, extractH);
-        const imageData = ctx.getImageData(0, 0, extractW, extractH);
-        const result = await import('@strata/engine').then((m) =>
-          m.removeBackground(
-            imageData,
-            {
-              method,
-              feather,
-              decontaminate,
-            },
-            signal,
-          ),
-        );
-        if (signal.aborted) return;
-        if (method !== 'quick' && result.method === 'quick') {
-          throw new Error('AI provider returned a Quick result');
-        }
+
+        const engineResult = {
+          maskDataUrl: isoResult.maskDataUrl,
+          confidence: 0.95,
+          method: isoResult.provenance.method as 'quick' | 'ai-balanced' | 'ai-quality',
+          processingTimeMs: parseInt(isoResult.provenance.runtime, 10) || 0,
+          width: isoResult.maskWidth,
+          height: isoResult.maskHeight,
+        };
 
         const { finalizeMaskResult } = await import('@strata/engine');
-        const finalized = await finalizeMaskResult(result, { promptIfMultiple: true });
+        const finalized = await finalizeMaskResult(engineResult, { promptIfMultiple: true });
 
         if (finalized.needsSubjectPicker && finalized.components) {
           patch({
             subjectPickerSession: {
-              nodeId: imageNode.id,
+              nodeId: processingNodeId,
               width: finalized.width,
               height: finalized.height,
               components: finalized.components,
               keepIds: finalized.components[0] ? [finalized.components[0].id] : [],
               pendingMaskDataUrl: finalized.maskDataUrl,
-              method: finalized.method,
+              method: finalized.method as BackgroundRemovalMethod,
               confidence: finalized.confidence,
               feather,
               decontaminate,
@@ -264,27 +303,22 @@ export function useBackgroundRemoval(
           return;
         }
 
-        // Warm the ImageCache so the first post-update render composites the mask
-        // synchronously instead of flashing the original background.
         await warmMaskCache(cache, finalized.maskDataUrl);
-
         updateDoc((d) =>
-          setBackgroundRemoval(d, imageNode.id, {
-            maskDataUrl: finalized.maskDataUrl,
-            method: finalized.method,
+          commitRasterMask(d, processingNodeId, {
+            dataUrl: finalized.maskDataUrl,
+            width: finalized.width,
+            height: finalized.height,
+            method: finalized.method as BackgroundRemovalMethod,
+            generatedAt: Date.now(),
             confidence: finalized.confidence,
-            appliedAt: Date.now(),
-            feather,
             decontaminate,
           }),
         );
         announcerRef.current?.announce('Background removed');
       } catch (e) {
-        if (bgRemovalAbortRef.current?.signal.aborted) {
-          throw new Error('cancelled');
-        }
+        if ((e as Error).message === 'cancelled') return;
         announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
-        throw e;
       } finally {
         if (processingBgNodeRef.current === processingNodeId) {
           bgRemovalAbortRef.current = null;
@@ -298,6 +332,13 @@ export function useBackgroundRemoval(
   const setShowOriginalBg = useCallback(
     (nodeId: NodeId | null) => {
       patch({ showOriginalBgNodeId: nodeId });
+    },
+    [patch],
+  );
+
+  const setMaskPreviewMode = useCallback(
+    (mode: MaskPreviewMode) => {
+      patch({ maskPreviewMode: mode });
     },
     [patch],
   );
@@ -348,18 +389,18 @@ export function useBackgroundRemoval(
       void (async () => {
         const { decodeMaskDataUrl, filterMaskByComponents, getImageCache, maskArrayToDataUrl } =
           await import('@strata/engine');
-        const { setBackgroundRemoval } = await import('@strata/scene');
         const { mask, width, height } = await decodeMaskDataUrl(session.pendingMaskDataUrl);
         const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
         const maskDataUrl = maskArrayToDataUrl(filtered, width, height);
         await warmMaskCache(getImageCache(), maskDataUrl);
         updateDoc((d) =>
-          setBackgroundRemoval(d, session.nodeId, {
-            maskDataUrl,
+          commitRasterMask(d, session.nodeId, {
+            dataUrl: maskDataUrl,
+            width,
+            height,
             method: session.method,
+            generatedAt: Date.now(),
             confidence: session.confidence,
-            appliedAt: Date.now(),
-            feather: session.feather,
             decontaminate: session.decontaminate,
           }),
         );
@@ -377,19 +418,17 @@ export function useBackgroundRemoval(
 
   const refineHairEdges = useCallback(async () => {
     const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import('@strata/scene');
+    const doc = state.document;
     const imageNode = state.selection
-      .map((id) => state.document.nodes[id] as ShapeNode | undefined)
-      .find((n) => n && isImageShape(n) && n.backgroundRemoval?.maskDataUrl) as
-      | ShapeNode
-      | undefined;
-    if (!imageNode?.backgroundRemoval?.maskDataUrl) {
+      .map((id) => doc.nodes[id] as ShapeNode | undefined)
+      .find((n) => n && isImageShape(n) && hasNativeRasterMask(doc, n.id)) as ShapeNode | undefined;
+    if (!imageNode || !hasNativeRasterMask(doc, imageNode.id)) {
       announcerRef.current?.announce('Apply background removal first');
       return;
     }
     try {
       const { decodeMaskDataUrl, getImageCache, maskArrayToDataUrl, refineHairMatting } =
         await import('@strata/engine');
-      const { setBackgroundRemoval } = await import('@strata/scene');
       const w = imageShapeW(imageNode);
       const h = imageShapeH(imageNode);
       const img = await getImageCache().load(imageShapeSrc(imageNode));
@@ -403,15 +442,22 @@ export function useBackgroundRemoval(
       const ctx = canvas.getContext('2d')!;
       ctx.drawImage(img, 0, 0, w, h);
       const imageData = ctx.getImageData(0, 0, w, h);
-      const { mask } = await decodeMaskDataUrl(imageNode.backgroundRemoval.maskDataUrl);
+      const assetId = imageNode.mask!.rasterMask!.assetId;
+      const asset = doc.rasterMaskAssets?.[assetId];
+      const maskUrl = asset?.dataUrl;
+      if (!maskUrl) {
+        announcerRef.current?.announce('Could not resolve mask asset');
+        return;
+      }
+      const { mask } = await decodeMaskDataUrl(maskUrl);
       const refined = refineHairMatting(imageData, mask);
       const maskDataUrl = maskArrayToDataUrl(refined, w, h);
       await warmMaskCache(getImageCache(), maskDataUrl);
       updateDoc((d) =>
-        setBackgroundRemoval(d, imageNode.id, {
-          ...imageNode.backgroundRemoval!,
-          maskDataUrl,
-          appliedAt: Date.now(),
+        commitRasterMask(d, imageNode.id, {
+          dataUrl: maskDataUrl,
+          width: w,
+          height: h,
         }),
       );
       announcerRef.current?.announce('Hair/fur edges refined');
@@ -436,8 +482,9 @@ export function useBackgroundRemoval(
     const nodeId = state.selection[0];
     if (!nodeId) return;
     const trimapEntry = trimapStoreRef.current.get(nodeId);
-    const node = state.document.nodes[nodeId] as ShapeNode | undefined;
-    if (!trimapEntry || !node?.backgroundRemoval) {
+    const doc = state.document;
+    const node = doc.nodes[nodeId] as ShapeNode | undefined;
+    if (!trimapEntry || !node || !hasNativeRasterMask(doc, nodeId)) {
       announcerRef.current?.announce('Paint a trimap first');
       return;
     }
@@ -449,7 +496,6 @@ export function useBackgroundRemoval(
       const { getImageCache, maskArrayToDataUrl, solveTrimapMatting } = await import(
         '@strata/engine'
       );
-      const { setBackgroundRemoval } = await import('@strata/scene');
       const w = imageShapeW(node);
       const h = imageShapeH(node);
       const img = await getImageCache().load(imageShapeSrc(node));
@@ -467,10 +513,10 @@ export function useBackgroundRemoval(
       const maskDataUrl = maskArrayToDataUrl(matte, w, h);
       await warmMaskCache(getImageCache(), maskDataUrl);
       updateDoc((d) =>
-        setBackgroundRemoval(d, nodeId, {
-          ...node.backgroundRemoval!,
-          maskDataUrl,
-          appliedAt: Date.now(),
+        commitRasterMask(d, nodeId, {
+          dataUrl: maskDataUrl,
+          width: w,
+          height: h,
         }),
       );
       trimapStoreRef.current.delete(nodeId);
@@ -498,6 +544,7 @@ export function useBackgroundRemoval(
     cancelBackgroundRemoval,
     removeBackgroundWithOptions,
     setShowOriginalBg,
+    setMaskPreviewMode,
     setRefineMaskOptions,
     setTrimapEditOptions,
     setBrushSetting,
