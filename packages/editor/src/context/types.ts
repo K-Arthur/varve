@@ -21,6 +21,15 @@ import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 
+export type MaskPreviewMode =
+  | 'checkerboard'
+  | 'overlay'
+  | 'black'
+  | 'white'
+  | 'mask-only'
+  | 'edge'
+  | 'none';
+
 export type ToolId =
   | 'select'
   | 'frame'
@@ -133,8 +142,21 @@ export interface EditorState {
    * part of undo/redo history. */
   isolatedNodeId: NodeId | null;
   showOriginalBgNodeId: NodeId | null;
-  refineMaskOptions: { brushSize: number; hardness: number };
-  trimapEditOptions: { brushSize: number; hardness: number; penMode: TrimapPenMode };
+  maskPreviewMode: MaskPreviewMode;
+  refineMaskOptions: {
+    brushSize: number;
+    hardness: number;
+    sourceWidth?: number;
+    sourceHeight?: number;
+  };
+  trimapEditOptions: {
+    brushSize: number;
+    hardness: number;
+    penMode: TrimapPenMode;
+    sourceWidth?: number;
+    sourceHeight?: number;
+  };
+
   /** Active brush settings for paint/eraser tools. Central place where the
    *  inspector writes and the PaintTool reads. Preset defaults are loaded
    *  into these fields on tool activation. */

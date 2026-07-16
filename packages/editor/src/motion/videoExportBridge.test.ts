@@ -1,9 +1,16 @@
 // @vitest-environment jsdom
 
 import type { Timeline } from '@strata/scene';
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { addRasterMaskAsset, createDocument, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
-import { createVideoFrameRenderer, resolveVideoExportBounds } from './videoExportBridge';
+import {
+  createVideoFrameRenderer,
+  flattenVisibleNodesForVideo,
+  resolveVideoExportBounds,
+} from './videoExportBridge';
+
+const PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 
 vi.mock('../timeline/TimelineSampler', () => ({
   sampleTimelineAt: vi.fn((_doc, _tlId, timeMs: number) => ({
@@ -25,6 +32,31 @@ describe('resolveVideoExportBounds', () => {
 });
 
 describe('createVideoFrameRenderer', () => {
+  it('includes native raster masks in motion export nodes', () => {
+    let doc = createDocument('Motion mask', true);
+    const image = makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    image.fills = [
+      {
+        type: 'image',
+        image: { src: 'image', fit: 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ];
+    doc.nodes[image.id] = image;
+    doc.rootChildren = [image.id];
+    doc = addRasterMaskAsset(doc, image.id, {
+      id: 'mask',
+      mimeType: 'image/png',
+      dataUrl: PNG_DATA_URL,
+      width: 1,
+      height: 1,
+      byteLength: 68,
+    });
+    expect(flattenVisibleNodesForVideo(doc).nodes[0]?.alphaMask).toBe(PNG_DATA_URL);
+  });
+
   it('calls sampler at requested times via renderFrame', async () => {
     const doc = createDocument();
     const rect = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Rect' });

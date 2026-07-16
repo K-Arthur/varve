@@ -158,6 +158,45 @@ function collectAssets(doc: Document, pkg: MutablePackage): PackageAssetEntry[] 
     }
   }
 
+  // Collect raster mask assets from doc.rasterMaskAssets.
+  // Each mask asset is a data URL that must be decoded and stored as a
+  // separate file in the package with a deterministic name derived from
+  // the asset id. Checksums are preserved for deduplication.
+  if (doc.rasterMaskAssets) {
+    for (const [assetId, maskAsset] of Object.entries(doc.rasterMaskAssets)) {
+      const src = maskAsset.dataUrl;
+      if (!src) continue;
+      const existingPath = seen.get(src);
+      if (existingPath) {
+        // Deduplicate: same data URL → same file path
+        assets.push({
+          nodeId: assetId,
+          fillIndex: -1,
+          source: src,
+          status: 'embedded',
+          path: existingPath,
+          mimeType: 'image/png',
+          byteCount: maskAsset.byteLength,
+        });
+        continue;
+      }
+      const safeName = assetId.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const path = `masks/${safeName}.png`;
+      seen.set(src, path);
+      const decoded = dataUrlToBytes(src);
+      addBytes(pkg, path, 'asset', decoded);
+      assets.push({
+        nodeId: assetId,
+        fillIndex: -1,
+        source: src,
+        status: 'embedded',
+        path,
+        mimeType: 'image/png',
+        byteCount: decoded.byteLength,
+      });
+    }
+  }
+
   return assets;
 }
 
