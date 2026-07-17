@@ -26,7 +26,9 @@
     "audit:a11y": "echo 'axe-core runs in Playwright E2E'",
     "audit:perf": "node scripts/audit-perf.mjs",
     "test:e2e": "playwright test",
-    "test:wdio": "wdio run wdio.conf.ts",
+    "desktop:build:test": "pnpm --dir apps/desktop tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features wdio",
+    "test:desktop:native": "pnpm desktop:preflight && pnpm desktop:build:test && wdio run wdio.conf.ts",
+    "test:wdio": "pnpm test:desktop:native",
     "desktop:preflight": "node scripts/desktop/preflight.mjs",
     "ci:debug": "node scripts/ci-debug.mjs",
     "ci:local": "bash scripts/ci-local-run.sh"
@@ -52,13 +54,13 @@
     "react-dom": "^19.0.0",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0",
-    "@wdio/cli": "^9",
-    "@wdio/globals": "^9",
-    "@wdio/local-runner": "^9",
-    "@wdio/mocha-framework": "^9",
-    "@wdio/spec-reporter": "^9",
-    "@wdio/tauri-service": "^1",
-    "@wdio/tauri-plugin": "^1",
-    "ts-node": "^10"
+    "@wdio/cli": "9.27.1",
+    "@wdio/globals": "9.27.1",
+    "@wdio/local-runner": "9.27.1",
+    "@wdio/mocha-framework": "9.27.1",
+    "@wdio/spec-reporter": "9.27.1",
+    "@wdio/tauri-service": "1.2.0",
+    "@wdio/tauri-plugin": "1.2.0",
+    "ts-node": "10.9.2"
   }
 }

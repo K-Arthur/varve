@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
   evaluateDisplay,
   evaluateLinuxDependencies,
   evaluateWdioCompatibility,
+  evaluateWindowsWebView2,
   getLinuxInstallHint,
 } from './compatibility.mjs';
 
@@ -43,6 +45,18 @@ test('only checks Linux runtime libraries on Linux', () => {
   assert.match(linux.issues[0], /webkit2gtk-4\.1/);
 });
 
+test('requires WebView2 only on Windows', () => {
+  assert.deepEqual(evaluateWindowsWebView2({ platform: 'darwin', version: null }), {
+    ok: true,
+    issues: [],
+    remediation: null,
+  });
+
+  const report = evaluateWindowsWebView2({ platform: 'win32', version: null });
+  assert.equal(report.ok, false);
+  assert.match(report.remediation, /WebView2/);
+});
+
 test('reports a missing Linux display for native GUI runs', () => {
   const report = evaluateDisplay({
     platform: 'linux',
@@ -72,5 +86,45 @@ test('preflight resolves package metadata through export maps', () => {
     report.webdriver.wdio.issues.join('\n'),
     /Package subpath '\.\/package\.json'/,
   );
-  assert.match(report.webdriver.wdio.issues.join('\n'), /@wdio\/tauri-service@1\.2\.0/);
+  assert.equal(report.webdriver.wdio.ok, true);
+});
+
+test('repository pins the tested WDIO compatibility set', () => {
+  const manifest = JSON.parse(readFileSync('package.json', 'utf8'));
+
+  assert.equal(manifest.devDependencies['@wdio/tauri-service'], '1.2.0');
+  assert.equal(manifest.devDependencies['@wdio/tauri-plugin'], '1.2.0');
+  const workspace = readFileSync('pnpm-workspace.yaml', 'utf8');
+  assert.match(workspace, /"@wdio\/native-utils": 2\.5\.0/);
+});
+
+test('native test config uses the current Tauri capability namespace', () => {
+  const config = readFileSync('wdio.conf.ts', 'utf8');
+
+  assert.match(config, /'tauri:options':/);
+  assert.doesNotMatch(config, /wdio:tauri:options/);
+  assert.match(config, /driverProvider: 'embedded'/);
+});
+
+test('WDIO permissions and bridge are excluded from normal desktop builds', () => {
+  const releaseConfig = readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8');
+  const testConfig = readFileSync('apps/desktop/src-tauri/tauri.test.conf.json', 'utf8');
+  const capability = readFileSync('apps/desktop/src-tauri/capabilities/wdio.json', 'utf8');
+  const entrypoint = readFileSync('apps/desktop/src/main.tsx', 'utf8');
+
+  assert.match(releaseConfig, /"capabilities": \["default"\]/);
+  assert.match(testConfig, /"capabilities": \["default", "wdio"\]/);
+  assert.match(capability, /"wdio:default"/);
+  assert.match(capability, /"wdio-webdriver:default"/);
+  assert.match(entrypoint, /import\('@wdio\/tauri-plugin'\)/);
+  assert.match(entrypoint, /buildMode === 'wdio'/);
+});
+
+test('Windows packages use Tauri offline WebView2 installation at the bundle level', () => {
+  const releaseConfig = readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8');
+
+  assert.match(
+    releaseConfig,
+    /"windows":\s*\{\s*"webviewInstallMode":\s*\{\s*"type":\s*"offlineInstaller"/s,
+  );
 });

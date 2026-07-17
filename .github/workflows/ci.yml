@@ -145,10 +145,23 @@ jobs:
           if-no-files-found: ignore
 
   desktop-e2e:
-    name: Desktop E2E (Linux)
+    name: Native desktop E2E (${{ matrix.name }})
     timeout-minutes: 45
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     needs: rust
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x11
+            os: ubuntu-latest
+            xvfb: true
+          - name: windows-x64
+            os: windows-latest
+            xvfb: false
+          - name: macos
+            os: macos-latest
+            xvfb: false
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -161,13 +174,15 @@ jobs:
           cache-dependency-path: pnpm-lock.yaml
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
-      - name: Install system deps (Tauri + WebKitGTK)
+      - name: Install Linux system deps (Tauri + WebKitGTK)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
-            libfontconfig1-dev libglib2.0-dev cmake pkg-config patchelf \
-            webkit2gtk-driver
+            libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
+            libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
+            cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Download wasm artifact
@@ -175,15 +190,12 @@ jobs:
         with:
           name: strata-wasm
           path: apps/desktop/public/wasm/
-      - name: Build Tauri app (debug, wdio feature)
-        run: pnpm tauri build --debug --features wdio
-        working-directory: apps/desktop
-      - name: Install Tauri WDIO browsers (xvfb)
-        run: |
-          sudo apt-get install -y --no-install-recommends xvfb
-      - name: Run Desktop E2E (WDIO)
-        run: |
-          xvfb-run --auto-servernum pnpm test:wdio
+      - name: Run native desktop E2E (Linux Xvfb)
+        if: matrix.xvfb
+        run: dbus-run-session -- xvfb-run --auto-servernum pnpm test:desktop:native
+      - name: Run native desktop E2E (Windows/macOS)
+        if: ${{ !matrix.xvfb }}
+        run: pnpm test:desktop:native
       - name: Automated failure debug
         if: failure()
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
@@ -193,4 +205,11 @@ jobs:
         with:
           name: strata-debug-desktop-e2e-${{ github.run_id }}
           path: ci-debug-report.md
+          if-no-files-found: ignore
+      - name: Upload native GUI artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strata-native-artifacts-${{ matrix.name }}-${{ github.run_id }}
+          path: artifacts/desktop/
           if-no-files-found: ignore
