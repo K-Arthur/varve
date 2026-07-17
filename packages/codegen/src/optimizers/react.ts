@@ -108,7 +108,7 @@ const reactRules: OptimizationRule[] = [
     id: 'react-remove-empty-style',
     platform: 'react',
     apply(code: string) {
-      const merged = code.replace(/\s+style=\{[\s]*\}/gs, '');
+      const merged = code.replace(/\s*style=\{(?:\s|\{|\})*\}/gs, '');
       return merged !== code ? merged : null;
     },
   },

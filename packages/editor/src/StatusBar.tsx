@@ -1,5 +1,6 @@
 import { Icon, NumberInput } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
+import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
 import { useEditor } from './context';
 import {
@@ -47,11 +48,13 @@ export function StatusBar() {
 
   const singleSel = sel.length === 1;
   const showPreflight = getWorkspaceConfig(state.workspaceMode).statusSections?.preflight ?? false;
+  const showDebtBadge = getWorkspaceConfig(state.workspaceMode).statusSections?.debt ?? true;
 
   return (
     <div className="editor-status">
       <span>{state.tool}</span>
       {showPreflight && <PreflightWarnings />}
+      {showDebtBadge && <DebtBadge />}
       {compositorDiag?.deviceLost && (
         <span
           className="editor-status__info editor-status__info--warning"

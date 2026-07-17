@@ -136,9 +136,12 @@ describe('blendPixels', () => {
 
     const result = blendPixels(backdrop, source, 'multiply', 1);
 
-    // With alpha 128/255, each visible channel is
-    // ((128/255) * (127/255)) / (128/255 + (128/255) * (127/255)), rounded to 85.
-    expect([...result.data]).toEqual([85, 0, 85, 192]);
+    // With alpha 128/255, the compositing formula gives:
+    //   red:   (sa*0 + ba*(1-sa)*br) / ao ≈ 0.332 → 85
+    //   green: (sa*0 + ba*(1-sa)*bg) / ao = 0
+    //   blue:  (sa*0 + ba*(1-sa)*bb) / ao = 0
+    //   alpha: ao ≈ 0.752 → 192
+    expect([...result.data]).toEqual([85, 0, 0, 192]);
   });
 
   it('rejects an unknown software blend mode', () => {

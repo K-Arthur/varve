@@ -62,7 +62,8 @@ export type ToolId =
   | 'trimapEdit'
   | 'crop'
   | 'paint'
-  | 'eraser';
+  | 'eraser'
+  | 'smudge';
 
 export type TrimapPenMode = 'foreground' | 'unknown' | 'background';
 
@@ -177,6 +178,20 @@ export interface EditorState {
     hardness: number;
     smoothing: number;
     spacing: number;
+    // Smudge settings
+    smudgeStrength: number;
+    smudgeMode: 'sampling' | 'mixing' | 'fingerpaint';
+    // Grain settings
+    grainId: string | null;
+    grainScale: number;
+    grainRotation: number;
+    grainContrast: number;
+    grainInvert: boolean;
+    // Wet-paint settings
+    wetEnabled: boolean;
+    wetEdge: boolean;
+    wetMixStrength: number;
+    wetDryingRate: number;
   };
   subjectPickerSession: SubjectPickerSession | null;
   keyObjectId: string | null;

@@ -147,6 +147,8 @@ export interface NewDocPreset {
   colorMode: ColorMode;
   /** Print bleed in the preset's unit. */
   bleed?: number;
+  /** Print resolution in DPI (for CMYK documents). */
+  dpi?: number;
 }
 
 /** A reusable starter document. */

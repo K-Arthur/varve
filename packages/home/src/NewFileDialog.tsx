@@ -38,6 +38,7 @@ const PRINT_PRESETS: NewDocPreset[] = [
     unit: 'mm',
     colorMode: 'cmyk',
     bleed: 3,
+    dpi: 300,
   },
   {
     id: 'a3',
@@ -48,6 +49,7 @@ const PRINT_PRESETS: NewDocPreset[] = [
     unit: 'mm',
     colorMode: 'cmyk',
     bleed: 3,
+    dpi: 300,
   },
   {
     id: 'us-letter',
@@ -58,6 +60,7 @@ const PRINT_PRESETS: NewDocPreset[] = [
     unit: 'mm',
     colorMode: 'cmyk',
     bleed: 3,
+    dpi: 300,
   },
 ];
 
@@ -87,6 +90,7 @@ export function NewFileDialog({
   const [unit, setUnit] = useState<Unit>('px');
   const [colorMode, setColorMode] = useState<ColorMode>('rgb');
   const [bleed, setBleed] = useState(0);
+  const [dpi, setDpi] = useState(300);
 
   // Selecting a preset fills the size fields so the numeric controls always
   // reflect what Create will produce.
@@ -97,6 +101,7 @@ export function NewFileDialog({
     setUnit(preset.unit);
     setColorMode(preset.colorMode);
     setBleed(preset.bleed ?? 0);
+    setDpi(preset.dpi ?? 300);
   }, []);
 
   const getFinalPreset = useCallback((): NewDocPreset => {
@@ -113,8 +118,9 @@ export function NewFileDialog({
       unit,
       colorMode,
       bleed: colorMode === 'cmyk' ? bleed || 3 : undefined,
+      dpi: colorMode === 'cmyk' ? dpi : undefined,
     };
-  }, [selectedId, customW, customH, unit, colorMode, bleed]);
+  }, [selectedId, customW, customH, unit, colorMode, bleed, dpi]);
 
   const handleCreate = useCallback(() => {
     onCreate(getFinalPreset());
@@ -236,6 +242,13 @@ export function NewFileDialog({
                 <span className="new-file__field-label">Bleed</span>
                 <NumberInput value={bleed} onChange={setBleed} min={0} max={50} label="Bleed" />
                 <span className="new-file__field-hint">{unit}</span>
+              </div>
+            )}
+            {colorMode === 'cmyk' && (
+              <div className="new-file__field-row">
+                <span className="new-file__field-label">DPI</span>
+                <NumberInput value={dpi} onChange={setDpi} min={72} max={600} label="DPI" />
+                <span className="new-file__field-hint">resolution</span>
               </div>
             )}
           </div>

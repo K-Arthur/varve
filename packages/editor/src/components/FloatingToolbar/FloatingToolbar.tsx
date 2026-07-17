@@ -49,6 +49,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   healBrush: 'Healing Brush',
   spotHeal: 'Spot Heal',
   patch: 'Patch Tool',
+  smudge: 'Smudge',
 };
 
 const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
@@ -72,6 +73,7 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   cloneStamp: 'J',
   healBrush: 'J 2x',
   spotHeal: 'J 3x',
+  smudge: 'U',
 };
 
 /** Tools hidden in structured-layout modes (Print, Design): raster painting
@@ -85,6 +87,7 @@ const STRUCTURED_MODE_HIDDEN_TOOLS = new Set<ToolId>([
   'spotHeal',
   'patch',
   'pencil',
+  'smudge',
 ]);
 
 /** Tools hidden in Image Editing mode: artboard creation isn't relevant when
@@ -95,6 +98,7 @@ const IMAGE_HIDDEN_TOOLS = new Set<ToolId>(['frame']);
 const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'paint', groupStart: true },
   { id: 'eraser' },
+  { id: 'smudge' },
   { id: 'pen', groupStart: true },
   { id: 'pencil' },
   { id: 'line' },
@@ -123,6 +127,7 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'inspect' },
   { id: 'paint', groupStart: true },
   { id: 'eraser' },
+  { id: 'smudge' },
   { id: 'cloneStamp', groupStart: true },
   { id: 'healBrush' },
   { id: 'spotHeal' },

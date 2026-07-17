@@ -478,6 +478,7 @@ export function HomeShell({
         physicalHeight: preset.height,
         documentUnit: preset.unit,
         bleed: preset.bleed ? uniformBleed(preset.bleed, preset.unit) : undefined,
+        dpi: preset.dpi,
       });
       const docJson = serializeDocument(doc);
       const entry: FileEntry = {

@@ -7,7 +7,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { applyTritone, tritoneMap, type TritoneParams } from './tritone';
-import { applyGradientMapFilter, buildGradientLUT, type GradientMapParams, type GradientMapStop } from './gradientMap';
+import {
+  applyGradientMapFilter,
+  buildGradientLUT,
+  type GradientMapParams,
+  type GradientMapStop,
+} from './gradientMap';
 import { applyHalftone, type HalftoneParams } from './halftone';
 
 function createImageData(width: number, height: number, pixels: number[]): ImageData {

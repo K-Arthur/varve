@@ -66,6 +66,26 @@ export interface BrushPreset {
   grainId?: string;
   /** Grain scale relative to brush size. */
   grainScale: number;
+  /** Grain rotation in radians. */
+  grainRotation: number;
+  /** Grain contrast (1 = identity). */
+  grainContrast: number;
+  /** Invert grain. */
+  grainInvert: boolean;
+  /** Smudge strength (0-1). How much paint is dragged per dab. */
+  smudgeStrength: number;
+  /** Wet paint enabled. */
+  wetEnabled: boolean;
+  /** Wet edge effect enabled. */
+  wetEdge: boolean;
+  /** Wet edge size as fraction of brush radius. */
+  wetEdgeSize: number;
+  /** Wet edge darkening amount (0-1). */
+  wetEdgeDarken: number;
+  /** Wet mix strength (0-1). How much new paint mixes with existing wet paint. */
+  wetMixStrength: number;
+  /** Wet drying rate per second. */
+  wetDryingRate: number;
   /** Eraser mode. */
   eraser: boolean;
   /** Blend mode for this brush (normal, multiply, screen, etc.). */
@@ -93,6 +113,16 @@ export function defaultBrushPreset(id: string, name: string): BrushPreset {
     minSpeed: 0,
     maxSpeed: 500,
     grainScale: 1,
+    grainRotation: 0,
+    grainContrast: 1,
+    grainInvert: false,
+    smudgeStrength: 0.5,
+    wetEnabled: false,
+    wetEdge: false,
+    wetEdgeSize: 0.15,
+    wetEdgeDarken: 0.3,
+    wetMixStrength: 0.5,
+    wetDryingRate: 0.05,
     eraser: false,
     blendMode: 'normal',
   };
@@ -549,6 +579,16 @@ export function validateBrushPreset(preset: unknown): BrushPreset | null {
     minSpeed: Math.max(0, (p.minSpeed as number) ?? fallback.minSpeed),
     maxSpeed: Math.max(0, (p.maxSpeed as number) ?? fallback.maxSpeed),
     grainScale: Math.max(0, (p.grainScale as number) ?? fallback.grainScale),
+    grainRotation: (p.grainRotation as number) ?? fallback.grainRotation,
+    grainContrast: Math.max(0, (p.grainContrast as number) ?? fallback.grainContrast),
+    grainInvert: typeof p.grainInvert === 'boolean' ? p.grainInvert : fallback.grainInvert,
+    smudgeStrength: clampUnit(p.smudgeStrength as number | undefined, fallback.smudgeStrength),
+    wetEnabled: typeof p.wetEnabled === 'boolean' ? p.wetEnabled : fallback.wetEnabled,
+    wetEdge: typeof p.wetEdge === 'boolean' ? p.wetEdge : fallback.wetEdge,
+    wetEdgeSize: clampUnit(p.wetEdgeSize as number | undefined, fallback.wetEdgeSize),
+    wetEdgeDarken: clampUnit(p.wetEdgeDarken as number | undefined, fallback.wetEdgeDarken),
+    wetMixStrength: clampUnit(p.wetMixStrength as number | undefined, fallback.wetMixStrength),
+    wetDryingRate: clampUnit(p.wetDryingRate as number | undefined, fallback.wetDryingRate),
     eraser: typeof p.eraser === 'boolean' ? p.eraser : fallback.eraser,
     blendMode: typeof p.blendMode === 'string' ? p.blendMode : fallback.blendMode,
   };
@@ -576,6 +616,12 @@ export function clampBrushPreset(preset: BrushPreset): BrushPreset {
     minSpeed: Math.max(0, preset.minSpeed),
     maxSpeed: Math.max(0, preset.maxSpeed),
     grainScale: Math.max(0, preset.grainScale),
+    grainContrast: Math.max(0, preset.grainContrast),
+    smudgeStrength: Math.max(0, Math.min(1, preset.smudgeStrength)),
+    wetEdgeSize: Math.max(0, Math.min(1, preset.wetEdgeSize)),
+    wetEdgeDarken: Math.max(0, Math.min(1, preset.wetEdgeDarken)),
+    wetMixStrength: Math.max(0, Math.min(1, preset.wetMixStrength)),
+    wetDryingRate: Math.max(0, preset.wetDryingRate),
   };
 }
 

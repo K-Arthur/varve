@@ -34,7 +34,8 @@ export type PreflightCheckId =
   | 'missing-font'
   | 'broken-chain'
   | 'overset-text'
-  | 'safe-area';
+  | 'safe-area'
+  | 'tac';
 
 export interface PreflightCheckStatus {
   id: PreflightCheckId;
@@ -120,6 +121,12 @@ export function runCombinedPreflight(
       label: 'Printable-area violations',
       status: 'unavailable',
       reason: 'Per-node safe-area geometry checking is not yet implemented.',
+    },
+    {
+      id: 'tac',
+      label: 'Total Area Coverage',
+      status: requiredColorMode === 'cmyk' ? 'verified' : 'unavailable',
+      reason: requiredColorMode === 'cmyk' ? undefined : 'TAC is only relevant for CMYK documents.',
     },
   ];
 
