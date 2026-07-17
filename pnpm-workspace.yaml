@@ -4,6 +4,12 @@ packages:
   - "apps/website"
   - "packages/*"
 
+overrides:
+  # tauri-service 1.2.0 imports this API, but its published dependency range
+  # resolves 2.4.0, where the export is absent. Keep this exact and covered by
+  # scripts/desktop/compatibility.test.mjs.
+  "@wdio/native-utils": 2.5.0
+
 # pnpm 11 build-script approval (replaces the removed onlyBuiltDependencies).
 # esbuild (used by vitest + biome) ships/verifies its platform binary via
 # postinstall; approve it explicitly. strictDepBuilds defaults to true.

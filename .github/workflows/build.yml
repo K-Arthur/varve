@@ -41,9 +41,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            features: wdio
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -122,8 +119,8 @@ jobs:
         run: pnpm build
         working-directory: apps/desktop
 
-      - name: Tauri build (wdio for debug E2E)
-        run: pnpm tauri build --ci ${{ matrix.features && format('--features {0}', matrix.features) || '' }}
+      - name: Tauri build
+        run: pnpm tauri build --ci
         working-directory: apps/desktop
 
       - name: Automated failure debug
