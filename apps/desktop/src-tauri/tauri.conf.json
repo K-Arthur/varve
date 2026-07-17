@@ -39,7 +39,8 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default"]
     }
   },
   "bundle": {
@@ -125,6 +126,9 @@
       "exceptionDomain": null
     },
     "windows": {
+      "webviewInstallMode": {
+        "type": "offlineInstaller"
+      },
       "wix": {
         "language": ["en-US"]
       },

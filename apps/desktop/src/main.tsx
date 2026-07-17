@@ -11,26 +11,35 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
-// Remove the pre-JS boot fallback before React paints (browser target).
-dismissBootFallback();
-if (typeof performance !== 'undefined' && performance.mark) {
-  performance.mark('strata-boot-dismissed');
+async function bootstrap() {
+  // The test bridge is excluded from normal builds by Vite's mode replacement.
+  // It must load before React so WDIO can inspect a genuinely interactive window.
+  const buildMode = (import.meta as ImportMeta & { env?: { MODE?: string } }).env?.MODE;
+  if (buildMode === 'wdio') await import('@wdio/tauri-plugin');
+
+  // Remove the pre-JS boot fallback before React paints (browser target).
+  dismissBootFallback();
+  if (typeof performance !== 'undefined' && performance.mark) {
+    performance.mark('strata-boot-dismissed');
+  }
+
+  // Restore persisted theme before first paint so both home and editor surfaces
+  // start with the correct [data-theme] attribute rather than falling through to
+  // the OS prefers-color-scheme default.
+  const savedTheme = localStorage.getItem('strata-theme');
+  if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'high-contrast') {
+    document.documentElement.dataset.theme = savedTheme;
+  }
+
+  const root = document.getElementById('root');
+  if (!root) throw new Error('Root element not found');
+  createRoot(root).render(
+    <StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </StrictMode>,
+  );
 }
 
-// Restore persisted theme before first paint so both home and editor surfaces
-// start with the correct [data-theme] attribute rather than falling through to
-// the OS prefers-color-scheme default.
-const savedTheme = localStorage.getItem('strata-theme');
-if (savedTheme === 'dark' || savedTheme === 'light' || savedTheme === 'high-contrast') {
-  document.documentElement.dataset.theme = savedTheme;
-}
-
-const root = document.getElementById('root');
-if (!root) throw new Error('Root element not found');
-createRoot(root).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <App />
-    </ErrorBoundary>
-  </StrictMode>,
-);
+void bootstrap();
