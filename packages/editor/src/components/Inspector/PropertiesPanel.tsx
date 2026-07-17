@@ -93,10 +93,12 @@ export function PropertiesPanel() {
             state.tool !== 'frame' &&
             state.tool !== 'paint' &&
             state.tool !== 'eraser' &&
-            state.tool !== 'pencil' && <EmptySelectionState />}
-          {(state.tool === 'paint' || state.tool === 'eraser' || state.tool === 'pencil') && (
-            <BrushSection tool={state.tool} />
-          )}
+            state.tool !== 'pencil' &&
+            state.tool !== 'smudge' && <EmptySelectionState />}
+          {(state.tool === 'paint' ||
+            state.tool === 'eraser' ||
+            state.tool === 'pencil' ||
+            state.tool === 'smudge') && <BrushSection tool={state.tool} />}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
         </div>

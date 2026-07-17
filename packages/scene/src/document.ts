@@ -194,6 +194,7 @@ export interface CreateDocumentOptions {
   physicalHeight?: number;
   documentUnit?: DocumentUnit;
   bleed?: BleedConfig;
+  dpi?: number;
 }
 
 export function createDocument(name?: string, flat?: boolean): Document;
@@ -254,6 +255,7 @@ export function createDocument(
       physicalWidth: opts.physicalWidth,
       physicalHeight: opts.physicalHeight,
       bleed: opts.bleed,
+      dpi: opts.dpi,
     };
   }
 

@@ -6,7 +6,7 @@ const flutterRules: OptimizationRule[] = [
     platform: 'flutter',
     apply(code: string) {
       const merged = code.replace(
-        /Positioned\(\s*top:\s*([0-9.]+),\s*left:\s*([0-9.]+),\s*child:\s*Container\(\s*(.+?)\s*\)\s*\)/gs,
+        /Positioned\(\s*top:\s*([0-9.]+),\s*left:\s*([0-9.]+),\s*child:\s*Container\(\s*(.+?)\s*\)\s*,?\s*\)/gs,
         'Positioned.fill(top: $1, left: $2, child: Container($3))',
       );
       return merged !== code ? merged : null;
@@ -39,7 +39,7 @@ const flutterRules: OptimizationRule[] = [
     platform: 'flutter',
     apply(code: string) {
       const merged = code.replace(
-        /SizedBox\(\s*width:\s*0,\s*height:\s*0\s*\)/gs,
+        /SizedBox\(\s*width:\s*0,?\s*height:\s*0,?\s*\)/gs,
         'SizedBox.shrink()',
       );
       return merged !== code ? merged : null;
@@ -108,7 +108,7 @@ const flutterRules: OptimizationRule[] = [
     platform: 'flutter',
     apply(code: string) {
       const merged = code.replace(
-        /(SizedBox|Padding|Center|ColoredBox|SizedBox\.shrink)\(/gs,
+        /(?<![.a-z])(SizedBox|Padding|Center|ColoredBox)\(/gs,
         'const $1(',
       );
       return merged !== code ? merged : null;
