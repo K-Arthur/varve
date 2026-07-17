@@ -319,6 +319,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.sendBack.binding),
         action: 'sendBack',
       },
+      {
+        label: 'Harmonize Spacing',
+        shortcut: formatShortcut(SHORTCUT_DEFS.harmonizeSpacing.binding),
+        action: 'harmonizeSpacing',
+      },
     ],
   },
   {

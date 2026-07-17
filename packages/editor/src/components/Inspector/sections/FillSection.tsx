@@ -35,6 +35,7 @@ import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
+import { ContrastIndicator } from './ContrastIndicator';
 import { ImageFillControls } from './ImageFillControls';
 import { PatternFillControls } from './PatternFillControls';
 
@@ -352,6 +353,7 @@ function FillRow({
             }}
           />
         )}
+        {fill.type === 'solid' && fill.color && <ContrastIndicator fill={fill} fillIndex={index} />}
         <div className="insp-field__control">
           <Select
             label={`${label} type`}

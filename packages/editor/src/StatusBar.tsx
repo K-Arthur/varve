@@ -2,6 +2,7 @@ import { Icon, NumberInput } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
 import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
+import { LayoutScoreIndicator } from './components/StatusBar/LayoutScoreIndicator';
 import { useEditor } from './context';
 import {
   getCompositorDiagnosticsSnapshot,
@@ -77,6 +78,7 @@ export function StatusBar() {
           X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
         </span>
       )}
+      <LayoutScoreIndicator />
       {state.cameraRotation !== 0 && (
         <span title="View rotation">{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
       )}

@@ -309,6 +309,11 @@ export const SHORTCUT_DEFS = {
     label: 'Color Blindness: Deuteranopia',
     category: 'View',
   },
+  harmonizeSpacing: {
+    binding: { key: ' ', ctrl: true, shift: true },
+    label: 'Harmonize Spacing',
+    category: 'Arrange',
+  },
   colorBlindnessTritanopia: {
     // 't' collides with toggleTimelinePanel (Ctrl+Alt+T, documented in
     // AGENTS.md as the canonical timeline shortcut) — use '3' to keep the
