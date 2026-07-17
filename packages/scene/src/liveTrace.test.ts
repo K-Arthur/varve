@@ -21,6 +21,12 @@ const defaultParams: LiveTraceParams = {
   maxPaths: 1000,
   maxColors: 8,
   compoundHoles: true,
+  traceVersion: 2,
+  traceMode: 'silhouette',
+  cornerAngle: 135,
+  maxError: 1.0,
+  centerlineWidth: 2,
+  centerlinePrune: 4,
 };
 
 function setup(): { doc: Document; nodeId: string } {

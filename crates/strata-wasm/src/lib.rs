@@ -72,6 +72,45 @@ struct TraceResultJson {
 /// `foreground`: "dark" or "light" (default "dark")
 ///
 /// Returns a JSON string matching the TS `RasterTraceResult` shape.
+/// Parse optional JSON options and merge with explicit params.
+fn parse_trace_opts(
+    threshold: u8,
+    min_pixels: u32,
+    foreground: Option<String>,
+    opts_json: Option<String>,
+) -> strata_trace::TraceOptions {
+    let fg = foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
+        if v.eq_ignore_ascii_case("light") {
+            strata_trace::Foreground::Light
+        } else {
+            strata_trace::Foreground::Dark
+        }
+    });
+
+    // Start with defaults, then overlay explicit params
+    let mut opts = strata_trace::TraceOptions {
+        threshold,
+        min_pixels: min_pixels as usize,
+        max_colors: 0,
+        foreground: fg,
+        ..Default::default()
+    };
+
+    // If JSON options provided, parse and overlay
+    if let Some(json) = opts_json {
+        if let Ok(json_opts) = serde_json::from_str::<serde_json::Value>(&json) {
+            if let Some(ca) = json_opts.get("cornerAngle").and_then(|v| v.as_f64()) {
+                opts.corner_angle = ca;
+            }
+            if let Some(me) = json_opts.get("maxError").and_then(|v| v.as_f64()) {
+                opts.max_error = me;
+            }
+        }
+    }
+
+    opts
+}
+
 #[wasm_bindgen]
 pub fn trace_contours_json(
     pixels: &[u8],
@@ -80,6 +119,20 @@ pub fn trace_contours_json(
     threshold: u8,
     min_pixels: u32,
     foreground: Option<String>,
+) -> Result<String, JsValue> {
+    trace_contours_json_opts(pixels, width, height, threshold, min_pixels, foreground, None)
+}
+
+/// Extended version that accepts additional options as JSON string.
+#[wasm_bindgen(js_name = trace_contours_json_opts)]
+pub fn trace_contours_json_opts(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    threshold: u8,
+    min_pixels: u32,
+    foreground: Option<String>,
+    opts_json: Option<String>,
 ) -> Result<String, JsValue> {
     let expected_len = (width * height * 4) as usize;
     if pixels.len() != expected_len {
@@ -104,20 +157,7 @@ pub fn trace_contours_json(
         gray.push(luma);
     }
 
-    let foreground = foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
-        if v.eq_ignore_ascii_case("light") {
-            strata_trace::Foreground::Light
-        } else {
-            strata_trace::Foreground::Dark
-        }
-    });
-
-    let opts = strata_trace::TraceOptions {
-        threshold,
-        min_pixels: min_pixels as usize,
-        max_colors: 0,
-        foreground,
-    };
+    let opts = parse_trace_opts(threshold, min_pixels, foreground, opts_json);
 
     // Detect hardware concurrency via navigator.hardwareConcurrency,
     // clamped to [1, 4] chunks. Falls back to 2 in non-browser contexts.
@@ -130,18 +170,26 @@ pub fn trace_contours_json(
     let paths =
         strata_trace::chunked::trace_contours_chunked(&gray, width, height, &opts, chunk_count);
 
-    // Map to JSON-serializable form with area and bounds computed
+    // Apply Bezier fitting to each path
     let json_paths: Vec<TracePathJson> = paths
         .into_iter()
         .map(|p| {
+            // Convert to contour for Bezier fitting
+            let contour: Vec<(f64, f64)> = p.points.iter().map(|pt| (pt.x, pt.y)).collect();
+            let bezier_pts = strata_trace::bezier_fit::fit_bezier_to_contour(
+                &contour,
+                p.closed,
+                opts.corner_angle,
+                opts.max_error,
+            );
+            let bezier_points: Vec<TracePointJson> = bezier_pts
+                .iter()
+                .map(|pt| TracePointJson { x: pt.x, y: pt.y })
+                .collect();
             let area = polygon_area(&p.points);
             let (min_x, min_y, max_x, max_y) = bounds(&p.points);
             TracePathJson {
-                points: p
-                    .points
-                    .into_iter()
-                    .map(|pt| TracePointJson { x: pt.x, y: pt.y })
-                    .collect(),
+                points: bezier_points,
                 holes: None,
                 closed: true,
                 area,

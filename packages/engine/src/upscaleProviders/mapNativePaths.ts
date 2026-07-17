@@ -1,9 +1,22 @@
 import type { RasterTraceResult } from '../rasterTrace';
 
+interface NativeBezierPoint {
+  x: number;
+  y: number;
+  handle_in?: [number, number] | null;
+  handle_out?: [number, number] | null;
+}
+
+interface NativeBezierPath {
+  points: NativeBezierPoint[];
+  closed: boolean;
+  fill?: { r: number; g: number; b: number; a: number } | null;
+}
+
 export function mapNativePathsToTraceResult(
   width: number,
   height: number,
-  paths: Array<{ points: Array<{ x: number; y: number }>; closed: boolean }>,
+  paths: NativeBezierPath[],
 ): RasterTraceResult {
   const mapped = paths
     .filter((p) => p.points.length >= 3)
@@ -25,6 +38,9 @@ export function mapNativePathsToTraceResult(
         closed: true as const,
         area: w * h,
         bounds: { x: minX, y: minY, w, h },
+        ...(path.fill
+          ? { fill: { r: path.fill.r, g: path.fill.g, b: path.fill.b, a: path.fill.a } }
+          : {}),
       };
     });
   return {

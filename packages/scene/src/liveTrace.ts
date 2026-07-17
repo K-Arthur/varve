@@ -13,7 +13,7 @@ import type { Affine } from '@strata/engine';
 import type { Document } from './document';
 import { getById, removeNode } from './document';
 import type { LiveTraceParams, LiveTraceState, NodeId } from './types';
-import { defaultLiveTraceParams } from './types';
+import { defaultLiveTraceParams, migrateLiveTraceParams } from './types';
 
 function isShapeNode(doc: Document, nodeId: NodeId): import('./types').ShapeNode | undefined {
   const node = getById(doc, nodeId);
@@ -37,7 +37,11 @@ export function setLiveTraceParams(
   const existing: LiveTraceState | undefined = shape.liveTrace;
   const merged: LiveTraceState = {
     sourceNodeId: existing?.sourceNodeId ?? nodeId,
-    params: { ...defaultLiveTraceParams(), ...(existing?.params ?? {}), ...params },
+    params: migrateLiveTraceParams({
+      ...defaultLiveTraceParams(),
+      ...(existing?.params ?? {}),
+      ...params,
+    }) as LiveTraceParams,
     resolvedAt: null,
     lastError: null,
     traceGroupId: undefined,

@@ -82,9 +82,6 @@ function fitCubicLeastSquares(
   if (segment.length < 2) return null;
 
   const t = chordLengthParams(segment);
-  const a11 = 0;
-  const a12 = 0;
-  const a22 = 0;
 
   let a11_acc = 0;
   let a12_acc = 0;
@@ -311,7 +308,7 @@ export function fitBezierToContour(
     if (sorted.length < 2) {
       return contour.map((p) => ({ x: p.x, y: p.y, handleIn: null, handleOut: null }));
     }
-    let result = buildAnchors(contour, sorted);
+    const result = buildAnchors(contour, sorted);
     if (closed && result.length >= 2) {
       const f = result[0]!;
       const l = result[result.length - 1]!;
@@ -360,7 +357,7 @@ export function fitBezierToContour(
     return contour.map((p) => ({ x: p.x, y: p.y, handleIn: null, handleOut: null }));
   }
 
-  let result = buildAnchors(contour, sorted);
+  const result = buildAnchors(contour, sorted);
 
   if (result.length < 3) {
     return contour.map((p) => ({ x: p.x, y: p.y, handleIn: null, handleOut: null }));

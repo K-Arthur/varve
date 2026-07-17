@@ -47,6 +47,16 @@ export interface RasterTraceOptions {
   mode?: RasterTraceMode;
   /** Palette size for color/grayscale modes (2–32). Default 8 color / 4 grayscale. */
   maxColors?: number;
+  /** Interior angle threshold for sharp corners (degrees, 90-180). Default 135. */
+  cornerAngle?: number;
+  /** Maximum Bezier fitting error in pixels (0.1-10). Default 1.0. */
+  maxError?: number;
+  /** Trace mode: silhouette (filled paths) or centerline (stroked paths). */
+  traceMode?: 'silhouette' | 'centerline';
+  /** Target stroke width for centerline mode in pixels (1-50). Default 2. */
+  centerlineWidth?: number;
+  /** Minimum branch length to keep for centerline mode in pixels (1-100). Default 4. */
+  centerlinePrune?: number;
 }
 
 export interface RasterTraceResult {
