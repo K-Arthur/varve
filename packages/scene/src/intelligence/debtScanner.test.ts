@@ -104,7 +104,7 @@ describe('checkUntokenizedColors', () => {
     doc = { ...doc, nodes: { [node.id]: node }, rootChildren: [node.id] };
     const issues = checkUntokenizedColors(doc);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('untokenized-colors');
+    expect(issues[0]!.checkId).toBe('untokenized-colors');
   });
 
   it('returns no issues when there are no swatches', () => {
@@ -130,7 +130,7 @@ describe('checkInlineSpacing', () => {
     const docWithFrame = { ...doc, nodes: { [frame.id]: frame }, rootChildren: [frame.id] };
     const issues = checkInlineSpacing(docWithFrame);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('inline-spacing');
+    expect(issues[0]!.checkId).toBe('inline-spacing');
   });
 
   it('allows a frame with grid-aligned spacing', () => {
@@ -180,7 +180,7 @@ describe('checkOrphanedStyles', () => {
     } as unknown as typeof doc;
     const issues = checkOrphanedStyles(docWithStyle);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('orphan-styles');
+    expect(issues[0]!.checkId).toBe('orphan-styles');
   });
 });
 
@@ -193,7 +193,7 @@ describe('checkUnusedComponents', () => {
     } as unknown as typeof doc;
     const issues = checkUnusedComponents(docWithComp);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('unused-components');
+    expect(issues[0]!.checkId).toBe('unused-components');
   });
 });
 
@@ -204,7 +204,7 @@ describe('checkMissingFonts', () => {
     const docWithText = { ...doc, nodes: { [text.id]: text }, rootChildren: [text.id] };
     const issues = checkMissingFonts(docWithText, { availableFonts: new Set(['Inter', 'Roboto']) });
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('missing-fonts');
+    expect(issues[0]!.checkId).toBe('missing-fonts');
   });
 
   it('returns no issues when no font registry is supplied', () => {
@@ -237,7 +237,7 @@ describe('checkDuplicateStyles', () => {
     (doc as any).rootChildren = [];
     const issues = checkDuplicateStyles(doc);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('duplicate-styles');
+    expect(issues[0]!.checkId).toBe('duplicate-styles');
   });
 });
 
@@ -254,7 +254,7 @@ describe('checkInconsistentBorderRadius', () => {
     };
     const issues = checkInconsistentBorderRadius(docWithNodes);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('inconsistent-radius');
+    expect(issues[0]!.checkId).toBe('inconsistent-radius');
   });
 });
 
@@ -265,7 +265,7 @@ describe('checkHardcodedFontSizes', () => {
     const docWithText = { ...doc, nodes: { [text.id]: text }, rootChildren: [text.id] };
     const issues = checkHardcodedFontSizes(docWithText);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('hardcoded-font-sizes');
+    expect(issues[0]!.checkId).toBe('hardcoded-font-sizes');
   });
 });
 
@@ -284,7 +284,7 @@ describe('checkMixedColorSpaces', () => {
     } as unknown as typeof doc;
     const issues = checkMixedColorSpaces(docWithNode);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('mixed-color-spaces');
+    expect(issues[0]!.checkId).toBe('mixed-color-spaces');
   });
 });
 
@@ -300,7 +300,7 @@ describe('checkOversetText', () => {
     };
     const issues = checkOversetText(docWithText);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('overset-text');
+    expect(issues[0]!.checkId).toBe('overset-text');
   });
 });
 
@@ -311,7 +311,7 @@ describe('checkUnnamedLayers', () => {
     const docWithNode = { ...doc, nodes: { [node.id]: node }, rootChildren: [node.id] };
     const issues = checkUnnamedLayers(docWithNode);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('unnamed-layers');
+    expect(issues[0]!.checkId).toBe('unnamed-layers');
   });
 });
 
@@ -344,7 +344,7 @@ describe('checkExcessiveNesting', () => {
     };
     const issues = checkExcessiveNesting(docWithNodes);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('excessive-nesting');
+    expect(issues[0]!.checkId).toBe('excessive-nesting');
   });
 });
 
@@ -355,6 +355,6 @@ describe('checkMissingExportPresets', () => {
     const docWithNode = { ...doc, nodes: { [node.id]: node }, rootChildren: [node.id] };
     const issues = checkMissingExportPresets(docWithNode);
     expect(issues).toHaveLength(1);
-    expect(issues[0].checkId).toBe('missing-export-presets');
+    expect(issues[0]!.checkId).toBe('missing-export-presets');
   });
 });

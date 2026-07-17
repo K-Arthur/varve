@@ -9,7 +9,7 @@
  */
 
 import { gaussianBlurSeparable } from './blur';
-import { CompositeCanvas, blendPixels } from './compositeCanvas';
+import { blendPixels, type CompositeCanvas } from './compositeCanvas';
 import type { EngineColor } from './types';
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;

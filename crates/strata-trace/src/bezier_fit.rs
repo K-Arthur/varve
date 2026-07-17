@@ -149,7 +149,9 @@ fn max_fitting_error_index(
     (max_err, max_idx)
 }
 
-fn coeffs_to_handles(c: &CubicCoeffs) -> (Option<(f64, f64)>, Option<(f64, f64)>) {
+type BezierHandles = (Option<(f64, f64)>, Option<(f64, f64)>);
+
+fn coeffs_to_handles(c: &CubicCoeffs) -> BezierHandles {
     let c1x = c.cx / 3.0 + c.dx;
     let c1y = c.cy / 3.0 + c.dy;
     let c2x = c.bx / 3.0 + (2.0 * c.cx) / 3.0 + c.dx;
@@ -211,10 +213,7 @@ fn fit_segment_recursive(
     fit_segment_recursive(points, index as usize, e, max_error, anchors);
 }
 
-fn build_bezier_points(
-    points: &[(f64, f64)],
-    anchor_indices: &[usize],
-) -> Vec<BezierPoint> {
+fn build_bezier_points(points: &[(f64, f64)], anchor_indices: &[usize]) -> Vec<BezierPoint> {
     if anchor_indices.len() < 2 {
         return points
             .iter()
@@ -489,7 +488,13 @@ mod tests {
 
     #[test]
     fn straight_line_minimal_handles() {
-        let contour = pts(&[(0.0, 0.0), (5.0, 0.0), (10.0, 0.0), (15.0, 0.0), (20.0, 0.0)]);
+        let contour = pts(&[
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (10.0, 0.0),
+            (15.0, 0.0),
+            (20.0, 0.0),
+        ]);
         let result = fit_bezier_to_contour(&contour, false, 135.0, 1.0);
         assert!(result.len() >= 2);
         assert!((result[0].x - 0.0).abs() < 0.01);
@@ -508,31 +513,37 @@ mod tests {
         }
         let result = fit_bezier_to_contour(&contour, false, 135.0, 1.0);
         assert!(result.len() < contour.len());
-        let has_handles = result.iter().any(|p| p.handle_in.is_some() || p.handle_out.is_some());
+        let has_handles = result
+            .iter()
+            .any(|p| p.handle_in.is_some() || p.handle_out.is_some());
         assert!(has_handles);
     }
 
     #[test]
     fn preserves_right_angle_corner() {
         let contour = pts(&[
-            (0.0, 0.0), (5.0, 0.0), (9.0, 0.0), (10.0, 0.0),
-            (10.0, 5.0), (10.0, 10.0), (10.0, 5.0),
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (9.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 5.0),
+            (10.0, 10.0),
+            (10.0, 5.0),
         ]);
         let result = fit_bezier_to_contour(&contour, false, 100.0, 1.0);
-        let has_corner = result.iter().any(|p| (p.x - 10.0).abs() < 1.0 && (p.y - 10.0).abs() < 1.0);
+        let has_corner = result
+            .iter()
+            .any(|p| (p.x - 10.0).abs() < 1.0 && (p.y - 10.0).abs() < 1.0);
         assert!(has_corner);
     }
 
     #[test]
     fn square_produces_4_corner_points() {
-        let contour = pts(&[
-            (0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0),
-        ]);
+        let contour = pts(&[(0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)]);
         let result = fit_bezier_to_contour(&contour, true, 135.0, 0.1);
         assert_eq!(result.len(), 4);
         for pt in &result {
-            let on_corner =
-                (pt.x == 0.0 || pt.x == 10.0) && (pt.y == 0.0 || pt.y == 10.0);
+            let on_corner = (pt.x == 0.0 || pt.x == 10.0) && (pt.y == 0.0 || pt.y == 10.0);
             assert!(on_corner, "point ({}, {}) not on a corner", pt.x, pt.y);
         }
     }
@@ -549,15 +560,23 @@ mod tests {
         }
         let result = fit_bezier_to_contour(&contour, true, 135.0, 0.5);
         assert!(result.len() < contour.len());
-        let has_handles = result.iter().any(|p| p.handle_in.is_some() || p.handle_out.is_some());
+        let has_handles = result
+            .iter()
+            .any(|p| p.handle_in.is_some() || p.handle_out.is_some());
         assert!(has_handles);
     }
 
     #[test]
     fn valid_closed_contour_from_8_perimeter_points() {
         let contour = pts(&[
-            (0.0, 0.0), (5.0, 0.0), (10.0, 0.0), (10.0, 5.0),
-            (10.0, 10.0), (5.0, 10.0), (0.0, 10.0), (0.0, 5.0),
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 5.0),
+            (10.0, 10.0),
+            (5.0, 10.0),
+            (0.0, 10.0),
+            (0.0, 5.0),
         ]);
         let result = fit_bezier_to_contour(&contour, true, 135.0, 0.5);
         assert!(result.len() >= 4);
@@ -566,7 +585,11 @@ mod tests {
     #[test]
     fn deterministic_output() {
         let contour = pts(&[
-            (0.0, 0.0), (4.0, 1.0), (8.0, 2.0), (12.0, 0.0), (16.0, -1.0),
+            (0.0, 0.0),
+            (4.0, 1.0),
+            (8.0, 2.0),
+            (12.0, 0.0),
+            (16.0, -1.0),
         ]);
         let a = fit_bezier_to_contour(&contour, false, 135.0, 1.0);
         let b = fit_bezier_to_contour(&contour, false, 135.0, 1.0);

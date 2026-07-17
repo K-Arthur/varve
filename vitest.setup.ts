@@ -357,6 +357,19 @@ if (typeof HTMLElement !== 'undefined' && !HTMLElement.prototype.showPopover) {
   });
 }
 
+// jsdom does not implement requestIdleCallback
+if (typeof globalThis.requestIdleCallback === 'undefined') {
+  globalThis.requestIdleCallback = vi.fn((cb: IdleRequestCallback) => {
+    return setTimeout(
+      () => cb({ didTimeout: false, timeRemaining: () => 50 }),
+      0,
+    ) as unknown as number;
+  }) as unknown as typeof globalThis.requestIdleCallback;
+  globalThis.cancelIdleCallback = vi.fn((id: number) =>
+    clearTimeout(id),
+  ) as unknown as typeof globalThis.cancelIdleCallback;
+}
+
 // jsdom does not implement HTMLDialogElement
 if (typeof HTMLDialogElement !== 'undefined') {
   HTMLDialogElement.prototype.showModal = vi.fn(function (this: HTMLDialogElement) {

@@ -27,8 +27,7 @@
  *   only — the primary hash is still a single FNV-1a over all parts.
  */
 
-import type { RenderItem } from '@strata/engine';
-import type { SceneNode as EngineNode } from '@strata/engine';
+import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
 
 /** Diagnostics: which sub-category of content changed. */
 export interface ChangedSubHashes {

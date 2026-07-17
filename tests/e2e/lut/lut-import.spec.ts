@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import path from 'node:path';
 import fs from 'node:fs';
+import path from 'node:path';
+import { expect, test } from '@playwright/test';
 
 const FIXTURES = path.resolve(__dirname, 'fixtures');
 

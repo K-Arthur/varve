@@ -15,6 +15,7 @@
  */
 import type { Affine } from '@strata/engine';
 import { applyAffine, identity, invertAffine, multiplyAffine, rotateDeg } from '@strata/shared';
+import type { Document } from './document';
 import {
   buildParentIndexMap,
   getParent,
@@ -22,9 +23,8 @@ import {
   nextNodeId,
   reparentNode,
 } from './document';
-import type { Document } from './document';
-import { addMask, removeMask, resolveMask } from './masks';
-import type { GroupNode, MaskFillRule, MaskType, NodeId, SceneNode } from './types';
+import { addMask, removeMask } from './masks';
+import type { FrameNode, GroupNode, MaskFillRule, MaskType, NodeId, SceneNode } from './types';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -80,12 +80,6 @@ function nodeWorldTransform(doc: Document, id: NodeId, parentIndex?: Map<NodeId,
   return world;
 }
 
-function setNodeTransform(doc: Document, id: NodeId, transform: Affine): Document {
-  const node = doc.nodes[id];
-  if (!node) return doc;
-  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, transform } as SceneNode } };
-}
-
 // ── Predicates ─────────────────────────────────────────────────────────────
 
 /** True if the node can be used as a vector clipping mask source. */
@@ -104,7 +98,7 @@ export function canBeClipMaskSource(node: SceneNode): boolean {
 }
 
 /** True if the node is a container with a clip-style mask. */
-export function isClippingMaskGroup(node: SceneNode): boolean {
+export function isClippingMaskGroup(node: SceneNode): node is GroupNode | FrameNode {
   return (
     (node.kind === 'group' || node.kind === 'frame') &&
     node.mask?.type === 'clip' &&
@@ -190,10 +184,6 @@ export function createClippingMask(
   // Reparent content nodes into group, preserving their world transforms.
   for (let i = 0; i < contentNodeIds.length; i++) {
     const contentId = contentNodeIds[i]!;
-    const contentWorld = nodeWorldTransform(result, contentId, parentIndex);
-    const contentLocal = groupInverse
-      ? applyAffine(groupInverse, [contentWorld[4], contentWorld[5]])
-      : [contentWorld[4], contentWorld[5]];
     const contentLocalTransform: Affine = groupInverse
       ? multiplyAffine(
           groupInverse,
@@ -341,7 +331,7 @@ function removeGroupOnly(doc: Document, groupId: NodeId): Document {
   const group = doc.nodes[groupId];
   if (!group || (group.kind !== 'group' && group.kind !== 'frame')) return doc;
   const parentId = getParent(doc, groupId);
-  let nodes = { ...doc.nodes };
+  const nodes = { ...doc.nodes };
   delete nodes[groupId];
   let rootChildren = [...doc.rootChildren];
   if (parentId) {
@@ -373,7 +363,6 @@ export function replaceClippingMaskContent(
   if (!group.children.length) throw new Error('Clipping group has no mask source');
 
   const parentIndex = buildParentIndexMap(doc);
-  const maskSourceId = group.children[0]!;
   const groupWorld = nodeWorldTransform(doc, groupId, parentIndex);
   const groupInverse = invertAffine(groupWorld);
 
@@ -409,7 +398,6 @@ export function replaceClippingMaskContent(
       result = moveChildInPlace(result, groupId, contentId, i + 1);
       continue;
     }
-    const contentWorld = nodeWorldTransform(result, contentId, parentIndex);
     const contentLocal = groupInverse
       ? multiplyAffine(groupInverse, composeNodeLocalTransform(content))
       : composeNodeLocalTransform(content);

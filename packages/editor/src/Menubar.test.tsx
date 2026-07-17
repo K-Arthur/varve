@@ -125,6 +125,10 @@ vi.mock('./shortcuts', () => ({
       binding: { key: 't', ctrl: true, alt: true },
       label: 'Color Blindness: Tritanopia',
     },
+    harmonizeSpacing: {
+      binding: { key: ' ', ctrl: true, shift: true },
+      label: 'Harmonize Spacing',
+    },
   },
 }));
 

@@ -5,8 +5,9 @@
  * and viewport-entry latency for representative small, medium, large,
  * and pathological documents.
  */
-import { describe, expect, it } from 'vitest';
+
 import type { RenderItem } from '@strata/engine';
+import { describe, expect, it } from 'vitest';
 import { SubtreeIrCache } from '../subtreeIrCache';
 
 function makeItem(id: string): RenderItem {
