@@ -16,7 +16,6 @@ import {
   applyChromaticAberration,
   applyGlassMaterialBackdrop,
   applyGlitch,
-  applyLayerBlur,
   clampByte,
   computeScreenBounds,
 } from './effectPipeline';
