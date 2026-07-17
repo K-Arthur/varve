@@ -27,6 +27,7 @@
     "audit:perf": "node scripts/audit-perf.mjs",
     "test:e2e": "playwright test",
     "test:wdio": "wdio run wdio.conf.ts",
+    "desktop:preflight": "node scripts/desktop/preflight.mjs",
     "ci:debug": "node scripts/ci-debug.mjs",
     "ci:local": "bash scripts/ci-local-run.sh"
   },
