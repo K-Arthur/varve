@@ -128,3 +128,13 @@ test('Windows packages use Tauri offline WebView2 installation at the bundle lev
     /"windows":\s*\{\s*"webviewInstallMode":\s*\{\s*"type":\s*"offlineInstaller"/s,
   );
 });
+
+test('engine sources do not retain obsolete no-op declarations', () => {
+  const workerPool = readFileSync('packages/engine/src/backgroundRemoval/workerPool.ts', 'utf8');
+  const replay = readFileSync('packages/engine/src/replay.ts', 'utf8');
+  const traceFit = readFileSync('packages/engine/src/traceBezierFit.ts', 'utf8');
+
+  assert.doesNotMatch(workerPool, /const _cleanup = \(\) =>/);
+  assert.doesNotMatch(replay, /\bapplyLayerBlur,\n/);
+  assert.doesNotMatch(traceFit, /const a11 = 0;|const a12 = 0;|const a22 = 0;/);
+});
