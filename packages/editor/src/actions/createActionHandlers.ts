@@ -1,5 +1,6 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import type { EditorContextValue, ToolId } from '../context';
+import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
@@ -149,6 +150,11 @@ export function createActionHandlers(
     alignBottom: () => e.alignSelected('bottom'),
     distributeHorizontal: () => e.distributeSelected('horizontal'),
     distributeVertical: () => e.distributeSelected('vertical'),
+    harmonizeSpacing: () => {
+      const sel = e.state.selection;
+      if (sel.length < 3) return;
+      e.updateDoc((doc) => applyHarmonize(doc, sel));
+    },
     booleanUnion: () => e.booleanOp('union'),
     booleanSubtract: () => e.booleanOp('subtract'),
     booleanIntersect: () => e.booleanOp('intersect'),

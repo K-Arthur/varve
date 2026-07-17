@@ -36,6 +36,7 @@ import { FramePresetsSection } from './sections/FramePresetsSection';
 import { ImageEnhancementSection } from './sections/ImageEnhancementSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { InteractionSection } from './sections/InteractionSection';
+import { LayoutScoreSection } from './sections/LayoutScoreSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { MaskSection } from './sections/MaskSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
@@ -46,7 +47,7 @@ import { type SelectionSummary, summarize } from './selection/selectionState';
 
 import './inspector.css';
 
-type Tab = 'properties' | 'export' | 'spec' | 'audit';
+type Tab = 'properties' | 'export' | 'spec' | 'score' | 'audit';
 
 export function PropertiesPanel() {
   const { selectedNodes, state, platform } = useEditor();
@@ -70,7 +71,7 @@ export function PropertiesPanel() {
   return (
     <section className="editor-inspector" aria-label="Inspector">
       <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
-        {(['properties', 'export', 'spec', 'audit'] as const).map((t) => (
+        {(['properties', 'export', 'spec', 'score', 'audit'] as const).map((t) => (
           <button
             type="button"
             key={t}
@@ -133,6 +134,11 @@ export function PropertiesPanel() {
           variableStore={docVariableStore(state.document)}
           platform={platform}
         />
+      )}
+      {tab === 'score' && (
+        <div className="insp-panel">
+          <LayoutScoreSection />
+        </div>
       )}
       {tab === 'audit' && <IntelligencePanel />}
     </section>
