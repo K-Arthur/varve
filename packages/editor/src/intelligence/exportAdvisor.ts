@@ -68,11 +68,25 @@ export function suggestExportFormat(node: SceneNode, doc: Document): ExportSugge
   const size = getShapeSize(node);
 
   if (src && isJpeg) {
-    return { format: 'image/jpeg', scale: 1, quality: 85, reason: 'Source is JPEG; re-encoding preserves format' };
+    return {
+      format: 'image/jpeg',
+      scale: 1,
+      quality: 85,
+      reason: 'Source is JPEG; re-encoding preserves format',
+    };
   }
 
   if (src?.endsWith('.png')) {
     return { format: 'image/png', scale: 2, reason: 'PNG source with potential transparency' };
+  }
+
+  if (size && size.w > 2000) {
+    return {
+      format: 'image/jpeg',
+      scale: 1,
+      quality: 80,
+      reason: 'Large canvas benefits from JPEG compression',
+    };
   }
 
   if (node.kind === 'text') {
@@ -83,17 +97,21 @@ export function suggestExportFormat(node: SceneNode, doc: Document): ExportSugge
     return { format: 'svg', scale: 1, reason: 'Vector path exports losslessly as SVG' };
   }
 
-  if (size && size.w > 2000) {
-    return { format: 'image/jpeg', scale: 1, quality: 80, reason: 'Large canvas benefits from JPEG compression' };
-  }
-
   if (node.kind === 'frame' && node.children.length > 0) {
     const children = node.children.map((cId) => doc.nodes[cId]).filter(Boolean);
+    const hasImageFill = children.some((c) => {
+      if (c.kind !== 'shape') return false;
+      const fills = resolveNodeFills(c);
+      return fills.some((f) => f.visible && f.type === 'image');
+    });
     const allVectors = children.every((c) => isVectorNode(c) || c.kind === 'text');
     const allPaths = children.every(
       (c) => c.kind === 'shape' && (c as ShapeNode).shape.kind === 'path',
     );
 
+    if (hasImageFill) {
+      return { format: 'image/png', scale: 2, reason: 'Mixed content needs raster for fidelity' };
+    }
     if (allVectors || allPaths) {
       return {
         format: 'svg',
