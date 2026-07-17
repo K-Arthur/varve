@@ -4,8 +4,9 @@
  * Research basis: nondestructive image-editing workflows retain the source
  * raster and place derived results beside it as ordinary editable layers.
  */
-import { fitBezierToContour } from '@strata/engine';
+
 import type { RasterTracePath } from '@strata/engine';
+import { fitBezierToContour } from '@strata/engine';
 import {
   addChild,
   type Document,
@@ -120,6 +121,14 @@ export interface TraceGroupInput {
   paths: Array<Pick<RasterTracePath, 'closed' | 'points' | 'holes' | 'fill'>>;
   /** Retained for diagnostics; compound holes no longer block insert. */
   omittedHoles?: number;
+  /** Bezier corner angle threshold (degrees). Default 135. */
+  cornerAngle?: number;
+  /** Bezier max fitting error (pixels). Default 1.0. */
+  maxError?: number;
+  /** Whether to trace as centerline (stroked) vs silhouette (filled). */
+  traceMode?: 'silhouette' | 'centerline';
+  /** Target stroke width for centerline mode. Default 2. */
+  centerlineWidth?: number;
 }
 
 export function insertTraceGroup(
@@ -140,9 +149,11 @@ export function insertTraceGroup(
   let result = insertAfter(groupAllocation.doc, sourceId, group);
   const scaleX = sourceWidth / input.width;
   const scaleY = sourceHeight / input.height;
+  const bezierAngle = input.cornerAngle ?? 135;
+  const bezierError = input.maxError ?? 1.0;
   const scaleAndFit = (points: Array<{ x: number; y: number }>, closed: boolean) => {
     const scaled = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-    return fitBezierToContour(scaled, closed, { maxError: 0.5, cornerAngle: 135 });
+    return fitBezierToContour(scaled, closed, { maxError: bezierError, cornerAngle: bezierAngle });
   };
 
   for (let index = 0; index < input.paths.length; index += 1) {
@@ -206,9 +217,14 @@ export function insertLiveTraceGroup(
 
   const scaleX = sourceWidth / input.width;
   const scaleY = sourceHeight / input.height;
+  const bezierAngle2 = input.cornerAngle ?? 135;
+  const bezierError2 = input.maxError ?? 1.0;
   const scaleAndFit = (points: Array<{ x: number; y: number }>, closed: boolean) => {
     const scaled = points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY }));
-    return fitBezierToContour(scaled, closed, { maxError: 0.5, cornerAngle: 135 });
+    return fitBezierToContour(scaled, closed, {
+      maxError: bezierError2,
+      cornerAngle: bezierAngle2,
+    });
   };
 
   for (let index = 0; index < input.paths.length; index += 1) {

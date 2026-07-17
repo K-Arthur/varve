@@ -264,14 +264,21 @@ struct TraceImageOptions {
     max_colors: u8,
     #[serde(default)]
     foreground: Option<String>,
+    #[serde(default = "default_corner_angle")]
+    corner_angle: f64,
+    #[serde(default = "default_max_error")]
+    max_error: f64,
 }
 
+fn default_corner_angle() -> f64 { 135.0 }
+fn default_max_error() -> f64 { 1.0 }
+
 #[tauri::command]
-fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<strata_trace::Path>, String> {
+fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<strata_trace::BezierPath>, String> {
     let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
-    let gray = img.to_luma8();
-    let (width, height) = gray.dimensions();
-    let pixels = gray.into_raw();
+    let rgba = img.to_rgba8();
+    let (width, height) = rgba.dimensions();
+    let pixels = rgba.into_raw();
     let foreground = options.foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
         if v.eq_ignore_ascii_case("light") {
             strata_trace::Foreground::Light
@@ -284,8 +291,16 @@ fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<st
         min_pixels: options.min_pixels,
         max_colors: options.max_colors,
         foreground,
+        corner_angle: options.corner_angle,
+        max_error: options.max_error,
+        trace_mode: strata_trace::TraceMode::Silhouette,
+        alpha_threshold: 1,
+        centerline_width: 2.0,
+        centerline_prune: 4.0,
+        max_paths: 1000,
+        compound_holes: true,
     };
-    Ok(strata_trace::trace_contours(&pixels, width, height, &opts))
+    Ok(strata_trace::trace_to_beziers(&pixels, width, height, &opts))
 }
 
 // ── PDF export ─────────────────────────────────────────
@@ -1640,12 +1655,15 @@ mod tests {
         let options = TraceImageOptions {
             threshold: 128,
             min_pixels: 5,
-            max_colors: 2,
+            max_colors: 0,
+            foreground: Some("light".into()),
+            corner_angle: 135.0,
+            max_error: 1.0,
         };
         let result = trace_image(png, options).expect("trace_image should succeed");
         // A 20x20 image with a white square foreground on black should trace at least one contour.
         assert!(!result.is_empty(), "expected at least one traced path");
-        // Each path should be a closed contour with points.
+        // Each path should be a closed BezierPath with points.
         for path in &result {
             assert!(path.points.len() >= 3, "each path must have at least 3 points");
             assert!(path.closed, "contour paths should be closed");
@@ -1658,6 +1676,9 @@ mod tests {
             threshold: 128,
             min_pixels: 5,
             max_colors: 2,
+            foreground: None,
+            corner_angle: 135.0,
+            max_error: 1.0,
         };
         let err = trace_image(vec![0, 1, 2, 3], options).unwrap_err();
         assert!(err.contains("decode"), "should report a decode error: {err}");
