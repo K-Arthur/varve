@@ -333,11 +333,6 @@ export async function runPooledInference(
       previewMaxDimension: options.previewMaxDimension,
     };
 
-    const _cleanup = () => {
-      // Abort listeners are cleaned up by settleJob, but if we reject early
-      // (before a job is created), we need to clean up here.
-    };
-
     // Find an idle worker; if none, queue the job.
     const target = findIdleWorker();
     if (!target) {

@@ -82,7 +82,6 @@ function fitCubicLeastSquares(
   if (segment.length < 2) return null;
 
   const t = chordLengthParams(segment);
-
   let a11_acc = 0;
   let a12_acc = 0;
   let a22_acc = 0;
