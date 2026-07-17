@@ -264,3 +264,67 @@ export function harmonizeSpacing(doc: Document, nodeIds: NodeId[]): Document {
 
   return newDoc;
 }
+
+export interface HarmonizationSuggestion {
+  axis: 'horizontal' | 'vertical';
+  dominantGap: number;
+  adjustments: { nodeId: string; currentGap: number; targetGap: number; delta: number }[];
+}
+
+/**
+ * Analyse sibling spacing and suggest specific gap adjustments.
+ *
+ * Requires 3+ valid non-overlapping nodes. Returns null when fewer than 3
+ * nodes are provided, or when all gaps are already within 2px of the median.
+ *
+ * Median is used instead of mode for robustness with small N (3-10 siblings).
+ */
+export function suggestHarmonization(
+  doc: Document,
+  nodeIds: NodeId[],
+): HarmonizationSuggestion | null {
+  if (nodeIds.length < 3) return null;
+
+  let entries = collectBounds(doc, nodeIds);
+  entries = filterOverlaps(entries);
+
+  if (entries.length < 3) return null;
+
+  entries.sort((a, b) => {
+    const dx = a.bounds.x - b.bounds.x;
+    if (dx !== 0) return dx;
+    return a.bounds.y - b.bounds.y;
+  });
+
+  const horizontal = isHorizontalLayout(entries);
+  const axis = horizontal ? 'horizontal' : 'vertical';
+
+  const gaps: { nodeId: NodeId; currentGap: number }[] = [];
+  for (let i = 1; i < entries.length; i++) {
+    const prev = entries[i - 1]!;
+    const curr = entries[i]!;
+    const hGap = curr.bounds.x - (prev.bounds.x + prev.bounds.w);
+    const vGap = curr.bounds.y - (prev.bounds.y + prev.bounds.h);
+    const gap = horizontal ? hGap : vGap;
+    gaps.push({ nodeId: curr.id, currentGap: gap });
+  }
+
+  const gapValues = gaps.map((g) => g.currentGap).sort((a, b) => a - b);
+  const median = gapValues[Math.floor(gapValues.length / 2)]!;
+
+  const allEqual = gaps.every((g) => Math.abs(g.currentGap - median) <= 2);
+  if (allEqual) return null;
+
+  const adjustments = gaps
+    .filter((g) => Math.abs(g.currentGap - median) > 2)
+    .map((g) => ({
+      nodeId: g.nodeId,
+      currentGap: g.currentGap,
+      targetGap: median,
+      delta: median - g.currentGap,
+    }));
+
+  if (adjustments.length === 0) return null;
+
+  return { axis, dominantGap: median, adjustments };
+}
