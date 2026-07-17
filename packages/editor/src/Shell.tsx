@@ -482,7 +482,7 @@ function ShellInner({
                   const text = await file.text();
                   const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
                   try {
-                    let result;
+                    let result: { transform: unknown };
                     if (ext === 'cube') {
                       result = parseCubeData(text);
                     } else {

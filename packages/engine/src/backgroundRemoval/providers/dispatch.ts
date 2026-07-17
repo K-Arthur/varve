@@ -11,8 +11,8 @@
  * the caller.
  */
 import { removeBackgroundHeuristic } from '../heuristic';
-import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 import { cloneImageData } from '../protocol';
+import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 import { cloudRemovalProvider } from './cloudProvider';
 import { directOnnxRemovalProvider } from './directOnnxProvider';
 import { tauriRemovalProvider } from './tauriProvider';

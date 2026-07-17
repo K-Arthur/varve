@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
 import path from 'node:path';
-import { navigateToEditor, dragOnCanvas } from '../shared';
+import { expect, test } from '@playwright/test';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
 

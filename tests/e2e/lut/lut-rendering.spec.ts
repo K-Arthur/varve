@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
 import path from 'node:path';
+import { expect, test } from '@playwright/test';
 import { navigateToEditor } from '../shared';
 
 const PHOTO_FIXTURES = path.resolve(__dirname, '..', 'fixtures');

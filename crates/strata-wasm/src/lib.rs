@@ -79,13 +79,15 @@ fn parse_trace_opts(
     foreground: Option<String>,
     opts_json: Option<String>,
 ) -> strata_trace::TraceOptions {
-    let fg = foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
-        if v.eq_ignore_ascii_case("light") {
-            strata_trace::Foreground::Light
-        } else {
-            strata_trace::Foreground::Dark
-        }
-    });
+    let fg = foreground
+        .as_deref()
+        .map_or(strata_trace::Foreground::Dark, |v| {
+            if v.eq_ignore_ascii_case("light") {
+                strata_trace::Foreground::Light
+            } else {
+                strata_trace::Foreground::Dark
+            }
+        });
 
     // Start with defaults, then overlay explicit params
     let mut opts = strata_trace::TraceOptions {
@@ -120,7 +122,9 @@ pub fn trace_contours_json(
     min_pixels: u32,
     foreground: Option<String>,
 ) -> Result<String, JsValue> {
-    trace_contours_json_opts(pixels, width, height, threshold, min_pixels, foreground, None)
+    trace_contours_json_opts(
+        pixels, width, height, threshold, min_pixels, foreground, None,
+    )
 }
 
 /// Extended version that accepts additional options as JSON string.

@@ -18,7 +18,14 @@ import { spawnSync } from 'node:child_process';
  *   GITHUB_RUN_ID  - default run id.
  *   GITHUB_STEP_SUMMARY - path to append Markdown summary (GitHub Actions).
  */
-import { appendFileSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';

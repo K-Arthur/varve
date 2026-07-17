@@ -7,9 +7,10 @@
  * NOTE: The mask asset dimensions must match the source image fill
  * dimensions per validateSourcePixelDimensions. All test PNGs are 1x1.
  */
-import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeImageShapeNode } from '@strata/scene';
+
 import type { Document } from '@strata/scene';
+import { addNode, createDocument, makeImageShapeNode } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 import {
   commitRasterMask,
   hasNativeRasterMask,

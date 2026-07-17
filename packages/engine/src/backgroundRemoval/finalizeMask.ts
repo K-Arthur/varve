@@ -2,8 +2,8 @@
  * Post-AI mask finalization: multi-subject filtering.
  */
 
-import { decodeMaskDataUrl } from './maskDecode';
 import { maskToDataUrl } from './heuristic';
+import { decodeMaskDataUrl } from './maskDecode';
 import { filterMaskByComponents, findConnectedComponents } from './maskOps';
 import type { BackgroundRemovalResult } from './types';
 

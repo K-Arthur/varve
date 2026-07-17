@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sampleProceduralGrain, resolveGrainValueSync } from './grainSampler';
+import { resolveGrainValueSync, sampleProceduralGrain } from './grainSampler';
 
 describe('grainSampler', () => {
   describe('sampleProceduralGrain', () => {

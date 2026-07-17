@@ -368,7 +368,8 @@ export function checkInconsistentBorderRadius(doc: Document): DebtIssue[] {
     if ('cornerRadius' in shape && shape.cornerRadius === undefined) continue;
     if (!('cornerRadius' in shape)) continue;
 
-    const r = typeof shape.cornerRadius === 'number' ? shape.cornerRadius : shape.cornerRadius[0];
+    const cr = shape.cornerRadius as number | [number, number, number, number] | undefined;
+    const r = typeof cr === 'number' ? cr : (cr?.[0] ?? 0);
     const nodes = radii.get(r) ?? [];
     nodes.push(node.id);
     radii.set(r, nodes);
