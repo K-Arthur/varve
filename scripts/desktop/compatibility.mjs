@@ -37,6 +37,17 @@ export function evaluateLinuxDependencies({ platform, pkgConfig }) {
   };
 }
 
+export function evaluateWindowsWebView2({ platform, version }) {
+  if (platform !== 'win32' || version) return { ok: true, issues: [], remediation: null };
+
+  return {
+    ok: false,
+    issues: ['Microsoft Edge WebView2 Evergreen Runtime was not detected.'],
+    remediation:
+      'Install the Microsoft Edge WebView2 Evergreen Runtime for the matching architecture, then rerun desktop:preflight.',
+  };
+}
+
 export function evaluateDisplay({ platform, sessionType, waylandDisplay, display }) {
   if (platform !== 'linux') return { ok: true, issues: [], remediation: null };
   if (waylandDisplay || display) return { ok: true, issues: [], remediation: null };

@@ -1,4 +1,12 @@
+import { mkdirSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import type { Options } from '@wdio/globals/types';
+
+const binaryName = process.platform === 'win32' ? 'strata-desktop.exe' : 'strata-desktop';
+const appBinaryPath = process.env.STRATA_DESKTOP_BINARY
+  ? resolve(process.env.STRATA_DESKTOP_BINARY)
+  : resolve('apps/desktop/src-tauri/target/debug', binaryName);
+const artifactDirectory = resolve('artifacts/desktop');
 
 export const config: Options.Testrunner = {
   runner: 'local',
@@ -13,9 +21,8 @@ export const config: Options.Testrunner = {
   capabilities: [
     {
       browserName: 'tauri',
-      'wdio:tauri:options': {
-        appBinaryPath: './apps/desktop/src-tauri/target/debug/strata-desktop',
-        driverProvider: 'embedded',
+      'tauri:options': {
+        application: appBinaryPath,
       },
     },
   ],
@@ -24,7 +31,7 @@ export const config: Options.Testrunner = {
     [
       'tauri',
       {
-        appBinaryPath: './apps/desktop/src-tauri/target/debug/strata-desktop',
+        appBinaryPath,
         driverProvider: 'embedded',
       },
     ],
@@ -38,4 +45,10 @@ export const config: Options.Testrunner = {
   waitforTimeout: 10000,
   connectionRetryTimeout: 120000,
   connectionRetryCount: 3,
+  afterTest: async (_test, _context, { passed }) => {
+    if (!passed) {
+      mkdirSync(artifactDirectory, { recursive: true });
+      await browser.saveScreenshot(join(artifactDirectory, `failed-${Date.now()}.png`));
+    }
+  },
 };
