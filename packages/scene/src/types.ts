@@ -760,7 +760,21 @@ export interface LiveTraceParams {
   maxPaths: number;
   maxColors: number;
   compoundHoles: boolean;
+  /** Schema version. 1 = pre-overhaul (no bezier/centerline). 2 = current. */
+  traceVersion?: number;
+  /** Trace mode: silhouette (filled paths) or centerline (stroked paths). */
+  traceMode?: 'silhouette' | 'centerline';
+  /** Interior angle threshold for sharp corners (degrees, 90-180). Default 135. */
+  cornerAngle?: number;
+  /** Maximum Bezier fitting error in pixels (0.1-10). Default 1.0. */
+  maxError?: number;
+  /** Target stroke width for centerline mode in pixels (1-50). Default 2. */
+  centerlineWidth?: number;
+  /** Minimum branch length to keep for centerline mode in pixels (1-100). Default 4. */
+  centerlinePrune?: number;
 }
+
+const CURRENT_TRACE_VERSION = 2;
 
 export function defaultLiveTraceParams(): LiveTraceParams {
   return {
@@ -773,7 +787,28 @@ export function defaultLiveTraceParams(): LiveTraceParams {
     maxPaths: 1000,
     maxColors: 8,
     compoundHoles: true,
+    traceVersion: CURRENT_TRACE_VERSION,
+    traceMode: 'silhouette',
+    cornerAngle: 135,
+    maxError: 1.0,
+    centerlineWidth: 2,
+    centerlinePrune: 4,
   };
+}
+
+/** Migrate LiveTraceParams from older schema versions to the current one. */
+export function migrateLiveTraceParams(params: Partial<LiveTraceParams>): Partial<LiveTraceParams> {
+  const version = params.traceVersion ?? 1;
+  if (version >= CURRENT_TRACE_VERSION) return params;
+  const migrated = { ...params, traceVersion: CURRENT_TRACE_VERSION };
+  if (version < 2) {
+    if (migrated.traceMode === undefined) migrated.traceMode = 'silhouette';
+    if (migrated.cornerAngle === undefined) migrated.cornerAngle = 135;
+    if (migrated.maxError === undefined) migrated.maxError = 1.0;
+    if (migrated.centerlineWidth === undefined) migrated.centerlineWidth = 2;
+    if (migrated.centerlinePrune === undefined) migrated.centerlinePrune = 4;
+  }
+  return migrated;
 }
 
 export interface LiveTraceState {
