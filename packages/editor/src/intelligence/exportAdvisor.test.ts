@@ -117,10 +117,20 @@ describe('suggestExportFormat', () => {
     expect(result.format).toBe('image/png');
   });
 
-  it('suggests PNG @2x for frames with mixed content', () => {
+  it('suggests PNG @2x for frames with mixed vector and image content', () => {
     const doc = createDocument('test', true);
     const child1 = makeShapeNodeWith('c1' as NodeId, 'rect');
-    const child2 = makeTextNodeWith('c2' as NodeId);
+    const child2 = makeShapeNodeWith('c2' as NodeId, 'rect', {
+      fills: [
+        {
+          type: 'image',
+          image: { src: 'photo.png', fit: 'fill' as const },
+          opacity: 1,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+    });
     const node = makeFrameNodeWith('n1' as NodeId, ['c1' as NodeId, 'c2' as NodeId]);
     const docWithNodes = {
       ...doc,
