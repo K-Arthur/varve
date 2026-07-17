@@ -55,17 +55,12 @@ pub struct RgbColor {
 }
 
 /// Trace mode: silhouette (filled contours) or centerline (stroked skeletons).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TraceMode {
+    #[default]
     Silhouette,
     Centerline,
-}
-
-impl Default for TraceMode {
-    fn default() -> Self {
-        Self::Silhouette
-    }
 }
 
 /// Options for raster-to-vector tracing.
@@ -106,13 +101,27 @@ pub struct TraceOptions {
     pub compound_holes: bool,
 }
 
-fn default_corner_angle() -> f64 { 135.0 }
-fn default_max_error() -> f64 { 1.0 }
-fn default_alpha_threshold() -> u8 { 1 }
-fn default_centerline_width() -> f64 { 2.0 }
-fn default_centerline_prune() -> f64 { 4.0 }
-fn default_max_paths() -> usize { 1000 }
-fn default_compound_holes() -> bool { true }
+fn default_corner_angle() -> f64 {
+    135.0
+}
+fn default_max_error() -> f64 {
+    1.0
+}
+fn default_alpha_threshold() -> u8 {
+    1
+}
+fn default_centerline_width() -> f64 {
+    2.0
+}
+fn default_centerline_prune() -> f64 {
+    4.0
+}
+fn default_max_paths() -> usize {
+    1000
+}
+fn default_compound_holes() -> bool {
+    true
+}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -377,17 +386,18 @@ fn luminance(r: u8, g: u8, b: u8) -> u8 {
 
 /// Binarize RGBA pixels to a bool mask, skipping transparent pixels.
 fn binarize_rgba(pixels: &[u8], width: u32, height: u32, opts: &TraceOptions) -> Vec<bool> {
-    let count = (width * height) as usize;
-    let mut mask = vec![false; count];
-    for i in 0..count {
-        let offset = i * 4;
-        let alpha = pixels[offset + 3];
+    let mut mask = vec![false; (width * height) as usize];
+    for (i, pixel) in pixels.chunks_exact(4).enumerate() {
+        if i >= mask.len() {
+            break;
+        }
+        let alpha = pixel[3];
         if alpha < opts.alpha_threshold {
             continue;
         }
-        let r = pixels[offset];
-        let g = pixels[offset + 1];
-        let b = pixels[offset + 2];
+        let r = pixel[0];
+        let g = pixel[1];
+        let b = pixel[2];
         let luma = luminance(r, g, b);
         mask[i] = is_foreground(luma, opts.threshold, opts.foreground);
     }
@@ -418,9 +428,20 @@ fn trace_mask_to_beziers(
         if visited[(sy * width + sx) as usize] {
             continue;
         }
-        let pts = trace_one(&binary, width, height, sx, sy, &mut visited, opts.min_pixels);
+        let pts = trace_one(
+            &binary,
+            width,
+            height,
+            sx,
+            sy,
+            &mut visited,
+            opts.min_pixels,
+        );
         if !pts.is_empty() {
-            traced.push(Path { points: pts, closed: true });
+            traced.push(Path {
+                points: pts,
+                closed: true,
+            });
         }
     }
     let mut result: Vec<BezierPath> = traced
@@ -483,7 +504,9 @@ fn trace_mask_to_beziers(
         result.sort_by(|a, b| {
             let area_a: f64 = a.points.iter().map(|p| p.x * p.y).sum();
             let area_b: f64 = b.points.iter().map(|p| p.x * p.y).sum();
-            area_b.partial_cmp(&area_a).unwrap_or(std::cmp::Ordering::Equal)
+            area_b
+                .partial_cmp(&area_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         result.truncate(opts.max_paths);
     }
@@ -509,12 +532,18 @@ fn polygon_area_internal(points: &[Point]) -> f64 {
 /// When `max_colors > 0`, performs median-cut quantization and traces each color
 /// independently. When `trace_mode == Centerline`, uses Zhang-Suen thinning and
 /// skeleton extraction instead of contour tracing.
-pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOptions) -> Vec<BezierPath> {
+pub fn trace_to_beziers(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    opts: &TraceOptions,
+) -> Vec<BezierPath> {
     // Centerline mode
     if opts.trace_mode == TraceMode::Centerline {
         let mask = binarize_rgba(pixels, width, height, opts);
         let skeleton = centerline::thin_image(&mask, width, height);
-        let branches = centerline::extract_skeleton(&skeleton, width, height, opts.centerline_prune);
+        let branches =
+            centerline::extract_skeleton(&skeleton, width, height, opts.centerline_prune);
         return branches
             .into_iter()
             .map(|branch| {
@@ -538,7 +567,12 @@ pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOpti
     // Color quantization path
     if opts.max_colors > 0 {
         let palette = quantize::quantize_palette(
-            pixels, width, height, opts.max_colors, opts.alpha_threshold, false,
+            pixels,
+            width,
+            height,
+            opts.max_colors,
+            opts.alpha_threshold,
+            false,
         );
         if palette.is_empty() {
             return Vec::new();
@@ -546,15 +580,14 @@ pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOpti
 
         let count = (width * height) as usize;
         let mut assignments = vec![-1i16; count];
-        for i in 0..count {
-            let offset = i * 4;
-            let alpha = pixels[offset + 3];
+        for (i, pixel) in pixels.chunks_exact(4).enumerate().take(count) {
+            let alpha = pixel[3];
             if alpha < opts.alpha_threshold {
                 continue;
             }
-            let r = pixels[offset];
-            let g = pixels[offset + 1];
-            let b = pixels[offset + 2];
+            let r = pixel[0];
+            let g = pixel[1];
+            let b = pixel[2];
             // Assign to nearest palette color
             let mut best = 0i16;
             let mut best_dist = f64::MAX;
@@ -581,15 +614,20 @@ pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOpti
             }
 
             let mut mask = vec![false; count];
-            for i in 0..count {
-                mask[i] = assignments[i] == pi as i16;
+            for (m, &a) in mask.iter_mut().zip(assignments.iter()) {
+                *m = a == pi as i16;
             }
             let paths = trace_mask_to_beziers(
                 &mask,
                 width,
                 height,
                 opts,
-                Some(RgbColor { r: color.r, g: color.g, b: color.b, a: color.a }),
+                Some(RgbColor {
+                    r: color.r,
+                    g: color.g,
+                    b: color.b,
+                    a: color.a,
+                }),
             );
             all_paths.extend(paths);
             if opts.max_paths > 0 && all_paths.len() >= opts.max_paths {
@@ -601,7 +639,9 @@ pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOpti
             all_paths.sort_by(|a, b| {
                 let area_a: f64 = a.points.iter().map(|p| p.x * p.y).sum();
                 let area_b: f64 = b.points.iter().map(|p| p.x * p.y).sum();
-                area_b.partial_cmp(&area_a).unwrap_or(std::cmp::Ordering::Equal)
+                area_b
+                    .partial_cmp(&area_a)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             });
             all_paths.truncate(opts.max_paths);
         }
@@ -616,7 +656,11 @@ pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOpti
     for chunk in pixels.chunks_exact(4) {
         let a = chunk[3];
         if a < opts.alpha_threshold {
-            gray.push(if opts.foreground == Foreground::Light { 0 } else { 255 });
+            gray.push(if opts.foreground == Foreground::Light {
+                0
+            } else {
+                255
+            });
         } else {
             let luma = luminance(chunk[0], chunk[1], chunk[2]);
             gray.push(luma);
@@ -682,7 +726,9 @@ pub fn trace_to_beziers(pixels: &[u8], width: u32, height: u32, opts: &TraceOpti
         result.sort_by(|a, b| {
             let area_a: f64 = a.points.iter().map(|p| p.x * p.y).sum();
             let area_b: f64 = b.points.iter().map(|p| p.x * p.y).sum();
-            area_b.partial_cmp(&area_a).unwrap_or(std::cmp::Ordering::Equal)
+            area_b
+                .partial_cmp(&area_a)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
         result.truncate(opts.max_paths);
     }

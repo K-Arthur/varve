@@ -1,11 +1,11 @@
 import type {
-  SceneNode as EngineNode,
-  RenderItem,
-  Stroke,
-  Shape,
   Effect,
-  FilterIR,
   EngineFill,
+  SceneNode as EngineNode,
+  FilterIR,
+  RenderItem,
+  Shape,
+  Stroke,
 } from '@strata/engine';
 import { describe, expect, it } from 'vitest';
 import { cacheContentParts, SubtreeIrCache } from './subtreeIrCache';

@@ -153,8 +153,8 @@ import { RectangleTool } from './tools/RectangleTool';
 import { RefineMaskTool } from './tools/RefineMaskTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
-import { SmudgeTool } from './tools/SmudgeTool';
 import { SliceTool } from './tools/SliceTool';
+import { SmudgeTool } from './tools/SmudgeTool';
 import { SpotHealTool } from './tools/SpotHealTool';
 import { StarTool } from './tools/StarTool';
 import {

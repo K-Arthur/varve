@@ -9,6 +9,7 @@
  * Research basis: Figma/Penpot handle layout conventions; MDN SVG coordinate system.
  */
 
+import type { ShapeNode } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
 import {
   applyAffine,
@@ -21,7 +22,6 @@ import {
   transformRect,
   tryInvertAffine,
 } from '@strata/shared';
-import type { ShapeNode } from '@strata/scene';
 import { Fragment, useCallback, useMemo, useRef } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';

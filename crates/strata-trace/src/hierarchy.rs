@@ -72,10 +72,7 @@ fn ensure_winding(polygon: &[Point], clockwise: bool) -> Vec<Point> {
 ///
 /// `outers` should be positive-area (CCW), `holes` should be negative-area (CW).
 /// Returns (compound_paths, omitted_holes_count).
-pub fn pair_holes(
-    outers: &[Vec<Point>],
-    holes: &[Vec<Point>],
-) -> (Vec<CompoundContour>, usize) {
+pub fn pair_holes(outers: &[Vec<Point>], holes: &[Vec<Point>]) -> (Vec<CompoundContour>, usize) {
     if outers.is_empty() {
         let omitted = if holes.is_empty() { 0 } else { holes.len() };
         return (Vec::new(), omitted);
@@ -94,10 +91,7 @@ pub fn pair_holes(
     sorted_outers.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
 
     // Prepare holes: ensure CW winding
-    let prepared_holes: Vec<Vec<Point>> = holes
-        .iter()
-        .map(|h| ensure_winding(h, true))
-        .collect();
+    let prepared_holes: Vec<Vec<Point>> = holes.iter().map(|h| ensure_winding(h, true)).collect();
 
     // Assign each hole to the smallest containing outer
     let mut hole_assignments: Vec<Option<usize>> = vec![None; prepared_holes.len()];
@@ -202,7 +196,11 @@ mod tests {
 
     #[test]
     fn no_holes_all_paths_are_outers() {
-        let shapes = vec![square(0.0, 0.0, 10.0), square(20.0, 20.0, 10.0), square(40.0, 40.0, 10.0)];
+        let shapes = vec![
+            square(0.0, 0.0, 10.0),
+            square(20.0, 20.0, 10.0),
+            square(40.0, 40.0, 10.0),
+        ];
         let (compounds, omitted) = pair_holes(&shapes, &[]);
         assert_eq!(compounds.len(), 3, "all 3 shapes should be outers");
         assert_eq!(omitted, 0);
@@ -236,8 +234,14 @@ mod tests {
     #[test]
     fn winding_number_outside() {
         let poly = square(0.0, 0.0, 100.0);
-        assert!(point_in_polygon_winding(&point(50.0, 50.0), &poly), "center should be inside");
-        assert!(!point_in_polygon_winding(&point(150.0, 50.0), &poly), "outside should be false");
+        assert!(
+            point_in_polygon_winding(&point(50.0, 50.0), &poly),
+            "center should be inside"
+        );
+        assert!(
+            !point_in_polygon_winding(&point(150.0, 50.0), &poly),
+            "outside should be false"
+        );
     }
 
     #[test]

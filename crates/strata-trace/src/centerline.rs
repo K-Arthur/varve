@@ -28,7 +28,7 @@ pub fn thin_image(binary: &[bool], width: u32, height: u32) -> Vec<bool> {
                 }
                 let p = get_neighbors(&img, w, x, y);
                 let b = p.iter().filter(|&&v| v == 1).count();
-                if b < 2 || b > 6 {
+                if !(2..=6).contains(&b) {
                     continue;
                 }
                 let a = transitions(&p);
@@ -58,7 +58,7 @@ pub fn thin_image(binary: &[bool], width: u32, height: u32) -> Vec<bool> {
                 }
                 let p = get_neighbors(&img, w, x, y);
                 let b = p.iter().filter(|&&v| v == 1).count();
-                if b < 2 || b > 6 {
+                if !(2..=6).contains(&b) {
                     continue;
                 }
                 let a = transitions(&p);
@@ -93,14 +93,14 @@ pub fn thin_image(binary: &[bool], width: u32, height: u32) -> Vec<bool> {
 /// Returns [p2, p3, p4, p5, p6, p7, p8, p9] where p1 is the center pixel (not included).
 fn get_neighbors(img: &[u8], w: usize, x: usize, y: usize) -> [u8; 8] {
     [
-        img[(y - 1) * w + x],       // p2 (north)
-        img[(y - 1) * w + x + 1],   // p3 (northeast)
-        img[y * w + x + 1],         // p4 (east)
-        img[(y + 1) * w + x + 1],   // p5 (southeast)
-        img[(y + 1) * w + x],       // p6 (south)
-        img[(y + 1) * w + x - 1],   // p7 (southwest)
-        img[y * w + x - 1],         // p8 (west)
-        img[(y - 1) * w + x - 1],   // p9 (northwest)
+        img[(y - 1) * w + x],     // p2 (north)
+        img[(y - 1) * w + x + 1], // p3 (northeast)
+        img[y * w + x + 1],       // p4 (east)
+        img[(y + 1) * w + x + 1], // p5 (southeast)
+        img[(y + 1) * w + x],     // p6 (south)
+        img[(y + 1) * w + x - 1], // p7 (southwest)
+        img[y * w + x - 1],       // p8 (west)
+        img[(y - 1) * w + x - 1], // p9 (northwest)
     ]
 }
 
@@ -194,8 +194,14 @@ pub fn extract_skeleton(
 
     // 8-direction offsets
     let dirs_8: [(i32, i32); 8] = [
-        (1, 0), (1, 1), (0, 1), (-1, 1),
-        (-1, 0), (-1, -1), (0, -1), (1, -1),
+        (1, 0),
+        (1, 1),
+        (0, 1),
+        (-1, 1),
+        (-1, 0),
+        (-1, -1),
+        (0, -1),
+        (1, -1),
     ];
 
     for &(sx, sy) in &endpoints {
@@ -306,7 +312,11 @@ mod tests {
 
         let branches = extract_skeleton(&thinned, 7, 7, 1.0);
         // A cross has 4 arms (up, down, left, right)
-        assert!(branches.len() >= 3, "cross should have 3-4 arms, got {}", branches.len());
+        assert!(
+            branches.len() >= 3,
+            "cross should have 3-4 arms, got {}",
+            branches.len()
+        );
     }
 
     #[test]
@@ -327,16 +337,16 @@ mod tests {
         binary[4] = true; // center pixel
 
         let thinned = thin_image(&binary, 3, 3);
-        assert!(thinned[4], "isolated pixel should survive (B < 2 skips deletion)");
+        assert!(
+            thinned[4],
+            "isolated pixel should survive (B < 2 skips deletion)"
+        );
     }
 
     #[test]
     fn zhang_suen_vertical_line() {
         // 1x5: single column of foreground pixels
-        let mut binary = vec![false; 5];
-        for y in 0..5 {
-            binary[y] = true;
-        }
+        let binary = vec![true; 5];
 
         let thinned = thin_image(&binary, 1, 5);
         let fg_count = thinned.iter().filter(|&&b| b).count();

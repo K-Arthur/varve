@@ -44,13 +44,27 @@ fn mul3x3(m: &[f64; 9], v: [f64; 3]) -> [f64; 3] {
 
 /// Linear sRGB → Oklab [L, a, b].
 const M1: [f64; 9] = [
-    0.4122214708, 0.5363325363, 0.0514459929, 0.2119034982, 0.6806995451, 0.1073969566, 0.0883024619,
-    0.2817188376, 0.6299787005,
+    0.4122214708,
+    0.5363325363,
+    0.0514459929,
+    0.2119034982,
+    0.6806995451,
+    0.1073969566,
+    0.0883024619,
+    0.2817188376,
+    0.6299787005,
 ];
 
 const M2: [f64; 9] = [
-    0.2104542553, 0.793617785, -0.0040720468, 1.9779984951, -2.428592205, 0.4505937099, 0.0259040371,
-    0.7827717662, -0.808675766,
+    0.2104542553,
+    0.793617785,
+    -0.0040720468,
+    1.9779984951,
+    -2.428592205,
+    0.4505937099,
+    0.0259040371,
+    0.7827717662,
+    -0.808675766,
 ];
 
 fn linear_srgb_to_oklab(rgb: [f64; 3]) -> [f64; 3] {
@@ -75,18 +89,14 @@ pub fn quantize_palette(
 
     let mut samples: Vec<OklabSample> = Vec::new();
 
-    for i in 0..count {
-        let offset = i * 4;
-        if offset + 3 >= pixels.len() {
-            break;
-        }
-        let a = pixels[offset + 3];
+    for pixel in pixels.chunks_exact(4).take(count) {
+        let a = pixel[3];
         if a < alpha_threshold {
             continue;
         }
-        let mut r = pixels[offset];
-        let mut g = pixels[offset + 1];
-        let mut b = pixels[offset + 2];
+        let mut r = pixel[0];
+        let mut g = pixel[1];
+        let mut b = pixel[2];
 
         if grayscale {
             let y = (0.2126 * r as f64 + 0.7152 * g as f64 + 0.0722 * b as f64).round() as u8;
@@ -183,7 +193,9 @@ pub fn quantize_palette(
         match split_channel {
             0 => bucket.sort_by(|x, y| x.l.partial_cmp(&y.l).unwrap_or(std::cmp::Ordering::Equal)),
             1 => bucket.sort_by(|x, y| x.a.partial_cmp(&y.a).unwrap_or(std::cmp::Ordering::Equal)),
-            _ => bucket.sort_by(|x, y| x.b_.partial_cmp(&y.b_).unwrap_or(std::cmp::Ordering::Equal)),
+            _ => {
+                bucket.sort_by(|x, y| x.b_.partial_cmp(&y.b_).unwrap_or(std::cmp::Ordering::Equal))
+            }
         }
 
         let mid = bucket.len() / 2;
@@ -214,7 +226,7 @@ pub fn quantize_palette(
         })
         .collect();
 
-    palette.sort_by(|a, b| b.count.cmp(&a.count));
+    palette.sort_by_key(|c| std::cmp::Reverse(c.count));
     palette
 }
 
@@ -283,7 +295,7 @@ mod tests {
         for i in 0..16 {
             let r = (i * 16) as u8;
             let g = (i * 8) as u8;
-            let b = (32 - i as i32 * 2) as u8;
+            let b = (32 - i * 2) as u8;
             pixels.extend_from_slice(&rgba_pixel(r, g, b, 255));
         }
 
@@ -320,7 +332,10 @@ mod tests {
         // First entry should have the highest count
         let mut prev_count = usize::MAX;
         for c in &palette {
-            assert!(c.count <= prev_count, "should be sorted descending by count");
+            assert!(
+                c.count <= prev_count,
+                "should be sorted descending by count"
+            );
             prev_count = c.count;
         }
     }
@@ -339,7 +354,13 @@ mod tests {
 
     #[test]
     fn oklab_srgb_roundtrip() {
-        for &(r, g, b) in &[(0, 0, 0), (255, 255, 255), (255, 0, 0), (0, 255, 0), (128, 64, 200)] {
+        for &(r, g, b) in &[
+            (0, 0, 0),
+            (255, 255, 255),
+            (255, 0, 0),
+            (0, 255, 0),
+            (128, 64, 200),
+        ] {
             let linear = [srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b)];
             let oklab = linear_srgb_to_oklab(linear);
 

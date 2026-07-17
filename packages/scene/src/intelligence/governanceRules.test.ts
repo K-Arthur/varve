@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { FrameNode, SceneNode, TextNode } from '../types';
 import { createDocument } from '../document';
 import { addSwatch } from '../swatches';
+import type { FrameNode, SceneNode, TextNode } from '../types';
 import {
   ruleFonts,
   ruleNaming,

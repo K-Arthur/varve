@@ -6,7 +6,7 @@
  * and luminosity preservation.
  */
 import { describe, expect, it } from 'vitest';
-import { applyTritone, tritoneMap, type TritoneParams } from './tritone';
+import { applyTritone, type TritoneParams, tritoneMap } from './tritone';
 
 function createTestImageData(width: number, height: number, pixels: number[]): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);

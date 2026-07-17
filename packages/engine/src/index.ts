@@ -176,6 +176,13 @@ export type {
   GradientMapStop as GradientMapFilterStop,
 } from './gradientMap';
 export { applyGradientMapFilter, buildGradientLUT } from './gradientMap';
+export type { GrainAnchor, GrainSampleParams } from './grainSampler';
+export {
+  resolveGrainValue,
+  resolveGrainValueSync,
+  sampleImageGrain,
+  sampleProceduralGrain,
+} from './grainSampler';
 export type {
   HalftoneChannel,
   HalftoneDotShape,
@@ -346,13 +353,6 @@ export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './text
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
-export type { GrainAnchor, GrainSampleParams } from './grainSampler';
-export {
-  resolveGrainValue,
-  resolveGrainValueSync,
-  sampleImageGrain,
-  sampleProceduralGrain,
-} from './grainSampler';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
 export type { BezierFitOptions } from './traceBezierFit';
