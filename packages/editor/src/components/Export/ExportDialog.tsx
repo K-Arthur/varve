@@ -200,6 +200,7 @@ export function ExportDialog({
   const [videoExporting, setVideoExporting] = useState(false);
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
   const [videoSupport] = useState(() => checkVideoExportSupport());
+  const [verboseOutput, setVerboseOutput] = useState(true);
   const videoAbortRef = useRef<AbortController | null>(null);
   const previousFocusRef = useRef<Element | null>(null);
 
@@ -626,6 +627,18 @@ export function ExportDialog({
                     </p>
                   );
                 })()}
+            </section>
+
+            <section className="export-dialog__section" aria-label="Code generation">
+              <h3 className="export-dialog__section-title">Code Generation</h3>
+              <label className="export-dialog__checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={verboseOutput}
+                  onChange={(e) => setVerboseOutput(e.target.checked)}
+                />
+                <span>Verbose output (disable code optimization)</span>
+              </label>
             </section>
 
             {timelineList.length > 0 && (onExportMotion || onSaveVideoFile) && (

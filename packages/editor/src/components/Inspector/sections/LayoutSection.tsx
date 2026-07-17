@@ -22,7 +22,9 @@ import type {
   SceneNode,
 } from '@strata/scene';
 import { Select } from '@strata/ui';
+import { useMemo } from 'react';
 import { useEditor } from '../../../context';
+import { suggestAutoLayout } from '../../../intelligence/autoLayoutSuggestor';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -62,8 +64,20 @@ const GRID_AUTO_FLOW_OPTIONS: { value: NonNullable<LayoutStyle['gridAutoFlow']>;
   ];
 
 export function LayoutSection({ node }: { node: FrameNode }) {
-  const { setNodeClipContent, setNodeLayout } = useEditor();
+  const { setNodeClipContent, setNodeLayout, state } = useEditor();
   const ls = node.layoutStyle;
+
+  const children = useMemo(
+    () =>
+      (node.children ?? [])
+        .map((id) => state.document.nodes[id])
+        .filter((n): n is import('@strata/scene').SceneNode => n != null),
+    [node.children, state.document.nodes],
+  );
+  const suggestion = useMemo(
+    () => (!ls || ls.mode === 'none' ? suggestAutoLayout(node, children, state.document) : null),
+    [node, children, ls, state.document],
+  );
 
   function patch(partial: Partial<LayoutStyle>) {
     const base: LayoutStyle = ls ?? {
@@ -89,6 +103,40 @@ export function LayoutSection({ node }: { node: FrameNode }) {
           onChange={(event) => setNodeClipContent(node.id, event.target.checked)}
         />
       </FieldRow>
+      {suggestion && !ls && (
+        <div
+          className="insp-hint"
+          style={{
+            fontSize: 'var(--font-size-xs)',
+            padding: 'var(--space-1) var(--space-2)',
+            background: 'var(--color-surface-sunken)',
+            borderRadius: 'var(--radius-sm)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--space-1)',
+            marginBottom: 'var(--space-1)',
+          }}
+        >
+          <span style={{ flex: 1 }}>
+            Auto-layout suggested ({Math.round(suggestion.confidence * 100)}% confidence)
+          </span>
+          <button
+            type="button"
+            className="insp-hint__apply"
+            onClick={() => setNodeLayout(node.id, suggestion.suggestedStyle)}
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              padding: '2px 6px',
+              border: '1px solid var(--color-border-default)',
+              borderRadius: 'var(--radius-sm)',
+              background: 'var(--color-bg-default)',
+              cursor: 'pointer',
+            }}
+          >
+            Apply
+          </button>
+        </div>
+      )}
       <FieldRow label="Mode">
         <Select
           label="Layout mode"

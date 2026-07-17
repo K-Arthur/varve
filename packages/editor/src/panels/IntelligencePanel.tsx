@@ -8,11 +8,21 @@
  * Research basis: Figma's "Design review" + "Smart selection" panel concepts;
  * APG Disclosure pattern for collapsible groups.
  */
-import { runIntelligenceAudit } from '@strata/scene';
+import { getFontRegistry } from '@strata/engine';
+import { validatePrototype } from '@strata/prototype';
+import {
+  type DebtReport,
+  type GovernanceIssue,
+  runDebtScan,
+  runGovernanceRules,
+  runIntelligenceAudit,
+} from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../context';
+import { suggestAutoLayout } from '../intelligence/autoLayoutSuggestor';
 import { type NamingSuggestion, renameSelected, suggestName } from '../intelligence/autoNamer';
+import { findDuplicateStructures } from '../intelligence/componentDetector';
 import {
   analyzeSpacing,
   harmonizeSpacing,
@@ -21,15 +31,29 @@ import {
 
 import '../components/Inspector/inspector.css';
 
-type IntelligenceTab = 'audit' | 'spacing' | 'naming';
+type IntelligenceTab =
+  | 'audit'
+  | 'spacing'
+  | 'naming'
+  | 'governance'
+  | 'debt'
+  | 'prototype'
+  | 'layout'
+  | 'components';
+
+const PRIMARY_TABS: IntelligenceTab[] = ['audit', 'spacing', 'naming'];
+const MORE_TABS: IntelligenceTab[] = ['governance', 'debt', 'prototype', 'layout', 'components'];
 
 export function IntelligencePanel() {
   const [tab, setTab] = useState<IntelligenceTab>('audit');
+  const [showMore, setShowMore] = useState(false);
+
+  const moreLabel = MORE_TABS.find((t) => t === tab) ?? null;
 
   return (
     <div className="intelligence-panel">
       <div className="intelligence-tabs" role="tablist" aria-label="Intelligence tabs">
-        {(['audit', 'spacing', 'naming'] as const).map((t) => (
+        {PRIMARY_TABS.map((t) => (
           <button
             type="button"
             key={t}
@@ -42,11 +66,64 @@ export function IntelligencePanel() {
             {t}
           </button>
         ))}
+        {moreLabel ? (
+          <button
+            type="button"
+            role="tab"
+            className="intelligence-tab intelligence-tab--active"
+            aria-selected
+            onClick={() => setShowMore((s) => !s)}
+          >
+            {moreLabel}
+          </button>
+        ) : (
+          <button
+            type="button"
+            role="tab"
+            className="intelligence-tab"
+            aria-selected={showMore}
+            onClick={() => setShowMore((s) => !s)}
+          >
+            More
+          </button>
+        )}
       </div>
+      {showMore && (
+        <div
+          className="intelligence-more-menu"
+          style={{
+            display: 'flex',
+            gap: 4,
+            padding: '0 var(--space-2) var(--space-1)',
+            flexWrap: 'wrap',
+          }}
+        >
+          {MORE_TABS.map((t) => (
+            <button
+              type="button"
+              key={t}
+              className={`intelligence-tab intelligence-tab--small${tab === t ? ' intelligence-tab--active' : ''}`}
+              onClick={() => {
+                setTab(t);
+                setShowMore(false);
+              }}
+            >
+              {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
+              {t === 'debt' && <Icon name="AlertTriangle" label={undefined} size="0.8em" />}
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
 
       {tab === 'audit' && <AuditTab />}
       {tab === 'spacing' && <SpacingTab />}
       {tab === 'naming' && <NamingTab />}
+      {tab === 'governance' && <GovernanceTab />}
+      {tab === 'debt' && <DebtTab />}
+      {tab === 'prototype' && <PrototypeTab />}
+      {tab === 'layout' && <LayoutTab />}
+      {tab === 'components' && <ComponentsTab />}
     </div>
   );
 }
@@ -306,6 +383,401 @@ function NamingTab() {
           </button>
         </>
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 4: Governance — Design System Rule Checks                      */
+/* ------------------------------------------------------------------ */
+
+function GovernanceTab() {
+  const { state, setSelection, updateDoc } = useEditor();
+
+  const loadedFonts = useMemo(() => {
+    try {
+      const registry = getFontRegistry();
+      return new Set(registry.families().filter((f) => registry.isAvailable(f)));
+    } catch {
+      return new Set<string>();
+    }
+  }, []);
+
+  const issues = useMemo(
+    () => runGovernanceRules(state.document, { availableFonts: loadedFonts }),
+    [state.document, loadedFonts],
+  );
+
+  const fixableCount = useMemo(() => issues.filter((i) => i.autoFix != null).length, [issues]);
+
+  const issuesByRule = useMemo(() => {
+    const map = new Map<string, GovernanceIssue[]>();
+    for (const issue of issues) {
+      const group = map.get(issue.ruleId) ?? [];
+      group.push(issue);
+      map.set(issue.ruleId, group);
+    }
+    return map;
+  }, [issues]);
+
+  const runAllFixes = useCallback(() => {
+    updateDoc((doc) => {
+      let current = doc;
+      for (const issue of issues) {
+        if (issue.autoFix) {
+          current = issue.autoFix(current);
+        }
+      }
+      return current;
+    });
+  }, [issues, updateDoc]);
+
+  if (issues.length === 0) {
+    return (
+      <div className="intelligence-empty">
+        <Icon name="CircleCheck" label={undefined} size="1.2em" />
+        <p>No governance issues</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intelligence-tab-content">
+      {fixableCount > 0 && (
+        <button type="button" className="intelligence-action-btn" onClick={runAllFixes}>
+          <Icon name="Wand" label={undefined} size="0.85em" />
+          Run all auto-fixes ({fixableCount})
+        </button>
+      )}
+
+      {[...issuesByRule.entries()].map(([ruleId, ruleIssues]) => (
+        <details key={ruleId} className="intelligence-section" open>
+          <summary className="intelligence-section__header">
+            <span className="intelligence-section__title">{ruleId}</span>
+            <span className="intelligence-section__count">{ruleIssues.length}</span>
+          </summary>
+          <div className="intelligence-issue-list">
+            {ruleIssues.map((issue, i) => (
+              <div
+                key={`${issue.nodeId}-${i}`}
+                className={`intelligence-issue intelligence-issue--${issue.severity}`}
+              >
+                <button
+                  type="button"
+                  className="intelligence-issue__target"
+                  onClick={() => issue.nodeId && setSelection(issue.nodeId)}
+                  disabled={!issue.nodeId}
+                  title={issue.nodeId ? 'Select this node' : undefined}
+                >
+                  <span className="intelligence-severity-dot" />
+                  <span className="intelligence-issue__type">{issue.ruleId}</span>
+                </button>
+                <p className="intelligence-issue__message">{issue.message}</p>
+                {issue.targetName && (
+                  <span className="intelligence-issue__target-name">{issue.targetName}</span>
+                )}
+                {issue.autoFix && (
+                  <button
+                    type="button"
+                    className="intelligence-action-btn"
+                    onClick={() => {
+                      updateDoc((doc) => issue.autoFix!(doc));
+                    }}
+                  >
+                    <Icon name="Wand" label={undefined} size="0.85em" />
+                    Auto-fix
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 5: Debt — Design Debt Scanner                                    */
+/* ------------------------------------------------------------------ */
+
+function DebtTab() {
+  const { state, setSelection } = useEditor();
+
+  const [report, setReport] = useState<DebtReport | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+
+  const handleScan = useCallback(() => {
+    setIsScanning(true);
+    setTimeout(() => {
+      const loadedFonts = (() => {
+        try {
+          const registry = getFontRegistry();
+          return new Set(registry.families().filter((f) => registry.isAvailable(f)));
+        } catch {
+          return new Set<string>();
+        }
+      })();
+      const result = runDebtScan(state.document, { availableFonts: loadedFonts });
+      setReport(result);
+      setIsScanning(false);
+    }, 50);
+  }, [state.document]);
+
+  return (
+    <div className="intelligence-tab-content">
+      <p className="intelligence-hint">
+        Scan the document for design debt: untokenized colors, inline spacing, naming violations,
+        orphaned styles, and more.
+      </p>
+
+      <button
+        type="button"
+        className="intelligence-action-btn"
+        disabled={isScanning}
+        onClick={handleScan}
+      >
+        <Icon name={isScanning ? 'Loader' : 'Search'} label={undefined} size="0.85em" />
+        {isScanning ? 'Scanning...' : 'Scan for debt'}
+      </button>
+
+      {report && (
+        <>
+          <div className="intelligence-analysis">
+            <div className="intelligence-analysis__row">
+              <span>Errors</span>
+              <span className="intelligence-analysis__value intelligence-analysis__value--error">
+                {report.totalErrors}
+              </span>
+            </div>
+            <div className="intelligence-analysis__row">
+              <span>Warnings</span>
+              <span className="intelligence-analysis__value intelligence-analysis__value--warning">
+                {report.totalWarnings}
+              </span>
+            </div>
+            <div className="intelligence-analysis__row">
+              <span>Info</span>
+              <span className="intelligence-analysis__value intelligence-analysis__value--info">
+                {report.totalInfo}
+              </span>
+            </div>
+          </div>
+
+          {[...Object.entries(report.byCategory)].map(([category, issues]) => (
+            <details key={category} className="intelligence-section" open>
+              <summary className="intelligence-section__header">
+                <span className="intelligence-section__title">{category}</span>
+                <span className="intelligence-section__count">{issues.length}</span>
+              </summary>
+              <div className="intelligence-issue-list">
+                {issues.map((issue, i) => (
+                  <div
+                    key={`${issue.nodeId}-${i}`}
+                    className={`intelligence-issue intelligence-issue--${issue.severity}`}
+                  >
+                    <button
+                      type="button"
+                      className="intelligence-issue__target"
+                      onClick={() => issue.nodeId && setSelection(issue.nodeId)}
+                      disabled={!issue.nodeId}
+                      title={issue.nodeId ? 'Select this node' : undefined}
+                    >
+                      <span className="intelligence-severity-dot" />
+                      <span className="intelligence-issue__type">{issue.checkId}</span>
+                    </button>
+                    <p className="intelligence-issue__message">{issue.message}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ))}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 6: Prototype — validatePrototype                                */
+/* ------------------------------------------------------------------ */
+
+function PrototypeTab() {
+  const { state, setSelection } = useEditor();
+  const issues = useMemo(() => {
+    if (!state.prototype) return [];
+    const allNodeIds = Object.keys(state.document.nodes);
+    return validatePrototype(state.prototype, allNodeIds);
+  }, [state.prototype, state.document.nodes]);
+
+  if (issues.length === 0) {
+    return (
+      <div className="intelligence-empty">
+        <Icon name="CircleCheck" label={undefined} size="1.2em" />
+        <p>No prototype issues</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intelligence-issue-list">
+      {issues.map((issue, i) => (
+        <div
+          key={`${issue.nodeId}-${i}`}
+          className={`intelligence-issue intelligence-issue--${issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'info'}`}
+        >
+          <button
+            type="button"
+            className="intelligence-issue__target"
+            onClick={() => issue.nodeId && setSelection(issue.nodeId)}
+            title={issue.nodeId ? 'Select this node' : undefined}
+          >
+            <span className="intelligence-severity-dot" />
+            <span className="intelligence-issue__type">{issue.code}</span>
+          </button>
+          <p className="intelligence-issue__message">{issue.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 7: Layout — Auto-layout Suggestion                                */
+/* ------------------------------------------------------------------ */
+
+function LayoutTab() {
+  const { state, selectedNodes, setNodeLayout } = useEditor();
+  const sel = selectedNodes();
+  const frame =
+    sel.length === 1 && sel[0]?.kind === 'frame'
+      ? (sel[0] as import('@strata/scene').FrameNode)
+      : null;
+
+  const children = useMemo(() => {
+    if (!frame) return [];
+    return (frame.children ?? [])
+      .map((id) => state.document.nodes[id])
+      .filter((n): n is import('@strata/scene').SceneNode => n != null);
+  }, [frame, state.document.nodes]);
+
+  const autoSuggestion = useMemo(() => {
+    if (!frame || children.length < 2) return null;
+    return suggestAutoLayout(frame, children, state.document);
+  }, [frame, children, state.document, suggestAutoLayout]);
+
+  if (!frame) {
+    return (
+      <div className="intelligence-empty">
+        <Icon name="Move" label={undefined} size="1.2em" />
+        <p>Select a frame to see auto-layout suggestions</p>
+      </div>
+    );
+  }
+
+  if (!autoSuggestion) {
+    return (
+      <div className="intelligence-empty">
+        <Icon name="Move" label={undefined} size="1.2em" />
+        <p>No auto-layout suggestion available for this frame</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intelligence-tab-content">
+      <div className="intelligence-analysis">
+        <div className="intelligence-analysis__row">
+          <span>Direction</span>
+          <span className="intelligence-analysis__value">{autoSuggestion.direction}</span>
+        </div>
+        <div className="intelligence-analysis__row">
+          <span>Gap</span>
+          <span className="intelligence-analysis__value">{autoSuggestion.gap}px</span>
+        </div>
+        <div className="intelligence-analysis__row">
+          <span>Alignment</span>
+          <span className="intelligence-analysis__value">{autoSuggestion.alignItems}</span>
+        </div>
+        <div className="intelligence-analysis__row">
+          <span>Confidence</span>
+          <span className="intelligence-analysis__value">
+            {Math.round(autoSuggestion.confidence * 100)}%
+          </span>
+        </div>
+      </div>
+      <p className="intelligence-hint">{autoSuggestion.reason}</p>
+      <button
+        type="button"
+        className="intelligence-action-btn"
+        onClick={() => setNodeLayout(frame.id, autoSuggestion.suggestedStyle)}
+      >
+        <Icon name="Wand" label={undefined} size="0.85em" />
+        Apply layout
+      </button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 8: Components — Duplicate Detection                            */
+/* ------------------------------------------------------------------ */
+
+function ComponentsTab() {
+  const { state, setSelection } = useEditor();
+
+  const groups = useMemo(() => findDuplicateStructures(state.document), [state.document]);
+
+  if (groups.length === 0) {
+    return (
+      <div className="intelligence-empty">
+        <Icon name="Component" label={undefined} size="1.2em" />
+        <p>No duplicate structures found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="intelligence-tab-content">
+      {groups.map((group, i) => (
+        <details key={i} className="intelligence-section" open>
+          <summary className="intelligence-section__header">
+            <span className="intelligence-section__title">{group.reason}</span>
+            <span className="intelligence-section__count">{group.nodeIds.length}</span>
+            <span
+              className="intelligence-badge intelligence-badge--high"
+              style={{ marginLeft: 'auto' }}
+            >
+              {Math.round(group.score * 100)}%
+            </span>
+          </summary>
+          <div className="intelligence-issue-list">
+            {group.nodeIds.map((nid) => (
+              <div key={nid} className="intelligence-issue intelligence-issue--info">
+                <button
+                  type="button"
+                  className="intelligence-issue__target"
+                  onClick={() => setSelection(nid)}
+                  title="Select this node"
+                >
+                  <span className="intelligence-severity-dot" />
+                  <span className="intelligence-issue__type">{nid}</span>
+                </button>
+              </div>
+            ))}
+            {group.suggestComponent && (
+              <button
+                type="button"
+                className="intelligence-action-btn"
+                style={{ marginTop: 'var(--space-1)' }}
+              >
+                <Icon name="Wand" label={undefined} size="0.85em" />
+                Create component
+              </button>
+            )}
+          </div>
+        </details>
+      ))}
     </div>
   );
 }

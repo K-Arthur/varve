@@ -5,7 +5,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 
 interface BrushSectionProps {
-  tool: 'paint' | 'eraser' | 'pencil';
+  tool: 'paint' | 'eraser' | 'pencil' | 'smudge';
 }
 
 const BUILTIN_OPTIONS = Object.values(BUILT_IN_BRUSH_PRESETS).map((p) => ({
@@ -17,9 +17,10 @@ export function BrushSection({ tool }: BrushSectionProps) {
   const { state, setBrushSetting } = useEditor();
   const isEraser = tool === 'eraser';
   const isPencil = tool === 'pencil';
+  const isSmudge = tool === 'smudge';
   const { brushSettings } = state;
 
-  const heading = isPencil ? 'Pencil' : isEraser ? 'Eraser' : 'Brush';
+  const heading = isPencil ? 'Pencil' : isEraser ? 'Eraser' : isSmudge ? 'Smudge' : 'Brush';
 
   // The pencil tool draws vector strokes: preset/radius/opacity/flow/hardness/
   // spacing are raster-brush concepts that don't apply. Only stroke
@@ -92,7 +93,9 @@ export function BrushSection({ tool }: BrushSectionProps) {
               borderRadius: '50%',
               background: isEraser
                 ? 'repeating-conic-gradient(#ccc 0% 25%, #fff 0% 50%) 50% / 8px 8px'
-                : 'var(--color-text-primary)',
+                : isSmudge
+                  ? 'linear-gradient(135deg, var(--color-accent-primary) 0%, var(--color-text-muted) 100%)'
+                  : 'var(--color-text-primary)',
               opacity: brushSettings.opacity,
               margin: '4px auto',
             }}
@@ -157,7 +160,7 @@ export function BrushSection({ tool }: BrushSectionProps) {
         onChange={(v) => setBrushSetting('smoothing', v / 100)}
       />
 
-      {(tool === 'paint' || tool === 'eraser') && (
+      {(tool === 'paint' || tool === 'eraser' || tool === 'smudge') && (
         <NumberField
           label="Spacing"
           value={Math.round(brushSettings.spacing * 100)}
@@ -167,6 +170,19 @@ export function BrushSection({ tool }: BrushSectionProps) {
           shiftStep={10}
           unit="%"
           onChange={(v) => setBrushSetting('spacing', Math.max(0.01, v / 100))}
+        />
+      )}
+
+      {isSmudge && (
+        <NumberField
+          label="Strength"
+          value={Math.round(brushSettings.smudgeStrength * 100)}
+          min={0}
+          max={100}
+          step={1}
+          shiftStep={10}
+          unit="%"
+          onChange={(v) => setBrushSetting('smudgeStrength', v / 100)}
         />
       )}
     </DisclosureSection>

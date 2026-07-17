@@ -76,4 +76,5 @@ export * from './typography';
 export * from './typographyPreflight';
 export * from './variables';
 export * from './variant-apply';
+export * from './wetPaint';
 export * from './version';

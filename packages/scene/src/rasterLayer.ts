@@ -507,3 +507,104 @@ export function compositeDabOnTiles(
   };
   return compositeDabOnNode(node, dab, color, alphaLock).tiles;
 }
+
+// ── Smudge compositing ───────────────────────────────────────────────────────
+
+/**
+ * Composite a smudge dab onto a raster layer.
+ *
+ * Smudge "drags" existing pixels in the direction of motion:
+ * - Samples destination pixels at the dab position
+ * - Displaces them by (dx * strength, dy * strength)
+ * - Blends displaced pixels with original using brush mask
+ *
+ * The color of existing paint is preserved (not overwritten by foreground color).
+ * Only alpha > 0 pixels are smudged.
+ *
+ * @param node - The raster layer node
+ * @param dab - The brush dab (position, radius, hardness, shape)
+ * @param direction - Movement direction in radians
+ * @param strength - Smudge strength (0-1)
+ * @returns A new raster layer node with smudged tiles
+ */
+export function compositeSmudgeDabOnNode(
+  node: RasterLayerNode,
+  dab: BrushDab,
+  direction: number,
+  strength: number,
+): RasterLayerNode {
+  const brushShape = dab.shape ?? 'circle';
+  const brushMask = createBrushMask(dab.radius, dab.hardness, brushShape, dab.angle, dab.roundness);
+  const dabDiameter = Math.ceil(dab.radius * 2);
+  const tileKeys = tilesForBounds(
+    Math.floor(dab.x - dab.radius),
+    Math.floor(dab.y - dab.radius),
+    dabDiameter,
+    dabDiameter,
+  );
+
+  const newTiles = new Map(node.tiles);
+
+  const displacement = dab.radius * strength * 0.5;
+  const dx = Math.cos(direction) * displacement;
+  const dy = Math.sin(direction) * displacement;
+
+  for (const { col, row } of tileKeys) {
+    const key = makeTileKey(col, row);
+    const tile = newTiles.get(key);
+    if (!tile) continue;
+
+    const newPixels = new Uint8ClampedArray(tile.pixels);
+    const size = Math.ceil(dab.radius * 2);
+    const tileOriginX = col * TILE_SIZE;
+    const tileOriginY = row * TILE_SIZE;
+    const localDabX = dab.x - tileOriginX;
+    const localDabY = dab.y - tileOriginY;
+    const offsetX = Math.round(localDabX - dab.radius);
+    const offsetY = Math.round(localDabY - dab.radius);
+
+    for (let my = 0; my < size; my++) {
+      const py = offsetY + my;
+      if (py < 0 || py >= TILE_SIZE) continue;
+      for (let mx = 0; mx < size; mx++) {
+        const px = offsetX + mx;
+        if (px < 0 || px >= TILE_SIZE) continue;
+        const maskValue = brushMask[my * size + mx]!;
+        if (maskValue <= 0) continue;
+
+        const srcIdx = (py * TILE_SIZE + px) * 4;
+        const sr = newPixels[srcIdx]!;
+        const sg = newPixels[srcIdx + 1]!;
+        const sb = newPixels[srcIdx + 2]!;
+        const sa = newPixels[srcIdx + 3]!;
+        if (sa === 0) continue;
+
+        const sx = Math.round(px - dx);
+        const sy = Math.round(py - dy);
+        if (sx < 0 || sx >= TILE_SIZE || sy < 0 || sy >= TILE_SIZE) continue;
+
+        const dstIdx = (sy * TILE_SIZE + sx) * 4;
+        const dr = newPixels[dstIdx]!;
+        const dg = newPixels[dstIdx + 1]!;
+        const db = newPixels[dstIdx + 2]!;
+        const da = newPixels[dstIdx + 3]!;
+
+        const t = maskValue * strength;
+        const invT = 1 - t;
+
+        newPixels[srcIdx] = clampByte(sr * invT + dr * t);
+        newPixels[srcIdx + 1] = clampByte(sg * invT + dg * t);
+        newPixels[srcIdx + 2] = clampByte(sb * invT + db * t);
+        newPixels[srcIdx + 3] = clampByte(sa * invT + da * t);
+      }
+    }
+
+    newTiles.set(key, { pixels: newPixels, version: tile.version + 1 });
+  }
+
+  return { ...node, tiles: newTiles };
+}
+
+function clampByte(v: number): number {
+  return Math.round(Math.max(0, Math.min(255, v)));
+}

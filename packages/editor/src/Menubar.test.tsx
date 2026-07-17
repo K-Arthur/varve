@@ -101,6 +101,14 @@ vi.mock('./shortcuts', () => ({
     sendBack: { binding: { key: '[', ctrl: true, shift: true }, label: 'Back' },
     zoomReset: { binding: { key: '0', ctrl: true }, label: 'Zoom 100' },
     toolInspect: { binding: { key: 'i', ctrl: true, shift: true }, label: 'Inspect' },
+    toggleDistractionFree: {
+      binding: { key: 'f', ctrl: true, shift: true },
+      label: 'Distraction-Free Mode',
+    },
+    toggleBeforeAfterCompare: {
+      binding: { key: '\\' },
+      label: 'Compare Before/After',
+    },
     colorBlindnessNone: {
       binding: { key: '0', ctrl: true, alt: true },
       label: 'Color Blindness: None',

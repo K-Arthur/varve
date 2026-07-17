@@ -40,6 +40,7 @@ export interface WorkspaceConfig {
     selectionInfo: boolean;
     unit: boolean;
     preflight: boolean;
+    debt: boolean;
   };
 }
 
@@ -68,6 +69,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       selectionInfo: true,
       unit: true,
       preflight: false,
+      debt: true,
     },
   },
   print: {
@@ -94,6 +96,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       selectionInfo: true,
       unit: true,
       preflight: true,
+      debt: true,
     },
   },
   drawing: {
@@ -121,6 +124,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       selectionInfo: true,
       unit: true,
       preflight: false,
+      debt: true,
     },
   },
   image: {
@@ -147,6 +151,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       selectionInfo: true,
       unit: true,
       preflight: false,
+      debt: true,
     },
   },
 };

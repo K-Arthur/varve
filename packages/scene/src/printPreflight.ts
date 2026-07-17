@@ -64,6 +64,8 @@ export interface PrintPreflightOptions {
   checkFonts?: boolean;
   /** Set of available font families (used for font checks). */
   availableFonts?: Set<string>;
+  /** Maximum Total Area Coverage percentage for CMYK documents (default 300). */
+  maxTacPercent?: number;
 }
 
 // ── Default Options ─────────────────────────────────────────────────────────
@@ -73,6 +75,7 @@ export const DEFAULT_PREFLIGHT_OPTIONS: PrintPreflightOptions = {
   minDpi: 300,
   checkProfiles: true,
   checkSafeArea: false,
+  maxTacPercent: 300,
 };
 
 // ── Preflight Engine ────────────────────────────────────────────────────────
@@ -198,6 +201,22 @@ export function runPrintPreflight(
     }
   }
 
+  // ── TAC check ─────────────────────────────────────────────────────────
+  const maxTac = opts.maxTacPercent ?? 300;
+  if (doc.colorConfig?.mode === 'cmyk' && maxTac > 0) {
+    for (const node of Object.values(doc.nodes)) {
+      const tac = estimateTac(node);
+      if (tac !== null && tac > maxTac) {
+        issues.push({
+          severity: 'warning',
+          category: 'color-space',
+          message: `Node "${node.name}" has estimated TAC of ${tac}%, exceeding the recommended ${maxTac}% limit.`,
+          nodeId: node.id,
+        });
+      }
+    }
+  }
+
   // ── Text chain checks ─────────────────────────────────────────────────
   const chains = doc.textChains;
   if (opts.checkFonts && chains) {
@@ -228,6 +247,26 @@ export function runPrintPreflight(
     infoCount,
     ready: errorCount === 0,
   };
+}
+
+/**
+ * Estimate Total Area Coverage (TAC) for a node by summing C+M+Y+K values
+ * of solid fills. Returns null for non-CMYK fills or non-solid types.
+ */
+function estimateTac(node: import('./types').SceneNode): number | null {
+  if (node.fill?.space !== 'cmyk') {
+    const fills = 'fills' in node ? (node as import('./types').ShapeNode).fills : undefined;
+    if (fills) {
+      const cmyk = fills.find(
+        (f) => f.type === 'solid' && f.visible !== false && f.color?.space === 'cmyk',
+      );
+      if (cmyk?.color && cmyk.color.space === 'cmyk') {
+        return cmyk.color.c + cmyk.color.m + cmyk.color.y + cmyk.color.k;
+      }
+    }
+    return null;
+  }
+  return node.fill.c + node.fill.m + node.fill.y + node.fill.k;
 }
 
 // ── Helper Functions ────────────────────────────────────────────────────────

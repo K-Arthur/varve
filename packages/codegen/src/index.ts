@@ -26,6 +26,8 @@ export { timelineToSVGAnimations } from './animation-svg';
 export { cssTargetGaps, exportNodeToCss } from './css';
 export { cssModulesTargetGaps, exportNodeToCssModules } from './css-modules';
 export { exportNodeToFlutter, flutterTargetGaps } from './flutter';
+export type { OptContext, OptimizationResult } from './optimizers';
+export { optimizeCode } from './optimizers';
 export * from './shared';
 export * from './spec';
 export { exportNodeToSvg, svgTargetGaps } from './svg';

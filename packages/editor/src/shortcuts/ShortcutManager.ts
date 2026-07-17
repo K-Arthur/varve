@@ -170,6 +170,7 @@ export const SHORTCUT_DEFS = {
   toolInspect: { binding: { key: 'i' }, label: 'Inspect mode', category: 'Tools' },
   toolPaint: { binding: { key: 'b' }, label: 'Paint brush', category: 'Tools' },
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },
+  toolSmudge: { binding: { key: 'u' }, label: 'Smudge tool', category: 'Tools' },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
   toggleGuidesVisible: {

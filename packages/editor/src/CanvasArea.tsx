@@ -153,6 +153,7 @@ import { RectangleTool } from './tools/RectangleTool';
 import { RefineMaskTool } from './tools/RefineMaskTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
+import { SmudgeTool } from './tools/SmudgeTool';
 import { SliceTool } from './tools/SliceTool';
 import { SpotHealTool } from './tools/SpotHealTool';
 import { StarTool } from './tools/StarTool';
@@ -458,6 +459,7 @@ function getToolManager(): ToolManager {
     toolManager.register('crop', () => new CropTool());
     toolManager.register('paint', () => new PaintTool(false));
     toolManager.register('eraser', () => new PaintTool(true));
+    toolManager.register('smudge', () => new SmudgeTool());
   }
   toolManager.setTool('select');
   return toolManager;
@@ -825,6 +827,14 @@ export function CanvasArea({
     active?.updatePresetFromSettings(state.brushSettings);
   }, [state.brushSettings, state.tool]);
 
+  // Sync brush settings to the smudge tool.
+  useEffect(() => {
+    if (!tm.current) return;
+    if (state.tool !== 'smudge') return;
+    const smudgeTool = tm.current.getTool<import('./tools/SmudgeTool').SmudgeTool>('smudge');
+    smudgeTool?.updatePresetFromSettings(state.brushSettings);
+  }, [state.brushSettings, state.tool]);
+
   // Sync stroke smoothing to the pencil tool's stabilizer. Reuses the same
   // brushSettings.smoothing field the raster brush already exposes, so the
   // Inspector's existing Smoothing control drives vector pencil strokes too.
@@ -893,7 +903,7 @@ export function CanvasArea({
     const s = stateRef.current;
     const e = editorRef.current;
     const eng = engineRef.current;
-    const sourceEvents = collectSourceEvents(ev, false);
+    const sourceEvents = collectSourceEvents(ev, true);
     return {
       document: s.document,
       selection: s.selection,

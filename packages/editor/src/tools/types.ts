@@ -47,7 +47,8 @@ export type ToolId =
   | 'trimapEdit'
   | 'crop'
   | 'paint'
-  | 'eraser';
+  | 'eraser'
+  | 'smudge';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',

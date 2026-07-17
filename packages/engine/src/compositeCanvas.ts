@@ -243,14 +243,14 @@ export function mapBlendMode(mode: string): string {
       return 'color';
     case 'luminosity':
       return 'luminosity';
-    case 'plusDarker':
-      return 'plus-darker';
+    case 'normal':
+      return 'source-over';
     case 'plusLighter':
-      return 'plus-lighter';
+      return 'lighter';
     case 'passThrough':
-      return 'source-over';
+    case 'plusDarker':
     default:
-      return 'source-over';
+      throw new Error(`Blend mode is not available in Canvas2D: ${mode}`);
   }
 }
 
@@ -372,6 +372,10 @@ export function blendPixels(
         mg = Math.min(1, bg + sg);
         mb = Math.min(1, bb + sb);
         break;
+      case 'normal':
+      case 'passThrough':
+        // Source values unchanged (mr=sr, mg=sg, mb=sb)
+        break;
       case 'hue':
       case 'saturation':
       case 'color':
@@ -383,7 +387,7 @@ export function blendPixels(
         break;
       }
       default:
-        break;
+        throw new Error(`Unsupported blend mode: ${blendMode}`);
     }
 
     const ao = sa + ba * (1 - sa);
