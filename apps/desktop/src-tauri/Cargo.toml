@@ -34,8 +34,8 @@ strata-upscale = { path = "../../../crates/strata-upscale" }
 image = "0.25"
 tauri-plugin-fs = "2"
 # WDIO testing plugins (debug-only, excluded from release builds)
-tauri-plugin-wdio = { version = "1", optional = true }
-tauri-plugin-wdio-webdriver = { version = "1", optional = true }
+tauri-plugin-wdio = { version = "=1.2.0", optional = true }
+tauri-plugin-wdio-webdriver = { version = "=1.2.0", optional = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "dragonfly", target_os = "freebsd", target_os = "openbsd", target_os = "netbsd"))'.dependencies]
 # Wayland/KDE icon matching: g_set_prgname must equal the .desktop filename stem.

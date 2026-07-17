@@ -1,0 +1,14 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "build": {
+    "beforeBuildCommand": "pnpm build:wdio"
+  },
+  "app": {
+    "security": {
+      "capabilities": ["default", "wdio"]
+    }
+  },
+  "bundle": {
+    "active": false
+  }
+}

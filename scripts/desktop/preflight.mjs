@@ -15,6 +15,7 @@ import {
   evaluateDisplay,
   evaluateLinuxDependencies,
   evaluateWdioCompatibility,
+  evaluateWindowsWebView2,
   getLinuxInstallHint,
 } from './compatibility.mjs';
 
@@ -37,6 +38,22 @@ const getDistro = () => {
   return id;
 };
 const pkgConfigVersion = (name) => run('pkg-config', ['--modversion', name]);
+const windowsWebView2Version = () => {
+  if (process.platform !== 'win32') return null;
+  return run('powershell', [
+    '-NoProfile',
+    '-NonInteractive',
+    '-Command',
+    "(Get-ItemProperty 'HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\EdgeUpdate\\Clients\\*','HKLM:\\SOFTWARE\\Microsoft\\EdgeUpdate\\Clients\\*' -ErrorAction SilentlyContinue | Where-Object { $_.name -eq '{F1E7E4A3-5D8A-4A42-BB8B-D0D444CBAE6D}' } | Select-Object -First 1 -ExpandProperty pv)",
+  ]);
+};
+const macosRuntime = () => {
+  if (process.platform !== 'darwin') return null;
+  return {
+    macosVersion: run('sw_vers', ['-productVersion']),
+    xcodePath: run('xcode-select', ['-p']),
+  };
+};
 const packageJsonFor = (entryPath, expectedName) => {
   let directory = dirname(entryPath);
   while (directory !== dirname(directory)) {
@@ -86,6 +103,8 @@ const pkgConfig = Object.fromEntries(
   ]),
 );
 const linuxLibraries = evaluateLinuxDependencies({ platform, pkgConfig });
+const detectedWebView2Version = windowsWebView2Version();
+const webView2 = evaluateWindowsWebView2({ platform, version: detectedWebView2Version });
 const display = evaluateDisplay({
   platform,
   sessionType: process.env.XDG_SESSION_TYPE ?? '',
@@ -107,6 +126,8 @@ const report = {
       ? { pkgConfig, dependencies: linuxLibraries, installHint: getLinuxInstallHint(distro) }
       : null,
   runtimes: {
+    webView2: platform === 'win32' ? { version: detectedWebView2Version, check: webView2 } : null,
+    wkWebView: macosRuntime(),
     webKitWebDriver: platform === 'linux' ? findExecutable('WebKitWebDriver') : null,
     tauriDriver: findExecutable('tauri-driver'),
     chromeDriver: platform === 'linux' ? findExecutable('chromedriver') : null,
@@ -126,4 +147,4 @@ if (wantsJson) {
   if (wdio.remediation) console.log(`WDIO remediation: ${wdio.remediation}`);
 }
 
-if (![linuxLibraries, display, wdio].every((check) => check.ok)) process.exitCode = 1;
+if (![linuxLibraries, webView2, display, wdio].every((check) => check.ok)) process.exitCode = 1;
