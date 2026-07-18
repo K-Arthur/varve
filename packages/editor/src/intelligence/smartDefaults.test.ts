@@ -3,7 +3,7 @@
 import type { Document, NodeId } from '@strata/scene';
 import { addNode, createDocument, makeFrameNode, makeTextNode } from '@strata/scene';
 import { translate } from '@strata/shared';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionTracker } from './actionTracker';
 import { getSmartDefaults } from './smartDefaults';
 
@@ -44,6 +44,10 @@ function makeFrame(doc: Document, w: number, h: number, gap?: number) {
 }
 
 describe('getSmartDefaults', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('returns sensible defaults for empty document without tracker', () => {
     const doc = createDocument('empty');
     const defaults = getSmartDefaults(doc);
