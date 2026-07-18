@@ -53,7 +53,7 @@ let cachedExecutionProvider: string = 'wasm';
  *  Determined by environment capabilities at session creation time. */
 let preferredOnnxProviders: string[] | null = null;
 
-async function getPreferredProviders(ort: typeof import('onnxruntime-web')): Promise<string[]> {
+async function getPreferredProviders(): Promise<string[]> {
   if (preferredOnnxProviders) return preferredOnnxProviders;
 
   try {
@@ -63,7 +63,6 @@ async function getPreferredProviders(ort: typeof import('onnxruntime-web')): Pro
     preferredOnnxProviders = ['wasm'];
   }
 
-  // Validate that ort supports the providers we want to try.
   // Unknown providers are silently ignored by ONNX Runtime.
   return preferredOnnxProviders;
 }
@@ -81,6 +80,7 @@ async function configureOrtWasm(ort: typeof import('onnxruntime-web')): Promise<
 
 async function getSession(
   modelPath: string,
+  modelId: string,
 ): Promise<{ session: InferenceSession; executionProvider: string }> {
   if (cachedSession && cachedModelPath === modelPath) {
     return { session: cachedSession, executionProvider: cachedExecutionProvider };
@@ -93,11 +93,13 @@ async function getSession(
   const ort = await import('onnxruntime-web');
   await configureOrtWasm(ort);
 
-  const providers = await getPreferredProviders(ort);
+  const providers = await getPreferredProviders();
 
-  // Try each provider in priority order until one succeeds.
+  // Try every accelerated provider first. Bare WASM is handled separately
+  // below, gated behind a memory-safety preflight.
   let lastError: Error | null = null;
   for (const provider of providers) {
+    if (provider === 'wasm') continue;
     try {
       cachedSession = await ort.InferenceSession.create(modelPath, {
         executionProviders: [provider, 'wasm'],
@@ -110,7 +112,22 @@ async function getSession(
     }
   }
 
-  // If all preferred providers failed, try bare WASM as last resort.
+  // No accelerated provider succeeded (or none exists) — the only remaining
+  // option is bare WASM, which is the exact path that produced a
+  // std::bad_alloc crash on BiRefNet in a GPU-less sandbox (WASM linear
+  // memory has no controlled way to reject an over-large grow request, and
+  // that failure mode can abort the worker outright rather than reject this
+  // promise). Refuse the attempt before ONNX Runtime allocates anything
+  // instead of catching the fallout afterward.
+  const { isWasmModelSafe } = await import('./environmentCapabilities');
+  if (!(await isWasmModelSafe(modelId))) {
+    throw new Error(
+      `This model exceeds the safe WASM memory limit in this environment (no GPU acceleration available). ${
+        lastError ? `Accelerated backend also failed: ${lastError.message}` : ''
+      }`.trim(),
+    );
+  }
+
   cachedSession = await ort.InferenceSession.create(modelPath, {
     executionProviders: ['wasm'],
   });
@@ -147,7 +164,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
     const { session, executionProvider } =
       reuseSession && hadSession && cachedSession
         ? { session: cachedSession, executionProvider: cachedExecutionProvider }
-        : await getSession(modelPath);
+        : await getSession(modelPath, modelId);
 
     if (!hadSession) {
       self.postMessage({ type: 'ready' } satisfies WorkerReady);

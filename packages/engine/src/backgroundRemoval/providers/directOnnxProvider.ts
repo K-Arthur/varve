@@ -32,6 +32,7 @@ async function getPreferredProviders(): Promise<string[]> {
 async function createOrtSession(
   ort: typeof import('onnxruntime-web'),
   modelPath: string,
+  modelId: string,
 ): Promise<{
   session: import('onnxruntime-web').InferenceSession;
   executionProvider: string;
@@ -40,8 +41,10 @@ async function createOrtSession(
 
   const providers = await getPreferredProviders();
 
+  // Try every accelerated provider first; bare WASM is gated below.
   let lastError: Error | null = null;
   for (const provider of providers) {
+    if (provider === 'wasm') continue;
     try {
       const session = await ort.InferenceSession.create(modelPath, {
         executionProviders: [provider, 'wasm'],
@@ -52,7 +55,19 @@ async function createOrtSession(
     }
   }
 
-  // Fallback to bare WASM
+  // No accelerated provider succeeded (or none exists) — refuse a bare-WASM
+  // attempt for models known to exceed the safe WASM memory ceiling instead
+  // of letting ONNX Runtime attempt the allocation. See worker.ts getSession
+  // for the full rationale (std::bad_alloc can abort the thread outright).
+  const { isWasmModelSafe } = await import('../environmentCapabilities');
+  if (!(await isWasmModelSafe(modelId))) {
+    throw new Error(
+      `This model exceeds the safe WASM memory limit in this environment (no GPU acceleration available). ${
+        lastError ? `Accelerated backend also failed: ${lastError.message}` : ''
+      }`.trim(),
+    );
+  }
+
   const session = await ort.InferenceSession.create(modelPath, {
     executionProviders: ['wasm'],
   });
@@ -96,7 +111,7 @@ async function removeBackgroundDirectOnnx(
     throw new Error('ONNX Runtime Web not available. Install onnxruntime-web or use quick remove.');
   }
 
-  const { session, executionProvider } = await createOrtSession(ort, modelPath);
+  const { session, executionProvider } = await createOrtSession(ort, modelPath, modelId);
 
   const inputSize = modelId === 'u2netp' ? 320 : 1024;
   const previewMax = options.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
