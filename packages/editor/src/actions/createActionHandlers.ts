@@ -100,12 +100,14 @@ export function createActionHandlers(
     toggleLeftPanel: () => e.toggleLeftPanel(),
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
+    toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
     toggleBeforeAfterCompare: () => e.toggleBeforeAfterCompare(),
     workspaceDesign: () => e.setWorkspaceMode('design'),
     workspacePrint: () => e.setWorkspaceMode('print'),
     workspaceDrawing: () => e.setWorkspaceMode('drawing'),
     workspaceImage: () => e.setWorkspaceMode('image'),
+    workspaceMotion: () => e.setWorkspaceMode('motion'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
@@ -216,6 +218,38 @@ export function createActionHandlers(
     whatIsThis: () => cb.onWhatIsThis?.(),
     about: () => cb.onOpenAbout?.(),
     startTour: () => cb.onStartTour?.(),
+
+    // ── Motion Mode ──
+    toggleOnionSkin: () => e.toggleOnionSkin(),
+    addPositionKeyframe: () => e.addKeyframeToSelected('transform'),
+    addRotationKeyframe: () => e.addKeyframeToSelected('rotation'),
+    addScaleKeyframe: () => e.addKeyframeToSelected('transform'),
+    addOpacityKeyframe: () => e.addKeyframeToSelected('opacity'),
+    toggleAutoKeyframe: () => e.toggleAutoKeyframe(),
+    playPause: () => {
+      if (e.state.motion.isPlaying) e.pauseTimeline();
+      else e.playTimeline();
+    },
+    stepForward: () => {
+      const tlId = e.state.motion.activeTimelineId;
+      if (!tlId) return;
+      const tl = e.state.document.timelines?.[tlId];
+      if (!tl) return;
+      const step = 1000 / 60;
+      e.seekTimeline(Math.min(tl.duration, e.state.motion.currentTime + step));
+    },
+    stepBackward: () => {
+      const step = 1000 / 60;
+      e.seekTimeline(Math.max(0, e.state.motion.currentTime - step));
+    },
+    stopTimeline: () => e.stopTimeline(),
+    addKeyframe: () => {
+      const sel = e.state.selection;
+      if (sel.length > 0) {
+        e.addKeyframeToSelected('opacity');
+        e.addKeyframeToSelected('rotation');
+      }
+    },
 
     // ── Other ──
     batchBgRemove: () => cb.onBatchBgRemove?.(),

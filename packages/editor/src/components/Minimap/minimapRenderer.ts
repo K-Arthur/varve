@@ -61,10 +61,10 @@ export function resolveMinimapColors(
   return {
     background: getVar('--color-surface-raised', '#1e1e1e'),
     frameFill: getVar('--color-surface-default', '#2a2a2a'),
-    frameStroke: getVar('--color-border-default', '#555'),
+    frameStroke: getVar('--color-border-subtle', '#555'),
     shapeFill: getVar('--color-border-subtle', '#444'),
     shapeStroke: getVar('--color-border-subtle', '#555'),
-    textFill: getVar('--color-border-default', '#666'),
+    textFill: getVar('--color-border-subtle', '#666'),
     groupStroke: getVar('--color-border-subtle', '#39d0c6'),
     selectionStroke: getVar('--color-interactive-default', '#39d0c6'),
     viewportFill: getVar('--color-interactive-default', '#39d0c6'),

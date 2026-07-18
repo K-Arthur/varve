@@ -32,7 +32,9 @@ import { FloatingTextBar } from './FloatingTextBar/FloatingTextBar';
 import { GradientHandleOverlay } from './GradientHandleOverlay';
 import { GuideOverlay } from './GuideOverlay/GuideOverlay';
 import { MeshWarpOverlay } from './MeshWarpOverlay';
+import { MotionPathOverlay } from './MotionPathOverlay';
 import { NodeEditOverlay } from './NodeEditOverlay';
+import { OnionSkinOverlay } from './OnionSkinOverlay';
 import { Ruler } from './Ruler/Ruler';
 import { SelectionQuickBarHost } from './SelectionQuickBar/SelectionQuickBarHost';
 import { SnapGuidesOverlay } from './SnapGuidesOverlay';
@@ -293,6 +295,18 @@ export function CanvasOverlays({
   // ─── Render ─────────────────────────────────────────────────────────────
   return (
     <>
+      {/* Motion Mode overlays (onion skin + motion path) */}
+      {canvasSize.width > 0 && (
+        <>
+          <OnionSkinOverlay canvasSize={canvasSize} zoom={zoom} pan={pan} />
+          <MotionPathOverlay
+            canvasSize={canvasSize}
+            zoom={zoom}
+            pan={pan}
+            worldToCanvas={(wx, wy) => editor.worldToCanvas(wx, wy)}
+          />
+        </>
+      )}
       {/* Grid overlays */}
       {showGridOverlay && (
         <DocumentGridOverlay
@@ -327,6 +341,7 @@ export function CanvasOverlays({
         onMoveGuide={(id, position) => editor.moveGuide(id, position)}
         canvasWidth={canvasSize.width}
         canvasHeight={canvasSize.height}
+        themeRevision={editor.state.themeRevision}
       />
       <GuideOverlay
         guides={editor.guides}

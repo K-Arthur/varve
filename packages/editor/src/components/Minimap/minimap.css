@@ -47,7 +47,7 @@
 }
 
 .minimap-panel__outlier-badge {
-  color: var(--color-text-danger, #ff6b6b);
+  color: var(--color-feedback-danger, #ff6b6b);
   font-weight: 500;
 }
 

@@ -76,6 +76,10 @@ export interface AnimationTrack {
   interpolation?: InterpolationStrategy;
   /** Whether this track is currently active. */
   enabled?: boolean;
+  /** Muted tracks are evaluated but their output is suppressed. */
+  muted?: boolean;
+  /** Solo tracks suppress all other non-solo tracks in the timeline. */
+  solo?: boolean;
   /** Nested pre-comp timeline id (Phase E slice). When set, keyframes on this track are ignored. */
   nestedTimelineId?: string;
   /** Parent progress (0–1) where the nested timeline begins. Defaults to 0. */
