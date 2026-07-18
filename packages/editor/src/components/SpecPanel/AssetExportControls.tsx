@@ -2,8 +2,9 @@ import { exportNodeToSvg } from '@strata/codegen';
 import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
 import type { SceneNode } from '@strata/scene';
-import { CopyButton } from '@strata/ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { CopyButton, Icon } from '@strata/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import {
   buildFilename,
   downloadBlob,
@@ -54,13 +55,26 @@ export function AssetExportControls({
   engine: _engine,
   platform,
 }: AssetExportControlsProps) {
+  const suggestion = useMemo(() => suggestExportFormat(node, doc), [node, doc]);
   const [engine, setEngine] = useState<Engine | null>(null);
-  const [format, setFormat] = useState<ExportFormat>('image/png');
-  const [scale, setScale] = useState(2);
+  const [format, setFormat] = useState<ExportFormat>(suggestion.format);
+  const [scale, setScale] = useState(suggestion.scale);
   const [customScale, setCustomScale] = useState('');
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState('');
   const liveRef = useRef<HTMLDivElement>(null);
+  const suggestedForNodeRef = useRef(node.id);
+
+  // Re-apply the advisor's suggestion when the selected node changes, but
+  // never fight the user's manual choice while they stay on the same node.
+  useEffect(() => {
+    if (suggestedForNodeRef.current !== node.id) {
+      suggestedForNodeRef.current = node.id;
+      setFormat(suggestion.format);
+      setScale(suggestion.scale);
+      setCustomScale('');
+    }
+  }, [node.id, suggestion]);
 
   const effectiveScale = customScale ? Number.parseFloat(customScale) : scale;
   const isTauri = isTauriPlatform(platform);
@@ -144,7 +158,17 @@ export function AssetExportControls({
       <h3 id="spec-export-heading">Export</h3>
 
       <div className="spec-export__row">
-        <span className="spec-row__label">Format</span>
+        <span className="spec-row__label">
+          Format
+          <button
+            type="button"
+            className="spec-export__why-btn"
+            aria-label={`Why ${FORMATS.find((f) => f.value === suggestion.format)?.label ?? suggestion.format}?`}
+            title={suggestion.reason}
+          >
+            <Icon name="Info" size={12} label={undefined} />
+          </button>
+        </span>
         <div className="spec-export__group">
           {FORMATS.map((f) => (
             <button

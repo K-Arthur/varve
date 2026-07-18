@@ -98,7 +98,9 @@ export function suggestExportFormat(node: SceneNode, doc: Document): ExportSugge
   }
 
   if (node.kind === 'frame' && node.children.length > 0) {
-    const children = node.children.map((cId) => doc.nodes[cId]).filter(Boolean);
+    const children = node.children
+      .map((cId) => doc.nodes[cId])
+      .filter((c): c is SceneNode => c != null);
     const hasImageFill = children.some((c) => {
       if (c.kind !== 'shape') return false;
       const fills = resolveNodeFills(c);
@@ -121,10 +123,6 @@ export function suggestExportFormat(node: SceneNode, doc: Document): ExportSugge
     }
     return { format: 'image/png', scale: 2, reason: 'Mixed content needs raster for fidelity' };
   }
-
-  const _parentId = Object.entries(doc.nodes).find(
-    ([, n]) => 'children' in n && (n as { children: unknown }).children === node.id,
-  )?.[0];
 
   return { format: 'image/png', scale: 1, reason: 'Default PNG export' };
 }

@@ -182,6 +182,27 @@
   width: 7em;
   color: var(--color-text-muted);
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.spec-export__why-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0;
+  border-radius: var(--radius-sm);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.spec-export__why-btn:hover {
+  color: var(--color-interactive-default);
+  background: var(--color-surface-sunken);
+}
+.spec-export__why-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
 }
 .spec-row__value {
   flex: 1;
