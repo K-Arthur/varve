@@ -8,7 +8,7 @@ import {
   getCompositorDiagnosticsSnapshot,
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
-import { getWorkspaceConfig } from './workspace/workspaceTypes';
+import { getVisibleStatusSections } from './workspace/workspaceTypes';
 
 export function StatusBar() {
   const {
@@ -48,8 +48,9 @@ export function StatusBar() {
   }
 
   const singleSel = sel.length === 1;
-  const showPreflight = getWorkspaceConfig(state.workspaceMode).statusSections?.preflight ?? false;
-  const showDebtBadge = getWorkspaceConfig(state.workspaceMode).statusSections?.debt ?? true;
+  const statusSectionIds = getVisibleStatusSections(state.workspaceMode);
+  const showPreflight = statusSectionIds.includes('preflight');
+  const showDebtBadge = statusSectionIds.includes('debt');
 
   return (
     <div className="editor-status">
