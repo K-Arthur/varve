@@ -3752,7 +3752,7 @@ export function EditorProvider({
         const masterRootId = nodeIds[0];
         if (!masterRootId) return;
         const master = state.document.nodes[masterRootId];
-        if (!master || master.kind !== 'frame') {
+        if (master?.kind !== 'frame') {
           toastHandler?.({
             message: 'Only frame-based groups can become components.',
             type: 'warning',
@@ -3764,7 +3764,7 @@ export function EditorProvider({
           let next = withDef;
           for (const nodeId of nodeIds.slice(1)) {
             const original = next.nodes[nodeId];
-            if (!original || original.kind !== 'frame') continue;
+            if (original?.kind !== 'frame') continue;
             const parentId = getParent(next, nodeId);
             const { node: instanceNode, doc: withInstance } = instantiateComponent(next, component);
             next = withInstance;

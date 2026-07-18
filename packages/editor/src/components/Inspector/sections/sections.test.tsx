@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../context';
 import { AppearanceSection } from './AppearanceSection';
+import { FillSection } from './FillSection';
 import { PositionSizeSection } from './PositionSizeSection';
 
 afterEach(cleanup);
@@ -29,6 +30,28 @@ function createRectNode(id: string, overrides: Record<string, unknown> = {}) {
 
 function renderWithProvider(element: React.ReactElement) {
   return render(<EditorProvider>{element}</EditorProvider>);
+}
+
+function createTextNode(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    kind: 'text' as const,
+    name: 'Label',
+    index: 0,
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal' as const,
+    rotation: 0,
+    order: 'a0',
+    text: 'Hello world',
+    fontSize: 16,
+    transform: [1, 0, 0, 1, 10, 20] as const,
+    fill: { space: 'rgb' as const, r: 240, g: 240, b: 240, a: 255 } as const,
+    strokes: [],
+    effects: [],
+    ...overrides,
+  };
 }
 
 // ── PositionSizeSection ────────────────────────────────────────────────────
@@ -90,5 +113,25 @@ describe('AppearanceSection', () => {
     renderWithProvider(<AppearanceSection nodes={[nodeA, nodeB]} />);
     const input = screen.getByLabelText('Opacity') as HTMLInputElement;
     expect(input.getAttribute('aria-valuetext')).toBe('Mixed values');
+  });
+});
+
+// ── FillSection ──────────────────────────────────────────────────────────
+
+describe('FillSection', () => {
+  it('renders exactly one contrast indicator for a text node with a solid fill', () => {
+    // Regression test: FillRow used to render two ContrastIndicator components
+    // for text nodes — one importing the wrong (fgColor/bgColor) props shape,
+    // which crashed at runtime since that component actually expects
+    // fill/fillIndex. Only the correct one should render. FillRow doesn't
+    // pass a `background`, so checkContrast always returns a "background not
+    // determined" warning — the dot renders regardless of the color chosen.
+    const node = createTextNode('t1', {
+      fill: { space: 'rgb' as const, r: 245, g: 245, b: 245, a: 255 },
+    });
+    const { container } = renderWithProvider(<FillSection nodes={[node]} />);
+    const dots = container.querySelectorAll('.insp-contrast-dot');
+    expect(dots).toHaveLength(1);
+    expect(dots[0]?.className).toContain('insp-contrast-dot--warn');
   });
 });
