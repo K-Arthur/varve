@@ -5,6 +5,7 @@ import { makeAdjustment } from '@strata/scene';
 import { CHROME_ICONS, Icon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { AdjustmentEditor } from './AdjustmentEditor';
 import './adjustment.css';
@@ -33,6 +34,7 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'halftone',
   'gradientMap',
   'tritone',
+  'lut',
 ];
 
 const ADJUSTMENT_BLEND_OPTIONS: { value: AdjustmentBlendMode; label: string }[] = [
@@ -174,6 +176,18 @@ export function AdjustmentPanel() {
           </div>
         </div>
       </div>
+
+      <AdjustmentScopeSection
+        nodeId={nodeId}
+        doc={state.document}
+        scope={adjNode.scope}
+        onChangeScope={(s) => {
+          updateNode(nodeId, (n) => {
+            if (n.kind !== 'adjustment') return n;
+            return { ...n, scope: s } as SceneNode;
+          });
+        }}
+      />
 
       <div className="adj-panel__stack">
         <div className="adj-panel__stack-header">

@@ -6,6 +6,7 @@
  * stable shapes.
  */
 
+export * from './adjustmentScope';
 export * from './adjustments';
 export * from './bindings';
 export * from './boolean';

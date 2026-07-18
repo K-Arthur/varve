@@ -411,6 +411,35 @@ export const LayersRow = memo(function LayersRow({
             {(node as AdjustmentNode).adjustmentType}
           </span>
         )}
+        {/* Adjustment scope badge */}
+        {node.kind === 'adjustment' &&
+          !editing &&
+          (() => {
+            const adjNode = node as AdjustmentNode;
+            const s = adjNode.scope;
+            if (!s) return null;
+            const label =
+              s.mode === 'image-local'
+                ? 'I'
+                : s.mode === 'explicit-targets'
+                  ? `T${s.targetNodeIds.length}`
+                  : s.mode === 'container-descendant'
+                    ? 'C'
+                    : 'G';
+            const title =
+              s.mode === 'image-local'
+                ? 'Targets one image'
+                : s.mode === 'explicit-targets'
+                  ? `Targets ${s.targetNodeIds.length} nodes`
+                  : s.mode === 'container-descendant'
+                    ? 'Container descendants'
+                    : 'Document-wide';
+            return (
+              <span className="layers-row__scope-badge" title={title}>
+                {label}
+              </span>
+            );
+          })()}
 
         {/* Motion indicator dot */}
         {hasMotion && !editing && <span className="layers-row__motion-dot" title="Has animation" />}

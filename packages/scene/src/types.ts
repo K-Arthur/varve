@@ -873,11 +873,21 @@ export interface AdjustmentNode extends NodeBase {
   adjustmentType: AdjustmentType;
   params: AdjustmentParams;
   transform: Affine;
-  /** When true, only affects the layer directly below this adjustment. */
+  /** When true, only affects the layer directly below this adjustment.
+   *  @deprecated Use `scope` field instead (v2.3+). This field is read
+   *  during migration and during legacy scope resolution when `scope` is absent. */
   clipping: boolean;
   effects: Effect[];
   /** Nondestructive adjustment entries applied in sequence. */
   adjustments?: Adjustment[];
+  /**
+   * V2.3+: Explicit targeting scope that determines which nodes this
+   * adjustment affects. When absent, legacy clipping-mode resolution is used
+   * (sibling-below in paint order).
+   *
+   * See `AdjustmentScope` in `./adjustmentScope` for mode definitions.
+   */
+  scope?: import('./adjustmentScope').AdjustmentScope;
 }
 
 // ── Vector Path Node ─────────────────────────────────────────────────────────
