@@ -476,8 +476,6 @@ fn render_fills(
                         y: fill_y,
                         opacity,
                         alpha_mask,
-                        image_width: _,
-                        image_height: _,
                         ..
                     } => {
                         match &mut image_state {
