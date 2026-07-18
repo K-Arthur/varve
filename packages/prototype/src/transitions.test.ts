@@ -152,7 +152,12 @@ describe('Transitions', () => {
         easing: { kind: 'linear' },
       };
       const currentState = { x: 400, y: 800, opacity: 1 };
-      const result = animateScreenTransition(transition, 0.5, currentState, { n1: { x: 100 } });
+      const result = animateScreenTransition(transition, 0.5, currentState, {
+        n1: {
+          opacity: { from: 1, to: 1 },
+          transform: { from: [1, 0, 0, 1, 0, 0], to: [1, 0, 0, 1, 0, 0] },
+        },
+      });
       expect(result).toBeDefined();
       // Should NOT fall back to dissolve behavior when smart animate data exists.
       // Smart animate with property values should produce different result from dissolve.

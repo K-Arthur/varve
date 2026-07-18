@@ -75,7 +75,7 @@
 
 .adj-panel__item-drag {
   cursor: grab;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -114,7 +114,7 @@
 
 .adj-panel__item-opacity {
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   white-space: nowrap;
 }
 
@@ -123,7 +123,7 @@
   border: none;
   padding: 2px;
   cursor: pointer;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
@@ -298,7 +298,7 @@
 }
 
 .adj-editor__curve-point-label {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   min-width: var(--space-4);
 }
 
@@ -332,7 +332,7 @@
 }
 
 .adj-editor__triplet-label {
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   min-width: 80px;
 }
 
@@ -379,7 +379,7 @@
   border: none;
   padding: 2px;
   cursor: pointer;
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   border-radius: var(--radius-xs);
   display: flex;
   align-items: center;
@@ -484,7 +484,7 @@
 
 .gm-editor__unit {
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
 }
 
 .adj-lut-editor {
@@ -512,7 +512,7 @@
 
 .adj-lut-editor__status {
   font-size: var(--font-size-xs);
-  color: var(--text-tertiary);
+  color: var(--color-text-muted);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--bg-subtle);

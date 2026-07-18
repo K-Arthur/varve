@@ -56,4 +56,47 @@ describe('suggestEasing', () => {
     const b = suggestEasing('transform', 100);
     expect(a).toEqual(b);
   });
+
+  it('returns reason text for all suggestions', () => {
+    const properties = ['opacity', 'transform', 'position', 'scale', 'rotation', 'blur'];
+    for (const prop of properties) {
+      const result = suggestEasing(prop);
+      expect(typeof result.reason).toBe('string');
+      expect(result.reason.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('returns valid confidence levels', () => {
+    const result = suggestEasing('opacity');
+    expect(['high', 'medium', 'low']).toContain(result.confidence);
+  });
+
+  it('returns spring for position with very large distance', () => {
+    const result = suggestEasing('position', 1000);
+    expect(result.easing).toBe('spring');
+    expect(result.confidence).toBe('medium');
+  });
+
+  it('returns spring for transform with distance exactly at 50', () => {
+    const result = suggestEasing('transform', 50);
+    expect(result.easing).toBe('spring');
+  });
+
+  it('returns easeOut for transform with distance below 50', () => {
+    const result = suggestEasing('transform', 10);
+    expect(result.easing).toBe('easeOut');
+    expect(result.confidence).toBe('high');
+  });
+
+  it('handles undefined distance same as no distance', () => {
+    const withUndefined = suggestEasing('transform', undefined);
+    const without = suggestEasing('transform');
+    expect(withUndefined).toEqual(without);
+  });
+
+  it('handles zero distance as short', () => {
+    const result = suggestEasing('position', 0);
+    expect(result.easing).toBe('easeOut');
+    expect(result.confidence).toBe('high');
+  });
 });

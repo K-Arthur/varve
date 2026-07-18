@@ -77,7 +77,7 @@ export {
   isElementVisible,
   setScrollPosition,
 } from './scrolling';
-export type { LayerMatch } from './smartAnimate';
+export type { LayerMatch, PropertyPair, SmartAnimateLayerValues } from './smartAnimate';
 export { buildSmartAnimateValues, matchLayersByName } from './smartAnimate';
 export type { ScreenTransitionState, TransitionAnimation } from './transitions';
 // Transitions
