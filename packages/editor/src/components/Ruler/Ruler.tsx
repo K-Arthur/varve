@@ -21,6 +21,8 @@ interface RulerProps {
   onMoveGuide?: (id: string, position: number) => void;
   canvasWidth?: number;
   canvasHeight?: number;
+  /** Bumps when theme changes so the canvas-based ruler re-paints. */
+  themeRevision?: number;
 }
 
 const RULER_SIZE = 20;
@@ -179,6 +181,7 @@ export function Ruler({
       pageRulerOrigin,
       canvasWidth,
       canvasHeight,
+      themeRevision,
     ],
   );
 

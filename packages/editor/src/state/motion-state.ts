@@ -25,6 +25,16 @@ export interface MotionState {
   loop: boolean;
   /** When playing, property edits on selected nodes auto-insert keyframes. */
   autoKeyframe: boolean;
+
+  // ── Onion skinning (Motion Mode) ──────────────────────────────────────────
+  /** Whether onion skin overlays are enabled. */
+  onionSkinEnabled: boolean;
+  /** Number of frames to show before the current playhead. */
+  onionSkinBeforeCount: number;
+  /** Number of frames to show after the current playhead. */
+  onionSkinAfterCount: number;
+  /** Opacity (0-1) of the onion skin overlays. */
+  onionSkinOpacity: number;
 }
 
 export function createInitialMotionState(): MotionState {
@@ -37,6 +47,10 @@ export function createInitialMotionState(): MotionState {
     playbackSpeed: 1,
     loop: false,
     autoKeyframe: false,
+    onionSkinEnabled: false,
+    onionSkinBeforeCount: 3,
+    onionSkinAfterCount: 3,
+    onionSkinOpacity: 0.25,
   };
 }
 

@@ -1,5 +1,6 @@
-import type { Timeline } from '@strata/scene';
-import { type FC, useCallback, useMemo } from 'react';
+import type { EasingDefinition, Timeline } from '@strata/scene';
+import { type FC, useCallback, useMemo, useRef, useState } from 'react';
+import { GraphEditor } from './GraphEditor';
 import { PlaybackControls } from './PlaybackControls';
 import { TimelineRuler } from './TimelineRuler';
 import { TrackRow } from './TrackRow';
@@ -13,9 +14,12 @@ export interface TimelinePanelProps {
   playbackSpeed: number;
   loop: boolean;
   autoKeyframe?: boolean;
+  onionSkin?: boolean;
   motionPresets?: Record<string, { id: string; name: string }>;
   selectedTrackIds: string[];
   selectedKeyframeIndex: number | null;
+  /** Whether the graph editor panel is visible. */
+  graphEditorVisible?: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
@@ -23,6 +27,7 @@ export interface TimelinePanelProps {
   onSpeedChange: (speed: number) => void;
   onToggleLoop: () => void;
   onToggleAutoKeyframe?: () => void;
+  onToggleOnionSkin?: () => void;
   onAddMarker?: (timeMs: number) => void;
   onRenameMarker?: (markerId: string) => void;
   onDeleteMarker?: (markerId: string) => void;
@@ -38,7 +43,25 @@ export interface TimelinePanelProps {
     startProgress?: number,
   ) => void;
   getNodeName?: (nodeId: string) => string | undefined;
+  onToggleGraphEditor?: () => void;
+  onDeleteKeyframe?: (timelineId: string, trackId: string, progress: number) => void;
+  onMoveKeyframe?: (
+    timelineId: string,
+    trackId: string,
+    oldProgress: number,
+    newProgress: number,
+  ) => void;
+  onUpdateKeyframeEasing?: (
+    timelineId: string,
+    trackId: string,
+    progress: number,
+    easing: EasingDefinition,
+  ) => void;
+  onSetTrackMuted?: (timelineId: string, trackId: string, muted: boolean) => void;
+  onSetTrackSolo?: (timelineId: string, trackId: string, solo: boolean) => void;
 }
+
+const ZOOM_LEVELS = [0.25, 0.5, 1, 2, 4, 8];
 
 export const TimelinePanel: FC<TimelinePanelProps> = ({
   timelines,
@@ -48,9 +71,11 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   playbackSpeed,
   loop,
   autoKeyframe = false,
+  onionSkin = false,
   motionPresets = {},
   selectedTrackIds,
   selectedKeyframeIndex,
+  graphEditorVisible = false,
   onPlay,
   onPause,
   onStop,
@@ -58,6 +83,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   onSpeedChange,
   onToggleLoop,
   onToggleAutoKeyframe,
+  onToggleOnionSkin,
   onAddMarker,
   onRenameMarker,
   onDeleteMarker,
@@ -69,12 +95,19 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   onClickKeyframe,
   onSetTrackNestedTimeline,
   getNodeName,
+  onToggleGraphEditor,
+  onDeleteKeyframe,
+  onMoveKeyframe,
+  onUpdateKeyframeEasing,
+  onSetTrackMuted,
+  onSetTrackSolo,
 }) => {
   const timelineIds = useMemo(() => Object.keys(timelines), [timelines]);
   const activeTimeline = activeTimelineId ? (timelines[activeTimelineId] ?? null) : null;
   const duration = activeTimeline?.duration ?? 0;
   const tracks = activeTimeline?.tracks ?? [];
-  const zoom = 1;
+  const [zoom, setZoom] = useState(1);
+  const tracksContainerRef = useRef<HTMLDivElement>(null);
 
   const presetOptions = useMemo(
     () => Object.values(motionPresets).map((p) => ({ id: p.id, name: p.name })),
@@ -99,8 +132,33 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
     onSeek(Math.max(0, currentTime - step));
   }, [currentTime, onSeek]);
 
+  const handleZoomIn = useCallback(() => {
+    setZoom((z) => {
+      const idx = ZOOM_LEVELS.indexOf(z);
+      return idx < 0 || idx >= ZOOM_LEVELS.length - 1 ? z : ZOOM_LEVELS[idx + 1];
+    });
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom((z) => {
+      const idx = ZOOM_LEVELS.indexOf(z);
+      return idx <= 0 ? z : ZOOM_LEVELS[idx - 1];
+    });
+  }, []);
+
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        if (e.deltaY < 0) handleZoomIn();
+        else handleZoomOut();
+      }
+    },
+    [handleZoomIn, handleZoomOut],
+  );
+
   return (
-    <div className="timeline-panel">
+    <div className="timeline-panel" onWheel={handleWheel}>
       <div className="timeline-panel__header">
         <select
           className="timeline-panel__selector"
@@ -124,6 +182,52 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             onClick={onCreateTimeline}
           >
             New timeline
+          </button>
+        )}
+
+        <div className="timeline-panel__zoom-controls">
+          <button
+            type="button"
+            className="timeline-panel__zoom-btn"
+            onClick={handleZoomOut}
+            disabled={zoom <= ZOOM_LEVELS[0]}
+            aria-label="Zoom out"
+            title="Zoom out"
+          >
+            −
+          </button>
+          <span className="timeline-panel__zoom-label">{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            className="timeline-panel__zoom-btn"
+            onClick={handleZoomIn}
+            disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+            aria-label="Zoom in"
+            title="Zoom in"
+          >
+            +
+          </button>
+        </div>
+
+        {onToggleGraphEditor && (
+          <button
+            type="button"
+            className={`timeline-panel__toggle-btn ${graphEditorVisible ? 'timeline-panel__toggle-btn--active' : ''}`}
+            onClick={onToggleGraphEditor}
+            aria-label="Toggle graph editor"
+            aria-pressed={graphEditorVisible}
+            title="Graph editor (G)"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            >
+              <path d="M1 13 C4 4, 10 10, 13 1" />
+            </svg>
           </button>
         )}
       </div>
@@ -152,6 +256,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             speed={playbackSpeed}
             loop={loop}
             autoKeyframe={autoKeyframe}
+            onionSkin={onionSkin}
             onPlay={onPlay}
             onPause={onPause}
             onStop={onStop}
@@ -160,6 +265,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             onSeek={onSeek}
             onSpeedChange={onSpeedChange}
             onToggleLoop={onToggleLoop}
+            onToggleOnionSkin={onToggleOnionSkin}
             onToggleAutoKeyframe={onToggleAutoKeyframe}
             onSavePreset={onSavePreset}
             presetOptions={presetOptions}
@@ -179,7 +285,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             />
           </div>
 
-          <div className="timeline-panel__tracks">
+          <div className="timeline-panel__tracks" ref={tracksContainerRef}>
             {tracks.length === 0 ? (
               <div className="timeline-panel__empty-tracks">No tracks in this timeline</div>
             ) : (
@@ -197,10 +303,44 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
                   onSelectTrack={onSelectTrack}
                   onClickKeyframe={onClickKeyframe}
                   onSetNestedTimeline={onSetTrackNestedTimeline}
+                  onDeleteKeyframe={
+                    onDeleteKeyframe && activeTimelineId
+                      ? (progress) => onDeleteKeyframe(activeTimelineId, track.id, progress)
+                      : undefined
+                  }
+                  onMoveKeyframe={
+                    onMoveKeyframe && activeTimelineId
+                      ? (oldProgress, newProgress) =>
+                          onMoveKeyframe(activeTimelineId, track.id, oldProgress, newProgress)
+                      : undefined
+                  }
+                  onSetMuted={
+                    onSetTrackMuted && activeTimelineId
+                      ? (muted) => onSetTrackMuted(activeTimelineId, track.id, muted)
+                      : undefined
+                  }
+                  onSetSolo={
+                    onSetTrackSolo && activeTimelineId
+                      ? (solo) => onSetTrackSolo(activeTimelineId, track.id, solo)
+                      : undefined
+                  }
                 />
               ))
             )}
           </div>
+
+          {graphEditorVisible && activeTimelineId && (
+            <GraphEditor
+              timeline={activeTimeline}
+              tracks={tracks}
+              selectedTrackIds={selectedTrackIds}
+              currentTime={currentTime}
+              duration={duration}
+              onSeek={onSeek}
+              onMoveKeyframe={onMoveKeyframe}
+              onUpdateEasing={onUpdateKeyframeEasing}
+            />
+          )}
         </>
       )}
     </div>

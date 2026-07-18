@@ -56,6 +56,39 @@ export function useShortcuts(
         return () => helpActionsRef.current?.onOpenContextualHelp?.();
       case 'openHelpCenter':
         return () => helpActionsRef.current?.onOpenHelpCenter?.();
+      case 'toggleGraphEditor':
+        return () => ref.current.toggleGraphEditor();
+      case 'motionWorkspace':
+        return () => ref.current.setWorkspaceMode('motion');
+      case 'playPause':
+        return () => {
+          if (ref.current.state.motion.isPlaying) ref.current.pauseTimeline();
+          else ref.current.playTimeline();
+        };
+      case 'stopTimeline':
+        return () => ref.current.stopTimeline();
+      case 'stepForward':
+        return () => {
+          const tl = ref.current.state.motion.activeTimelineId
+            ? ref.current.state.document.timelines?.[ref.current.state.motion.activeTimelineId]
+            : null;
+          if (tl)
+            ref.current.seekTimeline(
+              Math.min(tl.duration, ref.current.state.motion.currentTime + 100),
+            );
+        };
+      case 'stepBackward':
+        return () => {
+          ref.current.seekTimeline(Math.max(0, ref.current.state.motion.currentTime - 100));
+        };
+      case 'addKeyframe':
+        return () => {
+          const sel = ref.current.state.selection;
+          if (sel.length > 0) {
+            ref.current.addKeyframeToSelected('opacity');
+            ref.current.addKeyframeToSelected('rotation');
+          }
+        };
       default:
         return null;
     }
