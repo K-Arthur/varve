@@ -2508,3 +2508,99 @@ colours, broken "System" theme option, and non-existent CSS token references.
 - `git push` was not possible in this CI-like environment (no SSH agent or HTTPS credentials configured). Commits need a credential helper or SSH key to be pushed: `git remote set-url origin git@github.com:K-Arthur/Strata.git`
 - Hardcoded canvas overlay colours (mask preview checkerboard, selection feedback) remain as-is — they are intentional tool-preview constants, not theme-dependent UI chrome
 - Pre-existing `noDescendingSpecificity` and `noImportantStyles` lint violations in `editor.css` and `tokens.css` remain (unrelated to this session's changes)
+
+## Session 52 — Adjustment Scoping System (2026-07-18)
+
+Explicit adjustment-targeting model replacing the unused `clipping: boolean` field.
+Document schema version bumped to **2.3**. 49 new tests across 3 files.
+
+### Scope model
+
+Five scope modes defined in `packages/scene/src/adjustmentScope.ts`:
+
+| Mode | Serialization | Default when |
+|------|--------------|--------------|
+| `image-local` `{ targetNodeId }` | Stable ID | Single eligible node selected |
+| `explicit-targets` `{ targetNodeIds[] }` | Stable ID list | Multi-selection |
+| `container-descendant` `{ containerId, includeNested }` | Container reference | Adjustment created on selected container |
+| `document` | Minimal payload | — (requires impact preview) |
+
+Legacy adjustments (no scope) use `resolveLegacyScope()` which finds the sibling below in paint order, maintaining pre-v2.3 behaviour.
+
+### Core architecture decisions
+
+- **Scopes store IDs, never computed lists** — deterministic save/reopen behaviour
+- **`resolveAdjustmentScope()`** — pure function, same doc + scope always returns same set
+- **Deleted targets silently dropped** — no error state, scope degrades gracefully
+- **`collectContainerDescendants()`** — walks container hierarchy, `includeNested` controls recursion depth
+- **`scopeForTargets()`** — auto-selects narrowest scope (single → image-local, same container → container-descendant, otherwise → explicit-targets)
+- **`estimateAdjustmentImpact()`** — target count, affected frames/pages, pixel area, offscreen detection (used for broad scope warning dialog)
+- **Cache integration**: SubtreeIrCache naturally handles scope changes via existing `computeInvalidationPlan` — adjustment node's changed ID invalidates its own trivial cache entry; target nodes' cache entries remain valid because the rendering captures live canvas backdrop
+
+### Scope-aware rendering
+
+`CanvasArea.tsx` `replaySubtreeToCtx` adjustment handler (line ~2067):
+- Was: capture backdrop from ALL sibling nodes via `entries` walk
+- Now: resolve scope → filter target IDs → compute bounds of only target nodes → capture & filter only that region
+
+### Editor context — new methods
+
+| Method | Purpose |
+|--------|---------|
+| `createLinkedAdjustment(targetIds, adjustments?)` | One shared adjustment with explicit-targets scope |
+| `copyEditsToSelected(sourceNodeId, targetIds, adjustmentIds?)` | Duplicates selected settings as independent image-local adjustments |
+| `setAdjustmentScope(nodeId, scope)` | Change an existing adjustment's scope |
+| `createAdjustmentLayer()` now auto-assigns scope | Single selected → image-local, multi → explicit-targets |
+
+### Migration 2.2 → 2.3
+
+- `clipping=true` → `{ mode: 'image-local', targetNodeId: '' }`
+- `clipping=false` + active adjustments → `{ mode: 'document' }`
+- `clipping=false` + no adjustments → scope undefined (no-op)
+
+### Files changed (16 files, +1842 lines, −145)
+
+| File | What |
+|------|------|
+| `packages/scene/src/adjustmentScope.ts` (NEW) | Core scope types, resolution, validation, impact estimation |
+| `packages/scene/src/adjustmentScope.test.ts` (NEW) | 36 unit tests |
+| `packages/scene/src/adjustmentScope.integration.test.ts` (NEW) | 13 integration tests (save/reopen, migration, edge cases) |
+| `packages/scene/src/types.ts` | `scope?: AdjustmentScope` on `AdjustmentNode` |
+| `packages/scene/src/document.ts` | `makeAdjustmentNode` accepts `scope` |
+| `packages/scene/src/version.ts` | 2.2→2.3 migration |
+| `packages/scene/src/version.test.ts` | Version bump assertions |
+| `packages/scene/src/index.ts` | Export `adjustmentScope` |
+| `packages/editor/src/CanvasArea.tsx` | Scope-aware backdrop capture |
+| `packages/editor/src/context.tsx` | Linked/copy workflows, auto-scope on creation |
+| `packages/editor/src/context/types.ts` | Bulk edit method signatures |
+| `packages/editor/src/components/Inspector/sections/AdjustmentScopeSection.tsx` (NEW) | Inspector scope selector + impact dialog |
+| `packages/editor/src/components/AdjustmentLayer/AdjustmentPanel.tsx` | Integrates scope section |
+| `packages/editor/src/components/AdjustmentLayer/adjustment.css` | Scope section + overlay CSS |
+| `packages/editor/src/components/LayersPanel/LayersRow.tsx` | Scope badge (I/Tn/C/G) |
+| `packages/editor/src/components/LayersPanel/layers.css` | Scope badge styles |
+
+### Key files to read
+
+| File | Why |
+|------|-----|
+| `packages/scene/src/adjustmentScope.ts` | All scope types, resolution, helpers — single source of truth |
+| `packages/editor/src/CanvasArea.tsx:2060-2121` | Scope-aware adjustment rendering |
+| `packages/editor/src/context.tsx:~4552` | `createAdjustmentLayer` with auto-scope |
+| `packages/editor/src/context.tsx:~4664` | `createLinkedAdjustment` / `copyEditsToSelected` |
+| `packages/editor/src/components/Inspector/sections/AdjustmentScopeSection.tsx` | Scope UI |
+| `packages/scene/src/version.ts:~293` | 2.2→2.3 migration logic |
+
+### Verification
+
+- Scene tests: 1134/1135 passed (61 files, 1 skipped)
+- Full workspace: 6882/6885 passed (587 files, 1 pre-existing Menubar mock failure)
+- `@strata/scene` typecheck: clean
+- `pnpm format`: clean (1582 files)
+
+### Remaining limitations
+
+- `image-local` backdrop capture may include overlapping non-target pixels in the target's bounding box (uses `drawImage` of live canvas, not per-target offscreen re-render)
+- True Background Blur + scope integration not tested (handled by existing group flattening path)
+- Global scope impact preview is a simple overlay dialog, not full SettingsDialog pattern
+- No E2E Playwright tests for scope workflows (E2E suite has pre-existing failures)
+- No performance benchmarks for scope-based cache invalidation (SubtreeIrCache already correct)
