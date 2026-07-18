@@ -480,7 +480,25 @@ Implemented:
   `packages/engine/src/replay-filter.test.ts`, and `packages/engine/src/replay.test.ts`
   (unrelated to motion; tracked in the engine package).
 
-## 11. Conclusion
+## 11. Follow-up fixes (2026-07-18)
+
+`packages/editor/src/components/OnionSkinOverlay.tsx` — merged to `master`:
+
+- Onion-skin UI state now correctly reads from `state.motion` (`onionSkinEnabled`,
+  `onionSkinBeforeCount`, `onionSkinAfterCount`, `onionSkinOpacity`) instead of
+  a non-existent `state.onionSkin` cast.
+- Frame rendering is async-safe: `await createEngine('stub')` and
+  `await eng.buildIr({ nodes })` run inside the effect, with a cancellation flag
+  to avoid state updates on unmounted frames.
+- Node conversion goes through the canonical `sceneNodeToEngineNode` converter
+  before applying sampled overrides and the world transform, removing hand-rolled
+  type-unsafe property copying.
+- `getOnionSkinFrames` `_doc` parameter typed as `unknown` so test helpers that
+  pass a timeline placeholder compile cleanly.
+
+Verified with `pnpm test OnionSkinOverlay` (9/9 passing).
+
+## 12. Conclusion
 
 Strata's motion foundation is in the right place architecturally. This session
 completed the core timing model in the sampler and engine, fixed the rendering
