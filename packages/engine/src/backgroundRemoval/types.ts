@@ -26,7 +26,7 @@ export interface BackgroundRemovalResult {
   width: number;
   height: number;
   /** Which ONNX execution provider succeeded (Worker/direct AI paths only). */
-  executionProvider?: 'webgl' | 'wasm';
+  executionProvider?: 'webgpu' | 'webgl' | 'wasm';
   /** Raw single-channel mask data at the result's width/height (0-255).
    *  Set by providers alongside maskDataUrl to avoid redundant PNG decode
    *  during source-resolution reconstruction. */

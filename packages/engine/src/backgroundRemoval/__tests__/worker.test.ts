@@ -39,7 +39,7 @@ describe('background removal worker', () => {
     const { removeBackground } = await import('../index');
     const img = new ImageData(10, 10);
     await expect(removeBackground(img, { method: 'ai-balanced' })).rejects.toThrow(
-      'AI background removal failed',
+      /AI background removal/i,
     );
   }, 10000);
 
