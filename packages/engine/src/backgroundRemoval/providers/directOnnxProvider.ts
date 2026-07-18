@@ -20,25 +20,43 @@ function configureOrtWasm(ort: typeof import('onnxruntime-web')): void {
   }
 }
 
+async function getPreferredProviders(): Promise<string[]> {
+  try {
+    const { getBestOnnxProviders } = await import('../environmentCapabilities');
+    return getBestOnnxProviders();
+  } catch {
+    return ['wasm'];
+  }
+}
+
 async function createOrtSession(
   ort: typeof import('onnxruntime-web'),
   modelPath: string,
 ): Promise<{
   session: import('onnxruntime-web').InferenceSession;
-  executionProvider: 'webgl' | 'wasm';
+  executionProvider: string;
 }> {
   configureOrtWasm(ort);
-  try {
-    const session = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['webgl', 'wasm'],
-    });
-    return { session, executionProvider: 'webgl' };
-  } catch {
-    const session = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['wasm'],
-    });
-    return { session, executionProvider: 'wasm' };
+
+  const providers = await getPreferredProviders();
+
+  let lastError: Error | null = null;
+  for (const provider of providers) {
+    try {
+      const session = await ort.InferenceSession.create(modelPath, {
+        executionProviders: [provider, 'wasm'],
+      });
+      return { session, executionProvider: provider };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
   }
+
+  // Fallback to bare WASM
+  const session = await ort.InferenceSession.create(modelPath, {
+    executionProviders: ['wasm'],
+  });
+  return { session, executionProvider: 'wasm' };
 }
 
 function resizeImageDataToModelInput(src: ImageData, targetW: number, targetH: number): ImageData {
@@ -125,7 +143,7 @@ async function removeBackgroundDirectOnnx(
     processingTimeMs: Math.round(processingTimeMs),
     width: imageData.width,
     height: imageData.height,
-    executionProvider,
+    executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
   };
 }
 

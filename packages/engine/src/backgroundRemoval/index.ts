@@ -21,6 +21,14 @@ export {
   resetCloudConfig,
   saveCloudConfig,
 } from './cloudConfig';
+export type { EnvironmentCapabilities } from './environmentCapabilities';
+export {
+  getBestOnnxProviders,
+  getEnvironmentCapabilities,
+  getEnvironmentCapabilitiesSync,
+  isWasmModelSafe,
+  resetEnvironmentCapabilities,
+} from './environmentCapabilities';
 export type { FinalizeMaskOptions, FinalizeMaskResult } from './finalizeMask';
 export { finalizeMaskResult } from './finalizeMask';
 export type { GpuCapabilities } from './gpuAccelerator';
@@ -36,6 +44,8 @@ export {
   maskFromImageData,
   maskToImageData,
 } from './maskOps';
+export type { ModelInfo } from './modelInfo';
+export { getModelInfo, MODEL_INFO_MAP } from './modelInfo';
 export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
 export { ModelStorageQuotaError } from './modelStore';
 export type { FlowVector } from './opticalFlow';

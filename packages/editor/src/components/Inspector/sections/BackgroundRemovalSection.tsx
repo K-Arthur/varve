@@ -9,6 +9,8 @@
 import type { RemovalMethod } from '@strata/engine';
 import {
   DEFAULT_PREVIEW_MAX_DIMENSION,
+  getEnvironmentCapabilities,
+  getModelInfo,
   getModelLoaderReady,
   workerModelIdForMethod,
 } from '@strata/engine';
@@ -31,6 +33,9 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   }
   if (message.includes('too large') || message.includes('Image too large')) {
     return 'Image too large for this AI model.';
+  }
+  if (message.includes('exceeds the safe WASM memory limit')) {
+    return 'AI Quality model exceeds available memory without GPU acceleration. Switch to AI Balanced or use a device with GPU support.';
   }
   if (message.includes('Model') || message.includes('model')) {
     return `Model failed to load: ${defaultMessage}`;
@@ -58,21 +63,30 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const methodId = useId();
   const decontaminateId = useId();
   const trimapModeId = useId();
-  const eligible = Boolean(node && (isImageShape(node) || node.backgroundRemoval));
-  const bg = node?.backgroundRemoval;
+  const hasMask = Boolean(
+    node && (isImageShape(node) || node.mask?.rasterMask || node.backgroundRemoval),
+  );
+  const rasterMask = node?.mask?.rasterMask;
+  const maskProvenance = rasterMask?.provenance ?? node?.backgroundRemoval;
+  const eligible = hasMask;
 
-  const [method, setMethod] = useState<RemovalMethod>(bg?.method ?? 'quick');
+  const [method, setMethod] = useState<RemovalMethod>(
+    (maskProvenance as { method?: RemovalMethod })?.method ?? 'quick',
+  );
   const [pending, setPending] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const elapsedRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
-  const [feather, setFeather] = useState(bg?.feather ?? 0.5);
-  const [decontaminate, setDecontaminate] = useState(bg?.decontaminate ?? true);
+  const [feather, setFeather] = useState((maskProvenance as { feather?: number })?.feather ?? 0.5);
+  const [decontaminate, setDecontaminate] = useState(
+    (maskProvenance as { decontaminate?: boolean })?.decontaminate ?? true,
+  );
   const [modelState, setModelState] = useState<'unavailable' | 'downloading' | 'ready' | 'error'>(
     'unavailable',
   );
   const [aiAvailable, setAiAvailable] = useState(false);
+  const [hasGpuAccel, setHasGpuAccel] = useState(false);
 
   const showingOriginal = Boolean(node && state.showOriginalBgNodeId === node.id);
   const refiningMask = Boolean(
@@ -115,6 +129,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   }, [refreshModelStatus, eligible]);
 
   useEffect(() => {
+    getEnvironmentCapabilities().then((caps) => {
+      setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL || caps.isTauri);
+    });
+  }, []);
+
+  useEffect(() => {
     if (pending) {
       setElapsedMs(0);
       const start = Date.now();
@@ -136,10 +156,20 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   if (!eligible || !node) return null;
 
   const handleApply = async () => {
-    if (method !== 'quick' && !aiAvailable) {
-      announce('Download the AI model first, or switch to Quick mode.');
-      setShowDownloadDialog(true);
-      return;
+    // Re-check freshly rather than trusting `aiAvailable` state: it's set
+    // asynchronously by the model-status effect keyed on `method`, so
+    // switching the dropdown and clicking Apply before that effect resolves
+    // could otherwise let a stale "available" reading from a previously
+    // selected method through, silently attempting removal with no model.
+    if (method !== 'quick' && requiredModelId) {
+      const loader = await getModelLoaderReady();
+      const stillAvailable = await loader.isModelAvailable(requiredModelId);
+      setAiAvailable(stillAvailable);
+      if (!stillAvailable) {
+        announce('Download the AI model first, or switch to Quick mode.');
+        setShowDownloadDialog(true);
+        return;
+      }
     }
     setError(null);
     setPending(true);
@@ -165,12 +195,18 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const handleReset = () => {
     updateNode(node.id, (n) => {
       const { backgroundRemoval: _, ...rest } = n as ShapeNode;
-      return rest;
+      return { ...rest, mask: undefined };
     });
     announce('Background removal reset');
   };
 
   const handleDownload = () => {
+    // Show a warning before downloading AI Quality on environments without GPU
+    if (method === 'ai-quality' && !hasGpuAccel) {
+      announce(
+        'This model requires significant memory. Download it now, but inference may fail without GPU acceleration on this device.',
+      );
+    }
     setShowDownloadDialog(true);
   };
 
@@ -228,6 +264,27 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           uses a downloadable model for more complex edges.
         </span>
 
+        {(() => {
+          const info = getModelInfo(method);
+          if (!info) return null;
+          const needsGpuWarn = info.gpuRecommended && method === 'ai-quality' && !hasGpuAccel;
+          return (
+            <div className="insp-model-info">
+              <p className="insp-hint">
+                {info.quality} &middot; {info.diskSizeDisplay} on disk &middot;{' '}
+                {info.peakRamDisplay} RAM during inference
+              </p>
+              <p className="insp-model-info__desc">{info.description}</p>
+              {needsGpuWarn && (
+                <p className="insp-hint insp-hint--warn" role="status">
+                  GPU acceleration recommended for this model. Without it, inference may be slow or
+                  fail on some systems.
+                </p>
+              )}
+            </div>
+          );
+        })()}
+
         {previewDownscaleActive && (
           <p className="insp-hint" aria-live="polite">
             Processing at reduced resolution; full-resolution mask upscaled.
@@ -257,13 +314,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           </p>
         )}
 
-        {bg && (
+        {maskProvenance && (
           <p className="insp-meta-row">
-            <span>Confidence {Math.round((bg.confidence ?? 0) * 100)}%</span>
+            <span>
+              Confidence{' '}
+              {Math.round(((maskProvenance as { confidence?: number }).confidence ?? 0) * 100)}%
+            </span>
             <span className="insp-meta-row__sep" aria-hidden>
               ·
             </span>
-            <span>{bg.method}</span>
+            <span>{(maskProvenance as { method?: string }).method ?? 'quick'}</span>
           </p>
         )}
 
@@ -340,14 +400,16 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               variant="primary"
               size="sm"
               onClick={() => void handleApply()}
-              aria-label={bg ? 'Re-apply background removal' : 'Remove background from image'}
+              aria-label={
+                maskProvenance ? 'Re-apply background removal' : 'Remove background from image'
+              }
             >
-              {bg ? 'Re-apply' : 'Remove Background'}
+              {maskProvenance ? 'Re-apply' : 'Remove Background'}
             </Button>
           )}
         </div>
 
-        {bg && (
+        {maskProvenance && (
           <div className="insp-actions insp-actions--secondary">
             <Button
               type="button"
@@ -404,7 +466,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         )}
       </div>
 
-      {refiningMask && bg && (
+      {refiningMask && maskProvenance && (
         <div className="insp-nested-panel">
           <p className="insp-subsection__label">Refine mask</p>
           <FieldRow label="Preview" htmlFor="bg-mask-preview">
@@ -467,7 +529,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         </div>
       )}
 
-      {editingTrimap && bg && (
+      {editingTrimap && maskProvenance && (
         <div className="insp-nested-panel">
           <p className="insp-subsection__label">Trimap</p>
           <FieldRow label="Pen" htmlFor={trimapModeId}>
