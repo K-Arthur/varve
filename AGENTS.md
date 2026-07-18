@@ -2454,3 +2454,57 @@ Two-part session: (1) implemented the remaining Phase 0-5 intelligence algorithm
 - **`just gate`:** passes after the two Rust clippy fixes above
 - **Manual verification:** live Vite dev server + Playwright — created a document, drew a shape, opened the Audit panel, confirmed the Layout Score status-bar badge correctly switches to the Layout sub-tab, no console errors
 - **Not done this session:** the ~259 pre-existing `@strata/editor` typecheck errors outside this session's files (canvas/hitTest/render/most `intelligence/*.ts` modules from their initial implementation) — accepted debt, tracked here rather than silently ignored. `wcagFix.ts` vs `@strata/scene/intelligence/audit.ts` duplication (flagged in the original plan) was not unified — `FillSection`'s `ContrastIndicator` uses `wcagFix.ts` (has working auto-fix), `TypographySection`'s uses `audit.ts`-adjacent logic; left as-is since unifying them was a larger refactor than this session's wiring scope.
+
+---
+
+## Session 51 — Theme architecture audit & canvas invalidation fix (2026-07-18)
+
+Root-cause repair of delayed canvas repaint on theme switch, stale minimap/ruler
+colours, broken "System" theme option, and non-existent CSS token references.
+
+### Root causes
+
+| Symptom | Root cause | Fix |
+|---------|-----------|-----|
+| Canvas background changes only after pointer movement | `drawContent` `useCallback` deps lacked any theme-derived value; RAF-scheduling `useEffect` only re-fires when `drawContent` identity changes | Added `state.themeRevision` to deps + `MutationObserver` on `data-theme` as defence-in-depth |
+| Minimap keeps old theme colours after switch | `useMemo(() => resolveMinimapColors(...), [])` — empty deps, colours computed once | Added `editor.state.themeRevision` to deps |
+| Ruler background/tick colours stale | `drawRuler` `useCallback` deps lacked theme trigger | Added `themeRevision` prop + dep |
+| "System" theme in Settings does nothing | Choosing "System" left stale `data-theme` attribute | Now `delete document.documentElement.dataset.theme` + `localStorage.removeItem('strata-theme')` |
+| `--text-tertiary`, `--color-on-primary`, etc. referenced but never defined | Tokens renamed/removed during earlier refactors without updating consumers | Replaced 40+ references with canonical token names |
+
+### Architecture changes
+
+- **`EditorState.themeRevision`** (number) — monotonic counter bumped by every theme switch
+- **`bumpThemeRevision()`** — module-level bridge (same pattern as `setToastHandler`), callable from Menubar/SettingsDialog after `setTheme()` + localStorage
+- **CanvasThemeObserver** — `MutationObserver` on `document.documentElement` `data-theme` attribute in `CanvasArea`, calls `requestRedrawRef.current()` regardless of `state.themeRevision`
+- **High-contrast hierarchy**: `text-secondary` = `oklch(0.92 0 0)` (was identical to `text-primary`'s `oklch(1 0 0)`), `text-subtle` = `oklch(0.78 0 0)` (was identical to `text-muted`'s `oklch(0.8577 0 0)`)
+
+### Key files changed
+
+| File | Change |
+|------|--------|
+| `packages/editor/src/context.tsx` | `bumpThemeRevision` bridge, `EditorProvider` registration |
+| `packages/editor/src/context/types.ts` | `EditorState.themeRevision` |
+| `packages/editor/src/CanvasArea.tsx` | `MutationObserver` on `data-theme`, `themeRevision` in `drawContent` deps |
+| `packages/editor/src/Menubar.tsx` | Uses `bumpThemeRevision()` bridge, `MutationObserver` for theme sync |
+| `packages/editor/src/components/Minimap/MinimapPanel.tsx` | `themeRevision` in `useMemo` deps |
+| `packages/editor/src/components/Ruler/Ruler.tsx` | `themeRevision` prop + dep |
+| `packages/editor/src/components/CanvasOverlays.tsx` | Pass `themeRevision` to `Ruler` |
+| `packages/editor/src/components/Settings/SettingsDialog.tsx` | Fixed "System" option, calls `bumpThemeRevision()` |
+| `packages/editor/src/components/Minimap/minimapRenderer.ts` | Replaced hardcoded colors with CSS var lookups |
+| Various `.css` / `.tsx` | Fixed 40+ non-existent token references |
+| `packages/ui/src/tokens/color.ts` | Improved HC text hierarchy |
+| `packages/ui/src/tokens/tokens.css` | Regenerated |
+
+### Verification
+- Token audit: 120/120 WCAG-AA pairs across 3 themes
+- Emoji audit: clean
+- Ruler tests: 3/3 pass
+- Minimap tests: 41/41 pass
+- No new typecheck errors (all ~259 pre-existing)
+- No new lint errors
+
+### Limitations
+- `git push` was not possible in this CI-like environment (no SSH agent or HTTPS credentials configured). Commits need a credential helper or SSH key to be pushed: `git remote set-url origin git@github.com:K-Arthur/Strata.git`
+- Hardcoded canvas overlay colours (mask preview checkerboard, selection feedback) remain as-is — they are intentional tool-preview constants, not theme-dependent UI chrome
+- Pre-existing `noDescendingSpecificity` and `noImportantStyles` lint violations in `editor.css` and `tokens.css` remain (unrelated to this session's changes)

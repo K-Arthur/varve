@@ -7,8 +7,9 @@
  * - Motion path point generation
  * - Empty/edge cases
  */
-import { describe, it, expect } from 'vitest';
+
 import type { AnimationKeyframe, AnimationTrack } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
 
 describe('Motion path utilities', () => {
   describe('keyframe position extraction', () => {

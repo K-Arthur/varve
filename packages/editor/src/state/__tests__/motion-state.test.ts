@@ -1,7 +1,7 @@
 /**
  * Tests for motion state creation and onion skin defaults.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createInitialMotionState } from '../motion-state';
 
 describe('createInitialMotionState', () => {
