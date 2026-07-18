@@ -5,6 +5,7 @@ const DEBOUNCE_MS = 100;
 export interface ActionRecord {
   actionId: string;
   timestamp: number;
+  context?: Record<string, string>;
 }
 
 export class ActionTracker {
@@ -16,12 +17,12 @@ export class ActionTracker {
     this.load();
   }
 
-  record(actionId: string): void {
+  record(actionId: string, context?: Record<string, string>): void {
     const now = Date.now();
     if (actionId === this.lastActionId && now - this.lastRecordTime < DEBOUNCE_MS) {
       return;
     }
-    this.records.push({ actionId, timestamp: now });
+    this.records.push({ actionId, timestamp: now, context });
     this.lastActionId = actionId;
     this.lastRecordTime = now;
     this.save();
@@ -47,6 +48,37 @@ export class ActionTracker {
 
   getTotalCount(): number {
     return this.records.length;
+  }
+
+  getActionSequence(windowMs?: number): string[] {
+    const window = windowMs ?? 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - window;
+    return this.records
+      .filter((r) => r.timestamp >= cutoff)
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .map((r) => r.actionId);
+  }
+
+  getCoOccurrenceMap(windowMs?: number): Map<string, number> {
+    const window = windowMs ?? 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - window;
+    const windowRecords = this.records
+      .filter((r) => r.timestamp >= cutoff)
+      .sort((a, b) => a.timestamp - b.timestamp);
+
+    const coOccurrence = new Map<string, number>();
+    const CO_OCCURRENCE_WINDOW_MS = 5000;
+
+    for (let i = 0; i < windowRecords.length; i++) {
+      for (let j = i + 1; j < windowRecords.length; j++) {
+        const diff = windowRecords[j].timestamp - windowRecords[i].timestamp;
+        if (diff > CO_OCCURRENCE_WINDOW_MS) break;
+        const key = [windowRecords[i].actionId, windowRecords[j].actionId].sort().join('::');
+        coOccurrence.set(key, (coOccurrence.get(key) ?? 0) + 1);
+      }
+    }
+
+    return coOccurrence;
   }
 
   clear(): void {

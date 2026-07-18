@@ -81,25 +81,6 @@ function getNodeHeight(node: SceneNode): number | null {
   }
 }
 
-function isIconLike(node: SceneNode): boolean {
-  const w = getNodeWidth(node);
-  const h = getNodeHeight(node);
-  if (w === null || h === null) return false;
-  if (w > 32 || h > 32) return false;
-  if (w === 0 || h === 0) return false;
-  const ratio = w / h;
-  return ratio >= 0.8 && ratio <= 1.2;
-}
-
-function isButtonLike(node: SceneNode): boolean {
-  const w = getNodeWidth(node);
-  const h = getNodeHeight(node);
-  if (w === null || h === null) return false;
-  if (w < 32 || w > 200) return false;
-  if (h < 28 || h > 60) return false;
-  return true;
-}
-
 const KIND_NAMES: Record<string, string> = {
   shape: 'Shape',
   text: 'Text',
@@ -109,109 +90,141 @@ const KIND_NAMES: Record<string, string> = {
   adjustment: 'Adjustment',
 };
 
-export function suggestName(node: SceneNode, doc: Document, index?: number): NamingSuggestion {
-  // Rule 1: Component instance -> "ComponentName instance" (high)
-  if (node.kind === 'frame' && node.componentId) {
-    const comp = doc.components[node.componentId];
-    const compName = comp?.name ?? 'Component';
-    return {
-      name: `${compName} instance`,
-      confidence: 'high',
-      matchedRule: '1-component-instance',
-    };
-  }
+function isHeadingLike(node: SceneNode): boolean {
+  if (node.kind !== 'text') return false;
+  return node.fontSize >= 24 || (node.fontWeight ?? 400) >= 700 || node.textAlign === 'center';
+}
 
-  // Rule 2: Text with button-like content -> "Button: {text}" (high)
+function isBodyText(text: string): boolean {
+  return text.trim().length > 100;
+}
+
+function getComponentName(doc: Document, node: SceneNode): string | null {
+  if (node.kind !== 'frame' || !node.componentId) return null;
+  return doc.components[node.componentId]?.name ?? null;
+}
+
+function getVariantName(doc: Document, node: SceneNode): string | null {
+  if (node.kind !== 'frame' || !node.componentId || !node.variant) return null;
+  const component = doc.components[node.componentId];
+  if (!component?.variants) return null;
+  return component.variants.find((v) => v.id === node.variant)?.name ?? null;
+}
+
+function getRectIconLabel(node: SceneNode): 'icon' | 'button' | null {
+  if (node.kind !== 'shape' || node.shape.kind !== 'rect') return null;
+  const w = getNodeWidth(node);
+  const h = getNodeHeight(node);
+  if (w === null || h === null) return null;
+  if (w === h && w < 30) return 'icon';
+  if (node.cornerRadius != null && w >= 32 && w <= 200 && h >= 28 && h <= 60) return 'button';
+  return null;
+}
+
+function getShapeKindName(node: SceneNode): string | null {
+  if (node.kind !== 'shape') return null;
+  switch (node.shape.kind) {
+    case 'rect':
+      return 'Rectangle';
+    case 'ellipse':
+      return 'Ellipse';
+    case 'path':
+      return 'Vector shape';
+    default:
+      return null;
+  }
+}
+
+function getDefaultKindName(node: SceneNode): string {
+  if (node.kind === 'shape') {
+    return getShapeKindName(node) ?? KIND_NAMES[node.kind] ?? 'Shape';
+  }
+  return KIND_NAMES[node.kind] ?? 'Node';
+}
+
+export function suggestName(node: SceneNode, doc: Document, index?: number): NamingSuggestion {
+  // 1. Text with button-like content -> "Button: {text}" (high)
   if (node.kind === 'text' && isButtonLikeText(node.text)) {
     return {
       name: `Button: ${truncateText(node.text.trim(), 25)}`,
       confidence: 'high',
-      matchedRule: '2-text-button',
+      matchedRule: '1-text-button',
     };
   }
 
-  // Rule 3: Text with link-like content -> "Link: {text}" (high)
+  // 2. Text with link-like content -> "Link: {text}" (high)
   if (node.kind === 'text' && isLinkLikeText(node.text)) {
     return {
       name: `Link: ${truncateText(node.text.trim(), 25)}`,
       confidence: 'high',
-      matchedRule: '3-text-link',
+      matchedRule: '2-text-link',
     };
   }
 
-  // Rule 4: Text with heading-like properties -> "Heading: {truncated text}" (high)
-  if (node.kind === 'text' && (node.fontSize >= 24 || (node.fontWeight ?? 400) >= 700)) {
+  // 3. Text with heading-like properties -> "Heading: {text[:20]}" (high)
+  if (node.kind === 'text' && isHeadingLike(node)) {
     const text = node.text.trim() || 'Untitled';
     return {
-      name: `Heading: ${truncateText(text, 25)}`,
+      name: `Heading: ${truncateText(text, 20)}`,
       confidence: 'high',
-      matchedRule: '4-text-heading',
+      matchedRule: '3-text-heading',
     };
   }
 
-  // Rule 5: Image node -> "Image" (high)
-  if (isImageShape(node)) {
+  // 4. Long text body -> "Body: {text[:30]}..." (medium)
+  if (node.kind === 'text' && isBodyText(node.text)) {
     return {
-      name: 'Image',
-      confidence: 'high',
-      matchedRule: '5-image',
-    };
-  }
-
-  // Rule 6: Rect with icon-like dimensions -> "Icon" (medium)
-  if (node.kind === 'shape' && node.shape.kind === 'rect' && isIconLike(node)) {
-    return {
-      name: 'Icon',
+      name: `Body: ${truncateText(node.text.trim(), 30)}...`,
       confidence: 'medium',
-      matchedRule: '6-icon-dimensions',
+      matchedRule: '4-text-body',
     };
   }
 
-  // Rule 7: Rounded rect with button-like dimensions -> "Button" (medium)
+  // 5. Plain text -> "Text: {text[:20]}" (medium)
+  if (node.kind === 'text') {
+    return {
+      name: `Text: ${truncateText(node.text.trim(), 20)}`,
+      confidence: 'medium',
+      matchedRule: '5-text',
+    };
+  }
+
+  // 6. Variant instance -> "{componentName} / {variantName}" (high)
+  if (node.kind === 'frame' && node.componentId && node.variant) {
+    const compName = getComponentName(doc, node) ?? 'Component';
+    const variantName = getVariantName(doc, node) ?? 'variant';
+    return {
+      name: `${compName} / ${variantName}`,
+      confidence: 'high',
+      matchedRule: '6-component-variant',
+    };
+  }
+
+  // 7. Component instance -> "{componentName} instance" (high)
+  if (node.kind === 'frame' && node.componentId) {
+    const compName = getComponentName(doc, node) ?? 'Component';
+    return {
+      name: `${compName} instance`,
+      confidence: 'high',
+      matchedRule: '7-component-instance',
+    };
+  }
+
+  // 8. Frame with non-grid/flex layout -> "Auto-layout frame" (medium)
   if (
-    node.kind === 'shape' &&
-    node.shape.kind === 'rect' &&
-    node.cornerRadius != null &&
-    isButtonLike(node)
+    node.kind === 'frame' &&
+    node.layoutStyle != null &&
+    node.layoutStyle.mode !== 'grid' &&
+    node.layoutStyle.mode !== 'flex'
   ) {
     return {
-      name: 'Button',
+      name: 'Auto-layout frame',
       confidence: 'medium',
-      matchedRule: '7-button-dimensions',
+      matchedRule: '8-frame-layout',
     };
   }
 
-  // Rule 8: Frame with single child -> "{child name} container" (medium)
-  if (node.kind === 'frame' && node.children.length === 1) {
-    const childId = node.children[0]!;
-    const child = doc.nodes[childId];
-    const childName = child?.name ?? 'Node';
-    return {
-      name: `${childName} container`,
-      confidence: 'medium',
-      matchedRule: '8-frame-single-child',
-    };
-  }
-
-  // Rule 9: Frame with >4 children -> "Section" (medium)
-  if (node.kind === 'frame' && node.children.length > 4) {
-    return {
-      name: 'Section',
-      confidence: 'medium',
-      matchedRule: '9-frame-many-children',
-    };
-  }
-
-  // Rule 10: Group with 2 children -> "Group" (low)
-  if (node.kind === 'group' && node.children.length === 2) {
-    return {
-      name: 'Group',
-      confidence: 'low',
-      matchedRule: '10-group-two-children',
-    };
-  }
-
-  // Rule 11: Frame with layout grid -> "Grid" (medium)
+  // 9. Frame with grid layout -> "Grid" (medium)
   if (
     node.kind === 'frame' &&
     node.layoutStyle != null &&
@@ -222,20 +235,69 @@ export function suggestName(node: SceneNode, doc: Document, index?: number): Nam
     return {
       name: 'Grid',
       confidence: 'medium',
-      matchedRule: '11-frame-grid',
+      matchedRule: '9-frame-grid',
     };
   }
 
-  // Rule 12: Frame with flex layout -> "Layout" (low)
+  // 10. Frame with flex layout -> "Layout" / "Auto-layout frame" (medium)
   if (node.kind === 'frame' && node.layoutStyle?.mode === 'flex') {
     return {
       name: 'Layout',
-      confidence: 'low',
-      matchedRule: '12-frame-flex',
+      confidence: 'medium',
+      matchedRule: '10-frame-flex',
     };
   }
 
-  // Rule 13: Shape with text below -> "Caption" (low)
+  // 11. Frame with >= 3 children -> "Section" (medium)
+  if (node.kind === 'frame' && node.children.length >= 3) {
+    return {
+      name: 'Section',
+      confidence: 'medium',
+      matchedRule: '11-frame-section',
+    };
+  }
+
+  // 12. Frame with single child -> "{child name} container" (medium)
+  if (node.kind === 'frame' && node.children.length === 1) {
+    const childId = node.children[0]!;
+    const child = doc.nodes[childId];
+    const childName = child?.name ?? 'Node';
+    return {
+      name: `${childName} container`,
+      confidence: 'medium',
+      matchedRule: '12-frame-container',
+    };
+  }
+
+  // 13. Image shape -> "Image" (high)
+  if (isImageShape(node)) {
+    return {
+      name: 'Image',
+      confidence: 'high',
+      matchedRule: '13-image',
+    };
+  }
+
+  // 14. Rect icon or button placeholder (medium)
+  if (node.kind === 'shape' && node.shape.kind === 'rect') {
+    const rectType = getRectIconLabel(node);
+    if (rectType === 'icon') {
+      return {
+        name: 'Icon placeholder',
+        confidence: 'medium',
+        matchedRule: '14-rect-icon',
+      };
+    }
+    if (rectType === 'button') {
+      return {
+        name: 'Button',
+        confidence: 'medium',
+        matchedRule: '14-rect-button',
+      };
+    }
+  }
+
+  // 15. Shape with text sibling below -> "Caption" (low)
   if (node.kind === 'shape') {
     const parentId = getParent(doc, node.id);
     if (parentId) {
@@ -250,7 +312,7 @@ export function suggestName(node: SceneNode, doc: Document, index?: number): Nam
               return {
                 name: 'Caption',
                 confidence: 'low',
-                matchedRule: '13-shape-text-below',
+                matchedRule: '15-shape-caption',
               };
             }
           }
@@ -259,14 +321,76 @@ export function suggestName(node: SceneNode, doc: Document, index?: number): Nam
     }
   }
 
-  // Rule 14: Default fallback -> node kind + index (low)
-  const kindName = KIND_NAMES[node.kind] ?? 'Node';
+  // 16. Group with children -> "Group ({children.length})" (low)
+  if (node.kind === 'group' && node.children.length > 0) {
+    return {
+      name: `Group (${node.children.length})`,
+      confidence: 'low',
+      matchedRule: '16-group',
+    };
+  }
+
+  // 17. Default fallback -> kind + index (low)
+  const kindName = getDefaultKindName(node);
   const idx = index ?? 0;
   return {
     name: `${kindName} ${idx}`,
     confidence: 'low',
-    matchedRule: '14-default',
+    matchedRule: '17-default',
   };
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function existingNames(doc: Document, excludeId?: NodeId): Set<string> {
+  const names = new Set<string>();
+  for (const [id, node] of Object.entries(doc.nodes)) {
+    if (excludeId && id === excludeId) continue;
+    if (node) names.add(node.name);
+  }
+  return names;
+}
+
+function uniqueName(base: string, doc: Document, excludeId?: NodeId): string {
+  const names = existingNames(doc, excludeId);
+  if (!names.has(base)) return base;
+  let i = 2;
+  while (names.has(`${base} ${i}`)) i++;
+  return `${base} ${i}`;
+}
+
+function nextUniqueDefaultName(doc: Document, kindName: string, excludeId?: NodeId): string {
+  const names = existingNames(doc, excludeId);
+  const used = new Set<number>();
+  const re = new RegExp(`^${escapeRegExp(kindName)} (\\d+)$`);
+  for (const name of names) {
+    const match = name.match(re);
+    if (match) used.add(Number(match[1]));
+  }
+  let i = 1;
+  while (used.has(i)) i++;
+  return `${kindName} ${i}`;
+}
+
+/**
+ * Generate a unique, context-aware name for a node.
+ *
+ * Uses `suggestName` to pick a base, then appends a counter (2, 3, …)
+ * if the name already exists in the document. For default fallback names
+ * it finds the next available sequential number for the kind.
+ */
+export function autoName(doc: Document, node: SceneNode, index?: number): string {
+  const suggestion = suggestName(node, doc, index);
+  const base = suggestion.name;
+
+  if (suggestion.matchedRule === '17-default') {
+    const kindName = getDefaultKindName(node);
+    return nextUniqueDefaultName(doc, kindName, node.id);
+  }
+
+  return uniqueName(base, doc, node.id);
 }
 
 export function renameSelected(
@@ -281,13 +405,13 @@ export function renameSelected(
 
     if (onlyIfDefault && !DEFAULT_NAME_RE.test(node.name)) continue;
 
-    const suggestion = suggestName(node, newDoc);
-    if (suggestion && suggestion.name !== node.name) {
+    const name = autoName(newDoc, node);
+    if (name !== node.name) {
       newDoc = {
         ...newDoc,
         nodes: {
           ...newDoc.nodes,
-          [id]: { ...node, name: suggestion.name } as SceneNode,
+          [id]: { ...node, name } as SceneNode,
         },
       };
     }
