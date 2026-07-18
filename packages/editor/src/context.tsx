@@ -33,6 +33,19 @@ export function setInspectorTabHandler(fn: ((req: InspectorTabRequest) => void) 
   inspectorTabHandler = fn;
 }
 
+/** Module-level bridge: call after setTheme() + localStorage so EditorProvider
+ *  bumps themeRevision, causing Minimap, Ruler, and other subscribers to
+ *  re-resolve theme-dependent colours.  Registered in EditorProvider. */
+let bumpThemeRevisionHandler: (() => void) | null = null;
+
+export function setBumpThemeRevisionHandler(fn: (() => void) | null): void {
+  bumpThemeRevisionHandler = fn;
+}
+
+export function bumpThemeRevision(): void {
+  bumpThemeRevisionHandler?.();
+}
+
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -226,7 +239,7 @@ import {
   type Viewport,
   zoomAboutPoint,
 } from '@strata/shared';
-import { setTheme } from '@strata/ui/tokens';
+
 import {
   createContext,
   type ReactNode,
@@ -1846,6 +1859,15 @@ export function EditorProvider({
     stateRef.current = { ...stateRef.current, ...partial };
     setState((s) => ({ ...s, ...partial }));
   }, []);
+
+  // Register the theme-revision bridge so Menubar / SettingsDialog can bump
+  // the counter without importing EditorContextValue.
+  useEffect(() => {
+    setBumpThemeRevisionHandler(() => {
+      patch({ themeRevision: stateRef.current.themeRevision + 1 });
+    });
+    return () => setBumpThemeRevisionHandler(null);
+  }, [patch]);
 
   /** Persistence (save/load/document lifecycle). */
   const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
@@ -4971,11 +4993,6 @@ export function EditorProvider({
       },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
-      setThemeAction: (theme) => {
-        setTheme(theme);
-        localStorage.setItem('strata-theme', theme);
-        patch({ themeRevision: stateRef.current.themeRevision + 1 });
-      },
       rotateViewBy: (radians, screenAnchor) => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl

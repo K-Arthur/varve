@@ -200,6 +200,13 @@
   --bp-lg: 1024px;
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
+
+  /* Surface aliases — single elevation system (Neo-Bento redesign). */
+  --color-surface-app: var(--elevation-surface-default);
+  --color-surface-base: var(--elevation-surface-default);
+  --color-surface-raised: var(--elevation-surface-raised);
+  --color-surface-sunken: var(--elevation-surface-sunken);
+  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 [data-theme="dark"] {
@@ -290,6 +297,13 @@
   /* Micro-borders (dark mode — more visible). */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
+
+  /* Surface aliases — single elevation system (Neo-Bento redesign). */
+  --color-surface-app: var(--elevation-surface-default);
+  --color-surface-base: var(--elevation-surface-default);
+  --color-surface-raised: var(--elevation-surface-raised);
+  --color-surface-sunken: var(--elevation-surface-sunken);
+  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 [data-theme="high-contrast"] {
@@ -299,8 +313,8 @@
   --color-surface-sunken: oklch(0 0 0);
   --color-surface-overlay: oklch(0 0 0);
   --color-text-primary: oklch(1 0 0);
-  --color-text-secondary: oklch(1 0 0);
-  --color-text-subtle: oklch(0.8577 0 0);
+  --color-text-secondary: oklch(0.92 0 0);
+  --color-text-subtle: oklch(0.78 0 0);
   --color-text-muted: oklch(0.8577 0 0);
   --color-text-disabled: oklch(0.4606 0 0);
   --color-text-on-accent: oklch(0 0 0);
@@ -320,7 +334,7 @@
   --color-accent-primary: oklch(0.9519 0.2924 111.62);
   --color-accent-default: oklch(0.9519 0.2924 111.62);
   --color-accent-teal: oklch(0.9519 0.2924 111.62);
-  --color-accent-subtle: oklch(0.3901 0 0);
+  --color-accent-subtle: oklch(0.5 0.1 111.62);
   --color-tree-row: oklch(0.0971 0 0);
   --color-tree-row-hover: oklch(0.55 0 0);
   --color-tree-row-selected: oklch(0.9519 0.2924 111.62);
@@ -353,19 +367,19 @@
   --color-layer-tag-purple: oklch(0.58 0.16 300);
   --color-layer-tag-gray: oklch(0.6 0.02 0);
   --color-text-primary-on-default: oklch(1 0 0);
-  --color-text-secondary-on-default: oklch(1 0 0);
+  --color-text-secondary-on-default: oklch(0.92 0 0);
   --color-text-primary-on-raised: oklch(1 0 0);
-  --color-text-secondary-on-raised: oklch(1 0 0);
+  --color-text-secondary-on-raised: oklch(0.92 0 0);
   --color-text-primary-on-overlay: oklch(1 0 0);
-  --color-text-secondary-on-overlay: oklch(1 0 0);
+  --color-text-secondary-on-overlay: oklch(0.92 0 0);
   --color-text-muted-on-default: oklch(0.8577 0 0);
   --color-text-muted-on-raised: oklch(0.8577 0 0);
   --color-text-muted-on-sunken: oklch(0.8577 0 0);
   --color-text-muted-on-overlay: oklch(0.8577 0 0);
-  --color-text-subtle-on-default: oklch(0.8577 0 0);
-  --color-text-subtle-on-raised: oklch(0.8577 0 0);
-  --color-text-subtle-on-sunken: oklch(0.8577 0 0);
-  --color-text-subtle-on-overlay: oklch(0.8577 0 0);
+  --color-text-subtle-on-default: oklch(0.78 0 0);
+  --color-text-subtle-on-raised: oklch(0.78 0 0);
+  --color-text-subtle-on-sunken: oklch(0.78 0 0);
+  --color-text-subtle-on-overlay: oklch(0.78 0 0);
 
   /* Elevation surfaces (high-contrast — maximum separation). */
   --elevation-surface-sunken: oklch(0 0 0);
@@ -380,6 +394,13 @@
   /* Micro-borders (HC — thicker, full-contrast edges). */
   --border-micro: 2px solid oklch(1 0 0);
   --border-micro-accent: 2px solid oklch(0.95 0.2 188);
+
+  /* Surface aliases — single elevation system (Neo-Bento redesign). */
+  --color-surface-app: var(--elevation-surface-default);
+  --color-surface-base: var(--elevation-surface-default);
+  --color-surface-raised: var(--elevation-surface-raised);
+  --color-surface-sunken: var(--elevation-surface-sunken);
+  --color-surface-overlay: var(--elevation-surface-overlay);
 }
 
 /* Dark via system preference ONLY when no explicit in-app [data-theme] choice. */
@@ -472,6 +493,13 @@
     /* Micro-borders (dark mode — more visible). */
     --border-micro: 1px solid oklch(1 0 0 / 0.08);
     --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
+
+    /* Surface aliases — single elevation system (Neo-Bento redesign). */
+    --color-surface-app: var(--elevation-surface-default);
+    --color-surface-base: var(--elevation-surface-default);
+    --color-surface-raised: var(--elevation-surface-raised);
+    --color-surface-sunken: var(--elevation-surface-sunken);
+    --color-surface-overlay: var(--elevation-surface-overlay);
   }
 }
 
