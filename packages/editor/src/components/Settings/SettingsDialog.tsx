@@ -90,6 +90,10 @@ export function SettingsDialog({
       if (theme !== 'system') {
         setTheme(theme as 'light' | 'dark' | 'high-contrast');
         localStorage.setItem('strata-theme', theme);
+      } else {
+        // "System" = remove explicit data-theme so CSS @media (prefers-color-scheme) takes over
+        delete document.documentElement.dataset.theme;
+        localStorage.removeItem('strata-theme');
       }
     },
     [updateSection],

@@ -394,7 +394,7 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
     default:
       return (
         <div className="adj-editor__slider-row">
-          <span className="adj-editor__label" style={{ color: 'var(--text-tertiary)' }}>
+          <span className="adj-editor__label" style={{ color: 'var(--color-text-muted)' }}>
             No editor for {(adjustment as Adjustment).kind}
           </span>
         </div>
@@ -502,7 +502,7 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
         {lutMeta && (
           <div className="adj-lut-editor__meta">
             <span className="adj-editor__label">{lutMeta.name}</span>
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
               {lutMeta.format.toUpperCase()} | {lutMeta.size}^
               {lutMeta.format === '3dl' ||
               (adj.lutJson &&
@@ -1197,7 +1197,7 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           <span
             style={{
               fontSize: 'var(--font-size-xs)',
-              color: 'var(--text-tertiary)',
+              color: 'var(--color-text-muted)',
             }}
           >
             CMYK mode screens each ink at its standard press angle (C 15°, M 75°, Y 0°, K 45°) to

@@ -252,7 +252,7 @@ export function AdjustmentPanel() {
             <span className="adj-panel__editor-title">
               {filterKindDisplayName(selectedAdj.kind)}
             </span>
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-tertiary)' }}>
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
               {Math.round(selectedAdj.opacity * 100)}%
             </span>
           </div>

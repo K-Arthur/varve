@@ -127,7 +127,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
             style={{
               fontSize: 'var(--font-size-xs)',
               padding: '2px 6px',
-              border: '1px solid var(--color-border-default)',
+              border: '1px solid var(--color-border-subtle)',
               borderRadius: 'var(--radius-sm)',
               background: 'var(--color-bg-default)',
               cursor: 'pointer',

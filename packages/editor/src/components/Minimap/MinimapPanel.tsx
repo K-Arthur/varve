@@ -59,8 +59,11 @@ export function MinimapPanel() {
     [scene.contentBounds, mmSize],
   );
 
-  // Resolve theme colors
-  const colors: MinimapColors = useMemo(() => resolveMinimapColors(resolveCssVar), []);
+  // Resolve theme colors — re-resolve when themeRevision bumps
+  const colors: MinimapColors = useMemo(
+    () => resolveMinimapColors(resolveCssVar),
+    [editor.state.themeRevision],
+  );
 
   // Get main canvas dimensions (avoid DOM queries during render)
   const getCanvasSize = useCallback(() => {

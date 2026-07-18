@@ -8,6 +8,7 @@
  */
 
 import { getEasingFn } from '@strata/shared';
+import type { SmartAnimateLayerValues } from './smartAnimate';
 import type { NavigationDirection, TransitionConfig } from './types';
 
 /**
@@ -89,7 +90,7 @@ export function animateScreenTransition(
   transition: TransitionConfig,
   progress: number,
   currentScreenState: { x: number; y: number; opacity: number },
-  smartAnimateValues?: Record<string, Record<string, unknown>>,
+  smartAnimateValues?: Record<string, SmartAnimateLayerValues>,
 ): ScreenTransitionState {
   const easedT = getEasingFn(transition.easing)(progress);
   const anim = createTransitionAnimation(transition);

@@ -144,8 +144,12 @@ export interface EditorState {
    *  A transient view flag, not a document mutation. */
   beforeAfterCompare: boolean;
   timelinePanelVisible: boolean;
-  /** Active workspace mode (design / print / drawing). */
+  /** Active workspace mode (design / print / drawing / motion). */
   workspaceMode: WorkspaceMode;
+  /** Whether the graph editor panel is visible in the timeline area. */
+  graphEditorVisible: boolean;
+  /** Which property track is currently shown in the graph editor (nodeId.property). */
+  selectedGraphProperty: string | null;
   motion: MotionState;
   canvasMode: CanvasMode;
   /** View rotation in radians (non-destructive canvas rotate). */
@@ -236,6 +240,10 @@ export interface EditorState {
     /** Canvas height of the coverage buffer (px). */
     height: number;
   };
+  /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
+   *  other canvas-based components can detect and react to theme changes
+   *  without a full editor remount. */
+  themeRevision: number;
 }
 
 export interface EditorContextValue {
@@ -261,6 +269,9 @@ export interface EditorContextValue {
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   setCanvasMode: (mode: CanvasMode) => void;
   setCameraRotation: (radians: number) => void;
+  /** Switch the active theme and bump themeRevision so canvas/overlay
+   *  components repaint with the correct colours. */
+  setThemeAction: (theme: import('@strata/ui/tokens').Theme) => void;
   rotateViewBy: (radians: number, screenAnchor?: { x: number; y: number }) => void;
   resetViewRotation: () => void;
   setRulerMode: (mode: RulerMode) => void;
@@ -278,6 +289,8 @@ export interface EditorContextValue {
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleDistractionFreeMode: () => void;
+  setWorkspaceMode: (mode: WorkspaceMode) => void;
+  resetWorkspaceToDefault: () => void;
   // Selection
   setSelection: (id: NodeId | null) => void;
   toggleSelection: (id: NodeId, additive?: boolean) => void;
@@ -581,6 +594,27 @@ export interface EditorContextValue {
   createMotionPresetFromTimeline: (timelineId: string, name: string) => string;
   applyMotionPreset: (presetId: string, timelineId: string) => void;
   toggleAutoKeyframe: () => void;
+
+  // Motion Mode — graph editor + keyframe editing
+  toggleGraphEditor: () => void;
+  setGraphEditorProperty: (property: string | null) => void;
+  deleteKeyframe: (timelineId: string, trackId: string, progress: number) => void;
+  moveKeyframe: (
+    timelineId: string,
+    trackId: string,
+    oldProgress: number,
+    newProgress: number,
+  ) => void;
+  duplicateKeyframe: (timelineId: string, trackId: string, progress: number) => void;
+  updateKeyframeEasing: (
+    timelineId: string,
+    trackId: string,
+    progress: number,
+    easing: import('@strata/shared').EasingDefinition,
+  ) => void;
+  addTrackToTimeline: (timelineId: string, nodeId: NodeId, property: string) => void;
+  setTrackMuted: (timelineId: string, trackId: string, muted: boolean) => void;
+  setTrackSolo: (timelineId: string, trackId: string, solo: boolean) => void;
 
   // Guides
   addGuide: (axis: 'horizontal' | 'vertical', position: number) => string;

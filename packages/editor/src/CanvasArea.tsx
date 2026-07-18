@@ -2165,6 +2165,7 @@ export function CanvasArea({
     state.pan.y,
     state.cameraRotation,
     state.canvasMode,
+    state.themeRevision,
     imageCacheStamp,
     fontLoadStamp,
     redrawCount,
@@ -2559,6 +2560,22 @@ export function CanvasArea({
     state.maskPreviewMode,
     displayDpr,
   ]);
+
+  // ── Theme-change redraw guard ────────────────────────────────────────────
+  // Theme changes (data-theme on <html>) do not change any EditorState field,
+  // so drawContent's identity stays the same and the RAF-scheduling effect
+  // below never re-fires.  A MutationObserver on the attribute guarantees that
+  // the canvas background, ruler, minimap, and overlay colours update
+  // immediately without requiring pointer movement or zoom interaction.
+  useEffect(() => {
+    const el = document.documentElement;
+    const cb: MutationCallback = () => {
+      requestRedrawRef.current?.();
+    };
+    const obs = new MutationObserver(cb);
+    obs.observe(el, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => obs.disconnect();
+  }, []);
 
   // ── RAF scheduling ──────────────────────────────────────────────────────
 

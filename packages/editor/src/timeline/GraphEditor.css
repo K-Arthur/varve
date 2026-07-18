@@ -1,0 +1,74 @@
+/* ── Graph Editor ──────────────────────────────────────────────────────────── */
+
+.graph-editor {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-canvas);
+  border-top: 1px solid var(--color-border-subtle);
+  min-height: 200px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.graph-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.graph-editor__title {
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+}
+
+.graph-editor__info {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.graph-editor__svg {
+  flex: 1;
+  width: 100%;
+  cursor: crosshair;
+  user-select: none;
+}
+
+.graph-editor__grid-line {
+  stroke: var(--color-border-subtle);
+  stroke-width: 0.5;
+  opacity: 0.5;
+}
+
+.graph-editor__axis-label {
+  fill: var(--color-text-muted);
+  font-size: 9px;
+  font-family: var(--font-family-mono, monospace);
+}
+
+.graph-editor__curve {
+  fill: none;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-editor__keyframe-dot {
+  stroke: var(--color-bg-canvas);
+  stroke-width: 1.5;
+  cursor: grab;
+  transition: r 0.1s ease;
+}
+
+.graph-editor__keyframe-dot:hover {
+  stroke-width: 2;
+  filter: brightness(1.2);
+}
+
+.graph-editor__playhead {
+  stroke: var(--color-accent-primary);
+  stroke-width: 1.5;
+  pointer-events: none;
+  opacity: 0.8;
+}
