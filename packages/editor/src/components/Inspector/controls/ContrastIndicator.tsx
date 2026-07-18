@@ -57,7 +57,7 @@ export function ContrastIndicator({
         style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
         title="No foreground color to check"
       >
-        <Icon name="HelpCircle" size={10} label={undefined} />
+        <Icon name="CircleHelp" size={10} label={undefined} />
       </span>
     );
   }

@@ -157,6 +157,10 @@ export function createActionHandlers(
       e.updateDoc((doc) => applyHarmonize(doc, sel));
       e.announce?.('Spacing harmonized');
     },
+    runAudit: () => e.setInspectorTab('audit', 'audit'),
+    scanDebt: () => e.setInspectorTab('audit', 'debt'),
+    suggestNames: () => e.setInspectorTab('audit', 'naming'),
+    detectDuplicates: () => e.setInspectorTab('audit', 'components'),
     booleanUnion: () => e.booleanOp('union'),
     booleanSubtract: () => e.booleanOp('subtract'),
     booleanIntersect: () => e.booleanOp('intersect'),
