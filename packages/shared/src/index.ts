@@ -83,6 +83,17 @@ export {
   interpolateManagedColor,
   sampleGradientColor,
 } from './colorInterpolation';
+export type { Oklch, Rgb } from './colorMath';
+export {
+  binnedMode,
+  deltaEOK,
+  findAccessibleColor,
+  mean,
+  median,
+  oklchToRgb,
+  rgbToOklch,
+  stddev,
+} from './colorMath';
 export {
   autoFixContrast,
   contrastRatio,
