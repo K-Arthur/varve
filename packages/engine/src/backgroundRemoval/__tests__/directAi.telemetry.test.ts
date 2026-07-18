@@ -128,7 +128,7 @@ describe('direct AI telemetry', () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
     expect(mockCreate.mock.calls[0]?.[1]).toEqual({ executionProviders: ['webgl', 'wasm'] });
-    expect(mockCreate.mock.calls[1]?.[1]).toEqual({ executionProviders: ['wasm', 'wasm'] });
+    expect(mockCreate.mock.calls[1]?.[1]).toEqual({ executionProviders: ['wasm'] });
     expect(result.executionProvider).toBe('wasm');
     expect(result.processingTimeMs).toBeGreaterThan(0);
     expect(result.confidence).toBeGreaterThan(0);
