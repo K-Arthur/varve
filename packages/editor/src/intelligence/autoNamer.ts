@@ -128,6 +128,14 @@ function getShapeKindName(node: SceneNode): string | null {
       return 'Rectangle';
     case 'ellipse':
       return 'Ellipse';
+    case 'line':
+      return 'Line';
+    case 'polygon':
+      return 'Polygon';
+    case 'star':
+      return 'Star';
+    case 'arrow':
+      return 'Arrow';
     case 'path':
       return 'Vector shape';
     default:

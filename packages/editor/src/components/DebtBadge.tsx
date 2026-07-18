@@ -3,7 +3,7 @@
  *
  * Re-runs the debt scanner via useMemo whenever the document changes.
  * Color-coded: red bg for errors, orange for warnings, blue for info-only.
- * Clicking calls onSwitchToDebt (wired in StatusBar to switch panels).
+ * Clicking calls context.setInspectorTab('audit', 'debt') to open the debt tab.
  *
  * Research basis: PreflightWarnings badge pattern (color + count + popover),
  * VS Code problem-count badge in the status bar.
@@ -15,12 +15,8 @@ import { Icon } from '@strata/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
 
-interface DebtBadgeProps {
-  onSwitchToDebt?: () => void;
-}
-
-export function DebtBadge({ onSwitchToDebt }: DebtBadgeProps) {
-  const { state } = useEditor();
+export function DebtBadge() {
+  const { state, setInspectorTab } = useEditor();
 
   const report = useMemo(() => {
     if (!state.document) return null;
@@ -53,7 +49,7 @@ export function DebtBadge({ onSwitchToDebt }: DebtBadgeProps) {
     <button
       type="button"
       className="debt-badge"
-      onClick={onSwitchToDebt}
+      onClick={() => setInspectorTab('audit', 'debt')}
       style={{ color, background: bg }}
       title={`${ec} errors, ${wc} warnings, ${ic} info — click to view debt panel`}
       aria-label={`Design debt: ${ec} errors, ${wc} warnings, ${ic} info`}

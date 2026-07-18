@@ -11,6 +11,7 @@
 import { getFontRegistry } from '@strata/engine';
 import { validatePrototype } from '@strata/prototype';
 import {
+  type DebtIssue,
   type DebtReport,
   type GovernanceIssue,
   runDebtScan,
@@ -18,10 +19,16 @@ import {
   runIntelligenceAudit,
 } from '@strata/scene';
 import { Icon } from '@strata/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../context';
+import type { IntelligenceTab } from '../context/types';
 import { suggestAutoLayout } from '../intelligence/autoLayoutSuggestor';
-import { type NamingSuggestion, renameSelected, suggestName } from '../intelligence/autoNamer';
+import {
+  autoName,
+  type NamingSuggestion,
+  renameSelected,
+  suggestName,
+} from '../intelligence/autoNamer';
 import { findDuplicateStructures } from '../intelligence/componentDetector';
 import {
   analyzeSpacing,
@@ -31,21 +38,11 @@ import {
 
 import '../components/Inspector/inspector.css';
 
-type IntelligenceTab =
-  | 'audit'
-  | 'spacing'
-  | 'naming'
-  | 'governance'
-  | 'debt'
-  | 'prototype'
-  | 'layout'
-  | 'components';
-
 const PRIMARY_TABS: IntelligenceTab[] = ['audit', 'spacing', 'naming'];
 const MORE_TABS: IntelligenceTab[] = ['governance', 'debt', 'prototype', 'layout', 'components'];
 
-export function IntelligencePanel() {
-  const [tab, setTab] = useState<IntelligenceTab>('audit');
+export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab } = {}) {
+  const [tab, setTab] = useState<IntelligenceTab>(initialTab ?? 'audit');
   const [showMore, setShowMore] = useState(false);
 
   const moreLabel = MORE_TABS.find((t) => t === tab) ?? null;
@@ -109,7 +106,7 @@ export function IntelligencePanel() {
               }}
             >
               {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
-              {t === 'debt' && <Icon name="AlertTriangle" label={undefined} size="0.8em" />}
+              {t === 'debt' && <Icon name="TriangleAlert" label={undefined} size="0.8em" />}
               {t}
             </button>
           ))}
@@ -502,7 +499,7 @@ function GovernanceTab() {
 /* ------------------------------------------------------------------ */
 
 function DebtTab() {
-  const { state, setSelection } = useEditor();
+  const { state, setSelection, updateDoc } = useEditor();
 
   const [report, setReport] = useState<DebtReport | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -524,6 +521,40 @@ function DebtTab() {
     }, 50);
   }, [state.document]);
 
+  // Auto-run on first mount and whenever the document changes, idle-scheduled
+  // so it never competes with interactive edits for the main thread.
+  useEffect(() => {
+    const id =
+      requestIdleCallback?.(handleScan, { timeout: 500 }) ??
+      (setTimeout(handleScan, 300) as unknown as number);
+    return () => {
+      if (typeof id === 'number' && typeof cancelIdleCallback !== 'undefined')
+        cancelIdleCallback(id);
+      else clearTimeout(id);
+    };
+  }, [handleScan]);
+
+  const handleFix = useCallback(
+    (issue: DebtIssue) => {
+      updateDoc((doc) => {
+        if (issue.autoFix) return issue.autoFix(doc);
+        if (issue.checkId === 'unnamed-layers' && issue.nodeId) {
+          const target = doc.nodes[issue.nodeId];
+          if (!target) return doc;
+          return {
+            ...doc,
+            nodes: { ...doc.nodes, [target.id]: { ...target, name: autoName(doc, target) } },
+          };
+        }
+        return doc;
+      });
+    },
+    [updateDoc],
+  );
+
+  const isFixable = (issue: DebtIssue): boolean =>
+    issue.autoFix != null || (issue.checkId === 'unnamed-layers' && issue.nodeId != null);
+
   return (
     <div className="intelligence-tab-content">
       <p className="intelligence-hint">
@@ -538,7 +569,7 @@ function DebtTab() {
         onClick={handleScan}
       >
         <Icon name={isScanning ? 'Loader' : 'Search'} label={undefined} size="0.85em" />
-        {isScanning ? 'Scanning...' : 'Scan for debt'}
+        {isScanning ? 'Scanning...' : report ? 'Re-scan' : 'Scan for debt'}
       </button>
 
       {report && (
@@ -587,6 +618,16 @@ function DebtTab() {
                       <span className="intelligence-issue__type">{issue.checkId}</span>
                     </button>
                     <p className="intelligence-issue__message">{issue.message}</p>
+                    {isFixable(issue) && (
+                      <button
+                        type="button"
+                        className="intelligence-action-btn"
+                        onClick={() => handleFix(issue)}
+                      >
+                        <Icon name="Wand" label={undefined} size="0.85em" />
+                        Auto-fix
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -605,10 +646,10 @@ function DebtTab() {
 function PrototypeTab() {
   const { state, setSelection } = useEditor();
   const issues = useMemo(() => {
-    if (!state.prototype) return [];
+    if (!state.prototypeData) return [];
     const allNodeIds = Object.keys(state.document.nodes);
-    return validatePrototype(state.prototype, allNodeIds);
-  }, [state.prototype, state.document.nodes]);
+    return validatePrototype(state.prototypeData, allNodeIds);
+  }, [state.prototypeData, state.document.nodes]);
 
   if (issues.length === 0) {
     return (
@@ -724,7 +765,7 @@ function LayoutTab() {
 /* ------------------------------------------------------------------ */
 
 function ComponentsTab() {
-  const { state, setSelection } = useEditor();
+  const { state, setSelection, createComponentFromGroup } = useEditor();
 
   const groups = useMemo(() => findDuplicateStructures(state.document), [state.document]);
 
@@ -770,6 +811,7 @@ function ComponentsTab() {
                 type="button"
                 className="intelligence-action-btn"
                 style={{ marginTop: 'var(--space-1)' }}
+                onClick={() => createComponentFromGroup(group.nodeIds)}
               >
                 <Icon name="Wand" label={undefined} size="0.85em" />
                 Create component
