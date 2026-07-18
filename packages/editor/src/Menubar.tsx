@@ -10,7 +10,7 @@ import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
-import { useEditor } from './context';
+import { bumpThemeRevision, useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
 import { WORKSPACE_ICONS, WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
@@ -424,7 +424,6 @@ export function Menubar({
     setWorkspaceMode,
     toggleDistractionFreeMode,
     recordAction,
-    setThemeAction,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -441,8 +440,9 @@ export function Menubar({
   useEffect(() => {
     const saved = localStorage.getItem('strata-theme') as Theme | null;
     if (saved && saved !== getTheme()) {
-      setThemeAction(saved);
+      setTheme(saved);
       setCurrentTheme(saved);
+      bumpThemeRevision();
     }
     const observer = new MutationObserver(() => {
       const current = getTheme();
@@ -453,7 +453,7 @@ export function Menubar({
       attributeFilter: ['data-theme'],
     });
     return () => observer.disconnect();
-  }, [setThemeAction]);
+  }, []);
 
   useEffect(() => {
     if (editingName && nameInputRef.current) {
@@ -576,8 +576,10 @@ export function Menubar({
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
-            setThemeAction(theme);
+            setTheme(theme);
             setCurrentTheme(theme);
+            localStorage.setItem('strata-theme', theme);
+            bumpThemeRevision();
             return;
           }
           break;
