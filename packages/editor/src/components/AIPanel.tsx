@@ -1,6 +1,9 @@
-import { type AIMessage, createAssistant } from '@strata/ai';
+import { type AIMessage, createAssistant, type IntelligenceDispatchContext } from '@strata/ai';
 import { Button, Icon } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEditor } from '../context';
+import { renameSelected } from '../intelligence/autoNamer';
+import { harmonizeSpacing } from '../intelligence/spacingHarmonizer';
 
 const INITIAL_SUGGESTIONS = [
   'Help me choose a color palette',
@@ -9,6 +12,7 @@ const INITIAL_SUGGESTIONS = [
 ];
 
 export function AIPanel() {
+  const editor = useEditor();
   const [messages, setMessages] = useState<AIMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -16,6 +20,28 @@ export function AIPanel() {
   const assistantRef = useRef(createAssistant());
   const chatLogRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const buildIntelligenceContext = useCallback((): IntelligenceDispatchContext => {
+    const selection = editor.state.selection;
+    return {
+      document: editor.state.document,
+      handlers: {
+        suggestNames: () => {
+          const ids = selection.length > 0 ? selection : editor.rootNodes().map((n) => n.id);
+          if (ids.length === 0) return 'No layers to rename — select one or more layers first.';
+          editor.updateDoc((doc) => renameSelected(doc, ids, true));
+          return `Suggested names applied to ${ids.length} layer${ids.length === 1 ? '' : 's'}.`;
+        },
+        harmonizeSpacing: () => {
+          if (selection.length < 3) {
+            return 'Harmonize spacing needs at least 3 selected layers.';
+          }
+          editor.updateDoc((doc) => harmonizeSpacing(doc, selection));
+          return `Spacing harmonized across ${selection.length} layers.`;
+        },
+      },
+    };
+  }, [editor]);
 
   useEffect(() => {
     if (chatLogRef.current) {
@@ -39,14 +65,14 @@ export function AIPanel() {
     setMessages((prev) => [...prev, userMsg]);
 
     try {
-      const reply = await assistantRef.current.sendMessage(trimmed);
+      const reply = await assistantRef.current.sendMessage(trimmed, buildIntelligenceContext());
       setMessages((prev) => [...prev, reply]);
     } catch {
       setError('Failed to get response. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [input, loading]);
+  }, [input, loading, buildIntelligenceContext]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -70,14 +96,17 @@ export function AIPanel() {
     if (!lastUserMsg) return;
     setLoading(true);
     try {
-      const reply = await assistantRef.current.sendMessage(lastUserMsg.content);
+      const reply = await assistantRef.current.sendMessage(
+        lastUserMsg.content,
+        buildIntelligenceContext(),
+      );
       setMessages((prev) => [...prev, reply]);
     } catch {
       setError('Failed to get response. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [messages]);
+  }, [messages, buildIntelligenceContext]);
 
   return (
     <div className="ai-panel">

@@ -21,7 +21,7 @@ function makeShapeNodeWith(
     transform: [1, 0, 0, 1, 0, 0] as SceneNode['transform'],
     shape: { kind, x: 0, y: 0, w: 100, h: 100 } as never,
     ...extra,
-  } as SceneNode;
+  } as unknown as SceneNode;
 }
 
 function makeTextNodeWith(id: NodeId, extra: Record<string, unknown> = {}): SceneNode {
