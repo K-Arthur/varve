@@ -187,11 +187,13 @@ export class TrimapEditTool extends BaseTool {
 
     this.nodeId = node.id;
 
-    const imageFill = resolveNodePaints(node, ctx.document).find(
-      (fill) => fill.type === 'image',
-    )?.image;
-    const sourceWidth = imageFill?.w ?? (node.shape?.kind === 'rect' ? node.shape.w : 256);
-    const sourceHeight = imageFill?.h ?? (node.shape?.kind === 'rect' ? node.shape.h : 256);
+    const imageFill = resolveNodePaints(
+      { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
+      ctx.document,
+    ).find((fill) => fill.type === 'image')?.image;
+    const sourceWidth = imageFill?.imageWidth ?? (node.shape?.kind === 'rect' ? node.shape.w : 256);
+    const sourceHeight =
+      imageFill?.imageHeight ?? (node.shape?.kind === 'rect' ? node.shape.h : 256);
 
     const prepared = prepareImageMaskMapper({
       document: ctx.document,

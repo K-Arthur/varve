@@ -23,6 +23,7 @@ export class PaintTool extends BaseTool {
   private strokeGeneration = 0;
   private transactionOpen = false;
   private workerHost: BrushWorkerHost | null = null;
+  private ownsLayer = false;
 
   /** Called when the brush settings change (e.g., from keyboard shortcut).
    *  Editor sets this to update the editor state. */
@@ -92,6 +93,12 @@ export class PaintTool extends BaseTool {
       smoothing: this.preset.smoothing,
       spacing: this.preset.spacing,
     };
+  }
+
+  /** Whether the raster layer used by the current/most recent stroke was newly
+   *  created by this tool, as opposed to an existing layer that was reused. */
+  get ownsCurrentLayer(): boolean {
+    return this.ownsLayer;
   }
 
   /** Lazily create and return the brush worker host. */

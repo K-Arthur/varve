@@ -47,6 +47,20 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
       metaKey: false,
       pointerType: 'mouse' as const,
       pointerPressure: 0,
+      tiltX: 0,
+      tiltY: 0,
+      twist: 0,
+      tangentialPressure: 0,
+      pointerWidth: 1,
+      pointerHeight: 1,
+      altitudeAngle: Math.PI / 2,
+      azimuthAngle: 0,
+      hasCoalescedEvents: false,
+      hasPredictedEvents: false,
+      sourceEvents: [],
+      foregroundColor: [0, 0, 0, 255] as [number, number, number, number],
+      maskPreviewMode: 'none' as const,
+      setMaskPreviewMode: vi.fn(),
       snapEnabled: false,
       snapGrid: 8,
       createShapeAt: vi.fn(),
@@ -94,6 +108,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
       setNodeEditSelectedAnchors: vi.fn(),
       setTextEditTargetId: vi.fn(),
       snapPosition: vi.fn((b: { x: number; y: number }) => ({ x: b.x, y: b.y, guides: [] })),
+      createRasterLayer: vi.fn(() => null),
     };
   }
 

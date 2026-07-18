@@ -31,6 +31,7 @@ export class SmudgeTool extends BaseTool {
   private preset: BrushPreset;
   private strokePoints: import('@strata/scene').StrokePoint[] = [];
   private rasterNodeId: string | null = null;
+  private strokeGeneration = 0;
   private transactionOpen = false;
   private previewCanvas = new PreviewCanvas();
 
@@ -98,6 +99,13 @@ export class SmudgeTool extends BaseTool {
       spacing: this.preset.spacing,
       smudgeStrength: this.preset.smudgeStrength,
     };
+  }
+
+  /** Monotonically increasing id for the current stroke, bumped on each
+   *  pointer-down. Exposed so callers can detect whether a stroke that was
+   *  in flight has since been superseded by a new one. */
+  get currentStrokeGeneration(): number {
+    return this.strokeGeneration;
   }
 
   override onActivate(ctx: ToolContext): void {
