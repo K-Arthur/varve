@@ -64,6 +64,7 @@ export function Ruler({
   onMoveGuide,
   canvasWidth = 800,
   canvasHeight = 600,
+  themeRevision,
 }: RulerProps) {
   const topRulerRef = useRef<HTMLCanvasElement>(null);
   const leftRulerRef = useRef<HTMLCanvasElement>(null);
