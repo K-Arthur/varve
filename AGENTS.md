@@ -362,6 +362,7 @@ Phases A–F **implemented**. Canonical audit: `docs/audits/canvas-system-audit.
 | Sticky snap | `packages/editor/src/tools/snapping.ts` |
 | Draw hub | `CanvasArea.tsx` — `applyEditorCameraToCtx`, `SubtreeIrCache`, grid overlays |
 | UI | Menubar/StatusBar shortcuts: fit page/frame, rotate view, ruler mode, grid overlays |
+| Minimap | `components/Minimap/` — `minimapLayout.ts` (canonical bounds + coordinate transforms), `minimapRenderer.ts` (Canvas2D retained renderer), `MinimapPanel.tsx` (React component with click/drag/keyboard nav) |
 | Collab (stub) | `PresenceIndicator` in Shell, `CollabCursorOverlay`, `useCollabPresence` |
 | Perf | `canvas10k.bench.test.ts`, `SubtreeReplayCache` (renamed from TileCache) |
 
@@ -1719,7 +1720,7 @@ Complete implementation of canvas architecture improvements plus 8 deterministic
 | **Parent index map** | `buildParentIndexMap(doc)` — O(n) single-pass parent map. `nodeWorldTransform`/`nodeWorldBounds` accept optional `parentIndex` param for O(1) ancestor traversal. | (existing tests) |
 | **Canvas mode system** | Three modes via `EditorState.canvasMode`: `full` (default, full IR rendering), `outline` (fills/effects stripped, uniform stroke), `preview` (all overlays hidden). Ctrl+Shift+O/R shortcuts. View menu checkboxes. | +11 editor tests |
 | **Coordinate deduplication** | All 8 files with duplicate `worldToScreen`/`screenToWorld` implementations now import from canonical `@strata/shared/viewport.ts`. 19 duplicate sites eliminated. | 32/32 SelectionOverlay tests pass |
-| **Minimap** | `MinimapPanel` — 160px overview canvas with DPR-aware node outlines, draggable viewport indicator, click-to-center-and-pan. Added to LayersPanel sidebar. | +3 tests |
+| **Minimap** | `components/Minimap/` — Full overhaul: `minimapLayout.ts` (canonical document bounds, outlier culling, world↔minimap transforms), `minimapRenderer.ts` (retained Canvas2D renderer with frame/shape/text/group differentiation), `MinimapPanel.tsx` (click/drag/keyboard nav, collapse/expand, page-aware, DFS traversal into frames/groups, theme-aware viewport indicator, accessible section with aria-labels). | +41 tests |
 | **Multi-page UI** | `PageNav` — horizontal page thumbnail strip with add/duplicate/delete, `currentPageId` in editor state. | +4 tests |
 
 ### Design Intelligence Features
