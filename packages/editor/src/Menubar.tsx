@@ -2,8 +2,9 @@ import {
   AlertDialog,
   CHROME_ICONS,
   FloatingPortal,
-  Icon,
   IconButton,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
   StrataLogo,
 } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
@@ -271,6 +272,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         action: 'ungroup',
       },
       { label: '---' },
+      {
+        label: 'New Adjustment Layer',
+        shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
+        action: 'newAdjustmentLayer',
+      },
       { label: 'Remove Background...', action: 'batchBgRemove' },
       { label: 'Extract Palette', action: 'extractPalette' },
       { label: '---' },
@@ -424,6 +430,7 @@ export function Menubar({
     setWorkspaceMode,
     toggleDistractionFreeMode,
     recordAction,
+    createAdjustmentLayer,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -555,6 +562,9 @@ export function Menubar({
         case 'toggleDistractionFree':
           toggleDistractionFreeMode();
           return;
+        case 'newAdjustmentLayer':
+          createAdjustmentLayer();
+          return;
         case 'createMaster':
           createMaster('Master', 1920, 1080);
           return;
@@ -632,6 +642,7 @@ export function Menubar({
       setWorkspaceMode,
       toggleDistractionFreeMode,
       recordAction,
+      createAdjustmentLayer,
     ],
   );
 
@@ -910,22 +921,33 @@ export function Menubar({
       <div className="editor-menubar__controls">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
           {(['design', 'print', 'drawing', 'image', 'motion'] as WorkspaceMode[]).map(
-            (mode, idx) => (
-              <button
-                key={mode}
-                type="button"
-                role="radio"
-                aria-checked={state.workspaceMode === mode}
-                className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                onClick={() => setWorkspaceMode(mode)}
-                title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
-              >
-                <Icon name={WORKSPACE_ICONS[mode]} size={13} />
-                <span className="editor-menubar__workspace-btn-label">
-                  {WORKSPACE_LABELS[mode]}
-                </span>
-              </button>
-            ),
+            (mode, idx) => {
+              // Map Lucide icon names to SolidIcon names
+              const solidIconMap: Record<string, keyof typeof SOLID_CHROME_ICONS> = {
+                layoutGrid: 'layoutGrid',
+                fileText: 'fileText',
+                pencilSimple: 'pencilSimple',
+                image: 'image',
+              };
+              const icon = WORKSPACE_ICONS[mode];
+              const solidIcon = solidIconMap[icon] || 'layoutGrid';
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={state.workspaceMode === mode}
+                  className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
+                  onClick={() => setWorkspaceMode(mode)}
+                  title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={13} />
+                  <span className="editor-menubar__workspace-btn-label">
+                    {WORKSPACE_LABELS[mode]}
+                  </span>
+                </button>
+              );
+            },
           )}
         </div>
         <span aria-hidden className="editor-menubar__zoom-divider">

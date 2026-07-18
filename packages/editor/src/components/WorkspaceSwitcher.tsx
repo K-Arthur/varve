@@ -8,8 +8,7 @@
  * icon + label buttons in the toolbar area, not text-only tabs.
  */
 
-import type { IconName } from '@strata/ui';
-import { Icon, Tooltip } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../context';
 import { useWorkspaceSwitcher } from '../workspace/useWorkspace';
@@ -43,6 +42,17 @@ function ModeButton({
     onSwitch(mode);
   }, [mode, onSwitch]);
 
+  // Map Lucide icon names to SolidIcon names
+  const solidIconMap: Record<string, keyof typeof SOLID_CHROME_ICONS> = {
+    layoutGrid: 'layoutGrid',
+    fileText: 'fileText',
+    pencilSimple: 'pencilSimple',
+    image: 'image',
+  };
+
+  // Fallback for icons not in SOLID_CHROME_ICONS - use layoutGrid as default
+  const solidIcon = solidIconMap[icon] || 'layoutGrid';
+
   return (
     <Tooltip label={`${label} (${shortcut})`}>
       <button
@@ -52,7 +62,7 @@ function ModeButton({
         aria-label={`${label} workspace`}
         onClick={handleClick}
       >
-        <Icon name={icon as IconName} size={14} />
+        <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={14} />
         <span className="workspace-switcher__label">{label}</span>
       </button>
     </Tooltip>
