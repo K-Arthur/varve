@@ -3,6 +3,7 @@ import { managedColorToRgba } from '@strata/shared';
 import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
+import { bumpThemeRevision } from '../../context';
 import { loadSettings, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
@@ -95,6 +96,7 @@ export function SettingsDialog({
         delete document.documentElement.dataset.theme;
         localStorage.removeItem('strata-theme');
       }
+      bumpThemeRevision();
     },
     [updateSection],
   );
@@ -103,6 +105,7 @@ export function SettingsDialog({
     resetSettings();
     setTheme('light');
     localStorage.setItem('strata-theme', 'light');
+    bumpThemeRevision();
   }, [resetSettings]);
 
   return (

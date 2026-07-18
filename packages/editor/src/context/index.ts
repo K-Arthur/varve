@@ -1,3 +1,4 @@
+export { bumpThemeRevision, setBumpThemeRevisionHandler } from '../context';
 export type { DocumentContextValue } from './DocumentContext';
 export { DocumentProvider, useDocument } from './DocumentContext';
 export type { MotionContextValue } from './MotionContext';

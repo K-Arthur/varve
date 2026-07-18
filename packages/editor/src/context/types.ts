@@ -269,9 +269,6 @@ export interface EditorContextValue {
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   setCanvasMode: (mode: CanvasMode) => void;
   setCameraRotation: (radians: number) => void;
-  /** Switch the active theme and bump themeRevision so canvas/overlay
-   *  components repaint with the correct colours. */
-  setThemeAction: (theme: import('@strata/ui/tokens').Theme) => void;
   rotateViewBy: (radians: number, screenAnchor?: { x: number; y: number }) => void;
   resetViewRotation: () => void;
   setRulerMode: (mode: RulerMode) => void;
