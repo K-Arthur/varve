@@ -1,4 +1,4 @@
-import { Icon, Popover } from '@strata/ui';
+import { SolidIcon, Popover, SOLID_CHROME_ICONS } from '@strata/ui';
 import { type KeyboardEvent, useCallback, useState } from 'react';
 
 export interface WorkspaceSwitcherProps {
@@ -46,12 +46,16 @@ export function WorkspaceSwitcher({ workspaces, activeId, onSwitch }: WorkspaceS
               aria-selected={isActive}
             >
               <span className="workspace-switcher__item-icon">
-                <Icon name={w.kind === 'team' ? 'Users' : 'User'} label={undefined} size="1em" />
+                <SolidIcon
+                  name={w.kind === 'team' ? SOLID_CHROME_ICONS.users : SOLID_CHROME_ICONS.user}
+                  label={undefined}
+                  size="1em"
+                />
               </span>
               <span className="workspace-switcher__item-name">{w.name}</span>
               {isActive && (
-                <Icon
-                  name="Check"
+                <SolidIcon
+                  name={SOLID_CHROME_ICONS.check}
                   label={undefined}
                   size="0.85em"
                   className="workspace-switcher__check"
@@ -67,9 +71,9 @@ export function WorkspaceSwitcher({ workspaces, activeId, onSwitch }: WorkspaceS
   return (
     <Popover popover={popover} placement="bottom" open={open} onOpenChange={setOpen}>
       <button type="button" className="workspace-switcher" aria-label="Switch workspace">
-        <Icon name="Grid3x3" label={undefined} size="1em" />
+        <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} label={undefined} size="1em" />
         <span className="workspace-switcher__label">{label}</span>
-        <Icon name="ChevronDown" label={undefined} size="0.85em" />
+        <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} label={undefined} size="0.85em" />
       </button>
     </Popover>
   );
