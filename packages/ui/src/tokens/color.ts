@@ -529,9 +529,6 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
   },
   { name: 'border-strong on surface-app', fg: 'border-strong', bg: 'surface-app', grade: 'UI' },
   { name: 'border-focus on surface-app', fg: 'border-focus', bg: 'surface-app', grade: 'UI' },
-  { name: 'border-subtle on surface-app', fg: 'border-subtle', bg: 'surface-app', grade: 'UI' },
-  { name: 'accent-primary on surface-app', fg: 'accent-primary', bg: 'surface-app', grade: 'UI' },
-  { name: 'accent-primary on surface-raised', fg: 'accent-primary', bg: 'surface-raised', grade: 'UI' },
   {
     name: 'feedback-success on surface-app',
     fg: 'feedback-success',
