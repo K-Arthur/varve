@@ -382,6 +382,89 @@ P0–P5 motion integration complete. Canonical doc: `docs/architecture/motion-sy
 
 **Document version:** 1.6 (`interactions` field). **Shortcut:** `Ctrl+Alt+T` toggles timeline panel.
 
+## Workspace Mode System (2026-07-18)
+
+Four task-focused workspace modes over the same canonical document, scene,
+rendering, command, and history systems. No separate editors or duplicated tools.
+
+| Mode | Shortcut | Default Tool | Focus |
+|---|---|---|---|
+| **Design** | `Ctrl+Shift+D` | select | UI/UX, components, tokens, responsive layouts, prototyping, inspection |
+| **Print** | `Ctrl+Shift+P` | select | Multi-page layouts, typography, preflight, colour management, production output |
+| **Draw** | `Ctrl+Shift+R` | paint | Raster painting, vector freehand, stylus input, brushes, masks, drawing assists |
+| **Photo** | `Ctrl+Shift+I` | preserve | Nondestructive photo editing, retouching, adjustments, masking, compositing |
+
+### Architecture
+
+A workspace mode is a typed, versioned `WorkspaceConfig` controlling:
+- **Panel layout** — per-panel `visible`, `collapsed`, `order`, `preferredWidth`
+- **Toolbar composition** — ordered `tools[]` with `groupStart` separators + `flyouts[]`
+- **Inspector tabs** — per-mode visible tabs with a `default` tab
+- **Status bar sections** — per-mode visible sections with `order`
+- **Canvas overlays** — rulers, guides, pixelGrid, dotGrid, bleedGuides, layoutGrid, baselineGrid
+- **Shortcut layers** — extra/disabled shortcuts per mode
+- **Performance preferences** — worker renderer, cache sizes, realTimePreview
+- **Onboarding** — description, shortcutHint, tips per mode
+
+### Invariants (do not violate)
+
+1. **Single document model.** A mode never forks the scene, duplicates commands,
+   or mutates artwork merely by being activated.
+2. **State preservation.** Switching modes preserves: document, selection, viewport
+   (zoom/pan/camera rotation), undo/redo history, dirty state, active page/spread.
+3. **No remounting.** Mode switching patches `EditorState` fields only — it never
+   remounts the editor or flashes an empty canvas.
+4. **Safe interaction resolution.** Before switching, in-progress interactions
+   (text editing, crop, mask editing) are committed or cancelled. Modal dialogs
+   are not force-closed.
+5. **All tools accessible.** Every mode keeps all tools reachable via keyboard
+   shortcuts or the command palette. Mode-specific toolbars are a convenience,
+   not a restriction.
+6. **Shared commands.** Selection, transform, colour picker, gradients, layers,
+   components, masks, frames, undo/redo, save, copy/paste, import/export are
+   identical across modes.
+
+### Key files
+
+| File | Purpose |
+|---|---|
+| `packages/editor/src/workspace/workspaceTypes.ts` | `WorkspaceMode`, `WorkspaceConfig`, `WORKSPACE_CONFIGS`, helper functions |
+| `packages/editor/src/workspace/workspaceStore.ts` | localStorage persistence, preference merging, safe migration, invalid-layout recovery |
+| `packages/editor/src/workspace/useWorkspace.ts` | `useWorkspaceSwitcher()` — safe mode switching with interaction state detection |
+| `packages/editor/src/workspace/index.ts` | Barrel export for all workspace APIs |
+| `packages/editor/src/components/WorkspaceSwitcher.tsx` | Icon+label radio button UI for the menubar |
+
+### Mode-specific configurations
+
+| Feature | Design | Print | Draw | Photo |
+|---|---|---|---|---|
+| Page nav | yes | yes | no | no |
+| Preflight badge | no | **yes** | no | no |
+| Pixel grid | no | no | no | **yes** |
+| Dot grid | yes | yes | yes | no |
+| Bleed guides | no | **yes** | no | no |
+| Default tool | preserve | select | **paint** | preserve |
+| Paint/retouch tools | hidden | hidden | **shown** | **shown** |
+| Frame tool | shown | shown | shown | hidden |
+| Inspector tabs | 5 (all) | 4 (no score) | 2 | 3 |
+| Image cache | 200 | 200 | 200 | **300** |
+
+### Consumer patterns
+
+Components read workspace config via:
+```ts
+const { state } = useEditor();
+const config = getWorkspaceConfig(state.workspaceMode);
+// or for status sections:
+const sections = getVisibleStatusSections(state.workspaceMode);
+// or for inspector tabs:
+const tabs = getVisibleInspectorTabs(state.workspaceMode);
+```
+
+The FloatingToolbar uses `WORKSPACE_CONFIGS[workspaceMode]` to filter tools.
+The StatusBar uses `getVisibleStatusSections()` for conditional section rendering.
+The Shell uses `config.panels.pagenav.visible` for page nav visibility.
+
 ## Quality gates (Cascade Review, §7) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
 → input-method audit (mouse/keyboard/touch/SR) → reduced-motion → 3-OS build
