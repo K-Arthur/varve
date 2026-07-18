@@ -1,6 +1,18 @@
 /** @strata/ai — AI assistant chat controller. */
+
+export {
+  dispatchIntelligence,
+  INTELLIGENCE_COMMANDS,
+  type IntelligenceCommandMeta,
+  type IntelligenceDispatchContext,
+  type IntelligenceDispatchHandlers,
+  type IntelligenceDispatchResult,
+  matchIntelligenceCommand,
+} from './intelligenceRegistry';
 export type { AIMessage, AIModel, AISession } from './types';
 export const PACKAGE = '@strata/ai' as const;
+
+import { dispatchIntelligence, type IntelligenceDispatchContext } from './intelligenceRegistry';
 
 const MOCK_RESPONSES = {
   default:
@@ -11,13 +23,21 @@ const MOCK_RESPONSES = {
 export async function chat(
   _sessionId: string,
   message: string,
+  ctx?: IntelligenceDispatchContext,
 ): Promise<import('./types').AIMessage> {
-  const lower = message.toLowerCase();
-  let reply = MOCK_RESPONSES.default;
-  if (lower.includes('help') || lower.includes('what')) {
-    reply = MOCK_RESPONSES.help;
-  } else if (lower.includes('hello') || lower.includes('hi')) {
-    reply = 'Hello! How can I help with your design today?';
+  const dispatched = ctx ? dispatchIntelligence(message, ctx) : null;
+
+  let reply: string;
+  if (dispatched) {
+    reply = dispatched.summary;
+  } else {
+    const lower = message.toLowerCase();
+    reply = MOCK_RESPONSES.default;
+    if (lower.includes('help') || lower.includes('what')) {
+      reply = MOCK_RESPONSES.help;
+    } else if (lower.includes('hello') || lower.includes('hi')) {
+      reply = 'Hello! How can I help with your design today?';
+    }
   }
 
   await new Promise((r) => setTimeout(r, 600 + Math.random() * 400));
@@ -32,7 +52,10 @@ export async function chat(
 
 export interface AIAssistant {
   session: import('./types').AISession;
-  sendMessage(content: string): Promise<import('./types').AIMessage>;
+  sendMessage(
+    content: string,
+    ctx?: IntelligenceDispatchContext,
+  ): Promise<import('./types').AIMessage>;
   clear(): void;
 }
 
@@ -45,7 +68,7 @@ export function createAssistant(sessionId?: string): AIAssistant {
 
   return {
     session,
-    async sendMessage(content: string) {
+    async sendMessage(content: string, ctx?: IntelligenceDispatchContext) {
       const userMsg: import('./types').AIMessage = {
         id: crypto.randomUUID(),
         role: 'user',
@@ -53,7 +76,7 @@ export function createAssistant(sessionId?: string): AIAssistant {
         timestamp: Date.now(),
       };
       session.messages.push(userMsg);
-      const reply = await chat(session.id, content);
+      const reply = await chat(session.id, content, ctx);
       session.messages.push(reply);
       return reply;
     },
