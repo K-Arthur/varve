@@ -14,6 +14,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["packages/ui/src/tokens/tokens.css"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noDuplicateCustomProperties": "off"
+          }
+        }
+      }
     }
   ],
   "formatter": {
