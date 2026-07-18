@@ -411,6 +411,7 @@ export function Menubar({
     toggleFacingPages,
     setWorkspaceMode,
     toggleDistractionFreeMode,
+    recordAction,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -474,6 +475,7 @@ export function Menubar({
   const handleAction = useCallback(
     (action: string) => {
       setOpenMenu(null);
+      recordAction(`menu:${action}`);
 
       // Menubar-specific actions (not in the registry or with different behavior)
       switch (action) {
@@ -606,6 +608,7 @@ export function Menubar({
       toggleFacingPages,
       setWorkspaceMode,
       toggleDistractionFreeMode,
+      recordAction,
     ],
   );
 
