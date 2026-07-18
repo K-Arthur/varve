@@ -8,7 +8,7 @@
  * Blender onion skinning (range + color per direction).
  */
 
-import type { Affine, ReplayTarget, SceneNode as EngineNode } from '@strata/engine';
+import type { Affine, SceneNode as EngineNode, ReplayTarget } from '@strata/engine';
 import { createEngine, replayIr } from '@strata/engine';
 import type { Document, SceneNode, Timeline } from '@strata/scene';
 import { buildParentIndexMap, isContainer } from '@strata/scene';

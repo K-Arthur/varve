@@ -8,9 +8,10 @@
  * - Frame ordering (before reversed, after forward)
  * - Boundary conditions (start/end of timeline)
  */
-import { describe, it, expect } from 'vitest';
-import { getOnionSkinFrames, DEFAULT_ONION_SKIN } from '../OnionSkinOverlay';
+
 import type { Timeline } from '@strata/scene';
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_ONION_SKIN, getOnionSkinFrames } from '../OnionSkinOverlay';
 
 function makeMockTimeline(durationMs: number): Timeline {
   return {
