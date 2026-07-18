@@ -2,44 +2,43 @@ import { describe, expect, it } from 'vitest';
 import { suggestFit } from './imageFitAdvisor';
 
 describe('suggestFit', () => {
-  it('returns stretch for images with near-perfect AR match', () => {
-    const result = suggestFit(200, 100, 200, 100);
-    expect(result.fit).toBe('stretch');
-    expect(typeof result.reason).toBe('string');
+  it('suggests cover for images wider than the frame', () => {
+    const result = suggestFit(1000, 500, 500, 500);
+    expect(result.fit).toBe('cover');
   });
 
-  it('returns fill for images wider than frame', () => {
-    const result = suggestFit(300, 100, 200, 100);
+  it('suggests contain for images taller than the frame', () => {
+    const result = suggestFit(500, 1000, 500, 500);
+    expect(result.fit).toBe('contain');
+  });
+
+  it('suggests fill for a near-perfect aspect ratio match', () => {
+    const result = suggestFit(500, 500, 500, 500);
     expect(result.fit).toBe('fill');
   });
 
-  it('returns fit for images taller than frame', () => {
-    const result = suggestFit(100, 300, 200, 100);
-    expect(result.fit).toBe('fit');
+  it('suggests crop for images with transparency in a path shape', () => {
+    const result = suggestFit(500, 500, 500, 500, true);
+    expect(result.fit).toBe('crop');
   });
 
-  it('returns tile for images with transparency', () => {
-    const result = suggestFit(200, 100, 100, 50, true);
-    expect(result.fit).toBe('tile');
+  it('respects an existing imageFit setting', () => {
+    const result = suggestFit(1000, 500, 500, 500, false, 'fit');
+    expect(result.fit).toBe('contain');
   });
 
-  it('returns stretch for unknown dimensions (0 width)', () => {
-    const result = suggestFit(0, 100, 200, 100);
-    expect(result.fit).toBe('stretch');
-  });
-
-  it('returns stretch for unknown dimensions (NaN)', () => {
-    const result = suggestFit(NaN, 100, 200, 100);
-    expect(result.fit).toBe('stretch');
-  });
-
-  it('returns fill for wider images outside 5% AR tolerance', () => {
-    const result = suggestFit(220, 100, 200, 100);
+  it('defaults to fill when image dimensions are unknown', () => {
+    const result = suggestFit(0, 500, 500, 500);
     expect(result.fit).toBe('fill');
   });
 
-  it('returns fit for taller images outside 5% AR tolerance', () => {
-    const result = suggestFit(100, 220, 200, 100);
-    expect(result.fit).toBe('fit');
+  it('defaults to fill when image dimensions are NaN', () => {
+    const result = suggestFit(NaN, 500, 500, 500);
+    expect(result.fit).toBe('fill');
+  });
+
+  it('suggests fill when aspect ratios are within 5% tolerance', () => {
+    const result = suggestFit(204, 100, 200, 100);
+    expect(result.fit).toBe('fill');
   });
 });
