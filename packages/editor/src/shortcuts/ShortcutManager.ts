@@ -198,6 +198,16 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Timeline Panel',
     category: 'View',
   },
+  toggleGraphEditor: {
+    binding: { key: 'g' },
+    label: 'Toggle Graph Editor',
+    category: 'View',
+  },
+  motionWorkspace: {
+    binding: { key: 'm', ctrl: true, alt: true },
+    label: 'Switch to Motion Workspace',
+    category: 'View',
+  },
   booleanUnion: {
     binding: { key: 'u', ctrl: true, alt: true },
     label: 'Boolean Union',
@@ -281,7 +291,12 @@ export const SHORTCUT_DEFS = {
   },
   workspaceImage: {
     binding: { key: '4', ctrl: true, shift: true },
-    label: 'Photo Workspace',
+    label: 'Workspace: Photo',
+    category: 'View',
+  },
+  workspaceMotion: {
+    binding: { key: '5', ctrl: true, shift: true },
+    label: 'Workspace: Motion',
     category: 'View',
   },
   toggleDistractionFree: {
@@ -322,6 +337,66 @@ export const SHORTCUT_DEFS = {
     binding: { key: '3', ctrl: true, alt: true },
     label: 'Color Blindness: Tritanopia',
     category: 'View',
+  },
+
+  // ── Motion Mode shortcuts ─────────────────────────────────────────────
+  // Note: single-letter shortcuts (o/p/r/s/e) collide with established tool
+  // shortcuts (ellipse/pen/rect/eraser). Use Alt+letter to avoid collisions
+  // in the global shortcut space.
+  toggleOnionSkin: {
+    binding: { key: 'o', alt: true },
+    label: 'Toggle Onion Skinning',
+    category: 'Motion',
+  },
+  addPositionKeyframe: {
+    binding: { key: 'p', alt: true },
+    label: 'Add Position Keyframe',
+    category: 'Motion',
+  },
+  addRotationKeyframe: {
+    binding: { key: 'r', alt: true },
+    label: 'Add Rotation Keyframe',
+    category: 'Motion',
+  },
+  addScaleKeyframe: {
+    binding: { key: 's', alt: true },
+    label: 'Add Scale Keyframe',
+    category: 'Motion',
+  },
+  addOpacityKeyframe: {
+    binding: { key: 'e', alt: true },
+    label: 'Add Opacity Keyframe',
+    category: 'Motion',
+  },
+  toggleAutoKeyframe: {
+    binding: { key: 'k', alt: true },
+    label: 'Toggle Auto-Keyframe',
+    category: 'Motion',
+  },
+  playPause: {
+    binding: { key: ' ' },
+    label: 'Play/Pause Timeline',
+    category: 'Motion',
+  },
+  stopTimeline: {
+    binding: { key: '.', ctrl: true },
+    label: 'Stop Timeline',
+    category: 'Motion',
+  },
+  stepForward: {
+    binding: { key: 'ArrowRight', ctrl: true },
+    label: 'Step Forward',
+    category: 'Motion',
+  },
+  stepBackward: {
+    binding: { key: 'ArrowLeft', ctrl: true },
+    label: 'Step Backward',
+    category: 'Motion',
+  },
+  addKeyframe: {
+    binding: { key: 'i' },
+    label: 'Add Keyframe at Playhead',
+    category: 'Motion',
   },
 } satisfies Record<string, ShortcutDef>;
 

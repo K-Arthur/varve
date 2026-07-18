@@ -181,4 +181,338 @@ describe('timelineToLottieJSON', () => {
     expect(k[0].s[0]).toBe(100);
     expect(k[1].s[0]).toBe(0);
   });
+
+  it('exports position with separate x/y keyframes', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'Move', 2000);
+    tl.tracks = [
+      {
+        id: 'tr-x',
+        nodeId: 'n1',
+        property: 'transform[4]',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 200)],
+      },
+      {
+        id: 'tr-y',
+        nodeId: 'n1',
+        property: 'transform[5]',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 100)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const p = parsed.layers[0].ks.p;
+    expect(p.s).toBe(1);
+    expect(p.x.a).toBe(1);
+    expect(p.x.k).toHaveLength(2);
+    expect(p.x.k[0].s[0]).toBe(0);
+    expect(p.x.k[1].s[0]).toBe(200);
+    expect(p.y.a).toBe(1);
+    expect(p.y.k).toHaveLength(2);
+    expect(p.y.k[0].s[0]).toBe(0);
+    expect(p.y.k[1].s[0]).toBe(100);
+  });
+
+  it('exports position with only x track using separate dims', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'SlideX', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-x',
+        nodeId: 'n1',
+        property: 'transform[4]',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 150)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const p = parsed.layers[0].ks.p;
+    expect(p.s).toBe(1);
+    expect(p.x.a).toBe(1);
+    expect(p.x.k[0].s[0]).toBe(0);
+    expect(p.x.k[1].s[0]).toBe(150);
+    expect(p.y.a).toBe(0);
+    expect(p.y.k).toEqual([0, 0]);
+  });
+
+  it('exports position with only y track using separate dims', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'SlideY', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-y',
+        nodeId: 'n1',
+        property: 'transform[5]',
+        keyframes: [createKeyframe(0, 50), createKeyframe(1, 300)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const p = parsed.layers[0].ks.p;
+    expect(p.s).toBe(1);
+    expect(p.x.a).toBe(0);
+    expect(p.x.k).toEqual([0, 0]);
+    expect(p.y.a).toBe(1);
+    expect(p.y.k[0].s[0]).toBe(50);
+    expect(p.y.k[1].s[0]).toBe(300);
+  });
+
+  it('keeps static position when no position tracks present', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'Static', 1000);
+    tl.tracks = [
+      {
+        id: 'tr1',
+        nodeId: 'n1',
+        property: 'opacity',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 1)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const p = parsed.layers[0].ks.p;
+    expect(p.a).toBe(0);
+    expect(p.k).toEqual([0, 0]);
+  });
+
+  it('exports scale with both scaleX and scaleY as multi-dim keyframes', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'Grow', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-sx',
+        nodeId: 'n1',
+        property: 'scaleX',
+        keyframes: [createKeyframe(0, 0.5), createKeyframe(1, 2)],
+      },
+      {
+        id: 'tr-sy',
+        nodeId: 'n1',
+        property: 'scaleY',
+        keyframes: [createKeyframe(0, 0.5), createKeyframe(1, 2)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const s = parsed.layers[0].ks.s;
+    expect(s.a).toBe(1);
+    expect(s.k).toHaveLength(2);
+    expect(s.k[0].s).toEqual([50, 50]);
+    expect(s.k[1].s).toEqual([200, 200]);
+  });
+
+  it('exports scale with only scaleX as single-dim keyframes', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'ScaleX', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-sx',
+        nodeId: 'n1',
+        property: 'scaleX',
+        keyframes: [createKeyframe(0, 1), createKeyframe(1, 1.5)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const s = parsed.layers[0].ks.s;
+    expect(s.a).toBe(1);
+    expect(s.k).toHaveLength(2);
+    expect(s.k[0].s[0]).toBe(100);
+    expect(s.k[1].s[0]).toBe(150);
+  });
+
+  it('converts scale 0-1 to Lottie 0-100 percentages', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'ScalePct', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-sx',
+        nodeId: 'n1',
+        property: 'scaleX',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 1)],
+      },
+      {
+        id: 'tr-sy',
+        nodeId: 'n1',
+        property: 'scaleY',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 1)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const s = parsed.layers[0].ks.s;
+    expect(s.k[0].s).toEqual([0, 0]);
+    expect(s.k[1].s).toEqual([100, 100]);
+  });
+
+  it('exports stroke width keyframes', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'StrokeGrow', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-sw',
+        nodeId: 'n1',
+        property: 'strokeWidth',
+        keyframes: [createKeyframe(0, 1), createKeyframe(1, 5)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const sw = parsed.layers[0].ks.sw;
+    expect(sw).toBeDefined();
+    expect(sw.a).toBe(1);
+    expect(sw.k).toHaveLength(2);
+    expect(sw.k[0].s[0]).toBe(1);
+    expect(sw.k[1].s[0]).toBe(5);
+  });
+
+  it('exports corner radius keyframes', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'RoundCorners', 1000);
+    tl.tracks = [
+      {
+        id: 'tr-rd',
+        nodeId: 'n1',
+        property: 'cornerRadius',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 20)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const rd = parsed.layers[0].ks.rd;
+    expect(rd).toBeDefined();
+    expect(rd.a).toBe(1);
+    expect(rd.k).toHaveLength(2);
+    expect(rd.k[0].s[0]).toBe(0);
+    expect(rd.k[1].s[0]).toBe(20);
+  });
+
+  it('omits sw/rd when no stroke/cornerRadius tracks', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'Clean', 1000);
+    tl.tracks = [
+      {
+        id: 'tr1',
+        nodeId: 'n1',
+        property: 'opacity',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 1)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    expect(parsed.layers[0].ks.sw).toBeUndefined();
+    expect(parsed.layers[0].ks.rd).toBeUndefined();
+  });
+
+  it('handles mixed property timeline with position, scale, opacity, and rotation', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'Mixed', 2000);
+    tl.tracks = [
+      {
+        id: 'tr-px',
+        nodeId: 'n1',
+        property: 'transform[4]',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 300)],
+      },
+      {
+        id: 'tr-py',
+        nodeId: 'n1',
+        property: 'transform[5]',
+        keyframes: [createKeyframe(0, 50), createKeyframe(1, 400)],
+      },
+      {
+        id: 'tr-sx',
+        nodeId: 'n1',
+        property: 'scaleX',
+        keyframes: [createKeyframe(0, 0.5), createKeyframe(1, 1.2)],
+      },
+      {
+        id: 'tr-sy',
+        nodeId: 'n1',
+        property: 'scaleY',
+        keyframes: [createKeyframe(0, 0.5), createKeyframe(1, 1.2)],
+      },
+      {
+        id: 'tr-o',
+        nodeId: 'n1',
+        property: 'opacity',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 1)],
+      },
+      {
+        id: 'tr-r',
+        nodeId: 'n1',
+        property: 'rotation',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 90)],
+      },
+      {
+        id: 'tr-sw',
+        nodeId: 'n1',
+        property: 'strokeWidth',
+        keyframes: [createKeyframe(0, 1), createKeyframe(1, 4)],
+      },
+      {
+        id: 'tr-rd',
+        nodeId: 'n1',
+        property: 'cornerRadius',
+        keyframes: [createKeyframe(0, 0), createKeyframe(1, 16)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const ks = parsed.layers[0].ks;
+
+    expect(ks.p.s).toBe(1);
+    expect(ks.p.x.k[0].s[0]).toBe(0);
+    expect(ks.p.x.k[1].s[0]).toBe(300);
+    expect(ks.p.y.k[0].s[0]).toBe(50);
+    expect(ks.p.y.k[1].s[0]).toBe(400);
+
+    expect(ks.s.a).toBe(1);
+    expect(ks.s.k[0].s).toEqual([50, 50]);
+    expect(ks.s.k[1].s).toEqual([120, 120]);
+
+    expect(ks.o.a).toBe(1);
+    expect(ks.o.k[0].s[0]).toBe(0);
+    expect(ks.o.k[1].s[0]).toBe(100);
+
+    expect(ks.r.a).toBe(1);
+    expect(ks.r.k[0].s[0]).toBe(0);
+    expect(ks.r.k[1].s[0]).toBe(90);
+
+    expect(ks.sw.a).toBe(1);
+    expect(ks.sw.k[0].s[0]).toBe(1);
+    expect(ks.sw.k[1].s[0]).toBe(4);
+
+    expect(ks.rd.a).toBe(1);
+    expect(ks.rd.k[0].s[0]).toBe(0);
+    expect(ks.rd.k[1].s[0]).toBe(16);
+  });
+
+  it('preserves position keyframe frame numbers and easing', () => {
+    const doc = docWithNodes(['n1']);
+    const tl = makeTimelineObject('tl1', 'EasedMove', 2000);
+    tl.tracks = [
+      {
+        id: 'tr-x',
+        nodeId: 'n1',
+        property: 'transform[4]',
+        keyframes: [
+          createKeyframe(0, 0),
+          createKeyframe(0.5, 100, { kind: 'easeIn' }),
+          createKeyframe(1, 200, { kind: 'easeOut' }),
+        ],
+      },
+      {
+        id: 'tr-y',
+        nodeId: 'n1',
+        property: 'transform[5]',
+        keyframes: [createKeyframe(0, 0), createKeyframe(0.5, 50), createKeyframe(1, 200)],
+      },
+    ];
+    const parsed = JSON.parse(timelineToLottieJSON(tl, doc));
+    const p = parsed.layers[0].ks.p;
+    expect(p.s).toBe(1);
+    // X keyframes
+    expect(p.x.k).toHaveLength(3);
+    expect(p.x.k[0].t).toBe(0);
+    expect(p.x.k[1].t).toBe(30);
+    expect(p.x.k[2].t).toBe(60);
+    expect(p.x.k[0].s[0]).toBe(0);
+    expect(p.x.k[1].s[0]).toBe(100);
+    expect(p.x.k[2].s[0]).toBe(200);
+    // Y keyframes
+    expect(p.y.k).toHaveLength(3);
+    expect(p.y.k[0].s[0]).toBe(0);
+    expect(p.y.k[1].s[0]).toBe(50);
+    expect(p.y.k[2].s[0]).toBe(200);
+  });
 });

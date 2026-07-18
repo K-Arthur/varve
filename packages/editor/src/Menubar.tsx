@@ -146,6 +146,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
         action: 'toggleTimelinePanel',
       },
+      {
+        label: 'Graph Editor',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
+        action: 'toggleGraphEditor',
+      },
       { label: '---' },
       {
         label: 'Clear All Guides',
@@ -167,6 +172,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: 'Workspace: Print', action: 'workspacePrint' },
       { label: 'Workspace: Draw', action: 'workspaceDrawing' },
       { label: 'Workspace: Photo', action: 'workspaceImage' },
+      { label: 'Workspace: Motion', action: 'workspaceMotion' },
       {
         label: 'Reset Workspace to Default',
         action: 'resetWorkspace',
@@ -418,6 +424,7 @@ export function Menubar({
     setWorkspaceMode,
     toggleDistractionFreeMode,
     recordAction,
+    setThemeAction,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -434,10 +441,19 @@ export function Menubar({
   useEffect(() => {
     const saved = localStorage.getItem('strata-theme') as Theme | null;
     if (saved && saved !== getTheme()) {
-      setTheme(saved);
+      setThemeAction(saved);
       setCurrentTheme(saved);
     }
-  }, []);
+    const observer = new MutationObserver(() => {
+      const current = getTheme();
+      if (current) setCurrentTheme(current);
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    });
+    return () => observer.disconnect();
+  }, [setThemeAction]);
 
   useEffect(() => {
     if (editingName && nameInputRef.current) {
@@ -560,9 +576,8 @@ export function Menubar({
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
-            setTheme(theme);
+            setThemeAction(theme);
             setCurrentTheme(theme);
-            localStorage.setItem('strata-theme', theme);
             return;
           }
           break;
@@ -892,20 +907,24 @@ export function Menubar({
       {/* ── Right: Workspace switcher + Zoom + Undo/Redo ── */}
       <div className="editor-menubar__controls">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
-          {(['design', 'print', 'drawing', 'image'] as WorkspaceMode[]).map((mode, idx) => (
-            <button
-              key={mode}
-              type="button"
-              role="radio"
-              aria-checked={state.workspaceMode === mode}
-              className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-              onClick={() => setWorkspaceMode(mode)}
-              title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
-            >
-              <Icon name={WORKSPACE_ICONS[mode]} size={13} />
-              <span className="editor-menubar__workspace-btn-label">{WORKSPACE_LABELS[mode]}</span>
-            </button>
-          ))}
+          {(['design', 'print', 'drawing', 'image', 'motion'] as WorkspaceMode[]).map(
+            (mode, idx) => (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={state.workspaceMode === mode}
+                className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
+                onClick={() => setWorkspaceMode(mode)}
+                title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
+              >
+                <Icon name={WORKSPACE_ICONS[mode]} size={13} />
+                <span className="editor-menubar__workspace-btn-label">
+                  {WORKSPACE_LABELS[mode]}
+                </span>
+              </button>
+            ),
+          )}
         </div>
         <span aria-hidden className="editor-menubar__zoom-divider">
           |
