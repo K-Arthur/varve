@@ -310,6 +310,7 @@ export function makeAdjustmentNode(
       | 'clipping'
       | 'effects'
       | 'order'
+      | 'scope'
     >
   > = {},
 ): import('./types').AdjustmentNode {
@@ -330,6 +331,7 @@ export function makeAdjustmentNode(
     transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
     clipping: opts.clipping ?? false,
     effects: opts.effects ?? [],
+    scope: opts.scope,
   };
 }
 

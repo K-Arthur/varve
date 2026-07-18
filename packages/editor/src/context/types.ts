@@ -2,6 +2,7 @@ import type { Adjustment, BlendMode, PathPoint } from '@strata/engine';
 import type { Platform } from '@strata/platform';
 import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@strata/prototype';
 import type {
+  AdjustmentScope,
   BackgroundRemovalMethod,
   ColorMode,
   Document,
@@ -493,6 +494,20 @@ export interface EditorContextValue {
   reorderAdjustmentInLayer: (nodeId: NodeId, adjustmentId: string, newIndex: number) => void;
   setAdjustmentLayerOpacity: (nodeId: NodeId, opacity: number) => void;
   setAdjustmentLayerBlendMode: (nodeId: NodeId, blendMode: string) => void;
+  /** Create one shared adjustment with explicit-targets scope for the given node IDs. */
+  createLinkedAdjustment: (targetIds: NodeId[], adjustments?: Adjustment[]) => void;
+  /**
+   * Copy selected adjustment settings as independent image-local adjustments.
+   * When adjustmentIds is specified, only those adjustments are copied;
+   * otherwise all adjustments on the source node are copied.
+   */
+  copyEditsToSelected: (
+    sourceNodeId: NodeId,
+    targetIds: NodeId[],
+    adjustmentIds?: string[],
+  ) => void;
+  /** Change an adjustment node's scope. */
+  setAdjustmentScope: (nodeId: NodeId, scope: AdjustmentScope) => void;
 
   // Clipboard
   copySelected: () => void;

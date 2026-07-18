@@ -462,6 +462,18 @@
   white-space: nowrap;
 }
 
+.layers-row__scope-badge {
+  font-size: var(--font-size-2xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent-primary);
+  background: var(--color-accent-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: help;
+}
+
 /* ─── Motion indicator dot ────────────────────────────────── */
 .layers-row__motion-dot {
   width: var(--space-1);

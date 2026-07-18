@@ -9,7 +9,7 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .adj-panel__header-icon {
@@ -20,7 +20,7 @@
 .adj-panel__header-name {
   font-weight: var(--font-weight-semibold);
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .adj-panel__opacity {
@@ -36,7 +36,7 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .adj-panel__stack-header {
@@ -51,7 +51,7 @@
   font-weight: var(--font-weight-semibold);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .adj-panel__item {
@@ -66,7 +66,7 @@
 }
 
 .adj-panel__item:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--color-interactive-hover);
 }
 
 .adj-panel__item--selected {
@@ -92,21 +92,21 @@
   border: none;
   padding: 2px;
   cursor: pointer;
-  color: var(--text-secondary);
-  border-radius: var(--radius-xs);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
 }
 
 .adj-panel__item-vis-btn:hover {
-  color: var(--text-primary);
-  background-color: var(--bg-hover);
+  color: var(--color-text-primary);
+  background-color: var(--color-interactive-hover);
 }
 
 .adj-panel__item-name {
   flex: 1;
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -124,7 +124,7 @@
   padding: 2px;
   cursor: pointer;
   color: var(--color-text-muted);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   opacity: 0;
@@ -136,8 +136,8 @@
 }
 
 .adj-panel__item-remove:hover {
-  color: var(--color-danger);
-  background-color: var(--bg-hover);
+  color: var(--color-feedback-danger);
+  background-color: var(--color-interactive-hover);
 }
 
 .adj-panel__add-btn {
@@ -145,10 +145,10 @@
   align-items: center;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border: 1px dashed var(--border-subtle);
+  border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
   transition: all 0.1s;
@@ -164,8 +164,8 @@
 .adj-panel__add-menu {
   position: absolute;
   z-index: 100;
-  background: var(--bg-raised);
-  border: 1px solid var(--border-default);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-lg);
   max-height: 260px;
@@ -183,17 +183,17 @@
   background: none;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-sm);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
   cursor: pointer;
 }
 
 .adj-panel__add-menu-item:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--color-interactive-hover);
 }
 
 .adj-panel__editor {
   padding: 0 var(--space-3) var(--space-2);
-  border-top: 1px solid var(--border-subtle);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
 .adj-panel__editor-header {
@@ -206,7 +206,7 @@
 .adj-panel__editor-title {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .adj-editor__slider-row {
@@ -220,7 +220,7 @@
   display: flex;
   justify-content: space-between;
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
 }
 
 .adj-editor__slider {
@@ -228,7 +228,7 @@
   height: var(--space-1);
   -webkit-appearance: none;
   appearance: none;
-  background: var(--bg-control);
+  background: var(--color-surface-base);
   border-radius: var(--radius-sm);
   outline: none;
   cursor: pointer;
@@ -241,7 +241,7 @@
   border-radius: 50%;
   background: var(--color-accent-primary);
   cursor: pointer;
-  border: 2px solid var(--bg-raised);
+  border: 2px solid var(--color-surface-raised);
 }
 
 .adj-editor__slider::-moz-range-thumb {
@@ -250,16 +250,16 @@
   border-radius: 50%;
   background: var(--color-accent-primary);
   cursor: pointer;
-  border: 2px solid var(--bg-raised);
+  border: 2px solid var(--color-surface-raised);
 }
 
 .adj-editor__number {
   width: var(--space-10);
   padding: var(--space-1) var(--space-1);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-control);
-  color: var(--text-primary);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   text-align: right;
 }
@@ -271,10 +271,10 @@
 
 .adj-editor__select {
   padding: var(--space-1) var(--space-1);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-control);
-  color: var(--text-primary);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
 }
 
@@ -304,10 +304,10 @@
 
 .adj-editor__curve-add {
   padding: var(--space-1) var(--space-2);
-  border: 1px dashed var(--border-subtle);
+  border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: none;
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
@@ -345,7 +345,7 @@
 
 .adj-editor__label {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   min-width: 80px;
 }
 
@@ -380,7 +380,7 @@
   padding: 2px;
   cursor: pointer;
   color: var(--color-text-muted);
-  border-radius: var(--radius-xs);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   margin-left: auto;
@@ -388,7 +388,7 @@
 
 .adj-layer-row__add:hover {
   color: var(--color-accent-primary);
-  background-color: var(--bg-hover);
+  background-color: var(--color-interactive-hover);
 }
 
 /* ── Gradient Map Editor ──────────────────────────────────────────── */
@@ -404,7 +404,7 @@
   position: relative;
   height: var(--space-6);
   border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   cursor: pointer;
   outline: none;
 }
@@ -421,7 +421,7 @@
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid var(--bg-raised);
+  border: 2px solid var(--color-surface-raised);
   cursor: grab;
   padding: 0;
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.3);
@@ -430,7 +430,7 @@
 }
 
 .gm-editor__stop--idle {
-  border-color: var(--border-default);
+  border-color: var(--color-border-subtle);
 }
 
 .gm-editor__stop--selected {
@@ -462,17 +462,17 @@
 
 .gm-editor__label {
   font-size: var(--font-size-xs);
-  color: var(--text-secondary);
+  color: var(--color-text-secondary);
   min-width: 80px;
 }
 
 .gm-editor__number {
   width: var(--space-10);
   padding: var(--space-1) var(--space-1);
-  border: 1px solid var(--border-default);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-control);
-  color: var(--text-primary);
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
   font-size: var(--font-size-xs);
   text-align: right;
 }
@@ -496,10 +496,10 @@
 .adj-lut-editor__import-btn {
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  border: 1px dashed var(--border-default);
+  border: 1px dashed var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--bg-control);
-  color: var(--text-secondary);
+  background: var(--color-surface-base);
+  color: var(--color-text-secondary);
   cursor: pointer;
   text-align: center;
   transition: border-color 0.15s;
@@ -507,7 +507,7 @@
 
 .adj-lut-editor__import-btn:hover {
   border-color: var(--color-accent-primary);
-  color: var(--text-primary);
+  color: var(--color-text-primary);
 }
 
 .adj-lut-editor__status {
@@ -515,7 +515,7 @@
   color: var(--color-text-muted);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  background: var(--bg-subtle);
+  background: var(--color-surface-base);
 }
 
 .adj-lut-editor__meta {
@@ -523,4 +523,89 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
+}
+
+/* ─── Adjustment Scope Section ───────────────────────────── */
+
+.insp-select {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  width: 100%;
+}
+
+.insp-field--warning {
+  border-left: 2px solid var(--color-feedback-warning);
+  padding-left: var(--space-2);
+}
+
+.insp-warning {
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-warning);
+}
+
+.insp-field--help {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.insp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.insp-overlay__content {
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  max-width: 400px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+}
+
+.insp-overlay__content h3 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-lg);
+  color: var(--color-text-primary);
+}
+
+.insp-overlay__content ul {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.insp-overlay__actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+.insp-btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.insp-btn--primary {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-accent-primary);
+}
+
+.insp-btn--secondary {
+  background: var(--color-surface-base);
+  color: var(--color-text-primary);
 }
