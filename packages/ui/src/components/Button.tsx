@@ -1,7 +1,7 @@
 import { type ButtonHTMLAttributes, forwardRef, useState } from 'react';
 import { InlineActivityIndicator } from './InlineActivityIndicator';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'pill' | 'pill-outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
