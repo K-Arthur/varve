@@ -79,8 +79,16 @@ interface OnionSkinOverlayProps {
 export function OnionSkinOverlay({ canvasSize, zoom, pan }: OnionSkinOverlayProps) {
   const editor = useEditor();
   const { state } = editor;
-  const onionSkin = (state as Record<string, unknown>).onionSkin as OnionSkinState | undefined;
   const isMotionWorkspace = state.workspaceMode === 'motion';
+  const motion = state.motion;
+  const onionSkin: OnionSkinState = {
+    enabled: motion?.onionSkinEnabled ?? false,
+    beforeCount: motion?.onionSkinBeforeCount ?? DEFAULT_ONION_SKIN.beforeCount,
+    afterCount: motion?.onionSkinAfterCount ?? DEFAULT_ONION_SKIN.afterCount,
+    opacity: motion?.onionSkinOpacity ?? DEFAULT_ONION_SKIN.opacity,
+    beforeTint: DEFAULT_ONION_SKIN.beforeTint,
+    afterTint: DEFAULT_ONION_SKIN.afterTint,
+  };
 
   if (!onionSkin?.enabled || !isMotionWorkspace) return null;
 
