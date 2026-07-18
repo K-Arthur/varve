@@ -319,18 +319,6 @@ function FillRow({
         >
           <Icon name={visible ? 'Eye' : 'EyeOff'} label={undefined} size="0.85em" />
         </button>
-        {fill.type === 'solid' &&
-          fill.color &&
-          fill.color.space === 'rgb' &&
-          nodes.length === 1 &&
-          (nodes[0] as import('@strata/scene').SceneNode).kind === 'text' && (
-            <ContrastIndicator
-              fgColor={{ r: fill.color.r, g: fill.color.g, b: fill.color.b }}
-              bgColor={null}
-              fontSize={(nodes[0] as import('@strata/scene').TextNode | undefined)?.fontSize}
-              fontWeight={(nodes[0] as import('@strata/scene').TextNode | undefined)?.fontWeight}
-            />
-          )}
         {fill.type === 'solid' && fill.color ? (
           <InspectorColorPopover
             label={`${label} colour`}
@@ -354,7 +342,22 @@ function FillRow({
             }}
           />
         )}
-        {fill.type === 'solid' && fill.color && <ContrastIndicator fill={fill} fillIndex={index} />}
+        {fill.type === 'solid' && fill.color && (
+          <ContrastIndicator
+            fill={fill}
+            fillIndex={index}
+            fontSize={
+              nodes.length === 1 && nodes[0]?.kind === 'text'
+                ? (nodes[0] as import('@strata/scene').TextNode).fontSize
+                : undefined
+            }
+            fontWeight={
+              nodes.length === 1 && nodes[0]?.kind === 'text'
+                ? (nodes[0] as import('@strata/scene').TextNode).fontWeight
+                : undefined
+            }
+          />
+        )}
         {fill.type === 'solid' && fill.color && fill.color.space === 'rgb' && (
           <button
             type="button"
