@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@strata/platform';
-import type { IconName } from '@strata/ui';
-import { Icon, SearchField } from '@strata/ui';
+import type { SolidIconName } from '@strata/ui';
+import { SolidIcon, SearchField, SOLID_CHROME_ICONS } from '@strata/ui';
 import {
   type DragEvent,
   type KeyboardEvent,
@@ -14,7 +14,7 @@ import {
 export interface SidebarEntry {
   id: string;
   label: string;
-  icon: IconName;
+  icon: SolidIconName;
   count: number;
   pinned?: boolean;
 }
@@ -65,7 +65,7 @@ function ChevronIcon({ collapsed }: { collapsed: boolean }) {
         transition: 'transform 0.15s ease',
       }}
     >
-      <Icon name="ChevronDown" label={undefined} size="0.75em" />
+      <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} label={undefined} size="0.75em" />
     </span>
   );
 }
@@ -134,7 +134,11 @@ function SidebarProjectRow({
         className={`sidebar-item sidebar-item--flex ${isActive ? 'sidebar-item--active' : ''}`}
         onClick={() => onSelect(entry.id)}
       >
-        <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
+        <SolidIcon
+          name={entry.icon as SolidIconName}
+          label={undefined}
+          className="sidebar-item__icon"
+        />
         <span className="sidebar-item__label">{entry.label}</span>
         {entry.count > 0 && <span className="sidebar-item__count">{entry.count}</span>}
       </button>
@@ -149,7 +153,11 @@ function SidebarProjectRow({
             onPin(entry.id);
           }}
         >
-          <Icon name={entry.pinned ? 'Pin' : 'PinOff'} label={undefined} size="0.85em" />
+          <SolidIcon
+            name={entry.pinned ? SOLID_CHROME_ICONS.pin : SOLID_CHROME_ICONS.pinOff}
+            label={undefined}
+            size="0.85em"
+          />
         </button>
       )}
     </div>
@@ -276,7 +284,11 @@ export function SidebarNav({
         className={`sidebar-item ${entry.id === activeId ? 'sidebar-item--active' : ''}`}
         onClick={() => onSelect(entry.id)}
       >
-        <Icon name={entry.icon} label={undefined} className="sidebar-item__icon" />
+        <SolidIcon
+          name={entry.icon as SolidIconName}
+          label={undefined}
+          className="sidebar-item__icon"
+        />
         <span>{entry.label}</span>
         {entry.count > 0 && <span className="sidebar-item__count">{entry.count}</span>}
       </button>
@@ -349,7 +361,7 @@ export function SidebarNav({
                 aria-label="New project"
                 title="New project"
               >
-                <Icon name="Plus" label={undefined} size="0.85em" />
+                <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} size="0.85em" />
               </button>
             )}
           </div>
@@ -381,7 +393,11 @@ export function SidebarNav({
                 className={`sidebar-item sidebar-item--flex ${activeSavedSearchId === search.id ? 'sidebar-item--active' : ''}`}
                 onClick={() => onSelect(search.id)}
               >
-                <Icon name="Search" label={undefined} className="sidebar-item__icon" />
+                <SolidIcon
+                  name={SOLID_CHROME_ICONS.search}
+                  label={undefined}
+                  className="sidebar-item__icon"
+                />
                 <span className="sidebar-item__label">{search.name}</span>
               </button>
               {onDeleteSavedSearch && (
@@ -391,7 +407,7 @@ export function SidebarNav({
                   aria-label={`Delete saved search "${search.name}"`}
                   onClick={() => onDeleteSavedSearch(search.id)}
                 >
-                  <Icon name="X" label={undefined} size="0.85em" />
+                  <SolidIcon name={SOLID_CHROME_ICONS.close} label={undefined} size="0.85em" />
                 </button>
               )}
             </div>

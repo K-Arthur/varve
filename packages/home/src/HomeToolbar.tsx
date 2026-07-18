@@ -1,5 +1,5 @@
 import type { FileKind, SortDirection, SortKey, ViewMode } from '@strata/platform';
-import { Button, Icon } from '@strata/ui';
+import { Button, SolidIcon, ViewModeSwitcher, SOLID_CHROME_ICONS } from '@strata/ui';
 import { FilterDropdown } from './FilterDropdown';
 
 export interface HomeToolbarProps {
@@ -45,6 +45,11 @@ export function HomeToolbar({
   sortDirection,
   onSortDirToggle,
 }: HomeToolbarProps) {
+  const viewModeOptions = [
+    { value: 'grid' as ViewMode, label: 'Grid', icon: SOLID_CHROME_ICONS.layoutGrid },
+    { value: 'list' as ViewMode, label: 'List', icon: SOLID_CHROME_ICONS.list },
+  ];
+
   return (
     <>
       <div className="strata-home__toolbar-left">
@@ -53,10 +58,10 @@ export function HomeToolbar({
           onClick={onToggleSidebar}
           aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
         >
-          <Icon name={sidebarCollapsed ? 'Menu' : 'Menu'} label={undefined} />
+          <SolidIcon name={SOLID_CHROME_ICONS.menu} label={undefined} />
         </Button>
         <Button variant="primary" onClick={onNewFile} data-testid="new-file-button">
-          <Icon name="Plus" label={undefined} />
+          <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} />
           New
         </Button>
         <Button variant="ghost" onClick={onOpenFromDisk}>
@@ -86,24 +91,22 @@ export function HomeToolbar({
           aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
           title={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
         >
-          <Icon
-            name={sortDirection === 'asc' ? 'ChevronUp' : 'ChevronDown'}
+          <SolidIcon
+            name={
+              sortDirection === 'asc'
+                ? SOLID_CHROME_ICONS.chevronUp
+                : SOLID_CHROME_ICONS.chevronDown
+            }
             label={undefined}
             size="0.85em"
           />
         </Button>
-        <Button
-          variant="ghost"
-          onClick={() => onViewModeChange(viewMode === 'grid' ? 'list' : 'grid')}
-          aria-label={viewMode === 'grid' ? 'List view' : 'Grid view'}
-          title={viewMode === 'grid' ? 'List view' : 'Grid view'}
-        >
-          <Icon
-            name={viewMode === 'grid' ? 'List' : 'LayoutGrid'}
-            label={undefined}
-            size="0.85em"
-          />
-        </Button>
+        <ViewModeSwitcher
+          label="View mode"
+          value={viewMode}
+          options={viewModeOptions}
+          onChange={onViewModeChange}
+        />
       </div>
     </>
   );
