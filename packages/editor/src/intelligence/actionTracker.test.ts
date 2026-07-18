@@ -95,4 +95,51 @@ describe('ActionTracker', () => {
     const t = new ActionTracker();
     expect(t.getTotalCount()).toBe(0);
   });
+
+  it('records with context field', () => {
+    tracker.record('tool:select', { kind: 'frame', count: '3' });
+    expect(tracker.getCount('tool:select')).toBe(1);
+  });
+
+  it('getActionSequence returns ordered action IDs within window', () => {
+    const base = Date.now();
+    let mockNow = base;
+    vi.spyOn(Date, 'now').mockImplementation(() => mockNow);
+    tracker.record('tool:select');
+    mockNow += 200;
+    tracker.record('tool:rect');
+    mockNow += 200;
+    tracker.record('menu:group');
+    const seq = tracker.getActionSequence(60_000);
+    expect(seq).toEqual(['tool:select', 'tool:rect', 'menu:group']);
+    vi.restoreAllMocks();
+  });
+
+  it('getCoOccurrenceMap finds co-occurring action pairs', () => {
+    const base = Date.now();
+    let mockNow = base;
+    vi.spyOn(Date, 'now').mockImplementation(() => mockNow);
+    tracker.record('tool:select');
+    mockNow += 100;
+    tracker.record('tool:rect');
+    mockNow += 100;
+    tracker.record('setFill');
+    mockNow += 100;
+    tracker.record('tool:select');
+    mockNow += 100;
+    tracker.record('tool:rect');
+    const coMap = tracker.getCoOccurrenceMap(60_000);
+    expect(coMap.get('setFill::tool:select')).toBe(1);
+    expect(coMap.get('tool:rect::tool:select')).toBeGreaterThanOrEqual(2);
+    vi.restoreAllMocks();
+  });
+
+  it('context is preserved through toJSON/fromJSON', () => {
+    tracker.record('tool:select', { mode: 'design' });
+    const json = tracker.toJSON();
+    const t2 = new ActionTracker();
+    t2.fromJSON(json);
+    const recent = t2.getRecentActions(60_000);
+    expect(recent[0]?.context).toEqual({ mode: 'design' });
+  });
 });
