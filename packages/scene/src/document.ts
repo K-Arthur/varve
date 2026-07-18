@@ -523,6 +523,7 @@ export function makeFrameNode(
       | 'variant'
       | 'propertyOverrides'
       | 'syncBaseline'
+      | 'layoutStyle'
     >
   > = {},
 ): FrameNode {
@@ -550,6 +551,7 @@ export function makeFrameNode(
     syncBaseline: opts.syncBaseline,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
+    layoutStyle: opts.layoutStyle,
   };
 }
 
