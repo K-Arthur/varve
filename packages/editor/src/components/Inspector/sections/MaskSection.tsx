@@ -260,7 +260,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 onClick={handleRemove}
                 aria-label="Remove mask"
                 title="Remove mask (source node is preserved)"
-                style={{ color: 'var(--color-text-danger, #e74c3c)' }}
+                style={{ color: 'var(--color-feedback-danger, #e74c3c)' }}
               >
                 Remove
               </button>
@@ -288,7 +288,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 padding: '2px 4px',
                 background: 'var(--color-surface-raised)',
                 color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border-default)',
+                border: '1px solid var(--color-border-subtle)',
                 borderRadius: 'var(--radius-sm)',
               }}
             >

@@ -169,6 +169,12 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
         ))}
         <div
           className="timeline-ruler__playhead"
+          role="slider"
+          aria-label="Playhead position"
+          aria-valuemin={0}
+          aria-valuemax={duration}
+          aria-valuenow={currentTime}
+          tabIndex={0}
           style={{ left: playheadX, position: 'absolute', top: 0, height: '100%' }}
         />
       </div>

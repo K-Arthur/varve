@@ -226,6 +226,7 @@ import {
   type Viewport,
   zoomAboutPoint,
 } from '@strata/shared';
+import { setTheme } from '@strata/ui/tokens';
 import {
   createContext,
   type ReactNode,
@@ -1674,6 +1675,7 @@ export function EditorProvider({
         width: 0,
         height: 0,
       },
+      themeRevision: 0,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -4969,6 +4971,11 @@ export function EditorProvider({
       },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
+      setThemeAction: (theme) => {
+        setTheme(theme);
+        localStorage.setItem('strata-theme', theme);
+        patch({ themeRevision: stateRef.current.themeRevision + 1 });
+      },
       rotateViewBy: (radians, screenAnchor) => {
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl

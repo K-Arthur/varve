@@ -1,4 +1,4 @@
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@strata/scene';
 import {
   addKeyframe,
   addTimelineMarker as addTimelineMarkerDoc,
@@ -7,13 +7,17 @@ import {
   createMotionPreset as createMotionPresetDoc,
   createTimeline as createTimelineDoc,
   getNestedValue,
+  removeKeyframe as removeKeyframeDoc,
   removeTimeline as removeTimelineDoc,
   removeTimelineMarker as removeTimelineMarkerDoc,
   removeTrack as removeTrackDoc,
   renameTimeline as renameTimelineDoc,
   renameTimelineMarker as renameTimelineMarkerDoc,
   setActiveTimeline as setActiveTimelineDoc,
+  updateKeyframe as updateKeyframeDoc,
+  updateTrack as updateTrackDoc,
 } from '@strata/scene';
+import type { EasingDefinition } from '@strata/shared';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { MotionFacade } from '../motion/MotionFacade';
@@ -39,6 +43,42 @@ export interface MotionContextValue {
   createMotionPresetFromTimeline: (timelineId: string, name: string) => string;
   applyMotionPreset: (presetId: string, timelineId: string) => void;
   toggleAutoKeyframe: () => void;
+
+  // Motion Mode — graph editor + keyframe editing
+  toggleGraphEditor: () => void;
+  setGraphEditorProperty: (property: string | null) => void;
+  deleteKeyframe: (timelineId: string, trackId: string, progress: number) => void;
+  moveKeyframe: (
+    timelineId: string,
+    trackId: string,
+    oldProgress: number,
+    newProgress: number,
+  ) => void;
+  duplicateKeyframe: (timelineId: string, trackId: string, progress: number) => void;
+  updateKeyframeEasing: (
+    timelineId: string,
+    trackId: string,
+    progress: number,
+    easing: EasingDefinition,
+  ) => void;
+  addTrackToTimeline: (timelineId: string, nodeId: NodeId, property: string) => void;
+  setTrackMuted: (timelineId: string, trackId: string, muted: boolean) => void;
+  setTrackSolo: (timelineId: string, trackId: string, solo: boolean) => void;
+
+  // Motion Mode — onion skinning
+  toggleOnionSkin: () => void;
+  setOnionSkinBeforeCount: (count: number) => void;
+  setOnionSkinAfterCount: (count: number) => void;
+  setOnionSkinOpacity: (opacity: number) => void;
+
+  // Motion Mode — track management
+  setMotionSelectedTracks: (trackIds: string[]) => void;
+  setTrackNestedTimeline: (
+    timelineId: string,
+    trackId: string,
+    nestedTimelineId: string,
+    startProgress?: number,
+  ) => void;
 }
 
 const MotionCtx = createContext<MotionContextValue | null>(null);
@@ -308,9 +348,166 @@ export function MotionProvider({
     });
   }, [patch, stateRef]);
 
+  const toggleGraphEditor = useCallback(() => {
+    patch({ graphEditorVisible: !stateRef.current.graphEditorVisible });
+  }, [patch, stateRef]);
+
+  const setGraphEditorProperty = useCallback(
+    (property: string | null) => {
+      patch({ selectedGraphProperty: property });
+    },
+    [patch],
+  );
+
+  const deleteKeyframe = useCallback(
+    (timelineId: string, trackId: string, progress: number) => {
+      updateDoc((doc) => removeKeyframeDoc(doc, timelineId, trackId, progress));
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const moveKeyframe = useCallback(
+    (timelineId: string, trackId: string, oldProgress: number, newProgress: number) => {
+      updateDoc((doc) => {
+        const timeline = doc.timelines?.[timelineId];
+        if (!timeline) return doc;
+        const track = timeline.tracks.find((t) => t.id === trackId);
+        if (!track) return doc;
+        const kf = track.keyframes.find((k) => Math.abs(k.progress - oldProgress) < 0.0001);
+        if (!kf) return doc;
+        let d = removeKeyframeDoc(doc, timelineId, trackId, oldProgress);
+        d = addKeyframe(d, timelineId, trackId, {
+          progress: Math.max(0, Math.min(1, newProgress)),
+          value: kf.value,
+          easing: kf.easing,
+          spatialTangents: kf.spatialTangents,
+        });
+        return d;
+      });
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const duplicateKeyframe = useCallback(
+    (timelineId: string, trackId: string, progress: number) => {
+      updateDoc((doc) => {
+        const timeline = doc.timelines?.[timelineId];
+        if (!timeline) return doc;
+        const track = timeline.tracks.find((t) => t.id === trackId);
+        if (!track) return doc;
+        const kf = track.keyframes.find((k) => Math.abs(k.progress - progress) < 0.0001);
+        if (!kf) return doc;
+        const newProgress = Math.min(1, progress + 0.05);
+        return addKeyframe(doc, timelineId, trackId, {
+          progress: newProgress,
+          value: kf.value,
+          easing: kf.easing,
+          spatialTangents: kf.spatialTangents,
+        });
+      });
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const updateKeyframeEasing = useCallback(
+    (timelineId: string, trackId: string, progress: number, easing: EasingDefinition) => {
+      updateDoc((doc) => updateKeyframeDoc(doc, timelineId, trackId, progress, { easing }));
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const addTrackToTimeline = useCallback(
+    (timelineId: string, nodeId: NodeId, property: string) => {
+      updateDoc((doc) => addTrack(doc, timelineId, nodeId, property));
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const setMotionSelectedTracks = useCallback(
+    (trackIds: string[]) => {
+      patch({ motion: { ...stateRef.current.motion, selectedTrackIds: trackIds } });
+    },
+    [patch, stateRef],
+  );
+
+  const setTrackNestedTimeline = useCallback(
+    (timelineId: string, trackId: string, nestedTimelineId: string, startProgress?: number) => {
+      updateDoc((doc) =>
+        updateTrackDoc(doc, timelineId, trackId, {
+          nestedTimelineId,
+          nestedStartProgress: startProgress ?? 0,
+        }),
+      );
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const setTrackMuted = useCallback(
+    (timelineId: string, trackId: string, muted: boolean) => {
+      updateDoc((doc) => updateTrackDoc(doc, timelineId, trackId, { muted }));
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
+  const setTrackSolo = useCallback(
+    (timelineId: string, trackId: string, solo: boolean) => {
+      updateDoc((doc) => updateTrackDoc(doc, timelineId, trackId, { solo }));
+      invalidateSamplerCache();
+    },
+    [updateDoc, invalidateSamplerCache],
+  );
+
   const toggleTimelinePanel = useCallback(() => {
     patch({ timelinePanelVisible: !stateRef.current.timelinePanelVisible });
   }, [patch, stateRef]);
+
+  const toggleOnionSkin = useCallback(() => {
+    const next = !stateRef.current.motion.onionSkinEnabled;
+    patch({ motion: { ...stateRef.current.motion, onionSkinEnabled: next } });
+  }, [patch, stateRef]);
+
+  const setOnionSkinBeforeCount = useCallback(
+    (count: number) => {
+      patch({
+        motion: {
+          ...stateRef.current.motion,
+          onionSkinBeforeCount: Math.max(0, Math.min(10, count)),
+        },
+      });
+    },
+    [patch, stateRef],
+  );
+
+  const setOnionSkinAfterCount = useCallback(
+    (count: number) => {
+      patch({
+        motion: {
+          ...stateRef.current.motion,
+          onionSkinAfterCount: Math.max(0, Math.min(10, count)),
+        },
+      });
+    },
+    [patch, stateRef],
+  );
+
+  const setOnionSkinOpacity = useCallback(
+    (opacity: number) => {
+      patch({
+        motion: {
+          ...stateRef.current.motion,
+          onionSkinOpacity: Math.max(0, Math.min(1, opacity)),
+        },
+      });
+    },
+    [patch, stateRef],
+  );
 
   const value = useMemo<MotionContextValue>(
     () => ({
@@ -333,6 +530,21 @@ export function MotionProvider({
       createMotionPresetFromTimeline,
       applyMotionPreset,
       toggleAutoKeyframe,
+      toggleGraphEditor,
+      setGraphEditorProperty,
+      deleteKeyframe,
+      moveKeyframe,
+      duplicateKeyframe,
+      updateKeyframeEasing,
+      addTrackToTimeline,
+      setTrackMuted,
+      setTrackSolo,
+      setMotionSelectedTracks,
+      toggleOnionSkin,
+      setOnionSkinBeforeCount,
+      setOnionSkinAfterCount,
+      setOnionSkinOpacity,
+      setTrackNestedTimeline,
     }),
     [
       playTimeline,
@@ -354,6 +566,21 @@ export function MotionProvider({
       createMotionPresetFromTimeline,
       applyMotionPreset,
       toggleAutoKeyframe,
+      toggleGraphEditor,
+      setGraphEditorProperty,
+      deleteKeyframe,
+      moveKeyframe,
+      duplicateKeyframe,
+      updateKeyframeEasing,
+      addTrackToTimeline,
+      setTrackMuted,
+      setTrackSolo,
+      setMotionSelectedTracks,
+      toggleOnionSkin,
+      setOnionSkinBeforeCount,
+      setOnionSkinAfterCount,
+      setOnionSkinOpacity,
+      setTrackNestedTimeline,
     ],
   );
 

@@ -8,6 +8,7 @@ export interface PlaybackControlsProps {
   speed: number;
   loop: boolean;
   autoKeyframe?: boolean;
+  onionSkin?: boolean;
   onPlay: () => void;
   onPause: () => void;
   onStop: () => void;
@@ -17,6 +18,7 @@ export interface PlaybackControlsProps {
   onSpeedChange: (speed: number) => void;
   onToggleLoop: () => void;
   onToggleAutoKeyframe?: () => void;
+  onToggleOnionSkin?: () => void;
   onSavePreset?: () => void;
   presetOptions?: Array<{ id: string; name: string }>;
   onApplyPreset?: (presetId: string) => void;
@@ -39,6 +41,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
   speed,
   loop,
   autoKeyframe = false,
+  onionSkin = false,
   onPlay,
   onPause,
   onStop,
@@ -48,6 +51,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
   onSpeedChange,
   onToggleLoop,
   onToggleAutoKeyframe,
+  onToggleOnionSkin,
   onSavePreset,
   presetOptions = [],
   onApplyPreset,
@@ -61,7 +65,11 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
   }, [isPlaying, onPlay, onPause]);
 
   return (
-    <div className="timeline-playback-controls">
+    <div
+      className="timeline-playback-controls"
+      role="toolbar"
+      aria-label="Timeline playback controls"
+    >
       <button
         type="button"
         className="timeline-playback-btn"
@@ -120,6 +128,18 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
         </button>
       )}
 
+      {onToggleOnionSkin && (
+        <button
+          type="button"
+          className={`timeline-playback-btn ${onionSkin ? 'timeline-playback-btn--active' : ''}`}
+          onClick={onToggleOnionSkin}
+          aria-label={onionSkin ? 'Disable onion skinning' : 'Enable onion skinning'}
+          aria-pressed={onionSkin}
+        >
+          <Icon name="Layers" size={14} />
+        </button>
+      )}
+
       {onSavePreset && (
         <button
           type="button"
@@ -170,17 +190,17 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
 
       <span className="timeline-playback-sep" aria-hidden />
 
-      <span className="timeline-playback-time" aria-label="Current time">
+      <time className="timeline-playback-time" aria-label="Current time">
         {formatTime(currentTime)}
-      </span>
+      </time>
 
       <span className="timeline-playback-time-sep" aria-hidden>
         /
       </span>
 
-      <span className="timeline-playback-time" aria-label="Duration">
+      <time className="timeline-playback-time" aria-label="Duration">
         {formatTime(duration)}
-      </span>
+      </time>
     </div>
   );
 };
