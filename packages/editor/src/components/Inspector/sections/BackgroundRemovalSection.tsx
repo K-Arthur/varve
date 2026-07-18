@@ -35,7 +35,10 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
     return 'Image too large for this AI model.';
   }
   if (message.includes('exceeds the safe WASM memory limit')) {
-    return 'AI Quality model exceeds available memory without GPU acceleration. Switch to AI Balanced or use a device with GPU support.';
+    return 'AI Quality model exceeds available memory without GPU acceleration. Switch to AI Balanced, or use Quick mode and manually refine the mask with the brush and trimap tools.';
+  }
+  if (message.includes('AI background removal failed in all quality modes')) {
+    return 'AI background removal failed in every mode on this device. Use Quick mode, then manually refine the mask with the brush and trimap tools below.';
   }
   if (message.includes('Model') || message.includes('model')) {
     return `Model failed to load: ${defaultMessage}`;
