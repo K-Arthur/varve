@@ -85,6 +85,15 @@ Overrides are applied to flattened engine nodes **before** `buildIr` (ADR-0001).
 
 Sampler cache: `invalidateSamplerCache()` is called on timeline mutations; keyframe segment cache keys include track fingerprint to avoid stale reads.
 
+## Onion skin rendering
+
+`OnionSkinOverlay` draws previous/next-frame ghosts while the workspace is in `'motion'` mode:
+
+- Reads onion-skin state from `state.motion` (`onionSkinEnabled`, `onionSkinBeforeCount`, `onionSkinAfterCount`, `onionSkinOpacity`).
+- For each ghost time, `sampleTimeline` produces `Map<nodeId, Map<property, value>>` overrides.
+- `sceneNodeToEngineNode` converts scene nodes to the engine's `SceneNode` contract; overrides and the computed world transform are applied.
+- `await createEngine('stub')` + `buildIr` produce render IR, which is replayed through a tinted `ReplayTarget` for translucent before/after frames.
+
 ## Interpolation (Phase 3)
 
 | Strategy | Implementation |
