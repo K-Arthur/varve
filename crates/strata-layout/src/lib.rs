@@ -117,7 +117,7 @@ fn to_taffy_style(style: &LayoutStyle) -> Style {
         flex_wrap,
         gap: Size {
             width: length(style.gap as f32),
-            height: length(0.0),
+            height: length(0.0_f32),
         },
         padding: Rect {
             top: length(style.padding[0] as f32),
