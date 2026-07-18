@@ -109,7 +109,7 @@ test('native test config uses the current Tauri capability namespace', () => {
 test('WDIO permissions and bridge are excluded from normal desktop builds', () => {
   const releaseConfig = readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8');
   const testConfig = readFileSync('apps/desktop/src-tauri/tauri.test.conf.json', 'utf8');
-  const capability = readFileSync('apps/desktop/src-tauri/capabilities/wdio.json', 'utf8');
+  const capability = readFileSync('apps/desktop/src-tauri/tests/wdio-capability.json', 'utf8');
   const entrypoint = readFileSync('apps/desktop/src/main.tsx', 'utf8');
 
   assert.match(releaseConfig, /"capabilities": \["default"\]/);
@@ -127,6 +127,26 @@ test('Windows packages use Tauri offline WebView2 installation at the bundle lev
     releaseConfig,
     /"windows":\s*\{\s*"webviewInstallMode":\s*\{\s*"type":\s*"offlineInstaller"/s,
   );
+});
+
+test('build.rs conditionally copies wdio capability when wdio feature is enabled', () => {
+  const buildRs = readFileSync('apps/desktop/src-tauri/build.rs', 'utf8');
+  const capability = readFileSync('apps/desktop/src-tauri/tests/wdio-capability.json', 'utf8');
+  const gitignore = readFileSync('apps/desktop/src-tauri/.gitignore', 'utf8');
+
+  // build.rs should copy the capability only with the wdio feature
+  assert.match(buildRs, /#\[cfg\(feature = "wdio"\)\]/);
+  assert.match(buildRs, /tests\/wdio-capability\.json/);
+  assert.match(buildRs, /capabilities\/wdio\.json/);
+
+  // The build artifact is gitignored so it never accidentally gets committed
+  assert.match(gitignore, /capabilities\/wdio\.json/);
+
+  // The source file should be valid JSON
+  const parsed = JSON.parse(capability);
+  assert.equal(parsed.identifier, 'wdio');
+  assert.ok(parsed.permissions.includes('wdio:default'));
+  assert.ok(parsed.permissions.includes('wdio-webdriver:default'));
 });
 
 test('engine sources do not retain obsolete no-op declarations', () => {

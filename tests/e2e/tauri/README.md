@@ -4,8 +4,8 @@ Strata supports two approaches for native Tauri desktop E2E testing:
 
 | Approach | Runner | macOS | Linux | Windows | Requires |
 |----------|--------|-------|-------|---------|----------|
-| **WDIO (embedded)** | WebdriverIO | ✅ Native | ✅ Native | ✅ Native | `wdio` Cargo feature |
-| **tauri-driver + Playwright** | Playwright | ❌ | ✅ | ✅ | External WebDriver |
+| **WDIO (embedded)** | WebdriverIO | Native | Native | Native | `wdio` Cargo feature |
+| **tauri-driver + Playwright** | Playwright | Not supported | Requires WebKitWebDriver | Requires msedgedriver | External WebDriver process |
 
 ## Recommended: WebdriverIO with embedded WebDriver (`@wdio/tauri-service`)
 
@@ -15,27 +15,47 @@ It embeds a W3C WebDriver HTTP server inside the Tauri app itself.
 ### Prerequisites
 
 ```bash
-# 1. Install npm packages
-pnpm add -D @wdio/cli @wdio/globals @wdio/local-runner \
-  @wdio/mocha-framework @wdio/spec-reporter \
-  @wdio/tauri-service @wdio/tauri-plugin ts-node
+# 1. Install npm packages (already in package.json)
+pnpm install
 
-# 2. On Linux, install WebKitGTK driver and xvfb
-sudo apt-get install -y webkit2gtk-driver xvfb
+# 2. Install platform-specific dependencies:
 
-# 3. Build the Tauri app with the wdio feature
-cd apps/desktop
-pnpm tauri build --debug --features wdio
+# Linux (Arch/CachyOS):
+sudo pacman -S --needed webkit2gtk-4.1 gtk3 librsvg fontconfig mesa libxkbcommon dbus at-spi2-core xvfb
+
+# Linux (Ubuntu/Debian/Pop!_OS/Linux Mint):
+sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libfontconfig1-dev \
+  libsoup-3.0-dev libglib2.0-dev libgdk-pixbuf-2.0-dev libcairo2-dev libpango1.0-dev \
+  cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core
+
+# Linux (Fedora):
+sudo dnf install webkit2gtk4.1-devel gtk3-devel librsvg2-devel fontconfig-devel \
+  libsoup3-devel glib2-devel gdk-pixbuf2-devel cairo-devel pango-devel xorg-x11-server-Xvfb
+
+# Windows:
+# - Microsoft Edge WebView2 Evergreen Runtime (bundled via offline installer)
+# - Visual Studio Build Tools (for MSVC compiler, available on GitHub Actions windows-latest)
+# - No GTK or WebKit required
+
+# macOS:
+# - Xcode Command Line Tools: xcode-select --install
+# - No additional WebView runtime needed (WKWebView is built-in)
 ```
 
 ### Running
 
 ```bash
+# Run preflight diagnostics first
+pnpm desktop:preflight
+
 # Headed (requires a real display)
 pnpm test:wdio
 
-# Headless (CI, no display)
+# Headless Linux (CI, no display)
 xvfb-run pnpm test:wdio
+
+# Full native E2E pipeline (preflight -> build -> test)
+pnpm test:desktop:native
 ```
 
 The WDIO config lives at `wdio.conf.ts`. Tests are in `tests/wdio/`.
@@ -53,47 +73,35 @@ The WDIO config lives at `wdio.conf.ts`. Tests are in `tests/wdio/`.
 This approach requires `tauri-driver` and a platform WebDriver server.
 It works on **Windows and Linux only** (macOS is not supported by tauri-driver directly).
 
-### Prerequisites
-
 ```bash
-# 1. Install tauri-driver
+# Install tauri-driver
 cargo install tauri-driver --locked
 
-# 2. Install platform WebDriver
-# Linux:
-sudo apt-get install -y webkit2gtk-driver
-# Windows: download msedgedriver matching your Edge version
+# Linux - install WebKitWebDriver:
+sudo apt-get install webkit2gtk-driver  # Ubuntu/Debian
+# or
+sudo pacman -S webkit2gtk               # Arch (includes WebKitWebDriver)
 
-# 3. Install xvfb (Linux, headless)
-sudo apt-get install -y xvfb
-```
+# Windows - download msedgedriver matching your Edge/WebView2 version:
+# https://developer.microsoft.com/en-us/microsoft-edge/tools/webdriver/
 
-### Running
-
-```bash
-# Using the helper script
+# Run
 ./scripts/tauri-e2e.sh
-
-# Or manually:
-export STRATA_TAURI_E2E=1
-pnpm exec playwright test tests/e2e/tauri --project=tauri --reporter=list
 ```
-
-### Platform support
-
-| Platform | tauri-driver | Notes |
-|----------|-------------|-------|
-| Linux (WebKitGTK) | ✅ | Requires WebKitWebDriver |
-| Windows (WebView2) | ✅ | Requires msedgedriver |
-| macOS (WKWebView) | ❌ | No WKWebView driver tool; use WDIO + embedded WebDriver instead |
 
 ## CI
 
-Desktop E2E runs in CI under the `desktop-e2e` job (Linux only, xvfb).
-It uses the embedded WDIO approach with the `wdio` feature flag.
+Desktop E2E runs in CI as the `desktop-e2e` job in `.github/workflows/ci.yml`:
 
-The `build.yml` pipeline also builds with `--features wdio` on Linux so that
-release artifacts include test infrastructure for post-build validation.
+| Platform | Runner | Display | Status |
+|----------|--------|---------|--------|
+| Linux (X11) | ubuntu-latest | xvfb-run | Active |
+| Windows | windows-latest | Native (via WebView2) | Active |
+| macOS | macos-latest | Native (via WKWebView) | Active |
+
+All three platforms use the WDIO embedded WebDriver approach. The `build.yml`
+workflow also builds a debug binary with wdio features on Linux for post-build
+verification.
 
 ## Adding new desktop E2E tests
 
@@ -103,3 +111,36 @@ release artifacts include test infrastructure for post-build validation.
 4. Use stable selectors (`data-testid`, accessible roles) over CSS classes
 5. Await the `strata:ready` custom event instead of using arbitrary timeouts
 6. Verify real application outcomes, not just DOM presence
+
+## Troubleshooting
+
+### Build fails: "Permission wdio:default not found"
+
+The `wdio` Cargo feature must be enabled for test builds:
+```bash
+# Correct:
+pnpm desktop:build:test
+
+# Wrong (will fail):
+cargo build -p strata-desktop
+```
+
+Normal release builds do NOT include the wdio feature.
+
+### Preflight reports missing dependencies
+
+```bash
+# Run preflight with JSON output for detailed diagnostics
+node scripts/desktop/preflight.mjs --json
+```
+
+### No display available on Linux
+
+```bash
+# Install xvfb:
+sudo pacman -S xvfb             # Arch/CachyOS
+sudo apt-get install xvfb       # Ubuntu/Debian
+
+# Run tests with xvfb-wrap:
+xvfb-run pnpm test:desktop:native
+```
