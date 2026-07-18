@@ -20,6 +20,36 @@ vi.mock('../modelLoader', () => ({
   getModelLoader: mockGetModelLoader,
   resetModelLoader: vi.fn(),
 }));
+vi.mock('../environmentCapabilities', () => ({
+  getBestOnnxProviders: vi.fn().mockResolvedValue(['webgl', 'wasm']),
+  getEnvironmentCapabilities: vi.fn().mockResolvedValue({
+    crossOriginIsolated: false,
+    isWebKitGTK: false,
+    isTauri: false,
+    hasWorker: true,
+    hasWebGL: true,
+    hasWebGPU: false,
+    sharedMemoryAvailable: false,
+    wasmSafeModelBytes: 50_000_000,
+    preferredOnnxProviders: ['webgl', 'wasm'],
+    label: 'Test',
+  }),
+  isWasmModelSafe: vi.fn().mockResolvedValue(true),
+  getEnvironmentCapabilitiesSync: vi.fn().mockReturnValue({
+    crossOriginIsolated: false,
+    isWebKitGTK: false,
+    isTauri: false,
+    hasWorker: true,
+    hasWebGL: true,
+    hasWebGPU: false,
+    sharedMemoryAvailable: false,
+    wasmSafeModelBytes: 50_000_000,
+    preferredOnnxProviders: ['webgl', 'wasm'],
+    label: 'Test',
+  }),
+  resetEnvironmentCapabilities: vi.fn(),
+}));
+
 vi.mock('onnxruntime-web', () => ({
   InferenceSession: {
     create: mockCreate,
@@ -98,7 +128,7 @@ describe('direct AI telemetry', () => {
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
     expect(mockCreate.mock.calls[0]?.[1]).toEqual({ executionProviders: ['webgl', 'wasm'] });
-    expect(mockCreate.mock.calls[1]?.[1]).toEqual({ executionProviders: ['wasm'] });
+    expect(mockCreate.mock.calls[1]?.[1]).toEqual({ executionProviders: ['wasm', 'wasm'] });
     expect(result.executionProvider).toBe('wasm');
     expect(result.processingTimeMs).toBeGreaterThan(0);
     expect(result.confidence).toBeGreaterThan(0);

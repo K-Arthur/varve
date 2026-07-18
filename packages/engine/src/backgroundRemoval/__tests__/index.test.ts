@@ -38,6 +38,29 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: mockInvoke,
 }));
 
+// Environment capabilities: mock to allow ai-quality tests to reach providers
+const mockGetEnvironmentCaps = vi.hoisted(() => vi.fn());
+const mockIsWasmModelSafe = vi.hoisted(() => vi.fn().mockResolvedValue(true));
+const mockGetBestOnnxProviders = vi.hoisted(() => vi.fn().mockResolvedValue(['wasm']));
+vi.mock('../environmentCapabilities', () => ({
+  getEnvironmentCapabilities: mockGetEnvironmentCaps,
+  getEnvironmentCapabilitiesSync: vi.fn().mockReturnValue({
+    crossOriginIsolated: false,
+    isWebKitGTK: false,
+    isTauri: false,
+    hasWorker: true,
+    hasWebGL: false,
+    hasWebGPU: false,
+    sharedMemoryAvailable: false,
+    wasmSafeModelBytes: 400_000_000,
+    preferredOnnxProviders: ['wasm'],
+    label: 'Test',
+  }),
+  isWasmModelSafe: mockIsWasmModelSafe,
+  getBestOnnxProviders: mockGetBestOnnxProviders,
+  resetEnvironmentCapabilities: vi.fn(),
+}));
+
 function makeImage(w = 4, h = 4): ImageData {
   return new ImageData(new Uint8ClampedArray(w * h * 4), w, h);
 }
@@ -70,6 +93,20 @@ describe('removeBackground dispatch', () => {
       syncFromStorage: vi.fn().mockResolvedValue(undefined),
       isModelAvailable: vi.fn().mockResolvedValue(false),
     });
+    mockGetEnvironmentCaps.mockReset().mockResolvedValue({
+      crossOriginIsolated: false,
+      isWebKitGTK: false,
+      isTauri: false,
+      hasWorker: true,
+      hasWebGL: false,
+      hasWebGPU: false,
+      sharedMemoryAvailable: false,
+      wasmSafeModelBytes: 400_000_000,
+      preferredOnnxProviders: ['wasm'],
+      label: 'Test',
+    });
+    mockIsWasmModelSafe.mockReset().mockResolvedValue(true);
+    mockGetBestOnnxProviders.mockReset().mockResolvedValue(['wasm']);
     vi.unstubAllGlobals();
     delete (window as unknown as { __TAURI__?: unknown }).__TAURI__;
   });
@@ -220,7 +257,7 @@ describe('removeBackground dispatch', () => {
 
     const { removeBackground } = await import('../index');
     await expect(removeBackground(makeImage(), { method: 'ai-balanced' })).rejects.toThrow(
-      /AI background removal failed/i,
+      /AI background removal/i,
     );
     expect(mockHeuristic).not.toHaveBeenCalled();
   });

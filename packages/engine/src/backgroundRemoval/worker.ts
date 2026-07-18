@@ -47,7 +47,26 @@ interface WorkerReady {
 
 let cachedSession: InferenceSession | null = null;
 let cachedModelPath: string | null = null;
-let cachedExecutionProvider: 'webgl' | 'wasm' = 'wasm';
+let cachedExecutionProvider: string = 'wasm';
+
+/** Preferred ONNX execution providers in priority order.
+ *  Determined by environment capabilities at session creation time. */
+let preferredOnnxProviders: string[] | null = null;
+
+async function getPreferredProviders(ort: typeof import('onnxruntime-web')): Promise<string[]> {
+  if (preferredOnnxProviders) return preferredOnnxProviders;
+
+  try {
+    const { getBestOnnxProviders } = await import('./environmentCapabilities');
+    preferredOnnxProviders = await getBestOnnxProviders();
+  } catch {
+    preferredOnnxProviders = ['wasm'];
+  }
+
+  // Validate that ort supports the providers we want to try.
+  // Unknown providers are silently ignored by ONNX Runtime.
+  return preferredOnnxProviders;
+}
 
 async function configureOrtWasm(ort: typeof import('onnxruntime-web')): Promise<void> {
   // In a module Worker the relative script URL is not reliable; publish the
@@ -62,7 +81,7 @@ async function configureOrtWasm(ort: typeof import('onnxruntime-web')): Promise<
 
 async function getSession(
   modelPath: string,
-): Promise<{ session: InferenceSession; executionProvider: 'webgl' | 'wasm' }> {
+): Promise<{ session: InferenceSession; executionProvider: string }> {
   if (cachedSession && cachedModelPath === modelPath) {
     return { session: cachedSession, executionProvider: cachedExecutionProvider };
   }
@@ -73,19 +92,36 @@ async function getSession(
   }
   const ort = await import('onnxruntime-web');
   await configureOrtWasm(ort);
-  try {
-    cachedSession = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['webgl', 'wasm'],
-    });
-    cachedExecutionProvider = 'webgl';
-  } catch {
-    cachedSession = await ort.InferenceSession.create(modelPath, {
-      executionProviders: ['wasm'],
-    });
-    cachedExecutionProvider = 'wasm';
+
+  const providers = await getPreferredProviders(ort);
+
+  // Try each provider in priority order until one succeeds.
+  let lastError: Error | null = null;
+  for (const provider of providers) {
+    try {
+      cachedSession = await ort.InferenceSession.create(modelPath, {
+        executionProviders: [provider, 'wasm'],
+      });
+      cachedExecutionProvider = provider;
+      cachedModelPath = modelPath;
+      return { session: cachedSession, executionProvider: provider };
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+    }
   }
+
+  // If all preferred providers failed, try bare WASM as last resort.
+  cachedSession = await ort.InferenceSession.create(modelPath, {
+    executionProviders: ['wasm'],
+  });
+  cachedExecutionProvider = 'wasm';
   cachedModelPath = modelPath;
-  return { session: cachedSession, executionProvider: cachedExecutionProvider };
+  return { session: cachedSession, executionProvider: 'wasm' };
+}
+
+/** Reset cached provider preference (used in tests and when environment changes). */
+export function __resetPreferredProviders(): void {
+  preferredOnnxProviders = null;
 }
 
 self.onmessage = async (e: MessageEvent<unknown>) => {
@@ -196,7 +232,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
         processingTimeMs,
         width: upsampleW,
         height: upsampleH,
-        executionProvider,
+        executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
       },
     };
     self.postMessage(response);

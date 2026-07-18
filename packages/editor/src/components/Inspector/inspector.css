@@ -1736,6 +1736,20 @@
   color: var(--color-feedback-danger);
 }
 
+.insp-hint--warn {
+  color: var(--color-feedback-warning);
+}
+
+.insp-model-info {
+  margin: var(--space-1) 0;
+}
+
+.insp-model-info__desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: var(--space-1) 0;
+}
+
 .insp-divider {
   margin: var(--space-3) 0;
   border: none;

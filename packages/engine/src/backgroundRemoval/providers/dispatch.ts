@@ -9,6 +9,12 @@
  * pixel buffer clone. A worker transfer must never detach the source used by
  * a later fallback. Timeouts abort provider work rather than merely rejecting
  * the caller.
+ *
+ * Memory-aware fallback: if ai-quality (BiRefNet) fails through every provider,
+ * the dispatch automatically retries with ai-balanced (u2netp) instead of
+ * crashing or showing a cryptic error. The caller receives the fallback result
+ * with method set to 'ai-balanced' and can check whether the quality was
+ * reduced.
  */
 import { removeBackgroundHeuristic } from '../heuristic';
 import { cloneImageData } from '../protocol';
@@ -71,23 +77,20 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSi
   });
 }
 
-export async function dispatchBackgroundRemoval(
+/**
+ * Run the full provider chain with the given options.
+ * Returns the result on success, or null if all providers failed.
+ */
+async function tryProviderChain(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
   signal?: AbortSignal,
-): Promise<BackgroundRemovalResult> {
-  if (signal?.aborted) {
-    throw new Error('cancelled');
-  }
-
-  if (options.method === 'quick') {
-    return removeBackgroundHeuristic(imageData, options);
-  }
-
+): Promise<BackgroundRemovalResult | null> {
   const providerTimeout =
     options.method === 'ai-quality' ? QUALITY_PROVIDER_TIMEOUT : BALANCED_PROVIDER_TIMEOUT;
   const errors: string[] = [];
   let attempted = false;
+
   for (const provider of AI_PROVIDER_CHAIN) {
     if (signal?.aborted) {
       throw new Error('cancelled');
@@ -102,16 +105,12 @@ export async function dispatchBackgroundRemoval(
       );
     } catch (e) {
       if ((e as Error).message === 'cancelled') throw e;
-      // Timed-out/failed availability check: treat as unavailable and continue.
       continue;
     }
     if (!available) continue;
     attempted = true;
 
     try {
-      // Clone the image data for each provider so destructive operations
-      // (like Worker transfer) never detach the source buffer needed by
-      // fallback providers.
       const clonedImage = cloneImageData(imageData);
       return await withTimeout(
         provider.remove(clonedImage, options, signal),
@@ -124,12 +123,59 @@ export async function dispatchBackgroundRemoval(
     }
   }
 
-  if (!attempted) {
-    throw new Error('AI background removal is unavailable. Install the selected offline model.');
+  // If we get here and attempted but all failed, log diagnostics and return null
+  if (attempted && errors.length > 0) {
+    console.warn(`[bg-removal] All providers failed for ${options.method}:`, errors.join('; '));
   }
+
+  return null; // All providers failed or none available
+}
+
+export async function dispatchBackgroundRemoval(
+  imageData: ImageData,
+  options: BackgroundRemovalOptions,
+  signal?: AbortSignal,
+): Promise<BackgroundRemovalResult> {
+  if (signal?.aborted) {
+    throw new Error('cancelled');
+  }
+
+  if (options.method === 'quick') {
+    return removeBackgroundHeuristic(imageData, options);
+  }
+
+  // Try the requested method first.
+  const result = await tryProviderChain(imageData, options, signal);
+  if (result) return result;
+
+  // Failed at the requested quality. If this was ai-quality, automatically
+  // fall back to ai-balanced (u2netp) — the bundled model is always safe
+  // and doesn't risk crashing on WASM memory limits.
+  if (options.method === 'ai-quality') {
+    console.warn(
+      '[bg-removal] ai-quality failed through all providers; falling back to ai-balanced (u2netp)',
+    );
+
+    const fallbackOptions: BackgroundRemovalOptions = {
+      ...options,
+      method: 'ai-balanced',
+    };
+
+    const fallbackResult = await tryProviderChain(imageData, fallbackOptions, signal);
+    if (fallbackResult) {
+      return {
+        ...fallbackResult,
+        method: 'ai-balanced',
+      };
+    }
+
+    throw new Error(
+      'AI background removal failed in all quality modes. Switch to Quick mode or try again later.',
+    );
+  }
+
+  // For ai-balanced that failed, give a clear error.
   throw new Error(
-    errors.length > 0
-      ? `AI background removal failed (${errors.join('; ')})`
-      : 'AI background removal failed',
+    'AI background removal is unavailable. The bundled model (u2netp) could not run. Try Quick mode, or check the developer console for details.',
   );
 }
