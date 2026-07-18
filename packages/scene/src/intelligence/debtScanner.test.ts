@@ -113,6 +113,19 @@ describe('checkUntokenizedColors', () => {
     const docWithNode = { ...doc, nodes: { [node.id]: node }, rootChildren: [node.id] };
     expect(checkUntokenizedColors(docWithNode)).toEqual([]);
   });
+
+  it('provides an autoFix that adds the color as a new swatch', () => {
+    let doc = createDocument();
+    doc = addSwatch(doc, 'Brand Red', { space: 'rgb', r: 255, g: 0, b: 0, a: 255 });
+    const node = makeShape('box', { r: 0, g: 128, b: 128, a: 255 });
+    doc = { ...doc, nodes: { [node.id]: node }, rootChildren: [node.id] };
+
+    const issues = checkUntokenizedColors(doc);
+    expect(issues[0]!.fixable).toBe(true);
+    const fixed = issues[0]!.autoFix!(doc);
+    expect(fixed.swatches).toHaveLength(2);
+    expect(checkUntokenizedColors(fixed)).toEqual([]);
+  });
 });
 
 describe('checkInlineSpacing', () => {
@@ -212,6 +225,19 @@ describe('checkMissingFonts', () => {
     const text = makeText('label', 16, 'Unknown');
     const docWithText = { ...doc, nodes: { [text.id]: text }, rootChildren: [text.id] };
     expect(checkMissingFonts(docWithText, {})).toEqual([]);
+  });
+
+  it('provides an autoFix that swaps to the first available font', () => {
+    const doc = createDocument();
+    const text = makeText('label', 16, 'Comic Sans');
+    const docWithText = { ...doc, nodes: { [text.id]: text }, rootChildren: [text.id] };
+    const opts = { availableFonts: new Set(['Inter', 'Roboto']) };
+
+    const issues = checkMissingFonts(docWithText, opts);
+    expect(issues[0]!.fixable).toBe(true);
+    const fixed = issues[0]!.autoFix!(docWithText);
+    expect((fixed.nodes[text.id] as typeof text).fontFamily).toBe('Inter');
+    expect(checkMissingFonts(fixed, opts)).toEqual([]);
   });
 });
 

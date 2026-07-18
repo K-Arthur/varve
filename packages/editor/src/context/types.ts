@@ -21,6 +21,18 @@ import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 
+export type InspectorTab = 'properties' | 'export' | 'spec' | 'score' | 'audit';
+
+export type IntelligenceTab =
+  | 'audit'
+  | 'spacing'
+  | 'naming'
+  | 'governance'
+  | 'debt'
+  | 'prototype'
+  | 'layout'
+  | 'components';
+
 export type MaskPreviewMode =
   | 'checkerboard'
   | 'overlay'
@@ -384,6 +396,12 @@ export interface EditorContextValue {
     masterRootId: NodeId,
     slots: import('@strata/scene').Slot[],
   ) => void;
+  /** Turns a componentDetector.ts duplicate-structure group into a real
+   *  component: the first node becomes the master definition, the rest are
+   *  replaced in place with instances. Frame-only nodes are converted; other
+   *  kinds in the group are left untouched. No-op (with a toast) if the
+   *  first node is not a frame. */
+  createComponentFromGroup: (nodeIds: NodeId[]) => void;
   createComponentInstance: (componentId: NodeId) => void;
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
@@ -672,4 +690,7 @@ export interface EditorContextValue {
   getCognitiveLoad: (
     nodeId: import('@strata/scene').NodeId | null,
   ) => import('../intelligence/cognitiveLoad').CognitiveLoadReport;
+
+  // Inspector panel navigation (status-bar badges -> inspector tabs)
+  setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => void;
 }

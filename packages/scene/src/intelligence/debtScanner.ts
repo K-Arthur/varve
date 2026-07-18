@@ -11,7 +11,8 @@
 import type { ColorSwatch, ManagedColor } from '../colorManagement';
 import type { Document } from '../document';
 import { findOrphanedStyles, findUnusedComponents, validateNamingConventions } from '../governance';
-import type { FrameNode, NodeId, SceneNode } from '../types';
+import { addSwatch } from '../swatches';
+import type { FrameNode, NodeId, SceneNode, TextNode } from '../types';
 import { runIntelligenceAudit } from './audit';
 
 /** Severity of a debt issue. */
@@ -29,6 +30,8 @@ export interface DebtIssue {
   nodeId?: NodeId;
   /** Whether this issue has a one-click fix. */
   fixable: boolean;
+  /** One-click fix: returns a new Document with the issue resolved. */
+  autoFix?: (doc: Document) => Document;
 }
 
 /** Report from the debt scanner with grouped issues and counts. */
@@ -152,7 +155,8 @@ export function checkUntokenizedColors(doc: Document): DebtIssue[] {
         severity: 'warning',
         message: `"${node.name}" uses a color not in document swatches.`,
         nodeId: node.id,
-        fixable: false,
+        fixable: true,
+        autoFix: (doc: Document) => addSwatch(doc, `${node.name} color`, color),
       });
     }
   }
@@ -299,10 +303,37 @@ function collectFontFamilies(node: SceneNode): string[] {
   return [...families];
 }
 
+/** Replaces every occurrence of `from` with `to` in a text node's fontFamily
+ *  and any rich-text run format, leaving other families untouched. */
+function replaceFontFamilyInNode(node: TextNode, from: string, to: string): TextNode {
+  let updated = node;
+  if (updated.fontFamily === from) {
+    updated = { ...updated, fontFamily: to };
+  }
+  if (updated.richText) {
+    updated = {
+      ...updated,
+      richText: {
+        ...updated.richText,
+        paragraphs: updated.richText.paragraphs.map((para) => ({
+          ...para,
+          runs: para.runs.map((run) =>
+            run.format?.fontFamily === from
+              ? { ...run, format: { ...run.format, fontFamily: to } }
+              : run,
+          ),
+        })),
+      },
+    };
+  }
+  return updated;
+}
+
 export function checkMissingFonts(doc: Document, opts: DebtScannerOptions = {}): DebtIssue[] {
   const issues: DebtIssue[] = [];
   const available = opts.availableFonts;
   if (!available || available.size === 0) return issues;
+  const fallback = [...available][0]!;
 
   for (const node of Object.values(doc.nodes)) {
     if (node.kind !== 'text') continue;
@@ -314,7 +345,15 @@ export function checkMissingFonts(doc: Document, opts: DebtScannerOptions = {}):
         severity: 'error',
         message: `Text node "${node.name}" uses unavailable font "${family}".`,
         nodeId: node.id,
-        fixable: false,
+        fixable: true,
+        autoFix: (d: Document) => {
+          const target = d.nodes[node.id];
+          if (target?.kind !== 'text') return d;
+          return {
+            ...d,
+            nodes: { ...d.nodes, [node.id]: replaceFontFamilyInNode(target, family, fallback) },
+          };
+        },
       });
     }
   }

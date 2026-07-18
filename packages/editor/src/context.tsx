@@ -19,6 +19,20 @@ export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
   toastHandler = fn;
 }
 
+/** Module-level bridge letting status-bar badges (DebtBadge, LayoutScoreIndicator)
+ *  request an inspector tab switch without PropertiesPanel's local tab state
+ *  living in the shared reducer. Registered by PropertiesPanel on mount. */
+interface InspectorTabRequest {
+  tab: InspectorTab;
+  subTab?: IntelligenceTab;
+}
+
+let inspectorTabHandler: ((req: InspectorTabRequest) => void) | null = null;
+
+export function setInspectorTabHandler(fn: ((req: InspectorTabRequest) => void) | null): void {
+  inspectorTabHandler = fn;
+}
+
 /**
  * Editor state context — shared across all shell surfaces.
  *
@@ -32,7 +46,17 @@ export function setToastHandler(fn: (opts: EditorToastOptions) => void): void {
 
 import { getTransactionHooks } from '@strata/collab';
 import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
-import { applyAffine, invertAffine, multiplyAffine } from '@strata/engine';
+import {
+  analogousHarmony,
+  applyAffine,
+  complementaryHarmony,
+  extractPalette as engineExtractPalette,
+  invertAffine,
+  monochromaticHarmony,
+  multiplyAffine,
+  splitComplementaryHarmony,
+  triadicHarmony,
+} from '@strata/engine';
 import { type ImportFileInput, ImportService } from '@strata/import';
 import { type Platform, upsertPreservingMeta } from '@strata/platform';
 import {
@@ -72,6 +96,7 @@ import {
   canBeClipMaskSource,
   clearGuides,
   clearLiveTrace as clearLiveTraceDoc,
+  createClippingMask as createClippingMaskDoc,
   createComponent,
   createDocument,
   createGuideId,
@@ -101,12 +126,14 @@ import {
   getInteractionsForNode,
   getPageNumber as getPageNumberDoc,
   getPageSide as getPageSideDoc,
+  getParent,
   getSpreadForPage as getSpreadForPageDoc,
   groupNodes as groupNodesDoc,
   installLibrary as installLibraryDoc,
   instantiate as instantiateComponent,
   isClippingMaskGroup,
   isContainer,
+  isImageShape,
   isPageOnLeftSide as isPageOnLeftSideDoc,
   type MaskType,
   makeAdjustmentNode,
@@ -160,6 +187,8 @@ import {
   setPropertyOverride as setPropertyOverrideDoc,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
+  shapeHeight,
+  shapeWidth,
   swapInstance as swapInstanceDoc,
   switchColorMode as switchColorModeDoc,
   syncAllInstances as syncAllInstancesDoc,
@@ -242,6 +271,8 @@ import type {
   CanvasMode,
   EditorState,
   GridOverlayMode,
+  InspectorTab,
+  IntelligenceTab,
   RulerMode,
   SessionMeta,
   ToolId,
@@ -265,6 +296,9 @@ import {
   selectedImageShape,
 } from './imageOperations';
 import { getActionTracker } from './intelligence/actionTracker';
+import { autoName } from './intelligence/autoNamer';
+import { computeCognitiveLoad } from './intelligence/cognitiveLoad';
+import { fromFitSuggestion, suggestFit } from './intelligence/imageFitAdvisor';
 import { computeFlexLayout } from './layout/computeFlexLayout';
 import { applyGridLayout } from './layout/computeGridLayout';
 import { applyAutoKeyframes } from './motion/autoKeyframe';
@@ -1047,9 +1081,9 @@ export interface EditorContextValue {
   /** Rebuild spread groupings, optionally with a facing-pages config override. */
   rebuildSpreads: (facingPages?: FacingPagesConfig) => void;
   /** Get the spread that contains the given page id. */
-  getSpreadForPage: (pageId: NodeId) => import('./types').Spread | undefined;
+  getSpreadForPage: (pageId: NodeId) => import('@strata/scene').Spread | undefined;
   /** Classify a page as left/right/none based on facing-pages mode. */
-  getPageSide: (pageId: NodeId) => import('./types').PageSide;
+  getPageSide: (pageId: NodeId) => import('@strata/scene').PageSide;
   /** True when the page sits on the left side of a spread. */
   isPageOnLeftSide: (pageId: NodeId) => boolean;
   /** Get the 1-indexed page number for a page id. */
@@ -1099,6 +1133,26 @@ export interface EditorContextValue {
     key: K,
     value: import('./context/types').EditorState['brushSettings'][K],
   ) => void;
+
+  /** Extract a dominant color palette from image pixel data. */
+  extractPalette: (data: ImageData, colorCount?: number) => import('@strata/engine').PaletteResult;
+  /** Generate a harmony palette (complementary, triadic, etc.) from a base color. */
+  generateHarmony: (
+    color: import('@strata/scene').ManagedColor,
+    type: 'complementary' | 'triadic' | 'analogous' | 'splitComplementary' | 'monochromatic',
+  ) => import('@strata/engine').HarmonyPalette;
+  /** Compute Miller's-Law/Hick's-Law cognitive load for a node (or the whole document if null). */
+  getCognitiveLoad: (
+    nodeId: import('@strata/scene').NodeId | null,
+  ) => import('./intelligence/cognitiveLoad').CognitiveLoadReport;
+
+  /** Switch the inspector panel to a tab, optionally selecting an IntelligencePanel sub-tab. */
+  setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => void;
+
+  /** Turn a componentDetector.ts duplicate-structure group into a real component:
+   *  the first node becomes the master definition, the rest are replaced in
+   *  place with instances. Non-frame nodes in the group are left untouched. */
+  createComponentFromGroup: (nodeIds: NodeId[]) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -1197,34 +1251,6 @@ function computeDocumentUnionBounds(
   return union;
 }
 
-// F4: human-readable type name per tool
-function typeNameForTool(tool: ToolId): string {
-  switch (tool) {
-    case 'rect':
-      return 'Rectangle';
-    case 'ellipse':
-      return 'Ellipse';
-    case 'polygon':
-      return 'Polygon';
-    case 'star':
-      return 'Star';
-    case 'line':
-      return 'Line';
-    case 'frame':
-      return 'Frame';
-    case 'text':
-      return 'Text';
-    case 'pen':
-      return 'Path';
-    case 'pencil':
-      return 'Path';
-    case 'arrow':
-      return 'Arrow';
-    default:
-      return 'Shape';
-  }
-}
-
 // F4: find the next unique auto-name for a type ("Rectangle 3" when 1 and 2 exist)
 function nextAutoName(doc: Document, typeName: string): string {
   const used = new Set<number>();
@@ -1302,6 +1328,7 @@ function shapeForTool(tool: ToolId): Shape {
     case 'crop':
     case 'paint':
     case 'eraser':
+    case 'smudge':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -1605,6 +1632,17 @@ export function EditorProvider({
         hardness: 0.8,
         smoothing: 0.5,
         spacing: 0.25,
+        smudgeStrength: 0.5,
+        smudgeMode: 'sampling' as const,
+        grainId: null,
+        grainScale: 1,
+        grainRotation: 0,
+        grainContrast: 0.5,
+        grainInvert: false,
+        wetEnabled: false,
+        wetEdge: false,
+        wetMixStrength: 0.5,
+        wetDryingRate: 0.5,
       },
       subjectPickerSession: null,
       keyObjectId: null,
@@ -2312,15 +2350,13 @@ export function EditorProvider({
           redoStackRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
-          const typeName = typeNameForTool(activeTool);
-          const autoName = nextAutoName(d2, typeName);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
           let node: SceneNode;
           let isFrame = false;
           if (activeTool === 'frame' || activeTool === 'slice') {
             node = makeFrameNode(id, {
-              name: autoName,
+              name: 'Node',
               transform,
               fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
               children: [],
@@ -2341,7 +2377,7 @@ export function EditorProvider({
               closed: pathClosed ?? false,
               tolerance: 3,
             };
-            node = makeShapeNode(id, shape, { name: autoName, transform });
+            node = makeShapeNode(id, shape, { name: 'Node', transform });
           } else {
             const shape: Shape = size
               ? buildShapeWithSize(activeTool, size)
@@ -2381,7 +2417,7 @@ export function EditorProvider({
                       ],
                     }
                   : {};
-            node = makeShapeNode(id, shape, { name: autoName, transform, ...strokeOpts });
+            node = makeShapeNode(id, shape, { name: 'Node', transform, ...strokeOpts });
           }
 
           const effectiveParentId = parentId ?? findContainingFrameInDoc(d2, world);
@@ -2461,6 +2497,19 @@ export function EditorProvider({
             }
           }
 
+          // Apply context-aware auto-name now that the node is in the document
+          // and any frame children have been captured.
+          const finalName = autoName(newDoc, newDoc.nodes[id]!);
+          if (finalName !== newDoc.nodes[id]!.name) {
+            newDoc = {
+              ...newDoc,
+              nodes: {
+                ...newDoc.nodes,
+                [id]: { ...newDoc.nodes[id]!, name: finalName } as SceneNode,
+              },
+            };
+          }
+
           const keepDrawTool = activeTool === 'pen' || activeTool === 'pencil';
           return {
             ...s,
@@ -2477,11 +2526,10 @@ export function EditorProvider({
           redoStackRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
-          const autoName = nextAutoName(d2, 'Text');
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
 
           const node = makeTextNode(id, text, {
-            name: autoName,
+            name: 'Node',
             transform,
             fontSize: 16,
             w: size?.w,
@@ -2514,6 +2562,17 @@ export function EditorProvider({
             } else {
               newDoc = addNode(d2, node);
             }
+          }
+
+          const finalName = autoName(newDoc, newDoc.nodes[id]!);
+          if (finalName !== newDoc.nodes[id]!.name) {
+            newDoc = {
+              ...newDoc,
+              nodes: {
+                ...newDoc.nodes,
+                [id]: { ...newDoc.nodes[id]!, name: finalName } as SceneNode,
+              },
+            };
           }
 
           return { ...s, document: newDoc, selection: [id], tool: 'select' as ToolId };
@@ -3689,6 +3748,41 @@ export function EditorProvider({
         });
       },
 
+      createComponentFromGroup: (nodeIds: NodeId[]) => {
+        const masterRootId = nodeIds[0];
+        if (!masterRootId) return;
+        const master = state.document.nodes[masterRootId];
+        if (!master || master.kind !== 'frame') {
+          toastHandler?.({
+            message: 'Only frame-based groups can become components.',
+            type: 'warning',
+          });
+          return;
+        }
+        updateDoc((doc) => {
+          const { component, doc: withDef } = createComponent(doc, master.name, masterRootId, []);
+          let next = withDef;
+          for (const nodeId of nodeIds.slice(1)) {
+            const original = next.nodes[nodeId];
+            if (!original || original.kind !== 'frame') continue;
+            const parentId = getParent(next, nodeId);
+            const { node: instanceNode, doc: withInstance } = instantiateComponent(next, component);
+            next = withInstance;
+            const placed: SceneNode = {
+              ...instanceNode,
+              transform: original.transform,
+              opacity: original.opacity,
+              rotation: original.rotation,
+              visible: original.visible,
+              locked: original.locked,
+            };
+            next = removeNode(next, nodeId);
+            next = parentId ? addChild(next, parentId, placed) : addNode(next, placed);
+          }
+          return next;
+        });
+      },
+
       createComponentInstance: (componentId) => {
         updateDoc((doc) => {
           const def = doc.components[componentId];
@@ -3919,6 +4013,38 @@ export function EditorProvider({
 
       recordAction: (actionId: string) => {
         getActionTracker().record(actionId);
+      },
+
+      extractPalette: (data: ImageData, colorCount?: number) => {
+        return engineExtractPalette(data, colorCount);
+      },
+      generateHarmony: (
+        color: import('@strata/scene').ManagedColor,
+        type: 'complementary' | 'triadic' | 'analogous' | 'splitComplementary' | 'monochromatic',
+      ) => {
+        switch (type) {
+          case 'complementary':
+            return complementaryHarmony(color);
+          case 'triadic':
+            return triadicHarmony(color);
+          case 'analogous':
+            return analogousHarmony(color);
+          case 'splitComplementary':
+            return splitComplementaryHarmony(color);
+          case 'monochromatic':
+            return monochromaticHarmony(color);
+        }
+      },
+      getCognitiveLoad: (nodeId: import('@strata/scene').NodeId | null) => {
+        return computeCognitiveLoad(state.document, nodeId);
+      },
+
+      setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => {
+        if (!state.rightPanelVisible) {
+          patch({ rightPanelVisible: true });
+          updateSettings({ panel: { rightPanelVisible: true } });
+        }
+        inspectorTabHandler?.({ tab, subTab });
       },
 
       setNodeLocked: (id, locked) => {
@@ -4365,7 +4491,7 @@ export function EditorProvider({
           const buf = s.quickMask.coverage;
           if (!buf) return s;
           for (let i = 0; i < buf.length; i++) {
-            buf[i] = 255 - buf[i];
+            buf[i] = 255 - buf[i]!;
           }
           return { ...s, quickMask: { ...s.quickMask, coverage: buf.slice(0) } };
         });
@@ -4435,7 +4561,7 @@ export function EditorProvider({
             outputWhite: 255,
           },
           {
-            name: `LUT ${lutAdjustment.originalFilename ?? id.slice(0, 4)}`,
+            name: `LUT ${lutAdjustment.kind === 'lut' ? (lutAdjustment.originalFilename ?? id.slice(0, 4)) : id.slice(0, 4)}`,
             opacity: 0,
             blendMode: 'normal',
             effects: [],
@@ -4747,6 +4873,35 @@ export function EditorProvider({
             });
             if (!inserted) continue;
             doc = inserted.doc;
+            const insertedNode = doc.nodes[inserted.rootId];
+            if (insertedNode && isImageShape(insertedNode)) {
+              const shape = insertedNode as import('@strata/scene').ShapeNode;
+              const imageFill = shape.fills?.find((f) => f.type === 'image' && f.image)?.image;
+              if (imageFill) {
+                const existingFit = imageFill.fit !== 'fill' ? imageFill.fit : undefined;
+                const frameW = shapeWidth(shape.shape);
+                const frameH = shapeHeight(shape.shape);
+                const imageW = imageFill.imageWidth ?? frameW;
+                const imageH = imageFill.imageHeight ?? frameH;
+                const suggestion = suggestFit(imageW, imageH, frameW, frameH, false, existingFit);
+                const newFit = fromFitSuggestion(suggestion.fit);
+                if (newFit !== imageFill.fit) {
+                  const fills = shape.fills ?? [];
+                  const newFills = fills.map((f) =>
+                    f.type === 'image' && f.image
+                      ? { ...f, image: { ...f.image, fit: newFit } }
+                      : f,
+                  );
+                  doc = {
+                    ...doc,
+                    nodes: {
+                      ...doc.nodes,
+                      [inserted.rootId]: { ...shape, fills: newFills } as SceneNode,
+                    },
+                  };
+                }
+              }
+            }
             newIds.push(inserted.rootId);
           }
           return { ...s, document: doc, selection: newIds };
@@ -5329,7 +5484,16 @@ export function EditorProvider({
             ctx.drawImage(img, 0, 0, w, h);
             const imageData = ctx.getImageData(0, 0, w, h);
             const contours = extractAlphaContours(imageData, { alphaThreshold: 1, minArea: 4 });
-            const nodes = alphaContoursToShapeNodes(contours, node.id, node);
+            // alphaContoursToShapeNodes lives in @strata/engine, which can't depend on
+            // @strata/scene's ShapeNode/Stroke types (would create a package cycle), so
+            // it returns a structurally-equivalent ContourShapeNodeData with loosened
+            // fill/fills/strokes/effects typing. The values are passed straight through
+            // from `node` (a real ShapeNode), so the runtime shape matches ShapeNode.
+            const nodes = alphaContoursToShapeNodes(
+              contours,
+              node.id,
+              node as unknown as Parameters<typeof alphaContoursToShapeNodes>[2],
+            ) as unknown as import('@strata/scene').ShapeNode[];
             rasterShapeNodes.push(...nodes);
           }
 

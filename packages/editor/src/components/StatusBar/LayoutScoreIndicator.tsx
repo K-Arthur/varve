@@ -3,7 +3,7 @@ import { useEditor } from '../../context';
 import { computeLayoutScore } from '../../intelligence/layoutScore';
 
 export function LayoutScoreIndicator() {
-  const { state, selectedNodes } = useEditor();
+  const { state, selectedNodes, setInspectorTab } = useEditor();
   const sel = selectedNodes();
   const ids = sel.map((n) => n.id);
   const [score, setScore] = useState(100);
@@ -32,7 +32,8 @@ export function LayoutScoreIndicator() {
     <button
       type="button"
       className={`editor-status__score-badge ${cls}`}
-      title={`Layout quality: ${score}/100`}
+      onClick={() => setInspectorTab('audit', 'layout')}
+      title={`Layout quality: ${score}/100 — click to view layout suggestions`}
       aria-label={`Layout score: ${score}`}
     >
       {score}

@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { LayoutScoreIndicator } from './LayoutScoreIndicator';
+
+const setInspectorTab = vi.fn();
 
 vi.mock('../../context', () => ({
   useEditor: () => ({
@@ -9,6 +11,7 @@ vi.mock('../../context', () => ({
       selection: [],
     },
     selectedNodes: () => [],
+    setInspectorTab,
   }),
 }));
 
@@ -41,5 +44,12 @@ describe('LayoutScoreIndicator', () => {
     render(<LayoutScoreIndicator />);
     const btn = screen.getByRole('button');
     expect(btn.className).toBeDefined();
+  });
+
+  it('opens the layout tab in the inspector when clicked', () => {
+    setInspectorTab.mockClear();
+    render(<LayoutScoreIndicator />);
+    fireEvent.click(screen.getByRole('button'));
+    expect(setInspectorTab).toHaveBeenCalledWith('audit', 'layout');
   });
 });
