@@ -129,15 +129,18 @@ test('Windows packages use Tauri offline WebView2 installation at the bundle lev
   );
 });
 
-test('build.rs conditionally copies wdio capability when wdio feature is enabled', () => {
+test('build.rs conditionally copies and cleans wdio capability', () => {
   const buildRs = readFileSync('apps/desktop/src-tauri/build.rs', 'utf8');
   const capability = readFileSync('apps/desktop/src-tauri/tests/wdio-capability.json', 'utf8');
   const gitignore = readFileSync('apps/desktop/src-tauri/.gitignore', 'utf8');
 
-  // build.rs should copy the capability only with the wdio feature
+  // build.rs copies the capability only with the wdio feature
   assert.match(buildRs, /#\[cfg\(feature = "wdio"\)\]/);
   assert.match(buildRs, /tests\/wdio-capability\.json/);
-  assert.match(buildRs, /capabilities\/wdio\.json/);
+
+  // build.rs removes stale capability when wdio is NOT enabled
+  assert.match(buildRs, /#\[cfg\(not\(feature = "wdio"\)\)\]/);
+  assert.match(buildRs, /remove_file/);
 
   // The build artifact is gitignored so it never accidentally gets committed
   assert.match(gitignore, /capabilities\/wdio\.json/);
