@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "wdio",
-  "description": "Test-only WebDriver permissions. Enabled only by tauri.test.conf.json.",
+  "description": "Test-only WebDriver permissions. Enabled only by tauri.test.conf.json and the wdio Cargo feature.",
   "windows": ["main"],
   "permissions": ["wdio:default", "wdio-webdriver:default"]
 }

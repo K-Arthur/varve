@@ -119,9 +119,14 @@ jobs:
         run: pnpm build
         working-directory: apps/desktop
 
-      - name: Tauri build
-        run: pnpm tauri build --ci
+      - name: Tauri build (release)
+        run: pnpm tauri build --ci --features custom-protocol
         working-directory: apps/desktop
+
+      - name: Build test binary (debug + wdio features)
+        if: runner.os == 'Linux'
+        working-directory: apps/desktop
+        run: pnpm tauri build --debug --no-bundle --config src-tauri/tauri.test.conf.json --features wdio,custom-protocol
 
       - name: Automated failure debug
         if: failure()

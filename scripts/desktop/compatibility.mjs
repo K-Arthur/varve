@@ -48,6 +48,18 @@ export function evaluateWindowsWebView2({ platform, version }) {
   };
 }
 
+export function evaluateXvfb({ xvfbBinary, xvfbRunBinary }) {
+  if (xvfbRunBinary) return { ok: true, available: 'xvfb-run', issues: [] };
+  if (xvfbBinary) return { ok: true, available: 'Xvfb', issues: [] };
+  return {
+    ok: false,
+    available: null,
+    issues: [
+      'xvfb-run and Xvfb are not installed — headless display service unavailable for native GUI tests.',
+    ],
+  };
+}
+
 export function evaluateDisplay({ platform, sessionType, waylandDisplay, display }) {
   if (platform !== 'linux') return { ok: true, issues: [], remediation: null };
   if (waylandDisplay || display) return { ok: true, issues: [], remediation: null };
@@ -59,6 +71,16 @@ export function evaluateDisplay({ platform, sessionType, waylandDisplay, display
     ],
     remediation:
       'Run in a logged-in Wayland/X11 session, use xvfb-run for X11 CI, or launch a headless Weston compositor for Wayland CI.',
+  };
+}
+
+export function evaluatePlatform({ platform, arch }) {
+  const supported = { linux: true, win32: true, darwin: true };
+  return {
+    ok: supported[platform] === true,
+    issues: supported[platform]
+      ? []
+      : [`Unsupported platform: ${platform} ${arch} (supported: linux, win32, darwin)`],
   };
 }
 
