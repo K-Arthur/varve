@@ -13,8 +13,9 @@
 import type { ColorMode, ManagedColor, SceneNode } from '@strata/scene';
 import { managedColorToCss } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
-import { useMemo, useState } from 'react';
-import { useEditor } from '../../context';
+import { useEffect, useMemo, useState } from 'react';
+import { setInspectorTabHandler, useEditor } from '../../context';
+import type { IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
 import { IntelligencePanel } from '../../panels/IntelligencePanel';
 import { AdjustmentPanel } from '../AdjustmentLayer/AdjustmentPanel';
@@ -55,6 +56,17 @@ export function PropertiesPanel() {
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const [tab, setTab] = useState<Tab>('properties');
+  const [intelRequest, setIntelRequest] = useState<{ subTab?: IntelligenceTab; seq: number }>({
+    seq: 0,
+  });
+
+  useEffect(() => {
+    setInspectorTabHandler(({ tab: nextTab, subTab }) => {
+      setTab(nextTab);
+      setIntelRequest((r) => ({ subTab, seq: r.seq + 1 }));
+    });
+    return () => setInspectorTabHandler(null);
+  }, []);
 
   if (state.tool === 'inspect') {
     return (
@@ -141,7 +153,9 @@ export function PropertiesPanel() {
           <LayoutScoreSection />
         </div>
       )}
-      {tab === 'audit' && <IntelligencePanel />}
+      {tab === 'audit' && (
+        <IntelligencePanel key={intelRequest.seq} initialTab={intelRequest.subTab} />
+      )}
     </section>
   );
 }
