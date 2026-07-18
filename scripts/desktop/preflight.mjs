@@ -14,8 +14,10 @@ import { pathToFileURL } from 'node:url';
 import {
   evaluateDisplay,
   evaluateLinuxDependencies,
+  evaluatePlatform,
   evaluateWdioCompatibility,
   evaluateWindowsWebView2,
+  evaluateXvfb,
   getLinuxInstallHint,
 } from './compatibility.mjs';
 
@@ -96,6 +98,11 @@ async function inspectWdio() {
 
 const platform = process.platform;
 const distro = getDistro();
+const platformSupport = evaluatePlatform({ platform, arch: process.arch });
+const xvfbCheck = evaluateXvfb({
+  xvfbBinary: findExecutable('Xvfb'),
+  xvfbRunBinary: findExecutable('xvfb-run'),
+});
 const pkgConfig = Object.fromEntries(
   ['gtk+-3.0', 'webkit2gtk-4.1', 'librsvg-2.0', 'fontconfig'].map((name) => [
     name,
@@ -114,12 +121,19 @@ const display = evaluateDisplay({
 const wdio = await inspectWdio();
 
 const report = {
-  platform: { os: platform, release: os.release(), architecture: process.arch, distro },
+  platform: {
+    os: platform,
+    release: os.release(),
+    architecture: process.arch,
+    distro,
+    support: platformSupport,
+  },
   gui: {
     sessionType: process.env.XDG_SESSION_TYPE ?? null,
     waylandDisplay: process.env.WAYLAND_DISPLAY ?? null,
     x11Display: process.env.DISPLAY ?? null,
     display,
+    xvfb: xvfbCheck,
   },
   linux:
     platform === 'linux'
@@ -135,16 +149,27 @@ const report = {
   webdriver: { provider: 'embedded', wdio },
 };
 
+const allChecks = [linuxLibraries, webView2, display, wdio, platformSupport];
+
 if (wantsJson) {
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 } else {
   console.log(`Strata desktop preflight: ${platform}/${process.arch}`);
+  if (!platformSupport.ok) {
+    for (const issue of platformSupport.issues) console.log(`ERROR: ${issue}`);
+  }
   console.log(`GUI: ${display.ok ? 'available' : 'unavailable'}`);
-  for (const issue of [...linuxLibraries.issues, ...display.issues, ...wdio.issues])
-    console.log(`ERROR: ${issue}`);
+  if (!display.ok && xvfbCheck.ok) {
+    console.log(
+      `Xvfb available (${xvfbCheck.available}) — wrap commands with xvfb-run for headless GUI tests`,
+    );
+  }
+  for (const issue of linuxLibraries.issues) console.log(`ERROR: ${issue}`);
+  for (const issue of display.issues) console.log(`ERROR: ${issue}`);
+  for (const issue of wdio.issues) console.log(`ERROR: ${issue}`);
   if (platform === 'linux') console.log(`Linux setup: ${report.linux.installHint}`);
   if (display.remediation) console.log(`Display remediation: ${display.remediation}`);
   if (wdio.remediation) console.log(`WDIO remediation: ${wdio.remediation}`);
 }
 
-if (![linuxLibraries, webView2, display, wdio].every((check) => check.ok)) process.exitCode = 1;
+if (!allChecks.every((check) => check.ok)) process.exitCode = 1;
