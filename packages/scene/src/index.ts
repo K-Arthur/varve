@@ -10,6 +10,7 @@ export * from './adjustments';
 export * from './bindings';
 export * from './boolean';
 export * from './brush';
+export * from './clippingMask';
 export * from './clone';
 export * from './colorManagement';
 export * from './colorMode';

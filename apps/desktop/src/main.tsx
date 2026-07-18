@@ -11,6 +11,19 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { dismissBootFallback } from './startup/revealMainWindow';
 
+// requestIdleCallback is not available in WebKitGTK (Linux Tauri).
+// Polyfill so code using `requestIdleCallback?.()` doesn't throw in strict mode.
+if (typeof globalThis.requestIdleCallback === 'undefined') {
+  globalThis.requestIdleCallback = (cb: IdleRequestCallback, opts?: IdleRequestOptions) => {
+    const id = setTimeout(
+      () => cb({ didTimeout: false, timeRemaining: () => 0 }),
+      opts?.timeout ?? 1,
+    );
+    return typeof id === 'object' ? 0 : id;
+  };
+  globalThis.cancelIdleCallback = (id: number) => clearTimeout(id);
+}
+
 async function bootstrap() {
   // The test bridge is excluded from normal builds by Vite's mode replacement.
   // It must load before React so WDIO can inspect a genuinely interactive window.

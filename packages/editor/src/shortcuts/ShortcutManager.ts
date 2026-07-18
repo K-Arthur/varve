@@ -219,7 +219,7 @@ export const SHORTCUT_DEFS = {
     category: 'Object',
   },
   quickActions: {
-    binding: { key: ';', ctrl: true },
+    binding: { key: ';', ctrl: true, shift: true },
     label: 'Quick Actions',
     category: 'View',
   },

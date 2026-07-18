@@ -11,6 +11,7 @@
  *
  * Research basis: Figma/Sketch fill panel; APG Disclosure, Listbox, Slider.
  */
+import { complementaryHarmony } from '@strata/engine';
 import type {
   BlendMode,
   Fill,
@@ -354,6 +355,25 @@ function FillRow({
           />
         )}
         {fill.type === 'solid' && fill.color && <ContrastIndicator fill={fill} fillIndex={index} />}
+        {fill.type === 'solid' && fill.color && fill.color.space === 'rgb' && (
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-label="Generate harmony colors"
+            title="Generate harmony colors"
+            onClick={() => {
+              const pal = complementaryHarmony(fill.color!);
+              if (pal.colors.length > 0) {
+                const harmonyColor = pal.colors[0];
+                if (harmonyColor && 'space' in harmonyColor) {
+                  patch({ color: harmonyColor });
+                }
+              }
+            }}
+          >
+            <Icon name="Palette" label={undefined} size="0.85em" />
+          </button>
+        )}
         <div className="insp-field__control">
           <Select
             label={`${label} type`}

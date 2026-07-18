@@ -266,6 +266,7 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       },
       { label: '---' },
       { label: 'Remove Background...', action: 'batchBgRemove' },
+      { label: 'Extract Palette', action: 'extractPalette' },
       { label: '---' },
       { label: 'Add Alpha Mask', action: 'addAlphaMask' },
       { label: 'Add Clip Mask', action: 'addClipMask' },

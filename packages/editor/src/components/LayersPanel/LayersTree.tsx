@@ -1277,6 +1277,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               focused={false}
               expanded={false}
               editing={false}
+              doc={state.document}
               onToggleExpand={() => {}}
               onSelect={() => {}}
               onRename={() => {}}
@@ -1428,6 +1429,7 @@ function SortableVirtualRow({
     >
       <LayersRow
         node={node}
+        doc={editorState.document}
         depth={depth}
         selected={selected}
         focused={focused}
