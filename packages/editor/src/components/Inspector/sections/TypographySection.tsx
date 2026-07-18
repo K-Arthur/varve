@@ -16,10 +16,12 @@
  */
 import { getFontRegistry } from '@strata/engine';
 import type { SceneNode, TextNode } from '@strata/scene';
+import { resolveNodeFills } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { BindingMenu } from '../controls/BindingMenu';
+import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
@@ -220,6 +222,23 @@ export function TypographySection({ nodes }: TypographySectionProps) {
 
   if (textNodes.length === 0) return null;
 
+  const textFillColor = useMemo(() => {
+    if (textNodes.length !== 1) return null;
+    const n = textNodes[0];
+    if (!n) return null;
+    const fills = resolveNodeFills(
+      n as unknown as {
+        fill: import('@strata/scene').ManagedColor;
+        fills?: import('@strata/scene').Fill[];
+      },
+    );
+    const solid = fills.find((f) => f.visible && f.type === 'solid');
+    if (solid?.color && solid.color.space === 'rgb') {
+      return { r: solid.color.r, g: solid.color.g, b: solid.color.b };
+    }
+    return null;
+  }, [textNodes]);
+
   const familyRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontFamily ?? ''));
   const weightRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontWeight ?? 400));
   const styleRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontStyle ?? 'normal'));
@@ -303,6 +322,14 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             options={FONT_STYLE_OPTIONS}
             onChange={(v) => batchUpdate((n) => ({ ...n, fontStyle: v }))}
           />
+          {textFillColor && (
+            <ContrastIndicator
+              fgColor={textFillColor}
+              bgColor={null}
+              fontSize={isMixed(sizeRaw) ? 16 : sizeRaw}
+              fontWeight={isMixed(weightRaw) ? 400 : weightRaw}
+            />
+          )}
         </FieldRow>
         <NumberField
           label="Size"

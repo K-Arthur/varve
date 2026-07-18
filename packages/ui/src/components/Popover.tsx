@@ -1,5 +1,14 @@
 import { arrow, autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
-import { type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+} from 'react';
 
 export interface PopoverProps {
   children: ReactNode;
@@ -20,7 +29,7 @@ export function Popover({
   const isControlled = controlledOpen !== undefined;
   const isOpen = isControlled ? controlledOpen : internalOpen;
 
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLSpanElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
   const arrowRef = useRef<HTMLDivElement>(null);
   const prevOpenRef = useRef(isOpen);
@@ -109,7 +118,7 @@ export function Popover({
     if (prevOpenRef.current && !isOpen) {
       const trigger = triggerRef.current;
       if (trigger) {
-        trigger.focus();
+        (trigger.querySelector('button') ?? trigger).focus();
       }
     }
     prevOpenRef.current = isOpen;
@@ -152,27 +161,52 @@ export function Popover({
     [handleTriggerClick],
   );
 
+  const triggerEl = isValidElement<{
+    onClick?: React.MouseEventHandler;
+    onKeyDown?: React.KeyboardEventHandler;
+    'aria-haspopup'?: string;
+    'aria-expanded'?: boolean;
+  }>(children)
+    ? children
+    : null;
+
   return (
     <>
-      <button
-        ref={triggerRef}
-        type="button"
-        aria-haspopup="dialog"
-        aria-expanded={isOpen}
-        onClick={handleTriggerClick}
-        onKeyDown={handleTriggerKeyDown}
-        style={{
-          display: 'inline-flex',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-          font: 'inherit',
-          color: 'inherit',
-        }}
-      >
-        {children}
-      </button>
+      <span ref={triggerRef}>
+        {triggerEl ? (
+          cloneElement(triggerEl, {
+            onClick: (e: React.MouseEvent) => {
+              triggerEl.props.onClick?.(e);
+              if (!e.defaultPrevented) handleTriggerClick();
+            },
+            onKeyDown: (e: React.KeyboardEvent) => {
+              triggerEl.props.onKeyDown?.(e);
+              if (!e.defaultPrevented) handleTriggerKeyDown(e);
+            },
+            'aria-haspopup': 'dialog' as const,
+            'aria-expanded': isOpen,
+          })
+        ) : (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            onClick={handleTriggerClick}
+            onKeyDown={handleTriggerKeyDown}
+            style={{
+              display: 'inline-flex',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              font: 'inherit',
+              color: 'inherit',
+            }}
+          >
+            {children}
+          </button>
+        )}
+      </span>
       <div
         ref={popoverRef}
         id={popoverId}

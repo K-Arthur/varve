@@ -229,6 +229,7 @@ export {
   analogousHarmony,
   complementaryHarmony,
   extractPalette,
+  monochromaticHarmony,
   splitComplementaryHarmony,
   triadicHarmony,
 } from './intelligence/paletteExtractor';
