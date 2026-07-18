@@ -1,4 +1,4 @@
-export const CURRENT_DOCUMENT_VERSION = '2.2';
+export const CURRENT_DOCUMENT_VERSION = '2.3';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -15,6 +15,7 @@ export const SUPPORTED_VERSIONS = [
   '2.0',
   '2.1',
   '2.2',
+  '2.3',
 ];
 
 export interface DocumentMigration {
@@ -289,6 +290,45 @@ const migrations: DocumentMigration[] = [
     from: '2.1',
     to: '2.2',
     migrate: (raw) => normalizeV21RasterMaskIdentity({ ...raw, formatVersion: '2.2' }),
+  },
+  {
+    from: '2.2',
+    to: '2.3',
+    migrate: (raw) => {
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const migrated: Record<string, Record<string, unknown>> = {};
+      for (const [id, node] of Object.entries(nodes)) {
+        if (node.kind === 'adjustment') {
+          const clipping = node.clipping === true;
+          const adjustments = node.adjustments as unknown[] | undefined;
+          const hasActiveAdjustments =
+            Array.isArray(adjustments) &&
+            adjustments.some(
+              (a) =>
+                typeof a === 'object' &&
+                a !== null &&
+                (a as Record<string, unknown>).visible !== false,
+            );
+          let scope: Record<string, unknown> | undefined;
+          if (clipping) {
+            // Legacy clipping: find the sibling below, convert to image-local
+            scope = { mode: 'image-local', targetNodeId: '' };
+          } else if (hasActiveAdjustments) {
+            // Non-clipping adjustment with content: set to document scope
+            scope = { mode: 'document' };
+          }
+          // Empty/inactive adjustments leave scope undefined (no-op)
+          migrated[id] = scope ? { ...node, scope } : node;
+        } else {
+          migrated[id] = node;
+        }
+      }
+      return {
+        ...raw,
+        formatVersion: '2.3',
+        nodes: migrated,
+      };
+    },
   },
 ];
 

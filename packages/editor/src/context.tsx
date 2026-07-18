@@ -172,9 +172,11 @@ import {
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
+  resolveAdjustmentScope,
   resolveGuidePageId,
   resolveNodeFills,
   resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
+  scopeForTargets,
   type SafeAreaConfig,
   type SceneNode,
   type SlugConfig,
@@ -4552,6 +4554,18 @@ export function EditorProvider({
         redoStackRef.current = [];
         const { id, doc: newDoc } = nextNodeId(state.document);
         const adjs = initialAdjustments ?? [];
+        const sel = state.selection;
+        // Default scope: image-local when single eligible node selected,
+        // explicit-targets for multi-selection, undefined (legacy) otherwise
+        let scope: import('@strata/scene').AdjustmentScope | undefined;
+        if (sel.length === 1) {
+          const target = state.document.nodes[sel[0]];
+          if (target && (target.kind === 'shape' || target.kind === 'rasterLayer')) {
+            scope = { mode: 'image-local', targetNodeId: sel[0] };
+          }
+        } else if (sel.length > 1) {
+          scope = scopeForTargets(state.document, sel);
+        }
         const node = makeAdjustmentNode(
           id,
           'levels',
@@ -4568,12 +4582,19 @@ export function EditorProvider({
             opacity: 1,
             blendMode: 'normal',
             effects: [],
+            scope,
           },
         );
         const withAdjustments = { ...node, adjustments: adjs };
         const doc = addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
         patch({ document: doc, selection: [id] });
-        announcerRef.current?.announce('Created adjustment layer');
+        const scopeName =
+          scope?.mode === 'image-local'
+            ? ' (image)'
+            : scope?.mode === 'explicit-targets'
+              ? ` (${sel.length} targets)`
+              : '';
+        announcerRef.current?.announce(`Created adjustment layer${scopeName}`);
       },
 
       addAdjustmentToLayer: (nodeId, adjustment) => {
@@ -4659,6 +4680,99 @@ export function EditorProvider({
         updateNodeProp(nodeId, (n) => ({ ...n, blendMode }) as SceneNode);
       },
 
+      createLinkedAdjustment: (targetIds, initialAdjustments) => {
+        undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        redoStackRef.current = [];
+        const { id, doc: newDoc } = nextNodeId(state.document);
+        const adjs = initialAdjustments ?? [];
+        const node = makeAdjustmentNode(
+          id,
+          'levels',
+          {
+            channel: 'rgb' as const,
+            inputBlack: 0,
+            inputWhite: 255,
+            gamma: 1,
+            outputBlack: 0,
+            outputWhite: 255,
+          },
+          {
+            name: `Linked adj ${id.slice(0, 4)}`,
+            opacity: 1,
+            blendMode: 'normal',
+            effects: [],
+            scope:
+              targetIds.length > 0
+                ? scopeForTargets(state.document, targetIds)
+                : { mode: 'document' },
+          },
+        );
+        const withAdjustments = { ...node, adjustments: adjs };
+        const doc = addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
+        patch({ document: doc, selection: [id] });
+        announcerRef.current?.announce(
+          `Created linked adjustment for ${targetIds.length} target(s)`,
+        );
+      },
+
+      copyEditsToSelected: (sourceNodeId, targetIds, adjustmentIds) => {
+        const sourceNode = state.document.nodes[sourceNodeId];
+        if (!sourceNode || sourceNode.kind !== 'adjustment') return;
+        const sourceAdjustments = (sourceNode as AdjustmentNode).adjustments ?? [];
+        const toCopy = adjustmentIds
+          ? sourceAdjustments.filter((a: Adjustment) => adjustmentIds.includes(a.id))
+          : sourceAdjustments;
+        if (toCopy.length === 0) return;
+
+        undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        redoStackRef.current = [];
+        let doc = state.document;
+        const newIds: string[] = [];
+
+        for (const targetId of targetIds) {
+          const { id, doc: d } = nextNodeId(doc);
+          doc = d;
+          const targetNode = doc.nodes[targetId];
+          if (!targetNode) continue;
+          const isImage = targetNode.kind === 'shape' || targetNode.kind === 'rasterLayer';
+          const node = makeAdjustmentNode(
+            id,
+            'levels',
+            {
+              channel: 'rgb' as const,
+              inputBlack: 0,
+              inputWhite: 255,
+              gamma: 1,
+              outputBlack: 0,
+              outputWhite: 255,
+            },
+            {
+              name: `Edit ${id.slice(0, 4)}`,
+              opacity: 1,
+              blendMode: 'normal',
+              effects: [],
+              scope: isImage ? { mode: 'image-local', targetNodeId: targetId } : undefined,
+            },
+          );
+          const withCopied = {
+            ...node,
+            adjustments: [...toCopy.map((a: Adjustment) => ({ ...a }))],
+          };
+          doc = addNode(doc, withCopied as import('@strata/scene').SceneNode);
+          newIds.push(id);
+        }
+
+        patch({ document: doc, selection: newIds });
+        announcerRef.current?.announce(`Copied edits to ${targetIds.length} target(s)`);
+      },
+
+      setAdjustmentScope: (nodeId, scope) => {
+        updateNodeProp(nodeId, (n) => {
+          if (n.kind !== 'adjustment') return n;
+          return { ...n, scope } as SceneNode;
+        });
+      },
+
       copySelected: () => {
         const guideId = stateRef.current.selectedGuideId;
         if (guideId) {
@@ -4724,8 +4838,9 @@ export function EditorProvider({
 
         // Single clipboard read — uses DOM ClipboardEvent when available
         // (cross-platform, no Wayland permission issues), falls back to
-        // navigator.clipboard.read() for menu-triggered pastes.
-        const unified = await readClipboardUnifiedWithFallback();
+        // navigator.clipboard.read() for menu-triggered pastes, then to a
+        // native OS clipboard read on Tauri for WebKitGTK/Wayland.
+        const unified = await readClipboardUnifiedWithFallback(platform);
         const strataData = unified.strataData;
 
         const importInputs = unified.importItems.map((item): ImportFileInput => {

@@ -12,8 +12,10 @@
 import { useDroppable } from '@dnd-kit/core';
 import { type CompositorBackend, createCompositorBackend } from '@strata/compositor';
 import {
+  adjustmentsToFilters,
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
+  applyFilterWithCompositing,
   applyGlassMaterialBackdrop,
   applyGlitch,
   applyLayerBlur,
@@ -50,6 +52,7 @@ import {
   isContainer,
   makeRasterLayerNode,
   nextNodeId,
+  resolveAdjustmentScope,
   resolveAllStyles,
   walkNodes,
 } from '@strata/scene';
@@ -1731,6 +1734,20 @@ export function CanvasArea({
         if (n.kind === 'frame') {
           if (item) paintLeafItem(item, targetCtx);
           if (n.children.length > 0) {
+            const renderChildren = (ctx: CanvasRenderingContext2D) => {
+              const adjIds: string[] = [];
+              for (const childId of n.children) {
+                const child = doc.nodes[childId];
+                if (child?.kind === 'adjustment') {
+                  adjIds.push(childId);
+                } else {
+                  replaySubtreeToCtx(childId, ctx);
+                }
+              }
+              for (const adjId of adjIds) {
+                replaySubtreeToCtx(adjId, ctx);
+              }
+            };
             const shouldClip = n.clipContent !== false;
             if (shouldClip) {
               const t = item?.transform ?? ([1, 0, 0, 1, 0, 0] as const);
@@ -1745,20 +1762,25 @@ export function CanvasArea({
               targetCtx.lineTo(c * fh + e, d * fh + f);
               targetCtx.closePath();
               targetCtx.clip();
-              for (const childId of n.children) {
-                replaySubtreeToCtx(childId, targetCtx);
-              }
+              renderChildren(targetCtx);
               targetCtx.restore();
             } else {
-              for (const childId of n.children) {
-                replaySubtreeToCtx(childId, targetCtx);
-              }
+              renderChildren(targetCtx);
             }
           }
         } else if (n.kind === 'group') {
           if (s.canvasMode === 'outline') {
+            const oAdjIds: string[] = [];
             for (const childId of n.children) {
-              replaySubtreeToCtx(childId, targetCtx);
+              const child = doc.nodes[childId];
+              if (child?.kind === 'adjustment') {
+                oAdjIds.push(childId);
+              } else {
+                replaySubtreeToCtx(childId, targetCtx);
+              }
+            }
+            for (const adjId of oAdjIds) {
+              replaySubtreeToCtx(adjId, targetCtx);
             }
             return;
           }
@@ -1808,8 +1830,17 @@ export function CanvasArea({
               const gCtx = gCanvas.ctx;
               gCtx.save();
               gCtx.translate(-minX + effectPadding, -minY + effectPadding);
+              const gAdjIds: string[] = [];
               for (const childId of n.children) {
-                replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+                const child = doc.nodes[childId];
+                if (child?.kind === 'adjustment') {
+                  gAdjIds.push(childId);
+                } else {
+                  replaySubtreeToCtx(childId, gCtx as unknown as CanvasRenderingContext2D);
+                }
+              }
+              for (const adjId of gAdjIds) {
+                replaySubtreeToCtx(adjId, gCtx as unknown as CanvasRenderingContext2D);
               }
               gCtx.restore();
 
@@ -2014,10 +2045,92 @@ export function CanvasArea({
               targetCtx.restore();
             }
           } else {
+            const adjIds: string[] = [];
             for (const childId of n.children) {
-              replaySubtreeToCtx(childId, targetCtx);
+              const child = doc.nodes[childId];
+              if (child?.kind === 'adjustment') {
+                adjIds.push(childId);
+              } else {
+                replaySubtreeToCtx(childId, targetCtx);
+              }
+            }
+            for (const adjId of adjIds) {
+              replaySubtreeToCtx(adjId, targetCtx);
             }
           }
+        } else if (n.kind === 'adjustment') {
+          const adjNode = n as import('@strata/scene').AdjustmentNode;
+          const adjList = adjNode.adjustments ?? [];
+          const adjFilters = adjustmentsToFilters(adjList);
+          if (adjFilters.length === 0) return;
+
+          // Resolve scope: which nodes does this adjustment affect?
+          const scope = adjNode.scope;
+          let targetIds: ReadonlySet<string>;
+          if (scope) {
+            const resolved = resolveAdjustmentScope(doc, scope, nodeId);
+            targetIds = new Set(resolved);
+          } else {
+            // Legacy (no scope field): affect all visible nodes — match pre-v2.3 behavior
+            targetIds = new Set(Array.from(entries.keys()).filter((id: string) => id !== nodeId));
+          }
+          if (targetIds.size === 0) return;
+
+          const cw = targetCtx.canvas.width;
+          const ch = targetCtx.canvas.height;
+          if (cw === 0 || ch === 0) return;
+
+          let minX = Infinity,
+            minY = Infinity,
+            maxX = -Infinity,
+            maxY = -Infinity;
+          let nodeCount = 0;
+          for (const nid of targetIds) {
+            const raw = doc.nodes[nid];
+            if (!raw || raw.visible === false) continue;
+            const b = nodeVisualWorldBounds(doc, nid, resolvedStyles);
+            if (b) {
+              minX = Math.min(minX, b.x);
+              minY = Math.min(minY, b.y);
+              maxX = Math.max(maxX, b.x + b.w);
+              maxY = Math.max(maxY, b.y + b.h);
+              nodeCount++;
+            }
+          }
+          if (!Number.isFinite(minX) || nodeCount === 0) return;
+
+          const EFFECT_PAD = 80;
+          const bx = minX - EFFECT_PAD;
+          const by = minY - EFFECT_PAD;
+          const bw = Math.min(cw, maxX - minX + EFFECT_PAD * 2);
+          const bh = Math.min(ch, maxY - minY + EFFECT_PAD * 2);
+
+          let backdrop: HTMLCanvasElement;
+          try {
+            backdrop = document.createElement('canvas');
+            backdrop.width = Math.ceil(bw);
+            backdrop.height = Math.ceil(bh);
+            const bCtx = backdrop.getContext('2d');
+            if (!bCtx) return;
+            bCtx.translate(-bx, -by);
+            bCtx.drawImage(targetCtx.canvas, 0, 0);
+          } catch {
+            return;
+          }
+
+          const bCtx = backdrop.getContext('2d');
+          if (!bCtx) return;
+          applyFilterWithCompositing(bCtx, adjFilters, backdrop.width, backdrop.height);
+
+          targetCtx.save();
+          targetCtx.setTransform(1, 0, 0, 1, 0, 0);
+          targetCtx.globalAlpha = adjNode.opacity ?? 1;
+          const adjBm = adjNode.blendMode ?? 'normal';
+          if (adjBm !== 'normal') {
+            targetCtx.globalCompositeOperation = mapBlendMode(adjBm) as GlobalCompositeOperation;
+          }
+          targetCtx.drawImage(backdrop, 0, 0, backdrop.width, backdrop.height, bx, by, bw, bh);
+          targetCtx.restore();
         } else {
           if (item) paintLeafItem(item, targetCtx);
         }
@@ -2032,10 +2145,19 @@ export function CanvasArea({
       const workerReady = sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
 
       if (needsStructural) {
+        const deferredAdjustments: string[] = [];
         for (const [id, entry] of entries) {
           if (entry.parentId === null) {
-            replaySubtree(id);
+            const node = doc.nodes[id];
+            if (node?.kind === 'adjustment') {
+              deferredAdjustments.push(id);
+            } else {
+              replaySubtree(id);
+            }
           }
+        }
+        for (const id of deferredAdjustments) {
+          replaySubtree(id);
         }
       } else if (renderWorkerRef.current && !workerFailedRef.current && workerReady) {
         const wb = workerBitmapRef.current;
@@ -3129,92 +3251,165 @@ export function CanvasArea({
     setIsDragOver(false);
   }, []);
 
-  const handleDrop = useCallback(async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
+  // Shared by both the HTML5 drop handler and the native Tauri drag-drop
+  // listener below — the only difference between the two paths is how
+  // `files` and `dropWorld` are obtained.
+  const importDroppedFiles = useCallback(
+    async (
+      files: { name: string; data: Uint8Array | string }[],
+      dropWorld: readonly [number, number] | null,
+    ) => {
+      if (files.length === 0) return;
+      const reader = editorRef.current;
 
-    // Get drop position in world coordinates
-    const rect = contentCanvasRef.current?.getBoundingClientRect();
-    const cam = {
-      pan: stateRef.current.pan,
-      zoom: stateRef.current.zoom,
-      rotation: stateRef.current.cameraRotation,
-    };
-    const dropWorld = rect
-      ? screenToWorld(
-          cam,
-          e.clientX - rect.left,
-          e.clientY - rect.top,
-          { width: rect.width, height: rect.height },
-          computeFloatingOrigin(cam, { width: rect.width, height: rect.height }),
-        )
-      : null;
-
-    const reader = editorRef.current;
-
-    // First check for dnd-kit native files (strata file type)
-    const strataFiles = e.dataTransfer.types?.includes('application/x-strata-file');
-    if (strataFiles) {
-      // Handled by dnd-kit's onDragEnd instead
-      return;
-    }
-
-    // Collect all OS files (including folders via FileSystemEntry API)
-    const files = await collectFilesFromDataTransfer(e.dataTransfer);
-    if (files.length === 0) return;
-
-    // Parse all files FIRST (expensive SVG parsing) before any setState
-    const parsedItems: {
-      node: SceneNode;
-      sourceDoc: import('@strata/scene').Document;
-      position?: { x: number; y: number };
-    }[] = [];
-    const importInputs = files.map((file): ImportFileInput => {
-      if (typeof file.data === 'string') {
+      // Parse all files FIRST (expensive SVG parsing) before any setState
+      const parsedItems: {
+        node: SceneNode;
+        sourceDoc: import('@strata/scene').Document;
+        position?: { x: number; y: number };
+      }[] = [];
+      const importInputs = files.map((file): ImportFileInput => {
+        if (typeof file.data === 'string') {
+          return {
+            name: file.name,
+            source: 'drop',
+            size: new TextEncoder().encode(file.data).byteLength,
+            text: file.data,
+          };
+        }
         return {
           name: file.name,
           source: 'drop',
-          size: new TextEncoder().encode(file.data).byteLength,
-          text: file.data,
+          size: file.data.byteLength,
+          bytes: file.data,
         };
-      }
-      return {
-        name: file.name,
-        source: 'drop',
-        size: file.data.byteLength,
-        bytes: file.data,
-      };
-    });
-    const report = await ImportService.importFiles(importInputs, {
-      center: !dropWorld,
-      embedImages: true,
-    });
+      });
+      const report = await ImportService.importFiles(importInputs, {
+        center: !dropWorld,
+        embedImages: true,
+      });
 
-    for (const [i, fileReport] of report.files.entries()) {
-      for (const artifact of fileReport.artifacts) {
-        for (const id of artifact.nodeIds) {
-          const node = artifact.document.nodes[id];
-          if (!node) continue;
-          const positionedNode = dropWorld
-            ? applyDropPosition(node, {
-                x: dropWorld[0] + i * 40,
-                y: dropWorld[1] + i * 40,
-              })
-            : node;
-          parsedItems.push({ node: positionedNode, sourceDoc: artifact.document });
+      for (const [i, fileReport] of report.files.entries()) {
+        for (const artifact of fileReport.artifacts) {
+          for (const id of artifact.nodeIds) {
+            const node = artifact.document.nodes[id];
+            if (!node) continue;
+            const positionedNode = dropWorld
+              ? applyDropPosition(node, {
+                  x: dropWorld[0] + i * 40,
+                  y: dropWorld[1] + i * 40,
+                })
+              : node;
+            parsedItems.push({ node: positionedNode, sourceDoc: artifact.document });
+          }
         }
       }
-    }
 
-    // Single batched setState for all imported nodes
-    if (parsedItems.length > 0) {
-      reader.batchImportNodes(parsedItems);
-    }
-    reader.announce(
-      `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
-    );
-  }, []);
+      // Single batched setState for all imported nodes
+      if (parsedItems.length > 0) {
+        reader.batchImportNodes(parsedItems);
+      }
+      reader.announce(
+        `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
+      );
+    },
+    [],
+  );
+
+  const computeDropWorld = useCallback(
+    (clientX: number, clientY: number): readonly [number, number] | null => {
+      const rect = contentCanvasRef.current?.getBoundingClientRect();
+      if (!rect) return null;
+      const cam = {
+        pan: stateRef.current.pan,
+        zoom: stateRef.current.zoom,
+        rotation: stateRef.current.cameraRotation,
+      };
+      return screenToWorld(
+        cam,
+        clientX - rect.left,
+        clientY - rect.top,
+        { width: rect.width, height: rect.height },
+        computeFloatingOrigin(cam, { width: rect.width, height: rect.height }),
+      );
+    },
+    [],
+  );
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragOver(false);
+
+      // First check for dnd-kit native files (strata file type)
+      const strataFiles = e.dataTransfer.types?.includes('application/x-strata-file');
+      if (strataFiles) {
+        // Handled by dnd-kit's onDragEnd instead
+        return;
+      }
+
+      const dropWorld = computeDropWorld(e.clientX, e.clientY);
+      // Collect all OS files (including folders via FileSystemEntry API)
+      const files = await collectFilesFromDataTransfer(e.dataTransfer);
+      await importDroppedFiles(files, dropWorld);
+    },
+    [computeDropWorld, importDroppedFiles],
+  );
+
+  // Native Tauri file drag-and-drop. wry's WebKitGTK backend hooks GTK's own
+  // drag-and-drop signals on the WebView widget unconditionally, so the
+  // HTML5 dragover/drop handlers above never fire on Linux — this listens
+  // to Tauri's window-level drag-drop events instead (absolute file paths,
+  // not File objects) and reads each file's bytes via the platform facade.
+  useEffect(() => {
+    const platform = editorRef.current.platform;
+    if (!platform || platform.kind !== 'tauri') return;
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    void platform
+      .onNativeFileDrop(async (event) => {
+        if (event.type === 'enter' || event.type === 'over') {
+          setIsDragOver(true);
+          return;
+        }
+        if (event.type === 'leave') {
+          setIsDragOver(false);
+          return;
+        }
+        // event.type === 'drop'
+        setIsDragOver(false);
+        const dropWorld = computeDropWorld(event.position.x, event.position.y);
+        const files: { name: string; data: Uint8Array | string }[] = [];
+        for (const path of event.paths) {
+          try {
+            const bytes = await platform.readFileBytes(path);
+            const name = path.split(/[/\\]/).pop() ?? path;
+            if (name.toLowerCase().endsWith('.svg')) {
+              files.push({ name, data: new TextDecoder().decode(bytes) });
+            } else {
+              files.push({ name, data: bytes });
+            }
+          } catch (err) {
+            editorRef.current.announce(
+              `Could not read dropped file: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+        await importDroppedFiles(files, dropWorld);
+      })
+      .then((un) => {
+        if (cancelled) {
+          un();
+        } else {
+          unlisten = un;
+        }
+      });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [computeDropWorld, importDroppedFiles]);
 
   const gridSize = Math.max(4, 24 * state.zoom);
 

@@ -14,8 +14,8 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.2');
-    expect(SUPPORTED_VERSIONS).toContain('2.1');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.3');
+    expect(SUPPORTED_VERSIONS).toContain('2.2');
   });
   it('stamps current version on new documents', () => {
     const doc = stampVersion({
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.2');
+    expect(migrated.formatVersion).toBe('2.3');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.2');
+    expect(migrated.formatVersion).toBe('2.3');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.2');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.3');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
