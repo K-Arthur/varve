@@ -129,8 +129,8 @@ describe('ActionTracker', () => {
     mockNow += 100;
     tracker.record('tool:rect');
     const coMap = tracker.getCoOccurrenceMap(60_000);
-    expect(coMap.get('setFill::tool:select')).toBe(1);
-    expect(coMap.get('tool:rect::tool:select')).toBeGreaterThanOrEqual(2);
+    expect(coMap.get('setFill::tool:select')).toBe(2);
+    expect(coMap.get('tool:rect::tool:select')).toBe(4);
     vi.restoreAllMocks();
   });
 
