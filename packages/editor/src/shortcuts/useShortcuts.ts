@@ -111,6 +111,7 @@ export function useShortcuts(
           return;
         }
         e.preventDefault();
+        editor.recordAction(`shortcut:${id}`);
         getHandler(id)?.();
         return;
       }

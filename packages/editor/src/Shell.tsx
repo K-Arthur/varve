@@ -104,6 +104,11 @@ function ShellInner({
     setCanvasContextMenu(pos);
   }, []);
 
+  // Record tool selections for intelligence features (adaptive UI, onboarding, etc.)
+  useEffect(() => {
+    editor.recordAction(`tool:${editor.state.tool}`);
+  }, [editor.state.tool]);
+
   // ── Lifecycle event handlers ─────────────────────────────────────────────
 
   // Native paste event listener (cross-platform, works on Wayland).
