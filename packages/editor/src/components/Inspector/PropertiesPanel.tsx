@@ -28,6 +28,7 @@ import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
 import { BrushSection } from './sections/BrushSection';
+import { CognitiveLoadIndicator } from './sections/CognitiveLoadIndicator';
 import { ComponentSection } from './sections/ComponentSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
@@ -289,6 +290,9 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
           />
         </DisclosureSection>
       )}
+      <DisclosureSection title="Cognitive Load" defaultExpanded={false}>
+        <CognitiveLoadIndicator document={state.document} nodeId={node.id} />
+      </DisclosureSection>
     </>
   );
 }
@@ -300,6 +304,7 @@ function MultiSelectionPanel({
   nodes: SceneNode[];
   summary: SelectionSummary;
 }) {
+  const { state } = useEditor();
   return (
     <>
       <div className="insp-panel__multi-count" role="status">
@@ -315,6 +320,9 @@ function MultiSelectionPanel({
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
+      <DisclosureSection title="Cognitive Load" defaultExpanded={false}>
+        <CognitiveLoadIndicator document={state.document} nodeId={null} />
+      </DisclosureSection>
     </>
   );
 }

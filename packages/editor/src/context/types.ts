@@ -660,4 +660,16 @@ export interface EditorContextValue {
 
   // Analytics
   recordAction: (actionId: string) => void;
+
+  // Palette extraction
+  extractPalette: (data: ImageData, colorCount?: number) => import('@strata/engine').PaletteResult;
+  generateHarmony: (
+    color: import('@strata/scene').ManagedColor,
+    type: 'complementary' | 'triadic' | 'analogous' | 'splitComplementary' | 'monochromatic',
+  ) => import('@strata/engine').HarmonyPalette;
+
+  // Cognitive load
+  getCognitiveLoad: (
+    nodeId: import('@strata/scene').NodeId | null,
+  ) => import('../intelligence/cognitiveLoad').CognitiveLoadReport;
 }

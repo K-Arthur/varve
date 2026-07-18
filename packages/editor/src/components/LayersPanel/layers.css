@@ -395,6 +395,11 @@
   min-width: 0;
 }
 
+.layers-row__name-input::placeholder {
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
 /* ─── Instance badge ────────────────────────────────────────── */
 .layers-row__instance-badge {
   font-size: var(--font-size-xs);

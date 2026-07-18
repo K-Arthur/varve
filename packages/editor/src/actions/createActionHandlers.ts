@@ -1,4 +1,5 @@
 import { exportDocumentToSvg } from '@strata/codegen';
+import { extractPalette as engineExtractPalette } from '@strata/engine';
 import type { EditorContextValue, ToolId } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 
@@ -154,6 +155,7 @@ export function createActionHandlers(
       const sel = e.state.selection;
       if (sel.length < 3) return;
       e.updateDoc((doc) => applyHarmonize(doc, sel));
+      e.announce?.('Spacing harmonized');
     },
     booleanUnion: () => e.booleanOp('union'),
     booleanSubtract: () => e.booleanOp('subtract'),
@@ -213,5 +215,46 @@ export function createActionHandlers(
 
     // ── Other ──
     batchBgRemove: () => cb.onBatchBgRemove?.(),
+    extractPalette: () => {
+      const selected = e.state.selection;
+      const imageNode = selected
+        .map((id) => e.state.document.nodes[id])
+        .find((n) => {
+          const fills = (n as unknown as unknown as Record<string, unknown>)?.fills as unknown as
+            | { type: string; image?: { src: string } }[]
+            | undefined;
+          return fills?.some((f) => f.type === 'image' && f.image?.src);
+        });
+      if (!imageNode) {
+        e.announce?.('Select an image layer to extract palette');
+        return;
+      }
+      const fills = (imageNode as unknown as Record<string, unknown>).fills as unknown as
+        | { type: string; image?: { src: string } }[]
+        | undefined;
+      const src = fills?.find((f) => f.type === 'image')?.image?.src;
+      if (!src) return;
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0);
+        const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const result = engineExtractPalette(data, 6);
+        if (result.colors.length > 0) {
+          e.announce?.(
+            `Extracted ${result.colors.length} colors (${(result.coverage * 100).toFixed(0)}% coverage)`,
+          );
+        }
+      };
+      img.onerror = () => {
+        e.announce?.('Failed to load image for palette extraction');
+      };
+      img.src = src;
+    },
   };
 }

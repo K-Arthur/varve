@@ -1,4 +1,8 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Root Vitest config. Per-file environment override via:
 //   // @vitest-environment jsdom
@@ -7,11 +11,18 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['fast-check'],
   },
-  resolve: {
-    alias: {
-      '@tauri-apps/api/core': '/home/karthur/CodingProjects/Strata/vitest.mocks.ts',
-      'onnxruntime-web': '/home/karthur/CodingProjects/Strata/vitest.mocks.ts',
+  plugins: [
+    {
+      name: 'mock-optional-deps',
+      resolveId(source) {
+        if (source === 'onnxruntime-web' || source === '@tauri-apps/api/core') {
+          return join(__dirname, 'vitest.mocks.ts');
+        }
+      },
     },
+  ],
+  resolve: {
+    alias: {},
   },
   test: {
     server: {

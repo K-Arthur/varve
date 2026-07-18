@@ -8,11 +8,19 @@
  */
 
 import type { DraggableAttributes, DraggableSyntheticListeners } from '@dnd-kit/core';
-import type { AdjustmentNode, InstanceStatus, NodeId, SceneNode, ShapeNode } from '@strata/scene';
+import type {
+  AdjustmentNode,
+  Document,
+  InstanceStatus,
+  NodeId,
+  SceneNode,
+  ShapeNode,
+} from '@strata/scene';
 import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
 import type { IconName } from '@strata/ui';
 import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { autoName } from '../../intelligence/autoNamer';
 import type { PresenceData } from './PresenceIndicator';
 import { PresenceIndicator } from './PresenceIndicator';
 import { useThumbnail } from './useThumbnail';
@@ -56,6 +64,8 @@ export interface LayersRowProps {
    * id in different open documents (ids are per-document counters starting
    * at `n1`) never share a cached thumbnail. */
   docId?: string;
+  /** Document used to compute auto-name suggestions while renaming. */
+  doc?: Document;
 }
 
 const NODE_ICONS: Record<string, IconName> = {
@@ -124,9 +134,11 @@ export const LayersRow = memo(function LayersRow({
   syncStatus,
   presences,
   docId,
+  doc,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
+  const ghostName = useMemo(() => (doc ? autoName(doc, node) : null), [doc, node]);
   const isFrame = node.kind === 'frame';
   const isGroup = node.kind === 'group';
   const isContainerNode = isContainer(node);
@@ -172,11 +184,15 @@ export const LayersRow = memo(function LayersRow({
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim();
-    if (trimmed && trimmed !== node.name) {
+    if (trimmed === '') {
+      if (ghostName && ghostName !== node.name) {
+        onRename(node.id, ghostName);
+      }
+    } else if (trimmed !== node.name) {
       onRename(node.id, trimmed);
     }
     onRenameCommit();
-  }, [editValue, node.id, node.name, onRename, onRenameCommit]);
+  }, [editValue, node.id, node.name, onRename, onRenameCommit, ghostName]);
 
   const handleRenameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -330,6 +346,7 @@ export const LayersRow = memo(function LayersRow({
             name={`layers-row-rename-${node.id}`}
             className="layers-row__name-input"
             value={editValue}
+            placeholder={ghostName ?? ''}
             onChange={(e) => setEditValue(e.target.value)}
             onBlur={commitRename}
             onKeyDown={handleRenameKeyDown}
