@@ -9,9 +9,10 @@ import {
   scopeForTargets,
   validateScope,
 } from './adjustmentScope';
+import type { Document } from './document';
 import { makeAdjustmentNode, createDocument } from './document';
-import { migrateDocument, serializeDocument, CURRENT_DOCUMENT_VERSION } from './version';
-import type { Document, NodeId } from './types';
+import { migrateDocument } from './version';
+import type { NodeId } from './types';
 
 function makeTestDoc(): Document {
   return createDocument('scope-test', true) as Document;
@@ -43,19 +44,31 @@ describe('AdjustmentScope - Save/Reopen', () => {
     const doc = makeTestDoc();
     const shapeId = 'shape1';
     let d = addNode(doc, {
-      id: shapeId, kind: 'shape', name: 'Shape', order: 'a0',
-      visible: true, locked: false, opacity: 1, blendMode: 'normal',
-      rotation: 0, fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      id: shapeId,
+      kind: 'shape',
+      name: 'Shape',
+      order: 'a0',
+      visible: true,
+      locked: false,
+      opacity: 1,
+      blendMode: 'normal',
+      rotation: 0,
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       transform: [1, 0, 0, 1, 0, 0] as const,
       shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-      strokes: [], effects: [],
+      strokes: [],
+      effects: [],
     } as import('./types').ShapeNode);
 
     const adjId = 'adj1';
     d = addNode(d, {
       ...makeAdjustmentNode(adjId, 'levels', {
-        channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1,
-        outputBlack: 0, outputWhite: 255,
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
       }),
       scope: { mode: 'image-local', targetNodeId: shapeId },
       adjustments: [],
@@ -78,8 +91,12 @@ describe('AdjustmentScope - Save/Reopen', () => {
     const adjId = 'adj1';
     let d = addNode(doc, {
       ...makeAdjustmentNode(adjId, 'levels', {
-        channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1,
-        outputBlack: 0, outputWhite: 255,
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
       }),
       scope: { mode: 'explicit-targets', targetNodeIds: ['t1', 't2'] },
       adjustments: [],
@@ -99,8 +116,12 @@ describe('AdjustmentScope - Save/Reopen', () => {
     const adjId = 'adj1';
     let d = addNode(doc, {
       ...makeAdjustmentNode(adjId, 'levels', {
-        channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1,
-        outputBlack: 0, outputWhite: 255,
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
       }),
       scope: { mode: 'container-descendant', containerId: 'frame1', includeNested: true },
       adjustments: [],
@@ -121,8 +142,12 @@ describe('AdjustmentScope - Save/Reopen', () => {
     const adjId = 'adj1';
     const d = addNode(doc, {
       ...makeAdjustmentNode(adjId, 'levels', {
-        channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1,
-        outputBlack: 0, outputWhite: 255,
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
       }),
       scope: { mode: 'document' },
       adjustments: [],
@@ -148,7 +173,13 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
           kind: 'adjustment',
           clipping: true,
           adjustmentType: 'curves' as const,
-          params: { channel: 'rgb', points: [{ x: 0, y: 0 }, { x: 255, y: 255 }] },
+          params: {
+            channel: 'rgb',
+            points: [
+              { x: 0, y: 0 },
+              { x: 255, y: 255 },
+            ],
+          },
         },
       },
       components: {},
@@ -157,7 +188,7 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
 
     const migrated = migrateDocument(v22Doc) as Record<string, unknown>;
     expect(migrated.formatVersion).toBe('2.3');
-    const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1;
+    const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1!;
     expect(adj.scope).toBeDefined();
     expect((adj.scope as Record<string, unknown>).mode).toBe('image-local');
   });
@@ -174,9 +205,23 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
           kind: 'adjustment',
           clipping: false,
           adjustmentType: 'levels' as const,
-          params: { channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1, outputBlack: 0, outputWhite: 255 },
+          params: {
+            channel: 'rgb',
+            inputBlack: 0,
+            inputWhite: 255,
+            gamma: 1,
+            outputBlack: 0,
+            outputWhite: 255,
+          },
           adjustments: [
-            { id: 'a1', kind: 'brightness', value: 10, visible: true, opacity: 1, blendMode: 'normal' },
+            {
+              id: 'a1',
+              kind: 'brightness',
+              value: 10,
+              visible: true,
+              opacity: 1,
+              blendMode: 'normal',
+            },
           ],
         },
       },
@@ -185,7 +230,7 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
     };
 
     const migrated = migrateDocument(v22Doc) as Record<string, unknown>;
-    const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1;
+    const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1!;
     expect((adj.scope as Record<string, unknown>).mode).toBe('document');
   });
 
@@ -201,7 +246,14 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
           kind: 'adjustment',
           clipping: false,
           adjustmentType: 'levels' as const,
-          params: { channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1, outputBlack: 0, outputWhite: 255 },
+          params: {
+            channel: 'rgb',
+            inputBlack: 0,
+            inputWhite: 255,
+            gamma: 1,
+            outputBlack: 0,
+            outputWhite: 255,
+          },
         },
       },
       components: {},
@@ -209,7 +261,7 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
     };
 
     const migrated = migrateDocument(v22Doc) as Record<string, unknown>;
-    const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1;
+    const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1!;
     expect(adj.scope).toBeUndefined();
   });
 });
@@ -241,7 +293,11 @@ describe('AdjustmentScope - Edge Cases', () => {
 
   it('validateScope warns about missing container', () => {
     const doc = makeTestDoc();
-    const warnings = validateScope(doc, { mode: 'container-descendant', containerId: 'gone', includeNested: false });
+    const warnings = validateScope(doc, {
+      mode: 'container-descendant',
+      containerId: 'gone',
+      includeNested: false,
+    });
     expect(warnings.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -255,8 +311,12 @@ describe('AdjustmentScope - Edge Cases', () => {
     const adjId = 'adj1';
     const d = addNode(doc, {
       ...makeAdjustmentNode(adjId, 'levels', {
-        channel: 'rgb', inputBlack: 0, inputWhite: 255, gamma: 1,
-        outputBlack: 0, outputWhite: 255,
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
       }),
       adjustments: [],
     } as import('./types').AdjustmentNode);
