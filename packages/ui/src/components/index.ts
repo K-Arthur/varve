@@ -6,6 +6,8 @@
 
 export type { ButtonProps, ButtonSize, ButtonVariant } from './Button';
 export { Button } from './Button';
+export type { CheckboxProps } from './Checkbox';
+export { Checkbox } from './Checkbox';
 export type {
   Color,
   ColorPickerProps,
@@ -83,4 +85,6 @@ export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
 export type { TooltipProps } from './Tooltip';
 export { Tooltip } from './Tooltip';
+export type { ViewModeOption, ViewModeSwitcherProps } from './ViewModeSwitcher';
+export { ViewModeSwitcher } from './ViewModeSwitcher';
 // contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @strata/ui tokens

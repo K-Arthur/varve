@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Icon } from '../icons/Icon';
+import { SolidIcon } from '../icons/SolidIcon';
 import { FloatingPortal } from './FloatingPortal';
 
 export interface SelectOption {
@@ -266,7 +266,7 @@ export function Select({
         <span className={selectedOption ? 'strata-select__value' : 'strata-select__placeholder'}>
           {selectedOption?.label ?? placeholder}
         </span>
-        <Icon name="ChevronDown" className="strata-select__chevron" />
+        <SolidIcon name="CaretDown" className="strata-select__chevron" />
       </div>
 
       <FloatingPortal
@@ -322,7 +322,7 @@ export function Select({
                   onMouseEnter={() => setHighlightedIdx(i)}
                 >
                   <span className="strata-select__option-label">{option.label}</span>
-                  {isSelected && <Icon name="Check" className="strata-select__check" />}
+                  {isSelected && <SolidIcon name="Check" className="strata-select__check" />}
                 </div>
               );
             })
