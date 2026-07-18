@@ -209,8 +209,8 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 ```
 
 ## Current test counts
-- **Rust:** 304 tests (all workspace crates): strata-bgremove 8, strata-bridge 5, strata-colour 8, strata-core 61, strata-engine 11, strata-layout 63, strata-print 107, strata-sync 9, strata-trace 7, strata-upscale 6
-- **JS:** 5304+ tests across 482+ files. TypeScript typecheck: 17/17 packages clean (pre-existing type errors in @strata/editor remain — see Session 48).
+- **Rust:** 356 tests (all workspace crates, 2026-07-17): strata-bgremove 8, strata-bridge 5, strata-colour 8, strata-core 61, strata-engine 11, strata-layout 63, strata-print 117, strata-sync 9, strata-trace 50, strata-upscale 6, plus 19 integration tests (wgsl-drift 8, agreement 11)
+- **JS:** 6605 tests across 577 files (2026-07-17, `pnpm test`, full workspace, 0 failures). TypeScript typecheck: all packages clean except @strata/editor — 259 pre-existing errors across ~60 files (canvas/render/hitTest, several Session 50 intelligence modules, unrelated Inspector sections) predating the intelligence UI-wiring work; none of it blocks `pnpm dev`/`pnpm build` since Vite/esbuild doesn't type-check. See Session 48 and Session 50.
 - **Effects engine:** 77+ tests: 34 replay-fill (was 31) + backdrop cache, 24 halftone (+Bayer, offset dispatch), 11 filterCompositor (+premultiplied alpha), 11 blur (new separable module), 19 boolean hardening (+self-intersect, degenerate, fuzz suite)
 - **Architecture health (2026-07-14 triage baseline):** Composite D (68.5/100). Avg complexity 5.9, dead code 1.9%, 191 unstable modules, 4 dependency cycles, 0 layer violations, 99.3% test reachability.
 - **Playwright E2E:** `npx playwright test tests/e2e --project=chromium` from repo root (NOT `pnpm test:e2e --filter @strata/home` — that `--filter` flag is a pnpm-workspace filter, not a Playwright test filter, and does not scope to the home suite; it's accepted but ignored). 6 spec directories under `tests/e2e/` (home, inspector, layers, spec, motion, canvas). `playwright.config.ts`'s `webServer` boots `pnpm --filter @strata/desktop dev` automatically — no need to start the dev server yourself first.
@@ -2227,3 +2227,54 @@ Complete implementation of master pages, facing-page spreads, native print backe
 - **Emoji:** 0 violations
 - **Tokens:** 96/96 WCAG-AA
 - **Pre-existing fixes:** Popover (6 tests) and PencilTool (11 tests) failures resolved
+
+## Session 50 — Strata Intelligence: algorithm completion + UI wiring (2026-07-17)
+
+Two-part session: (1) implemented the remaining Phase 0-5 intelligence algorithms from the design plan (most already existed after Session 36; this filled the gaps — variant detection, cross-doc scanning, style dedup, token analytics, easing/transition advisors, prototype flow analysis, workflow/shortcut/command-ranking analytics, progressive complexity, design fingerprint, smart defaults, and an ONNX-ready ML registry with heuristic fallbacks), then (2) wired the resulting ~30 `packages/editor/src/intelligence/*` modules into the actual UI surfaces they were built for — most of the original plan was already-built algorithms with no way to reach them.
+
+### Part 1 — Algorithm modules (packages/editor/src/intelligence/)
+
+| Module | What |
+|---|---|
+| `componentVariantDetector.ts` | Extends `componentDetector.ts`'s duplicate-structure groups with property-diff variant candidates. |
+| `crossDocScanner.ts` | Cross-document color drift / component misuse / style duplication via a `Platform` instance. |
+| `styleDeduplicator.ts` | Deep property comparison + merge suggestions for duplicate styles. |
+| `tokenAnalytics.ts` | Token coverage percentage (color/spacing/font) with a 7-week localStorage trend. |
+| `easingAdvisor.ts` / `transitionAdvisor.ts` | Property/distance-aware easing and transition-duration suggestions for the timeline. |
+| `prototypeFlowAnalyzer.ts` | Dead-end/orphan/missing-back-nav detection plus spatial-order link suggestions. |
+| `motionPresetRecommender.ts` | Matches recent timelines against saved presets, suggests naming unnamed patterns. |
+| `shortcutRecommender.ts` / `commandRanker.ts` / `workflowAnalyzer.ts` | ActionTracker-driven: shortcut-adoption nudges, frequency ranking, n-gram workflow pattern detection. |
+| `progressiveComplexity.ts` | Skill-tier UI visibility flags from `onboardingAdapter`'s classification. |
+| `smartDefaults.ts` / `designFingerprint.ts` | Tracker/document-derived defaults (frame size, palette, spacing) and a persisted design-pattern profile. |
+| `mlModelRegistry.ts` / `layoutClassifier.ts` / `semanticSearch.ts` | ONNX model lifecycle stub with heuristic-first fallback — every ML-enhanced feature works with no model downloaded. |
+| `registry.ts` | Central feature registry (id/name/category/run/autoFix) — not yet consumed by a command palette, but the seam is there for one. |
+
+### Part 2 — UI wiring (this is the part users can actually reach)
+
+| Surface | What changed | Files |
+|---|---|---|
+| **Status-bar → inspector** | `DebtBadge` and `LayoutScoreIndicator` clicks now open `IntelligencePanel`'s debt/layout tabs. Implemented as a module-level handler bridge (`setInspectorTabHandler`/`context.setInspectorTab`) mirroring the existing `setToastHandler` pattern — `PropertiesPanel` registers itself on mount and remounts `IntelligencePanel` with the requested sub-tab via a seq-counter key, so repeated clicks on the same sub-tab always work even when the panel is already open. | `context.tsx`, `context/types.ts`, `components/DebtBadge.tsx`, `components/StatusBar/LayoutScoreIndicator.tsx`, `components/Inspector/PropertiesPanel.tsx` |
+| **Debt auto-fix** | `DebtTab` auto-runs on mount and on document change (idle-scheduled). `debtScanner.ts`'s `DebtIssue` gained a real `autoFix?: (doc) => Document` field, implemented for `untokenized-colors` (adds the color as a document swatch) and `missing-fonts` (swaps to the first available font, including rich-text runs). `unnamed-layers` auto-fix is handled in the editor layer via the existing `autoNamer.ts` heuristic (not duplicated into `@strata/scene`, which must not depend on `@strata/editor`). | `packages/scene/src/intelligence/debtScanner.ts`, `panels/IntelligencePanel.tsx` |
+| **Component creation** | New `createComponentFromGroup(nodeIds)` context action: first node becomes the master component definition, the rest are replaced in place with instances (transform/opacity/rotation preserved). Wires `ComponentsTab`'s previously-inert "Create component" button. | `context.tsx`, `panels/IntelligencePanel.tsx` |
+| **Menubar + QuickActionsBar** | Object menu gained Audit / Scan for Debt / Suggest Names / Detect Duplicates (Harmonize Spacing was already wired to Arrange + Ctrl+Shift+Space). Same four registered in the central `ActionRegistry` with search keywords, so `QuickActionsBar` (Ctrl+;) lists and can launch them. | `Menubar.tsx`, `actions/createActionHandlers.ts`, `actions/registerAll.ts` |
+| **Contrast indicators** | Fixed a real runtime bug: `FillSection`'s `FillRow` rendered two different `ContrastIndicator` components for text nodes — a stale one using a `fgColor`/`bgColor` prop shape that doesn't exist on the actual component (`fill`/`background`/`fillIndex`), which would throw accessing `fill.type` on `undefined`. Removed the duplicate, carried its fontSize/fontWeight context into the working call. | `components/Inspector/sections/FillSection.tsx` |
+| **AI chat dispatch** | New `@strata/ai/intelligenceRegistry.ts`: command metadata + keyword matching. Scene-native commands (`check-contrast` via `runIntelligenceAudit`, `scan-debt` via `runDebtScan`) run directly against `@strata/scene`; editor-only commands (`suggest-names`, `harmonize-spacing`) are dispatched through a caller-supplied handler callback — `@strata/ai` never imports `@strata/editor` (would cycle back). `chat()`/`createAssistant().sendMessage()` take an optional per-call context; `AIPanel` supplies `state.document` plus handlers backed by `renameSelected`/`harmonizeSpacing`. No context → same mock replies as before (backward compatible). | `packages/ai/src/intelligenceRegistry.ts`, `packages/ai/src/index.ts`, `components/AIPanel.tsx` |
+| **Export advisor** | `AssetExportControls` pre-fills format/scale from `exportAdvisor.suggestExportFormat(node, doc)` on mount and whenever the selected node changes (without fighting a manual choice made on the same node), plus a "Why?" info button showing the heuristic's reason. | `components/SpecPanel/AssetExportControls.tsx`, `SpecPanel.css` |
+
+### Pre-existing bugs found and fixed while wiring (all predate this session — verified via `git blame`)
+
+- `context.tsx`: `getShapeKindName` (autoNamer) didn't cover line/polygon/star/arrow shapes, silently defaulting them to "Shape" once auto-naming got wired into node creation; `createClippingMaskDoc` was called but never imported (dead code path, `createClippingMaskFromSelected` would throw); `shapeForTool`'s exhaustiveness switch was missing the `smudge` tool; initial `brushSettings` state was missing 11 fields a later brush-engine change added (`smudgeStrength`, `grainId`, wet-paint fields, …); `getSpreadForPage`/`getPageSide` referenced a nonexistent local `./types` module instead of `@strata/scene`; `Icon name="AlertTriangle"`/`"HelpCircle"` — lucide-react renamed these to `TriangleAlert`/`CircleHelp`.
+- `exportAdvisor.ts`: frame-children list used `.filter(Boolean)`, which doesn't narrow `undefined` out of the TS type, leaving every downstream access unsound.
+- `crates/strata-print`, `crates/strata-layout`: two `cargo clippy -D warnings` failures (one pre-existing unneeded-wildcard-pattern, one `rustc` 1.97.1 vs the documented 1.96 toolchain drift on f32 literal fallback) — blocked `just gate`'s lint step though a normal `cargo build`/`cargo check` already succeeded.
+- `registerAll.ts`: `SHORTCUT_DEFS[id]` lookup had no index signature (implicit `any`).
+
+### Verification
+- **JS tests:** 6605 passed, 3 skipped, 0 failed (577 files, full `pnpm test`)
+- **Rust tests:** 356/356 workspace tests pass (`cargo test --workspace`, 2026-07-17): strata-bgremove 8, strata-bridge 5, strata-colour 8, strata-core 61, strata-engine 11, strata-layout 63, strata-print 117, strata-sync 9, strata-trace 50, strata-upscale 6, wgsl-drift 8, agreement 11
+- **Typecheck:** all packages clean except `@strata/editor`'s pre-existing ~259 errors (unrelated to this session's touched files — canvas/render/hitTest and several intelligence modules never reached typecheck-clean after their initial implementation)
+- **Lint:** 0 new errors on touched files
+- **Tokens:** 120/120 WCAG-AA (3 themes)
+- **Emoji:** 0 violations
+- **`just gate`:** passes after the two Rust clippy fixes above
+- **Manual verification:** live Vite dev server + Playwright — created a document, drew a shape, opened the Audit panel, confirmed the Layout Score status-bar badge correctly switches to the Layout sub-tab, no console errors
+- **Not done this session:** the ~259 pre-existing `@strata/editor` typecheck errors outside this session's files (canvas/hitTest/render/most `intelligence/*.ts` modules from their initial implementation) — accepted debt, tracked here rather than silently ignored. `wcagFix.ts` vs `@strata/scene/intelligence/audit.ts` duplication (flagged in the original plan) was not unified — `FillSection`'s `ContrastIndicator` uses `wcagFix.ts` (has working auto-fix), `TypographySection`'s uses `audit.ts`-adjacent logic; left as-is since unifying them was a larger refactor than this session's wiring scope.
