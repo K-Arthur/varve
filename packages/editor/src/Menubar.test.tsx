@@ -129,6 +129,10 @@ vi.mock('./shortcuts', () => ({
       binding: { key: ' ', ctrl: true, shift: true },
       label: 'Harmonize Spacing',
     },
+    toggleGraphEditor: {
+      binding: { key: 'g', ctrl: true, alt: true },
+      label: 'Graph Editor',
+    },
   },
 }));
 

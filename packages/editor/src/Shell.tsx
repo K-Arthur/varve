@@ -196,7 +196,7 @@ function ShellInner({
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
-  const hidePageNav = !getWorkspaceConfig(workspaceMode).visiblePanels.pagenav;
+  const hidePageNav = !getWorkspaceConfig(workspaceMode).panels.pagenav.visible;
 
   const layersDndRef = useRef<LayersDnDHandle | null>(null);
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
@@ -324,9 +324,11 @@ function ShellInner({
                 playbackSpeed={editor.state.motion.playbackSpeed}
                 loop={editor.state.motion.loop}
                 autoKeyframe={editor.state.motion.autoKeyframe}
+                onionSkin={editor.state.motion.onionSkinEnabled}
                 motionPresets={editor.state.document.motionPresets ?? {}}
                 selectedTrackIds={editor.state.motion.selectedTrackIds}
                 selectedKeyframeIndex={null}
+                graphEditorVisible={editor.state.graphEditorVisible}
                 onPlay={() => editor.playTimeline()}
                 onPause={() => editor.pauseTimeline()}
                 onStop={() => editor.stopTimeline()}
@@ -334,6 +336,21 @@ function ShellInner({
                 onSpeedChange={(speed) => editor.setPlaybackSpeed(speed)}
                 onToggleLoop={() => editor.toggleLoop()}
                 onToggleAutoKeyframe={() => editor.toggleAutoKeyframe()}
+                onToggleOnionSkin={() => editor.toggleOnionSkin()}
+                onToggleGraphEditor={() => editor.toggleGraphEditor()}
+                onDeleteKeyframe={(tlId, trackId, progress) =>
+                  editor.deleteKeyframe(tlId, trackId, progress)
+                }
+                onMoveKeyframe={(tlId, trackId, oldP, newP) =>
+                  editor.moveKeyframe(tlId, trackId, oldP, newP)
+                }
+                onUpdateKeyframeEasing={(tlId, trackId, progress, easing) =>
+                  editor.updateKeyframeEasing(tlId, trackId, progress, easing)
+                }
+                onSetTrackMuted={(tlId, trackId, muted) =>
+                  editor.setTrackMuted(tlId, trackId, muted)
+                }
+                onSetTrackSolo={(tlId, trackId, solo) => editor.setTrackSolo(tlId, trackId, solo)}
                 onAddMarker={(timeMs) => {
                   const tlId = editor.state.motion.activeTimelineId;
                   if (!tlId) return;
@@ -372,7 +389,15 @@ function ShellInner({
                 }}
                 onSelectTimeline={(id) => editor.setActiveTimeline(id)}
                 onCreateTimeline={() => editor.createTimeline()}
-                onSelectTrack={() => {}}
+                onSelectTrack={(trackId) => {
+                  const s = editor.state.motion;
+                  const alreadySelected = s.selectedTrackIds.includes(trackId);
+                  editor.setMotionSelectedTracks?.(
+                    alreadySelected
+                      ? s.selectedTrackIds.filter((id) => id !== trackId)
+                      : [...s.selectedTrackIds, trackId],
+                  );
+                }}
                 onClickKeyframe={(_trackId, progress) => {
                   const tl = editor.state.motion.activeTimelineId
                     ? editor.state.document.timelines?.[editor.state.motion.activeTimelineId]

@@ -1534,6 +1534,21 @@ const MOTION_NOOP: MotionContextValue = {
   createMotionPresetFromTimeline: () => '',
   applyMotionPreset: () => {},
   toggleAutoKeyframe: () => {},
+  toggleGraphEditor: () => {},
+  setGraphEditorProperty: () => {},
+  deleteKeyframe: () => {},
+  moveKeyframe: () => {},
+  duplicateKeyframe: () => {},
+  updateKeyframeEasing: () => {},
+  addTrackToTimeline: () => {},
+  setTrackMuted: () => {},
+  setTrackSolo: () => {},
+  setMotionSelectedTracks: () => {},
+  toggleOnionSkin: () => {},
+  setOnionSkinBeforeCount: () => {},
+  setOnionSkinAfterCount: () => {},
+  setOnionSkinOpacity: () => {},
+  setTrackNestedTimeline: () => {},
 };
 
 /** No-op fallback for prototype methods used before PrototypeProvider mounts. */
@@ -1613,6 +1628,8 @@ export function EditorProvider({
       motion: createInitialMotionState(),
       canvasMode: 'full',
       workspaceMode: 'design' as WorkspaceMode,
+      graphEditorVisible: false,
+      selectedGraphProperty: null,
       cameraRotation: 0,
       rulerMode: vpDefaults.rulerMode as RulerMode,
       gridOverlayMode: vpDefaults.gridOverlayMode as GridOverlayMode,
@@ -2181,9 +2198,9 @@ export function EditorProvider({
         const config = getWorkspaceConfig(mode);
         const patchObj: Partial<EditorState> & Record<string, unknown> = {
           workspaceMode: mode,
-          leftPanelVisible: config.visiblePanels.layers,
-          rightPanelVisible: config.visiblePanels.inspector,
-          timelinePanelVisible: config.visiblePanels.timeline,
+          leftPanelVisible: config.panels.layers.visible,
+          rightPanelVisible: config.panels.inspector.visible,
+          timelinePanelVisible: config.panels.timeline.visible,
         };
         if (config.defaultTool && config.defaultTool !== state.tool) {
           patchObj.tool = config.defaultTool as ToolId;
@@ -2191,8 +2208,8 @@ export function EditorProvider({
         patch(patchObj as Partial<EditorState>);
         updateSettings({
           panel: {
-            leftPanelVisible: config.visiblePanels.layers,
-            rightPanelVisible: config.visiblePanels.inspector,
+            leftPanelVisible: config.panels.layers.visible,
+            rightPanelVisible: config.panels.inspector.visible,
           },
         });
         announcerRef.current?.announce(`Switched to ${mode} workspace`);
@@ -2201,9 +2218,9 @@ export function EditorProvider({
         const mode = state.workspaceMode;
         const config = getWorkspaceConfig(mode);
         const patchObj: Partial<EditorState> & Record<string, unknown> = {
-          leftPanelVisible: config.visiblePanels.layers,
-          rightPanelVisible: config.visiblePanels.inspector,
-          timelinePanelVisible: config.visiblePanels.timeline,
+          leftPanelVisible: config.panels.layers.visible,
+          rightPanelVisible: config.panels.inspector.visible,
+          timelinePanelVisible: config.panels.timeline.visible,
         };
         if (config.defaultTool) {
           patchObj.tool = config.defaultTool as ToolId;
