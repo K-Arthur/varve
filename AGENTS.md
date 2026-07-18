@@ -210,7 +210,7 @@ WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/1000 DISPLAY=:0 GDK_BACKEND=
 
 ## Current test counts
 - **Rust:** 356 tests (all workspace crates, 2026-07-17): strata-bgremove 8, strata-bridge 5, strata-colour 8, strata-core 61, strata-engine 11, strata-layout 63, strata-print 117, strata-sync 9, strata-trace 50, strata-upscale 6, plus 19 integration tests (wgsl-drift 8, agreement 11)
-- **JS:** 6605 tests across 577 files (2026-07-17, `pnpm test`, full workspace, 0 failures). TypeScript typecheck: all packages clean except @strata/editor — 259 pre-existing errors across ~60 files (canvas/render/hitTest, several Session 50 intelligence modules, unrelated Inspector sections) predating the intelligence UI-wiring work; none of it blocks `pnpm dev`/`pnpm build` since Vite/esbuild doesn't type-check. See Session 48 and Session 50.
+- **JS:** 6890+ tests across 589+ files (2026-07-18, `pnpm test`, full workspace, 0 failures). Includes 285+ new Motion Mode tests. TypeScript typecheck: all packages clean except @strata/editor — 259 pre-existing errors across ~60 files (canvas/render/hitTest, several Session 50 intelligence modules, unrelated Inspector sections) predating the intelligence UI-wiring work; none of it blocks `pnpm dev`/`pnpm build` since Vite/esbuild doesn't type-check. See Session 48 and Session 50.
 - **Effects engine:** 77+ tests: 34 replay-fill (was 31) + backdrop cache, 24 halftone (+Bayer, offset dispatch), 11 filterCompositor (+premultiplied alpha), 11 blur (new separable module), 19 boolean hardening (+self-intersect, degenerate, fuzz suite)
 - **Architecture health (2026-07-14 triage baseline):** Composite D (68.5/100). Avg complexity 5.9, dead code 1.9%, 191 unstable modules, 4 dependency cycles, 0 layer violations, 99.3% test reachability.
 - **Playwright E2E:** `npx playwright test tests/e2e --project=chromium` from repo root (NOT `pnpm test:e2e --filter @strata/home` — that `--filter` flag is a pnpm-workspace filter, not a Playwright test filter, and does not scope to the home suite; it's accepted but ignored). 6 spec directories under `tests/e2e/` (home, inspector, layers, spec, motion, canvas). `playwright.config.ts`'s `webServer` boots `pnpm --filter @strata/desktop dev` automatically — no need to start the dev server yourself first.
@@ -384,7 +384,7 @@ P0–P5 motion integration complete. Canonical doc: `docs/architecture/motion-sy
 
 ## Workspace Mode System (2026-07-18)
 
-Four task-focused workspace modes over the same canonical document, scene,
+Five task-focused workspace modes over the same canonical document, scene,
 rendering, command, and history systems. No separate editors or duplicated tools.
 
 | Mode | Shortcut | Default Tool | Focus |
@@ -393,6 +393,7 @@ rendering, command, and history systems. No separate editors or duplicated tools
 | **Print** | `Ctrl+Shift+P` | select | Multi-page layouts, typography, preflight, colour management, production output |
 | **Draw** | `Ctrl+Shift+R` | paint | Raster painting, vector freehand, stylus input, brushes, masks, drawing assists |
 | **Photo** | `Ctrl+Shift+I` | preserve | Nondestructive photo editing, retouching, adjustments, masking, compositing |
+| **Motion** | `Ctrl+Shift+M` | select | Timeline animation, keyframes, easing curves, motion paths, prototype interactions |
 
 ### Architecture
 
@@ -436,18 +437,19 @@ A workspace mode is a typed, versioned `WorkspaceConfig` controlling:
 
 ### Mode-specific configurations
 
-| Feature | Design | Print | Draw | Photo |
-|---|---|---|---|---|
-| Page nav | yes | yes | no | no |
-| Preflight badge | no | **yes** | no | no |
-| Pixel grid | no | no | no | **yes** |
-| Dot grid | yes | yes | yes | no |
-| Bleed guides | no | **yes** | no | no |
-| Default tool | preserve | select | **paint** | preserve |
-| Paint/retouch tools | hidden | hidden | **shown** | **shown** |
-| Frame tool | shown | shown | shown | hidden |
-| Inspector tabs | 5 (all) | 4 (no score) | 2 | 3 |
-| Image cache | 200 | 200 | 200 | **300** |
+| Feature | Design | Print | Draw | Photo | Motion |
+|---|---|---|---|---|---|
+| Page nav | yes | yes | no | no | yes |
+| Timeline panel | no | no | no | no | **yes** |
+| Preflight badge | no | **yes** | no | no | no |
+| Pixel grid | no | no | no | **yes** | no |
+| Dot grid | yes | yes | yes | no | yes |
+| Bleed guides | no | **yes** | no | no | no |
+| Default tool | preserve | select | **paint** | preserve | select |
+| Paint/retouch tools | hidden | hidden | **shown** | **shown** | hidden |
+| Frame tool | shown | shown | shown | hidden | shown |
+| Inspector tabs | 5 (all) | 4 (no score) | 2 | 3 | 2 (properties, export) |
+| Image cache | 200 | 200 | 200 | **300** | 200 |
 
 ### Consumer patterns
 
@@ -464,6 +466,96 @@ const tabs = getVisibleInspectorTabs(state.workspaceMode);
 The FloatingToolbar uses `WORKSPACE_CONFIGS[workspaceMode]` to filter tools.
 The StatusBar uses `getVisibleStatusSections()` for conditional section rendering.
 The Shell uses `config.panels.pagenav.visible` for page nav visibility.
+
+## Motion Mode (2026-07-18)
+
+Complete timeline-based animation workspace built over the existing editor,
+scene model, prototype engine, and renderer. No duplicate animation state.
+
+### Architecture
+
+Motion Mode is a workspace configuration (`'motion'` in `WorkspaceMode`) that:
+- Shows the Timeline panel by default
+- Uses the same Document, scene, undo/redo, selection, and viewport
+- Samples timelines via `TimelineSampler` to produce per-frame property overrides
+- Applies overrides in `CanvasArea.draw()` before `buildIr()` — the renderer
+  is animation-agnostic by design (ADR-0001 IR-replay pattern)
+
+**Render pipeline for animation:**
+1. `MotionFacade` RAF callback → `state.motion.currentTime`
+2. `CanvasArea.draw()` detects `activeTimelineId` → calls `sampleTimelineAt()`
+3. Sampler returns `Map<nodeId, Map<property, value>>` overrides
+4. Overrides applied to engine nodes via `applyPropertyPath()` before `buildIr()`
+5. Resulting IR replayed to canvas2D/compositor
+
+### Key files
+
+| File | Purpose |
+|---|---|
+| `packages/scene/src/motion-types.ts` | `Timeline`, `AnimationTrack`, `AnimationKeyframe`, `MotionPreset` types |
+| `packages/scene/src/motion.ts` | 18 immutable CRUD ops for timelines, tracks, keyframes, markers |
+| `packages/editor/src/timeline/TimelineEngine.ts` | RAF-based playback engine (play/pause/stop/seek/speed/loop) |
+| `packages/editor/src/timeline/TimelineSampler.ts` | WAAPI-style timing model + typed interpolation |
+| `packages/editor/src/timeline/TimelinePanel.tsx` | Timeline UI with zoom, tracks, keyframes, graph editor toggle |
+| `packages/editor/src/timeline/GraphEditor.tsx` | SVG curve editor for easing visualization |
+| `packages/editor/src/timeline/TrackRow.tsx` | Track rows with keyframe dots, mute/solo, drag-to-reposition |
+| `packages/editor/src/timeline/PlaybackControls.tsx` | Play/pause/stop/step/loop/speed/preset controls |
+| `packages/editor/src/context/MotionContext.tsx` | 28 motion methods wired to scene ops |
+| `packages/editor/src/state/motion-state.ts` | `MotionState` type + `MotionTimelineEngine` creation |
+| `packages/editor/src/motion/MotionFacade.ts` | Bridges RAF engine to editor state callbacks |
+| `packages/editor/src/motion/autoKeyframe.ts` | Auto-insert keyframes on property edits during playback |
+| `packages/editor/src/components/MotionPathOverlay.tsx` | Canvas overlay showing animated position paths |
+| `packages/editor/src/components/OnionSkinOverlay.tsx` | Previous/next frame ghost images |
+
+### Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+Shift+M` | Switch to Motion workspace |
+| `Ctrl+Alt+T` | Toggle Timeline panel |
+| `G` | Toggle Graph Editor |
+| `Space` | Play/Pause timeline |
+| `Ctrl+.` | Stop timeline |
+| `Ctrl+→` | Step forward 100ms |
+| `Ctrl+←` | Step backward 100ms |
+| `I` | Add keyframe at playhead |
+
+### Interpolable properties
+
+The `INTERPOLABLE_PROPERTIES` registry in `property-path.ts` covers:
+opacity, rotation, transform[0-5], fills[0-3], shape.w/h, cornerRadius,
+fontSize, letterSpacing, lineHeight, paragraphSpacing.
+
+The `TimelineSampler` supports typed interpolation:
+- **Numbers** — linear lerp
+- **Colors** — OKLab perceptual interpolation (hex strings) or RGBA tuple lerp
+- **Affine** — 6-element matrix lerp
+- **Paths** — vertex-matched path interpolation
+- **Spatial bezier** — After Effects-style tangent handles
+
+### Export support
+
+| Format | Status | Properties |
+|---|---|---|
+| CSS @keyframes | **Complete** | opacity, rotation, fill, size, easing |
+| Lottie JSON | **Extended** | opacity, rotation, position (x/y), scale, strokeWidth, cornerRadius |
+| SVG animate | **Partial** | rotation, simple values (no easing) |
+| MP4/WebM | **Working** | Full rasterized frames via WebCodecs (Chromium) |
+| Interactive | **Stub** | React handler skeletons |
+
+### Smart Animate
+
+Layer matching by name with interpolation of:
+position (x/y/w/h), opacity, rotation, cornerRadius, fill color (Oklab),
+strokeWidth. Fallback to dissolve when no matched layers.
+
+### Accessibility
+
+- Timeline playback controls: `role="toolbar"` with labeled buttons
+- Playhead: `role="slider"` with `aria-valuemin/max/now`
+- Keyframe dots: `aria-label` with progress percentage
+- Graph editor: `role="img"` with descriptive label
+- Reduced-motion: `prefersReducedMotion()` skips to end state
 
 ## Quality gates (Cascade Review, §7) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
