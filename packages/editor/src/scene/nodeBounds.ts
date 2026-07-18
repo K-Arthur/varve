@@ -28,10 +28,13 @@ export function nodeLocalBounds(
     // V1.8+: shapeless nodes derive geometry from paints, not the shape field.
     // The shape field is a one-time snapshot that can become stale when paints
     // are updated independently (e.g., image fill resolution changes).
-    if ((node as Record<string, unknown>).shapeless === true) {
+    if (node.shapeless === true) {
       // Resolve effective fills: paintRefs → inline fills → legacy fill
       const fills = doc
-        ? resolveNodePaints(node, doc)
+        ? resolveNodePaints(
+            { paintRefs: node.paintRefs, fills: node.fills, fill: { ...node.fill } },
+            doc,
+          )
         : node.fills && node.fills.length > 0
           ? node.fills
           : [];

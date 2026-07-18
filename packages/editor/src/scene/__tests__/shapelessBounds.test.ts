@@ -6,7 +6,8 @@
  * derived geometry instead of the stale shape field.
  */
 
-import type { Shape, ShapeNode } from '@strata/scene';
+import type { Shape } from '@strata/engine';
+import type { ShapeNode } from '@strata/scene';
 import {
   addNode,
   addPaintToDocument,
