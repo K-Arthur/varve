@@ -13,7 +13,7 @@ export function getSmartDefaults(
   const fontSize = findMostUsedFontSize(doc) ?? 16;
   const spacingUnit = findMostUsedSpacing(doc) ?? 8;
   const frameSize = tracker
-    ? findMostUsedFrameSizeFromTracker(tracker) ?? findMostUsedFrameSize(doc)
+    ? (findMostUsedFrameSizeFromTracker(tracker) ?? findMostUsedFrameSize(doc))
     : findMostUsedFrameSize(doc);
 
   return {
@@ -23,7 +23,9 @@ export function getSmartDefaults(
   };
 }
 
-function findMostUsedFrameSizeFromTracker(tracker: import('./actionTracker').ActionTracker): { w: number; h: number } | null {
+function findMostUsedFrameSizeFromTracker(
+  tracker: import('./actionTracker').ActionTracker,
+): { w: number; h: number } | null {
   const records = tracker.getRecentActions(30 * 24 * 60 * 60 * 1000);
   const sizeCounts = new Map<string, { w: number; h: number; count: number }>();
 

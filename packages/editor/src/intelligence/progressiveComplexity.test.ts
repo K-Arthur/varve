@@ -78,25 +78,21 @@ describe('getComplexityLevel', () => {
   });
 
   it('returns deterministic result for same action sequence', () => {
-    const base = Date.now();
-    const now = base;
-    vi.spyOn(Date, 'now').mockImplementation(() => now);
-
-    const runSequence = () => {
+    const makeTracker = (): ActionTracker => {
       const t = new ActionTracker();
-      let n = base;
-      vi.spyOn(Date, 'now').mockImplementation(() => n);
-      for (let i = 0; i < 10; i++) {
+      let mockTime = Date.now();
+      vi.spyOn(Date, 'now').mockImplementation(() => mockTime);
+      for (let i = 0; i < 25; i++) {
         t.record('tool:select');
-        n += 1000;
+        mockTime += 1000;
       }
       vi.restoreAllMocks();
-      return getComplexityLevel(t);
+      return t;
     };
 
-    const result1 = runSequence();
-    const result2 = runSequence();
-    expect(result1).toBe(result2);
+    const t1 = makeTracker();
+    const t2 = makeTracker();
+    expect(getComplexityLevel(t1)).toBe(getComplexityLevel(t2));
   });
 
   it('returns beginner for empty tracker', () => {
