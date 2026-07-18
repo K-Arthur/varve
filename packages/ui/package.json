@@ -35,6 +35,7 @@
     "@floating-ui/dom": "^1.6.13",
     "@fontsource-variable/geist": "^5.2.0",
     "@fontsource-variable/ibm-plex-sans": "^5.2.0",
+    "@phosphor-icons/react": "^2.1.10",
     "@strata/scene": "workspace:*",
     "@strata/shared": "workspace:*",
     "lucide-react": "^0.469.0"
