@@ -1,13 +1,13 @@
 mod print;
 mod renderer;
 
+use image::load_from_memory;
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
 use strata_core::Point;
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
-use image::load_from_memory;
 
 use strata_bridge::{convert_engine_nodes, IpcSceneNode};
 
@@ -40,7 +40,12 @@ pub struct SceneIr {
 #[tauri::command]
 fn render_frame_ir(width: u32, height: u32, frame: u32) -> SceneIr {
     let shapes = generate_ir(frame);
-    SceneIr { width, height, frame, shapes }
+    SceneIr {
+        width,
+        height,
+        frame,
+        shapes,
+    }
 }
 
 #[tauri::command]
@@ -50,7 +55,13 @@ fn render_frame_pixels(width: u32, height: u32, frame: u32) -> Response {
 }
 
 #[derive(Debug, Deserialize)]
-struct Report { mode: String, fps: f64, frames: u64, elapsed: f64, bytes_per_frame: f64 }
+struct Report {
+    mode: String,
+    fps: f64,
+    frames: u64,
+    elapsed: f64,
+    bytes_per_frame: f64,
+}
 
 #[tauri::command]
 fn report(report: Report) {
@@ -107,7 +118,10 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
         .ok_or_else(|| "clipboard image buffer size did not match its dimensions".to_string())?;
     let mut png_bytes: Vec<u8> = Vec::new();
     image::DynamicImage::ImageRgba8(rgba)
-        .write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png)
+        .write_to(
+            &mut std::io::Cursor::new(&mut png_bytes),
+            image::ImageFormat::Png,
+        )
         .map_err(|e| e.to_string())?;
     Ok(Some(png_bytes))
 }
@@ -116,12 +130,21 @@ fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
 
 /// Persist a document. Receives the full document JSON from the TS editor.
 #[tauri::command]
-fn sync_save(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String, json: String) -> Result<(), String> {
-    store.save_document(&doc_id, &json).map_err(|e| e.to_string())
+fn sync_save(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    doc_id: String,
+    json: String,
+) -> Result<(), String> {
+    store
+        .save_document(&doc_id, &json)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn sync_load(store: tauri::State<'_, strata_sync::DocumentStore>, doc_id: String) -> Result<Option<String>, String> {
+fn sync_load(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    doc_id: String,
+) -> Result<Option<String>, String> {
     store.load_document(&doc_id).map_err(|e| e.to_string())
 }
 
@@ -167,8 +190,46 @@ struct BgRemoveResult {
 /// built with the `ai` Cargo feature (opt-in, requires a downloaded model).
 /// Builds without that feature reject AI requests instead of mislabelling a
 /// heuristic result as AI output.
+/// Async command wrapper around [`remove_background_impl`].
+///
+/// Two hard requirements drive this shape:
+///
+/// 1. **The ONNX Runtime dylib must be initialized before any AI inference.**
+///    `ort` with `load-dynamic` *panics* (it does not return a `Result`) the
+///    first time its API is touched with no dylib available. Since native
+///    init became lazy (see `native_ai_status`), this command is reachable
+///    without init having ever run — the JS provider chain only pre-checks
+///    `native_ai_status` for ai-quality, and for ai-balanced it can land
+///    here directly when the Worker WASM path fails. Guarding here converts
+///    "whole app closes" into a clean `Err` the JS chain can fall back from.
+///
+/// 2. **Inference must not run on the main thread.** A synchronous command
+///    executes on the GTK main thread: u2netp takes ~0.5s and BiRefNet
+///    15-18s, which would freeze the UI — and any panic there kills the
+///    process outright. `spawn_blocking` moves the work to a worker thread
+///    and converts panics into a `JoinError` we can report as an error.
 #[tauri::command]
-fn remove_background(
+async fn remove_background(
+    app: tauri::AppHandle,
+    image_data: Vec<u8>,
+    options: BgRemoveOptions,
+) -> Result<BgRemoveResult, String> {
+    #[cfg(feature = "ai")]
+    if matches!(options.method.as_str(), "ai-balanced" | "ai-quality") && !ensure_native_ai(&app) {
+        return Err(
+            "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
+                .into(),
+        );
+    }
+    #[cfg(not(feature = "ai"))]
+    let _ = &app;
+
+    tauri::async_runtime::spawn_blocking(move || remove_background_impl(image_data, options))
+        .await
+        .map_err(|e| format!("Background removal task failed: {e}"))?
+}
+
+fn remove_background_impl(
     image_data: Vec<u8>,
     options: BgRemoveOptions,
 ) -> Result<BgRemoveResult, String> {
@@ -229,21 +290,36 @@ fn remove_background(
 fn native_ai_status(_app: tauri::AppHandle) -> bool {
     #[cfg(feature = "ai")]
     {
-        match resolve_onnxruntime_dylib(&_app) {
-            Some(path) => match strata_bgremove::runtime::init_native_runtime(&path) {
-                Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
-                Err(e) => eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM"),
-            },
-            None => {
-                eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
-            }
-        }
-        strata_bgremove::runtime::native_ai_ready()
+        ensure_native_ai(&_app)
     }
     #[cfg(not(feature = "ai"))]
     {
         false
     }
+}
+
+/// Idempotently initialize the native ONNX Runtime from the bundled dylib
+/// and report whether it is actually usable. Must be called before ANY code
+/// path that could touch `ort` session APIs (`remove_background` with an AI
+/// method, `native_ai_status`) — `ort` with `load-dynamic` panics rather
+/// than erroring when its API is used with no dylib loaded.
+#[cfg(feature = "ai")]
+fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
+    if strata_bgremove::runtime::native_ai_ready() {
+        return true;
+    }
+    match resolve_onnxruntime_dylib(app) {
+        Some(path) => match strata_bgremove::runtime::init_native_runtime(&path) {
+            Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
+            Err(e) => {
+                eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM")
+            }
+        },
+        None => {
+            eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
+        }
+    }
+    strata_bgremove::runtime::native_ai_ready()
 }
 
 #[derive(Debug, Deserialize)]
@@ -332,7 +408,10 @@ fn upscale_image(image_data: Vec<u8>, options: UpscaleImageOptions) -> Result<Ve
 
     let mut bytes: Vec<u8> = Vec::new();
     out_img
-        .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+        .write_to(
+            &mut std::io::Cursor::new(&mut bytes),
+            image::ImageFormat::Png,
+        )
         .map_err(|e| format!("PNG encode error: {e}"))?;
 
     Ok(bytes)
@@ -351,22 +430,32 @@ struct TraceImageOptions {
     max_error: f64,
 }
 
-fn default_corner_angle() -> f64 { 135.0 }
-fn default_max_error() -> f64 { 1.0 }
+fn default_corner_angle() -> f64 {
+    135.0
+}
+fn default_max_error() -> f64 {
+    1.0
+}
 
 #[tauri::command]
-fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<strata_trace::BezierPath>, String> {
+fn trace_image(
+    image_data: Vec<u8>,
+    options: TraceImageOptions,
+) -> Result<Vec<strata_trace::BezierPath>, String> {
     let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
     let rgba = img.to_rgba8();
     let (width, height) = rgba.dimensions();
     let pixels = rgba.into_raw();
-    let foreground = options.foreground.as_deref().map_or(strata_trace::Foreground::Dark, |v| {
-        if v.eq_ignore_ascii_case("light") {
-            strata_trace::Foreground::Light
-        } else {
-            strata_trace::Foreground::Dark
-        }
-    });
+    let foreground = options
+        .foreground
+        .as_deref()
+        .map_or(strata_trace::Foreground::Dark, |v| {
+            if v.eq_ignore_ascii_case("light") {
+                strata_trace::Foreground::Light
+            } else {
+                strata_trace::Foreground::Dark
+            }
+        });
     let opts = strata_trace::TraceOptions {
         threshold: options.threshold,
         min_pixels: options.min_pixels,
@@ -381,7 +470,9 @@ fn trace_image(image_data: Vec<u8>, options: TraceImageOptions) -> Result<Vec<st
         max_paths: 1000,
         compound_holes: true,
     };
-    Ok(strata_trace::trace_to_beziers(&pixels, width, height, &opts))
+    Ok(strata_trace::trace_to_beziers(
+        &pixels, width, height, &opts,
+    ))
 }
 
 // ── PDF export ─────────────────────────────────────────
@@ -396,12 +487,21 @@ struct ExportPdfOptions {
 
 impl Default for ExportPdfOptions {
     fn default() -> Self {
-        Self { page_width: 1920.0, page_height: 1080.0, title: "Strata Export".into(), author: "Strata".into() }
+        Self {
+            page_width: 1920.0,
+            page_height: 1080.0,
+            title: "Strata Export".into(),
+            author: "Strata".into(),
+        }
     }
 }
 
 #[tauri::command]
-fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>, manifest_json: Option<String>) -> Result<Vec<u8>, String> {
+fn export_node_pdf(
+    nodes: Vec<IpcSceneNode>,
+    opts: Option<ExportPdfOptions>,
+    manifest_json: Option<String>,
+) -> Result<Vec<u8>, String> {
     let scene = convert_scene(nodes);
     let pdf_opts = opts.unwrap_or_default();
     let mut print_opts = strata_print::PdfOptions {
@@ -411,8 +511,7 @@ fn export_node_pdf(nodes: Vec<IpcSceneNode>, opts: Option<ExportPdfOptions>, man
         author: pdf_opts.author,
         ..Default::default()
     };
-    print_opts.manifest = manifest_json
-        .and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
     strata_print::export_pdf(&scene, &print_opts)
 }
 
@@ -492,11 +591,10 @@ fn export_pdfx1a(
     manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
     let scene = parse_nodes_from_json(&nodes_json)?;
-    let opts: PdfXOptions =
-        serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
+    let opts: PdfXOptions = serde_json::from_str(&options_json)
+        .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
-    print_opts.manifest = manifest_json
-        .and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
     strata_print::cmyk::export_pdfx1a(&scene, &print_opts)
 }
 
@@ -509,11 +607,10 @@ fn export_pdfx4(
     manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
     let scene = parse_nodes_from_json(&nodes_json)?;
-    let opts: PdfXOptions =
-        serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
+    let opts: PdfXOptions = serde_json::from_str(&options_json)
+        .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
-    print_opts.manifest = manifest_json
-        .and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
     strata_print::cmyk::export_pdfx4(&scene, &print_opts)
 }
 
@@ -549,11 +646,10 @@ fn export_pdf_with_options(
     manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
     let scene = parse_nodes_from_json(&nodes_json)?;
-    let opts: PdfXOptions =
-        serde_json::from_str(&options_json).map_err(|e| format!("Options JSON parse error: {e}"))?;
+    let opts: PdfXOptions = serde_json::from_str(&options_json)
+        .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
-    print_opts.manifest = manifest_json
-        .and_then(|s| serde_json::from_str(&s).ok());
+    print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
 
     match opts.format.as_str() {
         "x1a" | "pdf-x1a" => strata_print::cmyk::export_pdfx1a(&scene, &print_opts),
@@ -630,20 +726,28 @@ struct HomeProject {
 
 fn file_to_home(f: strata_sync::FileRow) -> HomeFile {
     HomeFile {
-        id: f.id, name: f.name, kind: f.kind, project_id: f.project_id,
+        id: f.id,
+        name: f.name,
+        kind: f.kind,
+        project_id: f.project_id,
         created_at: rfc3339_to_epoch_ms(&f.created_at),
         updated_at: rfc3339_to_epoch_ms(&f.updated_at),
         opened_at: rfc3339_to_epoch_ms(&f.opened_at),
-        size: f.size, pinned: f.pinned,
+        size: f.size,
+        pinned: f.pinned,
         trashed_at: f.trashed_at.as_ref().map(|s| rfc3339_to_epoch_ms(s)),
-        file_path: f.file_path, ordering: f.ordering, content_hash: f.content_hash,
+        file_path: f.file_path,
+        ordering: f.ordering,
+        content_hash: f.content_hash,
         favorited_at: f.favorited_at.filter(|&t| t > 0),
     }
 }
 
 fn project_to_home(p: strata_sync::ProjectRow) -> HomeProject {
     HomeProject {
-        id: p.id, name: p.name, color: p.color,
+        id: p.id,
+        name: p.name,
+        color: p.color,
         created_at: rfc3339_to_epoch_ms(&p.created_at),
         updated_at: rfc3339_to_epoch_ms(&p.updated_at),
         pinned: p.pinned,
@@ -651,7 +755,9 @@ fn project_to_home(p: strata_sync::ProjectRow) -> HomeProject {
     }
 }
 
-fn now_rfc3339() -> String { chrono::Utc::now().to_rfc3339() }
+fn now_rfc3339() -> String {
+    chrono::Utc::now().to_rfc3339()
+}
 
 fn rfc3339_to_epoch_ms(s: &str) -> i64 {
     chrono::DateTime::parse_from_rfc3339(s)
@@ -670,54 +776,103 @@ fn epoch_ms_to_rfc3339(ms: i64) -> String {
 
 // Files
 #[tauri::command]
-fn home_list_files(store: tauri::State<'_, strata_sync::DocumentStore>) -> Result<Vec<HomeFile>, String> {
-    store.list_files().map(|v| v.into_iter().map(file_to_home).collect()).map_err(|e| e.to_string())
+fn home_list_files(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+) -> Result<Vec<HomeFile>, String> {
+    store
+        .list_files()
+        .map(|v| v.into_iter().map(file_to_home).collect())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_list_trashed(store: tauri::State<'_, strata_sync::DocumentStore>) -> Result<Vec<HomeFile>, String> {
-    store.list_trashed_files().map(|v| v.into_iter().map(file_to_home).collect()).map_err(|e| e.to_string())
+fn home_list_trashed(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+) -> Result<Vec<HomeFile>, String> {
+    store
+        .list_trashed_files()
+        .map(|v| v.into_iter().map(file_to_home).collect())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_get_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: String) -> Result<Option<HomeFile>, String> {
-    store.get_file(&id).map(|opt| opt.map(file_to_home)).map_err(|e| e.to_string())
+fn home_get_file(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+) -> Result<Option<HomeFile>, String> {
+    store
+        .get_file(&id)
+        .map(|opt| opt.map(file_to_home))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_read_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: String) -> Result<Option<String>, String> {
+fn home_read_file(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+) -> Result<Option<String>, String> {
     store.load_document(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_upsert_file(store: tauri::State<'_, strata_sync::DocumentStore>, entry: HomeFileInput, json: String) -> Result<(), String> {
-    store.save_document(&entry.id, &json).map_err(|e| e.to_string())?;
-    store.upsert_file(
-        &entry.id, &entry.name, &entry.kind, entry.project_id.as_deref(),
-        &epoch_ms_to_rfc3339(entry.created_at),
-        &epoch_ms_to_rfc3339(entry.updated_at),
-        &epoch_ms_to_rfc3339(entry.opened_at),
-        entry.size, entry.pinned,
-        entry.trashed_at.map(epoch_ms_to_rfc3339).as_deref(),
-        entry.file_path.as_deref(), &entry.ordering, &entry.content_hash,
-        entry.favorited_at.filter(|&t| t > 0),
-    ).map_err(|e| e.to_string())
+fn home_upsert_file(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    entry: HomeFileInput,
+    json: String,
+) -> Result<(), String> {
+    store
+        .save_document(&entry.id, &json)
+        .map_err(|e| e.to_string())?;
+    store
+        .upsert_file(
+            &entry.id,
+            &entry.name,
+            &entry.kind,
+            entry.project_id.as_deref(),
+            &epoch_ms_to_rfc3339(entry.created_at),
+            &epoch_ms_to_rfc3339(entry.updated_at),
+            &epoch_ms_to_rfc3339(entry.opened_at),
+            entry.size,
+            entry.pinned,
+            entry.trashed_at.map(epoch_ms_to_rfc3339).as_deref(),
+            entry.file_path.as_deref(),
+            &entry.ordering,
+            &entry.content_hash,
+            entry.favorited_at.filter(|&t| t > 0),
+        )
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_touch_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, opened_at: Option<i64>) -> Result<(), String> {
-    let ts = opened_at.map(epoch_ms_to_rfc3339).unwrap_or_else(now_rfc3339);
+fn home_touch_file(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    opened_at: Option<i64>,
+) -> Result<(), String> {
+    let ts = opened_at
+        .map(epoch_ms_to_rfc3339)
+        .unwrap_or_else(now_rfc3339);
     store.touch_file(&id, &ts).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_rename_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, name: String) -> Result<(), String> {
+fn home_rename_file(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    name: String,
+) -> Result<(), String> {
     store.rename_file(&id, &name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_set_pinned(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, pinned: bool) -> Result<(), String> {
-    store.set_file_pinned(&id, pinned).map_err(|e| e.to_string())
+fn home_set_pinned(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    pinned: bool,
+) -> Result<(), String> {
+    store
+        .set_file_pinned(&id, pinned)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -731,64 +886,119 @@ fn home_set_favorited(
 }
 
 #[tauri::command]
-fn home_move_project(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, project_id: Option<String>) -> Result<(), String> {
-    store.move_file_to_project(&id, project_id.as_deref()).map_err(|e| e.to_string())
+fn home_move_project(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    project_id: Option<String>,
+) -> Result<(), String> {
+    store
+        .move_file_to_project(&id, project_id.as_deref())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_trash(store: tauri::State<'_, strata_sync::DocumentStore>, id: String) -> Result<(), String> {
-    store.trash_file(&id, &now_rfc3339()).map_err(|e| e.to_string())
+fn home_trash(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+) -> Result<(), String> {
+    store
+        .trash_file(&id, &now_rfc3339())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_restore(store: tauri::State<'_, strata_sync::DocumentStore>, id: String) -> Result<(), String> {
+fn home_restore(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+) -> Result<(), String> {
     store.restore_file(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_purge(store: tauri::State<'_, strata_sync::DocumentStore>, id: String) -> Result<(), String> {
+fn home_purge(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+) -> Result<(), String> {
     store.purge_file(&id).map_err(|e| e.to_string())
 }
 
 // Projects
 #[tauri::command]
-fn home_list_projects(store: tauri::State<'_, strata_sync::DocumentStore>) -> Result<Vec<HomeProject>, String> {
-    store.list_projects().map(|v| v.into_iter().map(project_to_home).collect()).map_err(|e| e.to_string())
+fn home_list_projects(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+) -> Result<Vec<HomeProject>, String> {
+    store
+        .list_projects()
+        .map(|v| v.into_iter().map(project_to_home).collect())
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_create_project(store: tauri::State<'_, strata_sync::DocumentStore>, name: String) -> Result<HomeProject, String> {
+fn home_create_project(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    name: String,
+) -> Result<HomeProject, String> {
     let id = uuid();
     let now_rfc = now_rfc3339();
     let now_ms = chrono::Utc::now().timestamp_millis();
-    store.create_project(&id, &name, None, &now_rfc).map_err(|e| e.to_string())?;
-    Ok(HomeProject { id, name: name.clone(), color: None, created_at: now_ms, updated_at: now_ms, pinned: false, trashed_at: None })
+    store
+        .create_project(&id, &name, None, &now_rfc)
+        .map_err(|e| e.to_string())?;
+    Ok(HomeProject {
+        id,
+        name: name.clone(),
+        color: None,
+        created_at: now_ms,
+        updated_at: now_ms,
+        pinned: false,
+        trashed_at: None,
+    })
 }
 
 #[tauri::command]
-fn home_rename_project(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, name: String) -> Result<(), String> {
+fn home_rename_project(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    name: String,
+) -> Result<(), String> {
     store.rename_project(&id, &name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_delete_project(store: tauri::State<'_, strata_sync::DocumentStore>, id: String) -> Result<(), String> {
+fn home_delete_project(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+) -> Result<(), String> {
     store.delete_project(&id).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_set_project_pinned(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, pinned: bool) -> Result<(), String> {
-    store.set_project_pinned(&id, pinned).map_err(|e| e.to_string())
+fn home_set_project_pinned(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    pinned: bool,
+) -> Result<(), String> {
+    store
+        .set_project_pinned(&id, pinned)
+        .map_err(|e| e.to_string())
 }
 
 // View State
 #[tauri::command]
-fn home_get_view_state(store: tauri::State<'_, strata_sync::DocumentStore>) -> Result<Option<String>, String> {
+fn home_get_view_state(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+) -> Result<Option<String>, String> {
     store.get_view_state("home").map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_set_view_state(store: tauri::State<'_, strata_sync::DocumentStore>, value: String) -> Result<(), String> {
-    store.set_view_state("home", &value).map_err(|e| e.to_string())
+fn home_set_view_state(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    value: String,
+) -> Result<(), String> {
+    store
+        .set_view_state("home", &value)
+        .map_err(|e| e.to_string())
 }
 
 // Generic small app settings (e.g. onboarding-complete) — persisted in the
@@ -796,13 +1006,24 @@ fn home_set_view_state(store: tauri::State<'_, strata_sync::DocumentStore>, valu
 // which is not guaranteed to survive between separate app launches on every
 // platform/WebView engine.
 #[tauri::command]
-fn app_get_setting(store: tauri::State<'_, strata_sync::DocumentStore>, key: String) -> Result<Option<String>, String> {
-    store.get_view_state(&format!("app-setting:{key}")).map_err(|e| e.to_string())
+fn app_get_setting(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    key: String,
+) -> Result<Option<String>, String> {
+    store
+        .get_view_state(&format!("app-setting:{key}"))
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn app_set_setting(store: tauri::State<'_, strata_sync::DocumentStore>, key: String, value: String) -> Result<(), String> {
-    store.set_view_state(&format!("app-setting:{key}"), &value).map_err(|e| e.to_string())
+fn app_set_setting(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
+    store
+        .set_view_state(&format!("app-setting:{key}"), &value)
+        .map_err(|e| e.to_string())
 }
 
 // ── Thumbnails ──────────────────────────────────────────────────────
@@ -818,32 +1039,63 @@ struct ThumbnailInput {
 }
 
 #[tauri::command]
-fn home_get_thumbnail(store: tauri::State<'_, strata_sync::DocumentStore>, hash: String) -> Result<Option<String>, String> {
+fn home_get_thumbnail(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    hash: String,
+) -> Result<Option<String>, String> {
     store.get_thumbnail(&hash).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_put_thumbnail(store: tauri::State<'_, strata_sync::DocumentStore>, input: ThumbnailInput) -> Result<(), String> {
-    store.put_thumbnail(&input.hash, &input.data_url, input.width, input.height, &epoch_ms_to_rfc3339(input.created_at)).map_err(|e| e.to_string())
+fn home_put_thumbnail(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    input: ThumbnailInput,
+) -> Result<(), String> {
+    store
+        .put_thumbnail(
+            &input.hash,
+            &input.data_url,
+            input.width,
+            input.height,
+            &epoch_ms_to_rfc3339(input.created_at),
+        )
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn home_evict_thumbnails(store: tauri::State<'_, strata_sync::DocumentStore>, keep_count: i64) -> Result<i64, String> {
-    store.evict_thumbnails(keep_count).map_err(|e| e.to_string())
+fn home_evict_thumbnails(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    keep_count: i64,
+) -> Result<i64, String> {
+    store
+        .evict_thumbnails(keep_count)
+        .map_err(|e| e.to_string())
 }
 
 // ── Search ───────────────────────────────────────────────────────────
 
 #[tauri::command]
-fn home_search_files(store: tauri::State<'_, strata_sync::DocumentStore>, query: String) -> Result<Vec<HomeFile>, String> {
-    store.search_files(&query).map(|v| v.into_iter().map(file_to_home).collect()).map_err(|e| e.to_string())
+fn home_search_files(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    query: String,
+) -> Result<Vec<HomeFile>, String> {
+    store
+        .search_files(&query)
+        .map(|v| v.into_iter().map(file_to_home).collect())
+        .map_err(|e| e.to_string())
 }
 
 // ── Reorder ──────────────────────────────────────────────────────────
 
 #[tauri::command]
-fn home_reorder_file(store: tauri::State<'_, strata_sync::DocumentStore>, id: String, ordering: String) -> Result<(), String> {
-    store.reorder_file(&id, &ordering).map_err(|e| e.to_string())
+fn home_reorder_file(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    id: String,
+    ordering: String,
+) -> Result<(), String> {
+    store
+        .reorder_file(&id, &ordering)
+        .map_err(|e| e.to_string())
 }
 
 // ── File-system read/write (for open/save from disk) ─────────────────────
@@ -860,7 +1112,9 @@ fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
 
 fn uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let t = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default();
+    let t = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
     format!("{:x}-{:x}", t.as_nanos(), t.as_micros())
 }
 
@@ -1018,16 +1272,19 @@ pub fn run() {
             let watch_path = data_dir.clone();
             std::thread::spawn(move || {
                 let (tx, rx) = std::sync::mpsc::channel::<()>();
-                let mut watcher = match notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-                    if let Ok(event) = res {
-                        let has_strata = event.paths.iter().any(|p| {
-                            p.extension().map(|e| e == "strata").unwrap_or(false)
-                        });
-                        if has_strata {
-                            let _ = tx.send(());
+                let mut watcher = match notify::recommended_watcher(
+                    move |res: Result<notify::Event, notify::Error>| {
+                        if let Ok(event) = res {
+                            let has_strata = event
+                                .paths
+                                .iter()
+                                .any(|p| p.extension().map(|e| e == "strata").unwrap_or(false));
+                            if has_strata {
+                                let _ = tx.send(());
+                            }
                         }
-                    }
-                }) {
+                    },
+                ) {
                     Ok(w) => w,
                     Err(e) => {
                         eprintln!("Failed to create file watcher: {}", e);
@@ -1325,7 +1582,15 @@ mod tests {
             ir[4].primitive,
             strata_engine::Primitive::Text { text: _, .. }
         ));
-        if let strata_engine::Primitive::Text { ref text, font_size, ref font_family, font_weight, ref font_style, .. } = ir[4].primitive {
+        if let strata_engine::Primitive::Text {
+            ref text,
+            font_size,
+            ref font_family,
+            font_weight,
+            ref font_style,
+            ..
+        } = ir[4].primitive
+        {
             assert_eq!(text, "Hello");
             assert_eq!(font_size, 16.0);
             assert_eq!(font_family, "Inter");
@@ -1446,7 +1711,10 @@ mod tests {
 
         // Verify fill is an EngineColor object tagged by "space"
         let fill = first.get("fill").unwrap();
-        assert!(fill.is_object(), "fill should be a JSON object (EngineColor)");
+        assert!(
+            fill.is_object(),
+            "fill should be a JSON object (EngineColor)"
+        );
         assert_eq!(
             fill.get("space").and_then(|v| v.as_str()),
             Some("rgb"),
@@ -1508,8 +1776,7 @@ mod tests {
         })
         .to_string();
 
-        let nodes: Vec<IpcSceneNode> =
-            serde_json::from_str(&nodes_json).expect("deserialize");
+        let nodes: Vec<IpcSceneNode> = serde_json::from_str(&nodes_json).expect("deserialize");
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
@@ -1563,8 +1830,7 @@ mod tests {
         })
         .to_string();
 
-        let nodes: Vec<IpcSceneNode> =
-            serde_json::from_str(&nodes_json).expect("deserialize");
+        let nodes: Vec<IpcSceneNode> = serde_json::from_str(&nodes_json).expect("deserialize");
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(108.0);
@@ -1585,8 +1851,7 @@ mod tests {
         })
         .to_string();
 
-        let nodes: Vec<IpcSceneNode> =
-            serde_json::from_str(&nodes_json).expect("deserialize");
+        let nodes: Vec<IpcSceneNode> = serde_json::from_str(&nodes_json).expect("deserialize");
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
@@ -1609,13 +1874,15 @@ mod tests {
         })
         .to_string();
 
-        let nodes: Vec<IpcSceneNode> =
-            serde_json::from_str(&nodes_json).expect("deserialize");
+        let nodes: Vec<IpcSceneNode> = serde_json::from_str(&nodes_json).expect("deserialize");
         let scene = convert_scene(nodes);
         let opts: PdfXOptions = serde_json::from_str(&options_json).expect("parse options");
         let print_opts = opts.to_pdf_options(200.0);
         let bytes = strata_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
-        assert!(bytes.starts_with(b"%PDF-1.6"), "format x4 should produce PDF/X-4");
+        assert!(
+            bytes.starts_with(b"%PDF-1.6"),
+            "format x4 should produce PDF/X-4"
+        );
     }
 
     #[test]
@@ -1651,7 +1918,10 @@ mod tests {
         }
         let mut bytes: Vec<u8> = Vec::new();
         image::DynamicImage::ImageRgba8(buf)
-            .write_to(&mut std::io::Cursor::new(&mut bytes), image::ImageFormat::Png)
+            .write_to(
+                &mut std::io::Cursor::new(&mut bytes),
+                image::ImageFormat::Png,
+            )
             .expect("encode png");
         bytes
     }
@@ -1702,7 +1972,8 @@ mod tests {
         }))
         .expect("deserialize options");
 
-        let result = remove_background(png, options).expect("remove_background should succeed");
+        let result =
+            remove_background_impl(png, options).expect("remove_background should succeed");
         assert_eq!(result.method, "quick");
         assert_eq!(result.width, 20);
         assert_eq!(result.height, 20);
@@ -1716,8 +1987,11 @@ mod tests {
             "method": "quick",
         }))
         .expect("deserialize options");
-        let err = remove_background(vec![0, 1, 2, 3], options).unwrap_err();
-        assert!(err.contains("decode"), "should report a decode error: {err}");
+        let err = remove_background_impl(vec![0, 1, 2, 3], options).unwrap_err();
+        assert!(
+            err.contains("decode"),
+            "should report a decode error: {err}"
+        );
     }
 
     #[test]
@@ -1733,7 +2007,7 @@ mod tests {
         }))
         .expect("deserialize options");
 
-        assert!(remove_background(png, options)
+        assert!(remove_background_impl(png, options)
             .expect_err("AI request must not degrade to quick")
             .contains("not enabled"));
     }
@@ -1773,11 +2047,15 @@ mod tests {
         for y in 0..20 {
             for x in 0..20 {
                 let is_foreground = x > 2 && x < 17 && y > 2 && y < 17;
-                buf.put_pixel(x, y, if is_foreground {
-                    image::Rgba([255, 255, 255, 255])
-                } else {
-                    image::Rgba([0, 0, 0, 255])
-                });
+                buf.put_pixel(
+                    x,
+                    y,
+                    if is_foreground {
+                        image::Rgba([255, 255, 255, 255])
+                    } else {
+                        image::Rgba([0, 0, 0, 255])
+                    },
+                );
             }
         }
         let mut png: Vec<u8> = Vec::new();
@@ -1798,7 +2076,10 @@ mod tests {
         assert!(!result.is_empty(), "expected at least one traced path");
         // Each path should be a closed BezierPath with points.
         for path in &result {
-            assert!(path.points.len() >= 3, "each path must have at least 3 points");
+            assert!(
+                path.points.len() >= 3,
+                "each path must have at least 3 points"
+            );
             assert!(path.closed, "contour paths should be closed");
         }
     }
@@ -1814,6 +2095,9 @@ mod tests {
             max_error: 1.0,
         };
         let err = trace_image(vec![0, 1, 2, 3], options).unwrap_err();
-        assert!(err.contains("decode"), "should report a decode error: {err}");
+        assert!(
+            err.contains("decode"),
+            "should report a decode error: {err}"
+        );
     }
 }
