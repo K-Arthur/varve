@@ -11,6 +11,7 @@ import {
   timelineToSVGAnimations,
 } from '@strata/codegen';
 import {
+  checkGifExportSupport,
   checkVideoExportSupport,
   computeVideoFrameCount,
   getModelLoaderReady,
@@ -200,6 +201,7 @@ export function ExportDialog({
   const [videoExporting, setVideoExporting] = useState(false);
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
   const [videoSupport] = useState(() => checkVideoExportSupport());
+  const [gifSupport] = useState(() => checkGifExportSupport());
   const [verboseOutput, setVerboseOutput] = useState(true);
   const videoAbortRef = useRef<AbortController | null>(null);
   const previousFocusRef = useRef<Element | null>(null);
@@ -476,6 +478,72 @@ export function ExportDialog({
     [document, onSaveVideoFile, selectionIds, videoSupport],
   );
 
+  const handleGifExport = useCallback(
+    async (tl: Timeline) => {
+      if (!document || !onSaveVideoFile) return;
+      if (!gifSupport.supported) {
+        setAnnounceMsg(gifSupport.reason ?? 'GIF export unavailable');
+        return;
+      }
+
+      const reducedMotion = prefersReducedMotion();
+      const width = document.canvasWidth ?? 1920;
+      const height = document.canvasHeight ?? 1080;
+      const fps = 10;
+      const totalFrames = reducedMotion ? 1 : Math.ceil((tl.duration / 1000) * fps);
+
+      videoAbortRef.current?.abort();
+      const controller = new AbortController();
+      videoAbortRef.current = controller;
+
+      setVideoExporting(true);
+      setVideoProgress({ done: 0, total: totalFrames });
+      setAnnounceMsg(`Exporting ${tl.name} as GIF...`);
+
+      try {
+        const { renderFrame } = await createVideoFrameRenderer({
+          doc: document,
+          timeline: tl,
+          options: {
+            width,
+            height,
+            boundsMode: 'canvas',
+            selectionIds,
+            pageContentRoot: document.pages?.find((p) => p.id === document.activePageId)
+              ?.contentRoot,
+          },
+        });
+
+        const { exportTimelineToGif } = await import('@strata/engine');
+        const result = await exportTimelineToGif(renderFrame, tl.duration, {
+          width,
+          height,
+          fps,
+          repeat: 0,
+          signal: controller.signal,
+          onProgress: (done, total) => setVideoProgress({ done, total }),
+        });
+
+        if (controller.signal.aborted) return;
+
+        if (!result.bytes) {
+          setAnnounceMsg(result.reason ?? 'GIF export failed');
+          return;
+        }
+
+        await onSaveVideoFile(`${safeFilename(tl.name)}.gif`, result.bytes, 'image/gif');
+        setAnnounceMsg(`GIF export complete: ${tl.name}.gif`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setAnnounceMsg(`GIF export failed: ${msg}`);
+      } finally {
+        setVideoExporting(false);
+        videoAbortRef.current = null;
+      }
+    },
+    [document, onSaveVideoFile, selectionIds, gifSupport],
+  );
+
   const handleToggleJob = useCallback((jobKey: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -507,6 +575,9 @@ export function ExportDialog({
         aria-label="Export"
         onClick={(e) => {
           if (e.target === e.currentTarget) onClose();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose();
         }}
       >
         <div className="export-dialog">
@@ -698,6 +769,15 @@ export function ExportDialog({
                       )}
                       {onSaveVideoFile && (
                         <>
+                          <button
+                            type="button"
+                            className="export-dialog__btn export-dialog__btn--secondary"
+                            disabled={videoExporting || running || !gifSupport.supported}
+                            aria-label={`Export ${tl.name} as GIF`}
+                            onClick={() => void handleGifExport(tl)}
+                          >
+                            GIF
+                          </button>
                           <button
                             type="button"
                             className="export-dialog__btn export-dialog__btn--secondary"
