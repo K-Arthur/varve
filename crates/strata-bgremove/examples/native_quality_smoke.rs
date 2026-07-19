@@ -10,9 +10,15 @@ fn main() -> Result<(), String> {
     let source_model = args.next().ok_or("missing model path")?;
     let image_path = args.next().ok_or("missing image path")?;
     let output_path = args.next().ok_or("missing output mask path")?;
+    let method_name = args.next().unwrap_or_else(|| "quality".to_owned());
+    let (model_id, method) = match method_name.as_str() {
+        "balanced" => ("isnet-general-use", RemovalMethod::AiBalanced),
+        "quality" => ("birefnet-general-lite", RemovalMethod::AiQuality),
+        _ => return Err("method must be 'balanced' or 'quality'".to_owned()),
+    };
 
     strata_bgremove::runtime::init_native_runtime(std::path::Path::new(&runtime_path))?;
-    let destination = strata_bgremove::model::model_path("birefnet-general-lite");
+    let destination = strata_bgremove::model::model_path(model_id);
     if let Some(parent) = destination.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|error| format!("failed to create model directory: {error}"))?;
@@ -25,7 +31,7 @@ fn main() -> Result<(), String> {
     let result = strata_bgremove::remove_background(
         &image,
         &RemovalOptions {
-            method: RemovalMethod::AiQuality,
+            method,
             tolerance: None,
             feather_radius: Some(0.0),
             decontaminate: Some(false),

@@ -184,6 +184,7 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     updateNode: vi.fn(),
     announce: vi.fn(),
     setShowOriginalBg: vi.fn(),
+    setMaskPreviewMode: vi.fn(),
     setTool: vi.fn(),
     setRefineMaskOptions: vi.fn(),
     refineHairEdges: vi.fn(),
@@ -378,7 +379,8 @@ describe('BackgroundRemovalSection - Decontaminate checkbox', () => {
   it('renders decontaminate checkbox checked by default', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Decontaminate').previousElementSibling as HTMLInputElement;
+    const checkbox = screen.getByText('Reduce colour fringe')
+      .previousElementSibling as HTMLInputElement;
     expect(checkbox).toBeTruthy();
     expect(checkbox.checked).toBe(true);
   });
@@ -386,7 +388,8 @@ describe('BackgroundRemovalSection - Decontaminate checkbox', () => {
   it('toggles decontaminate off', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Decontaminate').previousElementSibling as HTMLInputElement;
+    const checkbox = screen.getByText('Reduce colour fringe')
+      .previousElementSibling as HTMLInputElement;
     fireEvent.click(checkbox);
     expect(checkbox.checked).toBe(false);
   });
@@ -394,7 +397,8 @@ describe('BackgroundRemovalSection - Decontaminate checkbox', () => {
   it('toggles decontaminate on after off', () => {
     const node = makeImageNode();
     render(<BackgroundRemovalSection nodes={[node]} />);
-    const checkbox = screen.getByText('Decontaminate').previousElementSibling as HTMLInputElement;
+    const checkbox = screen.getByText('Reduce colour fringe')
+      .previousElementSibling as HTMLInputElement;
     fireEvent.click(checkbox);
     expect(checkbox.checked).toBe(false);
     fireEvent.click(checkbox);
@@ -533,9 +537,29 @@ describe('ExportDialog - Remove background toggle', () => {
 });
 
 describe('BackgroundRemovalSection - Refine mask wiring', () => {
-  it('shows Refine Mask button only when background removal exists', () => {
+  it.each([
+    'quick',
+    'ai-balanced',
+    'ai-quality',
+  ] as const)('exposes Edit mask for a %s result', (method) => {
+    const node = makeImageNode({
+      backgroundRemoval: {
+        maskDataUrl: 'data:image/png;base64,mask',
+        method,
+        confidence: 0.9,
+        appliedAt: Date.now(),
+      },
+    });
+    render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Edit mask'));
+    expect(screen.getByText('Mask editor')).toBeTruthy();
+    expect(screen.getByText('Refine Mask')).toBeTruthy();
+    expect(screen.getByText('Edit trimap')).toBeTruthy();
+  });
+
+  it('shows the mask editor only when background removal exists', () => {
     render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
-    expect(screen.queryByText('Refine Mask')).toBeNull();
+    expect(screen.queryByText('Edit mask')).toBeNull();
 
     render(
       <BackgroundRemovalSection
@@ -551,7 +575,7 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
         ]}
       />,
     );
-    expect(screen.getByText('Refine Mask')).toBeTruthy();
+    expect(screen.getByText('Edit mask')).toBeTruthy();
   });
 
   it('calls setTool(refineMask) when Refine Mask is clicked', () => {
@@ -566,6 +590,7 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Edit mask'));
     fireEvent.click(screen.getByText('Refine Mask'));
     expect(setTool).toHaveBeenCalledWith('refineMask');
   });
@@ -601,6 +626,7 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Edit mask'));
     expect(screen.getByText('Refine edges (hair/fur)')).toBeTruthy();
     expect(screen.getByText('Edit trimap')).toBeTruthy();
   });
@@ -617,6 +643,7 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Edit mask'));
     fireEvent.click(screen.getByText('Refine edges (hair/fur)'));
     expect(refineHairEdges).toHaveBeenCalled();
   });
@@ -633,6 +660,7 @@ describe('BackgroundRemovalSection - Phase E actions', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
+    fireEvent.click(screen.getByText('Edit mask'));
     fireEvent.click(screen.getByText('Edit trimap'));
     expect(startTrimapEdit).toHaveBeenCalled();
   });
@@ -651,7 +679,7 @@ describe('BackgroundRemovalSection - Error normalization', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
-    fireEvent.click(screen.getByText('Re-apply'));
+    fireEvent.click(screen.getByText('Preview new mask'));
     await vi.waitFor(() => {
       expect(screen.queryByText(/Background removal failed/i)).toBeNull();
     });
@@ -670,7 +698,7 @@ describe('BackgroundRemovalSection - Error normalization', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
-    fireEvent.click(screen.getByText('Re-apply'));
+    fireEvent.click(screen.getByText('Preview new mask'));
     await vi.waitFor(() => {
       expect(screen.getByRole('alert').textContent).toContain('ran out of memory');
     });
@@ -689,7 +717,7 @@ describe('BackgroundRemovalSection - Error normalization', () => {
       },
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
-    fireEvent.click(screen.getByText('Re-apply'));
+    fireEvent.click(screen.getByText('Preview new mask'));
     await vi.waitFor(() => {
       expect(screen.getByRole('alert').textContent).toContain('WebGPU device lost');
     });

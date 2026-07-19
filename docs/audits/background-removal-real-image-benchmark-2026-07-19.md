@@ -92,6 +92,40 @@ back.
   published scope is photographic human matting rather than vehicles, products, and arbitrary
   multi-object scenes.
 
+## Enhanced Balanced implementation (2026-07-19)
+
+IS-Net General Use is now the optional enhanced Balanced model. Its 178,648,008-byte release
+artifact was verified before being added to the manifest:
+
+```text
+MD5     fc16ebd8b0c10d971d3513d564d01e29 (matches rembg)
+SHA-256 60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a
+```
+
+Preprocessing follows the official rembg session: 1024×1024 input, mean 0.5, standard deviation
+1.0, and min/max output normalization without an extra sigmoid. Arbitrary source ratios are now
+letterboxed rather than stretched. The padding is removed in model space, the soft matte is
+bilinearly reconstructed to the aspect-ratio-preserving preview, and only then restored to source
+resolution. U²-Net Light remains the bundled low-memory fallback.
+
+Native CPU results through the production Rust/ONNX path:
+
+| Subject | IoU | Dice | Precision | Recall | Alpha MAE | Time |
+|---|---:|---:|---:|---:|---:|---:|
+| Human | **0.990** | 0.995 | 0.990 | 1.000 | 0.008 | 4.12 s |
+| Vehicle (5760×3840) | **0.821** | 0.902 | 0.993 | 0.826 | 0.050 | 21.81 s |
+| Object | **0.800** | 0.889 | 0.900 | 0.878 | 0.025 | 4.68 s |
+
+This substantially improves the old U²-Net Balanced vehicle/object IoUs (0.490/0.390) while
+remaining smaller and faster than BiRefNet Lite Quality. BiRefNet Lite remains preferable when
+maximum complex-edge accuracy matters.
+
+Quick mode was also made deterministic and gained adaptive border-connected segmentation, mask
+cleanup, confidence guidance, and a clearer preview/edit workflow. Its natural-scene benchmark
+still confirms the intended boundary: it is useful for simple colour-consistent backgrounds, not
+a substitute for semantic AI segmentation. The UI now says this explicitly and directs uncertain
+masks to Balanced or the method-independent mask editor.
+
 Primary references: [BiRefNet official implementation](https://github.com/ZhengPeng7/BiRefNet),
 [IS-Net paper](https://www.ecva.net/papers/eccv_2022/papers_ECCV/papers/136780036.pdf),
 [U²-Net official implementation](https://github.com/xuebinqin/U-2-Net), and

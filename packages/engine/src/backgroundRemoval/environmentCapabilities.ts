@@ -220,6 +220,9 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
     case 'u2netp':
       modelFileSize = 4_700_000;
       break;
+    case 'isnet-general-use':
+      modelFileSize = 178_648_008;
+      break;
     case 'birefnet-general-lite':
       modelFileSize = 224_000_000;
       break;

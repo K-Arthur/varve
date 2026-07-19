@@ -10,6 +10,14 @@
       "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
     },
     {
+      "id": "isnet-general-use",
+      "filename": "isnet-general-use.onnx",
+      "localPath": "/models/isnet-general-use.onnx",
+      "sha256": "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a",
+      "bundled": false,
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
+    },
+    {
       "id": "birefnet-general-lite",
       "filename": "birefnet-general-lite.onnx",
       "localPath": "/models/birefnet-general-lite.onnx",

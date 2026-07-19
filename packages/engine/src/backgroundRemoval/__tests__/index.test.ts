@@ -173,7 +173,7 @@ describe('removeBackground dispatch', () => {
     expect(mockMaskToDataUrl).toHaveBeenCalledWith(expect.any(Uint8Array), 8, 2);
   });
 
-  it('AI methods try the Web Worker first, even inside the Tauri webview', async () => {
+  it('probes native AI then uses the Web Worker when native AI is not ready', async () => {
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
     vi.stubGlobal('Worker', class {});
     mockRunPooledInference.mockResolvedValue({
@@ -189,7 +189,7 @@ describe('removeBackground dispatch', () => {
     const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
 
     expect(mockRunPooledInference).toHaveBeenCalledTimes(1);
-    expect(mockInvoke).not.toHaveBeenCalled();
+    expect(mockInvoke).toHaveBeenCalledWith('native_ai_status');
     expect(result.method).toBe('ai-balanced');
     expect(result.maskDataUrl).toContain('worker');
   });

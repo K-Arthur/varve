@@ -1,6 +1,6 @@
 # Background Removal System — Execution Memory
 
-**Last updated:** 2026-07-08 (Session 47)  
+**Last updated:** 2026-07-19
 **Environment:** CachyOS / Arch Linux, Node 26, pnpm 11.9, Rust 1.96  
 **Branch:** master (uncommitted working tree)
 
@@ -56,8 +56,8 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 | UI method | ONNX model | Bundled? |
 |---|---|---|
 | `quick` | (heuristic only) | n/a |
-| `ai-balanced` | `u2netp` (4.5 MB) | **Yes** — works out of the box |
-| `ai-quality` | `birefnet-general` (928 MB) | No — explicit download required |
+| `ai-balanced` | IS-Net General Use (179 MB), U²-Net Light fallback | Optional / fallback bundled |
+| `ai-quality` | BiRefNet General Lite (224 MB) | No — explicit download required |
 
 ---
 
@@ -118,6 +118,20 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
   - Rust bridge: nested image fill + node-level alphaMask → flat `FillIR` with `alphaMask`.
   - Editor: `sceneNodeToEngineNode` + `flattenSceneToEngine` → `engine.buildIr` emits `FillIR.alphaMask`.
   - Playwright E2E: deterministic pixel waits for quick-mode removal and undo/redo.
+
+### 2026-07-19 — enhanced Balanced, aspect-ratio safety, and editing UX
+
+- Added IS-Net General Use as the optional enhanced Balanced model with verified SHA-256.
+- Added model-specific preprocessing; IS-Net uses 1024², mean 0.5/std 1, and no output sigmoid.
+- Replaced square stretching with letterbox inference and soft-mask reconstruction on Web Worker,
+  direct ONNX, and native Rust paths. Large images infer on a bounded preview and restore the
+  matte to the original dimensions.
+- Retained bundled U²-Net Light as the automatic low-memory fallback.
+- Made Quick deterministic with adaptive border flooding, mask cleanup, and scene-aware confidence.
+- Reworked Properties into a guided preview/review/edit flow with plain-language edge controls.
+- Exposed one mask editor for Quick, Balanced, and High Quality results: checkerboard/overlay views,
+  add/subtract brush, hair/fur refinement, trimap matting, and explicit Done.
+- Real IS-Net native results: human IoU 0.990, vehicle 0.821, object 0.800.
 
 ---
 

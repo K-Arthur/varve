@@ -47,6 +47,30 @@ function normalizeErrorMessage(e: unknown, defaultMessage: string): string {
   return message.length > 180 ? `${message.slice(0, 180)}...` : message;
 }
 
+const METHOD_GUIDANCE: Record<
+  RemovalMethod,
+  { title: string; description: string; bestFor: string; tradeoff: string }
+> = {
+  quick: {
+    title: 'Quick cutout',
+    description: 'Instant local masking with no model download.',
+    bestFor: 'Flat, studio, product, and colour-consistent backgrounds.',
+    tradeoff: 'Natural scenes may need AI Balanced or a short brush cleanup.',
+  },
+  'ai-balanced': {
+    title: 'Balanced photo cutout',
+    description: 'General-purpose subject detection with automatic low-memory fallback.',
+    bestFor: 'People, pets, vehicles, products, and everyday photos.',
+    tradeoff: 'Install enhanced Balanced for the strongest results on varied systems.',
+  },
+  'ai-quality': {
+    title: 'High-quality cutout',
+    description: 'BiRefNet Lite preserves difficult boundaries and fine structure.',
+    bestFor: 'Hair, fur, foliage, thin objects, and visually complex scenes.',
+    tradeoff: 'Uses more memory and is slower than the other modes.',
+  },
+};
+
 export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const {
     state,
@@ -88,6 +112,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const elapsedRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
+  const [enhancedBalancedAvailable, setEnhancedBalancedAvailable] = useState(false);
+  const [maskEditorOpen, setMaskEditorOpen] = useState(
+    () =>
+      state.selection[0] === node?.id &&
+      (state.tool === 'refineMask' || state.tool === 'trimapEdit'),
+  );
   const [feather, setFeather] = useState((maskProvenance as { feather?: number })?.feather ?? 0.5);
   const [decontaminate, setDecontaminate] = useState(
     (maskProvenance as { decontaminate?: boolean })?.decontaminate ?? true,
@@ -115,15 +146,18 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   const requiredModelId = workerModelIdForMethod(method);
   const imageMaxDim = node?.shape?.kind === 'rect' ? Math.max(node.shape.w, node.shape.h) : 0;
   const previewDownscaleActive = method !== 'quick' && imageMaxDim > DEFAULT_PREVIEW_MAX_DIMENSION;
+  const methodGuidance = METHOD_GUIDANCE[method];
 
   const refreshModelStatus = useCallback(async () => {
     const loader = await getModelLoaderReady();
     setModelState(loader.getState());
     if (method === 'quick' || !requiredModelId) {
       setAiAvailable(true);
+      setEnhancedBalancedAvailable(await loader.isModelAvailable('isnet-general-use'));
       return;
     }
     setAiAvailable(await loader.isModelAvailable(requiredModelId));
+    setEnhancedBalancedAvailable(await loader.isModelAvailable('isnet-general-use'));
   }, [method, requiredModelId]);
 
   useEffect(() => {
@@ -177,6 +211,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       setAiAvailable(stillAvailable);
       if (!stillAvailable) {
         announce('Download the AI model first, or switch to Quick mode.');
+        setDownloadModelId(requiredModelId);
         setShowDownloadDialog(true);
         return;
       }
@@ -216,13 +251,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     announce('Background removal reset');
   };
 
-  const handleDownload = () => {
+  const handleDownload = (modelId = requiredModelId) => {
     // Show a warning before downloading AI Quality on environments without GPU
     if (method === 'ai-quality' && !hasGpuAccel) {
       announce(
         'This model requires significant memory. Download it now, but inference may fail without GPU acceleration on this device.',
       );
     }
+    setDownloadModelId(modelId);
     setShowDownloadDialog(true);
   };
 
@@ -236,6 +272,8 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const handleRefineMask = () => {
+    setMaskEditorOpen(true);
+    setMaskPreviewMode('checkerboard');
     setTool('refineMask');
     announce('Refine mask: paint to add, Alt+paint to subtract, Escape to finish');
   };
@@ -245,6 +283,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const handleEditTrimap = () => {
+    setMaskEditorOpen(true);
     startTrimapEdit();
   };
 
@@ -252,7 +291,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     void applyTrimapMatting();
   };
 
-  const downloadModelId = requiredModelId;
+  const handleDoneMaskEditing = () => {
+    setTool('select');
+    setMaskPreviewMode('none');
+    setMaskEditorOpen(false);
+    announce('Mask editing finished');
+  };
 
   return (
     <DisclosureSection title="Background Removal">
@@ -266,19 +310,35 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             aria-describedby="bg-method-desc"
             onChange={(e) => setMethod(e.target.value as RemovalMethod)}
           >
-            <option value="quick">Quick (no download needed)</option>
+            <option value="quick">Quick — instant, simple backgrounds</option>
             <option value="ai-balanced">
-              AI Balanced{!aiAvailable ? ' (download required)' : ''}
+              AI Balanced — general photos{!aiAvailable ? ' (download required)' : ''}
             </option>
             <option value="ai-quality">
-              AI High Quality{!aiAvailable ? ' (download required)' : ''}
+              AI High Quality — fine details{!aiAvailable ? ' (download required)' : ''}
             </option>
           </select>
         </FieldRow>
         <span id="bg-method-desc" className="sr-only">
-          Quick uses a fast heuristic. AI Balanced uses the bundled offline model. AI High Quality
-          uses a downloadable model for more complex edges.
+          Quick uses a fast local heuristic. AI Balanced uses IS-Net General Use when installed and
+          falls back to bundled U²-Net Light. AI High Quality uses BiRefNet Lite.
         </span>
+
+        <section className="insp-nested-panel" aria-label={`${methodGuidance.title} guidance`}>
+          <p className="insp-subsection__label">{methodGuidance.title}</p>
+          <p className="insp-model-info__desc">{methodGuidance.description}</p>
+          <p className="insp-hint">
+            <strong>Best for:</strong> {methodGuidance.bestFor}
+          </p>
+          <p className="insp-hint">{methodGuidance.tradeoff}</p>
+          {method === 'quick' && (
+            <ol className="insp-hint" aria-label="Quick cutout workflow">
+              <li>Create an automatic mask preview.</li>
+              <li>Review it on the checkerboard before applying.</li>
+              <li>Open Edit mask for brush or trimap corrections.</li>
+            </ol>
+          )}
+        </section>
 
         {(() => {
           const info = getModelInfo(method);
@@ -313,7 +373,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               type="button"
               variant="primary"
               size="sm"
-              onClick={handleDownload}
+              onClick={() => handleDownload()}
               aria-label="Download AI model for background removal"
             >
               Download AI Model
@@ -321,6 +381,24 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             <p className="insp-hint">
               Requires a one-time download stored on this device. Manage models in Settings, Offline
               Models.
+            </p>
+          </div>
+        )}
+
+        {method === 'ai-balanced' && aiAvailable && !enhancedBalancedAvailable && (
+          <div className="insp-actions">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => handleDownload('isnet-general-use')}
+              aria-label="Download enhanced Balanced model"
+            >
+              Upgrade Balanced
+            </Button>
+            <p className="insp-hint">
+              Optional 179 MB IS-Net model improves varied people, animals, vehicles, and objects.
+              The bundled low-memory model remains available as fallback.
             </p>
           </div>
         )}
@@ -340,6 +418,12 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               ·
             </span>
             <span>{(maskProvenance as { method?: string }).method ?? 'quick'}</span>
+          </p>
+        )}
+
+        {maskProvenance && ((maskProvenance as { confidence?: number }).confidence ?? 1) < 0.55 && (
+          <p className="insp-hint insp-hint--warn" role="status">
+            This mask is uncertain. Try AI Balanced or open Edit mask to correct the edges.
           </p>
         )}
 
@@ -383,6 +467,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
           </div>
         </div>
 
+        <p className="insp-hint">
+          Feather softens the mask boundary. Keep it low for hard objects; increase it slightly for
+          soft edges.
+        </p>
+
         <label className="insp-check" htmlFor={decontaminateId}>
           <input
             id={decontaminateId}
@@ -391,14 +480,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             checked={decontaminate}
             onChange={(e) => setDecontaminate(e.target.checked)}
           />
-          <span>Decontaminate</span>
+          <span>Reduce colour fringe</span>
         </label>
+        <p className="insp-hint">
+          Pulls background colour out of semi-transparent edge pixels after masking.
+        </p>
 
         <div className="insp-actions">
           {pending ? (
             <>
               <span className="insp-hint" aria-live="polite">
-                Processing… {Math.round(elapsedMs / 1000)}s
+                Creating mask preview… {Math.round(elapsedMs / 1000)}s
               </span>
               <Button
                 type="button"
@@ -420,7 +512,11 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 maskProvenance ? 'Re-apply background removal' : 'Remove background from image'
               }
             >
-              {maskProvenance ? 'Re-apply' : 'Remove Background'}
+              {maskProvenance
+                ? 'Preview new mask'
+                : method === 'quick'
+                  ? 'Create quick preview'
+                  : 'Create AI preview'}
             </Button>
           )}
         </div>
@@ -457,9 +553,23 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             </div>
             <p className="insp-hint" role="status">
               Requested {previewSession.requestedMethod}; generated {previewSession.actualMethod}
+              {previewSession.modelId ? ` with ${previewSession.modelId}` : ''}
               {previewSession.executionProvider ? ` on ${previewSession.executionProvider}` : ''}.
               Nothing has been added to the document yet.
             </p>
+            <div className="insp-field">
+              <span className="insp-field__label">Mask confidence</span>
+              <div className="insp-field__control">
+                <progress max={1} value={previewSession.confidence} aria-label="Mask confidence" />
+                <span>{Math.round(previewSession.confidence * 100)}%</span>
+              </div>
+            </div>
+            {previewSession.confidence < 0.55 && (
+              <p className="insp-hint insp-hint--warn" role="status">
+                The subject boundary is uncertain. Cancel and choose AI Balanced, or apply then use
+                Edit mask to correct it.
+              </p>
+            )}
             <div className="insp-actions">
               <Button
                 type="button"
@@ -496,28 +606,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               type="button"
               variant="ghost"
               size="sm"
-              onClick={handleRefineMask}
-              aria-label="Refine background removal mask with brush"
+              onClick={() => {
+                if (maskEditorOpen) handleDoneMaskEditing();
+                else {
+                  setMaskEditorOpen(true);
+                  setMaskPreviewMode('checkerboard');
+                }
+              }}
+              aria-expanded={maskEditorOpen}
+              aria-controls="background-mask-editor"
             >
-              Refine Mask
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleRefineHair}
-              aria-label="Refine hair and fur edges with guided matting"
-            >
-              Refine edges (hair/fur)
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleEditTrimap}
-              aria-label="Edit trimap for difficult edges"
-            >
-              Edit trimap
+              {maskEditorOpen ? 'Close mask editor' : 'Edit mask'}
             </Button>
             <Button
               type="button"
@@ -538,9 +637,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
         )}
       </div>
 
-      {refiningMask && maskProvenance && (
-        <div className="insp-nested-panel">
-          <p className="insp-subsection__label">Refine mask</p>
+      {maskEditorOpen && maskProvenance && (
+        <div className="insp-nested-panel" id="background-mask-editor">
+          <p className="insp-subsection__label">Mask editor</p>
+          <p className="insp-hint">
+            Paint to add the subject. Hold Alt while painting to remove it. Use trimap for difficult
+            semi-transparent edges.
+          </p>
           <FieldRow label="Preview" htmlFor="bg-mask-preview">
             <select
               id="bg-mask-preview"
@@ -562,6 +665,34 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               <option value="none">None</option>
             </select>
           </FieldRow>
+          <div className="insp-actions">
+            <Button
+              type="button"
+              variant={refiningMask ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={handleRefineMask}
+            >
+              Refine Mask
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleRefineHair}
+              aria-label="Refine hair and fur edges with guided matting"
+            >
+              Refine edges (hair/fur)
+            </Button>
+            <Button
+              type="button"
+              variant={editingTrimap ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={handleEditTrimap}
+              aria-label="Edit trimap for difficult edges"
+            >
+              Edit trimap
+            </Button>
+          </div>
           <FieldRow label="Brush size" htmlFor="bg-refine-brush">
             <input
               id="bg-refine-brush"
@@ -594,14 +725,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             <output htmlFor="bg-refine-hardness">{Math.round(hardness * 100)}%</output>
           </FieldRow>
           <div className="insp-actions">
-            <Button type="button" variant="secondary" size="sm" onClick={() => setTool('select')}>
+            <Button type="button" variant="primary" size="sm" onClick={handleDoneMaskEditing}>
               Done
             </Button>
           </div>
         </div>
       )}
 
-      {editingTrimap && maskProvenance && (
+      {maskEditorOpen && editingTrimap && maskProvenance && (
         <div className="insp-nested-panel">
           <p className="insp-subsection__label">Trimap</p>
           <FieldRow label="Pen" htmlFor={trimapModeId}>
@@ -646,10 +777,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
 
       {showDownloadDialog && (
         <ModelDownloadDialog
-          modelId={downloadModelId ?? ''}
-          onClose={() => setShowDownloadDialog(false)}
+          modelId={downloadModelId ?? requiredModelId ?? ''}
+          onClose={() => {
+            setShowDownloadDialog(false);
+            setDownloadModelId(null);
+          }}
           onComplete={() => {
             setShowDownloadDialog(false);
+            setDownloadModelId(null);
             void refreshModelStatus();
           }}
         />
