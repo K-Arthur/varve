@@ -111,18 +111,24 @@ export function kMeansMask(img: ImageData): Uint8Array {
   if (flattened.length === 0) return new Uint8Array(0);
 
   const nPixels = flattened.length;
-  const sampled = new Set<number>();
-  while (sampled.size < 2 && sampled.size < nPixels) {
-    sampled.add(Math.floor(Math.random() * nPixels));
-  }
-  const sampleArr = [...sampled];
-  const sample0 = flattened[sampleArr[0]!] ?? { idx: 0, r: 0, g: 0, b: 0 };
-  let c0 = { r: sample0.r, g: sample0.g, b: sample0.b };
-  const sample1 = flattened[sampleArr[1]!];
-  let c1 =
-    sampleArr.length < 2 || !sample1
-      ? { r: 255, g: 255, b: 255 }
-      : { r: sample1.r, g: sample1.g, b: sample1.b };
+  const border = flattened.filter(({ idx }) => {
+    const x = idx % width;
+    const y = Math.floor(idx / width);
+    return x === 0 || y === 0 || x === width - 1 || y === height - 1;
+  });
+  const borderCount = Math.max(1, border.length);
+  let c0 = border.reduce(
+    (sum, pixel) => ({ r: sum.r + pixel.r, g: sum.g + pixel.g, b: sum.b + pixel.b }),
+    { r: 0, g: 0, b: 0 },
+  );
+  c0 = { r: c0.r / borderCount, g: c0.g / borderCount, b: c0.b / borderCount };
+  const farthest = flattened.reduce((best, pixel) =>
+    rgbDist(pixel.r, pixel.g, pixel.b, c0.r, c0.g, c0.b) >
+    rgbDist(best.r, best.g, best.b, c0.r, c0.g, c0.b)
+      ? pixel
+      : best,
+  );
+  let c1 = { r: farthest.r, g: farthest.g, b: farthest.b };
 
   const assignments = new Uint8Array(nPixels);
   for (let iter = 0; iter < 20; iter++) {
@@ -187,6 +193,116 @@ export function kMeansMask(img: ImageData): Uint8Array {
     mask[flat.idx] = (assignments[i] ?? 0) === fgCluster ? 255 : 0;
   }
   return mask;
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0;
+  values.sort((a, b) => a - b);
+  return values[Math.floor(values.length / 2)] ?? 0;
+}
+
+/** Segment a colour-consistent background by flooding inward from every image edge. */
+export function adaptiveBorderMask(img: ImageData): Uint8Array {
+  const { data, width, height } = img;
+  const mask = new Uint8Array(width * height).fill(255);
+  const borderIndices: number[] = [];
+  for (let x = 0; x < width; x++) {
+    borderIndices.push(x, (height - 1) * width + x);
+  }
+  for (let y = 1; y < height - 1; y++) {
+    borderIndices.push(y * width, y * width + width - 1);
+  }
+  const rs = borderIndices.map((i) => data[i * 4] ?? 0);
+  const gs = borderIndices.map((i) => data[i * 4 + 1] ?? 0);
+  const bs = borderIndices.map((i) => data[i * 4 + 2] ?? 0);
+  const background = { r: median(rs), g: median(gs), b: median(bs) };
+  const deviations = borderIndices.map((i) =>
+    rgbDist(
+      data[i * 4] ?? 0,
+      data[i * 4 + 1] ?? 0,
+      data[i * 4 + 2] ?? 0,
+      background.r,
+      background.g,
+      background.b,
+    ),
+  );
+  const tolerance = Math.min(72, Math.max(18, median(deviations) * 2.5 + 10));
+  const visited = new Uint8Array(width * height);
+  const queue: number[] = [];
+  for (const idx of borderIndices) {
+    const i = idx * 4;
+    if (
+      (data[i + 3] ?? 0) < 128 ||
+      rgbDist(
+        data[i] ?? 0,
+        data[i + 1] ?? 0,
+        data[i + 2] ?? 0,
+        background.r,
+        background.g,
+        background.b,
+      ) <= tolerance
+    ) {
+      visited[idx] = 1;
+      queue.push(idx);
+    }
+  }
+
+  for (let head = 0; head < queue.length; head++) {
+    const idx = queue[head] ?? 0;
+    mask[idx] = 0;
+    const x = idx % width;
+    const y = Math.floor(idx / width);
+    const neighbours = [
+      x > 0 ? idx - 1 : -1,
+      x + 1 < width ? idx + 1 : -1,
+      y > 0 ? idx - width : -1,
+      y + 1 < height ? idx + width : -1,
+    ];
+    for (const next of neighbours) {
+      if (next < 0 || visited[next]) continue;
+      visited[next] = 1;
+      const ni = next * 4;
+      const globallySimilar =
+        rgbDist(
+          data[ni] ?? 0,
+          data[ni + 1] ?? 0,
+          data[ni + 2] ?? 0,
+          background.r,
+          background.g,
+          background.b,
+        ) <=
+        tolerance * 1.35;
+      const locallySimilar =
+        rgbDist(
+          data[ni] ?? 0,
+          data[ni + 1] ?? 0,
+          data[ni + 2] ?? 0,
+          data[idx * 4] ?? 0,
+          data[idx * 4 + 1] ?? 0,
+          data[idx * 4 + 2] ?? 0,
+        ) <= Math.max(16, tolerance * 0.65);
+      if ((data[ni + 3] ?? 0) < 128 || (globallySimilar && locallySimilar)) queue.push(next);
+    }
+  }
+  return cleanupQuickMask(mask, width, height);
+}
+
+function cleanupQuickMask(mask: Uint8Array, width: number, height: number): Uint8Array {
+  if (width < 3 || height < 3) return mask;
+  const cleaned = new Uint8Array(mask);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let foreground = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((mask[(y + dy) * width + x + dx] ?? 0) >= 128) foreground++;
+        }
+      }
+      if (foreground >= 7) cleaned[y * width + x] = 255;
+      else if (foreground <= 2) cleaned[y * width + x] = 0;
+    }
+  }
+  return cleaned;
 }
 
 export function edgeDetectMask(img: ImageData): Uint8Array {
@@ -266,70 +382,65 @@ export function isBrowser(): boolean {
   return typeof document !== 'undefined' && typeof document.createElement === 'function';
 }
 
-function computeConfidence(mask: Uint8Array): number {
+function computeConfidence(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  image?: ImageData,
+): number {
   let sum = 0;
   for (let i = 0; i < mask.length; i++) sum += mask[i] ?? 0;
   const avg = sum / mask.length / 255;
-  const edgeBalance = Math.min(avg, 1 - avg) * 2;
-  if (edgeBalance < 0.1) return 0.1;
-  return Math.min(1, edgeBalance * 1.5);
+  const areaBalance = Math.min(1, Math.min(avg / 0.12, (1 - avg) / 0.12));
+  let clearBorder = 0;
+  let borderCount = 0;
+  for (let x = 0; x < width; x++) {
+    clearBorder += (mask[x] ?? 255) < 128 ? 1 : 0;
+    clearBorder += (mask[(height - 1) * width + x] ?? 255) < 128 ? 1 : 0;
+    borderCount += 2;
+  }
+  for (let y = 1; y < height - 1; y++) {
+    clearBorder += (mask[y * width] ?? 255) < 128 ? 1 : 0;
+    clearBorder += (mask[y * width + width - 1] ?? 255) < 128 ? 1 : 0;
+    borderCount += 2;
+  }
+  const maskScore = areaBalance * 0.55 + (clearBorder / borderCount) * 0.45;
+  if (!image) return Math.max(0.1, Math.min(1, maskScore));
+
+  const borderPixels: Array<[number, number, number]> = [];
+  const step = Math.max(1, Math.floor(Math.min(width, height) / 64));
+  for (let x = 0; x < width; x += step) {
+    for (const y of [0, height - 1]) {
+      const i = (y * width + x) * 4;
+      borderPixels.push([image.data[i] ?? 0, image.data[i + 1] ?? 0, image.data[i + 2] ?? 0]);
+    }
+  }
+  for (let y = step; y < height - 1; y += step) {
+    for (const x of [0, width - 1]) {
+      const i = (y * width + x) * 4;
+      borderPixels.push([image.data[i] ?? 0, image.data[i + 1] ?? 0, image.data[i + 2] ?? 0]);
+    }
+  }
+  const center = {
+    r: median(borderPixels.map(([r]) => r)),
+    g: median(borderPixels.map(([, g]) => g)),
+    b: median(borderPixels.map(([, , b]) => b)),
+  };
+  const medianDeviation = median(
+    borderPixels.map(([r, g, b]) => rgbDist(r, g, b, center.r, center.g, center.b)),
+  );
+  const backgroundConsistency = Math.exp(-medianDeviation / 28);
+  return Math.max(0.1, Math.min(1, maskScore * (0.15 + backgroundConsistency * 0.85)));
 }
 
 function autoDetectMethod(
-  img: ImageData,
+  _img: ImageData,
   clickPoint?: { x: number; y: number },
 ): { method: HeuristicMethod; params: Record<string, unknown> } {
-  const { data, width, height } = img;
-
   if (clickPoint) {
     return { method: 'floodFill', params: { tolerance: 30 } };
   }
-
-  let hasTransparent = false;
-  for (let i = 3; i < data.length; i += 4) {
-    if ((data[i] ?? 0) < 128) {
-      hasTransparent = true;
-      break;
-    }
-  }
-
-  let colorSpread = 0;
-  const sample = 100;
-  for (let i = 0; i < sample; i++) {
-    const x = Math.floor(Math.random() * width);
-    const y = Math.floor(Math.random() * height);
-    const idx = (y * width + x) * 4;
-    colorSpread += rgbDist(data[idx] ?? 0, data[idx + 1] ?? 0, data[idx + 2] ?? 0, 128, 128, 128);
-  }
-  colorSpread /= sample;
-
-  if (colorSpread < 30 && !hasTransparent) {
-    return { method: 'kMeans', params: {} };
-  }
-
-  const cornerColors = new Set<string>();
-  for (const [cx, cy] of [
-    [0, 0],
-    [width - 1, 0],
-    [0, height - 1],
-    [width - 1, height - 1],
-  ] as [number, number][]) {
-    const idx = (cy * width + cx) * 4;
-    cornerColors.add(`${data[idx] ?? 0},${data[idx + 1] ?? 0},${data[idx + 2] ?? 0}`);
-  }
-
-  if (cornerColors.size <= 2) {
-    const idx = (0 * width + 0) * 4;
-    return {
-      method: 'chromaKey',
-      params: {
-        keyColor: { r: data[idx] ?? 0, g: data[idx + 1] ?? 0, b: data[idx + 2] ?? 0 },
-        tolerance: 40,
-      },
-    };
-  }
-
-  return { method: 'kMeans', params: {} };
+  return { method: 'auto', params: {} };
 }
 
 export async function removeBackgroundHeuristic(
@@ -369,8 +480,15 @@ export async function removeBackgroundHeuristic(
         mask = kMeansMask(img);
         break;
       }
-      default:
-        mask = kMeansMask(img);
+      default: {
+        const borderMask = adaptiveBorderMask(img);
+        const clusteredMask = kMeansMask(img);
+        mask =
+          computeConfidence(borderMask, img.width, img.height) >=
+          computeConfidence(clusteredMask, img.width, img.height)
+            ? borderMask
+            : clusteredMask;
+      }
     }
   } else {
     switch (heuristic) {
@@ -404,7 +522,7 @@ export async function removeBackgroundHeuristic(
     mask = featherMaskArray(mask, img.width, img.height, opts.feather);
   }
 
-  const confidence = computeConfidence(mask);
+  const confidence = computeConfidence(mask, img.width, img.height, img);
   const maskDataUrl = maskToDataUrl(mask, img.width, img.height);
   const processingTimeMs = performance.now() - start;
 

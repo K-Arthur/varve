@@ -44,15 +44,15 @@ export const QUICK_MODEL_INFO: ModelInfo = {
 
 export const AI_BALANCED_MODEL_INFO: ModelInfo = {
   label: 'AI Balanced',
-  description: 'Bundled u2netp model — good for most subjects, works immediately.',
-  diskSizeBytes: 4_700_000,
-  estimatedPeakRamBytes: 50_000_000,
-  peakRamDisplay: '~50 MB',
-  diskSizeDisplay: '4.7 MB',
-  quality: 'Good',
-  requiresDownload: false,
-  gpuRecommended: false,
-  wasmSafe: true,
+  description: 'IS-Net enhanced mode with automatic U²-Net Light low-memory fallback.',
+  diskSizeBytes: 178_648_008,
+  estimatedPeakRamBytes: 700_000_000,
+  peakRamDisplay: 'up to ~700 MB',
+  diskSizeDisplay: '179 MB optional',
+  quality: 'Very good',
+  requiresDownload: true,
+  gpuRecommended: true,
+  wasmSafe: false,
 };
 
 export const AI_QUALITY_MODEL_INFO: ModelInfo = {

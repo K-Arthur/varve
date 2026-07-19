@@ -160,7 +160,9 @@ class ModelLoader {
       // web EP is available: its bare-WASM path can exceed wasm32 memory and
       // abort the webview. An old IndexedDB copy must not make the UI claim
       // Quality is runnable when the native model has not been installed.
-      if (native && modelId.startsWith('birefnet-')) return false;
+      if (native && (modelId.startsWith('birefnet-') || modelId === 'isnet-general-use')) {
+        return false;
+      }
     }
     const path = await this.getModelPath(modelId, signal);
     return path !== null;
@@ -218,7 +220,7 @@ class ModelLoader {
       let source: 'bundled' | 'downloaded' | 'none' = 'none';
       let installed = false;
 
-      if (model.id.startsWith('birefnet-')) {
+      if (model.id.startsWith('birefnet-') || model.id === 'isnet-general-use') {
         const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
         const native = await getNativeBackgroundRemovalModelStatus(model.id);
         if (native) {

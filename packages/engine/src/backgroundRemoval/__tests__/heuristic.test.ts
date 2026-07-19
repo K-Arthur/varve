@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  adaptiveBorderMask,
   chromaKeyMask,
   edgeDetectMask,
   floodFillMask,
@@ -130,6 +131,26 @@ describe('kMeansMask', () => {
     const mask = kMeansMask(img);
     const unique = new Set(mask);
     expect(unique.size).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('adaptiveBorderMask', () => {
+  it('keeps a central subject on a mildly varying studio background', () => {
+    const img = makeTestImage(30, 20, (x, y) => {
+      if (x >= 9 && x < 21 && y >= 4 && y < 17) return [35, 70, 180, 255];
+      const shade = 225 + Math.round((x / 29) * 15);
+      return [shade, shade, shade, 255];
+    });
+    const mask = adaptiveBorderMask(img);
+    expect(mask[10 * 30 + 15]).toBe(255);
+    expect(mask[0]).toBe(0);
+    expect(mask[19 * 30 + 29]).toBe(0);
+  });
+
+  it('is deterministic across repeated Quick runs', () => {
+    const img = redBlueSplit(20, 20);
+    expect(adaptiveBorderMask(img)).toEqual(adaptiveBorderMask(img));
+    expect(kMeansMask(img)).toEqual(kMeansMask(img));
   });
 });
 

@@ -45,6 +45,8 @@ export {
 export type { ModelInfo } from './modelInfo';
 export { getModelInfo, MODEL_INFO_MAP } from './modelInfo';
 export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
+export type { SegmentationModelSpec } from './modelSpec';
+export { getSegmentationModelSpec, packModelInput } from './modelSpec';
 export { ModelStorageQuotaError } from './modelStore';
 export type { FlowVector } from './opticalFlow';
 export { computeBlockFlow, warpMask } from './opticalFlow';
@@ -80,7 +82,12 @@ export type {
   SourceResolutionInfo,
   WorkerModelId,
 } from './types';
-export { AVAILABLE_MODELS, DEFAULT_PREVIEW_MAX_DIMENSION, workerModelIdForMethod } from './types';
+export {
+  AVAILABLE_MODELS,
+  DEFAULT_PREVIEW_MAX_DIMENSION,
+  preferredWorkerModelIdForMethod,
+  workerModelIdForMethod,
+} from './types';
 export type { VideoFrame, VideoMatteOptions, VideoMatteResult } from './videoMatte';
 export { processVideoMatte } from './videoMatte';
 export { cancelAllWorkerJobs, terminateWorkerPool } from './workerPool';

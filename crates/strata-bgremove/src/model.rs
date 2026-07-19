@@ -37,6 +37,16 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         ),
     },
     ModelInfo {
+        id: "isnet-general-use".to_owned(),
+        name: "IS-Net General Use".to_owned(),
+        description: "179 MB — enhanced balanced quality for varied subjects".to_owned(),
+        size_bytes: 178_648_008,
+        remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx".to_owned(),
+        checksum_sha256: Some(
+            "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a".into(),
+        ),
+    },
+    ModelInfo {
         id: "birefnet-general-lite".to_owned(),
         name: "BiRefNet Lite".to_owned(),
         description: "224 MB — high quality, handles complex edges".to_owned(),
@@ -59,11 +69,10 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
 
 /// Get the directory where native models are stored.
 pub fn models_dir() -> PathBuf {
-    let base = dirs_next::data_dir()
+    dirs_next::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("strata")
-        .join("models");
-    base
+        .join("models")
 }
 
 /// Check if a model is already downloaded to native storage.
@@ -126,6 +135,10 @@ mod tests {
         assert!(lite.remote_url.contains("rembg"));
         assert!(lite.remote_url.contains("BiRefNet-general-bb_swin"));
         assert_eq!(lite.size_bytes, 224_005_088);
+
+        let balanced = model_info("isnet-general-use").expect("enhanced balanced model");
+        assert_eq!(balanced.size_bytes, 178_648_008);
+        assert!(balanced.remote_url.ends_with("isnet-general-use.onnx"));
 
         let full = model_info("birefnet-general").expect("full model");
         assert!(full.remote_url.contains("BiRefNet-general-epoch_244"));

@@ -23,7 +23,7 @@ use image::DynamicImage;
 pub enum RemovalMethod {
     /// Non-AI heuristic (flood fill, chroma key, k-means, edge detect).
     Quick,
-    /// AI-powered removal using the compact bundled U2-Net model.
+    /// AI-powered removal using IS-Net General Use.
     #[cfg(feature = "ai")]
     AiBalanced,
     /// AI-powered removal using BiRefNet Lite (high quality).
@@ -81,7 +81,7 @@ pub fn remove_background(
     match opts.method {
         RemovalMethod::Quick => heuristic::remove_quick(img, opts),
         #[cfg(feature = "ai")]
-        RemovalMethod::AiBalanced => inference::remove_ai(img, opts, "u2netp"),
+        RemovalMethod::AiBalanced => inference::remove_ai(img, opts, "isnet-general-use"),
         #[cfg(feature = "ai")]
         RemovalMethod::AiQuality => inference::remove_ai(img, opts, "birefnet-general-lite"),
     }

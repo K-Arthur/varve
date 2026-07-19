@@ -10,11 +10,12 @@ import {
   decontaminateMask,
   featherMaskArray,
   normalizeSegmentationOutput,
-  packSegmentationChwFloat32,
   resizeMaskBilinear,
 } from './maskOps';
+import { getSegmentationModelSpec, packModelInput } from './modelSpec';
 import { configureOrtRuntime } from './ortRuntimeAssets';
 import { downscaleImageData } from './previewDownscale';
+import { computeLetterboxTransform, reconstructModelMask } from './reconstructMask';
 import type { BackgroundRemovalResult } from './types';
 
 interface WorkerCommand {
@@ -22,7 +23,7 @@ interface WorkerCommand {
   requestId: string;
   imageData: ImageData;
   modelPath: string;
-  modelId: 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
+  modelId: 'u2netp' | 'isnet-general-use' | 'birefnet-general-lite' | 'birefnet-general';
   method: 'ai-balanced' | 'ai-quality';
   reuseSession?: boolean;
   feather?: number;
@@ -165,7 +166,8 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
     const ort = await import('onnxruntime-web');
 
-    const inputSize = modelId === 'u2netp' ? 320 : 1024;
+    const spec = getSegmentationModelSpec(modelId);
+    const inputSize = spec.inputSize;
 
     const sourceImage =
       previewMaxDimension && previewMaxDimension > 0
@@ -174,13 +176,27 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
     const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
     const resizedCtx = resizedCanvas.getContext('2d')!;
+    const inputTransform = computeLetterboxTransform(
+      sourceImage.width,
+      sourceImage.height,
+      inputSize,
+      inputSize,
+    );
+    resizedCtx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
+    resizedCtx.fillRect(0, 0, inputSize, inputSize);
 
     const imageBitmap = await createImageBitmap(sourceImage);
-    resizedCtx.drawImage(imageBitmap, 0, 0, inputSize, inputSize);
+    resizedCtx.drawImage(
+      imageBitmap,
+      inputTransform.offsetX,
+      inputTransform.offsetY,
+      sourceImage.width * inputTransform.scaleX,
+      sourceImage.height * inputTransform.scaleY,
+    );
     imageBitmap.close();
     const resizedData = resizedCtx.getImageData(0, 0, inputSize, inputSize);
 
-    const floatData = packSegmentationChwFloat32(resizedData);
+    const floatData = packModelInput(resizedData, spec);
 
     const inputName = session.inputNames[0]!;
     const feeds: Record<string, Tensor> = {};
@@ -203,16 +219,30 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
     const dims = outputTensor.dims;
     const maskW = dims?.[3] ?? inputSize;
     const maskH = dims?.[2] ?? inputSize;
-    const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
+    const mask = normalizeSegmentationOutput(outputData, spec.applySigmoid);
     outputTensor.dispose();
 
     // Cap upsample to previewMax as defense-in-depth; the engine entry already
     // caps imageData to this dimension before dispatch.
-    const upsampleCap =
-      previewMaxDimension && previewMaxDimension > 0 ? previewMaxDimension : imageData.width;
-    const upsampleW = Math.min(imageData.width, upsampleCap);
-    const upsampleH = Math.min(imageData.height, upsampleCap);
-    let fullMask = resizeMaskBilinear(mask, maskW, maskH, upsampleW, upsampleH);
+    const outputTransform = computeLetterboxTransform(
+      sourceImage.width,
+      sourceImage.height,
+      maskW,
+      maskH,
+    );
+    const previewMask = reconstructModelMask(mask, maskW, maskH, outputTransform).alpha;
+    const upsampleW = imageData.width;
+    const upsampleH = imageData.height;
+    let fullMask =
+      sourceImage.width === upsampleW && sourceImage.height === upsampleH
+        ? previewMask
+        : resizeMaskBilinear(
+            previewMask,
+            sourceImage.width,
+            sourceImage.height,
+            upsampleW,
+            upsampleH,
+          );
 
     if (decontaminate) {
       fullMask = decontaminateMask(fullMask, upsampleW, upsampleH);
@@ -254,6 +284,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
         width: upsampleW,
         height: upsampleH,
         executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
+        modelId,
         rawMask: fullMask,
       },
     };

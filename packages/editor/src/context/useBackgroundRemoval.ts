@@ -207,6 +207,7 @@ export function useBackgroundRemoval(
             feather: 0.5,
             decontaminate: true,
             executionProvider: result.provenance.executionProvider,
+            modelId: result.provenance.modelId,
           },
         });
         announcerRef.current?.announce('Background removal preview ready');
@@ -335,6 +336,7 @@ export function useBackgroundRemoval(
             feather,
             decontaminate,
             executionProvider: isoResult.provenance.executionProvider,
+            modelId: isoResult.provenance.modelId,
           },
         });
         announcerRef.current?.announce('Background removal preview ready');

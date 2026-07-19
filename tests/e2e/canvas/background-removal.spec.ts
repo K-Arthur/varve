@@ -115,4 +115,28 @@ test.describe('Background removal — all modes', () => {
     const box = await canvas.boundingBox();
     expect(box!.width).toBeGreaterThan(0);
   });
+
+  test('Properties exposes the complete mask editing workflow', async ({ page }) => {
+    await importTestImage(page);
+    await page
+      .getByTestId('selection-quick-bar')
+      .getByRole('button', { name: 'Remove background' })
+      .click();
+    const review = page.getByRole('region', { name: 'Background removal review' });
+    await expect(review).toBeVisible({ timeout: 15000 });
+    await review.getByRole('button', { name: 'Apply result' }).click();
+
+    const editMask = page.getByRole('button', { name: 'Edit mask' });
+    await expect(editMask).toBeVisible();
+    await editMask.click();
+    const editor = page.locator('#background-mask-editor');
+    await expect(editor).toBeVisible();
+    await expect(editor.getByLabel('Mask preview mode')).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'Refine Mask' })).toBeVisible();
+    await expect(editor.getByRole('button', { name: /Refine hair and fur edges/i })).toBeVisible();
+    await expect(editor.getByRole('button', { name: /Edit trimap/i })).toBeVisible();
+    await editor.getByRole('button', { name: 'Done' }).click();
+    await expect(editor).toBeHidden();
+    await expect(page.locator('.error-boundary')).toHaveCount(0);
+  });
 });

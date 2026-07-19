@@ -1,9 +1,10 @@
 /**
  * Orchestrates background removal via an ordered provider chain (Strategy pattern).
  *
- * Quick mode bypasses AI providers entirely. AI modes try Worker ONNX first
- * (all platforms), then Tauri native IPC, then main-thread ONNX, then cloud API
- * fallback. AI requests never silently return heuristic output.
+ * Quick mode bypasses AI providers entirely. Browser AI tries Worker ONNX,
+ * main-thread ONNX, then cloud. Desktop prefers native ONNX when its runtime
+ * is ready, then follows the browser chain. AI never silently returns a
+ * heuristic result.
  *
  * Provider dispatch safety: each provider receives an independent immutable
  * pixel buffer clone. A worker transfer must never detach the source used by
@@ -31,12 +32,8 @@ import { workerRemovalProvider } from './workerProvider';
  * the one path guaranteed to exist everywhere, with Tauri-native as a
  * second-tier fallback.
  *
- * ai-quality does not always use this order unchanged — see
- * `getProviderOrder` below. u2netp (ai-balanced) stays on this default
- * order unconditionally: it's small enough to be WASM-safe everywhere
- * (isWasmModelSafe('u2netp') is always true), so there's no memory-safety
- * reason to prefer native for it, and Worker ONNX avoids the extra Tauri
- * IPC round-trip.
+ * Native-ready desktop builds reorder this below so enhanced Balanced and
+ * Quality can run outside the webview's WASM memory ceiling.
  */
 export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
   workerRemovalProvider,
@@ -46,21 +43,19 @@ export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
 ];
 
 /**
- * ai-quality (BiRefNet) is where bare-WASM can crash with std::bad_alloc on
+ * Enhanced Balanced (IS-Net) and Quality (BiRefNet) can exceed safe bare-WASM
+ * memory and, in the worst case, crash with std::bad_alloc on
  * GPU-less hosts (docs/audits/background-removal-wasm-memory-hardening-
  * 2026-07-18.md — reproduced deterministically at ~4GB RSS, the wasm32
  * linear-memory ceiling). Native execution of the same model peaks around
  * 445MB. When the Tauri desktop build has successfully loaded a native
  * onnxruntime dylib (`isNativeAiReady()` — a runtime-verified check, not
- * just "the ai feature was compiled in"), prefer it over Worker ONNX for
- * this tier specifically. Every other method keeps the ADR-0005 default
- * order unchanged.
+ * just "the ai feature was compiled in"), prefer it over Worker ONNX. If the
+ * selected native model is absent, dispatch continues to the worker fallback
+ * (U²-Net Light for Balanced).
  */
 async function getProviderOrder(options: BackgroundRemovalOptions): Promise<RemovalProvider[]> {
-  if (options.method !== 'ai-quality') {
-    return AI_PROVIDER_CHAIN;
-  }
-  if (await isNativeAiReady()) {
+  if (options.method !== 'quick' && (await isNativeAiReady())) {
     return [
       tauriRemovalProvider,
       workerRemovalProvider,
