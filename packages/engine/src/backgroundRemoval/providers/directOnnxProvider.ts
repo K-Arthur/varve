@@ -7,18 +7,11 @@ import {
   packSegmentationChwFloat32,
   resizeMaskBilinear,
 } from '../maskOps';
+import { configureOrtRuntime } from '../ortRuntimeAssets';
 import { downscaleImageData } from '../previewDownscale';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId } from '../types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION, workerModelIdForMethod } from '../types';
 import type { RemovalProvider } from './types';
-
-function configureOrtWasm(ort: typeof import('onnxruntime-web')): void {
-  try {
-    ort.env.wasm.wasmPaths = '/ort-wasm/';
-  } catch {
-    // Older ort builds may not expose env; ignore.
-  }
-}
 
 async function getPreferredProviders(): Promise<string[]> {
   try {
@@ -37,7 +30,7 @@ async function createOrtSession(
   session: import('onnxruntime-web').InferenceSession;
   executionProvider: string;
 }> {
-  configureOrtWasm(ort);
+  configureOrtRuntime(ort);
 
   const providers = await getPreferredProviders();
 
@@ -47,7 +40,11 @@ async function createOrtSession(
     if (provider === 'wasm') continue;
     try {
       const session = await ort.InferenceSession.create(modelPath, {
-        executionProviders: [provider, 'wasm'],
+        // Use one provider per attempt. Supplying `wasm` as an in-session
+        // fallback makes a successful create ambiguous: ORT can silently
+        // remove the requested EP and initialize WASM instead, while we
+        // incorrectly report the accelerated provider as the one in use.
+        executionProviders: [provider],
       });
       return { session, executionProvider: provider };
     } catch (err) {
@@ -124,42 +121,51 @@ async function removeBackgroundDirectOnnx(
   const feeds: Record<string, import('onnxruntime-web').Tensor> = {};
   feeds[session.inputNames[0]!] = inputTensor;
 
-  const results = await session.run(feeds);
-  const outputTensor = results[session.outputNames[0]!];
-  const outputData = outputTensor?.data as Float32Array;
+  try {
+    const results = await session.run(feeds);
+    const outputTensor = results[session.outputNames[0]!];
+    const outputData = outputTensor?.data as Float32Array;
+    if (!outputTensor || !outputData || outputData.length === 0) {
+      throw new Error('ONNX inference returned an empty segmentation tensor');
+    }
 
-  const maskWidth = outputTensor?.dims[3] ?? inputSize;
-  const maskHeight = outputTensor?.dims[2] ?? inputSize;
+    const maskWidth = outputTensor.dims[3] ?? inputSize;
+    const maskHeight = outputTensor.dims[2] ?? inputSize;
 
-  const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
-  const upscaledMask = resizeMaskBilinear(
-    mask,
-    maskWidth,
-    maskHeight,
-    imageData.width,
-    imageData.height,
-  );
+    const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
+    const upscaledMask = resizeMaskBilinear(
+      mask,
+      maskWidth,
+      maskHeight,
+      imageData.width,
+      imageData.height,
+    );
 
-  let finalMask = upscaledMask;
-  if (options.decontaminate) {
-    finalMask = decontaminateMask(finalMask, imageData.width, imageData.height);
+    let finalMask = upscaledMask;
+    if (options.decontaminate) {
+      finalMask = decontaminateMask(finalMask, imageData.width, imageData.height);
+    }
+    if (options.feather && options.feather > 0) {
+      finalMask = featherMaskArray(finalMask, imageData.width, imageData.height, options.feather);
+    }
+
+    const maskDataUrl = maskToDataUrl(finalMask, imageData.width, imageData.height);
+    const processingTimeMs = performance.now() - start;
+
+    return {
+      maskDataUrl,
+      confidence: computeMaskConfidence(Float32Array.from(mask, (value) => value / 255)),
+      method: options.method,
+      processingTimeMs: Math.round(processingTimeMs),
+      width: imageData.width,
+      height: imageData.height,
+      executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
+      rawMask: finalMask,
+    };
+  } finally {
+    inputTensor.dispose();
+    await session.release();
   }
-  if (options.feather && options.feather > 0) {
-    finalMask = featherMaskArray(finalMask, imageData.width, imageData.height, options.feather);
-  }
-
-  const maskDataUrl = maskToDataUrl(finalMask, imageData.width, imageData.height);
-  const processingTimeMs = performance.now() - start;
-
-  return {
-    maskDataUrl,
-    confidence: computeMaskConfidence(Float32Array.from(mask, (value) => value / 255)),
-    method: options.method,
-    processingTimeMs: Math.round(processingTimeMs),
-    width: imageData.width,
-    height: imageData.height,
-    executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
-  };
 }
 
 export const directOnnxRemovalProvider: RemovalProvider = {

@@ -54,6 +54,10 @@ function ortWasmDevPlugin() {
 }
 
 export default defineConfig({
+  define: {
+    __STRATA_ASSET_BASE__: JSON.stringify(process.env.VITE_BASE_URL ?? '/'),
+  },
+  base: process.env.VITE_BASE_URL ?? '/',
   plugins: [react(), ortWasmDevPlugin()],
   clearScreen: false,
   server: { port: 1420, strictPort: true },

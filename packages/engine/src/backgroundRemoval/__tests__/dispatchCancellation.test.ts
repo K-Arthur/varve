@@ -110,6 +110,13 @@ describe('workerPool — revision-safe protocol', () => {
     // Abort job A
     abortA.abort();
     await expect(first).rejects.toThrow(/cancelled/i);
+    expect(mockWorkers[0]?.terminate).toHaveBeenCalledTimes(1);
+    // Cancellation replaces the worker so the in-flight ORT run is actually
+    // stopped. Disable the replacement mock's automatic response; this test
+    // injects job B's real response explicitly below.
+    for (const w of mockWorkers) {
+      w.postMessage = vi.fn();
+    }
 
     // Start job B — it should be dispatched to the same or different worker
     const second = runPooledInference(imgB, opts, path, model);

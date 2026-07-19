@@ -12,6 +12,10 @@ const { mockCreate, mockGetModelLoader } = vi.hoisted(() => ({
 }));
 
 vi.mock('onnxruntime-web', () => ({
+  env: {
+    wasm: { wasmPaths: '', numThreads: 1 },
+    versions: { common: 'test', web: 'test' },
+  },
   InferenceSession: { create: mockCreate },
   Tensor: class MockTensor {
     type: string;
@@ -22,6 +26,7 @@ vi.mock('onnxruntime-web', () => ({
       this.data = data;
       this.dims = dims;
     }
+    dispose() {}
   },
 }));
 
@@ -89,6 +94,7 @@ describe('directOnnxProvider WASM memory preflight', () => {
     mockCreate.mockResolvedValue({
       inputNames: ['input'],
       outputNames: ['output'],
+      release: vi.fn().mockResolvedValue(undefined),
       run: vi.fn().mockResolvedValue({
         output: { data: new Float32Array(1024 * 1024), dims: [1, 1, 1024, 1024] },
       }),
@@ -99,7 +105,7 @@ describe('directOnnxProvider WASM memory preflight', () => {
     const result = await directOnnxRemovalProvider.remove(img, { method: 'ai-quality' });
 
     expect(mockCreate).toHaveBeenCalledWith('blob:model', {
-      executionProviders: ['webgl', 'wasm'],
+      executionProviders: ['webgl'],
     });
     expect(result.executionProvider).toBe('webgl');
   });

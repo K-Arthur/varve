@@ -51,6 +51,7 @@ vi.mock('../environmentCapabilities', () => ({
 }));
 
 vi.mock('onnxruntime-web', () => ({
+  env: { wasm: { wasmPaths: '', numThreads: 1 }, versions: { common: 'test', web: 'test' } },
   InferenceSession: {
     create: mockCreate,
   },
@@ -63,6 +64,7 @@ vi.mock('onnxruntime-web', () => ({
       this.data = data;
       this.dims = dims;
     }
+    dispose() {}
   },
 }));
 
@@ -118,6 +120,7 @@ describe('direct AI telemetry', () => {
     mockCreate.mockRejectedValueOnce(new Error('WebGL unavailable')).mockResolvedValueOnce({
       inputNames: ['input'],
       outputNames: ['output'],
+      release: vi.fn().mockResolvedValue(undefined),
       run: vi.fn().mockResolvedValue({
         output: { data: outputData, dims: [1, 1, 1024, 1024] },
       }),
@@ -127,7 +130,7 @@ describe('direct AI telemetry', () => {
     const result = await removeBackground(makeImage(), { method: 'ai-balanced' });
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
-    expect(mockCreate.mock.calls[0]?.[1]).toEqual({ executionProviders: ['webgl', 'wasm'] });
+    expect(mockCreate.mock.calls[0]?.[1]).toEqual({ executionProviders: ['webgl'] });
     expect(mockCreate.mock.calls[1]?.[1]).toEqual({ executionProviders: ['wasm'] });
     expect(result.executionProvider).toBe('wasm');
     expect(result.processingTimeMs).toBeGreaterThan(0);

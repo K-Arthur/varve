@@ -5,7 +5,9 @@
   "description": "Strata desktop app (Tauri 2) — Vite + React frontend.",
   "type": "module",
   "scripts": {
+    "predev": "node ../../scripts/copy-onnx-wasm.mjs",
     "dev": "vite",
+    "prebuild": "node ../../scripts/copy-onnx-wasm.mjs",
     "build": "tsc --noEmit && vite build",
     "build:wdio": "tsc --noEmit && vite build --mode wdio",
     "preview": "vite preview",

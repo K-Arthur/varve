@@ -1,10 +1,8 @@
+import { maskToDataUrl } from './heuristic';
+import { resizeMaskBilinear } from './maskOps';
 import { downscaleImageData } from './previewDownscale';
 import { dispatchBackgroundRemoval } from './providers/dispatch';
-import {
-  composeSourceAndSubjectAlpha,
-  computeLetterboxTransform,
-  reconstructModelMask,
-} from './reconstructMask';
+import { composeSourceAndSubjectAlpha } from './reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 
@@ -147,19 +145,30 @@ export async function removeBackground(
     };
   }
 
-  const transform = computeLetterboxTransform(srcW, srcH, result.width, result.height);
-
-  const reconstruction = reconstructModelMask(previewMask, result.width, result.height, transform);
+  // Providers return a mask already aligned to the working image buffer.
+  // That preprocessing stretches the working buffer to the model's square
+  // input and then restores it, so applying a second letterbox transform here
+  // crops valid pixels. Only scale the aligned working mask back to the
+  // oriented source dimensions.
+  const reconstructedAlpha = resizeMaskBilinear(
+    previewMask,
+    result.width,
+    result.height,
+    srcW,
+    srcH,
+  );
 
   const srcData = imageData.data;
   const sourceAlpha = new Uint8Array(srcW * srcH);
   for (let i = 0; i < srcW * srcH; i++) {
     sourceAlpha[i] = srcData[i * 4 + 3] ?? 255;
   }
-  const finalAlpha = composeSourceAndSubjectAlpha(sourceAlpha, reconstruction.alpha);
+  const finalAlpha = composeSourceAndSubjectAlpha(sourceAlpha, reconstructedAlpha);
 
   return {
     ...result,
+    maskDataUrl: maskToDataUrl(finalAlpha, srcW, srcH),
+    rawMask: finalAlpha,
     width: srcW,
     height: srcH,
     sourceAlpha: finalAlpha,
