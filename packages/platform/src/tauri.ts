@@ -501,8 +501,10 @@ export function createTauriPlatform(): Platform {
     async openDocumentFromDisk() {
       const c = core();
       const picked = (await c.invoke('plugin:dialog|open', {
-        multiple: false,
-        filters: [{ name: 'Strata document', extensions: ['strata'] }],
+        options: {
+          multiple: false,
+          filters: [{ name: 'Strata document', extensions: ['strata'] }],
+        },
       })) as Array<{ path?: string; name?: string; content?: string }> | null;
       const first = picked?.[0];
       if (!first?.path) return null;
@@ -513,8 +515,10 @@ export function createTauriPlatform(): Platform {
     async importDocumentFromDisk(extensions) {
       const c = core();
       const picked = (await c.invoke('plugin:dialog|open', {
-        multiple: false,
-        filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
+        options: {
+          multiple: false,
+          filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
+        },
       })) as Array<{ path?: string; name?: string }> | null;
       const first = picked?.[0];
       if (!first?.path || !first.name) return { result: null, unsupported: false };
@@ -532,8 +536,10 @@ export function createTauriPlatform(): Platform {
       const c = core();
       const suggested = name.endsWith('.strata') ? name : `${name}.strata`;
       const path = (await c.invoke('plugin:dialog|save', {
-        defaultPath: suggested,
-        filters: [{ name: 'Strata document', extensions: ['strata'] }],
+        options: {
+          defaultPath: suggested,
+          filters: [{ name: 'Strata document', extensions: ['strata'] }],
+        },
       })) as string | null;
       if (!path) return null;
       await c.invoke('home_write_text_file', { path, contents: documentJson });
@@ -545,8 +551,10 @@ export function createTauriPlatform(): Platform {
       const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
       try {
         const path = (await c.invoke('plugin:dialog|save', {
-          defaultPath: suggested,
-          filters: [{ name: mimeType, extensions: [ext] }],
+          options: {
+            defaultPath: suggested,
+            filters: [{ name: mimeType, extensions: [ext] }],
+          },
         })) as string | null;
         if (!path) return null;
         await c.invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });

@@ -32,10 +32,54 @@ describe('createTauriPlatform', () => {
     );
 
     expect(path).toBe('/tmp/icon.svg');
+    const saveCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|save');
+    if (!saveCall) throw new Error('Expected plugin:dialog|save invoke');
+    const saveArgs = saveCall[1] as { options?: Record<string, unknown> };
+    // Tauri 2 dialog plugin requires { options: { defaultPath, filters } }
+    expect(saveArgs.options).toBeDefined();
+    expect((saveArgs.options as Record<string, unknown>).defaultPath).toBe('icon.svg');
     const writeCall = invoke.mock.calls.find(([cmd]) => cmd === 'write_binary_file');
     if (!writeCall) throw new Error('Expected write_binary_file invoke');
     const payload = writeCall[1] as { data?: unknown };
     expect(payload.data).toBeInstanceOf(ArrayBuffer);
     expect(Array.from(new Uint8Array(payload.data as ArrayBuffer))).toEqual([60, 115, 118, 103]);
+  });
+
+  it('wraps plugin:dialog|open arguments in options key', async () => {
+    const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
+      if (cmd === 'plugin:dialog|open') return [{ path: '/tmp/test.strata', name: 'test.strata' }];
+      if (cmd === 'home_read_text_file') return '{"nodes":{}}';
+      return null;
+    });
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    const platform = createTauriPlatform();
+    await platform.openDocumentFromDisk();
+    const openCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|open');
+    if (!openCall) throw new Error('Expected plugin:dialog|open invoke');
+    const openArgs = openCall[1] as { options?: Record<string, unknown> };
+    expect(openArgs.options).toBeDefined();
+    expect((openArgs.options as Record<string, unknown>).multiple).toBe(false);
+  });
+
+  it('wraps plugin:dialog|save arguments in options key for document save', async () => {
+    const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
+      if (cmd === 'plugin:dialog|save') return '/tmp/test.strata';
+      return null;
+    });
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+    const platform = createTauriPlatform();
+    await platform.saveDocumentToDisk('test', '{"nodes":{}}');
+    const saveCall = invoke.mock.calls.find(([cmd]) => cmd === 'plugin:dialog|save');
+    if (!saveCall) throw new Error('Expected plugin:dialog|save invoke');
+    const saveArgs = saveCall[1] as { options?: Record<string, unknown> };
+    expect(saveArgs.options).toBeDefined();
+    expect((saveArgs.options as Record<string, unknown>).defaultPath).toBe('test.strata');
   });
 });
