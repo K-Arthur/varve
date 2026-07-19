@@ -10,6 +10,7 @@
  *
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
+import type { Platform } from '@strata/platform';
 import type { RasterMaskAsset, SceneNode } from '@strata/scene';
 
 const STRATA_MIME = 'application/vnd.strata+json';
@@ -236,12 +237,49 @@ export function clearCapturedClipboardEvent(): void {
 }
 
 /**
+ * Keydown-time fallback for engines that never fire a DOM `paste` event.
+ *
+ * The Ctrl+V keydown handler deliberately does nothing (no preventDefault,
+ * no action) so the browser can deliver a `paste` ClipboardEvent, whose
+ * `clipboardData` is the most reliable cross-platform read. Chrome and
+ * Firefox fire that event even with non-editable focus — WebKit (incl.
+ * WebKitGTK, i.e. the Linux Tauri webview) only fires it into editable
+ * elements, so in a canvas app Ctrl+V otherwise dies without ever reaching
+ * the paste action. The keydown handler schedules this fallback; a real
+ * `paste` event cancels it before running the action itself, so exactly one
+ * of the two paths executes.
+ */
+let pendingPasteFallback: ReturnType<typeof setTimeout> | null = null;
+
+export function schedulePasteFallback(run: () => void, delayMs = 150): void {
+  cancelPasteFallback();
+  pendingPasteFallback = setTimeout(() => {
+    pendingPasteFallback = null;
+    run();
+  }, delayMs);
+}
+
+export function cancelPasteFallback(): void {
+  if (pendingPasteFallback !== null) {
+    clearTimeout(pendingPasteFallback);
+    pendingPasteFallback = null;
+  }
+}
+
+/**
  * Read clipboard with event-based fallback.
  *
  * Tries `navigator.clipboard.read()` first (async, may fail on Wayland).
- * Falls back to the last captured DOM paste event (always available).
+ * Falls back to the last captured DOM paste event (always available for
+ * Ctrl+V). Falls back once more to a native OS clipboard read via `platform`
+ * (Tauri's Rust backend, bypassing the Web Clipboard API entirely) — this is
+ * the only reliable path for menu-triggered ("right-click Paste") reads on
+ * WebKitGTK/Wayland, which has no ClipboardEvent to capture and whose
+ * `navigator.clipboard.read()` frequently can't surface image MIME types.
  */
-export async function readClipboardUnifiedWithFallback(): Promise<UnifiedClipboardResult> {
+export async function readClipboardUnifiedWithFallback(
+  platform?: Pick<Platform, 'kind' | 'readClipboardImage'>,
+): Promise<UnifiedClipboardResult> {
   const apiResult = await readClipboardUnified();
   if (apiResult.strataData || apiResult.importItems.length > 0) {
     clearCapturedClipboardEvent();
@@ -250,7 +288,25 @@ export async function readClipboardUnifiedWithFallback(): Promise<UnifiedClipboa
   if (capturedPasteEvent) {
     const event = capturedPasteEvent;
     capturedPasteEvent = null;
-    return readFromClipboardEvent(event);
+    const eventResult = await readFromClipboardEvent(event);
+    if (eventResult.strataData || eventResult.importItems.length > 0) {
+      return eventResult;
+    }
+  }
+  if (platform?.kind === 'tauri') {
+    try {
+      const bytes = await platform.readClipboardImage();
+      if (bytes && bytes.length > 0) {
+        return {
+          strataData: null,
+          importItems: [{ data: bytes, mimeType: 'image/png', name: 'clipboard.png' }],
+        };
+      }
+    } catch {
+      // Native clipboard read failed (e.g. arboard couldn't reach the OS
+      // clipboard) — this is the last-resort tier, so fall through to the
+      // empty result rather than rejecting the whole paste() action.
+    }
   }
   return apiResult;
 }

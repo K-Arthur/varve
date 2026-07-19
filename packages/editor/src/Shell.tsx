@@ -6,7 +6,7 @@ import { ContextMenu, Icon, ToastProvider, useToast } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
-import { captureClipboardEvent } from './clipboard';
+import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -121,6 +121,9 @@ function ShellInner({
       const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea') return;
 
+      // The real ClipboardEvent arrived — the keydown-scheduled fallback
+      // (useShortcuts) must not also run the paste action.
+      cancelPasteFallback();
       captureClipboardEvent(ce);
       // Let the editor paste handler process the captured event data
       editor.paste();
