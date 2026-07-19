@@ -186,8 +186,8 @@ export function useBackgroundRemoval(
           return;
         }
 
-        const cache = getImageCache();
-        await warmMaskCache(cache, result.maskDataUrl);
+        const { getImageCache } = await import('@strata/engine');
+        await warmMaskCache(getImageCache(), result.maskDataUrl);
         updateDoc((d) =>
           commitRasterMask(d, processingNodeId, {
             dataUrl: result.maskDataUrl,
@@ -303,7 +303,8 @@ export function useBackgroundRemoval(
           return;
         }
 
-        await warmMaskCache(cache, finalized.maskDataUrl);
+        const { getImageCache } = await import('@strata/engine');
+        await warmMaskCache(getImageCache(), finalized.maskDataUrl);
         updateDoc((d) =>
           commitRasterMask(d, processingNodeId, {
             dataUrl: finalized.maskDataUrl,
