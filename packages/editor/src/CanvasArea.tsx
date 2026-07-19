@@ -3379,7 +3379,22 @@ export function CanvasArea({
         }
         // event.type === 'drop'
         setIsDragOver(false);
-        const dropWorld = computeDropWorld(event.position.x, event.position.y);
+        // wry's GTK backend reports (0,0) when a drop fires before any
+        // drag-motion event was observed — treat that as "position
+        // unknown" rather than mapping it to the window's top-left. And
+        // whenever no drop position can be mapped, land the import at the
+        // centre of the *current viewport*: the import service has no
+        // placement fallback of its own, so nodes would otherwise keep
+        // their intrinsic (document-origin) position, which is off-screen
+        // whenever the camera is panned away from origin.
+        const hasPosition = event.position.x !== 0 || event.position.y !== 0;
+        let dropWorld = hasPosition ? computeDropWorld(event.position.x, event.position.y) : null;
+        if (!dropWorld) {
+          const rect = contentCanvasRef.current?.getBoundingClientRect();
+          if (rect) {
+            dropWorld = computeDropWorld(rect.left + rect.width / 2, rect.top + rect.height / 2);
+          }
+        }
         const files: { name: string; data: Uint8Array | string }[] = [];
         for (const path of event.paths) {
           try {

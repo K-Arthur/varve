@@ -23,7 +23,7 @@
         "decorations": false,
         "shadow": true,
         "visible": false,
-        "dragDropEnabled": false
+        "dragDropEnabled": true
       },
       {
         "label": "splashscreen",
