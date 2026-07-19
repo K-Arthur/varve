@@ -922,6 +922,8 @@ export interface EditorContextValue {
   ) => Promise<void>;
   /** Cancel an in-progress background removal job. */
   cancelBackgroundRemoval: () => void;
+  applyBackgroundRemovalPreview: () => void;
+  cancelBackgroundRemovalPreview: () => void;
   /** Enlarge the selected image into a new editable image layer. */
   upscaleSelectedImage: (options: import('@strata/engine').UpscaleOptions) => Promise<void>;
   /** Trace the selected image into a new editable vector group. */
@@ -1701,6 +1703,7 @@ export function EditorProvider({
         wetDryingRate: 0.5,
       },
       subjectPickerSession: null,
+      backgroundRemovalPreviewSession: null,
       keyObjectId: null,
       alignToPage: false,
       colorBlindnessView: 'none',
@@ -5902,6 +5905,10 @@ export function EditorProvider({
       removeBackground: bgRemoval.removeBackground,
 
       cancelBackgroundRemoval: bgRemoval.cancelBackgroundRemoval,
+
+      applyBackgroundRemovalPreview: bgRemoval.applyBackgroundRemovalPreview,
+
+      cancelBackgroundRemovalPreview: bgRemoval.cancelBackgroundRemovalPreview,
 
       removeBackgroundWithOptions: bgRemoval.removeBackgroundWithOptions,
 

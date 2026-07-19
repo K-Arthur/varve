@@ -14,8 +14,19 @@ export function importImageAsFill(
   const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : data;
   const mime = detectMime(bytes) ?? 'image/png';
   const src = options?.embedAsDataUrl !== false ? bytesToDataUrl(bytes, mime) : filename;
+  const dimensions = getImageDimensions(bytes);
 
-  return imageFill(src, { fit: 'fill' });
+  const fill = imageFill(src, { fit: 'fill' });
+  return fill.image
+    ? {
+        ...fill,
+        image: {
+          ...fill.image,
+          ...(dimensions.w > 0 ? { imageWidth: dimensions.w } : {}),
+          ...(dimensions.h > 0 ? { imageHeight: dimensions.h } : {}),
+        },
+      }
+    : fill;
 }
 
 export interface BitmapInfo {

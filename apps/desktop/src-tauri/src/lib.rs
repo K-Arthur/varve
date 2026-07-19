@@ -4,6 +4,10 @@ mod renderer;
 use image::load_from_memory;
 use notify::Watcher;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::collections::HashSet;
+use std::io::Write;
+use std::sync::{LazyLock, Mutex};
 use strata_core::Point;
 use tauri::ipc::Response;
 use tauri::Emitter;
@@ -181,6 +185,173 @@ struct BgRemoveResult {
     processing_time_ms: u64,
     width: u32,
     height: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeBgModelStatus {
+    runtime_ready: bool,
+    installed: bool,
+    size_bytes: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct NativeBgModelProgress {
+    request_id: String,
+    model_id: String,
+    loaded: u64,
+    total: u64,
+}
+
+static CANCELLED_BG_MODEL_DOWNLOADS: LazyLock<Mutex<HashSet<String>>> =
+    LazyLock::new(|| Mutex::new(HashSet::new()));
+
+fn valid_download_request_id(request_id: &str) -> bool {
+    !request_id.is_empty()
+        && request_id.len() <= 80
+        && request_id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
+}
+
+fn background_removal_model_info(
+    model_id: &str,
+) -> Result<&'static strata_bgremove::model::ModelInfo, String> {
+    strata_bgremove::model::model_info(model_id)
+        .ok_or_else(|| format!("Unknown background-removal model: {model_id}"))
+}
+
+#[tauri::command]
+fn native_background_removal_model_status(
+    app: tauri::AppHandle,
+    model_id: String,
+) -> Result<NativeBgModelStatus, String> {
+    let model = background_removal_model_info(&model_id)?;
+    let path = strata_bgremove::model::model_path(&model_id);
+    let size_bytes = path.metadata().map(|metadata| metadata.len()).unwrap_or(0);
+    Ok(NativeBgModelStatus {
+        runtime_ready: ensure_native_ai(&app),
+        installed: size_bytes == model.size_bytes,
+        size_bytes,
+    })
+}
+
+#[tauri::command]
+fn cancel_background_removal_model_download(request_id: String) -> Result<(), String> {
+    if !valid_download_request_id(&request_id) {
+        return Err("Invalid model-download request id".into());
+    }
+    CANCELLED_BG_MODEL_DOWNLOADS
+        .lock()
+        .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+        .insert(request_id);
+    Ok(())
+}
+
+#[tauri::command]
+fn delete_background_removal_model(model_id: String) -> Result<(), String> {
+    background_removal_model_info(&model_id)?;
+    strata_bgremove::model::delete_model(&model_id)
+}
+
+#[tauri::command]
+async fn download_background_removal_model(
+    app: tauri::AppHandle,
+    request_id: String,
+    model_id: String,
+) -> Result<u64, String> {
+    if !valid_download_request_id(&request_id) {
+        return Err("Invalid model-download request id".into());
+    }
+    if !ensure_native_ai(&app) {
+        return Err("Native ONNX Runtime is unavailable on this desktop build".into());
+    }
+    let model = background_removal_model_info(&model_id)?.clone();
+    let destination = strata_bgremove::model::model_path(&model_id);
+    if destination.metadata().map(|metadata| metadata.len()).ok() == Some(model.size_bytes) {
+        return Ok(model.size_bytes);
+    }
+    if let Some(parent) = destination.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|error| format!("Failed to create native model directory: {error}"))?;
+    }
+    let temporary = destination.with_extension(format!("onnx.download-{request_id}"));
+    let result = async {
+        let client = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::limited(8))
+            .build()
+            .map_err(|error| format!("Failed to create model downloader: {error}"))?;
+        let mut response = client
+            .get(&model.remote_url)
+            .send()
+            .await
+            .map_err(|error| format!("Model download failed: {error}"))?
+            .error_for_status()
+            .map_err(|error| format!("Model download failed: {error}"))?;
+        let total = response.content_length().unwrap_or(model.size_bytes);
+        let mut file = std::fs::File::create(&temporary)
+            .map_err(|error| format!("Failed to create model file: {error}"))?;
+        let mut digest = Sha256::new();
+        let mut loaded = 0u64;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| format!("Model download interrupted: {error}"))?
+        {
+            let cancelled = CANCELLED_BG_MODEL_DOWNLOADS
+                .lock()
+                .map_err(|_| "Model-download cancellation state is unavailable".to_string())?
+                .remove(&request_id);
+            if cancelled {
+                return Err("Download cancelled".into());
+            }
+            file.write_all(&chunk)
+                .map_err(|error| format!("Failed to write model file: {error}"))?;
+            digest.update(&chunk);
+            loaded += chunk.len() as u64;
+            let _ = app.emit(
+                "background-removal-model-progress",
+                NativeBgModelProgress {
+                    request_id: request_id.clone(),
+                    model_id: model_id.clone(),
+                    loaded,
+                    total,
+                },
+            );
+        }
+        file.sync_all()
+            .map_err(|error| format!("Failed to flush model file: {error}"))?;
+        if loaded != model.size_bytes {
+            return Err(format!(
+                "Model size mismatch: expected {} bytes, received {loaded}",
+                model.size_bytes
+            ));
+        }
+        if let Some(expected) = &model.checksum_sha256 {
+            let actual = format!("{:x}", digest.finalize());
+            if &actual != expected {
+                return Err(format!(
+                    "Model SHA-256 mismatch: expected {expected}, received {actual}"
+                ));
+            }
+        }
+        if destination.exists() {
+            std::fs::remove_file(&destination)
+                .map_err(|error| format!("Failed to replace native model: {error}"))?;
+        }
+        std::fs::rename(&temporary, &destination)
+            .map_err(|error| format!("Failed to install native model: {error}"))?;
+        Ok(loaded)
+    }
+    .await;
+    let _ = CANCELLED_BG_MODEL_DOWNLOADS
+        .lock()
+        .map(|mut cancelled| cancelled.remove(&request_id));
+    if result.is_err() {
+        let _ = std::fs::remove_file(&temporary);
+    }
+    result
 }
 
 /// Remove background from an image via the native `strata-bgremove` crate.
@@ -1345,6 +1516,10 @@ pub fn run() {
             read_clipboard_image_png,
             remove_background,
             native_ai_status,
+            native_background_removal_model_status,
+            download_background_removal_model,
+            cancel_background_removal_model_download,
+            delete_background_removal_model,
             trace_image,
             upscale_image,
             export_node_pdf,

@@ -71,7 +71,7 @@ export interface BackgroundRemovalProvenance {
   modelId?: string;
   modelVersion?: string;
   modelChecksum?: string;
-  runtime: 'typescript' | 'wasm' | 'webgpu' | 'native-cpu' | 'native-accelerated';
+  runtime: 'typescript' | 'wasm' | 'webgl' | 'webgpu' | 'native-cpu' | 'native-accelerated';
   generatedAt: number;
   confidence?: number;
   /** Legacy edge-colour cleanup setting retained during v2.0 migration. */

@@ -25,12 +25,13 @@ function makeRequest(overrides: Partial<SubjectIsolationRequest> = {}): SubjectI
     documentRevision: 1,
     nodeId: 'node-1',
     sourceFingerprint: 'fp1234567890abcdef',
+    sourceLocator: 'data:image/png;base64,source',
     sourcePixelRevision: 1,
-    placementRevision: 1,
+    placementRevision: computePlacementRevision({ x: 0, y: 0, scale: 1, fit: 'fill' }),
     sourceWidth: 100,
     sourceHeight: 80,
     imageData: makeImageData(),
-    options: { method: 'quick' },
+    options: { method: 'quick', feather: 0.5, decontaminate: true },
     ...overrides,
   };
 }
@@ -50,7 +51,21 @@ function makeState(
           kind: 'shape',
           name: 'Image',
           shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
-          fills: [],
+          fills: [
+            {
+              type: 'image',
+              visible: true,
+              opacity: 1,
+              blendMode: 'normal',
+              image: {
+                src: 'data:image/png;base64,source',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+              },
+            },
+          ],
           strokes: [],
           effects: [],
           transform: [1, 0, 0, 1, 0, 0],
@@ -103,6 +118,7 @@ function makeState(
       spacing: 0.25,
     },
     subjectPickerSession: null,
+    backgroundRemovalPreviewSession: null,
     keyObjectId: null,
     alignToPage: false,
     colorBlindnessView: 'none' as const,
@@ -257,6 +273,19 @@ describe('SubjectIsolationService', () => {
       expect(result.stale).toBe(true);
       expect(result.reason).toBe('node-deleted');
     });
+
+    it('rejects when the processed image is no longer selected', () => {
+      const result = service.isStale(makeRequest(), makeState({ selection: [] }));
+      expect(result).toEqual({ stale: true, reason: 'not-selected' });
+    });
+
+    it('rejects when the image source is replaced under the same node id', () => {
+      const state = makeState();
+      const node = state.document.nodes['node-1']!;
+      node.fills![0]!.image!.src = 'data:image/png;base64,replacement';
+      const result = service.isStale(makeRequest(), state);
+      expect(result).toEqual({ stale: true, reason: 'source-replaced' });
+    });
   });
 
   describe('isolate', () => {
@@ -294,6 +323,16 @@ describe('SubjectIsolationService', () => {
 
       expect(p1).not.toBe(p2);
     });
+
+    it('does not coalesce requests for different quality or refinement options', () => {
+      const p1 = service.isolate(makeRequest());
+      silenceRejection(p1);
+      const p2 = service.isolate(
+        makeRequest({ options: { method: 'ai-balanced', feather: 1, decontaminate: false } }),
+      );
+      silenceRejection(p2);
+      expect(p1).not.toBe(p2);
+    });
   });
 
   describe('cancel', () => {
@@ -306,6 +345,14 @@ describe('SubjectIsolationService', () => {
     it('settles after cancel', async () => {
       silenceRejection(service.isolate(makeRequest()));
       service.cancel();
+      expect(service.isBusy).toBe(false);
+    });
+
+    it('cancels inference when the caller aborts its operation signal', async () => {
+      const controller = new AbortController();
+      const promise = service.isolate(makeRequest(), controller.signal);
+      controller.abort();
+      await expect(promise).rejects.toThrow('cancelled');
       expect(service.isBusy).toBe(false);
     });
   });

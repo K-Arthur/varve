@@ -61,12 +61,6 @@ pub fn remove_ai(
     let pixels = rgba.into_raw();
 
     let n = (input_size * input_size) as usize;
-    let max_channel = pixels
-        .chunks_exact(4)
-        .flat_map(|pixel| pixel[..3].iter().copied())
-        .max()
-        .unwrap_or(0) as f32;
-    let divisor = max_channel.max(1e-6);
     let mean = [0.485f32, 0.456, 0.406];
     let std = [0.229f32, 0.224, 0.225];
     let mut tensor_data = Vec::with_capacity(n * 3);
@@ -74,7 +68,7 @@ pub fn remove_ai(
         for y in 0..input_size {
             for x in 0..input_size {
                 let i = ((y * input_size + x) * 4 + c) as usize;
-                let normalized = pixels[i] as f32 / divisor;
+                let normalized = pixels[i] as f32 / 255.0;
                 tensor_data.push((normalized - mean[c as usize]) / std[c as usize]);
             }
         }

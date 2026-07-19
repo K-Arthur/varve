@@ -34,6 +34,8 @@ strata-upscale = { path = "../../../crates/strata-upscale" }
 image = "0.25"
 arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+sha2 = "0.10"
 # WDIO testing plugins (debug-only, excluded from release builds)
 tauri-plugin-wdio = { version = "=1.2.0", optional = true }
 tauri-plugin-wdio-webdriver = { version = "=1.2.0", optional = true }

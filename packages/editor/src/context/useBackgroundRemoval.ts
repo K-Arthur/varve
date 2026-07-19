@@ -2,6 +2,7 @@ import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@stra
 import { useCallback, useEffect, useRef } from 'react';
 import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
 import {
+  computePlacementRevision,
   computeSourceFingerprint,
   SubjectIsolationService,
 } from '../backgroundRemoval/SubjectIsolationService';
@@ -11,6 +12,8 @@ import type { EditorState, MaskPreviewMode, TrimapPenMode } from './types';
 export interface BackgroundRemovalAPI {
   removeBackground: (method: BackgroundRemovalMethod) => Promise<void>;
   cancelBackgroundRemoval: () => void;
+  applyBackgroundRemovalPreview: () => void;
+  cancelBackgroundRemovalPreview: () => void;
   removeBackgroundWithOptions: (
     method: BackgroundRemovalMethod,
     feather: number,
@@ -41,8 +44,6 @@ export interface BackgroundRemovalAPI {
  */
 async function decodeSource(
   src: string,
-  w: number,
-  h: number,
   announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
 ): Promise<{ imageData: ImageData; extractW: number; extractH: number } | null> {
   const { getImageCache } = await import('@strata/engine');
@@ -60,10 +61,14 @@ async function decodeSource(
     announcerRef.current?.announce('Could not load image');
     return null;
   }
-  const maxDim = 2048;
-  const scale = Math.min(1, maxDim / Math.max(w, h));
-  const extractW = Math.ceil(w * scale);
-  const extractH = Math.ceil(h * scale);
+  const extractW =
+    typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
+      ? img.naturalWidth || img.width
+      : img.width;
+  const extractH =
+    typeof HTMLImageElement !== 'undefined' && img instanceof HTMLImageElement
+      ? img.naturalHeight || img.height
+      : img.height;
   const canvas = document.createElement('canvas');
   canvas.width = extractW;
   canvas.height = extractH;
@@ -136,9 +141,7 @@ export function useBackgroundRemoval(
 
   const removeBackground = useCallback(
     async (method: BackgroundRemovalMethod) => {
-      const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-        '@strata/scene'
-      );
+      const { getImageFill, isImageShape, imageShapeSrc } = await import('@strata/scene');
       const imageNode = state.selection
         .map((id) => state.document.nodes[id] as ShapeNode | undefined)
         .find((n) => n && isImageShape(n)) as ShapeNode | undefined;
@@ -148,11 +151,9 @@ export function useBackgroundRemoval(
       }
       const processingNodeId = imageNode.id;
       const src = imageShapeSrc(imageNode);
-      const w = imageShapeW(imageNode);
-      const h = imageShapeH(imageNode);
       announcerRef.current?.announce(`Removing background using ${method}...`);
 
-      const decoded = await decodeSource(src, w, h, announcerRef);
+      const decoded = await decodeSource(src, announcerRef);
       if (!decoded) return;
 
       const service = serviceRef.current!;
@@ -168,16 +169,17 @@ export function useBackgroundRemoval(
         documentRevision: 1,
         nodeId: processingNodeId,
         sourceFingerprint,
+        sourceLocator: src,
         sourcePixelRevision: 1,
-        placementRevision: 1,
+        placementRevision: computePlacementRevision(getImageFill(imageNode)?.image ?? null),
         sourceWidth: decoded.extractW,
         sourceHeight: decoded.extractH,
         imageData: decoded.imageData,
-        options: { method },
+        options: { method, feather: 0.5, decontaminate: true },
       };
 
       try {
-        const result = await service.isolate(request);
+        const result = await service.isolate(request, bgRemovalAbortRef.current.signal);
 
         if (service.isStale(request, stateRef.current).stale) {
           announcerRef.current?.announce(
@@ -188,18 +190,26 @@ export function useBackgroundRemoval(
 
         const { getImageCache } = await import('@strata/engine');
         await warmMaskCache(getImageCache(), result.maskDataUrl);
-        updateDoc((d) =>
-          commitRasterMask(d, processingNodeId, {
-            dataUrl: result.maskDataUrl,
+        patch({
+          backgroundRemovalPreviewSession: {
+            nodeId: processingNodeId,
+            documentId: request.documentId,
+            sourceLocator: request.sourceLocator,
+            placementRevision: request.placementRevision,
+            maskDataUrl: result.maskDataUrl,
             width: result.maskWidth,
             height: result.maskHeight,
-            method: result.provenance.method as BackgroundRemovalMethod,
-            generatedAt: Date.now(),
-            confidence: 0.95,
+            sourceWidth: decoded.extractW,
+            sourceHeight: decoded.extractH,
+            requestedMethod: method,
+            actualMethod: result.provenance.method as BackgroundRemovalMethod,
+            confidence: result.confidence,
+            feather: 0.5,
             decontaminate: true,
-          }),
-        );
-        announcerRef.current?.announce('Background removed');
+            executionProvider: result.provenance.executionProvider,
+          },
+        });
+        announcerRef.current?.announce('Background removal preview ready');
       } catch (e) {
         if ((e as Error).message === 'cancelled') return;
         announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
@@ -210,7 +220,7 @@ export function useBackgroundRemoval(
         }
       }
     },
-    [state, announcerRef, bgRemovalAbortRef, processingBgNodeRef, stateRef, updateDoc],
+    [state, announcerRef, bgRemovalAbortRef, processingBgNodeRef, stateRef, patch],
   );
 
   const cancelBackgroundRemoval = useCallback(() => {
@@ -222,9 +232,7 @@ export function useBackgroundRemoval(
 
   const removeBackgroundWithOptions = useCallback(
     async (method: BackgroundRemovalMethod, feather: number, decontaminate: boolean) => {
-      const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-        '@strata/scene'
-      );
+      const { getImageFill, isImageShape, imageShapeSrc } = await import('@strata/scene');
       const imageNode = state.selection
         .map((id) => state.document.nodes[id] as ShapeNode | undefined)
         .find((n) => n && isImageShape(n)) as ShapeNode | undefined;
@@ -234,11 +242,9 @@ export function useBackgroundRemoval(
       }
       const processingNodeId = imageNode.id;
       const src = imageShapeSrc(imageNode);
-      const w = imageShapeW(imageNode);
-      const h = imageShapeH(imageNode);
       announcerRef.current?.announce(`Removing background using ${method}...`);
 
-      const decoded = await decodeSource(src, w, h, announcerRef);
+      const decoded = await decodeSource(src, announcerRef);
       if (!decoded) return;
 
       const service = serviceRef.current!;
@@ -254,16 +260,17 @@ export function useBackgroundRemoval(
         documentRevision: 1,
         nodeId: processingNodeId,
         sourceFingerprint,
+        sourceLocator: src,
         sourcePixelRevision: 1,
-        placementRevision: 1,
+        placementRevision: computePlacementRevision(getImageFill(imageNode)?.image ?? null),
         sourceWidth: decoded.extractW,
         sourceHeight: decoded.extractH,
         imageData: decoded.imageData,
-        options: { method },
+        options: { method, feather, decontaminate },
       };
 
       try {
-        const isoResult = await service.isolate(request);
+        const isoResult = await service.isolate(request, bgRemovalAbortRef.current.signal);
 
         if (service.isStale(request, stateRef.current).stale) {
           announcerRef.current?.announce(
@@ -290,6 +297,8 @@ export function useBackgroundRemoval(
               nodeId: processingNodeId,
               width: finalized.width,
               height: finalized.height,
+              sourceWidth: decoded.extractW,
+              sourceHeight: decoded.extractH,
               components: finalized.components,
               keepIds: finalized.components[0] ? [finalized.components[0].id] : [],
               pendingMaskDataUrl: finalized.maskDataUrl,
@@ -297,6 +306,10 @@ export function useBackgroundRemoval(
               confidence: finalized.confidence,
               feather,
               decontaminate,
+              requestedMethod: method,
+              documentId: request.documentId,
+              sourceLocator: request.sourceLocator,
+              placementRevision: request.placementRevision,
             },
           });
           announcerRef.current?.announce('Multiple subjects detected — pick which regions to keep');
@@ -305,21 +318,30 @@ export function useBackgroundRemoval(
 
         const { getImageCache } = await import('@strata/engine');
         await warmMaskCache(getImageCache(), finalized.maskDataUrl);
-        updateDoc((d) =>
-          commitRasterMask(d, processingNodeId, {
-            dataUrl: finalized.maskDataUrl,
+        patch({
+          backgroundRemovalPreviewSession: {
+            nodeId: processingNodeId,
+            documentId: request.documentId,
+            sourceLocator: request.sourceLocator,
+            placementRevision: request.placementRevision,
+            maskDataUrl: finalized.maskDataUrl,
             width: finalized.width,
             height: finalized.height,
-            method: finalized.method as BackgroundRemovalMethod,
-            generatedAt: Date.now(),
+            sourceWidth: decoded.extractW,
+            sourceHeight: decoded.extractH,
+            requestedMethod: method,
+            actualMethod: finalized.method as BackgroundRemovalMethod,
             confidence: finalized.confidence,
+            feather,
             decontaminate,
-          }),
-        );
-        announcerRef.current?.announce('Background removed');
+            executionProvider: isoResult.provenance.executionProvider,
+          },
+        });
+        announcerRef.current?.announce('Background removal preview ready');
       } catch (e) {
         if ((e as Error).message === 'cancelled') return;
         announcerRef.current?.announce(`Background removal failed: ${(e as Error).message}`);
+        throw e;
       } finally {
         if (processingBgNodeRef.current === processingNodeId) {
           bgRemovalAbortRef.current = null;
@@ -336,6 +358,66 @@ export function useBackgroundRemoval(
     },
     [patch],
   );
+
+  const applyBackgroundRemovalPreview = useCallback(() => {
+    const preview = stateRef.current.backgroundRemovalPreviewSession;
+    if (!preview) return;
+    const currentState = stateRef.current;
+    const currentNode = currentState.document.nodes[preview.nodeId] as ShapeNode | undefined;
+    void import('@strata/scene').then(({ getImageFill, isImageShape, imageShapeSrc }) => {
+      if (
+        currentState.document.id !== preview.documentId ||
+        !currentState.selection.includes(preview.nodeId) ||
+        !currentNode ||
+        !isImageShape(currentNode) ||
+        imageShapeSrc(currentNode) !== preview.sourceLocator ||
+        computePlacementRevision(getImageFill(currentNode)?.image ?? null) !==
+          preview.placementRevision
+      ) {
+        patch({ backgroundRemovalPreviewSession: null });
+        announcerRef.current?.announce('Preview discarded because the selected image changed');
+        return;
+      }
+      if (preview.width !== preview.sourceWidth || preview.height !== preview.sourceHeight) {
+        announcerRef.current?.announce(
+          'Background removal result could not be applied because its dimensions are invalid',
+        );
+        return;
+      }
+      const committed = commitRasterMask(currentState.document, preview.nodeId, {
+        dataUrl: preview.maskDataUrl,
+        width: preview.width,
+        height: preview.height,
+        sourceLocator: preview.sourceLocator,
+        method: preview.actualMethod,
+        generatedAt: Date.now(),
+        confidence: preview.confidence,
+        decontaminate: preview.decontaminate,
+        runtime:
+          preview.executionProvider === 'native'
+            ? 'native-cpu'
+            : (preview.executionProvider ?? 'typescript'),
+      });
+      if (committed === currentState.document) {
+        announcerRef.current?.announce(
+          'Background removal result could not be applied; the preview remains available',
+        );
+        return;
+      }
+      updateDoc(() => committed);
+      patch({ backgroundRemovalPreviewSession: null });
+      announcerRef.current?.announce(
+        preview.requestedMethod === preview.actualMethod
+          ? 'Background removal applied'
+          : `Background removal applied using ${preview.actualMethod} fallback`,
+      );
+    });
+  }, [stateRef, patch, announcerRef, updateDoc]);
+
+  const cancelBackgroundRemovalPreview = useCallback(() => {
+    patch({ backgroundRemovalPreviewSession: null });
+    announcerRef.current?.announce('Background removal preview cancelled');
+  }, [patch, announcerRef]);
 
   const setMaskPreviewMode = useCallback(
     (mode: MaskPreviewMode) => {
@@ -394,22 +476,31 @@ export function useBackgroundRemoval(
         const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
         const maskDataUrl = maskArrayToDataUrl(filtered, width, height);
         await warmMaskCache(getImageCache(), maskDataUrl);
-        updateDoc((d) =>
-          commitRasterMask(d, session.nodeId, {
-            dataUrl: maskDataUrl,
+        patch({
+          subjectPickerSession: null,
+          backgroundRemovalPreviewSession: {
+            nodeId: session.nodeId,
+            documentId: session.documentId,
+            sourceLocator: session.sourceLocator,
+            placementRevision: session.placementRevision,
+            maskDataUrl,
             width,
             height,
-            method: session.method,
-            generatedAt: Date.now(),
+            sourceWidth: session.sourceWidth,
+            sourceHeight: session.sourceHeight,
+            requestedMethod: session.requestedMethod,
+            actualMethod: session.method,
             confidence: session.confidence,
+            feather: session.feather,
             decontaminate: session.decontaminate,
-          }),
+          },
+        });
+        announcerRef.current?.announce(
+          `Kept ${keepIds.length} subject(s); background removal preview ready`,
         );
-        patch({ subjectPickerSession: null });
-        announcerRef.current?.announce(`Kept ${keepIds.length} subject(s)`);
       })();
     },
-    [stateRef, updateDoc, patch, announcerRef],
+    [stateRef, patch, announcerRef],
   );
 
   const cancelSubjectPicker = useCallback(() => {
@@ -543,6 +634,8 @@ export function useBackgroundRemoval(
   return {
     removeBackground,
     cancelBackgroundRemoval,
+    applyBackgroundRemovalPreview,
+    cancelBackgroundRemovalPreview,
     removeBackgroundWithOptions,
     setShowOriginalBg,
     setMaskPreviewMode,

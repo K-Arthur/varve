@@ -84,6 +84,8 @@ export interface SubjectPickerSession {
   nodeId: NodeId;
   width: number;
   height: number;
+  sourceWidth: number;
+  sourceHeight: number;
   components: Array<{
     id: number;
     pixelCount: number;
@@ -95,6 +97,28 @@ export interface SubjectPickerSession {
   confidence: number;
   feather: number;
   decontaminate: boolean;
+  requestedMethod: BackgroundRemovalMethod;
+  documentId: string;
+  sourceLocator: string;
+  placementRevision: number;
+}
+
+export interface BackgroundRemovalPreviewSession {
+  nodeId: NodeId;
+  documentId: string;
+  sourceLocator: string;
+  placementRevision: number;
+  maskDataUrl: string;
+  width: number;
+  height: number;
+  sourceWidth: number;
+  sourceHeight: number;
+  requestedMethod: BackgroundRemovalMethod;
+  actualMethod: BackgroundRemovalMethod;
+  confidence: number;
+  feather: number;
+  decontaminate: boolean;
+  executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
 }
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
@@ -211,6 +235,7 @@ export interface EditorState {
     wetDryingRate: number;
   };
   subjectPickerSession: SubjectPickerSession | null;
+  backgroundRemovalPreviewSession: BackgroundRemovalPreviewSession | null;
   keyObjectId: string | null;
   alignToPage: boolean;
   colorBlindnessView: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia';
@@ -557,6 +582,8 @@ export interface EditorContextValue {
     decontaminate: boolean,
   ) => Promise<void>;
   cancelBackgroundRemoval: () => void;
+  applyBackgroundRemovalPreview: () => void;
+  cancelBackgroundRemovalPreview: () => void;
   setShowOriginalBg: (nodeId: NodeId | null) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
   setTrimapEditOptions: (
