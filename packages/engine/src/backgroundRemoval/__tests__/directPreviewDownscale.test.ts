@@ -25,6 +25,7 @@ vi.mock('../previewDownscale', () => ({
   downscaleImageData: mockDownscale,
 }));
 vi.mock('onnxruntime-web', () => ({
+  env: { wasm: { wasmPaths: '', numThreads: 1 }, versions: { common: 'test', web: 'test' } },
   InferenceSession: {
     create: mockCreate,
   },
@@ -37,6 +38,7 @@ vi.mock('onnxruntime-web', () => ({
       this.data = data;
       this.dims = dims;
     }
+    dispose() {}
   },
 }));
 
@@ -95,6 +97,7 @@ describe('direct AI previewMaxDimension parity', () => {
     mockCreate.mockResolvedValue({
       inputNames: ['input'],
       outputNames: ['output'],
+      release: vi.fn().mockResolvedValue(undefined),
       run: vi.fn().mockResolvedValue({
         output: { data: outputData, dims: [1, 1, 1024, 1024] },
       }),

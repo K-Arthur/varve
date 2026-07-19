@@ -13,6 +13,7 @@ import {
   packSegmentationChwFloat32,
   resizeMaskBilinear,
 } from './maskOps';
+import { configureOrtRuntime } from './ortRuntimeAssets';
 import { downscaleImageData } from './previewDownscale';
 import type { BackgroundRemovalResult } from './types';
 
@@ -67,17 +68,6 @@ async function getPreferredProviders(): Promise<string[]> {
   return preferredOnnxProviders;
 }
 
-async function configureOrtWasm(ort: typeof import('onnxruntime-web')): Promise<void> {
-  // In a module Worker the relative script URL is not reliable; publish the
-  // WASM artifacts under /ort-wasm/ (copied from node_modules by the
-  // copy-onnx-wasm postinstall script) and point ONNX Runtime at them.
-  try {
-    ort.env.wasm.wasmPaths = '/ort-wasm/';
-  } catch {
-    // Older ort builds may not expose env; ignore.
-  }
-}
-
 async function getSession(
   modelPath: string,
   modelId: string,
@@ -91,7 +81,7 @@ async function getSession(
     cachedModelPath = null;
   }
   const ort = await import('onnxruntime-web');
-  await configureOrtWasm(ort);
+  configureOrtRuntime(ort);
 
   const providers = await getPreferredProviders();
 
@@ -102,7 +92,10 @@ async function getSession(
     if (provider === 'wasm') continue;
     try {
       cachedSession = await ort.InferenceSession.create(modelPath, {
-        executionProviders: [provider, 'wasm'],
+        // A single EP per attempt makes the reported provider truthful. With
+        // `[provider, 'wasm']`, ORT can discard an unavailable provider and
+        // silently create a WASM session.
+        executionProviders: [provider],
       });
       cachedExecutionProvider = provider;
       cachedModelPath = modelPath;
@@ -191,16 +184,27 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
     const inputName = session.inputNames[0]!;
     const feeds: Record<string, Tensor> = {};
-    feeds[inputName] = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
+    const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
+    feeds[inputName] = inputTensor;
 
-    const results = await session.run(feeds as Parameters<typeof session.run>[0]);
+    let results: Awaited<ReturnType<typeof session.run>>;
+    try {
+      results = await session.run(feeds as Parameters<typeof session.run>[0]);
+    } finally {
+      inputTensor.dispose();
+    }
     const outputName = session.outputNames[0]!;
-    const outputData = results[outputName]?.data as Float32Array;
+    const outputTensor = results[outputName];
+    const outputData = outputTensor?.data as Float32Array;
+    if (!outputTensor || !outputData || outputData.length === 0) {
+      throw new Error('ONNX inference returned an empty segmentation tensor');
+    }
 
-    const dims = results[outputName]?.dims;
+    const dims = outputTensor.dims;
     const maskW = dims?.[3] ?? inputSize;
     const maskH = dims?.[2] ?? inputSize;
     const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
+    outputTensor.dispose();
 
     // Cap upsample to previewMax as defense-in-depth; the engine entry already
     // caps imageData to this dimension before dispatch.
@@ -250,6 +254,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
         width: upsampleW,
         height: upsampleH,
         executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
+        rawMask: fullMask,
       },
     };
     self.postMessage(response);

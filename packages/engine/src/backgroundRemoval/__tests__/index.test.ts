@@ -1,14 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockHeuristic, mockRunPooledInference, mockGetModelLoader, mockInvoke } = vi.hoisted(
-  () => ({
+const { mockHeuristic, mockMaskToDataUrl, mockRunPooledInference, mockGetModelLoader, mockInvoke } =
+  vi.hoisted(() => ({
     mockHeuristic: vi.fn(),
+    mockMaskToDataUrl: vi.fn(() => 'data:image/png;base64,reconstructed'),
     mockRunPooledInference: vi.fn(),
     mockGetModelLoader: vi.fn(),
     mockInvoke: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock('../previewDownscale', () => ({
   downscaleImageData: (img: ImageData, maxDim: number) => {
@@ -23,6 +23,7 @@ vi.mock('../previewDownscale', () => ({
 }));
 
 vi.mock('../heuristic', () => ({
+  maskToDataUrl: mockMaskToDataUrl,
   removeBackgroundHeuristic: mockHeuristic,
 }));
 vi.mock('../workerPool', () => ({
@@ -78,6 +79,7 @@ describe('removeBackground dispatch', () => {
   beforeEach(() => {
     vi.resetModules();
     mockHeuristic.mockReset().mockResolvedValue(HEURISTIC_RESULT);
+    mockMaskToDataUrl.mockClear();
     mockRunPooledInference.mockReset().mockResolvedValue({
       maskDataUrl: 'data:image/png;base64,worker',
       confidence: 0.9,
@@ -134,6 +136,26 @@ describe('removeBackground dispatch', () => {
     expect(mockHeuristic).toHaveBeenCalledTimes(1);
     expect(mockRunPooledInference).not.toHaveBeenCalled();
     expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('reconstructs and encodes a source-resolution mask from a downscaled provider result', async () => {
+    const source = makeImage(8, 2);
+    for (let i = 0; i < source.width * source.height; i++) source.data[i * 4 + 3] = 255;
+    mockHeuristic.mockResolvedValue({
+      ...HEURISTIC_RESULT,
+      width: 4,
+      height: 1,
+      rawMask: new Uint8Array([255, 255, 0, 0]),
+    });
+
+    const { removeBackground } = await import('../index');
+    const result = await removeBackground(source, { method: 'quick', previewMaxDimension: 4 });
+
+    expect(result.width).toBe(8);
+    expect(result.height).toBe(2);
+    expect(result.rawMask).toHaveLength(16);
+    expect(result.maskDataUrl).toBe('data:image/png;base64,reconstructed');
+    expect(mockMaskToDataUrl).toHaveBeenCalledWith(expect.any(Uint8Array), 8, 2);
   });
 
   it('AI methods try the Web Worker first, even inside the Tauri webview', async () => {
@@ -260,7 +282,7 @@ describe('removeBackground dispatch', () => {
       expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-balanced' }),
       expect.anything(),
       'u2netp',
-      undefined,
+      expect.anything(),
     );
   });
 
@@ -283,7 +305,7 @@ describe('removeBackground dispatch', () => {
       expect.objectContaining({ previewMaxDimension: 2048, method: 'ai-quality' }),
       expect.anything(),
       'birefnet-general-lite',
-      undefined,
+      expect.anything(),
     );
   });
 

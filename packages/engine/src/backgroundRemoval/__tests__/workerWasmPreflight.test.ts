@@ -14,6 +14,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const { mockCreate } = vi.hoisted(() => ({ mockCreate: vi.fn() }));
 
 vi.mock('onnxruntime-web', () => ({
+  env: {
+    wasm: { wasmPaths: '', numThreads: 1 },
+    versions: { common: 'test', web: 'test' },
+  },
   InferenceSession: { create: mockCreate },
   Tensor: class MockTensor {
     type: string;
@@ -24,6 +28,7 @@ vi.mock('onnxruntime-web', () => ({
       this.data = data;
       this.dims = dims;
     }
+    dispose() {}
   },
 }));
 
@@ -87,7 +92,11 @@ describe('worker.ts WASM memory preflight', () => {
       inputNames: ['input'],
       outputNames: ['output'],
       run: vi.fn().mockResolvedValue({
-        output: { data: new Float32Array(320 * 320), dims: [1, 1, 320, 320] },
+        output: {
+          data: new Float32Array(320 * 320),
+          dims: [1, 1, 320, 320],
+          dispose: vi.fn(),
+        },
       }),
     });
     const { postMessage, handler } = await loadWorkerWithStubbedSelf();
@@ -115,7 +124,11 @@ describe('worker.ts WASM memory preflight', () => {
       inputNames: ['input'],
       outputNames: ['output'],
       run: vi.fn().mockResolvedValue({
-        output: { data: new Float32Array(1024 * 1024), dims: [1, 1, 1024, 1024] },
+        output: {
+          data: new Float32Array(1024 * 1024),
+          dims: [1, 1, 1024, 1024],
+          dispose: vi.fn(),
+        },
       }),
     });
     const { postMessage, handler } = await loadWorkerWithStubbedSelf();
@@ -134,7 +147,7 @@ describe('worker.ts WASM memory preflight', () => {
     await new Promise((r) => setTimeout(r, 0));
 
     expect(mockCreate).toHaveBeenCalledWith('blob:model', {
-      executionProviders: ['webgpu', 'wasm'],
+      executionProviders: ['webgpu'],
     });
     expect(postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'error' }));
   });

@@ -7,7 +7,16 @@
  * reliably resolve node_modules, so we publish the artifacts under /ort-wasm/
  * and point ort.env.wasm.wasmPaths there.
  */
-import { copyFileSync, mkdirSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -61,13 +70,40 @@ function globPnpmOnnxDirs() {
   }
 }
 
-mkdirSync(publicDest, { recursive: true });
-
 const onnxWebDir = findOnnxWebDir();
+const packageJsonPath = join(onnxWebDir, '..', 'package.json');
+const packageVersion = JSON.parse(readFileSync(packageJsonPath, 'utf8')).version;
 const files = readdirSync(onnxWebDir).filter((f) => f.endsWith('.wasm') || f.endsWith('.mjs'));
+
+const requiredFiles = [
+  'ort-wasm-simd-threaded.jsep.mjs',
+  'ort-wasm-simd-threaded.jsep.wasm',
+  'ort-wasm-simd-threaded.mjs',
+  'ort-wasm-simd-threaded.wasm',
+];
+for (const requiredFile of requiredFiles) {
+  if (!files.includes(requiredFile)) {
+    throw new Error(
+      `onnxruntime-web ${packageVersion} is missing required runtime companion ${requiredFile}`,
+    );
+  }
+}
+
+// The directory is generated and gitignored. Clear it before copying so a
+// package upgrade cannot leave stale companions that mask an incomplete
+// install or make diagnostics report the wrong runtime version.
+rmSync(publicDest, { recursive: true, force: true });
+mkdirSync(publicDest, { recursive: true });
 
 for (const file of files) {
   copyFileSync(join(onnxWebDir, file), join(publicDest, file));
 }
 
-console.log(`Copied ${files.length} onnxruntime-web artifacts from ${onnxWebDir} to ${publicDest}`);
+writeFileSync(
+  join(publicDest, 'manifest.json'),
+  `${JSON.stringify({ package: 'onnxruntime-web', version: packageVersion, requiredFiles, files }, null, 2)}\n`,
+);
+
+console.log(
+  `Copied and validated ${files.length} onnxruntime-web ${packageVersion} artifacts from ${onnxWebDir} to ${publicDest}`,
+);
