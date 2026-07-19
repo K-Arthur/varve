@@ -161,6 +161,22 @@ export interface Platform {
   // ─── File watcher ──────────────────────────────────────────────────────────
   listenForChanges(callback: () => void): Promise<() => void>;
 
+  // ─── Native file drag-and-drop ──────────────────────────────────────────
+  // On Linux, OS file drops don't reach the page as HTML5 `dragover`/`drop`
+  // DOM events: when `dragDropEnabled` is true (the default — it IS read;
+  // it gates the handler installed at tauri-runtime-wry lib.rs
+  // `drag_drop_handler_enabled`), wry hooks GTK's drag signals on the
+  // WebView widget (wry webkitgtk/drag_drop.rs `connect_drag_event`) and
+  // forwards them as `tauri://drag-*` window events instead. Setting
+  // `dragDropEnabled: false` does NOT restore HTML5 file drops in
+  // WebKitGTK — it just silences the tauri events too, leaving no drop
+  // path at all. So the config must stay `true` and this bridge is how
+  // Linux desktop receives OS file drops. Web/memory platforms are no-ops
+  // here since real HTML5 DnD already works there.
+  onNativeFileDrop(handler: (event: NativeFileDropEvent) => void): Promise<() => void>;
+  /** Read a file's raw bytes from an absolute OS path (e.g. from a native file drop). */
+  readFileBytes(path: string): Promise<Uint8Array>;
+
   // ─── File existence ───────────────────────────────────────────────────────
   fileExists(path: string): Promise<boolean>;
 
@@ -195,6 +211,14 @@ export interface Platform {
   revealInFileManager(path: string): Promise<void>;
   fileManagerLabel(): string;
 
+  // ─── Native clipboard ──────────────────────────────────────────────────────
+  // Reads an image off the OS clipboard directly (native Rust, not the
+  // browser's Web Clipboard API). Last-resort fallback for platforms/webviews
+  // where `navigator.clipboard.read()` and the DOM `paste` event both fail to
+  // surface image data (notably WebKitGTK on Wayland). Returns null if the
+  // clipboard has no image or the platform doesn't support this.
+  readClipboardImage(): Promise<Uint8Array | null>;
+
   // ─── Native OS Print ──────────────────────────────────────────────────────
   /** List available printers on the system. */
   listPrinters(): Promise<PrinterInfo[]>;
@@ -203,6 +227,15 @@ export interface Platform {
   /** Cancel a previously submitted print job. */
   cancelPrintJob(printerName: string, jobId: number): Promise<string>;
 }
+
+/** A native OS file drag-and-drop event, as reported by Tauri's window-level
+ *  drag-drop events. `position` is in logical (CSS) pixels, window-relative —
+ *  the same coordinate space as a DOM `MouseEvent`'s `clientX`/`clientY`. */
+export type NativeFileDropEvent =
+  | { type: 'enter'; paths: string[]; position: { x: number; y: number } }
+  | { type: 'over'; position: { x: number; y: number } }
+  | { type: 'drop'; paths: string[]; position: { x: number; y: number } }
+  | { type: 'leave' };
 
 /** Information about an available printer. */
 export interface PrinterInfo {

@@ -580,6 +580,68 @@ export function createTauriPlatform(): Platform {
       return (await c.invoke('cancel_print_job', { printerName, jobId })) as string;
     },
 
+    async readClipboardImage() {
+      const c = core();
+      const bytes = (await c.invoke('read_clipboard_image_png')) as number[] | null;
+      return bytes ? new Uint8Array(bytes) : null;
+    },
+
+    async onNativeFileDrop(handler) {
+      const w = (typeof window !== 'undefined' ? window : globalThis) as
+        | WindowWithTauri
+        | undefined;
+      const ev = w?.__TAURI__?.event;
+      if (!ev || typeof ev.listen !== 'function') {
+        return () => {};
+      }
+      // Tauri labels drag positions PhysicalPosition, but wry's GTK
+      // backend forwards GTK *widget* coordinates, which are already
+      // logical (CSS-pixel) units — tauri-runtime-wry wraps them in
+      // PhysicalPosition::new() without any scale conversion (verified
+      // against wry 0.55 webkitgtk/drag_drop.rs + tauri-runtime-wry 2.11
+      // lib.rs). Dividing those by devicePixelRatio double-applies the
+      // display scale on Linux. Windows/macOS backends report true
+      // physical pixels, which do need the division.
+      const isGtk = typeof navigator !== 'undefined' && navigator.userAgent.includes('Linux');
+      const dpr = !isGtk && typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      const toLogical = (p: { x: number; y: number }) => ({ x: p.x / dpr, y: p.y / dpr });
+      type RawPayload = { paths?: string[]; position?: { x: number; y: number } };
+
+      const unlistens = await Promise.all([
+        ev.listen('tauri://drag-enter', (raw: unknown) => {
+          const e = raw as { payload: RawPayload };
+          handler({
+            type: 'enter',
+            paths: e.payload.paths ?? [],
+            position: toLogical(e.payload.position ?? { x: 0, y: 0 }),
+          });
+        }),
+        ev.listen('tauri://drag-over', (raw: unknown) => {
+          const e = raw as { payload: RawPayload };
+          handler({ type: 'over', position: toLogical(e.payload.position ?? { x: 0, y: 0 }) });
+        }),
+        ev.listen('tauri://drag-drop', (raw: unknown) => {
+          const e = raw as { payload: RawPayload };
+          handler({
+            type: 'drop',
+            paths: e.payload.paths ?? [],
+            position: toLogical(e.payload.position ?? { x: 0, y: 0 }),
+          });
+        }),
+        ev.listen('tauri://drag-leave', () => {
+          handler({ type: 'leave' });
+        }),
+      ]);
+      return () => {
+        for (const un of unlistens) un();
+      };
+    },
+    async readFileBytes(path) {
+      const c = core();
+      const bytes = (await c.invoke('read_dropped_file', { path })) as number[];
+      return new Uint8Array(bytes);
+    },
+
     async revealInFileManager(path) {
       await core().invoke('plugin:opener|reveal_item_in_dir', { path });
     },
