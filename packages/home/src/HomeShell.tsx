@@ -283,9 +283,9 @@ export function HomeShell({
       count: view.files.filter((f) => f.projectId === p.id).length,
       pinned: p.pinned,
     })),
-    { id: 'templates', label: 'Templates', icon: 'LayoutGrid', count: 0 },
+    { id: 'templates', label: 'Templates', icon: 'GridFour', count: 0 },
     { id: 'assets', label: 'Assets', icon: 'Image', count: 0 },
-    { id: 'activity', label: 'Activity', icon: 'History', count: 0 },
+    { id: 'activity', label: 'Activity', icon: 'ClockCounterClockwise', count: 0 },
     { id: 'trash', label: 'Trash', icon: 'Archive', count: view.trashedFiles.length },
   ];
 
