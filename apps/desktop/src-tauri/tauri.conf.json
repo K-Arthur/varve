@@ -22,7 +22,8 @@
         "resizable": true,
         "decorations": false,
         "shadow": true,
-        "visible": false
+        "visible": false,
+        "dragDropEnabled": false
       },
       {
         "label": "splashscreen",
@@ -46,6 +47,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "resources": ["onnxruntime-libs/**/*"],
     "publisher": "Strata Contributors",
     "homepage": "https://github.com/strata/strata",
     "copyright": "Copyright 2024-2026 Strata Contributors — AGPL-3.0-or-later",

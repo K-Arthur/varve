@@ -13,6 +13,8 @@ pub mod heuristic;
 pub mod inference;
 #[cfg(feature = "ai")]
 pub mod model;
+#[cfg(feature = "ai")]
+pub mod runtime;
 
 use image::DynamicImage;
 
@@ -85,7 +87,12 @@ pub fn remove_background(
     }
 }
 
-/// Check whether the AI feature is available.
+/// Check whether the AI feature was compiled in.
+///
+/// This is a compile-time check only — it says nothing about whether the
+/// onnxruntime dylib actually loaded at runtime. Use
+/// [`runtime::native_ai_ready`] (feature-gated) to check real availability
+/// before routing inference to the native path.
 pub fn has_ai() -> bool {
     cfg!(feature = "ai")
 }

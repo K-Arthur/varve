@@ -69,6 +69,49 @@ fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
     std::fs::write(&path, data).map_err(|e| e.to_string())
 }
 
+// ── Native clipboard ────────────────────────────────────────────────────
+//
+// `navigator.clipboard.read()` (and the DOM `paste` ClipboardEvent's image
+// items) are unreliable for image MIME types under WebKitGTK on Wayland —
+// see AGENTS.md Session 45 "known limitation". This command reads the OS
+// clipboard directly via `arboard`, bypassing the Web Clipboard API, and is
+// used as a last-resort fallback by `readClipboardUnifiedWithFallback` in
+// `packages/editor/src/clipboard.ts`.
+
+// ── Native file drag-and-drop ───────────────────────────────────────────
+//
+// wry's WebKitGTK backend hooks GTK's own drag-and-drop signals on the
+// WebView widget unconditionally (webkitgtk/drag_drop.rs `connect_drag_event`
+// is called with no `drag_drop_enabled` check), so the browser's HTML5
+// dragover/drop DOM events never reach the page on Linux. The frontend
+// listens for Tauri's `tauri://drag-drop` window event instead (which
+// carries absolute file paths, not File objects) and reads each file's
+// bytes via this command.
+
+#[tauri::command]
+fn read_dropped_file(path: String) -> Result<Vec<u8>, String> {
+    std::fs::read(&path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn read_clipboard_image_png() -> Result<Option<Vec<u8>>, String> {
+    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
+    let img = match clipboard.get_image() {
+        Ok(img) => img,
+        Err(arboard::Error::ContentNotAvailable) => return Ok(None),
+        Err(e) => return Err(e.to_string()),
+    };
+    let width = img.width as u32;
+    let height = img.height as u32;
+    let rgba = image::RgbaImage::from_raw(width, height, img.bytes.into_owned())
+        .ok_or_else(|| "clipboard image buffer size did not match its dimensions".to_string())?;
+    let mut png_bytes: Vec<u8> = Vec::new();
+    image::DynamicImage::ImageRgba8(rgba)
+        .write_to(&mut std::io::Cursor::new(&mut png_bytes), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+    Ok(Some(png_bytes))
+}
+
 // ── Legacy Sync ──────────────────────────────────────────────────────────
 
 /// Persist a document. Receives the full document JSON from the TS editor.
@@ -163,6 +206,26 @@ fn remove_background(
         width: result.width,
         height: result.height,
     })
+}
+
+/// Whether native ONNX inference is actually usable right now — the `ai`
+/// Cargo feature is compiled in *and* the bundled onnxruntime dylib loaded
+/// successfully at startup (see `resolve_onnxruntime_dylib` / `setup()`).
+///
+/// This is a runtime-verified check, not a build-flag check: a build with
+/// `ai` compiled in but a missing/incompatible dylib for this platform
+/// correctly reports `false` here, so the frontend's provider chain won't
+/// keep routing `ai-quality` at a native path that fails every time.
+#[tauri::command]
+fn native_ai_status() -> bool {
+    #[cfg(feature = "ai")]
+    {
+        strata_bgremove::runtime::native_ai_ready()
+    }
+    #[cfg(not(feature = "ai"))]
+    {
+        false
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -853,6 +916,44 @@ fn close_splashscreen(app: tauri::AppHandle) {
     }
 }
 
+/// Resolve the bundled native onnxruntime dylib for the current platform,
+/// if one was staged by `scripts/fetch-onnxruntime.mjs`.
+///
+/// Checks the production resource directory first (populated by
+/// `tauri.conf.json`'s `bundle.resources` during `tauri build`), then falls
+/// back to the dev-time staging path directly under the crate manifest dir
+/// — `tauri dev` runs `cargo run` without a bundling step, so
+/// `app.path().resource_dir()` may not contain files declared as bundle
+/// resources yet.
+#[cfg(feature = "ai")]
+fn resolve_onnxruntime_dylib(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    let platform_key = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+    let lib_name = if cfg!(target_os = "windows") {
+        "onnxruntime.dll"
+    } else if cfg!(target_os = "macos") {
+        "libonnxruntime.dylib"
+    } else {
+        "libonnxruntime.so"
+    };
+    let relative = std::path::Path::new("onnxruntime-libs")
+        .join(&platform_key)
+        .join(lib_name);
+
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let candidate = resource_dir.join(&relative);
+        if candidate.exists() {
+            return Some(candidate);
+        }
+    }
+
+    let dev_candidate = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(&relative);
+    if dev_candidate.exists() {
+        return Some(dev_candidate);
+    }
+
+    None
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // On Wayland (especially KDE Plasma), the window icon is resolved via the
@@ -879,6 +980,27 @@ pub fn run() {
 
     builder
         .setup(|app| {
+            // Must run before any strata_bgremove::remove_background call
+            // creates the first ONNX session — ort::init_from only takes
+            // effect if no environment has been committed yet. A missing
+            // or incompatible dylib is not fatal here: native_ai_ready()
+            // stays false and the existing WASM/heuristic providers remain
+            // available (see docs/audits/background-removal-wasm-memory-
+            // hardening-2026-07-18.md for why bare-WASM BiRefNet needs this
+            // safer alternative in the first place).
+            #[cfg(feature = "ai")]
+            {
+                match resolve_onnxruntime_dylib(app.handle()) {
+                    Some(path) => match strata_bgremove::runtime::init_native_runtime(&path) {
+                        Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
+                        Err(e) => eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM"),
+                    },
+                    None => {
+                        eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
+                    }
+                }
+            }
+
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir).expect("create data dir");
             let db_path = data_dir.join("documents.db");
@@ -956,7 +1078,10 @@ pub fn run() {
             home_read_text_file,
             home_write_text_file,
             write_binary_file,
+            read_dropped_file,
+            read_clipboard_image_png,
             remove_background,
+            native_ai_status,
             trace_image,
             upscale_image,
             export_node_pdf,
@@ -1590,16 +1715,18 @@ mod tests {
     }
 
     #[test]
+    #[cfg(not(feature = "ai"))]
     fn remove_background_ai_method_is_rejected_without_ai_feature() {
         // Without the `ai` Cargo feature, an AI request must fail explicitly.
         // Returning a Quick mask here would mislabel heuristic output as AI.
+        // `ai` is a default feature (see Cargo.toml) — this only runs under
+        // `cargo test --no-default-features` or `--features ""`.
         let png = make_test_png(10, 10);
         let options: BgRemoveOptions = serde_json::from_value(serde_json::json!({
             "method": "ai-balanced",
         }))
         .expect("deserialize options");
 
-        #[cfg(not(feature = "ai"))]
         assert!(remove_background(png, options)
             .expect_err("AI request must not degrade to quick")
             .contains("not enabled"));
