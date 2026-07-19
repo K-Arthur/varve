@@ -49,3 +49,6 @@ playwright-report/
 
 # --- Generated ONNX Runtime Web WASM artifacts ---
 apps/desktop/public/ort-wasm/
+
+# --- Fetched native ONNX Runtime shared libraries (scripts/fetch-onnxruntime.mjs) ---
+apps/desktop/src-tauri/onnxruntime-libs/
