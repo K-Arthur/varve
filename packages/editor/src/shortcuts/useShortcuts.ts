@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
+import { schedulePasteFallback } from '../clipboard';
 import type { EditorContextValue } from '../context';
 import {
   bindingMatchesEvent,
@@ -89,6 +90,8 @@ export function useShortcuts(
             ref.current.addKeyframeToSelected('rotation');
           }
         };
+      case 'newAdjustmentLayer':
+        return () => ref.current.createAdjustmentLayer();
       default:
         return null;
     }
@@ -141,6 +144,17 @@ export function useShortcuts(
         const binding = getEffectiveBinding(id);
         if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
         if (id === 'paste') {
+          // Don't run the action or preventDefault here: letting the
+          // browser deliver a `paste` ClipboardEvent gives the most
+          // reliable clipboard read (Shell's window paste listener
+          // captures it and runs the action). WebKitGTK never fires that
+          // event outside editable elements, though, so schedule a
+          // fallback that runs the action directly unless the real event
+          // arrives first and cancels it (see clipboard.ts).
+          schedulePasteFallback(() => {
+            ref.current.recordAction('shortcut:paste');
+            getHandler('paste')?.();
+          });
           return;
         }
         e.preventDefault();
