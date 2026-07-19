@@ -113,6 +113,10 @@ function findIdleWorker(): PoolWorker | null {
   return best;
 }
 
+function hasActiveQualityJob(): boolean {
+  return pending.some((job) => job.method === 'ai-quality' && job.workerIndex !== UNASSIGNED);
+}
+
 /**
  * Remove abort signal listeners registered for a job.
  * Called when a job settles (resolves/rejects) to prevent memory leaks.
@@ -253,11 +257,14 @@ function dispatchJobToWorker(job: PoolJob, worker: PoolWorker, workerIndex: numb
 
 function processQueue(): void {
   while (pending.length > 0) {
+    const jobIdx = pending.findIndex(
+      (job) =>
+        job.workerIndex === UNASSIGNED && (job.method !== 'ai-quality' || !hasActiveQualityJob()),
+    );
+    if (jobIdx < 0) break;
+
     const next = findIdleWorker();
     if (!next) break;
-
-    const jobIdx = pending.findIndex((j) => j.workerIndex === UNASSIGNED);
-    if (jobIdx < 0) break;
 
     const [job] = pending.splice(jobIdx, 1);
     if (!job) break;
@@ -266,6 +273,36 @@ function processQueue(): void {
     pending.push(job);
     dispatchJobToWorker(job, next, workerIndex);
   }
+}
+
+function cancelJob(job: PoolJob, error: Error): void {
+  if (job.workerIndex === UNASSIGNED) {
+    cleanupAbortListeners(job);
+    clearTimeout(job.timeout);
+    const index = pending.indexOf(job);
+    if (index >= 0) pending.splice(index, 1);
+    job.reject(error);
+    processQueue();
+    return;
+  }
+
+  const worker = getPool()[job.workerIndex];
+  if (!worker || worker.generation !== job.generation) {
+    cleanupAbortListeners(job);
+    clearTimeout(job.timeout);
+    const index = pending.indexOf(job);
+    if (index >= 0) pending.splice(index, 1);
+    job.reject(error);
+    processQueue();
+    return;
+  }
+
+  // ONNX Runtime cannot interrupt an active session.run. Terminate and
+  // replace the worker before making the slot available; otherwise a second
+  // job can overlap the cancelled inference and its late result can corrupt
+  // pool bookkeeping.
+  replaceWorker(worker);
+  settleJob(job, worker, null, error);
 }
 
 export function cancelAllWorkerJobs(): void {
@@ -334,19 +371,14 @@ export async function runPooledInference(
     };
 
     // Find an idle worker; if none, queue the job.
-    const target = findIdleWorker();
+    const target =
+      options.method === 'ai-quality' && hasActiveQualityJob() ? null : findIdleWorker();
     if (!target) {
       const timeoutMs = options.method === 'ai-quality' ? 300_000 : 120_000;
       const timeout = setTimeout(() => {
         const idx = pending.findIndex((j) => j.requestId === requestId);
         if (idx >= 0) {
-          const [job] = pending.splice(idx, 1);
-          settleJob(
-            job!,
-            target ?? getPool()[0]!,
-            null,
-            new Error('All workers busy — inference timed out'),
-          );
+          cancelJob(pending[idx]!, new Error('All workers busy — inference timed out'));
         } else {
           reject(new Error('All workers busy — inference timed out'));
         }
@@ -378,7 +410,7 @@ export async function runPooledInference(
       pending.push(job);
 
       const onAbort = () => {
-        settleJob(job, target ?? getPool()[0]!, null, new Error('cancelled'));
+        cancelJob(job, new Error('cancelled'));
       };
       signal?.addEventListener('abort', onAbort, { once: true });
       abort.signal.addEventListener('abort', onAbort, { once: true });
@@ -394,10 +426,7 @@ export async function runPooledInference(
     const timeout = setTimeout(() => {
       const idx = pending.findIndex((j) => j.requestId === requestId);
       if (idx >= 0) {
-        const [job] = pending.splice(idx, 1);
-        // Replace the hung worker (cold-start or warm — both should be replaced)
-        replaceWorker(target);
-        settleJob(job!, target, null, new Error('Worker inference timed out'));
+        cancelJob(pending[idx]!, new Error('Worker inference timed out'));
       } else {
         reject(new Error('Worker inference timed out'));
       }
@@ -429,7 +458,7 @@ export async function runPooledInference(
     pending.push(job);
 
     const onAbort = () => {
-      settleJob(job, target, null, new Error('cancelled'));
+      cancelJob(job, new Error('cancelled'));
     };
     signal?.addEventListener('abort', onAbort, { once: true });
     abort.signal.addEventListener('abort', onAbort, { once: true });

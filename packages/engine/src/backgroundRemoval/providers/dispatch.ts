@@ -75,7 +75,11 @@ async function getProviderOrder(options: BackgroundRemovalOptions): Promise<Remo
 const BALANCED_PROVIDER_TIMEOUT = 125_000;
 const QUALITY_PROVIDER_TIMEOUT = 310_000;
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSignal): Promise<T> {
+function withTimeout<T>(
+  start: (attemptSignal: AbortSignal) => Promise<T>,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<T> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new Error('cancelled'));
@@ -83,6 +87,10 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSi
     }
 
     const controller = new AbortController();
+    const onCallerAbort = () => {
+      controller.abort();
+      reject(new Error('cancelled'));
+    };
     const timeout = setTimeout(() => {
       controller.abort();
       reject(new Error('Provider timed out'));
@@ -91,8 +99,19 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSi
     const cleanup = () => {
       clearTimeout(timeout);
       controller.abort();
+      signal?.removeEventListener('abort', onCallerAbort);
     };
 
+    signal?.addEventListener('abort', onCallerAbort, { once: true });
+
+    let promise: Promise<T>;
+    try {
+      promise = start(controller.signal);
+    } catch (error) {
+      cleanup();
+      reject(error);
+      return;
+    }
     promise.then(
       (value) => {
         cleanup();
@@ -102,15 +121,6 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSi
         cleanup();
         reject(error);
       },
-    );
-
-    signal?.addEventListener(
-      'abort',
-      () => {
-        cleanup();
-        reject(new Error('cancelled'));
-      },
-      { once: true },
     );
   });
 }
@@ -138,7 +148,7 @@ async function tryProviderChain(
     let available: boolean;
     try {
       available = await withTimeout(
-        Promise.resolve(provider.isAvailable(options, signal)),
+        (attemptSignal) => Promise.resolve(provider.isAvailable(options, attemptSignal)),
         providerTimeout,
         signal,
       );
@@ -152,7 +162,7 @@ async function tryProviderChain(
     try {
       const clonedImage = cloneImageData(imageData);
       return await withTimeout(
-        provider.remove(clonedImage, options, signal),
+        (attemptSignal) => provider.remove(clonedImage, options, attemptSignal),
         providerTimeout,
         signal,
       );
