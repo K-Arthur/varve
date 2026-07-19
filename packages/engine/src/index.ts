@@ -178,6 +178,15 @@ export {
   resetFontRegistry,
 } from './fontRegistry';
 export * from './geometry';
+export type {
+  GifExportOptions,
+  GifExportResult,
+  GifFrameRenderer,
+} from './gifExport';
+export {
+  checkGifExportSupport,
+  exportTimelineToGif,
+} from './gifExport';
 export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type {

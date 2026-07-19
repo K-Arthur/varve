@@ -51,7 +51,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm --filter @strata/desktop dev',
     url: 'http://localhost:1420',
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 30000,
   },
 });
