@@ -209,17 +209,35 @@ fn remove_background(
 }
 
 /// Whether native ONNX inference is actually usable right now — the `ai`
-/// Cargo feature is compiled in *and* the bundled onnxruntime dylib loaded
-/// successfully at startup (see `resolve_onnxruntime_dylib` / `setup()`).
+/// Cargo feature is compiled in *and* the bundled onnxruntime dylib loads
+/// successfully.
 ///
 /// This is a runtime-verified check, not a build-flag check: a build with
 /// `ai` compiled in but a missing/incompatible dylib for this platform
 /// correctly reports `false` here, so the frontend's provider chain won't
 /// keep routing `ai-quality` at a native path that fails every time.
+///
+/// Deliberately lazy: the dylib is only loaded the first time this command
+/// is actually invoked (cached after that — see
+/// `strata_bgremove::runtime::init_native_runtime`), never during app
+/// startup. Loading a native library that may spawn its own thread pool or
+/// install its own signal handlers (onnxruntime does both) before the
+/// webview has finished initializing risks racing WebKitGTK's own
+/// process/thread startup; by the time frontend JS can call this command,
+/// the webview is already fully up, so that risk doesn't apply here.
 #[tauri::command]
-fn native_ai_status() -> bool {
+fn native_ai_status(_app: tauri::AppHandle) -> bool {
     #[cfg(feature = "ai")]
     {
+        match resolve_onnxruntime_dylib(&_app) {
+            Some(path) => match strata_bgremove::runtime::init_native_runtime(&path) {
+                Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
+                Err(e) => eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM"),
+            },
+            None => {
+                eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
+            }
+        }
         strata_bgremove::runtime::native_ai_ready()
     }
     #[cfg(not(feature = "ai"))]
@@ -980,26 +998,14 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            // Must run before any strata_bgremove::remove_background call
-            // creates the first ONNX session — ort::init_from only takes
-            // effect if no environment has been committed yet. A missing
-            // or incompatible dylib is not fatal here: native_ai_ready()
-            // stays false and the existing WASM/heuristic providers remain
-            // available (see docs/audits/background-removal-wasm-memory-
-            // hardening-2026-07-18.md for why bare-WASM BiRefNet needs this
-            // safer alternative in the first place).
-            #[cfg(feature = "ai")]
-            {
-                match resolve_onnxruntime_dylib(app.handle()) {
-                    Some(path) => match strata_bgremove::runtime::init_native_runtime(&path) {
-                        Ok(()) => println!("[bgremove] native ONNX Runtime ready: {}", path.display()),
-                        Err(e) => eprintln!("[bgremove] native ONNX Runtime init failed ({e}); falling back to WASM"),
-                    },
-                    None => {
-                        eprintln!("[bgremove] no bundled onnxruntime dylib found for this platform; falling back to WASM");
-                    }
-                }
-            }
+            // Native ONNX Runtime init deliberately does NOT happen here.
+            // Loading a native dylib this early — before the webview has
+            // finished initializing — risks racing WebKitGTK's own
+            // process/thread startup (onnxruntime can spawn its own thread
+            // pool and install its own signal handlers). It's initialized
+            // lazily instead, the first time the frontend calls
+            // native_ai_status (see that command below), which can only
+            // happen once the webview is already up and running JS.
 
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             std::fs::create_dir_all(&data_dir).expect("create data dir");

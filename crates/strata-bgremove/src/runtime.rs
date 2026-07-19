@@ -25,19 +25,40 @@ static NATIVE_AI_READY: OnceLock<bool> = OnceLock::new();
 /// first `Session` is created anywhere in the process — `ort::init_from`
 /// only takes effect if no environment has been committed yet.
 ///
-/// Idempotent: only the first call's outcome is recorded. Safe to call
-/// with a path that doesn't exist or isn't a valid onnxruntime build; on
-/// failure this returns `Err` and `native_ai_ready()` stays `false`, so
+/// Callers must not invoke this from a Tauri `setup()` hook or anywhere
+/// else that runs before the webview has finished initializing. Loading a
+/// native dylib (which may spawn its own thread pool or install its own
+/// signal handlers — onnxruntime does both) at that point races WebKitGTK's
+/// own process/thread startup; call it lazily instead, from a command
+/// handler invoked by already-running frontend JS (see `native_ai_status`
+/// in apps/desktop/src-tauri/src/lib.rs), so the dylib load can only ever
+/// happen strictly after the webview is already up.
+///
+/// Idempotent: only the first call's outcome is recorded, and later calls
+/// return that cached outcome instead of re-attempting the dlopen. Safe to
+/// call with a path that doesn't exist or isn't a valid onnxruntime build;
+/// on failure this returns `Err` and `native_ai_ready()` stays `false`, so
 /// callers fall back to WASM/heuristic providers rather than crashing.
 pub fn init_native_runtime(dylib_path: &Path) -> Result<(), String> {
-    let result = ort::init_from(dylib_path)
-        .map_err(|e| {
-            format!(
+    if let Some(&ready) = NATIVE_AI_READY.get() {
+        return if ready {
+            Ok(())
+        } else {
+            Err("A previous native ONNX Runtime init attempt already failed".to_string())
+        };
+    }
+
+    let builder = match ort::init_from(dylib_path) {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = NATIVE_AI_READY.set(false);
+            return Err(format!(
                 "Failed to load onnxruntime dylib at {}: {e}",
                 dylib_path.display()
-            )
-        })?
-        .commit();
+            ));
+        }
+    };
+    let result = builder.commit();
 
     // `commit()` returns false if an environment was already configured
     // elsewhere (e.g. a previous call, or `ort` lazily creating a default
