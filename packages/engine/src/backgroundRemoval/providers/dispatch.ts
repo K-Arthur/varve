@@ -21,17 +21,55 @@ import { cloneImageData } from '../protocol';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 import { cloudRemovalProvider } from './cloudProvider';
 import { directOnnxRemovalProvider } from './directOnnxProvider';
-import { tauriRemovalProvider } from './tauriProvider';
+import { isNativeAiReady, tauriRemovalProvider } from './tauriProvider';
 import type { RemovalProvider } from './types';
 import { workerRemovalProvider } from './workerProvider';
 
-/** Ordered AI inference providers — first success wins. */
+/**
+ * Ordered AI inference providers — first success wins. This is the default/
+ * base order (ADR-0005): Worker ONNX first on every platform, since it's
+ * the one path guaranteed to exist everywhere, with Tauri-native as a
+ * second-tier fallback.
+ *
+ * ai-quality does not always use this order unchanged — see
+ * `getProviderOrder` below. u2netp (ai-balanced) stays on this default
+ * order unconditionally: it's small enough to be WASM-safe everywhere
+ * (isWasmModelSafe('u2netp') is always true), so there's no memory-safety
+ * reason to prefer native for it, and Worker ONNX avoids the extra Tauri
+ * IPC round-trip.
+ */
 export const AI_PROVIDER_CHAIN: RemovalProvider[] = [
   workerRemovalProvider,
   tauriRemovalProvider,
   directOnnxRemovalProvider,
   cloudRemovalProvider,
 ];
+
+/**
+ * ai-quality (BiRefNet) is where bare-WASM can crash with std::bad_alloc on
+ * GPU-less hosts (docs/audits/background-removal-wasm-memory-hardening-
+ * 2026-07-18.md — reproduced deterministically at ~4GB RSS, the wasm32
+ * linear-memory ceiling). Native execution of the same model peaks around
+ * 445MB. When the Tauri desktop build has successfully loaded a native
+ * onnxruntime dylib (`isNativeAiReady()` — a runtime-verified check, not
+ * just "the ai feature was compiled in"), prefer it over Worker ONNX for
+ * this tier specifically. Every other method keeps the ADR-0005 default
+ * order unchanged.
+ */
+async function getProviderOrder(options: BackgroundRemovalOptions): Promise<RemovalProvider[]> {
+  if (options.method !== 'ai-quality') {
+    return AI_PROVIDER_CHAIN;
+  }
+  if (await isNativeAiReady()) {
+    return [
+      tauriRemovalProvider,
+      workerRemovalProvider,
+      directOnnxRemovalProvider,
+      cloudRemovalProvider,
+    ];
+  }
+  return AI_PROVIDER_CHAIN;
+}
 
 /** Hard ceiling for any single provider attempt (including model loading). */
 const BALANCED_PROVIDER_TIMEOUT = 125_000;
@@ -91,7 +129,8 @@ async function tryProviderChain(
   const errors: string[] = [];
   let attempted = false;
 
-  for (const provider of AI_PROVIDER_CHAIN) {
+  const providers = await getProviderOrder(options);
+  for (const provider of providers) {
     if (signal?.aborted) {
       throw new Error('cancelled');
     }

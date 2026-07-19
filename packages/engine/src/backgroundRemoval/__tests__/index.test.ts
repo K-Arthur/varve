@@ -161,14 +161,22 @@ describe('removeBackground dispatch', () => {
     (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
     vi.stubGlobal('Worker', class {});
     mockRunPooledInference.mockRejectedValue(new Error('worker unavailable'));
-    mockInvoke.mockResolvedValue({
-      maskBase64: 'abc123',
-      confidence: 0.6,
-      method: 'ai-quality',
-      processingTimeMs: 5,
-      width: 4,
-      height: 4,
-    });
+    // native_ai_status=false keeps this on the default worker-first order
+    // (ADR-0005) so this test exercises the traditional worker→tauri
+    // fallback path, not the native-preferred ai-quality ordering (see
+    // 'prefers native Tauri for ai-quality when native ai is ready' below).
+    mockInvoke.mockImplementation((cmd: string) =>
+      cmd === 'native_ai_status'
+        ? Promise.resolve(false)
+        : Promise.resolve({
+            maskBase64: 'abc123',
+            confidence: 0.6,
+            method: 'ai-quality',
+            processingTimeMs: 5,
+            width: 4,
+            height: 4,
+          }),
+    );
 
     const fakeCtx = { putImageData: vi.fn(), getImageData: vi.fn() };
     const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;
@@ -182,11 +190,53 @@ describe('removeBackground dispatch', () => {
     const { removeBackground } = await import('../index');
     const result = await removeBackground(makeImage(), { method: 'ai-quality' });
 
-    expect(mockInvoke).toHaveBeenCalledTimes(1);
+    // One call to check native_ai_status (ai-quality always checks this on
+    // Tauri, see getProviderOrder in dispatch.ts) plus one to remove_background.
+    expect(mockInvoke).toHaveBeenCalledTimes(2);
+    expect(mockInvoke).toHaveBeenCalledWith('native_ai_status');
+    expect(mockInvoke).toHaveBeenCalledWith('remove_background', expect.anything());
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');
     expect(result.confidence).toBe(0.6);
     expect(result.processingTimeMs).toBe(5);
     expect(result.method).toBe('ai-quality');
+
+    vi.restoreAllMocks();
+  });
+
+  it('prefers native Tauri over the Worker for ai-quality when native ai is ready', async () => {
+    (window as unknown as { __TAURI__?: unknown }).__TAURI__ = {};
+    vi.stubGlobal('Worker', class {});
+    // If the Worker were tried, this test would still pass by falling
+    // through — so also assert the Worker was never even attempted.
+    mockRunPooledInference.mockRejectedValue(new Error('worker should not be tried'));
+    mockInvoke.mockImplementation((cmd: string) =>
+      cmd === 'native_ai_status'
+        ? Promise.resolve(true)
+        : Promise.resolve({
+            maskBase64: 'native-result',
+            confidence: 0.98,
+            method: 'ai-quality',
+            processingTimeMs: 15000,
+            width: 4,
+            height: 4,
+          }),
+    );
+
+    const fakeCtx = { putImageData: vi.fn(), getImageData: vi.fn() };
+    const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      width: 0,
+      height: 0,
+      getContext: () => fakeCtx,
+      toBlob: (cb: (b: Blob) => void) => cb(fakeBlob),
+    } as unknown as HTMLCanvasElement);
+
+    const { removeBackground } = await import('../index');
+    const result = await removeBackground(makeImage(), { method: 'ai-quality' });
+
+    expect(mockRunPooledInference).not.toHaveBeenCalled();
+    expect(result.maskDataUrl).toBe('data:image/png;base64,native-result');
+    expect(result.confidence).toBe(0.98);
 
     vi.restoreAllMocks();
   });
