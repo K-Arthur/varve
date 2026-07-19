@@ -81,7 +81,7 @@ import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
 import { nodeWorldBoundsFn, useEditor } from './context';
-import { applyDropPosition, collectFilesFromDataTransfer } from './dropUtils';
+import { collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { commitImageCrop } from './imageCrop';
 import { closeImageBitmapMap, collectImageBitmaps } from './render/collectImageBitmaps';
@@ -3294,13 +3294,19 @@ export function CanvasArea({
           for (const id of artifact.nodeIds) {
             const node = artifact.document.nodes[id];
             if (!node) continue;
-            const positionedNode = dropWorld
-              ? applyDropPosition(node, {
-                  x: dropWorld[0] + i * 40,
-                  y: dropWorld[1] + i * 40,
-                })
-              : node;
-            parsedItems.push({ node: positionedNode, sourceDoc: artifact.document });
+            // Pass the target through `position` rather than pre-applying it
+            // to the node: batchImportNodes is the single positioning
+            // authority and re-positions any item without an explicit
+            // `position` to the viewport centre — a pre-positioned node
+            // with no `position` field would get that fallback applied on
+            // top, discarding the drop point.
+            parsedItems.push({
+              node,
+              sourceDoc: artifact.document,
+              ...(dropWorld
+                ? { position: { x: dropWorld[0] + i * 40, y: dropWorld[1] + i * 40 } }
+                : {}),
+            });
           }
         }
       }

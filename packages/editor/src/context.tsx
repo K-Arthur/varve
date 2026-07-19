@@ -176,11 +176,11 @@ import {
   resolveGuidePageId,
   resolveNodeFills,
   resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
-  scopeForTargets,
   type SafeAreaConfig,
   type SceneNode,
   type SlugConfig,
   type SMRuntime,
+  scopeForTargets,
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
@@ -350,6 +350,29 @@ export type { CanvasMode, EditorState, SessionMeta, ToolId };
  * their descendants) means a pasted group/frame has nothing for
  * deepCloneSubtree to find its children in — they'd be silently dropped.
  */
+/**
+ * World coordinates at the centre of the visible canvas viewport — the
+ * correct "place it where the user is looking" fallback for imports with no
+ * explicit drop position. Goes through editorScreenToWorld so pan sign,
+ * zoom, camera rotation, and the floating origin are all honoured; the
+ * previous inline `(pan + canvasWidth/2) / zoom` maths at the import sites
+ * added pan where screen->world must subtract it (and used the *source
+ * document's* canvas size as the viewport), which mirrored placements
+ * across the world origin the further the camera was panned.
+ */
+function viewportCenterWorld(cam: {
+  zoom: number;
+  pan: { x: number; y: number };
+  cameraRotation: number;
+}): { x: number; y: number } {
+  const el = document.querySelector<HTMLElement>('.editor-canvas');
+  const vp = el
+    ? { width: el.clientWidth, height: el.clientHeight }
+    : { width: window.innerWidth, height: window.innerHeight - 120 };
+  const [x, y] = editorScreenToWorld(cam, vp.width / 2, vp.height / 2, vp);
+  return { x, y };
+}
+
 function gatherSubtreeNodes(doc: Document, ids: NodeId[]): SceneNode[] {
   const seen = new Set<NodeId>();
   const result: SceneNode[] = [];
@@ -4970,28 +4993,13 @@ export function EditorProvider({
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
-          const inserted = insertImportedSubtree(s.document, sourceDoc, node.id, (clonedRoot) => {
-            if (options?.position) {
-              return applyDropPosition(clonedRoot, options.position);
-            }
-            return (() => {
-              const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-              const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-              const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-              const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-              return {
-                ...clonedRoot,
-                transform: [
-                  node.transform[0],
-                  node.transform[1],
-                  node.transform[2],
-                  node.transform[3],
-                  (node.transform[4] ?? 0) + offsetX,
-                  (node.transform[5] ?? 0) + offsetY,
-                ] as Affine,
-              } as SceneNode;
-            })();
-          });
+          const inserted = insertImportedSubtree(s.document, sourceDoc, node.id, (clonedRoot) =>
+            applyDropPosition(
+              clonedRoot,
+              options?.position ??
+                viewportCenterWorld({ zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation }),
+            ),
+          );
           if (!inserted) return s;
           return { ...s, document: inserted.doc, selection: [inserted.rootId] };
         });
@@ -5004,29 +5012,23 @@ export function EditorProvider({
           redoStackRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
+          let batchIndex = 0;
           for (const { node, sourceDoc, position } of items) {
-            const inserted = insertImportedSubtree(doc, sourceDoc, node.id, (clonedRoot) => {
-              if (position) {
-                return applyDropPosition(clonedRoot, position);
-              }
-              return (() => {
-                const centerX = (s.pan.x + (sourceDoc.canvasWidth ?? 800) / 2) / s.zoom;
-                const centerY = (s.pan.y + (sourceDoc.canvasHeight ?? 600) / 2) / s.zoom;
-                const offsetX = centerX - ((node.transform[4] ?? 0) + 50);
-                const offsetY = centerY - ((node.transform[5] ?? 0) + 50);
-                return {
-                  ...clonedRoot,
-                  transform: [
-                    node.transform[0],
-                    node.transform[1],
-                    node.transform[2],
-                    node.transform[3],
-                    (node.transform[4] ?? 0) + offsetX,
-                    (node.transform[5] ?? 0) + offsetY,
-                  ] as Affine,
-                } as SceneNode;
-              })();
+            // Cascade positionless items from the viewport centre so a
+            // multi-file import doesn't stack every node on one point.
+            const fallback = viewportCenterWorld({
+              zoom: s.zoom,
+              pan: s.pan,
+              cameraRotation: s.cameraRotation,
             });
+            const target = position ?? {
+              x: fallback.x + batchIndex * 40,
+              y: fallback.y + batchIndex * 40,
+            };
+            batchIndex += 1;
+            const inserted = insertImportedSubtree(doc, sourceDoc, node.id, (clonedRoot) =>
+              applyDropPosition(clonedRoot, target),
+            );
             if (!inserted) continue;
             doc = inserted.doc;
             const insertedNode = doc.nodes[inserted.rootId];
