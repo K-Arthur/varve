@@ -60,7 +60,11 @@ test.describe('Background removal — all modes', () => {
       .getByRole('button', { name: 'Remove background' });
     await btn.waitFor({ state: 'visible', timeout: 10000 });
     await btn.click();
-    await page.waitForTimeout(3000);
+    const review = page.getByRole('region', { name: 'Background removal review' });
+    await expect(review).toBeVisible({ timeout: 15000 });
+    await expect(review.getByText(/Nothing has been added to the document yet/i)).toBeVisible();
+    await review.getByRole('button', { name: 'Apply result' }).click();
+    await expect(review).toBeHidden();
 
     // Verify: canvas should still be visible, no error alerts
     await expect(page.locator('canvas').first()).toBeVisible();
@@ -81,12 +85,16 @@ test.describe('Background removal — all modes', () => {
     const btn = page.getByRole('button', { name: 'Remove background from image' });
     await btn.click({ force: true });
 
-    // Wait for processing to finish (poll for "Processing" text to disappear)
-    await expect(page.locator('text=Processing')).toBeHidden({ timeout: 30000 });
+    const review = page.getByRole('region', { name: 'Background removal review' });
+    await expect(review).toBeVisible({ timeout: 30000 });
+    await review.getByRole('button', { name: 'Apply result' }).click();
+    await expect(review).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Re-apply background removal' })).toBeVisible();
 
     // Verify: no errors, canvas visible
     const errors = page.locator('.insp-hint--error');
     expect(await errors.count()).toBe(0);
+    await expect(page.locator('.error-boundary')).toHaveCount(0);
     await expect(page.locator('canvas').first()).toBeVisible();
   });
 
@@ -99,7 +107,9 @@ test.describe('Background removal — all modes', () => {
       .getByTestId('selection-quick-bar')
       .getByRole('button', { name: 'Remove background' })
       .click();
-    await page.waitForTimeout(3000);
+    const review = page.getByRole('region', { name: 'Background removal review' });
+    await expect(review).toBeVisible({ timeout: 15000 });
+    await review.getByRole('button', { name: 'Apply result' }).click();
 
     await expect(canvas).toBeVisible();
     const box = await canvas.boundingBox();

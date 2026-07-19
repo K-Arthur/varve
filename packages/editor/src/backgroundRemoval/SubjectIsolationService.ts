@@ -16,12 +16,17 @@ export interface SubjectIsolationRequest {
   documentRevision: number;
   nodeId: string;
   sourceFingerprint: string;
+  sourceLocator: string;
   sourcePixelRevision: number;
   placementRevision: number;
   sourceWidth: number;
   sourceHeight: number;
   imageData: ImageData;
-  options: { method: 'quick' | 'ai-balanced' | 'ai-quality' };
+  options: {
+    method: 'quick' | 'ai-balanced' | 'ai-quality';
+    feather: number;
+    decontaminate: boolean;
+  };
 }
 
 export interface SubjectIsolationResult {
@@ -31,9 +36,12 @@ export interface SubjectIsolationResult {
   maskHeight: number;
   provenance: {
     method: string;
+    requestedMethod: string;
     runtime: string;
+    executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
     generatedAt: number;
   };
+  confidence: number;
 }
 
 export type StaleReason =
@@ -58,14 +66,12 @@ export async function computeSourceFingerprint(
 ): Promise<string> {
   try {
     const encoder = new TextEncoder();
-    const data = imageData
-      ? encoder.encode(`${src}:${imageData.width}x${imageData.height}:${imageData.data.length}`)
-      : encoder.encode(src);
+    const data = imageData?.data ?? encoder.encode(src);
     const hash = await crypto.subtle.digest('SHA-256', data);
     const hex = Array.from(new Uint8Array(hash))
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
-    return hex.slice(0, 16);
+    return `${src.length}:${imageData?.width ?? 0}x${imageData?.height ?? 0}:${hex.slice(0, 16)}`;
   } catch {
     return `fp:${src.length}:${imageData?.width ?? 0}:${imageData?.height ?? 0}`;
   }
@@ -101,6 +107,7 @@ export interface SubjectIsolationEngine {
     processingTimeMs: number;
     width: number;
     height: number;
+    executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
   }>;
 }
 
@@ -112,6 +119,8 @@ export class SubjectIsolationService {
   private currentPromise: Promise<SubjectIsolationResult> | null = null;
   private currentResolve: ((result: SubjectIsolationResult) => void) | null = null;
   private currentReject: ((error: Error) => void) | null = null;
+  private externalSignal: AbortSignal | null = null;
+  private externalAbortHandler: (() => void) | null = null;
 
   constructor(engine?: SubjectIsolationEngine) {
     if (engine) {
@@ -140,7 +149,11 @@ export class SubjectIsolationService {
    * coalesce check can return the exact same Promise reference (not an
    * async-wrapper copy).
    */
-  isolate(request: SubjectIsolationRequest): Promise<SubjectIsolationResult> {
+  isolate(
+    request: SubjectIsolationRequest,
+    externalSignal?: AbortSignal,
+  ): Promise<SubjectIsolationResult> {
+    if (externalSignal?.aborted) return Promise.reject(new Error('cancelled'));
     if (
       this.currentRequest &&
       this.currentRequest.nodeId === request.nodeId &&
@@ -148,7 +161,10 @@ export class SubjectIsolationService {
       this.currentRequest.sourcePixelRevision === request.sourcePixelRevision &&
       this.currentRequest.placementRevision === request.placementRevision &&
       this.currentRequest.documentId === request.documentId &&
-      this.currentRequest.documentRevision === request.documentRevision
+      this.currentRequest.documentRevision === request.documentRevision &&
+      this.currentRequest.options.method === request.options.method &&
+      this.currentRequest.options.feather === request.options.feather &&
+      this.currentRequest.options.decontaminate === request.options.decontaminate
     ) {
       return this.currentPromise!;
     }
@@ -158,6 +174,11 @@ export class SubjectIsolationService {
 
     const abortController = new AbortController();
     this.currentAbortController = abortController;
+    if (externalSignal) {
+      this.externalSignal = externalSignal;
+      this.externalAbortHandler = () => this.cancel();
+      externalSignal.addEventListener('abort', this.externalAbortHandler, { once: true });
+    }
 
     const promise = new Promise<SubjectIsolationResult>((resolve, reject) => {
       this.currentResolve = resolve;
@@ -211,6 +232,16 @@ export class SubjectIsolationService {
     if (node.kind !== 'shape') {
       return { stale: true, reason: 'node-deleted' };
     }
+    if (!currentState.selection.includes(request.nodeId)) {
+      return { stale: true, reason: 'not-selected' };
+    }
+    const imageFill = node.fills?.find((fill) => fill.type === 'image' && fill.image)?.image;
+    if (!imageFill || imageFill.src !== request.sourceLocator) {
+      return { stale: true, reason: 'source-replaced' };
+    }
+    if (computePlacementRevision(imageFill) !== request.placementRevision) {
+      return { stale: true, reason: 'placement-changed' };
+    }
     return { stale: false };
   }
 
@@ -227,8 +258,8 @@ export class SubjectIsolationService {
         request.imageData,
         {
           method: request.options.method,
-          feather: 0.5,
-          decontaminate: true,
+          feather: request.options.feather,
+          decontaminate: request.options.decontaminate,
         },
         signal,
       );
@@ -242,9 +273,12 @@ export class SubjectIsolationService {
         maskHeight: result.height,
         provenance: {
           method: result.method,
+          requestedMethod: request.options.method,
           runtime: `${result.processingTimeMs}ms`,
+          executionProvider: result.executionProvider,
           generatedAt: Date.now(),
         },
+        confidence: result.confidence,
       };
 
       if (this.currentRequest?.requestId === request.requestId && !signal.aborted) {
@@ -263,6 +297,11 @@ export class SubjectIsolationService {
   }
 
   private clear(): void {
+    if (this.externalSignal && this.externalAbortHandler) {
+      this.externalSignal.removeEventListener('abort', this.externalAbortHandler);
+    }
+    this.externalSignal = null;
+    this.externalAbortHandler = null;
     this.currentRequest = null;
     this.currentPromise = null;
     this.currentResolve = null;

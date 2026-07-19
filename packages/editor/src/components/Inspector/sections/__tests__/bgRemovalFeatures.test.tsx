@@ -23,6 +23,7 @@ const { mockExportRemoveBg, mockExportImageCache, mockExportIsModelAvailable } =
 
 vi.mock('@strata/engine', () => ({
   DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
+  checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
   checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
   getModelLoaderReady: vi.fn().mockResolvedValue({
     getState: () => 'unavailable',
@@ -160,12 +161,15 @@ function makeExportableImageNode(overrides: Record<string, unknown> = {}) {
 }
 
 function createMockEditorContext(overrides: Record<string, unknown> = {}) {
+  const { state: _stateOverride, ...contextOverrides } = overrides;
   const mockState = {
     tool: 'select' as const,
     zoom: 1,
     pan: { x: 0, y: 0 },
     selection: ['n1'],
     showOriginalBgNodeId: null,
+    backgroundRemovalPreviewSession: null,
+    maskPreviewMode: 'checkerboard' as const,
     refineMaskOptions: { brushSize: 20, hardness: 0.8 },
     ...(overrides.state ?? {}),
   };
@@ -174,6 +178,9 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     removeBackground: vi.fn().mockResolvedValue(undefined),
     removeBackgroundWithOptions: vi.fn().mockResolvedValue(undefined),
     cancelBackgroundRemoval: vi.fn(),
+    applyBackgroundRemovalPreview: vi.fn(),
+    cancelBackgroundRemovalPreview: vi.fn(),
+    updateDoc: vi.fn(),
     updateNode: vi.fn(),
     announce: vi.fn(),
     setShowOriginalBg: vi.fn(),
@@ -183,7 +190,7 @@ function createMockEditorContext(overrides: Record<string, unknown> = {}) {
     startTrimapEdit: vi.fn(),
     applyTrimapMatting: vi.fn(),
     setTrimapEditOptions: vi.fn(),
-    ...overrides,
+    ...contextOverrides,
   };
 }
 
@@ -192,6 +199,44 @@ beforeEach(() => {
 });
 
 describe('BackgroundRemovalSection - Preview toggle', () => {
+  it('shows an actual pending mask review and applies or cancels explicitly', () => {
+    const applyBackgroundRemovalPreview = vi.fn();
+    const cancelBackgroundRemovalPreview = vi.fn();
+    mockedUseEditor.mockReturnValue(
+      createMockEditorContext({
+        applyBackgroundRemovalPreview,
+        cancelBackgroundRemovalPreview,
+        state: {
+          backgroundRemovalPreviewSession: {
+            nodeId: 'n1',
+            documentId: 'doc-1',
+            sourceLocator: 'data:image/png;base64,abc',
+            placementRevision: 1,
+            maskDataUrl: 'data:image/png;base64,pending-mask',
+            width: 200,
+            height: 160,
+            sourceWidth: 200,
+            sourceHeight: 160,
+            requestedMethod: 'ai-quality',
+            actualMethod: 'ai-balanced',
+            confidence: 0.9,
+            feather: 0.5,
+            decontaminate: true,
+            executionProvider: 'wasm',
+          },
+        },
+      }),
+    );
+
+    render(<BackgroundRemovalSection nodes={[makeImageNode()]} />);
+    expect(screen.getByLabelText('Background removal review')).toBeTruthy();
+    expect(screen.getByText(/requested ai-quality; generated ai-balanced on wasm/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply result' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel preview' }));
+    expect(applyBackgroundRemovalPreview).toHaveBeenCalledTimes(1);
+    expect(cancelBackgroundRemovalPreview).toHaveBeenCalledTimes(1);
+  });
+
   it('renders preview toggle when background removal exists', () => {
     const node = makeImageNode({
       backgroundRemoval: {

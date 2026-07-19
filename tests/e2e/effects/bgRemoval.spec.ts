@@ -1,8 +1,9 @@
 /**
  * E2E regression test for AI background removal alpha mask rendering.
  *
- * Verifies that a generated alpha mask is actually composited onto the canvas:
- * background pixels become transparent and foreground pixels are preserved.
+ * Verifies that a generated alpha mask is actually composited onto the image:
+ * background pixels reveal the artboard and foreground pixels are preserved.
+ * The content canvas remains opaque where the artboard itself is painted.
  * Uses deterministic canvas pixel polling instead of fixed delays.
  */
 import path from 'node:path';
@@ -66,13 +67,20 @@ async function clickRemoveBackground(page: import('@playwright/test').Page): Pro
   throw new Error('Could not find Remove BG button');
 }
 
+async function applyBackgroundRemovalPreview(page: import('@playwright/test').Page): Promise<void> {
+  const review = page.getByRole('region', { name: 'Background removal review' });
+  await expect(review).toBeVisible({ timeout: 15000 });
+  await review.getByRole('button', { name: 'Apply result' }).click();
+  await expect(review).toBeHidden({ timeout: 5000 });
+}
+
 test.describe('Background removal alpha mask rendering', () => {
   test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
 
-  test('quick-mode bg removal: background pixels become transparent and foreground is preserved', async ({
+  test('quick-mode bg removal: background pixels are removed and foreground is preserved', async ({
     page,
   }) => {
     test.setTimeout(60000);
@@ -101,35 +109,41 @@ test.describe('Background removal alpha mask rendering', () => {
 
     await selectQuickMethod(page);
     await clickRemoveBackground(page);
+    await applyBackgroundRemovalPreview(page);
 
-    // Wait for the background to be removed: blue pixels drop and transparent pixels appear.
-    await page.waitForFunction(
-      ({ selector, initialBluePixels }) => {
-        const canvas = document.querySelector(selector) as HTMLCanvasElement | null;
-        if (!canvas) return false;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return false;
-        const dpr = window.devicePixelRatio || 1;
-        const w = canvas.width;
-        const h = canvas.height;
-        let bluePixels = 0;
-        let transparentPixels = 0;
-        let foregroundPixels = 0;
-        for (let y = 0; y < h; y += 5 * dpr) {
-          for (let x = 0; x < w; x += 5 * dpr) {
-            const d = ctx.getImageData(x, y, 1, 1)!.data;
-            if (d[2]! > 200 && d[0]! < 50 && d[1]! < 50) bluePixels++;
-            if (d[3]! < 128) transparentPixels++;
-            if (d[3]! > 128 && (d[0]! > 150 || d[1]! > 150 || d[2]! > 150)) foregroundPixels++;
-          }
-        }
-        return (
-          bluePixels < initialBluePixels * 0.2 && transparentPixels > 10 && foregroundPixels > 0
-        );
-      },
-      { selector: CONTENT_CANVAS, initialBluePixels: before.bluePixels },
-      { timeout: 15000 },
-    );
+    // Wait for the blue image background to reveal the artboard.
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(
+            ({ selector, initialBluePixels }) => {
+              const canvas = document.querySelector(selector) as HTMLCanvasElement | null;
+              if (!canvas) return { blueRemoved: false, hasForeground: false };
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return { blueRemoved: false, hasForeground: false };
+              const dpr = window.devicePixelRatio || 1;
+              const w = canvas.width;
+              const h = canvas.height;
+              let bluePixels = 0;
+              let foregroundPixels = 0;
+              for (let y = 0; y < h; y += 5 * dpr) {
+                for (let x = 0; x < w; x += 5 * dpr) {
+                  const d = ctx.getImageData(x, y, 1, 1)!.data;
+                  if (d[2]! > 200 && d[0]! < 50 && d[1]! < 50) bluePixels++;
+                  if (d[3]! > 128 && (d[0]! > 150 || d[1]! > 150 || d[2]! > 150))
+                    foregroundPixels++;
+                }
+              }
+              return {
+                blueRemoved: bluePixels < initialBluePixels * 0.2,
+                hasForeground: foregroundPixels > 0,
+              };
+            },
+            { selector: CONTENT_CANVAS, initialBluePixels: before.bluePixels },
+          ),
+        { timeout: 15000 },
+      )
+      .toEqual({ blueRemoved: true, hasForeground: true });
   });
 
   test('undo/redo restores and re-applies the alpha mask', async ({ page }) => {
@@ -159,8 +173,9 @@ test.describe('Background removal alpha mask rendering', () => {
 
     await selectQuickMethod(page);
     await clickRemoveBackground(page);
+    await applyBackgroundRemovalPreview(page);
 
-    // Wait for the mask to be applied (blue pixels mostly gone, transparent pixels present).
+    // Wait for the mask to be applied (blue image pixels mostly gone).
     await page.waitForFunction(
       ({ selector, initialBluePixels }) => {
         const canvas = document.querySelector(selector) as HTMLCanvasElement | null;
@@ -171,15 +186,13 @@ test.describe('Background removal alpha mask rendering', () => {
         const w = canvas.width;
         const h = canvas.height;
         let bluePixels = 0;
-        let transparentPixels = 0;
         for (let y = 0; y < h; y += 5 * dpr) {
           for (let x = 0; x < w; x += 5 * dpr) {
             const d = ctx.getImageData(x, y, 1, 1)!.data;
             if (d[2]! > 200 && d[0]! < 50 && d[1]! < 50) bluePixels++;
-            if (d[3]! < 128) transparentPixels++;
           }
         }
-        return bluePixels < initialBluePixels * 0.2 && transparentPixels > 10;
+        return bluePixels < initialBluePixels * 0.2;
       },
       { selector: CONTENT_CANVAS, initialBluePixels: before.bluePixels },
       { timeout: 15000 },
@@ -221,15 +234,13 @@ test.describe('Background removal alpha mask rendering', () => {
         const w = canvas.width;
         const h = canvas.height;
         let bluePixels = 0;
-        let transparentPixels = 0;
         for (let y = 0; y < h; y += 5 * dpr) {
           for (let x = 0; x < w; x += 5 * dpr) {
             const d = ctx.getImageData(x, y, 1, 1)!.data;
             if (d[2]! > 200 && d[0]! < 50 && d[1]! < 50) bluePixels++;
-            if (d[3]! < 128) transparentPixels++;
           }
         }
-        return bluePixels < initialBluePixels * 0.2 && transparentPixels > 10;
+        return bluePixels < initialBluePixels * 0.2;
       },
       { selector: CONTENT_CANVAS, initialBluePixels: before.bluePixels },
       { timeout: 10000 },

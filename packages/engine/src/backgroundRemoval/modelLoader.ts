@@ -152,6 +152,16 @@ class ModelLoader {
 
   /** Whether a model is reachable (bundled asset or IndexedDB blob). */
   async isModelAvailable(modelId: string, signal?: AbortSignal): Promise<boolean> {
+    if (AVAILABLE_MODELS.some((model) => model.id === modelId)) {
+      const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
+      const native = await getNativeBackgroundRemovalModelStatus(modelId);
+      if (native?.runtimeReady && native.installed) return true;
+      // BiRefNet is deliberately native-only on Tauri when no accelerated
+      // web EP is available: its bare-WASM path can exceed wasm32 memory and
+      // abort the webview. An old IndexedDB copy must not make the UI claim
+      // Quality is runnable when the native model has not been installed.
+      if (native && modelId.startsWith('birefnet-')) return false;
+    }
     const path = await this.getModelPath(modelId, signal);
     return path !== null;
   }
@@ -208,6 +218,21 @@ class ModelLoader {
       let source: 'bundled' | 'downloaded' | 'none' = 'none';
       let installed = false;
 
+      if (model.id.startsWith('birefnet-')) {
+        const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
+        const native = await getNativeBackgroundRemovalModelStatus(model.id);
+        if (native) {
+          result.push({
+            id: model.id,
+            name: model.name,
+            size: model.size,
+            installed: native.runtimeReady && native.installed,
+            source: native.runtimeReady && native.installed ? 'downloaded' : 'none',
+          });
+          continue;
+        }
+      }
+
       try {
         if (typeof fetch !== 'undefined') {
           const entry = await getManifestEntry(model.id, signal);
@@ -231,6 +256,15 @@ class ModelLoader {
         source = 'downloaded';
       }
 
+      if (!installed && AVAILABLE_MODELS.some((candidate) => candidate.id === model.id)) {
+        const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
+        const native = await getNativeBackgroundRemovalModelStatus(model.id);
+        if (native?.installed) {
+          installed = true;
+          source = 'downloaded';
+        }
+      }
+
       result.push({
         id: model.id,
         name: model.name,
@@ -243,6 +277,10 @@ class ModelLoader {
   }
 
   async deleteModel(modelId: string): Promise<void> {
+    if (AVAILABLE_MODELS.some((model) => model.id === modelId)) {
+      const { deleteNativeBackgroundRemovalModel } = await import('./providers/tauriProvider');
+      await deleteNativeBackgroundRemovalModel(modelId);
+    }
     if (isBrowserEnv()) {
       await deleteModelBlob(modelId);
       await deletePartialDownload(modelId).catch(() => {});
@@ -296,6 +334,26 @@ class ModelLoader {
     let storedEtag: string | null = null;
 
     try {
+      if (AVAILABLE_MODELS.some((candidate) => candidate.id === modelId)) {
+        const { downloadNativeBackgroundRemovalModel, isTauriRuntime } = await import(
+          './providers/tauriProvider'
+        );
+        if (isTauriRuntime()) {
+          await downloadNativeBackgroundRemovalModel(modelId, onProgress, signal);
+          // Native Quality supersedes legacy IndexedDB storage in desktop
+          // builds. Remove any old browser-side copy after the native file
+          // has passed Rust's size and SHA-256 validation.
+          if (isBrowserEnv()) {
+            await deleteModelBlob(modelId).catch(() => {});
+            await deletePartialDownload(modelId).catch(() => {});
+          }
+          this.state = 'ready';
+          this.notify();
+          this.saveState();
+          return;
+        }
+      }
+
       const sources = await this.resolveDownloadSources(modelId, signal);
       const localPath = sources?.local ?? `/models/${modelId}.onnx`;
       const manifestEntry = await getManifestEntry(modelId, signal);

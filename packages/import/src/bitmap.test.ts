@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { bytesToDataUrl, dataUrlToBytes, detectImageMime, getImageDimensions } from './bitmap';
+import { importImageAsFill } from './image';
 
 // Minimal valid PNG (1x1 pixel, red)
 function createMinimalPng(): Uint8Array {
@@ -265,6 +266,15 @@ describe('getImageDimensions', () => {
     const dims = getImageDimensions(data);
     expect(dims.w).toBe(0);
     expect(dims.h).toBe(0);
+  });
+});
+
+describe('importImageAsFill', () => {
+  it('records natural dimensions for later source-pixel mask validation', () => {
+    const fill = importImageAsFill(createMinimalPng(), 'pixel.png');
+
+    expect(fill.image?.imageWidth).toBe(1);
+    expect(fill.image?.imageHeight).toBe(1);
   });
 });
 
