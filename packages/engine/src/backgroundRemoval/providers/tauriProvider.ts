@@ -15,6 +15,31 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
+/**
+ * Whether native ONNX inference is actually usable right now — a
+ * runtime-verified check (the Rust side confirms the bundled onnxruntime
+ * dylib loaded successfully), not just "the ai Cargo feature was compiled
+ * in". See crates/strata-bgremove/src/runtime.rs and
+ * docs/audits/background-removal-wasm-memory-hardening-2026-07-18.md for
+ * why this distinction matters: a build with `ai` on but a missing dylib
+ * for this platform must report `false` here, or the dispatch chain would
+ * keep preferring a native path that fails every time.
+ *
+ * Not cached: this is only called once per ai-quality dispatch (see
+ * dispatch.ts), and the underlying Rust state can't change mid-session
+ * anyway (native_ai_ready() is set once at app startup), so caching would
+ * only save a fast in-process IPC round-trip at the cost of staleness risk.
+ */
+export async function isNativeAiReady(): Promise<boolean> {
+  if (!isTauri()) return false;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<boolean>('native_ai_status');
+  } catch {
+    return false;
+  }
+}
+
 async function invokeTauriRemoveBackground(
   imageData: ImageData,
   options: BackgroundRemovalOptions,
