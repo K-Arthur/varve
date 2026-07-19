@@ -1,14 +1,21 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockHeuristic, mockMaskToDataUrl, mockRunPooledInference, mockGetModelLoader, mockInvoke } =
-  vi.hoisted(() => ({
-    mockHeuristic: vi.fn(),
-    mockMaskToDataUrl: vi.fn(() => 'data:image/png;base64,reconstructed'),
-    mockRunPooledInference: vi.fn(),
-    mockGetModelLoader: vi.fn(),
-    mockInvoke: vi.fn(),
-  }));
+const {
+  mockDecodeMaskDataUrl,
+  mockHeuristic,
+  mockMaskToDataUrl,
+  mockRunPooledInference,
+  mockGetModelLoader,
+  mockInvoke,
+} = vi.hoisted(() => ({
+  mockDecodeMaskDataUrl: vi.fn(),
+  mockHeuristic: vi.fn(),
+  mockMaskToDataUrl: vi.fn(() => 'data:image/png;base64,reconstructed'),
+  mockRunPooledInference: vi.fn(),
+  mockGetModelLoader: vi.fn(),
+  mockInvoke: vi.fn(),
+}));
 
 vi.mock('../previewDownscale', () => ({
   downscaleImageData: (img: ImageData, maxDim: number) => {
@@ -37,6 +44,9 @@ vi.mock('../modelLoader', () => ({
 }));
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: mockInvoke,
+}));
+vi.mock('../maskDecode', () => ({
+  decodeMaskDataUrl: mockDecodeMaskDataUrl,
 }));
 
 // Environment capabilities: mock to allow ai-quality tests to reach providers
@@ -89,6 +99,11 @@ describe('removeBackground dispatch', () => {
       height: 4,
     });
     mockInvoke.mockReset();
+    mockDecodeMaskDataUrl.mockReset().mockResolvedValue({
+      mask: new Uint8Array(16).fill(255),
+      width: 4,
+      height: 4,
+    });
     mockGetModelLoader.mockReset().mockReturnValue({
       getState: () => 'unavailable',
       getModelPath: vi.fn().mockResolvedValue('/models/test.onnx'),
@@ -187,18 +202,20 @@ describe('removeBackground dispatch', () => {
     // (ADR-0005) so this test exercises the traditional worker→tauri
     // fallback path, not the native-preferred ai-quality ordering (see
     // 'prefers native Tauri for ai-quality when native ai is ready' below).
-    mockInvoke.mockImplementation((cmd: string) =>
-      cmd === 'native_ai_status'
-        ? Promise.resolve(false)
-        : Promise.resolve({
-            maskBase64: 'abc123',
-            confidence: 0.6,
-            method: 'ai-quality',
-            processingTimeMs: 5,
-            width: 4,
-            height: 4,
-          }),
-    );
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'native_ai_status') return Promise.resolve(false);
+      if (cmd === 'native_background_removal_model_status') {
+        return Promise.resolve({ runtimeReady: true, installed: true, sizeBytes: 224_005_088 });
+      }
+      return Promise.resolve({
+        maskBase64: 'abc123',
+        confidence: 0.6,
+        method: 'ai-quality',
+        processingTimeMs: 5,
+        width: 4,
+        height: 4,
+      });
+    });
 
     const fakeCtx = { putImageData: vi.fn(), getImageData: vi.fn() };
     const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;
@@ -212,10 +229,13 @@ describe('removeBackground dispatch', () => {
     const { removeBackground } = await import('../index');
     const result = await removeBackground(makeImage(), { method: 'ai-quality' });
 
-    // One call to check native_ai_status (ai-quality always checks this on
-    // Tauri, see getProviderOrder in dispatch.ts) plus one to remove_background.
-    expect(mockInvoke).toHaveBeenCalledTimes(2);
+    // Dispatch checks native readiness, then the Tauri provider verifies the
+    // exact model is installed before invoking native inference.
+    expect(mockInvoke).toHaveBeenCalledTimes(3);
     expect(mockInvoke).toHaveBeenCalledWith('native_ai_status');
+    expect(mockInvoke).toHaveBeenCalledWith('native_background_removal_model_status', {
+      modelId: 'birefnet-general-lite',
+    });
     expect(mockInvoke).toHaveBeenCalledWith('remove_background', expect.anything());
     expect(result.maskDataUrl).toBe('data:image/png;base64,abc123');
     expect(result.confidence).toBe(0.6);
@@ -231,18 +251,20 @@ describe('removeBackground dispatch', () => {
     // If the Worker were tried, this test would still pass by falling
     // through — so also assert the Worker was never even attempted.
     mockRunPooledInference.mockRejectedValue(new Error('worker should not be tried'));
-    mockInvoke.mockImplementation((cmd: string) =>
-      cmd === 'native_ai_status'
-        ? Promise.resolve(true)
-        : Promise.resolve({
-            maskBase64: 'native-result',
-            confidence: 0.98,
-            method: 'ai-quality',
-            processingTimeMs: 15000,
-            width: 4,
-            height: 4,
-          }),
-    );
+    mockInvoke.mockImplementation((cmd: string) => {
+      if (cmd === 'native_ai_status') return Promise.resolve(true);
+      if (cmd === 'native_background_removal_model_status') {
+        return Promise.resolve({ runtimeReady: true, installed: true, sizeBytes: 224_005_088 });
+      }
+      return Promise.resolve({
+        maskBase64: 'native-result',
+        confidence: 0.98,
+        method: 'ai-quality',
+        processingTimeMs: 15000,
+        width: 4,
+        height: 4,
+      });
+    });
 
     const fakeCtx = { putImageData: vi.fn(), getImageData: vi.fn() };
     const fakeBlob = { arrayBuffer: () => Promise.resolve(new ArrayBuffer(4)) } as Blob;

@@ -13,17 +13,27 @@
  * asset model, immutable Document pattern.
  */
 import type { BackgroundRemovalProvenance, Document, NodeId, RasterMaskAsset } from '@strata/scene';
-import { addRasterMaskAsset, removeRasterMaskAsset, updateRasterMaskAsset } from '@strata/scene';
+import {
+  addRasterMaskAsset,
+  removeRasterMaskAsset,
+  resolveNodePaints,
+  updateRasterMaskAsset,
+} from '@strata/scene';
 
 export interface RasterMaskCommitFields {
   dataUrl: string;
   width: number;
   height: number;
   method?: string;
-  runtime?: string;
+  runtime?: BackgroundRemovalProvenance['runtime'];
+  modelId?: string;
+  modelVersion?: string;
+  modelChecksum?: string;
   generatedAt?: number;
   confidence?: number;
   decontaminate?: boolean;
+  /** Source locator and decoded dimensions captured with this mask. */
+  sourceLocator?: string;
 }
 
 function dataUrlByteLength(dataUrl: string): number {
@@ -38,12 +48,14 @@ function makeProvenance(fields: RasterMaskCommitFields): BackgroundRemovalProven
   if (!fields.method && !fields.generatedAt) return undefined;
   return {
     method: (fields.method ?? 'quick') as 'quick' | 'ai-balanced' | 'ai-quality',
-    runtime: 'typescript',
+    runtime: fields.runtime ?? 'typescript',
     generatedAt: fields.generatedAt ?? Date.now(),
     origin: 'native',
     ...(fields.confidence !== undefined ? { confidence: fields.confidence } : {}),
     ...(fields.decontaminate !== undefined ? { decontaminate: fields.decontaminate } : {}),
-    ...(fields.runtime !== undefined ? { modelVersion: fields.runtime } : {}),
+    ...(fields.modelId !== undefined ? { modelId: fields.modelId } : {}),
+    ...(fields.modelVersion !== undefined ? { modelVersion: fields.modelVersion } : {}),
+    ...(fields.modelChecksum !== undefined ? { modelChecksum: fields.modelChecksum } : {}),
   };
 }
 
@@ -55,6 +67,56 @@ function makeAsset(assetId: string, fields: RasterMaskCommitFields): RasterMaskA
     width: fields.width,
     height: fields.height,
     byteLength: dataUrlByteLength(fields.dataUrl),
+  };
+}
+
+/**
+ * Keep cached image metadata aligned with the browser-decoded, orientation-
+ * normalized pixels used for inference. Older imports could retain display
+ * dimensions here, which made a valid full-resolution mask fail scene
+ * validation during Apply. Referenced paints are detached to an equivalent
+ * inline fill so correcting one image does not mutate every paint consumer.
+ */
+function normalizeSourceDimensions(
+  doc: Document,
+  nodeId: NodeId,
+  fields: RasterMaskCommitFields,
+): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape') return doc;
+  const fills = resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc);
+  let found = false;
+  let changed = false;
+  const normalizedFills = fills.map((fill) => {
+    if (
+      found ||
+      fill.type !== 'image' ||
+      !fill.image ||
+      (fields.sourceLocator !== undefined && fill.image.src !== fields.sourceLocator)
+    ) {
+      return fill;
+    }
+    found = true;
+    if (fill.image.imageWidth === fields.width && fill.image.imageHeight === fields.height) {
+      return fill;
+    }
+    changed = true;
+    return {
+      ...fill,
+      image: { ...fill.image, imageWidth: fields.width, imageHeight: fields.height },
+    };
+  });
+  if (!found || (!changed && !(node.paintRefs && node.paintRefs.length > 0))) return doc;
+  return {
+    ...doc,
+    nodes: {
+      ...doc.nodes,
+      [nodeId]: {
+        ...node,
+        fills: normalizedFills,
+        ...(node.paintRefs && node.paintRefs.length > 0 ? { paintRefs: [] } : {}),
+      },
+    },
   };
 }
 
@@ -75,7 +137,8 @@ export function commitRasterMask(
   nodeId: NodeId,
   fields: RasterMaskCommitFields,
 ): Document {
-  const node = doc.nodes[nodeId];
+  const sourceAlignedDoc = normalizeSourceDimensions(doc, nodeId, fields);
+  const node = sourceAlignedDoc.nodes[nodeId];
   const existingMask = node?.mask?.rasterMask;
 
   if (existingMask) {
@@ -83,14 +146,16 @@ export function commitRasterMask(
     const newRev = currentRev + 1;
     const assetId = `mask-${nodeId}-v${newRev}`;
     const asset = makeAsset(assetId, fields);
-    return updateRasterMaskAsset(doc, nodeId, asset);
+    const updated = updateRasterMaskAsset(sourceAlignedDoc, nodeId, asset);
+    return updated === sourceAlignedDoc ? doc : updated;
   }
 
   const asset = makeAsset(`mask-${nodeId}`, fields);
-  return addRasterMaskAsset(doc, nodeId, asset, {
+  const updated = addRasterMaskAsset(sourceAlignedDoc, nodeId, asset, {
     provenance: makeProvenance(fields),
     editRevision: 1,
   });
+  return updated === sourceAlignedDoc ? doc : updated;
 }
 
 /**

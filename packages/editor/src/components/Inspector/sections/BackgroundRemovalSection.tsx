@@ -15,9 +15,10 @@ import {
   workerModelIdForMethod,
 } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import { imageShapeSrc, isImageShape } from '@strata/scene';
 import { Button } from '@strata/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor } from '../../../context';
 import { ModelDownloadDialog } from '../../BackgroundRemoval/ModelDownloadDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -51,7 +52,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     state,
     removeBackgroundWithOptions,
     cancelBackgroundRemoval,
-    updateNode,
+    applyBackgroundRemovalPreview,
+    cancelBackgroundRemovalPreview,
+    updateDoc,
     announce,
     setShowOriginalBg,
     setMaskPreviewMode,
@@ -70,6 +73,10 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     node && (isImageShape(node) || node.mask?.rasterMask || node.backgroundRemoval),
   );
   const rasterMask = node?.mask?.rasterMask;
+  const previewSession =
+    node && state.backgroundRemovalPreviewSession?.nodeId === node.id
+      ? state.backgroundRemovalPreviewSession
+      : null;
   const maskProvenance = rasterMask?.provenance ?? node?.backgroundRemoval;
   const eligible = hasMask;
 
@@ -196,9 +203,15 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   const handleReset = () => {
-    updateNode(node.id, (n) => {
-      const { backgroundRemoval: _, ...rest } = n as ShapeNode;
-      return { ...rest, mask: undefined };
+    updateDoc((document) => {
+      const withoutNativeMask = removeRasterMaskFromNode(document, node.id);
+      const current = withoutNativeMask.nodes[node.id] as ShapeNode | undefined;
+      if (!current?.backgroundRemoval) return withoutNativeMask;
+      const { backgroundRemoval: _, ...rest } = current;
+      return {
+        ...withoutNativeMask,
+        nodes: { ...withoutNativeMask.nodes, [node.id]: rest as ShapeNode },
+      };
     });
     announce('Background removal reset');
   };
@@ -411,6 +424,62 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             </Button>
           )}
         </div>
+
+        {previewSession && (
+          <section className="insp-nested-panel" aria-label="Background removal review">
+            <p className="insp-subsection__label">Review mask before applying</p>
+            <div
+              className="insp-mask-review"
+              style={{
+                backgroundImage:
+                  'linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%), linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%)',
+                backgroundSize: '16px 16px',
+              }}
+            >
+              <img
+                src={imageShapeSrc(node)}
+                alt="Isolated subject preview"
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  maxHeight: 180,
+                  objectFit: 'contain',
+                  WebkitMaskImage: `url("${previewSession.maskDataUrl}")`,
+                  WebkitMaskSize: 'contain',
+                  WebkitMaskPosition: 'center',
+                  WebkitMaskRepeat: 'no-repeat',
+                  maskImage: `url("${previewSession.maskDataUrl}")`,
+                  maskSize: 'contain',
+                  maskPosition: 'center',
+                  maskRepeat: 'no-repeat',
+                }}
+              />
+            </div>
+            <p className="insp-hint" role="status">
+              Requested {previewSession.requestedMethod}; generated {previewSession.actualMethod}
+              {previewSession.executionProvider ? ` on ${previewSession.executionProvider}` : ''}.
+              Nothing has been added to the document yet.
+            </p>
+            <div className="insp-actions">
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={applyBackgroundRemovalPreview}
+              >
+                Apply result
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={cancelBackgroundRemovalPreview}
+              >
+                Cancel preview
+              </Button>
+            </div>
+          </section>
+        )}
 
         {maskProvenance && (
           <div className="insp-actions insp-actions--secondary">

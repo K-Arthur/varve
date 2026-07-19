@@ -1,4 +1,5 @@
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
+import { workerModelIdForMethod } from '../types';
 import type { RemovalProvider } from './types';
 
 /** Wire-format response from the Rust `remove_background` Tauri command. */
@@ -11,8 +12,21 @@ interface TauriBgRemoveResponse {
   height: number;
 }
 
-function isTauri(): boolean {
+export function isTauriRuntime(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
+}
+
+interface NativeModelStatus {
+  runtimeReady: boolean;
+  installed: boolean;
+  sizeBytes: number;
+}
+
+interface NativeModelProgress {
+  requestId: string;
+  modelId: string;
+  loaded: number;
+  total: number;
 }
 
 /**
@@ -31,13 +45,60 @@ function isTauri(): boolean {
  * only save a fast in-process IPC round-trip at the cost of staleness risk.
  */
 export async function isNativeAiReady(): Promise<boolean> {
-  if (!isTauri()) return false;
+  if (!isTauriRuntime()) return false;
   try {
     const { invoke } = await import('@tauri-apps/api/core');
     return await invoke<boolean>('native_ai_status');
   } catch {
     return false;
   }
+}
+
+export async function getNativeBackgroundRemovalModelStatus(
+  modelId: string,
+): Promise<NativeModelStatus | null> {
+  if (!isTauriRuntime()) return null;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<NativeModelStatus>('native_background_removal_model_status', { modelId });
+  } catch {
+    return null;
+  }
+}
+
+export async function downloadNativeBackgroundRemovalModel(
+  modelId: string,
+  onProgress?: (loaded: number, total: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  if (!isTauriRuntime()) throw new Error('Native model downloads require the Tauri desktop app');
+  if (signal?.aborted) throw new Error('Download cancelled');
+  const requestId = crypto.randomUUID();
+  const { invoke } = await import('@tauri-apps/api/core');
+  const { listen } = await import('@tauri-apps/api/event');
+  const unlisten = await listen<NativeModelProgress>(
+    'background-removal-model-progress',
+    ({ payload }) => {
+      if (payload.requestId === requestId) onProgress?.(payload.loaded, payload.total);
+    },
+  );
+  const cancel = () => {
+    void invoke('cancel_background_removal_model_download', { requestId });
+  };
+  signal?.addEventListener('abort', cancel, { once: true });
+  try {
+    await invoke<number>('download_background_removal_model', { requestId, modelId });
+    if (signal?.aborted) throw new Error('Download cancelled');
+  } finally {
+    signal?.removeEventListener('abort', cancel);
+    unlisten();
+  }
+}
+
+export async function deleteNativeBackgroundRemovalModel(modelId: string): Promise<void> {
+  if (!isTauriRuntime()) return;
+  const { invoke } = await import('@tauri-apps/api/core');
+  await invoke('delete_background_removal_model', { modelId });
 }
 
 async function invokeTauriRemoveBackground(
@@ -80,21 +141,34 @@ async function invokeTauriRemoveBackground(
       `Native background removal returned '${raw.method}' for '${options.method}' request`,
     );
   }
+  const maskDataUrl = `data:image/png;base64,${raw.maskBase64}`;
+  const { decodeMaskDataUrl } = await import('../maskDecode');
+  const decoded = await decodeMaskDataUrl(maskDataUrl);
+  if (decoded.width !== raw.width || decoded.height !== raw.height) {
+    throw new Error(
+      `Native mask dimensions ${decoded.width}x${decoded.height} do not match response ${raw.width}x${raw.height}`,
+    );
+  }
   return {
-    maskDataUrl: `data:image/png;base64,${raw.maskBase64}`,
+    maskDataUrl,
     confidence: raw.confidence,
     method: options.method,
     processingTimeMs: raw.processingTimeMs,
     width: raw.width,
     height: raw.height,
+    executionProvider: 'native',
+    rawMask: decoded.mask,
   };
 }
 
 export const tauriRemovalProvider: RemovalProvider = {
   id: 'tauri-native',
 
-  isAvailable(_options: BackgroundRemovalOptions, _signal?: AbortSignal): boolean {
-    return isTauri();
+  async isAvailable(options: BackgroundRemovalOptions, _signal?: AbortSignal): Promise<boolean> {
+    const modelId = workerModelIdForMethod(options.method);
+    if (!modelId) return false;
+    const status = await getNativeBackgroundRemovalModelStatus(modelId);
+    return Boolean(status?.runtimeReady && status.installed);
   },
 
   remove(imageData, options, signal) {

@@ -35,6 +35,9 @@ test('imports, upscales, undoes, and traces an image through the inspector', asy
 
   await page.getByLabel('Background removal method').selectOption('ai-balanced');
   await page.getByRole('button', { name: 'Remove background from image' }).click();
+  const bgReview = page.getByRole('region', { name: 'Background removal review' });
+  await expect(bgReview).toBeVisible({ timeout: 120000 });
+  await bgReview.getByRole('button', { name: 'Apply result' }).click();
   await expect(page.getByText('Method: ai-balanced')).toBeVisible({ timeout: 120000 });
 
   await page.getByRole('button', { name: 'Trace monochrome' }).click();

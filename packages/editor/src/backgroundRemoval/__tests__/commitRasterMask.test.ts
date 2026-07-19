@@ -54,6 +54,65 @@ describe('commitRasterMask', () => {
     expect(asset.dataUrl).toBe(PNG_WHITE);
   });
 
+  it('records the actual execution runtime separately from model metadata', () => {
+    const updated = commitRasterMask(makeDoc(), 'img-1', {
+      dataUrl: PNG_WHITE,
+      width: 1,
+      height: 1,
+      method: 'ai-quality',
+      runtime: 'wasm',
+      modelId: 'birefnet-lite',
+      modelVersion: '1.2.3',
+      modelChecksum: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    });
+
+    expect(updated.nodes['img-1']?.mask?.rasterMask?.provenance).toMatchObject({
+      method: 'ai-quality',
+      runtime: 'wasm',
+      modelId: 'birefnet-lite',
+      modelVersion: '1.2.3',
+      modelChecksum: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    });
+  });
+
+  it('repairs stale imported source dimensions before attaching a valid mask', () => {
+    const doc = makeDoc();
+    const image = doc.nodes['img-1']!;
+    const stale = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        'img-1': {
+          ...image,
+          fills:
+            image.kind === 'shape'
+              ? image.fills?.map((fill) =>
+                  fill.type === 'image' && fill.image
+                    ? { ...fill, image: { ...fill.image, imageWidth: 2, imageHeight: 2 } }
+                    : fill,
+                )
+              : undefined,
+        },
+      },
+    } as Document;
+
+    const updated = commitRasterMask(stale, 'img-1', {
+      dataUrl: PNG_WHITE,
+      width: 1,
+      height: 1,
+      sourceLocator: 'test-src',
+    });
+
+    expect(hasNativeRasterMask(updated, 'img-1')).toBe(true);
+    const updatedNode = updated.nodes['img-1']!;
+    expect(
+      updatedNode.kind === 'shape' ? updatedNode.fills?.[0]?.image?.imageWidth : undefined,
+    ).toBe(1);
+    expect(
+      updatedNode.kind === 'shape' ? updatedNode.fills?.[0]?.image?.imageHeight : undefined,
+    ).toBe(1);
+  });
+
   it('creates a versioned asset ID on update', () => {
     const doc = makeDoc();
     const first = commitRasterMask(doc, 'img-1', {

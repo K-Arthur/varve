@@ -56,6 +56,7 @@ const PROVENANCE_METHODS = ['quick', 'ai-balanced', 'ai-quality'] as const;
 const PROVENANCE_RUNTIMES = [
   'typescript',
   'wasm',
+  'webgl',
   'webgpu',
   'native-cpu',
   'native-accelerated',
