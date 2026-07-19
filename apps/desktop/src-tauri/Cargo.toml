@@ -32,6 +32,7 @@ strata-bgremove = { path = "../../../crates/strata-bgremove" }
 strata-trace = { path = "../../../crates/strata-trace" }
 strata-upscale = { path = "../../../crates/strata-upscale" }
 image = "0.25"
+arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"
 # WDIO testing plugins (debug-only, excluded from release builds)
 tauri-plugin-wdio = { version = "=1.2.0", optional = true }
@@ -42,6 +43,15 @@ tauri-plugin-wdio-webdriver = { version = "=1.2.0", optional = true }
 glib = "0.20"
 
 [features]
+default = ["ai"]
 custom-protocol = ["tauri/custom-protocol"]
+# Native ONNX inference (ort crate, load-dynamic — no compile-time linkage,
+# see crates/strata-bgremove/Cargo.toml). Default-on because it's the safer
+# alternative to bare-WASM BiRefNet, which can crash with std::bad_alloc on
+# GPU-less hosts (docs/audits/background-removal-wasm-memory-hardening-
+# 2026-07-18.md). Safe to leave default even when the bundled onnxruntime
+# dylib (scripts/fetch-onnxruntime.mjs) is missing for a given platform:
+# nothing is linked at build time, and runtime.rs's native_ai_ready() will
+# correctly report unavailable so the app falls back to WASM/heuristic.
 ai = ["strata-bgremove/ai", "strata-upscale/ai"]
 wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]

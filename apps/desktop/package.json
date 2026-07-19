@@ -10,8 +10,8 @@
     "build:wdio": "tsc --noEmit && vite build --mode wdio",
     "preview": "vite preview",
     "tauri": "tauri",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
+    "tauri:dev": "tauri dev --features ai",
+    "tauri:build": "tauri build --features ai",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

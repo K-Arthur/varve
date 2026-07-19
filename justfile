@@ -118,24 +118,24 @@ ci-debug RUN_ID="":
 
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
 package-linux:
-    cd apps/desktop && pnpm tauri build --bundles appimage,deb,rpm --ci
+    cd apps/desktop && pnpm tauri build --bundles appimage,deb,rpm --ci --features ai
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
 # Build deb only (faster; useful for quick install testing on Debian/Ubuntu).
 package-deb:
-    cd apps/desktop && pnpm tauri build --bundles deb --ci
+    cd apps/desktop && pnpm tauri build --bundles deb --ci --features ai
 
 # Build AppImage only.
 package-appimage:
-    cd apps/desktop && pnpm tauri build --bundles appimage --ci
+    cd apps/desktop && pnpm tauri build --bundles appimage --ci --features ai
 
 # Build macOS dmg (run on macOS only).
 package-dmg:
-    cd apps/desktop && pnpm tauri build --bundles dmg --ci
+    cd apps/desktop && pnpm tauri build --bundles dmg --ci --features ai
 
 # Build Windows msi + nsis (run on Windows only).
 package-windows:
-    cd apps/desktop && pnpm tauri build --bundles msi,nsis --ci
+    cd apps/desktop && pnpm tauri build --bundles msi,nsis --ci --features ai
 
 # Validate AUR PKGBUILDs using Docker (requires docker; works on any OS).
 # Standard AUR CI pattern: useradd non-root builder + makepkg --printsrcinfo.
