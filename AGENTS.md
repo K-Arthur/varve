@@ -2604,3 +2604,124 @@ Legacy adjustments (no scope) use `resolveLegacyScope()` which finds the sibling
 - Global scope impact preview is a simple overlay dialog, not full SettingsDialog pattern
 - No E2E Playwright tests for scope workflows (E2E suite has pre-existing failures)
 - No performance benchmarks for scope-based cache invalidation (SubtreeIrCache already correct)
+
+## Session 53 — BiRefNet WASM memory hardening + native ONNX Runtime bundling (2026-07-18)
+
+Full writeup with backend capability matrix and evidence-record blocks:
+`docs/audits/background-removal-wasm-memory-hardening-2026-07-18.md`.
+
+### Problem
+
+BiRefNet-Lite background removal crashes with `std::bad_alloc` on bare WASM
+with no GPU available — reproduced deterministically with an isolated
+Node.js harness running the real `onnxruntime-web` WASM build: fails during
+`session.run()` at ~4GB RSS regardless of thread count (1 vs 8), because
+it's the wasm32 4GiB linear-memory address-space ceiling, not host RAM or a
+throughput problem.
+
+### Part 1 — memory preflight gate
+
+`worker.ts` (`getSession`) and `directOnnxProvider.ts` (`createOrtSession`)
+previously fell back to bare WASM unconditionally once every accelerated
+provider failed — catching the eventual `InferenceSession.create` failure
+rather than preventing the attempt. Both now call `isWasmModelSafe(modelId)`
+(existing helper, previously exported but never wired into the actual
+inference path) before that call and throw before attempting the
+allocation. New tests (`workerWasmPreflight.test.ts`,
+`directOnnxWasmPreflight.test.ts`) assert `InferenceSession.create` is never
+called in the unsafe case.
+
+### Part 2 — native ONNX Runtime bundling (previously opt-in, unused)
+
+`crates/strata-bgremove`'s `ai` Cargo feature (`ort` crate, `load-dynamic`)
+existed but was never compiled into any build. Proved it end-to-end: same
+BiRefNet-Lite model that crashes WASM at ~4GB completes natively at
+**~445MB peak RSS** (~9x lower) in 15-18s, with visually correct masks
+(fur edges, multi-subject product shot). Required onnxruntime **1.27.1**
+specifically — 1.23.0 fails to parse this model file
+(`Cannot parse data from external tensors`).
+
+Shipped:
+- `scripts/fetch-onnxruntime.mjs` — downloads + SHA-256-verifies the
+  onnxruntime shared library per platform (linux-x86_64, linux-aarch64,
+  macos-aarch64, windows-x86_64 — not macOS Intel, no CPU-only asset in
+  this release line, or Windows ARM64, low install base) into
+  `apps/desktop/src-tauri/onnxruntime-libs/<platform>/` (gitignored). Wired
+  into root `postinstall`, matching the existing `copy-onnx-wasm.mjs`
+  pattern. Idempotent; a checksum mismatch refuses to stage the file rather
+  than silently continuing.
+- `crates/strata-bgremove/src/runtime.rs` (new) — `init_native_runtime(path)`
+  calls `ort::init_from(path)?.commit()`; `native_ai_ready()` reports the
+  real, attempted-and-verified outcome via a `OnceLock<bool>`. Deliberately
+  distinct from `has_ai()`, which only reflects the compile-time Cargo
+  feature — a build with `ai` on but a missing/incompatible dylib for this
+  platform must report `native_ai_ready() == false`, not silently claim
+  availability.
+- `apps/desktop/src-tauri/src/lib.rs` — `resolve_onnxruntime_dylib()` checks
+  `resource_dir()` first (production/bundled), falls back to
+  `CARGO_MANIFEST_DIR` (dev mode); calls `init_native_runtime` in the
+  `.setup()` hook before any command can create a session. New
+  `native_ai_status` Tauri command exposes `native_ai_ready()` to the
+  frontend.
+- `apps/desktop/src-tauri/Cargo.toml` — `default = ["ai"]`. Safe because
+  `load-dynamic` means nothing is linked at compile time; a missing dylib
+  only affects `native_ai_ready()` at runtime, never the build.
+  `tauri.conf.json`'s `bundle.resources` now includes `onnxruntime-libs/**/*`.
+  `apps/desktop/package.json`'s `tauri:dev`/`tauri:build` and the 5
+  `justfile` `package-*` recipes now pass `--features ai` explicitly —
+  tauri-cli always runs `cargo run/build --no-default-features` under the
+  hood regardless of Cargo.toml defaults, so the feature must be requested
+  explicitly at every entry point.
+- `packages/engine/src/backgroundRemoval/providers/tauriProvider.ts` —
+  `isNativeAiReady()` invokes `native_ai_status` (false immediately outside
+  Tauri).
+- `packages/engine/src/backgroundRemoval/providers/dispatch.ts` —
+  `getProviderOrder()`: for `ai-quality` specifically, when
+  `isNativeAiReady()` is true, tries `tauriRemovalProvider` before
+  `workerRemovalProvider`; every other method (including `ai-balanced`,
+  u2netp, already WASM-safe everywhere) keeps the ADR-0005 default
+  worker-first order unchanged. `AI_PROVIDER_CHAIN`'s static export/order is
+  untouched — it's still the correct base case and the existing
+  `'exports providers in order'` regression test still passes unmodified.
+
+### Real verification (not just unit tests)
+
+Ran the actual `pnpm tauri:dev` (with the new `--features ai`) on this
+CachyOS/Wayland machine and confirmed the real startup log line:
+`[bgremove] native ONNX Runtime ready: .../onnxruntime-libs/linux-x86_64/libonnxruntime.so`
+— Tauri's own resource-bundling mechanism resolved the bundled dylib
+correctly in dev mode (not just a hypothetical production-build path).
+Screenshot evidence in session scratchpad (not committed — ephemeral).
+
+### Test updates
+
+`index.test.ts`'s `'accepts a matching Tauri AI result when the Worker
+throws'` test needed updating: it now explicitly mocks `native_ai_status`
+to return `false` (so it exercises the traditional worker→tauri fallback,
+not the new native-preferred path) and asserts 2 invoke calls instead of 1
+(the added `native_ai_status` check). Added a new test,
+`'prefers native Tauri over the Worker for ai-quality when native ai is
+ready'`, asserting the Worker is never even attempted when
+`native_ai_status` returns `true`.
+
+### Verification
+
+- `pnpm exec vitest run packages/engine/src/backgroundRemoval packages/editor/.../bgRemovalFeatures.test.tsx`: 340/340 pass
+- `cargo test -p strata-bgremove --features ai`: 14/14 pass
+- `cargo test` (strata-desktop, default features = ai): 30/30 pass; `--no-default-features`: 31/31 pass (the ai-rejection test only runs there)
+- `cargo clippy --features ai -D warnings` on `strata-bgremove`/`strata-desktop`: clean on all files touched this session (pre-existing unrelated violations in `model.rs`/`print.rs`, neither touched)
+- `@strata/engine` typecheck: 0 new errors
+
+### Remaining limitations
+
+- Windows/macOS bundling is implemented and checksum-verified but **not
+  runtime-tested** — this sandbox is Linux-only. Re-verify on real Windows/
+  macOS hardware before relying on it there.
+- No automated real-WebKitGTK click-through of the AI-quality removal flow
+  end to end (blocked on missing input-automation tooling and unrelated
+  pre-existing typecheck breakage in `pnpm build:wdio` — see the audit doc
+  §4 for the concrete unblock path).
+- BiRefNet-Lite's `Cannot parse data from external tensors` failure on
+  onnxruntime 1.23.0 (works on 1.27.1) is unexplained beyond "version
+  difference" — worth a closer look if `ORT_VERSION` in
+  `fetch-onnxruntime.mjs` is ever bumped.

@@ -183,18 +183,26 @@ ceiling at all. Mask images decoded and visually inspected (lion portrait: clean
 edges; coffee-cup + bell product shot: both subjects correctly isolated from a textured wood
 background).
 
-**Not done, and why (deliberately deferred):**
-- Did **not** flip `ai` to a default feature or reorder the provider chain to prefer
-  `tauri-native` before `worker-onnx`. That requires bundling a real `libonnxruntime.so` per
-  target platform (Linux/Windows/macOS) as a Tauri resource, resolving `ORT_DYLIB_PATH` at
-  runtime relative to the app's resource dir, and CI changes for three platforms — none of
-  which this session could verify on Windows/macOS, and all of which land in the same files
-  (`dispatch.ts`'s `AI_PROVIDER_CHAIN`, worker-pool/session lifecycle) OpenCode's own todo
-  list showed it mid-way through (§0). Recommended as the top follow-up item, scoped
-  separately.
-- The `birefnet-general-lite.onnx` file's incompatibility with onnxruntime 1.23.0 (works on
-  1.27.1) is worth tracking: if the desktop build ever pins a different onnxruntime native
-  version than the one matching `onnxruntime-web`, re-verify this model loads before shipping.
+**Update 2026-07-18 (later same day) — implemented.** Once OpenCode was confirmed no longer
+active on this file set, the deferral above was picked up: `ai` is now a default Cargo feature
+(`apps/desktop/src-tauri/Cargo.toml`), `scripts/fetch-onnxruntime.mjs` downloads and
+SHA-256-verifies the onnxruntime dylib for Linux x64/aarch64, macOS arm64, and Windows x64 into
+a gitignored `apps/desktop/src-tauri/onnxruntime-libs/<platform>/` staged via `postinstall`,
+`tauri.conf.json`'s `bundle.resources` ships it, and `crates/strata-bgremove/src/runtime.rs`
+(`init_native_runtime` / `native_ai_ready`) initializes it in the Tauri `setup()` hook —
+runtime-verified, not just "the feature compiled in": a missing/incompatible dylib correctly
+reports unavailable rather than silently claiming readiness. `dispatch.ts` now prefers
+`tauri-native` over `worker-onnx` for `ai-quality` specifically when `native_ai_ready()` is
+confirmed true (checked via a new `native_ai_status` Tauri command); every other method keeps
+the ADR-0005 default order. Verified for real: `pnpm tauri:dev --features ai` on this machine
+printed `[bgremove] native ONNX Runtime ready: .../onnxruntime-libs/linux-x86_64/libonnxruntime.so`
+at startup. Full detail in AGENTS.md Session 53. Windows/macOS bundling is implemented and
+checksum-pinned but not runtime-tested (this sandbox is Linux-only) — re-verify on real
+hardware before relying on it there.
+
+The `birefnet-general-lite.onnx` incompatibility with onnxruntime 1.23.0 (works on 1.27.1,
+which is what `fetch-onnxruntime.mjs` now pins) remains worth tracking if `ORT_VERSION` is ever
+bumped — re-verify the model still loads before shipping a version change.
 
 ## 6. Backend capability matrix
 
@@ -203,8 +211,8 @@ background).
 | WASM (Node host), u2netp, no GPU | ✓ | ✓ 1546 ms | 370 MB | control, safe |
 | WASM (Node host), birefnet-lite, no GPU, 1024², 1 thread | ✓ | ✗ `std::bad_alloc` | ~4.0 GB | reproduced 2×, deterministic |
 | WASM (Node host), birefnet-lite, no GPU, 1024², 8 threads | ✓ | ✗ `std::bad_alloc` | ~4.1 GB | threading doesn't help — address-space ceiling, not throughput |
-| Native `ort` (Linux x64), u2netp | ✓ | ✓ 527 ms | 42 MB | via `ai` feature + `ORT_DYLIB_PATH` (opt-in, not in current build) |
-| Native `ort` (Linux x64), birefnet-lite | ✓ | ✓ 15–18 s | 445 MB | onnxruntime 1.27.1 required; 1.23.0 fails to parse this model file |
+| Native `ort` (Linux x64), u2netp | ✓ | ✓ 527 ms | 42 MB | `ai` feature now default-on; bundled dylib via `fetch-onnxruntime.mjs` |
+| Native `ort` (Linux x64), birefnet-lite | ✓ | ✓ 15–18 s | 445 MB | onnxruntime 1.27.1 required (pinned); confirmed live in real `pnpm tauri:dev` |
 | Tauri/WebKitGTK app launch (CachyOS Wayland, real display) | ✓ (window renders) | not exercised | — | blocked on input automation / unrelated typecheck breakage, see §4 |
 | Chrome/Chromium, Firefox, Windows, macOS | — | **not tested** | — | no such environment available in this sandbox; not claimed |
 
@@ -226,23 +234,28 @@ Fixed (commit `722645e`): the WASM-memory-limit error and the "failed in all qua
 error now explicitly say to use Quick mode plus the brush/trimap tools, instead of only
 suggesting "switch to AI Balanced" or "try again later."
 
-## 8. Recommendations not implemented this session (to avoid colliding with concurrent work)
+## 8. Recommendations — status
 
-1. **Bundle a matching `libonnxruntime.so` per platform and default-enable native inference
-   on Tauri desktop for `ai-quality`**, preferring it over `worker-onnx` when
-   `strata_bgremove::has_ai()` is true and `environmentCapabilities` reports no accelerated
-   browser backend. This is the fix proven safe in §5 (~9× memory reduction, no wasm32
-   ceiling) but needs cross-platform packaging work this sandbox can't verify on
-   Windows/macOS, and touches the same provider-chain/session-lifecycle code OpenCode's todo
-   list indicates it's actively hardening.
+1. ~~Bundle a matching `libonnxruntime.so` per platform and default-enable native inference on
+   Tauri desktop for `ai-quality`~~ — **implemented** later the same day, once OpenCode was
+   confirmed no longer active on this file set. See §5's 2026-07-18 update and AGENTS.md
+   Session 53 for full detail: default-on `ai` feature, `scripts/fetch-onnxruntime.mjs`,
+   runtime-verified `native_ai_ready()`, `dispatch.ts` preferring native for `ai-quality` when
+   ready. Verified live via a real `pnpm tauri:dev --features ai` run.
 2. **Re-verify `birefnet-general-lite.onnx` against whatever onnxruntime native version
-   actually ships**, given the 1.23.0-fails/1.27.1-works discrepancy found in §5.
-3. **Re-export or offer a dynamic-input-shape BiRefNet variant** — the current bundled export
-   has a static `[1,3,1024,1024]` input, so "lower bounded inference resolution" (a mitigation
-   the original task asked to investigate) isn't available without a model-conversion step;
-   it's not just an app-code change.
-4. **Finish real WebKitGTK click-through verification** (§4) once the unrelated typecheck
-   breakage blocking `pnpm build:wdio` is resolved by whoever owns the SolidIcon migration.
+   actually ships** — done for now (`fetch-onnxruntime.mjs` pins 1.27.1, confirmed working);
+   re-check if `ORT_VERSION` is ever bumped.
+3. **Re-export or offer a dynamic-input-shape BiRefNet variant** — still open. The current
+   bundled export has a static `[1,3,1024,1024]` input, so "lower bounded inference
+   resolution" (a mitigation the original task asked to investigate) isn't available without a
+   model-conversion step; it's not just an app-code change.
+4. **Finish real WebKitGTK click-through verification** (§4) — still open, once the unrelated
+   typecheck breakage blocking `pnpm build:wdio` is resolved by whoever owns the SolidIcon
+   migration. The native-ai startup path was confirmed via the app's own log output rather
+   than a scripted UI click-through (see AGENTS.md Session 53).
+5. **Windows/macOS native ai bundling is implemented and checksum-pinned but not
+   runtime-tested** — this sandbox is Linux-only. Re-verify on real hardware before relying on
+   it there (new item, surfaced by implementing #1).
 
 ## Evidence records
 
