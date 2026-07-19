@@ -3,7 +3,7 @@
 //! Uses the `ort` crate (ONNX Runtime Rust bindings) to run
 //! segmentation models on-device. Opt-in via the `ai` Cargo feature.
 
-use image::{DynamicImage, GenericImageView};
+use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use ort::{session::Session, value::Tensor};
 
 use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
@@ -47,22 +47,29 @@ pub fn remove_ai(
         img.clone()
     };
 
-    let input_size = if model_id == "u2netp" {
-        320u32
-    } else {
-        1024u32
-    };
-    let resized = source.resize_exact(
+    let (input_size, mean, std, padding, apply_sigmoid) = model_spec(model_id);
+    let (source_w, source_h) = source.dimensions();
+    let scale = (input_size as f32 / source_w as f32).min(input_size as f32 / source_h as f32);
+    let content_w = ((source_w as f32 * scale).round() as u32).max(1);
+    let content_h = ((source_h as f32 * scale).round() as u32).max(1);
+    let offset_x = (input_size - content_w) / 2;
+    let offset_y = (input_size - content_h) / 2;
+    let content = source.resize_exact(content_w, content_h, image::imageops::FilterType::Triangle);
+    let mut letterboxed = ImageBuffer::from_pixel(
         input_size,
         input_size,
-        image::imageops::FilterType::Triangle,
+        Rgba([padding[0], padding[1], padding[2], 255]),
     );
-    let rgba = resized.to_rgba8();
+    image::imageops::overlay(
+        &mut letterboxed,
+        &content.to_rgba8(),
+        i64::from(offset_x),
+        i64::from(offset_y),
+    );
+    let rgba = letterboxed;
     let pixels = rgba.into_raw();
 
     let n = (input_size * input_size) as usize;
-    let mean = [0.485f32, 0.456, 0.406];
-    let std = [0.229f32, 0.224, 0.225];
     let mut tensor_data = Vec::with_capacity(n * 3);
     for c in 0..3 {
         for y in 0..input_size {
@@ -107,7 +114,7 @@ pub fn remove_ai(
 
     let mask_size = output_data.len();
     let mask_dim = (mask_size as f64).sqrt() as u32;
-    let mask = normalize_segmentation_output(output_data, model_id != "u2netp");
+    let mask = normalize_segmentation_output(output_data, apply_sigmoid);
     let mut confidence_sum = 0.0f32;
     for value in &mask {
         confidence_sum += (*value as f32 / 255.0 - 0.5).abs();
@@ -118,7 +125,19 @@ pub fn remove_ai(
         0.0
     };
 
-    let mut resized_mask = resize_mask(&mask, mask_dim, mask_dim, orig_w, orig_h);
+    let source_mask = reconstruct_letterbox_mask(
+        &mask,
+        mask_dim,
+        mask_dim,
+        source_w,
+        source_h,
+        LetterboxTransform {
+            offset_x: offset_x as f32 * mask_dim as f32 / input_size as f32,
+            offset_y: offset_y as f32 * mask_dim as f32 / input_size as f32,
+            scale: scale * mask_dim as f32 / input_size as f32,
+        },
+    );
+    let mut resized_mask = resize_mask(&source_mask, source_w, source_h, orig_w, orig_h);
 
     if opts.decontaminate.unwrap_or(false) {
         resized_mask = heuristic::apply_decontaminate(&resized_mask, orig_w, orig_h);
@@ -139,6 +158,7 @@ pub fn remove_ai(
         "birefnet-general" => "ai-quality",
         "birefnet-general-lite" => "ai-quality",
         "u2netp" => "ai-balanced",
+        "isnet-general-use" => "ai-balanced",
         _ => model_id,
     };
 
@@ -153,6 +173,58 @@ pub fn remove_ai(
         width: orig_w,
         height: orig_h,
     })
+}
+
+type ModelSpec = (u32, [f32; 3], [f32; 3], [u8; 3], bool);
+
+#[derive(Clone, Copy)]
+struct LetterboxTransform {
+    offset_x: f32,
+    offset_y: f32,
+    scale: f32,
+}
+
+fn model_spec(model_id: &str) -> ModelSpec {
+    if model_id == "isnet-general-use" {
+        (1024, [0.5; 3], [1.0; 3], [128; 3], false)
+    } else {
+        (
+            if model_id == "u2netp" { 320 } else { 1024 },
+            [0.485, 0.456, 0.406],
+            [0.229, 0.224, 0.225],
+            [124, 116, 104],
+            model_id != "u2netp",
+        )
+    }
+}
+
+fn reconstruct_letterbox_mask(
+    mask: &[u8],
+    model_w: u32,
+    model_h: u32,
+    source_w: u32,
+    source_h: u32,
+    transform: LetterboxTransform,
+) -> Vec<u8> {
+    let mut result = vec![0; (source_w * source_h) as usize];
+    for y in 0..source_h {
+        for x in 0..source_w {
+            let mx = transform.offset_x + (x as f32 + 0.5) * transform.scale - 0.5;
+            let my = transform.offset_y + (y as f32 + 0.5) * transform.scale - 0.5;
+            let x0 = mx.floor().clamp(0.0, (model_w - 1) as f32) as u32;
+            let y0 = my.floor().clamp(0.0, (model_h - 1) as f32) as u32;
+            let x1 = (x0 + 1).min(model_w - 1);
+            let y1 = (y0 + 1).min(model_h - 1);
+            let wx = (mx - x0 as f32).clamp(0.0, 1.0);
+            let wy = (my - y0 as f32).clamp(0.0, 1.0);
+            let top = mask[(y0 * model_w + x0) as usize] as f32 * (1.0 - wx)
+                + mask[(y0 * model_w + x1) as usize] as f32 * wx;
+            let bottom = mask[(y1 * model_w + x0) as usize] as f32 * (1.0 - wx)
+                + mask[(y1 * model_w + x1) as usize] as f32 * wx;
+            result[(y * source_w + x) as usize] = (top * (1.0 - wy) + bottom * wy).round() as u8;
+        }
+    }
+    result
 }
 
 /// Nearest-neighbor resize of a binary mask.
@@ -212,7 +284,10 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 
 #[cfg(test)]
 mod tests {
-    use super::{normalize_segmentation_output, resize_mask};
+    use super::{
+        model_spec, normalize_segmentation_output, reconstruct_letterbox_mask, resize_mask,
+        LetterboxTransform,
+    };
 
     #[test]
     fn normalizes_u2net_probabilities() {
@@ -233,5 +308,35 @@ mod tests {
     #[test]
     fn resizes_soft_mask_bilinearly() {
         assert_eq!(resize_mask(&[0, 255], 2, 1, 4, 1), vec![0, 64, 191, 255]);
+    }
+
+    #[test]
+    fn isnet_uses_official_normalization_without_sigmoid() {
+        let (size, mean, std, _, sigmoid) = model_spec("isnet-general-use");
+        assert_eq!(size, 1024);
+        assert_eq!(mean, [0.5; 3]);
+        assert_eq!(std, [1.0; 3]);
+        assert!(!sigmoid);
+    }
+
+    #[test]
+    fn reconstructs_wide_letterbox_without_stretching() {
+        let mut mask = vec![0; 16];
+        mask[4..12].fill(255);
+        assert_eq!(
+            reconstruct_letterbox_mask(
+                &mask,
+                4,
+                4,
+                4,
+                2,
+                LetterboxTransform {
+                    offset_x: 0.0,
+                    offset_y: 1.0,
+                    scale: 1.0,
+                },
+            ),
+            vec![255; 8]
+        );
     }
 }

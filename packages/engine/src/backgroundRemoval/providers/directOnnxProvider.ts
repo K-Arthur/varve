@@ -4,11 +4,13 @@ import {
   decontaminateMask,
   featherMaskArray,
   normalizeSegmentationOutput,
-  packSegmentationChwFloat32,
   resizeMaskBilinear,
 } from '../maskOps';
+import { resolveWebModel } from '../modelSelection';
+import { getSegmentationModelSpec, packModelInput } from '../modelSpec';
 import { configureOrtRuntime } from '../ortRuntimeAssets';
 import { downscaleImageData } from '../previewDownscale';
+import { computeLetterboxTransform, reconstructModelMask } from '../reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult, WorkerModelId } from '../types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION, workerModelIdForMethod } from '../types';
 import type { RemovalProvider } from './types';
@@ -71,16 +73,32 @@ async function createOrtSession(
   return { session, executionProvider: 'wasm' };
 }
 
-function resizeImageDataToModelInput(src: ImageData, targetW: number, targetH: number): ImageData {
+function letterboxImageDataToModelInput(
+  src: ImageData,
+  targetW: number,
+  targetH: number,
+  paddingRgb: readonly [number, number, number],
+): ImageData {
   const canvas = document.createElement('canvas');
   canvas.width = targetW;
   canvas.height = targetH;
   const ctx = canvas.getContext('2d')!;
+  if (typeof ctx.fillRect === 'function') {
+    ctx.fillStyle = `rgb(${paddingRgb[0]} ${paddingRgb[1]} ${paddingRgb[2]})`;
+    ctx.fillRect(0, 0, targetW, targetH);
+  }
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = src.width;
   tempCanvas.height = src.height;
   tempCanvas.getContext('2d')?.putImageData(src, 0, 0);
-  ctx.drawImage(tempCanvas, 0, 0, targetW, targetH);
+  const transform = computeLetterboxTransform(src.width, src.height, targetW, targetH);
+  ctx.drawImage(
+    tempCanvas,
+    transform.offsetX,
+    transform.offsetY,
+    src.width * transform.scaleX,
+    src.height * transform.scaleY,
+  );
   return ctx.getImageData(0, 0, targetW, targetH);
 }
 
@@ -110,12 +128,18 @@ async function removeBackgroundDirectOnnx(
 
   const { session, executionProvider } = await createOrtSession(ort, modelPath, modelId);
 
-  const inputSize = modelId === 'u2netp' ? 320 : 1024;
+  const spec = getSegmentationModelSpec(modelId);
+  const inputSize = spec.inputSize;
   const previewMax = options.previewMaxDimension ?? DEFAULT_PREVIEW_MAX_DIMENSION;
   const sourceImage = previewMax > 0 ? downscaleImageData(imageData, previewMax) : imageData;
 
-  const resized = resizeImageDataToModelInput(sourceImage, inputSize, inputSize);
-  const floatData = packSegmentationChwFloat32(resized);
+  const resized = letterboxImageDataToModelInput(
+    sourceImage,
+    inputSize,
+    inputSize,
+    spec.paddingRgb,
+  );
+  const floatData = packModelInput(resized, spec);
   const inputTensor = new ort.Tensor('float32', floatData, [1, 3, inputSize, inputSize]);
 
   const feeds: Record<string, import('onnxruntime-web').Tensor> = {};
@@ -132,14 +156,24 @@ async function removeBackgroundDirectOnnx(
     const maskWidth = outputTensor.dims[3] ?? inputSize;
     const maskHeight = outputTensor.dims[2] ?? inputSize;
 
-    const mask = normalizeSegmentationOutput(outputData, modelId !== 'u2netp');
-    const upscaledMask = resizeMaskBilinear(
-      mask,
+    const mask = normalizeSegmentationOutput(outputData, spec.applySigmoid);
+    const outputTransform = computeLetterboxTransform(
+      sourceImage.width,
+      sourceImage.height,
       maskWidth,
       maskHeight,
-      imageData.width,
-      imageData.height,
     );
+    const previewMask = reconstructModelMask(mask, maskWidth, maskHeight, outputTransform).alpha;
+    const upscaledMask =
+      sourceImage.width === imageData.width && sourceImage.height === imageData.height
+        ? previewMask
+        : resizeMaskBilinear(
+            previewMask,
+            sourceImage.width,
+            sourceImage.height,
+            imageData.width,
+            imageData.height,
+          );
 
     let finalMask = upscaledMask;
     if (options.decontaminate) {
@@ -160,6 +194,7 @@ async function removeBackgroundDirectOnnx(
       width: imageData.width,
       height: imageData.height,
       executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
+      modelId,
       rawMask: finalMask,
     };
   } finally {
@@ -177,7 +212,7 @@ export const directOnnxRemovalProvider: RemovalProvider = {
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    return loader.isModelAvailable(workerModelId, signal);
+    return (await resolveWebModel(options.method, loader, signal)) !== null;
   },
 
   async remove(imageData, options, signal) {
@@ -185,6 +220,11 @@ export const directOnnxRemovalProvider: RemovalProvider = {
     if (!workerModelId) {
       throw new Error(`No direct ONNX model for method: ${options.method}`);
     }
-    return removeBackgroundDirectOnnx(imageData, options, workerModelId, signal);
+    const { getModelLoader } = await import('../modelLoader');
+    const loader = getModelLoader(signal);
+    await loader.syncFromStorage(signal);
+    const resolved = await resolveWebModel(options.method, loader, signal);
+    if (!resolved) throw new Error(`No installed direct ONNX model for ${options.method}`);
+    return removeBackgroundDirectOnnx(imageData, options, resolved.modelId, signal);
   },
 };

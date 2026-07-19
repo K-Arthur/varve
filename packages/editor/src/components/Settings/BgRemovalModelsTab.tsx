@@ -165,8 +165,10 @@ export function BgRemovalModelsTab() {
       </RegionLoader>
 
       <p className="settings-section__hint">
-        AI Balanced uses {AVAILABLE_MODELS.find((m) => m.id === 'u2netp')?.name}. AI High Quality
-        uses {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}.
+        AI Balanced prefers {AVAILABLE_MODELS.find((m) => m.id === 'isnet-general-use')?.name} and
+        automatically falls back to {AVAILABLE_MODELS.find((m) => m.id === 'u2netp')?.name} on
+        lower-memory systems. AI High Quality uses{' '}
+        {AVAILABLE_MODELS.find((m) => m.id === 'birefnet-general-lite')?.name}.
       </p>
 
       <h3 className="settings-section__title">Image Upscaling Models</h3>

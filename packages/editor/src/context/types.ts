@@ -119,6 +119,7 @@ export interface BackgroundRemovalPreviewSession {
   feather: number;
   decontaminate: boolean;
   executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
+  modelId?: string;
 }
 
 export type CanvasMode = 'full' | 'outline' | 'preview';

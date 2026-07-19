@@ -4,7 +4,6 @@ import {
   AI_QUALITY_MODEL_INFO,
   getModelInfo,
   MODEL_INFO_MAP,
-  QUICK_MODEL_INFO,
 } from '../modelInfo';
 
 describe('modelInfo', () => {
@@ -18,8 +17,9 @@ describe('modelInfo', () => {
   it('returns info for ai-balanced mode', () => {
     const info = getModelInfo('ai-balanced');
     expect(info).toBeDefined();
-    expect(info!.diskSizeBytes).toBe(4_700_000);
-    expect(info!.wasmSafe).toBe(true);
+    expect(info!.diskSizeBytes).toBe(178_648_008);
+    expect(info!.wasmSafe).toBe(false);
+    expect(info!.description).toContain('fallback');
   });
 
   it('returns info for ai-quality mode', () => {

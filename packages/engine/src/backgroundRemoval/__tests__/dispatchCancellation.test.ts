@@ -188,6 +188,7 @@ describe('workerPool — revision-safe protocol', () => {
       },
     }));
     vi.doMock('../providers/tauriProvider', () => ({
+      isNativeAiReady: vi.fn().mockResolvedValue(false),
       tauriRemovalProvider: {
         id: 'tauri-native',
         isAvailable: vi.fn().mockResolvedValue(false),

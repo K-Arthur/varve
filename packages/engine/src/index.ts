@@ -54,6 +54,7 @@ export {
   maskArrayToDataUrl,
   maskFromImageData,
   maskToImageData,
+  preferredWorkerModelIdForMethod,
   refineHairMatting,
   removeBackground,
   resetEnvironmentCapabilities,

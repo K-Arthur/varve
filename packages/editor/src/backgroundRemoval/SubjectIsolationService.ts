@@ -39,6 +39,7 @@ export interface SubjectIsolationResult {
     requestedMethod: string;
     runtime: string;
     executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
+    modelId?: string;
     generatedAt: number;
   };
   confidence: number;
@@ -108,6 +109,7 @@ export interface SubjectIsolationEngine {
     width: number;
     height: number;
     executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
+    modelId?: string;
   }>;
 }
 
@@ -276,6 +278,7 @@ export class SubjectIsolationService {
           requestedMethod: request.options.method,
           runtime: `${result.processingTimeMs}ms`,
           executionProvider: result.executionProvider,
+          modelId: result.modelId,
           generatedAt: Date.now(),
         },
         confidence: result.confidence,

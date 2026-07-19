@@ -1,3 +1,4 @@
+import { resolveWebModel } from '../modelSelection';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 import { workerModelIdForMethod } from '../types';
 import { runPooledInference } from '../workerPool';
@@ -16,15 +17,15 @@ export const workerRemovalProvider: RemovalProvider = {
     options: BackgroundRemovalOptions,
     signal?: AbortSignal,
   ): Promise<BackgroundRemovalResult> {
-    const workerModelId = workerModelIdForMethod(options.method);
-    if (!workerModelId) {
+    const fallbackModelId = workerModelIdForMethod(options.method);
+    if (!fallbackModelId) {
       throw new Error(`No worker model for method: ${options.method}`);
     }
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    const path =
-      (await loader.getModelPath(workerModelId, signal)) ?? `/models/${workerModelId}.onnx`;
-    return runPooledInference(imageData, options, path, workerModelId, signal);
+    const resolved = await resolveWebModel(options.method, loader, signal);
+    if (!resolved) throw new Error(`No installed worker model for method: ${options.method}`);
+    return runPooledInference(imageData, options, resolved.modelPath, resolved.modelId, signal);
   },
 };

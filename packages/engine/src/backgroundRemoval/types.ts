@@ -27,6 +27,8 @@ export interface BackgroundRemovalResult {
   height: number;
   /** Which ONNX execution provider succeeded. */
   executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
+  /** ONNX model that produced this result (absent for Quick/cloud providers). */
+  modelId?: WorkerModelId;
   /** Raw single-channel mask data at the result's width/height (0-255).
    *  Set by providers alongside maskDataUrl to avoid redundant PNG decode
    *  during source-resolution reconstruction. */
@@ -59,7 +61,23 @@ export interface ModelMetadata {
 }
 
 /** ONNX model ids used by the Web Worker inference path. */
-export type WorkerModelId = 'u2netp' | 'birefnet-general-lite' | 'birefnet-general';
+export type WorkerModelId =
+  | 'u2netp'
+  | 'isnet-general-use'
+  | 'birefnet-general-lite'
+  | 'birefnet-general';
+
+/** Best installed model for a method. Balanced falls back to bundled U2-Net Light. */
+export function preferredWorkerModelIdForMethod(method: RemovalMethod): WorkerModelId | null {
+  switch (method) {
+    case 'quick':
+      return null;
+    case 'ai-balanced':
+      return 'isnet-general-use';
+    case 'ai-quality':
+      return 'birefnet-general-lite';
+  }
+}
 
 /** Map a UI removal method to the ONNX model that should run it.
  *
@@ -104,6 +122,16 @@ export const AVAILABLE_MODELS: ModelMetadata[] = [
     quality: 3,
     remoteUrl: 'https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx',
     checksum: '309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8',
+  },
+  {
+    id: 'isnet-general-use',
+    name: 'IS-Net General Use',
+    description: '179 MB — enhanced balanced quality for people, animals, vehicles, and objects',
+    size: 178_648_008,
+    quality: 4,
+    remoteUrl:
+      'https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx',
+    checksum: '60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a',
   },
   {
     id: 'birefnet-general-lite',
