@@ -578,7 +578,7 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
     expect(screen.getByText('Edit mask')).toBeTruthy();
   });
 
-  it('calls setTool(refineMask) when Refine Mask is clicked', () => {
+  it('activates the refine-mask tool when Edit mask is opened', () => {
     const setTool = vi.fn();
     mockedUseEditor.mockReturnValue(createMockEditorContext({ setTool }));
     const node = makeImageNode({
@@ -591,7 +591,6 @@ describe('BackgroundRemovalSection - Refine mask wiring', () => {
     });
     render(<BackgroundRemovalSection nodes={[node]} />);
     fireEvent.click(screen.getByText('Edit mask'));
-    fireEvent.click(screen.getByText('Refine Mask'));
     expect(setTool).toHaveBeenCalledWith('refineMask');
   });
 

@@ -275,7 +275,14 @@ export function useBackgroundRemoval(
         };
 
         const { finalizeMaskResult } = await import('@strata/engine');
-        const finalized = await finalizeMaskResult(engineResult, { promptIfMultiple: true });
+        // Quick is the one-click path. Its heuristic can legitimately produce
+        // several disconnected foreground regions (for example, a person and
+        // an object they are holding), so preserve its complete mask and move
+        // directly to review. AI modes retain explicit subject selection.
+        const finalized =
+          method === 'quick'
+            ? { ...engineResult, components: undefined, needsSubjectPicker: false as const }
+            : await finalizeMaskResult(engineResult, { promptIfMultiple: true });
 
         if (finalized.needsSubjectPicker && finalized.components) {
           patch({
