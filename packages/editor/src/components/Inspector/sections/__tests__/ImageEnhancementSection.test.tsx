@@ -5,6 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../../context', () => ({ useEditor: vi.fn() }));
 
+vi.mock('@floating-ui/dom', () => ({
+  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  autoUpdate: vi.fn(() => vi.fn()),
+  flip: vi.fn(),
+  shift: vi.fn(),
+  offset: vi.fn(),
+  size: vi.fn(),
+}));
+
 import { useEditor } from '../../../../context';
 import { ImageEnhancementSection } from '../ImageEnhancementSection';
 
@@ -302,8 +311,10 @@ describe('ImageEnhancementSection — original one-shot', () => {
       'true',
     );
 
-    fireEvent.change(screen.getByLabelText('Upscale factor'), { target: { value: '4' } });
-    fireEvent.change(screen.getByLabelText('Upscale method'), { target: { value: 'nearest' } });
+    fireEvent.click(screen.getByLabelText('Upscale factor'));
+    fireEvent.click(screen.getByRole('option', { name: '4x' }));
+    fireEvent.click(screen.getByLabelText('Upscale method'));
+    fireEvent.click(screen.getByRole('option', { name: /hard edges/i }));
     fireEvent.click(screen.getByRole('button', { name: 'Upscale image' }));
 
     await waitFor(() =>
@@ -313,7 +324,8 @@ describe('ImageEnhancementSection — original one-shot', () => {
       }),
     );
 
-    fireEvent.change(screen.getByLabelText('Trace mode'), { target: { value: 'color' } });
+    fireEvent.click(screen.getByLabelText('Trace mode'));
+    fireEvent.click(screen.getByRole('option', { name: 'Color' }));
     fireEvent.change(screen.getByLabelText('Trace color count'), { target: { value: '6' } });
     fireEvent.change(screen.getByLabelText('Minimum trace area'), { target: { value: '3' } });
     fireEvent.click(screen.getByRole('button', { name: 'Trace color' }));
@@ -333,13 +345,14 @@ describe('ImageEnhancementSection — original one-shot', () => {
 
   it('offers bundled Real-ESRGAN and dispatches its fixed 4x model', async () => {
     render(<ImageEnhancementSection nodes={[imageNode()]} />);
-    const options = screen.getByLabelText('Upscale method').querySelectorAll('option');
-    const values = [...options].map((o) => (o as HTMLOptionElement).value);
-    expect(values).toContain('ai');
 
-    fireEvent.change(screen.getByLabelText('Upscale method'), { target: { value: 'ai' } });
-    expect(screen.getByLabelText('Upscale factor')).toHaveValue('4');
-    expect(screen.getByLabelText('Upscale factor')).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Upscale method'));
+    const optionEls = screen.getAllByRole('option');
+    expect(optionEls.some((o) => o.textContent?.toLowerCase().includes('ai'))).toBe(true);
+    fireEvent.click(screen.getByRole('option', { name: /ai detail/i }));
+
+    expect(screen.getByLabelText('Upscale factor')).toHaveTextContent('4x');
+    expect(screen.getByLabelText('Upscale factor')).toHaveAttribute('data-disabled');
     fireEvent.click(screen.getByRole('button', { name: 'Upscale image' }));
 
     await waitFor(() =>

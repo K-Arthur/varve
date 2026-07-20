@@ -3,7 +3,7 @@
  *
  * Replaced by FloatingToolbar in Session 12+.
  */
-import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
+import { IconButton, SOLID_TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { type ToolId, useEditor } from './context';
 
 const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
@@ -29,7 +29,8 @@ export function ToolPanel() {
         {TOOLS.map((t) => (
           <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
             <IconButton
-              icon={TOOL_ICONS[t.id]}
+              icon={SOLID_TOOL_ICONS[t.id]}
+              solid
               label={t.label}
               size="sm"
               pressed={state.tool === t.id}

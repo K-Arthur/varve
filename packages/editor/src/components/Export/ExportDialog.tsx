@@ -32,7 +32,7 @@ import type {
   Timeline,
 } from '@strata/scene';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
-import { FocusTrap } from '@strata/ui';
+import { FocusTrap, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExportReport } from '../../exportService';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
@@ -642,19 +642,22 @@ export function ExportDialog({
               {removeBgBeforeExport && (
                 <div className="export-dialog__bg-method">
                   <label htmlFor="export-bg-method">Method</label>
-                  <select
-                    id="export-bg-method"
+                  <Select
+                    label="Background removal method for export"
                     value={bgMethod}
-                    aria-label="Background removal method for export"
-                    onChange={(e) => {
-                      const next = e.target.value as BackgroundRemovalMethod;
-                      setBgMethod(next);
+                    options={[
+                      { value: 'quick', label: 'Quick' },
+                      { value: 'ai-balanced', label: 'Balanced' },
+                      { value: 'ai-quality', label: 'High quality' },
+                    ]}
+                    onChange={(next) => {
+                      setBgMethod(next as BackgroundRemovalMethod);
                       void (async () => {
                         if (next === 'quick') {
                           setAiAvailable(true);
                           return;
                         }
-                        const modelId = workerModelIdForMethod(next);
+                        const modelId = workerModelIdForMethod(next as BackgroundRemovalMethod);
                         if (!modelId) {
                           setAiAvailable(true);
                           return;
@@ -663,14 +666,7 @@ export function ExportDialog({
                         setAiAvailable(await loader.isModelAvailable(modelId));
                       })();
                     }}
-                  >
-                    {BG_METHOD_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                        {opt.value !== 'quick' && !aiAvailable ? ' (download required)' : ''}
-                      </option>
-                    ))}
-                  </select>
+                  />
                   {bgMethod !== 'quick' && !aiAvailable && (
                     <button
                       type="button"

@@ -1,6 +1,7 @@
 import { BUILT_IN_BRUSH_PRESETS, defaultBrushPreset, validateBrushPreset } from '@strata/scene';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
+import { Select } from '@strata/ui';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 
@@ -43,8 +44,7 @@ export function BrushSection({ tool }: BrushSectionProps) {
   }
 
   const handlePresetChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const presetId = e.target.value;
+    (presetId: string) => {
       if (!presetId) return;
 
       const found = validateBrushPreset(
@@ -68,18 +68,12 @@ export function BrushSection({ tool }: BrushSectionProps) {
       <div className="insp-field">
         <span className="insp-field__label">Preset</span>
         <div className="insp-field__control">
-          <select
-            className="insp-select"
+          <Select
+            label="Brush preset"
             value={brushSettings.presetId}
+            options={BUILTIN_OPTIONS.map((opt) => ({ value: opt.id, label: opt.name }))}
             onChange={handlePresetChange}
-            aria-label="Brush preset"
-          >
-            {BUILTIN_OPTIONS.map((opt) => (
-              <option key={opt.id} value={opt.id}>
-                {opt.name}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 

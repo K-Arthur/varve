@@ -32,6 +32,7 @@
   border-right: 1px solid var(--color-border-subtle);
   overflow-y: auto;
   transition: width var(--duration-base) var(--ease-standard);
+  box-shadow: 1px 0 3px rgb(0 0 0 / 0.04);
   /* Per-surface muted text for raised backgrounds (a11y WCAG AA fix). */
   --color-text-muted: var(--color-text-muted-on-raised);
   --color-text-subtle: var(--color-text-subtle-on-raised);
@@ -200,7 +201,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-15) var(--space-3);
   cursor: pointer;
   border: none;
   background: none;
@@ -209,9 +210,9 @@
   color: var(--color-text-primary);
   font-family: var(--font-body);
   font-size: var(--font-size-sm);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   outline-offset: -2px;
-  min-height: 32px;
+  min-height: 34px;
 }
 .sidebar-item--flex {
   flex: 1;
@@ -232,8 +233,8 @@
   outline: 2px solid var(--color-interactive-focus-ring);
 }
 .sidebar-item--active {
-  background: var(--color-interactive-default);
-  color: var(--color-text-on-accent);
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-primary);
   font-weight: var(--font-weight-medium);
 }
 .sidebar-item-row {
@@ -462,14 +463,17 @@
   position: relative;
   transition:
     box-shadow var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
+    border-color var(--duration-quick) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-default);
 }
 .file-card.bento-cell:hover {
   box-shadow: var(--elevation-shadow-overlay);
   border-color: var(--color-border-strong);
+  transform: translateY(-2px);
 }
 .file-card.bento-cell:active {
   box-shadow: var(--elevation-shadow-raised);
+  transform: translateY(0);
 }
 .file-card:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -823,57 +827,26 @@
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
 }
-.new-file__print-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+/* Print/device/social presets now render via @strata/ui's PresetPicker/
+ * PresetTile (preset-picker.css) — see NewFileDialog.tsx. */
+.new-file__save-preset-row {
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
 }
-.new-file__print {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: var(--space-2);
+.new-file__save-preset-input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  text-align: left;
+  border-radius: var(--radius-sm);
   color: var(--color-text-primary);
-  position: relative;
-  transition:
-    border-color var(--duration-quick) var(--ease-standard),
-    background var(--duration-quick) var(--ease-standard);
+  font-size: var(--font-size-sm);
 }
-.new-file__print:hover {
-  border-color: var(--color-border-strong);
-}
-.new-file__print--active {
-  border-color: var(--color-interactive-default);
-  background: var(--color-accent-subtle);
-}
-.new-file__print:focus-visible {
+.new-file__save-preset-input:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -1px;
-}
-.new-file__print-name {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-.new-file__print-size {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  font-feature-settings: "tnum";
-}
-.new-file__print-badge {
-  position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-muted);
-  background: var(--color-surface-raised);
-  border-radius: var(--radius-sm);
-  padding: 0 var(--space-1);
 }
 
 .new-file__fields {

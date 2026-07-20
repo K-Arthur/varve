@@ -1,7 +1,7 @@
 import type { RasterTraceMode, UpscaleMethod } from '@strata/engine';
 import type { LiveTraceParams, SceneNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+import { Button, Select } from '@strata/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -178,38 +178,36 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
     <DisclosureSection title="Image & Vector">
       <div className="insp-field-group">
         <p className="insp-subsection__label">Upscale</p>
-        <FieldRow label="Scale" htmlFor={scaleId}>
-          <select
-            id={scaleId}
-            className="insp-select"
-            aria-label="Upscale factor"
-            value={scale}
+        <FieldRow label="Scale">
+          <Select
+            label="Upscale factor"
+            value={String(scale)}
             disabled={pending !== null || method === 'ai'}
-            onChange={(event) => setScale(Number(event.target.value))}
-          >
-            <option value={2}>2x</option>
-            <option value={3}>3x</option>
-            <option value={4}>4x</option>
-          </select>
+            options={[
+              { value: '2', label: '2x' },
+              { value: '3', label: '3x' },
+              { value: '4', label: '4x' },
+            ]}
+            onChange={(v) => setScale(Number(v))}
+          />
         </FieldRow>
-        <FieldRow label="Method" htmlFor={methodId}>
-          <select
-            id={methodId}
-            className="insp-select"
-            aria-label="Upscale method"
+        <FieldRow label="Method">
+          <Select
+            label="Upscale method"
             value={method}
             disabled={pending !== null}
-            onChange={(event) => {
-              const next = event.target.value as UpscaleMethod;
+            options={[
+              { value: 'bilinear', label: 'Smooth (bilinear)' },
+              { value: 'bicubic', label: 'High quality (bicubic)' },
+              { value: 'nearest', label: 'Hard edges (nearest)' },
+              { value: 'ai', label: 'AI detail (Real-ESRGAN, 4x)' },
+            ]}
+            onChange={(v) => {
+              const next = v as UpscaleMethod;
               setMethod(next);
               if (next === 'ai') setScale(4);
             }}
-          >
-            <option value="bilinear">Smooth (bilinear)</option>
-            <option value="bicubic">High quality (bicubic)</option>
-            <option value="nearest">Hard edges (nearest)</option>
-            <option value="ai">AI detail (Real-ESRGAN, 4x)</option>
-          </select>
+          />
         </FieldRow>
         <p className="insp-hint">
           Processing runs locally. Real-ESRGAN uses the bundled offline model in a worker.
@@ -271,19 +269,18 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           </>
         )}
 
-        <FieldRow label="Mode" htmlFor={traceModeId}>
-          <select
-            id={traceModeId}
-            className="insp-select"
-            aria-label="Trace mode"
+        <FieldRow label="Mode">
+          <Select
+            label="Trace mode"
             value={traceMode}
             disabled={pending !== null}
-            onChange={(event) => setTraceMode(event.target.value as RasterTraceMode)}
-          >
-            <option value="monochrome">Monochrome</option>
-            <option value="grayscale">Grayscale</option>
-            <option value="color">Color</option>
-          </select>
+            options={[
+              { value: 'monochrome', label: 'Monochrome' },
+              { value: 'grayscale', label: 'Grayscale' },
+              { value: 'color', label: 'Color' },
+            ]}
+            onChange={(v) => setTraceMode(v as RasterTraceMode)}
+          />
         </FieldRow>
         {traceMode === 'monochrome' ? (
           <FieldRow label="Threshold" htmlFor={thresholdId}>
@@ -344,17 +341,16 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
 
         {liveTrace && showAdvanced && (
           <div className="insp-field-group">
-            <FieldRow label="Foreground" htmlFor={foregroundId}>
-              <select
-                id={foregroundId}
-                className="insp-select"
-                aria-label="Foreground extraction"
+            <FieldRow label="Foreground">
+              <Select
+                label="Foreground extraction"
                 value={foreground}
-                onChange={(event) => setForeground(event.target.value as 'dark' | 'light')}
-              >
-                <option value="dark">Dark</option>
-                <option value="light">Light</option>
-              </select>
+                options={[
+                  { value: 'dark', label: 'Dark' },
+                  { value: 'light', label: 'Light' },
+                ]}
+                onChange={(v) => setForeground(v as 'dark' | 'light')}
+              />
             </FieldRow>
             <FieldRow label="Simplify" htmlFor={simplifyId}>
               <input

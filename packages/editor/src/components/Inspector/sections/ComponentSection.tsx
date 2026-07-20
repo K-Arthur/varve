@@ -11,6 +11,7 @@
 import type { ComponentDefinition, Document, FrameNode, SceneNode } from '@strata/scene';
 import { instanceOverrides } from '@strata/scene';
 import { useEditor } from '../../../context';
+import { Select } from '@strata/ui';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function ComponentSection({ node }: { node: FrameNode }) {
@@ -52,18 +53,12 @@ export function ComponentSection({ node }: { node: FrameNode }) {
       <div className="insp-field" style={{ marginBottom: 'var(--space-2)' }}>
         <span className="insp-field__label">Swap</span>
         <div className="insp-field__control">
-          <select
-            aria-label="Swap component instance"
+          <Select
+            label="Swap component instance"
             value={componentId}
-            className="insp-select"
-            onChange={(e) => editor.swapComponentInstance(node.id, e.target.value)}
-          >
-            {allComponents.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            options={allComponents.map((c) => ({ value: c.id, label: c.name }))}
+            onChange={(v) => editor.swapComponentInstance(node.id, v)}
+          />
         </div>
       </div>
 
@@ -161,23 +156,19 @@ export function ComponentSection({ node }: { node: FrameNode }) {
                 >
                   {slot.name}
                 </span>
-                <select
-                  aria-label={`Fill slot ${slot.name}`}
+                <Select
+                  label={`Fill slot ${slot.name}`}
                   value={fillNodeId ?? ''}
-                  className="insp-select"
-                  onChange={(e) => {
-                    if (e.target.value) {
-                      editor.fillSlot(node.id, slot.id, e.target.value);
+                  options={[
+                    { value: '', label: 'Empty' },
+                    ...fillCandidates.map((c) => ({ value: c.id, label: c.name })),
+                  ]}
+                  onChange={(v) => {
+                    if (v) {
+                      editor.fillSlot(node.id, slot.id, v);
                     }
                   }}
-                >
-                  <option value="">Empty</option>
-                  {fillCandidates.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                />
               </div>
             );
           })}

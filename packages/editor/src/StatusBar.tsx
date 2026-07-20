@@ -1,4 +1,4 @@
-import { Icon, NumberInput } from '@strata/ui';
+import { Icon, NumberInput, Select } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
 import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
@@ -84,19 +84,19 @@ export function StatusBar() {
         <span title="View rotation">{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
       )}
       <span aria-hidden>—</span>
-      <select
+      <Select
+        label="Units"
         value={state.unitType}
-        onChange={(e) => setUnitType(e.target.value as typeof state.unitType)}
-        aria-label="Units"
-        className="editor-status__unit-select"
-      >
-        <option value="px">px</option>
-        <option value="pt">pt</option>
-        <option value="cm">cm</option>
-        <option value="mm">mm</option>
-        <option value="in">in</option>
-        <option value="%">%</option>
-      </select>
+        options={[
+          { value: 'px', label: 'px' },
+          { value: 'pt', label: 'pt' },
+          { value: 'cm', label: 'cm' },
+          { value: 'mm', label: 'mm' },
+          { value: 'in', label: 'in' },
+          { value: '%', label: '%' },
+        ]}
+        onChange={(v) => setUnitType(v as typeof state.unitType)}
+      />
       <button
         type="button"
         aria-pressed={state.pixelGridEnabled}

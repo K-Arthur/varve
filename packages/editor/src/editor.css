@@ -945,18 +945,17 @@
   min-width: 0;
 }
 
-/* Workspace switcher — an icon+label segmented control, grouped with the
- * other utility controls at the trailing edge of the menubar (Figma's Dev
- * Mode toggle and Affinity's Persona bar both keep mode-switching next to
- * the toolbar's utility cluster, not glued to the document title). */
+/* Workspace switcher — icon+label segmented control in the menubar.
+ * Moderate border-radius (8px) for a balanced straight/rounded aesthetic.
+ * Active state uses accent color for clear mode indication across all themes. */
 .editor-menubar__workspace {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-05);
   background: var(--color-surface-sunken);
-  border: var(--border-micro);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
-  padding: 2px;
+  padding: var(--space-05);
   flex-shrink: 0;
 }
 
@@ -966,9 +965,9 @@
   gap: var(--space-1);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  padding: var(--space-05) var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -990,9 +989,9 @@
 }
 
 .editor-menubar__workspace-btn--active {
-  background: var(--color-surface-raised);
-  color: var(--color-text-primary);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
 }
 
 .editor-menubar__workspace-btn:focus-visible {

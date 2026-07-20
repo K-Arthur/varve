@@ -11,7 +11,7 @@ import {
   resolveAdjustmentScope,
   validateScope,
 } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Select } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 
 export interface AdjustmentScopeSectionProps {
@@ -160,24 +160,21 @@ export function AdjustmentScopeSection({
 
       {/* Scope mode selector */}
       <div className="insp-field">
-        <label className="insp-field__label" htmlFor="adj-scope-select">
-          Change scope
-        </label>
-        <select
-          id="adj-scope-select"
-          className="insp-select"
-          value={scopeMode}
-          onChange={(e) => handleModeChange(e.target.value)}
-          aria-label="Adjustment scope mode"
-        >
-          <option value="legacy" disabled>
-            — Select scope —
-          </option>
-          <option value="image-local">Single image</option>
-          <option value="explicit-targets">Multiple targets</option>
-          <option value="container-descendant">Container descendants</option>
-          <option value="document">Document (global)</option>
-        </select>
+        <span className="insp-field__label">Change scope</span>
+        <div className="insp-field__control">
+          <Select
+            label="Adjustment scope mode"
+            value={scopeMode === 'legacy' ? '' : scopeMode}
+            placeholder="— Select scope —"
+            options={[
+              { value: 'image-local', label: 'Single image' },
+              { value: 'explicit-targets', label: 'Multiple targets' },
+              { value: 'container-descendant', label: 'Container descendants' },
+              { value: 'document', label: 'Document (global)' },
+            ]}
+            onChange={(v) => handleModeChange(v)}
+          />
+        </div>
       </div>
 
       <div className="insp-field insp-field--help">

@@ -1,5 +1,5 @@
 import type { AnimationTrack, Timeline } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Select } from '@strata/ui';
 import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TrackRowProps {
@@ -151,26 +151,26 @@ export const TrackRow: FC<TrackRowProps> = ({
         {selected && onSetNestedTimeline && (
           <label className="timeline-track-row__nested">
             <span className="timeline-track-row__nested-label">Nested</span>
-            <select
+            <Select
+              label="Nested timeline"
               value={track.nestedTimelineId ?? ''}
-              aria-label="Nested timeline"
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                const val = e.target.value;
+              options={[
+                { value: '', label: 'None' },
+                ...(timelines
+                  ? Object.keys(timelines).map((id) => ({
+                      value: id,
+                      label: timelines[id]?.name ?? id,
+                    }))
+                  : []),
+              ]}
+              onChange={(val) => {
                 onSetNestedTimeline(
                   track.id,
                   val === '' ? null : val,
                   track.nestedStartProgress ?? 0,
                 );
               }}
-            >
-              <option value="">None</option>
-              {nestedOptions.map((tl) => (
-                <option key={tl.id} value={tl.id}>
-                  {tl.name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         )}
       </div>

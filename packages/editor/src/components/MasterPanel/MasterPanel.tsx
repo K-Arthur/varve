@@ -1,5 +1,5 @@
 import type { MasterAppliesTo, MasterPage } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 import './master-panel.css';
@@ -101,16 +101,16 @@ export function MasterPanel() {
             )}
 
             <div className="master-panel__actions">
-              <select
-                className="master-panel__applies-select"
+              <Select
+                label={`Apply to pages: ${master.appliesTo}`}
                 value={master.appliesTo}
-                onChange={(e) => setMasterAppliesTo(master.id, e.target.value as MasterAppliesTo)}
-                aria-label={`Apply to pages: ${master.appliesTo}`}
-              >
-                <option value="all">All pages</option>
-                <option value="left">Left pages</option>
-                <option value="right">Right pages</option>
-              </select>
+                options={[
+                  { value: 'all', label: 'All pages' },
+                  { value: 'left', label: 'Left pages' },
+                  { value: 'right', label: 'Right pages' },
+                ]}
+                onChange={(v) => setMasterAppliesTo(master.id, v as MasterAppliesTo)}
+              />
 
               <button
                 type="button"
@@ -119,7 +119,7 @@ export function MasterPanel() {
                 aria-label={`Duplicate ${master.name}`}
                 title="Duplicate"
               >
-                <Icon name={CHROME_ICONS.copy} label={undefined} size="0.85em" />
+                <SolidIcon name={SOLID_CHROME_ICONS.copy} label={undefined} size="0.85em" />
               </button>
 
               <button
@@ -133,7 +133,7 @@ export function MasterPanel() {
                 aria-label={`Delete ${master.name}`}
                 title="Delete"
               >
-                <Icon name={CHROME_ICONS.trash} label={undefined} size="0.85em" />
+                <SolidIcon name={SOLID_CHROME_ICONS.trash} label={undefined} size="0.85em" />
               </button>
             </div>
           </li>

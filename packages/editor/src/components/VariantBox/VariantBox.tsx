@@ -9,7 +9,7 @@
  */
 import type { ComponentProperty, Document, NodeId, Variant } from '@strata/scene';
 import { getComponentProperties, resolveVariantProperties } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import './VariantBox.css';
 
@@ -118,7 +118,7 @@ export function VariantBox({
           aria-label="Close variant panel"
           onClick={onClose}
         >
-          <Icon name={CHROME_ICONS.close} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.85em" />
         </button>
       </div>
 
@@ -139,7 +139,7 @@ export function VariantBox({
             >
               <span className="variant-box__variant-name">{v.name}</span>
               {v.id === activeVariant && (
-                <Icon name={CHROME_ICONS.check} size="0.75em" className="variant-box__check" />
+                <SolidIcon name={SOLID_CHROME_ICONS.check} size="0.75em" className="variant-box__check" />
               )}
             </button>
           ))}
@@ -153,7 +153,7 @@ export function VariantBox({
           aria-label="Create variant"
           onClick={handleCreateVariant}
         >
-          <Icon name={CHROME_ICONS.plus} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.85em" />
           Create variant
         </button>
       )}
@@ -283,7 +283,7 @@ function VariantPropControl({ prop, value, onChange }: VariantPropControlProps) 
         role="img"
         aria-label={`${prop.name}: swap instance`}
       >
-        <Icon name={CHROME_ICONS.maximize} size="0.75em" />
+        <SolidIcon name={SOLID_CHROME_ICONS.maximize} size="0.75em" />
       </span>
     );
   }

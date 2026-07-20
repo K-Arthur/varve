@@ -4,6 +4,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FloatingTextBar, type FloatingTextBarProps } from './FloatingTextBar';
 
+vi.mock('@floating-ui/dom', () => ({
+  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  autoUpdate: vi.fn(() => vi.fn()),
+  flip: vi.fn(),
+  shift: vi.fn(),
+  offset: vi.fn(),
+  size: vi.fn(),
+}));
+
 afterEach(cleanup);
 
 const BASE_TEXT_NODE: TextNode = {
@@ -204,16 +213,16 @@ describe('FloatingTextBar', () => {
   it('calls onUpdate with font family on select change', () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
-    const select = screen.getByLabelText('Font family');
-    fireEvent.change(select, { target: { value: 'Arial' } });
+    fireEvent.click(screen.getByLabelText('Font family'));
+    fireEvent.click(screen.getByRole('option', { name: /arial/i }));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontFamily: 'Arial' });
   });
 
   it('calls onUpdate with font weight on select change', () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
-    const select = screen.getByLabelText('Font weight');
-    fireEvent.change(select, { target: { value: '700' } });
+    fireEvent.click(screen.getByLabelText('Font weight'));
+    fireEvent.click(screen.getByRole('option', { name: '700' }));
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontWeight: 700 });
   });
 

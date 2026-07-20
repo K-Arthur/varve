@@ -14,6 +14,13 @@ import { forwardRef, type SVGProps } from 'react';
 /** Curated set of Phosphor icon names for Strata. */
 export type SolidIconName =
   | 'SquaresFour'
+  | 'Triangle'
+  | 'Diamond'
+  | 'Hexagon'
+  | 'ArrowsOut'
+  | 'ArrowsIn'
+  | 'ArrowUpRight'
+  | 'ArrowDownUp'
   | 'List'
   | 'ListDashes'
   | 'ListBullets'

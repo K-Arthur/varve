@@ -1,6 +1,15 @@
 import type { Timeline } from '@strata/scene';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('@floating-ui/dom', () => ({
+  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  autoUpdate: vi.fn(() => vi.fn()),
+  flip: vi.fn(),
+  shift: vi.fn(),
+  offset: vi.fn(),
+  size: vi.fn(),
+}));
 import { formatTime } from './PlaybackControls';
 import { TimelinePanel } from './TimelinePanel';
 
@@ -55,11 +64,12 @@ describe('TimelinePanel', () => {
       'tl-2': makeTimeline('tl-2', 'Anim 2', 3000),
     };
     render(<TimelinePanel {...defaultProps} timelines={timelines} />);
-    const select = screen.getByLabelText('Select timeline') as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    expect(select.options.length).toBe(3); // placeholder + 2 timelines
-    expect(select.options[1]?.text).toBe('Anim 1');
-    expect(select.options[2]?.text).toBe('Anim 2');
+    expect(screen.getByLabelText('Select timeline')).toBeTruthy();
+    fireEvent.click(screen.getByLabelText('Select timeline'));
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(3); // placeholder + 2 timelines
+    expect(options[1]).toHaveTextContent('Anim 1');
+    expect(options[2]).toHaveTextContent('Anim 2');
   });
 
   it('renders playback controls with correct time from currentTime prop', () => {
@@ -202,10 +212,11 @@ describe('TimelinePanel', () => {
         onSelectTimeline={onSelectTimeline}
       />,
     );
-    const select = screen.getByLabelText('Select timeline');
-    fireEvent.change(select, { target: { value: '' } });
+    fireEvent.click(screen.getByLabelText('Select timeline'));
+    fireEvent.click(screen.getByRole('option', { name: /no timeline/i }));
     expect(onSelectTimeline).toHaveBeenCalledWith(null);
-    fireEvent.change(select, { target: { value: 'tl-1' } });
+    fireEvent.click(screen.getByLabelText('Select timeline'));
+    fireEvent.click(screen.getByRole('option', { name: /anim/i }));
     expect(onSelectTimeline).toHaveBeenCalledWith('tl-1');
   });
 
@@ -236,9 +247,8 @@ describe('TimelinePanel', () => {
     );
     fireEvent.click(screen.getByLabelText('Save timeline as motion preset'));
     expect(onSavePreset).toHaveBeenCalledOnce();
-    fireEvent.change(screen.getByLabelText('Apply motion preset'), {
-      target: { value: 'p1' },
-    });
+    fireEvent.click(screen.getByLabelText('Apply motion preset'));
+    fireEvent.click(screen.getByRole('option', { name: /fade in/i }));
     expect(onApplyPreset).toHaveBeenCalledWith('p1');
   });
 
