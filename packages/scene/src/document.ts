@@ -14,7 +14,7 @@
  */
 import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
-import { generateKeyBetween } from '@strata/shared';
+import { generateKeyBetween, physicalToPx } from '@strata/shared';
 import { stripBindingForVariable } from './bindings';
 import { deepCloneSubtree } from './clone';
 import type {
@@ -224,8 +224,14 @@ export function createDocument(
       return base;
     }
 
-    const pageWidth = opts.physicalWidth ?? 1920;
-    const pageHeight = opts.physicalHeight ?? 1080;
+    // Page/frame geometry stays a resolution-independent world unit (fixed
+    // 96dpi), matching how frame presets already express paper sizes — a
+    // print document's `dpi` is a rasterization/export-time multiplier, not
+    // something that changes base page geometry. physicalWidth/Height are
+    // stored verbatim below (in their original documentUnit) as metadata.
+    const unit: DocumentUnit = opts.documentUnit ?? 'px';
+    const pageWidth = opts.physicalWidth != null ? physicalToPx(opts.physicalWidth, unit) : 1920;
+    const pageHeight = opts.physicalHeight != null ? physicalToPx(opts.physicalHeight, unit) : 1080;
 
     const { id: contentRootId, doc: d1 } = nextNodeId(base);
     const contentRoot = makeGroupNode(contentRootId, {
