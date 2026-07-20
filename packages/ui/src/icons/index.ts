@@ -92,6 +92,7 @@ export const SOLID_TOOL_ICONS = {
   inspect: 'MagnifyingGlass',
   paint: 'PaintBrush',
   eraser: 'Eraser',
+  smudge: 'PaintBrush',
   cloneStamp: 'Stamp',
   healBrush: 'PaintBrush',
   spotHeal: 'PaintBrush',
