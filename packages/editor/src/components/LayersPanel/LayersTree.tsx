@@ -1219,7 +1219,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
             {virtualizer.getVirtualItems().map((virtualItem) => {
               const entry = entries[virtualItem.index];
               if (!entry) return null;
-              const { node, depth } = entry;
+              const { node, depth, parentId } = entry;
+              const parentMask = parentId ? state.document.nodes[parentId]?.mask : undefined;
+              const maskRole = parentMask?.sourceNodeId
+                ? parentMask.sourceNodeId === node.id
+                  ? 'source'
+                  : 'content'
+                : undefined;
               const selected = isSelected(node.id);
               const focused = virtualItem.index === focusIdx;
               const isExpanded = expanded.has(node.id);
@@ -1240,6 +1246,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   dropClass={dropClass}
                   hasMotion={animatedNodes.has(node.id)}
                   keyframeCount={keyframeCounts.get(node.id) ?? 0}
+                  maskRole={maskRole}
                   onToggleExpand={toggleExpand}
                   onExpandSubtree={handleExpandSubtree}
                   onCollapseSubtree={handleCollapseSubtree}
@@ -1278,6 +1285,15 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               expanded={false}
               editing={false}
               doc={state.document}
+              maskRole={
+                activeEntry.parentId &&
+                state.document.nodes[activeEntry.parentId]?.mask?.sourceNodeId
+                  ? state.document.nodes[activeEntry.parentId]?.mask?.sourceNodeId ===
+                    activeEntry.node.id
+                    ? 'source'
+                    : 'content'
+                  : undefined
+              }
               onToggleExpand={() => {}}
               onSelect={() => {}}
               onRename={() => {}}
@@ -1308,6 +1324,7 @@ interface SortableVirtualRowProps {
   dropClass: string;
   hasMotion: boolean;
   keyframeCount: number;
+  maskRole?: 'source' | 'content';
   onToggleExpand: (id: NodeId) => void;
   onExpandSubtree: (id: NodeId) => void;
   onCollapseSubtree: (id: NodeId) => void;
@@ -1338,6 +1355,7 @@ function SortableVirtualRow({
   dropClass,
   hasMotion,
   keyframeCount,
+  maskRole,
   onToggleExpand,
   onExpandSubtree,
   onCollapseSubtree,
@@ -1453,6 +1471,7 @@ function SortableVirtualRow({
         variantName={variantName}
         hasMotion={hasMotion}
         keyframeCount={keyframeCount}
+        maskRole={maskRole}
         syncStatus={syncStatus}
         presences={presences}
         docId={editorState.document.id}

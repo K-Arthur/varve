@@ -183,6 +183,63 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
   };
 }
 
+function isSupportedClipSource(node: SceneNode | undefined): boolean {
+  if (!node) return false;
+  if (node.kind === 'frame') return true;
+  if (node.kind !== 'shape') return false;
+  return (
+    node.shape.kind !== 'line' &&
+    node.shape.kind !== 'arrow' &&
+    (node.shape.kind !== 'path' || node.shape.closed)
+  );
+}
+
+/**
+ * Recover malformed structural masks at the persistence boundary. Keeping the
+ * container and its children is lossless; only the unusable relationship is
+ * removed, with a warning callers can surface to the user.
+ */
+function sanitizeStructuralMaskState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  let changed = false;
+  const nodes: Record<NodeId, SceneNode> = { ...doc.nodes };
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    const mask = node.mask;
+    if (!mask || mask.rasterMask) continue;
+
+    let error = validateMaskSource(doc, mask);
+    if (!error && !['clip', 'alpha', 'luminance'].includes(mask.type)) {
+      error = 'Mask type is unsupported';
+    }
+    if (!error && mask.vectorMask && !mask.vectorMask.closed) {
+      error = 'Vector masks must use a closed path';
+    }
+    if (!error && mask.sourceNodeId) {
+      const source = doc.nodes[mask.sourceNodeId];
+      if (!source) {
+        error = `Missing mask source ${mask.sourceNodeId}`;
+      } else if (isContainer(node) && !node.children.includes(mask.sourceNodeId)) {
+        error = `Mask source ${mask.sourceNodeId} must be a direct child of ${nodeId}`;
+      } else if (mask.type === 'clip' && !mask.vectorMask && !isSupportedClipSource(source)) {
+        error = `Mask source ${mask.sourceNodeId} cannot produce a closed clipping outline`;
+      }
+    }
+    if (!error) continue;
+
+    const { mask: _invalidMask, ...rest } = node;
+    nodes[nodeId] = rest as SceneNode;
+    changed = true;
+    warnings.push(
+      warning(
+        'document.invalid-structural-mask',
+        `${nodeId}: ${error}`,
+        'warning',
+        `${nodeId}.mask`,
+      ),
+    );
+  }
+  return changed ? { ...doc, nodes } : doc;
+}
+
 function normalizeDocument(doc: Document): DocumentNormalizeResult {
   const warnings = malformedLegacyBackgroundRemovalWarnings(
     doc as unknown as Record<string, unknown>,
@@ -330,6 +387,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     pages,
     activePageId,
   };
+  document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   return { document, warnings };
 }

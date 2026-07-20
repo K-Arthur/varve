@@ -91,6 +91,21 @@ function nestedFixture(): Document {
 }
 
 describe('clipping-mask transform preservation', () => {
+  it('creates a clipping group from root-level sibling nodes', () => {
+    const mask = makeShapeNode('mask', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const doc = {
+      ...createDocument('root siblings', true),
+      nodes: { mask, content },
+      rootChildren: ['mask', 'content'],
+    };
+
+    const result = createClippingMask(doc, 'mask', ['content']);
+
+    expect(result.doc.rootChildren).toEqual([result.groupId]);
+    expect(result.doc.nodes[result.groupId]?.mask?.sourceNodeId).toBe('mask');
+  });
+
   it('preserves mask and content world transforms when creating inside a transformed parent', () => {
     const doc = nestedFixture();
     const maskWorld = worldTransform(doc, 'mask');
