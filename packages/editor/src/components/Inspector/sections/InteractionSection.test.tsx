@@ -8,9 +8,18 @@ import {
   makeShapeNode,
 } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../../../context';
 import { InteractionSection } from './InteractionSection';
+
+vi.mock('@floating-ui/dom', () => ({
+  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  autoUpdate: vi.fn(() => vi.fn()),
+  flip: vi.fn(),
+  shift: vi.fn(),
+  offset: vi.fn(),
+  size: vi.fn(),
+}));
 
 afterEach(cleanup);
 
@@ -75,7 +84,8 @@ describe('InteractionSection', () => {
     getCtx().setSelection('btn1');
     await waitFor(() => expect(screen.getByLabelText('Trigger')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('Trigger'), { target: { value: 'onHover' } });
+    fireEvent.click(screen.getByLabelText('Trigger'));
+    fireEvent.click(screen.getByRole('option', { name: /on hover/i }));
     await waitFor(() => {
       const ix = getCtx().getNodeInteractions('btn1')[0];
       expect(ix?.trigger).toMatchObject({ kind: 'onHover' });
@@ -88,7 +98,8 @@ describe('InteractionSection', () => {
     getCtx().setSelection('btn1');
     await waitFor(() => expect(screen.getByLabelText('Target screen')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('Target screen'), { target: { value: 'f2' } });
+    fireEvent.click(screen.getByLabelText('Target screen'));
+    fireEvent.click(screen.getByRole('option', { name: /details/i }));
     await waitFor(() => {
       const action = getCtx().getNodeInteractions('btn1')[0]?.actions[0] as {
         targetId?: string;

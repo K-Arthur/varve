@@ -1,7 +1,7 @@
 import { filterKindDisplayName } from '@strata/engine';
 import type { AdjustmentNode, NodeId } from '@strata/scene';
 import { adjustmentEnabledCount } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import './adjustment.css';
 
@@ -128,7 +128,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
     >
       <span className="layers-row__disclosure-spacer" />
 
-      <Icon name="SlidersHorizontal" size="0.85em" aria-hidden className="adj-layer-row__icon" />
+      <SolidIcon name="Faders" size="0.85em" aria-hidden className="adj-layer-row__icon" />
 
       {editing ? (
         <input
@@ -179,7 +179,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
         }}
         aria-label={`Add adjustment to ${node.name}`}
       >
-        <Icon name={CHROME_ICONS.plus} size="0.75em" />
+        <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.75em" />
       </button>
 
       <button
@@ -195,8 +195,8 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
         aria-label={node.visible ? `Hide ${node.name}` : `Show ${node.name}`}
         aria-pressed={!node.visible}
       >
-        <Icon
-          name={node.visible ? CHROME_ICONS.visibility : CHROME_ICONS.visibilityOff}
+        <SolidIcon
+          name={node.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
           size="0.85em"
         />
       </button>
@@ -214,7 +214,7 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
         aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
         aria-pressed={node.locked}
       >
-        <Icon name={node.locked ? CHROME_ICONS.lock : CHROME_ICONS.unlock} size="0.85em" />
+        <SolidIcon name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock} size="0.85em" />
       </button>
     </div>
   );

@@ -20,6 +20,7 @@ import { resolveNodeFills } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import { Select } from '@strata/ui';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -280,40 +281,23 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             />
           </FieldRow>
         )}
-        <FieldRow label="Font" htmlFor="typography-font">
-          <select
-            id="typography-font"
-            aria-label="Font family"
+        <FieldRow label="Font">
+          <Select
+            label="Font family"
             value={isMixed(familyRaw) ? '' : familyRaw}
-            className="insp-select"
-            onChange={(e) => {
-              const v = e.target.value;
-              batchUpdate((n) => ({ ...n, fontFamily: v || undefined }));
-            }}
-          >
-            {isMixed(familyRaw) && <option value="">Mixed</option>}
-            {fonts.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
+            placeholder={isMixed(familyRaw) ? 'Mixed' : undefined}
+            options={fonts.map((f) => ({ value: f, label: f }))}
+            onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
+          />
         </FieldRow>
-        <FieldRow label="Weight" htmlFor="typography-weight">
-          <select
-            id="typography-weight"
-            aria-label="Font weight"
-            value={isMixed(weightRaw) ? 400 : weightRaw}
-            className="insp-select"
-            onChange={(e) => batchUpdate((n) => ({ ...n, fontWeight: Number(e.target.value) }))}
-          >
-            {isMixed(weightRaw) && <option value={400}>Mixed</option>}
-            {FONT_WEIGHTS.map((w) => (
-              <option key={w} value={w}>
-                {w}
-              </option>
-            ))}
-          </select>
+        <FieldRow label="Weight">
+          <Select
+            label="Font weight"
+            value={isMixed(weightRaw) ? '400' : String(weightRaw)}
+            placeholder={isMixed(weightRaw) ? 'Mixed' : undefined}
+            options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
+            onChange={(v) => batchUpdate((n) => ({ ...n, fontWeight: Number(v) }))}
+          />
         </FieldRow>
         <FieldRow label="Style">
           <SegmentedControl
@@ -406,62 +390,39 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             onChange={(v) => batchUpdate((n) => ({ ...n, textDecoration: v }))}
           />
         </FieldRow>
-        <FieldRow label="List" htmlFor="typography-list">
-          <select
-            id="typography-list"
-            aria-label="List style"
+        <FieldRow label="List">
+          <Select
+            label="List style"
             value={isMixed(listRaw) ? 'none' : listRaw}
-            className="insp-select"
-            onChange={(e) =>
-              batchUpdate((n) => ({ ...n, listStyle: e.target.value as TextNode['listStyle'] }))
-            }
-          >
-            {LIST_STYLE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+            options={LIST_STYLE_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
+            onChange={(v) => batchUpdate((n) => ({ ...n, listStyle: v as TextNode['listStyle'] }))}
+          />
         </FieldRow>
-        <FieldRow label="Overflow" htmlFor="typography-overflow">
-          <select
-            id="typography-overflow"
-            aria-label="Text overflow"
+        <FieldRow label="Overflow">
+          <Select
+            label="Text overflow"
             value={isMixed(overflowRaw) ? 'visible' : overflowRaw}
-            className="insp-select"
-            onChange={(e) =>
+            options={OVERFLOW_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
+            onChange={(v) =>
               batchUpdate((n) => ({
                 ...n,
-                textOverflow: e.target.value as TextNode['textOverflow'],
+                textOverflow: v as TextNode['textOverflow'],
               }))
             }
-          >
-            {OVERFLOW_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          />
         </FieldRow>
-        <FieldRow label="Resize" htmlFor="typography-resizing">
-          <select
-            id="typography-resizing"
-            aria-label="Text resizing mode"
+        <FieldRow label="Resize">
+          <Select
+            label="Text resizing mode"
             value={isMixed(resizingRaw) ? 'fixed' : resizingRaw}
-            className="insp-select"
-            onChange={(e) =>
+            options={RESIZING_OPTIONS.map((o) => ({ value: o.value as string, label: o.label }))}
+            onChange={(v) =>
               batchUpdate((n) => ({
                 ...n,
-                textResizing: e.target.value as TextNode['textResizing'],
+                textResizing: v as TextNode['textResizing'],
               }))
             }
-          >
-            {RESIZING_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          />
         </FieldRow>
         {/* OpenType features */}
         <OpenTypeFeaturesSection

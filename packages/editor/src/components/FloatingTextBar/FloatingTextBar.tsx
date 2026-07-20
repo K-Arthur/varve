@@ -1,7 +1,7 @@
 import { getFontRegistry } from '@strata/engine';
 import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@strata/shared';
-import { ColorPicker, Icon, Popover } from '@strata/ui';
+import { ColorPicker, Icon, Popover, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import './FloatingTextBar.css';
@@ -108,15 +108,15 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
   );
 
   const handleFontFamilyChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onUpdate(node.id, { fontFamily: e.target.value });
+    (value: string) => {
+      onUpdate(node.id, { fontFamily: value });
     },
     [node, onUpdate],
   );
 
   const handleFontWeightChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      onUpdate(node.id, { fontWeight: Number(e.target.value) });
+    (value: string) => {
+      onUpdate(node.id, { fontWeight: Number(value) });
     },
     [node, onUpdate],
   );
@@ -156,33 +156,21 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
       aria-label="Text formatting"
       onKeyDown={handleKeyDown}
     >
-      <select
-        className="floating-text-bar__select"
+      <Select
+        label="Font family"
         value={node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
+        options={availableFonts.map((f) => ({ value: f, label: f }))}
         onChange={handleFontFamilyChange}
-        aria-label="Font family"
-      >
-        {availableFonts.map((f) => (
-          <option key={f} value={f}>
-            {f}
-          </option>
-        ))}
-      </select>
+      />
 
       <div className="floating-text-bar__separator" />
 
-      <select
-        className="floating-text-bar__select"
-        value={node.fontWeight ?? 400}
-        onChange={handleFontWeightChange}
-        aria-label="Font weight"
-      >
-        {FONT_WEIGHTS.map((w) => (
-          <option key={w} value={w}>
-            {w}
-          </option>
-        ))}
-      </select>
+      <Select
+        label="Font weight"
+        value={String(node.fontWeight ?? 400)}
+        options={FONT_WEIGHTS.map((w) => ({ value: String(w), label: String(w) }))}
+        onChange={(v) => handleFontWeightChange(v)}
+      />
 
       <button
         type="button"

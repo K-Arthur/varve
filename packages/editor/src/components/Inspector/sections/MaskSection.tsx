@@ -2,6 +2,7 @@ import type { MaskType, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
+import { Select } from '@strata/ui';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 
@@ -122,9 +123,9 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
   }, [setMaskLinked, mask?.linked]);
 
   const handleTypeChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
+    (v: string) => {
       if (setMaskType) {
-        setMaskType(e.target.value as MaskType);
+        setMaskType(v as MaskType);
       }
     },
     [setMaskType],
@@ -278,24 +279,16 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
             <span className="insp-field__label" style={{ fontSize: 'var(--font-size-xs)' }}>
               Type
             </span>
-            <select
+            <Select
+              label="Mask type"
               value={mask.type}
+              options={[
+                { value: 'clip', label: 'Clip' },
+                { value: 'alpha', label: 'Alpha' },
+                { value: 'luminance', label: 'Luminance' },
+              ]}
               onChange={handleTypeChange}
-              aria-label="Mask type"
-              style={{
-                flex: 1,
-                fontSize: 'var(--font-size-xs)',
-                padding: '2px 4px',
-                background: 'var(--color-surface-raised)',
-                color: 'var(--color-text-primary)',
-                border: '1px solid var(--color-border-subtle)',
-                borderRadius: 'var(--radius-sm)',
-              }}
-            >
-              <option value="clip">Clip</option>
-              <option value="alpha">Alpha</option>
-              <option value="luminance">Luminance</option>
-            </select>
+            />
           </div>
 
           {supportsFillRule && (

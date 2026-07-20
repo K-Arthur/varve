@@ -191,23 +191,17 @@ export function LayoutSection({ node }: { node: FrameNode }) {
                   aria-label="Grid template rows"
                 />
               </FieldRow>
-              <FieldRow label="Auto Flow" htmlFor={`layout-auto-flow-${node.id}`}>
-                <select
-                  id={`layout-auto-flow-${node.id}`}
+              <FieldRow label="Auto Flow">
+                <Select
+                  label="Grid auto flow"
                   value={ls.gridAutoFlow ?? 'row'}
-                  className="insp-select"
-                  onChange={(e) =>
+                  options={GRID_AUTO_FLOW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  onChange={(v) =>
                     patch({
-                      gridAutoFlow: e.target.value as NonNullable<LayoutStyle['gridAutoFlow']>,
+                      gridAutoFlow: v as NonNullable<LayoutStyle['gridAutoFlow']>,
                     })
                   }
-                >
-                  {GRID_AUTO_FLOW_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                />
               </FieldRow>
               <NumberField
                 label="Row gap"
@@ -366,21 +360,14 @@ function ClampSizingControls({ nodes }: { nodes: SceneNode[] }) {
       >
         Sizing
       </div>
-      <FieldRow label="Mode" htmlFor="layout-sizing-mode">
-        <select
-          id="layout-sizing-mode"
-          aria-label="Layout sizing mode"
+      <FieldRow label="Mode">
+        <Select
+          label="Layout sizing mode"
           value={isMixed(sizingRaw) ? '' : sizingRaw}
-          className="insp-select"
-          onChange={(e) => setSelectedLayoutSizing(e.target.value as LayoutSizing)}
-        >
-          {isMixed(sizingRaw) && <option value="">Mixed</option>}
-          {SIZING_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          placeholder={isMixed(sizingRaw) ? 'Mixed' : undefined}
+          options={SIZING_OPTIONS}
+          onChange={(v) => setSelectedLayoutSizing(v as LayoutSizing)}
+        />
       </FieldRow>
       <NumberField
         label="Min W"

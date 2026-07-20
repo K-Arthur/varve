@@ -3,13 +3,12 @@ import {
   contentHash,
   detectFileKind,
   type FileEntry,
-  type NewDocPreset,
   type Platform,
   type SavedSearch,
   type TemplateLibrary,
 } from '@strata/platform';
-import { createDocument, serializeDocument, uniformBleed } from '@strata/scene';
-import { generateKeyBetween } from '@strata/shared';
+import { createDocumentFromPreset, serializeDocument } from '@strata/scene';
+import { generateKeyBetween, type Preset } from '@strata/shared';
 import { ContentSkeleton, Dialog, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
@@ -26,6 +25,7 @@ import { HomeShortcutHelp } from './HomeShortcutHelp';
 import { HomeToolbar } from './HomeToolbar';
 import { NewFileDialog } from './NewFileDialog';
 import { PerfProfile } from './PerfProfile';
+import { usePresetLibrary } from './presetLibrary';
 import { ProjectsView } from './ProjectsView';
 import { type SidebarEntry, SidebarNav } from './SidebarNav';
 import { TemplatesGallery } from './TemplatesGallery';
@@ -100,6 +100,7 @@ export function HomeShell({
   }, [active, view.refresh]);
   const actions = useFileActions(platform, view.refresh);
   const thumbnails = useThumbnailLoader(platform);
+  const presetLibrary = usePresetLibrary(platform);
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [newFileOpen, setNewFileOpen] = useState(false);
@@ -469,17 +470,10 @@ export function HomeShell({
   // Create a document from a preset (blank or print) and open it. Shared by the
   // New File dialog and the home quick-start row.
   const createFromPreset = useCallback(
-    (preset: NewDocPreset) => {
+    (preset: Preset) => {
       const id = crypto.randomUUID();
       const now = Date.now();
-      const doc = createDocument(preset.name, {
-        colorMode: preset.colorMode,
-        physicalWidth: preset.width,
-        physicalHeight: preset.height,
-        documentUnit: preset.unit,
-        bleed: preset.bleed ? uniformBleed(preset.bleed, preset.unit) : undefined,
-        dpi: preset.dpi,
-      });
+      const doc = createDocumentFromPreset(preset);
       const docJson = serializeDocument(doc);
       const entry: FileEntry = {
         id,
@@ -894,6 +888,18 @@ export function HomeShell({
             createFromPreset(preset);
             setNewFileOpen(false);
           }}
+          customPresets={presetLibrary.customPresets}
+          favoriteIds={presetLibrary.favoriteIds}
+          recentIds={presetLibrary.recentIds}
+          onToggleFavoritePreset={(preset) => presetLibrary.toggleFavorite(preset.id)}
+          onRecordRecentPreset={(preset) => presetLibrary.recordRecent(preset.id)}
+          onSaveCustomPreset={presetLibrary.addCustomPreset}
+          onEditCustomPreset={(preset) => {
+            const name = window.prompt('Rename preset', preset.name);
+            if (name && name !== preset.name) presetLibrary.updateCustomPreset(preset.id, { name });
+          }}
+          onDuplicateCustomPreset={(preset) => presetLibrary.duplicateCustomPreset(preset.id)}
+          onDeleteCustomPreset={(preset) => presetLibrary.deleteCustomPreset(preset.id)}
         />
         {contextPos && contextFile && (
           <FileContextMenu

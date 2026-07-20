@@ -103,6 +103,15 @@ vi.mock('@strata/engine', () => ({
   }),
 }));
 
+vi.mock('@floating-ui/dom', () => ({
+  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  autoUpdate: vi.fn(() => vi.fn()),
+  flip: vi.fn(),
+  shift: vi.fn(),
+  offset: vi.fn(),
+  size: vi.fn(),
+}));
+
 vi.mock('../../../BackgroundRemoval/ModelDownloadDialog', () => ({
   ModelDownloadDialog: () => null,
 }));
@@ -486,15 +495,14 @@ describe('ExportDialog - Remove background toggle', () => {
       />,
     );
     fireEvent.click(screen.getByText('Remove background before export'));
-    const methodSelect = screen.getByLabelText('Background removal method for export');
-    fireEvent.change(methodSelect, { target: { value: 'ai-balanced' } });
+    fireEvent.click(screen.getByLabelText('Background removal method for export'));
+    fireEvent.click(screen.getByRole('option', { name: /balanced/i }));
     await vi.waitFor(() => {
       expect(screen.getByRole('button', { name: /download ai model/i })).toBeTruthy();
     });
     fireEvent.click(screen.getByRole('button', { name: /export \(1\)/i }));
     await vi.waitFor(() => {
-      const liveRegion = document.querySelector('[role="status"]');
-      expect(liveRegion?.textContent).toMatch(/Download the AI model first/i);
+      expect(screen.getByText(/download the ai model first/i)).toBeTruthy();
     });
     expect(onApplyBackgroundRemoval).not.toHaveBeenCalled();
   });
@@ -521,15 +529,14 @@ describe('ExportDialog - Remove background toggle', () => {
       />,
     );
     fireEvent.click(screen.getByText('Remove background before export'));
-    fireEvent.change(screen.getByLabelText('Background removal method for export'), {
-      target: { value: 'ai-balanced' },
-    });
+    fireEvent.click(screen.getByLabelText('Background removal method for export'));
+    fireEvent.click(screen.getByRole('option', { name: /balanced/i }));
     await vi.waitFor(() => {
       expect(screen.queryByRole('button', { name: /download ai model/i })).toBeNull();
     });
     fireEvent.click(screen.getByRole('button', { name: /export \(1\)/i }));
     await vi.waitFor(() => {
-      expect(screen.getByRole('status').textContent).toMatch(/AI background removal failed/i);
+      expect(screen.getByText(/AI background removal failed/i)).toBeTruthy();
     });
     expect(onApplyBackgroundRemoval).not.toHaveBeenCalled();
     expect(onExport).not.toHaveBeenCalled();

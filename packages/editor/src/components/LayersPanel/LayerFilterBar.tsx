@@ -1,5 +1,5 @@
 import type { BlendMode } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
@@ -99,7 +99,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
   return (
     <div className="layers-filter-bar" role="search" aria-label="Filter layers">
       <div className="layers-filter-bar__search-row">
-        <Icon name={CHROME_ICONS.search} size="0.85em" aria-hidden />
+        <SolidIcon name={SOLID_CHROME_ICONS.search} size="0.85em" aria-hidden />
         <input
           ref={filterRef}
           id="layers-filter-search"
@@ -118,7 +118,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
             onClick={() => onChange({ ...filter, search: '' })}
             aria-label="Clear search"
           >
-            <Icon name={CHROME_ICONS.close} size="0.75em" />
+            <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.75em" />
           </button>
         )}
         <button
@@ -128,7 +128,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
           aria-expanded={expanded}
           aria-label={expanded ? 'Hide filter options' : 'Show filter options'}
         >
-          <Icon name={expanded ? CHROME_ICONS.chevronUp : CHROME_ICONS.filter} size="0.85em" />
+          <SolidIcon name={expanded ? SOLID_CHROME_ICONS.chevronUp : SOLID_CHROME_ICONS.filter} size="0.85em" />
         </button>
         {hasActiveFilter && (
           <button

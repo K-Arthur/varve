@@ -17,7 +17,7 @@ import type {
   ManagedColor,
 } from '@strata/scene';
 import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import { Icon, Select } from '@strata/ui';
 import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
 
@@ -227,64 +227,46 @@ export function GradientEditor({
       <div className="insp-field">
         <span className="insp-field__label">Type</span>
         <div className="insp-field__control">
-          <select
-            aria-label="Gradient type"
+          <Select
+            label="Gradient type"
             value={gradient.type}
-            className="gradient-editor__select"
-            onChange={(e) => onChange({ ...gradient, type: e.target.value as GradientType })}
-          >
-            {GRADIENT_TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
+            options={GRADIENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+            onChange={(v) => onChange({ ...gradient, type: v as GradientType })}
+          />
         </div>
       </div>
 
       <div className="insp-field">
         <span className="insp-field__label">Interpolation</span>
         <div className="insp-field__control">
-          <select
-            aria-label="Gradient interpolation space"
+          <Select
+            label="Gradient interpolation space"
             value={gradient.interpolationSpace ?? 'oklab'}
-            className="gradient-editor__select"
-            onChange={(e) =>
+            options={INTERPOLATION_SPACES.map((s) => ({ value: s.value, label: s.label }))}
+            onChange={(v) =>
               onChange({
                 ...gradient,
-                interpolationSpace: e.target.value as GradientFill['interpolationSpace'],
+                interpolationSpace: v as GradientFill['interpolationSpace'],
               })
             }
-          >
-            {INTERPOLATION_SPACES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
       <div className="insp-field">
         <span className="insp-field__label">Tiling</span>
         <div className="insp-field__control">
-          <select
-            aria-label="Gradient tiling mode"
+          <Select
+            label="Gradient tiling mode"
             value={gradient.tilingMode ?? 'none'}
-            className="gradient-editor__select"
-            onChange={(e) =>
+            options={TILING_MODES.map((m) => ({ value: m.value, label: m.label }))}
+            onChange={(v) =>
               onChange({
                 ...gradient,
-                tilingMode: e.target.value as GradientTilingMode,
+                tilingMode: v as GradientTilingMode,
               })
             }
-          >
-            {TILING_MODES.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 

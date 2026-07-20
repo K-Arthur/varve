@@ -5,6 +5,15 @@ vi.mock('../../context', () => ({
   useEditor: vi.fn(),
 }));
 
+vi.mock('@floating-ui/dom', () => ({
+  computePosition: vi.fn(() => Promise.resolve({ x: 0, y: 0 })),
+  autoUpdate: vi.fn(() => vi.fn()),
+  flip: vi.fn(),
+  shift: vi.fn(),
+  offset: vi.fn(),
+  size: vi.fn(),
+}));
+
 import { useEditor } from '../../context';
 import { MasterPanel } from './MasterPanel';
 
@@ -118,7 +127,7 @@ describe('MasterPanel', () => {
     render(<MasterPanel />);
     const select = screen.getByLabelText(/Apply to pages/);
     expect(select).toBeDefined();
-    expect((select as HTMLSelectElement).value).toBe('all');
+    expect(select).toHaveTextContent('All pages');
   });
 
   it('calls setMasterAppliesTo when select changes', () => {
@@ -137,7 +146,8 @@ describe('MasterPanel', () => {
       setMasterAppliesTo,
     });
     render(<MasterPanel />);
-    fireEvent.change(screen.getByLabelText(/Apply to pages/), { target: { value: 'left' } });
+    fireEvent.click(screen.getByLabelText(/Apply to pages:/));
+    fireEvent.click(screen.getByRole('option', { name: /left pages/i }));
     expect(setMasterAppliesTo).toHaveBeenCalledWith('m1', 'left');
   });
 

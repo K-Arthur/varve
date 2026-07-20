@@ -60,6 +60,47 @@ export const TOOL_ICONS = {
   adjustment: 'SlidersHorizontal',
 } as const satisfies Record<string, IconName>;
 
+/** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
+export const SOLID_TOOL_ICONS = {
+  select: 'Cursor',
+  frame: 'SquareOffset',
+  rect: 'Square',
+  ellipse: 'Circle',
+  polygon: 'Triangle',
+  star: 'Star',
+  line: 'Minus',
+  pen: 'Pen',
+  pencil: 'PencilSimple',
+  text: 'TextT',
+  image: 'Image',
+  component: 'PuzzlePiece',
+  group: 'Folder',
+  union: 'ArrowsOut',
+  subtract: 'CaretLeft',
+  slice: 'Scissors',
+  hand: 'Hand',
+  zoomIn: 'ZoomIn',
+  zoom: 'ZoomIn',
+  arrow: 'ArrowUpRight',
+  nodeEdit: 'Cursor',
+  scale: 'ArrowsOut',
+  eyedropper: 'Eyedropper',
+  booleanUnion: 'ArrowsOut',
+  booleanSubtract: 'Minus',
+  booleanIntersect: 'ArrowsIn',
+  booleanExclude: 'XCircle',
+  inspect: 'MagnifyingGlass',
+  paint: 'PaintBrush',
+  eraser: 'Eraser',
+  cloneStamp: 'Stamp',
+  healBrush: 'PaintBrush',
+  spotHeal: 'PaintBrush',
+  patch: 'SquareOffset',
+  refineMask: 'PaintBrush',
+  trimapEdit: 'PaintBrush',
+  adjustment: 'Faders',
+} as const satisfies Record<string, SolidIconName>;
+
 /** General chrome icons. */
 export const CHROME_ICONS = {
   menu: 'Menu',

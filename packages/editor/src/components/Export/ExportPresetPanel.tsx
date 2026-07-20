@@ -8,6 +8,7 @@
  */
 
 import type { ExportFormat, ExportPreset, SceneNode } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { useState } from 'react';
 
 import './export-preset-panel.css';
@@ -82,34 +83,26 @@ export function ExportPresetPanel({
         ))}
 
         <div className="export-preset-panel__add-row">
-          <select
+          <Select
+            label="Format"
             value={selectedFormat}
-            onChange={(e) => setSelectedFormat(e.target.value as ExportFormat)}
-            aria-label="Format"
-            className="export-preset-panel__select"
-          >
-            {(
-              [
-                ['png', 'PNG'],
-                ['jpg', 'JPEG'],
-                ['webp', 'WebP'],
-                ['avif', 'AVIF'],
-                ['svg', 'SVG'],
-                ['pdf-screen', 'PDF (Screen)'],
-                ['pdf-x1a', 'PDF/X-1a'],
-                ['pdf-x4', 'PDF/X-4'],
-                ['react-tailwind', 'React + Tailwind'],
-                ['react-cssmodules', 'React + CSS Modules'],
-                ['flutter', 'Flutter'],
-                ['swiftui', 'SwiftUI'],
-                ['svg-component', 'SVG Component'],
-              ] as [ExportFormat, string][]
-            ).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: 'png', label: 'PNG' },
+              { value: 'jpg', label: 'JPEG' },
+              { value: 'webp', label: 'WebP' },
+              { value: 'avif', label: 'AVIF' },
+              { value: 'svg', label: 'SVG' },
+              { value: 'pdf-screen', label: 'PDF (Screen)' },
+              { value: 'pdf-x1a', label: 'PDF/X-1a' },
+              { value: 'pdf-x4', label: 'PDF/X-4' },
+              { value: 'react-tailwind', label: 'React + Tailwind' },
+              { value: 'react-cssmodules', label: 'React + CSS Modules' },
+              { value: 'flutter', label: 'Flutter' },
+              { value: 'swiftui', label: 'SwiftUI' },
+              { value: 'svg-component', label: 'SVG Component' },
+            ]}
+            onChange={(v) => setSelectedFormat(v as ExportFormat)}
+          />
           <button
             type="button"
             onClick={handleAdd}
