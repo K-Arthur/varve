@@ -238,7 +238,7 @@ function DrawingToolbarControls() {
           aria-label="Swap colors"
           title="Swap colors (X)"
         >
-           <SolidIcon name="ArrowDownUp" size={12} />
+           <SolidIcon name="ArrowsDownUp" size={12} />
         </button>
         <label className="floating-toolbar__color-swatch" title="Background color">
           <input
@@ -372,7 +372,7 @@ export function FloatingToolbar() {
                     }
                   }}
                 >
-                   <SolidIcon name={iconName(currentBoolean)} size={16} />
+                  <SolidIcon name={iconName(currentBoolean)} size={16} />
                 </button>
               </Tooltip>
               <button

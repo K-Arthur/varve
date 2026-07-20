@@ -214,7 +214,10 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
         aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
         aria-pressed={node.locked}
       >
-        <SolidIcon name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock} size="0.85em" />
+        <SolidIcon
+          name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock}
+          size="0.85em"
+        />
       </button>
     </div>
   );

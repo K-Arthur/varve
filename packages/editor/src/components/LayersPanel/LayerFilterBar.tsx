@@ -128,7 +128,10 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
           aria-expanded={expanded}
           aria-label={expanded ? 'Hide filter options' : 'Show filter options'}
         >
-          <SolidIcon name={expanded ? SOLID_CHROME_ICONS.chevronUp : SOLID_CHROME_ICONS.filter} size="0.85em" />
+          <SolidIcon
+            name={expanded ? SOLID_CHROME_ICONS.chevronUp : SOLID_CHROME_ICONS.filter}
+            size="0.85em"
+          />
         </button>
         {hasActiveFilter && (
           <button
