@@ -17,6 +17,7 @@ import type {
   VariableValue,
 } from '@strata/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
+import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
@@ -198,11 +199,14 @@ export interface EditorState {
   selectedGuideId: string | null;
   currentPageId: string | null;
   /** Isolation/focus view: when set, the layers panel shows only this
-   * container's subtree. A view-mode flag, not a document mutation — not
-   * part of undo/redo history. */
+   *  container's subtree. A view-mode flag, not a document mutation — not
+   *  part of undo/redo history. */
   isolatedNodeId: NodeId | null;
   showOriginalBgNodeId: NodeId | null;
   maskPreviewMode: MaskPreviewMode;
+  /** Per-section collapse/hidden state for Inspector panels. Persisted in
+   *  localStorage via EditorSettings. Not part of document undo/redo. */
+  sectionVisibility: SectionVisibilityState;
   refineMaskOptions: {
     brushSize: number;
     hardness: number;
@@ -325,6 +329,14 @@ export interface EditorContextValue {
   toggleDistractionFreeMode: () => void;
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   resetWorkspaceToDefault: () => void;
+  // Section visibility
+  toggleSectionCollapse: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  hideInspectorSection: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  showInspectorSection: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  showAllInspectorSections: () => void;
+  restoreDefaultSectionState: () => void;
+  restoreDefaultCollapsed: () => void;
+  hideOptionalSections: () => void;
   // Selection
   setSelection: (id: NodeId | null) => void;
   toggleSelection: (id: NodeId, additive?: boolean) => void;
@@ -412,6 +424,15 @@ export interface EditorContextValue {
     target: string,
     binding: import('@strata/scene').PropertyBinding | null,
   ) => void;
+  /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
+  trimToSubject: (padding?: number) => Promise<void>;
+  /** Expand image bounds by adding transparent space around the content. */
+  expandImageBounds: (
+    padding: number,
+    sides?: { top?: number; right?: number; bottom?: number; left?: number },
+  ) => void;
+  /** Reset image node to source image natural dimensions. */
+  resetImageBounds: () => void;
   beginTransaction: () => void;
   commitTransaction: () => void;
   abortTransaction: () => void;
