@@ -182,78 +182,8 @@
   padding: var(--space-1);
 }
 
-/* ---------- Frame presets (Figma model) ---------- */
-.frame-presets {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.frame-presets__group-label {
-  margin: 0 0 var(--space-1);
-  font-size: var(--font-size-2xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--color-text-muted);
-}
-.frame-presets__grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-1);
-}
-.frame-presets__item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  background: var(--color-surface-sunken);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  text-align: left;
-  color: var(--color-text-primary);
-  transition:
-    background var(--duration-quick) var(--ease-standard),
-    border-color var(--duration-quick) var(--ease-standard);
-  min-width: 0;
-}
-.frame-presets__item:hover {
-  border-color: var(--color-border-focus);
-  background: var(--color-surface-hover);
-}
-.frame-presets__item:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -1px;
-}
-.frame-presets__preview {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  flex-shrink: 0;
-}
-.frame-presets__preview-box {
-  display: block;
-  background: var(--color-surface-app);
-  border: 1px solid var(--color-border-strong);
-  border-radius: 1px;
-}
-.frame-presets__name {
-  flex: 1;
-  min-width: 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.frame-presets__size {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  flex-shrink: 0;
-  font-feature-settings: "tnum";
-}
+/* Frame presets now render via @strata/ui's PresetPicker/PresetTile
+ * (preset-picker.css) — see FramePresetsSection.tsx. */
 
 /* ---------- Disclosure section (APG) — flat Figma-style ----------
  * Sections are full-width rows with a hairline bottom border.
