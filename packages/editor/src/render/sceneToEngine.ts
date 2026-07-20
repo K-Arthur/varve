@@ -26,11 +26,14 @@ import {
   resolveRasterMaskAsset,
 } from '@strata/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from '@strata/shared';
+import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { nodeWorldTransform } from '../scene/world';
 
 export interface SceneNodeConversionOptions {
   /** Preview-only bypass for comparing a background-removal source image. */
   showOriginalBackgroundNodeId?: string | null;
+  /** Use the bounded interactive proxy while preserving full-resolution exports. */
+  useMaskRenderProxy?: boolean;
 }
 
 /**
@@ -79,6 +82,7 @@ export function sceneNodeToEngineNode(
     // shape directly, so no special case is needed here.
     const shapeless = 'shapeless' in node && node.shapeless === true;
     const nativeRasterMask = doc ? resolveRasterMaskAsset(doc, node) : null;
+    const alphaMask = nativeRasterMask?.dataUrl ?? node.backgroundRemoval?.maskDataUrl;
     return {
       ...base,
       shape: node.shape,
@@ -88,7 +92,9 @@ export function sceneNodeToEngineNode(
       alphaMask:
         options.showOriginalBackgroundNodeId === node.id
           ? undefined
-          : (nativeRasterMask?.dataUrl ?? node.backgroundRemoval?.maskDataUrl),
+          : alphaMask && options.useMaskRenderProxy
+            ? maskRenderUrl(alphaMask)
+            : alphaMask,
     };
   }
 

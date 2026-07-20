@@ -178,6 +178,7 @@ export function toEngineNode(node: SceneNode, doc: Document): EngineNode {
     node,
     {
       showOriginalBackgroundNodeId: _showOriginalBgNodeId,
+      useMaskRenderProxy: true,
     },
     doc,
   );
