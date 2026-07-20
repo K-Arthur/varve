@@ -8,15 +8,14 @@
  *   text  → {w,h}
  *   group → no-op (bounds derived from children)
  *
- * Images: resizing a shape with an image fill preserves the image
- * content size by adjusting the fill scale inversely to the bounds
- * change, rather than stretching the image with the bounds.
+ * Images: by default, resizing scales the image fill with the bounds
+ * (like Figma).  To clip/reveal without distortion, use the Crop tool
+ * (shortcut: C) which lets you resize bounds in `crop` mode.
  *
  * Research basis: Figma multi-type resize, Sketch Resizing.
  */
 
 import type { PathPoint } from '@strata/engine';
-import { computeImagePlacement } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 
 export function resizeNodeGeometry(n: SceneNode, w: number, h: number): SceneNode {
@@ -25,60 +24,8 @@ export function resizeNodeGeometry(n: SceneNode, w: number, h: number): SceneNod
   if (n.kind !== 'shape') return n;
   const s = (n as ShapeNode).shape;
   switch (s.kind) {
-    case 'rect': {
-      // When a shape has an image fill in `fill` or `stretch` mode,
-      // resizing the bounds would normally distort the image content.
-      // Preserve content by computing what display size `fill` mode
-      // would produce at the old bounds, then switch to `crop` mode
-      // at that same scale so the image stays visually unchanged
-      // (only the clip region changes).
-      const node = n as ShapeNode;
-      const imgFill = node.fills?.find((f) => f.type === 'image');
-      const img = imgFill?.image;
-      if (img && (img.fit === 'fill' || img.fit === 'stretch')) {
-        const sourceW = img.imageWidth ?? s.w;
-        const sourceH = img.imageHeight ?? s.h;
-        const oldW = s.w;
-        const oldH = s.h;
-        if (oldW > 0 && oldH > 0 && sourceW > 0 && sourceH > 0) {
-          const oldPlacement = computeImagePlacement({
-            fit: img.fit,
-            sourceWidth: sourceW,
-            sourceHeight: sourceH,
-            bounds: { x: 0, y: 0, w: oldW, h: oldH },
-            x: img.x,
-            y: img.y,
-            scale: img.scale,
-          });
-          if (oldPlacement && oldPlacement.drawRect.w > 0 && oldPlacement.drawRect.h > 0) {
-            // Switch to crop mode at the old fill-mode display scale,
-            // keeping the content visually unchanged — the new bounds
-            // just clip/reveal more of it.
-            const newScale = oldPlacement.drawRect.w / sourceW;
-            // Preserve the centering offset that fill mode was using:
-            // fill mode centered the image = (bounds.w - drawWidth)/2
-            // Use that offset in crop mode so the image doesn't jump.
-            const prevCenterX = (oldW - oldPlacement.drawRect.w) / 2;
-            const prevCenterY = (oldH - oldPlacement.drawRect.h) / 2;
-            const fills = node.fills?.map((f) => {
-              if (f.type !== 'image' || !f.image) return f;
-              return {
-                ...f,
-                image: {
-                  ...f.image,
-                  scale: newScale,
-                  fit: 'crop' as const,
-                  x: prevCenterX,
-                  y: prevCenterY,
-                },
-              };
-            });
-            return { ...n, shape: { ...s, w, h }, fills } as SceneNode;
-          }
-        }
-      }
+    case 'rect':
       return { ...n, shape: { ...s, w, h } } as SceneNode;
-    }
     case 'ellipse':
       return {
         ...n,

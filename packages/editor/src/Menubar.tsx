@@ -287,6 +287,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         action: 'releaseClippingMask',
       },
       { label: 'Remove Background...', action: 'batchBgRemove' },
+      {
+        label: 'Crop Image',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toolCrop.binding),
+        action: 'toolCrop',
+      },
       { label: 'Extract Palette', action: 'extractPalette' },
       { label: '---' },
       { label: 'Audit', action: 'runAudit' },
