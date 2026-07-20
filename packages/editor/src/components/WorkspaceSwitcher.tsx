@@ -14,7 +14,6 @@ import { useEditor } from '../context';
 import { useWorkspaceSwitcher } from '../workspace/useWorkspace';
 import {
   ALL_WORKSPACE_MODES,
-  WORKSPACE_ICONS,
   WORKSPACE_LABELS,
   WORKSPACE_SHORTCUTS,
   type WorkspaceMode,
@@ -34,7 +33,6 @@ function ModeButton({
   isActive: boolean;
   onSwitch: (mode: WorkspaceMode) => void;
 }) {
-  const icon = WORKSPACE_ICONS[mode];
   const label = WORKSPACE_LABELS[mode];
   const shortcut = WORKSPACE_SHORTCUTS[mode];
 
@@ -42,16 +40,15 @@ function ModeButton({
     onSwitch(mode);
   }, [mode, onSwitch]);
 
-  // Map Lucide icon names to SolidIcon names
-  const solidIconMap: Record<string, keyof typeof SOLID_CHROME_ICONS> = {
-    layoutGrid: 'layoutGrid',
-    fileText: 'fileText',
-    pencilSimple: 'pencilSimple',
+  // Direct mapping from workspace mode to SolidIcon name
+  const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> = {
+    design: 'penTool',
+    print: 'printer',
+    drawing: 'paintBrush',
     image: 'image',
+    motion: 'play',
   };
-
-  // Fallback for icons not in SOLID_CHROME_ICONS - use layoutGrid as default
-  const solidIcon = solidIconMap[icon] || 'layoutGrid';
+  const solidIcon = WORKSPACE_SOLID_ICONS[mode];
 
   return (
     <Tooltip label={`${label} (${shortcut})`}>
@@ -62,7 +59,7 @@ function ModeButton({
         aria-label={`${label} workspace`}
         onClick={handleClick}
       >
-        <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={14} />
+        <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={16} />
         <span className="workspace-switcher__label">{label}</span>
       </button>
     </Tooltip>

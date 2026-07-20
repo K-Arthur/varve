@@ -1,0 +1,117 @@
+/* ── Combined Preview ────────────────────────────────────────────────────── */
+
+.combined-preview {
+  margin-top: var(--space-3);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-3);
+}
+
+.combined-preview__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+}
+
+.combined-preview__count {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.combined-preview__bg-selector {
+  display: flex;
+  gap: 2px;
+}
+
+.combined-preview__bg-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+.combined-preview__bg-btn:hover {
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-primary);
+}
+.combined-preview__bg-btn--active {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-primary);
+  border-color: var(--color-accent-primary);
+}
+
+.combined-preview__canvas-container {
+  position: relative;
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  cursor: ew-resize;
+  user-select: none;
+}
+
+.combined-preview__canvas {
+  display: block;
+  width: 100%;
+}
+
+.combined-preview__comparison {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.combined-preview__original {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.combined-preview__slider {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.combined-preview__slider-line {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 100%;
+  background: var(--color-accent-primary);
+  transform: translateX(-50%);
+}
+
+.combined-preview__slider-handle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--color-accent-primary);
+  color: var(--color-on-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}

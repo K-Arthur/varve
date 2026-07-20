@@ -605,6 +605,7 @@ function ShellInner({
             session={editor.state.subjectPickerSession}
             onConfirm={(keepIds) => editor.confirmSubjectPicker(keepIds)}
             onCancel={() => editor.cancelSubjectPicker()}
+            onHighlight={(id) => editor.patch({ subjectHighlightId: id })}
           />
         )}
 

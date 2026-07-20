@@ -15,7 +15,7 @@
 
 import type { PathPoint, Shape } from '@strata/engine';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import { applyConstraints, defaultConstraints, getParent } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
 import {
   applyAffine,
@@ -69,6 +69,16 @@ export class TransformEngine {
 
   getInitialBox(): SelectionBox {
     return this.initialBox;
+  }
+
+  /** True when every selected node is a raster (image/pattern fill) node. */
+  isAllRaster(): boolean {
+    if (this.selectedIds.length === 0) return false;
+    for (const id of this.selectedIds) {
+      const state = this.initialStates.get(id);
+      if (!state?.isRaster) return false;
+    }
+    return true;
   }
 
   getBox(doc: Document = this.doc): SelectionBox {
@@ -189,58 +199,116 @@ export class TransformEngine {
         : newWorld;
       let node = newDoc.nodes[id];
       if (!node) continue;
-      node = bake ? this.bakeNode(node, newLocal) : { ...node, transform: newLocal, rotation: 0 };
-      newDoc = { ...newDoc, nodes: { ...newDoc.nodes, [id]: node } };
+      if (bake) {
+        const baked = this.bakeNode(node, newLocal, newDoc);
+        newDoc = { ...newDoc, nodes: { ...newDoc.nodes, ...baked.nodeUpdates } };
+      } else {
+        newDoc = { ...newDoc, nodes: { ...newDoc.nodes, [id]: { ...node, transform: newLocal, rotation: 0 } as SceneNode } };
+      }
     }
     return newDoc;
   }
 
-  private bakeNode(node: SceneNode, localTransform: Affine): SceneNode {
+  private bakeNode(
+    node: SceneNode,
+    localTransform: Affine,
+    currentDoc: Document,
+  ): { nodeUpdates: Record<NodeId, SceneNode> } {
+    const updates: Record<NodeId, SceneNode> = {};
+
     if (node.kind === 'text') {
-      // Corner-resizing a text node scales font size proportionally.
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
         const { translateX, translateY, rotation, scaleX, scaleY } = decomposed;
         const avgScale = Math.max((scaleX + scaleY) / 2, 0.01);
-        return {
+        updates[node.id] = {
           ...node,
           transform: [1, 0, 0, 1, translateX, translateY] as Affine,
           rotation,
           fontSize: Math.max((node.fontSize ?? 16) * avgScale, 1),
-        };
+        } as SceneNode;
+        return { nodeUpdates: updates };
       }
-      // Fall through to raw local transform if TRS extraction fails
     }
-    if (node.kind === 'shape' && !this.isRasterNode(node)) {
+
+    if (node.kind === 'shape') {
       const shapeNode = node as ShapeNode;
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
         const { translateX, translateY, rotation, scaleX, scaleY } = decomposed;
         const baked = this.scaleShape(shapeNode.shape, scaleX, scaleY);
         if (baked) {
-          return {
+          updates[node.id] = {
             ...shapeNode,
             transform: [1, 0, 0, 1, translateX, translateY] as Affine,
             rotation,
             shape: baked,
-          };
+          } as SceneNode;
+          return { nodeUpdates: updates };
         }
       }
     }
+
     if (node.kind === 'frame') {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
         const { translateX, translateY, scaleX, scaleY } = decomposed;
-        return {
+        const oldW = node.w ?? 0;
+        const oldH = node.h ?? 0;
+        const newW = oldW * scaleX;
+        const newH = oldH * scaleY;
+
+        updates[node.id] = {
           ...node,
           transform: [1, 0, 0, 1, translateX, translateY] as Affine,
           rotation: decomposed.rotation,
-          w: (node.w ?? 0) * scaleX,
-          h: (node.h ?? 0) * scaleY,
-        };
+          w: newW,
+          h: newH,
+        } as SceneNode;
+
+        // Apply child constraints when the frame has changed dimensions
+        // and has children with constraint settings.
+        if (oldW > 0 && oldH > 0 && node.children && node.children.length > 0) {
+          for (const childId of node.children) {
+            const child = currentDoc.nodes[childId];
+            if (!child) continue;
+            const cs = child.constraints;
+            if (!cs) continue; // No constraints → child stays in place
+            const childBounds = nodeLocalBounds(child, currentDoc);
+            if (!childBounds) continue;
+            const childTransform = child.transform as Affine;
+            const childX = childTransform[4] + childBounds.x;
+            const childY = childTransform[5] + childBounds.y;
+
+            const result = applyConstraints(
+              cs,
+              { x: childX, y: childY, w: childBounds.w, h: childBounds.h },
+              oldW,
+              oldH,
+              newW,
+              newH,
+            );
+
+            updates[childId] = {
+              ...child,
+              transform: [
+                child.transform[0],
+                child.transform[1],
+                child.transform[2],
+                child.transform[3],
+                result.x,
+                result.y,
+              ] as Affine,
+            } as SceneNode;
+          }
+        }
+
+        return { nodeUpdates: updates };
       }
     }
-    return { ...node, transform: localTransform, rotation: 0 };
+
+    updates[node.id] = { ...node, transform: localTransform, rotation: 0 } as SceneNode;
+    return { nodeUpdates: updates };
   }
 
   private extractTRS(m: Affine): {

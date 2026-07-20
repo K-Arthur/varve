@@ -390,4 +390,7 @@ export const SOLID_CHROME_ICONS = {
   notepad: 'Notepad',
   clipboard: 'Clipboard',
   clipboardText: 'ClipboardText',
+  printer: 'Printer',
+  play: 'Play',
+  penTool: 'Pen',
 } as const satisfies Record<string, SolidIconName>;

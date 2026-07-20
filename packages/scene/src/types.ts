@@ -408,7 +408,7 @@ export interface GradientFill {
 }
 
 /** How an image fill is sized relative to the node bounds. */
-export type ImageFit = 'fill' | 'fit' | 'stretch' | 'tile';
+export type ImageFit = 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
 
 export interface ImageFillData {
   /** Image source: data URL, file path, or asset id. Stub until asset system lands. */

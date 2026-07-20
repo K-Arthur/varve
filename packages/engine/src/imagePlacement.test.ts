@@ -5,7 +5,12 @@
  * affine coordinate mappings used by non-destructive raster mask editors.
  */
 import { describe, expect, it } from 'vitest';
-import { computeImagePlacement, localToSourcePixel, sourcePixelToLocal } from './imagePlacement';
+import {
+  computeImagePlacement,
+  type ImagePlacementFit,
+  localToSourcePixel,
+  sourcePixelToLocal,
+} from './imagePlacement';
 
 const BOUNDS = { x: 0, y: 0, w: 800, h: 800 };
 
@@ -149,5 +154,120 @@ describe('computeImagePlacement', () => {
     // after mapping a billion pixels through a 0.001-local-unit destination.
     expect(Math.abs(restored!.x - source.x)).toBeLessThan(0.00001);
     expect(restored!.y).toBeCloseTo(source.y, 9);
+  });
+});
+
+describe('computeImagePlacement — crop mode', () => {
+  const SOURCE = { width: 4000, height: 3000 };
+  const BOUNDS = { x: 0, y: 0, w: 800, h: 800 };
+
+  it('renders at natural size × scale, offset by x/y', () => {
+    const placement = computeImagePlacement({
+      fit: 'crop',
+      sourceWidth: SOURCE.width,
+      sourceHeight: SOURCE.height,
+      bounds: BOUNDS,
+      x: -200,
+      y: -100,
+      scale: 1,
+    });
+    expect(placement).not.toBeNull();
+    // Source image draws at 4000×3000 starting at (-200, -100)
+    expect(placement!.drawRect).toEqual({ x: -200, y: -100, w: 4000, h: 3000 });
+  });
+
+  it('scales the source image with scale factor', () => {
+    const placement = computeImagePlacement({
+      fit: 'crop',
+      sourceWidth: SOURCE.width,
+      sourceHeight: SOURCE.height,
+      bounds: BOUNDS,
+      x: 0,
+      y: 0,
+      scale: 0.5,
+    });
+    expect(placement).not.toBeNull();
+    // 4000*0.5 = 2000, 3000*0.5 = 1500
+    expect(placement!.drawRect).toEqual({ x: 0, y: 0, w: 2000, h: 1500 });
+  });
+
+  it('bounds change does not affect draw size (crop window stable)', () => {
+    const opts = {
+      fit: 'crop' as ImagePlacementFit,
+      sourceWidth: SOURCE.width,
+      sourceHeight: SOURCE.height,
+      x: -100,
+      y: -50,
+      scale: 1,
+    };
+    const smallBounds = { x: 0, y: 0, w: 400, h: 300 };
+    const largeBounds = { x: 0, y: 0, w: 1600, h: 1200 };
+
+    const small = computeImagePlacement({ ...opts, bounds: smallBounds });
+    const large = computeImagePlacement({ ...opts, bounds: largeBounds });
+
+    // Both have the same draw rect (same crop window)
+    expect(small!.drawRect).toEqual(large!.drawRect);
+    // But different bounds (clipping changes)
+    expect(small!.bounds).toEqual(smallBounds);
+    expect(large!.bounds).toEqual(largeBounds);
+  });
+
+  it('applies offset relative to bounds origin', () => {
+    const placement = computeImagePlacement({
+      fit: 'crop',
+      sourceWidth: SOURCE.width,
+      sourceHeight: SOURCE.height,
+      bounds: { x: 100, y: 50, w: 800, h: 800 },
+      x: -300,
+      y: -200,
+      scale: 1,
+    });
+    expect(placement).not.toBeNull();
+    // drawRect.x = bounds.x + offsetX = 100 + (-300) = -200
+    // drawRect.y = bounds.y + offsetY = 50 + (-200) = -150
+    expect(placement!.drawRect).toEqual({ x: -200, y: -150, w: 4000, h: 3000 });
+  });
+
+  it('round-trips visible source pixels local ↔ source', () => {
+    const placement = computeImagePlacement({
+      fit: 'crop',
+      sourceWidth: SOURCE.width,
+      sourceHeight: SOURCE.height,
+      bounds: BOUNDS,
+      x: 0,
+      y: 0,
+      scale: 0.25,
+    });
+    expect(placement).not.toBeNull();
+    // With scale=0.25: drawRect is w=1000, h=750
+    // Source pixel (2000, 1500) maps to local (500, 375)
+    const local = sourcePixelToLocal(placement!, { x: 2000, y: 1500 });
+    expect(local).not.toBeNull();
+    expect(local!.x).toBeCloseTo(500, 5);
+    expect(local!.y).toBeCloseTo(375, 5);
+
+    const restored = localToSourcePixel(placement!, local!);
+    expect(restored!.x).toBeCloseTo(2000, 5);
+    expect(restored!.y).toBeCloseTo(1500, 5);
+  });
+
+  it('returns null for invalid inputs', () => {
+    expect(
+      computeImagePlacement({
+        fit: 'crop',
+        sourceWidth: 0,
+        sourceHeight: 10,
+        bounds: BOUNDS,
+      }),
+    ).toBeNull();
+    expect(
+      computeImagePlacement({
+        fit: 'crop',
+        sourceWidth: 10,
+        sourceHeight: 0,
+        bounds: BOUNDS,
+      }),
+    ).toBeNull();
   });
 });

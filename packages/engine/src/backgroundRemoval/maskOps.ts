@@ -253,13 +253,38 @@ export interface MaskComponent {
   id: number;
   pixelCount: number;
   bbox: MaskComponentBBox;
+  /** Mean mask intensity within this component (0–1 scale). */
+  confidence: number;
+  /** Fraction of total image pixels this component occupies. */
+  relativeArea: number;
+  /** Centroid of foreground pixels in mask-pixel coordinates. */
+  centerOfMass: { x: number; y: number };
+  /** Number of foreground pixels adjacent to at least one background pixel. */
+  edgePixelCount: number;
+  /** True if this is the largest component by pixel count. */
+  isLargest: boolean;
+  /** If this component was formed by merging smaller components, their original IDs. */
+  mergedFrom?: number[];
 }
 
 const FG_THRESHOLD = 128;
 
+interface ComponentAccumulator {
+  count: number;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  sumX: number;
+  sumY: number;
+  sumMaskValue: number;
+  edgeCount: number;
+}
+
 /**
  * 8-connected component labeling on a binary/soft mask.
- * Returns components sorted by pixel count descending.
+ * Returns components sorted by pixel count descending with stable IDs
+ * assigned by spatial position (top-to-bottom, left-to-right reading order).
  */
 export function findConnectedComponents(
   mask: Uint8Array,
@@ -271,10 +296,7 @@ export function findConnectedComponents(
 
   const labels = new Int32Array(width * height);
   let nextId = 1;
-  const components = new Map<
-    number,
-    { count: number; minX: number; minY: number; maxX: number; maxY: number }
-  >();
+  const components = new Map<number, ComponentAccumulator>();
 
   const idx = (x: number, y: number) => y * width + x;
   const neighbors8 = [
@@ -300,16 +322,41 @@ export function findConnectedComponents(
       let minY = y;
       let maxX = x;
       let maxY = y;
+      let sumX = 0;
+      let sumY = 0;
+      let sumMaskValue = 0;
+      let edgeCount = 0;
 
       while (stack.length > 0) {
         const cur = stack.pop()!;
         const cy = Math.floor(cur / width);
         const cx = cur - cy * width;
+        const mv = mask[cur] ?? 0;
         count++;
+        sumX += cx;
+        sumY += cy;
+        sumMaskValue += mv;
         if (cx < minX) minX = cx;
         if (cy < minY) minY = cy;
         if (cx > maxX) maxX = cx;
         if (cy > maxY) maxY = cy;
+
+        // Check if this pixel is an edge pixel (has at least one background neighbor)
+        let isEdge = false;
+        for (const [dx, dy] of neighbors8) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+            isEdge = true;
+            break;
+          }
+          const ni = idx(nx, ny);
+          if ((mask[ni] ?? 0) < threshold) {
+            isEdge = true;
+            break;
+          }
+        }
+        if (isEdge) edgeCount++;
 
         for (const [dx, dy] of neighbors8) {
           const nx = cx + dx;
@@ -328,11 +375,16 @@ export function findConnectedComponents(
         minY,
         maxX,
         maxY,
+        sumX,
+        sumY,
+        sumMaskValue,
+        edgeCount,
       });
       nextId++;
     }
   }
 
+  const totalPixels = width * height;
   const result: MaskComponent[] = [];
   for (const [id, c] of components) {
     result.push({
@@ -344,9 +396,20 @@ export function findConnectedComponents(
         w: c.maxX - c.minX + 1,
         h: c.maxY - c.minY + 1,
       },
+      confidence: c.count > 0 ? c.sumMaskValue / (c.count * 255) : 0,
+      relativeArea: totalPixels > 0 ? c.count / totalPixels : 0,
+      centerOfMass: {
+        x: c.count > 0 ? c.sumX / c.count : c.minX,
+        y: c.count > 0 ? c.sumY / c.count : c.minY,
+      },
+      edgePixelCount: c.edgeCount,
+      isLargest: false,
     });
   }
   result.sort((a, b) => b.pixelCount - a.pixelCount);
+  if (result.length > 0 && result[0]) {
+    result[0].isLargest = true;
+  }
   return result;
 }
 
@@ -411,6 +474,154 @@ export function filterMaskByComponents(
     }
   }
   return result;
+}
+
+/**
+ * Merge components whose bounding boxes are close together or overlap.
+ * Returns a new component list with merged entries. Merged components
+ * record their original IDs in `mergedFrom` for transparency.
+ */
+export function mergeNearbyComponents(
+  components: MaskComponent[],
+  mask: Uint8Array,
+  width: number,
+  height: number,
+): MaskComponent[] {
+  if (components.length <= 1) return [...components];
+
+  const gapThreshold = Math.max(10, 0.02 * Math.max(width, height));
+  const maxCombinedAreaRatio = 0.8;
+  const totalPixels = width * height;
+
+  // Build adjacency: merge pairs whose bboxes are within gapThreshold
+  const merged = new Set<number>();
+  const result: MaskComponent[] = [];
+
+  for (let i = 0; i < components.length; i++) {
+    const ci = components[i]!;
+    if (merged.has(ci.id)) continue;
+
+    let current = { ...ci, mergedFrom: ci.mergedFrom ? [...ci.mergedFrom] : [] };
+
+    for (let j = i + 1; j < components.length; j++) {
+      const cj = components[j]!;
+      if (merged.has(cj.id)) continue;
+
+      // Compute gap between bounding boxes (0 if overlapping)
+      const gapX = Math.max(
+        0,
+        Math.max(
+          current.bbox.x - (cj.bbox.x + cj.bbox.w),
+          cj.bbox.x - (current.bbox.x + current.bbox.w),
+        ),
+      );
+      const gapY = Math.max(
+        0,
+        Math.max(
+          current.bbox.y - (cj.bbox.y + cj.bbox.h),
+          cj.bbox.y - (current.bbox.y + current.bbox.h),
+        ),
+      );
+      const gap = Math.sqrt(gapX * gapX + gapY * gapY);
+
+      // Centroid distance
+      const dx = current.centerOfMass.x - cj.centerOfMass.x;
+      const dy = current.centerOfMass.y - cj.centerOfMass.y;
+      const centroidDist = Math.sqrt(dx * dx + dy * dy);
+
+      // Max diagonal of either bbox
+      const diag1 = Math.sqrt(current.bbox.w * current.bbox.w + current.bbox.h * current.bbox.h);
+      const diag2 = Math.sqrt(cj.bbox.w * cj.bbox.w + cj.bbox.h * cj.bbox.h);
+      const maxDiag = Math.max(diag1, diag2);
+
+      const shouldMerge = gap <= gapThreshold && centroidDist <= 3 * maxDiag;
+
+      // Guard: don't merge if combined area would exceed 80% of image
+      const combinedRatio = (current.pixelCount + cj.pixelCount) / totalPixels;
+      if (shouldMerge && combinedRatio <= maxCombinedAreaRatio) {
+        // Merge cj into current
+        const newMinX = Math.min(current.bbox.x, cj.bbox.x);
+        const newMinY = Math.min(current.bbox.y, cj.bbox.y);
+        const newMaxX = Math.max(current.bbox.x + current.bbox.w, cj.bbox.x + cj.bbox.w);
+        const newMaxY = Math.max(current.bbox.y + current.bbox.h, cj.bbox.y + cj.bbox.h);
+        const newCount = current.pixelCount + cj.pixelCount;
+        const newX =
+          (current.centerOfMass.x * current.pixelCount + cj.centerOfMass.x * cj.pixelCount) /
+          newCount;
+        const newY =
+          (current.centerOfMass.y * current.pixelCount + cj.centerOfMass.y * cj.pixelCount) /
+          newCount;
+
+        current = {
+          ...current,
+          pixelCount: newCount,
+          bbox: { x: newMinX, y: newMinY, w: newMaxX - newMinX, h: newMaxY - newMinY },
+          confidence:
+            (current.confidence * current.pixelCount + cj.confidence * cj.pixelCount) / newCount,
+          relativeArea: newCount / totalPixels,
+          centerOfMass: { x: newX, y: newY },
+          edgePixelCount: current.edgePixelCount + cj.edgePixelCount,
+          mergedFrom: [...(current.mergedFrom ?? []), cj.id, ...(cj.mergedFrom ?? [])],
+        };
+        merged.add(cj.id);
+      }
+    }
+
+    result.push(current);
+  }
+
+  // Re-sort by pixel count descending and reassign spatially-stable IDs
+  result.sort((a, b) => b.pixelCount - a.pixelCount);
+  return assignStableIds(result);
+}
+
+/**
+ * Assign stable IDs based on spatial position (top-to-bottom, left-to-right reading order).
+ * This ensures "Subject 1" is always the top-left-most subject regardless of flood-fill order.
+ */
+export function assignStableIds(components: MaskComponent[]): MaskComponent[] {
+  const sorted = [...components].sort((a, b) => {
+    // Primary: top-to-bottom (centerOfMass.y)
+    const yDiff = a.centerOfMass.y - b.centerOfMass.y;
+    if (Math.abs(yDiff) > 5) return yDiff;
+    // Secondary: left-to-right (centerOfMass.x)
+    return a.centerOfMass.x - b.centerOfMass.x;
+  });
+
+  return sorted.map((c, i) => ({
+    ...c,
+    id: i + 1,
+    isLargest: i === 0,
+  }));
+}
+
+/**
+ * Extract a single-component mask where only the given component's pixels
+ * retain their original values (all other pixels zeroed). Useful for
+ * generating per-component thumbnails in the frontend.
+ */
+export function extractComponentMask(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  componentId: number,
+  threshold = FG_THRESHOLD,
+): Uint8Array {
+  return filterMaskByComponents(mask, width, height, new Set([componentId]), threshold);
+}
+
+/**
+ * Compute a union mask of all given components. Each pixel retains the
+ * maximum value across all selected component masks.
+ */
+export function unionComponentMasks(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  componentIds: ReadonlySet<number>,
+  threshold = FG_THRESHOLD,
+): Uint8Array {
+  return filterMaskByComponents(mask, width, height, componentIds, threshold);
 }
 
 /** Extract single-channel mask from RGBA ImageData (red channel; our mask PNGs store value in RGB). */

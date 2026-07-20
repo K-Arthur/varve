@@ -22,6 +22,7 @@ import { SegmentedControl } from '../controls/SegmentedControl';
 const FIT_OPTIONS: readonly { readonly value: ImageFit; readonly label: string }[] = [
   { value: 'fill', label: 'Fill' },
   { value: 'fit', label: 'Fit' },
+  { value: 'crop', label: 'Crop' },
   { value: 'stretch', label: 'Stretch' },
   { value: 'tile', label: 'Tile' },
 ];
