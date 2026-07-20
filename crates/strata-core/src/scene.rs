@@ -23,7 +23,7 @@ pub struct NodeId(pub u64);
 
 /// Mirrors the TS `BlendMode` discriminated union of 19 string literals.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum BlendMode {
     PassThrough,
     Normal,
@@ -246,6 +246,7 @@ pub enum Effect {
         spread: f64,
         color: EngineColor,
         opacity: f64,
+        #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
         visible: bool,
     },
@@ -257,6 +258,7 @@ pub enum Effect {
         spread: f64,
         color: EngineColor,
         opacity: f64,
+        #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
         visible: bool,
     },
@@ -270,6 +272,7 @@ pub enum Effect {
         spread: f64,
         color: EngineColor,
         opacity: f64,
+        #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
         visible: bool,
     },
@@ -279,6 +282,7 @@ pub enum Effect {
         spread: f64,
         color: EngineColor,
         opacity: f64,
+        #[serde(rename = "blendMode")]
         blend_mode: BlendMode,
         visible: bool,
     },
@@ -321,6 +325,7 @@ pub struct SceneNode {
     #[serde(default = "default_opacity")]
     pub opacity: f64,
     #[serde(default = "default_blend_mode")]
+    #[serde(rename = "blendMode")]
     pub blend_mode: BlendMode,
     #[serde(default)]
     pub rotation: f64,
@@ -540,5 +545,26 @@ mod tests {
     #[test]
     fn walk_nodes_empty_yields_empty() {
         assert!(walk_nodes(&[]).is_empty());
+    }
+}
+#[test]
+fn blend_modes_round_trip_with_typescript_camel_case_ids() {
+    let cases = [
+        ("passThrough", BlendMode::PassThrough),
+        ("colorDodge", BlendMode::ColorDodge),
+        ("colorBurn", BlendMode::ColorBurn),
+        ("hardLight", BlendMode::HardLight),
+        ("softLight", BlendMode::SoftLight),
+        ("plusDarker", BlendMode::PlusDarker),
+        ("plusLighter", BlendMode::PlusLighter),
+    ];
+    for (wire, expected) in cases {
+        let decoded: BlendMode =
+            serde_json::from_value(serde_json::json!(wire)).expect("deserialize blend mode");
+        assert_eq!(decoded, expected);
+        assert_eq!(
+            serde_json::to_value(decoded).expect("serialize blend mode"),
+            wire
+        );
     }
 }

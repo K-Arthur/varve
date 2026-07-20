@@ -30,6 +30,7 @@ pub struct RenderItem {
     #[serde(default = "default_opacity")]
     pub opacity: f64,
     #[serde(default = "default_blend_mode")]
+    #[serde(rename = "blendMode")]
     pub blend_mode: BlendMode,
     #[serde(default)]
     pub strokes: Vec<strata_core::Stroke>,

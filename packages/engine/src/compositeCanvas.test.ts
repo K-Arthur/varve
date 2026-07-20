@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { blendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 
 function makePixelData(r: number, g: number, b: number, a: number, w = 1, h = 1): ImageData {
@@ -59,6 +59,45 @@ describe('CompositeCanvas', () => {
     const cc = new CompositeCanvas({ width: 20, height: 20, testCanvas: canvas });
     const sc = new CompositeCanvas({ width: 20, height: 20, testCanvas: source });
     expect(() => cc.compositeBlend(sc, 'multiply', 1)).not.toThrow();
+  });
+
+  it('compositeBlend validates the mode before saving context state', () => {
+    const cc = new CompositeCanvas({
+      width: 20,
+      height: 20,
+      testCanvas: document.createElement('canvas'),
+    });
+    const sc = new CompositeCanvas({
+      width: 20,
+      height: 20,
+      testCanvas: document.createElement('canvas'),
+    });
+    const save = vi.spyOn(cc.ctx, 'save');
+
+    expect(() => cc.compositeBlend(sc, 'passThrough', 1)).toThrow(
+      'Blend mode is not available in Canvas2D: passThrough',
+    );
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('compositeBlend restores context state when drawing throws', () => {
+    const cc = new CompositeCanvas({
+      width: 20,
+      height: 20,
+      testCanvas: document.createElement('canvas'),
+    });
+    const sc = new CompositeCanvas({
+      width: 20,
+      height: 20,
+      testCanvas: document.createElement('canvas'),
+    });
+    const restore = vi.spyOn(cc.ctx, 'restore');
+    vi.spyOn(cc.ctx, 'drawImage').mockImplementation(() => {
+      throw new Error('draw failed');
+    });
+
+    expect(() => cc.compositeBlend(sc, 'multiply', 1)).toThrow('draw failed');
+    expect(restore).toHaveBeenCalledOnce();
   });
 
   it('compositePorterDuff applies operator', () => {
@@ -136,12 +175,9 @@ describe('blendPixels', () => {
 
     const result = blendPixels(backdrop, source, 'multiply', 1);
 
-    // With alpha 128/255, the compositing formula gives:
-    //   red:   (sa*0 + ba*(1-sa)*br) / ao ≈ 0.332 → 85
-    //   green: (sa*0 + ba*(1-sa)*bg) / ao = 0
-    //   blue:  (sa*0 + ba*(1-sa)*bb) / ao = 0
-    //   alpha: ao ≈ 0.752 → 192
-    expect([...result.data]).toEqual([85, 0, 0, 192]);
+    // Both uncovered source blue and uncovered backdrop red contribute to the
+    // source-over result; the multiply overlap itself is black.
+    expect([...result.data]).toEqual([85, 0, 85, 192]);
   });
 
   it('rejects an unknown software blend mode', () => {
@@ -263,11 +299,12 @@ describe('blendPixels', () => {
     expect(result.data[0]).toBeGreaterThan(0);
   });
 
-  it('plusDarker subtracts from 1', () => {
+  it('rejects legacy plusDarker instead of silently approximating it', () => {
     const backdrop = makePixelData(128, 128, 128, 255);
     const source = makePixelData(128, 128, 128, 255);
-    const result = blendPixels(backdrop, source, 'plusDarker', 1);
-    expect(result.data[0]).toBe(128 + 128 - 255);
+    expect(() => blendPixels(backdrop, source, 'plusDarker', 1)).toThrow(
+      'Unsupported blend mode: plusDarker',
+    );
   });
 
   it('plusLighter adds clamped', () => {
