@@ -62,6 +62,7 @@ export * from './motion';
 export * from './motion-types';
 export * from './paint';
 export * from './preflight';
+export * from './presetToDocument';
 export * from './printPreflight';
 export * from './profiles';
 export * from './property-path';
