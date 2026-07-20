@@ -345,10 +345,6 @@
   width: auto;
   min-width: 0;
 }
-/* Ensure W/H inputs don't collapse to zero width in nested flex layouts */
-.insp-num__input {
-  min-width: 3.5rem;
-}
 .insp-field__label {
   display: inline-flex;
   align-items: center;
@@ -385,7 +381,7 @@
   /* width:0 + flex-grow: the input's UA intrinsic width (size=20 ≈ 176px)
    * must never contribute to row sizing, or rows overflow the card. */
   width: 0;
-  min-width: 0;
+  min-width: 3.5rem;
   height: var(--space-5);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
@@ -430,7 +426,7 @@
 .insp-select {
   flex: 1;
   width: 0;
-  min-width: 0;
+  min-width: 3.5rem;
   height: var(--space-5);
   font-size: var(--font-size-xs);
   background: var(--color-surface-sunken);
@@ -1040,7 +1036,7 @@
 .insp-paint-library__search-input {
   flex: 1;
   width: 0;
-  min-width: 0;
+  min-width: 3.5rem;
   height: var(--space-5);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
