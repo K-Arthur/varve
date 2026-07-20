@@ -209,6 +209,10 @@ v1.9 migration (from 1.8):
   - Feather maps to `feGaussianBlur` filter on the mask
   - Density maps to opacity compensation
   - `hideMaskSource` filters the source node from children
+  - Active-page artwork and legacy flat-root artwork share one export-root resolver,
+    so page-scoped clipping groups are not omitted from standalone SVGs
+  - Standalone SVG bounds intersect ordinary clipping-group content with the mask
+    source bounds, preventing hidden out-of-mask pixels from inflating the viewBox
   - `fillRule="evenodd"` adds `clip-rule="evenodd"`
   - Unlinked masks use `maskUnits="userSpaceOnUse"` for independent transform
   - Pre-1.9 SVG export did NOT include scene-graph masks; this is new in v1.9
@@ -251,6 +255,7 @@ v1.9 migration (from 1.8):
 | Quick-mask with no selection | Coverage buffer is null; paint/fill/invert are no-ops |
 | Unlinked mask transform | Mask uses independent `transform` separate from content |
 | SVG export of inverted clip masks | Uses `<mask>` with white rect + inverted black clip shape |
+| SVG export of active-page clipping group | Preserves an editable `<clipPath>` and omits a hidden source from rendered children |
 
 ## Future Mask Types
 
