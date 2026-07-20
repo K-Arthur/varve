@@ -84,6 +84,34 @@ describe('DocumentCodec', () => {
     expect(result.warnings.map((w) => w.code)).toContain('document.active-page-normalized');
   });
 
+  it('repairs dangling and unsupported clipping relationships without losing children', () => {
+    const content = makeShapeNode('content', { kind: 'rect', x: 0, y: 0, w: 20, h: 20 });
+    const group = makeGroupNode('clip', { children: ['content'] });
+    group.mask = { type: 'clip', sourceNodeId: 'missing', visible: true };
+    const doc = {
+      ...createDocument('Broken mask', true),
+      nodes: { clip: group, content },
+      rootChildren: ['clip'],
+    };
+
+    const normalized = DocumentCodec.normalize(doc);
+
+    expect(normalized.document.nodes.clip?.mask).toBeUndefined();
+    expect(normalized.document.nodes.content).toEqual(content);
+    expect(normalized.warnings).toContainEqual(
+      expect.objectContaining({
+        code: 'document.invalid-structural-mask',
+        path: 'clip.mask',
+      }),
+    );
+
+    const decoded = DocumentCodec.decode(JSON.stringify(doc));
+    expect(decoded.ok).toBe(true);
+    if (!decoded.ok) return;
+    expect(decoded.document.nodes.clip?.mask).toBeUndefined();
+    expect(decoded.document.nodes.content).toBeDefined();
+  });
+
   it('collects the full dependency closure for imported subtrees', () => {
     let doc = createDocument('Closure', true);
     doc = addNode(

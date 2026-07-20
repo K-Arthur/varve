@@ -18,6 +18,7 @@ import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/
 import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
 import {
   activePageNodes,
+  buildParentIndexMap,
   deriveGeometryFromPaints,
   resolveNodePaints,
   walkNodes,
@@ -30,6 +31,14 @@ import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 const HIT_TOLERANCE_PX = 8;
 
 const CELL_SIZE = 64;
+
+function hitGeometry(node: ShapeNode, doc: Document): ShapeNode['shape'] {
+  return node.shapeless === true
+    ? deriveGeometryFromPaints(
+        resolveNodePaints(node as unknown as Parameters<typeof resolveNodePaints>[0], doc),
+      )
+    : node.shape;
+}
 
 export interface HitTestOptions {
   /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
@@ -47,6 +56,7 @@ export class HitTestEngine {
   private readonly doc: Document;
   private readonly options: HitTestOptions;
   private readonly toleranceWorld: number;
+  private readonly parentIndex: Map<NodeId, NodeId>;
   private spatialIndex: ReturnType<typeof getOrCreateSpatialIndex>;
 
   constructor(doc: Document, options: HitTestOptions = {}) {
@@ -54,6 +64,7 @@ export class HitTestEngine {
     this.options = options;
     const zoom = options.zoom ?? 1;
     this.toleranceWorld = HIT_TOLERANCE_PX / Math.max(0.001, zoom);
+    this.parentIndex = buildParentIndexMap(doc);
     this.spatialIndex = getOrCreateSpatialIndex(doc, null);
   }
 
@@ -75,6 +86,7 @@ export class HitTestEngine {
       if (n.locked || !n.visible) continue;
       // Only test nodes that overlap the query point's tolerance cell(s).
       if (!candidates.has(entry.nodeId)) continue;
+      if (!this.isPointVisibleThroughClipMasks(entry.nodeId, world)) continue;
 
       // Filter by isolation mode
       if (this.options.isolatedNodeId !== undefined && this.options.isolatedNodeId !== null) {
@@ -86,10 +98,7 @@ export class HitTestEngine {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
-        const shape =
-          (n as ShapeNode).shapeless === true
-            ? deriveGeometryFromPaints(resolveNodePaints(n, this.doc))
-            : n.shape;
+        const shape = hitGeometry(n, this.doc);
         if (shapeContains(shape, local)) {
           return { nodeId: entry.nodeId, node: n };
         }
@@ -137,10 +146,7 @@ export class HitTestEngine {
               const childWorld = nodeWorldTransform(this.doc, childId);
               const childInv = invertAffine(childWorld);
               const childLocal = applyAffine(childInv, [world.x, world.y]);
-              const childShape =
-                (child as ShapeNode).shapeless === true
-                  ? deriveGeometryFromPaints(resolveNodePaints(child, this.doc))
-                  : child.shape;
+              const childShape = hitGeometry(child, this.doc);
               if (shapeContains(childShape, childLocal)) {
                 return { nodeId: entry.nodeId, node: n };
               }
@@ -194,6 +200,7 @@ export class HitTestEngine {
       const n = entry.node;
       if (n.locked || !n.visible) continue;
       if (!candidates.has(entry.nodeId)) continue;
+      if (!this.isPointVisibleThroughClipMasks(entry.nodeId, world)) continue;
 
       // Filter by isolation mode
       if (this.options.isolatedNodeId !== undefined && this.options.isolatedNodeId !== null) {
@@ -205,10 +212,7 @@ export class HitTestEngine {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
-        const shape =
-          (n as ShapeNode).shapeless === true
-            ? deriveGeometryFromPaints(resolveNodePaints(n, this.doc))
-            : n.shape;
+        const shape = hitGeometry(n, this.doc);
         if (shapeContains(shape, local)) {
           results.push({ nodeId: entry.nodeId, node: n });
           continue;
@@ -251,10 +255,7 @@ export class HitTestEngine {
               const childWorld = nodeWorldTransform(this.doc, childId);
               const childInv = invertAffine(childWorld);
               const childLocal = applyAffine(childInv, [world.x, world.y]);
-              const childShape =
-                (child as ShapeNode).shapeless === true
-                  ? deriveGeometryFromPaints(resolveNodePaints(child, this.doc))
-                  : child.shape;
+              const childShape = hitGeometry(child, this.doc);
               if (shapeContains(childShape, childLocal)) {
                 results.push({ nodeId: entry.nodeId, node: n });
                 break;
@@ -319,6 +320,57 @@ export class HitTestEngine {
       }
     }
     return result;
+  }
+
+  /**
+   * A descendant cannot be selected through pixels removed by an active
+   * vector clipping ancestor. This deliberately uses the exact same source
+   * transform and fill geometry as Canvas replay, rather than the clipped
+   * group's (potentially much larger) child bounds.
+   */
+  private isPointVisibleThroughClipMasks(nodeId: NodeId, world: { x: number; y: number }): boolean {
+    let currentId: NodeId | undefined = nodeId;
+    const visited = new Set<NodeId>();
+    while (currentId && !visited.has(currentId)) {
+      visited.add(currentId);
+      const container = this.doc.nodes[currentId];
+      const mask = container?.mask;
+      if (mask?.visible !== false && mask?.type === 'clip') {
+        const sourceId = mask.sourceNodeId;
+        const source = sourceId ? this.doc.nodes[sourceId] : undefined;
+        const maskTransform =
+          mask.linked === false && mask.transform
+            ? mask.transform
+            : sourceId
+              ? nodeWorldTransform(this.doc, sourceId, this.parentIndex)
+              : mask.transform;
+
+        if (maskTransform) {
+          const local = applyAffine(invertAffine(maskTransform), [world.x, world.y]);
+          let inside = false;
+          if (mask.vectorMask?.closed && mask.vectorMask.points.length >= 3) {
+            inside = shapeContains(
+              {
+                kind: 'path',
+                points: mask.vectorMask.points,
+                closed: true,
+                tolerance: 0,
+                fillRule: mask.vectorMask.fillRule,
+              },
+              local,
+            );
+          } else if (source?.kind === 'shape') {
+            const shape = hitGeometry(source, this.doc);
+            inside = shapeContains(shape, local);
+          } else if (source?.kind === 'frame') {
+            inside = rectContains({ x: 0, y: 0, w: source.w, h: source.h }, local);
+          }
+          if (inside === (mask.inverted === true)) return false;
+        }
+      }
+      currentId = this.parentIndex.get(currentId);
+    }
+    return true;
   }
 
   /**
