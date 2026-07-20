@@ -141,6 +141,8 @@ export function createActionHandlers(
     // ── Object ──
     group: () => e.groupSelected(),
     ungroup: () => e.ungroupSelected(),
+    createClippingMask: () => e.createClippingMaskFromSelected(),
+    releaseClippingMask: () => e.releaseClippingMaskFromSelected(),
     bringFront: () => e.arrangeSelected('front'),
     sendBack: () => e.arrangeSelected('back'),
     bringForward: () => e.arrangeSelected('forward'),

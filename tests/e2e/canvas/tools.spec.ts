@@ -98,4 +98,28 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
     await expect(page.getByRole('treeitem').first()).toContainText(/text/i);
   });
+
+  test('Create and Release Clipping Mask shortcuts preserve editable child layers', async ({
+    page,
+  }) => {
+    await page.keyboard.press('o');
+    await dragOnCanvas(page, 150, 150, 400, 350);
+    await page.keyboard.press('r');
+    await dragOnCanvas(page, 210, 190, 340, 310);
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+
+    await page.keyboard.press('Control+a');
+    await page.keyboard.press('Control+7');
+
+    await expect(page.getByRole('treeitem').first()).toContainText(/rect clip/i, {
+      timeout: 10000,
+    });
+    await expect(page.getByRole('treeitem')).toHaveCount(3);
+
+    await page.keyboard.press('Control+Alt+7');
+
+    await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
+    await expect(page.getByRole('treeitem').filter({ hasText: /rect/i })).toHaveCount(1);
+    await expect(page.getByRole('treeitem').filter({ hasText: /ellipse/i })).toHaveCount(1);
+  });
 });

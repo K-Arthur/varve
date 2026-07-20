@@ -1671,7 +1671,7 @@ export function CanvasArea({
                 );
                 offCtx.closePath();
                 offCtx.fillStyle = 'rgba(255,255,255,1)';
-                offCtx.fill();
+                offCtx.fill(mask.fillRule ?? 'nonzero');
               }
               offCtx.restore();
               // Draw the result onto clipCtx
@@ -1696,7 +1696,7 @@ export function CanvasArea({
                   maskChild as unknown as Parameters<typeof traceSceneNodeOutline>[1],
                 );
                 clipCtx.closePath();
-                clipCtx.clip();
+                clipCtx.clip(mask.fillRule ?? 'nonzero');
               }
               clipCtx.setTransform(baseTransform);
               for (const childId of (n as import('@strata/scene').ContainerNode).children) {
@@ -3381,7 +3381,7 @@ export function CanvasArea({
   // not File objects) and reads each file's bytes via the platform facade.
   useEffect(() => {
     const platform = editorRef.current.platform;
-    if (!platform || platform.kind !== 'tauri') return;
+    if (platform?.kind !== 'tauri') return;
     let cancelled = false;
     let unlisten: (() => void) | undefined;
     void platform

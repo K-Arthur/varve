@@ -187,7 +187,7 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
             );
             offscreen.context.closePath();
             offscreen.context.fillStyle = 'rgba(255,255,255,1)';
-            offscreen.context.fill();
+            offscreen.context.fill(mask.fillRule ?? 'nonzero');
             offscreen.context.restore();
             // Draw the result onto clipTarget
             clipTarget.save();
@@ -205,7 +205,7 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
               maskSource as unknown as Parameters<typeof traceSceneNodeOutline>[1],
             );
             clipTarget.closePath();
-            clipTarget.clip();
+            clipTarget.clip(mask.fillRule ?? 'nonzero');
             clipTarget.transform(...inverse);
             for (const childId of node.children) {
               if (childId !== maskSourceId) replayNode(childId, clipTarget);

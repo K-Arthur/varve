@@ -14,7 +14,7 @@
  *   - validation and recovery for dangling references
  */
 import type { Affine } from '@strata/engine';
-import { applyAffine, identity, invertAffine, multiplyAffine, rotateDeg } from '@strata/shared';
+import { identity, invertAffine, multiplyAffine, rotateDeg } from '@strata/shared';
 import type { Document } from './document';
 import {
   buildParentIndexMap,
@@ -87,29 +87,24 @@ export function canBeClipMaskSource(node: SceneNode): boolean {
   if (node.kind === 'shape') {
     const k = node.shape.kind;
     if (k === 'line' || k === 'arrow') return false;
+    if (k === 'path' && !node.shape.closed) return false;
     return true;
   }
-  if (node.kind === 'group' || node.kind === 'frame' || node.kind === 'text') {
-    // Groups/frames/text are accepted as sources, but the renderer may
-    // rasterize them if it cannot trace an outline. Callers can warn.
-    return true;
-  }
-  return false;
+  // Frames have a deterministic rectangular vector outline. Live text and
+  // groups must be outlined/combined first; accepting them here currently
+  // produces an empty Canvas clip path and hides all content.
+  return node.kind === 'frame';
 }
 
 /** True if the node is a container with a clip-style mask. */
 export function isClippingMaskGroup(node: SceneNode): node is GroupNode | FrameNode {
-  return (
-    (node.kind === 'group' || node.kind === 'frame') &&
-    node.mask?.type === 'clip' &&
-    node.mask.visible !== false
-  );
+  return (node.kind === 'group' || node.kind === 'frame') && node.mask?.type === 'clip';
 }
 
 /** Return the mask source node id for a clipping group, or null. */
 export function getClippingMaskSourceId(node: SceneNode): NodeId | null {
   const mask = node.mask;
-  if (!mask || mask.type !== 'clip' || mask.visible === false) return null;
+  if (mask?.type !== 'clip') return null;
   return mask.sourceNodeId ?? null;
 }
 
@@ -161,13 +156,21 @@ export function createClippingMask(
     }
   }
 
+  // Capture every world transform before restructuring the tree. Computing a
+  // child's transform after an earlier reparent uses a mixture of the old and
+  // new hierarchy and drifts inside transformed parents.
   const maskWorld = nodeWorldTransform(doc, maskNodeId, parentIndex);
+  const contentWorld = new Map(
+    contentNodeIds.map((id) => [id, nodeWorldTransform(doc, id, parentIndex)] as const),
+  );
+  const parentWorld = parentId ? nodeWorldTransform(doc, parentId, parentIndex) : identity;
+  const groupLocal = parentId ? multiplyAffine(invertAffine(parentWorld), maskWorld) : maskWorld;
   const groupInverse = invertAffine(maskWorld);
 
   const { id: groupId, doc: docAfterGroupId } = nextNodeId(doc);
   const group = makeGroupNode(groupId, {
     name: opts.name ?? `${maskNode.name} clip`,
-    transform: maskWorld,
+    transform: groupLocal,
     children: [],
   });
 
@@ -175,22 +178,21 @@ export function createClippingMask(
   let result = insertGroupAtMaskIndex(docAfterGroupId, parentId, maskNodeId, group);
 
   // Reparent mask shape into group with identity local transform (relative to mask's original world).
-  const maskLocal = groupInverse ? applyAffine(groupInverse, [maskWorld[4], maskWorld[5]]) : [0, 0];
-  const maskLocalTransform: Affine = groupInverse
-    ? [1, 0, 0, 1, maskLocal[0], maskLocal[1]]
-    : [1, 0, 0, 1, 0, 0];
-  result = reparentNode(result, maskNodeId, groupId, 0, maskLocalTransform);
+  result = reparentWithComposedTransform(result, maskNodeId, groupId, 0, identity);
 
   // Reparent content nodes into group, preserving their world transforms.
   for (let i = 0; i < contentNodeIds.length; i++) {
     const contentId = contentNodeIds[i]!;
-    const contentLocalTransform: Affine = groupInverse
-      ? multiplyAffine(
-          groupInverse,
-          composeNodeLocalTransform(result.nodes[contentId] as SceneNode),
-        )
-      : composeNodeLocalTransform(result.nodes[contentId] as SceneNode);
-    result = reparentNode(result, contentId, groupId, i + 1, contentLocalTransform);
+    const world = contentWorld.get(contentId);
+    if (!world) continue;
+    const contentLocalTransform = multiplyAffine(groupInverse, world);
+    result = reparentWithComposedTransform(
+      result,
+      contentId,
+      groupId,
+      i + 1,
+      contentLocalTransform,
+    );
   }
 
   // Determine fill rule from mask shape if it is a path with holes.
@@ -203,6 +205,29 @@ export function createClippingMask(
   });
 
   return { doc: result, groupId };
+}
+
+/**
+ * Store a fully composed local matrix after reparenting.
+ *
+ * Scene nodes keep `rotation` separate from `transform`; a world-preserving
+ * reparent bakes both into the replacement matrix, so retaining the old
+ * rotation would apply it twice.
+ */
+function reparentWithComposedTransform(
+  doc: Document,
+  id: NodeId,
+  parentId: NodeId | null,
+  index: number,
+  transform: Affine,
+): Document {
+  const reparented = reparentNode(doc, id, parentId, index, transform);
+  const node = reparented.nodes[id];
+  if (!node || node.rotation === 0) return reparented;
+  return {
+    ...reparented,
+    nodes: { ...reparented.nodes, [id]: { ...node, rotation: 0 } as SceneNode },
+  };
 }
 
 function insertGroupAtMaskIndex(
@@ -289,12 +314,20 @@ export function releaseClippingMask(doc: Document, groupId: NodeId): Document {
 
   const parentIndex = buildParentIndexMap(doc);
   const parentId = parentIndex.get(groupId) ?? null;
-  const groupWorld = nodeWorldTransform(doc, groupId, parentIndex);
   const children = [...group.children];
+  const childWorld = new Map(
+    children.map((id) => [id, nodeWorldTransform(doc, id, parentIndex)] as const),
+  );
+  const parentInverse = parentId
+    ? invertAffine(nodeWorldTransform(doc, parentId, parentIndex))
+    : identity;
+  const groupIndex = parentId
+    ? (doc.nodes[parentId] as GroupNode | FrameNode).children.indexOf(groupId)
+    : doc.rootChildren.indexOf(groupId);
+  const maskSourceId = group.mask?.sourceNodeId;
 
   let result = removeMask(doc, groupId);
   // Make the mask source visible again if it was hidden.
-  const maskSourceId = children[0];
   if (maskSourceId) {
     const maskSource = result.nodes[maskSourceId];
     if (maskSource && maskSource.visible === false) {
@@ -308,18 +341,10 @@ export function releaseClippingMask(doc: Document, groupId: NodeId): Document {
   // Reparent children to the group's parent, preserving world transforms.
   for (let i = 0; i < children.length; i++) {
     const childId = children[i]!;
-    const child = result.nodes[childId];
-    if (!child) continue;
-    const childWorld = multiplyAffine(groupWorld, composeNodeLocalTransform(child));
-    const childLocal = parentId
-      ? multiplyAffine(invertAffine(nodeWorldTransform(result, parentId, parentIndex)), childWorld)
-      : childWorld;
-    const index = parentId
-      ? (result.nodes[parentId] as GroupNode | import('./types').FrameNode).children.indexOf(
-          groupId,
-        ) + i
-      : result.rootChildren.indexOf(groupId) + i;
-    result = reparentNode(result, childId, parentId, index, childLocal);
+    const world = childWorld.get(childId);
+    if (!world) continue;
+    const childLocal = parentId ? multiplyAffine(parentInverse, world) : world;
+    result = reparentWithComposedTransform(result, childId, parentId, groupIndex + i, childLocal);
   }
 
   // Remove the now-empty group.
@@ -365,27 +390,35 @@ export function replaceClippingMaskContent(
   const parentIndex = buildParentIndexMap(doc);
   const groupWorld = nodeWorldTransform(doc, groupId, parentIndex);
   const groupInverse = invertAffine(groupWorld);
+  const parentId = parentIndex.get(groupId) ?? null;
+  const parentInverse = parentId
+    ? invertAffine(nodeWorldTransform(doc, parentId, parentIndex))
+    : identity;
+  const groupIndex = parentId
+    ? (doc.nodes[parentId] as GroupNode | FrameNode).children.indexOf(groupId)
+    : doc.rootChildren.indexOf(groupId);
+  const oldContentIds = getClippingContentIds(group);
+  const oldContentWorld = new Map(
+    oldContentIds.map((id) => [id, nodeWorldTransform(doc, id, parentIndex)] as const),
+  );
+  const newContentWorld = new Map(
+    newContentNodeIds.map((id) => [id, nodeWorldTransform(doc, id, parentIndex)] as const),
+  );
 
   let result = doc;
   // Remove old content nodes from the group (but keep them in the document as siblings of the group).
-  const oldContentIds = group.children.slice(1);
-  for (const contentId of oldContentIds) {
-    const parentId = parentIndex.get(groupId) ?? null;
-    const content = result.nodes[contentId];
-    if (!content) continue;
-    const contentWorld = multiplyAffine(groupWorld, composeNodeLocalTransform(content));
-    const contentLocal = parentId
-      ? multiplyAffine(
-          invertAffine(nodeWorldTransform(result, parentId, parentIndex)),
-          contentWorld,
-        )
-      : contentWorld;
-    const index = parentId
-      ? (result.nodes[parentId] as GroupNode | import('./types').FrameNode).children.indexOf(
-          groupId,
-        ) + 1
-      : result.rootChildren.indexOf(groupId) + 1;
-    result = reparentNode(result, contentId, parentId, index, contentLocal);
+  for (let i = 0; i < oldContentIds.length; i++) {
+    const contentId = oldContentIds[i]!;
+    const world = oldContentWorld.get(contentId);
+    if (!world) continue;
+    const contentLocal = parentId ? multiplyAffine(parentInverse, world) : world;
+    result = reparentWithComposedTransform(
+      result,
+      contentId,
+      parentId,
+      groupIndex + 1 + i,
+      contentLocal,
+    );
   }
 
   // Add new content nodes.
@@ -398,10 +431,10 @@ export function replaceClippingMaskContent(
       result = moveChildInPlace(result, groupId, contentId, i + 1);
       continue;
     }
-    const contentLocal = groupInverse
-      ? multiplyAffine(groupInverse, composeNodeLocalTransform(content))
-      : composeNodeLocalTransform(content);
-    result = reparentNode(result, contentId, groupId, i + 1, contentLocal);
+    const world = newContentWorld.get(contentId);
+    if (!world) continue;
+    const contentLocal = multiplyAffine(groupInverse, world);
+    result = reparentWithComposedTransform(result, contentId, groupId, i + 1, contentLocal);
   }
 
   return result;

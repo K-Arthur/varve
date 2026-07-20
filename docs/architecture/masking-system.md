@@ -212,10 +212,13 @@ v1.9 migration (from 1.8):
   - `fillRule="evenodd"` adds `clip-rule="evenodd"`
   - Unlinked masks use `maskUnits="userSpaceOnUse"` for independent transform
   - Pre-1.9 SVG export did NOT include scene-graph masks; this is new in v1.9
-- **PDF**: Clip masks map to PDF clipping path operators. Alpha/luminance masks require
-  soft-mask (SMask) in PDF 1.4+/X-4. PDF/X-1a cannot express soft masks — must flatten.
-- **Raster export (PNG/JPEG)**: Masks are always correctly composited in the rendering
-  pipeline — export simply captures the rendered result.
+- **PDF (current)**: structural clip/alpha/luminance masks are rejected by preflight;
+  the Rust writer does not yet emit clipping operators or PDF 1.4 soft masks. A raster
+  fallback exists for raster masks but still requires artifact-level verification.
+  PDF/X-1a cannot express soft masks and must use an explicit flattening strategy.
+- **Raster export (PNG/JPEG/WebP)**: export uses the structural Canvas replay path. Clip
+  masks share the editor's path tracing and fill-rule behavior; alpha/luminance export
+  parity remains under active conformance testing.
 
 ## Performance Considerations
 
@@ -230,7 +233,7 @@ v1.9 migration (from 1.8):
 
 | Case | Behavior |
 |------|----------|
-| Empty path as mask source | Clip mask with empty path hides all content |
+| Empty/open path as mask source | Rejected for clipping-mask creation |
 | Fully transparent mask source | Alpha mask hides all masked content |
 | Fully opaque mask source | Alpha mask reveals all masked content |
 | Mask source not a child | `resolveMask()` returns null, mask is ignored |

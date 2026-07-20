@@ -783,6 +783,19 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async saveBinaryFile(name) {
       return `memory://${name}`;
     },
+    async onNativeFileDrop() {
+      return () => {};
+    },
+    async readFileBytes(path) {
+      const record = [...state.files.values()].find(
+        ({ entry }) => entry.id === path || entry.filePath === path,
+      );
+      if (!record) throw new Error(`Memory file not found: ${path}`);
+      return new TextEncoder().encode(record.json);
+    },
+    async readClipboardImage() {
+      return null;
+    },
     async revealInFileManager() {
       // No-op in memory/web.
     },
