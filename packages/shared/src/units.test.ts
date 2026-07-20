@@ -7,7 +7,9 @@ import {
   formatValue,
   percentToPx,
   physicalToPx,
+  physicalToPxAtDpi,
   ptToPx,
+  pxAtDpiToPhysical,
   pxToPercent,
   pxToPhysical,
   pxToPt,
@@ -216,5 +218,28 @@ describe('formatPhysical', () => {
 
   it('rounds to 2 decimals', () => {
     expect(formatPhysical(210.12345, 'mm')).toBe('210.12mm');
+  });
+});
+
+describe('physicalToPxAtDpi', () => {
+  it('matches physicalToPx at 96 dpi (the reference resolution)', () => {
+    expect(physicalToPxAtDpi(210, 'mm', 96)).toBeCloseTo(physicalToPx(210, 'mm'), 6);
+  });
+
+  it('computes true print pixel count for A4 at 300dpi', () => {
+    // Standard reference: A4 (210x297mm) at 300dpi is ~2480x3508px.
+    expect(physicalToPxAtDpi(210, 'mm', 300)).toBeCloseTo(2480.3, 0);
+    expect(physicalToPxAtDpi(297, 'mm', 300)).toBeCloseTo(3507.9, 0);
+  });
+
+  it('scales linearly with dpi', () => {
+    expect(physicalToPxAtDpi(1, 'in', 600)).toBeCloseTo(physicalToPxAtDpi(1, 'in', 300) * 2, 6);
+  });
+});
+
+describe('pxAtDpiToPhysical', () => {
+  it('round-trips with physicalToPxAtDpi', () => {
+    const px = physicalToPxAtDpi(210, 'mm', 300);
+    expect(pxAtDpiToPhysical(px, 'mm', 300)).toBeCloseTo(210, 6);
   });
 });

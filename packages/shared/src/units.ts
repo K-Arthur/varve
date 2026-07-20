@@ -51,6 +51,22 @@ export function pxToPhysical(px: number, unit: DocumentUnit): number {
   return px / UNIT_TO_PX[unit];
 }
 
+/**
+ * Convert a physical value to true pixel count at an arbitrary export/print
+ * DPI. This is NOT for Page/FrameNode geometry — those stay resolution-
+ * independent world units via the fixed-96dpi physicalToPx above. Use this
+ * only for rasterization/export/print pixel-count math (e.g. computing the
+ * actual output pixel dimensions of a 210mm-wide document at 300dpi).
+ */
+export function physicalToPxAtDpi(value: number, unit: DocumentUnit, dpi: number): number {
+  return value * UNIT_TO_PX[unit] * (dpi / DPI);
+}
+
+/** Inverse of physicalToPxAtDpi. */
+export function pxAtDpiToPhysical(px: number, unit: DocumentUnit, dpi: number): number {
+  return px / (UNIT_TO_PX[unit] * (dpi / DPI));
+}
+
 /** Format a physical value with its unit suffix, rounded to 2 decimals. */
 export function formatPhysical(value: number, unit: DocumentUnit): string {
   const rounded = Math.round(value * 100) / 100;
