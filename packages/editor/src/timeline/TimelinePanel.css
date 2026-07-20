@@ -110,6 +110,14 @@
   font-size: 14px;
   line-height: 1;
   padding: 0;
+  position: relative;
+  /* Extend hit area to ~32×32 without enlarging visible button. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: calc(-6px);
+    border-radius: var(--radius-sm);
+  }
 }
 
 .timeline-panel__zoom-btn:hover:not(:disabled) {
@@ -180,6 +188,14 @@
   color: var(--color-text-primary);
   cursor: pointer;
   padding: 0;
+  position: relative;
+  /* Extend hit area to ~36×36 without enlarging visible button. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: calc(-6px);
+    border-radius: var(--radius-sm);
+  }
 }
 
 .timeline-playback-btn:hover {
@@ -344,6 +360,18 @@
   line-height: 1;
 }
 
+.timeline-track-row__mute-btn,
+.timeline-track-row__solo-btn {
+  /* Extend hit area to ~28×28 without enlarging the visible icon. */
+  position: relative;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: calc(-6px);
+    border-radius: var(--radius-sm);
+  }
+}
+
 .timeline-track-row__mute-btn:hover,
 .timeline-track-row__solo-btn:hover {
   background: var(--color-surface-default);
@@ -407,6 +435,13 @@
   border-radius: 50%;
   cursor: pointer;
   z-index: 1;
+  /* Extend hit area to ~28×28 without enlarging the visible dot. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: calc(-10px);
+    border-radius: 50%;
+  }
 }
 
 .timeline-track-row__keyframe:hover {

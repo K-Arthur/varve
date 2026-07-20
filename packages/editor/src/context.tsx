@@ -349,6 +349,11 @@ import {
   restoreDefaultSectionState as restoreAllDefaults,
   restoreDefaultCollapsed as restoreCollapsedDefaults,
   hideOptionalSections as hideAllOptional,
+  moveSectionUp as moveSectionUpDoc,
+  moveSectionDown as moveSectionDownDoc,
+  moveSectionToStart as moveSectionToStartDoc,
+  moveSectionToEnd as moveSectionToEndDoc,
+  resetSectionOrder as resetSectionOrderDoc,
 } from './components/Inspector/sectionState';
 import type { SectionId } from './components/Inspector/sectionRegistry';
 import { createInitialMotionState } from './state/motion-state';
@@ -356,6 +361,7 @@ import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
 import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
+import { isReducedMotion } from './context/reducedMotionManager';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -1819,6 +1825,8 @@ export function EditorProvider({
   if (!announcerRef.current) {
     announcerRef.current = new CanvasAnnouncer();
   }
+  /** RAF ID for smoothZoomTo/smoothPanTo animation cancellation. */
+  const panAnimRef = useRef<number | null>(null);
   /** Selection history for back/forward navigation. */
   const selectionHistory = useSelectionHistory();
 
@@ -2250,6 +2258,12 @@ export function EditorProvider({
       },
       smoothZoomTo: (targetZoom, durationMs = 200) => {
         const s = stateRef.current;
+        if (panAnimRef.current !== null) cancelAnimationFrame(panAnimRef.current);
+        const clamped = clampZoom(targetZoom);
+        if (isReducedMotion()) {
+          patch({ zoom: clamped });
+          return;
+        }
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl
           ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
@@ -2261,27 +2275,46 @@ export function EditorProvider({
         };
         const startCam = toCamera(startCamState);
         const centre = editorScreenToWorld(startCamState, vp.width / 2, vp.height / 2, vp);
-        const endCam = zoomAboutPoint(startCam, centre, clampZoom(targetZoom), vp);
+        const endCam = zoomAboutPoint(startCam, centre, clamped, vp);
         const startTime = performance.now();
-        requestAnimationFrame(function tick(now: number) {
+        const tick = (now: number) => {
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
           patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 });
-          if (!done) requestAnimationFrame(tick);
-        });
+          if (!done) { panAnimRef.current = requestAnimationFrame(tick); }
+          else { panAnimRef.current = null; }
+        };
+        panAnimRef.current = requestAnimationFrame(tick);
       },
       smoothPanTo: (target, durationMs = 150) => {
+        if (panAnimRef.current !== null) cancelAnimationFrame(panAnimRef.current);
+        if (isReducedMotion()) {
+          patch({ pan: { x: target.x, y: target.y } });
+          return;
+        }
         const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
         const endCam = { pan: target, zoom: startCam.zoom };
         const startTime = performance.now();
-        requestAnimationFrame(function tick(now: number) {
+        const tick = (now: number) => {
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
           patch({ zoom: camera.zoom, pan: camera.pan });
-          if (!done) requestAnimationFrame(tick);
-        });
+          if (!done) { panAnimRef.current = requestAnimationFrame(tick); }
+          else { panAnimRef.current = null; }
+        };
+        panAnimRef.current = requestAnimationFrame(tick);
       },
       smoothReveal: (bounds, opts) => {
+        if (panAnimRef.current !== null) cancelAnimationFrame(panAnimRef.current);
+        if (isReducedMotion()) {
+          const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
+          const vp: Viewport = canvasEl
+            ? { width: canvasEl.clientWidth, height: canvasEl.clientHeight }
+            : { width: window.innerWidth, height: window.innerHeight - 120 };
+          const endCam = fitBoundsCamera(bounds, vp, opts?.padding ?? 40);
+          patch({ zoom: endCam.zoom, pan: endCam.pan });
+          return;
+        }
         const startCam = { pan: stateRef.current.pan, zoom: stateRef.current.zoom };
         const canvasEl = document.querySelector<HTMLElement>('.editor-canvas');
         const vp: Viewport = canvasEl
@@ -2290,12 +2323,14 @@ export function EditorProvider({
         const endCam = fitBoundsCamera(bounds, vp, opts?.padding ?? 40);
         const durationMs = opts?.durationMs ?? 250;
         const startTime = performance.now();
-        requestAnimationFrame(function tick(now: number) {
+        const tick = (now: number) => {
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
           patch({ zoom: camera.zoom, pan: camera.pan });
-          if (!done) requestAnimationFrame(tick);
-        });
+          if (!done) { panAnimRef.current = requestAnimationFrame(tick); }
+          else { panAnimRef.current = null; }
+        };
+        panAnimRef.current = requestAnimationFrame(tick);
       },
       toggleLeftPanel: () => {
         const next = !state.leftPanelVisible;
@@ -2395,6 +2430,45 @@ export function EditorProvider({
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
         announcerRef.current?.announce(`Optional sections hidden`);
+      },
+      // Section ordering
+      moveSectionUp: (sectionId: SectionId) => {
+        const next = moveSectionUpDoc(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        const prefs = loadPrefs();
+        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
+        savePrefs(updatedPrefs);
+      },
+      moveSectionDown: (sectionId: SectionId) => {
+        const next = moveSectionDownDoc(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        const prefs = loadPrefs();
+        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
+        savePrefs(updatedPrefs);
+      },
+      moveSectionToStart: (sectionId: SectionId) => {
+        const next = moveSectionToStartDoc(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        const prefs = loadPrefs();
+        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
+        savePrefs(updatedPrefs);
+      },
+      moveSectionToEnd: (sectionId: SectionId) => {
+        const next = moveSectionToEndDoc(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        const prefs = loadPrefs();
+        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
+        savePrefs(updatedPrefs);
+      },
+      resetSectionOrder: () => {
+        const next = resetSectionOrderDoc(state.sectionVisibility);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`Section order restored`);
       },
       fitAll: () => {
         const cam = computeFitAllCamera(state.document, getCanvasViewport());

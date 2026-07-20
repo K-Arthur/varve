@@ -5,6 +5,12 @@ export type { MotionContextValue } from './MotionContext';
 export { MotionProvider, useMotion } from './MotionContext';
 export type { PrototypeContextValue } from './PrototypeContext';
 export { PrototypeProvider, usePrototype } from './PrototypeContext';
+export {
+  isReducedMotion,
+  setReducedMotionOverride,
+  subscribeReducedMotion,
+  useReducedMotion,
+} from './reducedMotionManager';
 export type { SelectionContextValue } from './SelectionContext';
 export { SelectionProvider, useSelection } from './SelectionContext';
 export type {
