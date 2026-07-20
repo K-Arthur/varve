@@ -322,6 +322,104 @@ describe('runPrintPreflight', () => {
     expect(dpiIssue).toBeUndefined();
   });
 
+  it('uses correct crop-mode DPI (natural-size display, same as fit)', () => {
+    // Crop mode draws the image at its native size (× scale), so DPI = 96/scale.
+    // A 300px image in a 2000px box at scale=1 has 96 effective DPI, which is
+    // below 300 DPI and should trigger a warning.
+    const doc = makePrintDoc({
+      nodes: {
+        img1: {
+          id: 'img1',
+          kind: 'shape',
+          name: 'Crop Image',
+          layerColor: null,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          shape: { kind: 'rect', x: 0, y: 0, w: 2000, h: 2000 },
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'data:image/png;base64,x',
+                fit: 'crop' as const,
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 300,
+                imageHeight: 300,
+              },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [],
+          effects: [],
+        } as import('./types').ShapeNode,
+      },
+    });
+    const result = runPrintPreflight(doc, { minDpi: 300 });
+    const dpiIssue = result.issues.find((i) => i.category === 'resolution' && i.nodeId === 'img1');
+    expect(dpiIssue).toBeDefined();
+    expect(dpiIssue?.message).toContain('Crop Image');
+  });
+
+  it('does not report low DPI for crop-mode with high-res image', () => {
+    // A 6000px image at scale=2 in crop mode → displayed=12000px
+    // effective DPI = 6000 / (12000/96) = 48 — still below 300 in this scenario
+    // So use a more realistic test: 6000px image at scale=0.5 → displayed=3000px
+    // effective DPI = 6000 / (3000/96) = 192 — still below 300
+    // Use a high-res image: 10000px at scale=0.25 → displayed=2500px
+    // effective DPI = 10000 / (2500/96) = 384 - above 300 (pass)
+    const doc = makePrintDoc({
+      nodes: {
+        img1: {
+          id: 'img1',
+          kind: 'shape',
+          name: 'Crop HighRes',
+          layerColor: null,
+          order: 'a0',
+          visible: true,
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal' as const,
+          rotation: 0,
+          shape: { kind: 'rect', x: 0, y: 0, w: 800, h: 600 },
+          transform: [1, 0, 0, 1, 0, 0] as const,
+          fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'data:image/png;base64,x',
+                fit: 'crop' as const,
+                x: 0,
+                y: 0,
+                scale: 0.25,
+                imageWidth: 10000,
+                imageHeight: 10000,
+              },
+              opacity: 1,
+              blendMode: 'normal' as const,
+              visible: true,
+            },
+          ],
+          strokes: [],
+          effects: [],
+        } as import('./types').ShapeNode,
+      },
+    });
+    const result = runPrintPreflight(doc, { minDpi: 300 });
+    const dpiIssue = result.issues.find((i) => i.category === 'resolution' && i.nodeId === 'img1');
+    expect(dpiIssue).toBeUndefined();
+  });
+
   it('reports color-space warning for an RGB fill when CMYK output is required', () => {
     const doc = makePrintDoc({
       nodes: {

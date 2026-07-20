@@ -751,7 +751,7 @@ export type FillIR =
   | {
       type: 'image';
       src: string;
-      fit: 'fill' | 'fit' | 'stretch' | 'tile';
+      fit: 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
       x: number;
       y: number;
       scale: number;

@@ -202,6 +202,12 @@ export function CanvasOverlays({
     const worldB = editor.getWorldBounds(cropNodeId);
     if (!worldB) return null;
     const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);
+    // Find image src for preview overlay
+    const cropNode = doc.nodes[cropNodeId];
+    const imageSrc =
+      cropNode && 'fills' in cropNode
+        ? (cropNode.fills ?? []).find((f) => f.type === 'image')?.image?.src
+        : undefined;
     return (
       <CropOverlay
         tool={cropTool}
@@ -211,6 +217,7 @@ export function CanvasOverlays({
           w: worldB.w * zoom,
           h: worldB.h * zoom,
         }}
+        imageSrc={imageSrc}
         onDone={() => cropTool.applyCrop(buildToolCtx(new PointerEvent('pointerup')))}
         onCancel={() => cropTool.cancel(buildToolCtx(new PointerEvent('pointerup')))}
       />

@@ -18,7 +18,7 @@ export function fromFitSuggestion(fit: FitSuggestion): ImageFit {
     case 'fill':
       return 'stretch';
     case 'crop':
-      return 'tile';
+      return 'crop';
     default:
       return 'fill';
   }
@@ -33,6 +33,8 @@ export function toFitSuggestion(fit: ImageFit): FitSuggestion {
     case 'stretch':
       return 'fill';
     case 'tile':
+      return 'crop';
+    case 'crop':
       return 'crop';
     default:
       return 'cover';

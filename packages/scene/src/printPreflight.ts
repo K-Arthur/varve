@@ -347,7 +347,12 @@ function checkImageNode(
     // Repeating pattern — a single placed-image DPI figure isn't meaningful.
     return;
   }
-  if (img.fit === 'fit') {
+  if (img.fit === 'fit' || img.fit === 'crop') {
+    // Both 'fit' (contain) and 'crop' draw the image at its natural size
+    // (×scale), clipped to the node bounds. The displayed native-pixel
+    // area equals the source dimensions scaled — the same formula applies
+    // to both modes. (The difference is positioning: fit centers, crop
+    // offsets by x/y.)
     displayedWidthPx = img.imageWidth * img.scale;
     displayedHeightPx = img.imageHeight * img.scale;
   } else {

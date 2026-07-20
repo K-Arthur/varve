@@ -111,3 +111,18 @@
   outline: 2px solid var(--color-interactive-default);
   outline-offset: 1px;
 }
+
+.crop-overlay__badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: oklch(0 0 0 / 0.55);
+  color: #fff;
+  font-size: 10px;
+  line-height: 18px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  pointer-events: none;
+}

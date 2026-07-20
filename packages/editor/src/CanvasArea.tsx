@@ -85,7 +85,7 @@ import { CanvasOverlays } from './components/CanvasOverlays';
 import { nodeWorldBoundsFn, useEditor } from './context';
 import { collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
-import { commitImageCrop } from './imageCrop';
+import { type CropState, commitImageCropExtended } from './imageCrop';
 import { closeImageBitmapMap, collectImageBitmaps } from './render/collectImageBitmaps';
 import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import {
@@ -857,10 +857,10 @@ export function CanvasArea({
     if (!tm.current) return;
     const crop = tm.current.getTool<CropTool>('crop');
     if (!crop) return;
-    crop.setCommitHandler((rect) => {
+    crop.setCommitHandler((cropState: CropState) => {
       const id = crop.getNodeId();
       if (!id) return;
-      editor.updateDoc((doc) => commitImageCrop(doc, id, rect));
+      editor.updateDoc((doc) => commitImageCropExtended(doc, id, cropState));
       editor.announce('Crop applied');
     });
     return () => crop.setCommitHandler(null);
@@ -2522,7 +2522,11 @@ export function CanvasArea({
             ctx.font = `bold ${labelFontSize}px sans-serif`;
             ctx.textAlign = 'left';
             ctx.textBaseline = 'bottom';
-            ctx.fillStyle = isHighlighted ? accentColor : isSelected ? 'rgba(34,197,94,0.9)' : 'rgba(128,128,128,0.8)';
+            ctx.fillStyle = isHighlighted
+              ? accentColor
+              : isSelected
+                ? 'rgba(34,197,94,0.9)'
+                : 'rgba(128,128,128,0.8)';
             ctx.fillText(`${subjectPickerSession.components.indexOf(comp) + 1}`, labelX, labelY);
           }
 
