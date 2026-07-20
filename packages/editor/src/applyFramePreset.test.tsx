@@ -1,13 +1,15 @@
 /**
- * Frame preset tests — verify the Figma-model applyFramePreset context method
- * creates a correctly-sized frame and resizes a selected frame in place.
+ * applyFramePreset tests — verifies the context method creates a
+ * correctly-sized frame and resizes a selected frame in place. Relocated
+ * from framePresets.test.tsx (the old FRAME_PRESET_GROUPS registry is gone;
+ * applyFramePreset only ever takes a plain {name, w, h}, so these use
+ * hand-written literals instead of importing from a registry).
  */
 
 import { activePageNodes } from '@strata/scene';
 import { render, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from './context';
-import { FRAME_PRESET_GROUPS } from './framePresets';
 
 function setup() {
   let ctx: ReturnType<typeof useEditor> | undefined;
@@ -24,20 +26,8 @@ function setup() {
   return () => ctx as NonNullable<typeof ctx>;
 }
 
-describe('frame presets', () => {
-  it('every preset has positive dimensions and a unique id', () => {
-    const seen = new Set<string>();
-    for (const group of FRAME_PRESET_GROUPS) {
-      for (const p of group.presets) {
-        expect(p.w).toBeGreaterThan(0);
-        expect(p.h).toBeGreaterThan(0);
-        expect(seen.has(p.id)).toBe(false);
-        seen.add(p.id);
-      }
-    }
-  });
-
-  it('applyFramePreset creates a new frame of the preset size', async () => {
+describe('applyFramePreset', () => {
+  it('creates a new frame of the preset size', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'iPhone 15 Pro', w: 393, h: 852 });
 
@@ -51,7 +41,7 @@ describe('frame presets', () => {
     });
   });
 
-  it('applyFramePreset scopes the new frame to the active page (visible on canvas, not just in doc.nodes)', async () => {
+  it('scopes the new frame to the active page (visible on canvas, not just in doc.nodes)', async () => {
     const getCtx = setup();
     getCtx().applyFramePreset({ name: 'iPhone 15 Pro', w: 393, h: 852 });
 
@@ -68,7 +58,7 @@ describe('frame presets', () => {
     });
   });
 
-  it('applyFramePreset resizes a single selected frame in place', async () => {
+  it('resizes a single selected frame in place', async () => {
     const getCtx = setup();
     // Create the first frame.
     getCtx().applyFramePreset({ name: 'iPhone 15 Pro', w: 393, h: 852 });
