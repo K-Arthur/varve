@@ -417,6 +417,7 @@ pub struct IpcSceneNode {
     #[serde(default = "default_opacity")]
     pub opacity: f64,
     #[serde(default = "default_blend")]
+    #[serde(rename = "blendMode")]
     pub blend_mode: BlendMode,
     #[serde(default)]
     pub rotation: f64,
@@ -762,4 +763,20 @@ mod tests {
         assert_eq!(image["imageHeight"], 480.0);
         assert_eq!(image["alphaMask"], "data:image/png;base64,TUFDSw==");
     }
+}
+#[test]
+fn ipc_scene_node_reads_typescript_blend_mode_field() {
+    let json = serde_json::json!({
+        "id": "blend-node",
+        "name": "Blend node",
+        "transform": [1.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+        "shape": { "kind": "rect", "x": 0.0, "y": 0.0, "w": 10.0, "h": 10.0 },
+        "fill": { "space": "rgb", "r": 1.0, "g": 2.0, "b": 3.0, "a": 255.0 },
+        "blendMode": "colorDodge"
+    });
+
+    let node: IpcSceneNode = serde_json::from_value(json).expect("deserialize IPC node");
+    assert_eq!(node.blend_mode, BlendMode::ColorDodge);
+    let converted = convert_engine_nodes(vec![node]);
+    assert_eq!(converted[0].blend_mode, BlendMode::ColorDodge);
 }
