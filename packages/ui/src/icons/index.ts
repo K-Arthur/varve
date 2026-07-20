@@ -11,10 +11,10 @@
 
 export type { IconName, IconProps } from './Icon';
 export { Icon } from './Icon';
-export type { StrataLogoProps } from './StrataLogo';
-export { StrataLogo } from './StrataLogo';
 export type { SolidIconName, SolidIconProps } from './SolidIcon';
 export { SolidIcon } from './SolidIcon';
+export type { StrataLogoProps } from './StrataLogo';
+export { StrataLogo } from './StrataLogo';
 
 import type { IconName } from './Icon';
 import type { SolidIconName } from './SolidIcon';
@@ -63,7 +63,7 @@ export const TOOL_ICONS = {
 /** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
 export const SOLID_TOOL_ICONS = {
   select: 'Cursor',
-  frame: 'SquareOffset',
+  frame: 'FrameCorners',
   rect: 'Square',
   ellipse: 'Circle',
   polygon: 'Triangle',
@@ -79,8 +79,8 @@ export const SOLID_TOOL_ICONS = {
   subtract: 'CaretLeft',
   slice: 'Scissors',
   hand: 'Hand',
-  zoomIn: 'ZoomIn',
-  zoom: 'ZoomIn',
+  zoomIn: 'MagnifyingGlassPlus',
+  zoom: 'MagnifyingGlassPlus',
   arrow: 'ArrowUpRight',
   nodeEdit: 'Cursor',
   scale: 'ArrowsOut',
@@ -95,7 +95,7 @@ export const SOLID_TOOL_ICONS = {
   cloneStamp: 'Stamp',
   healBrush: 'PaintBrush',
   spotHeal: 'PaintBrush',
-  patch: 'SquareOffset',
+  patch: 'SelectionBackground',
   refineMask: 'PaintBrush',
   trimapEdit: 'PaintBrush',
   adjustment: 'Faders',
@@ -177,7 +177,7 @@ export const SOLID_CHROME_ICONS = {
   fileText: 'FileText',
   folder: 'Folder',
   folderOpen: 'FolderOpen',
-  filter: 'Filter',
+  filter: 'Funnel',
   layoutGrid: 'SquaresFour',
   list: 'List',
   listDashes: 'ListDashes',
@@ -195,14 +195,13 @@ export const SOLID_CHROME_ICONS = {
   ruler: 'Ruler',
   code: 'Code',
   palette: 'Palette',
-  maximize: 'Maximize',
-  minimize: 'Minimize',
+  maximize: 'ArrowsOut',
   crosshair: 'Crosshair',
-  gripVertical: 'GripVertical',
+  gripVertical: 'DotsSixVertical',
   undo: 'ArrowUUpLeft',
   redo: 'ArrowUUpRight',
   home: 'House',
-  collapseAll: 'ChevronsUpDown',
+  collapseAll: 'ArrowsVertical',
   expandAll: 'CornersOut',
   user: 'User',
   users: 'Users',
@@ -345,8 +344,8 @@ export const SOLID_CHROME_ICONS = {
   arrowUUpRight: 'ArrowUUpRight',
   cornersOut: 'CornersOut',
   hand: 'Hand',
-  zoomIn: 'ZoomIn',
-  zoomOut: 'ZoomOut',
+  zoomIn: 'MagnifyingGlassPlus',
+  zoomOut: 'MagnifyingGlassMinus',
   rotateCw: 'RotateCw',
   chevronsUpDown: 'ChevronsUpDown',
   cloud: 'Cloud',
