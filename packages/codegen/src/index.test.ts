@@ -5,6 +5,7 @@ import {
   createClippingMask,
   createDocument,
   imageFill,
+  makeGroupNode,
   makeShapeNode,
   makeTextNode,
   nextNodeId,
@@ -203,5 +204,42 @@ describe('exportDocumentToSvgAdvanced', () => {
     const svg = exportDocumentToSvgAdvanced(doc, {});
     const bounds = computeDocumentBounds(doc);
     expect(svg).toContain(`viewBox="${bounds.x} ${bounds.y} ${bounds.w} ${bounds.h}"`);
+  });
+
+  it('preserves object opacity and CSS blend-mode spelling', () => {
+    let doc = createDocument('Blend export', true);
+    const node = makeShapeNode(
+      'blend',
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+      { opacity: 0.4, blendMode: 'colorDodge' },
+    );
+    doc = addNode(doc, node);
+
+    const svg = exportDocumentToSvgAdvanced(doc, {});
+
+    expect(svg).toContain('opacity="0.4"');
+    expect(svg).toContain('style="mix-blend-mode: color-dodge;"');
+  });
+
+  it('distinguishes pass-through groups from isolated normal groups', () => {
+    let doc = createDocument('Group compositing', true);
+    doc = addNode(doc, makeGroupNode('pass', { blendMode: 'passThrough' }));
+    doc = addChild(
+      doc,
+      'pass',
+      makeShapeNode('pass-child', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }),
+    );
+    doc = addNode(doc, makeGroupNode('isolated', { blendMode: 'normal' }));
+    doc = addChild(
+      doc,
+      'isolated',
+      makeShapeNode('isolated-child', { kind: 'rect', x: 20, y: 0, w: 10, h: 10 }),
+    );
+
+    const svg = exportDocumentToSvgAdvanced(doc, {});
+    const groups = svg.match(/<g[^>]*>/g) ?? [];
+
+    expect(groups.some((tag) => tag.includes('isolation: isolate;'))).toBe(true);
+    expect(groups.some((tag) => !tag.includes('style='))).toBe(true);
   });
 });

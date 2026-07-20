@@ -4,7 +4,13 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { ManagedColor, NodeId, Document as SceneDocument, SceneNode } from '@strata/scene';
+import type {
+  BlendMode,
+  ManagedColor,
+  NodeId,
+  Document as SceneDocument,
+  SceneNode,
+} from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import type { TargetGap } from './types';
 
@@ -49,6 +55,49 @@ export function colorToHex(c: ManagedColor | readonly [number, number, number, n
 
 export function affineToSvg(t: Affine): string {
   return `matrix(${t[0]},${t[1]},${t[2]},${t[3]},${t[4]},${t[5]})`;
+}
+
+const SVG_BLEND_MODE: Record<Exclude<BlendMode, 'normal' | 'passThrough'>, string> = {
+  multiply: 'multiply',
+  screen: 'screen',
+  overlay: 'overlay',
+  darken: 'darken',
+  lighten: 'lighten',
+  colorDodge: 'color-dodge',
+  colorBurn: 'color-burn',
+  hardLight: 'hard-light',
+  softLight: 'soft-light',
+  difference: 'difference',
+  exclusion: 'exclusion',
+  hue: 'hue',
+  saturation: 'saturation',
+  color: 'color',
+  luminosity: 'luminosity',
+  plusDarker: 'plus-darker',
+  plusLighter: 'plus-lighter',
+};
+
+/** SVG presentation attributes and CSS declarations for scene compositing. */
+export function svgCompositing(
+  node: SceneNode,
+  container = false,
+): { attributes: string[]; styles: string[] } {
+  const attributes: string[] = [];
+  const styles: string[] = [];
+  const rawOpacity = node.opacity ?? 1;
+  const opacity = Number.isFinite(rawOpacity) ? Math.max(0, Math.min(1, rawOpacity)) : 1;
+  const blendMode = node.blendMode ?? 'normal';
+  if (opacity !== 1) attributes.push(`opacity="${opacity}"`);
+
+  if (blendMode !== 'normal' && blendMode !== 'passThrough') {
+    styles.push(`mix-blend-mode: ${SVG_BLEND_MODE[blendMode]};`);
+  }
+  // Pass Through deliberately leaves descendants in the parent's backdrop.
+  // Normal and creative container modes establish a compositing boundary.
+  if (container && blendMode !== 'passThrough') {
+    styles.push('isolation: isolate;');
+  }
+  return { attributes, styles };
 }
 
 export function escapeXml(s: string): string {

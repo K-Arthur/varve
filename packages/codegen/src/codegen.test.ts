@@ -67,6 +67,20 @@ describe('exportNodeToSvg', () => {
     expect(out).toContain('font-variation-settings');
     expect(out).toContain('font-feature-settings');
   });
+
+  it('preserves opacity and extended blend modes', () => {
+    const doc = createDocument('Blend SVG');
+    const node = makeShapeNode(
+      'blend',
+      { kind: 'rect', x: 0, y: 0, w: 20, h: 20 },
+      { opacity: 0.25, blendMode: 'plusDarker' },
+    );
+
+    const out = exportNodeToSvg(node, doc);
+
+    expect(out).toContain('opacity="0.25"');
+    expect(out).toContain('style="mix-blend-mode: plus-darker;"');
+  });
 });
 
 describe('exportNodeToCss', () => {
