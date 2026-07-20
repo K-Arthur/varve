@@ -17,6 +17,7 @@ import type {
 } from '@strata/scene';
 import { activePageNodes, isImageShape, resolveMask } from '@strata/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@strata/shared';
+import { svgCompositing } from './shared';
 
 export { timelineToCSSKeyframes } from './animation-css';
 export type { InteractiveExportOptions, InteractiveExportResult } from './animation-interactive';
@@ -522,6 +523,12 @@ function nodeToSvg(
   const indent = options.minify ? '' : '  '.repeat(depth);
   const fill = rgba(node.fill);
   const transform = affineToSvg(node.transform);
+  const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
+  const compositingAttrs = [
+    ...compositing.attributes,
+    ...(compositing.styles.length > 0 ? [`style="${compositing.styles.join(' ')}"`] : []),
+  ];
+  const compositingSuffix = compositingAttrs.length > 0 ? ` ${compositingAttrs.join(' ')}` : '';
 
   const mask = resolveMask(node);
   const maskAttr = mask ? (mask.type === 'clip' && !mask.inverted ? `clip-path` : `mask`) : null;
@@ -544,7 +551,7 @@ function nodeToSvg(
           const href = escapeXml(img.src);
           const w = fmtNum(s.kind === 'rect' ? s.w : 200, precision);
           const h = fmtNum(s.kind === 'rect' ? s.h : 160, precision);
-          let tag = `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="${par}" transform="${transform}" />`;
+          let tag = `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="${par}" transform="${transform}"${compositingSuffix} />`;
           if (maskUri) {
             tag = `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
           }
@@ -554,27 +561,27 @@ function nodeToSvg(
       let tag: string;
       switch (s.kind) {
         case 'rect':
-          tag = `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<rect x="${fmtNum(s.x, precision)}" y="${fmtNum(s.y, precision)}" width="${fmtNum(s.w, precision)}" height="${fmtNum(s.h, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'ellipse':
-          tag = `${indent}<ellipse cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" rx="${fmtNum(s.rx, precision)}" ry="${fmtNum(s.ry, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<ellipse cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" rx="${fmtNum(s.rx, precision)}" ry="${fmtNum(s.ry, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'circle':
-          tag = `${indent}<circle cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" r="${fmtNum(s.r, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<circle cx="${fmtNum(s.cx, precision)}" cy="${fmtNum(s.cy, precision)}" r="${fmtNum(s.r, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'line':
-          tag = `${indent}<line x1="${fmtNum(s.from[0], precision)}" y1="${fmtNum(s.from[1], precision)}" x2="${fmtNum(s.to[0], precision)}" y2="${fmtNum(s.to[1], precision)}" stroke="${fill}" stroke-width="${fmtNum(s.tolerance * 2, precision)}" stroke-linecap="round" transform="${transform}" />`;
+          tag = `${indent}<line x1="${fmtNum(s.from[0], precision)}" y1="${fmtNum(s.from[1], precision)}" x2="${fmtNum(s.to[0], precision)}" y2="${fmtNum(s.to[1], precision)}" stroke="${fill}" stroke-width="${fmtNum(s.tolerance * 2, precision)}" stroke-linecap="round" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'polygon':
-          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'star':
-          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}" />`;
+          tag = `${indent}<polygon points="${shapeVerticesToPoints(s, precision)}" fill="${fill}" transform="${transform}"${compositingSuffix} />`;
           break;
         case 'path': {
           const fillRule = s.fillRule ?? (s.holes && s.holes.length > 0 ? 'evenodd' : undefined);
           const fillRuleAttr = fillRule ? ` fill-rule="${fillRule}"` : '';
-          tag = `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillRuleAttr} transform="${transform}" />`;
+          tag = `${indent}<path d="${shapePathToData(s, precision)}" fill="${fill}"${fillRuleAttr} transform="${transform}"${compositingSuffix} />`;
           break;
         }
         default:
@@ -586,7 +593,7 @@ function nodeToSvg(
       return tag;
     }
     case 'text': {
-      const tag = `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}">${escapeXml(node.text)}</text>`;
+      const tag = `${indent}<text x="0" y="0" fill="${fill}" font-size="${node.fontSize}" font-family="${node.fontFamily ?? 'Inter'}" font-weight="${node.fontWeight ?? 400}" transform="${transform}"${compositingSuffix}>${escapeXml(node.text)}</text>`;
       if (maskUri) {
         return `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
       }
@@ -606,6 +613,7 @@ function nodeToSvg(
         .join(options.minify ? '' : '\n');
       const sep = options.minify ? '' : '\n';
       let attrs = ` transform="${transform}"`;
+      attrs += compositingSuffix;
       if (mask) {
         const ref = `url(#mask-${node.id})`;
         if (mask.type === 'clip' && !mask.inverted) {
