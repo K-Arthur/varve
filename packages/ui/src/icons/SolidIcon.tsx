@@ -343,8 +343,21 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
   ref,
 ) {
   // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Phosphor icon must resolve dynamically by name
-  // @ts-expect-error - SolidIconName includes names not in Phosphor's export surface (e.g. RotateCcw, GripVertical) that work via Phosphor's CJS/ESM interop
+  // @ts-expect-error - SolidIconName includes names not in Phosphor's export surface that work via CJS/ESM interop
   const IconComponent = PhosphorIcons[name];
+  if (!IconComponent) {
+    // Graceful fallback: render a placeholder instead of crashing
+    console.warn(`[SolidIcon] Unknown icon: "${name}"`);
+    return (
+      <span
+        ref={ref as React.Ref<HTMLSpanElement>}
+        role={label ? 'img' : undefined}
+        aria-label={label}
+        style={{ display: 'inline-flex', width: size, height: size, background: 'var(--color-feedback-warning)', borderRadius: 2 }}
+        {...rest}
+      />
+    );
+  }
   if (label) {
     return (
       <IconComponent
