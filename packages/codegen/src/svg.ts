@@ -21,6 +21,7 @@ import {
   getChildren,
   rgba,
   shapeVerticesToPoints,
+  svgCompositing,
 } from './shared';
 import type { TargetGap } from './types';
 
@@ -717,6 +718,12 @@ function nodeToSvgTag(
   const { fillAttr } = fillToSvg(node, node.id);
   const t = affineToSvg(transform);
   const withTransform = ` transform="${t}"`;
+  const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
+  const compositingAttrs = [
+    ...compositing.attributes,
+    ...(compositing.styles.length > 0 ? [`style="${compositing.styles.join(' ')}"`] : []),
+  ];
+  const compositingSuffix = compositingAttrs.length > 0 ? ` ${compositingAttrs.join(' ')}` : '';
 
   switch (node.kind) {
     case 'shape': {
@@ -729,24 +736,24 @@ function nodeToSvgTag(
         const href = escapeXml(img.src);
         let shapeInner: string;
         if (s.kind === 'rect') {
-          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform} />`;
+          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform}${compositingSuffix} />`;
         } else {
           const clipId = `clip-${node.id}`;
           const bounds = shapeBounds(s);
-          shapeInner = `${indent}<g${withTransform}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
+          shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
         }
         return buildMaskedNode(shapeInner, node, doc, indent);
       }
       let shapeInner: string;
       switch (s.kind) {
         case 'rect':
-          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
           break;
         case 'ellipse':
-          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
           break;
         case 'circle':
-          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
           break;
         case 'line':
         case 'arrow': {
@@ -755,14 +762,18 @@ function nodeToSvgTag(
           const strokeColor = stroke?.color ? rgba(stroke.color) : fillAttr;
           const lineTag = `${indent}<line x1="${s.from[0]}" y1="${s.from[1]}" x2="${s.to[0]}" y2="${s.to[1]}" stroke="${strokeColor}" stroke-width="${sw}" stroke-linecap="${stroke?.cap ?? 'round'}"${withTransform} />`;
           const headTags = lineArrowheadSvgTags(node, indent, withTransform);
-          return headTags.length > 0 ? `${lineTag}\n${headTags.join('\n')}` : lineTag;
+          shapeInner =
+            headTags.length > 0
+              ? `${indent}<g${compositingSuffix}>\n${lineTag}\n${headTags.join('\n')}\n${indent}</g>`
+              : lineTag.replace(' />', `${compositingSuffix} />`);
+          break;
         }
         case 'polygon':
         case 'star':
-          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<polygon points="${shapeVerticesToPoints(node)}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
           break;
         case 'path':
-          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${withTransform} />`;
+          shapeInner = `${indent}<path d="${pathToData(s)}" fill="${fillAttr}"${withTransform}${compositingSuffix} />`;
           break;
         default:
           shapeInner = '';
@@ -811,6 +822,8 @@ function nodeToSvgTag(
           if (customFeatures) styleParts.push(`font-feature-settings: ${customFeatures};`);
         }
       }
+      attrs.push(...compositing.attributes);
+      styleParts.push(...compositing.styles);
       if (styleParts.length > 0) attrs.push(`style="${styleParts.join(' ')}"`);
 
       const content = buildTextContent(textNode, indent);
@@ -827,6 +840,7 @@ function nodeToSvgTag(
         .map((child) => nodeToSvgTag(child, doc, depth + 1, child.transform))
         .join('\n');
       let groupAttrs = withTransform;
+      groupAttrs += compositingSuffix;
       if (mask) {
         const maskId = `url(#mask-${node.id})`;
         if (mask.type === 'clip' && !mask.inverted) {

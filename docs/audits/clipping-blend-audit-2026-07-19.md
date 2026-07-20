@@ -78,6 +78,9 @@ References:
   legacy unsupported modes throw instead of falling back to Normal.
 - Rust scene, engine IR, and bridge fields use TypeScript-compatible `blendMode` and
   camelCase enum values, with non-normal round-trip tests.
+- Both standalone-document and selected-node SVG export preserve node opacity, map the
+  complete blend catalog to CSS spelling, and emit isolated Normal/creative group
+  boundaries while leaving Pass Through groups unisolated.
 
 ## Remaining high-priority work
 
@@ -89,12 +92,12 @@ References:
   longer include hidden out-of-mask content. Mask-aware reorder affordances remain.
 - Active-page clipping groups export as editable SVG `<clipPath>` relationships. SVG import
   and PSD masks remain unsupported.
-- Normal versus Pass Through group boundaries, frame subtree compositing, bounded
-  offscreens, WebGPU eligibility/order, raster-brush formulas, effect ordering, and
-  adaptive contrast text remain incomplete.
-- Structured alpha/luminance export, SVG blend/opacity/isolation, PDF structural masks,
-  the raster-mask PDF fallback, video export, and cross-renderer pixel parity need
-  artifact-level tests and explicit compatibility paths.
+- Normal versus Pass Through boundaries are now explicit in SVG output; live frame
+  subtree compositing, bounded offscreens, WebGPU eligibility/order, raster-brush
+  formulas, effect ordering, and adaptive contrast text remain incomplete.
+- Structured alpha/luminance export, PDF structural masks, the raster-mask PDF fallback,
+  video export, and cross-renderer pixel parity need artifact-level tests and explicit
+  compatibility paths.
 - Browser E2E visual fixtures, desktop WebDriver verification, many-mask/blend
   performance tests, and platform coverage beyond Linux remain outstanding.
 
