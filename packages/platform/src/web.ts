@@ -1007,6 +1007,29 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       return 'Cancel not supported in browser';
     },
 
+    async onNativeFileDrop() {
+      return () => {};
+    },
+    async readFileBytes(path) {
+      const response = await fetch(path);
+      if (!response.ok) throw new Error(`Unable to read file bytes: ${response.status}`);
+      return new Uint8Array(await response.arrayBuffer());
+    },
+    async readClipboardImage() {
+      const clipboard = navigator.clipboard;
+      if (!clipboard || typeof clipboard.read !== 'function') return null;
+      try {
+        for (const item of await clipboard.read()) {
+          const imageType = item.types.find((type) => type.startsWith('image/'));
+          if (!imageType) continue;
+          return new Uint8Array(await (await item.getType(imageType)).arrayBuffer());
+        }
+      } catch {
+        // Permission denial/no image is a recoverable browser capability miss.
+      }
+      return null;
+    },
+
     async revealInFileManager() {
       // Browsers cannot shell out to the OS file manager.
     },

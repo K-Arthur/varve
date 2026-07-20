@@ -276,6 +276,16 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
         action: 'newAdjustmentLayer',
       },
+      {
+        label: 'Create Clipping Mask',
+        shortcut: formatShortcut(SHORTCUT_DEFS.createClippingMask.binding),
+        action: 'createClippingMask',
+      },
+      {
+        label: 'Release Clipping Mask',
+        shortcut: formatShortcut(SHORTCUT_DEFS.releaseClippingMask.binding),
+        action: 'releaseClippingMask',
+      },
       { label: 'Remove Background...', action: 'batchBgRemove' },
       { label: 'Extract Palette', action: 'extractPalette' },
       { label: '---' },

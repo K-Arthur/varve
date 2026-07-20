@@ -4,7 +4,28 @@
  * Consolidates duplicate traceShapeOutline implementations that had drifted
  * between CanvasArea.tsx and replay.ts. Both callers now use this module.
  */
-import type { SceneNode } from './types';
+import type { PathPoint, SceneNode } from './types';
+
+function tracePathRing(ctx: CanvasRenderingContext2D, points: PathPoint[]): void {
+  const first = points[0];
+  if (!first) return;
+  ctx.moveTo(first.x, first.y);
+  for (let i = 1; i < points.length; i++) {
+    const point = points[i];
+    const previous = points[i - 1];
+    if (!point || !previous) continue;
+    if (previous.handleOut || point.handleIn) {
+      const cp1x = previous.handleOut ? previous.x + previous.handleOut[0] : previous.x;
+      const cp1y = previous.handleOut ? previous.y + previous.handleOut[1] : previous.y;
+      const cp2x = point.handleIn ? point.x + point.handleIn[0] : point.x;
+      const cp2y = point.handleIn ? point.y + point.handleIn[1] : point.y;
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, point.x, point.y);
+    } else {
+      ctx.lineTo(point.x, point.y);
+    }
+  }
+  ctx.closePath();
+}
 
 /**
  * Trace the outline of a scene node's shape on a CanvasRenderingContext2D.
@@ -55,22 +76,17 @@ export function traceSceneNodeOutline(ctx: CanvasRenderingContext2D, n: SceneNod
         break;
       case 'path':
         if (s.points.length > 0) {
-          ctx.moveTo(s.points[0]?.x ?? 0, s.points[0]?.y ?? 0);
-          for (let i = 1; i < s.points.length; i++) {
-            const pt = s.points[i];
-            const prev = s.points[i - 1];
-            if (!pt || !prev) continue;
-            if (prev.handleOut || pt.handleIn) {
-              const cp1x = prev.handleOut ? prev.x + prev.handleOut[0] : prev.x;
-              const cp1y = prev.handleOut ? prev.y + prev.handleOut[1] : prev.y;
-              const cp2x = pt.handleIn ? pt.x + pt.handleIn[0] : pt.x;
-              const cp2y = pt.handleIn ? pt.y + pt.handleIn[1] : pt.y;
-              ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, pt.x, pt.y);
-            } else {
-              ctx.lineTo(pt.x, pt.y);
+          if (s.closed) tracePathRing(ctx, s.points);
+          else {
+            const first = s.points[0];
+            if (!first) break;
+            ctx.moveTo(first.x, first.y);
+            for (let i = 1; i < s.points.length; i++) {
+              const point = s.points[i];
+              if (point) ctx.lineTo(point.x, point.y);
             }
           }
-          if (s.closed) ctx.closePath();
+          for (const hole of s.holes ?? []) tracePathRing(ctx, hole);
         }
         break;
     }

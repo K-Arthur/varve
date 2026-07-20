@@ -488,5 +488,51 @@ describe('EditorContext', () => {
       expect(newGroup.transform[4]).toBe(70);
       expect(newGroup.transform[5]).toBe(70);
     });
+
+    it('remaps a clipping mask source to the duplicated child', async () => {
+      const { addChild, addMask, addNode, createDocument, makeGroupNode, makeShapeNode } =
+        await import('@strata/scene');
+
+      let doc = createDocument('dup-mask-test');
+      doc = addNode(doc, makeGroupNode('clip', { name: 'Clip' }));
+      doc = addChild(
+        doc,
+        'clip',
+        makeShapeNode('mask-source', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+      );
+      doc = addChild(
+        doc,
+        'clip',
+        makeShapeNode('content', { kind: 'ellipse', cx: 50, cy: 50, rx: 60, ry: 40 }),
+      );
+      doc = addMask(doc, 'clip', 'mask-source', 'clip');
+
+      let ctx: ReturnType<typeof useEditor> | undefined;
+      function Test() {
+        ctx = useEditor();
+        return (
+          <button type="button" onClick={() => ctx?.duplicateSelected()}>
+            duplicate mask
+          </button>
+        );
+      }
+
+      render(
+        <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+          <Test />
+        </EditorProvider>,
+      );
+      await waitFor(() => expect(ctx).toBeDefined());
+      ctx?.setSelection('clip');
+      await waitFor(() => expect(ctx?.state.selection).toEqual(['clip']));
+      screen.getByText('duplicate mask').click();
+
+      await waitFor(() => expect(ctx?.state.selection[0]).not.toBe('clip'));
+      const duplicated = ctx?.state.document.nodes[ctx.state.selection[0] ?? ''];
+      expect(duplicated?.kind).toBe('group');
+      if (duplicated?.kind !== 'group') throw new Error('Expected duplicated group');
+      expect(duplicated.mask?.sourceNodeId).not.toBe('mask-source');
+      expect(duplicated.children).toContain(duplicated.mask?.sourceNodeId);
+    });
   });
 });

@@ -90,6 +90,21 @@ export const SHORTCUT_DEFS = {
   },
   group: { binding: { key: 'g', ctrl: true }, label: 'Group', category: 'Object' },
   ungroup: { binding: { key: 'g', ctrl: true, shift: true }, label: 'Ungroup', category: 'Object' },
+  createClippingMask: {
+    binding: { key: '7', ctrl: true },
+    label: 'Create Clipping Mask',
+    category: 'Object',
+  },
+  releaseClippingMask: {
+    binding: { key: '7', ctrl: true, alt: true },
+    label: 'Release Clipping Mask',
+    category: 'Object',
+  },
+  newAdjustmentLayer: {
+    binding: { key: 'j', ctrl: true, alt: true },
+    label: 'New Adjustment Layer',
+    category: 'Object',
+  },
   bringFront: {
     binding: { key: ']', ctrl: true, shift: true },
     label: 'Bring to Front',

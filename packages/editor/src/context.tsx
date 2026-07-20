@@ -172,7 +172,6 @@ import {
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
-  resolveAdjustmentScope,
   resolveGuidePageId,
   resolveNodeFills,
   resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
@@ -2873,7 +2872,27 @@ export function EditorProvider({
               newChildIds.push(newChildId);
               idMap = { ...idMap, ...childMap };
             }
-            (cloned as import('@strata/scene').ContainerNode).children = newChildIds;
+            const clonedContainer = cloned as import('@strata/scene').ContainerNode;
+            clonedContainer.children = newChildIds;
+
+            // Node-to-node references must follow the cloned subtree. Leaving
+            // a mask pointed at the original source makes the duplicate fail
+            // validation and couple its rendering to the original artwork.
+            if (clonedContainer.mask?.sourceNodeId) {
+              clonedContainer.mask = {
+                ...clonedContainer.mask,
+                sourceNodeId:
+                  idMap[clonedContainer.mask.sourceNodeId] ?? clonedContainer.mask.sourceNodeId,
+              };
+            }
+
+            if ('slots' in clonedContainer && clonedContainer.slots) {
+              clonedContainer.slots = Object.fromEntries(
+                Object.entries(clonedContainer.slots)
+                  .map(([slotId, childId]) => [slotId, idMap[childId]] as const)
+                  .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
+              );
+            }
           }
 
           d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
@@ -4396,23 +4415,24 @@ export function EditorProvider({
             announcerRef.current?.announce('Select a mask shape and at least one content layer');
             return s;
           }
-          let maskIdx = -1;
-          for (let i = 0; i < sel.length; i++) {
-            const id = sel[i]!;
-            const node = s.document.nodes[id];
-            if (node && canBeClipMaskSource(node)) {
-              maskIdx = i;
-              break;
-            }
-          }
-          if (maskIdx < 0) {
+          // Match vector-editor convention: the topmost compatible selected
+          // object becomes the clipping path, independent of click order.
+          const maskNodeId = sel
+            .filter((id) => {
+              const node = s.document.nodes[id];
+              return node ? canBeClipMaskSource(node) : false;
+            })
+            .sort((a, b) => {
+              const aOrder = s.document.nodes[a]?.order ?? '';
+              const bOrder = s.document.nodes[b]?.order ?? '';
+              return bOrder.localeCompare(aOrder);
+            })[0];
+          if (!maskNodeId) {
             announcerRef.current?.announce(
               'No node in selection can be used as a clipping mask shape',
             );
             return s;
           }
-
-          const maskNodeId = sel[maskIdx]!;
           const contentIds = sel.filter((id) => id !== maskNodeId);
 
           const maskNode = s.document.nodes[maskNodeId];
@@ -4743,7 +4763,7 @@ export function EditorProvider({
 
       copyEditsToSelected: (sourceNodeId, targetIds, adjustmentIds) => {
         const sourceNode = state.document.nodes[sourceNodeId];
-        if (!sourceNode || sourceNode.kind !== 'adjustment') return;
+        if (sourceNode?.kind !== 'adjustment') return;
         const sourceAdjustments = (sourceNode as AdjustmentNode).adjustments ?? [];
         const toCopy = adjustmentIds
           ? sourceAdjustments.filter((a: Adjustment) => adjustmentIds.includes(a.id))
