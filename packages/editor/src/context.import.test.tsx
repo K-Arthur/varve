@@ -4,6 +4,9 @@ import {
   addChild,
   createDocument,
   DocumentCodec,
+  getParent,
+  imageFill,
+  isImageShape,
   makeGroupNode,
   makeShapeNode,
 } from '@strata/scene';
@@ -157,6 +160,68 @@ describe('Editor import insertion', () => {
     expect(options).toMatchObject({ center: true, embedImages: true });
     await waitFor(() => expect(ctx?.state.selection).toHaveLength(1));
     spy.mockRestore();
+  });
+
+  it('atomically imports dropped images into a compatible clipping target', async () => {
+    let initial = createDocument('Mask target');
+    const page = initial.pages?.[0];
+    if (!page) throw new Error('Expected initial page');
+    initial = addChild(
+      initial,
+      page.contentRoot,
+      makeGroupNode('nested-parent', { transform: [1, 0, 0, 1, 200, 100] }),
+    );
+    initial = addChild(
+      initial,
+      'nested-parent',
+      makeShapeNode('mask-target', { kind: 'circle', cx: 50, cy: 50, r: 50 }),
+    );
+
+    const image = makeShapeNode('image', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
+    image.fills = [imageFill('data:image/png;base64,AA==')];
+    const sourceDoc = {
+      ...createDocument('Dropped image', true),
+      nodes: { image },
+      rootChildren: ['image'],
+    };
+
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Test() {
+      ctx = useEditor();
+      return (
+        <button
+          type="button"
+          onClick={() =>
+            ctx?.batchImportNodes([{ node: image, sourceDoc, position: { x: 250, y: 150 } }], {
+              maskTargetId: 'mask-target',
+            })
+          }
+        >
+          mask imported image
+        </button>
+      );
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={DocumentCodec.encode(initial)}>
+        <Test />
+      </EditorProvider>,
+    );
+    screen.getByText('mask imported image').click();
+
+    await waitFor(() => {
+      const selectedId = ctx?.state.selection[0];
+      expect(selectedId ? ctx?.state.document.nodes[selectedId]?.kind : undefined).toBe('group');
+    });
+    const groupId = ctx?.state.selection[0];
+    if (!ctx || !groupId) throw new Error('Expected clipping group selection');
+    const group = ctx.state.document.nodes[groupId];
+    expect(group?.kind).toBe('group');
+    expect(group?.mask?.sourceNodeId).toBe('mask-target');
+    if (group?.kind !== 'group') return;
+    expect(getParent(ctx.state.document, groupId)).toBe('nested-parent');
+    expect(group.children).toContain('mask-target');
+    expect(group.children.some((id) => isImageShape(ctx!.state.document.nodes[id]!))).toBe(true);
   });
 });
 

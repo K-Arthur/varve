@@ -546,6 +546,7 @@ export interface EditorContextValue {
   ) => void;
   batchImportNodes: (
     items: { node: SceneNode; sourceDoc: Document; position?: { x: number; y: number } }[],
+    options?: { maskTargetId?: NodeId },
   ) => void;
 
   // Binding
