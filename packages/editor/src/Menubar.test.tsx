@@ -133,6 +133,22 @@ vi.mock('./shortcuts', () => ({
       binding: { key: 'g', ctrl: true, alt: true },
       label: 'Graph Editor',
     },
+    newAdjustmentLayer: {
+      binding: { key: 'n', alt: true },
+      label: 'New Adjustment Layer',
+    },
+    createClippingMask: {
+      binding: { key: 'm', ctrl: true },
+      label: 'Create Clipping Mask',
+    },
+    releaseClippingMask: {
+      binding: { key: 'm', ctrl: true, shift: true },
+      label: 'Release Clipping Mask',
+    },
+    toolCrop: {
+      binding: { key: 'c' },
+      label: 'Crop tool',
+    },
   },
 }));
 

@@ -100,11 +100,6 @@ export const SHORTCUT_DEFS = {
     label: 'Release Clipping Mask',
     category: 'Object',
   },
-  newAdjustmentLayer: {
-    binding: { key: 'j', ctrl: true, alt: true },
-    label: 'New Adjustment Layer',
-    category: 'Object',
-  },
   bringFront: {
     binding: { key: ']', ctrl: true, shift: true },
     label: 'Bring to Front',
@@ -413,6 +408,11 @@ export const SHORTCUT_DEFS = {
     binding: { key: 'i' },
     label: 'Add Keyframe at Playhead',
     category: 'Motion',
+  },
+  newAdjustmentLayer: {
+    binding: { key: 'n', alt: true },
+    label: 'New Adjustment Layer',
+    category: 'Object',
   },
 } satisfies Record<string, ShortcutDef>;
 
