@@ -1,4 +1,10 @@
-import { createDocument, makeGroupNode, makeShapeNode, type Page } from '@strata/scene';
+import {
+  createClippingMask,
+  createDocument,
+  makeGroupNode,
+  makeShapeNode,
+  type Page,
+} from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { SelectTool } from '../SelectTool';
 
@@ -32,6 +38,8 @@ function makeCtx(overrides?: Record<string, unknown>) {
     snapEnabled: false,
     snapGrid: 8,
     isolatedNodeId: null as string | null,
+    enterIsolation: vi.fn(),
+    exitIsolation: vi.fn(),
     createShapeAt: vi.fn(),
     createTextNodeAt: vi.fn(),
     setSelection: vi.fn(),
@@ -144,6 +152,17 @@ describe('SelectTool', () => {
     const ctx = makeCtx();
     tool.onKeyDown({ key: 'Escape' } as any, ctx);
     expect(ctx.setSelection).toHaveBeenCalledWith(null);
+  });
+
+  it('escape exits isolation and restores the isolated group selection', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({ isolatedNodeId: 'clip-group' });
+
+    tool.onKeyDown({ key: 'Escape' } as any, ctx);
+
+    expect(ctx.exitIsolation).toHaveBeenCalledOnce();
+    expect(ctx.setSelection).toHaveBeenCalledWith('clip-group');
+    expect(ctx.announceOperation).toHaveBeenCalledWith('Exit isolation', 'Clipping group');
   });
 
   it('arrow key nudges selected nodes', () => {
@@ -284,7 +303,30 @@ describe('SelectTool', () => {
       getNode: vi.fn().mockReturnValue(hitNode),
     });
     tool.onDoubleClick({ clientX: 50, clientY: 50 } as any, ctx);
+    expect(ctx.enterIsolation).toHaveBeenCalledWith('f1');
+    expect(ctx.setSelection).toHaveBeenCalledWith('f1');
     expect(ctx.announceOperation).toHaveBeenCalledWith('Enter', 'Frame 1');
+  });
+
+  it('double-click inside a selected clipping group isolates it and selects its mask source', () => {
+    const tool = new SelectTool();
+    const clipped = createClippingMask(makeDocWithNodes(2), 'n1', ['n0']);
+    const content = clipped.doc.nodes.n0;
+    const ctx = makeCtx({
+      document: clipped.doc,
+      selection: [clipped.groupId],
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'n0', node: content }),
+      getNode: vi.fn((id: string) => clipped.doc.nodes[id]),
+    });
+
+    tool.onDoubleClick({ clientX: 50, clientY: 50 } as any, ctx);
+
+    expect(ctx.enterIsolation).toHaveBeenCalledWith(clipped.groupId);
+    expect(ctx.setSelection).toHaveBeenCalledWith('n1');
+    expect(ctx.announceOperation).toHaveBeenCalledWith(
+      'Edit clipping mask',
+      expect.stringContaining('clip'),
+    );
   });
 
   it('onDeactivate aborts active drag transaction', () => {

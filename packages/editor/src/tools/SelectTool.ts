@@ -14,7 +14,13 @@
  */
 
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
-import { activePageNodes, getParent, isInIsolatedSubtree, walkNodes } from '@strata/scene';
+import {
+  activePageNodes,
+  getParent,
+  isInIsolatedSubtree,
+  type NodeId,
+  walkNodes,
+} from '@strata/scene';
 import {
   cubicBezierClosestPoint,
   managedColorToRgba,
@@ -483,6 +489,13 @@ export class SelectTool extends BaseTool {
         this.initialPositions.clear();
         this.hasDuplicated = false;
       }
+      if (ctx.isolatedNodeId) {
+        const isolatedNodeId = ctx.isolatedNodeId;
+        ctx.exitIsolation?.();
+        ctx.setSelection(isolatedNodeId);
+        ctx.announceOperation('Exit isolation', 'Clipping group');
+        return true;
+      }
       ctx.setSelection(null);
       ctx.announceSelection([]);
       return true;
@@ -585,11 +598,36 @@ export class SelectTool extends BaseTool {
     const hit = ctx.hitTest(world);
     if (hit) {
       const node = ctx.getNode(hit.nodeId);
+      let clippingGroupId: NodeId | undefined;
+      if (!ctx.isolatedNodeId) {
+        let ancestorId = getParent(ctx.document, hit.nodeId);
+        while (ancestorId) {
+          const ancestor = ctx.getNode(ancestorId);
+          if ((ancestor?.kind === 'group' || ancestor?.kind === 'frame') && ancestor.mask) {
+            clippingGroupId = ancestorId;
+            break;
+          }
+          ancestorId = getParent(ctx.document, ancestorId);
+        }
+      }
+      if (clippingGroupId) {
+        const clippingGroup = ctx.getNode(clippingGroupId);
+        const maskSourceId =
+          clippingGroup?.kind === 'group' || clippingGroup?.kind === 'frame'
+            ? clippingGroup.mask?.sourceNodeId
+            : undefined;
+        ctx.enterIsolation?.(clippingGroupId);
+        ctx.setSelection(maskSourceId ?? clippingGroupId);
+        ctx.announceOperation('Edit clipping mask', clippingGroup?.name ?? 'Clipping group');
+        return;
+      }
       if (node && node.kind === 'text') {
         ctx.announceOperation('Edit Text', node.name);
         ctx.setTextEditTargetId(hit.nodeId);
         ctx.setSelection(hit.nodeId);
       } else if (node && (node.kind === 'frame' || node.kind === 'group')) {
+        ctx.enterIsolation?.(hit.nodeId);
+        ctx.setSelection(hit.nodeId);
         ctx.announceOperation('Enter', node.name);
       } else if (node && node.kind === 'shape' && node.shape.kind === 'path') {
         ctx.setNodeEditTargetId(hit.nodeId);

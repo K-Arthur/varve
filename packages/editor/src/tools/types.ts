@@ -137,6 +137,9 @@ export interface ToolContext {
   snapGrid: number;
   /** Isolation/focus view: when set, only nodes in this subtree are selectable. */
   isolatedNodeId?: import('@strata/scene').NodeId | null;
+  /** Enter or exit subtree isolation without coupling tools to editor context. */
+  enterIsolation?: (nodeId: NodeId) => void;
+  exitIsolation?: () => void;
 
   createShapeAt: (
     world: { x: number; y: number },

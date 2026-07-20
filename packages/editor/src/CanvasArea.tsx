@@ -940,6 +940,9 @@ export function CanvasArea({
       setMaskPreviewMode: (mode) => e.setMaskPreviewMode(mode),
       snapEnabled: s.snapEnabled,
       snapGrid: s.snapGrid,
+      isolatedNodeId: s.isolatedNodeId,
+      enterIsolation: (nodeId) => e.enterIsolation(nodeId),
+      exitIsolation: () => e.exitIsolation(),
 
       createShapeAt: (world, size, parentId, pathPoints, pathClosed) =>
         e.createShapeAt(world, size, parentId, pathPoints, pathClosed),
@@ -3126,6 +3129,12 @@ export function CanvasArea({
       }
 
       if (e.key === 'Escape') {
+        if (s.isolatedNodeId) {
+          eRef.exitIsolation();
+          eRef.setSelection(s.isolatedNodeId);
+          eRef.announceOperation('Exit isolation', 'Clipping group');
+          return;
+        }
         eRef.setSelection(null);
         eRef.announceSelection([]);
         // If in a non-full canvas mode, return to full render mode.
