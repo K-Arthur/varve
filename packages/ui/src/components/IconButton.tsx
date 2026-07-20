@@ -1,6 +1,5 @@
 import { type ButtonHTMLAttributes, forwardRef } from 'react';
-import { Icon, type IconName } from '../icons';
-import { SolidIcon, type SolidIconName } from '../icons';
+import { Icon, type IconName, SolidIcon, type SolidIconName } from '../icons';
 import type { ButtonSize, ButtonVariant } from './Button';
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {

@@ -10,8 +10,8 @@
  */
 import type { ComponentDefinition, Document, FrameNode, SceneNode } from '@strata/scene';
 import { instanceOverrides } from '@strata/scene';
-import { useEditor } from '../../../context';
 import { Select } from '@strata/ui';
+import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function ComponentSection({ node }: { node: FrameNode }) {

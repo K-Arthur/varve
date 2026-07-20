@@ -50,8 +50,9 @@ test.describe('real-image background-removal quality benchmark', () => {
       test(`${fixture.id} — ${method}`, async ({ page }) => {
         test.setTimeout(method === 'ai-quality' ? 180_000 : 90_000);
         const imageDataUrl = fileDataUrl(path.join(BENCH_DIR!, fixture.image));
-        const maskDataUrl = fixture.mask
-          ? fileDataUrl(path.join(BENCH_DIR!, fixture.mask))
+        const fixtureMaybeWithMask = fixture as { id: string; image: string; mask?: string };
+        const maskDataUrl = fixtureMaybeWithMask.mask
+          ? fileDataUrl(path.join(BENCH_DIR!, fixtureMaybeWithMask.mask))
           : undefined;
         const engineModuleUrl = `/@fs${path.resolve(
           'packages/engine/src/backgroundRemoval/index.ts',
@@ -152,8 +153,7 @@ test.describe('real-image background-removal quality benchmark', () => {
           { caseId: fixture.id, engineModuleUrl, imageDataUrl, maskDataUrl, method },
         );
 
-        const { maskDataUrl: outputMask, ...record } = result;
-        results.push(record);
+        const outputMask = 'maskDataUrl' in result ? result.maskDataUrl : undefined;
         if (outputMask) {
           const encoded = outputMask.slice(outputMask.indexOf(',') + 1);
           fs.writeFileSync(
@@ -162,8 +162,12 @@ test.describe('real-image background-removal quality benchmark', () => {
             'base64',
           );
         }
-        expect(record.ok, record.error).toBe(true);
-        expect(record.actualMethod).toBeTruthy();
+        if (!result.ok || !('actualMethod' in result)) {
+          expect(result.ok, 'error' in result ? result.error : 'unknown error').toBe(true);
+          return;
+        }
+        results.push(result);
+        expect(result.actualMethod).toBeTruthy();
       });
     }
   }

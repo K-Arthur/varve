@@ -9,35 +9,19 @@
  * Strata's portable cross-engine Canvas 2D safety policy (2026-07-13).
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, Effect, NodeId, SceneNode } from '@strata/scene';
 import { resolveAllStyles } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
 type Appearance = Pick<SceneNode, 'transform'> & {
-  strokes?: SceneNode extends infer _Node
-    ? readonly {
-        visible?: boolean;
-        weight: number;
-        align: 'inside' | 'center' | 'outside';
-        perSideWeights?: readonly number[];
-      }[]
-    : never;
-  effects?: readonly (
-    | { type: 'layerBlur'; radius: number; visible?: boolean }
-    | { type: 'backgroundBlur'; radius: number; visible?: boolean }
-    | { type: 'dropShadow'; x: number; y: number; blur: number; spread: number; visible?: boolean }
-    | { type: 'outerGlow'; blur: number; spread: number; visible?: boolean }
-    | { type: 'innerShadow'; visible?: boolean }
-    | { type: 'innerGlow'; visible?: boolean }
-    | {
-        type: 'glassMaterial';
-        blur: number;
-        edgeHighlight: boolean;
-        edgeHighlightWidth: number;
-        visible?: boolean;
-      }
-  )[];
+  strokes?: readonly {
+    visible?: boolean;
+    weight: number;
+    align: 'inside' | 'center' | 'outside';
+    perSideWeights?: readonly number[];
+  }[];
+  effects?: readonly Effect[];
 };
 
 export function expandRect(rect: Rect, padding: number): Rect {

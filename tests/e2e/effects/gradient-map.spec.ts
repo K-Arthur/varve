@@ -54,7 +54,10 @@ test.describe('Gradient Map Adjustment', () => {
         }
 
         const ctx = walk(
-          (container as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
+          (container as unknown as Record<string, unknown>)[fiberKey] as Record<
+            string,
+            unknown
+          > | null,
         );
         if (ctx && typeof ctx.createAdjustmentLayer === 'function') {
           (ctx.createAdjustmentLayer as () => void)();

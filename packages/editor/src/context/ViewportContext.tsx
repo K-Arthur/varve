@@ -10,9 +10,9 @@ import {
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { editorScreenToWorld, editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
+import { isReducedMotion, subscribeReducedMotion } from './reducedMotionManager';
 import type { CanvasMode, EditorState } from './types';
 import { computeZoomStep, computeZoomTo } from './viewportOps';
-import { isReducedMotion, subscribeReducedMotion } from './reducedMotionManager';
 
 export interface ViewportContextValue {
   zoom: number;
@@ -70,7 +70,9 @@ export function ViewportProvider({
   const rmRef = useRef(isReducedMotion());
 
   useEffect(() => {
-    const unsub = subscribeReducedMotion((v) => { rmRef.current = v; });
+    const unsub = subscribeReducedMotion((v) => {
+      rmRef.current = v;
+    });
     return unsub;
   }, []);
 

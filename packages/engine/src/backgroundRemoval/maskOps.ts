@@ -483,7 +483,7 @@ export function filterMaskByComponents(
  */
 export function mergeNearbyComponents(
   components: MaskComponent[],
-  mask: Uint8Array,
+  _mask: Uint8Array,
   width: number,
   height: number,
 ): MaskComponent[] {

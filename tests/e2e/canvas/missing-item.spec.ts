@@ -127,9 +127,9 @@ async function canvasHasNonBackgroundPixels(
       for (let y = 0; y < canvas.height; y += stepY) {
         for (let x = 0; x < canvas.width; x += stepX) {
           const idx = (Math.floor(y) * canvas.width + Math.floor(x)) * 4;
-          const r = data[idx];
-          const g = data[idx + 1];
-          const b = data[idx + 2];
+          const r = data[idx]!;
+          const g = data[idx + 1]!;
+          const b = data[idx + 2]!;
           if (Math.abs(r - g) > 10 || Math.abs(g - b) > 10 || r > 30) return true;
         }
       }

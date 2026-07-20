@@ -1,5 +1,5 @@
 import type { LayerColor } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, SOLID_TOOL_ICONS } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon } from '@strata/ui';
 
 export interface LayerBulkBarProps {
   selectedCount: number;

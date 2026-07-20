@@ -40,7 +40,9 @@ export type SectionId =
   | 'align-distribute'
   | 'cognitive-load'
   | 'prototype-flow'
-  | 'brush-settings';
+  | 'brush-settings'
+  | 'canvas-background'
+  | 'document-color';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -52,7 +54,8 @@ export type SectionCategory =
   | 'content'
   | 'advanced'
   | 'prototype'
-  | 'tool';
+  | 'tool'
+  | 'canvas';
 
 // ---------------------------------------------------------------------------
 // Availability context — what the registry needs to evaluate predicates
@@ -389,6 +392,28 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
       ctx.activeTool === 'pencil' ||
       ctx.activeTool === 'smudge',
   },
+
+  // -- Canvas (empty selection) --
+  {
+    id: 'canvas-background',
+    title: 'Canvas',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 600,
+    category: 'canvas',
+    isAvailable: (ctx) => ctx.selectionKind === 'empty',
+  },
+  {
+    id: 'document-color',
+    title: 'Document Color',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 610,
+    category: 'canvas',
+    isAvailable: (ctx) => ctx.selectionKind === 'empty',
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -446,4 +471,5 @@ export const CATEGORY_LABELS: Record<SectionCategory, string> = {
   advanced: 'Advanced',
   prototype: 'Prototype',
   tool: 'Tool',
+  canvas: 'Canvas',
 };

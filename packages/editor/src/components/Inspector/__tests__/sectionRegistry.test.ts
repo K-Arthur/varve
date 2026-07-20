@@ -23,15 +23,20 @@ import {
   getHiddenSectionIds,
   hideOptionalSections,
   hideSection,
+  hideSubSection,
   isSectionCollapsed,
   isSectionVisible,
+  isSubSectionCollapsed,
   migrateSectionState,
   restoreDefaultCollapsed,
   restoreDefaultSectionState,
   setCollapsed,
+  setSubSectionCollapsed,
   showAllSections,
   showSection,
+  showSubSection,
   toggleCollapsed,
+  toggleSubSectionCollapsed,
 } from '../sectionState';
 
 // ---------------------------------------------------------------------------
@@ -451,6 +456,91 @@ describe('Section state queries', () => {
     expect(hidden).toContain('effects');
     expect(hidden).toContain('typography');
     expect(hidden).not.toContain('position-size');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Subsection state
+// ---------------------------------------------------------------------------
+
+describe('Subsection state', () => {
+  it('default state has no subsections', () => {
+    const state = createDefaultSectionState();
+    expect(state['typography'].subsections).toBeUndefined();
+  });
+
+  it('toggleSubSectionCollapsed toggles nested collapsed state', () => {
+    // Start by opening the parent so subsections are accessible
+    let state = createDefaultSectionState();
+    state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
+    // After toggle, subsection collapsed should be true (started as false/expanded)
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    // Toggle back
+    state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+  });
+
+  it('setSubSectionCollapsed sets nested collapsed state', () => {
+    let state = createDefaultSectionState();
+    state = setSubSectionCollapsed(state, 'typography', 'openTypeFeatures', true);
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    state = setSubSectionCollapsed(state, 'typography', 'openTypeFeatures', false);
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+  });
+
+  it('multiple subsections have independent state', () => {
+    let state = createDefaultSectionState();
+    state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    // Variable font axes remains expanded
+    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(false);
+  });
+
+  it('subsections survive parent collapse and reopen', () => {
+    let state = createDefaultSectionState();
+    // Expand the subsection
+    state = setSubSectionCollapsed(state, 'typography', 'openTypeFeatures', false);
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+    // Collapse the parent
+    state = setCollapsed(state, 'typography', true);
+    expect(isSectionCollapsed(state, 'typography')).toBe(true);
+    // Subsection state is preserved under the parent
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+    // Reopen parent
+    state = setCollapsed(state, 'typography', false);
+    // Subsection state is still preserved
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+  });
+
+  it('unknown subsectionId returns false for collapse', () => {
+    const state = createDefaultSectionState();
+    expect(isSubSectionCollapsed(state, 'typography', 'nonexistent')).toBe(false);
+  });
+
+  it('hideSubSection and showSubSection toggle hidden state', () => {
+    let state = createDefaultSectionState();
+    state = hideSubSection(state, 'typography', 'openTypeFeatures');
+    expect(state['typography'].subsections?.['openTypeFeatures']?.hidden).toBe(true);
+    state = showSubSection(state, 'typography', 'openTypeFeatures');
+    expect(state['typography'].subsections?.['openTypeFeatures']?.hidden).toBe(false);
+  });
+
+  it('subsections with no parent state get defaults', () => {
+    const state = createDefaultSectionState();
+    // Default collapsed = false (not collapsed) for subsection with no stored state
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(false);
+  });
+
+  it('different section parents have independent subsection trees', () => {
+    // Simulate having subsections on two different parents
+    let state = createDefaultSectionState();
+    state = toggleSubSectionCollapsed(state, 'typography', 'openTypeFeatures');
+    state = toggleSubSectionCollapsed(state, 'typography', 'variableFontAxes');
+    // Both subsections on `typography` are collapsed
+    expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
+    expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
+    // Unrelated section has no subsections
+    expect(state['fills'].subsections).toBeUndefined();
   });
 });
 

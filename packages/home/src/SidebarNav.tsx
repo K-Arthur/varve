@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@strata/platform';
 import type { SolidIconName } from '@strata/ui';
-import { SolidIcon, SearchField, SOLID_CHROME_ICONS } from '@strata/ui';
+import { SearchField, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import {
   type DragEvent,
   type KeyboardEvent,

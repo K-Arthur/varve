@@ -8,8 +8,9 @@
  * The underlying engine (expr.ts + variables.ts) handles {alias}*math expressions.
  * Research basis: Figma "Variables" panel; Tokens Studio table conventions.
  */
-import { useEffect, useRef, useState } from 'react';
+
 import { Select } from '@strata/ui';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
 import { docVariableStore } from './docVariableStore';
 import './VariablePanel.css';
