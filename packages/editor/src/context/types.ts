@@ -90,9 +90,17 @@ export interface SubjectPickerSession {
     id: number;
     pixelCount: number;
     bbox: { x: number; y: number; w: number; h: number };
+    confidence: number;
+    relativeArea: number;
+    centerOfMass: { x: number; y: number };
+    edgePixelCount: number;
+    isLargest: boolean;
+    mergedFrom?: number[];
   }>;
   keepIds: number[];
   pendingMaskDataUrl: string;
+  /** Source image data URL or file path for thumbnail generation. */
+  sourceImageSrc: string;
   method: BackgroundRemovalMethod;
   confidence: number;
   feather: number;
@@ -236,6 +244,8 @@ export interface EditorState {
     wetDryingRate: number;
   };
   subjectPickerSession: SubjectPickerSession | null;
+  /** Component ID being hovered/focused in the subject picker, for canvas highlighting. */
+  subjectHighlightId: number | null;
   backgroundRemovalPreviewSession: BackgroundRemovalPreviewSession | null;
   keyObjectId: string | null;
   alignToPage: boolean;

@@ -6,7 +6,7 @@
  * non-destructive image-mask editors.
  */
 
-export type ImagePlacementFit = 'fill' | 'fit' | 'stretch' | 'tile';
+export type ImagePlacementFit = 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
 
 export interface ImagePlacementPoint {
   x: number;
@@ -96,6 +96,29 @@ export function computeImagePlacement(
       y: offsetOriginY + Math.floor((bounds.y - offsetOriginY) / tileHeight) * tileHeight,
       w: tileWidth,
       h: tileHeight,
+    };
+    if (!finiteRect(drawRect)) return null;
+    return {
+      fit,
+      sourceWidth,
+      sourceHeight,
+      bounds: { ...bounds },
+      drawRect,
+    };
+  }
+
+  if (fit === 'crop') {
+    // Crop mode: the source image is drawn at its natural size (× scale),
+    // offset by (offsetX, offsetY), and clipped to bounds.
+    // When bounds change, the same crop region is maintained.
+    const drawWidth = sourceWidth * scale;
+    const drawHeight = sourceHeight * scale;
+    if (!finitePositive(drawWidth) || !finitePositive(drawHeight)) return null;
+    const drawRect = {
+      x: bounds.x + offsetX,
+      y: bounds.y + offsetY,
+      w: drawWidth,
+      h: drawHeight,
     };
     if (!finiteRect(drawRect)) return null;
     return {

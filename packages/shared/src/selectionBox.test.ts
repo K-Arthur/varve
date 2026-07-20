@@ -209,6 +209,50 @@ describe('resizeSelectionBox', () => {
   });
 });
 
+describe('resizeSelectionBox — image aspect ratio', () => {
+  const box16x9: SelectionBox = { cx: 0, cy: 0, w: 1920, h: 1080, rotation: 0 };
+
+  it('preserves 16:9 aspect ratio on SE corner with proportional', () => {
+    const next = resizeSelectionBox(box16x9, 'se', [-400, 0], { proportional: true });
+    // Width reduced, height must follow to keep 16:9
+    const ratio = next.w / next.h;
+    approx(ratio, 1920 / 1080, 1e-6);
+  });
+
+  it('preserves 16:9 aspect ratio on NW corner with proportional', () => {
+    const next = resizeSelectionBox(box16x9, 'nw', [400, 0], { proportional: true });
+    const ratio = next.w / next.h;
+    approx(ratio, 1920 / 1080, 1e-6);
+  });
+
+  it('preserves aspect ratio on east edge with proportional', () => {
+    const next = resizeSelectionBox(box16x9, 'e', [-900, 0], { proportional: true });
+    const ratio = next.w / next.h;
+    approx(ratio, 1920 / 1080, 1e-6);
+  });
+
+  it('preserves aspect ratio on south edge with proportional', () => {
+    const next = resizeSelectionBox(box16x9, 's', [0, -400], { proportional: true });
+    const ratio = next.w / next.h;
+    approx(ratio, 1920 / 1080, 1e-6);
+  });
+
+  it('free resize distorts aspect ratio without proportional', () => {
+    const next = resizeSelectionBox(box16x9, 'se', [-900, 0]);
+    // Width changed, height unchanged → ratio differs from 16:9
+    expect(next.w / next.h).not.toBeCloseTo(1920 / 1080, 6);
+  });
+
+  it('proportional from center preserves ratio', () => {
+    const next = resizeSelectionBox(box16x9, 'se', [200, 0], {
+      proportional: true,
+      centered: true,
+    });
+    const ratio = next.w / next.h;
+    approx(ratio, 1920 / 1080, 1e-6);
+  });
+});
+
 describe('rotateSelectionBox', () => {
   it('rotates around the box center by default', () => {
     const box: SelectionBox = { cx: 10, cy: 10, w: 10, h: 10, rotation: 0 };

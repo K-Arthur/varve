@@ -2424,6 +2424,114 @@ export function CanvasArea({
       }
     }
 
+    // ── Subject picker highlight overlay ────────────────────────────────────
+    const subjectPickerSession = s.subjectPickerSession;
+    if (subjectPickerSession) {
+      const highlightId = s.subjectHighlightId;
+      const imageNodeId = subjectPickerSession.nodeId;
+      const imageNode = doc.nodes[imageNodeId];
+      if (imageNode && imageNode.kind === 'shape') {
+        const worldBounds = getCachedWorldBounds(cache, doc, imageNodeId);
+        const worldMat = getCachedWorldTransform(cache, doc, imageNodeId);
+        if (worldBounds && worldMat) {
+          const imgW = worldBounds.w;
+          const imgH = worldBounds.h;
+          const srcW = subjectPickerSession.sourceWidth;
+          const srcH = subjectPickerSession.sourceHeight;
+          const scaleX = srcW > 0 ? imgW / srcW : 1;
+          const scaleY = srcH > 0 ? imgH / srcH : 1;
+          const [a, b, c2, d2, e2, f2] = worldMat;
+
+          ctx.save();
+
+          // Dim non-highlighted regions: semi-transparent overlay over full image
+          if (highlightId !== null) {
+            ctx.fillStyle = 'rgba(0,0,0,0.35)';
+            ctx.beginPath();
+            ctx.rect(e2, f2, imgW, imgH);
+            ctx.fill();
+          }
+
+          // Draw outlines for each component
+          for (const comp of subjectPickerSession.components) {
+            const isSelected = subjectPickerSession.keepIds.includes(comp.id);
+            const isHighlighted = comp.id === highlightId;
+
+            // Map component bbox from mask pixels to world space
+            const bx = comp.bbox.x * scaleX;
+            const by = comp.bbox.y * scaleY;
+            const bw = comp.bbox.w * scaleX;
+            const bh = comp.bbox.h * scaleY;
+
+            // Transform bbox corners through world matrix
+            const corners = [
+              [bx, by],
+              [bx + bw, by],
+              [bx + bw, by + bh],
+              [bx, by + bh],
+            ] as const;
+
+            if (highlightId !== null && isHighlighted) {
+              // Highlighted: cut out from dim overlay by drawing bright fill
+              ctx.save();
+              ctx.globalCompositeOperation = 'destination-out';
+              ctx.fillStyle = 'rgba(0,0,0,1)';
+              ctx.beginPath();
+              for (let i = 0; i < corners.length; i++) {
+                const [lx, ly] = corners[i]!;
+                const wx = a * lx + c2 * ly + e2;
+                const wy = b * lx + d2 * ly + f2;
+                if (i === 0) ctx.moveTo(wx, wy);
+                else ctx.lineTo(wx, wy);
+              }
+              ctx.closePath();
+              ctx.fill();
+              ctx.restore();
+            }
+
+            // Draw component outline
+            ctx.beginPath();
+            for (let i = 0; i < corners.length; i++) {
+              const [lx, ly] = corners[i]!;
+              const wx = a * lx + c2 * ly + e2;
+              const wy = b * lx + d2 * ly + f2;
+              if (i === 0) ctx.moveTo(wx, wy);
+              else ctx.lineTo(wx, wy);
+            }
+            ctx.closePath();
+
+            if (isHighlighted) {
+              ctx.strokeStyle = accentColor;
+              ctx.lineWidth = 3 / s.zoom;
+              ctx.setLineDash([]);
+            } else if (isSelected) {
+              ctx.strokeStyle = 'rgba(34,197,94,0.8)';
+              ctx.lineWidth = 2 / s.zoom;
+              ctx.setLineDash([]);
+            } else {
+              ctx.strokeStyle = 'rgba(128,128,128,0.5)';
+              ctx.lineWidth = 1.5 / s.zoom;
+              ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
+            }
+            ctx.stroke();
+
+            // Draw component number label
+            const labelX = a * bx + c2 * by + e2;
+            const labelY = b * bx + d2 * by + f2 - 8 / s.zoom;
+            const labelFontSize = Math.max(10, 12) / s.zoom;
+            ctx.font = `bold ${labelFontSize}px sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle = isHighlighted ? accentColor : isSelected ? 'rgba(34,197,94,0.9)' : 'rgba(128,128,128,0.8)';
+            ctx.fillText(`${subjectPickerSession.components.indexOf(comp) + 1}`, labelX, labelY);
+          }
+
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+      }
+    }
+
     // ── Drop target container highlight for drag operations ───────────────
     if (dropTargetFrameId) {
       const containerNode = doc.nodes[dropTargetFrameId];
@@ -2716,6 +2824,8 @@ export function CanvasArea({
     state.pan.y,
     state.cameraRotation,
     state.maskPreviewMode,
+    state.subjectHighlightId,
+    state.subjectPickerSession,
     displayDpr,
   ]);
 

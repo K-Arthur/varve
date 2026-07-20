@@ -295,6 +295,7 @@ export function useBackgroundRemoval(
               components: finalized.components,
               keepIds: finalized.components[0] ? [finalized.components[0].id] : [],
               pendingMaskDataUrl: finalized.maskDataUrl,
+              sourceImageSrc: src,
               method: finalized.method as BackgroundRemovalMethod,
               confidence: finalized.confidence,
               feather,

@@ -219,6 +219,9 @@ export type {
   PresetSafeArea,
 } from './presetTypes';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
+
+export type { ResizeModifiers, RotateModifiers } from './modifiers';
+export { computeResizeModifiers, computeRotateModifiers } from './modifiers';
 export {
   boxDeltaMatrix,
   computeSelectionBox,

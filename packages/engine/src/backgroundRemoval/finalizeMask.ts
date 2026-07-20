@@ -1,10 +1,18 @@
 /**
  * Post-AI mask finalization: multi-subject filtering.
+ *
+ * Enhances raw connected components with metadata (confidence, centroid,
+ * relative area), merges nearby fragments, and assigns spatially-stable IDs.
  */
 
 import { maskToDataUrl } from './heuristic';
 import { decodeMaskDataUrl } from './maskDecode';
-import { filterMaskByComponents, findConnectedComponents } from './maskOps';
+import {
+  assignStableIds,
+  filterMaskByComponents,
+  findConnectedComponents,
+  mergeNearbyComponents,
+} from './maskOps';
 import type { BackgroundRemovalResult } from './types';
 
 export interface FinalizeMaskOptions {
@@ -12,6 +20,8 @@ export interface FinalizeMaskOptions {
   keepComponentIds?: number[];
   /** When true and multiple blobs, returns null maskDataUrl to signal picker needed. */
   promptIfMultiple?: boolean;
+  /** When false, skip fragment merging (default: true). */
+  mergeFragments?: boolean;
 }
 
 export interface FinalizeMaskResult extends BackgroundRemovalResult {
@@ -30,13 +40,16 @@ function computeMinArea(width: number, height: number): number {
  * Filter mask to selected (or largest) connected components.
  * When `promptIfMultiple` is set and multiple significant blobs remain,
  * signals picker instead of auto-filtering.
+ *
+ * Enhanced: merges nearby fragments, computes per-component confidence
+ * and centroid, assigns spatially-stable IDs.
  */
 export async function finalizeMaskResult(
   result: BackgroundRemovalResult,
   opts: FinalizeMaskOptions = {},
 ): Promise<FinalizeMaskResult> {
   const { mask, width, height } = await decodeMaskDataUrl(result.maskDataUrl);
-  const components = findConnectedComponents(mask, width, height);
+  let components = findConnectedComponents(mask, width, height);
   const minArea = computeMinArea(width, height);
   const significant = components.filter((c) => c.pixelCount >= minArea);
 
@@ -62,17 +75,23 @@ export async function finalizeMaskResult(
     };
   }
 
+  // Merge nearby fragments before presenting to the user
+  const shouldMerge = opts.mergeFragments !== false;
+  const merged = shouldMerge
+    ? mergeNearbyComponents(significant, mask, width, height)
+    : assignStableIds(significant);
+
   if (opts.promptIfMultiple) {
     return {
       ...result,
-      components: significant,
+      components: merged,
       needsSubjectPicker: true,
     };
   }
 
-  const keepIds = new Set(opts.keepComponentIds ?? [significant[0]!.id]);
+  const keepIds = new Set(opts.keepComponentIds ?? [merged[0]!.id]);
   const filtered = filterMaskByComponents(mask, width, height, keepIds);
-  const keptComponents = significant.filter((c) => keepIds.has(c.id));
+  const keptComponents = merged.filter((c) => keepIds.has(c.id));
   return {
     ...result,
     maskDataUrl: maskToDataUrl(filtered, width, height),
