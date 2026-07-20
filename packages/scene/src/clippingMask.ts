@@ -147,7 +147,7 @@ export function createClippingMask(
   for (const contentId of contentNodeIds) {
     const content = doc.nodes[contentId];
     if (!content) throw new Error(`Content node not found: ${contentId}`);
-    if (parentIndex.get(contentId) !== parentId) {
+    if ((parentIndex.get(contentId) ?? null) !== parentId) {
       throw new Error('Mask and content nodes must be siblings');
     }
     if (contentId === maskNodeId) throw new Error('Mask node cannot also be content');

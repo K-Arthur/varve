@@ -1,4 +1,10 @@
-import { createDocument, makeFrameNode, makeShapeNode, nextNodeId } from '@strata/scene';
+import {
+  createClippingMask,
+  createDocument,
+  makeFrameNode,
+  makeShapeNode,
+  nextNodeId,
+} from '@strata/scene';
 import type { Affine } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import { HitTestEngine } from '..';
@@ -125,5 +131,70 @@ describe('HitTestEngine', () => {
 
     const engine2 = new HitTestEngine(doc, { isolatedNodeId: frameId });
     expect(engine2.hitTest({ x: 50, y: 50 })?.nodeId).toBe(frameId);
+  });
+
+  it('does not hit clipped content outside the mask geometry', () => {
+    let doc = createDocument('test', true);
+    const maskId = 'mask';
+    const contentId = 'content';
+    doc = {
+      ...doc,
+      nodes: {
+        [maskId]: makeShapeNode(maskId, { kind: 'circle', cx: 10, cy: 10, r: 10 }),
+        [contentId]: makeShapeNode(contentId, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+      },
+      rootChildren: [maskId, contentId],
+    };
+    doc = createClippingMask(doc, maskId, [contentId]).doc;
+
+    const engine = new HitTestEngine(doc, { zoom: 100 });
+    expect(engine.hitTest({ x: 10, y: 10 })?.nodeId).toBeTruthy();
+    expect(engine.hitTest({ x: 80, y: 80 })).toBeNull();
+  });
+
+  it('honours compound-path holes and inverted clipping during hit testing', () => {
+    let doc = createDocument('test', true);
+    const maskId = 'mask';
+    const contentId = 'content';
+    const ring = (x0: number, y0: number, x1: number, y1: number) => [
+      { x: x0, y: y0, handleIn: null, handleOut: null },
+      { x: x1, y: y0, handleIn: null, handleOut: null },
+      { x: x1, y: y1, handleIn: null, handleOut: null },
+      { x: x0, y: y1, handleIn: null, handleOut: null },
+    ];
+    doc = {
+      ...doc,
+      nodes: {
+        [maskId]: makeShapeNode(maskId, {
+          kind: 'path',
+          points: ring(0, 0, 100, 100),
+          holes: [ring(25, 25, 75, 75)],
+          closed: true,
+          tolerance: 1,
+          fillRule: 'evenodd',
+        }),
+        [contentId]: makeShapeNode(contentId, { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+      },
+      rootChildren: [maskId, contentId],
+    };
+    doc = createClippingMask(doc, maskId, [contentId]).doc;
+    const groupId = doc.rootChildren[0]!;
+    const engine = new HitTestEngine(doc, { zoom: 100 });
+    expect(engine.hitTest({ x: 10, y: 10 })?.nodeId).toBeTruthy();
+    expect(engine.hitTest({ x: 50, y: 50 })).toBeNull();
+
+    doc = {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [groupId]: {
+          ...doc.nodes[groupId]!,
+          mask: { ...doc.nodes[groupId]!.mask!, inverted: true },
+        },
+      },
+    };
+    const inverted = new HitTestEngine(doc, { zoom: 100 });
+    expect(inverted.hitTest({ x: 10, y: 10 })).toBeNull();
+    expect(inverted.hitTest({ x: 50, y: 50 })?.nodeId).toBeTruthy();
   });
 });

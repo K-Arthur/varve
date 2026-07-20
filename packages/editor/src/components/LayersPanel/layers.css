@@ -525,6 +525,17 @@
   flex-shrink: 0;
 }
 
+.layers-row__mask-role {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.layers-row__mask-role--source {
+  font-weight: 600;
+}
+
 /* ─── Toggles ───────────────────────────────────────────────── */
 .layers-row__toggle {
   display: flex;

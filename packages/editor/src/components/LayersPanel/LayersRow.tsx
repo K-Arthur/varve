@@ -18,7 +18,7 @@ import type {
 } from '@strata/scene';
 import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
 import type { SolidIconName } from '@strata/ui';
-import { SOLID_CHROME_ICONS, SolidIcon, SOLID_TOOL_ICONS } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon } from '@strata/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import type { PresenceData } from './PresenceIndicator';
@@ -66,6 +66,8 @@ export interface LayersRowProps {
   docId?: string;
   /** Document used to compute auto-name suggestions while renaming. */
   doc?: Document;
+  /** Relationship to the direct parent's structural mask, when applicable. */
+  maskRole?: 'source' | 'content';
 }
 
 const NODE_ICONS: Record<string, SolidIconName> = {
@@ -135,6 +137,7 @@ export const LayersRow = memo(function LayersRow({
   presences,
   docId,
   doc,
+  maskRole,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -465,6 +468,16 @@ export const LayersRow = memo(function LayersRow({
           </span>
         )}
 
+        {maskRole && !editing && (
+          <span
+            className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
+            title={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
+            data-mask-role={maskRole}
+          >
+            {maskRole === 'source' ? 'mask' : 'clipped'}
+          </span>
+        )}
+
         {/* Blend mode / opacity badge */}
         {badgeText && !editing && <span className="layers-row__badge">{badgeText}</span>}
 
@@ -509,7 +522,10 @@ export const LayersRow = memo(function LayersRow({
           aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
           aria-pressed={node.locked}
         >
-          <SolidIcon name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock} size="0.85em" />
+          <SolidIcon
+            name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock}
+            size="0.85em"
+          />
         </button>
       </div>
     </>
