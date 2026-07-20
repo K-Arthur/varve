@@ -52,7 +52,7 @@ describe('CropTool', () => {
     expect(commit).not.toHaveBeenCalled();
   });
 
-  it('Enter commits crop and returns to select', () => {
+  it('Enter commits crop state and returns to select', () => {
     const tool = new CropTool();
     const commit = vi.fn();
     tool.setCommitHandler(commit);
@@ -60,7 +60,9 @@ describe('CropTool', () => {
     tool.onActivate(ctx as never);
     tool.setCropRect({ x: 10, y: 10, w: 80, h: 40 });
     tool.onKeyDown(new KeyboardEvent('keydown', { key: 'Enter' }), ctx as never);
-    expect(commit).toHaveBeenCalledWith({ x: 10, y: 10, w: 80, h: 40 });
+    expect(commit).toHaveBeenCalled();
+    const called = commit.mock.calls[0]![0]!;
+    expect(called.viewport).toEqual({ x: 10, y: 10, w: 80, h: 40 });
     expect(ctx.setTool).toHaveBeenCalledWith('select');
   });
 
@@ -69,5 +71,23 @@ describe('CropTool', () => {
     const ctx = makeCtx({ selection: [] });
     tool.onActivate(ctx as never);
     expect(ctx.setTool).toHaveBeenCalledWith('select');
+  });
+
+  it('wheel zoom adjusts fill scale', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    tool.onActivate(ctx as never);
+    const initial = tool.getCropState()!.fillScale;
+    tool.setFillScale(initial! * 0.9);
+    expect(tool.getCropState()!.fillScale).toBeCloseTo(initial! * 0.9);
+  });
+
+  it('cycleFitMode cycles through FIT_CYCLE', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    tool.onActivate(ctx as never);
+    const f0 = tool.getCropState()!.fillFit;
+    tool.cycleFitMode();
+    expect(tool.getCropState()!.fillFit).not.toBe(f0);
   });
 });

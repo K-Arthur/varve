@@ -1,10 +1,9 @@
 import type { Affine } from '@strata/shared';
-import { identity, multiplyAffine, translate } from '@strata/shared';
+import { identity } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
-import { applyConstraints, defaultConstraints } from '@strata/scene';
 import { TransformEngine } from '../TransformEngine';
 
-const IDENTITY = identity as Affine;
+const _IDENTITY = identity as Affine;
 
 function makeDoc(nodes: Record<string, any>) {
   return { nodes, rootChildren: Object.keys(nodes), pages: [], activePageId: 'page1' } as any;
@@ -133,7 +132,7 @@ describe('TransformEngine.resize — image aspect ratio', () => {
       doc,
     );
 
-    const resized = newDoc.nodes['img1'];
+    const resized = newDoc.nodes.img1;
     expect(resized).toBeDefined();
     // The transform should have uniform scale (aspect preserved)
     const [a, b, c, d] = resized.transform;
@@ -156,7 +155,7 @@ describe('TransformEngine.resize — image aspect ratio', () => {
       doc,
     );
 
-    const resized = newDoc.nodes['img1'];
+    const resized = newDoc.nodes.img1;
     expect(resized).toBeDefined();
     const [a, b, c, d] = resized.transform;
     const scaleX = Math.hypot(a, b);
@@ -179,7 +178,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([2920, 1580], 'se', {}, doc);
     const committed = engine.commit(newDoc);
 
-    const node = committed.nodes['img1'];
+    const node = committed.nodes.img1;
     expect(node).toBeDefined();
     // Shape dimensions should reflect the resize (roughly 2920×1580)
     expect(node.shape.w).toBeGreaterThan(1920);
@@ -199,7 +198,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([2920, 1642], 'se', { proportional: true }, doc);
     const committed = engine.commit(newDoc);
 
-    const node = committed.nodes['img1'];
+    const node = committed.nodes.img1;
     // Original aspect: 1920/1080 = 16/9 ≈ 1.777...
     const aspect = node.shape.w / node.shape.h;
     expect(aspect).toBeCloseTo(1920 / 1080, 2);
@@ -214,7 +213,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([2920, 1580], 'se', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const node = committed.nodes['img1'];
+    const node = committed.nodes.img1;
     const aspect = node.shape.w / node.shape.h;
     // Original aspect: 16/9 ≈ 1.777
     // New: 2920/1580 ≈ 1.848 — different from original
@@ -230,7 +229,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([2920, 540], 'e', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const node = committed.nodes['img1'];
+    const node = committed.nodes.img1;
     // Shape width increased, height unchanged
     expect(node.shape.w).toBeGreaterThan(1920);
     expect(node.shape.h).toBe(1080);
@@ -249,7 +248,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([960, 1580], 's', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const node = committed.nodes['img1'];
+    const node = committed.nodes.img1;
     expect(node.shape.h).toBeGreaterThan(1080);
     expect(node.shape.w).toBe(1920);
     const [a, b, c, d] = node.transform;
@@ -266,7 +265,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([300, 300], 'se', { centered: true, proportional: true }, doc);
     const committed = engine.commit(newDoc);
 
-    const node = committed.nodes['img1'];
+    const node = committed.nodes.img1;
     // With centred + proportional: both dimensions scale uniformly
     expect(node.shape.w).toBeGreaterThan(200);
     expect(node.shape.h).toBeGreaterThan(200);
@@ -287,8 +286,8 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
     const newDoc = engine.resize([2000, 1000], 'se', { proportional: true }, doc);
     const committed = engine.commit(newDoc);
 
-    const n1 = committed.nodes['img1'];
-    const n2 = committed.nodes['img2'];
+    const n1 = committed.nodes.img1;
+    const n2 = committed.nodes.img2;
     // Both should have baked dimensions, not transform scales
     expect(Math.hypot(n1.transform[0], n1.transform[1])).toBeCloseTo(1, 2);
     expect(Math.hypot(n2.transform[0], n2.transform[1])).toBeCloseTo(1, 2);
@@ -296,7 +295,7 @@ describe('TransformEngine.bakeNode — image-node commit', () => {
 });
 
 describe('TransformEngine.bakeNode — frame child constraints', () => {
-  const CHILD_TRANSFORM: Affine = [1, 0, 0, 1, 20, 30];
+  const _CHILD_TRANSFORM: Affine = [1, 0, 0, 1, 20, 30];
 
   function makeChild(id: string, x: number, y: number, w: number, h: number) {
     return {
@@ -332,7 +331,7 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     const newDoc = engine.resize([800, 600], 'se', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const movedChild = committed.nodes['child1'] as typeof child;
+    const movedChild = committed.nodes.child1 as typeof child;
     // Min constraints: position stays the same (pinned to left/top)
     expect(movedChild.transform[4]).toBe(20);
     expect(movedChild.transform[5]).toBe(30);
@@ -353,7 +352,7 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     const newDoc = engine.resize([800, 600], 'se', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const movedChild = committed.nodes['child1'] as typeof child;
+    const movedChild = committed.nodes.child1 as typeof child;
     // Max constraints: distance from right edge stays the same
     const oldRight = 400 - (300 + 100);
     const newX = 800 - 100 - oldRight; // = 800 - 100 - 0 = 700
@@ -380,12 +379,13 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     const newDoc = engine.resize([800, 600], 'se', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const movedChild = committed.nodes['child1'] as typeof child;
+    const movedChild = committed.nodes.child1 as typeof child;
     // Stretch: child resizes to fill margins
     // newW = 800 - 20 - 280 = 500, newH = 600 - 30 - 190 = 380
-    // But shape dimensions don't get new W/H, only position
     expect(movedChild.transform[4]).toBe(20); // x stays at margin
     expect(movedChild.transform[5]).toBe(30); // y stays at margin
+    expect(movedChild.shape.w).toBe(500); // width stretches
+    expect(movedChild.shape.h).toBe(380); // height stretches
   });
 
   it('applies scale constraints', () => {
@@ -403,11 +403,14 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     const newDoc = engine.resize([800, 600], 'se', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const movedChild = committed.nodes['child1'] as typeof child;
+    const movedChild = committed.nodes.child1 as typeof child;
     // Scale: position and size scale proportionally
     // newX = 20 * (800/400) = 40, newY = 30 * (600/300) = 60
+    // newW = 100 * (800/400) = 200, newH = 80 * (600/300) = 160
     expect(movedChild.transform[4]).toBe(40);
     expect(movedChild.transform[5]).toBe(60);
+    expect(movedChild.shape.w).toBe(200);
+    expect(movedChild.shape.h).toBe(160);
   });
 
   it('does not move children without constraints', () => {
@@ -424,7 +427,7 @@ describe('TransformEngine.bakeNode — frame child constraints', () => {
     const newDoc = engine.resize([800, 600], 'se', { proportional: false }, doc);
     const committed = engine.commit(newDoc);
 
-    const movedChild = committed.nodes['child1'] as typeof child;
+    const movedChild = committed.nodes.child1 as typeof child;
     // No constraints → child stays at original position
     expect(movedChild.transform[4]).toBe(20);
     expect(movedChild.transform[5]).toBe(30);
