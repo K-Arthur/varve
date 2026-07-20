@@ -133,24 +133,6 @@ export interface HomeViewState {
   sidebarCollapsed: boolean;
 }
 
-/** Dimensions + color metadata for a new document. */
-export type Unit = 'px' | 'pt' | 'in' | 'mm' | 'cm' | 'pc';
-export type ColorMode = 'rgb' | 'cmyk' | 'grayscale';
-
-export interface NewDocPreset {
-  id: string;
-  name: string;
-  category: 'blank' | 'device' | 'print' | 'social' | 'ui-kit';
-  width: number;
-  height: number;
-  unit: Unit;
-  colorMode: ColorMode;
-  /** Print bleed in the preset's unit. */
-  bleed?: number;
-  /** Print resolution in DPI (for CMYK documents). */
-  dpi?: number;
-}
-
 /** A reusable starter document. */
 export interface TemplateDef {
   id: string;
