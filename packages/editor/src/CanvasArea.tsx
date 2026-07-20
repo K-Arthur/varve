@@ -2354,12 +2354,19 @@ export function CanvasArea({
     // Clear overlay canvas (it's transparent otherwise)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
     // ── Mask preview overlay ──────────────────────────────────────────────
     const previewMode: import('./context/types').MaskPreviewMode = s.maskPreviewMode;
     const previewNodeId = s.selection[0];
     const previewNode = previewNodeId ? doc.nodes[previewNodeId] : undefined;
-    if (previewMode !== 'none' && previewNode && previewNode.kind === 'shape') {
+    const maskEditing = s.tool === 'refineMask' || s.tool === 'trimapEdit';
+    if (
+      previewMode !== 'none' &&
+      maskEditing &&
+      previewNode?.kind === 'shape' &&
+      previewNode.mask?.rasterMask
+    ) {
       const worldBounds = getCachedWorldBounds(cache, doc, previewNodeId);
       if (worldBounds) {
         ctx.save();
@@ -2409,8 +2416,6 @@ export function CanvasArea({
         ctx.restore();
       }
     }
-
-    applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
     // ── Drop target container highlight for drag operations ───────────────
     if (dropTargetFrameId) {
@@ -3228,7 +3233,12 @@ export function CanvasArea({
 
   // ─── Cursor ───────────────────────────────────────────────────────────────
 
-  const cursor = tm.current?.cursor ?? 'default';
+  const cursor =
+    tm.current?.activeToolId === state.tool
+      ? tm.current.cursor
+      : state.tool === 'refineMask' || state.tool === 'trimapEdit'
+        ? 'crosshair'
+        : 'default';
 
   // ─── Render ───────────────────────────────────────────────────────────────
 

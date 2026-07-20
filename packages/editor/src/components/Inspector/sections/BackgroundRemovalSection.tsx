@@ -608,10 +608,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               size="sm"
               onClick={() => {
                 if (maskEditorOpen) handleDoneMaskEditing();
-                else {
-                  setMaskEditorOpen(true);
-                  setMaskPreviewMode('checkerboard');
-                }
+                else handleRefineMask();
               }}
               aria-expanded={maskEditorOpen}
               aria-controls="background-mask-editor"
