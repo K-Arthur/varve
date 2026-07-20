@@ -15,7 +15,7 @@ import type {
   SceneNode,
   VectorMaskData,
 } from '@strata/scene';
-import { isImageShape, resolveMask } from '@strata/scene';
+import { activePageNodes, isImageShape, resolveMask } from '@strata/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@strata/shared';
 
 export { timelineToCSSKeyframes } from './animation-css';
@@ -150,18 +150,37 @@ function documentNodeBounds(
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
   const transform = multiplyAffine(parentTransform, node.transform);
   if (node.kind === 'group' || node.kind === 'frame') {
+    const mask = resolveMask(node, doc);
     const children = node.children
+      .filter((id) => !(mask?.hideMaskSource && mask.sourceNodeId === id))
       .map((id) => doc.nodes[id])
       .filter((child): child is SceneNode => child?.visible === true)
       .map((child) => documentNodeBounds(child, doc, transform))
       .filter((bounds): bounds is NonNullable<typeof bounds> => bounds !== null);
     if (children.length > 0) {
-      return {
+      const contentBounds = {
         minX: Math.min(...children.map((bounds) => bounds.minX)),
         minY: Math.min(...children.map((bounds) => bounds.minY)),
         maxX: Math.max(...children.map((bounds) => bounds.maxX)),
         maxY: Math.max(...children.map((bounds) => bounds.maxY)),
       };
+      if (mask?.type === 'clip' && !mask.inverted && mask.sourceNodeId) {
+        const source = doc.nodes[mask.sourceNodeId];
+        const maskBounds = source ? documentNodeBounds(source, doc, transform) : null;
+        if (maskBounds) {
+          const clippedBounds = {
+            minX: Math.max(contentBounds.minX, maskBounds.minX),
+            minY: Math.max(contentBounds.minY, maskBounds.minY),
+            maxX: Math.min(contentBounds.maxX, maskBounds.maxX),
+            maxY: Math.min(contentBounds.maxY, maskBounds.maxY),
+          };
+          return clippedBounds.maxX >= clippedBounds.minX &&
+            clippedBounds.maxY >= clippedBounds.minY
+            ? clippedBounds
+            : null;
+        }
+      }
+      return contentBounds;
     }
   }
 
@@ -256,6 +275,17 @@ function documentNodeBounds(
   };
 }
 
+/** Resolve current page artwork plus legacy flat root nodes without duplicates. */
+function documentExportRootIds(doc: Document): NodeId[] {
+  const contentRoots = new Set(doc.pages?.map((page) => page.contentRoot) ?? []);
+  return [
+    ...new Set([
+      ...activePageNodes(doc),
+      ...doc.rootChildren.filter((id) => !contentRoots.has(id)),
+    ]),
+  ];
+}
+
 export function computeDocumentBounds(doc: Document): {
   x: number;
   y: number;
@@ -267,12 +297,9 @@ export function computeDocumentBounds(doc: Document): {
     maxX = -Infinity,
     maxY = -Infinity;
   let hasNodes = false;
-  const contentRoots = new Set(doc.pages?.map((p) => p.contentRoot) ?? []);
-
-  for (const id of doc.rootChildren) {
+  for (const id of documentExportRootIds(doc)) {
     const node = doc.nodes[id];
     if (!node?.visible) continue;
-    if (contentRoots.has(id)) continue;
     const bounds = documentNodeBounds(node, doc);
     if (!bounds) continue;
     hasNodes = true;
@@ -609,8 +636,7 @@ export function exportDocumentToSvgAdvanced(
 ): string {
   const bounds = boundsOverride ?? computeDocumentBounds(doc);
   const nl = options.minify ? '' : '\n';
-  const contentRoots = new Set(doc.pages?.map((p) => p.contentRoot) ?? []);
-  const visibleRootIds = doc.rootChildren.filter((id) => !contentRoots.has(id));
+  const visibleRootIds = documentExportRootIds(doc);
 
   // Collect mask defs across all visible root subtrees
   const maskDefs = docCollectMaskDefs(doc, visibleRootIds);

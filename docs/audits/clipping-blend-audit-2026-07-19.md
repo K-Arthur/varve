@@ -81,13 +81,14 @@ References:
 
 ## Remaining high-priority work
 
-- Drag/drop-to-mask intent, target highlighting, Escape cancellation, extreme-zoom
-  targeting, image replacement/relink, fit/original/custom positioning, and a dedicated
-  clip edit/isolation experience are not implemented.
-- Hit testing and visible export bounds are not yet clipped to mask geometry. Layer rows
-  need explicit source/content identification and mask-aware reorder affordances.
-- Structural mask repair is not called during document decode. SVG import and PSD masks
-  remain unsupported.
+- Image drop-to-mask intent, target highlighting, Escape cancellation, nested transform
+  preservation, and canvas double-click isolation are implemented. Asset-panel/canvas-object
+  drops, image replacement/relink, and fit/original/custom positioning remain.
+- Hit testing is clipped to structural mask geometry, layer rows identify source/content,
+  decode repairs dangling or unsupported structural masks, and standalone SVG bounds no
+  longer include hidden out-of-mask content. Mask-aware reorder affordances remain.
+- Active-page clipping groups export as editable SVG `<clipPath>` relationships. SVG import
+  and PSD masks remain unsupported.
 - Normal versus Pass Through group boundaries, frame subtree compositing, bounded
   offscreens, WebGPU eligibility/order, raster-brush formulas, effect ordering, and
   adaptive contrast text remain incomplete.
