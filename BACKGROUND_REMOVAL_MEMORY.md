@@ -33,9 +33,9 @@ Inspector / Batch / Export
         4. AI → directOnnxProvider (main-thread ONNX fallback)
         5. fallback → heuristic.ts
       → finalizeMaskResult (multi-subject picker if needed)
-      → warmMaskCache(maskDataUrl)   // pre-load before document commit
-      → setBackgroundRemoval(doc, nodeId, { maskDataUrl, ... })
-CanvasArea.toEngineNode → node.alphaMask (shape IR)
+      → warmMaskRenderCache(maskDataUrl)   // bounded live-canvas proxy
+      → commitRasterMask(doc, nodeId, { dataUrl, ... })
+CanvasArea.toEngineNode → node.alphaMask (shape IR; live proxy when available)
   → native/WASM bridge flattens nested EngineFill + alphaMask to FillIR::Image.alpha_mask
   → stub engine maps nested EngineFill + node.alphaMask to FillIR::Image.alpha_mask
 replay.ts → destination-in compositing
@@ -113,7 +113,7 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
   - **Engine IR**: `FillIR::Image.alpha_mask` (flat) is the single source of truth for compositing.
   - **Bridge**: native/WASM `strata-bridge` now accepts the TypeScript engine's nested `EngineFill` and a node-level `alphaMask`, and flattens both into the canonical `FillIR::Image`.
 - Fixed native/WASM engine dropping the alpha mask because it expected flat `FillIR` fills and had no node-level `alphaMask` field.
-- Added `warmMaskCache()` in `useBackgroundRemoval` so the first post-update render sees the mask already loaded and composites immediately.
+- Added `warmMaskRenderCache()` in `useBackgroundRemoval` so the first post-update render sees the mask already loaded and composites immediately.
 - Added regression tests:
   - Rust bridge: nested image fill + node-level alphaMask → flat `FillIR` with `alphaMask`.
   - Editor: `sceneNodeToEngineNode` + `flattenSceneToEngine` → `engine.buildIr` emits `FillIR.alphaMask`.
@@ -132,6 +132,18 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 - Exposed one mask editor for Quick, Balanced, and High Quality results: checkerboard/overlay views,
   add/subtract brush, hair/fur refinement, trimap matting, and explicit Done.
 - Real IS-Net native results: human IoU 0.990, vehicle 0.821, object 0.800.
+
+### 2026-07-19 — Apply-result and large-image rendering fix
+
+- Fixed Apply rejecting realistic embedded images: raster-mask source identity had copied the full
+  image data URL into a metadata field capped at 8,192 characters. Long locators now use a stable,
+  compact fingerprint while the image fill retains the authoritative source.
+- Added an aspect-ratio-preserving live render proxy capped at 2,048 pixels on the longest edge.
+  The full-resolution mask remains authoritative for persistence, export, and mask editing.
+- Apply stays non-destructive on the selected image layer; it intentionally does not create a
+  duplicate image. Edit mask, reset, undo, and redo continue to operate on the committed mask asset.
+- Added browser pixel assertions for Quick and Balanced Apply, plus a 3000×600 panoramic regression
+  that reproduces the former no-op and verifies a visible masked result.
 
 ---
 

@@ -688,6 +688,28 @@ function isImageShape(doc: Pick<Document, 'paints'>, node: SceneNode): node is S
 }
 
 /**
+ * Source-metadata identities are bounded, while embedded image data URLs can
+ * be several megabytes. Keep a deterministic compact locator in the identity
+ * descriptor; the image fill remains the authoritative full source.
+ */
+function compactSourceLocator(locator: string): string {
+  if (locator.length <= 8192) return locator;
+  let first = 0x811c9dc5;
+  let second = 0x9e3779b9;
+  for (let index = 0; index < locator.length; index++) {
+    const code = locator.charCodeAt(index);
+    first = Math.imul(first ^ code, 0x01000193);
+    second = Math.imul(second ^ code, 0x85ebca6b);
+  }
+  const prefixEnd = locator.indexOf(',');
+  const mediaType = prefixEnd > 0 ? locator.slice(0, Math.min(prefixEnd, 96)) : 'embedded-source';
+  const digest = `${(first >>> 0).toString(16).padStart(8, '0')}${(second >>> 0)
+    .toString(16)
+    .padStart(8, '0')}`;
+  return `${mediaType};length=${locator.length};fingerprint=${digest}`;
+}
+
+/**
  * Returns true if the node can own a mask. Containers own structural masks;
  * image-filled ShapeNodes own source-pixel raster alpha masks.
  */
@@ -707,7 +729,7 @@ function imageSourceIdentity(
   const image = resolvedImageFill(doc, node);
   return {
     kind: 'source-metadata',
-    locator: image?.src ?? node.id,
+    locator: compactSourceLocator(image?.src ?? node.id),
     ...(image?.imageWidth !== undefined ? { pixelWidth: image.imageWidth } : {}),
     ...(image?.imageHeight !== undefined ? { pixelHeight: image.imageHeight } : {}),
     revision,

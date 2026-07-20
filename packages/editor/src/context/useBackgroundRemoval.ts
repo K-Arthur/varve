@@ -1,6 +1,7 @@
 import type { BackgroundRemovalMethod, Document, NodeId, ShapeNode } from '@strata/scene';
 import { useCallback, useEffect, useRef } from 'react';
 import { commitRasterMask, hasNativeRasterMask } from '../backgroundRemoval/commitRasterMask';
+import { warmMaskRenderCache } from '../backgroundRemoval/maskRenderCache';
 import {
   computePlacementRevision,
   computeSourceFingerprint,
@@ -93,27 +94,6 @@ async function decodeSource(
   return { imageData, extractW, extractH };
 }
 
-/**
- * Warm the ImageCache for a freshly-generated mask so the next render can
- * composite it synchronously.
- */
-async function warmMaskCache(
-  cache: { isLoaded: (url: string) => boolean; load: (url: string) => Promise<unknown> },
-  maskDataUrl?: string | null,
-): Promise<void> {
-  if (!maskDataUrl || cache.isLoaded(maskDataUrl)) return;
-  try {
-    await Promise.race([
-      cache.load(maskDataUrl),
-      new Promise<void>((_, reject) => {
-        setTimeout(() => reject(new Error('mask preload timeout')), 1000);
-      }),
-    ]);
-  } catch {
-    // Errors/timeouts are recorded in the cache entry; the renderer will retry.
-  }
-}
-
 export function useBackgroundRemoval(
   state: EditorState,
   patch: (partial: Partial<EditorState>) => void,
@@ -189,7 +169,12 @@ export function useBackgroundRemoval(
         }
 
         const { getImageCache } = await import('@strata/engine');
-        await warmMaskCache(getImageCache(), result.maskDataUrl);
+        await warmMaskRenderCache(
+          getImageCache(),
+          result.maskDataUrl,
+          result.maskWidth,
+          result.maskHeight,
+        );
         patch({
           backgroundRemovalPreviewSession: {
             nodeId: processingNodeId,
@@ -318,7 +303,12 @@ export function useBackgroundRemoval(
         }
 
         const { getImageCache } = await import('@strata/engine');
-        await warmMaskCache(getImageCache(), finalized.maskDataUrl);
+        await warmMaskRenderCache(
+          getImageCache(),
+          finalized.maskDataUrl,
+          finalized.width,
+          finalized.height,
+        );
         patch({
           backgroundRemovalPreviewSession: {
             nodeId: processingNodeId,
@@ -477,7 +467,7 @@ export function useBackgroundRemoval(
         const { mask, width, height } = await decodeMaskDataUrl(session.pendingMaskDataUrl);
         const filtered = filterMaskByComponents(mask, width, height, new Set(keepIds));
         const maskDataUrl = maskArrayToDataUrl(filtered, width, height);
-        await warmMaskCache(getImageCache(), maskDataUrl);
+        await warmMaskRenderCache(getImageCache(), maskDataUrl, width, height);
         patch({
           subjectPickerSession: null,
           backgroundRemovalPreviewSession: {
@@ -546,7 +536,7 @@ export function useBackgroundRemoval(
       const { mask } = await decodeMaskDataUrl(maskUrl);
       const refined = refineHairMatting(imageData, mask);
       const maskDataUrl = maskArrayToDataUrl(refined, w, h);
-      await warmMaskCache(getImageCache(), maskDataUrl);
+      await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
       updateDoc((d) =>
         commitRasterMask(d, imageNode.id, {
           dataUrl: maskDataUrl,
@@ -605,7 +595,7 @@ export function useBackgroundRemoval(
       const imageData = ctx.getImageData(0, 0, w, h);
       const matte = solveTrimapMatting(imageData, trimapEntry.data);
       const maskDataUrl = maskArrayToDataUrl(matte, w, h);
-      await warmMaskCache(getImageCache(), maskDataUrl);
+      await warmMaskRenderCache(getImageCache(), maskDataUrl, w, h);
       updateDoc((d) =>
         commitRasterMask(d, nodeId, {
           dataUrl: maskDataUrl,
