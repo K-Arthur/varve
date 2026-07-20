@@ -48,4 +48,19 @@ describe('registerEditorActions — intelligence commands', () => {
       expect.arrayContaining([expect.objectContaining({ id: 'runAudit' })]),
     );
   });
+
+  it('registers real clipping-mask handlers before shortcut stubs', () => {
+    const editor = makeEditorMock({
+      createClippingMaskFromSelected: vi.fn(),
+      releaseClippingMaskFromSelected: vi.fn(),
+    });
+    registerEditorActions(editor);
+    const registry = getActionRegistry();
+
+    registry.get('createClippingMask')?.handler(undefined);
+    registry.get('releaseClippingMask')?.handler(undefined);
+
+    expect(editor.createClippingMaskFromSelected).toHaveBeenCalledOnce();
+    expect(editor.releaseClippingMaskFromSelected).toHaveBeenCalledOnce();
+  });
 });

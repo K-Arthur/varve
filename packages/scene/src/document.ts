@@ -1547,6 +1547,35 @@ export function duplicatePage(doc: Document, pageId: NodeId): Document {
     if (newBgId) newBackgrounds.push(newBgId);
   }
 
+  // Recursion cannot safely remap a container reference until all of its
+  // descendants have IDs. Repair internal references in one deterministic
+  // pass once the complete old→new map is available.
+  for (const [oldId, newId] of idMap) {
+    const oldNode = doc.nodes[oldId];
+    const clonedNode = d.nodes[newId];
+    if (!oldNode || !clonedNode || !isContainer(oldNode) || !isContainer(clonedNode)) continue;
+
+    let updated: SceneNode = clonedNode;
+    if (oldNode.mask?.sourceNodeId) {
+      updated = {
+        ...updated,
+        mask: {
+          ...oldNode.mask,
+          sourceNodeId: idMap.get(oldNode.mask.sourceNodeId) ?? oldNode.mask.sourceNodeId,
+        },
+      } as SceneNode;
+    }
+    if ('slots' in oldNode && oldNode.slots && 'slots' in updated) {
+      const slots = Object.fromEntries(
+        Object.entries(oldNode.slots)
+          .map(([slotId, childId]) => [slotId, idMap.get(childId)] as const)
+          .filter((entry): entry is readonly [string, NodeId] => Boolean(entry[1])),
+      );
+      updated = { ...updated, slots: Object.keys(slots).length > 0 ? slots : undefined };
+    }
+    d = { ...d, nodes: { ...d.nodes, [newId]: updated } };
+  }
+
   const copyName = `${sourcePage.name} Copy`;
 
   const existingPages = d.pages ?? [];

@@ -6,6 +6,7 @@ import {
   addPage,
   createDocument,
   duplicatePage,
+  makeGroupNode,
   makeShapeNode,
   migrateToPages,
   nextNodeId,
@@ -16,6 +17,7 @@ import {
   setPageSize,
   validateDocument,
 } from '../document';
+import { addMask } from '../masks';
 import type { GroupNode, Page } from '../types';
 
 function firstPage(doc: ReturnType<typeof createDocument>): Page {
@@ -244,6 +246,34 @@ describe('Page operations', () => {
     expect(contentRootId).not.toBe(doc.pages?.[1]?.contentRoot);
     expect(doc.nodes[contentRootId]).toBeDefined();
     expect(dupContentRoot).toBeDefined();
+  });
+
+  it('duplicatePage remaps clipping mask references within the copied subtree', () => {
+    let doc = createDocument();
+    const originalId = firstPage(doc).id;
+    const contentRootId = firstPage(doc).contentRoot;
+    doc = addChild(doc, contentRootId, makeGroupNode('clip', { name: 'Clip' }));
+    doc = addChild(
+      doc,
+      'clip',
+      makeShapeNode('mask-source', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 }),
+    );
+    doc = addChild(
+      doc,
+      'clip',
+      makeShapeNode('content', { kind: 'ellipse', cx: 50, cy: 50, rx: 60, ry: 40 }),
+    );
+    doc = addMask(doc, 'clip', 'mask-source', 'clip');
+
+    doc = duplicatePage(doc, originalId);
+
+    const copiedRootId = (doc.pages?.[1] as Page).contentRoot;
+    const copiedRoot = doc.nodes[copiedRootId];
+    if (copiedRoot?.kind !== 'group') throw new Error('Expected copied page root');
+    const copiedClip = doc.nodes[copiedRoot.children[0] ?? ''];
+    if (copiedClip?.kind !== 'group') throw new Error('Expected copied clipping group');
+    expect(copiedClip.mask?.sourceNodeId).not.toBe('mask-source');
+    expect(copiedClip.children).toContain(copiedClip.mask?.sourceNodeId);
   });
 
   it('setPageSize changes page dimensions', () => {
