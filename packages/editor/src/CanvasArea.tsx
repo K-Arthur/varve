@@ -45,11 +45,13 @@ import {
   buildAllVariantCaches,
   buildParentIndexMap,
   buildVariableDependencyMap,
+  canBeClipMaskSource,
   createVariableStore,
   getChangedVariableIds,
   getEffectiveNode,
   getGuidesForPage,
   isContainer,
+  isImageShape,
   makeRasterLayerNode,
   nextNodeId,
   resolveAdjustmentScope,
@@ -608,6 +610,8 @@ export function CanvasArea({
 
   const [draft, setDraft] = useState<DraftShape | null>(null);
   const [dropTargetFrameId, setDropTargetFrameId] = useState<NodeId | null>(null);
+  const [maskDropTargetId, setMaskDropTargetId] = useState<NodeId | null>(null);
+  const maskDropTargetRef = useRef<NodeId | null>(null);
   // Incremented by the image cache subscriber so drawContent re-runs after async image loads.
   const [imageCacheStamp, setImageCacheStamp] = useState(0);
   // Independent stamp for font loads — previously both used imageCacheStamp, so a font
@@ -2464,6 +2468,28 @@ export function CanvasArea({
       }
     }
 
+    // File drops onto a compatible closed vector use an explicit solid
+    // outline, distinct from the dashed frame-reparent affordance above.
+    if (maskDropTargetId) {
+      const target = doc.nodes[maskDropTargetId];
+      if (target && canBeClipMaskSource(target)) {
+        const world = getCachedWorldTransform(cache, doc, maskDropTargetId);
+        ctx.save();
+        ctx.transform(...world);
+        ctx.beginPath();
+        traceSceneNodeOutline(
+          ctx,
+          target as unknown as Parameters<typeof traceSceneNodeOutline>[1],
+        );
+        ctx.closePath();
+        ctx.strokeStyle = accentColor;
+        ctx.lineWidth = 3 / s.zoom;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     // ── Layout grid overlay for frames with gridTemplate ────────────────
     ctx.strokeStyle = accentColor.replace(')', ' / 0.25)');
     ctx.lineWidth = 1 / s.zoom;
@@ -2681,6 +2707,7 @@ export function CanvasArea({
   }, [
     draft,
     dropTargetFrameId,
+    maskDropTargetId,
     state.zoom,
     state.pan.x,
     state.pan.y,
@@ -3244,22 +3271,74 @@ export function CanvasArea({
 
   const [isDragOver, setIsDragOver] = useState(false);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (
-      e.dataTransfer.types.some(
-        (t) => t === 'Files' || t.startsWith('image/') || t === 'text/svg+xml',
-      )
-    ) {
-      e.dataTransfer.dropEffect = 'copy';
-      setIsDragOver(true);
-    }
-  }, []);
+  useEffect(() => {
+    if (!isDragOver) return;
+    const cancelFileDrop = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      maskDropTargetRef.current = null;
+      setMaskDropTargetId(null);
+      setIsDragOver(false);
+    };
+    window.addEventListener('keydown', cancelFileDrop);
+    return () => window.removeEventListener('keydown', cancelFileDrop);
+  }, [isDragOver]);
+
+  const computeFileDropWorld = useCallback(
+    (clientX: number, clientY: number): readonly [number, number] | null => {
+      const rect = contentCanvasRef.current?.getBoundingClientRect();
+      if (!rect) return null;
+      const cam = {
+        pan: stateRef.current.pan,
+        zoom: stateRef.current.zoom,
+        rotation: stateRef.current.cameraRotation,
+      };
+      return screenToWorld(
+        cam,
+        clientX - rect.left,
+        clientY - rect.top,
+        { width: rect.width, height: rect.height },
+        computeFloatingOrigin(cam, { width: rect.width, height: rect.height }),
+      );
+    },
+    [],
+  );
+
+  const updateMaskFileDropTarget = useCallback(
+    (clientX: number, clientY: number): NodeId | null => {
+      const world = computeFileDropWorld(clientX, clientY);
+      const hit = world ? editorRef.current.hitTestNode({ x: world[0], y: world[1] }) : null;
+      const target = hit?.node;
+      const targetId =
+        target?.visible && !target.locked && canBeClipMaskSource(target) ? target.id : null;
+      maskDropTargetRef.current = targetId;
+      setMaskDropTargetId(targetId);
+      return targetId;
+    },
+    [computeFileDropWorld],
+  );
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (
+        e.dataTransfer.types.some(
+          (t) => t === 'Files' || t.startsWith('image/') || t === 'text/svg+xml',
+        )
+      ) {
+        e.dataTransfer.dropEffect = 'copy';
+        setIsDragOver(true);
+        updateMaskFileDropTarget(e.clientX, e.clientY);
+      }
+    },
+    [updateMaskFileDropTarget],
+  );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    maskDropTargetRef.current = null;
+    setMaskDropTargetId(null);
   }, []);
 
   // Shared by both the HTML5 drop handler and the native Tauri drag-drop
@@ -3269,6 +3348,7 @@ export function CanvasArea({
     async (
       files: { name: string; data: Uint8Array | string }[],
       dropWorld: readonly [number, number] | null,
+      maskTargetId?: NodeId,
     ) => {
       if (files.length === 0) return;
       const reader = editorRef.current;
@@ -3324,7 +3404,11 @@ export function CanvasArea({
 
       // Single batched setState for all imported nodes
       if (parsedItems.length > 0) {
-        reader.batchImportNodes(parsedItems);
+        const allImages = parsedItems.every(({ node }) => isImageShape(node));
+        reader.batchImportNodes(
+          parsedItems,
+          maskTargetId && allImages ? { maskTargetId } : undefined,
+        );
       }
       reader.announce(
         `Imported ${report.successCount + report.partialCount} file${report.successCount + report.partialCount === 1 ? '' : 's'}; ${report.failureCount} failed`,
@@ -3334,30 +3418,18 @@ export function CanvasArea({
   );
 
   const computeDropWorld = useCallback(
-    (clientX: number, clientY: number): readonly [number, number] | null => {
-      const rect = contentCanvasRef.current?.getBoundingClientRect();
-      if (!rect) return null;
-      const cam = {
-        pan: stateRef.current.pan,
-        zoom: stateRef.current.zoom,
-        rotation: stateRef.current.cameraRotation,
-      };
-      return screenToWorld(
-        cam,
-        clientX - rect.left,
-        clientY - rect.top,
-        { width: rect.width, height: rect.height },
-        computeFloatingOrigin(cam, { width: rect.width, height: rect.height }),
-      );
-    },
-    [],
+    (clientX: number, clientY: number) => computeFileDropWorld(clientX, clientY),
+    [computeFileDropWorld],
   );
 
   const handleDrop = useCallback(
     async (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
+      const maskTargetId = maskDropTargetRef.current ?? undefined;
       setIsDragOver(false);
+      maskDropTargetRef.current = null;
+      setMaskDropTargetId(null);
 
       // First check for dnd-kit native files (strata file type)
       const strataFiles = e.dataTransfer.types?.includes('application/x-strata-file');
@@ -3369,7 +3441,7 @@ export function CanvasArea({
       const dropWorld = computeDropWorld(e.clientX, e.clientY);
       // Collect all OS files (including folders via FileSystemEntry API)
       const files = await collectFilesFromDataTransfer(e.dataTransfer);
-      await importDroppedFiles(files, dropWorld);
+      await importDroppedFiles(files, dropWorld, maskTargetId);
     },
     [computeDropWorld, importDroppedFiles],
   );
@@ -3388,14 +3460,22 @@ export function CanvasArea({
       .onNativeFileDrop(async (event) => {
         if (event.type === 'enter' || event.type === 'over') {
           setIsDragOver(true);
+          if (event.position.x !== 0 || event.position.y !== 0) {
+            updateMaskFileDropTarget(event.position.x, event.position.y);
+          }
           return;
         }
         if (event.type === 'leave') {
           setIsDragOver(false);
+          maskDropTargetRef.current = null;
+          setMaskDropTargetId(null);
           return;
         }
         // event.type === 'drop'
+        const maskTargetId = maskDropTargetRef.current ?? undefined;
         setIsDragOver(false);
+        maskDropTargetRef.current = null;
+        setMaskDropTargetId(null);
         // wry's GTK backend reports (0,0) when a drop fires before any
         // drag-motion event was observed — treat that as "position
         // unknown" rather than mapping it to the window's top-left. And
@@ -3428,7 +3508,7 @@ export function CanvasArea({
             );
           }
         }
-        await importDroppedFiles(files, dropWorld);
+        await importDroppedFiles(files, dropWorld, maskTargetId);
       })
       .then((un) => {
         if (cancelled) {
@@ -3441,7 +3521,7 @@ export function CanvasArea({
       cancelled = true;
       unlisten?.();
     };
-  }, [computeDropWorld, importDroppedFiles]);
+  }, [computeDropWorld, importDroppedFiles, updateMaskFileDropTarget]);
 
   const gridSize = Math.max(4, 24 * state.zoom);
 
