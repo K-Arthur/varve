@@ -163,10 +163,7 @@ export function CombinedPreview({
         </div>
 
         {/* Slider handle */}
-        <div
-          className="combined-preview__slider"
-          style={{ left: `${comparisonPosition}%` }}
-        >
+        <div className="combined-preview__slider" style={{ left: `${comparisonPosition}%` }}>
           <div className="combined-preview__slider-line" />
           <div className="combined-preview__slider-handle">⇔</div>
         </div>

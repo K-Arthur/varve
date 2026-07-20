@@ -31,6 +31,7 @@ import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
 import { BrushSection } from './sections/BrushSection';
 import { CognitiveLoadIndicator } from './sections/CognitiveLoadIndicator';
 import { ComponentSection } from './sections/ComponentSection';
+import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
@@ -280,6 +281,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
       <AdjustmentPanel />
       <PositionSizeSection nodes={nodes} />
+      <ConstraintSection nodes={nodes} />
       {(isRect || isFrame) && <CornerRadiusSection nodes={nodes} />}
       {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
       <AppearanceSection nodes={nodes} />
