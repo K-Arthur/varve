@@ -1,5 +1,5 @@
 import type { LayerColor } from '@strata/scene';
-import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, SOLID_TOOL_ICONS } from '@strata/ui';
 
 export interface LayerBulkBarProps {
   selectedCount: number;
@@ -55,7 +55,7 @@ export function LayerBulkBar({
           aria-label="Group"
           title="Group layers"
         >
-          <Icon name={TOOL_ICONS.group} size="0.85em" />
+          <SolidIcon name={SOLID_TOOL_ICONS.group} size="0.85em" />
         </button>
         <button
           type="button"
@@ -64,7 +64,7 @@ export function LayerBulkBar({
           aria-label="Lock all"
           title="Lock all"
         >
-          <Icon name={CHROME_ICONS.lock} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.lock} size="0.85em" />
         </button>
         <button
           type="button"
@@ -73,7 +73,7 @@ export function LayerBulkBar({
           aria-label="Unlock all"
           title="Unlock all"
         >
-          <Icon name={CHROME_ICONS.unlock} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.unlock} size="0.85em" />
         </button>
         <button
           type="button"
@@ -82,7 +82,7 @@ export function LayerBulkBar({
           aria-label="Hide all"
           title="Hide all"
         >
-          <Icon name={CHROME_ICONS.visibilityOff} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.visibilityOff} size="0.85em" />
         </button>
         <button
           type="button"
@@ -91,7 +91,7 @@ export function LayerBulkBar({
           aria-label="Show all"
           title="Show all"
         >
-          <Icon name={CHROME_ICONS.visibility} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
         </button>
         <div className="layers-bulk-bar__color-group">
           {LAYER_COLORS.map((c) => (
@@ -112,7 +112,7 @@ export function LayerBulkBar({
           aria-label="Delete all"
           title="Delete all selected"
         >
-          <Icon name={CHROME_ICONS.trash} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.85em" />
         </button>
       </div>
     </div>

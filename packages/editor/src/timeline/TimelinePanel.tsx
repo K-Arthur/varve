@@ -1,4 +1,5 @@
 import type { EasingDefinition, Timeline } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
 import { GraphEditor } from './GraphEditor';
 import { PlaybackControls } from './PlaybackControls';
@@ -115,8 +116,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   );
 
   const handleTimelineSelect = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const val = e.target.value;
+    (val: string) => {
       onSelectTimeline(val === '' ? null : val);
     },
     [onSelectTimeline],
@@ -160,19 +160,15 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   return (
     <div className="timeline-panel" onWheel={handleWheel}>
       <div className="timeline-panel__header">
-        <select
-          className="timeline-panel__selector"
+        <Select
+          label="Select timeline"
           value={activeTimelineId ?? ''}
+          options={[
+            { value: '', label: 'No timeline' },
+            ...timelineIds.map((id) => ({ value: id, label: timelines[id]?.name ?? id })),
+          ]}
           onChange={handleTimelineSelect}
-          aria-label="Select timeline"
-        >
-          <option value="">No timeline</option>
-          {timelineIds.map((id) => (
-            <option key={id} value={id}>
-              {timelines[id]?.name ?? id}
-            </option>
-          ))}
-        </select>
+        />
         {onCreateTimeline && (
           <button
             type="button"

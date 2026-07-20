@@ -23,7 +23,7 @@ import type {
 } from '@strata/scene';
 import { defaultStroke } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import { Icon, Select } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { GradientEditor } from '../color/GradientEditor';
@@ -362,12 +362,15 @@ function StrokeRow({
         >
           {/* Stroke type: solid vs gradient */}
           <FieldRow label="Type">
-            <select
-              aria-label={`${label} paint type`}
+            <Select
+              label={`${label} paint type`}
               value={!isMixed(gradientRaw) && gradientRaw ? 'gradient' : 'solid'}
-              className="insp-select"
-              onChange={(e) => {
-                if (e.target.value === 'gradient') {
+              options={[
+                { value: 'solid', label: 'Solid' },
+                { value: 'gradient', label: 'Gradient' },
+              ]}
+              onChange={(v) => {
+                if (v === 'gradient') {
                   setShowGradient(true);
                   onChange((s) => ({
                     ...s,
@@ -393,10 +396,7 @@ function StrokeRow({
                   });
                 }
               }}
-            >
-              <option value="solid">Solid</option>
-              <option value="gradient">Gradient</option>
-            </select>
+            />
           </FieldRow>
           {showGradient && !isMixed(gradientRaw) && gradientRaw && (
             <GradientEditor
@@ -449,36 +449,20 @@ function StrokeRow({
           {hasLineOrPath && (
             <>
               <FieldRow label="Start">
-                <select
-                  aria-label={`${label} arrowhead start`}
+                <Select
+                  label={`${label} arrowhead start`}
                   value={isMixed(arrowStartRaw) ? 'none' : arrowStartRaw}
-                  className="insp-select"
-                  onChange={(e) =>
-                    onChange((s) => ({ ...s, arrowStart: e.target.value as ArrowheadStyle }))
-                  }
-                >
-                  {ARROW_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  options={ARROW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  onChange={(v) => onChange((s) => ({ ...s, arrowStart: v as ArrowheadStyle }))}
+                />
               </FieldRow>
               <FieldRow label="End">
-                <select
-                  aria-label={`${label} arrowhead end`}
+                <Select
+                  label={`${label} arrowhead end`}
                   value={isMixed(arrowEndRaw) ? 'none' : arrowEndRaw}
-                  className="insp-select"
-                  onChange={(e) =>
-                    onChange((s) => ({ ...s, arrowEnd: e.target.value as ArrowheadStyle }))
-                  }
-                >
-                  {ARROW_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                  options={ARROW_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                  onChange={(v) => onChange((s) => ({ ...s, arrowEnd: v as ArrowheadStyle }))}
+                />
               </FieldRow>
             </>
           )}

@@ -1,4 +1,4 @@
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { Icon, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
@@ -219,7 +219,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
             onClick={handleExport}
             title="Export keymap"
           >
-            <Icon name={CHROME_ICONS.download} />
+            <SolidIcon name={SOLID_CHROME_ICONS.download} />
           </button>
           <button
             type="button"
@@ -227,7 +227,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
             onClick={() => fileRef.current?.click()}
             title="Import keymap"
           >
-            <Icon name={CHROME_ICONS.upload} />
+            <SolidIcon name={SOLID_CHROME_ICONS.upload} />
           </button>
           {hasOverrides && (
             <button
@@ -236,7 +236,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
               onClick={handleResetAll}
               title="Reset all to defaults"
             >
-              <Icon name={CHROME_ICONS.rotateCcw} />
+              <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
             </button>
           )}
           <input ref={fileRef} type="file" accept=".json" hidden onChange={handleImport} />
@@ -311,7 +311,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                       title="Reset to default"
                       disabled={isRemapping}
                     >
-                      <Icon name={CHROME_ICONS.rotateCcw} />
+                      <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
                     </button>
                   </div>
                 );

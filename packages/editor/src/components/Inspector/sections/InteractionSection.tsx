@@ -4,7 +4,7 @@
 
 import type { ActionKind, TransitionConfig, TriggerKind } from '@strata/prototype';
 import type { DocumentInteraction } from '@strata/scene';
-import { Button, Icon } from '@strata/ui';
+import { Button, Icon, Select } from '@strata/ui';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -122,31 +122,27 @@ export function InteractionSection() {
                 </div>
 
                 <div className="insp-interaction-row__field">
-                  <label htmlFor={`${ix.id}-trigger`}>Trigger</label>
-                  <select
-                    id={`${ix.id}-trigger`}
+                  <label>Trigger</label>
+                  <Select
+                    label="Trigger"
                     value={String(trigger.kind ?? 'onClick')}
-                    onChange={(e) =>
+                    options={TRIGGER_OPTIONS}
+                    onChange={(v) =>
                       patchInteraction(ix, {
-                        trigger: { ...trigger, kind: e.target.value },
+                        trigger: { ...trigger, kind: v },
                       })
                     }
-                  >
-                    {TRIGGER_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div className="insp-interaction-row__field">
-                  <label htmlFor={`${ix.id}-action`}>Action</label>
-                  <select
-                    id={`${ix.id}-action`}
+                  <label>Action</label>
+                  <Select
+                    label="Action"
                     value={String(primary.kind ?? 'navigateTo')}
-                    onChange={(e) => {
-                      const kind = e.target.value;
+                    options={ACTION_OPTIONS}
+                    onChange={(v) => {
+                      const kind = v;
                       const nextAction =
                         kind === 'navigateTo'
                           ? { ...DEFAULT_ACTION, kind, targetId: String(primary.targetId ?? '') }
@@ -156,52 +152,42 @@ export function InteractionSection() {
                             };
                       patchInteraction(ix, { actions: [nextAction] });
                     }}
-                  >
-                    {ACTION_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 {(primary.kind === 'navigateTo' || primary.kind === 'openOverlay') && (
                   <div className="insp-interaction-row__field">
-                    <label htmlFor={`${ix.id}-target`}>Target screen</label>
-                    <select
-                      id={`${ix.id}-target`}
+                    <label>Target screen</label>
+                    <Select
+                      label="Target screen"
                       value={String(primary.targetId ?? '')}
-                      onChange={(e) =>
+                      placeholder="Select screen..."
+                      options={screens.map((s) => ({ value: s.id, label: s.name }))}
+                      onChange={(v) =>
                         patchInteraction(ix, {
-                          actions: [{ ...primary, targetId: e.target.value }],
+                          actions: [{ ...primary, targetId: v }],
                         })
                       }
-                    >
-                      <option value="">Select screen...</option>
-                      {screens.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                 )}
 
                 {primary.kind === 'navigateTo' && (
                   <>
                     <div className="insp-interaction-row__field">
-                      <label htmlFor={`${ix.id}-transition`}>Transition</label>
-                      <select
-                        id={`${ix.id}-transition`}
+                      <label>Transition</label>
+                      <Select
+                        label="Transition"
                         value={String(transition.kind ?? 'dissolve')}
-                        onChange={(e) =>
+                        options={TRANSITION_OPTIONS.map((k) => ({ value: k, label: k }))}
+                        onChange={(v) =>
                           patchInteraction(ix, {
                             actions: [
                               {
                                 ...primary,
                                 transition: {
                                   ...transition,
-                                  kind: e.target.value,
+                                  kind: v,
                                   duration: transition.duration ?? 300,
                                   easing: transition.easing ?? { kind: 'ease' },
                                 },
@@ -209,13 +195,7 @@ export function InteractionSection() {
                             ],
                           })
                         }
-                      >
-                        {TRANSITION_OPTIONS.map((kind) => (
-                          <option key={kind} value={kind}>
-                            {kind}
-                          </option>
-                        ))}
-                      </select>
+                      />
                     </div>
                     <div className="insp-interaction-row__field">
                       <label htmlFor={`${ix.id}-duration`}>Duration (ms)</label>

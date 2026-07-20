@@ -7,7 +7,7 @@
 
 import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene';
 import { isContainer } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -377,7 +377,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           aria-label="Collapse all layers"
           title="Collapse all"
         >
-          <Icon name={CHROME_ICONS.collapseAll} size="0.85em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
         </button>
       </div>
 
@@ -559,7 +559,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   onClick={() => handleSetLayerColor(null)}
                   title="No color"
                 >
-                  <Icon name="X" label={undefined} />
+                  <SolidIcon name={SOLID_CHROME_ICONS.close} label={undefined} />
                 </button>
               </div>
             </div>

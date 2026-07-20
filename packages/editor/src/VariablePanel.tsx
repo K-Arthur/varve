@@ -9,6 +9,7 @@
  * Research basis: Figma "Variables" panel; Tokens Studio table conventions.
  */
 import { useEffect, useRef, useState } from 'react';
+import { Select } from '@strata/ui';
 import { useEditor } from './context';
 import { docVariableStore } from './docVariableStore';
 import './VariablePanel.css';
@@ -85,17 +86,12 @@ export function VariablePanel() {
         <span className="editor-inspector__group-title variable-panel__title">Variables</span>
         <div className="variable-panel__controls">
           {variableStore.modes.length > 1 && (
-            <select
+            <Select
+              label="Variable mode"
               value={variableStore.activeMode}
-              onChange={(e) => setVariableMode(e.target.value)}
-              className="variable-panel__mode-select"
-            >
-              {variableStore.modes.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+              options={variableStore.modes.map((m) => ({ value: m, label: m }))}
+              onChange={(v) => setVariableMode(v)}
+            />
           )}
           <button type="button" onClick={() => setAdding(true)} className="variable-panel__add-btn">
             + Add
@@ -201,17 +197,12 @@ export function VariablePanel() {
             }}
             className="variable-panel__add-input"
           />
-          <select
+          <Select
+            label="Variable type"
             value={newType}
-            onChange={(e) => setNewType(e.target.value as typeof newType)}
-            className="variable-panel__add-select"
-          >
-            {TYPE_OPTIONS.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
+            options={TYPE_OPTIONS.map((t) => ({ value: t, label: t }))}
+            onChange={(v) => setNewType(v as typeof newType)}
+          />
           <input
             placeholder="value"
             value={newValue}

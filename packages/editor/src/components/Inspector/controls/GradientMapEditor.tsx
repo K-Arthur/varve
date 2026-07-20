@@ -4,6 +4,7 @@ import type { ManagedColor } from '@strata/scene';
 import { rgbFromTuple } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { Select } from '@strata/ui';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 
 function colorToManaged(c: Color): ManagedColor {
@@ -188,8 +189,8 @@ export function GradientMapEditor({
   }, [stops]);
 
   const handlePresetSelect = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const preset = GRADIENT_MAP_PRESETS.find((p) => p.id === e.target.value);
+    (value: string) => {
+      const preset = GRADIENT_MAP_PRESETS.find((p) => p.id === value);
       if (preset) {
         onChange({
           stops: preset.stops.map((s) => ({ position: s.position, color: [...s.color] as Color })),
@@ -204,19 +205,13 @@ export function GradientMapEditor({
     <div className="gm-editor">
       <div className="gm-editor__row">
         <span className="gm-editor__label">Preset</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Gradient map preset"
           value={currentPresetId}
+          placeholder="Custom"
+          options={GRADIENT_MAP_PRESETS.map((p) => ({ value: p.id, label: p.name }))}
           onChange={handlePresetSelect}
-          aria-label="Gradient map preset"
-        >
-          <option value="">Custom</option>
-          {GRADIENT_MAP_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div
         ref={barRef}

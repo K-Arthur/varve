@@ -8,6 +8,7 @@
  * Research basis: Figma missing font dialog, InDesign missing font replacement.
  */
 import type { FontCatalog, FontSubstitute, MissingFontInfo } from '@strata/engine/font';
+import { Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import './MissingFontDialog.css';
 
@@ -155,20 +156,19 @@ export function MissingFontDialog({
                   >
                     Replace with:
                   </label>
-                  <select
-                    id={`substitute-${mf.familyName}`}
-                    className="missing-font-dialog__substitute-select"
+                  <Select
+                    label={`Substitute for ${mf.familyName}`}
                     value={substitute ?? ''}
-                    onChange={(e) => handleSelectionChange(mf.familyName, e.target.value)}
+                    options={[
+                      { value: '', label: 'Use system default' },
+                      ...mf.substitutes.map((sub) => ({
+                        value: sub.familyName,
+                        label: `${sub.familyName} (${sub.matchQuality})`,
+                      })),
+                    ]}
                     disabled={!hasSubstitutes}
-                  >
-                    <option value="">Use system default</option>
-                    {mf.substitutes.map((sub) => (
-                      <option key={sub.familyName} value={sub.familyName}>
-                        {sub.familyName} ({sub.matchQuality})
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(v) => handleSelectionChange(mf.familyName, v)}
+                  />
                   <button
                     type="button"
                     className="missing-font-dialog__apply-btn"

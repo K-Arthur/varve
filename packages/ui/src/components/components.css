@@ -1333,7 +1333,7 @@
 }
 
 .bento-cell {
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   background: var(--elevation-surface-default);
   box-shadow: var(--elevation-shadow-raised);
   border: var(--border-micro);
@@ -1342,7 +1342,7 @@
 }
 
 .bento-cell--featured {
-  border-radius: var(--radius-2xl);
+  border-radius: var(--radius-lg);
   background: var(--elevation-surface-raised);
   box-shadow: var(--elevation-shadow-overlay);
   border: var(--border-micro-accent);

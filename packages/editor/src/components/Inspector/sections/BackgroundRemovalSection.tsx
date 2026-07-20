@@ -16,7 +16,7 @@ import {
 } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+import { Button, Select } from '@strata/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor } from '../../../context';
@@ -90,9 +90,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
     setTrimapEditOptions,
   } = useEditor();
   const node = nodes[0] as ShapeNode | undefined;
-  const methodId = useId();
   const decontaminateId = useId();
-  const trimapModeId = useId();
   const hasMask = Boolean(
     node && (isImageShape(node) || node.mask?.rasterMask || node.backgroundRemoval),
   );
@@ -301,23 +299,17 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   return (
     <DisclosureSection title="Background Removal">
       <div className="insp-field-group">
-        <FieldRow label="Method" htmlFor={methodId}>
-          <select
-            id={methodId}
-            className="insp-select"
+        <FieldRow label="Method">
+          <Select
+            label="Background removal method"
             value={method}
-            aria-label="Background removal method"
-            aria-describedby="bg-method-desc"
-            onChange={(e) => setMethod(e.target.value as RemovalMethod)}
-          >
-            <option value="quick">Quick — instant, simple backgrounds</option>
-            <option value="ai-balanced">
-              AI Balanced — general photos{!aiAvailable ? ' (download required)' : ''}
-            </option>
-            <option value="ai-quality">
-              AI High Quality — fine details{!aiAvailable ? ' (download required)' : ''}
-            </option>
-          </select>
+            options={[
+              { value: 'quick', label: 'Quick — instant, simple backgrounds' },
+              { value: 'ai-balanced', label: `AI Balanced — general photos${!aiAvailable ? ' (download required)' : ''}` },
+              { value: 'ai-quality', label: `AI High Quality — fine details${!aiAvailable ? ' (download required)' : ''}` },
+            ]}
+            onChange={(v) => setMethod(v as RemovalMethod)}
+          />
         </FieldRow>
         <span id="bg-method-desc" className="sr-only">
           Quick uses a fast local heuristic. AI Balanced uses IS-Net General Use when installed and
@@ -641,26 +633,21 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             Paint to add the subject. Hold Alt while painting to remove it. Use trimap for difficult
             semi-transparent edges.
           </p>
-          <FieldRow label="Preview" htmlFor="bg-mask-preview">
-            <select
-              id="bg-mask-preview"
-              className="insp-select"
+          <FieldRow label="Preview">
+            <Select
+              label="Mask preview mode"
               value={state.maskPreviewMode}
-              aria-label="Mask preview mode"
-              onChange={(e) =>
-                setMaskPreviewMode(
-                  e.target.value as import('../../../context/types').MaskPreviewMode,
-                )
-              }
-            >
-              <option value="checkerboard">Checkerboard</option>
-              <option value="overlay">Overlay</option>
-              <option value="black">Black bg</option>
-              <option value="white">White bg</option>
-              <option value="mask-only">Mask only</option>
-              <option value="edge">Edge detection</option>
-              <option value="none">None</option>
-            </select>
+              options={[
+                { value: 'checkerboard', label: 'Checkerboard' },
+                { value: 'overlay', label: 'Overlay' },
+                { value: 'black', label: 'Black bg' },
+                { value: 'white', label: 'White bg' },
+                { value: 'mask-only', label: 'Mask only' },
+                { value: 'edge', label: 'Edge detection' },
+                { value: 'none', label: 'None' },
+              ]}
+              onChange={(v) => setMaskPreviewMode(v as import('../../../context/types').MaskPreviewMode)}
+            />
           </FieldRow>
           <div className="insp-actions">
             <Button
@@ -732,22 +719,21 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       {maskEditorOpen && editingTrimap && maskProvenance && (
         <div className="insp-nested-panel">
           <p className="insp-subsection__label">Trimap</p>
-          <FieldRow label="Pen" htmlFor={trimapModeId}>
-            <select
-              id={trimapModeId}
-              className="insp-select"
+          <FieldRow label="Pen">
+            <Select
+              label="Trimap pen"
               value={trimapOpts.penMode}
-              aria-label="Trimap pen"
-              onChange={(e) =>
+              options={[
+                { value: 'foreground', label: 'Foreground' },
+                { value: 'unknown', label: 'Unknown' },
+                { value: 'background', label: 'Background' },
+              ]}
+              onChange={(v) =>
                 setTrimapEditOptions({
-                  penMode: e.target.value as 'foreground' | 'unknown' | 'background',
+                  penMode: v as 'foreground' | 'unknown' | 'background',
                 })
               }
-            >
-              <option value="foreground">Foreground</option>
-              <option value="unknown">Unknown</option>
-              <option value="background">Background</option>
-            </select>
+            />
           </FieldRow>
           <FieldRow label="Brush size" htmlFor="bg-trimap-brush">
             <input

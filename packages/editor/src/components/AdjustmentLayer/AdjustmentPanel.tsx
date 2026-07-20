@@ -2,7 +2,7 @@ import type { AdjustmentBlendMode, BlendMode } from '@strata/engine';
 import { filterKindDisplayName } from '@strata/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@strata/scene';
 import { makeAdjustment } from '@strata/scene';
-import { CHROME_ICONS, Icon } from '@strata/ui';
+import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
@@ -142,7 +142,7 @@ export function AdjustmentPanel() {
   return (
     <div className="insp-panel">
       <header className="adj-panel__header">
-        <Icon name="SlidersHorizontal" size="1em" aria-hidden className="adj-panel__header-icon" />
+        <SolidIcon name="Faders" size="1em" aria-hidden className="adj-panel__header-icon" />
         <span className="adj-panel__header-name">Adjustment Layer</span>
       </header>
 
@@ -161,18 +161,12 @@ export function AdjustmentPanel() {
         <div className="insp-field">
           <span className="insp-field__label">Blend</span>
           <div className="insp-field__control">
-            <select
-              className="insp-select"
+            <Select
+              label="Blend mode"
               value={blendMode}
-              onChange={(e) => setSelectedBlendMode(e.target.value as BlendMode)}
-              aria-label="Blend mode"
-            >
-              {ADJUSTMENT_BLEND_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              options={ADJUSTMENT_BLEND_OPTIONS}
+              onChange={(v) => setSelectedBlendMode(v as BlendMode)}
+            />
           </div>
         </div>
       </div>
@@ -201,7 +195,7 @@ export function AdjustmentPanel() {
             onClick={() => setSelectedAdjId(adj.id === selectedAdjId ? null : adj.id)}
           >
             <span className="adj-panel__item-drag" aria-label="Drag to reorder">
-              <Icon name={CHROME_ICONS.gripVertical} size="0.7em" />
+              <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.7em" />
             </span>
 
             <span className="adj-panel__item-vis">
@@ -214,7 +208,7 @@ export function AdjustmentPanel() {
                 }}
                 aria-label={adj.visible ? `Disable ${adj.kind}` : `Enable ${adj.kind}`}
               >
-                <Icon name={adj.visible ? 'Eye' : 'EyeOff'} size="0.75em" />
+                <SolidIcon name={adj.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff} size="0.75em" />
               </button>
             </span>
 
@@ -233,7 +227,7 @@ export function AdjustmentPanel() {
               }}
               aria-label={`Remove ${adj.kind}`}
             >
-              <Icon name={CHROME_ICONS.close} size="0.7em" />
+              <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.7em" />
             </button>
           </div>
         ))}
@@ -247,7 +241,7 @@ export function AdjustmentPanel() {
             aria-haspopup="menu"
             aria-expanded={showAddMenu}
           >
-            <Icon name={CHROME_ICONS.plus} size="0.75em" />
+            <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.75em" />
             Add adjustment
           </button>
 

@@ -17,8 +17,8 @@ import type {
   ShapeNode,
 } from '@strata/scene';
 import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
-import type { IconName } from '@strata/ui';
-import { CHROME_ICONS, Icon, TOOL_ICONS } from '@strata/ui';
+import type { SolidIconName } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, SOLID_TOOL_ICONS } from '@strata/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import type { PresenceData } from './PresenceIndicator';
@@ -68,29 +68,29 @@ export interface LayersRowProps {
   doc?: Document;
 }
 
-const NODE_ICONS: Record<string, IconName> = {
-  frame: TOOL_ICONS.frame,
-  group: TOOL_ICONS.group,
-  text: TOOL_ICONS.text,
-  rect: TOOL_ICONS.rect,
-  ellipse: TOOL_ICONS.ellipse,
-  circle: TOOL_ICONS.ellipse,
-  line: TOOL_ICONS.line,
-  polygon: TOOL_ICONS.polygon,
-  star: TOOL_ICONS.star,
-  component: TOOL_ICONS.component,
-  image: TOOL_ICONS.image,
-  arrow: TOOL_ICONS.line,
+const NODE_ICONS: Record<string, SolidIconName> = {
+  frame: SOLID_TOOL_ICONS.frame,
+  group: SOLID_TOOL_ICONS.group,
+  text: SOLID_TOOL_ICONS.text,
+  rect: SOLID_TOOL_ICONS.rect,
+  ellipse: SOLID_TOOL_ICONS.ellipse,
+  circle: SOLID_TOOL_ICONS.ellipse,
+  line: SOLID_TOOL_ICONS.line,
+  polygon: SOLID_TOOL_ICONS.polygon,
+  star: SOLID_TOOL_ICONS.star,
+  component: SOLID_TOOL_ICONS.component,
+  image: SOLID_TOOL_ICONS.image,
+  arrow: SOLID_TOOL_ICONS.arrow,
   path: 'Pen',
-  adjustment: TOOL_ICONS.adjustment,
+  adjustment: SOLID_TOOL_ICONS.adjustment,
 };
 
-function nodeTypeIcon(n: SceneNode): IconName {
+function nodeTypeIcon(n: SceneNode): SolidIconName {
   if (n.kind === 'shape') {
-    if (isImageShape(n)) return NODE_ICONS.image ?? TOOL_ICONS.rect;
-    return NODE_ICONS[(n as ShapeNode).shape.kind] ?? TOOL_ICONS.rect;
+    if (isImageShape(n)) return NODE_ICONS.image ?? SOLID_TOOL_ICONS.rect;
+    return NODE_ICONS[(n as ShapeNode).shape.kind] ?? SOLID_TOOL_ICONS.rect;
   }
-  return NODE_ICONS[n.kind] ?? TOOL_ICONS.rect;
+  return NODE_ICONS[n.kind] ?? SOLID_TOOL_ICONS.rect;
 }
 
 function resolveLayerType(node: SceneNode): string {
@@ -275,7 +275,7 @@ export const LayersRow = memo(function LayersRow({
           {...dragListeners}
           {...dragAttributes}
         >
-          <Icon name={CHROME_ICONS.gripVertical} size="0.75em" />
+          <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
         </button>
 
         {/* Disclosure triangle */}
@@ -298,8 +298,8 @@ export const LayersRow = memo(function LayersRow({
             }}
             aria-label={expanded ? 'Collapse' : 'Expand'}
           >
-            <Icon
-              name={expanded ? CHROME_ICONS.chevronDown : CHROME_ICONS.chevronRight}
+            <SolidIcon
+              name={expanded ? SOLID_CHROME_ICONS.chevronDown : SOLID_CHROME_ICONS.chevronRight}
               size="0.75em"
             />
           </button>
@@ -329,7 +329,7 @@ export const LayersRow = memo(function LayersRow({
           aria-label={`Zoom to ${node.name}`}
           tabIndex={-1}
         >
-          <Icon
+          <SolidIcon
             name={typeIcon}
             size={16}
             aria-hidden
@@ -370,7 +370,7 @@ export const LayersRow = memo(function LayersRow({
               title="Grid layout"
               aria-label="Grid layout"
             >
-              <Icon name={CHROME_ICONS.layoutGrid} size="0.75em" />
+              <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
             </span>
           )}
 
@@ -381,7 +381,7 @@ export const LayersRow = memo(function LayersRow({
             title="Linked to style"
             aria-label="Linked to style"
           >
-            <Icon name={CHROME_ICONS.palette} size="0.75em" />
+            <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
           </span>
         )}
 
@@ -489,8 +489,8 @@ export const LayersRow = memo(function LayersRow({
           aria-label={node.visible ? `Hide ${node.name}` : `Show ${node.name}`}
           aria-pressed={!node.visible}
         >
-          <Icon
-            name={node.visible ? CHROME_ICONS.visibility : CHROME_ICONS.visibilityOff}
+          <SolidIcon
+            name={node.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
             size="0.85em"
           />
         </button>
@@ -509,7 +509,7 @@ export const LayersRow = memo(function LayersRow({
           aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
           aria-pressed={node.locked}
         >
-          <Icon name={node.locked ? CHROME_ICONS.lock : CHROME_ICONS.unlock} size="0.85em" />
+          <SolidIcon name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock} size="0.85em" />
         </button>
       </div>
     </>

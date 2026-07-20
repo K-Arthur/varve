@@ -9,6 +9,7 @@ import type { Adjustment, ManagedColor } from '@strata/scene';
 import { rgbFromTuple } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
+import { Select } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
 import './adjustment.css';
@@ -542,38 +543,33 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
 
         <div className="adj-editor__row">
           <span className="adj-editor__label">Interpolation</span>
-          <select
-            className="adj-editor__select"
+          <Select
+            label="Interpolation method"
             value={adj.interpolation ?? 'tetrahedral'}
-            onChange={(e) =>
+            options={[
+              { value: 'nearest', label: 'Nearest' },
+              { value: 'trilinear', label: 'Trilinear' },
+              { value: 'tetrahedral', label: 'Tetrahedral' },
+            ]}
+            onChange={(v) =>
               onChange({
-                interpolation: e.target.value as 'nearest' | 'trilinear' | 'tetrahedral',
+                interpolation: v as 'nearest' | 'trilinear' | 'tetrahedral',
               } as unknown as Partial<Adjustment>)
             }
-            aria-label="Interpolation method"
-          >
-            <option value="nearest">Nearest</option>
-            <option value="trilinear">Trilinear</option>
-            <option value="tetrahedral">Tetrahedral</option>
-          </select>
+          />
         </div>
 
         <div className="adj-editor__row">
           <span className="adj-editor__label">Input Space</span>
-          <select
-            className="adj-editor__select"
+          <Select
+            label="Input colour space"
             value={adj.inputSpace ?? 'sRGB'}
-            onChange={(e) =>
-              onChange({ inputSpace: e.target.value } as unknown as Partial<Adjustment>)
-            }
-            aria-label="Input colour space"
-          >
-            {Object.entries(LUT_INPUT_SPACE_LABELS).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
+            options={Object.entries(LUT_INPUT_SPACE_LABELS).map(([k, v]) => ({
+              value: k,
+              label: v,
+            }))}
+            onChange={(v) => onChange({ inputSpace: v } as unknown as Partial<Adjustment>)}
+          />
         </div>
 
         <div className="adj-editor__row">
@@ -600,25 +596,25 @@ function LevelsEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       onChange({ [key]: v } as unknown as Partial<Adjustment>);
     }
   };
-  const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ [key]: e.target.value } as unknown as Partial<Adjustment>);
+  const handleSelect = (key: string) => (value: string) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   return (
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Channel</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Channel"
           value={adj.channel}
+          options={[
+            { value: 'rgb', label: 'RGB' },
+            { value: 'red', label: 'Red' },
+            { value: 'green', label: 'Green' },
+            { value: 'blue', label: 'Blue' },
+          ]}
           onChange={handleSelect('channel')}
-          aria-label="Channel"
-        >
-          <option value="rgb">RGB</option>
-          <option value="red">Red</option>
-          <option value="green">Green</option>
-          <option value="blue">Blue</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Input Shadows</span>
@@ -693,8 +689,8 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     const points = adj.points.map((p, i) => (i === idx ? { ...p, [key]: v } : p));
     onChange({ points } as unknown as Partial<Adjustment>);
   };
-  const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ [key]: e.target.value } as unknown as Partial<Adjustment>);
+  const handleSelect = (key: string) => (value: string) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
   const addPoint = () => {
     const last = adj.points[adj.points.length - 1];
@@ -715,17 +711,17 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Channel</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Curve channel"
           value={adj.channel}
+          options={[
+            { value: 'rgb', label: 'RGB' },
+            { value: 'red', label: 'Red' },
+            { value: 'green', label: 'Green' },
+            { value: 'blue', label: 'Blue' },
+          ]}
           onChange={handleSelect('channel')}
-          aria-label="Curve channel"
-        >
-          <option value="rgb">RGB</option>
-          <option value="red">Red</option>
-          <option value="green">Green</option>
-          <option value="blue">Blue</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__curve-points">
         {adj.points.map((pt, i) => (
@@ -789,38 +785,30 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
   };
-  const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ [key]: e.target.value } as unknown as Partial<Adjustment>);
+  const handleSelect = (key: string) => (value: string) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   return (
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Color Range</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Color range"
           value={adj.colorRange}
+          options={[
+            { value: 'reds', label: 'Reds' },
+            { value: 'yellows', label: 'Yellows' },
+            { value: 'greens', label: 'Greens' },
+            { value: 'cyans', label: 'Cyans' },
+            { value: 'blues', label: 'Blues' },
+            { value: 'magentas', label: 'Magentas' },
+            { value: 'whites', label: 'Whites' },
+            { value: 'neutrals', label: 'Neutrals' },
+            { value: 'blacks', label: 'Blacks' },
+          ]}
           onChange={handleSelect('colorRange')}
-          aria-label="Color range"
-        >
-          {(
-            [
-              'reds',
-              'yellows',
-              'greens',
-              'cyans',
-              'blues',
-              'magentas',
-              'whites',
-              'neutrals',
-              'blacks',
-            ] as const
-          ).map((r) => (
-            <option key={r} value={r}>
-              {r.charAt(0).toUpperCase() + r.slice(1)}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Relative</span>
@@ -958,24 +946,24 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       onChange({ [key]: v } as unknown as Partial<Adjustment>);
     }
   };
-  const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ [key]: e.target.value } as unknown as Partial<Adjustment>);
+  const handleSelect = (key: string) => (value: string) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
 
   return (
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Output Channel</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Output channel"
           value={adj.outputChannel}
+          options={[
+            { value: 'red', label: 'Red' },
+            { value: 'green', label: 'Green' },
+            { value: 'blue', label: 'Blue' },
+          ]}
           onChange={handleSelect('outputChannel')}
-          aria-label="Output channel"
-        >
-          <option value="red">Red</option>
-          <option value="green">Green</option>
-          <option value="blue">Blue</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Monochrome</span>
@@ -1038,8 +1026,8 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 
 function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').HalftoneAdjustment;
-  const handleSelect = (key: string) => (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onChange({ [key]: e.target.value } as unknown as Partial<Adjustment>);
+  const handleSelect = (key: string) => (value: string) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
   const handleNumber = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number.parseFloat(e.target.value);
@@ -1052,59 +1040,59 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Method</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Screening method"
           value={adj.method}
+          options={[
+            { value: 'am', label: 'AM (clustered dot)' },
+            { value: 'fm', label: 'FM (stochastic)' },
+          ]}
           onChange={handleSelect('method')}
-          aria-label="Screening method"
-        >
-          <option value="am">AM (clustered dot)</option>
-          <option value="fm">FM (stochastic)</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Pattern</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Halftone pattern"
           value={adj.pattern}
+          options={[
+            { value: 'dot', label: 'Dot' },
+            { value: 'line', label: 'Line' },
+            { value: 'cross', label: 'Cross' },
+            { value: 'circle', label: 'Circle' },
+          ]}
           onChange={handleSelect('pattern')}
-          aria-label="Halftone pattern"
-        >
-          <option value="dot">Dot</option>
-          <option value="line">Line</option>
-          <option value="cross">Cross</option>
-          <option value="circle">Circle</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Dot Shape</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Dot shape"
           value={adj.dotShape}
+          options={[
+            { value: 'round', label: 'Round' },
+            { value: 'elliptical', label: 'Elliptical' },
+            { value: 'square', label: 'Square' },
+            { value: 'diamond', label: 'Diamond' },
+            { value: 'line', label: 'Line' },
+          ]}
           onChange={handleSelect('dotShape')}
-          aria-label="Dot shape"
-        >
-          <option value="round">Round</option>
-          <option value="elliptical">Elliptical</option>
-          <option value="square">Square</option>
-          <option value="diamond">Diamond</option>
-          <option value="line">Line</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Channel</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Ink channel"
           value={adj.channel}
+          options={[
+            { value: 'k', label: 'Black (K)' },
+            { value: 'c', label: 'Cyan (C)' },
+            { value: 'm', label: 'Magenta (M)' },
+            { value: 'y', label: 'Yellow (Y)' },
+            { value: 'cmyk', label: 'CMYK (all channels)' },
+          ]}
           onChange={handleSelect('channel')}
-          aria-label="Ink channel"
-        >
-          <option value="k">Black (K)</option>
-          <option value="c">Cyan (C)</option>
-          <option value="m">Magenta (M)</option>
-          <option value="y">Yellow (Y)</option>
-          <option value="cmyk">CMYK (all channels)</option>
-        </select>
+        />
       </div>
       <div className="adj-editor__slider-row">
         <div className="adj-editor__slider-label">
@@ -1282,8 +1270,8 @@ function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     return match?.id ?? '';
   }, [adj]);
 
-  const handlePresetSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const preset = TRITONE_PRESETS.find((p) => p.id === e.target.value);
+  const handlePresetSelect = (value: string) => {
+    const preset = TRITONE_PRESETS.find((p) => p.id === value);
     if (preset) {
       onChange({
         shadowColor: [...preset.shadowColor] as Color,
@@ -1299,19 +1287,13 @@ function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
     <div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preset</span>
-        <select
-          className="adj-editor__select"
+        <Select
+          label="Tritone preset"
           value={currentPresetId}
+          placeholder="Custom"
+          options={TRITONE_PRESETS.map((p) => ({ value: p.id, label: p.name }))}
           onChange={handlePresetSelect}
-          aria-label="Tritone preset"
-        >
-          <option value="">Custom</option>
-          {TRITONE_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        />
       </div>
       <div className="adj-editor__row">
         <span className="adj-editor__label">Shadow Color</span>

@@ -1,4 +1,4 @@
-import { Icon } from '@strata/ui';
+import { Icon, Select } from '@strata/ui';
 import { type FC, useCallback } from 'react';
 
 export interface PlaybackControlsProps {
@@ -152,41 +152,25 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
       )}
 
       {onApplyPreset && presetOptions.length > 0 && (
-        <select
-          className="timeline-playback-speed"
-          defaultValue=""
-          onChange={(e) => {
-            const id = e.target.value;
+        <Select
+          label="Apply motion preset"
+          value=""
+          placeholder="Apply preset"
+          options={presetOptions.map((p) => ({ value: p.id, label: p.name }))}
+          onChange={(id) => {
             if (id) {
               onApplyPreset(id);
-              e.target.value = '';
             }
           }}
-          aria-label="Apply motion preset"
-        >
-          <option value="" disabled>
-            Apply preset
-          </option>
-          {presetOptions.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        />
       )}
 
-      <select
-        className="timeline-playback-speed"
-        value={speed}
-        onChange={(e) => onSpeedChange(Number(e.target.value))}
-        aria-label="Playback speed"
-      >
-        {SPEED_OPTIONS.map((s) => (
-          <option key={s} value={s}>
-            {s}x
-          </option>
-        ))}
-      </select>
+      <Select
+        label="Playback speed"
+        value={String(speed)}
+        options={SPEED_OPTIONS.map((s) => ({ value: String(s), label: `${s}x` }))}
+        onChange={(v) => onSpeedChange(Number(v))}
+      />
 
       <span className="timeline-playback-sep" aria-hidden />
 

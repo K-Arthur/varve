@@ -1,6 +1,5 @@
 import {
   AlertDialog,
-  CHROME_ICONS,
   FloatingPortal,
   IconButton,
   SOLID_CHROME_ICONS,
@@ -953,8 +952,8 @@ export function Menubar({
         <span aria-hidden className="editor-menubar__zoom-divider">
           |
         </span>
-        <IconButton icon={CHROME_ICONS.undo} label="Undo" size="sm" onClick={undo} />
-        <IconButton icon={CHROME_ICONS.redo} label="Redo" size="sm" onClick={redo} />
+        <IconButton icon={SOLID_CHROME_ICONS.undo} label="Undo" size="sm" solid onClick={undo} />
+        <IconButton icon={SOLID_CHROME_ICONS.redo} label="Redo" size="sm" solid onClick={redo} />
         <div className="editor-menubar__zoom">
           <span aria-hidden className="editor-menubar__zoom-divider">
             |
