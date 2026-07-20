@@ -1952,7 +1952,9 @@ export function CanvasArea({
                     cc.applyBlur(effect.blur);
                     applyGlassMaterialBackdrop(cc, capW, capH, effect);
                     targetCtx.save();
-                    targetCtx.globalAlpha = effect.opacity * (n.opacity ?? 1);
+                    targetCtx.globalAlpha =
+                      ('opacity' in effect ? (effect as { opacity: number }).opacity : 1) *
+                      (n.opacity ?? 1);
                     targetCtx.drawImage(
                       cc.canvas as CanvasImageSource,
                       0,
@@ -2374,8 +2376,8 @@ export function CanvasArea({
       previewNode?.kind === 'shape' &&
       previewNode.mask?.rasterMask
     ) {
-      const worldBounds = getCachedWorldBounds(cache, doc, previewNodeId);
-      if (worldBounds) {
+      const worldBounds = previewNodeId ? getCachedWorldBounds(cache, doc, previewNodeId) : null;
+      if (worldBounds && previewNodeId) {
         ctx.save();
         const worldMat = getCachedWorldTransform(cache, doc, previewNodeId);
         const [a, b, c2, d2, e2, f2] = worldMat;

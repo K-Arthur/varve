@@ -5,8 +5,8 @@ import { makeAdjustment } from '@strata/scene';
 import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
 import { NumberField } from '../Inspector/controls/NumberField';
+import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
 import { AdjustmentEditor } from './AdjustmentEditor';
 import './adjustment.css';
 
@@ -63,6 +63,17 @@ function localAdjId(): string {
   return `adj-${Date.now()}-${_localAdjCounter}`;
 }
 
+/**
+ * AdjustmentPanel — flat layout for adjustment layer controls.
+ *
+ * Architecture decision (2026-07-20): intentionally NOT a DisclosureSection.
+ * The panel is compact, scrollable, and the filter stack is inherently linear.
+ * There are no subsections to collapse. The entire panel is controlled at the
+ * tab level (it renders within SingleSelectionPanel before all section entries).
+ *
+ * Do NOT convert to DisclosureSection unless the control count exceeds ~30
+ * or the scroll length exceeds 3 viewports.
+ */
 export function AdjustmentPanel() {
   const { state, updateNode, setSelectedOpacity, setSelectedBlendMode } = useEditor();
   const selId = state.selection.length === 1 ? state.selection[0] : undefined;

@@ -11,8 +11,8 @@ import {
   scopeForTargets,
   validateScope,
 } from './adjustmentScope';
-import { makeAdjustmentNode, createDocument } from './document';
 import type { Document } from './document';
+import { createDocument, makeAdjustmentNode } from './document';
 import type { NodeId } from './types';
 
 function makeTestDoc(): Document {

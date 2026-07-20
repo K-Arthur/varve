@@ -10,6 +10,7 @@ vi.mock('@floating-ui/dom', () => ({
   offset: vi.fn(),
   size: vi.fn(),
 }));
+
 import { formatTime } from './PlaybackControls';
 import { TimelinePanel } from './TimelinePanel';
 

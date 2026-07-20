@@ -144,6 +144,8 @@ export {
   interpolateSpatialBezier,
   interpolateValue,
 } from './interpolation';
+export type { ResizeModifiers, RotateModifiers } from './modifiers';
+export { computeResizeModifiers, computeRotateModifiers } from './modifiers';
 export type { OrderKey } from './ordering';
 export { generateKeyBetween, generateNKeysBetween, midPoint } from './ordering';
 export type {
@@ -219,9 +221,6 @@ export type {
   PresetSafeArea,
 } from './presetTypes';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
-
-export type { ResizeModifiers, RotateModifiers } from './modifiers';
-export { computeResizeModifiers, computeRotateModifiers } from './modifiers';
 export {
   boxDeltaMatrix,
   computeSelectionBox,

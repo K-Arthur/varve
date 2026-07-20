@@ -143,12 +143,12 @@ test.describe('Effect pipeline E2E verification', () => {
         const sx = Math.floor((canvasEl.width * (i + 1)) / 6);
         const sy = Math.floor(canvasEl.height / 2);
         const p = ctx.getImageData(sx, sy, 1, 1).data;
-        samples.push({ x: sx, y: sy, r: p[0], g: p[1], b: p[2], a: p[3] });
+        samples.push({ x: sx, y: sy, r: p[0]!, g: p[1]!, b: p[2]!, a: p[3]! });
       }
 
       return {
         canvasSize: { w: canvasEl.width, h: canvasEl.height },
-        centerPixel: { r: pixel[0], g: pixel[1], b: pixel[2], a: pixel[3] },
+        centerPixel: { r: pixel[0]!, g: pixel[1]!, b: pixel[2]!, a: pixel[3]! },
         samples,
         // Check that the canvas is not all black (shapes are rendering)
         isRendering: samples.some((s) => s.r > 0 || s.g > 0 || s.b > 0),

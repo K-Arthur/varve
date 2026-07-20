@@ -28,20 +28,7 @@ describe('TimelinePanel rendering', () => {
         onCreateTimeline={() => {}}
         onSelectTrack={() => {}}
         onClickKeyframe={() => {}}
-        onRenameTimeline={() => {}}
-        onRemoveTimeline={() => {}}
-        onAddTrack={() => {}}
-        onRemoveTrack={() => {}}
-        onAddKeyframe={() => {}}
-        onRemoveKeyframe={() => {}}
-        onEditKeyframeValue={() => {}}
-        onToggleKeyframeInterpolation={() => {}}
-        onCopyKeyframe={() => {}}
-        onPasteKeyframe={() => {}}
-        onSavePreset={() => ''}
-        onApplyPreset={() => {}}
-        onDragKeyframe={() => {}}
-        onDragTimelineHandle={() => {}}
+        onRenameMarker={() => {}}
         onMarkerChange={() => {}}
         onRemoveMarker={() => {}}
       />,

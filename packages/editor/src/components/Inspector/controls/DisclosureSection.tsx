@@ -17,7 +17,7 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import type { SectionId } from '../sectionRegistry';
 import { getSectionDefinition } from '../sectionRegistry';
-import { isSectionCollapsed, isSectionVisible } from '../sectionState';
+import { isSectionCollapsed, isSectionVisible, isSubSectionCollapsed } from '../sectionState';
 
 export interface DisclosureSectionProps {
   title: string;
@@ -25,6 +25,8 @@ export interface DisclosureSectionProps {
   id?: string;
   /** Link to the section registry for centralized state management. */
   sectionId?: SectionId;
+  /** Nested subsection identifier under a parent sectionId. Requires sectionId. */
+  subsectionId?: string;
   defaultExpanded?: boolean;
   children: ReactNode;
 }
@@ -56,6 +58,7 @@ export function DisclosureSection({
   title,
   id,
   sectionId,
+  subsectionId,
   defaultExpanded = true,
   children,
 }: DisclosureSectionProps) {
@@ -68,6 +71,7 @@ export function DisclosureSection({
     return (
       <RegistryDisclosure
         sectionId={sectionId}
+        subsectionId={subsectionId}
         title={title}
         panelId={panelId}
         defaultExpanded={defaultExpanded}
@@ -79,12 +83,7 @@ export function DisclosureSection({
 
   // ── Legacy mode: local state + sessionStorage ──
   return (
-    <LegacyDisclosure
-      slug={slug}
-      title={title}
-      panelId={panelId}
-      defaultExpanded={defaultExpanded}
-    >
+    <LegacyDisclosure slug={slug} title={title} panelId={panelId} defaultExpanded={defaultExpanded}>
       {children}
     </LegacyDisclosure>
   );
@@ -96,20 +95,29 @@ export function DisclosureSection({
 
 function RegistryDisclosure({
   sectionId,
+  subsectionId,
   title,
   panelId,
-  defaultExpanded,
   children,
 }: {
   sectionId: SectionId;
+  subsectionId?: string;
   title: string;
   panelId: string;
-  defaultExpanded: boolean;
   children: ReactNode;
 }) {
-  const { state, toggleSectionCollapse, hideInspectorSection } = useEditor();
-  const expanded = isSectionCollapsed(state.sectionVisibility, sectionId) ? false : defaultExpanded;
-  const visible = isSectionVisible(state.sectionVisibility, sectionId);
+  const { state, toggleSectionCollapse, toggleSubSectionCollapse, hideInspectorSection } =
+    useEditor();
+
+  // Determine expanded state:
+  // - subsection reads parent.subsections[subId].collapsed directly
+  // - top-level reads from the flat sectionVisibility state
+  const expanded = subsectionId
+    ? !isSubSectionCollapsed(state.sectionVisibility, sectionId, subsectionId)
+    : !isSectionCollapsed(state.sectionVisibility, sectionId);
+  const visible = subsectionId
+    ? !isSectionCollapsed(state.sectionVisibility, sectionId)
+    : isSectionVisible(state.sectionVisibility, sectionId);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const def = getSectionDefinition(sectionId);
@@ -138,7 +146,13 @@ function RegistryDisclosure({
 
   if (!visible) return null;
 
-  const handleToggle = () => toggleSectionCollapse(sectionId);
+  const handleToggle = () => {
+    if (subsectionId) {
+      toggleSubSectionCollapse(sectionId, subsectionId);
+    } else {
+      toggleSectionCollapse(sectionId);
+    }
+  };
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (def && !def.canHide) return; // essential sections can't be hidden

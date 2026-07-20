@@ -6,10 +6,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  type Document,
   addChild,
   addNode,
   createDocument,
+  type Document,
   defaultConstraints,
   makeFrameNode,
   makeShapeNode,
@@ -29,12 +29,12 @@ describe('constraint persistence', () => {
         ...d.nodes,
         c1: { ...d.nodes.c1, constraints: { horizontal: 'stretch', vertical: 'scale' } },
       },
-    } as Document;
+    } as unknown as Document;
     // Simulate save/load
     const json = JSON.stringify(d);
     const restored = JSON.parse(json) as Document;
     expect(restored.nodes.c1).toBeDefined();
-    expect((restored.nodes.c1 as Record<string, unknown>).constraints).toEqual({
+    expect((restored.nodes.c1 as unknown as Record<string, unknown>).constraints).toEqual({
       horizontal: 'stretch',
       vertical: 'scale',
     });
@@ -52,12 +52,12 @@ describe('constraint persistence', () => {
         ...d.nodes,
         c1: { ...d.nodes.c1, constraints: { horizontal: 'stretch', vertical: 'scale' } },
       },
-    } as Document;
+    } as unknown as Document;
     // Simulate duplication: clone the node
-    const original = d.nodes.c1 as Record<string, unknown>;
+    const original = d.nodes.c1 as unknown as Record<string, unknown>;
     const clone = { ...original, id: 'c1-clone' };
     d = { ...d, nodes: { ...d.nodes, 'c1-clone': clone as Document['nodes'][string] } };
-    expect((clone as Record<string, unknown>).constraints).toEqual({
+    expect((clone as unknown as Record<string, unknown>).constraints).toEqual({
       horizontal: 'stretch',
       vertical: 'scale',
     });
@@ -76,16 +76,16 @@ describe('constraint persistence', () => {
         ...d.nodes,
         c1: { ...d.nodes.c1, constraints: { horizontal: 'stretch', vertical: 'scale' } },
       },
-    } as Document;
+    } as unknown as Document;
     // Undo: remove constraint
     d = {
       ...d,
       nodes: {
         ...d.nodes,
-        c1: { ...(d.nodes.c1 as Record<string, unknown>), constraints: undefined },
+        c1: { ...(d.nodes.c1 as unknown as Record<string, unknown>), constraints: undefined },
       },
-    } as Document;
-    expect((d.nodes.c1 as Record<string, unknown>).constraints).toBeUndefined();
+    } as unknown as Document;
+    expect((d.nodes.c1 as unknown as Record<string, unknown>).constraints).toBeUndefined();
     // Redo: re-apply constraint
     d = {
       ...d,
@@ -93,8 +93,8 @@ describe('constraint persistence', () => {
         ...d.nodes,
         c1: { ...d.nodes.c1, constraints: { horizontal: 'stretch', vertical: 'scale' } },
       },
-    } as Document;
-    expect((d.nodes.c1 as Record<string, unknown>).constraints).toEqual({
+    } as unknown as Document;
+    expect((d.nodes.c1 as unknown as Record<string, unknown>).constraints).toEqual({
       horizontal: 'stretch',
       vertical: 'scale',
     });

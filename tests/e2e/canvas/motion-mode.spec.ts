@@ -174,7 +174,6 @@ test.describe('Motion Mode', () => {
     // Zoom controls
     const zoomLabel = page.locator('.timeline-panel__zoom-label');
     const zoomIn = page.locator('.timeline-panel__zoom-btn').last();
-    const _zoomOut = page.locator('.timeline-panel__zoom-btn').first();
 
     await expect(zoomLabel).toBeVisible();
     await zoomIn.click();

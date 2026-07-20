@@ -17,10 +17,10 @@
 import { getFontRegistry } from '@strata/engine';
 import type { SceneNode, TextNode } from '@strata/scene';
 import { resolveNodeFills } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
-import { Select } from '@strata/ui';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -489,7 +489,12 @@ function OpenTypeFeaturesSection({
   );
 
   return (
-    <DisclosureSection title="OpenType Features" defaultExpanded={false}>
+    <DisclosureSection
+      title="OpenType Features"
+      sectionId="typography"
+      subsectionId="openTypeFeatures"
+      defaultExpanded={false}
+    >
       <div className="insp-opentype-list">
         {featuresToShow.map((tag) => (
           <label key={tag} className="insp-opentype-row">
@@ -541,7 +546,12 @@ function VariableAxesSection({ textNodes, familyRaw, batchUpdate }: VariableAxes
   );
 
   return (
-    <DisclosureSection title="Variable Font Axes" defaultExpanded={false}>
+    <DisclosureSection
+      title="Variable Font Axes"
+      sectionId="typography"
+      subsectionId="variableFontAxes"
+      defaultExpanded={false}
+    >
       {activeAxisTags.map((tag) => {
         const info = registry.getAxisInfo(tag);
         if (!info) return null;

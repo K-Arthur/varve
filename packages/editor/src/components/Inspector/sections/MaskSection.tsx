@@ -1,8 +1,8 @@
 import type { MaskType, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
-import { Select } from '@strata/ui';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
 

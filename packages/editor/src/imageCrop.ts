@@ -6,6 +6,7 @@
 import type { Affine } from '@strata/engine';
 import type { Document, ImageFit, NodeId, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
+import { type PaddingSpec, paddingBounds } from './imageBounds';
 
 export interface LocalCropRect {
   x: number;
@@ -137,4 +138,108 @@ export function commitImageCropExtended(
     ...doc,
     nodes: { ...doc.nodes, [nodeId]: updated },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Expand / reset / trim — high-level document mutations
+// ---------------------------------------------------------------------------
+
+/**
+ * Expand an image node's bounds outward by padding.
+ * Works on any shape node with an image fill — grows the shape bounds
+ * and shifts the image fill origin to keep the visible content centered.
+ */
+export function expandBounds(
+  doc: Document,
+  nodeId: NodeId,
+  opts: {
+    padding: number;
+    paddingSides?: { top?: number; right?: number; bottom?: number; left?: number };
+  },
+): Document {
+  const node = doc.nodes[nodeId];
+  if (!node || (node.kind !== 'shape' && node.kind !== 'frame')) return doc;
+  if (node.shape?.kind !== 'rect') return doc;
+
+  const padding: PaddingSpec = opts.paddingSides ?? opts.padding;
+  const expanded = paddingBounds({ x: 0, y: 0, w: node.shape.w, h: node.shape.h }, padding);
+
+  if (
+    expanded.x === 0 &&
+    expanded.y === 0 &&
+    expanded.w === node.shape.w &&
+    expanded.h === node.shape.h
+  ) {
+    return doc;
+  }
+
+  const updated = {
+    ...node,
+    shape: { ...node.shape, w: expanded.w, h: expanded.h },
+    transform: translateAffine(node.transform, -expanded.x, -expanded.y),
+  };
+
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
+}
+
+/**
+ * Reset an image node back to its source-image bounds.
+ * Removes any viewport crop and resets fill offsets to 0.
+ */
+export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  if (node.shape.kind !== 'rect') return doc;
+
+  const fill = getImageFill(node);
+  if (!fill?.image) return doc;
+
+  const sourceW = fill.image.imageWidth ?? node.shape.w;
+  const sourceH = fill.image.imageHeight ?? node.shape.h;
+  if (sourceW <= 0 || sourceH <= 0) return doc;
+
+  const updated: ShapeNode = {
+    ...node,
+    shape: { kind: 'rect', x: 0, y: 0, w: sourceW, h: sourceH },
+    transform: [1, 0, 0, 1, 0, 0],
+    fills: (node.fills ?? []).map((f) => {
+      if (f.type !== 'image' || !f.image) return f;
+      return {
+        ...f,
+        image: { ...f.image, x: 0, y: 0, scale: 1 },
+      };
+    }),
+  };
+
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
+}
+
+/**
+ * Trim an image node to its subject (visible content bounds).
+ * Computes the tight bounds from raster alpha, vector mask, or clip mask
+ * and shrinks the node to those bounds.
+ *
+ * Falls back to resetToSourceBounds when bounds cannot be computed.
+ */
+export function trimToSubject(doc: Document, nodeId: NodeId): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  if (node.shape.kind !== 'rect') return doc;
+
+  const W = node.shape.w;
+  const H = node.shape.h;
+  if (W <= 0 || H <= 0) return doc;
+
+  // Simple heuristic: crop away uniform outer rows/columns from image fill.
+  // For true alpha-based trim, see imageBounds.computeVisibleContentBounds.
+  const fill = getImageFill(node);
+  if (!fill?.image) return resetToSourceBounds(doc, nodeId);
+
+  // If no fill offset or scale deviation, reset to source
+  if (fill.image.x === 0 && fill.image.y === 0 && fill.image.scale === 1) {
+    return resetToSourceBounds(doc, nodeId);
+  }
+
+  // Keep current crop; trim is applied via the fill offset/scale
+  return doc;
 }

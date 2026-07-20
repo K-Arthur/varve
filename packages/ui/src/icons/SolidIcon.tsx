@@ -342,9 +342,9 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
   { name, label, size = '1em', weight = 'fill', ...rest },
   ref,
 ) {
-  // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Phosphor icon must resolve dynamically by name
-  // @ts-expect-error - SolidIconName includes names not in Phosphor's export surface that work via CJS/ESM interop
-  const IconComponent = PhosphorIcons[name];
+  const IconComponent = (PhosphorIcons as unknown as Record<string, React.ElementType | undefined>)[
+    name
+  ];
   if (!IconComponent) {
     // Graceful fallback: render a placeholder instead of crashing
     console.warn(`[SolidIcon] Unknown icon: "${name}"`);
@@ -357,10 +357,7 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
           display: 'inline-flex',
           width: size,
           height: size,
-          background: 'var(--color-feedback-warning)',
-          borderRadius: 2,
         }}
-        {...rest}
       />
     );
   }

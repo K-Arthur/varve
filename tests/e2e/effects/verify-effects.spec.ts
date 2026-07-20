@@ -118,7 +118,8 @@ async function setupWithImage(page: import('@playwright/test').Page) {
   // that approximates an image with varied luminance
   await page.getByRole('button', { name: /rect/i }).first().click();
   const canvas = page.locator('canvas').first();
-  const box = await canvas.boundingBox()!;
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Canvas bounding box is null');
   await page.mouse.move(box.x + 100, box.y + 80);
   await page.mouse.down();
   await page.mouse.move(box.x + 700, box.y + 520, { steps: 15 });
@@ -183,7 +184,7 @@ test('tritone on multi-color shape — visual verification', async ({ page }) =>
       const sx = Math.floor((c.width * (i + 1)) / 6);
       const sy = Math.floor(c.height / 2);
       const p = ctx.getImageData(sx, sy, 1, 1).data;
-      samples.push({ x: sx, y: sy, r: p[0], g: p[1], b: p[2], a: p[3] });
+      samples.push({ x: sx, y: sy, r: p[0]!, g: p[1]!, b: p[2]!, a: p[3]! });
     }
     return samples;
   });
@@ -219,7 +220,7 @@ test('gradient map on multi-color shape — visual verification', async ({ page 
       const sx = Math.floor((c.width * (i + 1)) / 6);
       const sy = Math.floor(c.height / 2);
       const p = ctx.getImageData(sx, sy, 1, 1).data;
-      samples.push({ x: sx, y: sy, r: p[0], g: p[1], b: p[2], a: p[3] });
+      samples.push({ x: sx, y: sy, r: p[0]!, g: p[1]!, b: p[2]!, a: p[3]! });
     }
     return samples;
   });
@@ -255,7 +256,7 @@ test('halftone on multi-color shape — visual verification', async ({ page }) =
       const sx = Math.floor((c.width * (i + 1)) / 6);
       const sy = Math.floor(c.height / 2);
       const p = ctx.getImageData(sx, sy, 1, 1).data;
-      samples.push({ x: sx, y: sy, r: p[0], g: p[1], b: p[2], a: p[3] });
+      samples.push({ x: sx, y: sy, r: p[0]!, g: p[1]!, b: p[2]!, a: p[3]! });
     }
     return samples;
   });

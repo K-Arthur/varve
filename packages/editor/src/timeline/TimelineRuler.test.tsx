@@ -13,7 +13,9 @@ describe('TimelineRuler', () => {
   describe('keyboard navigation', () => {
     it('moves playhead right on ArrowRight', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       expect(ruler).toBeTruthy();
       fireEvent.keyDown(ruler!, { key: 'ArrowRight' });
@@ -22,7 +24,9 @@ describe('TimelineRuler', () => {
 
     it('moves playhead left on ArrowLeft', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       fireEvent.keyDown(ruler!, { key: 'ArrowLeft' });
       expect(onSeek).toHaveBeenCalledWith(900);
@@ -30,7 +34,9 @@ describe('TimelineRuler', () => {
 
     it('steps by 500ms with Shift+Arrow', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       fireEvent.keyDown(ruler!, { key: 'ArrowRight', shiftKey: true });
       expect(onSeek).toHaveBeenCalledWith(1500);
@@ -38,7 +44,9 @@ describe('TimelineRuler', () => {
 
     it('goes to start on Home', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={3000} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={3000} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       fireEvent.keyDown(ruler!, { key: 'Home' });
       expect(onSeek).toHaveBeenCalledWith(0);
@@ -46,7 +54,9 @@ describe('TimelineRuler', () => {
 
     it('goes to end on End', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={0} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={0} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       fireEvent.keyDown(ruler!, { key: 'End' });
       expect(onSeek).toHaveBeenCalledWith(5000);
@@ -54,7 +64,9 @@ describe('TimelineRuler', () => {
 
     it('clamps to 0 when stepping before start', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={50} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={50} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       fireEvent.keyDown(ruler!, { key: 'ArrowLeft' });
       expect(onSeek).toHaveBeenCalledWith(0);
@@ -62,7 +74,9 @@ describe('TimelineRuler', () => {
 
     it('clamps to duration when stepping beyond end', () => {
       const onSeek = vi.fn();
-      const { container } = render(<TimelineRuler {...defaultProps} currentTime={4950} onSeek={onSeek} />);
+      const { container } = render(
+        <TimelineRuler {...defaultProps} currentTime={4950} onSeek={onSeek} />,
+      );
       const ruler = container.querySelector('.timeline-ruler');
       fireEvent.keyDown(ruler!, { key: 'ArrowRight' });
       expect(onSeek).toHaveBeenCalledWith(5000);
