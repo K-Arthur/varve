@@ -891,6 +891,41 @@ describe('Document print production fields', () => {
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
   });
 
+  it('createDocument converts physicalWidth/Height to px page geometry via the documentUnit (regression: previously assigned raw mm values as px)', () => {
+    const doc = createDocument('A4 print doc', {
+      colorMode: 'cmyk',
+      physicalWidth: 210,
+      physicalHeight: 297,
+      documentUnit: 'mm',
+      dpi: 300,
+    });
+    const page = doc.pages?.[0];
+    // 210mm/297mm at the fixed-96dpi world unit, NOT the raw mm numbers.
+    expect(page?.width).toBeCloseTo(793.7, 0);
+    expect(page?.height).toBeCloseTo(1122.5, 0);
+    // Metadata is preserved verbatim in its original physical unit.
+    expect(doc.physicalWidth).toBe(210);
+    expect(doc.physicalHeight).toBe(297);
+    expect(doc.documentUnit).toBe('mm');
+    expect(doc.dpi).toBe(300);
+  });
+
+  it('createDocument treats an explicit px documentUnit as a no-op passthrough', () => {
+    const doc = createDocument('screen doc', {
+      physicalWidth: 1440,
+      physicalHeight: 900,
+      documentUnit: 'px',
+    });
+    expect(doc.pages?.[0]?.width).toBe(1440);
+    expect(doc.pages?.[0]?.height).toBe(900);
+  });
+
+  it('createDocument defaults to px (no-op) when physicalWidth is set without a documentUnit', () => {
+    const doc = createDocument('no unit doc', { physicalWidth: 640, physicalHeight: 480 });
+    expect(doc.pages?.[0]?.width).toBe(640);
+    expect(doc.pages?.[0]?.height).toBe(480);
+  });
+
   it('Document interface accepts colorConfig and bleed', () => {
     const doc = createDocument('print-doc');
     const withPrint = {

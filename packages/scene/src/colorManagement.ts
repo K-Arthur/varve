@@ -10,12 +10,15 @@
  * conditions), LittleCMS architecture, Adobe ACE color engine model.
  */
 
-import type { DocumentUnit } from '@strata/shared';
+import type { ColorMode, DocumentUnit } from '@strata/shared';
 
 // ── Color Mode ──────────────────────────────────────────────────────────────
 
-/** Document-level color mode. Determines default color space for new colors. */
-export type ColorMode = 'rgb' | 'cmyk' | 'grayscale';
+/** Document-level color mode. Determines default color space for new colors.
+ *  Canonical definition lives in @strata/shared (used by the preset system
+ *  as well); re-exported here so existing `import type { ColorMode } from
+ *  '@strata/scene'` call sites keep working unchanged. */
+export type { ColorMode };
 
 // ── Color Space ─────────────────────────────────────────────────────────────
 
