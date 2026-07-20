@@ -64,6 +64,8 @@ export type { PanelProps } from './Panel';
 export { Panel } from './Panel';
 export type { PopoverProps } from './Popover';
 export { Popover } from './Popover';
+export type { PresetPickerProps, PresetTileProps } from './PresetPicker';
+export { PresetPicker, PresetTile } from './PresetPicker';
 export type { RegionLoaderProps } from './RegionLoader';
 export { RegionLoader } from './RegionLoader';
 export type { SearchFieldProps } from './SearchField';
