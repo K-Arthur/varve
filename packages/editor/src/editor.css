@@ -677,8 +677,8 @@
 .editor-status__zoom-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 1px var(--space-2);
+  gap: 2px;
+  padding: 2px var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
   border-radius: var(--radius-sm);
@@ -686,7 +686,7 @@
 }
 
 .editor-status__zoom-value {
-  width: var(--space-8);
+  width: 3rem;
   text-align: right;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -730,9 +730,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-4);
-  height: var(--space-4);
-  padding: 0;
+  min-width: var(--space-5);
+  height: var(--space-5);
+  padding: 0 var(--space-1);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -750,6 +750,12 @@
 .editor-status__toggle--active {
   background: var(--color-accent-primary);
   color: var(--color-text-on-accent);
+}
+/* Separator dashes in status bar */
+.editor-status > [aria-hidden] {
+  color: var(--color-border-subtle);
+  user-select: none;
+  margin: 0 var(--space-05);
 }
 [data-theme="high-contrast"] .editor-status {
   border-top: 1px solid var(--color-border-subtle);
@@ -775,8 +781,9 @@
   cursor: pointer;
   font: inherit;
   font-size: var(--font-size-xs);
-  padding: 0 var(--space-2);
+  padding: 2px var(--space-2);
   border-radius: var(--radius-sm);
+  white-space: nowrap;
   transition:
     background var(--duration-quick) var(--ease-standard),
     color var(--duration-quick) var(--ease-standard);
