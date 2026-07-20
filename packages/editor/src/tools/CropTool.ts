@@ -1,24 +1,28 @@
 /**
  * CropTool — viewport crop mode for image shapes.
  *
- * Overlay owns handle dragging; this tool handles Esc / Enter and activation.
+ * Overlay owns handle dragging; this tool handles Esc / Enter / wheel zoom
+ * and fit-mode cycling.
  * Research basis: Figma image crop, Canva crop handle pattern.
  */
 
-import type { LocalCropRect } from '../imageCrop';
+import type { ImageFit } from '@strata/scene';
+import type { CropState, LocalCropRect } from '../imageCrop';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
+
+const FIT_CYCLE: ImageFit[] = ['crop', 'fit', 'fill', 'stretch', 'tile'];
 
 export class CropTool extends BaseTool {
   id = 'crop' as const;
 
-  private cropRect: LocalCropRect | null = null;
+  private cropState: CropState | null = null;
   private nodeId: string | null = null;
   private nodeSize: { w: number; h: number } | null = null;
   private listeners = new Set<() => void>();
-  private commitHandler: ((rect: LocalCropRect) => void) | null = null;
+  private commitHandler: ((state: CropState) => void) | null = null;
 
-  /** Subscribe to crop-rect changes (overlay re-renders). */
+  /** Subscribe to crop state changes (overlay re-renders). */
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => {
@@ -30,12 +34,16 @@ export class CropTool extends BaseTool {
     for (const listener of this.listeners) listener();
   }
 
-  setCommitHandler(handler: ((rect: LocalCropRect) => void) | null): void {
+  setCommitHandler(handler: ((state: CropState) => void) | null): void {
     this.commitHandler = handler;
   }
 
+  getCropState(): CropState | null {
+    return this.cropState;
+  }
+
   getCropRect(): LocalCropRect | null {
-    return this.cropRect;
+    return this.cropState?.viewport ?? null;
   }
 
   getNodeId(): string | null {
@@ -47,7 +55,33 @@ export class CropTool extends BaseTool {
   }
 
   setCropRect(rect: LocalCropRect): void {
-    this.cropRect = rect;
+    this.cropState = { ...this.cropState!, viewport: rect };
+    this.notify();
+  }
+
+  /** Set the fill scale (zoom level). */
+  setFillScale(scale: number): void {
+    if (!this.cropState) return;
+    this.cropState = { ...this.cropState, fillScale: Math.max(0.01, Math.min(10, scale)) };
+    this.notify();
+  }
+
+  /** Pan the image fill offset by a delta in node-local space. */
+  panFill(dx: number, dy: number): void {
+    if (!this.cropState) return;
+    const offX = (this.cropState.fillOffsetX ?? 0) + dx;
+    const offY = (this.cropState.fillOffsetY ?? 0) + dy;
+    this.cropState = { ...this.cropState, fillOffsetX: offX, fillOffsetY: offY };
+    this.notify();
+  }
+
+  /** Cycle to the next fit mode. */
+  cycleFitMode(): void {
+    if (!this.cropState) return;
+    const current = this.cropState.fillFit;
+    const idx = current ? FIT_CYCLE.indexOf(current) : -1;
+    const next = FIT_CYCLE[(idx + 1) % FIT_CYCLE.length];
+    this.cropState = { ...this.cropState, fillFit: next };
     this.notify();
   }
 
@@ -66,13 +100,23 @@ export class CropTool extends BaseTool {
       return;
     }
     this.nodeSize = { w: node.shape.w, h: node.shape.h };
-    this.cropRect = { x: 0, y: 0, w: node.shape.w, h: node.shape.h };
+    const imageFill =
+      'fills' in node
+        ? (node.fills ?? []).find((f: { type: string }) => f.type === 'image')?.image
+        : null;
+    this.cropState = {
+      viewport: { x: 0, y: 0, w: node.shape.w, h: node.shape.h },
+      fillScale: imageFill?.scale ?? 1,
+      fillOffsetX: imageFill?.x ?? 0,
+      fillOffsetY: imageFill?.y ?? 0,
+      fillFit: imageFill?.fit ?? 'crop',
+    };
     this.notify();
-    ctx.announce('Crop mode — drag handles, Enter to apply, Esc to cancel');
+    ctx.announce('Crop mode — drag handles, scroll to zoom, Enter to apply, Esc to cancel');
   }
 
   override onDeactivate(_ctx: ToolContext): void {
-    this.cropRect = null;
+    this.cropState = null;
     this.nodeId = null;
     this.nodeSize = null;
     this.notify();
@@ -89,10 +133,27 @@ export class CropTool extends BaseTool {
       return true;
     }
     if (e.key === 'Enter') {
-      if (this.cropRect && this.commitHandler) {
-        this.commitHandler(this.cropRect);
+      if (this.cropState && this.commitHandler) {
+        this.commitHandler(this.cropState);
       }
       ctx.setTool('select');
+      return true;
+    }
+    if (e.key === 'f' || e.key === 'F') {
+      this.cycleFitMode();
+      ctx.announce(`Crop fit: ${this.cropState?.fillFit ?? 'crop'}`);
+      return true;
+    }
+    // Alt+arrows for nudge pan
+    if (e.altKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      const step = 5;
+      const d = {
+        ArrowUp: [0, -step],
+        ArrowDown: [0, step],
+        ArrowLeft: [-step, 0],
+        ArrowRight: [step, 0],
+      }[e.key]!;
+      this.panFill(d[0], d[1]);
       return true;
     }
     return false;
@@ -104,8 +165,8 @@ export class CropTool extends BaseTool {
   }
 
   applyCrop(ctx: ToolContext): void {
-    if (this.cropRect && this.commitHandler) {
-      this.commitHandler(this.cropRect);
+    if (this.cropState && this.commitHandler) {
+      this.commitHandler(this.cropState);
     }
     ctx.setTool('select');
   }

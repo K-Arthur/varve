@@ -1,5 +1,8 @@
 /**
  * CropOverlay — dim outside crop window + resize handles for CropTool.
+ *
+ * Supports viewport crop resize/move, fill zoom (wheel), fit-mode badge,
+ * and image preview rendered at current fill scale/offset.
  */
 import { type PointerEvent as ReactPointerEvent, useEffect, useReducer, useRef } from 'react';
 import type { LocalCropRect } from '../imageCrop';
@@ -10,6 +13,8 @@ export interface CropOverlayProps {
   tool: CropTool;
   /** Screen bounds of the full image node (canvas-local). */
   screenBounds: { x: number; y: number; w: number; h: number };
+  /** Image source URL for the preview overlay. */
+  imageSrc?: string;
   onDone: () => void;
   onCancel: () => void;
 }
@@ -27,7 +32,7 @@ function clampCrop(rect: LocalCropRect, maxW: number, maxH: number): LocalCropRe
   return { x, y, w, h };
 }
 
-export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverlayProps) {
+export function CropOverlay({ tool, screenBounds, imageSrc, onDone, onCancel }: CropOverlayProps) {
   const [, bump] = useReducer((n: number) => n + 1, 0);
   const dragRef = useRef<{
     handle: Handle;
@@ -38,9 +43,10 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
 
   useEffect(() => tool.subscribe(() => bump()), [tool]);
 
+  const cropState = tool.getCropState();
   const crop = tool.getCropRect();
   const nodeSize = tool.getNodeSize();
-  if (!crop || !nodeSize || screenBounds.w <= 0 || screenBounds.h <= 0) return null;
+  if (!cropState || !crop || !nodeSize || screenBounds.w <= 0 || screenBounds.h <= 0) return null;
 
   const sx = screenBounds.w / nodeSize.w;
   const sy = screenBounds.h / nodeSize.h;
@@ -48,6 +54,22 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
   const top = screenBounds.y + crop.y * sy;
   const width = crop.w * sx;
   const height = crop.h * sy;
+
+  // Image preview transform for zoom/pan within crop window
+  const previewStyle: React.CSSProperties | undefined = imageSrc
+    ? {
+        position: 'absolute' as const,
+        left: 0,
+        top: 0,
+        width: nodeSize.w * sx,
+        height: nodeSize.h * sy,
+        transform: `translate(${-crop.x * sx + (cropState.fillOffsetX ?? 0) * sx}px, ${-crop.y * sy + (cropState.fillOffsetY ?? 0) * sy}px) scale(${cropState.fillScale ?? 1})`,
+        transformOrigin: '0 0',
+        pointerEvents: 'none' as const,
+        opacity: 0.5,
+        objectFit: 'none' as const,
+      }
+    : undefined;
 
   const onPointerDown = (handle: Handle) => (e: ReactPointerEvent) => {
     e.stopPropagation();
@@ -90,6 +112,14 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
     dragRef.current = null;
   };
 
+  const onWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const current = cropState.fillScale ?? 1;
+    tool.setFillScale(current * delta);
+  };
+
   const handles: Handle[] = ['nw', 'n', 'ne', 'w', 'e', 'sw', 's', 'se'];
 
   return (
@@ -104,15 +134,18 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
           height: screenBounds.h,
         }}
       />
-      {/* Clear crop window (cut hole via box-shadow trick on window) */}
+      {/* Clear crop window — includes image preview + handles */}
       <div
         className="crop-overlay__window"
-        style={{ left, top, width, height }}
+        style={{ left, top, width, height, overflow: 'hidden' }}
         onPointerDown={onPointerDown('move')}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onWheel={onWheel}
       >
+        {/* Image preview rendered at current zoom/pan */}
+        {imageSrc && <img src={imageSrc} alt="" style={previewStyle} draggable={false} />}
         {handles.map((h) => (
           <button
             key={h}
@@ -125,6 +158,8 @@ export function CropOverlay({ tool, screenBounds, onDone, onCancel }: CropOverla
             onPointerCancel={onPointerUp}
           />
         ))}
+        {/* Fit-mode badge */}
+        <div className="crop-overlay__badge">{cropState.fillFit ?? 'crop'}</div>
       </div>
       <div
         className="crop-overlay__actions"

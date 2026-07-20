@@ -15,7 +15,7 @@
 
 import type { PathPoint, Shape } from '@strata/engine';
 import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { applyConstraints, defaultConstraints, getParent } from '@strata/scene';
+import { applyConstraints, getParent } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
 import {
   applyAffine,
@@ -32,6 +32,7 @@ import {
   translate,
   tryInvertAffine,
 } from '@strata/shared';
+import { resizeNodeGeometry } from '../scene/resizeGeometry';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
 export interface TransformNodeState {
@@ -197,13 +198,19 @@ export class TransformEngine {
       const newLocal = state.parentWorldInverse
         ? multiplyAffine(state.parentWorldInverse, newWorld)
         : newWorld;
-      let node = newDoc.nodes[id];
+      const node = newDoc.nodes[id];
       if (!node) continue;
       if (bake) {
         const baked = this.bakeNode(node, newLocal, newDoc);
         newDoc = { ...newDoc, nodes: { ...newDoc.nodes, ...baked.nodeUpdates } };
       } else {
-        newDoc = { ...newDoc, nodes: { ...newDoc.nodes, [id]: { ...node, transform: newLocal, rotation: 0 } as SceneNode } };
+        newDoc = {
+          ...newDoc,
+          nodes: {
+            ...newDoc.nodes,
+            [id]: { ...node, transform: newLocal, rotation: 0 } as SceneNode,
+          },
+        };
       }
     }
     return newDoc;
@@ -289,8 +296,20 @@ export class TransformEngine {
               newH,
             );
 
+            // Apply both position AND dimension changes from constraints.
+            // For 'stretch' and 'scale' the size differs from the original;
+            // the type-aware resize adapter handles each node kind correctly
+            // (shape w/h, text w/h, frame w/h, path points, etc.).
+            let updatedChild: SceneNode = child;
+            const dimChanged =
+              Math.abs(result.w - childBounds.w) > 0.001 ||
+              Math.abs(result.h - childBounds.h) > 0.001;
+            if (dimChanged) {
+              updatedChild = resizeNodeGeometry(child, result.w, result.h);
+            }
+
             updates[childId] = {
-              ...child,
+              ...updatedChild,
               transform: [
                 child.transform[0],
                 child.transform[1],

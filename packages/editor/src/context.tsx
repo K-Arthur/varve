@@ -102,6 +102,7 @@ import {
   addVariableToDocument,
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
+  applyConstraints,
   arrangeNode as arrangeNodeDoc,
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
@@ -120,6 +121,7 @@ import {
   type Document,
   DocumentCodec,
   deepCloneSubtree,
+  defaultConstraints,
   deleteMaster as deleteMasterDoc,
   deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
@@ -240,7 +242,6 @@ import {
   type Viewport,
   zoomAboutPoint,
 } from '@strata/shared';
-
 import {
   createContext,
   type ReactNode,
@@ -324,6 +325,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from './scene/parentIndexCache';
+import { resizeNodeGeometry } from './scene/resizeGeometry';
 import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
 import {
   createTransformCache,
@@ -1512,6 +1514,61 @@ function applyFrameLayout(doc: Document, parentId: string | null | undefined): D
 }
 
 /**
+ * When a frame's dimensions change (via inspector or resize), propagate
+ * constraints to its children so stretch/scale children get correct
+ * position AND dimensions.  Mirrors TransformEngine.bakeNode's constraint
+ * logic for the inspector-resize path.
+ */
+function propagateFrameConstraints(
+  doc: Document,
+  frameId: string,
+  oldW: number,
+  oldH: number,
+): Record<string, SceneNode> {
+  const frame = doc.nodes[frameId];
+  if (frame?.kind !== 'frame' || !frame.children) return {};
+  const updates: Record<string, SceneNode> = {};
+  for (const childId of frame.children) {
+    const child = doc.nodes[childId];
+    if (!child) continue;
+    const cs = child.constraints;
+    if (!cs) continue; // No constraints: child stays in place
+    const childBounds = nodeLocalBounds(child, doc);
+    if (!childBounds) continue;
+    const childX = child.transform[4] + childBounds.x;
+    const childY = child.transform[5] + childBounds.y;
+    const newW = frame.w ?? oldW;
+    const newH = frame.h ?? oldH;
+    const result = applyConstraints(
+      cs,
+      { x: childX, y: childY, w: childBounds.w, h: childBounds.h },
+      oldW,
+      oldH,
+      newW,
+      newH,
+    );
+    let updatedChild: SceneNode = child;
+    const dimChanged =
+      Math.abs(result.w - childBounds.w) > 0.001 || Math.abs(result.h - childBounds.h) > 0.001;
+    if (dimChanged) {
+      updatedChild = resizeNodeGeometry(child, result.w, result.h);
+    }
+    updates[childId] = {
+      ...updatedChild,
+      transform: [
+        child.transform[0],
+        child.transform[1],
+        child.transform[2],
+        child.transform[3],
+        result.x,
+        result.y,
+      ] as Affine,
+    } as SceneNode;
+  }
+  return updates;
+}
+
+/**
  * Compute world-space bounding box for any node type.
  * Retained as a fallback only — prefers canonical `nodeWorldBounds(doc, id)`
  * which composes the full ancestor transform chain.
@@ -2501,7 +2558,11 @@ export function EditorProvider({
             const pInv = invertAffine(pWorld);
             const localPos = applyAffine(pInv, [world.x, world.y]);
             const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
-            node = { ...node, transform: localTransform } as SceneNode;
+            node = {
+              ...node,
+              transform: localTransform,
+              constraints: defaultConstraints(),
+            } as SceneNode;
             newDoc = addChild(d2, effectiveParentId, node);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
@@ -2619,7 +2680,11 @@ export function EditorProvider({
             const pInv = invertAffine(pWorld);
             const localPos = applyAffine(pInv, [world.x, world.y]);
             const localTransform: Affine = [1, 0, 0, 1, localPos[0], localPos[1]];
-            const localNode = { ...node, transform: localTransform } as SceneNode;
+            const localNode = {
+              ...node,
+              transform: localTransform,
+              constraints: defaultConstraints(),
+            } as SceneNode;
             newDoc = addChild(d2, effectiveParentId, localNode);
             newDoc = applyFrameLayout(newDoc, effectiveParentId);
           } else {
@@ -3153,7 +3218,20 @@ export function EditorProvider({
             if (!node) continue;
             const bounds = nodeLocalBounds(node, doc);
             if (!bounds) continue;
-            nodes[id] = resizeSceneNode(node, w, bounds.h);
+            const oldW = node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w;
+            nodes[id] = resizeNodeGeometry(node, w, bounds.h);
+            // Propagate constraints to frame children
+            if (node.kind === 'frame') {
+              const childUpdates = propagateFrameConstraints(
+                { ...doc, nodes },
+                id,
+                oldW,
+                node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h,
+              );
+              for (const [cid, child] of Object.entries(childUpdates)) {
+                nodes[cid] = child;
+              }
+            }
           }
           return { ...doc, nodes };
         });
@@ -3169,7 +3247,20 @@ export function EditorProvider({
             if (!node) continue;
             const bounds = nodeLocalBounds(node, doc);
             if (!bounds) continue;
-            nodes[id] = resizeSceneNode(node, bounds.w, h);
+            const oldH = node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h;
+            nodes[id] = resizeNodeGeometry(node, bounds.w, h);
+            // Propagate constraints to frame children
+            if (node.kind === 'frame') {
+              const childUpdates = propagateFrameConstraints(
+                { ...doc, nodes },
+                id,
+                node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w,
+                oldH,
+              );
+              for (const [cid, child] of Object.entries(childUpdates)) {
+                nodes[cid] = child;
+              }
+            }
           }
           return { ...doc, nodes };
         });
