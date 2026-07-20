@@ -11,8 +11,8 @@
  * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
  */
 import type { SceneNode } from '@strata/scene';
-import type { SelectionKind } from './selection/selectionState';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
+import type { SelectionKind } from './selection/selectionState';
 
 // ---------------------------------------------------------------------------
 // Stable section identifiers
