@@ -108,10 +108,12 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     await dragOnCanvas(page, 210, 190, 340, 310);
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 
+    await page.getByRole('tree', { name: 'Layers' }).focus();
     await page.keyboard.press('Control+a');
+    await expect(page.getByRole('treeitem', { selected: true })).toHaveCount(2);
     await page.keyboard.press('Control+7');
 
-    await expect(page.getByRole('treeitem').first()).toContainText(/rect clip/i, {
+    await expect(page.getByRole('treeitem').first()).toContainText(/rectangle.*clip/i, {
       timeout: 10000,
     });
     await expect(page.getByRole('treeitem')).toHaveCount(3);
@@ -121,5 +123,53 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
     await expect(page.getByRole('treeitem').filter({ hasText: /rect/i })).toHaveCount(1);
     await expect(page.getByRole('treeitem').filter({ hasText: /ellipse/i })).toHaveCount(1);
+  });
+
+  test('dropping an image onto a closed shape intentionally creates a clipping mask', async ({
+    page,
+  }) => {
+    await page.keyboard.press('o');
+    await dragOnCanvas(page, 180, 160, 420, 360);
+    await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+    await page.evaluate(
+      ({ clientX, clientY }) => {
+        const base64 =
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/l5fNwAAAAABJRU5ErkJggg==';
+        const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+        const transfer = new DataTransfer();
+        transfer.items.add(new File([bytes], 'drop.png', { type: 'image/png' }));
+        const target = document.querySelector('canvas.editor-canvas__content-layer');
+        if (!target) throw new Error('content canvas not found');
+        target.dispatchEvent(
+          new DragEvent('dragover', {
+            bubbles: true,
+            cancelable: true,
+            clientX,
+            clientY,
+            dataTransfer: transfer,
+          }),
+        );
+        target.dispatchEvent(
+          new DragEvent('drop', {
+            bubbles: true,
+            cancelable: true,
+            clientX,
+            clientY,
+            dataTransfer: transfer,
+          }),
+        );
+      },
+      { clientX: box.x + 300, clientY: box.y + 260 },
+    );
+
+    await expect(page.getByRole('treeitem').first()).toContainText(/ellipse.*clip/i, {
+      timeout: 15000,
+    });
+    await expect(page.getByTitle('Clipping mask source')).toHaveText('mask');
+    await expect(page.getByTitle('Clipped content')).toHaveText('clipped');
   });
 });

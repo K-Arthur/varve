@@ -853,6 +853,7 @@ export interface EditorContextValue {
       sourceDoc: import('@strata/scene').Document;
       position?: { x: number; y: number };
     }[],
+    options?: { maskTargetId?: NodeId },
   ) => void;
   /** The field name currently targeted for variable binding, or null. */
   bindingField: string | null;
@@ -5029,7 +5030,7 @@ export function EditorProvider({
         announcerRef.current?.announce('Imported layer');
       },
 
-      batchImportNodes: (items) => {
+      batchImportNodes: (items, options) => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
           redoStackRef.current = [];
@@ -5085,7 +5086,64 @@ export function EditorProvider({
             }
             newIds.push(inserted.rootId);
           }
-          return { ...s, document: doc, selection: newIds };
+          const maskTargetId = options?.maskTargetId;
+          const maskTarget = maskTargetId ? doc.nodes[maskTargetId] : undefined;
+          if (
+            maskTargetId &&
+            maskTarget &&
+            canBeClipMaskSource(maskTarget) &&
+            newIds.length > 0 &&
+            newIds.every((id) => {
+              const node = doc.nodes[id];
+              return node ? isImageShape(node) : false;
+            })
+          ) {
+            const targetParentId = getParent(doc, maskTargetId);
+            for (const importedId of newIds) {
+              if (getParent(doc, importedId) === targetParentId) continue;
+              const importedWorld = nodeWorldTransform(doc, importedId);
+              const parentWorld = targetParentId
+                ? nodeWorldTransform(doc, targetParentId)
+                : ([1, 0, 0, 1, 0, 0] as const);
+              const localTransform = multiplyAffine(invertAffine(parentWorld), importedWorld);
+              const imported = doc.nodes[importedId];
+              if (!imported) continue;
+              doc = {
+                ...doc,
+                nodes: {
+                  ...doc.nodes,
+                  [importedId]: { ...imported, rotation: 0 },
+                },
+              };
+              const parent = targetParentId ? doc.nodes[targetParentId] : undefined;
+              const toIndex =
+                parent && isContainer(parent) ? parent.children.length : doc.rootChildren.length;
+              doc = reparentNodeDoc(doc, importedId, targetParentId, toIndex, localTransform);
+            }
+            try {
+              const clipped = createClippingMaskDoc(doc, maskTargetId, newIds, {
+                type: 'clip',
+                hideMaskSource: true,
+                linked: true,
+              });
+              return {
+                ...s,
+                document: clipped.doc,
+                selection: [clipped.groupId],
+                dirty: true,
+              };
+            } catch (error) {
+              announcerRef.current?.announce(
+                error instanceof Error ? error.message : 'Imported images could not be masked',
+              );
+            }
+          }
+          return {
+            ...s,
+            document: doc,
+            selection: newIds,
+            dirty: newIds.length > 0 || s.dirty,
+          };
         });
         announcerRef.current?.announce(
           `Imported ${items.length} layer${items.length > 1 ? 's' : ''}`,
