@@ -118,6 +118,16 @@ test.describe('Canvas drawing tools — drag-to-create', () => {
     });
     await expect(page.getByRole('treeitem')).toHaveCount(3);
 
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+    await page.mouse.dblclick(box.x + 270, box.y + 240);
+    await expect(page.getByText(/isolating: rectangle.*clip/i)).toBeVisible();
+    await expect(page.getByTitle('Clipping mask source')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByText(/isolating:/i)).toHaveCount(0);
+
     await page.keyboard.press('Control+Alt+7');
 
     await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });

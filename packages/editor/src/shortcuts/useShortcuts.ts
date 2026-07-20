@@ -140,6 +140,15 @@ export function useShortcuts(
         }
       }
 
+      if (e.key === 'Escape' && editor.state.isolatedNodeId) {
+        e.preventDefault();
+        const isolatedNodeId = editor.state.isolatedNodeId;
+        editor.exitIsolation();
+        editor.setSelection(isolatedNodeId);
+        editor.announceOperation('Exit isolation', 'Clipping group');
+        return;
+      }
+
       for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
         const binding = getEffectiveBinding(id);
         if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
