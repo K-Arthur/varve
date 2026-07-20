@@ -145,6 +145,17 @@ Orchestrator: `providers/dispatch.ts` → `AI_PROVIDER_CHAIN`
 - Added browser pixel assertions for Quick and Balanced Apply, plus a 3000×600 panoramic regression
   that reproduces the former no-op and verifies a visible masked result.
 
+### 2026-07-19 — Quick preview and mask-editor interaction fix
+
+- Quick now preserves its complete heuristic mask and proceeds directly to review, including when
+  the foreground contains multiple disconnected regions. The optional subject picker remains an AI
+  workflow and no longer blocks Quick's one-click path.
+- Opening Edit mask immediately activates the Refine Mask brush instead of leaving Select active.
+- Fixed mask-preview overlays being drawn before the editor camera transform; previews now remain
+  aligned and visible for images positioned far from the document origin.
+- Added real-browser coverage that applies a disconnected-subject Quick mask and performs an Alt-drag
+  subtraction stroke, asserting that both the preview overlay and rendered mask pixels change.
+
 ---
 
 ## Phase 4 — Verification (2026-07-08)

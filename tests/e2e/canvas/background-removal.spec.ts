@@ -56,6 +56,34 @@ test.describe('Background removal — all modes', () => {
     fs.unlinkSync(tmpFile);
   }
 
+  async function importDisconnectedSubjectsImage(page: import('@playwright/test').Page) {
+    const imageDataUrl = await page.evaluate(() => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 300;
+      canvas.height = 200;
+      const context = canvas.getContext('2d')!;
+      context.fillStyle = '#f5f5f5';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = '#b51f3c';
+      context.beginPath();
+      context.arc(65, 100, 38, 0, Math.PI * 2);
+      context.fill();
+      context.fillStyle = '#17324d';
+      context.fillRect(205, 55, 62, 90);
+      return canvas.toDataURL('image/png');
+    });
+    const tmpFile = path.join('/tmp', `quick-disconnected-${Date.now()}.png`);
+    fs.writeFileSync(tmpFile, Buffer.from(imageDataUrl.split(',')[1]!, 'base64'));
+    await page.locator('#file-import-input').setInputFiles(tmpFile);
+    await page.waitForTimeout(3000);
+    await page.evaluate(() => {
+      document.querySelectorAll('dialog[open]').forEach((dialog) => {
+        (dialog as HTMLDialogElement).close();
+      });
+    });
+    fs.unlinkSync(tmpFile);
+  }
+
   test('Quick toolbar — heuristic bg removal', async ({ page }) => {
     await importTestImage(page);
     const btn = page
@@ -84,6 +112,32 @@ test.describe('Background removal — all modes', () => {
       const t = await alerts.nth(i).textContent();
       expect(t || '').not.toMatch(/failed|unavailable/i);
     }
+  });
+
+  test('Quick mode bypasses subject selection for disconnected foreground regions', async ({
+    page,
+  }) => {
+    await importDisconnectedSubjectsImage(page);
+    const contentCanvas = page.getByTestId('editor-canvas');
+    const beforeApply = await contentCanvas.screenshot();
+    await page
+      .getByTestId('selection-quick-bar')
+      .getByRole('button', { name: 'Remove background' })
+      .click();
+
+    await expect(page.getByRole('dialog', { name: 'Select subjects' })).toHaveCount(0);
+    const review = page.getByRole('region', { name: 'Background removal review' });
+    await expect(review).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(review.getByRole('img', { name: 'Isolated subject preview' })).toBeVisible();
+    await review.getByRole('button', { name: 'Apply result' }).click();
+    await expect(review).toBeHidden();
+    await expect
+      .poll(async () => (await contentCanvas.screenshot()).equals(beforeApply), {
+        message: 'Quick should apply the disconnected-subject mask to the canvas',
+      })
+      .toBe(false);
   });
 
   test('Inspector — AI Balanced bg removal', async ({ page }) => {
@@ -168,17 +222,49 @@ test.describe('Background removal — all modes', () => {
     await expect(review).toBeVisible({ timeout: 15000 });
     await review.getByRole('button', { name: 'Apply result' }).click();
 
+    const contentCanvas = page.getByTestId('editor-canvas');
+    const overlayCanvas = page.getByTestId('canvas-overlay');
+    const overlayBeforeEditing = await overlayCanvas.screenshot();
     const editMask = page.getByRole('button', { name: 'Edit mask' });
     await expect(editMask).toBeVisible();
     await editMask.click();
     const editor = page.locator('#background-mask-editor');
     await expect(editor).toBeVisible();
+    await expect(contentCanvas).toHaveCSS('cursor', 'crosshair');
+    await expect
+      .poll(async () => (await overlayCanvas.screenshot()).equals(overlayBeforeEditing), {
+        message: 'opening the mask editor should render its canvas preview overlay',
+      })
+      .toBe(false);
     await expect(editor.getByLabel('Mask preview mode')).toBeVisible();
     await expect(editor.getByRole('button', { name: 'Refine Mask' })).toBeVisible();
     await expect(editor.getByRole('button', { name: /Refine hair and fur edges/i })).toBeVisible();
     await expect(editor.getByRole('button', { name: /Edit trimap/i })).toBeVisible();
+
+    const selectionBounds = await page
+      .locator('.editor-canvas svg[role="presentation"] > rect[fill="none"]')
+      .first()
+      .boundingBox();
+    expect(selectionBounds).not.toBeNull();
+    const beforeStroke = await contentCanvas.screenshot();
+    const strokeX = selectionBounds!.x + selectionBounds!.width / 2;
+    const strokeY = selectionBounds!.y + selectionBounds!.height / 2;
+    await page.waitForTimeout(300);
+    await page.keyboard.down('Alt');
+    await page.mouse.move(strokeX - 6, strokeY);
+    await page.mouse.down();
+    await page.mouse.move(strokeX + 6, strokeY, { steps: 4 });
+    await page.mouse.up();
+    await page.keyboard.up('Alt');
+    await expect
+      .poll(async () => (await contentCanvas.screenshot()).equals(beforeStroke), {
+        message: 'painting in the mask editor should update the rendered mask',
+      })
+      .toBe(false);
+
     await editor.getByRole('button', { name: 'Done' }).click();
     await expect(editor).toBeHidden();
+    await expect(contentCanvas).toHaveCSS('cursor', 'default');
     await expect(page.locator('.error-boundary')).toHaveCount(0);
   });
 });
