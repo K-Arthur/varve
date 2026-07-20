@@ -162,6 +162,7 @@ export function createActionHandlers(
       e.updateDoc((doc) => applyHarmonize(doc, sel));
       e.announce?.('Spacing harmonized');
     },
+    newAdjustmentLayer: () => e.createAdjustmentLayer(),
     runAudit: () => e.setInspectorTab('audit', 'audit'),
     scanDebt: () => e.setInspectorTab('audit', 'debt'),
     suggestNames: () => e.setInspectorTab('audit', 'naming'),
