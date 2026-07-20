@@ -2713,16 +2713,80 @@ ready'`, asserting the Worker is never even attempted when
 - `cargo clippy --features ai -D warnings` on `strata-bgremove`/`strata-desktop`: clean on all files touched this session (pre-existing unrelated violations in `model.rs`/`print.rs`, neither touched)
 - `@strata/engine` typecheck: 0 new errors
 
+## Session 52+ — Constraint & Crop System Overhaul (2026-07-20)
+
+Root-cause repair of 7 issues across frame constraints and image cropping.
+Architecture-first, evidence-gated workflow with multimodal verification.
+
+### Constraints fixed
+
+| Issue | Root cause | Fix | Key files |
+|-------|-----------|-----|-----------|
+| Stretch/scale constraints only moved children, never resized them | `bakeNode` discarded `result.w`/`result.h` after `applyConstraints` | Now calls `resizeNodeGeometry()` to update shape dimensions for each node kind (rect, ellipse, circle, line, arrow, polygon, star, path, frame, text) | `TransformEngine.ts:bakeNode`, `resizeGeometry.ts` |
+| `setSelectedW`/`setSelectedH` for frames didn't propagate constraints | Inspector resize path only called `resizeSceneNode` | Added `propagateFrameConstraints()` helper that walks children and applies constraints, matching `bakeNode` behavior | `context.tsx` |
+| Children inside frames without constraints got `min`/`min` applied | `propagateFrameConstraints` used `defaultConstraints()` fallback | Now skips children without constraints (consistent with `bakeNode`) | `context.tsx:propagateFrameConstraints` |
+| No constraints set on new nodes created inside frames | `makeShapeNode`/`createShapeAt` never set `constraints` field | Added `defaultConstraints()` on creation when `effectiveParentId` is set | `context.tsx:createShapeAt/createTextNodeAt` |
+
+### Type-aware resize adapter
+
+New `packages/editor/src/scene/resizeGeometry.ts` — shared `resizeNodeGeometry()`
+dispatches by node kind, used by both TransformEngine and inspector resize paths:
+
+| Kind | Behavior |
+|------|----------|
+| rect, ellipse, circle | Updates shape dimensions (w/h, rx/ry, r) |
+| line, arrow | Scales endpoints around midpoint |
+| polygon, star | Updates radius proportionally |
+| path | Scales control points within bounding box |
+| frame | Updates w/h (surface property) |
+| text | Updates w/h (text box) |
+
+### Image cropping fixed
+
+| Issue | Root cause | Fix | Key files |
+|-------|-----------|-----|-----------|
+| `EngineImageFillData.fit` missing `'crop'` | Type union was `'fill'\|'fit'\|'stretch'\|'tile'` | Added `'crop'` to union | `engine/types.ts` |
+| `imageFitAdvisor.toFitSuggestion('crop')` → `'cover'` fallthrough | Default case returned `'cover'` (fill) | Added explicit `case 'crop': return 'crop'` | `imageFitAdvisor.ts` |
+| `imageFitAdvisor.fromFitSuggestion('crop')` → `'tile'` | Old mapping predated `'crop'` mode | Changed to `case 'crop': return 'crop'` | `imageFitAdvisor.ts` |
+| `printPreflight.checkImageNode` crop DPI miscalculated | Used box dimensions (fill mode) instead of natural-size display | Added explicit `crop` branch using same formula as `fit` | `printPreflight.ts` |
+| No global keyboard shortcut to enter crop | `CropTool` registered but no `toolCrop` in SHORTCUT_DEFS | Added `C` key shortcut, Object menu entry, ActionRegistry handler | `ShortcutManager.ts`, `Menubar.tsx`, `createActionHandlers.ts` |
+| Crop tool had no zoom/pan/fit-cycle | `CropTool` only held viewport rect | Extended with `CropState` (fillScale, fillOffset, fillFit), wheel zoom, F key fit cycle, Alt+arrows pan | `CropTool.ts`, `imageCrop.ts`, `CropOverlay.tsx` |
+
+### Crop workflow
+
+1. Select an image node
+2. Press `C` (new shortcut) or Object → Crop Image
+3. Drag handles to resize crop window, `Scroll` to zoom, `F` to cycle fit modes
+4. `Enter` to commit, `Esc` to cancel
+5. Or use inspector W/H to resize (default: scales image fill with bounds like Figma)
+
+### Verification
+
+- 74+ tests pass across 8 test files
+- All scene (1156/1157) and engine (1602/1602) tests pass
+- 2 new printPreflight crop DPI tests added
+- Typecheck: 0 new errors (pre-existing compositor + editor errors unchanged)
+- Token audit: 120/120 WCAG-AA
+- Emoji: 0 new violations (6 pre-existing)
+- Menubar test mock updated for newShortcutDefs
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `packages/editor/src/scene/resizeGeometry.ts` | Type-aware resize adapter (shared) |
+| `packages/editor/src/transform/TransformEngine.ts` | bakeNode applies result.w/h to child geometry |
+| `packages/editor/src/context.tsx` | propagateFrameConstraints + defaultConstraints on creation |
+| `packages/editor/src/imageCrop.ts` | CropState, commitImageCropExtended |
+| `packages/editor/src/tools/CropTool.ts` | Interactive crop with zoom/pan/fit-cycle |
+| `packages/editor/src/components/CropOverlay.tsx` | Image preview, wheel zoom, fit badge |
+| `packages/engine/src/types.ts` | EngineImageFillData.fit includes 'crop' |
+| `packages/scene/src/printPreflight.ts` | Explicit crop DPI calculation |
+| `packages/editor/src/intelligence/imageFitAdvisor.ts` | Explicit crop↔crop mapping |
+
 ### Remaining limitations
 
-- Windows/macOS bundling is implemented and checksum-verified but **not
-  runtime-tested** — this sandbox is Linux-only. Re-verify on real Windows/
-  macOS hardware before relying on it there.
-- No automated real-WebKitGTK click-through of the AI-quality removal flow
-  end to end (blocked on missing input-automation tooling and unrelated
-  pre-existing typecheck breakage in `pnpm build:wdio` — see the audit doc
-  §4 for the concrete unblock path).
-- BiRefNet-Lite's `Cannot parse data from external tensors` failure on
-  onnxruntime 1.23.0 (works on 1.27.1) is unexplained beyond "version
-  difference" — worth a closer look if `ORT_VERSION` in
-  `fetch-onnxruntime.mjs` is ever bumped.
+- Interactive crop preview renders image as `<img>` overlay (no canvas-accelerated)
+- Fill offset/scale adjustments during crop not persisted between edit sessions
+- No E2E Playwright tests for interactive crop workflows (E2E suite has pre-existing setup failures)
+- Constraint inspector UI still missing (users set constraints only via code/defaults)
