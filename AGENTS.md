@@ -597,6 +597,7 @@ Multiple agents (subagents, parallel sessions) may touch the codebase concurrent
 - Rust `unsafe_code = deny` workspace-wide.
 - Cross-platform: if it works on macOS but not Linux, it's not done.
 - Each module cites its research basis in a top-of-file comment (§0.2).
+- **No native `<select>` elements** — all dropdowns must use `@strata/ui`'s custom `Select` component (`packages/ui/src/components/Select.tsx`). Native `<select>` elements on WebKitGTK cannot be constrained below their intrinsic minimum width, causing clipping in flex containers. The custom `Select` uses `FloatingPortal` to escape overflow clipping and supports APG combobox/keyboard interaction. See `packages/editor/src/components/Inspector/sections/TypographySection.tsx` or `ImageEnhancementSection.tsx` for example usage.
 
 ## Layout — what each package/crate now contains
 

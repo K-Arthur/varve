@@ -67,7 +67,7 @@ describe('NewFileDialog', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('selecting a built-in preset from the picker fills in Create output (search + select)', async () => {
+  it('selecting a built-in paper preset from the picker fills in Create output (search + select)', async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn();
     render(<NewFileDialog open onClose={vi.fn()} onCreate={onCreate} />);
@@ -76,8 +76,24 @@ describe('NewFileDialog', () => {
     await user.click(screen.getByText('A4'));
     await user.click(screen.getByTestId('create-file-button'));
 
+    // Paper-category presets are intentionally color-mode-agnostic (no
+    // forced dpi/cmyk) — only 'print'-category presets force those.
     expect(onCreate).toHaveBeenCalledWith(
-      expect.objectContaining({ width: 210, height: 297, unit: 'mm', colorMode: 'cmyk', dpi: 300 }),
+      expect.objectContaining({ width: 210, height: 297, unit: 'mm', colorMode: 'rgb' }),
+    );
+  });
+
+  it('selecting a built-in print preset forces cmyk + dpi + bleed', async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<NewFileDialog open onClose={vi.fn()} onCreate={onCreate} />);
+
+    await user.type(screen.getByRole('combobox'), 'Business Card (US)');
+    await user.click(screen.getByText('Business Card (US)'));
+    await user.click(screen.getByTestId('create-file-button'));
+
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ colorMode: 'cmyk', dpi: 300, bleed: { value: 3, unit: 'mm' } }),
     );
   });
 
