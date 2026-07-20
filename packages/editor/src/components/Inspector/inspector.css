@@ -345,6 +345,10 @@
   width: auto;
   min-width: 0;
 }
+/* Ensure W/H inputs don't collapse to zero width in nested flex layouts */
+.insp-num__input {
+  min-width: 3.5rem;
+}
 .insp-field__label {
   display: inline-flex;
   align-items: center;

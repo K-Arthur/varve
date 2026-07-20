@@ -619,6 +619,8 @@
   grid-area: layers;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: var(--color-surface-sunken);
   border-right: 1px solid var(--color-border-subtle);
@@ -662,8 +664,9 @@
   z-index: 50;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-3);
+  gap: var(--space-3);
+  padding: 0 var(--space-4);
+  height: 28px;
   background: var(--elevation-surface-sunken);
   border-top: var(--border-micro);
   font-size: var(--font-size-xs);
@@ -674,15 +677,16 @@
 .editor-status__zoom-chip {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   padding: 1px var(--space-2);
   background: var(--elevation-surface-default);
   border: var(--border-micro);
   border-radius: var(--radius-sm);
+  margin-left: var(--space-1);
 }
 
 .editor-status__zoom-value {
-  width: var(--space-7);
+  width: var(--space-8);
   text-align: right;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
@@ -691,7 +695,7 @@
   border: none;
   color: var(--color-text-primary);
   cursor: text;
-  padding: 0;
+  padding: 0 var(--space-1);
   outline: none;
 }
 
@@ -704,6 +708,18 @@
   cursor: pointer;
   padding: 0;
   outline: none;
+}
+/* Compact Select inside status bar — override the 44px default */
+.editor-status .strata-select__trigger {
+  min-height: 22px;
+  height: 22px;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  width: auto;
+  min-width: 3rem;
 }
 .editor-status__unit-select:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
@@ -759,7 +775,7 @@
   cursor: pointer;
   font: inherit;
   font-size: var(--font-size-xs);
-  padding: 0 var(--space-1);
+  padding: 0 var(--space-2);
   border-radius: var(--radius-sm);
   transition:
     background var(--duration-quick) var(--ease-standard),
@@ -796,6 +812,7 @@
   cursor: pointer;
   border: none;
   line-height: 1.6;
+  margin-left: var(--space-1);
 }
 .editor-status__score-badge--good {
   background: var(--color-feedback-success, #2e7d32);
@@ -1049,32 +1066,39 @@
 .editor-menubar__zoom {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
 }
 .editor-menubar__zoom-input {
   width: var(--space-8);
-  background: none;
-  border: none;
-  border-bottom: 1px solid transparent;
-  color: inherit;
+  background: var(--elevation-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
   font: inherit;
   font-size: var(--font-size-xs);
+  font-feature-settings: "tnum";
   text-align: right;
   cursor: text;
-  padding: 0;
+  padding: 1px var(--space-1);
   outline: none;
+  transition:
+    border-color var(--duration-quick) var(--ease-standard),
+    background var(--duration-quick) var(--ease-standard);
 }
 .editor-menubar__zoom-input:hover {
-  border-bottom-color: var(--color-border-subtle);
+  border-color: var(--color-interactive-default);
+  background: var(--elevation-surface-default);
 }
 .editor-menubar__zoom-input:focus-visible {
-  border-bottom-color: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
+  background: var(--elevation-surface-default);
 }
 .editor-menubar__zoom-divider,
 .editor-menubar__zoom-unit {
-  color: inherit;
+  color: var(--color-text-muted);
+  user-select: none;
 }
 
 [data-theme="high-contrast"] .editor-menubar {
@@ -1120,6 +1144,7 @@
   .editor-status {
     font-size: var(--font-size-2xs);
     gap: var(--space-2);
+    padding: 0 var(--space-3);
   }
 }
 
@@ -1175,6 +1200,8 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 .editor__inspector-panel {
   container-type: inline-size;
