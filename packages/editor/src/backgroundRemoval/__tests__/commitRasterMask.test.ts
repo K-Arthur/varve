@@ -113,6 +113,34 @@ describe('commitRasterMask', () => {
     ).toBe(1);
   });
 
+  it('commits masks for embedded images whose data URL exceeds identity limits', () => {
+    const embeddedSource = `data:image/png;base64,${'A'.repeat(12_000)}`;
+    const doc = createDocument('Large embedded source', true);
+    const image = makeImageShapeNode('large-image', {
+      src: embeddedSource,
+      w: 1,
+      h: 1,
+      imageWidth: 1,
+      imageHeight: 1,
+    });
+    const withImage = addNode(doc, image);
+
+    const updated = commitRasterMask(withImage, image.id, {
+      dataUrl: PNG_WHITE,
+      width: 1,
+      height: 1,
+      sourceLocator: embeddedSource,
+    });
+
+    expect(hasNativeRasterMask(updated, image.id)).toBe(true);
+    const identity = updated.nodes[image.id]?.mask?.rasterMask?.sourceIdentity;
+    expect(identity?.kind).toBe('source-metadata');
+    if (identity?.kind === 'source-metadata') {
+      expect(identity.locator.length).toBeLessThanOrEqual(8192);
+      expect(identity.locator).toContain(`length=${embeddedSource.length}`);
+    }
+  });
+
   it('creates a versioned asset ID on update', () => {
     const doc = makeDoc();
     const first = commitRasterMask(doc, 'img-1', {
