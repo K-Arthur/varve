@@ -264,6 +264,11 @@ import {
 } from './canvas/cameraState';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
 import {
+  expandBounds as expandBoundsDoc,
+  resetToSourceBounds as resetToSourceBoundsDoc,
+  trimToSubject as trimToSubjectDoc,
+} from './imageCrop';
+import {
   bulkSetLayerColorDoc,
   bulkSetNodeLockedDoc,
   bulkSetNodeVisibleDoc,
@@ -336,6 +341,16 @@ import {
 } from './scene/transformCache';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
+import {
+  toggleCollapsed,
+  hideSection,
+  showSection,
+  showAllSections,
+  restoreDefaultSectionState as restoreAllDefaults,
+  restoreDefaultCollapsed as restoreCollapsedDefaults,
+  hideOptionalSections as hideAllOptional,
+} from './components/Inspector/sectionState';
+import type { SectionId } from './components/Inspector/sectionRegistry';
 import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
@@ -1737,6 +1752,7 @@ export function EditorProvider({
       isolatedNodeId: null,
       showOriginalBgNodeId: null,
       maskPreviewMode: 'checkerboard' as const,
+      sectionVisibility: loadSettings().sections.sections,
       refineMaskOptions: { brushSize: 20, hardness: 0.8 },
       trimapEditOptions: { brushSize: 20, hardness: 0.8, penMode: 'unknown' as const },
       brushSettings: {
@@ -2337,6 +2353,48 @@ export function EditorProvider({
         }
         patch(patchObj as Partial<EditorState>);
         announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
+      },
+      // Section visibility
+      toggleSectionCollapse: (sectionId: SectionId) => {
+        const next = toggleCollapsed(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+      },
+      hideInspectorSection: (sectionId: SectionId) => {
+        const next = hideSection(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`Section hidden`);
+      },
+      showInspectorSection: (sectionId: SectionId) => {
+        const next = showSection(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`Section shown`);
+      },
+      showAllInspectorSections: () => {
+        const next = showAllSections(state.sectionVisibility);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`All sections shown`);
+      },
+      restoreDefaultSectionState: () => {
+        const next = restoreAllDefaults(state.sectionVisibility);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`Section visibility restored to defaults`);
+      },
+      restoreDefaultCollapsed: () => {
+        const next = restoreCollapsedDefaults(state.sectionVisibility);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`Section collapse state restored to defaults`);
+      },
+      hideOptionalSections: () => {
+        const next = hideAllOptional(state.sectionVisibility);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+        announcerRef.current?.announce(`Optional sections hidden`);
       },
       fitAll: () => {
         const cam = computeFitAllCamera(state.document, getCanvasViewport());
@@ -3895,6 +3953,32 @@ export function EditorProvider({
           }
           return { ...doc, nodes };
         });
+      },
+
+      // Image bounds operations
+      trimToSubject: async (padding?: number) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        for (const id of sel) {
+          updateDoc((doc) => trimToSubjectDoc(doc, id, { padding }));
+        }
+      },
+      expandImageBounds: (
+        padding: number,
+        sides?: { top?: number; right?: number; bottom?: number; left?: number },
+      ) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        for (const id of sel) {
+          updateDoc((doc) => expandBoundsDoc(doc, id, { padding, paddingSides: sides }));
+        }
+      },
+      resetImageBounds: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        for (const id of sel) {
+          updateDoc((doc) => resetToSourceBoundsDoc(doc, id));
+        }
       },
 
       // F6: transaction API

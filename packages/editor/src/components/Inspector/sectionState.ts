@@ -75,7 +75,7 @@ export function migrateSectionState(
   // Handle legacy format: may be wrapped in { version, sections } or bare record
   let sections: Record<string, unknown>;
   if ('version' in raw && 'sections' in raw) {
-    const persisted = raw as PersistedSectionState;
+    const persisted = raw as unknown as PersistedSectionState;
     sections = (persisted.sections ?? {}) as Record<string, unknown>;
   } else {
     // Legacy: bare Record<SectionId, { collapsed, hidden }>
@@ -162,7 +162,7 @@ export function showAllSections(state: SectionVisibilityState): SectionVisibilit
 }
 
 /** Restore all sections to their default collapsed/hidden state. */
-export function restoreDefaultSectionState(state: SectionVisibilityState): SectionVisibilityState {
+export function restoreDefaultSectionState(_state: SectionVisibilityState): SectionVisibilityState {
   return createDefaultSectionState();
 }
 

@@ -96,7 +96,7 @@ function isImageNode(nodes: SceneNode[]): boolean {
   if (nodes.length !== 1) return false;
   const n = nodes[0];
   if (!n) return false;
-  if (n.kind === 'image') return true;
+  if (n.kind === 'rasterLayer') return true;
   if (n.kind === 'shape') {
     const shape = (n as { shape?: { kind?: string } }).shape;
     if (shape?.kind === 'rect' || shape?.kind === 'ellipse') {
@@ -126,10 +126,6 @@ function isRectNode(nodes: SceneNode[]): boolean {
   return Boolean(
     n && n.kind === 'shape' && (n as { shape?: { kind?: string } }).shape?.kind === 'rect',
   );
-}
-
-function isTextNode(nodes: SceneNode[]): boolean {
-  return nodes.length === 1 && nodes[0]?.kind === 'text';
 }
 
 function isAdjustmentNode(nodes: SceneNode[]): boolean {
