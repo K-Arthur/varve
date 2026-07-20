@@ -139,7 +139,11 @@ export function VariantBox({
             >
               <span className="variant-box__variant-name">{v.name}</span>
               {v.id === activeVariant && (
-                <SolidIcon name={SOLID_CHROME_ICONS.check} size="0.75em" className="variant-box__check" />
+                <SolidIcon
+                  name={SOLID_CHROME_ICONS.check}
+                  size="0.75em"
+                  className="variant-box__check"
+                />
               )}
             </button>
           ))}

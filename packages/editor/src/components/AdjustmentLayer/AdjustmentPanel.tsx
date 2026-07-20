@@ -208,7 +208,12 @@ export function AdjustmentPanel() {
                 }}
                 aria-label={adj.visible ? `Disable ${adj.kind}` : `Enable ${adj.kind}`}
               >
-                <SolidIcon name={adj.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff} size="0.75em" />
+                <SolidIcon
+                  name={
+                    adj.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff
+                  }
+                  size="0.75em"
+                />
               </button>
             </span>
 

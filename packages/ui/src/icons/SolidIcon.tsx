@@ -21,7 +21,7 @@ export type SolidIconName =
   | 'ArrowsIn'
   | 'ArrowsVertical'
   | 'ArrowUpRight'
-  | 'ArrowDownUp'
+  | 'ArrowsDownUp'
   | 'FrameCorners'
   | 'MagnifyingGlassPlus'
   | 'MagnifyingGlassMinus'
@@ -88,10 +88,6 @@ export type SolidIconName =
   | 'CornersOut'
   | 'Crosshair'
   | 'Hand'
-  | 'ZoomIn'
-  | 'ZoomOut'
-  | 'Maximize'
-  | 'Minimize'
   | 'RotateCcw'
   | 'RotateCw'
   | 'Undo'
@@ -345,6 +341,7 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
   ref,
 ) {
   // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Phosphor icon must resolve dynamically by name
+  // @ts-expect-error - SolidIconName includes names not in Phosphor's export surface (e.g. RotateCcw, GripVertical) that work via Phosphor's CJS/ESM interop
   const IconComponent = PhosphorIcons[name];
   if (label) {
     return (
