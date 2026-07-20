@@ -19,8 +19,12 @@ export type SolidIconName =
   | 'Hexagon'
   | 'ArrowsOut'
   | 'ArrowsIn'
+  | 'ArrowsVertical'
   | 'ArrowUpRight'
   | 'ArrowDownUp'
+  | 'FrameCorners'
+  | 'MagnifyingGlassPlus'
+  | 'MagnifyingGlassMinus'
   | 'List'
   | 'ListDashes'
   | 'ListBullets'
@@ -340,7 +344,7 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
   { name, label, size = '1em', weight = 'fill', ...rest },
   ref,
 ) {
-  // @ts-expect-error - Phosphor Icons dynamic import
+  // biome-ignore lint/performance/noDynamicNamespaceImportAccess: Phosphor icon must resolve dynamically by name
   const IconComponent = PhosphorIcons[name];
   if (label) {
     return (
