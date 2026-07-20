@@ -35,12 +35,16 @@ export { maskToDataUrl as maskArrayToDataUrl, removeBackgroundHeuristic } from '
 export { decodeMaskDataUrl } from './maskDecode';
 export type { MaskComponent, MaskComponentBBox } from './maskOps';
 export {
+  assignStableIds,
   decontaminateMask,
+  extractComponentMask,
   featherMaskArray,
   filterMaskByComponents,
   findConnectedComponents,
   maskFromImageData,
   maskToImageData,
+  mergeNearbyComponents,
+  unionComponentMasks,
 } from './maskOps';
 export type { ModelInfo } from './modelInfo';
 export { getModelInfo, MODEL_INFO_MAP } from './modelInfo';

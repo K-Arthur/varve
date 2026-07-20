@@ -14,6 +14,7 @@ import { FieldRow } from '../controls/FieldRow';
 const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
   { value: 'fill', label: 'Fill' },
   { value: 'fit', label: 'Fit' },
+  { value: 'crop', label: 'Crop' },
   { value: 'stretch', label: 'Stretch' },
   { value: 'tile', label: 'Tile' },
 ];

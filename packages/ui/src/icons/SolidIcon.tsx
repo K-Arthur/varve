@@ -74,6 +74,8 @@ export type SolidIconName =
   | 'Cursor'
   | 'Pen'
   | 'Image'
+  | 'Printer'
+  | 'Play'
   | 'Square'
   | 'PuzzlePiece'
   | 'Palette'

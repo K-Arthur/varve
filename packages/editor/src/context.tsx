@@ -1703,6 +1703,7 @@ export function EditorProvider({
         wetDryingRate: 0.5,
       },
       subjectPickerSession: null,
+      subjectHighlightId: null,
       backgroundRemovalPreviewSession: null,
       keyObjectId: null,
       alignToPage: false,

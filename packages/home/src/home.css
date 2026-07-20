@@ -201,7 +201,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-15) var(--space-3);
+  padding: var(--space-1) var(--space-3);
   cursor: pointer;
   border: none;
   background: none;
@@ -212,7 +212,7 @@
   font-size: var(--font-size-sm);
   border-radius: var(--radius-md);
   outline-offset: -2px;
-  min-height: 34px;
+  min-height: 28px;
 }
 .sidebar-item--flex {
   flex: 1;

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { bumpThemeRevision, useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
-import { WORKSPACE_ICONS, WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
+import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Plugins' | 'Help';
 
@@ -931,15 +931,16 @@ export function Menubar({
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
           {(['design', 'print', 'drawing', 'image', 'motion'] as WorkspaceMode[]).map(
             (mode, idx) => {
-              // Map Lucide icon names to SolidIcon names
-              const solidIconMap: Record<string, keyof typeof SOLID_CHROME_ICONS> = {
-                layoutGrid: 'layoutGrid',
-                fileText: 'fileText',
-                pencilSimple: 'pencilSimple',
-                image: 'image',
-              };
-              const icon = WORKSPACE_ICONS[mode];
-              const solidIcon = solidIconMap[icon] || 'layoutGrid';
+              // Direct mapping from workspace mode to SolidIcon name
+              const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> =
+                {
+                  design: 'penTool',
+                  print: 'printer',
+                  drawing: 'paintBrush',
+                  image: 'image',
+                  motion: 'play',
+                };
+              const solidIcon = WORKSPACE_SOLID_ICONS[mode];
               return (
                 <button
                   key={mode}
@@ -950,7 +951,7 @@ export function Menubar({
                   onClick={() => setWorkspaceMode(mode)}
                   title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
                 >
-                  <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={13} />
+                  <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
                   <span className="editor-menubar__workspace-btn-label">
                     {WORKSPACE_LABELS[mode]}
                   </span>

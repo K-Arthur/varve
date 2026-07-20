@@ -238,7 +238,7 @@ function DrawingToolbarControls() {
           aria-label="Swap colors"
           title="Swap colors (X)"
         >
-           <Icon name="ArrowDownUp" size={12} />
+          <Icon name="ArrowDownUp" size={12} />
         </button>
         <label className="floating-toolbar__color-swatch" title="Background color">
           <input

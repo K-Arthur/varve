@@ -11,9 +11,10 @@ import {
 } from './quickBarActions';
 
 describe('nextImageFit', () => {
-  it('cycles fill → fit → stretch → tile → fill', () => {
+  it('cycles fill → fit → crop → stretch → tile → fill', () => {
     expect(nextImageFit('fill')).toBe('fit');
-    expect(nextImageFit('fit')).toBe('stretch');
+    expect(nextImageFit('fit')).toBe('crop');
+    expect(nextImageFit('crop')).toBe('stretch');
     expect(nextImageFit('stretch')).toBe('tile');
     expect(nextImageFit('tile')).toBe('fill');
   });

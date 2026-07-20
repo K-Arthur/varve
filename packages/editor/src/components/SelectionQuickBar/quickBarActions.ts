@@ -5,7 +5,7 @@ import type { ImageFit, NodeId, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
 import type { QuickBarActionId } from './resolveQuickBarProfile';
 
-export const IMAGE_FIT_CYCLE: readonly ImageFit[] = ['fill', 'fit', 'stretch', 'tile'];
+export const IMAGE_FIT_CYCLE: readonly ImageFit[] = ['fill', 'fit', 'crop', 'stretch', 'tile'];
 
 export function nextImageFit(current: ImageFit): ImageFit {
   const idx = IMAGE_FIT_CYCLE.indexOf(current);

@@ -305,8 +305,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             value={method}
             options={[
               { value: 'quick', label: 'Quick — instant, simple backgrounds' },
-              { value: 'ai-balanced', label: `AI Balanced — general photos${!aiAvailable ? ' (download required)' : ''}` },
-              { value: 'ai-quality', label: `AI High Quality — fine details${!aiAvailable ? ' (download required)' : ''}` },
+              {
+                value: 'ai-balanced',
+                label: `AI Balanced — general photos${!aiAvailable ? ' (download required)' : ''}`,
+              },
+              {
+                value: 'ai-quality',
+                label: `AI High Quality — fine details${!aiAvailable ? ' (download required)' : ''}`,
+              },
             ]}
             onChange={(v) => setMethod(v as RemovalMethod)}
           />
@@ -646,7 +652,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 { value: 'edge', label: 'Edge detection' },
                 { value: 'none', label: 'None' },
               ]}
-              onChange={(v) => setMaskPreviewMode(v as import('../../../context/types').MaskPreviewMode)}
+              onChange={(v) =>
+                setMaskPreviewMode(v as import('../../../context/types').MaskPreviewMode)
+              }
             />
           </FieldRow>
           <div className="insp-actions">

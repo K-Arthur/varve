@@ -17,7 +17,7 @@
 
 import type { SceneNode } from '@strata/scene';
 import { formatCoordForRuler } from '@strata/shared';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { nodeLocalBounds } from '../../../scene/nodeBounds';
@@ -28,7 +28,21 @@ import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionSta
 
 export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   const editor = useEditor();
-  const [locked, setLocked] = useState(false);
+  // Default aspect lock ON for image/raster nodes — they should preserve
+  // aspect ratio unless the user explicitly unlocks.
+  const isImageNode = nodes.some(
+    (n) =>
+      n.kind === 'shape' &&
+      (n as import('@strata/scene').ShapeNode).fills?.some(
+        (f) => f.type === 'image' || f.type === 'pattern',
+      ),
+  );
+  const [locked, setLocked] = useState(isImageNode);
+
+  // Sync aspect lock when selection changes between image and non-image nodes.
+  useEffect(() => {
+    setLocked(isImageNode);
+  }, [isImageNode]);
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
 
   const xRaw = commonValue(nodes, (n) => n.transform[4] ?? 0);

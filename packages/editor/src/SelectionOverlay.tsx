@@ -13,6 +13,7 @@ import type { ShapeNode } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
 import {
   applyAffine,
+  computeResizeModifiers,
   computeSelectionBox,
   handlePositions,
   type ResizeHandle,
@@ -612,11 +613,18 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         }
         updateDoc((doc) => g.engine.rotate(angleDelta, g.center, doc));
       } else {
+        const mods = computeResizeModifiers(
+          e.shiftKey,
+          e.altKey,
+          e.ctrlKey,
+          e.metaKey,
+          g.engine.isAllRaster(),
+        );
         updateDoc((doc) =>
           g.engine.resize(
             pointerWorld,
             g.handle,
-            { centered: e.altKey, proportional: e.shiftKey },
+            { centered: mods.centered, proportional: mods.proportional },
             doc,
           ),
         );
