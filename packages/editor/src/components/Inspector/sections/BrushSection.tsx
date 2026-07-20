@@ -1,12 +1,14 @@
 import { BUILT_IN_BRUSH_PRESETS, defaultBrushPreset, validateBrushPreset } from '@strata/scene';
+import { Select } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
-import { Select } from '@strata/ui';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';
+import type { SectionId } from '../sectionRegistry';
 
 interface BrushSectionProps {
   tool: 'paint' | 'eraser' | 'pencil' | 'smudge';
+  sectionId?: SectionId;
 }
 
 const BUILTIN_OPTIONS = Object.values(BUILT_IN_BRUSH_PRESETS).map((p) => ({
@@ -14,7 +16,7 @@ const BUILTIN_OPTIONS = Object.values(BUILT_IN_BRUSH_PRESETS).map((p) => ({
   name: p.name,
 }));
 
-export function BrushSection({ tool }: BrushSectionProps) {
+export function BrushSection({ tool, sectionId }: BrushSectionProps) {
   const { state, setBrushSetting } = useEditor();
   const isEraser = tool === 'eraser';
   const isPencil = tool === 'pencil';
@@ -28,7 +30,7 @@ export function BrushSection({ tool }: BrushSectionProps) {
   // stabilization (smoothing) carries over — it drives PencilTool's stabilizer.
   if (isPencil) {
     return (
-      <DisclosureSection title={heading}>
+      <DisclosureSection title={heading} sectionId={sectionId}>
         <NumberField
           label="Stabilization"
           value={Math.round(brushSettings.smoothing * 100)}
@@ -64,7 +66,7 @@ export function BrushSection({ tool }: BrushSectionProps) {
   );
 
   return (
-    <DisclosureSection title={heading}>
+    <DisclosureSection title={heading} sectionId={sectionId}>
       <div className="insp-field">
         <span className="insp-field__label">Preset</span>
         <div className="insp-field__control">

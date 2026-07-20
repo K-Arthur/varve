@@ -4,8 +4,9 @@
  * Orchestrates all sections based on selection state (empty/single/multi).
  * Maps to the right-side inspector slot in Shell's CSS Grid.
  *
- * F6: Empty state shows document/canvas info. Single shows full property set.
- * Multi shows shared properties with "Mixed" indicators and batch editing.
+ * Uses the section registry for centralized collapse/hidden state. Each
+ * DisclosureSection receives a `sectionId` linking it to the shared
+ * SectionVisibilityState in EditorState.
  *
  * Research basis: Figma/Sketch right-sidebar inspector; APG Disclosure,
  * Spinbutton, Combobox, Radiogroup, Slider patterns.
@@ -25,6 +26,7 @@ import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorColorPopover } from './controls/InspectorColorPopover';
+import { SectionManagerTrigger } from './SectionManagerTrigger';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
@@ -84,14 +86,32 @@ export function PropertiesPanel() {
 
   return (
     <section className="editor-inspector" aria-label="Inspector">
-      <div className="insp-panel__tabs" role="tablist" aria-label="Inspector tabs">
+      <div
+        className="insp-panel__tabs"
+        role="tablist"
+        aria-label="Inspector tabs"
+        onKeyDown={(e) => {
+          const tabs: Tab[] = ['properties', 'export', 'spec', 'score', 'audit'];
+          const idx = tabs.indexOf(tab);
+          if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            setTab(tabs[(idx + 1) % tabs.length]);
+          } else if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            setTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+          }
+        }}
+      >
         {(['properties', 'export', 'spec', 'score', 'audit'] as const).map((t) => (
           <button
             type="button"
             key={t}
+            id={`insp-tab-${t}`}
             role="tab"
             className="insp-panel__tab"
             aria-selected={tab === t}
+            aria-controls="insp-tabpanel"
+            tabIndex={tab === t ? 0 : -1}
             onClick={() => setTab(t)}
           >
             {t}
@@ -100,9 +120,17 @@ export function PropertiesPanel() {
       </div>
 
       {tab === 'properties' && (
-        <div className="insp-panel">
+        <div
+          className="insp-panel"
+          id="insp-tabpanel"
+          role="tabpanel"
+          aria-labelledby="insp-tab-properties"
+        >
+          <div className="insp-panel__header">
+            <SectionManagerTrigger />
+          </div>
           {state.tool === 'frame' && summary.kind !== 'single' && (
-            <FramePresetsSection mode="create" />
+            <FramePresetsSection mode="create" sectionId="frame-presets" />
           )}
           {summary.kind === 'empty' &&
             state.tool !== 'frame' &&
@@ -113,14 +141,21 @@ export function PropertiesPanel() {
           {(state.tool === 'paint' ||
             state.tool === 'eraser' ||
             state.tool === 'pencil' ||
-            state.tool === 'smudge') && <BrushSection tool={state.tool} />}
+            state.tool === 'smudge') && (
+            <BrushSection tool={state.tool} sectionId="brush-settings" />
+          )}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
         </div>
       )}
 
       {tab === 'export' && (
-        <div className="insp-panel">
+        <div
+          className="insp-panel"
+          id="insp-tabpanel"
+          role="tabpanel"
+          aria-labelledby="insp-tab-export"
+        >
           {selNodes.length > 0 ? (
             <>
               <AssetExportControls
@@ -142,20 +177,29 @@ export function PropertiesPanel() {
         </div>
       )}
       {tab === 'spec' && (
-        <SpecPanel
-          nodes={selNodes}
-          doc={state.document}
-          variableStore={docVariableStore(state.document)}
-          platform={platform}
-        />
+        <div id="insp-tabpanel" role="tabpanel" aria-labelledby="insp-tab-spec">
+          <SpecPanel
+            nodes={selNodes}
+            doc={state.document}
+            variableStore={docVariableStore(state.document)}
+            platform={platform}
+          />
+        </div>
       )}
       {tab === 'score' && (
-        <div className="insp-panel">
+        <div
+          className="insp-panel"
+          id="insp-tabpanel"
+          role="tabpanel"
+          aria-labelledby="insp-tab-score"
+        >
           <LayoutScoreSection />
         </div>
       )}
       {tab === 'audit' && (
-        <IntelligencePanel key={intelRequest.seq} initialTab={intelRequest.subTab} />
+        <div id="insp-tabpanel" role="tabpanel" aria-labelledby="insp-tab-audit">
+          <IntelligencePanel key={intelRequest.seq} initialTab={intelRequest.subTab} />
+        </div>
       )}
     </section>
   );
@@ -278,7 +322,9 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
         </p>
       </header>
       {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
-      {isFrame && !isComponentInstance && <FramePresetsSection mode="resize" />}
+      {isFrame && !isComponentInstance && (
+        <FramePresetsSection mode="resize" sectionId="frame-presets" />
+      )}
       <AdjustmentPanel />
       <PositionSizeSection nodes={nodes} />
       <ConstraintSection nodes={nodes} />
@@ -296,7 +342,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       <TypographySection nodes={nodes} />
       <InteractionSection />
       {state.prototypeMode && (
-        <DisclosureSection title="Prototype Flow" defaultExpanded>
+        <DisclosureSection title="Prototype Flow" sectionId="prototype-flow" defaultExpanded>
           <PrototypeFlowView
             document={state.document}
             currentScreenId={prototypeCurrentScreen}
@@ -306,7 +352,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
           />
         </DisclosureSection>
       )}
-      <DisclosureSection title="Cognitive Load" defaultExpanded={false}>
+      <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
         <CognitiveLoadIndicator document={state.document} nodeId={node.id} />
       </DisclosureSection>
     </>
@@ -336,7 +382,7 @@ function MultiSelectionPanel({
       <StrokeSection nodes={nodes} />
       <EffectsSection nodes={nodes} />
       <TypographySection nodes={nodes} />
-      <DisclosureSection title="Cognitive Load" defaultExpanded={false}>
+      <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
         <CognitiveLoadIndicator document={state.document} nodeId={null} />
       </DisclosureSection>
     </>
