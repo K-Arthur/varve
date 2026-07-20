@@ -4,9 +4,9 @@ import {
   BUILTIN_PRESET_GROUPS,
   type ColorMode,
   type CustomPreset,
+  type DocumentUnit,
   deriveHeight,
   deriveWidth,
-  type DocumentUnit,
   type Preset,
   simplifyRatio,
 } from '@strata/shared';
