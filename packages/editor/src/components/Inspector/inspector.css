@@ -238,6 +238,38 @@
   padding: 0 0 var(--space-3);
 }
 
+/* Section context menu (right-click to hide) */
+.insp-disclosure__context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 10rem;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  padding: var(--space-1) 0;
+}
+.insp-disclosure__context-menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.insp-disclosure__context-menu-item:hover,
+.insp-disclosure__context-menu-item:focus-visible {
+  background: var(--color-surface-hover);
+}
+.insp-disclosure__context-menu-item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
 .insp-field {
   display: flex;
   align-items: center;
