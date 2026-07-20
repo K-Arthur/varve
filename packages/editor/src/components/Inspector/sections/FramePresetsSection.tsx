@@ -23,8 +23,15 @@ import { useEditor } from '../../../context';
 import { usePresetLibrary } from '../../../presetLibrary';
 import { promptDialog } from '../../PromptDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
+import type { SectionId } from '../sectionRegistry';
 
-export function FramePresetsSection({ mode }: { mode: 'create' | 'resize' }) {
+export function FramePresetsSection({
+  mode,
+  sectionId,
+}: {
+  mode: 'create' | 'resize';
+  sectionId?: SectionId;
+}) {
   const { state, platform, applyFramePreset } = useEditor();
   const lib = usePresetLibrary(platform);
 
@@ -80,7 +87,7 @@ export function FramePresetsSection({ mode }: { mode: 'create' | 'resize' }) {
   const label = mode === 'resize' ? 'Resize to preset' : 'Frame presets';
 
   return (
-    <DisclosureSection title={label} defaultExpanded={mode === 'create'}>
+    <DisclosureSection title={label} sectionId={sectionId} defaultExpanded={mode === 'create'}>
       <PresetPicker
         groups={BUILTIN_PRESET_GROUPS}
         customPresets={lib.customPresets}
