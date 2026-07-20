@@ -1,6 +1,6 @@
 import type { BooleanOpKind } from '@strata/scene';
-import type { MenuEntry, SolidIconName } from '@strata/ui';
-import { ContextMenu, SOLID_TOOL_ICONS, SolidIcon, Toolbar, Tooltip } from '@strata/ui';
+import type { IconName, MenuEntry } from '@strata/ui';
+import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { WORKSPACE_CONFIGS } from '../../workspace/workspaceTypes';
@@ -139,8 +139,8 @@ interface ToolButtonProps {
   groupStart?: boolean;
 }
 
-function iconName(id: string): SolidIconName {
-  return ((SOLID_TOOL_ICONS as Record<string, string>)[id] ?? 'MousePointer2') as SolidIconName;
+function iconName(id: string): IconName {
+  return ((TOOL_ICONS as Record<string, string>)[id] ?? 'MousePointer2') as IconName;
 }
 
 function ToolButton({ id, groupStart }: ToolButtonProps) {
@@ -157,7 +157,7 @@ function ToolButton({ id, groupStart }: ToolButtonProps) {
         data-tool={id}
         onClick={() => setTool(id)}
       >
-        <SolidIcon name={iconName(id)} size={16} />
+        <Icon name={iconName(id)} size={16} />
       </button>
     </Tooltip>
   );
@@ -238,7 +238,7 @@ function DrawingToolbarControls() {
           aria-label="Swap colors"
           title="Swap colors (X)"
         >
-           <SolidIcon name="ArrowsDownUp" size={12} />
+           <Icon name="ArrowDownUp" size={12} />
         </button>
         <label className="floating-toolbar__color-swatch" title="Background color">
           <input
@@ -327,7 +327,7 @@ export function FloatingToolbar() {
               data-tool={currentShape}
               onClick={() => setTool(currentShape)}
             >
-              <SolidIcon name={iconName(currentShape)} size={16} />
+              <Icon name={iconName(currentShape)} size={16} />
             </button>
           </Tooltip>
           <button
@@ -343,7 +343,7 @@ export function FloatingToolbar() {
               setShapeMenuPos({ x: r.left, y: r.top });
             }}
           >
-            <SolidIcon name="CaretDown" size={12} />
+            <Icon name="ChevronDown" size={12} />
           </button>
           {filteredTools.map((t) => (
             <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
@@ -372,7 +372,7 @@ export function FloatingToolbar() {
                     }
                   }}
                 >
-                  <SolidIcon name={iconName(currentBoolean)} size={16} />
+                  <Icon name={iconName(currentBoolean)} size={16} />
                 </button>
               </Tooltip>
               <button
@@ -390,7 +390,7 @@ export function FloatingToolbar() {
                   setBooleanMenuPos({ x: r.left, y: r.top });
                 }}
               >
-                <SolidIcon name="CaretDown" size={12} />
+                <Icon name="ChevronDown" size={12} />
               </button>
             </>
           )}
