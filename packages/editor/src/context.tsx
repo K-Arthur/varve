@@ -263,11 +263,22 @@ import {
   toCamera,
 } from './canvas/cameraState';
 import { readClipboardUnifiedWithFallback, writeClipboard as writeToClipboard } from './clipboard';
+import type { SectionId } from './components/Inspector/sectionRegistry';
 import {
-  expandBounds as expandBoundsDoc,
-  resetToSourceBounds as resetToSourceBoundsDoc,
-  trimToSubject as trimToSubjectDoc,
-} from './imageCrop';
+  hideOptionalSections as hideAllOptional,
+  hideSection,
+  moveSectionDown as moveSectionDownDoc,
+  moveSectionToEnd as moveSectionToEndDoc,
+  moveSectionToStart as moveSectionToStartDoc,
+  moveSectionUp as moveSectionUpDoc,
+  resetSectionOrder as resetSectionOrderDoc,
+  restoreDefaultSectionState as restoreAllDefaults,
+  restoreDefaultCollapsed as restoreCollapsedDefaults,
+  showAllSections,
+  showSection,
+  toggleCollapsed,
+  toggleSubSectionCollapsed as toggleSubSectionCollapsedDoc,
+} from './components/Inspector/sectionState';
 import {
   bulkSetLayerColorDoc,
   bulkSetNodeLockedDoc,
@@ -288,6 +299,7 @@ import {
   ViewportProvider,
 } from './context/index';
 import type { MotionContextValue } from './context/MotionContext';
+import { isReducedMotion } from './context/reducedMotionManager';
 import type {
   CanvasMode,
   EditorState,
@@ -310,6 +322,11 @@ import { applyDropPosition } from './dropUtils';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
+import {
+  expandBounds as expandBoundsDoc,
+  resetToSourceBounds as resetToSourceBoundsDoc,
+  trimToSubject as trimToSubjectDoc,
+} from './imageCrop';
 import {
   insertDerivedImageShape,
   insertLiveTraceGroup,
@@ -341,27 +358,11 @@ import {
 } from './scene/transformCache';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { loadSettings, updateSettings } from './settings';
-import {
-  toggleCollapsed,
-  hideSection,
-  showSection,
-  showAllSections,
-  restoreDefaultSectionState as restoreAllDefaults,
-  restoreDefaultCollapsed as restoreCollapsedDefaults,
-  hideOptionalSections as hideAllOptional,
-  moveSectionUp as moveSectionUpDoc,
-  moveSectionDown as moveSectionDownDoc,
-  moveSectionToStart as moveSectionToStartDoc,
-  moveSectionToEnd as moveSectionToEndDoc,
-  resetSectionOrder as resetSectionOrderDoc,
-} from './components/Inspector/sectionState';
-import type { SectionId } from './components/Inspector/sectionRegistry';
 import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
 import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
-import { isReducedMotion } from './context/reducedMotionManager';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -1056,6 +1057,26 @@ export interface EditorContextValue {
   createMotionPresetFromTimeline: (timelineId: string, name: string) => string;
   applyMotionPreset: (presetId: string, timelineId: string) => void;
   toggleAutoKeyframe: () => void;
+  toggleGraphEditor: () => void;
+  deleteKeyframe: (timelineId: string, trackId: string, progress: number) => void;
+  moveKeyframe: (
+    timelineId: string,
+    trackId: string,
+    fromProgress: number,
+    toProgress: number,
+  ) => void;
+  updateKeyframeEasing: (
+    timelineId: string,
+    trackId: string,
+    progress: number,
+    easing: import('@strata/scene').Easing,
+  ) => void;
+  setTrackMuted: (timelineId: string, trackId: string, muted: boolean) => void;
+  setTrackSolo: (timelineId: string, trackId: string, solo: boolean) => void;
+  toggleOnionSkin: () => void;
+  setMotionSelectedTracks: (trackIds: string[]) => void;
+  /** Patch editor state directly (for transient UI state). */
+  patch: (patch: Partial<EditorState>) => void;
 
   // ── Guide management ────────────────────────────────────────────────────────
 
@@ -2177,6 +2198,7 @@ export function EditorProvider({
       state,
       platform,
       updateDoc,
+      patch,
       setTool: (t) => {
         toolRef.current = t;
         patch({ tool: t });
@@ -2281,8 +2303,11 @@ export function EditorProvider({
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
           patch({ zoom: camera.zoom, pan: camera.pan, cameraRotation: camera.rotation ?? 0 });
-          if (!done) { panAnimRef.current = requestAnimationFrame(tick); }
-          else { panAnimRef.current = null; }
+          if (!done) {
+            panAnimRef.current = requestAnimationFrame(tick);
+          } else {
+            panAnimRef.current = null;
+          }
         };
         panAnimRef.current = requestAnimationFrame(tick);
       },
@@ -2299,8 +2324,11 @@ export function EditorProvider({
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
           patch({ zoom: camera.zoom, pan: camera.pan });
-          if (!done) { panAnimRef.current = requestAnimationFrame(tick); }
-          else { panAnimRef.current = null; }
+          if (!done) {
+            panAnimRef.current = requestAnimationFrame(tick);
+          } else {
+            panAnimRef.current = null;
+          }
         };
         panAnimRef.current = requestAnimationFrame(tick);
       },
@@ -2327,8 +2355,11 @@ export function EditorProvider({
           const elapsed = now - startTime;
           const { camera, done } = animateCamera(startCam, endCam, elapsed, durationMs);
           patch({ zoom: camera.zoom, pan: camera.pan });
-          if (!done) { panAnimRef.current = requestAnimationFrame(tick); }
-          else { panAnimRef.current = null; }
+          if (!done) {
+            panAnimRef.current = requestAnimationFrame(tick);
+          } else {
+            panAnimRef.current = null;
+          }
         };
         panAnimRef.current = requestAnimationFrame(tick);
       },
@@ -2392,6 +2423,11 @@ export function EditorProvider({
       // Section visibility
       toggleSectionCollapse: (sectionId: SectionId) => {
         const next = toggleCollapsed(state.sectionVisibility, sectionId);
+        patch({ sectionVisibility: next });
+        updateSettings({ sections: { version: 1, sections: next } });
+      },
+      toggleSubSectionCollapse: (sectionId: SectionId, subSectionId: string) => {
+        const next = toggleSubSectionCollapsedDoc(state.sectionVisibility, sectionId, subSectionId);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
       },

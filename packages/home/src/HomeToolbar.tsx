@@ -1,5 +1,5 @@
 import type { FileKind, SortDirection, SortKey, ViewMode } from '@strata/platform';
-import { Button, SolidIcon, ViewModeSwitcher, SOLID_CHROME_ICONS } from '@strata/ui';
+import { Button, SOLID_CHROME_ICONS, SolidIcon, ViewModeSwitcher } from '@strata/ui';
 import { FilterDropdown } from './FilterDropdown';
 
 export interface HomeToolbarProps {

@@ -3,8 +3,8 @@ import { GRADIENT_MAP_PRESETS } from '@strata/engine';
 import type { ManagedColor } from '@strata/scene';
 import { rgbFromTuple } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { Select } from '@strata/ui';
+import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 
 function colorToManaged(c: Color): ManagedColor {

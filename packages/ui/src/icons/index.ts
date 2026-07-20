@@ -52,6 +52,7 @@ export const TOOL_ICONS = {
   paint: 'Brush',
   eraser: 'Eraser',
   cloneStamp: 'Stamp',
+  crop: 'Crop',
   healBrush: 'Bandage',
   spotHeal: 'Wand',
   patch: 'SquareStack',

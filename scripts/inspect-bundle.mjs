@@ -11,7 +11,7 @@
  * Default --platform: auto-detected from host OS.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const bundleDir = resolve(process.argv[2] || 'apps/desktop/src-tauri/target/release/bundle');
@@ -209,7 +209,7 @@ function checkMsiArch(path) {
       // Try to extract architecture from MSI using msitools or Windows API
       try {
         const archOut = execSync(
-          `powershell -NoProfile "(Get-WmiObject -Class Win32_Product -Filter \"Name like '%strata%'\" 2>nul) -or (select-string 'Intel|ARM|x64|ARM64' <<< $(strings "${path}" | head -100))" 2>/dev/null || true`,
+          `powershell -NoProfile "(Get-WmiObject -Class Win32_Product -Filter "Name like '%strata%'" 2>nul) -or (select-string 'Intel|ARM|x64|ARM64' <<< $(strings "${path}" | head -100))" 2>/dev/null || true`,
           { encoding: 'utf8' },
         );
         if (archOut.includes('ARM64')) pass(`MSI arch = ARM64 (from strings): ${path}`);

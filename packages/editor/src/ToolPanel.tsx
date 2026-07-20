@@ -29,7 +29,7 @@ export function ToolPanel() {
         {TOOLS.map((t) => (
           <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
             <IconButton
-              icon={TOOL_ICONS[t.id]}
+              icon={TOOL_ICONS[t.id as keyof typeof TOOL_ICONS]}
               label={t.label}
               size="sm"
               pressed={state.tool === t.id}

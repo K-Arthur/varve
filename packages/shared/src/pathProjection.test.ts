@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { KeyframeEntry, PathSample } from './pathProjection';
 import {
   findNearestKeyframeIndex,
   projectPointOnPath,
@@ -6,7 +7,6 @@ import {
   snapToFrame,
   snapToKeyframe,
 } from './pathProjection';
-import type { KeyframeEntry, PathSample } from './pathProjection';
 
 function makeSample(x: number, y: number, timeMs: number): PathSample {
   return { x, y, timeMs };

@@ -74,14 +74,18 @@ format-check:
     cargo fmt --all -- --check
     pnpm exec biome ci --formatter-enabled=true --linter-enabled=false .
 
-# Token + emoji + a11y gates (Cascade Review, §7)
-gates: audit-tokens audit-emoji health-check
+# Token + emoji + a11y + typecheck-regression gates (Cascade Review, §7)
+gates: audit-tokens audit-emoji health-check typecheck-regression
 audit-tokens:
     pnpm audit:tokens
 audit-emoji:
     pnpm audit:emoji
 health-check:
     node scripts/audit-health.mjs
+
+# Prevent typecheck regression: fails if new files have TSC errors beyond baselined set
+typecheck-regression:
+    node scripts/audit-typecheck-regression.mjs
 
 # --- Icon generation ---
 # Canonical master: packages/ui/src/icons/strata-app-icon.svg

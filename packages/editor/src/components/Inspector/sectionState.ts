@@ -26,6 +26,8 @@ import {
 export interface SectionState {
   collapsed: boolean;
   hidden: boolean;
+  /** Nested subsections, keyed by local name (e.g. 'openTypeFeatures' under 'typography'). */
+  subsections?: Record<string, SectionState>;
 }
 
 /** Full section-visibility state keyed by section ID. */
@@ -86,10 +88,30 @@ export function migrateSectionState(
   for (const [key, value] of Object.entries(sections)) {
     if (key in result && typeof value === 'object' && value !== null) {
       const v = value as Record<string, unknown>;
+      const subsections = v.subsections as Record<string, unknown> | undefined;
+      const migratedSubsections: Record<string, SectionState> | undefined = subsections
+        ? Object.fromEntries(
+            Object.entries(subsections)
+              .filter(([, sv]) => typeof sv === 'object' && sv !== null)
+              .map(([sk, sv]) => {
+                const s = sv as Record<string, unknown>;
+                return [
+                  sk,
+                  {
+                    collapsed: typeof s.collapsed === 'boolean' ? s.collapsed : false,
+                    hidden: typeof s.hidden === 'boolean' ? s.hidden : false,
+                  },
+                ];
+              }),
+          )
+        : undefined;
       result[key as SectionId] = {
         collapsed:
           typeof v.collapsed === 'boolean' ? v.collapsed : defaults[key as SectionId].collapsed,
         hidden: typeof v.hidden === 'boolean' ? v.hidden : defaults[key as SectionId].hidden,
+        ...(migratedSubsections && Object.keys(migratedSubsections).length > 0
+          ? { subsections: migratedSubsections }
+          : {}),
       };
     }
   }
@@ -191,6 +213,120 @@ export function hideOptionalSections(state: SectionVisibilityState): SectionVisi
 }
 
 // ---------------------------------------------------------------------------
+// Nested subsection state operations
+// ---------------------------------------------------------------------------
+
+/** Get the sub-section state, or a default if not set. */
+function getSubsectionState(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  subId: string,
+): SectionState {
+  const parent = state[sectionId];
+  if (!parent?.subsections) {
+    return { collapsed: false, hidden: false };
+  }
+  return parent.subsections[subId] ?? { collapsed: false, hidden: false };
+}
+
+/** Toggle collapsed state for a nested subsection. */
+export function toggleSubSectionCollapsed(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  subId: string,
+): SectionVisibilityState {
+  const current = getSubsectionState(state, sectionId, subId);
+  const parent = state[sectionId] ?? defaultStateForSection(sectionId);
+  return {
+    ...state,
+    [sectionId]: {
+      ...parent,
+      subsections: {
+        ...parent.subsections,
+        [subId]: { ...current, collapsed: !current.collapsed },
+      },
+    },
+  };
+}
+
+/** Set collapsed state for a nested subsection. */
+export function setSubSectionCollapsed(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  subId: string,
+  collapsed: boolean,
+): SectionVisibilityState {
+  const current = getSubsectionState(state, sectionId, subId);
+  const parent = state[sectionId] ?? defaultStateForSection(sectionId);
+  return {
+    ...state,
+    [sectionId]: {
+      ...parent,
+      subsections: {
+        ...parent.subsections,
+        [subId]: { ...current, collapsed },
+      },
+    },
+  };
+}
+
+/** Check if a nested subsection is collapsed. */
+export function isSubSectionCollapsed(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  subId: string,
+): boolean {
+  const parent = state[sectionId];
+  if (!parent?.subsections) return false;
+  const sub = parent.subsections[subId];
+  return sub ? sub.collapsed : false;
+}
+
+/**
+ * Hide a nested subsection. Hiding a subsection only persists the flag;
+ * actual render-time hiding also requires the parent to be visible.
+ * Returns the updated state.
+ */
+export function hideSubSection(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  subId: string,
+): SectionVisibilityState {
+  const current = getSubsectionState(state, sectionId, subId);
+  const parent = state[sectionId] ?? defaultStateForSection(sectionId);
+  return {
+    ...state,
+    [sectionId]: {
+      ...parent,
+      subsections: {
+        ...parent.subsections,
+        [subId]: { ...current, hidden: true },
+      },
+    },
+  };
+}
+
+/** Show a previously hidden nested subsection. */
+export function showSubSection(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  subId: string,
+): SectionVisibilityState {
+  const current = getSubsectionState(state, sectionId, subId);
+  const parent = state[sectionId] ?? defaultStateForSection(sectionId);
+  return {
+    ...state,
+    [sectionId]: {
+      ...parent,
+      subsections: {
+        ...parent.subsections,
+        [subId]: { ...current, hidden: false },
+      },
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Query helpers
 // ---------------------------------------------------------------------------
 
@@ -222,4 +358,123 @@ export function getHiddenSectionIds(state: SectionVisibilityState): SectionId[] 
     if (state[id]?.hidden) hidden.push(id);
   }
   return hidden;
+}
+
+// ---------------------------------------------------------------------------
+// Ordering
+// ---------------------------------------------------------------------------
+
+/** Get section IDs sorted by their effective order. */
+export function getOrderedSectionIds(
+  state: SectionVisibilityState,
+  sectionIds?: SectionId[],
+): SectionId[] {
+  const ids = sectionIds ?? getAllSectionIds();
+  return [...ids].sort((a, b) => {
+    const orderA = state[a]?.order ?? getSectionDefinition(a)?.order ?? 500;
+    const orderB = state[b]?.order ?? getSectionDefinition(b)?.order ?? 500;
+    return orderA - orderB;
+  });
+}
+
+/** Move a section before another section. */
+export function moveSectionBefore(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  targetId: SectionId,
+): SectionVisibilityState {
+  if (sectionId === targetId) return state;
+  const ordered = getOrderedSectionIds(state);
+  const fromIdx = ordered.indexOf(sectionId);
+  const toIdx = ordered.indexOf(targetId);
+  if (fromIdx === -1 || toIdx === -1) return state;
+  const reordered = [...ordered];
+  reordered.splice(fromIdx, 1);
+  reordered.splice(toIdx, 0, sectionId);
+  return assignStableOrders(state, reordered);
+}
+
+/** Move a section after another section. */
+export function moveSectionAfter(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+  targetId: SectionId,
+): SectionVisibilityState {
+  if (sectionId === targetId) return state;
+  const ordered = getOrderedSectionIds(state);
+  const fromIdx = ordered.indexOf(sectionId);
+  let toIdx = ordered.indexOf(targetId);
+  if (fromIdx === -1 || toIdx === -1) return state;
+  if (fromIdx < toIdx) toIdx += 1;
+  const reordered = [...ordered];
+  reordered.splice(fromIdx, 1);
+  reordered.splice(toIdx, 0, sectionId);
+  return assignStableOrders(state, reordered);
+}
+
+/** Move a section up one position. */
+export function moveSectionUp(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+): SectionVisibilityState {
+  const ordered = getOrderedSectionIds(state);
+  const idx = ordered.indexOf(sectionId);
+  if (idx <= 0) return state;
+  return moveSectionBefore(state, sectionId, ordered[idx - 1]);
+}
+
+/** Move a section down one position. */
+export function moveSectionDown(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+): SectionVisibilityState {
+  const ordered = getOrderedSectionIds(state);
+  const idx = ordered.indexOf(sectionId);
+  if (idx === -1 || idx >= ordered.length - 1) return state;
+  return moveSectionAfter(state, sectionId, ordered[idx + 1]);
+}
+
+/** Move a section to the start of the list. */
+export function moveSectionToStart(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+): SectionVisibilityState {
+  const ordered = getOrderedSectionIds(state);
+  if (ordered[0] === sectionId) return state;
+  const reordered = [sectionId, ...ordered.filter((id) => id !== sectionId)];
+  return assignStableOrders(state, reordered);
+}
+
+/** Move a section to the end of the list. */
+export function moveSectionToEnd(
+  state: SectionVisibilityState,
+  sectionId: SectionId,
+): SectionVisibilityState {
+  const ordered = getOrderedSectionIds(state);
+  if (ordered[ordered.length - 1] === sectionId) return state;
+  const reordered = [...ordered.filter((id) => id !== sectionId), sectionId];
+  return assignStableOrders(state, reordered);
+}
+
+/** Reset section ordering to registry defaults. */
+export function resetSectionOrder(state: SectionVisibilityState): SectionVisibilityState {
+  const next = { ...state };
+  for (const id of getAllSectionIds()) {
+    const def = getSectionDefinition(id);
+    next[id] = { ...next[id], order: def?.order };
+  }
+  return next;
+}
+
+/** Assign stable integer orders (10, 20, 30...) to avoid float drift. */
+function assignStableOrders(
+  state: SectionVisibilityState,
+  orderedIds: SectionId[],
+): SectionVisibilityState {
+  const next = { ...state };
+  for (let i = 0; i < orderedIds.length; i++) {
+    const id = orderedIds[i];
+    next[id] = { ...next[id], order: (i + 1) * 10 };
+  }
+  return next;
 }

@@ -330,18 +330,26 @@ export interface EditorContextValue {
   setWorkspaceMode: (mode: WorkspaceMode) => void;
   resetWorkspaceToDefault: () => void;
   // Section visibility
-  toggleSectionCollapse: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
-  hideInspectorSection: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
-  showInspectorSection: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  toggleSectionCollapse: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  toggleSubSectionCollapse: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+    subSectionId: string,
+  ) => void;
+  hideInspectorSection: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  showInspectorSection: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+  ) => void;
   showAllInspectorSections: () => void;
   restoreDefaultSectionState: () => void;
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
   // Section ordering
   moveSectionUp: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
-  moveSectionDown: (
-    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
-  ) => void;
+  moveSectionDown: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
   moveSectionToStart: (
     sectionId: import('../components/Inspector/sectionRegistry').SectionId,
   ) => void;

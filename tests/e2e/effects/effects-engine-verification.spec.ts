@@ -204,7 +204,7 @@ test.describe('Effects engine pixel-level verification', () => {
         // Count unique values in output
         const uniqueValues = new Set<number>();
         for (let i = 0; i < data.length; i += 4) {
-          uniqueValues.add(data[i]);
+          uniqueValues.add(data[i]!);
         }
 
         // Check that output is not all the same value (halftone produced variation)
@@ -216,7 +216,7 @@ test.describe('Effects engine pixel-level verification', () => {
           hasBinaryOutput: uniqueValues.size >= 2,
           allValid: Array.from(data).every((v) => v >= 0 && v <= 255),
           // Alpha should be preserved
-          alphaPreserved: Array.from({ length: size * size }, (_, i) => data[i * 4 + 3]).every(
+          alphaPreserved: Array.from({ length: size * size }, (_, i) => data[i * 4 + 3]!).every(
             (a) => a === 255,
           ),
         };

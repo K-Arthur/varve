@@ -49,7 +49,7 @@ export async function finalizeMaskResult(
   opts: FinalizeMaskOptions = {},
 ): Promise<FinalizeMaskResult> {
   const { mask, width, height } = await decodeMaskDataUrl(result.maskDataUrl);
-  let components = findConnectedComponents(mask, width, height);
+  const components = findConnectedComponents(mask, width, height);
   const minArea = computeMinArea(width, height);
   const significant = components.filter((c) => c.pixelCount >= minArea);
 

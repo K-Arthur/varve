@@ -507,7 +507,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         if (s.kind === 'rect') localRect = { x: s.x, y: s.y, w: s.w, h: s.h };
       }
       if (!localRect) return;
-      const cr = node.cornerRadius ?? 0;
+      const cr = (node as import('@strata/scene').ShapeNode).cornerRadius ?? 0;
       const uniform = typeof cr === 'number' ? cr : Array.isArray(cr) ? cr[0] : 0;
       if (uniform <= 0) return;
 
@@ -587,7 +587,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
                   ...n.shape,
                   from: newFrom,
                   to: newTo,
-                } as import('@strata/scene').Shape,
+                } as import('@strata/engine').Shape,
               },
             },
           } as import('@strata/scene').Document;

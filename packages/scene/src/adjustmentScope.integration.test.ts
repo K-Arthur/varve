@@ -10,9 +10,9 @@ import {
   validateScope,
 } from './adjustmentScope';
 import type { Document } from './document';
-import { makeAdjustmentNode, createDocument } from './document';
-import { migrateDocument } from './version';
+import { createDocument, makeAdjustmentNode } from './document';
 import type { NodeId } from './types';
+import { migrateDocument } from './version';
 
 function makeTestDoc(): Document {
   return createDocument('scope-test', true) as Document;
@@ -89,7 +89,7 @@ describe('AdjustmentScope - Save/Reopen', () => {
   it('serializes explicit-targets scope', () => {
     const doc = makeTestDoc();
     const adjId = 'adj1';
-    let d = addNode(doc, {
+    const d = addNode(doc, {
       ...makeAdjustmentNode(adjId, 'levels', {
         channel: 'rgb',
         inputBlack: 0,
@@ -114,7 +114,7 @@ describe('AdjustmentScope - Save/Reopen', () => {
   it('serializes container-descendant scope', () => {
     const doc = makeTestDoc();
     const adjId = 'adj1';
-    let d = addNode(doc, {
+    const d = addNode(doc, {
       ...makeAdjustmentNode(adjId, 'levels', {
         channel: 'rgb',
         inputBlack: 0,

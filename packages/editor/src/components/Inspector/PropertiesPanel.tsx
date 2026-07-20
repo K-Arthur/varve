@@ -27,6 +27,8 @@ import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorColorPopover } from './controls/InspectorColorPopover';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
+import type { SectionId } from './sectionRegistry';
+import type { SectionVisibilityState } from './sectionState';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
@@ -49,8 +51,6 @@ import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
-import { getOrderedSectionIds, type SectionVisibilityState } from './sectionState';
-import type { SectionId } from './sectionRegistry';
 
 import './inspector.css';
 
@@ -257,7 +257,7 @@ function EmptySelectionState() {
         headline="No selection"
         description="Select a layer to edit its properties"
       />
-      <DisclosureSection title="Canvas" defaultExpanded={true}>
+      <DisclosureSection title="Canvas" sectionId="canvas-background" defaultExpanded={true}>
         <div className="insp-canvas-props">
           <div className="insp-field">
             <span className="insp-field__label">Background</span>
@@ -273,7 +273,7 @@ function EmptySelectionState() {
           </div>
         </div>
       </DisclosureSection>
-      <DisclosureSection title="Document Color" defaultExpanded={true}>
+      <DisclosureSection title="Document Color" sectionId="document-color" defaultExpanded={true}>
         <div className="insp-panel__color-mode">
           <span className="insp-panel__color-mode-label">Mode</span>
           <div className="insp-panel__color-mode-buttons">
@@ -323,25 +323,42 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       entries.push({ id, order: o ?? 500, el });
     };
 
-    if (isComponentInstance) add('component', <ComponentSection node={node as import('@strata/scene').FrameNode} sectionId="component" />);
-    if (isFrame && !isComponentInstance) add('frame-presets', <FramePresetsSection mode="resize" sectionId="frame-presets" />);
+    if (isComponentInstance)
+      add(
+        'component',
+        <ComponentSection node={node as import('@strata/scene').FrameNode} sectionId="component" />,
+      );
+    if (isFrame && !isComponentInstance)
+      add('frame-presets', <FramePresetsSection mode="resize" sectionId="frame-presets" />);
     add('position-size', <PositionSizeSection nodes={nodes} sectionId="position-size" />);
     add('constraints', <ConstraintSection nodes={nodes} sectionId="constraints" />);
-    if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} sectionId="corner-radius" />);
-    if (isFrame) add('layout', <LayoutSection node={node as import('@strata/scene').FrameNode} sectionId="layout" />);
+    if (isRect || isFrame)
+      add('corner-radius', <CornerRadiusSection nodes={nodes} sectionId="corner-radius" />);
+    if (isFrame)
+      add(
+        'layout',
+        <LayoutSection node={node as import('@strata/scene').FrameNode} sectionId="layout" />,
+      );
     add('appearance', <AppearanceSection nodes={nodes} sectionId="appearance" />);
     add('mask', <MaskSection nodes={nodes} sectionId="mask" />);
     add('fills', <FillSection nodes={nodes} sectionId="fills" />);
     add('paint-library', <PaintLibrarySection sectionId="paint-library" />);
     add('image-placement', <ImagePlacementSection nodes={nodes} sectionId="image-placement" />);
-    add('image-enhancement', <ImageEnhancementSection nodes={nodes} sectionId="image-enhancement" />);
-    add('background-removal', <BackgroundRemovalSection nodes={nodes} sectionId="background-removal" />);
+    add(
+      'image-enhancement',
+      <ImageEnhancementSection nodes={nodes} sectionId="image-enhancement" />,
+    );
+    add(
+      'background-removal',
+      <BackgroundRemovalSection nodes={nodes} sectionId="background-removal" />,
+    );
     add('stroke', <StrokeSection nodes={nodes} sectionId="stroke" />);
     add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
     add('typography', <TypographySection nodes={nodes} sectionId="typography" />);
     add('interaction', <InteractionSection sectionId="interaction" />);
     if (state.prototypeMode) {
-      add('prototype-flow', (
+      add(
+        'prototype-flow',
         <DisclosureSection title="Prototype Flow" sectionId="prototype-flow" defaultExpanded>
           <PrototypeFlowView
             document={state.document}
@@ -350,17 +367,29 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
             onSelectScreen={navigatePrototypeTo}
             onSelectInteraction={selectPrototypeInteraction}
           />
-        </DisclosureSection>
-      ));
+        </DisclosureSection>,
+      );
     }
-    add('cognitive-load', (
+    add(
+      'cognitive-load',
       <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
         <CognitiveLoadIndicator document={state.document} nodeId={node.id} />
-      </DisclosureSection>
-    ));
+      </DisclosureSection>,
+    );
 
     return entries.sort((a, b) => a.order - b.order);
-  }, [nodes, node, isFrame, isComponentInstance, isRect, state, prototypeCurrentScreen, selectedInteractionId, navigatePrototypeTo, selectPrototypeInteraction]);
+  }, [
+    nodes,
+    node,
+    isFrame,
+    isComponentInstance,
+    isRect,
+    state,
+    prototypeCurrentScreen,
+    selectedInteractionId,
+    navigatePrototypeTo,
+    selectPrototypeInteraction,
+  ]);
 
   return (
     <>
@@ -401,11 +430,12 @@ function MultiSelectionPanel({
     add('stroke', <StrokeSection nodes={nodes} sectionId="stroke" />);
     add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
     add('typography', <TypographySection nodes={nodes} sectionId="typography" />);
-    add('cognitive-load', (
+    add(
+      'cognitive-load',
       <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
         <CognitiveLoadIndicator document={state.document} nodeId={null} />
-      </DisclosureSection>
-    ));
+      </DisclosureSection>,
+    );
 
     return entries.sort((a, b) => a.order - b.order);
   }, [nodes, state]);
