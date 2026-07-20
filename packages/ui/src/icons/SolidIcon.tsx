@@ -353,7 +353,13 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
         ref={ref as React.Ref<HTMLSpanElement>}
         role={label ? 'img' : undefined}
         aria-label={label}
-        style={{ display: 'inline-flex', width: size, height: size, background: 'var(--color-feedback-warning)', borderRadius: 2 }}
+        style={{
+          display: 'inline-flex',
+          width: size,
+          height: size,
+          background: 'var(--color-feedback-warning)',
+          borderRadius: 2,
+        }}
         {...rest}
       />
     );

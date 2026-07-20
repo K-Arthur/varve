@@ -83,9 +83,7 @@ export const SubjectCard = memo(function SubjectCard({
         </div>
 
         <div className="subject-card__info">
-          <span className="subject-card__label">
-            Subject {index + 1}
-          </span>
+          <span className="subject-card__label">Subject {index + 1}</span>
           <span className="subject-card__meta">
             {bbox.w}×{bbox.h} · {areaPercent}%
           </span>

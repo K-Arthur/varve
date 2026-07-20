@@ -3399,6 +3399,24 @@ export function EditorProvider({
         });
       },
 
+      setSelectedConstraint: (constraint) => {
+        const sel = stateRef.current.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const parentId = getParent(doc, id);
+            if (!parentId) continue;
+            const parent = nodes[parentId];
+            if (parent?.kind !== 'frame') continue;
+            nodes[id] = { ...node, constraints: constraint } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
       // F6: align selected nodes — uses shared align module for pure bbox math
       alignSelected: (axis) => {
         const sel = state.selection;
