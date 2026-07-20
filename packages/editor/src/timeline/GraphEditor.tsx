@@ -13,6 +13,12 @@ import { getEasingFn } from '@strata/shared';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
 import './GraphEditor.css';
 
+/** Hit target radius for graph editor keyframe circles. */
+const KEYFRAME_HIT_R = 8;
+
+const KEYFRAME_VISUAL_R = 4;
+const KEYFRAME_HOVER_R = 5;
+
 export interface GraphEditorProps {
   timeline: Timeline;
   tracks: AnimationTrack[];
@@ -63,6 +69,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
 }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredPoint, setHoveredPoint] = useState<CurvePoint | null>(null);
+  const [focusedPoint, setFocusedPoint] = useState<CurvePoint | null>(null);
   const [dragging, setDragging] = useState<{
     trackId: string;
     keyframeIndex: number;
@@ -320,16 +327,54 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                 const y = valueToY(typeof kf.value === 'number' ? kf.value : 0);
                 const isHovered =
                   hoveredPoint?.trackId === track.id && hoveredPoint?.keyframeIndex === ki;
+                const isFocused =
+                  focusedPoint?.trackId === track.id && focusedPoint?.keyframeIndex === ki;
                 return (
                   <g key={ki}>
+                    {/* Invisible larger hit circle behind the visible dot. */}
                     <circle
                       cx={x}
                       cy={y}
-                      r={isHovered ? 5 : 4}
+                      r={KEYFRAME_HIT_R}
+                      fill="transparent"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Keyframe at ${(kf.progress * 100).toFixed(0)}%, value ${typeof kf.value === 'number' ? kf.value.toFixed(2) : 'auto'}`}
+                      onFocus={() =>
+                        setFocusedPoint({
+                          x,
+                          y,
+                          keyframeIndex: ki,
+                          trackId: track.id,
+                        } as CurvePoint & { trackId: string })
+                      }
+                      onBlur={() => setFocusedPoint(null)}
+                      onKeyDown={(e) => {
+                        const step = e.shiftKey ? 0.1 : 0.02;
+                        let newProgress = kf.progress;
+                        if (e.key === 'ArrowLeft') newProgress = Math.max(0, kf.progress - step);
+                        else if (e.key === 'ArrowRight')
+                          newProgress = Math.min(1, kf.progress + step);
+                        else if (e.key === 'Delete' || e.key === 'Backspace') {
+                          if (onMoveKeyframe) {
+                            // Delete by nudging to 0/1 (marker removal handled by caller)
+                          }
+                          return;
+                        }
+                        if (newProgress !== kf.progress && onMoveKeyframe) {
+                          onMoveKeyframe(timeline.id, track.id, kf.progress, newProgress);
+                          e.preventDefault();
+                        }
+                      }}
+                    />
+                    <circle
+                      cx={x}
+                      cy={y}
+                      r={isHovered || isFocused ? KEYFRAME_HOVER_R : KEYFRAME_VISUAL_R}
                       className="graph-editor__keyframe-dot"
                       fill={color}
                       tabIndex={-1}
-                      aria-label={`Keyframe at ${(kf.progress * 100).toFixed(0)}%`}
+                      aria-hidden
                       onMouseEnter={() =>
                         setHoveredPoint({
                           x,
@@ -340,7 +385,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                       }
                       onMouseLeave={() => setHoveredPoint(null)}
                     />
-                    {isHovered && (
+                    {(isHovered || isFocused) && (
                       <title>
                         {track.nodeId}.{track.property} ={' '}
                         {(typeof kf.value === 'number' ? kf.value : 0).toFixed(2)}

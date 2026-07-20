@@ -10,6 +10,65 @@ describe('TimelineRuler', () => {
     onSeek: vi.fn(),
   };
 
+  describe('keyboard navigation', () => {
+    it('moves playhead right on ArrowRight', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      expect(ruler).toBeTruthy();
+      fireEvent.keyDown(ruler!, { key: 'ArrowRight' });
+      expect(onSeek).toHaveBeenCalledWith(1100);
+    });
+
+    it('moves playhead left on ArrowLeft', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      fireEvent.keyDown(ruler!, { key: 'ArrowLeft' });
+      expect(onSeek).toHaveBeenCalledWith(900);
+    });
+
+    it('steps by 500ms with Shift+Arrow', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={1000} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      fireEvent.keyDown(ruler!, { key: 'ArrowRight', shiftKey: true });
+      expect(onSeek).toHaveBeenCalledWith(1500);
+    });
+
+    it('goes to start on Home', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={3000} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      fireEvent.keyDown(ruler!, { key: 'Home' });
+      expect(onSeek).toHaveBeenCalledWith(0);
+    });
+
+    it('goes to end on End', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={0} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      fireEvent.keyDown(ruler!, { key: 'End' });
+      expect(onSeek).toHaveBeenCalledWith(5000);
+    });
+
+    it('clamps to 0 when stepping before start', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={50} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      fireEvent.keyDown(ruler!, { key: 'ArrowLeft' });
+      expect(onSeek).toHaveBeenCalledWith(0);
+    });
+
+    it('clamps to duration when stepping beyond end', () => {
+      const onSeek = vi.fn();
+      const { container } = render(<TimelineRuler {...defaultProps} currentTime={4950} onSeek={onSeek} />);
+      const ruler = container.querySelector('.timeline-ruler');
+      fireEvent.keyDown(ruler!, { key: 'ArrowRight' });
+      expect(onSeek).toHaveBeenCalledWith(5000);
+    });
+  });
+
   it('calls onAddMarker on double-click', () => {
     const onAddMarker = vi.fn();
     const { container } = render(<TimelineRuler {...defaultProps} onAddMarker={onAddMarker} />);
