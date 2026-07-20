@@ -1,6 +1,8 @@
 import type { Document } from '@strata/scene';
 import {
+  addChild,
   addNode,
+  createClippingMask,
   createDocument,
   imageFill,
   makeShapeNode,
@@ -136,6 +138,31 @@ describe('exportDocumentToSvg', () => {
     expect(svg).toContain(`id="mask-${id}"`);
     expect(svg).toContain(maskDataUrl);
     expect(svg).toContain(`mask="url(#mask-${id})"`);
+  });
+
+  it('exports active-page clipping groups as editable SVG clip paths', () => {
+    let doc = createDocument('Page clipping group');
+    const page = doc.pages?.[0];
+    if (!page) throw new Error('Expected initial page');
+    doc = addChild(
+      doc,
+      page.contentRoot,
+      makeShapeNode('content', { kind: 'rect', x: -100, y: -100, w: 400, h: 400 }),
+    );
+    doc = addChild(
+      doc,
+      page.contentRoot,
+      makeShapeNode('mask-source', { kind: 'circle', cx: 50, cy: 50, r: 50 }),
+    );
+    const clipped = createClippingMask(doc, 'mask-source', ['content']);
+
+    const svg = exportDocumentToSvgAdvanced(clipped.doc, {});
+
+    expect(svg).toContain(`<clipPath id="mask-${clipped.groupId}"`);
+    expect(svg).toContain(`clip-path="url(#mask-${clipped.groupId})"`);
+    expect(svg).toContain('width="400"');
+    expect(svg.match(/<circle/g)).toHaveLength(1);
+    expect(svg).toContain('viewBox="0 0 140 140"');
   });
 });
 
