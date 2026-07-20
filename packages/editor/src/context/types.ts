@@ -337,6 +337,18 @@ export interface EditorContextValue {
   restoreDefaultSectionState: () => void;
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
+  // Section ordering
+  moveSectionUp: (sectionId: import('../components/Inspector/sectionRegistry').SectionId) => void;
+  moveSectionDown: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  moveSectionToStart: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  moveSectionToEnd: (
+    sectionId: import('../components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  resetSectionOrder: () => void;
   // Selection
   setSelection: (id: NodeId | null) => void;
   toggleSelection: (id: NodeId, additive?: boolean) => void;

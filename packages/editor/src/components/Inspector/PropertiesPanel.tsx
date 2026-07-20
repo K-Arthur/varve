@@ -49,6 +49,8 @@ import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
+import { getOrderedSectionIds, type SectionVisibilityState } from './sectionState';
+import type { SectionId } from './sectionRegistry';
 
 import './inspector.css';
 
@@ -313,35 +315,33 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
   const isRect =
     node.kind === 'shape' && (node as import('@strata/scene').ShapeNode).shape.kind === 'rect';
 
-  return (
-    <>
-      <header className="insp-panel__node-header">
-        <p className="insp-panel__node-name">
-          {node.name}
-          <span className="insp-panel__node-kind">{node.kind}</span>
-        </p>
-      </header>
-      {isComponentInstance && <ComponentSection node={node as import('@strata/scene').FrameNode} />}
-      {isFrame && !isComponentInstance && (
-        <FramePresetsSection mode="resize" sectionId="frame-presets" />
-      )}
-      <AdjustmentPanel />
-      <PositionSizeSection nodes={nodes} />
-      <ConstraintSection nodes={nodes} />
-      {(isRect || isFrame) && <CornerRadiusSection nodes={nodes} />}
-      {isFrame && <LayoutSection node={node as import('@strata/scene').FrameNode} />}
-      <AppearanceSection nodes={nodes} />
-      <MaskSection nodes={nodes} />
-      <FillSection nodes={nodes} />
-      <PaintLibrarySection />
-      <ImagePlacementSection nodes={nodes} />
-      <ImageEnhancementSection nodes={nodes} />
-      <BackgroundRemovalSection nodes={nodes} />
-      <StrokeSection nodes={nodes} />
-      <EffectsSection nodes={nodes} />
-      <TypographySection nodes={nodes} />
-      <InteractionSection />
-      {state.prototypeMode && (
+  // Build ordered section list based on state ordering
+  const sectionEntries = useMemo(() => {
+    const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
+    const add = (id: SectionId, el: React.ReactNode) => {
+      const o = state.sectionVisibility[id]?.order;
+      entries.push({ id, order: o ?? 500, el });
+    };
+
+    if (isComponentInstance) add('component', <ComponentSection node={node as import('@strata/scene').FrameNode} sectionId="component" />);
+    if (isFrame && !isComponentInstance) add('frame-presets', <FramePresetsSection mode="resize" sectionId="frame-presets" />);
+    add('position-size', <PositionSizeSection nodes={nodes} sectionId="position-size" />);
+    add('constraints', <ConstraintSection nodes={nodes} sectionId="constraints" />);
+    if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} sectionId="corner-radius" />);
+    if (isFrame) add('layout', <LayoutSection node={node as import('@strata/scene').FrameNode} sectionId="layout" />);
+    add('appearance', <AppearanceSection nodes={nodes} sectionId="appearance" />);
+    add('mask', <MaskSection nodes={nodes} sectionId="mask" />);
+    add('fills', <FillSection nodes={nodes} sectionId="fills" />);
+    add('paint-library', <PaintLibrarySection sectionId="paint-library" />);
+    add('image-placement', <ImagePlacementSection nodes={nodes} sectionId="image-placement" />);
+    add('image-enhancement', <ImageEnhancementSection nodes={nodes} sectionId="image-enhancement" />);
+    add('background-removal', <BackgroundRemovalSection nodes={nodes} sectionId="background-removal" />);
+    add('stroke', <StrokeSection nodes={nodes} sectionId="stroke" />);
+    add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
+    add('typography', <TypographySection nodes={nodes} sectionId="typography" />);
+    add('interaction', <InteractionSection sectionId="interaction" />);
+    if (state.prototypeMode) {
+      add('prototype-flow', (
         <DisclosureSection title="Prototype Flow" sectionId="prototype-flow" defaultExpanded>
           <PrototypeFlowView
             document={state.document}
@@ -351,10 +351,29 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
             onSelectInteraction={selectPrototypeInteraction}
           />
         </DisclosureSection>
-      )}
+      ));
+    }
+    add('cognitive-load', (
       <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
         <CognitiveLoadIndicator document={state.document} nodeId={node.id} />
       </DisclosureSection>
+    ));
+
+    return entries.sort((a, b) => a.order - b.order);
+  }, [nodes, node, isFrame, isComponentInstance, isRect, state, prototypeCurrentScreen, selectedInteractionId, navigatePrototypeTo, selectPrototypeInteraction]);
+
+  return (
+    <>
+      <header className="insp-panel__node-header">
+        <p className="insp-panel__node-name">
+          {node.name}
+          <span className="insp-panel__node-kind">{node.kind}</span>
+        </p>
+      </header>
+      <AdjustmentPanel />
+      {sectionEntries.map((entry) => (
+        <div key={entry.id}>{entry.el}</div>
+      ))}
     </>
   );
 }
@@ -367,6 +386,30 @@ function MultiSelectionPanel({
   summary: SelectionSummary;
 }) {
   const { state } = useEditor();
+
+  const sectionEntries = useMemo(() => {
+    const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
+    const add = (id: SectionId, el: React.ReactNode) => {
+      const o = state.sectionVisibility[id]?.order;
+      entries.push({ id, order: o ?? 500, el });
+    };
+
+    add('position-size', <PositionSizeSection nodes={nodes} sectionId="position-size" />);
+    add('appearance', <AppearanceSection nodes={nodes} sectionId="appearance" />);
+    add('fills', <FillSection nodes={nodes} sectionId="fills" />);
+    add('paint-library', <PaintLibrarySection sectionId="paint-library" />);
+    add('stroke', <StrokeSection nodes={nodes} sectionId="stroke" />);
+    add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
+    add('typography', <TypographySection nodes={nodes} sectionId="typography" />);
+    add('cognitive-load', (
+      <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
+        <CognitiveLoadIndicator document={state.document} nodeId={null} />
+      </DisclosureSection>
+    ));
+
+    return entries.sort((a, b) => a.order - b.order);
+  }, [nodes, state]);
+
   return (
     <>
       <div className="insp-panel__multi-count" role="status">
@@ -375,16 +418,9 @@ function MultiSelectionPanel({
           : `${nodes.length} selected`}
       </div>
       <AlignDistributeBar />
-      <PositionSizeSection nodes={nodes} />
-      <AppearanceSection nodes={nodes} />
-      <FillSection nodes={nodes} />
-      <PaintLibrarySection />
-      <StrokeSection nodes={nodes} />
-      <EffectsSection nodes={nodes} />
-      <TypographySection nodes={nodes} />
-      <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>
-        <CognitiveLoadIndicator document={state.document} nodeId={null} />
-      </DisclosureSection>
+      {sectionEntries.map((entry) => (
+        <div key={entry.id}>{entry.el}</div>
+      ))}
     </>
   );
 }

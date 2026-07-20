@@ -72,6 +72,32 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
     [computeTimeFromEvent, onSeek],
   );
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const step = e.shiftKey ? 500 : 100;
+      let newTime = currentTime;
+      switch (e.key) {
+        case 'ArrowLeft':
+          newTime = Math.max(0, currentTime - step);
+          break;
+        case 'ArrowRight':
+          newTime = Math.min(duration, currentTime + step);
+          break;
+        case 'Home':
+          newTime = 0;
+          break;
+        case 'End':
+          newTime = duration;
+          break;
+        default:
+          return;
+      }
+      e.preventDefault();
+      onSeek(newTime);
+    },
+    [currentTime, duration, onSeek],
+  );
+
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -138,6 +164,7 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
         className="timeline-ruler"
         onMouseDown={handleMouseDown}
         onDoubleClick={handleDoubleClick}
+        onKeyDown={handleKeyDown}
         role="slider"
         aria-label="Timeline ruler"
         aria-valuemin={0}

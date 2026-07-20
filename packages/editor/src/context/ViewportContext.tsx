@@ -8,10 +8,11 @@ import {
   type Viewport,
 } from '@strata/shared';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef } from 'react';
 import { editorScreenToWorld, editorWorldToScreen, getEditorViewport } from '../canvas/cameraState';
 import type { CanvasMode, EditorState } from './types';
 import { computeZoomStep, computeZoomTo } from './viewportOps';
+import { isReducedMotion, subscribeReducedMotion } from './reducedMotionManager';
 
 export interface ViewportContextValue {
   zoom: number;
@@ -66,6 +67,12 @@ export function ViewportProvider({
   panAnimationRef,
 }: ViewportProviderProps) {
   const animRef = panAnimationRef ?? { current: null };
+  const rmRef = useRef(isReducedMotion());
+
+  useEffect(() => {
+    const unsub = subscribeReducedMotion((v) => { rmRef.current = v; });
+    return unsub;
+  }, []);
 
   const patch = useCallback(
     (partial: Partial<EditorState>) => setState((s) => ({ ...s, ...partial })),
@@ -114,8 +121,14 @@ export function ViewportProvider({
     (targetZoom: number, durationMs = 200) => {
       const s = stateRef.current;
       if (animRef.current !== null) cancelAnimationFrame(animRef.current);
+      const clamped = clampZoom(targetZoom);
+      // Reduced motion: jump instantly, no animation.
+      if (rmRef.current) {
+        patch({ zoom: clamped });
+        return;
+      }
       const startCam = { zoom: s.zoom, pan: s.pan };
-      const endCam = { zoom: clampZoom(targetZoom), pan: s.pan };
+      const endCam = { zoom: clamped, pan: s.pan };
       const startTime = performance.now();
       const frame = () => {
         const elapsed = performance.now() - startTime;
@@ -136,6 +149,11 @@ export function ViewportProvider({
     (target: { x: number; y: number }, durationMs = 200) => {
       const s = stateRef.current;
       if (animRef.current !== null) cancelAnimationFrame(animRef.current);
+      // Reduced motion: jump instantly, no animation.
+      if (rmRef.current) {
+        patch({ pan: { x: target.x, y: target.y } });
+        return;
+      }
       const startCam = { zoom: s.zoom, pan: s.pan };
       const endCam = { zoom: s.zoom, pan: target };
       const startTime = performance.now();
