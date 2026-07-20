@@ -71,7 +71,7 @@ function makeAdjustmentNode(overrides: Partial<SceneNode> = {}): SceneNode {
 }
 
 function makeImageNode(overrides: Partial<SceneNode> = {}): SceneNode {
-  return makeNode({ kind: 'image', name: 'Image 1', ...overrides });
+  return makeNode({ kind: 'rasterLayer', name: 'Image 1', ...overrides });
 }
 
 function makeComponentFrame(): SceneNode {
@@ -102,7 +102,6 @@ describe('Section Registry', () => {
 
   it('has no duplicate order values', () => {
     const orders = SECTION_DEFINITIONS.map((d) => d.order);
-    const unique = new Set(orders);
     // Orders don't need to be unique (multiple sections can share),
     // but they should be in ascending order within each category
     expect(orders.length).toBeGreaterThan(0);
@@ -283,7 +282,9 @@ describe('Section availability predicates', () => {
   });
 
   it('getAvailableSections returns only matching sections', () => {
-    const ellipseNode = makeNode({ shape: { kind: 'ellipse', rx: 50, ry: 30 } });
+    const ellipseNode = makeNode({
+      shape: { kind: 'ellipse', rx: 50, ry: 30 },
+    } as unknown as SceneNode);
     const available = getAvailableSections(
       baseCtx({
         selectionKind: 'single',

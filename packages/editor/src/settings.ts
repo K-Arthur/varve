@@ -10,6 +10,11 @@
  */
 
 import type { ExportFormat, ExportScale, RenderingIntent } from '@strata/scene';
+import {
+  createDefaultSectionState,
+  migrateSectionState,
+  type SectionVisibilityState,
+} from './components/Inspector/sectionState';
 
 export interface ExportSettingsStore {
   defaultScale: ExportScale;
@@ -58,6 +63,14 @@ export interface ViewportSettingsStore {
   snapGrid: number;
 }
 
+/** Per-section collapse/hidden preferences for the Inspector panel. */
+export interface SectionSettingsStore {
+  /** Schema version for safe migration. */
+  version: number;
+  /** Per-section collapsed/hidden state. */
+  sections: SectionVisibilityState;
+}
+
 export interface EditorSettings {
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
@@ -65,6 +78,7 @@ export interface EditorSettings {
   render: RenderSettingsStore;
   startup: StartupSettingsStore;
   viewport: ViewportSettingsStore;
+  sections: SectionSettingsStore;
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -112,6 +126,11 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   snapGrid: 8,
 };
 
+export const DEFAULT_SECTION_SETTINGS: SectionSettingsStore = {
+  version: 1,
+  sections: createDefaultSectionState(),
+};
+
 /** Performance budget for the startup/loading experience. */
 export const STARTUP_PERFORMANCE_BUDGET = {
   /** Max additional time-to-interactive from branded loader (beyond init) — 50ms */
@@ -131,6 +150,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   render: { ...DEFAULT_RENDER_SETTINGS },
   startup: { ...DEFAULT_STARTUP_SETTINGS },
   viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
+  sections: { ...DEFAULT_SECTION_SETTINGS },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -154,6 +174,7 @@ export function loadSettings(): EditorSettings {
         render: { ...DEFAULT_RENDER_SETTINGS },
         startup: { ...DEFAULT_STARTUP_SETTINGS },
         viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
+        sections: { ...DEFAULT_SECTION_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const exportSettings = mergePartial(
@@ -179,6 +200,14 @@ export function loadSettings(): EditorSettings {
         DEFAULT_VIEWPORT_SETTINGS,
         parsed.viewport as Partial<ViewportSettingsStore>,
       ),
+      sections: {
+        version: 1,
+        sections: migrateSectionState(
+          (parsed.sections as Record<string, unknown> | undefined)?.sections as
+            | Record<string, unknown>
+            | undefined,
+        ),
+      },
     };
   } catch {
     return {
@@ -188,6 +217,7 @@ export function loadSettings(): EditorSettings {
       render: { ...DEFAULT_RENDER_SETTINGS },
       startup: { ...DEFAULT_STARTUP_SETTINGS },
       viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
+      sections: { ...DEFAULT_SECTION_SETTINGS },
     };
   }
 }
@@ -203,6 +233,7 @@ export interface EditorSettingsPatch {
   render?: Partial<RenderSettingsStore>;
   startup?: Partial<StartupSettingsStore>;
   viewport?: Partial<ViewportSettingsStore>;
+  sections?: Partial<SectionSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -214,6 +245,11 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
     render: { ...current.render, ...patch.render },
     startup: { ...current.startup, ...patch.startup },
     viewport: { ...current.viewport, ...patch.viewport },
+    sections: {
+      ...current.sections,
+      ...patch.sections,
+      sections: patch.sections?.sections ?? current.sections.sections,
+    },
   };
   saveSettings(next);
   return next;
@@ -227,6 +263,7 @@ export function resetSettings(): EditorSettings {
     render: { ...DEFAULT_RENDER_SETTINGS },
     startup: { ...DEFAULT_STARTUP_SETTINGS },
     viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
+    sections: { ...DEFAULT_SECTION_SETTINGS },
   };
   saveSettings(defaults);
   return defaults;
