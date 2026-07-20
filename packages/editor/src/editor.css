@@ -710,6 +710,9 @@
   outline: none;
 }
 /* Compact Select inside status bar — override the 44px default */
+.editor-status .strata-select {
+  width: auto;
+}
 .editor-status .strata-select__trigger {
   min-height: 22px;
   height: 22px;
@@ -719,7 +722,12 @@
   background: var(--color-surface-sunken);
   border: 1px solid var(--color-border-subtle);
   width: auto;
-  min-width: 3rem;
+  min-width: 2.5rem;
+  gap: var(--space-1);
+}
+.editor-status .strata-select__value {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
 }
 .editor-status__unit-select:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
