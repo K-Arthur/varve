@@ -55,7 +55,9 @@ export function SubjectPickerOverlay({
   const [previewModes, setPreviewModes] = useState<Map<number, ThumbnailPreviewMode>>(
     () => new Map(),
   );
-  const [localComponents, setLocalComponents] = useState<MaskComponent[]>(() => [...session.components]);
+  const [localComponents, setLocalComponents] = useState<MaskComponent[]>(() => [
+    ...session.components,
+  ]);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
@@ -118,8 +120,12 @@ export function SubjectPickerOverlay({
       .filter((c) => selectedIds.includes(c.id))
       .reduce(
         (acc, c) => ({
-          x: (acc.x * acc.pixelCount + c.centerOfMass.x * c.pixelCount) / (acc.pixelCount + c.pixelCount),
-          y: (acc.y * acc.pixelCount + c.centerOfMass.y * c.pixelCount) / (acc.pixelCount + c.pixelCount),
+          x:
+            (acc.x * acc.pixelCount + c.centerOfMass.x * c.pixelCount) /
+            (acc.pixelCount + c.pixelCount),
+          y:
+            (acc.y * acc.pixelCount + c.centerOfMass.y * c.pixelCount) /
+            (acc.pixelCount + c.pixelCount),
         }),
         { x: 0, y: 0, pixelCount: 0 },
       );
@@ -129,9 +135,10 @@ export function SubjectPickerOverlay({
       id: Math.max(...localComponents.map((c) => c.id)) + 1,
       pixelCount: mergedPixelCount,
       bbox: mergedBbox,
-      confidence: localComponents
-        .filter((c) => selectedIds.includes(c.id))
-        .reduce((sum, c) => sum + c.confidence * c.pixelCount, 0) / mergedPixelCount,
+      confidence:
+        localComponents
+          .filter((c) => selectedIds.includes(c.id))
+          .reduce((sum, c) => sum + c.confidence * c.pixelCount, 0) / mergedPixelCount,
       relativeArea: mergedPixelCount / (session.width * session.height),
       centerOfMass: { x: mergedCenterOfMass.x, y: mergedCenterOfMass.y },
       edgePixelCount: localComponents

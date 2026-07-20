@@ -388,6 +388,7 @@ export interface EditorContextValue {
   setSelectedFlipH: () => void;
   setSelectedFlipV: () => void;
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
+  setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => void;
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
