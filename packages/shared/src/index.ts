@@ -160,6 +160,64 @@ export {
   parseAsePalette,
   parseGplPalette,
 } from './paletteFormats';
+export type { PathSample } from './pathProjection';
+export {
+  findNearestKeyframeIndex,
+  projectPointOnPath,
+  projectPointOnPathWithKeyframes,
+  snapToFrame,
+  snapToKeyframe,
+} from './pathProjection';
+export {
+  deriveHeight,
+  deriveWidth,
+  ratioValue,
+  roundDimension,
+  simplifyRatio,
+  swapDimensions,
+  validateDimensions,
+} from './presetAspectRatio';
+export {
+  BLANK_DOCUMENT_PRESET,
+  BUILTIN_PRESET_GROUPS,
+  builtinCategories,
+  findBuiltinPreset,
+  flattenBuiltinPresets,
+} from './presetRegistry';
+export type {
+  AddCustomPresetResult,
+  CustomPreset,
+  PresetKVStore,
+  PresetLibraryMigration,
+  PresetLibraryState,
+  PresetMutationResult,
+} from './presetStore';
+export {
+  addCustomPreset,
+  CURRENT_PRESET_LIBRARY_SCHEMA_VERSION,
+  DEFAULT_PRESET_LIBRARY_STATE,
+  dedupeName,
+  deleteCustomPreset,
+  duplicateCustomPreset,
+  loadPresetLibrary,
+  PRESET_LIBRARY_MIGRATIONS,
+  recordRecent,
+  resetBuiltinDerivedState,
+  savePresetLibrary,
+  toggleFavorite,
+  updateCustomPreset,
+  validateCustomPreset,
+} from './presetStore';
+export type {
+  ColorMode,
+  Preset,
+  PresetAspectRatio,
+  PresetBleed,
+  PresetCategory,
+  PresetGroup,
+  PresetOrientation,
+  PresetSafeArea,
+} from './presetTypes';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
 export {
   boxDeltaMatrix,
@@ -201,7 +259,9 @@ export {
   formatValue,
   percentToPx,
   physicalToPx,
+  physicalToPxAtDpi,
   ptToPx,
+  pxAtDpiToPhysical,
   pxToPercent,
   pxToPhysical,
   pxToPt,
