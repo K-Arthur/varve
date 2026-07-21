@@ -137,6 +137,14 @@ export {
 } from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
+export type { DenoiseOptions, DenoiseResult } from './denoiseProviders';
+// ── Denoise (SCUNet) ─────────────────────────────────────────────────
+export { dispatchDenoise, nativeDenoiseProvider, workerDenoiseProvider } from './denoiseProviders';
+export type {
+  DenoiseProvider,
+  DenoiseTileRequest,
+  DenoiseTileResult,
+} from './denoiseProviders/types';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,

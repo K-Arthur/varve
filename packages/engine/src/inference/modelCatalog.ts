@@ -159,13 +159,13 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'scunet',
     name: 'SCUNet Denoise',
     description:
-      'Real-world blind image denoising (SCUNet PSNR variant). Removes sensor noise, JPEG artifacts, and grain while preserving detail. Trained purely on synthetic data — generalizes to real photos. Supports arbitrary dimensions (H,W divisible by 8).',
-    sizeBytes: 70_000_000,
+      'Real-world blind image denoising (SCUNet PSNR variant). Removes sensor noise, JPEG artifacts, and grain while preserving detail. Fully convolutional (H,W divisible by 8), identity normalization (pixel/255). Verified end-to-end.',
+    sizeBytes: 76_936_854,
     remoteUrl:
       'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
     remoteDataUrl:
       'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data',
-    checksum: '',
+    checksum: '231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -175,6 +175,24 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     gpuRecommended: false,
     source: 'Heliosoph/scunet-onnx',
     sourceLicense: 'Apache-2.0',
+    components: [
+      {
+        id: 'scunet-graph',
+        role: 'graph',
+        filename: 'scunet_color_real_psnr.onnx',
+        sizeBytes: 3_798_678,
+        remoteUrl:
+          'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
+      },
+      {
+        id: 'scunet-weights',
+        role: 'weights',
+        filename: 'scunet_color_real_psnr.onnx.data',
+        sizeBytes: 73_138_176,
+        remoteUrl:
+          'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data',
+      },
+    ],
   },
   {
     id: 'sam2-hiera-tiny',

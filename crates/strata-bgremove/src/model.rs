@@ -64,6 +64,36 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
         remote_url: "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx".to_owned(),
         checksum_sha256: None,
     },
+    ModelInfo {
+        id: "scunet".to_owned(),
+        name: "SCUNet Denoise".to_owned(),
+        description: "77 MB — real-world blind image denoising (graph + external weights)".to_owned(),
+        size_bytes: 76_936_854,
+        remote_url: "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx".to_owned(),
+        checksum_sha256: Some(
+            "231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c".into(),
+        ),
+    },
+    ModelInfo {
+        id: "paddleocr-det-v4".to_owned(),
+        name: "PaddleOCR v4 Detection".to_owned(),
+        description: "4.7 MB — text region detection (DBNet++)".to_owned(),
+        size_bytes: 4_745_517,
+        remote_url: "https://huggingface.co/deepghs/paddleocr/resolve/main/det/ch_PP-OCRv4_det/model.onnx".to_owned(),
+        checksum_sha256: Some(
+            "30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff".into(),
+        ),
+    },
+    ModelInfo {
+        id: "paddleocr-rec-v4".to_owned(),
+        name: "PaddleOCR v4 Recognition".to_owned(),
+        description: "10.8 MB — text recognition (CRNN), 6624 chars + CTC blank".to_owned(),
+        size_bytes: 10_826_336,
+        remote_url: "https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/model.onnx".to_owned(),
+        checksum_sha256: Some(
+            "1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b".into(),
+        ),
+    },
     ]
 });
 
