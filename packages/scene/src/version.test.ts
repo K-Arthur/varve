@@ -14,8 +14,8 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.3');
-    expect(SUPPORTED_VERSIONS).toContain('2.2');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.4');
+    expect(SUPPORTED_VERSIONS).toContain('2.3');
   });
   it('stamps current version on new documents', () => {
     const doc = stampVersion({
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.3');
+    expect(migrated.formatVersion).toBe('2.4');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.3');
+    expect(migrated.formatVersion).toBe('2.4');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.3');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.4');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -290,6 +290,36 @@ describe('Document Migration', () => {
     const doc = result!;
     expect(doc.id).toBe('d1');
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
+  });
+
+  it('migrates v2.3 → v2.4: adds bitDepth and workingSpace to colorConfig', () => {
+    const raw = {
+      formatVersion: '2.3',
+      colorConfig: {
+        mode: 'cmyk',
+        rgbProfile: { id: 'srgb', name: 'sRGB' },
+        cmykProfile: { id: 'fogra39', name: 'Fogra39' },
+        blackGeneration: { mode: 'standard', overprintBlack: false },
+      },
+    };
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    const config = (result as Record<string, unknown>).colorConfig as Record<string, unknown>;
+    expect(config.bitDepth).toBe('uint8');
+    expect(config.workingSpace).toBe('srgb');
+    // Existing fields preserved
+    expect(config.mode).toBe('cmyk');
+    expect((config.cmykProfile as Record<string, unknown>).id).toBe('fogra39');
+  });
+
+  it('migrates v2.3 → v2.4: stamps version when no colorConfig exists', () => {
+    const raw = {
+      formatVersion: '2.3',
+      nodes: {},
+    };
+    const result = migrateDocument(raw);
+    expect(result).not.toBeNull();
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.4');
   });
 
   it('migrates an unversioned document (pre-1.0)', () => {
@@ -504,7 +534,11 @@ describe('Detailed Migration', () => {
     expect(result).not.toBeNull();
     const doc = result!;
     expect(doc.formatVersion).toBe(CURRENT_DOCUMENT_VERSION);
-    expect(doc.colorConfig).toEqual({ mode: 'cmyk' });
+    expect(doc.colorConfig).toEqual({
+      bitDepth: 'uint8',
+      workingSpace: 'srgb',
+      mode: 'cmyk',
+    });
     expect(doc.bleed).toEqual({ top: 3, right: 3, bottom: 3, left: 3, linked: true, unit: 'mm' });
   });
 

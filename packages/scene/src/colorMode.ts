@@ -94,6 +94,8 @@ function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode):
   // defaultColorConfig() only branches on 'cmyk' vs everything else, so it
   // can't be trusted to set .mode to 'grayscale'; set it explicitly here.
   if (!config) return { ...defaultColorConfig(newMode), mode: newMode };
+  // Preserve bitDepth and workingSpace — color mode switch is not a
+  // precision or blending change.
   return { ...config, mode: newMode };
 }
 

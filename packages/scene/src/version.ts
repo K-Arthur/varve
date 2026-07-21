@@ -1,4 +1,4 @@
-export const CURRENT_DOCUMENT_VERSION = '2.3';
+export const CURRENT_DOCUMENT_VERSION = '2.4';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -16,6 +16,7 @@ export const SUPPORTED_VERSIONS = [
   '2.1',
   '2.2',
   '2.3',
+  '2.4',
 ];
 
 export interface DocumentMigration {
@@ -328,6 +329,28 @@ const migrations: DocumentMigration[] = [
         formatVersion: '2.3',
         nodes: migrated,
       };
+    },
+  },
+  {
+    from: '2.3',
+    to: '2.4',
+    migrate: (raw) => {
+      // Add bitDepth and workingSpace to colorConfig if present.
+      // Colors themselves gain an optional bitDepth field with default
+      // 'uint8' at read time — no per-color migration needed (lossless).
+      const config = raw.colorConfig as Record<string, unknown> | undefined;
+      if (config && typeof config === 'object') {
+        return {
+          ...raw,
+          formatVersion: '2.4',
+          colorConfig: {
+            bitDepth: 'uint8',
+            workingSpace: 'srgb',
+            ...config,
+          },
+        };
+      }
+      return { ...raw, formatVersion: '2.4' };
     },
   },
 ];
