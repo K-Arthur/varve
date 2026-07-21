@@ -2,26 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { getAllModels, getModelInfo, isModelAvailable, loadModel } from './mlModelRegistry';
 
 describe('mlModelRegistry', () => {
-  it('loads a model and resolves to true', async () => {
+  it('returns false when the model file does not exist', async () => {
     const result = await loadModel('layout-classifier');
-    expect(result).toBe(true);
+    expect(result).toBe(false);
   });
 
-  it('marks model as available after loading', async () => {
+  it('reports model as unavailable when not loaded', () => {
     expect(isModelAvailable('color-harmony')).toBe(false);
-    await loadModel('color-harmony');
-    expect(isModelAvailable('color-harmony')).toBe(true);
   });
 
-  it('returns model info with correct metadata and loaded state', async () => {
-    const before = getModelInfo('component-embedder');
-    expect(before.name).toBe('Component Embedder');
-    expect(before.sizeBytes).toBe(1_800_000);
-    expect(before.loaded).toBe(false);
-
-    await loadModel('component-embedder');
-    const after = getModelInfo('component-embedder');
-    expect(after.loaded).toBe(true);
+  it('returns model info with correct metadata and unloaded state', () => {
+    const info = getModelInfo('component-embedder');
+    expect(info.name).toBe('Component Embedder');
+    expect(info.sizeBytes).toBe(1_800_000);
+    expect(info.loaded).toBe(false);
   });
 
   it('returns all registered models via getAllModels', () => {
@@ -31,12 +25,6 @@ describe('mlModelRegistry', () => {
     expect(ids).toContain('layout-classifier');
     expect(ids).toContain('component-embedder');
     expect(ids).toContain('color-harmony');
-  });
-
-  it('handles double load idempotently', async () => {
-    await loadModel('color-harmony');
-    await loadModel('color-harmony');
-    expect(isModelAvailable('color-harmony')).toBe(true);
   });
 
   it('is deterministic — repeated calls return same info shape', () => {

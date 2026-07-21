@@ -11,6 +11,8 @@
 import {
   autoFixContrast,
   contrastRatio,
+  isLargeText,
+  managedColorToRgba,
   relativeLuminance,
   WCAG_AA_LARGE,
   WCAG_AA_NORMAL,
@@ -53,8 +55,10 @@ interface RgbTuple {
 function resolveRgbFill(node: SceneNode): RgbTuple | null {
   const solidFromFills = node.fills?.find((f) => f.type === 'solid' && f.visible !== false)?.color;
   const color = solidFromFills ?? ('fill' in node ? node.fill : undefined);
-  if (!color || color.space !== 'rgb') return null;
-  return { r: color.r, g: color.g, b: color.b };
+  if (!color) return null;
+  const [r, g, b, a] = managedColorToRgba(color);
+  if (a < 1) return null;
+  return { r, g, b };
 }
 
 /** Walks up from a node to find the nearest ancestor with a resolvable solid background. */
@@ -68,12 +72,6 @@ function resolveBackground(doc: Document, nodeId: NodeId): RgbTuple | null {
     currentId = getParent(doc, currentId);
   }
   return null;
-}
-
-/** True when the given font size/weight qualifies for WCAG's "large text" thresholds. */
-function isLargeText(fontSize: number, fontWeight?: number): boolean {
-  const pt = fontSize * 0.75; // px -> pt at 96dpi, matching WCAG's point-size thresholds
-  return pt >= 18 || (pt >= 14 && (fontWeight ?? 400) >= 700);
 }
 
 /**

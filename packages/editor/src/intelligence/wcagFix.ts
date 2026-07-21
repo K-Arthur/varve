@@ -2,6 +2,7 @@ import type { Fill, GradientStop, ManagedColor } from '@strata/scene';
 import {
   autoFixContrast,
   contrastRatio,
+  isLargeText,
   managedColorToRgba,
   relativeLuminance,
   wcagLevel,
@@ -13,11 +14,6 @@ export interface ContrastResult {
   level: 'AAA' | 'AA' | 'FAIL';
   warning?: string;
   autoFix?: () => ManagedColor;
-}
-
-function isLargeText(fontSize?: number, fontWeight?: number): boolean {
-  if (fontSize == null) return false;
-  return fontSize >= 24 || (fontSize >= 18.67 && (fontWeight ?? 400) >= 700);
 }
 
 function rgbaFromManaged(c: ManagedColor): [number, number, number, number] {
@@ -54,7 +50,7 @@ export function checkContrast(
   const fgLum = relativeLuminance(fr, fg_, fb);
   const bgLum = relativeLuminance(br, bg_, bb);
   const ratio = contrastRatio(fgLum, bgLum);
-  const large = isLargeText(options?.fontSize, options?.fontWeight);
+  const large = options?.fontSize != null && isLargeText(options.fontSize, options.fontWeight);
   const level = wcagLevel(ratio, large);
 
   const passes = level !== 'FAIL';
