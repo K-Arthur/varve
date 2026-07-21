@@ -61,31 +61,30 @@ export interface ModelManifestEntry {
   sourceModelId?: string;
   /** SHA-256 of the FP32 source at quantization time. */
   sourceSha256?: string;
+  /** Upstream model repository (e.g. "author/repo"). */
+  source?: string;
+  /** Upstream model license identifier. */
+  sourceLicense?: string;
   /** Model category — segmentation, upscaling, denoising, etc. */
   category?: string;
   /** Local path to the model file (relative to public/). */
   localPath?: string;
   /** INT8 quality validation results (set for bundled INT8 variants). */
   qualityValidation?: QualityValidation;
-  /** Companion .onnx.data file for models whose weights are split from the graph. */
+  /** Separate .onnx.data file URL for models with external weights (>2GB). */
   remoteDataUrl?: string;
-  /** Attribution string for the model's origin (e.g. "org/repo-name"). */
-  source?: string;
-  /** SPDX license identifier for the model weights. */
-  sourceLicense?: string;
-  /** True when this entry is a virtual grouping of several download components
-   * (e.g. SAM2's separate encoder + decoder graphs) rather than a single file. */
+  /** Whether this model is a multi-graph pipeline (e.g. encoder + decoder). */
   multiComponent?: boolean;
-  /** The individual downloadable parts of a multiComponent entry. Each id is
-   * itself a real catalog entry — this list exists so the download UI can
-   * treat all parts as one unit instead of showing them as separate models. */
-  components?: Array<{
-    id: string;
-    role: string;
-    filename: string;
-    sizeBytes: number;
-    remoteUrl: string;
-  }>;
+  /** Per-graph component specs for multiComponent models. */
+  components?: ModelComponentEntry[];
+}
+
+export interface ModelComponentEntry {
+  id: string;
+  role: string;
+  filename: string;
+  sizeBytes: number;
+  remoteUrl?: string;
 }
 
 export type ModelState = 'unavailable' | 'downloading' | 'ready' | 'error';

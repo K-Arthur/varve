@@ -126,7 +126,7 @@ interface SpotColorRefShim {
   processFallback?: { c: number; m: number; y: number; k: number };
 }
 
-type ManagedColorShim = RgbColorShim | CmykColorShim | GrayColorShim | SpotColorRefShim;
+export type ManagedColorShim = RgbColorShim | CmykColorShim | GrayColorShim | SpotColorRefShim;
 
 /** Engine RGBA tuple (0-255 per channel). */
 type ColorShim = readonly [number, number, number, number];

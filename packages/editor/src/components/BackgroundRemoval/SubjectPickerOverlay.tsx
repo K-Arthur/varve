@@ -169,7 +169,6 @@ export function SubjectPickerOverlay({
     <dialog
       ref={dialogRef}
       className="subject-picker-dialog"
-      role="dialog"
       aria-modal="true"
       aria-label="Select subjects to keep"
       onClose={onCancel}
@@ -203,13 +202,7 @@ export function SubjectPickerOverlay({
           </span>
         </div>
 
-        <ul
-          ref={listRef}
-          className="subject-picker-grid"
-          role="listbox"
-          aria-label="Detected subjects"
-          onKeyDown={handleKeyDown}
-        >
+        <ul ref={listRef} className="subject-picker-grid" aria-label="Detected subjects">
           {sortedComponents.map((c, _i) => (
             <SubjectCard
               key={c.id}

@@ -6,8 +6,6 @@
  * `directOnnxProvider.ts` so that any model — not just bg-removal —
  * reuses the same session-caching and provider-selection code.
  */
-import type { InferenceProvider, InferenceRequest, InferenceResult } from './types';
-
 /** Lightweight abstraction over a loaded ONNX session. */
 export interface ManagedSession {
   modelId: string;

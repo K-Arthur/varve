@@ -135,7 +135,7 @@ function applyClosedFormMatting(
     edgeBandOnly: boolean;
   },
 ): Uint8Array {
-  const { laplacianEpsilon, iterations, lambda, edgeBandOnly } = opts;
+  const { iterations, lambda, edgeBandOnly } = opts;
 
   const n = w * h;
   const result = new Float32Array(mask);
