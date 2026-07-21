@@ -9,9 +9,9 @@
  * Research basis: Adobe Photoshop File Format Specification (PSB 6.0),
  * @webtoon/psd 0.4.0 API.
  */
-import Psd from '@webtoon/psd';
-import type { Group as PsdGroup, Layer as PsdLayer } from '@webtoon/psd';
+
 import type { Affine } from '@strata/engine';
+import type { Document, MaskType, SceneNode } from '@strata/scene';
 import {
   addMask,
   addNode,
@@ -21,7 +21,8 @@ import {
   makeShapeNode,
   nextNodeId,
 } from '@strata/scene';
-import type { Document, Mask, MaskType, RasterMaskAsset, SceneNode } from '@strata/scene';
+import type { Group as PsdGroup, Layer as PsdLayer } from '@webtoon/psd';
+import Psd from '@webtoon/psd';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
 export function createPsdParser(): ImportParser {
