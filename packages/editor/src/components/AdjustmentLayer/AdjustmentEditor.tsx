@@ -1387,6 +1387,22 @@ function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           aria-label="Preserve luminosity"
         />
       </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Interpolation</span>
+        <Select
+          label="Interpolation method"
+          value={adj.interpolation ?? 'smoothstep'}
+          options={[
+            { value: 'smoothstep', label: 'Smooth' },
+            { value: 'linear', label: 'Linear' },
+          ]}
+          onChange={(v) =>
+            onChange({
+              interpolation: v as 'smoothstep' | 'linear',
+            } as unknown as Partial<Adjustment>)
+          }
+        />
+      </div>
     </div>
   );
 }
