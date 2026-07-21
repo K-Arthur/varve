@@ -106,6 +106,22 @@ export {
   applyColorHalftone,
   COLOR_HALFTONE_PRESETS,
 } from './colorHalftone';
+export { combineLabToImageData } from './colorization/colorSpace';
+export { harmonize } from './colorization/harmonize';
+export { colorizationPipeline, paletteColorize } from './colorization/pipeline';
+export { selectiveRecolor } from './colorization/recolor';
+export { DD_COLOR_MODELS, resolveRuntime } from './colorization/runtimeResolver';
+export { analyzeImageData, classifyTask } from './colorization/taskClassifier';
+export { colorTransferLab } from './colorization/transfer';
+export type {
+  ColorizationParams,
+  ColorizationProgress,
+  ColorizationResult,
+  ColorizationWorkflow,
+  QualityMode,
+  RuntimeResolution,
+  TaskClassification,
+} from './colorization/types';
 export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
 export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
 export {
@@ -281,8 +297,8 @@ export type {
   WorkerInferRequest,
   WorkerInferResult,
   WorkerModelType,
-  WorkerTensor,
 } from './inference/inferenceWorker';
+export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
 export type {
   FontCandidate,
@@ -534,6 +550,17 @@ export {
 } from './upscaleProviders/traceDispatch';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
+export type {
+  VideoEncodeCapabilities,
+  VideoEncodeOptions,
+  VideoEncodeResult,
+  VideoEncoderProvider,
+  VideoFrameSource,
+} from './videoEncoder';
+export {
+  detectVideoCapabilities,
+  encodeVideo,
+} from './videoEncoder';
 export type {
   VideoExportOptions,
   VideoExportResult,
