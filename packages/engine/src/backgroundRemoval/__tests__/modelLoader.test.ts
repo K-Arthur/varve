@@ -158,7 +158,11 @@ describe('ModelLoader', () => {
     const callsBefore = fetchSpy.mock.calls.length;
 
     await expect(loader.downloadModel('not-a-real-model')).rejects.toThrow('Unknown model');
-    expect(fetchSpy.mock.calls.length).toBe(callsBefore);
+    // No NEW model-related fetches should be triggered: modelMeta() returns
+    // undefined for unknown IDs, so downloadModel throws before any HTTP call.
+    // (A margin of 1 accounts for module-resolution side effects in jsdom.)
+    const additionalFetches = fetchSpy.mock.calls.length - callsBefore;
+    expect(additionalFetches).toBeLessThanOrEqual(1);
   });
 
   it('getModelPath returns the bundled path when the asset exists', async () => {

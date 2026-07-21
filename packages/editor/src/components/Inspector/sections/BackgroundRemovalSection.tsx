@@ -571,7 +571,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
             <p className="insp-hint" role="status">
               Requested {previewSession.requestedMethod}; generated {previewSession.actualMethod}
               {previewSession.modelId ? ` with ${previewSession.modelId}` : ''}
+              {previewSession.modelPrecision
+                ? ` (${previewSession.modelPrecision.toUpperCase()})`
+                : ''}
               {previewSession.executionProvider ? ` on ${previewSession.executionProvider}` : ''}.
+              {previewSession.precisionFallback && previewSession.precisionFallbackReason
+                ? ` ${previewSession.precisionFallbackReason}`
+                : ''}{' '}
               Nothing has been added to the document yet.
             </p>
             <div className="insp-field">
