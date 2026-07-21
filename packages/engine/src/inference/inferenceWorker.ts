@@ -11,10 +11,17 @@
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor } from './imageTensor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
+import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
 import type { Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 
-export type WorkerModelType = 'sam2' | 'sam2-encoder' | 'sam2-decoder' | 'scunet' | 'depth';
+export type WorkerModelType =
+  | 'sam2'
+  | 'sam2-encoder'
+  | 'sam2-decoder'
+  | 'scunet'
+  | 'depth'
+  | 'lineart';
 
 export interface WorkerTensor {
   data: Float32Array;
@@ -131,6 +138,12 @@ registerModelType('scunet', {
     paddingRgb: [0, 0, 0],
   },
   getInputSize: () => 0,
+  hasImageInput: true,
+});
+
+registerModelType('lineart', {
+  tensorSpec: LINE_ART_TENSOR_SPEC,
+  getInputSize: () => LINE_ART_INPUT_SIZE,
   hasImageInput: true,
 });
 
