@@ -3,6 +3,51 @@ export const DEFAULT_PREVIEW_MAX_DIMENSION = 2048;
 
 export type RemovalMethod = 'quick' | 'ai-balanced' | 'ai-quality';
 
+/** User-facing precision preference for AI inference.
+ *  Controls whether INT8 quantized model variants are preferred over FP32.
+ *  'automatic' — conservative default, returns FP32 always
+ *  'performance' — prefers INT8, but only if runtime benchmark shows INT8 is faster on this CPU
+ *  'quality' — always FP32
+ */
+export type InferenceQualityPreference = 'automatic' | 'performance' | 'quality';
+export const DEFAULT_QUALITY_PREFERENCE: InferenceQualityPreference = 'automatic';
+
+/** Model IDs that have INT8 quantized variants bundled with the app. */
+export const INT8_MODEL_IDS = new Set<string>(['u2netp-int8']);
+
+/** Return the INT8 variant ID for a given FP32 model, or null if none exists. */
+export function int8VariantId(modelId: WorkerModelId): WorkerModelId | null {
+  switch (modelId) {
+    case 'u2netp':
+      return 'u2netp-int8';
+    default:
+      return null;
+  }
+}
+
+/** Return the FP32 source ID for a given model (identity for non-INT8 variants). */
+export function fp32SourceId(modelId: WorkerModelId): WorkerModelId {
+  if (modelId === 'u2netp-int8') return 'u2netp';
+  return modelId;
+}
+
+/** Resolve a model ID given a removal method and quality preference.
+ *  Returns null for 'quick' mode (no model).
+ */
+export function resolveModelIdForPreference(
+  method: RemovalMethod,
+  preference: InferenceQualityPreference,
+): WorkerModelId | null {
+  const baseId = workerModelIdForMethod(method);
+  if (!baseId) return null;
+  if (preference === 'quality') return baseId;
+  const int8Id = int8VariantId(baseId);
+  if (!int8Id) return baseId;
+  if (preference === 'performance') return int8Id;
+  // 'automatic': use FP32 for the bundled model (conservative default).
+  return baseId;
+}
+
 export type ModelState = 'unavailable' | 'downloading' | 'ready' | 'error';
 
 export type HeuristicMethod = 'floodFill' | 'chromaKey' | 'kMeans' | 'edgeDetect' | 'auto';
@@ -16,6 +61,8 @@ export interface BackgroundRemovalOptions {
   decontaminate?: boolean;
   clickPoint?: { x: number; y: number };
   previewMaxDimension?: number;
+  /** Precision preference for AI model selection. Controls FP32 vs INT8 variant. */
+  qualityPreference?: InferenceQualityPreference;
 }
 
 export interface BackgroundRemovalResult {
@@ -29,6 +76,12 @@ export interface BackgroundRemovalResult {
   executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
   /** ONNX model that produced this result (absent for Quick/cloud providers). */
   modelId?: WorkerModelId;
+  /** Precision of the model that produced this result (FP32 or INT8). */
+  modelPrecision?: 'fp32' | 'int8';
+  /** True when INT8 was attempted but fell back to FP32. */
+  precisionFallback?: boolean;
+  /** Human-readable reason for precision fallback. */
+  precisionFallbackReason?: string;
   /** Raw single-channel mask data at the result's width/height (0-255).
    *  Set by providers alongside maskDataUrl to avoid redundant PNG decode
    *  during source-resolution reconstruction. */
@@ -63,6 +116,7 @@ export interface ModelMetadata {
 /** ONNX model ids used by the Web Worker inference path. */
 export type WorkerModelId =
   | 'u2netp'
+  | 'u2netp-int8'
   | 'isnet-general-use'
   | 'birefnet-general-lite'
   | 'birefnet-general';

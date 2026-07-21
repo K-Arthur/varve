@@ -1,0 +1,51 @@
+{
+  "model_id": "realesr-general-x4v3",
+  "input_size": 64,
+  "iterations": 20,
+  "ort_version": "1.27.0",
+  "providers": ["AzureExecutionProvider", "CPUExecutionProvider"],
+  "results": [
+    {
+      "model_id": "realesr-general-x4v3",
+      "precision": "fp32",
+      "model_path": "apps/desktop/public/models/realesr-general-x4v3.onnx",
+      "model_size_bytes": 4866438,
+      "input_size": 64,
+      "iterations": 20,
+      "cold_start_ms": 239.29959401721135,
+      "warm_start_ms": 128.9410030003637,
+      "steady_state_p50_ms": 125.0649214925943,
+      "steady_state_p95_ms": 159.70722794008907,
+      "steady_state_p99_ms": 160.55622319399845,
+      "steady_state_mean_ms": 132.5858574025915,
+      "steady_state_stdev_ms": 17.352735105869687,
+      "steady_state_min_ms": 112.78380401199684,
+      "steady_state_max_ms": 160.7684720074758,
+      "throughput_fps": 7.542282560073818,
+      "session_creation_ms": 0.0
+    },
+    {
+      "model_id": "realesr-general-x4v3-int8",
+      "precision": "int8",
+      "model_path": "apps/desktop/public/models/quantized/realesr-general-x4v3-int8.onnx",
+      "model_size_bytes": 1283015,
+      "input_size": 64,
+      "iterations": 20,
+      "cold_start_ms": 757.9508149938192,
+      "warm_start_ms": 702.2424770111684,
+      "steady_state_p50_ms": 835.6996039947262,
+      "steady_state_p95_ms": 1139.656648246455,
+      "steady_state_p99_ms": 1237.2365176625315,
+      "steady_state_mean_ms": 833.6630818492267,
+      "steady_state_stdev_ms": 165.57694089939307,
+      "steady_state_min_ms": 639.1553409921471,
+      "steady_state_max_ms": 1261.6314850165509,
+      "throughput_fps": 1.199525349955291,
+      "session_creation_ms": 0.0
+    }
+  ],
+  "speedup_mean": 0.15904009699996585,
+  "speedup_p50": 0.149652962493666,
+  "winner": "fp32",
+  "generation_timestamp": "2026-07-21T07:38:56Z"
+}

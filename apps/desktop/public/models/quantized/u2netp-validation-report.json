@@ -1,0 +1,61 @@
+{
+  "model_id": "u2netp",
+  "fp32_model_path": "apps/desktop/public/models/u2netp.onnx",
+  "int8_model_path": "apps/desktop/public/models/quantized/u2netp-int8.onnx",
+  "ort_version": "1.27.0",
+  "thresholds": {
+    "max_mae": 0.05,
+    "min_psnr_db": 25.0,
+    "max_correlation_loss": 0.03,
+    "max_nan_fraction": 0.0,
+    "max_output_range_violation": 0.01,
+    "min_nonzero_fraction_match": 0.95
+  },
+  "metrics": [
+    {
+      "input_name": "synthetic_portrait",
+      "iou": 0.0,
+      "mae": 0.41767337918281555,
+      "psnr_db": 3.816399574279785,
+      "pearson_r": -0.0034370656813232925,
+      "correlation_loss": 1.0034370656813234,
+      "nan_fraction": 0.0,
+      "inf_fraction": 0.0,
+      "output_range_violation": 0.0,
+      "fp32_output_mean": 0.4176732897758484,
+      "int8_output_mean": 1.0552350460102389e-7,
+      "fp32_latency_ms": 1369.0746560168918,
+      "int8_latency_ms": 8864.404514984926,
+      "speedup": 0.15444631996458702,
+      "passed": false,
+      "failure_reasons": [
+        "MAE 0.4177 > 0.05",
+        "PSNR 3.8dB < 25.0",
+        "Correlation loss 1.0034 > 0.03"
+      ]
+    },
+    {
+      "input_name": "synthetic_random_123",
+      "iou": 0.0,
+      "mae": 0.000531475234311074,
+      "psnr_db": 57.94371032714844,
+      "pearson_r": 0.0013513639081482779,
+      "correlation_loss": 0.9986486360918517,
+      "nan_fraction": 0.0,
+      "inf_fraction": 0.0,
+      "output_range_violation": 0.0,
+      "fp32_output_mean": 0.0005314052104949951,
+      "int8_output_mean": 1.1179567138697166e-7,
+      "fp32_latency_ms": 1802.0869300235063,
+      "int8_latency_ms": 6895.669844991062,
+      "speedup": 0.2613360225377557,
+      "passed": false,
+      "failure_reasons": ["Correlation loss 0.9986 > 0.03"]
+    }
+  ],
+  "overall_passed": false,
+  "mean_mae": 0.2091024272085633,
+  "mean_psnr_db": 30.88005495071411,
+  "mean_speedup": 0.20789117125117135,
+  "generation_timestamp": "2026-07-21T06:49:48Z"
+}

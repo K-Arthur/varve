@@ -2580,8 +2580,8 @@
 
 /* ── Timeline playback button active state ─────────────── */
 .timeline-playback-btn--active {
-  color: var(--color-accent-primary) !important;
-  background: var(--color-interactive-hover) !important;
+  color: var(--color-accent-primary);
+  background: var(--color-interactive-hover);
 }
 
 /* ── Timeline panel enhanced ───────────────────────────── */

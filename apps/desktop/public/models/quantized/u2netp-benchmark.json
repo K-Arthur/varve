@@ -1,0 +1,51 @@
+{
+  "model_id": "u2netp",
+  "input_size": 320,
+  "iterations": 20,
+  "ort_version": "1.27.0",
+  "providers": ["AzureExecutionProvider", "CPUExecutionProvider"],
+  "results": [
+    {
+      "model_id": "u2netp",
+      "precision": "fp32",
+      "model_path": "apps/desktop/public/models/u2netp.onnx",
+      "model_size_bytes": 4574861,
+      "input_size": 320,
+      "iterations": 20,
+      "cold_start_ms": 790.0739430042449,
+      "warm_start_ms": 567.2400079783984,
+      "steady_state_p50_ms": 509.92780648812186,
+      "steady_state_p95_ms": 613.601257649134,
+      "steady_state_p99_ms": 773.0037739215184,
+      "steady_state_mean_ms": 533.4083227004157,
+      "steady_state_stdev_ms": 73.69223276595969,
+      "steady_state_min_ms": 478.01725802128203,
+      "steady_state_max_ms": 812.8544029896148,
+      "throughput_fps": 1.8747364025694844,
+      "session_creation_ms": 0.0
+    },
+    {
+      "model_id": "u2netp-int8",
+      "precision": "int8",
+      "model_path": "apps/desktop/public/models/quantized/u2netp-int8.onnx",
+      "model_size_bytes": 1321716,
+      "input_size": 320,
+      "iterations": 20,
+      "cold_start_ms": 3531.8044039886445,
+      "warm_start_ms": 3706.432601000415,
+      "steady_state_p50_ms": 3207.39655799116,
+      "steady_state_p95_ms": 4066.5105368490917,
+      "steady_state_p99_ms": 4529.322931361675,
+      "steady_state_mean_ms": 3323.0371027457295,
+      "steady_state_stdev_ms": 470.0089003527087,
+      "steady_state_min_ms": 2739.67346601421,
+      "steady_state_max_ms": 4645.026029989822,
+      "throughput_fps": 0.30092953195549005,
+      "session_creation_ms": 0.0
+    }
+  ],
+  "speedup_mean": 0.1605183168913991,
+  "speedup_p50": 0.15898495782121097,
+  "winner": "fp32",
+  "generation_timestamp": "2026-07-21T07:37:15Z"
+}

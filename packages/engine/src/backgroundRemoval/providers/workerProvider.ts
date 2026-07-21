@@ -24,7 +24,12 @@ export const workerRemovalProvider: RemovalProvider = {
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    const resolved = await resolveWebModel(options.method, loader, signal);
+    const resolved = await resolveWebModel(
+      options.method,
+      loader,
+      options.qualityPreference,
+      signal,
+    );
     if (!resolved) throw new Error(`No installed worker model for method: ${options.method}`);
     return runPooledInference(imageData, options, resolved.modelPath, resolved.modelId, signal);
   },
