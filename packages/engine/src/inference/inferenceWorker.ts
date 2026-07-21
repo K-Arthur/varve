@@ -20,6 +20,7 @@ import { EFFICIENTNET_INPUT_SIZE, EFFICIENTNET_TENSOR_SPEC } from './models/effi
 import { LAMA_INPUT_SIZE, LAMA_TENSOR_SPEC } from './models/lama';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
 import { PADDLE_DET_TENSOR_SPEC } from './models/paddleocr';
+import { PADDLE_REC_TENSOR_SPEC } from './models/paddlerec';
 import { RIFE_INPUT_SIZE, RIFE_TENSOR_SPEC } from './models/rife';
 import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
@@ -39,6 +40,7 @@ export type WorkerModelType =
   | 'detr'
   | 'efficientnet'
   | 'paddleocr-det'
+  | 'paddleocr-rec'
   | 'siglip-image';
 
 export interface WorkerTensor {
@@ -247,6 +249,16 @@ registerModelType('paddleocr-det', {
   tensorSpec: PADDLE_DET_TENSOR_SPEC,
   getInputSize: () => 0,
   hasImageInput: true,
+});
+
+registerModelType('paddleocr-rec', {
+  tensorSpec: PADDLE_REC_TENSOR_SPEC,
+  // Fixed height (48), dynamic width — fed as a pre-packed float tensor
+  // via the `tensors` seam (input name `x`) because the expected
+  // normalization (mean/std=0.5) differs from the worker's default
+  // /255 identity pack. The client preprocesses to NCHW+H=48 itself.
+  getInputSize: () => 0,
+  hasImageInput: false,
 });
 
 registerModelType('siglip-image', {
