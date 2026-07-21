@@ -1547,6 +1547,71 @@
   border-color: var(--color-interactive-default);
 }
 
+/* ---------- Rich text span editor ---------- */
+.rich-span-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rich-span-editor__box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  cursor: text;
+  outline: none;
+}
+
+.rich-span-editor__box:focus-visible {
+  border-color: var(--color-interactive-default);
+}
+
+.rich-span-editor__run {
+  display: inline;
+  white-space: pre-wrap;
+  unicode-bidi: isolate;
+}
+
+.rich-span-editor__toolbar {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.rich-span-editor__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-default);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+
+.rich-span-editor__btn:hover {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+}
+
+.rich-span-editor__btn:focus-visible {
+  outline: 2px solid var(--color-interactive-default);
+  outline-offset: 1px;
+}
+
 /* ---------- OpenType feature list ---------- */
 .insp-opentype-list {
   display: flex;

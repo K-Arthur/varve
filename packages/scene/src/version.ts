@@ -1,4 +1,4 @@
-export const CURRENT_DOCUMENT_VERSION = '2.4';
+export const CURRENT_DOCUMENT_VERSION = '2.5';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -17,6 +17,7 @@ export const SUPPORTED_VERSIONS = [
   '2.2',
   '2.3',
   '2.4',
+  '2.5',
 ];
 
 export interface DocumentMigration {
@@ -351,6 +352,75 @@ const migrations: DocumentMigration[] = [
         };
       }
       return { ...raw, formatVersion: '2.4' };
+    },
+  },
+  {
+    from: '2.4',
+    to: '2.5',
+    migrate: (raw) => {
+      // Coordinate architecture v2: bake per-node rotation into the transform
+      // tuple so that transform is the single source of truth for a node's
+      // local→parent affine. Previously rotation was a separate field composed
+      // at render time, which caused nodeLocalBounds to return un-rotated
+      // bounds while the renderer applied rotation.
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const migratedNodes: Record<string, Record<string, unknown>> = {};
+      let bakedCount = 0;
+
+      for (const [id, node] of Object.entries(nodes)) {
+        const rotation = (node.rotation as number) ?? 0;
+        const transform = node.transform as number[] | undefined;
+
+        if (rotation !== 0 && transform && Array.isArray(transform) && transform.length === 6) {
+          // Bake rotation into transform: newTransform = transform * rotateDeg(rotation)
+          const radians = (rotation * Math.PI) / 180;
+          const cos = Math.cos(radians);
+          const sin = Math.sin(radians);
+          const a = transform[0] ?? 1;
+          const b = transform[1] ?? 0;
+          const c = transform[2] ?? 0;
+          const d = transform[3] ?? 1;
+          const e = transform[4] ?? 0;
+          const f = transform[5] ?? 0;
+          // multiplyAffine(transform, rotateDeg(rotation)):
+          //   [a*cos + c*sin, b*cos + d*sin, -a*sin + c*cos, -b*sin + d*cos, e, f]
+          const baked = [
+            a * cos + c * sin,
+            b * cos + d * sin,
+            -a * sin + c * cos,
+            -b * sin + d * cos,
+            e,
+            f,
+          ];
+          migratedNodes[id] = { ...node, transform: baked, rotation: 0 };
+          bakedCount++;
+        } else {
+          migratedNodes[id] = node;
+        }
+      }
+
+      // Validate all transforms are finite
+      const errors: string[] = [];
+      for (const [id, node] of Object.entries(migratedNodes)) {
+        const t = node.transform as number[] | undefined;
+        if (t && Array.isArray(t)) {
+          for (let i = 0; i < Math.min(t.length, 6); i++) {
+            if (typeof t[i] !== 'number' || !Number.isFinite(t[i])) {
+              errors.push(`Node ${id}: transform[${i}] is non-finite`);
+              // Reset to identity to prevent rendering failures
+              migratedNodes[id] = { ...node, transform: [1, 0, 0, 1, 0, 0], rotation: 0 };
+            }
+          }
+        }
+      }
+
+      return {
+        ...raw,
+        nodes: migratedNodes,
+        formatVersion: '2.5',
+        ...(errors.length > 0 ? { _migrationWarnings: errors } : {}),
+        ...(bakedCount > 0 ? { _rotationBakedCount: bakedCount } : {}),
+      };
     },
   },
 ];

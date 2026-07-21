@@ -178,6 +178,13 @@ export interface Document {
 
   /** Immutable PNG alpha-mask payloads keyed by asset id (v2.1+). */
   rasterMaskAssets?: Record<string, import('./types').RasterMaskAsset>;
+
+  /**
+   * Content-addressed image assets keyed by asset id (v2.6+).
+   * Referenced from `ImageFillData.assetId` on any node's `fills[]` or a
+   * shared `Paint`. See `DocumentAsset` doc comment in ./types.
+   */
+  assets?: Record<string, import('./types').DocumentAsset>;
 }
 
 export interface NodeEntry {
@@ -419,6 +426,8 @@ export function makeTextNode(
       | 'richText'
       | 'textMode'
       | 'pathTextSettings'
+      | 'direction'
+      | 'language'
       | 'opacity'
       | 'blendMode'
       | 'rotation'
@@ -463,6 +472,8 @@ export function makeTextNode(
     richText: opts.richText,
     textMode: opts.textMode,
     pathTextSettings: opts.pathTextSettings,
+    direction: opts.direction,
+    language: opts.language,
     strokes: opts.strokes ?? [],
     effects: opts.effects ?? [],
   };
@@ -866,6 +877,18 @@ export function removeNode(doc: Document, id: NodeId): Document {
       .map((nodeId) => nodes[nodeId]?.mask?.rasterMask?.assetId)
       .filter((assetId): assetId is string => Boolean(assetId)),
   );
+  // Doc-level image assets (v2.6+, see ./assets.ts): collect ids referenced
+  // only by nodes being removed so they can be garbage-collected below.
+  // Duplicated inline (rather than importing ./assets) to avoid a
+  // document.ts <-> assets.ts import cycle — same tradeoff already made for
+  // rasterMaskAssets above.
+  const removedImageAssetIds = new Set(
+    [...toRemove].flatMap((nodeId) =>
+      (nodes[nodeId]?.fills ?? [])
+        .filter((f) => f.type === 'image' && f.image?.assetId)
+        .map((f) => f.image!.assetId as string),
+    ),
+  );
 
   // Remove from parent's children list
   const parentId = getParent(doc, id);
@@ -911,11 +934,23 @@ export function removeNode(doc: Document, id: NodeId): Document {
     );
     if (!stillReferenced) delete rasterMaskAssets[assetId];
   }
+  const assets = { ...doc.assets };
+  for (const assetId of removedImageAssetIds) {
+    const stillReferenced =
+      Object.values(nodes).some((node) =>
+        node.fills?.some((f) => f.type === 'image' && f.image?.assetId === assetId),
+      ) ||
+      Object.values(doc.paints ?? {}).some(
+        (paint) => paint.fill.type === 'image' && paint.fill.image?.assetId === assetId,
+      );
+    if (!stillReferenced) delete assets[assetId];
+  }
   const result = {
     ...doc,
     rootChildren,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+    assets: Object.keys(assets).length > 0 ? assets : undefined,
   };
   devValidate(result);
   return result;

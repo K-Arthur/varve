@@ -1,94 +1,113 @@
-import { getModelLoader } from '@strata/engine';
+/**
+ * Intelligence ML model registry — wires the three strategic models
+ * (layout-classifier, component-embedder, color-harmony) through the
+ * generic inference core in @strata/engine.
+ *
+ * A new model = a manifest entry + optional pre/post-processor only.
+ */
+import { ModelRegistry, SessionManager } from '@strata/engine';
+import type { ModelManifestEntry } from '@strata/engine';
 
-export type ModelId = 'layout-classifier' | 'component-embedder' | 'color-harmony';
-
-export interface MlModel {
-  id: ModelId;
-  name: string;
-  sizeBytes: number;
-  loaded: boolean;
-}
-
-interface ModelMeta {
-  name: string;
-  sizeBytes: number;
-  remoteUrl: string;
-  bundled: boolean;
-  sha256?: string;
-}
-
-const MODEL_MANIFEST: Record<ModelId, ModelMeta> = {
-  'layout-classifier': {
+const MANIFEST: ModelManifestEntry[] = [
+  {
+    id: 'layout-classifier',
     name: 'Layout Classifier',
+    description: 'Classifies frame layouts into semantic categories (nav, hero, card-grid, etc.)',
     sizeBytes: 2_500_000,
     remoteUrl: '',
+    checksum: '',
     bundled: false,
+    inputSpec: null,
+    quality: 1,
   },
-  'component-embedder': {
+  {
+    id: 'component-embedder',
     name: 'Component Embedder',
+    description: 'Generates embeddings for component similarity matching',
     sizeBytes: 1_800_000,
     remoteUrl: '',
+    checksum: '',
     bundled: false,
+    inputSpec: null,
+    quality: 1,
   },
-  'color-harmony': {
+  {
+    id: 'color-harmony',
     name: 'Color Harmony',
+    description: 'Suggests harmonious color palettes from a seed color',
     sizeBytes: 700_000,
     remoteUrl: '',
+    checksum: '',
     bundled: false,
+    inputSpec: null,
+    quality: 1,
   },
-};
+];
 
-const loadedModels = new Set<ModelId>();
-const sessions = new Map<ModelId, unknown>();
+export const registry = new ModelRegistry(MANIFEST);
 
-export async function loadModel(modelId: ModelId): Promise<boolean> {
-  if (loadedModels.has(modelId)) return true;
+export { ModelRegistry, SessionManager };
+export type { ModelManifestEntry };
 
-  const meta = MODEL_MANIFEST[modelId];
-  if (!meta) return false;
+const sessionManager = new SessionManager(3);
 
+export async function loadModel(modelId: string): Promise<boolean> {
+  if (registry.isReady(modelId)) return true;
+  if (!registry.knows(modelId)) return false;
+
+  registry.setState(modelId, 'downloading');
   try {
+    const { getModelLoader } = await import('@strata/engine');
     const loader = getModelLoader();
     const path = await loader.getModelPath(modelId);
-    if (!path) return false;
+    if (!path) {
+      registry.setState(modelId, 'error');
+      return false;
+    }
 
-    const ort = await import('onnxruntime-web');
-    const session = await ort.InferenceSession.create(path);
-    sessions.set(modelId, session);
-    loadedModels.add(modelId);
+    await sessionManager.createSession(path, modelId);
+    registry.setState(modelId, 'ready');
     return true;
   } catch {
+    registry.setState(modelId, 'error');
     return false;
   }
 }
 
-export function isModelAvailable(modelId: ModelId): boolean {
-  if (loadedModels.has(modelId)) return true;
-  return sessions.has(modelId);
+export function isModelAvailable(modelId: string): boolean {
+  return registry.isReady(modelId);
 }
 
-export function getSession(modelId: ModelId): unknown {
-  return sessions.get(modelId) ?? null;
+export function getSession(modelId: string): unknown {
+  if (!registry.isReady(modelId)) return null;
+  return sessionManager;
 }
 
-export function getModelInfo(modelId: ModelId): {
+export function getModelInfo(modelId: string): {
   name: string;
   sizeBytes: number;
   loaded: boolean;
 } {
-  const entry = MODEL_MANIFEST[modelId];
+  const entry = registry.getEntry(modelId);
   return {
-    name: entry.name,
-    sizeBytes: entry.sizeBytes,
-    loaded: loadedModels.has(modelId),
+    name: entry?.name ?? 'Unknown',
+    sizeBytes: entry?.sizeBytes ?? 0,
+    loaded: registry.isReady(modelId),
   };
 }
 
-export function getAllModels(): MlModel[] {
-  return (Object.keys(MODEL_MANIFEST) as ModelId[]).map((id) => ({
-    id,
-    name: MODEL_MANIFEST[id].name,
-    sizeBytes: MODEL_MANIFEST[id].sizeBytes,
-    loaded: loadedModels.has(id),
+export function getAllModels(): Array<{
+  id: string;
+  name: string;
+  sizeBytes: number;
+  loaded: boolean;
+}> {
+  return registry.listInstallInfo().map((info) => ({
+    id: info.id,
+    name: info.name,
+    sizeBytes: info.sizeBytes,
+    loaded: info.installed,
   }));
 }
+
+export type ModelId = 'layout-classifier' | 'component-embedder' | 'color-harmony';

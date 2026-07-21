@@ -219,6 +219,8 @@ import {
   type VariableValue,
   validateDocument,
   walkNodes,
+  applyFormatToSelection as applyFormatToSelectionOp,
+  promoteToRichText as promoteToRichTextOp,
 } from '@strata/scene';
 import {
   alignBBox,
@@ -1799,6 +1801,8 @@ export function EditorProvider({
       workspaceMode: 'design' as WorkspaceMode,
       graphEditorVisible: false,
       selectedGraphProperty: null,
+      pendingFormat: null,
+      selectionRange: null,
       cameraRotation: 0,
       rulerMode: vpDefaults.rulerMode as RulerMode,
       gridOverlayMode: vpDefaults.gridOverlayMode as GridOverlayMode,
@@ -3600,6 +3604,30 @@ export function EditorProvider({
           }
           return { ...doc, nodes };
         });
+      },
+
+      // M5b: rich-text span formatting — apply a character format to the
+      // selected range of the focused text node's rich text.
+      applyFormatToSelection: (format) => {
+        const sel = stateRef.current.selection;
+        if (sel.length === 0) return;
+        const range = stateRef.current.selectionRange;
+        if (!range) return;
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (node?.kind !== 'text') continue;
+            const rich = promoteToRichTextOp(node.richText, node.text);
+            const next = applyFormatToSelectionOp(rich, range, format);
+            nodes[id] = { ...node, richText: next } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      setPendingFormat: (format) => {
+        setState((s) => ({ ...s, pendingFormat: format }));
       },
 
       // F6: align selected nodes — uses shared align module for pure bbox math
@@ -6467,6 +6495,8 @@ export function EditorProvider({
       },
 
       setSelectedGuideId: (id) => patch({ selectedGuideId: id }),
+
+      setSelectionRange: (range) => patch({ selectionRange: range }),
 
       nudgeSelectedGuide: (dx, dy) => {
         const guideId = stateRef.current.selectedGuideId;

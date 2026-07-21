@@ -8,11 +8,14 @@
 
 export * from './adjustmentScope';
 export * from './adjustments';
+export * from './assets';
 export * from './bindings';
 export * from './boolean';
 export * from './brush';
 export * from './clippingMask';
 export * from './clone';
+export * from './coordinateService';
+export * from './nodeBounds';
 export * from './colorManagement';
 export * from './colorMode';
 export * from './component';
@@ -67,6 +70,7 @@ export * from './printPreflight';
 export * from './profiles';
 export * from './property-path';
 export * from './rasterLayer';
+export * from './richTextOps';
 export * from './state-machine';
 export * from './state-machine-runtime';
 export * from './state-machine-types';
