@@ -136,9 +136,12 @@ fn color_to_rgb_string(fill: &EngineColor) -> String {
     format!("{rf:.3} {gf:.3} {bf:.3} rg")
 }
 
-fn color_to_cmyk_string(fill: &EngineColor) -> String {
+fn color_to_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> String {
     let (r, g, b, _) = engine_color_rgba(fill);
-    let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(r, g, b);
+    let (c, m, y, k) = match profile {
+        Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
+        None => crate::cmyk::rgb_to_cmyk(r, g, b),
+    };
     format!(
         "{:.3} {:.3} {:.3} {:.3} k",
         c as f32 / 255.0,
@@ -156,9 +159,12 @@ fn color_to_stroke_rgb_string(fill: &EngineColor) -> String {
     format!("{rf:.3} {gf:.3} {bf:.3} RG")
 }
 
-fn color_to_stroke_cmyk_string(fill: &EngineColor) -> String {
+fn color_to_stroke_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> String {
     let (r, g, b, _) = engine_color_rgba(fill);
-    let (c, m, y, k) = crate::cmyk::rgb_to_cmyk(r, g, b);
+    let (c, m, y, k) = match profile {
+        Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
+        None => crate::cmyk::rgb_to_cmyk(r, g, b),
+    };
     format!(
         "{:.3} {:.3} {:.3} {:.3} K",
         c as f32 / 255.0,
@@ -454,6 +460,7 @@ fn render_fills(
     use_cmyk: bool,
     mut image_state: Option<&mut ImageRenderState>,
     manifest: Option<&resources::ExportManifest>,
+    profile: Option<PrintProfile>,
 ) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() {
@@ -774,7 +781,7 @@ fn render_fills(
                     }
                     FillIR::Solid { .. } | FillIR::Gradient { .. } => {
                         buf.extend_from_slice(b"q\n");
-                        let color_str = fill_to_color_string(fill, use_cmyk);
+                        let color_str = fill_to_color_string(fill, use_cmyk, profile);
                         buf.extend(color_str.as_bytes());
                         buf.extend(b"\n");
                         buf.extend(&path_ops);
@@ -795,7 +802,7 @@ fn render_fills(
     // Fallback to node.fill
     buf.extend_from_slice(b"q\n");
     if use_cmyk {
-        buf.extend(color_to_cmyk_string(&node.fill).as_bytes());
+        buf.extend(color_to_cmyk_string(&node.fill, profile).as_bytes());
     } else {
         buf.extend(color_to_rgb_string(&node.fill).as_bytes());
     }
@@ -810,7 +817,7 @@ fn render_fills(
 }
 
 /// Render strokes from `node.strokes`.
-fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
+fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool, profile: Option<PrintProfile>) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() || node.strokes.is_empty() {
         return Vec::new();
@@ -859,7 +866,7 @@ fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
 
         // Color
         if use_cmyk {
-            buf.extend(color_to_stroke_cmyk_string(&stroke.color).as_bytes());
+            buf.extend(color_to_stroke_cmyk_string(&stroke.color, profile).as_bytes());
         } else {
             buf.extend(color_to_stroke_rgb_string(&stroke.color).as_bytes());
         }
@@ -874,7 +881,7 @@ fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
 
 /// Render effects. dropShadow is rendered as an offset, semi-transparent
 /// black copy of the path. Other effects are emitted as comments.
-fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8> {
+fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool, profile: Option<PrintProfile>) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     let has_filters = node
         .filters
@@ -912,7 +919,7 @@ fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool) -> Vec<u8>
 
                 // Shadow fill color
                 if use_cmyk {
-                    buf.extend(color_to_cmyk_string(color).as_bytes());
+                    buf.extend(color_to_cmyk_string(color, profile).as_bytes());
                 } else {
                     buf.extend(color_to_rgb_string(color).as_bytes());
                 }
@@ -1075,22 +1082,22 @@ fn shape_to_pdf_content(
 ) -> Vec<u8> {
     let mut buf = Vec::new();
     buf.extend_from_slice(b"q\n");
-    let effects = render_effects(node, page_height, false);
+    let effects = render_effects(node, page_height, false, None);
     buf.extend(&effects);
-    let fills = render_fills(node, page_height, false, image_state, manifest);
+    let fills = render_fills(node, page_height, false, image_state, manifest, None);
     buf.extend(&fills);
-    let strokes = render_strokes(node, page_height, false);
+    let strokes = render_strokes(node, page_height, false, None);
     buf.extend(&strokes);
     buf.extend_from_slice(b"Q\n");
     buf
 }
 
 /// Helper: convert a FillIR to an RGB or CMYK fill color string.
-fn fill_to_color_string(fill: &FillIR, use_cmyk: bool) -> String {
+fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProfile>) -> String {
     match fill {
         FillIR::Solid { color, .. } => {
             if use_cmyk {
-                color_to_cmyk_string(color)
+                color_to_cmyk_string(color, profile)
             } else {
                 color_to_rgb_string(color)
             }
@@ -1099,7 +1106,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool) -> String {
             // Gradient fills approximate as solid using the first stop color.
             if let Some(stop) = stops.first() {
                 if use_cmyk {
-                    color_to_cmyk_string(&stop.color)
+                    color_to_cmyk_string(&stop.color, profile)
                 } else {
                     color_to_rgb_string(&stop.color)
                 }
@@ -1110,7 +1117,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool) -> String {
                     b: 0.0,
                     a: 255.0,
                     profile: None,
-                })
+                }, profile)
             } else {
                 color_to_rgb_string(&EngineColor::Rgb {
                     r: 0.0,
@@ -1129,7 +1136,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool) -> String {
                     b: 0.0,
                     a: 255.0,
                     profile: None,
-                })
+                }, profile)
             } else {
                 color_to_rgb_string(&EngineColor::Rgb {
                     r: 0.0,
@@ -1579,7 +1586,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             }
             // New pipeline: effects + fills + strokes
             content.extend_from_slice(b"q\n");
-            let effects = render_effects(node, opts.page_height, use_cmyk);
+            let effects = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
             content.extend(&effects);
             let fills = render_fills(
                 node,
@@ -1587,9 +1594,10 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 use_cmyk,
                 Some(&mut image_state),
                 opts.manifest.as_ref(),
+                opts.print_profile,
             );
             content.extend(&fills);
-            let strokes = render_strokes(node, opts.page_height, use_cmyk);
+            let strokes = render_strokes(node, opts.page_height, use_cmyk, opts.print_profile);
             content.extend(&strokes);
             content.extend_from_slice(b"Q\n");
         }
@@ -1689,7 +1697,7 @@ fn try_outline_node(
     let y_off = tx[5];
     let use_cmyk = opts.print_profile.is_some();
     let color_str = if use_cmyk {
-        color_to_cmyk_string(&node.fill)
+        color_to_cmyk_string(&node.fill, opts.print_profile)
     } else {
         color_to_rgb_string(&node.fill)
     };
@@ -1720,7 +1728,7 @@ fn try_outline_node(
     content.extend_from_slice(b"q\n");
 
     // Drop shadow for text
-    let shadow = render_effects(node, opts.page_height, use_cmyk);
+    let shadow = render_effects(node, opts.page_height, use_cmyk, opts.print_profile);
     content.extend(&shadow);
 
     for glyph in &glyphs {
@@ -2049,7 +2057,7 @@ mod tests {
     fn render_fills_solid() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![solid_fill(255, 0, 0, 255, true)]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "should contain RGB color");
         assert!(s.contains("f\n"), "should contain fill operator");
@@ -2060,7 +2068,7 @@ mod tests {
     fn render_fills_gradient() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![gradient_fill(true)]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "gradient approximated as solid");
         assert!(s.contains("f\n"), "should fill");
@@ -2069,7 +2077,7 @@ mod tests {
     #[test]
     fn render_fills_fallback() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         // Default fill is teal: 57, 208, 198
         assert!(s.contains("0.224"), "should contain R component of teal");
@@ -2084,7 +2092,7 @@ mod tests {
             solid_fill(255, 0, 0, 255, true),
             solid_fill(0, 255, 0, 255, true),
         ]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("1.000 0.000 0.000 rg"), "first fill red");
         assert!(s.contains("0.000 1.000 0.000 rg"), "second fill green");
@@ -2108,7 +2116,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("opacity=0.500"), "should emit opacity comment");
     }
@@ -2117,7 +2125,7 @@ mod tests {
     fn render_fills_invisible() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![solid_fill(255, 0, 0, 255, false)]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(!s.contains("rg"), "invisible fill should not render");
     }
@@ -2138,7 +2146,7 @@ mod tests {
             visible: true,
             alpha_mask: None,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             !s.contains("0 0 0 rg") && !s.contains("f\n"),
@@ -2164,7 +2172,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2189,7 +2197,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2240,7 +2248,7 @@ mod tests {
 
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest));
+        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None);
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("/Pat"),
@@ -2272,7 +2280,7 @@ mod tests {
             visible: true,
         }]);
 
-        let content = render_fills(&node, 800.0, false, None, None);
+        let content = render_fills(&node, 800.0, false, None, None, None);
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2317,7 +2325,7 @@ mod tests {
             visible: true,
         }]);
 
-        let content = render_fills(&node, 800.0, false, None, Some(&manifest));
+        let content = render_fills(&node, 800.0, false, None, Some(&manifest), None);
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2364,7 +2372,7 @@ mod tests {
 
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest));
+        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None);
         let s = String::from_utf8_lossy(&content);
         assert!(s.contains("/Pat"), "should contain pattern XObject: {s}");
         assert!(
@@ -2377,7 +2385,7 @@ mod tests {
     fn render_fills_empty_fills_fallsback() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![]);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "empty fills should fallback");
     }
@@ -2385,7 +2393,7 @@ mod tests {
     #[test]
     fn render_fills_none_fallsback() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "None fills should fallback to fill");
     }
@@ -2415,7 +2423,7 @@ mod tests {
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("/Im0 Do"),
@@ -2434,7 +2442,7 @@ mod tests {
     fn render_fills_image_without_document_compat() {
         // Without a document, image fills should still emit the "not rendered" comment
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("not rendered"),
@@ -2487,7 +2495,7 @@ mod tests {
         };
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("W n"),
@@ -2517,7 +2525,7 @@ mod tests {
         }]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("opacity=0.500"),
@@ -2573,7 +2581,7 @@ mod tests {
         ]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "should have solid fill color");
         assert!(s.contains("/Im0 Do"), "should have image Do operator");
@@ -2585,7 +2593,7 @@ mod tests {
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, true, Some(&mut state), None);
+        let result = render_fills(&node, 100.0, true, Some(&mut state), None, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("CMYK conversion not yet implemented"),
@@ -2631,7 +2639,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false);
+        let result = render_strokes(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("5.00 w"), "should set line width to 5");
         assert!(s.contains("S\n"), "should stroke");
@@ -2645,7 +2653,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false);
+        let result = render_strokes(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("1 J"), "round cap = 1");
     }
@@ -2658,7 +2666,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false);
+        let result = render_strokes(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("2 j"), "bevel join = 2");
     }
@@ -2672,7 +2680,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false);
+        let result = render_strokes(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("["), "dash pattern should have bracket");
         assert!(s.contains("d\n"), "should set dash");
@@ -2685,7 +2693,7 @@ mod tests {
             ..Default::default()
         };
         let node = node_with_stroke(stroke);
-        let result = render_strokes(&node, 100.0, false);
+        let result = render_strokes(&node, 100.0, false, None);
         assert!(
             result.is_empty(),
             "invisible stroke should produce no output"
@@ -2695,7 +2703,7 @@ mod tests {
     #[test]
     fn render_strokes_empty() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_strokes(&node, 100.0, false);
+        let result = render_strokes(&node, 100.0, false, None);
         assert!(result.is_empty(), "no strokes should produce no output");
     }
 
@@ -2720,7 +2728,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false);
+        let result = render_effects(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("cm"), "shadow should use translation matrix");
         assert!(s.contains("0.000 0.000 0.000 rg"), "shadow should be black");
@@ -2730,7 +2738,7 @@ mod tests {
     #[test]
     fn render_effects_no_effects() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_effects(&node, 100.0, false);
+        let result = render_effects(&node, 100.0, false, None);
         assert!(result.is_empty(), "no effects should produce no output");
     }
 
@@ -2741,7 +2749,7 @@ mod tests {
         // rather than silently vanishing from print export.
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.filters = Some(vec![serde_json::json!({ "kind": "halftone" })]);
-        let result = render_effects(&node, 100.0, false);
+        let result = render_effects(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("nondestructive adjustment stack"),
@@ -2753,7 +2761,7 @@ mod tests {
     fn render_effects_empty_filters_produce_no_output() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.filters = Some(vec![]);
-        let result = render_effects(&node, 100.0, false);
+        let result = render_effects(&node, 100.0, false, None);
         assert!(
             result.is_empty(),
             "an empty filters array should not produce a spurious comment"
@@ -2779,7 +2787,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }];
-        let result = render_effects(&node, 100.0, false);
+        let result = render_effects(&node, 100.0, false, None);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("innerShadow"), "should have comment");
     }
@@ -3177,4 +3185,36 @@ mod tests {
         let bytes = export_pdf(&[node], &opts).expect("cmyk pdf");
         assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
     }
+
+    #[test]
+    fn fill_to_color_string_icc_differs_from_analytical() {
+        // When a print profile is set, CMYK conversion uses the ICC path,
+        // which differs from the analytical (1-C)(1-K) formula.
+        let color = strata_core::EngineColor::Rgb {
+            r: 180.0,
+            g: 100.0,
+            b: 60.0,
+            a: 255.0,
+            profile: None,
+        };
+        let fill = strata_core::FillIR::Solid {
+            color,
+            opacity: 1.0,
+            blend_mode: strata_core::BlendMode::Normal,
+            visible: true,
+        };
+
+        let analytical = fill_to_color_string(&fill, true, None);
+        let icc = fill_to_color_string(&fill, true, Some(PrintProfile::Fogra39));
+
+        // The ICC path produces different CMYK values than analytical
+        assert_ne!(
+            analytical, icc,
+            "ICC and analytical CMYK conversion should differ for this color"
+        );
+        // Both should contain CMYK operators (end with 'k')
+        assert!(analytical.ends_with('k'), "analytical should be CMYK: {analytical}");
+        assert!(icc.ends_with('k'), "icc should be CMYK: {icc}");
+    }
+
 }
