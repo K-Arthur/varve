@@ -78,7 +78,10 @@ impl SharedProgress {
 
     fn report(&self) {
         if let Some(cb) = &self.inner.callback {
-            (cb)(self.inner.current.load(Ordering::Relaxed), self.inner.total.load(Ordering::Relaxed));
+            (cb)(
+                self.inner.current.load(Ordering::Relaxed),
+                self.inner.total.load(Ordering::Relaxed),
+            );
         }
     }
 
@@ -135,7 +138,8 @@ pub fn ai_upscale(
     let mut rgb_out = vec![0u8; (out_w * out_h * 3) as usize];
 
     let step = TILE.saturating_sub(OVERLAP).max(1);
-    let total_tiles = u32::max(1, (width + step - 1) / step) * u32::max(1, (height + step - 1) / step);
+    let total_tiles =
+        u32::max(1, (width + step - 1) / step) * u32::max(1, (height + step - 1) / step);
     let shared_progress = progress.map(|cb| SharedProgress::new(total_tiles as usize, Some(cb)));
 
     let out_tile = TILE * SCALE_U32;
@@ -256,7 +260,10 @@ fn infer_tile(session: &mut Session, rgba: &[u8], w: u32, h: u32) -> Vec<u8> {
     let out_h = h * SCALE_U32;
     let out_w = w * SCALE_U32;
     let plane = (out_h * out_w) as usize;
-    assert!(data.len() >= plane * 3, "session preflight validates output size");
+    assert!(
+        data.len() >= plane * 3,
+        "session preflight validates output size"
+    );
 
     let slice = &data[..plane * 3];
     let mut rgb = vec![0u8; plane * 3];
@@ -310,4 +317,89 @@ fn build_session_from_file(model_id: &str) -> Result<Session, String> {
     base_session_builder()?
         .commit_from_file(&path)
         .map_err(|e| format!("Failed to load upscale model '{model_id}': {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_mismatched_buffer() {
+        let err = ai_upscale(
+            &[0u8; 15],
+            2,
+            2,
+            super::NATIVE_MODEL_ID,
+            UpscaleOptions::default(),
+        )
+        .unwrap_err();
+        assert!(err.contains("Pixel buffer"), "got: {err}");
+    }
+
+    #[test]
+    fn rejects_zero_dimension() {
+        let err =
+            ai_upscale(&[], 0, 1, super::NATIVE_MODEL_ID, UpscaleOptions::default()).unwrap_err();
+        assert!(err.contains("positive"), "got: {err}");
+    }
+
+    #[test]
+    fn rejects_oversized_dimension() {
+        // 16385*1*4 bytes; the buffer matches so the dimension guard fires.
+        let err = ai_upscale(
+            &[0u8; 16385 * 4],
+            16385,
+            1,
+            super::NATIVE_MODEL_ID,
+            UpscaleOptions::default(),
+        )
+        .unwrap_err();
+        assert!(err.contains("16384"), "got: {err}");
+    }
+
+    #[test]
+    fn rejects_unknown_model_without_file() {
+        let err =
+            ai_upscale(&[0u8; 4], 1, 1, "no-such-model", UpscaleOptions::default()).unwrap_err();
+        assert!(err.contains("no-such-model"), "got: {err}");
+    }
+
+    #[test]
+    fn shared_progress_reports_ticks() {
+        let calls: std::sync::Arc<std::sync::Mutex<Vec<(usize, usize)>>> =
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let cb_proxy = calls.clone();
+        let cb: ProgressCallback = Box::new(move |done, total| {
+            cb_proxy.lock().unwrap().push((done, total));
+        });
+        let progress = SharedProgress::new(4, Some(cb));
+        for _ in 0..4 {
+            progress.tick();
+            progress.report();
+        }
+        progress.publish_final();
+        let seen = calls.lock().unwrap();
+        assert_eq!(seen[0], (1, 4));
+        assert_eq!(seen[3], (4, 4));
+        // publish_final fires a final (total, total)
+        assert_eq!(seen[4], (4, 4));
+    }
+
+    #[test]
+    fn cancellation_checked_between_tiles() {
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        // Validation passes; the very first tile loop iteration sees the flag.
+        let err = ai_upscale(
+            &[0u8; 4],
+            1,
+            1,
+            super::NATIVE_MODEL_ID,
+            UpscaleOptions {
+                cancel: Some(cancel),
+                ..Default::default()
+            },
+        )
+        .unwrap_err();
+        assert_eq!(err, "cancelled");
+    }
 }
