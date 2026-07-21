@@ -1,7 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { addNode, createDocument, makeShapeNode, removeNode } from '../document';
-import { imageFill } from '../fills';
-import { makePaint } from '../types';
 import {
   createEmbeddedAsset,
   findOrCreateEmbeddedAsset,
@@ -11,6 +8,9 @@ import {
   pruneUnusedAssets,
   upsertAsset,
 } from '../assets';
+import { addNode, createDocument, makeShapeNode, removeNode } from '../document';
+import { imageFill } from '../fills';
+import { makePaint } from '../types';
 
 const DATA_URL_A = 'data:image/png;base64,aGVsbG8gd29ybGQ=';
 const DATA_URL_B = 'data:image/png;base64,Z29vZGJ5ZSB3b3JsZA==';
@@ -62,7 +62,7 @@ describe('createEmbeddedAsset', () => {
 
 describe('upsertAsset / getAsset', () => {
   it('stores and retrieves an asset', () => {
-    const doc = createDocument();
+    const doc = createDocument('Test', true);
     const asset = createEmbeddedAsset({
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -77,7 +77,7 @@ describe('upsertAsset / getAsset', () => {
 
 describe('findOrCreateEmbeddedAsset', () => {
   it('creates a new asset on first insert', () => {
-    const doc = createDocument();
+    const doc = createDocument('Test', true);
     const result = findOrCreateEmbeddedAsset(doc, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -89,7 +89,7 @@ describe('findOrCreateEmbeddedAsset', () => {
   });
 
   it('dedups identical content into the same asset id without growing the table', () => {
-    const doc = createDocument();
+    const doc = createDocument('Test', true);
     const first = findOrCreateEmbeddedAsset(doc, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -107,7 +107,7 @@ describe('findOrCreateEmbeddedAsset', () => {
   });
 
   it('creates distinct assets for distinct content', () => {
-    const doc = createDocument();
+    const doc = createDocument('Test', true);
     const first = findOrCreateEmbeddedAsset(doc, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -127,7 +127,7 @@ describe('findOrCreateEmbeddedAsset', () => {
 
 describe('isAssetReferenced / pruneUnusedAssets', () => {
   it('detects references from node fills and shared paints', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -143,7 +143,7 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
   });
 
   it('detects references via Document.paints', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -156,7 +156,7 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
   });
 
   it('prunes assets no longer referenced by any node or paint', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -169,7 +169,7 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
   });
 
   it('keeps referenced assets and drops only unreferenced ones', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId: keptId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -194,7 +194,7 @@ describe('isAssetReferenced / pruneUnusedAssets', () => {
 
 describe('removeNode garbage-collects unshared image assets', () => {
   it('drops an asset once its only referencing node is removed', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -211,7 +211,7 @@ describe('removeNode garbage-collects unshared image assets', () => {
   });
 
   it('keeps an asset still referenced by a sibling node', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
@@ -229,7 +229,7 @@ describe('removeNode garbage-collects unshared image assets', () => {
   });
 
   it('keeps an asset still referenced by a shared Paint', () => {
-    const doc0 = createDocument();
+    const doc0 = createDocument('Test', true);
     const { document: doc1, assetId } = findOrCreateEmbeddedAsset(doc0, {
       dataUrl: DATA_URL_A,
       mimeType: 'image/png',
