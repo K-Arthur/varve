@@ -97,6 +97,27 @@ pub fn has_ai() -> bool {
     cfg!(feature = "ai")
 }
 
+/// Denoise an image using a fully-convolutional model (SCUNet).
+#[cfg(feature = "ai")]
+pub fn denoise_image(
+    img: &DynamicImage,
+    strength: f32,
+    model_id: &str,
+) -> Result<DenoiseResult, String> {
+    inference::denoise_image(img, strength, model_id)
+}
+
+/// Result of a denoise operation (re-exported for callers).
+#[cfg(feature = "ai")]
+pub use inference::DenoiseResult;
+
+/// Check whether the model id is a known fully-convolutional (dynamic-shape)
+/// model supported by [`denoise_image`] or the OCR pipeline.
+#[cfg(feature = "ai")]
+pub fn is_image_model(model_id: &str) -> bool {
+    matches!(model_id, "scunet" | "paddleocr-det-v4" | "paddleocr-rec-v4")
+}
+
 /// Encode a binary mask buffer (0 or 255 per pixel) as a base64 PNG.
 pub fn mask_to_base64(mask: &[u8], width: u32, height: u32) -> Result<String, String> {
     use base64::Engine;

@@ -22,14 +22,63 @@ use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
 /// and are selected at the call site via a builder or config.
 pub trait InferenceRuntime: Send + Sync {
     /// Create an inference session for the given model path.
-    fn create_session(&self, model_path: &std::path::Path) -> Result<Box<dyn InferenceSession>, String>;
+    fn create_session(
+        &self,
+        model_path: &std::path::Path,
+    ) -> Result<Box<dyn InferenceSession>, String>;
+}
+
+/// Shape of an ONNX tensor.
+#[derive(Clone, Debug)]
+pub struct TensorShape(pub Vec<usize>);
+
+/// A tensor value: data + shape.
+#[derive(Clone, Debug)]
+pub struct TensorOutput {
+    pub data: Vec<f32>,
+    pub shape: TensorShape,
 }
 
 /// A single loaded ONNX inference session.
 pub trait InferenceSession {
     /// Run inference on preprocessed float32 input in CHW layout.
     /// Returns the raw output tensor data.
+    ///
+    /// Legacy `input_size`-based entry point for square fixed-size models
+    /// (segmentation). Prefer [`InferenceSession::run_nd`] for dynamic and
+    /// non-square models (denoise, OCR).
     fn run(&mut self, input: &[f32], input_size: u32) -> Result<Vec<f32>, String>;
+
+    /// Run inference with explicit input dimensions and return the output
+    /// tensor with its real shape. Required for fully-convolutional models
+    /// (SCUNet, PaddleOCR detection/recognition) whose input and output
+    /// shapes are not fixed squares.
+    ///
+    /// Default implementation delegates to [`InferenceSession::run`] for
+    /// square single-output models; OrtSession overrides this.
+    fn run_nd(&mut self, input: &[f32], input_dims: &[usize]) -> Result<TensorOutput, String> {
+        if input_dims.len() != 4 {
+            return Err(format!(
+                "run_nd expected 4D input [N,C,H,W], got {}D",
+                input_dims.len()
+            ));
+        }
+        let h = input_dims[2] as u32;
+        let w = input_dims[3] as u32;
+        if h != w {
+            return Err(format!(
+                "run_nd fallback only supports square inputs (got {h}×{w}); override run_nd"
+            ));
+        }
+        let data = self.run(input, h)?;
+        Ok(TensorOutput {
+            data,
+            shape: TensorShape(vec![input_dims[0], input_dims[1], h as usize, w as usize]),
+        })
+    }
+
+    /// List the model's output names (for commands that need to pick one).
+    fn output_names(&self) -> Vec<String>;
 }
 
 // ── OrtInferenceRuntime ───────────────────────────────────────────────
@@ -46,29 +95,41 @@ pub struct OrtInferenceRuntime;
 struct OrtSession {
     inner: Session,
     output_name: String,
+    output_names: Vec<String>,
 }
 
 impl InferenceRuntime for OrtInferenceRuntime {
-    fn create_session(&self, model_path: &std::path::Path) -> Result<Box<dyn InferenceSession>, String> {
+    fn create_session(
+        &self,
+        model_path: &std::path::Path,
+    ) -> Result<Box<dyn InferenceSession>, String> {
         let session = Session::builder()
             .map_err(|e| format!("Failed to create ONNX session: {e}"))?
             .commit_from_file(model_path)
             .map_err(|e| format!("Failed to load model from '{}': {e}", model_path.display()))?;
 
-        let output_name = session
+        let output_names: Vec<String> = session
             .outputs()
+            .iter()
+            .map(|o| o.name().to_owned())
+            .collect();
+        let output_name = output_names
             .first()
             .ok_or("No output found in model")?
-            .name()
-            .to_owned();
+            .clone();
 
-        Ok(Box::new(OrtSession { inner: session, output_name }))
+        Ok(Box::new(OrtSession {
+            inner: session,
+            output_name,
+            output_names,
+        }))
     }
 }
 
 impl InferenceSession for OrtSession {
     fn run(&mut self, input: &[f32], input_size: u32) -> Result<Vec<f32>, String> {
-        let input_name = self.inner
+        let input_name = self
+            .inner
             .inputs()
             .first()
             .ok_or("No input found in model")?
@@ -81,7 +142,8 @@ impl InferenceSession for OrtSession {
         ))
         .map_err(|e| format!("Failed to create input tensor: {e}"))?;
 
-        let outputs = self.inner
+        let outputs = self
+            .inner
             .run(ort::inputs! { input_name.as_str() => tensor })
             .map_err(|e| format!("ONNX inference failed: {e}"))?;
 
@@ -95,6 +157,48 @@ impl InferenceSession for OrtSession {
 
         Ok(output_data.to_vec())
     }
+
+    fn run_nd(&mut self, input: &[f32], input_dims: &[usize]) -> Result<TensorOutput, String> {
+        if input_dims.len() < 2 {
+            return Err(format!(
+                "run_nd expected at least 2D input, got {}D",
+                input_dims.len()
+            ));
+        }
+        let input_name = self
+            .inner
+            .inputs()
+            .first()
+            .ok_or("No input found in model")?
+            .name()
+            .to_owned();
+
+        let tensor = ort::value::Tensor::from_array((input_dims.to_vec(), input.to_vec()))
+            .map_err(|e| format!("Failed to create input tensor: {e}"))?;
+
+        let outputs = self
+            .inner
+            .run(ort::inputs! { input_name.as_str() => tensor })
+            .map_err(|e| format!("ONNX inference failed: {e}"))?;
+
+        let output = outputs
+            .get(&self.output_name)
+            .ok_or("Output not found in results")?;
+
+        let (shape, output_data) = output
+            .try_extract_tensor::<f32>()
+            .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
+
+        let shape_usize: Vec<usize> = shape.iter().map(|&d| d as usize).collect();
+        Ok(TensorOutput {
+            data: output_data.to_vec(),
+            shape: TensorShape(shape_usize),
+        })
+    }
+
+    fn output_names(&self) -> Vec<String> {
+        self.output_names.clone()
+    }
 }
 
 // ── Default runtime instance ──────────────────────────────────────────
@@ -106,11 +210,17 @@ static CURRENT_RUNTIME: OnceLock<Box<dyn InferenceRuntime>> = OnceLock::new();
 /// Set the inference runtime for the current process.
 /// Must be called before any inference; panics if called twice.
 pub fn set_runtime(runtime: Box<dyn InferenceRuntime>) {
-    CURRENT_RUNTIME.set(runtime).ok().expect("InferenceRuntime already set");
+    CURRENT_RUNTIME
+        .set(runtime)
+        .ok()
+        .expect("InferenceRuntime already set");
 }
 
 fn get_runtime() -> &'static dyn InferenceRuntime {
-    CURRENT_RUNTIME.get().map(|b| b.as_ref()).unwrap_or(&OrtInferenceRuntime)
+    CURRENT_RUNTIME
+        .get()
+        .map(|b| b.as_ref())
+        .unwrap_or(&OrtInferenceRuntime)
 }
 
 // ── Model spec ────────────────────────────────────────────────────────
@@ -136,6 +246,180 @@ fn model_spec(model_id: &str) -> ModelSpec {
             model_id != "u2netp",
         )
     }
+}
+
+// ── Denoise (SCUNet) ─────────────────────────────────────────────────
+// SCUNet is fully convolutional: dynamic H×W (divisible by 8), identity
+// normalization (pixel / 255), no letterboxing. Input/output both [1,3,H,W].
+
+const DENOISE_INPUT_DIVISIBLE: u32 = 8;
+
+fn align_to(n: u32, to: u32) -> u32 {
+    if n % to == 0 {
+        n
+    } else {
+        n + (to - n % to)
+    }
+}
+
+/// Normalization spec for a dynamic-shape image model.
+struct ImageModelSpec {
+    pub mean: [f32; 3],
+    pub std: [f32; 3],
+    /// Input height must be a multiple of this (0 = no constraint).
+    pub input_divisible: u32,
+}
+
+/// Per-model preprocessing/normalization for fully-convolutional models
+/// (SCUNet, PaddleOCR detection). Segmentation uses the fixed-size
+/// [`model_spec`] instead.
+fn image_model_spec(model_id: &str) -> Option<ImageModelSpec> {
+    match model_id {
+        "scunet" => Some(ImageModelSpec {
+            mean: [0.0, 0.0, 0.0],
+            std: [1.0, 1.0, 1.0],
+            input_divisible: DENOISE_INPUT_DIVISIBLE,
+        }),
+        "paddleocr-det-v4" => Some(ImageModelSpec {
+            mean: [0.485, 0.456, 0.406],
+            std: [0.229, 0.224, 0.225],
+            input_divisible: 32,
+        }),
+        "paddleocr-rec-v4" => Some(ImageModelSpec {
+            mean: [0.5, 0.5, 0.5],
+            std: [0.5, 0.5, 0.5],
+            input_divisible: 0,
+        }),
+        _ => None,
+    }
+}
+
+/// Output of a denoise operation: base64 PNG of the denoised image.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct DenoiseResult {
+    pub png_base64: String,
+    pub width: u32,
+    pub height: u32,
+    pub processing_time_ms: u64,
+}
+
+/// Run SCUNet denoising on an image natively via ONNX Runtime.
+///
+/// The model expects [1,3,H,W] float32 in [0,1] range (pixel / 255, no
+/// mean subtraction) and H/W divisible by 8. Output is [1,3,H,W] in [0,1].
+/// `strength` blends between original and denoised (0 = original, 1 = full).
+pub fn denoise_image(
+    img: &DynamicImage,
+    strength: f32,
+    model_id: &str,
+) -> Result<DenoiseResult, String> {
+    let start = std::time::Instant::now();
+    let spec = image_model_spec(model_id)
+        .ok_or_else(|| format!("Denoise: no image model spec for '{model_id}'"))?;
+
+    let model_path = model::model_path(model_id);
+    if !model_path.exists() {
+        return Err(format!(
+            "Denoise model '{}' not found at {}.",
+            model_id,
+            model_path.display()
+        ));
+    }
+
+    let (orig_w, orig_h) = img.dimensions();
+    let proc_w = if spec.input_divisible > 0 {
+        align_to(orig_w, spec.input_divisible)
+    } else {
+        orig_w
+    };
+    let proc_h = if spec.input_divisible > 0 {
+        align_to(orig_h, spec.input_divisible)
+    } else {
+        orig_h
+    };
+
+    let source = if proc_w != orig_w || proc_h != orig_h {
+        img.resize_exact(proc_w, proc_h, image::imageops::FilterType::Triangle)
+    } else {
+        img.clone()
+    };
+    let rgba = source.to_rgba8();
+    let pixels = rgba.into_raw();
+    let pixel_count = (proc_w * proc_h) as usize;
+
+    let mut tensor_data = Vec::with_capacity(pixel_count * 3);
+    for c in 0..3 {
+        for p in 0..pixel_count {
+            let normalized = pixels[p * 4 + c] as f32 / 255.0;
+            tensor_data.push((normalized - spec.mean[c]) / spec.std[c]);
+        }
+    }
+
+    let runtime = get_runtime();
+    let mut session = runtime.create_session(&model_path)?;
+    let output = session.run_nd(&tensor_data, &[1, 3, proc_h as usize, proc_w as usize])?;
+
+    let shape = &output.shape.0;
+    if shape.len() != 4 || shape[0] != 1 || shape[1] != 3 {
+        return Err(format!(
+            "Denoise: unexpected output shape {:?}, expected [1,3,H,W]",
+            shape
+        ));
+    }
+    let out_h = shape[2] as u32;
+    let out_w = shape[3] as u32;
+    let out_data = output.data;
+    let out_pixel_count = (out_w * out_h) as usize;
+    if out_data.len() != out_pixel_count * 3 {
+        return Err(format!(
+            "Denoise: output data length {} != expected {}",
+            out_data.len(),
+            out_pixel_count * 3
+        ));
+    }
+
+    let mut out_rgba: Vec<u8> = Vec::with_capacity((out_w * out_h * 4) as usize);
+    let s = strength.clamp(0.0, 1.0);
+    for p in 0..out_pixel_count {
+        for c in 0..3 {
+            let model_val = out_data[c * out_pixel_count + p].clamp(0.0, 1.0);
+            let orig_val = pixels[p * 4 + c] as f32 / 255.0;
+            let blended = orig_val * (1.0 - s) + model_val * s;
+            out_rgba.push((blended * 255.0).round().clamp(0.0, 255.0) as u8);
+        }
+        out_rgba.push(pixels[p * 4 + 3]); // preserve alpha
+    }
+
+    let final_rgba = if out_w != orig_w || out_h != orig_h {
+        let tmp = ImageBuffer::<image::Rgba<u8>, _>::from_raw(out_w, out_h, out_rgba)
+            .ok_or("Failed to build output image buffer")?;
+        let resized =
+            image::imageops::resize(&tmp, orig_w, orig_h, image::imageops::FilterType::Triangle);
+        resized.into_raw()
+    } else {
+        out_rgba
+    };
+
+    let png_base64 = {
+        use base64::Engine;
+        use image::codecs::png::PngEncoder;
+        use image::ExtendedColorType;
+        use image::ImageEncoder;
+        let mut png_bytes: Vec<u8> = Vec::new();
+        let encoder = PngEncoder::new(&mut png_bytes);
+        encoder
+            .write_image(&final_rgba, orig_w, orig_h, ExtendedColorType::Rgba8)
+            .map_err(|e| format!("Denoise PNG encode error: {e}"))?;
+        base64::engine::general_purpose::STANDARD.encode(&png_bytes)
+    };
+
+    let elapsed = start.elapsed();
+    Ok(DenoiseResult {
+        png_base64,
+        width: orig_w,
+        height: orig_h,
+        processing_time_ms: elapsed.as_millis() as u64,
+    })
 }
 
 // ── Public API ────────────────────────────────────────────────────────
@@ -364,7 +648,7 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 mod tests {
     use super::{
         model_spec, normalize_segmentation_output, reconstruct_letterbox_mask, resize_mask,
-        LetterboxTransform, InferenceRuntime, InferenceSession, OrtInferenceRuntime,
+        InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
     };
 
     #[test]
@@ -435,6 +719,9 @@ mod tests {
         impl InferenceSession for StubSession {
             fn run(&mut self, _input: &[f32], _input_size: u32) -> Result<Vec<f32>, String> {
                 Ok(vec![])
+            }
+            fn output_names(&self) -> Vec<String> {
+                vec!["output".to_string()]
             }
         }
         let mut session: Box<dyn InferenceSession> = Box::new(StubSession);
