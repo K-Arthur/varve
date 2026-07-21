@@ -18,5 +18,6 @@
   "dependencies": {
     "@strata/shared": "workspace:*",
     "@strata/scene": "workspace:*"
-  }
+  },
+  "license": "BSL-1.1"
 }

@@ -1,0 +1,27 @@
+Strata — Design across disciplines
+Copyright 2024-2026 K-Arthur (Strata Founder)
+
+This product is licensed under the Business Source License 1.1 (BSL 1.1).
+See the LICENSE file for the full licence text.
+
+The source code for this product is publicly available at:
+  https://github.com/K-Arthur/Strata
+
+-----------------------------------------------------------------------------
+Third-Party Notices
+-----------------------------------------------------------------------------
+
+This product includes third-party software distributed under its own
+licence terms. Full attribution for all bundled dependencies is provided
+in the THIRD_PARTY_NOTICES file.
+
+-----------------------------------------------------------------------------
+Trademarks
+-----------------------------------------------------------------------------
+
+"Strata" is a trademark of K-Arthur. See TRADEMARKS.md for usage guidelines.
+
+Lucide icons are copyright (c) Lucide Contributors and licensed under ISC.
+Phosphor icons are copyright (c) Phosphor Icons and licensed under MIT.
+Geist font is copyright (c) Vercel and licensed under SIL OFL 1.1.
+IBM Plex Sans font is copyright (c) IBM and licensed under SIL OFL 1.1.

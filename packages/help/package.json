@@ -14,5 +14,6 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "cd ../.. && vitest run packages/help"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "license": "BSL-1.1"
 }

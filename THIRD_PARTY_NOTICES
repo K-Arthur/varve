@@ -1,0 +1,209 @@
+Third-Party Notices for Strata
+================================
+
+This file contains attribution and licence information for third-party
+software distributed with or used by Strata.
+
+Where a licence requires a copy of its text to be included, the full
+licence text is available in the standard SPDX repository at
+https://spdx.org/licenses/ or from the original project.
+
+-----------------------------------------------------------------------------
+Runtime Dependencies (npm)
+-----------------------------------------------------------------------------
+
+react (MIT)
+  Copyright (c) Meta Platforms, Inc.
+  https://github.com/facebook/react
+  Licensed under MIT License.
+
+react-dom (MIT)
+  Copyright (c) Meta Platforms, Inc.
+  https://github.com/facebook/react
+  Licensed under MIT License.
+
+lucide-react (ISC)
+  Copyright (c) Lucide Contributors
+  https://github.com/lucide-icons/lucide
+  Licensed under ISC License.
+
+@phosphor-icons/react (MIT)
+  Copyright (c) Phosphor Icons
+  https://github.com/phosphor-icons/react
+  Licensed under MIT License.
+
+@tauri-apps/api (MIT OR Apache-2.0)
+  Copyright (c) Tauri Contributors
+  https://github.com/tauri-apps/tauri
+  Licensed under MIT OR Apache-2.0 (dual).
+
+@tauri-apps/cli (MIT OR Apache-2.0)
+  Copyright (c) Tauri Contributors
+  https://github.com/tauri-apps/tauri
+  Licensed under MIT OR Apache-2.0 (dual).
+
+onnxruntime-web (MIT)
+  Copyright (c) Microsoft Corporation
+  https://github.com/microsoft/onnxruntime
+  Licensed under MIT License.
+
+@fontsource-variable/geist (SIL OFL 1.1)
+  Geist font (c) Vercel
+  https://github.com/fontsource/font-files
+  Licensed under SIL Open Font License 1.1.
+  Source: https://scripts.sil.org/OFL
+
+@fontsource-variable/ibm-plex-sans (SIL OFL 1.1)
+  IBM Plex Sans (c) IBM Corp.
+  https://github.com/fontsource/font-files
+  Licensed under SIL Open Font License 1.1.
+  Source: https://scripts.sil.org/OFL
+
+opentype.js (MIT)
+  Copyright (c) Frederik De Bleser
+  https://github.com/opentypejs/opentype.js
+  Licensed under MIT License.
+
+@floating-ui/dom (MIT)
+  Copyright (c) Floating UI Contributors
+  https://github.com/floating-ui/floating-ui
+  Licensed under MIT License.
+
+fractional-indexing (MIT)
+  Copyright (c) David Luecke
+  https://github.com/rocicruz/fractional-indexing
+  Licensed under MIT License.
+
+-----------------------------------------------------------------------------
+Runtime Dependencies (Rust crates)
+-----------------------------------------------------------------------------
+
+tauri (MIT OR Apache-2.0)
+  Copyright (c) Tauri Contributors
+  Licensed under MIT OR Apache-2.0 (dual).
+
+serde, serde_json (MIT OR Apache-2.0)
+  Copyright (c) Serde Contributors (E. Tryzelaar, D. Tolnay)
+  Licensed under MIT OR Apache-2.0 (dual).
+
+kurbo (MIT OR Apache-2.0)
+  Copyright (c) Raph Levien, XileBoi, and contributors
+  Licensed under MIT OR Apache-2.0 (dual).
+
+lopdf (MIT)
+  Copyright (c) J. Fernando Sanchez and contributors
+  Licensed under MIT License.
+
+image (MIT OR Apache-2.0)
+  Copyright (c) The image-rs contributors
+  Licensed under MIT OR Apache-2.0 (dual).
+
+chrono (MIT OR Apache-2.0)
+  Copyright (c) The chrono authors
+  Licensed under MIT OR Apache-2.0 (dual).
+
+notify (CC0-1.0)
+  Copyright (c) The notify contributors
+  Licensed under CC0-1.0 Universal.
+
+reqwest (MIT OR Apache-2.0)
+  Copyright (c) Sean McArthur
+  Licensed under MIT OR Apache-2.0 (dual).
+
+sha2 (MIT OR Apache-2.0)
+  Copyright (c) The RustCrypto Project Developers
+  Licensed under MIT OR Apache-2.0 (dual).
+
+wasm-bindgen (MIT OR Apache-2.0)
+  Copyright (c) The wasm-bindgen contributors
+  Licensed under MIT OR Apache-2.0 (dual).
+
+ort (MIT)
+  ONNX Runtime bindings for Rust
+  Copyright (c) pyke.io and contributors
+  Licensed under MIT License.
+
+-----------------------------------------------------------------------------
+ONNX AI Models
+-----------------------------------------------------------------------------
+
+u2netp.onnx (MIT)
+  Source: https://github.com/danielgatis/rembg
+  Copyright (c) Daniel Gatis
+  Licensed under MIT License.
+  Bundled with the application.
+
+u2netp-int8.onnx (MIT, derived)
+  Quantized from u2netp.onnx.
+  Licensed under MIT License.
+  Bundled with the application.
+
+realesr-general-x4v3.onnx (BSD-3-Clause)
+  Source: Real-ESRGAN (https://github.com/xinntao/Real-ESRGAN)
+  Copyright (c) Tencent ARC Lab
+  Licensed under BSD 3-Clause License.
+  Bundled with the application.
+
+realesr-general-x4v3-int8.onnx (BSD-3-Clause, derived)
+  Quantized from realesr-general-x4v3.onnx.
+  Licensed under BSD 3-Clause License.
+  Bundled with the application.
+
+-----------------------------------------------------------------------------
+Native ONNX Runtime Libraries
+-----------------------------------------------------------------------------
+
+ONNX Runtime (MIT)
+  Copyright (c) Microsoft Corporation
+  https://github.com/microsoft/onnxruntime
+  Licensed under MIT License.
+
+  Platform-specific shared libraries:
+    linux-x86_64: libonnxruntime.so
+    macos-aarch64: libonnxruntime.dylib
+    windows-x86_64: onnxruntime.dll
+
+-----------------------------------------------------------------------------
+Icon Sets
+-----------------------------------------------------------------------------
+
+Lucide icons (ISC)
+  Copyright (c) Lucide Contributors
+  https://lucide.dev
+  Licensed under ISC License.
+
+Phosphor icons (MIT)
+  Copyright (c) Phosphor Icons
+  https://phosphoricons.com
+  Licensed under MIT License.
+
+-----------------------------------------------------------------------------
+Development and Build Dependencies
+-----------------------------------------------------------------------------
+
+The following packages are used during development and testing only and
+are not distributed with the application. Their licence notices are
+included for completeness.
+
+TypeScript (Apache-2.0)
+Vitest (MIT)
+Playwright (Apache-2.0)
+@biomejs/biome (MIT/Apache-2.0)
+jsdom (MIT)
+@testing-library/* (MIT)
+WebDriverIO (MIT)
+Storybook (MIT)
+
+-----------------------------------------------------------------------------
+General Notes
+-----------------------------------------------------------------------------
+
+All other third-party dependencies that are transitive (not directly
+distributed) are licensed under MIT, Apache-2.0, BSD-2-Clause,
+BSD-3-Clause, ISC, CC0-1.0, or Unlicense, all of which are permissive
+and compatible with the BSL 1.1 use of this project.
+
+This file was generated by scanning npm (pnpm-lock.yaml), Cargo (Cargo.lock),
+and manually auditing bundled assets. If you believe any attribution is
+missing or incorrect, please open an issue at:
+  https://github.com/K-Arthur/Strata/issues
