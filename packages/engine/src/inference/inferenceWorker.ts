@@ -3,6 +3,7 @@
  */
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor } from './imageTensor';
+import { DD_COLOR_INPUT_SIZE, DD_COLOR_TENSOR_SPEC } from './models/ddcolor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
 import type { Sam2Prompt } from './models/sam2';
@@ -15,7 +16,8 @@ export type WorkerModelType =
   | 'sam2-decoder'
   | 'scunet'
   | 'depth'
-  | 'lineart';
+  | 'lineart'
+  | 'ddcolor';
 
 export interface WorkerTensor {
   data: Float32Array;
@@ -138,6 +140,12 @@ registerModelType('scunet', {
 registerModelType('lineart', {
   tensorSpec: LINE_ART_TENSOR_SPEC,
   getInputSize: () => LINE_ART_INPUT_SIZE,
+  hasImageInput: true,
+});
+
+registerModelType('ddcolor', {
+  tensorSpec: DD_COLOR_TENSOR_SPEC,
+  getInputSize: () => DD_COLOR_INPUT_SIZE,
   hasImageInput: true,
 });
 
