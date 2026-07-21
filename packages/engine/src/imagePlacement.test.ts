@@ -229,7 +229,7 @@ describe('computeImagePlacement — crop mode', () => {
     expect(placement!.drawRect).toEqual({ x: -200, y: -150, w: 4000, h: 3000 });
   });
 
-  it('round-trips visible source pixels local ↔ source', () => {
+  it('round-trips visible source pixels local to source', () => {
     const placement = computeImagePlacement({
       fit: 'crop',
       sourceWidth: SOURCE.width,
