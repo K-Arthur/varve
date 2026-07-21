@@ -7,16 +7,88 @@
  *
  * Research basis: sRGB IEC 61966-2-1, CIE 15:2018 (Colorimetry),
  * Björn Ottosson "A perceptually uniform color space for image processing"
- * (2020), ISO 12647 (print), Bruce Lindbloom matrices.
+ * (2020), ISO 12647 (print), Bruce Lindbloom matrices, ICC.1:2010.
  */
+
+// ── Bit depth ────────────────────────────────────────────────────────────────
+
+/**
+ * Color channel bit depth. Determines storage precision and value range.
+ *
+ * | bitDepth | range    | notes |
+ * |----------|----------|-------|
+ * | uint8    | 0–255    | integer. Backward compatible — existing documents use this. |
+ * | uint16   | 0–65535  | integer. |
+ * | float16  | 0.0–1.0  | half-float precision intent; stored as JS number. |
+ * | float32  | 0.0–1.0  | single-precision; HDR can exceed 1.0. |
+ *
+ * The same range applies to all channels (R G B A C M Y K V) for a given
+ * bit depth. This is the canonical definition; @strata/scene re-exports it.
+ */
+export type BitDepth = 'uint8' | 'uint16' | 'float16' | 'float32';
+
+/** Default bit depth for colors that don't specify one (backward compat). */
+export const DEFAULT_BIT_DEPTH: BitDepth = 'uint8';
+
+/** Maximum channel value for a bit depth (uint8 → 255, uint16 → 65535, floats → 1). */
+export function channelMax(bitDepth: BitDepth): number {
+  switch (bitDepth) {
+    case 'uint8':
+      return 255;
+    case 'uint16':
+      return 65535;
+    case 'float16':
+    case 'float32':
+      return 1;
+  }
+}
+
+/**
+ * Normalize a channel value to 0.0–1.0 float regardless of bit depth.
+ *
+ * - uint8/uint16: divides by max (255 / 65535).
+ * - float16/float32: clamps to [0, 1] (HDR values > 1 are clamped;
+ *   use `normalizeChannelLinear` for extended range).
+ */
+export function normalizeChannel(value: number, bitDepth: BitDepth): number {
+  if (bitDepth === 'uint8') return value / 255;
+  if (bitDepth === 'uint16') return value / 65535;
+  return Math.max(0, Math.min(1, value));
+}
+
+/**
+ * Denormalize a 0.0–1.0 float to storage range for the given bit depth.
+ *
+ * - uint8/uint16: multiplies by max and rounds to integer.
+ * - float16/float32: returns as-is (full float precision retained).
+ */
+export function denormalizeChannel(value: number, bitDepth: BitDepth): number {
+  if (bitDepth === 'uint8') return Math.round(value * 255);
+  if (bitDepth === 'uint16') return Math.round(value * 65535);
+  return value;
+}
+
+/**
+ * Clamp a value to the valid channel range for a bit depth.
+ * Integer depths clamp to [0, max]; float depths allow extended range
+ * but clamp NaN/Infinity to 0.
+ */
+export function clampChannel(value: number, bitDepth: BitDepth): number {
+  if (Number.isNaN(value) || !Number.isFinite(value)) return 0;
+  if (bitDepth === 'uint8') return Math.max(0, Math.min(255, Math.round(value)));
+  if (bitDepth === 'uint16') return Math.max(0, Math.min(65535, Math.round(value)));
+  // float depths: allow extended range (HDR), but reject NaN/Inf
+  return value;
+}
 
 // ── Type shims for ManagedColor helpers ─────────────────────────────────────
 // These mirror @strata/scene types to avoid circular deps. The actual type
 // definitions are in packages/scene/src/colorManagement.ts.
 
-/** RGB color value (0-255 per channel). */
+/** RGB color value (channel range depends on bitDepth). */
 interface RgbColorShim {
   space: 'rgb';
+  bitDepth?: BitDepth;
   r: number;
   g: number;
   b: number;
@@ -24,9 +96,10 @@ interface RgbColorShim {
   profile?: string;
 }
 
-/** CMYK color value (0-255 per channel). */
+/** CMYK color value (channel range depends on bitDepth). */
 interface CmykColorShim {
   space: 'cmyk';
+  bitDepth?: BitDepth;
   c: number;
   m: number;
   y: number;
@@ -35,9 +108,10 @@ interface CmykColorShim {
   profile?: string;
 }
 
-/** Grayscale color value (0-255, 0 = black, 255 = white). */
+/** Grayscale color value (channel range depends on bitDepth). */
 interface GrayColorShim {
   space: 'gray';
+  bitDepth?: BitDepth;
   v: number;
   a: number;
   profile?: string;
@@ -405,22 +479,46 @@ export function deltaEOk(
 /**
  * Convert any ManagedColor to an RGBA tuple [r, g, b, a] (0-255).
  *
- * - RgbColor: pass-through
- * - CmykColor: analytical CMYK→RGB conversion
- * - GrayColor: R=G=B=v
+ * Channels are first normalized to 0.0–1.0 based on the color's bitDepth
+ * (or uint8 when absent), then denormalized to 0-255 uint8 output. This
+ * preserves precision for float/16-bit documents.
+ *
+ * - RgbColor: normalize from bitDepth → denormalize to uint8
+ * - CmykColor: normalize CMYK → analytical CMYK→RGB → uint8
+ * - GrayColor: R=G=B=normalized(v)
  * - SpotColorRef: uses processFallback if available; applies tint as opacity;
  *   falls back to black if no fallback
  */
 export function managedColorToRgba(color: ManagedColorShim): [number, number, number, number] {
   switch (color.space) {
-    case 'rgb':
-      return [color.r, color.g, color.b, color.a];
-    case 'cmyk': {
-      const [r, g, b] = cmykToRgb(color.c, color.m, color.y, color.k);
-      return [r, g, b, color.a];
+    case 'rgb': {
+      const bd = color.bitDepth ?? 'uint8';
+      return [
+        denormalizeChannel(normalizeChannel(color.r, bd), 'uint8'),
+        denormalizeChannel(normalizeChannel(color.g, bd), 'uint8'),
+        denormalizeChannel(normalizeChannel(color.b, bd), 'uint8'),
+        denormalizeChannel(normalizeChannel(color.a, bd), 'uint8'),
+      ];
     }
-    case 'gray':
-      return [color.v, color.v, color.v, color.a];
+    case 'cmyk': {
+      const bd = color.bitDepth ?? 'uint8';
+      const c = normalizeChannel(color.c, bd);
+      const m = normalizeChannel(color.m, bd);
+      const y = normalizeChannel(color.y, bd);
+      const k = normalizeChannel(color.k, bd);
+      const [r, g, b] = cmykToRgb(
+        denormalizeChannel(c, 'uint8'),
+        denormalizeChannel(m, 'uint8'),
+        denormalizeChannel(y, 'uint8'),
+        denormalizeChannel(k, 'uint8'),
+      );
+      return [r, g, b, denormalizeChannel(normalizeChannel(color.a, bd), 'uint8')];
+    }
+    case 'gray': {
+      const bd = color.bitDepth ?? 'uint8';
+      const v = denormalizeChannel(normalizeChannel(color.v, bd), 'uint8');
+      return [v, v, v, denormalizeChannel(normalizeChannel(color.a, bd), 'uint8')];
+    }
     case 'spot': {
       const a = Math.round(color.a * (color.tint / 100));
       if (color.processFallback) {
@@ -438,11 +536,36 @@ export function managedColorToRgba(color: ManagedColorShim): [number, number, nu
 }
 
 /**
+ * Normalize any ManagedColor to a 0.0–1.0 RGBA tuple for blending math.
+ *
+ * All color spaces are reduced to normalized RGBA: CMYK and spot colors
+ * go through their process-color equivalent first, gray expands to RGB.
+ * Channels are/bitDepth-aware so 16-bit and float documents retain
+ * precision through the compositing pipeline.
+ */
+export function managedColorToNormalized(
+  color: ManagedColorShim,
+): [number, number, number, number] {
+  const [r, g, b, a] = managedColorToRgba(color);
+  return [r / 255, g / 255, b / 255, a / 255];
+}
+
+/**
  * Convert any ManagedColor to a CSS rgba() string.
+ * Bit-depth-aware: channels are normalized before formatting.
  */
 export function managedColorToCss(color: ManagedColorShim): string {
   const [r, g, b, a] = managedColorToRgba(color);
   return `rgba(${r},${g},${b},${a / 255})`;
+}
+
+/**
+ * Format a normalized 0.0–1.0 RGBA tuple as a CSS color string.
+ * Alpha is emitted with full float precision.
+ */
+export function normalizedToCss(rgba: [number, number, number, number]): string {
+  const [r, g, b, a] = rgba;
+  return `rgba(${Math.round(r * 255)},${Math.round(g * 255)},${Math.round(b * 255)},${a})`;
 }
 
 /**

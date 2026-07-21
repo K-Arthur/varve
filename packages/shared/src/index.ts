@@ -59,13 +59,21 @@ export {
 } from './bezier';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
+export type { BitDepth } from './colorConversion';
 export {
+  channelMax,
+  clampChannel,
   cmykToRgb,
+  DEFAULT_BIT_DEPTH,
+  denormalizeChannel,
   gamutMapToSrgb,
   linearSrgbToOklab,
   linearToSrgb,
   managedColorToCss,
+  managedColorToNormalized,
   managedColorToRgba,
+  normalizeChannel,
+  normalizedToCss,
   oklabToLinearSrgb,
   oklabToOkLch,
   oklchToOkLab,

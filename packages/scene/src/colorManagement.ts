@@ -7,18 +7,32 @@
  * and the TS rendering pipeline (@strata/engine).
  *
  * Research basis: ICC.1:2010 (Profile Version 4.3), ISO 12647 (printing
- * conditions), LittleCMS architecture, Adobe ACE color engine model.
+ * conditions), LittleCMS architecture, Adobe ACE color engine model,
+ * OpenEXR / half-float convention.
  */
 
-import type { ColorMode, DocumentUnit } from '@strata/shared';
+import type { BitDepth, ColorMode, DocumentUnit } from '@strata/shared';
+import { DEFAULT_BIT_DEPTH } from '@strata/shared';
 
-// ── Color Mode ──────────────────────────────────────────────────────────────
+// ── Color Mode + Bit Depth ─────────────────────────────────────────────────
 
+export { DEFAULT_BIT_DEPTH } from '@strata/shared';
+/**
+ * Bit depth determines channel storage precision and value range. Canonical
+ * definition lives in @strata/shared (so the conversion engine can use it
+ * without a circular dep on @strata/scene); re-exported here.
+ *
+ * | bitDepth | range    | notes |
+ * |----------|----------|-------|
+ * | uint8    | 0–255    | integer. Default for existing documents. |
+ * | uint16   | 0–65535  | integer. |
+ * | float16  | 0.0–1.0  | half-float intent; stored as JS number. |
+ * | float32  | 0.0–1.0  | single-precision; HDR can exceed 1.0. */
 /** Document-level color mode. Determines default color space for new colors.
  *  Canonical definition lives in @strata/shared (used by the preset system
  *  as well); re-exported here so existing `import type { ColorMode } from
  *  '@strata/scene'` call sites keep working unchanged. */
-export type { ColorMode };
+export type { BitDepth, ColorMode };
 
 // ── Color Space ─────────────────────────────────────────────────────────────
 
@@ -76,9 +90,16 @@ export interface OutputIntentRef {
 
 // ── Managed Color ───────────────────────────────────────────────────────────
 
-/** RGB color value (0-255 per channel, sRGB by default). */
+/**
+ * RGB color value. Channel range depends on `bitDepth`:
+ * - uint8 (default): 0–255
+ * - uint16: 0–65535
+ * - float16/float32: 0.0–1.0 (HDR can exceed 1.0)
+ */
 export interface RgbColor {
   space: 'rgb';
+  /** Channel bit depth. Optional; defaults to 'uint8' when absent. */
+  bitDepth?: BitDepth;
   r: number;
   g: number;
   b: number;
@@ -87,9 +108,16 @@ export interface RgbColor {
   profile?: string;
 }
 
-/** CMYK color value (0-255 per channel). */
+/**
+ * CMYK color value. Channel range depends on `bitDepth`:
+ * - uint8 (default): 0–255 per channel
+ * - uint16: 0–65535 per channel
+ * - float16/float32: 0.0–1.0 (proportion of full ink)
+ */
 export interface CmykColor {
   space: 'cmyk';
+  /** Channel bit depth. Optional; defaults to 'uint8' when absent. */
+  bitDepth?: BitDepth;
   c: number;
   m: number;
   y: number;
@@ -99,9 +127,16 @@ export interface CmykColor {
   profile?: string;
 }
 
-/** Grayscale color value (0-255, 0 = black, 255 = white). */
+/**
+ * Grayscale color value. Channel range depends on `bitDepth`:
+ * - uint8 (default): 0–255 (0 = black, 255 = white)
+ * - uint16: 0–65535
+ * - float16/float32: 0.0–1.0
+ */
 export interface GrayColor {
   space: 'gray';
+  /** Channel bit depth. Optional; defaults to 'uint8' when absent. */
+  bitDepth?: BitDepth;
   v: number;
   a: number;
   profile?: string;
@@ -390,12 +425,34 @@ export function rgbFromTuple(
 ): RgbColor {
   return {
     space: 'rgb',
+    bitDepth: 'uint8',
     r: rgba[0],
     g: rgba[1],
     b: rgba[2],
     a: rgba[3],
     profile,
   };
+}
+
+/**
+ * Return a copy of a ManagedColor with `bitDepth` explicitly set.
+ *
+ * Existing colors (deserialized from documents saved before bit depth was
+ * added) have `bitDepth: undefined`. Use this helper at every read boundary
+ * where a concrete bit depth is required — conversion functions, rendering
+ * pipelines, and serialization. The optional `fallback` defaults to
+ * `DEFAULT_BIT_DEPTH` ('uint8'), so existing documents round-trip losslessly.
+ *
+ * For spot colors (which have no channel precision), the color is returned
+ * unchanged.
+ */
+export function withDefaultBitDepth<T extends ManagedColor>(
+  color: T,
+  fallback: BitDepth = DEFAULT_BIT_DEPTH,
+): T {
+  if (color.space === 'spot') return color;
+  if (color.bitDepth) return color;
+  return { ...color, bitDepth: fallback } as T;
 }
 
 /** Convert an RgbColor to a legacy Color tuple [r, g, b, a]. */
