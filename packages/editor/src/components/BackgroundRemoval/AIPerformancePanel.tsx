@@ -92,7 +92,7 @@ export function AIPerformancePanel() {
       {events.length > 1 && (
         <details className="ai-perf__history">
           <summary>Recent inferences ({events.length})</summary>
-          <ul className="ai-perf__list" role="list">
+          <ul className="ai-perf__list">
             {events
               .slice()
               .reverse()

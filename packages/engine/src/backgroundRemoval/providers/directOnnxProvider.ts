@@ -212,7 +212,9 @@ export const directOnnxRemovalProvider: RemovalProvider = {
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    return (await resolveWebModel(options.method, loader, signal)) !== null;
+    return (
+      (await resolveWebModel(options.method, loader, options.qualityPreference, signal)) !== null
+    );
   },
 
   async remove(imageData, options, signal) {
@@ -223,7 +225,12 @@ export const directOnnxRemovalProvider: RemovalProvider = {
     const { getModelLoader } = await import('../modelLoader');
     const loader = getModelLoader(signal);
     await loader.syncFromStorage(signal);
-    const resolved = await resolveWebModel(options.method, loader, signal);
+    const resolved = await resolveWebModel(
+      options.method,
+      loader,
+      options.qualityPreference,
+      signal,
+    );
     if (!resolved) throw new Error(`No installed direct ONNX model for ${options.method}`);
     return removeBackgroundDirectOnnx(imageData, options, resolved.modelId, signal);
   },

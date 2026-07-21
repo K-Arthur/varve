@@ -1,6 +1,23 @@
 /**
- * Offline model manifest — bundled paths and SHA-256 verification (ADR-0005).
+ * Offline model manifest — delegates to the unified inference manifest.
+ *
+ * This module re-exports from ../inference/manifest (the single source of
+ * truth for all ONNX models) while preserving backward compatibility for
+ * bg-removal consumers that expect the raw JSON entry shape.
+ *
+ * ADR-0005: offline-first model bundling.
  */
+
+import {
+  getModelEntry as infGetModelEntry,
+  resetManifestCache as infResetCache,
+  loadModelCatalog,
+  sha256Hex,
+  verifyChecksum,
+} from '../inference/manifest';
+import type { ModelManifestEntry as InfModelManifestEntry } from '../inference/types';
+
+/** Legacy raw-entry shape (matches the on-disk manifest.json schema). */
 export interface ModelManifestEntry {
   id: string;
   filename: string;
@@ -8,6 +25,13 @@ export interface ModelManifestEntry {
   sha256: string | null;
   bundled: boolean;
   remoteUrl: string;
+  /** Weight precision. 'fp32' is the default when omitted. */
+  precision?: 'fp32' | 'int8';
+  /** For INT8 variants: the FP32 source model this was quantized from. */
+  sourceModelId?: string;
+  /** SHA-256 of the FP32 source at quantization time (provenance). */
+  sourceSha256?: string;
+  notes?: string;
 }
 
 export interface ModelManifest {
@@ -15,61 +39,52 @@ export interface ModelManifest {
   models: ModelManifestEntry[];
 }
 
-let cachedManifest: ModelManifest | null = null;
-let manifestPromise: Promise<ModelManifest | null> | null = null;
-
-const MANIFEST_FETCH_TIMEOUT = 5_000;
+function toLegacyEntry(e: InfModelManifestEntry): ModelManifestEntry {
+  return {
+    id: e.id,
+    filename: `${e.id}.onnx`,
+    localPath: e.localPath ?? `/models/${e.id}.onnx`,
+    sha256: e.checksum || null,
+    bundled: e.bundled,
+    remoteUrl: e.remoteUrl,
+    precision: e.precision,
+    sourceModelId: e.sourceModelId,
+    sourceSha256: e.sourceSha256,
+    notes: e.description || undefined,
+  };
+}
 
 export async function loadModelManifest(signal?: AbortSignal): Promise<ModelManifest | null> {
-  if (cachedManifest) return cachedManifest;
-  if (manifestPromise) return manifestPromise;
-
-  const { fetchWithTimeout } = await import('./fetchWithTimeout');
-
-  manifestPromise = (async () => {
-    try {
-      if (typeof fetch === 'undefined') return null;
-      const res = await fetchWithTimeout(
-        '/models/manifest.json',
-        { signal },
-        MANIFEST_FETCH_TIMEOUT,
-      );
-      if (!res.ok) return null;
-      cachedManifest = (await res.json()) as ModelManifest;
-      return cachedManifest;
-    } catch {
-      return null;
-    } finally {
-      manifestPromise = null;
-    }
-  })();
-
-  return manifestPromise;
+  const catalog = await loadModelCatalog(signal);
+  if (!catalog) return null;
+  return {
+    version: 2,
+    models: catalog.map(toLegacyEntry),
+  };
 }
 
 export function resetModelManifestCache(): void {
-  cachedManifest = null;
-  manifestPromise = null;
+  infResetCache();
 }
 
 export async function getManifestEntry(
   modelId: string,
   signal?: AbortSignal,
 ): Promise<ModelManifestEntry | null> {
-  const manifest = await loadModelManifest(signal);
-  return manifest?.models.find((m) => m.id === modelId) ?? null;
+  const entry = await infGetModelEntry(modelId, signal);
+  if (!entry) return null;
+  return toLegacyEntry(entry);
 }
 
-export async function sha256Hex(data: ArrayBuffer): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
+/** Get the FP32 source entry for an INT8 variant, or the entry itself if FP32. */
+export async function getSourceManifestEntry(
+  modelId: string,
+  signal?: AbortSignal,
+): Promise<ModelManifestEntry | null> {
+  const entry = await getManifestEntry(modelId, signal);
+  if (!entry) return null;
+  if (entry.precision !== 'int8' || !entry.sourceModelId) return entry;
+  return getManifestEntry(entry.sourceModelId, signal);
 }
 
-export async function verifyModelChecksum(
-  data: ArrayBuffer,
-  expected: string | null,
-): Promise<boolean> {
-  if (!expected) return true;
-  const actual = await sha256Hex(data);
-  return actual === expected.toLowerCase();
-}
+export { sha256Hex, verifyChecksum as verifyModelChecksum };

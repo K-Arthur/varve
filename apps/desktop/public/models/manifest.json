@@ -83,7 +83,28 @@
       "bundled": false,
       "remoteUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet.onnx",
       "precision": "fp32",
-      "notes": "SCUNet — removes noise, JPEG artifacts, and grain from photos while preserving detail."
+      "notes": "SCUNet — removes noise, JPEG artifacts, and grain from photos while preserving detail. ~18MB. Input: 512x512 RGB (auto-resized)."
+    },
+    {
+      "id": "sam2-hiera-tiny",
+      "filename": "sam2-hiera-tiny.onnx",
+      "localPath": "/models/sam2-hiera-tiny.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "",
+      "precision": "fp32",
+      "notes": "SAM2 Hiera Tiny — interactive object segmentation via point/box prompts. ~39MB. Input: 1024x1024 RGB. Requires separate image-encoder + prompt-decoder ONNX exports (2 files).",
+      "components": ["sam2-hiera-tiny-encoder", "sam2-hiera-tiny-decoder"]
+    },
+    {
+      "id": "depth-anything-v2-small",
+      "filename": "depth_anything_v2_small.onnx",
+      "localPath": "/models/depth_anything_v2_small.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "",
+      "precision": "fp32",
+      "notes": "Depth-Anything-V2 Small — monocular depth estimation. ~25MB. Input: 518x518 RGB (multiple of 14). Output: relative depth map."
     }
   ]
 }

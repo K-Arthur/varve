@@ -6,7 +6,6 @@
 
 import type { Affine } from '@strata/engine';
 import type {
-  ManagedColor,
   Mask,
   Document as SceneDocument,
   SceneNode,

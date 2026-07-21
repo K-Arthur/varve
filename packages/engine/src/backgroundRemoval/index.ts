@@ -51,7 +51,13 @@ export { getModelInfo, MODEL_INFO_MAP } from './modelInfo';
 export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
 export type { SegmentationModelSpec } from './modelSpec';
 export { getSegmentationModelSpec, packModelInput } from './modelSpec';
-export { ModelStorageQuotaError } from './modelStore';
+export {
+  deleteModelBlob,
+  hasModelBlob,
+  loadModelBlob,
+  ModelStorageQuotaError,
+  saveModelBlob,
+} from './modelStore';
 export type { FlowVector } from './opticalFlow';
 export { computeBlockFlow, warpMask } from './opticalFlow';
 export { downscaleImageData } from './previewDownscale';
