@@ -18,12 +18,16 @@ export {
   validateFontDetectInput,
 } from './models/fontDetect';
 export type {
-  Sam2InferenceInput,
-  Sam2InferenceOutput,
+  Sam2DecoderInput,
+  Sam2DecoderOutput,
+  Sam2EncoderInput,
+  Sam2EncoderOutput,
+  Sam2Letterbox,
+  Sam2MaskCandidate,
   Sam2Prompt,
 } from './models/sam2';
 export {
-  decodeSam2Mask,
+  decodeSam2DecoderOutput,
   encodeSam2Prompts,
   SAM2_INPUT_SIZE,
   SAM2_TENSOR_SPEC,
