@@ -127,6 +127,16 @@
       "notes": "AI depth estimation — powers Lens Blur's background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]). No SHA-256 pinned yet — compute and pin on first verified download."
     },
     {
+      "id": "lineart",
+      "filename": "informative-drawings-line-art.onnx",
+      "localPath": "/models/informative-drawings-line-art.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx",
+      "precision": "fp32",
+      "notes": "AI line art extraction — converts a photo into a clean line drawing, a starting point for tracing in Draw mode. ~17.2MB. Model: informative-drawings (MIT, Chan/Durand/Isola, CVPR 2022) — verified via the official carolineec/informative-drawings repo and test.py/model.py. Input: 256x256 RGB, 0-1 range (no mean/std subtraction). Output: single-channel, Sigmoid activation (already 0-1, no rescale). No SHA-256 pinned yet — compute and pin on first verified download."
+    },
+    {
       "id": "sam2-hiera-small",
       "filename": "sam2-hiera-small.onnx",
       "localPath": "/models/sam2-hiera-small.onnx",

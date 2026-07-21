@@ -47,6 +47,7 @@ import { InteractionSection } from './sections/InteractionSection';
 import { LayoutScoreSection } from './sections/LayoutScoreSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { LensBlurSection } from './sections/LensBlurSection';
+import { LineArtSection } from './sections/LineArtSection';
 import { MaskSection } from './sections/MaskSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -342,6 +343,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
     add('ai-denoise', <AIDenoiseSection nodes={nodes} />);
     add('lens-blur', <LensBlurSection nodes={nodes} />);
+    add('line-art', <LineArtSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('effects', <EffectsSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);

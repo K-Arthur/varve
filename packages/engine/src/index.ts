@@ -296,6 +296,7 @@ export {
   preprocessFontDetect,
   validateFontDetectInput,
 } from './inference/models/fontDetect';
+export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
 export type {
   Sam2DecoderInput,
   Sam2DecoderOutput,
