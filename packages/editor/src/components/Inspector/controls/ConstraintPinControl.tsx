@@ -117,11 +117,12 @@ export function ConstraintPinControl({
           next = ZONES.indexOf('scale');
           break;
         case 'Enter':
-        case ' ':
+        case ' ': {
           e.preventDefault();
           const zone = ZONES[focusIndexRef.current];
           if (zone) handleZoneClick(zone);
           return;
+        }
         default:
           return;
       }

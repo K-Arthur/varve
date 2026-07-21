@@ -9,9 +9,9 @@
  * Research basis: Figma multi-run text editing, ARIA textbox + activedescendant.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
 import type { CharacterFormat, RichSelection, RichText, TextRun } from '@strata/scene';
 import { applyFormatToSelection, mergeAdjacentRuns } from '@strata/scene';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { InspectorColorPopover } from './InspectorColorPopover';
 
@@ -93,8 +93,8 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
       >
         {flatRuns.map(({ run, paraIndex, runIndex }, i) => {
           const fmt = run.format ?? EMPTY_FORMAT;
-          const isBold = fmt.fontWeight && fmt.fontWeight >= 600;
-          const isItalic = fmt.fontStyle === 'italic';
+          const _isBold = fmt.fontWeight && fmt.fontWeight >= 600;
+          const _isItalic = fmt.fontStyle === 'italic';
           return (
             <span
               key={runKey(run, i)}
