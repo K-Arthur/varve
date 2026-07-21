@@ -22,7 +22,15 @@ describe('computeTransitionVisuals', () => {
       fromScreenId: 'a',
       toScreenId: 'b',
       transition: { kind: 'smartAnimate', duration: 400, easing: { kind: 'linear' } },
-      smartAnimateValues: { n1: { opacity: { from: 0, to: 0.5 } as PropertyPair<number>, transform: { from: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine, to: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine } as import('@strata/prototype').PropertyPair<import('@strata/engine').Affine> } },
+      smartAnimateValues: {
+        n1: {
+          opacity: { from: 0, to: 0.5 } as PropertyPair<number>,
+          transform: {
+            from: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
+            to: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
+          } as import('@strata/prototype').PropertyPair<import('@strata/engine').Affine>,
+        },
+      },
       startedAt: 0,
     };
     const end = computeTransitionVisuals(active, 1);

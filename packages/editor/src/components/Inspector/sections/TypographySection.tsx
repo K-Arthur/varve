@@ -22,6 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { BindingMenu } from '../controls/BindingMenu';
+import { RichTextSpanEditor } from '../controls/RichTextSpanEditor';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -49,6 +50,12 @@ const SYSTEM_FONTS = [
 ];
 
 const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
+
+const DIRECTION_OPTIONS: readonly SegmentedOption<'auto' | 'ltr' | 'rtl'>[] = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'ltr', label: 'LTR' },
+  { value: 'rtl', label: 'RTL' },
+] as const;
 
 const TEXT_ALIGN_OPTIONS: readonly SegmentedOption<'left' | 'center' | 'right' | 'justify'>[] = [
   { value: 'left', label: 'L' },
@@ -252,6 +259,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     getTextValue(n, (t) => t.paragraphSpacing ?? 0),
   );
   const alignRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.textAlign ?? 'left'));
+  const directionRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.direction ?? 'auto'));
   const alignVRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.textAlignVertical ?? 'top'),
   );
@@ -364,6 +372,14 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             value={isMixed(alignRaw) ? 'left' : alignRaw}
             options={TEXT_ALIGN_OPTIONS}
             onChange={(v) => batchUpdate((n) => ({ ...n, textAlign: v }))}
+          />
+        </FieldRow>
+        <FieldRow label="Direction">
+          <SegmentedControl
+            label="Text direction"
+            value={isMixed(directionRaw) ? 'auto' : directionRaw}
+            options={DIRECTION_OPTIONS}
+            onChange={(v) => batchUpdate((n) => ({ ...n, direction: v }))}
           />
         </FieldRow>
         <FieldRow label="V Align">

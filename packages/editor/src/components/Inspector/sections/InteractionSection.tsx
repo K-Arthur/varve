@@ -186,7 +186,10 @@ export function InteractionSection() {
                       <Select
                         label="Transition"
                         value={String(transition.kind ?? 'dissolve')}
-                        options={TRANSITION_OPTIONS.map((k) => ({ value: k, label: TRANSITION_LABELS[k] ?? k }))}
+                        options={TRANSITION_OPTIONS.map((k) => ({
+                          value: k,
+                          label: TRANSITION_LABELS[k] ?? k,
+                        }))}
                         onChange={(v) =>
                           patchInteraction(ix, {
                             actions: [

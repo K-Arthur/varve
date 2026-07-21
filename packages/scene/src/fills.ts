@@ -61,10 +61,13 @@ export function gradientFill(
 export function imageFill(
   src: string,
   opts: {
+    assetId?: string;
     fit?: ImageFit;
     x?: number;
     y?: number;
     scale?: number;
+    imageWidth?: number;
+    imageHeight?: number;
     opacity?: number;
     blendMode?: BlendMode;
     visible?: boolean;
@@ -72,10 +75,13 @@ export function imageFill(
 ): Fill {
   const image: ImageFillData = {
     src,
+    ...(opts.assetId !== undefined ? { assetId: opts.assetId } : {}),
     fit: opts.fit ?? 'fill',
     x: opts.x ?? 0,
     y: opts.y ?? 0,
     scale: opts.scale ?? 1,
+    ...(opts.imageWidth !== undefined ? { imageWidth: opts.imageWidth } : {}),
+    ...(opts.imageHeight !== undefined ? { imageHeight: opts.imageHeight } : {}),
   };
   return {
     type: 'image',

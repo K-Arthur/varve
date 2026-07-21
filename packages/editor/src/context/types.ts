@@ -185,6 +185,18 @@ export interface EditorState {
   graphEditorVisible: boolean;
   /** Which property track is currently shown in the graph editor (nodeId.property). */
   selectedGraphProperty: string | null;
+  /**
+   * Pending character format for new typing in the rich-text span editor.
+   * When set, grapheme input applies this format to the new run. Null when
+   * unset (collapsed caret inherits the surrounding run's format).
+   */
+  pendingFormat: import('@strata/scene').CharacterFormat | null;
+  /**
+   * The selected grapheme range within the focused text node's rich text.
+   * Used by the span editor to know which runs to format. Null when no
+   * text editing is active.
+   */
+  selectionRange: import('@strata/scene').RichSelection | null;
   motion: MotionState;
   canvasMode: CanvasMode;
   /** View rotation in radians (non-destructive canvas rotate). */
@@ -414,6 +426,21 @@ export interface EditorContextValue {
   setSelectedW: (w: number) => void;
   setSelectedH: (h: number) => void;
   updateNode: (id: NodeId, updater: (node: SceneNode) => SceneNode) => void;
+  /**
+   * Apply a character format to the selected range of the focused text node's
+   * rich text. Plain-text nodes are promoted to rich text automatically.
+   * Requires a valid selectionRange on the focused text node.
+   */
+  applyFormatToSelection: (format: import('@strata/scene').CharacterFormat) => void;
+  /**
+   * Store the format that new typing should inherit (collapsed caret with
+   * a "pending" format state — grapheme input applies this format).
+   */
+  setPendingFormat: (format: import('@strata/scene').CharacterFormat) => void;
+  /** The pending character format for new typing (null when unset). */
+  pendingFormat: import('@strata/scene').CharacterFormat | null;
+  /** Report the selected grapheme range within the focused text node. */
+  setSelectionRange: (range: import('@strata/scene').RichSelection | null) => void;
   setSelectedOpacity: (value: number) => void;
   setSelectedBlendMode: (mode: BlendMode) => void;
   setSelectedRotation: (value: number) => void;

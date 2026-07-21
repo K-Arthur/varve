@@ -1240,6 +1240,21 @@ fn escape_pdf_string(s: &str) -> String {
     out
 }
 
+/// Detect text that cannot be represented in WinAnsiEncoding and therefore
+/// MUST be outlined into vector paths. Arabic, Hebrew, Devanagari, CJK, and
+/// any codepoint above U+00FF fall here.
+pub fn requires_outline(text: &str) -> bool {
+    text.chars().any(|c| (c as u32) > 0xFF)
+}
+
+/// Extract the text content of a node if it is a text shape, else None.
+fn shape_text(node: &SceneNode) -> Option<&str> {
+    match &node.shape {
+        Shape::Text { text, .. } => Some(text),
+        _ => None,
+    }
+}
+
 /// Check whether every character in `text` fits in WinAnsiEncoding
 /// (roughly Latin-1 printable characters plus common whitespace).
 fn can_encode_win_ansi(text: &str) -> bool {
@@ -1486,7 +1501,15 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 ..
             } = &node.shape
             {
-                if !text.is_empty() && !embedded_fonts.is_empty() && can_encode_win_ansi(text) {
+                // Non-WinAnsi text (Arabic, Hebrew, CJK, …) cannot be encoded in
+                // WinAnsiEncoding — it MUST be outlined regardless of opts.outline_text.
+                let force_outline = requires_outline(text);
+
+                if !text.is_empty()
+                    && !embedded_fonts.is_empty()
+                    && !force_outline
+                    && can_encode_win_ansi(text)
+                {
                     if let Some(ef) = embedded_fonts.iter().find(|ef| ef.family == *font_family) {
                         let tx = node.transform.as_coeffs();
                         let x_off = tx[4];
@@ -1528,8 +1551,13 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 need_bt = false;
             }
 
-            // Try outline mode
-            if do_outline {
+            // Try outline mode — or forced outline for non-WinAnsi text
+            // (Arabic, Hebrew, CJK cannot be encoded in WinAnsiEncoding and MUST
+            // be outlined even when opts.outline_text is false).
+            if do_outline
+                || shape_text(node)
+                    .map_or(false, |t| !t.is_empty() && requires_outline(t))
+            {
                 if let Shape::Text {
                     text,
                     font_size,
@@ -3094,6 +3122,47 @@ mod tests {
         let bytes = export_pdf(&nodes, &opts).expect("multi-font outlined pdf");
         assert!(bytes.starts_with(b"%PDF"), "should be valid PDF");
         assert!(bytes.len() > 500, "should have outlined content");
+    }
+
+    // ── Unicode / non-WinAnsi fallback tests ────────────────────────────
+
+    #[test]
+    fn requires_outline_detects_non_winansi() {
+        assert!(requires_outline("مرحبا"), "Arabic requires outline");
+        assert!(requires_outline("שלום"), "Hebrew requires outline");
+        assert!(requires_outline("नमस्ते"), "Devanagari requires outline");
+        assert!(
+            !requires_outline("Hello World"),
+            "ASCII does not require outline"
+        );
+        assert!(
+            !requires_outline("Café résumé"),
+            "Latin-1 Supplement is WinAnsi"
+        );
+    }
+
+    #[test]
+    fn export_pdf_outlines_non_winansi_text() {
+        // Arabic text cannot be encoded in WinAnsiEncoding. It MUST be
+        // outlined into vector paths even when outline_text is false.
+        let font_data = test_font_data();
+        let nodes = vec![text_node(1, 10.0, 10.0, "مرحبا", 24.0)];
+        let opts = PdfOptions {
+            outline_text: false, // disabled — but non-WinAnsi forces outline
+            font_data: Some(font_data),
+            ..Default::default()
+        };
+        let bytes = export_pdf(&nodes, &opts).expect("non-winansi pdf");
+        let s = String::from_utf8_lossy(&bytes);
+        assert!(
+            !s.contains("/Tj"),
+            "non-WinAnsi text must not emit WinAnsi Tj operator"
+        );
+        // Outlined text produces PDF path operators
+        assert!(
+            s.contains('m') && s.contains('c'),
+            "non-WinAnsi text should be outlined to path operators (m, c)"
+        );
     }
 
     // ── CMYK export integration ────────────────────────────────────────

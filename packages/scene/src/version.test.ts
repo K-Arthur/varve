@@ -14,8 +14,8 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.4');
-    expect(SUPPORTED_VERSIONS).toContain('2.3');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.5');
+    expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('stamps current version on new documents', () => {
     const doc = stampVersion({
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.4');
+    expect(migrated.formatVersion).toBe('2.5');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.4');
+    expect(migrated.formatVersion).toBe('2.5');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.4');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.5');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -312,14 +312,49 @@ describe('Document Migration', () => {
     expect((config.cmykProfile as Record<string, unknown>).id).toBe('fogra39');
   });
 
-  it('migrates v2.3 → v2.4: stamps version when no colorConfig exists', () => {
+  it('migrates v2.3 → v2.5: full chain ends at latest version', () => {
     const raw = {
       formatVersion: '2.3',
       nodes: {},
     };
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
-    expect((result as Record<string, unknown>).formatVersion).toBe('2.4');
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.5');
+  });
+
+  it('migrates v2.4 → v2.5: bakes rotation into transform', () => {
+    const raw = {
+      formatVersion: '2.4',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          rotation: 90,
+          transform: [1, 0, 0, 1, 100, 200],
+        },
+        n2: {
+          id: 'n2',
+          kind: 'shape',
+          rotation: 0,
+          transform: [1, 0, 0, 1, 50, 50],
+        },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    expect(result.formatVersion).toBe('2.5');
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    // n1: rotation 90 baked into transform
+    expect(nodes.n1!.rotation).toBe(0);
+    const t = nodes.n1!.transform as number[];
+    // rotateDeg(90) * identity-ish transform with translation
+    // cos(90) ≈ 0, sin(90) ≈ 1
+    expect(t[0]).toBeCloseTo(0, 6); // a*cos + c*sin = 1*0 + 0*1 = 0
+    expect(t[1]).toBeCloseTo(1, 6); // b*cos + d*sin = 0*0 + 1*1 = 1... wait
+    expect(t[4]).toBeCloseTo(100, 6); // translation preserved
+    expect(t[5]).toBeCloseTo(200, 6);
+    // n2: zero rotation, transform unchanged
+    expect(nodes.n2!.rotation).toBe(0);
+    expect(nodes.n2!.transform).toEqual([1, 0, 0, 1, 50, 50]);
   });
 
   it('migrates an unversioned document (pre-1.0)', () => {

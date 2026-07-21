@@ -579,6 +579,7 @@ function buildTextContent(node: TextNode, indent: string): string {
   const spans: string[] = [];
   let y = baseY;
   for (const paragraph of node.richText.paragraphs) {
+    const paraDirection = paragraph.format?.direction;
     let x = 0;
     for (const run of paragraph.runs) {
       const runAttrs: string[] = [`x="${x.toFixed(2)}"`, `y="${y.toFixed(2)}"`];
@@ -615,6 +616,10 @@ function buildTextContent(node: TextNode, indent: string): string {
         }
       }
       if (runStyleParts.length > 0) runAttrs.push(`style="${runStyleParts.join(' ')}"`);
+      // Per-paragraph RTL direction for BiDi-aware SVG renderers.
+      if (paraDirection === 'rtl') {
+        runAttrs.push('direction="rtl"', 'unicode-bidi="bidi-override"');
+      }
 
       spans.push(`${childIndent}<tspan ${runAttrs.join(' ')}>${escapeXml(run.text)}</tspan>`);
       // Approximate advance for positioning; a real layout engine would provide exact metrics.
@@ -795,6 +800,12 @@ function nodeToSvgTag(
         attrs.push(
           `text-anchor="${textNode.textAlign === 'center' ? 'middle' : textNode.textAlign === 'right' ? 'end' : 'start'}"`,
         );
+      // RTL direction: emit dir + unicode-bidi so SVG renderers apply the
+      // Unicode Bidirectional Algorithm. LTR is the SVG default (omitted);
+      // 'auto' is left to the renderer.
+      if (textNode.direction === 'rtl') {
+        attrs.push('direction="rtl"', 'unicode-bidi="bidi-override"');
+      }
       if (textNode.letterSpacing) attrs.push(`letter-spacing="${textNode.letterSpacing}"`);
       if (textNode.lineHeight) attrs.push(`line-height="${textNode.lineHeight}"`);
       if (textNode.textDecoration && textNode.textDecoration !== 'none') {
