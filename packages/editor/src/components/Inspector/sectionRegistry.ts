@@ -42,7 +42,10 @@ export type SectionId =
   | 'prototype-flow'
   | 'brush-settings'
   | 'canvas-background'
-  | 'document-color';
+  | 'document-color'
+  | 'ai-denoise'
+  | 'lens-blur'
+  | 'adaptive-contrast';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -133,6 +136,10 @@ function isRectNode(nodes: SceneNode[]): boolean {
 
 function isAdjustmentNode(nodes: SceneNode[]): boolean {
   return nodes.length === 1 && nodes[0]?.kind === 'adjustment';
+}
+
+function isAllTextNodes(nodes: SceneNode[]): boolean {
+  return nodes.length > 0 && nodes.every((n) => n.kind === 'text');
 }
 
 function hasNodes(ctx: SectionAvailabilityContext): boolean {
@@ -329,6 +336,36 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 290,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'ai-denoise',
+    title: 'AI Denoise',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 293,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'lens-blur',
+    title: 'Lens Blur',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 295,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'adaptive-contrast',
+    title: 'Adaptive Contrast',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 310,
+    category: 'content',
+    isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
   },
 
   // -- Multi-select --
