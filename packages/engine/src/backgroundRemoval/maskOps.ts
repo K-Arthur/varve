@@ -645,7 +645,7 @@ export function fillMaskHoles(
   const result = new Uint8Array(mask);
   const visited = new Uint8Array(width * height);
   const idx = (x: number, y: number) => y * width + x;
-  const n4 = [
+  const n4: [number, number][] = [
     [0, -1],
     [-1, 0],
     [1, 0],
@@ -655,7 +655,7 @@ export function fillMaskHoles(
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = idx(x, y);
-      if (visited[i] || result[i] >= foregroundThreshold) continue;
+      if (visited[i]! || result[i]! >= foregroundThreshold) continue;
 
       // Flood-fill background region.
       const stack: number[] = [i];
@@ -678,7 +678,7 @@ export function fillMaskHoles(
           const ny = cy + dy;
           if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
           const ni = idx(nx, ny);
-          if (visited[ni] || result[ni] >= foregroundThreshold) continue;
+          if (visited[ni]! || result[ni]! >= foregroundThreshold) continue;
           visited[ni] = 1;
           if (pixels.length < maxHoleArea + 1) {
             stack.push(ni);
@@ -710,7 +710,7 @@ export function expandMask(
   width: number,
   height: number,
   radius: number,
-  threshold = 128,
+  _threshold = 128,
 ): Uint8Array {
   if (radius <= 0 || width <= 0 || height <= 0) return mask;
 
