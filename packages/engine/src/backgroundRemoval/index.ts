@@ -66,7 +66,7 @@ export {
   reconstructModelMask,
   refineEdgeBand,
 } from './reconstructMask';
-export type { HairMattingOptions } from './refineHairMatting';
+export type { HairMattingOptions, MattingMethod } from './refineHairMatting';
 export { refineHairMatting, TRIMap } from './refineHairMatting';
 export type { TrimapMattingOptions } from './trimapMatting';
 export { solveTrimapMatting, trimapFromMask } from './trimapMatting';
