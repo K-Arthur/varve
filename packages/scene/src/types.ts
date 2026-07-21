@@ -698,6 +698,13 @@ export interface TextNode extends NodeBase {
   pathOffset?: number;
   /** Phase 5: Which side of the path text appears on. */
   pathSide?: 'top' | 'bottom';
+  /**
+   * Adaptive contrast settings for automatic text colour adjustment.
+   * When enabled, the rendered text colour is adjusted to meet WCAG contrast
+   * targets against the composited backdrop, while the stored fill remains
+   * the author's original choice.
+   */
+  adaptiveContrast?: import('./typography').AdaptiveContrastState;
 }
 
 export interface GroupNode extends NodeBase {

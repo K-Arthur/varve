@@ -48,7 +48,8 @@ export type ToolId =
   | 'crop'
   | 'paint'
   | 'eraser'
-  | 'smudge';
+  | 'smudge'
+  | 'sam2Segment';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
