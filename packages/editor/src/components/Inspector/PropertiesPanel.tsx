@@ -28,6 +28,8 @@ import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorColorPopover } from './controls/InspectorColorPopover';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import type { SectionId } from './sectionRegistry';
+import { AdaptiveContrastSection } from './sections/AdaptiveContrastSection';
+import { AIDenoiseSection } from './sections/AIDenoiseSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
@@ -44,6 +46,7 @@ import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { InteractionSection } from './sections/InteractionSection';
 import { LayoutScoreSection } from './sections/LayoutScoreSection';
 import { LayoutSection } from './sections/LayoutSection';
+import { LensBlurSection } from './sections/LensBlurSection';
 import { MaskSection } from './sections/MaskSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -337,9 +340,13 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('image-enhancement', <ImageEnhancementSection nodes={nodes} />);
     add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
+    add('ai-denoise', <AIDenoiseSection nodes={nodes} />);
+    add('lens-blur', <LensBlurSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('effects', <EffectsSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
+    const isText = nodes.length > 0 && nodes.every((n) => n.kind === 'text');
+    if (isText) add('adaptive-contrast', <AdaptiveContrastSection nodes={nodes} />);
     add('interaction', <InteractionSection />);
     if (state.prototypeMode) {
       add(
