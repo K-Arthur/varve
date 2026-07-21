@@ -1,0 +1,287 @@
+name: Model Supply Chain Validation
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'apps/desktop/public/models/**'
+      - 'packages/engine/src/backgroundRemoval/modelContract.ts'
+      - 'packages/engine/src/inference/types.ts'
+      - 'packages/engine/src/inference/manifest.ts'
+      - 'packages/engine/src/inference/modelCatalog.ts'
+      - '.github/workflows/model-validation.yml'
+  pull_request:
+    paths:
+      - 'apps/desktop/public/models/**'
+      - 'packages/engine/src/backgroundRemoval/modelContract.ts'
+      - 'packages/engine/src/inference/types.ts'
+  schedule:
+    # Weekly full validation including downloaded models
+    - cron: '0 8 * * 1'
+  workflow_dispatch:
+    inputs:
+      full_validation:
+        description: 'Run full validation with model downloads'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Fast PR gate: manifest schema + contract structure ───────────────────
+  manifest-contract-verify:
+    name: Manifest & contract verification
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install JS dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate manifest v3 schema
+        run: |
+          node -e "
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
+          
+          // Check version
+          if (manifest.version !== 3) {
+            console.error('ERROR: manifest version must be 3, got', manifest.version);
+            process.exit(1);
+          }
+          
+          // Check required top-level fields
+          const requiredTop = ['version', 'models'];
+          for (const field of requiredTop) {
+            if (manifest[field] === undefined) {
+              console.error('ERROR: manifest missing top-level field:', field);
+              process.exit(1);
+            }
+          }
+          
+          // Check each entry has required fields
+          const required = ['id', 'filename', 'localPath', 'bundled', 'remoteUrl'];
+          let errors = 0;
+          for (const entry of manifest.models) {
+            for (const field of required) {
+              if (entry[field] === undefined) {
+                console.error('ERROR: entry', entry.id, 'missing required field:', field);
+                errors++;
+              }
+            }
+            // INT8 entries must have sourceModelId and sourceSha256
+            if (entry.precision === 'int8' && (!entry.sourceModelId || !entry.sourceSha256)) {
+              console.error('ERROR: INT8 entry', entry.id, 'missing sourceModelId or sourceSha256');
+              errors++;
+            }
+            // Tensor contract structure validation
+            if (entry.tensorContract) {
+              const tc = entry.tensorContract;
+              if (!tc.inputs || tc.inputs.length === 0) {
+                console.error('ERROR:', entry.id, 'tensorContract has no inputs');
+                errors++;
+              }
+              if (!tc.outputs || tc.outputs.length === 0) {
+                console.error('ERROR:', entry.id, 'tensorContract has no outputs');
+                errors++;
+              }
+              if (!['sigmoid', 'softmax', 'none', 'linear'].includes(tc.outputActivation)) {
+                console.error('ERROR:', entry.id, 'invalid outputActivation:', tc.outputActivation);
+                errors++;
+              }
+              if (!tc.version || tc.version < 1) {
+                console.error('ERROR:', entry.id, 'tensorContract version must be >= 1');
+                errors++;
+              }
+            }
+            // Validation status structure
+            if (entry.validation) {
+              const v = entry.validation;
+              if (typeof v.contractVerified !== 'boolean') {
+                console.error('ERROR:', entry.id, 'validation.contractVerified must be boolean');
+                errors++;
+              }
+              if (typeof v.integrityVerified !== 'boolean') {
+                console.error('ERROR:', entry.id, 'validation.integrityVerified must be boolean');
+                errors++;
+              }
+              if (!['unverified', 'signed', 'verified', 'revoked', 'expired'].includes(v.provenanceStatus)) {
+                console.error('ERROR:', entry.id, 'invalid provenanceStatus:', v.provenanceStatus);
+                errors++;
+              }
+            }
+          }
+          
+          if (errors > 0) {
+            console.error(errors, 'schema error(s)');
+            process.exit(1);
+          }
+          console.log('Manifest v3 schema OK:', manifest.models.length, 'entries');
+          "
+
+      - name: Verify bundled model files exist
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
+          
+          let errors = 0;
+          for (const entry of manifest.models) {
+            if (entry.bundled) {
+              const filePath = path.join('apps/desktop/public/models', entry.localPath);
+              if (!fs.existsSync(filePath)) {
+                console.error('ERROR: bundled model not found:', filePath);
+                errors++;
+              } else if (entry.sha256) {
+                // Verify SHA-256 of bundled models
+                const crypto = require('crypto');
+                const data = fs.readFileSync(filePath);
+                const hash = crypto.createHash('sha256').update(data).digest('hex');
+                if (hash !== entry.sha256) {
+                  console.error('ERROR: hash mismatch for', entry.id);
+                  console.error('  expected:', entry.sha256);
+                  console.error('  actual:  ', hash);
+                  errors++;
+                }
+              }
+            }
+          }
+          
+          if (errors > 0) {
+            console.error(errors, 'integrity error(s)');
+            process.exit(1);
+          }
+          console.log('All bundled models verified');
+          "
+
+      - name: Run contract integrity tests
+        run: pnpm exec vitest run packages/engine/src/inference/__tests__/manifestContracts.test.ts packages/engine/src/inference/__tests__/catalogTrust.test.ts packages/engine/src/inference/__tests__/corpusValidation.test.ts --reporter=verbose
+
+  # ── ONNX graph inspection (scheduled or dispatch only) ───────────────────
+  graph-inspection:
+    name: ONNX graph inspection
+    needs: [manifest-contract-verify]
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch'
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ONNX tools
+        run: pip install onnx onnxruntime
+
+      - name: Verify bundled model graphs
+        run: |
+          python3 scripts/verify-model-contracts.py --all --output graph-inspection-report.json
+
+      - name: Upload graph inspection report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: graph-inspection-report
+          path: graph-inspection-report.json
+
+  # ── Corpus validation ────────────────────────────────────────────────────
+  corpus-validate:
+    name: Corpus metadata validation
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate corpus manifest
+        run: |
+          node -e "
+          const fs = require('fs');
+          const corpus = JSON.parse(fs.readFileSync('tests/fixtures/bg-removal-corpus/corpus.json', 'utf-8'));
+          
+          // Check version
+          if (corpus.version !== 2) {
+            console.error('ERROR: corpus version must be 2, got', corpus.version);
+            process.exit(1);
+          }
+          
+          // Check mask classification definitions exist
+          if (!corpus.maskClassification || !corpus.maskClassification.groundTruth) {
+            console.error('ERROR: corpus missing maskClassification definitions');
+            process.exit(1);
+          }
+          
+          // Check metrics configuration
+          if (!corpus.metrics || !corpus.metrics.perCategory) {
+            console.error('ERROR: corpus missing metrics configuration');
+            process.exit(1);
+          }
+          
+          // Check every image has required fields
+          let errors = 0;
+          const validClassifications = ['groundTruth', 'humanReviewed', 'referenceModel', 'synthetic'];
+          for (const image of corpus.images) {
+            if (!image.id || !image.file || !image.category) {
+              console.error('ERROR: image missing required fields:', image.id);
+              errors++;
+            }
+            if (!validClassifications.includes(image.maskClassification)) {
+              console.error('ERROR:', image.id, 'invalid maskClassification:', image.maskClassification);
+              errors++;
+            }
+            if (image.maskClassification === 'groundTruth' && !image.reviewer) {
+              console.error('ERROR:', image.id, 'groundTruth mask has no reviewer');
+              errors++;
+            }
+            if (image.maskClassification === 'referenceModel' && !image.maskProvenance?.modelId) {
+              console.error('ERROR:', image.id, 'referenceModel mask has no modelId');
+              errors++;
+            }
+          }
+          
+          if (errors > 0) {
+            console.error(errors, 'corpus error(s)');
+            process.exit(1);
+          }
+          console.log('Corpus manifest OK:', corpus.images.length, 'images,', corpus.syntheticFixtures?.length ?? 0, 'synthetic fixtures');
+          "
+
+      - name: Verify fixture files exist
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const corpus = JSON.parse(fs.readFileSync('tests/fixtures/bg-removal-corpus/corpus.json', 'utf-8'));
+          
+          let errors = 0;
+          for (const image of corpus.images) {
+            const filePath = path.join(corpus.corpusDir, image.file);
+            if (!fs.existsSync(filePath)) {
+              console.error('ERROR: fixture not found:', filePath);
+              errors++;
+            }
+          }
+          
+          if (errors > 0) {
+            console.error(errors, 'fixture file(s) missing');
+            process.exit(1);
+          }
+          console.log('All fixture files present');
+          "
