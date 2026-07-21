@@ -15,6 +15,49 @@ import {
 import type { ModelState } from './types';
 import { AVAILABLE_MODELS } from './types';
 
+// Static fallback metadata for models not covered by AVAILABLE_MODELS or
+// upscaleModels.ts. These mirror entries from modelCatalog.ts FALLBACK_ENTRIES
+// so the download infrastructure can resolve remoteUrl and size without waiting
+// for an async manifest fetch.
+const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; size: number }> = {
+  scunet: {
+    // No verified ONNX export exists (huggingface.co/Heliosoph/scunet-onnx
+    // 404s; cszn/SCUNet has documented ONNX conversion failures). Kept
+    // empty deliberately — see apps/desktop/public/models/manifest.json.
+    remoteUrl: '',
+    name: 'SCUNet Denoise',
+    size: 18_000_000,
+  },
+  'depth-anything-v2-small': {
+    // Verified: onnx-community/depth-anything-v2-small on Hugging Face
+    // (Apache-2.0), INT8 variant (~27MB) for a smaller one-time download.
+    remoteUrl:
+      'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_int8.onnx',
+    name: 'Depth-Anything-V2 Small (INT8)',
+    size: 27_300_000,
+  },
+  'sam2-hiera-tiny': {
+    remoteUrl: '',
+    name: 'SAM2 Tiny',
+    size: 39_000_000,
+  },
+  'sam2-hiera-small': {
+    remoteUrl: '',
+    name: 'SAM2 Small',
+    size: 92_000_000,
+  },
+  'tr-ocr-base-printed': {
+    remoteUrl: '',
+    name: 'TrOCR (Printed Text)',
+    size: 340_000_000,
+  },
+  'font-detect-resnet': {
+    remoteUrl: '',
+    name: 'Font Detection',
+    size: 44_000_000,
+  },
+};
+
 function modelMeta(
   modelId: string,
 ): { remoteUrl: string; name?: string; size: number } | undefined {
@@ -22,6 +65,8 @@ function modelMeta(
   if (bg) return bg;
   const up = getUpscaleModel(modelId);
   if (up) return { remoteUrl: up.remoteUrl, name: up.name, size: up.size };
+  const ext = EXTENDED_MODEL_META[modelId];
+  if (ext) return ext;
   return undefined;
 }
 
@@ -150,7 +195,11 @@ class ModelLoader {
     }
   }
 
-  /** Whether a model is reachable (bundled asset or IndexedDB blob). */
+  /**
+   * Whether a model is reachable (bundled asset or IndexedDB blob or native Tauri).
+   * Checks the bg-removal native path first, then falls through to the generic
+   * model-path resolution that covers all model types (scunet, depth, sam2, …).
+   */
   async isModelAvailable(modelId: string, signal?: AbortSignal): Promise<boolean> {
     if (AVAILABLE_MODELS.some((model) => model.id === modelId)) {
       const { getNativeBackgroundRemovalModelStatus } = await import('./providers/tauriProvider');
@@ -319,7 +368,18 @@ class ModelLoader {
     onProgress?: (loaded: number, total: number) => void,
     signal?: AbortSignal,
   ): Promise<void> {
-    const model = modelMeta(modelId);
+    let model = modelMeta(modelId);
+    if (!model) {
+      // Not a background-removal or upscale model — fall back to the
+      // unified catalog (manifest.json) so generic inference models
+      // (depth, denoise, segmentation, etc.) share this same download,
+      // checksum, resume, and IndexedDB-caching pipeline instead of each
+      // feature hand-rolling its own fetch loop.
+      const entry = await getManifestEntry(modelId, signal);
+      if (entry) {
+        model = { remoteUrl: entry.remoteUrl, name: entry.filename, size: 0 };
+      }
+    }
     if (!model) {
       throw new Error(`Unknown model: ${modelId}`);
     }

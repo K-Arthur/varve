@@ -4,8 +4,9 @@ import {
   encodeSam2Prompts,
   getImageCache,
   getInferenceWorkerHost,
+  getModelLoader,
 } from '@strata/engine';
-import type { NodeId } from '@strata/scene';
+import type { Document, NodeId } from '@strata/scene';
 import { useCallback, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
@@ -28,6 +29,7 @@ export function useSam2Segmentation(
   _state: EditorState,
   stateRef: React.MutableRefObject<EditorState>,
   setState: React.Dispatch<React.SetStateAction<EditorState>>,
+  updateDoc: (fn: (doc: Document) => Document) => void,
   announcerRef: React.MutableRefObject<CanvasAnnouncer | null>,
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
@@ -136,9 +138,14 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
-      // Encode prompts (normalized 0-1 coords) and dispatch inference
+      // Encode prompts (normalized 0-1 coords) and dispatch inference.
+      // Resolve model path via ModelLoader (checks bundled files first, then
+      // IndexedDB for downloaded models, then falls back to the default path).
       const encoded = encodeSam2Prompts(prompts, naturalW, naturalH);
-      const modelPath = `/models/sam2-hiera-tiny.onnx`;
+      const modelId = 'sam2-hiera-tiny';
+      const loader = getModelLoader();
+      const resolvedModelPath = await loader.getModelPath(modelId, combinedSignal);
+      const modelPath = resolvedModelPath ?? `/models/${modelId}.onnx`;
 
       try {
         const host = getInferenceWorkerHost();
@@ -147,7 +154,7 @@ export function useSam2Segmentation(
             type: 'infer',
             modelType: 'sam2',
             modelPath,
-            modelId: 'sam2-hiera-tiny',
+            modelId,
             imageData,
             params: {
               pointCoords: encoded.pointCoords,
@@ -205,27 +212,31 @@ export function useSam2Segmentation(
               maskPreviewMode: 'overlay' as const,
             }));
             announcerRef.current?.announce(
-              `SAM2 segmentation preview ready (${Math.round(confidence * 100)}% confidence)`,
+              `Subject preview ready (${Math.round(confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
             );
             return maskResult;
           }
 
           case 'mask': {
             const maskDataUrl = await maskToDataUrl(mask, naturalW, naturalH);
-            const updated = commitRasterMask(currentDoc, nodeId, {
-              dataUrl: maskDataUrl,
-              width: naturalW,
-              height: naturalH,
-              method: 'ai-quality',
-              modelId: 'sam2-hiera-tiny',
-              confidence,
-              generatedAt: Date.now(),
-              sourceLocator: src,
+            let committed = false;
+            updateDoc((doc) => {
+              const updated = commitRasterMask(doc, nodeId, {
+                dataUrl: maskDataUrl,
+                width: naturalW,
+                height: naturalH,
+                method: 'ai-quality',
+                modelId: 'sam2-hiera-tiny',
+                confidence,
+                generatedAt: Date.now(),
+                sourceLocator: src,
+              });
+              committed = updated !== doc;
+              return updated;
             });
-            if (updated !== currentDoc) {
-              setState((prev) => ({ ...prev, document: updated }));
+            if (committed) {
               announcerRef.current?.announce(
-                `SAM2 mask applied (${Math.round(confidence * 100)}% confidence)`,
+                `Selection applied as a mask (${Math.round(confidence * 100)}% confidence)`,
               );
             }
             return maskResult;
@@ -245,23 +256,21 @@ export function useSam2Segmentation(
 
           case 'layer': {
             const maskDataUrlLayer = await maskToDataUrl(mask, naturalW, naturalH);
-            const withMask = commitRasterMask(currentDoc, nodeId, {
-              dataUrl: maskDataUrlLayer,
-              width: naturalW,
-              height: naturalH,
-              method: 'ai-quality',
-              modelId: 'sam2-hiera-tiny',
-              confidence,
-              generatedAt: Date.now(),
-              sourceLocator: src,
-            });
-            setState((prev) => ({
-              ...prev,
-              document: withMask,
-              selection: [nodeId],
-            }));
+            updateDoc((doc) =>
+              commitRasterMask(doc, nodeId, {
+                dataUrl: maskDataUrlLayer,
+                width: naturalW,
+                height: naturalH,
+                method: 'ai-quality',
+                modelId: 'sam2-hiera-tiny',
+                confidence,
+                generatedAt: Date.now(),
+                sourceLocator: src,
+              }),
+            );
+            setState((prev) => ({ ...prev, selection: [nodeId] }));
             announcerRef.current?.announce(
-              `SAM2 layer created (${Math.round(confidence * 100)}% confidence)`,
+              `Selection created as a new mask layer (${Math.round(confidence * 100)}% confidence)`,
             );
             return maskResult;
           }
@@ -276,7 +285,7 @@ export function useSam2Segmentation(
         }
       }
     },
-    [stateRef, setState, announcerRef],
+    [stateRef, setState, updateDoc, announcerRef],
   );
 
   return { applySam2Segmentation, cancelSam2Segmentation };

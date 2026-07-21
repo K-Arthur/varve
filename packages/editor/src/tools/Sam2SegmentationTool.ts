@@ -79,31 +79,26 @@ export class Sam2SegmentationTool extends BaseTool {
   }
 
   override onKeyDown(e: PointerEvent | KeyboardEvent, ctx: ToolContext): boolean {
-    if (e instanceof KeyboardEvent && e.key === 'Escape') {
+    if (!(e instanceof KeyboardEvent)) return false;
+    if (e.key === 'Escape') {
       this.points = [];
       this.pendingBox = null;
-      ctx.announce('Segmentation cancelled');
+      ctx.announce('Selection cancelled');
+      return true;
+    }
+    if (e.key === 'Enter') {
+      if (this.points.length === 0 && !this.pendingBox) return false;
+      void this.commitSegmentation(ctx);
       return true;
     }
     return false;
   }
 
-  private async runSegmentation(ctx: ToolContext): Promise<void> {
-    if (this.points.length === 0 && !this.pendingBox) return;
-    if (!ctx.applySam2Segmentation) return;
-
-    // Find the selected image node
-    const selection = ctx.selection;
-    if (!selection || selection.length === 0) return;
-    const nodeId = selection[0]!;
-
-    // Build prompts from collected points and box
-    const points = this.points.map((p) => ({
-      x: p.x,
-      y: p.y,
-      label: p.label as 0 | 1,
-    }));
-
+  private buildPrompts(): {
+    points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+    box?: { x1: number; y1: number; x2: number; y2: number };
+  } {
+    const points = this.points.map((p) => ({ x: p.x, y: p.y, label: p.label as 0 | 1 }));
     const prompts: {
       points?: typeof points;
       box?: { x1: number; y1: number; x2: number; y2: number };
@@ -117,16 +112,48 @@ export class Sam2SegmentationTool extends BaseTool {
         y2: this.pendingBox.y2,
       };
     }
+    return prompts;
+  }
+
+  private async runSegmentation(ctx: ToolContext): Promise<void> {
+    if (this.points.length === 0 && !this.pendingBox) return;
+    if (!ctx.applySam2Segmentation) return;
+
+    const selection = ctx.selection;
+    if (!selection || selection.length === 0) return;
+    const nodeId = selection[0]!;
+    const prompts = this.buildPrompts();
 
     try {
-      ctx.announce('Running SAM2 segmentation...');
+      ctx.announce('Analyzing subject…');
       await ctx.applySam2Segmentation({
         nodeId,
         prompts,
         operation: 'preview',
       });
     } catch {
-      ctx.announce('SAM2 segmentation cancelled');
+      ctx.announce('Subject selection cancelled');
+    }
+  }
+
+  /** Commit the current preview as a non-destructive mask (Enter key). */
+  private async commitSegmentation(ctx: ToolContext): Promise<void> {
+    if (!ctx.applySam2Segmentation) return;
+    const selection = ctx.selection;
+    if (!selection || selection.length === 0) return;
+    const nodeId = selection[0]!;
+    const prompts = this.buildPrompts();
+
+    try {
+      await ctx.applySam2Segmentation({
+        nodeId,
+        prompts,
+        operation: 'mask',
+      });
+      this.points = [];
+      this.pendingBox = null;
+    } catch {
+      ctx.announce('Could not apply selection');
     }
   }
 

@@ -273,6 +273,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
 
     const processingTimeMs = Math.round(performance.now() - start);
 
+    const isInt8 = modelId.endsWith('-int8');
     const response: WorkerResponse = {
       type: 'result',
       requestId,
@@ -285,6 +286,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
         height: upsampleH,
         executionProvider: executionProvider as 'webgpu' | 'webgl' | 'wasm',
         modelId,
+        modelPrecision: isInt8 ? 'int8' : 'fp32',
         rawMask: fullMask,
       },
     };

@@ -81,9 +81,9 @@
       "localPath": "/models/scunet.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet.onnx",
+      "remoteUrl": "",
       "precision": "fp32",
-      "notes": "SCUNet — removes noise, JPEG artifacts, and grain from photos while preserving detail. ~18MB. Input: 512x512 RGB (auto-resized)."
+      "notes": "AI photo denoising — removes noise, JPEG artifacts, and grain while preserving detail. No verified ONNX export is currently available (the previously listed huggingface.co/Heliosoph/scunet-onnx URL returns 404; cszn/SCUNet has documented ONNX conversion failures). Needs a verified source before this feature can download a model. Input: 512x512 RGB (auto-resized)."
     },
     {
       "id": "sam2-hiera-tiny",
@@ -93,18 +93,48 @@
       "bundled": false,
       "remoteUrl": "",
       "precision": "fp32",
-      "notes": "SAM2 Hiera Tiny — interactive object segmentation via point/box prompts. ~39MB. Input: 1024x1024 RGB. Requires separate image-encoder + prompt-decoder ONNX exports (2 files).",
+      "notes": "SAM2 Hiera Tiny — interactive object segmentation via point/box prompts. ~39MB. Input: 1024x1024 RGB. Requires separate image-encoder + prompt-decoder ONNX exports (2 files) — verified sources exist (huggingface.co/vietanhdev/segment-anything-2-onnx-models, SharpAI/sam2-hiera-tiny-onnx) but the current inference pipeline assumes a single combined graph and needs a two-stage rework before this can be wired up.",
       "components": ["sam2-hiera-tiny-encoder", "sam2-hiera-tiny-decoder"]
     },
     {
       "id": "depth-anything-v2-small",
-      "filename": "depth_anything_v2_small.onnx",
-      "localPath": "/models/depth_anything_v2_small.onnx",
+      "filename": "depth_anything_v2_small_int8.onnx",
+      "localPath": "/models/depth_anything_v2_small_int8.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_int8.onnx",
+      "precision": "int8",
+      "notes": "AI depth estimation — powers Lens Blur's background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]). No SHA-256 pinned yet — compute and pin on first verified download."
+    },
+    {
+      "id": "sam2-hiera-small",
+      "filename": "sam2-hiera-small.onnx",
+      "localPath": "/models/sam2-hiera-small.onnx",
       "sha256": null,
       "bundled": false,
       "remoteUrl": "",
       "precision": "fp32",
-      "notes": "Depth-Anything-V2 Small — monocular depth estimation. ~25MB. Input: 518x518 RGB (multiple of 14). Output: relative depth map."
+      "notes": "SAM2 Hiera Small — higher quality interactive segmentation. ~92MB. Requires merged single-file ONNX export. For export instructions see: facebookresearch/sam2 scripts/export_onnx_model.py"
+    },
+    {
+      "id": "tr-ocr-base-printed",
+      "filename": "tr-ocr-base-printed.onnx",
+      "localPath": "/models/tr-ocr-base-printed.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "",
+      "precision": "fp32",
+      "notes": "Microsoft TrOCR-base-printed — OCR for printed Latin text in images and scanned documents. ~340MB. Not yet available as download — requires ONNX export from HuggingFace transformers."
+    },
+    {
+      "id": "font-detect-resnet",
+      "filename": "font-detect-resnet.onnx",
+      "localPath": "/models/font-detect-resnet.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "",
+      "precision": "fp32",
+      "notes": "Font detection ResNet — identifies font families from text region images. ~44MB. Not yet available as download — model export pending."
     }
   ]
 }
