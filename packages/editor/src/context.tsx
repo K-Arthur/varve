@@ -99,6 +99,9 @@ import {
   addInteraction as addInteractionDoc,
   addMask as addMaskDoc,
   addNode,
+  addSMInput,
+  addSMState,
+  addSMTransition,
   addVariableToDocument,
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
@@ -116,6 +119,7 @@ import {
   createDocument,
   createGuideId,
   createMaster as createMasterDoc,
+  createStateMachine,
   createTextChain as createTextChainDoc,
   createVariableStore,
   createVariant as createVariantDoc,
@@ -130,6 +134,7 @@ import {
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
   duplicateMaster as duplicateMasterDoc,
+  duplicateSMState,
   fillSlot as fillSlotDoc,
   flattenLiveTrace as flattenLiveTraceDoc,
   type Guide,
@@ -171,8 +176,13 @@ import {
   removeInteraction as removeInteractionDoc,
   removeMask as removeMaskDoc,
   removeNode,
+  removeSMInput,
+  removeSMState,
+  removeSMTransition,
+  removeStateMachine,
   renameMaster as renameMasterDoc,
   renameNode,
+  renameSMState,
   reparentNode as reparentNodeDoc,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
@@ -203,6 +213,11 @@ import {
   setMaskVisible as setMaskVisibleDoc,
   setMasterAppliesTo as setMasterAppliesToDoc,
   setPropertyOverride as setPropertyOverrideDoc,
+  setSMStateEntry,
+  setSMTransitionCondition,
+  setSMTransitionPriority,
+  setSMTransitionTarget,
+  setSMTransitionTrigger,
   setVariableModeOnDocument as setVariableModeOnDocumentDoc,
   setVariantForInstance as setVariantForInstanceDoc,
   shapeHeight,
@@ -220,6 +235,7 @@ import {
   type Variable,
   type VariableValue,
   validateDocument,
+  validateStateMachine as validateSM,
   walkNodes,
 } from '@strata/scene';
 import {
@@ -1283,6 +1299,52 @@ export interface EditorContextValue {
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
   ) => void;
   resetImageBounds: () => void;
+
+  // State machines (delegated to context/types.ts EditorContextValue)
+  getStateMachines: () => import('@strata/scene').StateMachine[];
+  getPrimaryStateMachineId: () => string | null;
+  createStateMachine: (name: string) => string;
+  removeStateMachine: (smId: string) => void;
+  renameStateMachine: (smId: string, name: string) => void;
+  addSMState: (smId: string, name: string, timelineId: string) => string;
+  removeSMState: (smId: string, stateId: string) => void;
+  renameSMState: (smId: string, stateId: string, name: string) => void;
+  duplicateSMState: (smId: string, stateId: string) => void;
+  setSMEntryState: (smId: string, stateId: string) => void;
+  addSMTransition: (
+    smId: string,
+    fromStateId: string,
+    toStateId: string,
+    trigger: import('@strata/scene').SMTransitionTrigger,
+  ) => string;
+  removeSMTransition: (smId: string, transitionId: string) => void;
+  setSMTransitionTrigger: (
+    smId: string,
+    transitionId: string,
+    trigger: import('@strata/scene').SMTransitionTrigger,
+  ) => void;
+  setSMTransitionTarget: (smId: string, transitionId: string, toStateId: string) => void;
+  setSMTransitionCondition: (
+    smId: string,
+    transitionId: string,
+    condition: string | undefined,
+  ) => void;
+  setSMTransitionPriority: (smId: string, transitionId: string, priority: number) => void;
+  setSMTransitionDuration: (smId: string, transitionId: string, duration: number) => void;
+  setSMTransitionEasing: (
+    smId: string,
+    transitionId: string,
+    easing: import('@strata/shared').EasingDefinition,
+  ) => void;
+  addSMInput: (smId: string, name: string, type: import('@strata/scene').SMInputType) => string;
+  removeSMInput: (smId: string, inputId: string) => void;
+  validateStateMachine: (smId: string) => import('@strata/scene').SMValidationResult;
+  selectedStateMachineId: string | null;
+  selectStateMachine: (smId: string | null) => void;
+  selectedSMStateId: string | null;
+  selectSMState: (smId: string, stateId: string | null) => void;
+  selectedSMTransitionId: string | null;
+  selectSMTransition: (smId: string, transitionId: string | null) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -1800,6 +1862,9 @@ export function EditorProvider({
       prototypeDebug: new PrototypeDebugConsole(),
       prototypeData: { interactions: {} },
       isPresenting: false,
+      selectedStateMachineId: null,
+      selectedSMStateId: null,
+      selectedSMTransitionId: null,
       softProofEnabled: false,
       leftPanelVisible: loadSettings().panel.leftPanelVisible,
       rightPanelVisible: loadSettings().panel.rightPanelVisible,
@@ -6409,6 +6474,173 @@ export function EditorProvider({
 
       updateNodeInteraction: (interactionId, updates) => {
         updateDoc((doc) => updateInteractionDoc(doc, interactionId, updates));
+      },
+
+      // --- State machines ---
+      getStateMachines: () => {
+        const sms = stateRef.current.document.stateMachines ?? {};
+        return Object.values(sms);
+      },
+      getPrimaryStateMachineId: () => {
+        const sms = stateRef.current.document.stateMachines ?? {};
+        const ids = Object.keys(sms);
+        return ids.length > 0 ? ids[0]! : null;
+      },
+      createStateMachine: (name: string) => {
+        const smId = `sm-${Math.random().toString(36).slice(2, 8)}`;
+        updateDoc((doc) => createStateMachine(doc, smId, name));
+        patch({ selectedStateMachineId: smId });
+        return smId;
+      },
+      removeStateMachine: (smId: string) => {
+        updateDoc((doc) => removeStateMachine(doc, smId));
+        if (stateRef.current.selectedStateMachineId === smId) {
+          patch({
+            selectedStateMachineId: null,
+            selectedSMStateId: null,
+            selectedSMTransitionId: null,
+          });
+        }
+      },
+      renameStateMachine: (smId: string, name: string) => {
+        updateDoc((doc) => {
+          const sm = doc.stateMachines?.[smId];
+          if (!sm) return doc;
+          return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, name } } };
+        });
+      },
+      addSMState: (smId: string, name: string, timelineId: string) => {
+        let newId = '';
+        updateDoc((doc) => {
+          const result = addSMState(doc, smId, name, timelineId);
+          newId = result.stateId;
+          return result.doc;
+        });
+        if (newId) patch({ selectedSMStateId: newId });
+        return newId;
+      },
+      removeSMState: (smId: string, stateId: string) => {
+        updateDoc((doc) => removeSMState(doc, smId, stateId));
+        if (stateRef.current.selectedSMStateId === stateId) {
+          patch({ selectedSMStateId: null, selectedSMTransitionId: null });
+        }
+      },
+      renameSMState: (smId: string, stateId: string, name: string) => {
+        updateDoc((doc) => renameSMState(doc, smId, stateId, name));
+      },
+      duplicateSMState: (smId: string, stateId: string) => {
+        let newId = '';
+        updateDoc((doc) => {
+          const result = duplicateSMState(doc, smId, stateId);
+          newId = result.stateId;
+          return result.doc;
+        });
+        if (newId) patch({ selectedSMStateId: newId });
+      },
+      setSMEntryState: (smId: string, stateId: string) => {
+        updateDoc((doc) => setSMStateEntry(doc, smId, stateId));
+      },
+      addSMTransition: (
+        smId: string,
+        fromStateId: string,
+        toStateId: string,
+        trigger: import('@strata/scene').SMTransitionTrigger,
+      ) => {
+        let newId = '';
+        updateDoc((doc) => {
+          const result = addSMTransition(doc, smId, fromStateId, toStateId, trigger);
+          newId = result.transitionId;
+          return result.doc;
+        });
+        if (newId) patch({ selectedSMTransitionId: newId });
+        return newId;
+      },
+      removeSMTransition: (smId: string, transitionId: string) => {
+        updateDoc((doc) => removeSMTransition(doc, smId, transitionId));
+        if (stateRef.current.selectedSMTransitionId === transitionId) {
+          patch({ selectedSMTransitionId: null });
+        }
+      },
+      setSMTransitionTrigger: (
+        smId: string,
+        transitionId: string,
+        trigger: import('@strata/scene').SMTransitionTrigger,
+      ) => {
+        updateDoc((doc) => setSMTransitionTrigger(doc, smId, transitionId, trigger));
+      },
+      setSMTransitionTarget: (smId: string, transitionId: string, toStateId: string) => {
+        updateDoc((doc) => setSMTransitionTarget(doc, smId, transitionId, toStateId));
+      },
+      setSMTransitionCondition: (
+        smId: string,
+        transitionId: string,
+        condition: string | undefined,
+      ) => {
+        updateDoc((doc) => setSMTransitionCondition(doc, smId, transitionId, condition));
+      },
+      setSMTransitionPriority: (smId: string, transitionId: string, priority: number) => {
+        updateDoc((doc) => setSMTransitionPriority(doc, smId, transitionId, priority));
+      },
+      setSMTransitionDuration: (smId: string, transitionId: string, duration: number) => {
+        updateDoc((doc) => {
+          const sm = doc.stateMachines?.[smId];
+          if (!sm) return doc;
+          const transitions = sm.transitions.map((t) =>
+            t.id === transitionId ? { ...t, duration } : t,
+          );
+          return {
+            ...doc,
+            stateMachines: { ...doc.stateMachines, [smId]: { ...sm, transitions } },
+          };
+        });
+      },
+      setSMTransitionEasing: (
+        smId: string,
+        transitionId: string,
+        easing: import('@strata/shared').EasingDefinition,
+      ) => {
+        updateDoc((doc) => {
+          const sm = doc.stateMachines?.[smId];
+          if (!sm) return doc;
+          const transitions = sm.transitions.map((t) =>
+            t.id === transitionId ? { ...t, easing } : t,
+          );
+          return {
+            ...doc,
+            stateMachines: { ...doc.stateMachines, [smId]: { ...sm, transitions } },
+          };
+        });
+      },
+      addSMInput: (smId: string, name: string, type: import('@strata/scene').SMInputType) => {
+        let newId = '';
+        updateDoc((doc) => {
+          const result = addSMInput(doc, smId, name, type);
+          newId = result.inputId;
+          return result.doc;
+        });
+        return newId;
+      },
+      removeSMInput: (smId: string, inputId: string) => {
+        updateDoc((doc) => removeSMInput(doc, smId, inputId));
+      },
+      validateStateMachine: (smId: string) => {
+        return validateSM(stateRef.current.document, smId);
+      },
+      selectedStateMachineId: state.selectedStateMachineId,
+      selectStateMachine: (smId: string | null) => {
+        patch({
+          selectedStateMachineId: smId,
+          selectedSMStateId: null,
+          selectedSMTransitionId: null,
+        });
+      },
+      selectedSMStateId: state.selectedSMStateId,
+      selectSMState: (_smId: string, stateId: string | null) => {
+        patch({ selectedSMStateId: stateId, selectedSMTransitionId: null });
+      },
+      selectedSMTransitionId: state.selectedSMTransitionId,
+      selectSMTransition: (_smId: string, transitionId: string | null) => {
+        patch({ selectedSMTransitionId: transitionId });
       },
 
       ...(motionValue ?? MOTION_NOOP),
