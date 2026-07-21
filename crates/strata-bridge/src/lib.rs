@@ -469,6 +469,7 @@ fn default_fill() -> EngineColor {
         b: 0.0,
         a: 255.0,
         profile: None,
+        bitDepth: None,
     }
 }
 
@@ -502,6 +503,7 @@ where
             b: arr[2] as f64,
             a: arr[3] as f64,
             profile: None,
+            bitDepth: None,
         });
     }
     Ok(EngineColor::Rgb {
@@ -510,6 +512,7 @@ where
         b: 0.0,
         a: 255.0,
         profile: None,
+        bitDepth: None,
     })
 }
 

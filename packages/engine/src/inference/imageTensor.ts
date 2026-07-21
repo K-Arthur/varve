@@ -113,10 +113,9 @@ export function packNchwTensor(imageData: ImageData, spec: TensorSpec): Float32A
 }
 
 /**
- * Pack RGBA ImageData into NHWC Float32Array with normalization. Some
- * ONNX exports (verified for onnxmodelzoo/efficientnet-lite4-11) use the
- * TensorFlow-native NHWC layout instead of the usual NCHW — interleaved
- * per-pixel [R,G,B] rather than three separate planes.
+ * Pack RGBA ImageData into NHWC Float32Array with normalization.
+ * Output layout: [R, G, B, R, G, B, ...] interleaved per pixel.
+ * Used by channels-last models such as EfficientNet-Lite.
  */
 export function packNhwcTensor(imageData: ImageData, spec: TensorSpec): Float32Array {
   const pixelCount = imageData.width * imageData.height;
@@ -125,14 +124,13 @@ export function packNhwcTensor(imageData: ImageData, spec: TensorSpec): Float32A
   const std = spec.std;
 
   for (let i = 0; i < pixelCount; i++) {
-    const srcOffset = i * 4;
-    const dstOffset = i * 3;
-    const r = (imageData.data[srcOffset] ?? 0) / 255;
-    const g = (imageData.data[srcOffset + 1] ?? 0) / 255;
-    const b = (imageData.data[srcOffset + 2] ?? 0) / 255;
-    result[dstOffset] = (r - mean[0]!) / std[0]!;
-    result[dstOffset + 1] = (g - mean[1]!) / std[1]!;
-    result[dstOffset + 2] = (b - mean[2]!) / std[2]!;
+    const offset = i * 4;
+    const r = (imageData.data[offset] ?? 0) / 255;
+    const g = (imageData.data[offset + 1] ?? 0) / 255;
+    const b = (imageData.data[offset + 2] ?? 0) / 255;
+    result[i * 3] = (r - mean[0]!) / std[0]!;
+    result[i * 3 + 1] = (g - mean[1]!) / std[1]!;
+    result[i * 3 + 2] = (b - mean[2]!) / std[2]!;
   }
 
   return result;

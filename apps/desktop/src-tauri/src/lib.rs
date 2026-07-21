@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::io::Write;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{LazyLock, Mutex};
 use strata_core::Point;
 use tauri::ipc::Response;
@@ -471,6 +472,63 @@ fn remove_background_impl(
     })
 }
 
+// ── Native image denoise (SCUNet) ──────────────────────────────────────
+
+/// Options for native denoise.
+#[derive(Debug, serde::Deserialize)]
+pub struct NativeDenoiseOptions {
+    /// Model id (e.g. "scunet"). Defaults to "scunet".
+    pub model_id: Option<String>,
+    /// Blend factor between original (0.0) and fully denoised (1.0).
+    pub strength: Option<f32>,
+}
+
+/// Result of a native denoise operation.
+#[derive(Debug, serde::Serialize)]
+pub struct NativeDenoiseResult {
+    pub png_base64: String,
+    pub width: u32,
+    pub height: u32,
+    pub processing_time_ms: u64,
+}
+
+/// Run native SCUNet denoising on an image. Preferred over the WASM-worker
+/// path on desktop because native ONNX Runtime is faster and not bound by
+/// the wasm32 4 GB address space.
+#[tauri::command]
+async fn denoise_image(
+    app: tauri::AppHandle,
+    image_data: Vec<u8>,
+    options: NativeDenoiseOptions,
+) -> Result<NativeDenoiseResult, String> {
+    if !ensure_native_ai(&app) {
+        return Err(
+            "Native AI runtime is unavailable on this system; use the in-app (WASM) denoise instead"
+                .into(),
+        );
+    }
+    let model_id = options.model_id.unwrap_or_else(|| "scunet".to_string());
+    if !strata_bgremove::is_image_model(&model_id) {
+        return Err(format!(
+            "Unknown denoise model '{model_id}'. Supported: scunet"
+        ));
+    }
+    let strength = options.strength.unwrap_or(0.7).clamp(0.0, 1.0);
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
+        let result = strata_bgremove::denoise_image(&img, strength, &model_id)?;
+        Ok(NativeDenoiseResult {
+            png_base64: result.png_base64,
+            width: result.width,
+            height: result.height,
+            processing_time_ms: result.processing_time_ms,
+        })
+    })
+    .await
+    .map_err(|e| format!("Denoise task failed: {e}"))?
+}
+
 /// Whether native ONNX inference is actually usable right now — the `ai`
 /// Cargo feature is compiled in *and* the bundled onnxruntime dylib loads
 /// successfully.
@@ -593,6 +651,54 @@ fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
     strata_bgremove::runtime::native_ai_ready()
 }
 
+/// Shared state for cancelling an in-flight AI upscaling job. The active job's
+/// cancellation flag is an `Arc<AtomicBool>` the worker thread also holds, so
+/// the cancel command can flip it without re-entering the async runtime.
+struct UpscaleCancelState {
+    active: Mutex<Option<CancelEntry>>,
+}
+
+struct CancelEntry {
+    job_id: u64,
+    flag: std::sync::Arc<AtomicBool>,
+}
+
+impl UpscaleCancelState {
+    fn new() -> Self {
+        Self {
+            active: Mutex::new(None),
+        }
+    }
+}
+
+#[tauri::command]
+fn begin_upscale_job(app: tauri::AppHandle, jobId: u64) {
+    let Some(state) = app.try_state::<UpscaleCancelState>() else {
+        return;
+    };
+    if let Ok(mut guard) = state.active.lock() {
+        *guard = Some(CancelEntry {
+            job_id: jobId,
+            flag: std::sync::Arc::new(AtomicBool::new(false)),
+        });
+    }
+}
+
+#[tauri::command]
+fn cancel_upscale(app: tauri::AppHandle, jobId: u64) {
+    let Some(state) = app.try_state::<UpscaleCancelState>() else {
+        return;
+    };
+    let Ok(guard) = state.active.lock() else {
+        return;
+    };
+    if let Some(entry) = guard.as_ref() {
+        if entry.job_id == jobId {
+            entry.flag.store(true, Ordering::SeqCst);
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct UpscaleImageOptions {
     scale: f64,
@@ -606,6 +712,8 @@ struct UpscaleImageOptions {
     target_width: Option<u32>,
     #[serde(default, rename = "targetHeight")]
     target_height: Option<u32>,
+    #[serde(default)]
+    job_id: Option<u64>,
 }
 
 fn default_upscale_method() -> String {
@@ -613,37 +721,131 @@ fn default_upscale_method() -> String {
 }
 
 #[tauri::command]
-fn upscale_image(image_data: Vec<u8>, options: UpscaleImageOptions) -> Result<Vec<u8>, String> {
+async fn upscale_image(
+    app: tauri::AppHandle,
+    image_data: Vec<u8>,
+    options: UpscaleImageOptions,
+) -> Result<Vec<u8>, String> {
+    #[cfg(feature = "ai")]
+    if options.method == "ai" && !crate::ensure_native_ai(&app) {
+        return Err(
+            "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
+                .into(),
+        );
+    }
+    #[cfg(not(feature = "ai"))]
+    let _ = &app;
+
+    let job_id = options.job_id.unwrap_or(0);
+
+    // Register a cancellable job with a shared flag. The worker thread below
+    // receives a clone of the same Arc, so `cancel_upscale` flipping the bool
+    // interrupts inference between tiles. Guarded by a Mutex so begin/cancel
+    // racing on the active slot is sound.
+    let cancel_flag: std::sync::Arc<AtomicBool> = std::sync::Arc::new(AtomicBool::new(false));
+    if let Some(state) = app.try_state::<UpscaleCancelState>() {
+        if let Ok(mut guard) = state.active.lock() {
+            *guard = Some(CancelEntry {
+                job_id,
+                flag: cancel_flag.clone(),
+            });
+        }
+    }
+    let cancel_for_worker = cancel_flag.clone();
+
+    // Progress callback: emit a `upscale:progress` event the frontend listens to.
+    let app_for_progress = app.clone();
+    let clamped_job_id = job_id;
+    let progress_callback: Option<strata_upscale::ProgressCallback> = Some(Box::new(
+        move |done: usize, total: usize| {
+            let _ = app_for_progress.emit(
+                "upscale:progress",
+                serde_json::json!({ "jobId": clamped_job_id, "done": done, "total": total }),
+            );
+        },
+    ));
+
+    let method = options.method.clone();
+    let model_id = options
+        .model_id
+        .clone()
+        .unwrap_or_else(|| "upscale-realesr-general".to_string());
+    let max_pixels = options.max_pixels;
+    let target_width = options.target_width;
+    let target_height = options.target_height;
+    let scale_opt = options.scale;
+
+    // Decode the image on the async thread (cheap), then hand raw RGBA to the
+    // blocking worker so a large inference can't starve the async runtime.
     let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
     let rgba = img.to_rgba8();
     let (width, height) = rgba.dimensions();
     let pixels = rgba.into_raw();
+    drop(image_data);
 
-    let scale = if let (Some(tw), Some(th)) = (options.target_width, options.target_height) {
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        upscale_image_impl(
+            &pixels,
+            width,
+            height,
+            scale_opt,
+            target_width,
+            target_height,
+            max_pixels,
+            method.as_str(),
+            model_id.as_str(),
+            progress_callback,
+            cancel_for_worker,
+        )
+    })
+    .await
+    .map_err(|e| format!("Upscale task panicked: {e}"))??;
+
+    let _ = app.emit(
+        "upscale:done",
+        serde_json::json!({ "jobId": job_id, "cancelled": false }),
+    );
+    Ok(result)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn upscale_image_impl(
+    pixels: &[u8],
+    width: u32,
+    height: u32,
+    scale_opt: f64,
+    target_width: Option<u32>,
+    target_height: Option<u32>,
+    max_pixels: Option<u64>,
+    method: &str,
+    model_id: &str,
+    progress_callback: Option<strata_upscale::ProgressCallback>,
+    cancel_flag: std::sync::Arc<AtomicBool>,
+) -> Result<Vec<u8>, String> {
+    let scale = if let (Some(tw), Some(th)) = (target_width, target_height) {
         let sx = tw as f64 / width as f64;
         let sy = th as f64 / height as f64;
         sx.min(sy).max(0.001)
     } else {
-        options.scale
+        scale_opt
     };
 
     let out_w = (width as f64 * scale).round().max(1.0) as u32;
     let out_h = (height as f64 * scale).round().max(1.0) as u32;
-    if let Some(max) = options.max_pixels {
+    if let Some(max) = max_pixels {
         if (out_w as u64) * (out_h as u64) > max {
             return Err(format!("Output exceeds the maximum of {max} pixels"));
         }
     }
 
-    let result = if options.method == "ai" {
-        let model_id = options
-            .model_id
-            .as_deref()
-            .unwrap_or("upscale-realesr-general");
+    let result = if method == "ai" {
         #[cfg(feature = "ai")]
         {
-            // Real-ESRGAN models are fixed 4x; ignore requested scale for inference.
-            strata_upscale::ai_upscale(&pixels, width, height, model_id)?
+            let upscale_opts = strata_upscale::UpscaleOptions {
+                progress: progress_callback,
+                cancel: Some(cancel_flag),
+            };
+            strata_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?
         }
         #[cfg(not(feature = "ai"))]
         {
@@ -652,25 +854,17 @@ fn upscale_image(image_data: Vec<u8>, options: UpscaleImageOptions) -> Result<Ve
             ));
         }
     } else {
-        let filter = strata_upscale::UpscaleFilter::from_method(&options.method);
+        let filter = strata_upscale::UpscaleFilter::from_method(method);
         let mp = (width as u64) * (height as u64);
         if mp > 4_000_000 {
-            strata_upscale::tiled_upscale(&pixels, width, height, scale, 256, 16, filter)?
+            strata_upscale::tiled_upscale(pixels, width, height, scale, 256, 16, filter)?
         } else {
-            strata_upscale::cpu_upscale(&pixels, width, height, scale, filter)?
+            strata_upscale::cpu_upscale(pixels, width, height, scale, filter)?
         }
     };
 
-    let result_w = if options.method == "ai" {
-        width * 4
-    } else {
-        out_w
-    };
-    let result_h = if options.method == "ai" {
-        height * 4
-    } else {
-        out_h
-    };
+    let result_w = if method == "ai" { width * 4 } else { out_w };
+    let result_h = if method == "ai" { height * 4 } else { out_h };
 
     let out_img = image::DynamicImage::ImageRgba8(
         image::ImageBuffer::from_raw(result_w, result_h, result)
@@ -1537,6 +1731,7 @@ pub fn run() {
             let db_path = data_dir.join("documents.db");
             let store = strata_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
+            app.manage(UpscaleCancelState::new());
 
             // Start file-system watcher for home directory
             let watch_handle = app.handle().clone();
@@ -1620,8 +1815,11 @@ pub fn run() {
             download_background_removal_model,
             cancel_background_removal_model_download,
             delete_background_removal_model,
+            denoise_image,
             trace_image,
             upscale_image,
+            begin_upscale_job,
+            cancel_upscale,
             export_node_pdf,
             export_pdfx1a,
             export_pdfx4,
@@ -2310,8 +2508,22 @@ mod tests {
             max_pixels: None,
             target_width: None,
             target_height: None,
+            job_id: None,
         };
-        let result = upscale_image(png, options).expect("upscale_image should succeed");
+        let result = upscale_image_impl(
+            &load_from_memory(&png).unwrap().to_rgba8().into_raw(),
+            8,
+            8,
+            options.scale,
+            options.target_width,
+            options.target_height,
+            options.max_pixels,
+            &options.method,
+            options.model_id.as_deref().unwrap_or("upscale-realesr-general"),
+            None,
+            std::sync::Arc::new(AtomicBool::new(false)),
+        )
+        .expect("upscale_image should succeed");
         let decoded = image::load_from_memory(&result).expect("result must be PNG");
         assert_eq!(decoded.width(), 16);
         assert_eq!(decoded.height(), 16);
