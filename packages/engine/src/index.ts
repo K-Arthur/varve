@@ -96,6 +96,15 @@ export {
   blendSoftLight,
 } from './blendModes';
 export { gaussianBlurSeparable } from './blur';
+export type {
+  ColorHalftoneDotShape,
+  ColorHalftoneMode,
+  ColorHalftoneParams,
+} from './colorHalftone';
+export {
+  applyColorHalftone,
+  COLOR_HALFTONE_PRESETS,
+} from './colorHalftone';
 export type { ColourEngine, ColourWasmModule } from './colour/colourLoader';
 export { createColourEngineFromModule, loadColourWasmModule } from './colour/colourLoader';
 export {
@@ -133,6 +142,7 @@ export type {
   ChannelMixerAdjustment,
   ColorBalanceAdjustment,
   ColorBalanceTriplet,
+  ColorHalftoneAdjustment,
   ContrastAdjustment,
   CurvesAdjustment,
   CurvesPoint,
@@ -225,20 +235,6 @@ export {
 } from './iccImageConverter';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
-export type {
-  InferenceEvents,
-  InferenceProvider,
-  InferenceRequest,
-  InferenceResult,
-  ManagedSession,
-  ModelInputSpec,
-  ModelInstallInfo,
-  ModelInstallSource,
-  ModelManifestEntry,
-  ModelState as InferenceModelState,
-  ProviderChainOptions,
-} from './inference';
-export { ModelRegistry, runProviderChain, SessionManager } from './inference';
 export type { UpscaleMethod, UpscaleOptions } from './imageEnhancement';
 export {
   computeUpscaleDimensions,
@@ -257,6 +253,20 @@ export {
   localToSourcePixel,
   sourcePixelToLocal,
 } from './imagePlacement';
+export type {
+  InferenceEvents,
+  InferenceProvider,
+  InferenceRequest,
+  InferenceResult,
+  ManagedSession,
+  ModelInputSpec,
+  ModelInstallInfo,
+  ModelInstallSource,
+  ModelManifestEntry,
+  ModelState as InferenceModelState,
+  ProviderChainOptions,
+} from './inference';
+export { ModelRegistry, runProviderChain, SessionManager } from './inference';
 export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
 export {
   analogousHarmony,
