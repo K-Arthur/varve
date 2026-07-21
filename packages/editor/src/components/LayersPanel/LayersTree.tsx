@@ -414,6 +414,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [state.document, animatedNodes],
   );
 
+  // Convert selection array to a Set for O(1) lookup in row toggle handlers
+  const selectedIdSet = useMemo(() => new Set(state.selection), [state.selection]);
+
   const entries = useFlatTree(
     state.document,
     expanded,
@@ -1257,16 +1260,28 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   onRenameCancel={handleRenameCancel}
                   onRenameCycle={handleRenameCycle}
                   onToggleVisibility={(id) => {
-                    const n = state.document.nodes[id];
-                    if (n) setNodeVisible(id, !n.visible);
+                    // If the clicked node is part of a multi-selection, toggle
+                    // all selected nodes (Figma/Sketch behaviour). Otherwise
+                    // toggle just the single node.
+                    const ids =
+                      state.selection.length > 1 && state.selection.includes(id)
+                        ? state.selection
+                        : [id];
+                    const anyVisible = ids.some((sid) => state.document.nodes[sid]?.visible);
+                    for (const sid of ids) setNodeVisible(sid, !anyVisible);
                   }}
                   onToggleLock={(id) => {
-                    const n = state.document.nodes[id];
-                    if (n) setNodeLocked(id, !n.locked);
+                    const ids =
+                      state.selection.length > 1 && state.selection.includes(id)
+                        ? state.selection
+                        : [id];
+                    const anyLocked = ids.some((sid) => state.document.nodes[sid]?.locked);
+                    for (const sid of ids) setNodeLocked(sid, !anyLocked);
                   }}
                   onFocus={handleRowFocus}
                   idx={virtualItem.index}
                   rowRefs={rowRefs}
+                  selectedIds={selectedIdSet}
                 />
               );
             })}
@@ -1341,6 +1356,7 @@ interface SortableVirtualRowProps {
   /** Shared map of currently-mounted row elements, keyed by node id — used by
    * the parent's DnD handlers to resolve a row's rect for drop-zone math. */
   rowRefs: React.MutableRefObject<Map<NodeId, HTMLDivElement>>;
+  selectedIds?: Set<NodeId>;
 }
 
 function SortableVirtualRow({
@@ -1370,6 +1386,7 @@ function SortableVirtualRow({
   onFocus,
   idx,
   rowRefs,
+  selectedIds,
 }: SortableVirtualRowProps) {
   const { state: editorState, revealSelection } = useEditor();
   const presences = usePresence(node.id);
@@ -1476,6 +1493,7 @@ function SortableVirtualRow({
         presences={presences}
         docId={editorState.document.id}
         onDoubleClickIcon={(id) => revealSelection({ nodeId: id, fit: true })}
+        selectedIds={selectedIds}
       />
     </div>
   );

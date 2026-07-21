@@ -68,6 +68,8 @@ export interface LayersRowProps {
   doc?: Document;
   /** Relationship to the direct parent's structural mask, when applicable. */
   maskRole?: 'source' | 'content';
+  /** Full selection set — used to compute mixed visibility/lock state for toggles. */
+  selectedIds?: Set<NodeId>;
 }
 
 const NODE_ICONS: Record<string, SolidIconName> = {
@@ -138,6 +140,7 @@ export const LayersRow = memo(function LayersRow({
   docId,
   doc,
   maskRole,
+  selectedIds,
 }: LayersRowProps) {
   const [editValue, setEditValue] = useState(node.name);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -152,6 +155,27 @@ export const LayersRow = memo(function LayersRow({
   const showThumbnail = isImageShape(node) && thumbnailDataUrl != null;
   const isInstance =
     isFrame && 'componentId' in node && (node as { componentId?: string }).componentId != null;
+
+  // Compute mixed visibility/lock state for multi-selection toggles.
+  // When multiple nodes are selected, the toggle icon reflects whether ALL
+  // selected nodes share the same state or whether it's mixed.
+  const hasMultiSelection = selectedIds && selectedIds.size > 1;
+  const isMixedVisibility = useMemo(() => {
+    if (!hasMultiSelection || !selectedIds) return false;
+    const vals = [...selectedIds].map((id) => {
+      const n = doc?.nodes[id];
+      return n ? 'visible' in n && n.visible : true;
+    });
+    return vals.some((v) => v !== vals[0]);
+  }, [hasMultiSelection, selectedIds, doc]);
+  const isMixedLocked = useMemo(() => {
+    if (!hasMultiSelection || !selectedIds) return false;
+    const vals = [...selectedIds].map((id) => {
+      const n = doc?.nodes[id];
+      return n ? 'locked' in n && n.locked : false;
+    });
+    return vals.some((v) => v !== vals[0]);
+  }, [hasMultiSelection, selectedIds, doc]);
 
   // Blend mode / opacity badge
   const blendModeLabel =
@@ -490,42 +514,70 @@ export const LayersRow = memo(function LayersRow({
         <button
           type="button"
           className={`layers-row__toggle ${
-            node.visible
-              ? 'layers-row__toggle--visibility-on'
-              : 'layers-row__toggle--visibility-off'
+            isMixedVisibility
+              ? 'layers-row__toggle--visibility-mixed'
+              : node.visible
+                ? 'layers-row__toggle--visibility-on'
+                : 'layers-row__toggle--visibility-off'
           }`}
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onToggleVisibility(node.id);
           }}
-          aria-label={node.visible ? `Hide ${node.name}` : `Show ${node.name}`}
-          aria-pressed={!node.visible}
+          aria-label={
+            isMixedVisibility
+              ? `Mixed visibility for selection`
+              : node.visible
+                ? `Hide ${node.name}`
+                : `Show ${node.name}`
+          }
+          aria-pressed={isMixedVisibility ? undefined : !node.visible}
+          aria-checked={isMixedVisibility ? 'mixed' : undefined}
         >
-          <SolidIcon
-            name={node.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
-            size="0.85em"
-          />
+          {isMixedVisibility ? (
+            <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.85em" />
+          ) : (
+            <SolidIcon
+              name={node.visible ? SOLID_CHROME_ICONS.visibility : SOLID_CHROME_ICONS.visibilityOff}
+              size="0.85em"
+            />
+          )}
         </button>
 
         {/* Lock toggle */}
         <button
           type="button"
           className={`layers-row__toggle ${
-            node.locked ? 'layers-row__toggle--locked-on' : 'layers-row__toggle--locked-off'
+            isMixedLocked
+              ? 'layers-row__toggle--locked-mixed'
+              : node.locked
+                ? 'layers-row__toggle--locked-on'
+                : 'layers-row__toggle--locked-off'
           }`}
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
             onToggleLock(node.id);
           }}
-          aria-label={node.locked ? `Unlock ${node.name}` : `Lock ${node.name}`}
-          aria-pressed={node.locked}
+          aria-label={
+            isMixedLocked
+              ? `Mixed lock for selection`
+              : node.locked
+                ? `Unlock ${node.name}`
+                : `Lock ${node.name}`
+          }
+          aria-pressed={isMixedLocked ? undefined : node.locked}
+          aria-checked={isMixedLocked ? 'mixed' : undefined}
         >
-          <SolidIcon
-            name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock}
-            size="0.85em"
-          />
+          {isMixedLocked ? (
+            <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.85em" />
+          ) : (
+            <SolidIcon
+              name={node.locked ? SOLID_CHROME_ICONS.lock : SOLID_CHROME_ICONS.unlock}
+              size="0.85em"
+            />
+          )}
         </button>
       </div>
     </>
