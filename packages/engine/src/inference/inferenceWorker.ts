@@ -2,18 +2,29 @@
  * Generic multi-model inference worker — handles ONNX inference for
  * any registered model type in a single worker thread.
  *
- * Supports both single-graph models (SCUNet, depth) and multi-component
- * models (SAM2 with separate encoder + decoder graphs).
+ * Supports single-graph models (SCUNet, depth), multi-component models
+ * (SAM2 with separate encoder + decoder graphs), models with a second
+ * image input (LaMa's mask, RIFE's second frame), models with constant
+ * non-image feeds (DETR's pixel_mask), and NHWC-layout models
+ * (EfficientNet-Lite).
  *
  * Protocol: main thread sends { type: 'infer', modelType, ...inputs }
  * Worker responds with { type: 'result', outputs } or { type: 'error' }
  */
 import type { TensorSpec } from './imageTensor';
-import { packNchwTensor } from './imageTensor';
+import { packNchwTensor, packNhwcTensor } from './imageTensor';
+import { DD_COLOR_INPUT_SIZE, DD_COLOR_TENSOR_SPEC } from './models/ddcolor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
+import { DETR_INPUT_SIZE, DETR_TENSOR_SPEC } from './models/detr';
+import { EFFICIENTNET_INPUT_SIZE, EFFICIENTNET_TENSOR_SPEC } from './models/efficientnet';
+import { LAMA_INPUT_SIZE, LAMA_TENSOR_SPEC } from './models/lama';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
+import { PADDLE_DET_TENSOR_SPEC } from './models/paddleocr';
+import { RIFE_INPUT_SIZE, RIFE_TENSOR_SPEC } from './models/rife';
 import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
+import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
+import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC } from './models/siglip';
 
 export type WorkerModelType =
   | 'sam2'
@@ -21,11 +32,23 @@ export type WorkerModelType =
   | 'sam2-decoder'
   | 'scunet'
   | 'depth'
-  | 'lineart';
+  | 'lineart'
+  | 'ddcolor'
+  | 'lama'
+  | 'rife'
+  | 'detr'
+  | 'efficientnet'
+  | 'paddleocr-det'
+  | 'siglip-image';
 
 export interface WorkerTensor {
   data: Float32Array;
   dims: number[];
+}
+
+export interface WorkerLetterbox {
+  offsetX: number;
+  offsetY: number;
 }
 
 export interface WorkerInferRequest {
@@ -35,16 +58,14 @@ export interface WorkerInferRequest {
   modelPath: string;
   modelId: string;
   imageData?: ImageData;
-  /**
-   * Pre-computed tensors from a prior encoder call, fed directly by name
-   * (e.g. SAM2's image_embed/high_res_feats_0/high_res_feats_1). Unlike a
-   * single embedding blob, some models (SAM2) need several named tensors.
-   */
-  embeddings?: Record<string, WorkerTensor>;
-  /** Model-specific parameters */
+  /** Second image input — LaMa's mask, or RIFE's second frame. */
+  auxImageData?: ImageData;
+  /** Pre-computed tensors (e.g. from a prior encoder call), fed by name. */
+  tensors?: Record<string, WorkerTensor>;
+  /** Model-specific parameters (e.g. SAM2 prompts). */
   params?: Record<string, unknown>;
   reuseSession?: boolean;
-  /** Target output dimensions (for resize after inference) */
+  /** Target output dimensions (for resize after inference). */
   targetWidth?: number;
   targetHeight?: number;
 }
@@ -69,11 +90,41 @@ export interface WorkerReady {
 export type WorkerRequest = WorkerInferRequest;
 export type WorkerResponse = WorkerInferResult | WorkerInferError | WorkerReady;
 
+/** Describes a second image input fed alongside the primary image. */
+interface AuxImageSpec {
+  /** Candidate ONNX input names to match against, in priority order. Empty
+   * when the aux image is concatenated onto the primary tensor instead of
+   * fed as its own named input (RIFE). */
+  inputNameCandidates: string[];
+  tensorSpec: TensorSpec;
+  inputSize: number;
+  /** Pack as a single-channel tensor (LaMa's mask) instead of 3-channel RGB. */
+  singleChannel?: boolean;
+  /** Concatenate onto the primary image tensor's channel axis instead of
+   * feeding as a separate named input (RIFE: frame0+frame1 -> 6 channels). */
+  concatChannels?: boolean;
+}
+
+/** Describes a constant (non-image, non-prompt) feed a model always needs. */
+interface ConstantFeed {
+  dtype: 'float32' | 'int64';
+  data: Float32Array | BigInt64Array;
+  dims: number[];
+}
+
 interface ModelPreprocessor {
   tensorSpec: TensorSpec;
   getInputSize: () => number;
-  encodePrompts?: (params: Record<string, unknown>) => Record<string, WorkerTensor>;
   hasImageInput: boolean;
+  /** Pack the primary image in NHWC (interleaved per-pixel) instead of the
+   * default NCHW (planar) layout — EfficientNet-Lite's TF-native export. */
+  channelsLast?: boolean;
+  /** Encode prompt parameters into named tensors (with dims) ready to feed. */
+  encodePrompts?: (params: Record<string, unknown>) => Record<string, WorkerTensor>;
+  /** Second image input spec, if this model takes one. */
+  auxImage?: AuxImageSpec;
+  /** Constant feeds this model always requires, independent of the image. */
+  constantFeeds?: () => Record<string, ConstantFeed>;
 }
 
 const modelRegistry = new Map<WorkerModelType, ModelPreprocessor>();
@@ -119,11 +170,6 @@ registerModelType('sam2-decoder', {
       box: params.box as Sam2Prompt['box'],
       previousMask: params.previousMask as Sam2Prompt['previousMask'],
     };
-    // The decoder call has no imageData of its own (it consumes cached
-    // encoder embeddings), so the letterbox transform can't be recomputed
-    // here — it must be the one the caller cached from the encoder call
-    // that produced those embeddings. See sam2.ts encodeSam2Prompts for
-    // why using the wrong (or no) offset silently breaks non-square images.
     const letterbox = params.letterbox as Sam2Letterbox | undefined;
     const encoded = encodeSam2Prompts(prompt, letterbox);
     return {
@@ -136,20 +182,76 @@ registerModelType('sam2-decoder', {
 });
 
 registerModelType('scunet', {
-  tensorSpec: {
-    inputWidth: 0,
-    inputHeight: 0,
-    mean: [0, 0, 0],
-    std: [1, 1, 1],
-    paddingRgb: [0, 0, 0],
-  },
-  getInputSize: () => 0,
+  tensorSpec: SCUNET_TENSOR_SPEC,
+  getInputSize: () => SCUNET_INPUT_SIZE,
   hasImageInput: true,
 });
 
 registerModelType('lineart', {
   tensorSpec: LINE_ART_TENSOR_SPEC,
   getInputSize: () => LINE_ART_INPUT_SIZE,
+  hasImageInput: true,
+});
+
+registerModelType('ddcolor', {
+  tensorSpec: DD_COLOR_TENSOR_SPEC,
+  getInputSize: () => DD_COLOR_INPUT_SIZE,
+  hasImageInput: true,
+});
+
+registerModelType('lama', {
+  tensorSpec: LAMA_TENSOR_SPEC,
+  getInputSize: () => LAMA_INPUT_SIZE,
+  hasImageInput: true,
+  auxImage: {
+    inputNameCandidates: ['mask'],
+    tensorSpec: LAMA_TENSOR_SPEC,
+    inputSize: LAMA_INPUT_SIZE,
+    singleChannel: true,
+  },
+});
+
+registerModelType('rife', {
+  tensorSpec: RIFE_TENSOR_SPEC,
+  getInputSize: () => RIFE_INPUT_SIZE,
+  hasImageInput: true,
+  auxImage: {
+    inputNameCandidates: [],
+    tensorSpec: RIFE_TENSOR_SPEC,
+    inputSize: RIFE_INPUT_SIZE,
+    concatChannels: true,
+  },
+});
+
+registerModelType('detr', {
+  tensorSpec: DETR_TENSOR_SPEC,
+  getInputSize: () => DETR_INPUT_SIZE,
+  hasImageInput: true,
+  constantFeeds: () => ({
+    pixel_mask: {
+      dtype: 'int64',
+      data: new BigInt64Array(64 * 64).fill(1n),
+      dims: [1, 64, 64],
+    },
+  }),
+});
+
+registerModelType('efficientnet', {
+  tensorSpec: EFFICIENTNET_TENSOR_SPEC,
+  getInputSize: () => EFFICIENTNET_INPUT_SIZE,
+  hasImageInput: true,
+  channelsLast: true,
+});
+
+registerModelType('paddleocr-det', {
+  tensorSpec: PADDLE_DET_TENSOR_SPEC,
+  getInputSize: () => 0,
+  hasImageInput: true,
+});
+
+registerModelType('siglip-image', {
+  tensorSpec: SIGLIP_IMAGE_TENSOR_SPEC,
+  getInputSize: () => SIGLIP_IMAGE_SIZE,
   hasImageInput: true,
 });
 
@@ -254,7 +356,7 @@ interface OrtModule {
   InferenceSession: {
     create: (path: string, opts?: { executionProviders?: string[] }) => Promise<OrtSession>;
   };
-  Tensor: new (type: string, data: ArrayLike<number>, dims: number[]) => unknown;
+  Tensor: new (type: string, data: ArrayLike<number> | BigInt64Array, dims: number[]) => unknown;
 }
 
 interface OrtSession {
@@ -262,6 +364,63 @@ interface OrtSession {
   release: () => Promise<void>;
   inputNames: readonly string[];
   outputNames: readonly string[];
+}
+
+/** Letterbox-pack (or direct-pack, for dynamic-size models) a single image
+ * into a Float32Array tensor, returning the transform used so callers can
+ * map prompt/output coordinates through the same space (see SAM2/DETR/LaMa
+ * letterbox coordinate bug notes in their respective model modules). */
+function preprocessImage(
+  imageData: ImageData,
+  inputSize: number,
+  spec: TensorSpec,
+  options: { singleChannel?: boolean; channelsLast?: boolean } = {},
+): { tensor: Float32Array; width: number; height: number; offsetX: number; offsetY: number } {
+  if (inputSize <= 0) {
+    // Dynamic-size (SCUNet, PaddleOCR detection): no letterbox, direct pack.
+    const width = imageData.width;
+    const height = imageData.height;
+    if (options.singleChannel) {
+      const tensor = new Float32Array(width * height);
+      for (let i = 0; i < width * height; i++) {
+        tensor[i] = (imageData.data[i * 4] ?? 0) / 255;
+      }
+      return { tensor, width, height, offsetX: 0, offsetY: 0 };
+    }
+    const tensor = options.channelsLast
+      ? packNhwcTensor(imageData, { ...spec, mean: [0, 0, 0], std: [255, 255, 255] })
+      : packNchwTensor(imageData, { ...spec, mean: [0, 0, 0], std: [255, 255, 255] });
+    return { tensor, width, height, offsetX: 0, offsetY: 0 };
+  }
+
+  const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
+  const ctx = resizedCanvas.getContext('2d')!;
+  ctx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
+  ctx.fillRect(0, 0, inputSize, inputSize);
+
+  const srcCanvas = new OffscreenCanvas(imageData.width, imageData.height);
+  const srcCtx = srcCanvas.getContext('2d')!;
+  srcCtx.putImageData(imageData, 0, 0);
+
+  const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
+  const offsetX = (inputSize - imageData.width * scale) / 2;
+  const offsetY = (inputSize - imageData.height * scale) / 2;
+
+  ctx.drawImage(srcCanvas, offsetX, offsetY, imageData.width * scale, imageData.height * scale);
+  const resizedData = ctx.getImageData(0, 0, inputSize, inputSize);
+
+  if (options.singleChannel) {
+    const tensor = new Float32Array(inputSize * inputSize);
+    for (let i = 0; i < inputSize * inputSize; i++) {
+      tensor[i] = (resizedData.data[i * 4] ?? 0) / 255;
+    }
+    return { tensor, width: inputSize, height: inputSize, offsetX, offsetY };
+  }
+
+  const tensor = options.channelsLast
+    ? packNhwcTensor(resizedData, spec)
+    : packNchwTensor(resizedData, spec);
+  return { tensor, width: inputSize, height: inputSize, offsetX, offsetY };
 }
 
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
@@ -274,7 +433,8 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     modelPath,
     modelId,
     imageData,
-    embeddings,
+    auxImageData,
+    tensors,
     params,
     reuseSession,
     targetWidth,
@@ -303,65 +463,82 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 
     const inputNames = (session as OrtSession).inputNames;
     const feeds: Record<string, unknown> = {};
-    let letterbox: { offsetX: number; offsetY: number } | null = null;
+    const inputNameSet = new Set(inputNames);
+    let letterboxOffsetX = 0;
+    let letterboxOffsetY = 0;
 
     if (modelPre.hasImageInput && imageData) {
       const inputSize = modelPre.getInputSize();
-      const spec = modelPre.tensorSpec;
+      const primary = preprocessImage(imageData, inputSize, modelPre.tensorSpec, {
+        channelsLast: modelPre.channelsLast,
+      });
+      letterboxOffsetX = primary.offsetX;
+      letterboxOffsetY = primary.offsetY;
 
-      let imageTensor: Float32Array;
-      let actualW: number;
-      let actualH: number;
+      let finalTensor = primary.tensor;
+      let dims = modelPre.channelsLast
+        ? [1, primary.height, primary.width, 3]
+        : [1, 3, primary.height, primary.width];
 
-      if (inputSize > 0) {
-        const resizedCanvas = new OffscreenCanvas(inputSize, inputSize);
-        const ctx = resizedCanvas.getContext('2d')!;
-        ctx.fillStyle = `rgb(${spec.paddingRgb[0]} ${spec.paddingRgb[1]} ${spec.paddingRgb[2]})`;
-        ctx.fillRect(0, 0, inputSize, inputSize);
-
-        const srcCanvas = new OffscreenCanvas(imageData.width, imageData.height);
-        const srcCtx = srcCanvas.getContext('2d')!;
-        srcCtx.putImageData(imageData, 0, 0);
-
-        const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
-        const offsetX = (inputSize - imageData.width * scale) / 2;
-        const offsetY = (inputSize - imageData.height * scale) / 2;
-        letterbox = { offsetX, offsetY };
-
-        ctx.drawImage(
-          srcCanvas,
-          offsetX,
-          offsetY,
-          imageData.width * scale,
-          imageData.height * scale,
+      if (modelPre.auxImage?.concatChannels && auxImageData) {
+        const aux = preprocessImage(
+          auxImageData,
+          modelPre.auxImage.inputSize,
+          modelPre.auxImage.tensorSpec,
+          {},
         );
-        const resizedData = ctx.getImageData(0, 0, inputSize, inputSize);
-        imageTensor = packNchwTensor(resizedData, spec);
-        actualW = inputSize;
-        actualH = inputSize;
-      } else {
-        actualW = imageData.width;
-        actualH = imageData.height;
-        const pixelCount = actualW * actualH;
-        imageTensor = new Float32Array(pixelCount * 3);
-        for (let i = 0; i < pixelCount; i++) {
-          const offset = i * 4;
-          imageTensor[i] = imageData.data[offset]! / 255;
-          imageTensor[pixelCount + i] = imageData.data[offset + 1]! / 255;
-          imageTensor[pixelCount * 2 + i] = imageData.data[offset + 2]! / 255;
-        }
+        const combined = new Float32Array(finalTensor.length + aux.tensor.length);
+        combined.set(finalTensor, 0);
+        combined.set(aux.tensor, finalTensor.length);
+        finalTensor = combined;
+        dims = [1, 6, primary.height, primary.width];
       }
 
       const imageInputName =
         inputNames.find((n) =>
-          ['image', 'pixel_values', 'input_image', 'x'].includes(n.toLowerCase()),
+          ['image', 'pixel_values', 'input_image', 'x', 'input'].includes(n.toLowerCase()),
         ) ?? inputNames[0]!;
-      feeds[imageInputName] = new ort.Tensor('float32', imageTensor, [1, 3, actualH, actualW]);
+      feeds[imageInputName] = new ort.Tensor('float32', finalTensor, dims);
+
+      if (
+        modelPre.auxImage &&
+        !modelPre.auxImage.concatChannels &&
+        modelPre.auxImage.inputNameCandidates.length > 0 &&
+        auxImageData
+      ) {
+        const aux = preprocessImage(
+          auxImageData,
+          modelPre.auxImage.inputSize,
+          modelPre.auxImage.tensorSpec,
+          {
+            singleChannel: modelPre.auxImage.singleChannel,
+          },
+        );
+        const auxInputName = inputNames.find((n) =>
+          modelPre.auxImage!.inputNameCandidates.includes(n.toLowerCase()),
+        );
+        if (auxInputName) {
+          const auxDims = modelPre.auxImage.singleChannel
+            ? [1, 1, aux.height, aux.width]
+            : [1, 3, aux.height, aux.width];
+          feeds[auxInputName] = new ort.Tensor('float32', aux.tensor, auxDims);
+        }
+      }
     }
 
-    if (embeddings) {
-      const inputNameSet = new Set(inputNames);
-      for (const [key, tensor] of Object.entries(embeddings)) {
+    if (modelPre.constantFeeds) {
+      for (const [key, feed] of Object.entries(modelPre.constantFeeds())) {
+        const match = inputNameSet.has(key)
+          ? key
+          : inputNames.find((n) => n.toLowerCase() === key.toLowerCase());
+        if (match) {
+          feeds[match] = new ort.Tensor(feed.dtype, feed.data, feed.dims);
+        }
+      }
+    }
+
+    if (tensors) {
+      for (const [key, tensor] of Object.entries(tensors)) {
         const match = inputNameSet.has(key)
           ? key
           : inputNames.find((n) => n.toLowerCase() === key.toLowerCase());
@@ -373,7 +550,6 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 
     if (modelPre.encodePrompts && params) {
       const encoded = modelPre.encodePrompts(params);
-      const inputNameSet = new Set(inputNames);
       for (const [key, tensor] of Object.entries(encoded)) {
         const match = inputNameSet.has(key)
           ? key
@@ -400,15 +576,12 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       outputs.originalHeight = targetHeight ?? imageData.height;
       outputs.paddedWidth = imageData.width;
       outputs.paddedHeight = imageData.height;
-    }
-
-    if (letterbox) {
-      // Exposed so callers that need to map coordinates into the padded
-      // model-input space (e.g. SAM2 prompt encoding) use the *actual*
-      // transform this image went through, not a guess. See sam2.ts for
-      // why this matters — naive normalized-coordinate mapping silently
-      // breaks for any non-square source image.
-      outputs.letterbox = letterbox;
+      if (modelPre.getInputSize() > 0) {
+        outputs.letterbox = {
+          offsetX: letterboxOffsetX,
+          offsetY: letterboxOffsetY,
+        } satisfies WorkerLetterbox;
+      }
     }
 
     self.postMessage({ type: 'result', requestId, modelType, outputs } satisfies WorkerInferResult);

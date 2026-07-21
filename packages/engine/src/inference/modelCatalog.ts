@@ -161,8 +161,10 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Real-world blind image denoising (SCUNet PSNR variant). Removes sensor noise, JPEG artifacts, and grain while preserving detail. Trained purely on synthetic data — generalizes to real photos. Supports arbitrary dimensions (H,W divisible by 8).',
     sizeBytes: 70_000_000,
-    remoteUrl: 'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
-    remoteDataUrl: 'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data',
+    remoteUrl:
+      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
+    remoteDataUrl:
+      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data',
     checksum: '',
     bundled: false,
     inputSpec: null,
@@ -198,14 +200,16 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         role: 'encoder',
         filename: 'vision_encoder.onnx',
         sizeBytes: 134_000_000,
-        remoteUrl: 'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx',
+        remoteUrl:
+          'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx',
       },
       {
         id: 'sam2-hiera-tiny-decoder',
         role: 'decoder',
         filename: 'prompt_encoder_mask_decoder.onnx',
         sizeBytes: 21_000_000,
-        remoteUrl: 'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx',
+        remoteUrl:
+          'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx',
       },
     ],
   },
