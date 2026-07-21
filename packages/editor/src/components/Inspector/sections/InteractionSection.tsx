@@ -32,6 +32,13 @@ const TRANSITION_OPTIONS: TransitionConfig['kind'][] = [
   'smartAnimate',
 ];
 
+const TRANSITION_LABELS: Record<string, string> = {
+  instant: 'Instant',
+  dissolve: 'Dissolve',
+  slide: 'Slide',
+  smartAnimate: 'Smart Transition',
+};
+
 const DEFAULT_TRIGGER = { kind: 'onClick' as const };
 const DEFAULT_ACTION = {
   kind: 'navigateTo' as const,
@@ -179,7 +186,7 @@ export function InteractionSection() {
                       <Select
                         label="Transition"
                         value={String(transition.kind ?? 'dissolve')}
-                        options={TRANSITION_OPTIONS.map((k) => ({ value: k, label: k }))}
+                        options={TRANSITION_OPTIONS.map((k) => ({ value: k, label: TRANSITION_LABELS[k] ?? k }))}
                         onChange={(v) =>
                           patchInteraction(ix, {
                             actions: [
