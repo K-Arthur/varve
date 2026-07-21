@@ -1,11 +1,25 @@
-import type { RasterTraceMode, UpscaleMethod } from '@strata/engine';
+import type { RasterTraceMode, UpscaleMethod, UpscaleProgressFn } from '@strata/engine';
 import type { LiveTraceParams, SceneNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import { getImageFill, isImageShape } from '@strata/scene';
 import { Button, Select } from '@strata/ui';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
+
+/**
+ * Upper bound on output memory (4 bytes/px) before we warn the user. Real-ESRGAN
+ * tiles add transient per-tile buffers on top, so this is a conservative
+ * headline figure; the real peak is ~2× for very large jobs.
+ */
+const MEMORY_WARNING_BYTES = 256 * 1024 * 1024;
+const MEMORY_MAX_BYTES = 1024 * 1024 * 1024;
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+  return `${(bytes / 1024).toFixed(0)} KB`;
+}
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debounced, setDebounced] = useState(value);
@@ -47,8 +61,25 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const [pending, setPending] = useState<'upscale' | 'trace' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [replaceSource, setReplaceSource] = useState(false);
   const liveTraceState = node?.kind === 'shape' && 'liveTrace' in node ? node.liveTrace : undefined;
   const [liveTrace, setLiveTrace] = useState(() => liveTraceState != null);
+
+  // Source image natural dimensions drive the memory + output estimates.
+  const imageFill = node && isImageShape(node) ? getImageFill(node) : undefined;
+  const naturalWidth = imageFill?.imageWidth ?? (node?.kind === 'shape' ? node.shape.w : 0);
+  const naturalHeight = imageFill?.imageHeight ?? (node?.kind === 'shape' ? node.shape.h : 0);
+  const aiScale = 4;
+  const outW = method === 'ai' ? naturalWidth * aiScale : Math.round(naturalWidth * scale);
+  const outH = method === 'ai' ? naturalHeight * aiScale : Math.round(naturalHeight * scale);
+  const outputBytes = outW > 0 && outH > 0 ? outW * outH * 4 : 0;
+  const memoryWarning = outputBytes > MEMORY_WARNING_BYTES;
+  const memoryExceeded = outputBytes > MEMORY_MAX_BYTES;
+  const onProgress: UpscaleProgressFn = useMemo(
+    () => (done, total) => setProgress({ done, total }),
+    [],
+  );
   const [showAdvanced, setShowAdvanced] = useState(false);
   const requestIdRef = useRef(0);
 
@@ -106,13 +137,16 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const run = async (operation: 'upscale' | 'trace') => {
     setError(null);
     setWarning(null);
+    setProgress(null);
     setPending(operation);
     try {
       if (operation === 'upscale') {
         await upscaleSelectedImage({
-          scale: method === 'ai' ? 4 : scale,
+          scale: method === 'ai' ? aiScale : scale,
           method,
           modelId: method === 'ai' ? 'upscale-realesr-general' : undefined,
+          onProgress,
+          replaceSource,
         });
       } else {
         await traceSelectedImage({
@@ -130,12 +164,14 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
       setError(message === 'cancelled' ? 'Cancelled' : message);
     } finally {
       setPending(null);
+      setProgress(null);
     }
   };
 
   const cancel = () => {
     cancelImageProcessing();
     setPending(null);
+    setProgress(null);
     setError('Cancelled');
   };
 
@@ -169,6 +205,12 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const isLiveError = liveTraceState?.lastError != null;
   const isLiveLoading =
     liveTraceState && liveTraceState.resolvedAt == null && !liveTraceState.lastError;
+
+  const processing = pending === 'upscale';
+  const progressPct =
+    progress && progress.total > 0
+      ? Math.min(100, Math.round((progress.done / progress.total) * 100))
+      : 0;
 
   return (
     <DisclosureSection title="Image & Vector">
@@ -205,20 +247,68 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
             }}
           />
         </FieldRow>
+        {naturalWidth > 0 && naturalHeight > 0 && (
+          <p className="insp-hint">
+            Output {outW}by{outH}px
+            {outputBytes > 0 && ` · ~${formatBytes(outputBytes)}`}
+            {method === 'ai' && ' · slow, runs locally'}.
+          </p>
+        )}
+        {memoryWarning && (
+          <p className="insp-hint insp-hint--warn" role="status">
+            {memoryExceeded
+              ? `Output exceeds the safe memory limit (${formatBytes(outputBytes)}). Choose a smaller scale.`
+              : `Large output (~${formatBytes(outputBytes)}). Processing may be slow or exhaust memory on low-RAM systems.`}
+          </p>
+        )}
+        <FieldRow label="Result">
+          <Select
+            label="What to do with the upscaled result"
+            value={replaceSource ? 'replace' : 'new'}
+            disabled={processing}
+            options={[
+              { value: 'new', label: 'Create new layer' },
+              { value: 'replace', label: 'Replace source image' },
+            ]}
+            onChange={(v) => setReplaceSource(v === 'replace')}
+          />
+        </FieldRow>
+        {processing && progress && progress.total > 0 && (
+          <div
+            className="insp-progress"
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Upscaling progress"
+          >
+            <div className="insp-progress__bar" style={{ width: `${progressPct}%` }} />
+            <span className="insp-progress__label">
+              Tile {progress.done}/{progress.total}
+            </span>
+          </div>
+        )}
         <p className="insp-hint">
-          Processing runs locally. Real-ESRGAN uses the bundled offline model in a worker.
+          {method === 'ai'
+            ? 'Real-ESRGAN restores detail using the bundled offline model.'
+            : 'Processing runs locally on the CPU.'}
         </p>
         <div className="insp-actions">
           <Button
             type="button"
             variant="primary"
             size="sm"
-            disabled={pending !== null}
-            loading={pending === 'upscale'}
+            disabled={processing || memoryExceeded}
+            loading={processing}
             onClick={() => void run('upscale')}
           >
-            Upscale image
+            {method === 'ai' ? 'Upscale with AI' : 'Upscale image'}
           </Button>
+          {processing && (
+            <Button type="button" variant="ghost" size="sm" onClick={cancel}>
+              Cancel
+            </Button>
+          )}
         </div>
       </div>
 

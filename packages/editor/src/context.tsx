@@ -6280,7 +6280,8 @@ export function EditorProvider({
         announcerRef.current?.announce('Upscaling image...');
         try {
           const { getImageCache, dispatchUpscale } = await import('@strata/engine');
-          const { imageShapeSrc } = await import('@strata/scene');
+          const { imageShapeSrc, getImageFill, findOrCreateEmbeddedAsset, mimeTypeFromDataUrl } =
+            await import('@strata/scene');
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
@@ -6308,15 +6309,59 @@ export function EditorProvider({
             current.document.nodes[processingNodeId] !== imageNode
           )
             return;
-          const scaleLabel = options.method === 'ai' ? '4x-ai' : `${options.scale ?? 2}x`;
-          const inserted = insertDerivedImageShape(current.document, processingNodeId, {
-            dataUrl,
-            width: output.width,
-            height: output.height,
-            suffix: scaleLabel,
-          });
-          updateDoc(() => inserted.doc);
-          patch({ selection: [inserted.nodeId] });
+          if (options.replaceSource) {
+            // Replace the source image in place: register the upscaled bytes as
+            // a deduped embedded asset in the document's asset table, then patch
+            // the node's image fill. Atomic — the old src is only overwritten
+            // after the upscaled image is fully produced and stored, so a
+            // failure mid-inference never corrupts the source.
+            const fill = getImageFill(imageNode);
+            const assetInput = {
+              dataUrl,
+              mimeType: mimeTypeFromDataUrl(dataUrl),
+              naturalWidth: output.width,
+              naturalHeight: output.height,
+            };
+            updateDoc((doc) => {
+              const node = doc.nodes[processingNodeId];
+              if (!node || node.kind !== 'shape') return doc;
+              const { document: docWithAsset, assetId } = findOrCreateEmbeddedAsset(
+                doc,
+                assetInput,
+              );
+              const nextFill = {
+                type: 'image' as const,
+                image: {
+                  src: dataUrl,
+                  assetId,
+                  fit: fill?.fit ?? ('fill' as const),
+                  x: fill?.x ?? 0,
+                  y: fill?.y ?? 0,
+                  scale: fill?.scale ?? 1,
+                  imageWidth: output.width,
+                  imageHeight: output.height,
+                },
+              };
+              return {
+                ...docWithAsset,
+                nodes: {
+                  ...docWithAsset.nodes,
+                  [processingNodeId]: { ...node, fills: [nextFill] },
+                },
+              };
+            });
+          } else {
+            // Default: create a new layer beside the non-destructive source.
+            const scaleLabel = options.method === 'ai' ? '4x-ai' : `${options.scale ?? 2}x`;
+            const inserted = insertDerivedImageShape(current.document, processingNodeId, {
+              dataUrl,
+              width: output.width,
+              height: output.height,
+              suffix: scaleLabel,
+            });
+            updateDoc(() => inserted.doc);
+            patch({ selection: [inserted.nodeId] });
+          }
           announcerRef.current?.announce(
             `Image upscaled to ${output.width} by ${output.height} pixels`,
           );

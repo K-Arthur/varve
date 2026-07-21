@@ -112,6 +112,17 @@ export function registerEditorActions(
   );
   reg('enterFrame', 'Enter Frame', 'canvas', () => {});
   reg('editText', 'Edit Text', 'text', () => {});
+  if (!r.has('upscaleImage')) {
+    r.register(
+      {
+        id: 'upscaleImage',
+        label: 'Upscale Image',
+        category: 'object',
+        keywords: ['upscale', 'image', 'enlarge', 'ai', 'super-resolution', 'rescale'],
+      },
+      handlers.upscaleImage ?? (() => {}),
+    );
+  }
   reg('nudgeUp', 'Nudge Up', 'object', () => {});
   reg('nudgeDown', 'Nudge Down', 'object', () => {});
   reg('nudgeLeft', 'Nudge Left', 'object', () => {});
