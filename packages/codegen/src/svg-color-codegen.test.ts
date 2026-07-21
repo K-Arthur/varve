@@ -4,9 +4,9 @@
  * Research basis: SVG 1.1 color with ICC profiles, CSS Color 4.
  */
 
+import type { Document, SceneNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToSvg } from './svg';
-import type { Document, SceneNode } from '@strata/scene';
 
 function makeDocWithNode(node: SceneNode): Document {
   return {
