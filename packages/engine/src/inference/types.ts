@@ -29,6 +29,7 @@ export interface QualityValidation {
   meanPsnrDb: number;
   validatedAt: string;
   ortVersion: string;
+  failureReasons?: string[];
 }
 
 /** Entry in the model manifest. */
