@@ -1,0 +1,80 @@
+# Contributing to Strata
+
+Thank you for your interest in contributing to Strata.
+
+## Code of Conduct
+
+This project follows a standard Code of Conduct. See `CODE_OF_CONDUCT.md`.
+
+## Licensing and DCO
+
+Strata is licensed under the **Business Source License 1.1 (BSL 1.1)**, with
+a change licence of **MIT** after four years. See `LICENSE` for full terms.
+
+All contributions must include a **Developer Certificate of Origin** (DCO)
+sign-off. This certifies that you have the right to submit the work and
+that you understand it will be distributed under the project's licence.
+
+To sign off a commit, add the following line to your commit message:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+Use `git commit -s` to add this automatically. By signing off, you certify
+the following (from https://developercertificate.org/):
+
+```
+Developer Certificate of Origin
+Version 1.1
+
+Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.
+
+Developer's Certificate of Origin 1.1
+
+By making a contribution to this project, I certify that:
+
+(a) The contribution was created in whole or in part by me and I have
+    the right to submit it under the open source license indicated in
+    the file; or
+
+(b) The contribution is based upon previous work that, to the best of
+    my knowledge, is covered under an appropriate open source license
+    and I have the right under that license to submit that work with
+    modifications, whether created in whole or in part by me, under the
+    same open source license (unless I am permitted to submit under a
+    different license), as indicated in the file; or
+
+(c) The contribution was provided directly to me by some other person
+    who certified (a), (b) or (c) and I have not modified it.
+
+(d) I understand and agree that this project and the contribution are
+    public and that a record of the contribution (including all personal
+    information I submit with it, including my sign-off) is maintained
+    indefinitely and may be redistributed consistent with this project
+    or the open source license(s) involved.
+```
+
+### First-time contributors
+
+If you have not contributed before, you may also be asked to sign a
+lightweight Contributor Licence Agreement (CLA) granting the project
+owner the right to distribute your contribution under the project's
+licence (including any future commercial licence for the Pro edition).
+This is a one-time process.
+
+## How to contribute
+
+1. Fork the repository.
+2. Create a feature branch.
+3. Make your changes, following the project's code standards.
+4. Add or update tests for your changes.
+5. Ensure all quality gates pass (see AGENTS.md for details).
+6. Submit a pull request with a clear description of your changes.
+
+## Questions?
+
+Ask in [GitHub Discussions](https://github.com/K-Arthur/Strata/discussions).

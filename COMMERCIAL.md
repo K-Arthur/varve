@@ -1,0 +1,47 @@
+# Strata Editions
+
+Strata is developed as a community-first application with a sustainable
+funding model.
+
+## Strata Community Edition (free)
+
+The Community Edition is free to download, use, and modify for all lawful
+purposes. It receives ongoing bug fixes, compatibility updates, security
+patches, and performance improvements.
+
+The Community Edition's source code is publicly available under the
+Business Source License 1.1 (BSL 1.1). After four years, each release
+converts to the MIT license.
+
+## Strata Pro (future paid edition)
+
+A future commercial edition may offer additional features for professional
+users. Pro features are designed to provide genuine value beyond the
+Community Edition — not to remove existing functionality.
+
+Examples of potential Pro features:
+- Advanced PDF/X export with full ICC profiles
+- Team collaboration with real-time sync
+- Cloud asset libraries and team templates
+- Enterprise SSO and audit logging
+- Priority support and SLA
+- Batch/automation features
+- Extended cloud rendering
+
+The Community Edition will never be reduced to "crippleware" designed
+only to force upgrades. Features introduced in Pro will not be removed
+from the Community Edition after their introduction.
+
+## Relationship between editions
+
+- Both editions share the same core codebase
+- Pro features are compiled into separate binaries, not gated by licence keys
+- File formats are compatible between editions
+- Fixes to shared code benefit both editions
+- The Community Edition does not depend on Pro services for its core
+  functionality
+
+## Current status
+
+Strata is currently in beta. Only the Community Edition exists today.
+The Pro edition and its pricing are not yet determined.

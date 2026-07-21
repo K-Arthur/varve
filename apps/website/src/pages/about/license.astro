@@ -8,74 +8,139 @@ import Layout from '../../layouts/Layout.astro';
       <h1>License</h1>
 
       <section class="license-section">
-        <h2>AGPL-3.0-or-later</h2>
+        <h2>Business Source License 1.1</h2>
         <p>
-          Strata is licensed under the <strong>GNU Affero General Public License v3.0 or later</strong> (AGPL-3.0-or-later). This is a copyleft license designed to ensure that the software and its derivatives remain free and open source.
+          Strata is licensed under the <strong>Business Source License 1.1</strong> (BSL 1.1).
+          This is a source-available license that balances open access with the ability to
+          sustain continued development.
         </p>
       </section>
 
       <section class="license-section">
-        <h2>What AGPL Means</h2>
+        <h2>What BSL 1.1 Means</h2>
         <p>
-          The AGPL is a strong copyleft license. Anyone who distributes Strata — whether as a compiled binary, bundled in a product, or as part of a service — must also distribute the complete corresponding source code under the same AGPL terms. Any modifications to the code must also be released under AGPL when distributed.
-        </p>
-      </section>
-
-      <section class="license-section">
-        <h2>How AGPL Differs from GPL</h2>
-        <p>
-          The key difference between the AGPL and the standard GPL is the <strong>network use clause</strong>. The GPL's copyleft requirement triggers only when you <em>distribute</em> copies of the software. The AGPL adds that if you modify the software and run it on a network server — making it accessible over a network without distributing copies — you must still make the modified source code available to all users who interact with it over the network.
-        </p>
-        <p>
-          This clause closes the "application service provider" loophole, ensuring that even web-based deployments contribute their improvements back to the community.
-        </p>
-      </section>
-
-      <section class="license-section">
-        <h2>What This Means for Users</h2>
-        <p>
-          As a user of Strata, you are free to:
+          You are free to:
         </p>
         <ul>
-          <li><strong>Use</strong> Strata for any purpose, personal or commercial</li>
-          <li><strong>Modify</strong> the source code to suit your needs</li>
-          <li><strong>Share</strong> copies with others</li>
+          <li><strong>Use</strong> Strata for any purpose — personal, commercial, or educational</li>
+          <li><strong>Modify</strong> the source code</li>
+          <li><strong>Share</strong> copies of the unmodified software with others</li>
           <li><strong>Study</strong> how the software works</li>
+          <li><strong>Develop</strong> plugins and extensions</li>
+          <li><strong>Redistribute</strong> modified source code for non-commercial purposes</li>
         </ul>
         <p>
-          If you distribute modified versions of Strata — whether as binaries, source code, or as a network service — those modifications must also be licensed under AGPL-3.0-or-later. You must provide access to the complete modified source code.
+          Commercial redistribution of the software (selling copies, bundling in a
+          commercial product, or offering it as a hosted service) requires a separate
+          commercial license.
         </p>
       </section>
 
       <section class="license-section">
-        <h2>Contribution Implications</h2>
+        <h2>Four-Year Conversion to MIT</h2>
         <p>
-          All contributions to Strata are accepted under the terms of AGPL-3.0-or-later. By submitting a pull request, patch, or any other contribution, you agree that your contribution is licensed under this license. Contributors retain copyright to their work but grant the project and its users a perpetual, irrevocable license to use, modify, and distribute that contribution under the AGPL.
+          Each release of Strata automatically converts to the <strong>MIT license</strong>
+          four years after its first public distribution. This means:
         </p>
+        <ul>
+          <li>All code eventually becomes fully open-source under the permissive MIT license</li>
+          <li>If development stops, previously released versions become MIT-licensed over time</li>
+          <li>The community can freely fork and continue development on MIT-licensed code</li>
+        </ul>
+      </section>
+
+      <section class="license-section">
+        <h2>User Rights Summary</h2>
+        <table class="license-table">
+          <tr>
+            <td>Use for personal projects</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Use for commercial work (client designs)</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Use within your organisation</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Modify source code</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Distribute official binaries</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Distribute modified source (non-commercial)</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Develop and sell plugins</td>
+            <td class="allowed">Allowed</td>
+          </tr>
+          <tr>
+            <td>Commercial redistribution (selling copies)</td>
+            <td class="restricted">Requires license</td>
+          </tr>
+          <tr>
+            <td>Offering as a competing hosted service</td>
+            <td class="restricted">Requires license</td>
+          </tr>
+          <tr>
+            <td>Removing Strata branding</td>
+            <td class="restricted">Requires license</td>
+          </tr>
+        </table>
+      </section>
+
+      <section class="license-section">
+        <h2>Contributions</h2>
         <p>
-          This ensures that the entire codebase — including community contributions — remains consistently licensed and free.
+          All contributions to Strata are accepted under the BSL 1.1 (and subsequently the
+          MIT change license after four years). Contributors retain copyright to their work.
+          All contributions require a <a href="https://developercertificate.org/">Developer
+          Certificate of Origin</a> (DCO) sign-off. See the
+          <a href="/contribute/guidelines">contribution guidelines</a> for details.
         </p>
       </section>
 
       <section class="license-section">
-        <h2>Attribution</h2>
+        <h2>Third-Party Components</h2>
         <p>
-          Copyright 2024-2026 Strata Contributors.
+          Strata includes third-party software under its own license terms. Full attribution
+          is provided in the <code>THIRD_PARTY_NOTICES</code> file in the repository.
+          Key components:
         </p>
+        <ul>
+          <li>Lucide icons — ISC License</li>
+          <li>Phosphor icons — MIT License</li>
+          <li>Geist font — SIL Open Font License 1.1</li>
+          <li>IBM Plex Sans font — SIL Open Font License 1.1</li>
+          <li>ONNX Runtime — MIT License</li>
+          <li>ONNX AI models (u2netp, Real-ESRGAN) — MIT and BSD-3-Clause</li>
+        </ul>
       </section>
 
-      <section class="license-section license-note">
+      <section class="license-section">
+        <h2>Copyright</h2>
         <p>
-          <strong>Note:</strong> The <code>LICENSE</code> file containing the full AGPL-3.0-or-later text has not yet been added to the repository. It will be included in a future release. Until then, the official license text is available at the link below.
+          Copyright 2024-2026 K-Arthur (Strata Founder).
+        </p>
+        <p>
+          "Strata" is a trademark of K-Arthur. See the
+          <a href="https://github.com/K-Arthur/Strata/blob/main/TRADEMARKS.md">Trademark Policy</a>
+          for usage guidelines.
         </p>
       </section>
 
       <div class="license-cta">
-        <a href="https://www.gnu.org/licenses/agpl-3.0.html" class="btn-primary" target="_blank" rel="noopener noreferrer">
-          Read the Official AGPL-3.0 Text
+        <a href="https://github.com/K-Arthur/Strata/blob/main/LICENSE" class="btn-primary" target="_blank" rel="noopener noreferrer">
+          View the LICENSE File on GitHub
         </a>
-        <a href="/about" class="btn-secondary">
-          Back to About
+        <a href="https://mariadb.com/bsl11/" class="btn-secondary" target="_blank" rel="noopener noreferrer">
+          Official BSL 1.1 Text
         </a>
       </div>
     </div>
@@ -154,6 +219,38 @@ import Layout from '../../layouts/Layout.astro';
 
   .license-note p {
     margin-bottom: 0;
+  }
+
+  .license-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+  }
+
+  .license-table tr {
+    border-bottom: 1px solid var(--color-neutral-200);
+  }
+
+  .license-table td {
+    padding: 0.75rem 0;
+    color: var(--color-neutral-700);
+  }
+
+  .license-table td:first-child {
+    font-weight: 500;
+    color: var(--color-neutral-900);
+  }
+
+  .license-table td.allowed {
+    color: #16a34a;
+    font-weight: 600;
+    text-align: right;
+  }
+
+  .license-table td.restricted {
+    color: #dc2626;
+    font-weight: 600;
+    text-align: right;
   }
 
   .license-cta {
