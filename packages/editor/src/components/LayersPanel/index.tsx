@@ -433,6 +433,21 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             <ContextMenuItem label="Copy" shortcut="Ctrl+C" onAction={handleCopy} />
             <ContextMenuItem label="Cut" shortcut="Ctrl+X" onAction={handleCut} />
             <ContextMenuItem label="Paste" shortcut="Ctrl+V" onAction={handlePaste} />
+            {contextMenu != null &&
+              contextMenuNode?.kind === 'shape' &&
+              contextMenuNode.fills?.some((f) => f.type === 'image' && f.image?.src) && (
+                <>
+                  <hr className="layers-context-menu__separator" />
+                  <ContextMenuItem
+                    label="Upscale Image"
+                    onAction={() => {
+                      setSelection(contextMenu.id);
+                      void editor.upscaleSelectedImage({ scale: 4, method: 'ai' });
+                      closeMenu();
+                    }}
+                  />
+                </>
+              )}
             <hr className="layers-context-menu__separator" />
             <ContextMenuItem
               label="Group"
