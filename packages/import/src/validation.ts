@@ -1,4 +1,83 @@
+import type { ColorConfig, ManagedColor } from '@strata/scene';
+import { isCmykColor, isRgbColor, isSpotColor } from '@strata/scene';
 import { getParserForData, getParserForExtension } from './registry';
+
+/** Colors that carry channel data (not spot references) can have bitDepth/profile. */
+function hasChannelMeta(
+  color: ManagedColor,
+): color is Extract<ManagedColor, { bitDepth?: unknown; profile?: unknown }> {
+  return !isSpotColor(color);
+}
+
+export interface ImportColorWarning {
+  message: string;
+  severity: 'info' | 'warning';
+}
+
+export interface ImportColorValidation {
+  warnings: ImportColorWarning[];
+}
+
+/**
+ * Check whether an imported color's profile/space/bitDepth is compatible
+ * with the target document's color model. Returns actionable warnings when
+ * the import will lose precision, convert color spaces, or mismatch profiles.
+ */
+export function validateImportColor(
+  color: ManagedColor,
+  docConfig: ColorConfig,
+): ImportColorValidation {
+  const warnings: ImportColorWarning[] = [];
+
+  // Bit depth precision check (channel colors only — spot refs carry no channels)
+  if (hasChannelMeta(color) && color.bitDepth && color.bitDepth !== docConfig.bitDepth) {
+    const precisionOrder: Record<string, number> = {
+      uint8: 0,
+      uint16: 1,
+      float16: 2,
+      float32: 3,
+    };
+    const imported = precisionOrder[color.bitDepth] ?? 0;
+    const doc = precisionOrder[docConfig.bitDepth] ?? 0;
+    if (imported > doc) {
+      warnings.push({
+        message: `Document is ${docConfig.bitDepth} but imported color uses ${color.bitDepth} precision — values will be truncated`,
+        severity: 'warning',
+      });
+    }
+  }
+
+  // Color space mismatch
+  if (isCmykColor(color) && docConfig.mode !== 'cmyk') {
+    const intent = docConfig.outputIntent?.renderingIntent;
+    const intentSuffix = intent ? ` (rendering intent: ${intent})` : '';
+    warnings.push({
+      message: `CMYK color imported into ${docConfig.mode.toUpperCase()} document — will convert to ${docConfig.mode.toUpperCase()}${intentSuffix}`,
+      severity: 'warning',
+    });
+  } else if (isRgbColor(color) && docConfig.mode === 'cmyk') {
+    const intent = docConfig.outputIntent?.renderingIntent;
+    const intentSuffix = intent ? ` (rendering intent: ${intent})` : '';
+    warnings.push({
+      message: `RGB color imported into CMYK document — will convert to CMYK${intentSuffix}`,
+      severity: 'warning',
+    });
+  }
+
+  // Profile mismatch (channel colors only)
+  if (hasChannelMeta(color) && color.profile) {
+    const docProfile =
+      docConfig.mode === 'cmyk' ? docConfig.cmykProfile.id : docConfig.rgbProfile.id;
+    if (color.profile !== docProfile) {
+      warnings.push({
+        message: `Imported color uses ICC profile "${color.profile}" but document uses "${docProfile}" — appearance may shift`,
+        severity: 'info',
+      });
+    }
+  }
+
+  return { warnings };
+}
 
 export interface ImportValidation {
   valid: boolean;
