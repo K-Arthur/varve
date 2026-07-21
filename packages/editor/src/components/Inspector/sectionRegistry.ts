@@ -50,6 +50,7 @@ export type SectionId =
   | 'content-aware-fill'
   | 'classify-image'
   | 'detect-text'
+  | 'blend-images'
   | 'adaptive-contrast';
 
 // ---------------------------------------------------------------------------
@@ -409,6 +410,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 299,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'blend-images',
+    title: 'Blend Images',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 300,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
