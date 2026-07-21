@@ -1,0 +1,9 @@
+# Pinned dependencies for the Strata INT8 quantization pipeline.
+# Regenerate artifacts with: python3 quantize_model.py --all
+#
+# Install: pip install -r requirements.txt
+# Or via venv: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+onnxruntime==1.27.0
+onnx==1.22.0
+numpy>=2.0,<3.0
