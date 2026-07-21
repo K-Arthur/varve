@@ -225,6 +225,20 @@ export {
 } from './iccImageConverter';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
+export type {
+  InferenceEvents,
+  InferenceProvider,
+  InferenceRequest,
+  InferenceResult,
+  ManagedSession,
+  ModelInputSpec,
+  ModelInstallInfo,
+  ModelInstallSource,
+  ModelManifestEntry,
+  ModelState as InferenceModelState,
+  ProviderChainOptions,
+} from './inference';
+export { ModelRegistry, runProviderChain, SessionManager } from './inference';
 export type { UpscaleMethod, UpscaleOptions } from './imageEnhancement';
 export {
   computeUpscaleDimensions,

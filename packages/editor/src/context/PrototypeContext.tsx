@@ -149,7 +149,9 @@ export function PrototypeProvider({
         for (const actionResult of result.actionResults) {
           if (actionResult.kind === 'navigateTo') {
             const transition = actionResult.transition;
-            let smartValues: Record<string, import('@strata/prototype').SmartAnimateLayerValues> | undefined;
+            let smartValues:
+              | Record<string, import('@strata/prototype').SmartAnimateLayerValues>
+              | undefined;
             if (transition.kind === 'smartAnimate') {
               const sa = computeSmartAnimateTransition(
                 stateRef.current.document,

@@ -522,7 +522,7 @@ describe('TransformCache', () => {
     const doc = buildDoc();
     const cache = createTransformCache();
 
-    const t1 = nodeWorldTransform(doc, 's1', undefined, cache);
+    const t1 = getCachedWorldTransform(cache, doc, 's1');
     expect(t1[4]).toBeCloseTo(170, EPS);
 
     // Calling the non-cached path gives same result
@@ -530,7 +530,7 @@ describe('TransformCache', () => {
     expect(t2[4]).toBeCloseTo(170, EPS);
 
     // Cached returns same value (and from cache now)
-    const t3 = nodeWorldTransform(doc, 's1', undefined, cache);
+    const t3 = getCachedWorldTransform(cache, doc, 's1');
     expect(t3).toBe(t1);
   });
 
@@ -538,7 +538,7 @@ describe('TransformCache', () => {
     const doc = buildDoc();
     const cache = createTransformCache();
 
-    const b = nodeWorldBounds(doc, 's1', undefined, cache);
+    const b = getCachedWorldBounds(cache, doc, 's1');
     expect(b).not.toBeNull();
     if (!b) return;
     expect(b.x).toBeCloseTo(170, 4);

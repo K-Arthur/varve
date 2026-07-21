@@ -54,9 +54,7 @@ export function SubjectPickerOverlay({
   const [previewModes, setPreviewModes] = useState<Map<number, ThumbnailPreviewMode>>(
     () => new Map(),
   );
-  const [localComponents] = useState<MaskComponent[]>(() => [
-    ...session.components,
-  ]);
+  const [localComponents] = useState<MaskComponent[]>(() => [...session.components]);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 

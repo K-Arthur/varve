@@ -410,9 +410,59 @@ export interface GradientFill {
 /** How an image fill is sized relative to the node bounds. */
 export type ImageFit = 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
 
+/**
+ * Where an asset's bytes live. Only 'embedded' ships today; 'linked' (an
+ * external file resolved by path + fingerprint) is a deliberate future
+ * addition — see docs/audits/smart-object-feasibility-audit.md. The record
+ * shape below is designed so adding it later is a new `storage` value, not a
+ * schema redesign.
+ */
+export type AssetStorageKind = 'embedded';
+
+/**
+ * A document-level, content-addressed asset (v2.6+).
+ *
+ * Generalizes the `RasterMaskAsset` pattern (immutable payload stored once,
+ * referenced by id) from raster masks to image fills. Multiple `ImageFillData`
+ * values across any number of nodes/paints can share one `DocumentAsset` via
+ * `assetId`, so placing the same image on many layers stores the bytes once.
+ *
+ * `dataUrl` is the canonical payload for 'embedded' storage. Per-usage
+ * placement (fit/x/y/scale/crop) is NOT stored here — it stays on
+ * `ImageFillData`, so each usage can be cropped/positioned independently
+ * while sharing the same source bytes.
+ */
+export interface DocumentAsset {
+  id: string;
+  storage: AssetStorageKind;
+  mimeType: string;
+  /** Present when storage === 'embedded'. */
+  dataUrl: string;
+  /** Natural (undecoded-crop) pixel dimensions of the source content. */
+  naturalWidth: number;
+  naturalHeight: number;
+  byteLength: number;
+  /** Content hash of `dataUrl`, used for create-time dedup. */
+  hash: string;
+}
+
 export interface ImageFillData {
-  /** Image source: data URL, file path, or asset id. Stub until asset system lands. */
+  /**
+   * Image source as a data URL.
+   *
+   * When `assetId` is set, this field is a materialized cache of
+   * `Document.assets[assetId].dataUrl` — always kept in sync in-memory so
+   * every existing reader keeps working unchanged, but treated as derived,
+   * not authoritative: the canonical bytes live once in `Document.assets`,
+   * and `src` is stripped from serialized output to avoid duplicating them
+   * per-usage on disk (see `stripEmbeddedAssetPayloads` in version.ts).
+   *
+   * When `assetId` is unset, `src` is authoritative on its own (legacy
+   * fills predating the asset system, or a plain file path).
+   */
   src: string;
+  /** Reference into `Document.assets`. See doc comment on `src` above. */
+  assetId?: string;
   fit: ImageFit;
   /** Position offset in px (relative to node top-left) when fit !== 'fill'/'stretch'. */
   x: number;

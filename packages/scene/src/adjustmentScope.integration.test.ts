@@ -187,7 +187,7 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
     };
 
     const migrated = migrateDocument(v22Doc) as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.4');
+    expect(migrated.formatVersion).toBe('2.5');
     const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1!;
     expect(adj.scope).toBeDefined();
     expect((adj.scope as Record<string, unknown>).mode).toBe('image-local');

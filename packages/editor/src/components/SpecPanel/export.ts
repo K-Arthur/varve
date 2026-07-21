@@ -377,7 +377,11 @@ export async function exportNodeAsPdf(
     const imageData = ctx.getImageData(0, 0, img.width, img.height);
     img.close();
 
-    const pdfBytes = makeSimpleImagePdf(imageData.data as unknown as Uint8Array, img.width, img.height);
+    const pdfBytes = makeSimpleImagePdf(
+      imageData.data as unknown as Uint8Array,
+      img.width,
+      img.height,
+    );
     const filename = buildFilename(node.name, 'pdf');
     return { bytes: pdfBytes, filename };
   }

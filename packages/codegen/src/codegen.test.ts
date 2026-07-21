@@ -68,6 +68,49 @@ describe('exportNodeToSvg', () => {
     expect(out).toContain('font-feature-settings');
   });
 
+  it('emits direction="rtl" and unicode-bidi for RTL text nodes', () => {
+    const doc = createDocument('Test');
+    const node = makeTextNode('t1', 'مرحبا', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      direction: 'rtl',
+    });
+    const out = exportNodeToSvg(node, doc);
+    expect(out).toContain('direction="rtl"');
+    expect(out).toContain('unicode-bidi="bidi-override"');
+  });
+
+  it('emits direction="rtl" for rich text with RTL paragraph', () => {
+    const doc = createDocument('Test');
+    const node = makeTextNode('t1', 'مرحبا', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      direction: 'rtl',
+      richText: {
+        paragraphs: [
+          {
+            format: { direction: 'rtl' },
+            runs: [{ text: 'مرحبا', format: { fontWeight: 400 } }],
+          },
+        ],
+      },
+    });
+    const out = exportNodeToSvg(node, doc);
+    expect(out).toContain('direction="rtl"');
+  });
+
+  it('does not emit direction for LTR text nodes', () => {
+    const doc = createDocument('Test');
+    const node = makeTextNode('t1', 'Hello', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+      direction: 'ltr',
+    });
+    const out = exportNodeToSvg(node, doc);
+    expect(out).not.toContain('direction=');
+    expect(out).not.toContain('unicode-bidi=');
+  });
+
   it('preserves opacity and extended blend modes', () => {
     const doc = createDocument('Blend SVG');
     const node = makeShapeNode(
