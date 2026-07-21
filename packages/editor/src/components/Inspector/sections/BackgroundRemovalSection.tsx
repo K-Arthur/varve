@@ -12,6 +12,7 @@ import {
   getEnvironmentCapabilities,
   getModelInfo,
   getModelLoaderReady,
+  isWasmModelSafe,
   workerModelIdForMethod,
 } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
@@ -126,6 +127,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   );
   const [aiAvailable, setAiAvailable] = useState(false);
   const [hasGpuAccel, setHasGpuAccel] = useState(false);
+  const [wasmModelSafe, setWasmModelSafe] = useState(true);
 
   const showingOriginal = Boolean(node && state.showOriginalBgNodeId === node.id);
   const refiningMask = Boolean(
@@ -175,6 +177,14 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
       setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL || caps.isTauri);
     });
   }, []);
+
+  useEffect(() => {
+    if (method !== 'quick' && requiredModelId) {
+      isWasmModelSafe(requiredModelId).then(setWasmModelSafe);
+    } else {
+      setWasmModelSafe(true);
+    }
+  }, [method, requiredModelId]);
 
   useEffect(() => {
     if (pending) {
@@ -311,7 +321,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               },
               {
                 value: 'ai-quality',
-                label: `AI High Quality — fine details${!aiAvailable ? ' (download required)' : ''}`,
+                label: `AI High Quality — fine details${
+                  !aiAvailable ? ' (download required)' : ''
+                }${!wasmModelSafe && !hasGpuAccel ? ' — may need GPU' : ''}`,
               },
             ]}
             onChange={(v) => setMethod(v as RemovalMethod)}
@@ -353,6 +365,13 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
                 <p className="insp-hint insp-hint--warn" role="status">
                   GPU acceleration recommended for this model. Without it, inference may be slow or
                   fail on some systems.
+                </p>
+              )}
+              {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && !needsGpuWarn && (
+                <p className="insp-hint insp-hint--warn" role="status">
+                  This model exceeds the safe WASM memory limit without GPU acceleration. The
+                  AI Balanced model will be used as fallback if AI Quality fails. Consider
+                  switching to AI Balanced for reliable results.
                 </p>
               )}
             </div>

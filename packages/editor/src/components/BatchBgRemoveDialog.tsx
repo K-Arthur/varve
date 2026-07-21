@@ -9,8 +9,10 @@
 
 import {
   DEFAULT_PREVIEW_MAX_DIMENSION,
+  getEnvironmentCapabilities,
   getImageCache,
   getModelLoaderReady,
+  isWasmModelSafe,
   removeBackground,
   workerModelIdForMethod,
 } from '@strata/engine';
@@ -57,10 +59,19 @@ export interface BatchBgRemoveDialogProps {
   onNodeUpdate: (id: NodeId, state: BackgroundRemovalState) => void;
 }
 
-const METHOD_OPTIONS: { value: BackgroundRemovalMethod; label: string; desc: string }[] = [
+const METHOD_OPTIONS: {
+  value: BackgroundRemovalMethod;
+  label: string;
+  desc: string;
+  warn?: string;
+}[] = [
   { value: 'quick', label: 'Quick', desc: 'Fast heuristic, best for simple backgrounds' },
   { value: 'ai-balanced', label: 'AI Balanced', desc: 'Good quality with moderate speed' },
-  { value: 'ai-quality', label: 'AI Quality', desc: 'Best quality, handles complex edges' },
+  {
+    value: 'ai-quality',
+    label: 'AI Quality',
+    desc: 'Best quality, handles complex edges',
+  },
 ];
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -111,6 +122,8 @@ export function BatchBgRemoveDialog({
   const [announceMsg, setAnnounceMsg] = useState('');
   const [aiAvailable, setAiAvailable] = useState(true);
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
+  const [wasmModelSafe, setWasmModelSafe] = useState(true);
+  const [hasGpuAccel, setHasGpuAccel] = useState(false);
 
   const imageNodes = useMemo(() => nodes.filter((n) => isImageShape(n)), [nodes]);
 
@@ -128,6 +141,22 @@ export function BatchBgRemoveDialog({
   useEffect(() => {
     if (open) void refreshModelStatus();
   }, [open, refreshModelStatus]);
+
+  useEffect(() => {
+    if (open) {
+      getEnvironmentCapabilities().then((caps) => {
+        setHasGpuAccel(caps.hasWebGPU || caps.hasWebGL || caps.isTauri);
+      });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (method !== 'quick' && requiredModelId) {
+      isWasmModelSafe(requiredModelId).then(setWasmModelSafe);
+    } else {
+      setWasmModelSafe(true);
+    }
+  }, [method, requiredModelId]);
 
   useEffect(() => {
     if (open) {
@@ -442,6 +471,12 @@ export function BatchBgRemoveDialog({
                           Download AI Model
                         </button>
                       </div>
+                    )}
+                    {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && (
+                      <p className="batch-bg-remove__hint batch-bg-remove__hint--warn">
+                        AI Quality model may exceed available memory without GPU acceleration.
+                        AI Balanced will be used as fallback if this fails.
+                      </p>
                     )}
 
                     <section className="batch-bg-remove__section" aria-label="Files">
