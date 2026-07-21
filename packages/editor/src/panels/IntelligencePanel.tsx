@@ -9,6 +9,7 @@
  * APG Disclosure pattern for collapsible groups.
  */
 import {
+  decodeEfficientNetOutput,
   getFontRegistry,
   getInferenceWorkerHost,
   getModelLoader,
@@ -317,20 +318,97 @@ function buildHistogramBars(gaps: number[]) {
 /*  Tab 3: Naming — Auto-rename Suggestions                           */
 /* ------------------------------------------------------------------ */
 
+const EFFICIENTNET_MODEL_ID = 'efficientnet-lite4';
+
 function NamingTab() {
   const { selectedNodes, state, updateDoc } = useEditor();
   const sel = selectedNodes();
   const [onlyDefault, setOnlyDefault] = useState(true);
   const [suggestions, setSuggestions] = useState<NamingSuggestion[]>([]);
+  const [imageLabels, setImageLabels] = useState<Map<NodeId, string> | undefined>(undefined);
+  const [status, setStatus] = useState<'idle' | 'downloading' | 'classifying'>('idle');
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const labelCacheRef = useRef<Map<string, string>>(new Map());
 
-  const handleSuggest = useCallback(() => {
+  const classifyImages = useCallback(async (): Promise<Map<NodeId, string>> => {
+    const imageNodes = sel.filter((n) => isImageShape(n));
+    const labels = new Map<NodeId, string>();
+    if (imageNodes.length === 0) return labels;
+
+    const loader = getModelLoader();
+    if (!(await loader.isModelAvailable(EFFICIENTNET_MODEL_ID))) {
+      setStatus('downloading');
+      setDownloadProgress(0);
+      try {
+        await loader.downloadModel(EFFICIENTNET_MODEL_ID, (loaded, total) => {
+          setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        });
+      } catch {
+        // Download failed — fall through with no labels; image nodes keep
+        // the plain "Image" fallback rather than blocking the whole batch.
+        setStatus('idle');
+        return labels;
+      }
+    }
+
+    setStatus('classifying');
+    const modelPath = await loader.getModelPath(EFFICIENTNET_MODEL_ID);
+    if (!modelPath) {
+      setStatus('idle');
+      return labels;
+    }
+    const host = getInferenceWorkerHost();
+
+    for (const node of imageNodes) {
+      const src = imageShapeSrc(node as ShapeNode);
+      if (!src) continue;
+      const cached = labelCacheRef.current.get(src);
+      if (cached) {
+        labels.set(node.id, cached);
+        continue;
+      }
+      try {
+        const imageData = await loadImageToImageDataForAI(src);
+        const result = await host.infer(
+          {
+            type: 'infer',
+            modelType: 'efficientnet',
+            modelPath,
+            modelId: EFFICIENTNET_MODEL_ID,
+            imageData,
+            reuseSession: true,
+          },
+          { timeoutMs: 30_000 },
+        );
+        const rawOutputs = result.outputs as {
+          'Softmax:0'?: { data: Float32Array; dims: number[] };
+        };
+        const output = rawOutputs['Softmax:0'];
+        if (!output) continue;
+        const [top] = decodeEfficientNetOutput(output.data, 1);
+        if (top) {
+          labelCacheRef.current.set(src, top.label);
+          labels.set(node.id, top.label);
+        }
+      } catch {
+        // Best-effort per image — one failure shouldn't block the rest.
+      }
+    }
+
+    setStatus('idle');
+    return labels;
+  }, [sel]);
+
+  const handleSuggest = useCallback(async () => {
+    const labels = await classifyImages();
+    setImageLabels(labels);
     const results: NamingSuggestion[] = [];
     for (const node of sel) {
-      const suggestion = suggestName(node, state.document);
+      const suggestion = suggestName(node, state.document, undefined, labels);
       results.push(suggestion);
     }
     setSuggestions(results);
-  }, [sel, state.document]);
+  }, [sel, state.document, classifyImages]);
 
   const handleApplyAll = useCallback(() => {
     updateDoc((doc) =>
@@ -338,10 +416,12 @@ function NamingTab() {
         doc,
         sel.map((n) => n.id),
         onlyDefault,
+        imageLabels,
       ),
     );
     setSuggestions([]);
-  }, [sel, onlyDefault, updateDoc]);
+    setImageLabels(undefined);
+  }, [sel, onlyDefault, updateDoc, imageLabels]);
 
   const confidenceColor = (c: 'high' | 'medium' | 'low'): string => {
     switch (c) {
@@ -354,10 +434,13 @@ function NamingTab() {
     }
   };
 
+  const isBusy = status !== 'idle';
+
   return (
     <div className="intelligence-tab-content">
       <p className="intelligence-hint">
-        Suggest meaningful names for selected nodes based on their type, content, and layout.
+        Suggest meaningful names for selected nodes based on their type, content, and layout. Photos
+        are identified by content (e.g. "Golden retriever") using a local AI model.
       </p>
 
       <label className="intelligence-toggle">
@@ -372,12 +455,28 @@ function NamingTab() {
       <button
         type="button"
         className="intelligence-action-btn"
-        disabled={sel.length === 0}
-        onClick={handleSuggest}
+        disabled={sel.length === 0 || isBusy}
+        onClick={() => void handleSuggest()}
       >
         <Icon name="Wand" label={undefined} size="0.85em" />
-        Suggest names
+        {isBusy ? 'Suggesting…' : 'Suggest names'}
       </button>
+
+      {status === 'downloading' && (
+        <>
+          <div
+            className="insp-progress-bar"
+            role="progressbar"
+            aria-valuenow={downloadProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="insp-progress-bar__fill" style={{ width: `${downloadProgress}%` }} />
+          </div>
+          <p aria-live="polite">Downloading photo-identification model… {downloadProgress}%</p>
+        </>
+      )}
+      {status === 'classifying' && <p aria-live="polite">Identifying photo content…</p>}
 
       {suggestions.length > 0 && (
         <>
@@ -857,7 +956,7 @@ interface SimilarMatch {
   similarity: number;
 }
 
-function loadImageToImageDataForSimilarity(src: string): Promise<ImageData> {
+function loadImageToImageDataForAI(src: string): Promise<ImageData> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -944,7 +1043,7 @@ function SimilarTab() {
       const cached = embeddingCacheRef.current.get(src);
       if (cached) return cached;
 
-      const imageData = await loadImageToImageDataForSimilarity(src);
+      const imageData = await loadImageToImageDataForAI(src);
       if (signal.aborted) throw new Error('cancelled');
 
       const host = getInferenceWorkerHost();
