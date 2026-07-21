@@ -2,14 +2,143 @@
 //!
 //! Uses the `ort` crate (ONNX Runtime Rust bindings) to run
 //! segmentation models on-device. Opt-in via the `ai` Cargo feature.
+//!
+//! Architecture: The `InferenceRuntime` trait abstracts ONNX Runtime
+//! behind a swappable interface so that future alternatives (tract,
+//! burn, ort C API) can be substituted without rewriting the inference
+//! pipeline. `OrtInferenceRuntime` is the current implementation.
 
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
-use ort::{session::Session, value::Tensor};
+use ort::session::Session;
 
 use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
 
-/// Default preview downscale cap (matches TS `DEFAULT_PREVIEW_MAX_DIMENSION`).
-const DEFAULT_PREVIEW_MAX_DIMENSION: u32 = 2048;
+// ── InferenceRuntime trait ────────────────────────────────────────────
+
+/// Swappable ONNX inference backend.
+///
+/// The sole concrete implementation is [`OrtInferenceRuntime`].
+/// Future backends (tract, burn, ort C API) implement this trait
+/// and are selected at the call site via a builder or config.
+pub trait InferenceRuntime: Send + Sync {
+    /// Create an inference session for the given model path.
+    fn create_session(&self, model_path: &std::path::Path) -> Result<Box<dyn InferenceSession>, String>;
+}
+
+/// A single loaded ONNX inference session.
+pub trait InferenceSession {
+    /// Run inference on preprocessed float32 input in CHW layout.
+    /// Returns the raw output tensor data.
+    fn run(&mut self, input: &[f32], input_size: u32) -> Result<Vec<f32>, String>;
+}
+
+// ── OrtInferenceRuntime ───────────────────────────────────────────────
+
+/// ONNX Runtime implementation of [`InferenceRuntime`].
+///
+/// Wraps `ort::session::Session` behind the trait interface.
+/// This is the only runtime used in production builds; the trait
+/// exists to reduce bus-factor risk (the `ort` crate is single-maintainer)
+/// and to enable testing without a real ONNX Runtime installation.
+pub struct OrtInferenceRuntime;
+
+/// A session created by [`OrtInferenceRuntime`].
+struct OrtSession {
+    inner: Session,
+    output_name: String,
+}
+
+impl InferenceRuntime for OrtInferenceRuntime {
+    fn create_session(&self, model_path: &std::path::Path) -> Result<Box<dyn InferenceSession>, String> {
+        let session = Session::builder()
+            .map_err(|e| format!("Failed to create ONNX session: {e}"))?
+            .commit_from_file(model_path)
+            .map_err(|e| format!("Failed to load model from '{}': {e}", model_path.display()))?;
+
+        let output_name = session
+            .outputs()
+            .first()
+            .ok_or("No output found in model")?
+            .name()
+            .to_owned();
+
+        Ok(Box::new(OrtSession { inner: session, output_name }))
+    }
+}
+
+impl InferenceSession for OrtSession {
+    fn run(&mut self, input: &[f32], input_size: u32) -> Result<Vec<f32>, String> {
+        let input_name = self.inner
+            .inputs()
+            .first()
+            .ok_or("No input found in model")?
+            .name()
+            .to_owned();
+
+        let tensor = ort::value::Tensor::from_array((
+            [1usize, 3, input_size as usize, input_size as usize],
+            input.to_vec(),
+        ))
+        .map_err(|e| format!("Failed to create input tensor: {e}"))?;
+
+        let outputs = self.inner
+            .run(ort::inputs! { input_name.as_str() => tensor })
+            .map_err(|e| format!("ONNX inference failed: {e}"))?;
+
+        let output = outputs
+            .get(&self.output_name)
+            .ok_or("Output not found in results")?;
+
+        let (_, output_data) = output
+            .try_extract_tensor::<f32>()
+            .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
+
+        Ok(output_data.to_vec())
+    }
+}
+
+// ── Default runtime instance ──────────────────────────────────────────
+
+use std::sync::OnceLock;
+
+static CURRENT_RUNTIME: OnceLock<Box<dyn InferenceRuntime>> = OnceLock::new();
+
+/// Set the inference runtime for the current process.
+/// Must be called before any inference; panics if called twice.
+pub fn set_runtime(runtime: Box<dyn InferenceRuntime>) {
+    CURRENT_RUNTIME.set(runtime).ok().expect("InferenceRuntime already set");
+}
+
+fn get_runtime() -> &'static dyn InferenceRuntime {
+    CURRENT_RUNTIME.get().map(|b| b.as_ref()).unwrap_or(&OrtInferenceRuntime)
+}
+
+// ── Model spec ────────────────────────────────────────────────────────
+
+type ModelSpec = (u32, [f32; 3], [f32; 3], [u8; 3], bool);
+
+#[derive(Clone, Copy)]
+struct LetterboxTransform {
+    offset_x: f32,
+    offset_y: f32,
+    scale: f32,
+}
+
+fn model_spec(model_id: &str) -> ModelSpec {
+    if model_id == "isnet-general-use" {
+        (1024, [0.5; 3], [1.0; 3], [128; 3], false)
+    } else {
+        (
+            if model_id == "u2netp" { 320 } else { 1024 },
+            [0.485, 0.456, 0.406],
+            [0.229, 0.224, 0.225],
+            [124, 116, 104],
+            model_id != "u2netp",
+        )
+    }
+}
+
+// ── Public API ────────────────────────────────────────────────────────
 
 /// Run AI background removal on an image using the specified model.
 pub fn remove_ai(
@@ -28,10 +157,8 @@ pub fn remove_ai(
         ));
     }
 
-    let mut session = Session::builder()
-        .map_err(|e| format!("Failed to create ONNX session: {e}"))?
-        .commit_from_file(&model_path)
-        .map_err(|e| format!("Failed to load model '{model_id}': {e}"))?;
+    let runtime = get_runtime();
+    let mut session = runtime.create_session(&model_path)?;
 
     let (orig_w, orig_h) = img.dimensions();
     let preview_max = opts
@@ -81,40 +208,11 @@ pub fn remove_ai(
         }
     }
 
-    let tensor = Tensor::from_array((
-        [1usize, 3, input_size as usize, input_size as usize],
-        tensor_data,
-    ))
-    .map_err(|e| format!("Failed to create input tensor: {e}"))?;
-
-    let input_name = session
-        .inputs()
-        .first()
-        .ok_or("No input found in model")?
-        .name()
-        .to_owned();
-    let output_name = session
-        .outputs()
-        .first()
-        .ok_or("No output found in model")?
-        .name()
-        .to_owned();
-
-    let outputs = session
-        .run(ort::inputs! { input_name.as_str() => tensor })
-        .map_err(|e| format!("ONNX inference failed: {e}"))?;
-
-    let output = outputs
-        .get(&output_name)
-        .ok_or("Output not found in results")?;
-
-    let (_, output_data) = output
-        .try_extract_tensor::<f32>()
-        .map_err(|e| format!("Failed to extract output tensor: {e}"))?;
+    let output_data = session.run(&tensor_data, input_size)?;
 
     let mask_size = output_data.len();
     let mask_dim = (mask_size as f64).sqrt() as u32;
-    let mask = normalize_segmentation_output(output_data, apply_sigmoid);
+    let mask = normalize_segmentation_output(&output_data, apply_sigmoid);
     let mut confidence_sum = 0.0f32;
     for value in &mask {
         confidence_sum += (*value as f32 / 255.0 - 0.5).abs();
@@ -175,28 +273,8 @@ pub fn remove_ai(
     })
 }
 
-type ModelSpec = (u32, [f32; 3], [f32; 3], [u8; 3], bool);
-
-#[derive(Clone, Copy)]
-struct LetterboxTransform {
-    offset_x: f32,
-    offset_y: f32,
-    scale: f32,
-}
-
-fn model_spec(model_id: &str) -> ModelSpec {
-    if model_id == "isnet-general-use" {
-        (1024, [0.5; 3], [1.0; 3], [128; 3], false)
-    } else {
-        (
-            if model_id == "u2netp" { 320 } else { 1024 },
-            [0.485, 0.456, 0.406],
-            [0.229, 0.224, 0.225],
-            [124, 116, 104],
-            model_id != "u2netp",
-        )
-    }
-}
+/// Default preview downscale cap (matches TS `DEFAULT_PREVIEW_MAX_DIMENSION`).
+const DEFAULT_PREVIEW_MAX_DIMENSION: u32 = 2048;
 
 fn reconstruct_letterbox_mask(
     mask: &[u8],
@@ -286,7 +364,7 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 mod tests {
     use super::{
         model_spec, normalize_segmentation_output, reconstruct_letterbox_mask, resize_mask,
-        LetterboxTransform,
+        LetterboxTransform, InferenceRuntime, InferenceSession, OrtInferenceRuntime,
     };
 
     #[test]
@@ -338,5 +416,29 @@ mod tests {
             ),
             vec![255; 8]
         );
+    }
+
+    #[test]
+    fn ort_runtime_can_be_overridden() {
+        // The default runtime is OrtInferenceRuntime
+        let runtime = OrtInferenceRuntime;
+        // This just tests the trait is object-safe and constructable
+        let _: &dyn InferenceRuntime = &runtime;
+    }
+
+    #[test]
+    fn ort_session_trait_is_object_safe() {
+        // Test that Box<dyn InferenceSession> works (object safety)
+        // We can't create a real session without a model file, but we
+        // can verify the trait is properly object-safe for future impls.
+        struct StubSession;
+        impl InferenceSession for StubSession {
+            fn run(&mut self, _input: &[f32], _input_size: u32) -> Result<Vec<f32>, String> {
+                Ok(vec![])
+            }
+        }
+        let mut session: Box<dyn InferenceSession> = Box::new(StubSession);
+        let result = session.run(&[], 0).unwrap();
+        assert!(result.is_empty());
     }
 }
