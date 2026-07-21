@@ -8,6 +8,8 @@
 
 export type UpscaleMethod = 'nearest' | 'bilinear' | 'bicubic' | 'lanczos3' | 'ai';
 
+export type UpscaleProgressFn = (done: number, total: number) => void;
+
 export interface UpscaleOptions {
   scale?: number;
   targetWidth?: number;
@@ -17,6 +19,11 @@ export interface UpscaleOptions {
   maxPixels?: number;
   /** Real-ESRGAN model id when method is `ai`. */
   modelId?: string;
+  /**
+   * Per-tile progress callback for the native AI path. Fires on the main
+   * thread roughly once per upscaled tile (a 1024px image yields ~225 tiles).
+   */
+  onProgress?: UpscaleProgressFn;
 }
 
 /** Default bundled Real-ESRGAN model used by the shared worker path. */

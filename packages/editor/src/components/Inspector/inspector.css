@@ -1968,6 +1968,29 @@
   color: var(--color-feedback-warning);
 }
 
+.insp-progress {
+  position: relative;
+  margin-top: var(--space-2);
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.insp-progress__bar {
+  height: 100%;
+  background: var(--color-accent-primary);
+  border-radius: var(--radius-full);
+  transition: width 120ms ease-out;
+}
+
+.insp-progress__label {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
 .insp-model-info {
   margin: var(--space-1) 0;
 }

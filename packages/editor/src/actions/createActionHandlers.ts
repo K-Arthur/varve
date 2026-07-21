@@ -172,6 +172,18 @@ export function createActionHandlers(
     booleanSubtract: () => e.booleanOp('subtract'),
     booleanIntersect: () => e.booleanOp('intersect'),
     booleanExclude: () => e.booleanOp('exclude'),
+    upscaleImage: () => {
+      const imageNode = e.state.selection
+        .map((id) => e.state.document.nodes[id])
+        .find(
+          (n) => n?.kind === 'shape' && n.fills?.some((f) => f.type === 'image' && f.image?.src),
+        );
+      if (!imageNode) {
+        e.announce?.('Select an image layer to upscale');
+        return;
+      }
+      void e.upscaleSelectedImage({ scale: 4, method: 'ai' });
+    },
     nudgeUp: () => {},
     nudgeDown: () => {},
     nudgeLeft: () => {},
