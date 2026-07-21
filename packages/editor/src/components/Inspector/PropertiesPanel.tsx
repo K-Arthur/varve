@@ -33,6 +33,7 @@ import { AIDenoiseSection } from './sections/AIDenoiseSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
+import { BlendImagesSection } from './sections/BlendImagesSection';
 import { BrushSection } from './sections/BrushSection';
 import { ClassifyImageSection } from './sections/ClassifyImageSection';
 import { CognitiveLoadIndicator } from './sections/CognitiveLoadIndicator';
@@ -352,6 +353,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('content-aware-fill', <ContentAwareFillSection nodes={nodes} />);
     add('classify-image', <ClassifyImageSection nodes={nodes} />);
     add('detect-text', <DetectTextSection nodes={nodes} />);
+    add('blend-images', <BlendImagesSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('effects', <EffectsSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
