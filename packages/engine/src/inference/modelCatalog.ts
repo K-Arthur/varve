@@ -255,6 +255,23 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     gpuRecommended: false,
   },
   {
+    id: 'lineart',
+    name: 'Line Art Extraction',
+    description:
+      'Converts a photo into a clean line drawing — a starting point for tracing in Draw mode. Verified source: rocca/informative-drawings-line-art-onnx, model MIT-licensed (Chan/Durand/Isola, CVPR 2022).',
+    sizeBytes: 17_200_000,
+    remoteUrl:
+      'https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx',
+    checksum: '',
+    bundled: false,
+    inputSpec: null,
+    quality: 4,
+    precision: 'fp32',
+    category: 'lineart',
+    peakMemoryBytes: 70_000_000,
+    gpuRecommended: false,
+  },
+  {
     id: 'tr-ocr-base-printed',
     name: 'TrOCR (Printed Text)',
     description:

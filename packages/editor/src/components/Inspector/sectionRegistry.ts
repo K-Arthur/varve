@@ -45,6 +45,7 @@ export type SectionId =
   | 'document-color'
   | 'ai-denoise'
   | 'lens-blur'
+  | 'line-art'
   | 'adaptive-contrast';
 
 // ---------------------------------------------------------------------------
@@ -354,6 +355,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 295,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'line-art',
+    title: 'Line Art',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 296,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
