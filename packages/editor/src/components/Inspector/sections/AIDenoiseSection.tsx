@@ -134,11 +134,11 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
   const runDenoise = useCallback(
     async (fullData: ImageData): Promise<ImageData> => {
       const { dispatchDenoise } = await import('@strata/engine');
-      const result = await dispatchDenoise(
-        fullData,
-        { strength, modelId: MODEL_ID },
-        abortRef.current?.signal,
-      );
+      const result = await dispatchDenoise(fullData, {
+        strength,
+        modelId: MODEL_ID,
+        signal: abortRef.current?.signal,
+      });
       return result.denoised;
     },
     [strength],
@@ -159,13 +159,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
     try {
       const { getModelLoader } = await import('@strata/engine');
       const loader = getModelLoader();
-      await loader.downloadModel(
-        MODEL_ID,
-        (loaded, total) => {
-          // progress is reported through elapsed timer
-        },
-        controller.signal,
-      );
+      await loader.downloadModel(MODEL_ID, () => {}, controller.signal);
 
       setDenoise((prev) => ({
         ...prev,
