@@ -8,6 +8,7 @@ import { loadSettings, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
+import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
 import { useSettings } from './SettingsContext';
 import type { SettingsSection, ThemeMode, UnitType } from './settings';
@@ -147,7 +148,12 @@ export function SettingsDialog({
               <ShortcutsSection onOpenPalette={() => setShortcutsOpen(true)} />
             )}
             {activeSection === 'export' && <ExportSettingsTab />}
-            {activeSection === 'models' && <BgRemovalModelsTab />}
+            {activeSection === 'models' && (
+              <>
+                <BgRemovalModelsTab />
+                <ColorizationModelsTab />
+              </>
+            )}
             {activeSection === 'collab' && <CollabSection />}
             {activeSection === 'ai' && <AISection />}
             {activeSection === 'about' && <AboutSection />}

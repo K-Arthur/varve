@@ -45,6 +45,7 @@ function inferCategory(id: string): string {
     (id.includes('font') && (id.includes('detect') || id.includes('match') || id.includes('recog')))
   )
     return 'classification';
+  if (id.startsWith('ddcolor') || id.startsWith('colorization-')) return 'colorization';
   return 'other';
 }
 
@@ -62,6 +63,8 @@ const KNOWN_SIZES: Record<string, number> = {
   'tr-ocr-base-printed': 340_000_000,
   'font-detect-resnet': 44_000_000,
   'depth-anything-v2-small': 25_000_000,
+  'ddcolor-tiny': 50_000_000,
+  ddcolor: 156_000_000,
 };
 
 function computeSizeBytes(id: string, bundled: boolean): number {
@@ -104,6 +107,10 @@ function entryDescription(id: string, notes?: string): string {
     return 'Font detection — identifies font families from text region images. Returns ranked candidates with similarity scores.';
   if (id === 'depth-anything-v2-small')
     return 'Depth-Anything-V2 Small — monocular depth estimation for lens blur, 3D effects, depth-aware masking. Input: 518x518 RGB. Output: relative depth map.';
+  if (id === 'ddcolor-tiny')
+    return 'DDColor-Tiny (ConvNeXt-tiny) — fast preview quality grayscale photo colorization. Input: 256x256 RGB. Output: a*b* chrominance.';
+  if (id === 'ddcolor')
+    return 'DDColor-L (ConvNeXt-large) — photo-realistic grayscale and faded photo colorization. Input: 512x512 RGB. Output: a*b* chrominance. Apache-2.0.';
   return '';
 }
 
@@ -166,6 +173,8 @@ function modelDisplayName(id: string): string {
     'tr-ocr-base-printed': 'TrOCR (Printed Text)',
     'font-detect-resnet': 'Font Detection',
     'depth-anything-v2-small': 'Depth-Anything-V2 Small',
+    'ddcolor-tiny': 'DDColor Tiny',
+    ddcolor: 'DDColor',
   };
   return names[id] ?? id;
 }
@@ -185,6 +194,8 @@ function modelQuality(id: string): number {
     'tr-ocr-base-printed': 4,
     'font-detect-resnet': 3,
     'depth-anything-v2-small': 4.5,
+    'ddcolor-tiny': 3,
+    ddcolor: 4,
   };
   return qualities[id] ?? 1;
 }

@@ -118,6 +118,7 @@ export type {
   ColorizationProgress,
   ColorizationResult,
   ColorizationWorkflow,
+  ImageStats,
   QualityMode,
   RuntimeResolution,
   TaskClassification,
@@ -298,6 +299,7 @@ export type {
   WorkerInferResult,
   WorkerModelType,
 } from './inference/inferenceWorker';
+export { getModelById, listAllModels, listModelsByCategory } from './inference/modelCatalog';
 export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
 export type {
