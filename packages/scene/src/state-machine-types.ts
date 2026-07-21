@@ -4,9 +4,31 @@ export type SMInputType = 'boolean' | 'number' | 'trigger';
 export type SMTransitionTrigger =
   | 'onClick'
   | 'onHover'
+  | 'onPointerDown'
+  | 'onPointerUp'
   | 'onKeyPress'
+  | 'onTimer'
+  | 'onDragEnd'
   | 'onVariableChange'
-  | 'onTimelineEnd';
+  | 'onTimelineEnd'
+  | 'onMediaEvent';
+
+export type SMActionKind =
+  | 'setVariable'
+  | 'navigateTo'
+  | 'openOverlay'
+  | 'closeOverlay'
+  | 'playTimeline'
+  | 'pauseTimeline'
+  | 'seekTimeline'
+  | 'custom';
+
+export interface SMAction {
+  id: string;
+  kind: SMActionKind;
+  targetId?: string;
+  value?: string | number | boolean;
+}
 
 export interface SMInput {
   id: string;
@@ -23,6 +45,9 @@ export interface SMTransition {
   condition?: string;
   duration?: number;
   easing?: EasingDefinition;
+  priority?: number;
+  canInterrupt?: boolean;
+  actions?: SMAction[];
 }
 
 export interface SMState {
@@ -30,6 +55,8 @@ export interface SMState {
   name: string;
   timelineId: string;
   isEntryState?: boolean;
+  entryActions?: SMAction[];
+  exitActions?: SMAction[];
 }
 
 export interface StateMachine {

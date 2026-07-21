@@ -83,6 +83,8 @@ export function addSMTransition(
     condition?: string;
     duration?: number;
     easing?: import('@strata/shared').EasingDefinition;
+    priority?: number;
+    canInterrupt?: boolean;
   },
 ): { doc: Document; transitionId: string } {
   const sm = doc.stateMachines?.[smId];
@@ -149,4 +151,111 @@ export function findSMTransitions(
   const sm = doc.stateMachines?.[smId];
   if (!sm) return [];
   return sm.transitions.filter((t) => t.fromStateId === fromStateId);
+}
+
+// --- State mutation helpers (used by inspector) ---
+
+export function renameSMState(
+  doc: Document,
+  smId: string,
+  stateId: string,
+  name: string,
+): Document {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return doc;
+  const states = sm.states.map((s) => (s.id === stateId ? { ...s, name } : s));
+  return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, states } } };
+}
+
+export function setSMStateEntry(doc: Document, smId: string, stateId: string): Document {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return doc;
+  const states = sm.states.map((s) => ({ ...s, isEntryState: s.id === stateId }));
+  return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, states } } };
+}
+
+export function duplicateSMState(
+  doc: Document,
+  smId: string,
+  sourceStateId: string,
+): { doc: Document; stateId: string } {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return { doc, stateId: '' };
+  const src = sm.states.find((s) => s.id === sourceStateId);
+  if (!src) return { doc, stateId: '' };
+  const newId = stateId();
+  const copy: SMState = { ...src, id: newId, name: `${src.name} Copy`, isEntryState: false };
+  const updated: StateMachine = { ...sm, states: [...sm.states, copy] };
+  return {
+    doc: { ...doc, stateMachines: { ...doc.stateMachines, [smId]: updated } },
+    stateId: newId,
+  };
+}
+
+// --- Transition mutation helpers ---
+
+export function setSMTransitionPriority(
+  doc: Document,
+  smId: string,
+  transitionId: string,
+  priority: number,
+): Document {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return doc;
+  const transitions = sm.transitions.map((t) => (t.id === transitionId ? { ...t, priority } : t));
+  return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, transitions } } };
+}
+
+export function setSMTransitionTrigger(
+  doc: Document,
+  smId: string,
+  transitionId: string,
+  trigger: SMTransitionTrigger,
+): Document {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return doc;
+  const transitions = sm.transitions.map((t) => (t.id === transitionId ? { ...t, trigger } : t));
+  return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, transitions } } };
+}
+
+export function setSMTransitionCondition(
+  doc: Document,
+  smId: string,
+  transitionId: string,
+  condition: string | undefined,
+): Document {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return doc;
+  const transitions = sm.transitions.map((t) => (t.id === transitionId ? { ...t, condition } : t));
+  return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, transitions } } };
+}
+
+export function setSMTransitionTarget(
+  doc: Document,
+  smId: string,
+  transitionId: string,
+  toStateId: string,
+): Document {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return doc;
+  const transitions = sm.transitions.map((t) => (t.id === transitionId ? { ...t, toStateId } : t));
+  return { ...doc, stateMachines: { ...doc.stateMachines, [smId]: { ...sm, transitions } } };
+}
+
+export function duplicateSMTransition(
+  doc: Document,
+  smId: string,
+  sourceTransitionId: string,
+): { doc: Document; transitionId: string } {
+  const sm = doc.stateMachines?.[smId];
+  if (!sm) return { doc, transitionId: '' };
+  const src = sm.transitions.find((t) => t.id === sourceTransitionId);
+  if (!src) return { doc, transitionId: '' };
+  const newId = transitionId();
+  const copy: SMTransition = { ...src, id: newId };
+  const updated: StateMachine = { ...sm, transitions: [...sm.transitions, copy] };
+  return {
+    doc: { ...doc, stateMachines: { ...doc.stateMachines, [smId]: updated } },
+    transitionId: newId,
+  };
 }

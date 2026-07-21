@@ -4,6 +4,7 @@ import { addSMInput, addSMState, addSMTransition, createStateMachine } from './s
 import {
   advanceSMTransition,
   createStateMachineRuntime,
+  drainPendingActions,
   getCurrentState,
   getCurrentStateTimelineId,
   type SMRuntime,
@@ -100,5 +101,42 @@ describe('state-machine-runtime', () => {
     const advanced = advanceSMTransition(half, 150);
     expect(advanced.transitionProgress).toBeNull();
     expect(advanced.activeTransition).toBeNull();
+  });
+
+  it('resolves highest-priority transition when multiple match', () => {
+    let { runtime, smId, entryId, secondId } = makeRuntime();
+    const { stateId: thirdId, doc: d1 } = addSMState(runtime.doc, smId, 'Third', 'tl-third');
+    runtime = { ...runtime, doc: d1 };
+    let doc = addSMTransition(runtime.doc, smId, entryId, secondId, 'onClick', { priority: 1 }).doc;
+    doc = addSMTransition(doc, smId, entryId, thirdId, 'onClick', { priority: 5 }).doc;
+    runtime = { ...runtime, doc };
+    const next = triggerSMEvent(runtime, 'onClick');
+    expect(getCurrentState(next)?.id).toBe(thirdId);
+  });
+
+  it('does not interrupt active transition unless canInterrupt is true', () => {
+    let { runtime, smId, entryId, secondId } = makeRuntime();
+    const { stateId: thirdId, doc: d1 } = addSMState(runtime.doc, smId, 'Third', 'tl-third');
+    runtime = { ...runtime, doc: d1 };
+    let doc = addSMTransition(runtime.doc, smId, entryId, secondId, 'onClick', {
+      duration: 500,
+    }).doc;
+    doc = addSMTransition(doc, smId, entryId, thirdId, 'onClick', { canInterrupt: false }).doc;
+    runtime = { ...runtime, doc };
+    const mid = triggerSMEvent(runtime, 'onClick');
+    expect(getCurrentState(mid)?.id).toBe(secondId);
+    const blocked = triggerSMEvent(mid, 'onClick');
+    expect(getCurrentState(blocked)?.id).toBe(secondId);
+  });
+
+  it('drains pending actions', () => {
+    let { runtime, smId, entryId, secondId } = makeRuntime();
+    const { doc: d2 } = addSMTransition(runtime.doc, smId, entryId, secondId, 'onClick');
+    runtime = { ...runtime, doc: d2 };
+    const next = triggerSMEvent(runtime, 'onClick');
+    expect(next.pendingActions).toEqual([]);
+    const { actions, runtime: drained } = drainPendingActions(next);
+    expect(actions).toEqual([]);
+    expect(drained.pendingActions).toEqual([]);
   });
 });
