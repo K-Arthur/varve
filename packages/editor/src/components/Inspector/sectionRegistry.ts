@@ -46,7 +46,8 @@ export type SectionId =
   | 'ai-denoise'
   | 'lens-blur'
   | 'line-art'
-  | 'adaptive-contrast';
+  | 'adaptive-contrast'
+  | 'colorize';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -335,6 +336,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 290,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'colorize',
+    title: 'Colorize',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 291,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
