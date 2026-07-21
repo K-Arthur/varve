@@ -1699,6 +1699,46 @@ function applyTextCase(text: string, textCase: string): string {
   }
 }
 
+/**
+ * Auto-detect whether a text string is predominantly RTL.
+ * Scans for the first strong directional character (UAX #9 P2/P3).
+ * Returns true if the first strong char is Hebrew or Arabic.
+ */
+function detectRTL(text: string): boolean {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.codePointAt(i) ?? 0;
+    // Hebrew: U+0590–U+05FF, U+FB1D–U+FB4F
+    if (code >= 0x0590 && code <= 0x05ff) return true;
+    if (code >= 0xfb1d && code <= 0xfb4f) return true;
+    // Arabic: U+0600–U+06FF, U+0750–U+077F, U+0870–U+08FF, U+FB50–U+FDFF, U+FE70–U+FEFF
+    if (code >= 0x0600 && code <= 0x06ff) return true;
+    if (code >= 0x0750 && code <= 0x077f) return true;
+    if (code >= 0x0870 && code <= 0x08ff) return true;
+    if (code >= 0xfb50 && code <= 0xfdff) return true;
+    if (code >= 0xfe70 && code <= 0xfeff) return true;
+    if (code >= 0x1ec70 && code <= 0x1ecbf) return true;
+    if (code >= 0x1ee00 && code <= 0x1eeff) return true;
+    // Strong LTR found first → not RTL
+    if (
+      (code >= 0x0041 && code <= 0x005a) ||
+      (code >= 0x0061 && code <= 0x007a) ||
+      (code >= 0x00c0 && code <= 0x024f) ||
+      (code >= 0x0370 && code <= 0x03ff) ||
+      (code >= 0x0400 && code <= 0x04ff) ||
+      (code >= 0x0900 && code <= 0x0d7f) ||
+      (code >= 0x0e00 && code <= 0x0eff) ||
+      (code >= 0x1000 && code <= 0x10ff) ||
+      (code >= 0x4e00 && code <= 0x9fff) ||
+      (code >= 0xac00 && code <= 0xd7af) ||
+      (code >= 0x3040 && code <= 0x30ff)
+    ) {
+      return false;
+    }
+    if (code > 0xffff) i++; // skip surrogate low
+  }
+  return false;
+}
+
 /** Paint rich text using the typography layout engine. */
 function paintRichText(
   target: ReplayTarget,
@@ -1726,13 +1766,17 @@ function paintRichText(
 
   const originalFillStyle = target.fillStyle;
 
+  const richIsRTL = p.direction === 'rtl' || (p.direction !== 'ltr' && detectRTL(p.text));
+
   for (const line of positioned.lines) {
     const lineWidth = line.runs.reduce((sum, r) => sum + r.width, 0);
     let xOffset = 0;
     let wordSpacingAdjust = 0;
     if (p.textAlign === 'center') {
       xOffset = (p.w - lineWidth) / 2;
-    } else if (p.textAlign === 'right') {
+    } else if (p.textAlign === 'right' || (richIsRTL && p.textAlign === 'left')) {
+      // RTL: align to the right edge so the browser's native BiDi reorder works.
+      target.textAlign = 'right';
       xOffset = p.w - lineWidth;
     } else if (p.textAlign === 'justify') {
       // Justify: count inter-word gaps and distribute remaining space
@@ -1856,7 +1900,12 @@ function paintText(
     bottom: 'bottom',
   };
   target.textBaseline = baselineMap[p.textAlignVertical] ?? 'top';
-  target.textAlign = p.textAlign as CanvasTextAlign;
+
+  // Determine paragraph direction: explicit override or auto-detect from content.
+  // When RTL, set textAlign='right' so the browser's native BiDi engine reorders
+  // runs within fillText(). Our shaped data (shapeRun) handles caret/hit-testing.
+  const isRTL = p.direction === 'rtl' || (p.direction !== 'ltr' && detectRTL(p.text));
+  target.textAlign = isRTL && p.textAlign === 'left' ? 'right' : (p.textAlign as CanvasTextAlign);
 
   // Apply text case transform
   const displayText = applyTextCase(p.text, p.textCase);
