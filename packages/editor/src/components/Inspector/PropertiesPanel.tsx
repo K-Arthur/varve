@@ -43,7 +43,6 @@ import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { DetectTextSection } from './sections/DetectTextSection';
 import { EffectsSection } from './sections/EffectsSection';
 import { FillSection } from './sections/FillSection';
-import { FindSimilarSection } from './sections/FindSimilarSection';
 import { FramePresetsSection } from './sections/FramePresetsSection';
 import { ImageCropSection } from './sections/ImageCropSection';
 import { ImageEnhancementSection } from './sections/ImageEnhancementSection';
@@ -353,7 +352,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('content-aware-fill', <ContentAwareFillSection nodes={nodes} />);
     add('classify-image', <ClassifyImageSection nodes={nodes} />);
     add('detect-text', <DetectTextSection nodes={nodes} />);
-    add('find-similar', <FindSimilarSection nodes={nodes} />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('effects', <EffectsSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);

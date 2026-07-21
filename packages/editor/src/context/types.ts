@@ -33,7 +33,8 @@ export type IntelligenceTab =
   | 'debt'
   | 'prototype'
   | 'layout'
-  | 'components';
+  | 'components'
+  | 'similar';
 
 export type MaskPreviewMode =
   | 'checkerboard'
