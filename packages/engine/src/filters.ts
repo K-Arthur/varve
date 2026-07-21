@@ -35,6 +35,7 @@ export type AdjustmentKind =
   | 'halftone'
   | 'gradientMap'
   | 'tritone'
+  | 'colorHalftone'
   | 'lut';
 
 export type AdjustmentBlendMode =
@@ -260,6 +261,16 @@ export interface TritoneAdjustment extends AdjustmentBase {
   interpolation?: 'smoothstep' | 'linear';
 }
 
+export interface ColorHalftoneAdjustment extends AdjustmentBase {
+  kind: 'colorHalftone';
+  screenSize: number;
+  angle: number;
+  dotShape: 'round' | 'square' | 'diamond' | 'line';
+  mode: 'cmyk' | 'rgb' | 'mono';
+  intensity: number;
+  inkColor?: Color;
+}
+
 export interface LutAdjustment extends AdjustmentBase {
   kind: 'lut';
   /** Serialized LUT transform (embedded in document) */
@@ -300,6 +311,7 @@ export type Adjustment =
   | PhotoFilterAdjustment
   | GradientMapAdjustment
   | TritoneAdjustment
+  | ColorHalftoneAdjustment
   | LutAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
@@ -468,6 +480,17 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         interpolation: adjustment.interpolation,
         ...base,
       };
+    case 'colorHalftone':
+      return {
+        kind: 'colorHalftone',
+        screenSize: adjustment.screenSize,
+        angle: adjustment.angle,
+        dotShape: adjustment.dotShape,
+        mode: adjustment.mode,
+        intensity: adjustment.intensity,
+        inkColor: adjustment.inkColor as readonly [number, number, number, number] | undefined,
+        ...base,
+      };
     case 'lut':
       return {
         kind: 'lut',
@@ -525,6 +548,7 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'halftone':
     case 'gradientMap':
     case 'tritone':
+    case 'colorHalftone':
       // No direct CSS equivalent; use identity or a placeholder.
       return null;
     case 'lut':
@@ -573,6 +597,8 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'LUT';
     case 'tritone':
       return 'Tritone';
+    case 'colorHalftone':
+      return 'Color Halftone';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -687,6 +713,15 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         highlightPoint: 0.65,
         intensity: 1,
         preserveLuminosity: false,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'colorHalftone':
+      return {
+        ...base,
+        screenSize: 12,
+        angle: 0,
+        dotShape: 'round',
+        mode: 'cmyk',
+        intensity: 1,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'lut':
       return {

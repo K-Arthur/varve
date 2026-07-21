@@ -34,7 +34,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     removeSelected,
     setNodeLocked,
     setNodeVisible,
-    setLayerColor,
     reparentNode,
     groupSelected,
     ungroupSelected,
@@ -249,10 +248,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
 
   const handleSetLayerColor = useCallback(
     (color: LayerColor) => {
-      for (const id of state.selection) setLayerColor(id, color);
+      bulkSetLayerColor(state.selection, color);
       closeMenu();
     },
-    [state.selection, setLayerColor, closeMenu],
+    [state.selection, bulkSetLayerColor, closeMenu],
   );
 
   const handleBulkLockAll = useCallback(() => {
@@ -277,6 +276,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     },
     [state.selection, bulkSetLayerColor],
   );
+
+  const handleBulkClearColorTag = useCallback(() => {
+    bulkSetLayerColor(state.selection, null);
+  }, [state.selection, bulkSetLayerColor]);
 
   const handleBulkDelete = useCallback(() => {
     removeSelected();
@@ -408,6 +411,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
           onHideAll={handleBulkHideAll}
           onShowAll={handleBulkShowAll}
           onColorTag={handleBulkColorTag}
+          onClearColorTag={handleBulkClearColorTag}
           onDeleteAll={handleBulkDelete}
         />
       )}

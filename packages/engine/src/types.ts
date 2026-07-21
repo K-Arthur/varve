@@ -795,6 +795,17 @@ export type FilterIR =
       blendMode: string;
     }
   | {
+      kind: 'colorHalftone';
+      screenSize: number;
+      angle: number;
+      dotShape: 'round' | 'square' | 'diamond' | 'line';
+      mode: 'cmyk' | 'rgb' | 'mono';
+      intensity: number;
+      inkColor?: readonly [number, number, number, number];
+      opacity: number;
+      blendMode: string;
+    }
+  | {
       kind: 'lut';
       /** Serialized LUT transform (JSON) embedded in the document */
       lutJson: string;

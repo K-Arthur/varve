@@ -1,0 +1,78 @@
+.color-conversion-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  min-width: 320px;
+}
+
+.color-conversion__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.color-conversion__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.color-conversion__value {
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+}
+
+.color-conversion__options {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.color-conversion__radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.color-conversion__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.color-conversion__warning {
+  padding: var(--space-2);
+  background: var(--color-surface-raised);
+  border-left: 3px solid var(--color-accent-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+
+.color-conversion__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.color-conversion__btn {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-default);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+}
+
+.color-conversion__btn--primary {
+  background: var(--color-accent-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-accent-primary);
+}

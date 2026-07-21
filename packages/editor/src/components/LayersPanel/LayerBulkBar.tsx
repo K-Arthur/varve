@@ -9,6 +9,7 @@ export interface LayerBulkBarProps {
   onHideAll: () => void;
   onShowAll: () => void;
   onColorTag: (color: LayerColor) => void;
+  onClearColorTag: () => void;
   onDeleteAll: () => void;
 }
 
@@ -40,6 +41,7 @@ export function LayerBulkBar({
   onHideAll,
   onShowAll,
   onColorTag,
+  onClearColorTag,
   onDeleteAll,
 }: LayerBulkBarProps) {
   if (selectedCount < 2) return null;
@@ -104,6 +106,15 @@ export function LayerBulkBar({
               title={COLOR_LABELS[c]}
             />
           ))}
+          <button
+            type="button"
+            className="layers-bulk-bar__color-btn layers-bulk-bar__color-btn--clear"
+            onClick={onClearColorTag}
+            aria-label="Clear layer colour"
+            title="Clear layer colour"
+          >
+            <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
+          </button>
         </div>
         <button
           type="button"

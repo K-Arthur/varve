@@ -432,6 +432,356 @@ function paintGlassMaterial(
 }
 
 /**
+ * Check if a render item contains any image fills.
+ * Items with image fills need alpha-aware shadow rendering — the shadow
+ * silhouette must follow the image's alpha channel, not the geometric outline.
+ */
+function itemHasImageFills(item: RenderItem): boolean {
+  return item.fills?.some((f) => f.type === 'image') ?? false;
+}
+
+/**
+ * Render a drop shadow using the alpha channel of image fills instead of the
+ * geometric bounding shape. This produces shadows that follow the visible
+ * outline of transparent PNGs (e.g. a photo of a person casts a shadow in the
+ * shape of the person, not a rectangle).
+ *
+ * Strategy: render the item's image fills to an offscreen canvas (clipped to
+ * the shape outline), then use that canvas as the shadow source via the Canvas
+ * shadow API. The shadow API automatically uses the drawn content's alpha.
+ */
+function paintAlphaAwareDropShadow(
+  target: ReplayTarget,
+  item: RenderItem,
+  effect: {
+    blur: number;
+    spread: number;
+    x: number;
+    y: number;
+    color: EngineColor;
+    opacity?: number;
+  },
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  const pad = Math.ceil(
+    effect.blur * 3 +
+      Math.max(0, effect.spread) / 2 +
+      Math.max(Math.abs(effect.x), Math.abs(effect.y)),
+  );
+  const ow = Math.ceil(bounds.w + pad * 2);
+  const oh = Math.ceil(bounds.h + pad * 2);
+  if (ow <= 0 || oh <= 0) return;
+
+  const buffer = createEffectBuffer(ow, oh);
+  if (!buffer) {
+    // Fallback: use geometric outline
+    target.save();
+    target.shadowColor = rgba(effect.color);
+    target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+    target.shadowOffsetX = effect.x;
+    target.shadowOffsetY = effect.y;
+    target.globalAlpha = effect.opacity ?? 1;
+    target.globalCompositeOperation = 'destination-over';
+    target.fillStyle = rgba(effect.color);
+    target.beginPath();
+    traceOutline(target, item.primitive);
+    target.fill();
+    target.restore();
+    return;
+  }
+
+  const { canvas: offscreen, ctx } = buffer;
+  const ox = pad - bounds.x;
+  const oy = pad - bounds.y;
+
+  // Draw image fills clipped to the shape outline
+  ctx.save();
+  ctx.translate(ox, oy);
+  for (const fill of item.fills ?? []) {
+    if (!fill.visible) continue;
+    if (fill.type === 'image') {
+      let image: CanvasImageSource | undefined;
+      if (imageLookupForCurrentReplay) {
+        image = imageLookupForCurrentReplay(fill.src);
+      } else {
+        const cache = getImageCache();
+        const entry = cache.get(fill.src);
+        if (entry?.state === 'loaded' && entry.image) image = entry.image;
+      }
+      if (image) {
+        const sizedImage = image as CanvasImageSource & {
+          naturalWidth?: number;
+          naturalHeight?: number;
+          width?: number;
+          height?: number;
+        };
+        const srcW = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bounds.w;
+        const srcH = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bounds.h;
+        const placement = computeImagePlacement({
+          fit: fill.fit ?? 'fill',
+          sourceWidth: srcW,
+          sourceHeight: srcH,
+          bounds,
+          x: fill.x ?? 0,
+          y: fill.y ?? 0,
+          scale: fill.scale ?? 1,
+        });
+        if (placement) {
+          ctx.save();
+          ctx.beginPath();
+          traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+          ctx.clip();
+          ctx.drawImage(
+            image,
+            placement.drawRect.x,
+            placement.drawRect.y,
+            placement.drawRect.w,
+            placement.drawRect.h,
+          );
+          ctx.restore();
+        }
+      }
+    } else if (fill.type === 'solid') {
+      ctx.fillStyle = rgba(fill.color);
+      ctx.beginPath();
+      traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // Use the offscreen canvas as shadow source via the shadow API.
+  // Draw the canvas content with shadow enabled — the canvas alpha defines
+  // the shadow shape.
+  target.save();
+  target.shadowColor = rgba(effect.color);
+  target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+  target.shadowOffsetX = effect.x;
+  target.shadowOffsetY = effect.y;
+  target.globalAlpha = effect.opacity ?? 1;
+  target.globalCompositeOperation = 'destination-over';
+  if (target.drawImage) {
+    target.drawImage(
+      offscreen as unknown as CanvasImageSource,
+      bounds.x - pad,
+      bounds.y - pad,
+      ow,
+      oh,
+    );
+  }
+  // Also draw the source shape (filled with effect color) to cast the shadow
+  target.fillStyle = rgba(effect.color);
+  target.beginPath();
+  traceOutline(target, item.primitive);
+  target.fill();
+  target.restore();
+}
+
+/**
+ * Render an inner shadow/glow using the alpha channel of image fills.
+ * Same concept as paintAlphaAwareDropShadow but for inset effects.
+ */
+function paintAlphaAwareInsetEffect(
+  target: ReplayTarget,
+  item: RenderItem,
+  effect: {
+    blur: number;
+    spread: number;
+    color: EngineColor;
+    opacity?: number;
+    x?: number;
+    y?: number;
+  },
+  mode: 'shadow' | 'glow',
+): void {
+  const bounds = primitiveBounds(item.primitive);
+  const blur = effect.blur + Math.max(0, effect.spread) / 2;
+  const offsetX = mode === 'shadow' && effect.x != null ? effect.x : 0;
+  const offsetY = mode === 'shadow' && effect.y != null ? effect.y : 0;
+  const pad = Math.ceil(blur * 3) + Math.max(Math.abs(offsetX), Math.abs(offsetY));
+  const ow = Math.ceil(bounds.w + pad * 2);
+  const oh = Math.ceil(bounds.h + pad * 2);
+
+  const buffer = createEffectBuffer(ow, oh);
+  if (!buffer) return;
+
+  const { canvas: offscreen, ctx } = buffer;
+  const ox = pad - bounds.x;
+  const oy = pad - bounds.y;
+
+  // Draw the alpha silhouette of image fills
+  ctx.save();
+  ctx.translate(ox, oy);
+  for (const fill of item.fills ?? []) {
+    if (!fill.visible) continue;
+    if (fill.type === 'image') {
+      let image: CanvasImageSource | undefined;
+      if (imageLookupForCurrentReplay) {
+        image = imageLookupForCurrentReplay(fill.src);
+      } else {
+        const cache = getImageCache();
+        const entry = cache.get(fill.src);
+        if (entry?.state === 'loaded' && entry.image) image = entry.image;
+      }
+      if (image) {
+        const sizedImage = image as CanvasImageSource & {
+          naturalWidth?: number;
+          naturalHeight?: number;
+          width?: number;
+          height?: number;
+        };
+        const srcW = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bounds.w;
+        const srcH = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bounds.h;
+        const placement = computeImagePlacement({
+          fit: fill.fit ?? 'fill',
+          sourceWidth: srcW,
+          sourceHeight: srcH,
+          bounds,
+          x: fill.x ?? 0,
+          y: fill.y ?? 0,
+          scale: fill.scale ?? 1,
+        });
+        if (placement) {
+          ctx.save();
+          ctx.beginPath();
+          traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+          ctx.clip();
+          ctx.drawImage(
+            image,
+            placement.drawRect.x,
+            placement.drawRect.y,
+            placement.drawRect.w,
+            placement.drawRect.h,
+          );
+          ctx.restore();
+        }
+      }
+    } else if (fill.type === 'solid') {
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+      ctx.beginPath();
+      traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // Cut hole for directional shadow or symmetric glow ring (same as paintInsetEffect)
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.beginPath();
+  if (mode === 'shadow') {
+    ctx.save();
+    ctx.transform(1, 0, 0, 1, -offsetX, -offsetY);
+    for (const fill of item.fills ?? []) {
+      if (!fill.visible) continue;
+      if (fill.type === 'image') {
+        let image: CanvasImageSource | undefined;
+        if (imageLookupForCurrentReplay) {
+          image = imageLookupForCurrentReplay(fill.src);
+        } else {
+          const cache = getImageCache();
+          const entry = cache.get(fill.src);
+          if (entry?.state === 'loaded' && entry.image) image = entry.image;
+        }
+        if (image) {
+          ctx.save();
+          ctx.beginPath();
+          traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+          ctx.clip();
+          const sizedImage = image as CanvasImageSource & {
+            naturalWidth?: number;
+            naturalHeight?: number;
+            width?: number;
+            height?: number;
+          };
+          const srcW = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bounds.w;
+          const srcH =
+            sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bounds.h;
+          const placement = computeImagePlacement({
+            fit: fill.fit ?? 'fill',
+            sourceWidth: srcW,
+            sourceHeight: srcH,
+            bounds,
+            x: fill.x ?? 0,
+            y: fill.y ?? 0,
+            scale: fill.scale ?? 1,
+          });
+          if (placement) {
+            ctx.drawImage(
+              image,
+              placement.drawRect.x,
+              placement.drawRect.y,
+              placement.drawRect.w,
+              placement.drawRect.h,
+            );
+          }
+          ctx.restore();
+        }
+      } else if (fill.type === 'solid') {
+        ctx.fillStyle = 'rgba(0,0,0,1)';
+        ctx.beginPath();
+        traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+  } else {
+    const cx = bounds.x + bounds.w / 2;
+    const cy = bounds.y + bounds.h / 2;
+    const maxDim = Math.max(bounds.w, bounds.h, 1);
+    const shrink = Math.max(0.01, 1 - (blur + effect.spread) / maxDim);
+    ctx.save();
+    ctx.transform(1, 0, 0, 1, cx, cy);
+    ctx.transform(shrink, 0, 0, shrink, 0, 0);
+    ctx.transform(1, 0, 0, 1, -cx, -cy);
+    // For glow, cut a smaller silhouette
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+    ctx.beginPath();
+    traceOutline(ctx as unknown as ReplayTarget, item.primitive);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Blur the ring
+  if (blur > 0) {
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.filter = `blur(${blur}px)`;
+    ctx.drawImage(offscreen, 0, 0);
+    ctx.restore();
+  }
+
+  // Tint to effect color
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-in';
+  ctx.fillStyle = rgba(effect.color);
+  ctx.globalAlpha = effect.opacity ?? 1;
+  ctx.fillRect(0, 0, ow, oh);
+  ctx.restore();
+
+  // Composite onto main target, clipped to shape
+  target.save();
+  target.beginPath();
+  traceOutline(target, item.primitive);
+  if (target.clip) target.clip();
+  target.globalAlpha = effect.opacity ?? 1;
+  target.globalCompositeOperation = 'source-over';
+  if (target.drawImage) {
+    target.drawImage(
+      offscreen as unknown as CanvasImageSource,
+      bounds.x - pad,
+      bounds.y - pad,
+      ow,
+      oh,
+    );
+  }
+  target.restore();
+}
+
+/**
  * Paint the glass material edge highlight after fills/strokes.
  * Renders a light inner edge for depth cue.
  */
@@ -766,39 +1116,63 @@ export function replayIr(
               continue;
             if (effect.type === 'glassMaterial') continue; // backdrop handled before fills
             if (effect.type === 'dropShadow') {
-              target.save();
-              target.shadowColor = rgba(effect.color);
-              target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-              target.shadowOffsetX = effect.x;
-              target.shadowOffsetY = effect.y;
-              target.globalAlpha = effect.opacity ?? 1;
-              // Use destination-over so the shadow source fill goes behind
-              // the already-rendered item fill, preventing overdraw for image fills
-              target.globalCompositeOperation = 'destination-over';
-              target.fillStyle = rgba(effect.color);
-              target.beginPath();
-              traceOutline(target, item.primitive);
-              target.fill();
-              target.restore();
+              // Alpha-aware shadow: when the item has image fills, derive the
+              // shadow silhouette from the image's alpha channel instead of
+              // the geometric outline. This makes transparent PNGs cast shadows
+              // that follow their visible shape, not their bounding rectangle.
+              if (itemHasImageFills(item)) {
+                paintAlphaAwareDropShadow(target, item, effect);
+              } else {
+                target.save();
+                target.shadowColor = rgba(effect.color);
+                target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+                target.shadowOffsetX = effect.x;
+                target.shadowOffsetY = effect.y;
+                target.globalAlpha = effect.opacity ?? 1;
+                // Use destination-over so the shadow source fill goes behind
+                // the already-rendered item fill, preventing overdraw for image fills
+                target.globalCompositeOperation = 'destination-over';
+                target.fillStyle = rgba(effect.color);
+                target.beginPath();
+                traceOutline(target, item.primitive);
+                target.fill();
+                target.restore();
+              }
             } else if (effect.type === 'innerShadow') {
-              paintInsetEffect(target, item, effect, 'shadow');
+              if (itemHasImageFills(item)) {
+                paintAlphaAwareInsetEffect(target, item, effect, 'shadow');
+              } else {
+                paintInsetEffect(target, item, effect, 'shadow');
+              }
             } else if (effect.type === 'outerGlow') {
               // Outer glow: render a blurred colored shape behind the item (no offset)
-              target.save();
-              target.shadowColor = rgba(effect.color);
-              target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-              target.shadowOffsetX = 0;
-              target.shadowOffsetY = 0;
-              target.globalAlpha = effect.opacity ?? 1;
-              // Use destination-over so the glow source fill goes behind existing content
-              target.globalCompositeOperation = 'destination-over';
-              target.fillStyle = rgba(effect.color);
-              target.beginPath();
-              traceOutline(target, item.primitive);
-              target.fill();
-              target.restore();
+              if (itemHasImageFills(item)) {
+                paintAlphaAwareDropShadow(target, item, {
+                  ...effect,
+                  x: 0,
+                  y: 0,
+                });
+              } else {
+                target.save();
+                target.shadowColor = rgba(effect.color);
+                target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
+                target.shadowOffsetX = 0;
+                target.shadowOffsetY = 0;
+                target.globalAlpha = effect.opacity ?? 1;
+                // Use destination-over so the glow source fill goes behind existing content
+                target.globalCompositeOperation = 'destination-over';
+                target.fillStyle = rgba(effect.color);
+                target.beginPath();
+                traceOutline(target, item.primitive);
+                target.fill();
+                target.restore();
+              }
             } else if (effect.type === 'innerGlow') {
-              paintInsetEffect(target, item, effect, 'glow');
+              if (itemHasImageFills(item)) {
+                paintAlphaAwareInsetEffect(target, item, effect, 'glow');
+              } else {
+                paintInsetEffect(target, item, effect, 'glow');
+              }
             }
           }
         }

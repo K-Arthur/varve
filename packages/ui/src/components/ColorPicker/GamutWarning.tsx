@@ -1,9 +1,14 @@
+import type { BitDepth, ColorMode } from '@strata/scene';
 import { useMemo } from 'react';
 
 export interface GamutWarningProps {
   r: number;
   g: number;
   b: number;
+  /** Current color bit depth — used to warn about precision loss. */
+  bitDepth?: BitDepth;
+  /** Document color mode — when set, show gamut warnings relative to this mode. */
+  documentColorMode?: ColorMode;
 }
 
 /**
@@ -50,17 +55,46 @@ function isOutsideCmykGamut(r: number, g: number, b: number): boolean {
   return saturation > 90 && value > 90;
 }
 
-export function GamutWarning({ r, g, b }: GamutWarningProps) {
+/** Precision ordering — higher index = more precision. */
+const BIT_DEPTH_PRECISION: Record<string, number> = {
+  uint8: 0,
+  uint16: 1,
+  float16: 2,
+  float32: 3,
+};
+
+/**
+ * Check whether the color's bit depth exceeds what the target mode can
+ * preserve. Returns true if saving in the target mode would lose precision.
+ */
+function hasPrecisionLoss(
+  colorBitDepth: BitDepth | undefined,
+  targetMode: ColorMode | undefined,
+): boolean {
+  if (!colorBitDepth || !targetMode) return false;
+  // CMYK documents default to uint8; high-precision values would be truncated
+  const targetPrecision = targetMode === 'cmyk' ? 0 : (BIT_DEPTH_PRECISION[colorBitDepth] ?? 0);
+  const colorPrecision = BIT_DEPTH_PRECISION[colorBitDepth] ?? 0;
+  return colorPrecision > targetPrecision;
+}
+export function GamutWarning({ r, g, b, bitDepth, documentColorMode }: GamutWarningProps) {
   const outOfGamut = useMemo(() => isOutsideCmykGamut(r, g, b), [r, g, b]);
+  const precisionLoss = useMemo(
+    () => hasPrecisionLoss(bitDepth, documentColorMode),
+    [bitDepth, documentColorMode],
+  );
 
-  if (!outOfGamut) return null;
+  if (!outOfGamut && !precisionLoss) return null;
 
+  const message = precisionLoss
+    ? `Precision loss: ${bitDepth} exceeds document target`
+    : 'Out of CMYK gamut';
   return (
-    <div className="gamut-warning" role="status" aria-live="polite" title="Out of CMYK gamut">
+    <div className="gamut-warning" role="status" aria-live="polite" title={message}>
       <span aria-hidden className="gamut-warning__icon">
         !
       </span>
-      <span>Out of CMYK gamut</span>
+      <span>{message}</span>
     </div>
   );
 }
