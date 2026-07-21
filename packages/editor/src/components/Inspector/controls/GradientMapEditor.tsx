@@ -39,18 +39,18 @@ function interpolateColor(a: Color, b: Color, t: number): Color {
 function interpolatedColorAt(stops: GradientMapStop[], position: number): Color {
   const sorted = [...stops].sort((a, b) => a.position - b.position);
   if (sorted.length === 0) return [0, 0, 0, 255] as Color;
-  if (position <= sorted[0].position) return sorted[0].color;
-  if (position >= sorted[sorted.length - 1].position) return sorted[sorted.length - 1].color;
+  if (position <= sorted[0]!.position) return sorted[0]!.color;
+  if (position >= sorted[sorted.length - 1]!.position) return sorted[sorted.length - 1]!.color;
   for (let i = 0; i < sorted.length - 1; i++) {
-    const lo = sorted[i];
-    const hi = sorted[i + 1];
+    const lo = sorted[i]!;
+    const hi = sorted[i + 1]!;
     if (position >= lo.position && position <= hi.position) {
       const span = hi.position - lo.position;
       const t = span === 0 ? 0 : (position - lo.position) / span;
       return interpolateColor(lo.color, hi.color, t);
     }
   }
-  return sorted[sorted.length - 1].color;
+  return sorted[sorted.length - 1]!.color;
 }
 
 export interface GradientMapEditorProps {

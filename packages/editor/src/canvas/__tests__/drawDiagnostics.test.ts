@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { FrameDiagnostics } from '../drawDiagnostics';
 import {

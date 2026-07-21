@@ -383,7 +383,7 @@ export interface EngineGradientFill {
 
 export interface EngineImageFillData {
   src: string;
-  fit: 'fill' | 'fit' | 'stretch' | 'tile';
+  fit: 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
   x: number;
   y: number;
   scale: number;

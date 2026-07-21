@@ -115,13 +115,13 @@ export function schedulePrefetch(
   timeout = 3000,
 ): PrefetchTask {
   let cancelled = false;
-  let completedResolve: (v: boolean) => void;
+  let completedResolveFn: (v: boolean) => void = () => {};
   const completed = new Promise<boolean>((resolve) => {
-    completedResolve = resolve;
+    completedResolveFn = resolve;
   });
 
   if (activeCount >= MAX_CONCURRENT) {
-    completedResolve(false);
+    completedResolveFn(false);
     return { cancel: () => {}, completed };
   }
 
@@ -130,14 +130,14 @@ export function schedulePrefetch(
   const runTask = async () => {
     if (cancelled) {
       activeCount--;
-      completedResolve(false);
+      completedResolveFn(false);
       return;
     }
     try {
       await callback();
-      completedResolve(true);
+      completedResolveFn(true);
     } catch {
-      completedResolve(false);
+      completedResolveFn(false);
     } finally {
       activeCount--;
     }

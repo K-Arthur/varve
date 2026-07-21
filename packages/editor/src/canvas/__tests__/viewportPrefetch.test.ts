@@ -4,7 +4,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   computePrefetchRegion,
-  getActivePrefetchCount,
   isInPrefetchRegion,
   isPrefetchEnabled,
   prefetchDistance,

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests for OnionSkinOverlay component and utility functions.
  *

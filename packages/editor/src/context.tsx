@@ -1069,7 +1069,7 @@ export interface EditorContextValue {
     timelineId: string,
     trackId: string,
     progress: number,
-    easing: import('@strata/scene').Easing,
+    easing: import('@strata/shared').EasingDefinition,
   ) => void;
   setTrackMuted: (timelineId: string, trackId: string, muted: boolean) => void;
   setTrackSolo: (timelineId: string, trackId: string, solo: boolean) => void;
@@ -1238,6 +1238,35 @@ export interface EditorContextValue {
    *  the first node becomes the master definition, the rest are replaced in
    *  place with instances. Non-frame nodes in the group are left untouched. */
   createComponentFromGroup: (nodeIds: NodeId[]) => void;
+  // Section visibility
+  toggleSectionCollapse: (
+    sectionId: import('./components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  toggleSubSectionCollapse: (
+    sectionId: import('./components/Inspector/sectionRegistry').SectionId,
+    subSectionId: string,
+  ) => void;
+  hideInspectorSection: (
+    sectionId: import('./components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  showInspectorSection: (
+    sectionId: import('./components/Inspector/sectionRegistry').SectionId,
+  ) => void;
+  showAllInspectorSections: () => void;
+  restoreDefaultSectionState: () => void;
+  restoreDefaultCollapsed: () => void;
+  hideOptionalSections: () => void;
+  setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => void;
+  trimToSubject: (padding?: number) => Promise<void>;
+  expandImageBounds: (
+    padding: number,
+    sides?: { top?: number; right?: number; bottom?: number; left?: number },
+  ) => void;
+  convertToCropAndExpand?: (
+    padding: number,
+    sides?: { top?: number; right?: number; bottom?: number; left?: number },
+  ) => void;
+  resetImageBounds: () => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -2472,33 +2501,21 @@ export function EditorProvider({
         const next = moveSectionUpDoc(state.sectionVisibility, sectionId);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
-        const prefs = loadPrefs();
-        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
-        savePrefs(updatedPrefs);
       },
       moveSectionDown: (sectionId: SectionId) => {
         const next = moveSectionDownDoc(state.sectionVisibility, sectionId);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
-        const prefs = loadPrefs();
-        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
-        savePrefs(updatedPrefs);
       },
       moveSectionToStart: (sectionId: SectionId) => {
         const next = moveSectionToStartDoc(state.sectionVisibility, sectionId);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
-        const prefs = loadPrefs();
-        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
-        savePrefs(updatedPrefs);
       },
       moveSectionToEnd: (sectionId: SectionId) => {
         const next = moveSectionToEndDoc(state.sectionVisibility, sectionId);
         patch({ sectionVisibility: next });
         updateSettings({ sections: { version: 1, sections: next } });
-        const prefs = loadPrefs();
-        const updatedPrefs = setSectionOvr(prefs, state.workspaceMode, sectionId, next[sectionId]);
-        savePrefs(updatedPrefs);
       },
       resetSectionOrder: () => {
         const next = resetSectionOrderDoc(state.sectionVisibility);
@@ -3567,7 +3584,7 @@ export function EditorProvider({
         });
       },
 
-      setSelectedConstraint: (constraint) => {
+      setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => {
         const sel = stateRef.current.selection;
         if (sel.length === 0) return;
         updateDoc((doc) => {
@@ -4066,11 +4083,11 @@ export function EditorProvider({
       },
 
       // Image bounds operations
-      trimToSubject: async (padding?: number) => {
+      trimToSubject: async (_padding?: number) => {
         const sel = state.selection;
         if (sel.length === 0) return;
         for (const id of sel) {
-          updateDoc((doc) => trimToSubjectDoc(doc, id, { padding }));
+          updateDoc((doc) => trimToSubjectDoc(doc, id));
         }
       },
       expandImageBounds: (
@@ -4910,9 +4927,10 @@ export function EditorProvider({
         // explicit-targets for multi-selection, undefined (legacy) otherwise
         let scope: import('@strata/scene').AdjustmentScope | undefined;
         if (sel.length === 1) {
-          const target = state.document.nodes[sel[0]];
+          const firstId = sel[0]!;
+          const target = state.document.nodes[firstId];
           if (target && (target.kind === 'shape' || target.kind === 'rasterLayer')) {
-            scope = { mode: 'image-local', targetNodeId: sel[0] };
+            scope = { mode: 'image-local', targetNodeId: firstId };
           }
         } else if (sel.length > 1) {
           scope = scopeForTargets(state.document, sel);
@@ -5031,7 +5049,10 @@ export function EditorProvider({
         updateNodeProp(nodeId, (n) => ({ ...n, blendMode }) as SceneNode);
       },
 
-      createLinkedAdjustment: (targetIds, initialAdjustments) => {
+      createLinkedAdjustment: (
+        targetIds: import('@strata/scene').NodeId[],
+        initialAdjustments: import('@strata/scene').Adjustment[] | undefined,
+      ) => {
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
         redoStackRef.current = [];
         const { id, doc: newDoc } = nextNodeId(state.document);
@@ -5066,7 +5087,11 @@ export function EditorProvider({
         );
       },
 
-      copyEditsToSelected: (sourceNodeId, targetIds, adjustmentIds) => {
+      copyEditsToSelected: (
+        sourceNodeId: import('@strata/scene').NodeId,
+        targetIds: import('@strata/scene').NodeId[],
+        adjustmentIds: string[] | undefined,
+      ) => {
         const sourceNode = state.document.nodes[sourceNodeId];
         if (sourceNode?.kind !== 'adjustment') return;
         const sourceAdjustments = (sourceNode as AdjustmentNode).adjustments ?? [];
@@ -5117,7 +5142,10 @@ export function EditorProvider({
         announcerRef.current?.announce(`Copied edits to ${targetIds.length} target(s)`);
       },
 
-      setAdjustmentScope: (nodeId, scope) => {
+      setAdjustmentScope: (
+        nodeId: import('@strata/scene').NodeId,
+        scope: import('@strata/scene').AdjustmentScope,
+      ) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
           return { ...n, scope } as SceneNode;

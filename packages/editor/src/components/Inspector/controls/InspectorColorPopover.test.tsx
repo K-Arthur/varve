@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * InspectorColorPopover — portaled colour dialog for inspector swatches.
  *

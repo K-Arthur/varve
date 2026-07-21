@@ -120,7 +120,7 @@ export function PrototypePresenter({
       ? computeSmartAnimateHotspotOverrides(
           prototypeDocument,
           activeTransition.layerMatches,
-          activeTransition.smartAnimateValues,
+          activeTransition.smartAnimateValues!,
           transitionProgress,
           activeTransition.transition.easing ?? { kind: 'ease' },
           getNodeBounds,

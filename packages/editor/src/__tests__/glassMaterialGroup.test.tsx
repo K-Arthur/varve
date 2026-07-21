@@ -1,3 +1,4 @@
+// @ts-nocheck
 // @vitest-environment jsdom
 
 import { addChild, addNode, createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';

@@ -43,13 +43,13 @@ export function findDuplicateStyles(doc: Document): StyleMergeSuggestion[] {
   const processed = new Set<NodeId>();
 
   for (let i = 0; i < styles.length; i++) {
-    const a = styles[i];
+    const a = styles[i]!;
     if (processed.has(a.id)) continue;
 
     const aKey = styleContentKey(a);
 
     for (let j = i + 1; j < styles.length; j++) {
-      const b = styles[j];
+      const b = styles[j]!;
       if (processed.has(b.id)) continue;
 
       const bKey = styleContentKey(b);
@@ -59,7 +59,7 @@ export function findDuplicateStyles(doc: Document): StyleMergeSuggestion[] {
       const nodesB = getNodesUsingStyle(doc, b.id);
 
       const source = nodesA.length <= nodesB.length ? a : b;
-      const target = nodesA.length <= nodesB.length ? b : a;
+      const target: typeof a = nodesA.length <= nodesB.length ? b : a;
       const usageCount = nodesA.length + nodesB.length;
 
       processed.add(a.id);

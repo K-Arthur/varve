@@ -39,7 +39,7 @@ export function FramePresetsSection({
   const selectedFrame =
     selection.length === 1
       ? (() => {
-          const node = state.document.nodes[selection[0]];
+          const node = state.document.nodes[selection[0]!];
           return node && node.kind === 'frame' ? node : null;
         })()
       : null;

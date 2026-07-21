@@ -92,7 +92,7 @@ export function MotionPathOverlay({
 
     for (const track of positionTracks) {
       for (let i = 0; i < track.keyframes.length; i++) {
-        const kf = track.keyframes[i];
+        const kf = track.keyframes[i]!;
         const value = getKeyframePositionValue(kf);
         if (value) {
           points.push({
@@ -198,7 +198,7 @@ function interpolateTrackPositions(
     const progress = duration > 0 ? timeMs / duration : 0;
 
     if (kfs.length === 1) {
-      const val = getKeyframePositionValue(kfs[0]);
+      const val = getKeyframePositionValue(kfs[0]!);
       if (val) {
         if (track.property === 'x' || track.property.endsWith('.x')) results.x = val.x;
         if (track.property === 'y' || track.property.endsWith('.y')) results.y = val.y;
@@ -210,13 +210,13 @@ function interpolateTrackPositions(
       continue;
     }
 
-    let before = kfs[0];
-    let after = kfs[kfs.length - 1];
+    let before = kfs[0]!;
+    let after = kfs[kfs.length - 1]!;
 
     for (let i = 0; i < kfs.length - 1; i++) {
-      if (progress >= kfs[i].progress && progress <= kfs[i + 1].progress) {
-        before = kfs[i];
-        after = kfs[i + 1];
+      if (progress >= kfs[i]!.progress && progress <= kfs[i + 1]!.progress) {
+        before = kfs[i]!;
+        after = kfs[i + 1]!;
         break;
       }
     }

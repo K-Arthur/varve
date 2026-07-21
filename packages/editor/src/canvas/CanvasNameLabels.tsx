@@ -24,7 +24,7 @@ function collectCandidates(doc: Document): NameLabelCandidate[] {
   const out: NameLabelCandidate[] = [];
   const visit = (id: NodeId, depth: number) => {
     const node = doc.nodes[id];
-    if (!node || node.hidden) return;
+    if (!node || ((node as unknown as { hidden?: boolean }).hidden as any as any)) return;
     const bounds = nodeWorldBounds(doc, id);
     if (!bounds) return;
     const parent = getParent(doc, id);
@@ -37,7 +37,7 @@ function collectCandidates(doc: Document): NameLabelCandidate[] {
       w: bounds.w,
       h: bounds.h,
       depth,
-      parentId: parent?.id ?? null,
+      parentId: parent ?? null,
     });
     if (isContainer(node)) {
       for (const childId of node.children) visit(childId, depth + 1);

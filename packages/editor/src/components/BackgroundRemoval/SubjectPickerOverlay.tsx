@@ -49,13 +49,12 @@ export function SubjectPickerOverlay({
   onConfirm,
   onCancel,
   onHighlight,
-  onComponentsChange,
 }: SubjectPickerOverlayProps) {
   const [selected, setSelected] = useState<Set<number>>(() => new Set(session.keepIds));
   const [previewModes, setPreviewModes] = useState<Map<number, ThumbnailPreviewMode>>(
     () => new Map(),
   );
-  const [localComponents, setLocalComponents] = useState<MaskComponent[]>(() => [
+  const [localComponents] = useState<MaskComponent[]>(() => [
     ...session.components,
   ]);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -98,76 +97,6 @@ export function SubjectPickerOverlay({
   const keepAll = useCallback(() => {
     onConfirm(localComponents.map((c) => c.id));
   }, [localComponents, onConfirm]);
-
-  const mergeSelected = useCallback(() => {
-    if (selected.size < 2) return;
-    const selectedIds = [...selected];
-    const mergedPixelCount = localComponents
-      .filter((c) => selectedIds.includes(c.id))
-      .reduce((sum, c) => sum + c.pixelCount, 0);
-    const mergedBbox = localComponents
-      .filter((c) => selectedIds.includes(c.id))
-      .reduce(
-        (acc, c) => ({
-          x: Math.min(acc.x, c.bbox.x),
-          y: Math.min(acc.y, c.bbox.y),
-          w: Math.max(acc.x + acc.w, c.bbox.x + c.bbox.w) - Math.min(acc.x, c.bbox.x),
-          h: Math.max(acc.y + acc.h, c.bbox.y + c.bbox.h) - Math.min(acc.y, c.bbox.y),
-        }),
-        { x: Infinity, y: Infinity, w: 0, h: 0 },
-      );
-    const mergedCenterOfMass = localComponents
-      .filter((c) => selectedIds.includes(c.id))
-      .reduce(
-        (acc, c) => ({
-          x:
-            (acc.x * acc.pixelCount + c.centerOfMass.x * c.pixelCount) /
-            (acc.pixelCount + c.pixelCount),
-          y:
-            (acc.y * acc.pixelCount + c.centerOfMass.y * c.pixelCount) /
-            (acc.pixelCount + c.pixelCount),
-        }),
-        { x: 0, y: 0, pixelCount: 0 },
-      );
-    mergedCenterOfMass.pixelCount = mergedPixelCount;
-
-    const mergedComponent: MaskComponent = {
-      id: Math.max(...localComponents.map((c) => c.id)) + 1,
-      pixelCount: mergedPixelCount,
-      bbox: mergedBbox,
-      confidence:
-        localComponents
-          .filter((c) => selectedIds.includes(c.id))
-          .reduce((sum, c) => sum + c.confidence * c.pixelCount, 0) / mergedPixelCount,
-      relativeArea: mergedPixelCount / (session.width * session.height),
-      centerOfMass: { x: mergedCenterOfMass.x, y: mergedCenterOfMass.y },
-      edgePixelCount: localComponents
-        .filter((c) => selectedIds.includes(c.id))
-        .reduce((sum, c) => sum + c.edgePixelCount, 0),
-      isLargest: false,
-      mergedFrom: selectedIds,
-    };
-
-    const newComponents = [
-      ...localComponents.filter((c) => !selectedIds.includes(c.id)),
-      mergedComponent,
-    ].sort((a, b) => b.pixelCount - a.pixelCount);
-
-    // Mark the largest
-    if (newComponents.length > 0 && newComponents[0]) {
-      newComponents[0].isLargest = true;
-    }
-
-    setLocalComponents(newComponents);
-    setSelected(new Set([mergedComponent.id]));
-    onComponentsChange?.(newComponents);
-  }, [selected, localComponents, session.width, session.height, onComponentsChange]);
-
-  const resetComponents = useCallback(() => {
-    setLocalComponents([...session.components]);
-    setSelected(new Set(session.keepIds));
-    onComponentsChange?.(session.components);
-  }, [session.components, session.keepIds, onComponentsChange]);
 
   const handleHoverStart = useCallback((id: number) => onHighlight?.(id), [onHighlight]);
 
@@ -283,7 +212,7 @@ export function SubjectPickerOverlay({
           aria-label="Detected subjects"
           onKeyDown={handleKeyDown}
         >
-          {sortedComponents.map((c, i) => (
+          {sortedComponents.map((c, _i) => (
             <SubjectCard
               key={c.id}
               component={c}

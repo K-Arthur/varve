@@ -183,11 +183,11 @@ export function AdjustmentPanel() {
       </div>
 
       <AdjustmentScopeSection
-        nodeId={nodeId}
+        nodeId={nodeId!}
         doc={state.document}
         scope={adjNode.scope}
         onChangeScope={(s) => {
-          updateNode(nodeId, (n) => {
+          updateNode(nodeId!, (n) => {
             if (n.kind !== 'adjustment') return n;
             return { ...n, scope: s } as SceneNode;
           });

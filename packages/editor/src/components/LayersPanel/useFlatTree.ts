@@ -35,7 +35,7 @@ function isComponentFrame(node: SceneNode): node is FrameNode {
 }
 
 function hasEffects(node: SceneNode): boolean {
-  return (node.effects?.length ?? 0) > 0;
+  return ((node as unknown as { effects?: unknown[] }).effects?.length ?? 0) > 0;
 }
 
 function hasMask(node: SceneNode): boolean {

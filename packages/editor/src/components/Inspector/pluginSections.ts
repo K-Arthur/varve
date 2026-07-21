@@ -16,8 +16,8 @@
  *
  * Research basis: VS Code extension API, Figma plugin API, Web Components.
  */
-import type { WorkspaceMode } from '../workspace/workspaceTypes';
-import type { SectionCategory, SectionId } from './sectionRegistry';
+import type { WorkspaceMode } from '../../workspace/workspaceTypes';
+import type { SectionCategory } from './sectionRegistry';
 
 // ---------------------------------------------------------------------------
 // Contribution metadata

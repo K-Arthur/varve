@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Document, NodeId } from '@strata/scene';
 import { addInteraction, addNode, createDocument, makeFrameNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';

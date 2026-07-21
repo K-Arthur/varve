@@ -12,15 +12,9 @@ function isFrameNode(node: SceneNode): node is FrameNode & SceneNode {
   return node.kind === 'frame';
 }
 
-function _hasNavigateToAction(interactions: DocumentInteraction[]): boolean {
-  return interactions.some(
-    (ix) =>
-      Array.isArray(ix.actions) &&
-      ix.actions.some((a: unknown) => {
-        const act = a as { kind?: string };
-        return act.kind === 'navigateTo';
-      }),
-  );
+void _hasNavigateToAction;
+function _hasNavigateToAction(_interactions: DocumentInteraction[]): boolean {
+  return false;
 }
 
 function getTargetsFromInteractions(interactions: DocumentInteraction[]): string[] {
@@ -176,7 +170,7 @@ export function analyzePrototypeFlow(doc: Document): FlowIssue[] {
           );
         });
         if (listScreens.length > 0) {
-          const listName = extractNodeName(doc, listScreens[0]);
+          const listName = extractNodeName(doc, listScreens[0]!);
           issues.push({
             nodeId: fid,
             type: 'missing-back-nav',
@@ -192,7 +186,7 @@ export function analyzePrototypeFlow(doc: Document): FlowIssue[] {
   for (const [fid, kinds] of transitionKindMap) {
     if (kinds.size === 0) continue;
     if (dominantKind === null) {
-      dominantKind = [...kinds][0];
+      dominantKind = [...kinds][0] ?? null;
     }
     for (const k of kinds) {
       if (k !== dominantKind) {

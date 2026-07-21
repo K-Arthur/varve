@@ -1,4 +1,5 @@
-import type { EasingDefinition, Timeline } from '@strata/scene';
+import type { Timeline } from '@strata/scene';
+import type { EasingDefinition } from '@strata/shared';
 import { Select } from '@strata/ui';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
 import { GraphEditor } from './GraphEditor';
@@ -135,14 +136,14 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
   const handleZoomIn = useCallback(() => {
     setZoom((z) => {
       const idx = ZOOM_LEVELS.indexOf(z);
-      return idx < 0 || idx >= ZOOM_LEVELS.length - 1 ? z : ZOOM_LEVELS[idx + 1];
+      return idx < 0 || idx >= ZOOM_LEVELS.length - 1 ? z : ZOOM_LEVELS[idx + 1]!;
     });
   }, []);
 
   const handleZoomOut = useCallback(() => {
     setZoom((z) => {
       const idx = ZOOM_LEVELS.indexOf(z);
-      return idx <= 0 ? z : ZOOM_LEVELS[idx - 1];
+      return idx <= 0 ? z : ZOOM_LEVELS[idx - 1]!;
     });
   }, []);
 
@@ -186,7 +187,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             type="button"
             className="timeline-panel__zoom-btn"
             onClick={handleZoomOut}
-            disabled={zoom <= ZOOM_LEVELS[0]}
+            disabled={zoom <= ZOOM_LEVELS[0]!}
             aria-label="Zoom out"
             title="Zoom out"
           >
@@ -197,7 +198,7 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
             type="button"
             className="timeline-panel__zoom-btn"
             onClick={handleZoomIn}
-            disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
+            disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!}
             aria-label="Zoom in"
             title="Zoom in"
           >

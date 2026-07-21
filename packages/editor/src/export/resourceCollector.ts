@@ -42,13 +42,13 @@ export function collectResources(nodes: SceneNode[]): ExportManifest {
   const srcToId = new Map<string, string>();
 
   for (const node of nodes) {
-    const fills = (node as Record<string, unknown>).fills;
+    const fills = (node as unknown as unknown as Record<string, unknown>).fills;
     if (!Array.isArray(fills)) continue;
 
     for (const fill of fills) {
-      const f = fill as Record<string, unknown>;
+      const f = fill as unknown as Record<string, unknown>;
       if (f.type === 'image' && f.visible !== false) {
-        const img = f.image as Record<string, unknown> | undefined;
+        const img = f.image as unknown as Record<string, unknown> | undefined;
         const src = img?.src as string | undefined;
         if (src && !srcToId.has(src)) {
           const id = nextImageId();
@@ -65,7 +65,7 @@ export function collectResources(nodes: SceneNode[]): ExportManifest {
       }
 
       if (f.type === 'pattern' && f.visible !== false) {
-        const pat = f.pattern as Record<string, unknown> | undefined;
+        const pat = f.pattern as unknown as Record<string, unknown> | undefined;
         const tileSrc = pat?.tileSrc as string | undefined;
         if (tileSrc) {
           let tileId = srcToId.get(tileSrc);

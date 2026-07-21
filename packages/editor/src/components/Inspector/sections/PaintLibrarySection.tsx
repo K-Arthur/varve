@@ -77,7 +77,7 @@ export function PaintLibrarySection() {
 
   const activePaintRef = useMemo(() => {
     if (selected.length !== 1) return null;
-    const refs = selected[0].paintRefs;
+    const refs = selected[0]?.paintRefs;
     if (!refs || refs.length === 0) return null;
     return refs[0];
   }, [selected]);
@@ -85,7 +85,7 @@ export function PaintLibrarySection() {
   const hasSelection = selected.length > 0;
 
   const addToLibrary = useCallback(() => {
-    const node = selected[0];
+    const node = selected[0]!;
     if (!node) return;
 
     const fills =

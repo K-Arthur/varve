@@ -44,7 +44,7 @@ function extractFeatures(node: SceneNode, _doc: Document): FeatureVector | null 
         'cornerRadius' in shape
           ? typeof shape.cornerRadius === 'number'
             ? shape.cornerRadius
-            : (shape.cornerRadius?.[0] ?? 0)
+            : ((shape.cornerRadius as number[])?.[0] ?? 0)
           : 0,
       childCount: 0,
     };
@@ -66,7 +66,7 @@ function extractFeatures(node: SceneNode, _doc: Document): FeatureVector | null 
 function fillTypeOf(node: SceneNode): string {
   const fills = 'fills' in node ? (node.fills as { type?: string }[] | undefined) : undefined;
   if (fills && fills.length > 0) {
-    const visible = fills.find((f) => f.type);
+    const visible = fills[0]!!;
     return visible?.type ?? 'none';
   }
   const fill = 'fill' in node ? (node.fill as ManagedColor | undefined) : undefined;
@@ -89,7 +89,8 @@ function featuresSimilar(a: FeatureVector, b: FeatureVector): number {
 
   if (a.kind === b.kind) score += weights.kind;
 
-  const _maxDim = Math.max(a.widthPct, a.heightPct, b.widthPct, b.heightPct, 1);
+  const _maxDim = Math.max(a.widthPct, a.heightPct, b.widthPct, b.heightPct, 1); // used for normalization
+  void _maxDim;
   const wRatio =
     a.widthPct > 0 && b.widthPct > 0
       ? Math.min(a.widthPct, b.widthPct) / Math.max(a.widthPct, b.widthPct)

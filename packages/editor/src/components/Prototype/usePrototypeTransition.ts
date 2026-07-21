@@ -2,7 +2,7 @@
  * RAF-driven prototype screen transition (Smart Animate + standard transitions).
  */
 
-import type { LayerMatch, TransitionConfig } from '@strata/prototype';
+import type { LayerMatch, SmartAnimateLayerValues, TransitionConfig } from '@strata/prototype';
 import { animateScreenTransition, prefersReducedMotion } from '@strata/prototype';
 import { useEffect, useState } from 'react';
 
@@ -10,7 +10,7 @@ export interface ActivePrototypeTransition {
   fromScreenId: string;
   toScreenId: string;
   transition: TransitionConfig;
-  smartAnimateValues?: Record<string, Record<string, unknown>>;
+  smartAnimateValues?: Record<string, SmartAnimateLayerValues>;
   layerMatches?: LayerMatch[];
   startedAt: number;
 }
@@ -55,7 +55,7 @@ export function computeTransitionVisuals(
     transition.transition,
     progress,
     { x: 0, y: 0, opacity: 1 },
-    transition.smartAnimateValues,
+    transition.smartAnimateValues as Record<string, SmartAnimateLayerValues> | undefined,
   );
   return {
     from: {
