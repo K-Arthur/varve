@@ -48,7 +48,6 @@ export type SectionId =
   | 'line-art'
   | 'image-crop'
   | 'content-aware-fill'
-  | 'classify-image'
   | 'detect-text'
   | 'blend-images'
   | 'adaptive-contrast';
@@ -390,16 +389,6 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 297,
-    category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
-  },
-  {
-    id: 'classify-image',
-    title: 'Auto-Tag Image',
-    defaultExpanded: false,
-    canHide: true,
-    essential: false,
-    order: 298,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
