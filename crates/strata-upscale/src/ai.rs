@@ -31,21 +31,13 @@ const NATIVE_MODEL_ID: &str = "upscale-realesr-general";
 const NATIVE_MODEL_BYTES: &[u8] =
     include_bytes!("../../../apps/desktop/public/models/realesr-general-x4v3.onnx");
 
+#[derive(Default)]
 pub struct UpscaleOptions {
     pub progress: Option<ProgressCallback>,
     pub cancel: Option<Arc<AtomicBool>>,
 }
 
-impl Default for UpscaleOptions {
-    fn default() -> Self {
-        Self {
-            progress: None,
-            cancel: None,
-        }
-    }
-}
-
-pub type ProgressCallback = Box<dyn Fn(usize, usize) + Send>;
+pub type ProgressCallback = Box<dyn Fn(usize, usize) + Send + Sync>;
 
 /// Allocation-free tile progress counter shared between the upscale loop and a
 /// TypeScript callback (delivered through Tauri event emission).
@@ -138,8 +130,7 @@ pub fn ai_upscale(
     let mut rgb_out = vec![0u8; (out_w * out_h * 3) as usize];
 
     let step = TILE.saturating_sub(OVERLAP).max(1);
-    let total_tiles =
-        u32::max(1, (width + step - 1) / step) * u32::max(1, (height + step - 1) / step);
+    let total_tiles = u32::max(1, width.div_ceil(step)) * u32::max(1, height.div_ceil(step));
     let shared_progress = progress.map(|cb| SharedProgress::new(total_tiles as usize, Some(cb)));
 
     let out_tile = TILE * SCALE_U32;
