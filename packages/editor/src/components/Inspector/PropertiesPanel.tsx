@@ -48,6 +48,7 @@ import { FramePresetsSection } from './sections/FramePresetsSection';
 import { ImageCropSection } from './sections/ImageCropSection';
 import { ImageEnhancementSection } from './sections/ImageEnhancementSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
+import { PaletteSection } from './sections/PaletteSection';
 import { InteractionSection } from './sections/InteractionSection';
 import { LayoutScoreSection } from './sections/LayoutScoreSection';
 import { LayoutSection } from './sections/LayoutSection';
@@ -357,6 +358,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('content-aware-fill', <ContentAwareFillSection nodes={nodes} />);
     add('detect-text', <DetectTextSection nodes={nodes} />);
     add('blend-images', <BlendImagesSection nodes={nodes} />);
+    add('palette', <PaletteSection />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('effects', <EffectsSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
