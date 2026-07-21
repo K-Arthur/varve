@@ -103,6 +103,7 @@ import {
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
   applyConstraints,
+  applyFormatToSelection as applyFormatToSelectionOp,
   arrangeNode as arrangeNodeDoc,
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
@@ -113,6 +114,7 @@ import {
   createClippingMask as createClippingMaskDoc,
   createComponent,
   createDocument,
+  createEmbeddedAsset,
   createGuideId,
   createMaster as createMasterDoc,
   createTextChain as createTextChainDoc,
@@ -161,6 +163,7 @@ import {
   moveNode,
   nextNodeId,
   pasteGuides as pasteGuidesDoc,
+  promoteToRichText as promoteToRichTextOp,
   pushMasterChanges as pushMasterChangesDoc,
   rebuildSpreads as rebuildSpreadsDoc,
   releaseClippingMask as releaseClippingMaskDoc,
@@ -215,12 +218,11 @@ import {
   updateInteraction as updateInteractionDoc,
   updateTrack as updateTrackDoc,
   updateVariableInDocument,
+  upsertAsset,
   type Variable,
   type VariableValue,
   validateDocument,
   walkNodes,
-  applyFormatToSelection as applyFormatToSelectionOp,
-  promoteToRichText as promoteToRichTextOp,
 } from '@strata/scene';
 import {
   alignBBox,
@@ -860,6 +862,14 @@ export interface EditorContextValue {
   setAdjustmentLayerOpacity: (nodeId: NodeId, opacity: number) => void;
   /** Set blend mode on an adjustment layer node. */
   setAdjustmentLayerBlendMode: (nodeId: NodeId, blendMode: string) => void;
+  /**
+   * Register (or reuse, by content hash) an embedded image asset in
+   * Document.assets and return its id. See @strata/scene's assets.ts and
+   * docs/audits/smart-object-feasibility-audit.md. Callers still apply the
+   * returned id to a fill via the normal onChange/updateNodeProp path —
+   * this only owns the document-level asset table update.
+   */
+  registerEmbeddedImageAsset: (input: import('@strata/scene').EmbeddedAssetInput) => string;
   /** Copy selected nodes to system clipboard. */
   copySelected: () => void;
   /** Cut selected nodes (copy + remove). */
@@ -5075,6 +5085,16 @@ export function EditorProvider({
 
       setAdjustmentLayerBlendMode: (nodeId, blendMode) => {
         updateNodeProp(nodeId, (n) => ({ ...n, blendMode }) as SceneNode);
+      },
+
+      registerEmbeddedImageAsset: (input) => {
+        // The asset id is purely content-derived (see createEmbeddedAsset),
+        // so it's known synchronously without waiting for updateDoc to
+        // flush. updateDoc still re-dedups against the freshest document
+        // (functional setState — safe even if called again before re-render).
+        const asset = createEmbeddedAsset(input);
+        updateDoc((doc) => upsertAsset(doc, asset));
+        return asset.id;
       },
 
       createLinkedAdjustment: (
