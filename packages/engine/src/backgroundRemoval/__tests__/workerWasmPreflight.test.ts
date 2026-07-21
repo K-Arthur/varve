@@ -89,10 +89,10 @@ describe('worker.ts WASM memory preflight', () => {
   it('allows u2netp on bare WASM (small model, always considered safe)', async () => {
     mockCapabilities(['wasm'], true);
     mockCreate.mockResolvedValue({
-      inputNames: ['input'],
-      outputNames: ['output'],
+      inputNames: ['input.1'],
+      outputNames: ['output.1'],
       run: vi.fn().mockResolvedValue({
-        output: {
+        'output.1': {
           data: new Float32Array(320 * 320),
           dims: [1, 1, 320, 320],
           dispose: vi.fn(),
@@ -121,10 +121,10 @@ describe('worker.ts WASM memory preflight', () => {
   it('does not gate when an accelerated provider is available, even for BiRefNet', async () => {
     mockCapabilities(['webgpu', 'wasm'], false);
     mockCreate.mockResolvedValue({
-      inputNames: ['input'],
-      outputNames: ['output'],
+      inputNames: ['input.1'],
+      outputNames: ['output.1'],
       run: vi.fn().mockResolvedValue({
-        output: {
+        'output.1': {
           data: new Float32Array(1024 * 1024),
           dims: [1, 1, 1024, 1024],
           dispose: vi.fn(),

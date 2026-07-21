@@ -624,6 +624,174 @@ export function unionComponentMasks(
   return filterMaskByComponents(mask, width, height, componentIds, threshold);
 }
 
+/**
+ * Fill small holes in a soft mask by flooding background regions that are
+ * fully enclosed by foreground pixels.
+ *
+ * A "hole" is a connected background region whose area is below the threshold
+ * and that has no border-touching background pixels. This removes specular
+ * highlights, small gaps in hair/feather masks, and sensor-noise dropout
+ * without affecting the overall silhouette.
+ */
+export function fillMaskHoles(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  maxHoleArea = 64,
+  foregroundThreshold = 128,
+): Uint8Array {
+  if (width <= 0 || height <= 0) return mask;
+
+  const result = new Uint8Array(mask);
+  const visited = new Uint8Array(width * height);
+  const idx = (x: number, y: number) => y * width + x;
+  const n4 = [
+    [0, -1],
+    [-1, 0],
+    [1, 0],
+    [0, 1],
+  ];
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = idx(x, y);
+      if (visited[i] || result[i] >= foregroundThreshold) continue;
+
+      // Flood-fill background region.
+      const stack: number[] = [i];
+      visited[i] = 1;
+      const pixels: number[] = [];
+      let touchesBorder = false;
+
+      while (stack.length > 0) {
+        const cur = stack.pop()!;
+        pixels.push(cur);
+        const cy = Math.floor(cur / width);
+        const cx = cur - cy * width;
+
+        if (cx === 0 || cx === width - 1 || cy === 0 || cy === height - 1) {
+          touchesBorder = true;
+        }
+
+        for (const [dx, dy] of n4) {
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+          const ni = idx(nx, ny);
+          if (visited[ni] || result[ni] >= foregroundThreshold) continue;
+          visited[ni] = 1;
+          if (pixels.length < maxHoleArea + 1) {
+            stack.push(ni);
+          }
+        }
+
+        // Early exit: once we exceed maxHoleArea or hit border, stop collecting.
+        if (pixels.length > maxHoleArea || touchesBorder) break;
+      }
+
+      // If the region is small and fully enclosed, fill it.
+      if (pixels.length > 0 && pixels.length <= maxHoleArea && !touchesBorder) {
+        for (const pi of pixels) {
+          result[pi] = 255;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Expand (dilate) a soft mask — grows the foreground region outward.
+ * Uses a separable approximation for efficiency: horizontal pass then vertical pass.
+ */
+export function expandMask(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  radius: number,
+  threshold = 128,
+): Uint8Array {
+  if (radius <= 0 || width <= 0 || height <= 0) return mask;
+
+  const temp = new Uint8Array(mask.length);
+  const r = Math.min(radius, Math.max(width, height));
+
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let maxVal = mask[y * width + x] ?? 0;
+      for (let dx = -r; dx <= r; dx++) {
+        const sx = Math.min(width - 1, Math.max(0, x + dx));
+        const v = mask[y * width + sx] ?? 0;
+        if (v > maxVal) maxVal = v;
+      }
+      temp[y * width + x] = maxVal;
+    }
+  }
+
+  // Vertical pass
+  const result = new Uint8Array(mask.length);
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let maxVal = temp[y * width + x] ?? 0;
+      for (let dy = -r; dy <= r; dy++) {
+        const sy = Math.min(height - 1, Math.max(0, y + dy));
+        const v = temp[sy * width + x] ?? 0;
+        if (v > maxVal) maxVal = v;
+      }
+      result[y * width + x] = maxVal;
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Contract (erode) a soft mask — shrinks the foreground region inward.
+ * Uses separable min filter: horizontal pass then vertical pass.
+ */
+export function contractMask(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  radius: number,
+): Uint8Array {
+  if (radius <= 0 || width <= 0 || height <= 0) return mask;
+
+  const temp = new Uint8Array(mask.length);
+  const r = Math.min(radius, Math.max(width, height));
+
+  // Horizontal pass
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let minVal = mask[y * width + x] ?? 0;
+      for (let dx = -r; dx <= r; dx++) {
+        const sx = Math.min(width - 1, Math.max(0, x + dx));
+        const v = mask[y * width + sx] ?? 0;
+        if (v < minVal) minVal = v;
+      }
+      temp[y * width + x] = minVal;
+    }
+  }
+
+  // Vertical pass
+  const result = new Uint8Array(mask.length);
+  for (let x = 0; x < width; x++) {
+    for (let y = 0; y < height; y++) {
+      let minVal = temp[y * width + x] ?? 0;
+      for (let dy = -r; dy <= r; dy++) {
+        const sy = Math.min(height - 1, Math.max(0, y + dy));
+        const v = temp[sy * width + x] ?? 0;
+        if (v < minVal) minVal = v;
+      }
+      result[y * width + x] = minVal;
+    }
+  }
+
+  return result;
+}
+
 /** Extract single-channel mask from RGBA ImageData (red channel; our mask PNGs store value in RGB). */
 export function maskFromImageData(imageData: ImageData): Uint8Array {
   const { width, height, data } = imageData;

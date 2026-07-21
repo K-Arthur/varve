@@ -289,9 +289,16 @@ export async function sha256Hex(data: ArrayBuffer): Promise<string> {
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/** Verify an ArrayBuffer against an expected SHA-256 checksum. */
+/**
+ * Verify an ArrayBuffer against an expected SHA-256 checksum.
+ *
+ * - `null` expected → skip verification (model metadata incomplete).
+ * - `''` (empty string) → FAIL verification (model explicitly has no checksum).
+ * - Valid hex string → normal SHA-256 comparison.
+ */
 export async function verifyChecksum(data: ArrayBuffer, expected: string | null): Promise<boolean> {
-  if (!expected) return true;
+  if (expected === null) return true;
+  if (expected === '') return false;
   const actual = await sha256Hex(data);
   return actual === expected.toLowerCase();
 }
