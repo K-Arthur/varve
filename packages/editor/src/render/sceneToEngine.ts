@@ -151,6 +151,8 @@ export function sceneNodeToEngineNode(
       openTypeFeatures: node.openTypeFeatures,
       textMode,
       pathTextSettings: node.pathTextSettings,
+      direction: node.direction ?? 'auto',
+      language: node.language,
       w: width,
       h: height,
     };

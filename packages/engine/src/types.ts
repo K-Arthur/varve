@@ -343,6 +343,10 @@ export interface SceneNode {
   textMode?: TextMode;
   /** Path text settings. */
   pathTextSettings?: PathTextSettings;
+  /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect). */
+  direction?: 'ltr' | 'rtl' | 'auto';
+  /** ISO language tag for language-specific shaping. */
+  language?: string;
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
   /** 0–1 squircle smoothing applied on top of cornerRadius (iOS continuous-corner style). */
@@ -523,6 +527,12 @@ export type Primitive =
       }>;
       /** Default tab width (in px, default 8 spaces). */
       tabSize?: number;
+      /** Paragraph text direction (LTR, RTL, or auto). */
+      direction?: 'ltr' | 'rtl' | 'auto';
+      /** ISO language tag for language-specific shaping (e.g. 'ar', 'hi', 'th'). */
+      language?: string;
+      /** Pre-computed shaping result (set by engine/wasm). */
+      shaping?: TextShaping;
     }
   | {
       kind: 'rasterLayer';
@@ -551,6 +561,75 @@ export interface RenderItem {
   effects?: Effect[];
   /** Phase 5: nondestructive adjustment filter stack applied to the rendered item. */
   filters?: FilterIR[];
+}
+
+// ── Shaped text types ──────────────────────────────────────────────────────
+
+/**
+ * A single shaped glyph record produced by a shaping engine (rustybuzz native,
+ * or the TS measurement bridge for the web/stub backend).
+ */
+export interface ShapedGlyph {
+  /** Glyph ID in the font (glyph index). */
+  glyphId: number;
+  /** Advance width (horizontal), in px at font size. */
+  xAdvance: number;
+  /** Advance height (vertical), in px. */
+  yAdvance: number;
+  /** X offset from the glyph origin (GPOS mark/kerning adjustments). */
+  xOffset: number;
+  /** Y offset from the glyph origin. */
+  yOffset: number;
+  /**
+   * UTF-16 index into the original text where this glyph's cluster starts.
+   * For ligatures this maps to the first codepoint of the cluster.
+   */
+  clusterUtf16: number;
+}
+
+/**
+ * A contiguous run of glyphs shaped with the same font, size, direction, script.
+ */
+export interface ShapedRun {
+  /** Resolved font family (with source). */
+  fontFamily: string;
+  /** Font size in px. */
+  fontSize: number;
+  /** Font weight (numeric). */
+  fontWeight: number;
+  /** Font style. */
+  fontStyle: 'normal' | 'italic';
+  /** Run direction. */
+  direction: 'ltr' | 'rtl';
+  /** Embedding level (0 = base LTR, 1 = base RTL, 2+ = nested). */
+  level: number;
+  /** ISO 15924 script code for font fallback. */
+  script: string;
+  /** Shaped glyphs in logical (shaping) order. */
+  glyphs: ShapedGlyph[];
+  /** Total advance width of this run. */
+  width: number;
+  /** Maximum ascent above baseline in this run. */
+  ascent: number;
+  /** Maximum descent below baseline. */
+  descent: number;
+}
+
+/**
+ * Result of shaping a full text primitive.
+ * One canonical layout result shared by rendering, hit-testing, selection, and export.
+ */
+export interface TextShaping {
+  /** Shaped runs in logical order (after BiDi run segmentation). */
+  runs: ShapedRun[];
+  /** Total width after shaping. */
+  width: number;
+  /** Total height (max ascent + max descent across runs). */
+  height: number;
+  /** Dominant paragraph base direction. */
+  baseDirection: 'ltr' | 'rtl';
+  /** Resolved text direction (per-paragraph override or auto-detect). */
+  direction: 'ltr' | 'rtl';
 }
 
 /** Phase 5: portable filter IR for nondestructive image adjustments. */
