@@ -117,6 +117,33 @@ describe('suggestName', () => {
     expect(result.matchedRule).toBe('13-image');
   });
 
+  it('rule 13: image node uses a classified content label when provided, capitalized', () => {
+    const doc = createTestDoc();
+    const img = makeImageShapeNode('img1', {
+      src: 'data:image/png,...',
+      w: 100,
+      h: 100,
+    });
+    const imageLabels = new Map([['img1', 'golden retriever']]);
+    const result = suggestName(img, doc, undefined, imageLabels);
+    expect(result.name).toBe('Golden retriever');
+    expect(result.confidence).toBe('high');
+    expect(result.matchedRule).toBe('13-image-classified');
+  });
+
+  it('rule 13: image node falls back to "Image" when no label is provided for it', () => {
+    const doc = createTestDoc();
+    const img = makeImageShapeNode('img1', {
+      src: 'data:image/png,...',
+      w: 100,
+      h: 100,
+    });
+    const imageLabels = new Map([['other-node', 'cat']]);
+    const result = suggestName(img, doc, undefined, imageLabels);
+    expect(result.name).toBe('Image');
+    expect(result.matchedRule).toBe('13-image');
+  });
+
   it('rule 14: small square rect gets "Icon placeholder"', () => {
     const doc = createTestDoc();
     const shape = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 24, h: 24 });
@@ -381,6 +408,20 @@ describe('renameSelected', () => {
 
     const result = renameSelected(doc, ['s1']);
     expect(result.nodes.s1?.name).toBe('Rectangle 1');
+  });
+
+  it('applies a classified image label through the full renameSelected pipeline', () => {
+    let doc = createTestDoc();
+    const img = makeImageShapeNode('img1', {
+      src: 'data:image/png,...',
+      w: 100,
+      h: 100,
+    });
+    doc = addNode(doc, img);
+
+    const imageLabels = new Map([['img1', 'beach sunset']]);
+    const result = renameSelected(doc, ['img1'], false, imageLabels);
+    expect(result.nodes.img1?.name).toBe('Beach sunset');
   });
 
   it('rule 13 integration: shape with text below gets "Caption" via renameSelected', () => {

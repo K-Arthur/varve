@@ -113,6 +113,32 @@ export function packNchwTensor(imageData: ImageData, spec: TensorSpec): Float32A
 }
 
 /**
+ * Pack RGBA ImageData into NHWC Float32Array with normalization. Some
+ * ONNX exports (verified for onnxmodelzoo/efficientnet-lite4-11) use the
+ * TensorFlow-native NHWC layout instead of the usual NCHW — interleaved
+ * per-pixel [R,G,B] rather than three separate planes.
+ */
+export function packNhwcTensor(imageData: ImageData, spec: TensorSpec): Float32Array {
+  const pixelCount = imageData.width * imageData.height;
+  const result = new Float32Array(pixelCount * 3);
+  const mean = spec.mean;
+  const std = spec.std;
+
+  for (let i = 0; i < pixelCount; i++) {
+    const srcOffset = i * 4;
+    const dstOffset = i * 3;
+    const r = (imageData.data[srcOffset] ?? 0) / 255;
+    const g = (imageData.data[srcOffset + 1] ?? 0) / 255;
+    const b = (imageData.data[srcOffset + 2] ?? 0) / 255;
+    result[dstOffset] = (r - mean[0]!) / std[0]!;
+    result[dstOffset + 1] = (g - mean[1]!) / std[1]!;
+    result[dstOffset + 2] = (b - mean[2]!) / std[2]!;
+  }
+
+  return result;
+}
+
+/**
  * Pack RGB (no alpha) into NCHW Float32Array.
  */
 export function packNchwTensorRgb(

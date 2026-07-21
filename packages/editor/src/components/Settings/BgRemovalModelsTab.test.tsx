@@ -1,58 +1,26 @@
 // @vitest-environment jsdom
+
+import type { ModelManifestEntry } from '@strata/engine';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockListInstalledModels, mockDeleteModel, mockGetModelLoaderReady, mockVerifyBundled } =
-  vi.hoisted(() => ({
-    mockListInstalledModels: vi.fn(),
-    mockDeleteModel: vi.fn(),
-    mockGetModelLoaderReady: vi.fn(),
-    mockVerifyBundled: vi.fn().mockResolvedValue('verified'),
-  }));
+const {
+  mockListAllModels,
+  mockDeleteModel,
+  mockDownloadModel,
+  mockGetModelLoaderReady,
+  mockVerifyBundled,
+} = vi.hoisted(() => ({
+  mockListAllModels: vi.fn(),
+  mockDeleteModel: vi.fn(),
+  mockDownloadModel: vi.fn(),
+  mockGetModelLoaderReady: vi.fn(),
+  mockVerifyBundled: vi.fn().mockResolvedValue('verified'),
+}));
 
 vi.mock('@strata/engine', () => ({
-  AVAILABLE_MODELS: [
-    {
-      id: 'u2netp',
-      name: 'U^2-Net Light',
-      description: 'Bundled balanced model',
-      size: 4_574_861,
-      quality: 3,
-      remoteUrl: 'https://github.com/example/u2netp.onnx',
-      checksum: 'verified-u2netp-checksum',
-    },
-    {
-      id: 'birefnet-general-lite',
-      name: 'BiRefNet Lite',
-      description: 'High quality AI model',
-      size: 224_005_088,
-      quality: 4.5,
-      remoteUrl: 'https://github.com/example/birefnet-general-lite.onnx',
-      checksum: 'verified-lite-checksum',
-    },
-    {
-      id: 'birefnet-general',
-      name: 'BiRefNet Full',
-      description: 'Best quality AI model',
-      size: 928_000_000,
-      quality: 5,
-      remoteUrl: 'https://github.com/example/birefnet-general.onnx',
-      checksum: '',
-    },
-  ],
-  UPSCALE_MODELS: [
-    {
-      id: 'upscale-realesr-general',
-      name: 'Real-ESRGAN General (x4)',
-      description: 'General 4x',
-      size: 8_000_000,
-      filename: 'realesr-general-x4v3.onnx',
-      remoteUrl: '',
-      checksum: 'verified-upscale-checksum',
-      bundled: true,
-    },
-  ],
   getModelLoaderReady: mockGetModelLoaderReady,
+  listAllModels: mockListAllModels,
   workerModelIdForMethod: (m: string) =>
     m === 'ai-balanced' ? 'u2netp' : m === 'ai-quality' ? 'birefnet-general-lite' : null,
 }));
@@ -70,28 +38,41 @@ vi.mock('../BackgroundRemoval/ModelDownloadDialog', () => ({
 
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 
-function mockLoader(
-  rows: Array<{
-    id: string;
-    name: string;
-    size: number;
-    installed: boolean;
-    source: 'bundled' | 'downloaded' | 'none';
-  }>,
-) {
+function entry(overrides: Partial<ModelManifestEntry> & { id: string }): ModelManifestEntry {
   return {
-    listInstalledModels: mockListInstalledModels.mockResolvedValue(rows),
+    name: overrides.id,
+    description: '',
+    sizeBytes: 0,
+    remoteUrl: '',
+    checksum: '',
+    bundled: false,
+    inputSpec: null,
+    quality: 3,
+    category: 'segmentation',
+    ...overrides,
+  };
+}
+
+function mockLoader(installedIds: Set<string>) {
+  return {
+    isModelAvailable: vi.fn((id: string) => Promise.resolve(installedIds.has(id))),
+    hasDownloadedBlob: vi.fn((id: string) => Promise.resolve(installedIds.has(id))),
     deleteModel: mockDeleteModel.mockResolvedValue(undefined),
+    downloadModel: mockDownloadModel.mockImplementation(
+      async (_id: string, onProgress?: (loaded: number, total: number) => void) => {
+        onProgress?.(100, 100);
+      },
+    ),
     verifyBundledModel: mockVerifyBundled,
-    isModelAvailable: vi.fn().mockResolvedValue(false),
     subscribe: vi.fn().mockReturnValue(() => {}),
   };
 }
 
 describe('BgRemovalModelsTab — storage transparency + control', () => {
   beforeEach(() => {
-    mockListInstalledModels.mockReset();
+    mockListAllModels.mockReset();
     mockDeleteModel.mockReset();
+    mockDownloadModel.mockReset();
     mockGetModelLoaderReady.mockReset();
   });
 
@@ -100,113 +81,95 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
   });
 
   it('lists every known model with size and install status, even before any download', async () => {
-    mockGetModelLoaderReady.mockResolvedValue(
-      mockLoader([
-        {
-          id: 'u2netp',
-          name: 'U^2-Net Light',
-          size: 4_574_861,
-          installed: true,
-          source: 'bundled',
-        },
-        {
-          id: 'birefnet-general-lite',
-          name: 'BiRefNet Lite',
-          size: 120_000_000,
-          installed: false,
-          source: 'none',
-        },
-        {
-          id: 'birefnet-general',
-          name: 'BiRefNet Full',
-          size: 380_000_000,
-          installed: false,
-          source: 'none',
-        },
-      ]),
-    );
+    mockListAllModels.mockReturnValue([
+      entry({ id: 'u2netp', name: 'U²-Net Light', sizeBytes: 4_574_861, bundled: true }),
+      entry({
+        id: 'birefnet-general-lite',
+        name: 'BiRefNet Lite',
+        sizeBytes: 120_000_000,
+        remoteUrl: 'https://example.com/lite.onnx',
+        checksum: 'lite-checksum',
+      }),
+      entry({
+        id: 'birefnet-general',
+        name: 'BiRefNet Full',
+        sizeBytes: 380_000_000,
+        remoteUrl: 'https://example.com/full.onnx',
+        checksum: 'full-checksum',
+      }),
+    ]);
+    mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set(['u2netp'])));
 
     render(<BgRemovalModelsTab />);
 
     await waitFor(() => expect(screen.getByText('BiRefNet Lite')).toBeInTheDocument());
     expect(screen.getByText('BiRefNet Full')).toBeInTheDocument();
-    expect(screen.getAllByText(/not installed/i)).toHaveLength(3);
-    expect(screen.getByText(/Image Upscaling Models/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/not installed/i)).toHaveLength(2);
     // Storage location must be disclosed, not hidden.
     expect(screen.getByText(/stored in/i)).toBeInTheDocument();
   });
 
-  it('shows a Delete action only for user-downloaded models, never for bundled ones', async () => {
+  it('shows a Remove action only for user-downloaded models, never for bundled ones', async () => {
+    mockListAllModels.mockReturnValue([
+      entry({
+        id: 'birefnet-general-lite',
+        name: 'BiRefNet Lite',
+        sizeBytes: 120_000_000,
+        remoteUrl: 'https://example.com/lite.onnx',
+        checksum: 'lite-checksum',
+      }),
+      entry({ id: 'u2netp', name: 'U²-Net Light', sizeBytes: 4_700_000, bundled: true }),
+    ]);
     mockGetModelLoaderReady.mockResolvedValue(
-      mockLoader([
-        {
-          id: 'birefnet-general-lite',
-          name: 'BiRefNet Lite',
-          size: 120_000_000,
-          installed: true,
-          source: 'downloaded',
-        },
-        {
-          id: 'birefnet-general',
-          name: 'BiRefNet Full',
-          size: 380_000_000,
-          installed: true,
-          source: 'bundled',
-        },
-      ]),
+      mockLoader(new Set(['birefnet-general-lite', 'u2netp'])),
     );
 
     render(<BgRemovalModelsTab />);
 
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: /delete birefnet lite model/i }),
+        screen.getByRole('button', { name: /remove birefnet lite model/i }),
       ).toBeInTheDocument(),
     );
     expect(
-      screen.queryByRole('button', { name: /delete birefnet full model/i }),
+      screen.queryByRole('button', { name: /remove u²-net light model/i }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/bundled with app/i)).toBeInTheDocument();
   });
 
   it('deletes the model and refreshes the list on click', async () => {
-    mockGetModelLoaderReady.mockResolvedValue(
-      mockLoader([
-        {
-          id: 'birefnet-general-lite',
-          name: 'BiRefNet Lite',
-          size: 120_000_000,
-          installed: true,
-          source: 'downloaded',
-        },
-      ]),
-    );
+    mockListAllModels.mockReturnValue([
+      entry({
+        id: 'birefnet-general-lite',
+        name: 'BiRefNet Lite',
+        sizeBytes: 120_000_000,
+        remoteUrl: 'https://example.com/lite.onnx',
+        checksum: 'lite-checksum',
+      }),
+    ]);
+    mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set(['birefnet-general-lite'])));
 
     render(<BgRemovalModelsTab />);
-    const deleteBtn = await screen.findByRole('button', { name: /delete birefnet lite model/i });
+    const deleteBtn = await screen.findByRole('button', { name: /remove birefnet lite model/i });
     fireEvent.click(deleteBtn);
 
     await waitFor(() => expect(mockDeleteModel).toHaveBeenCalledWith('birefnet-general-lite'));
-    // Called once on mount, once after delete.
-    await waitFor(() => expect(mockListInstalledModels).toHaveBeenCalledTimes(2));
   });
 
-  it('opens the consent-gated download dialog for a not-installed model instead of downloading directly', async () => {
-    mockGetModelLoaderReady.mockResolvedValue(
-      mockLoader([
-        {
-          id: 'birefnet-general-lite',
-          name: 'BiRefNet Lite',
-          size: 120_000_000,
-          installed: false,
-          source: 'none',
-        },
-      ]),
-    );
+  it('opens the consent-gated download dialog for a not-installed single-file model', async () => {
+    mockListAllModels.mockReturnValue([
+      entry({
+        id: 'birefnet-general-lite',
+        name: 'BiRefNet Lite',
+        sizeBytes: 120_000_000,
+        remoteUrl: 'https://example.com/lite.onnx',
+        checksum: 'lite-checksum',
+      }),
+    ]);
+    mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set()));
 
     render(<BgRemovalModelsTab />);
     const downloadBtn = await screen.findByRole('button', {
-      name: /download birefnet lite model/i,
+      name: /download birefnet lite model$/i,
     });
     fireEvent.click(downloadBtn);
 
@@ -216,17 +179,10 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
 
   it('surfaces corrupt bundled model warning on first open', async () => {
     mockVerifyBundled.mockResolvedValue('corrupt');
-    mockGetModelLoaderReady.mockResolvedValue(
-      mockLoader([
-        {
-          id: 'u2netp',
-          name: 'U^2-Net Light',
-          size: 4_700_000,
-          installed: true,
-          source: 'bundled',
-        },
-      ]),
-    );
+    mockListAllModels.mockReturnValue([
+      entry({ id: 'u2netp', name: 'U²-Net Light', sizeBytes: 4_700_000, bundled: true }),
+    ]);
+    mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set(['u2netp'])));
 
     render(<BgRemovalModelsTab />);
 
@@ -234,5 +190,95 @@ describe('BgRemovalModelsTab — storage transparency + control', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/failed integrity check/i),
     );
     expect(mockVerifyBundled).toHaveBeenCalledWith('u2netp');
+  });
+
+  describe('multi-component models (SAM2 encoder + decoder)', () => {
+    function sam2Catalog(): ModelManifestEntry[] {
+      return [
+        entry({
+          id: 'sam2-hiera-tiny',
+          name: 'SAM2 Tiny',
+          sizeBytes: 0,
+          multiComponent: true,
+          components: [
+            {
+              id: 'sam2-hiera-tiny-encoder',
+              role: 'encoder',
+              filename: 'encoder.onnx',
+              sizeBytes: 134_000_000,
+              remoteUrl: 'https://example.com/encoder.onnx',
+            },
+            {
+              id: 'sam2-hiera-tiny-decoder',
+              role: 'decoder',
+              filename: 'decoder.onnx',
+              sizeBytes: 21_000_000,
+              remoteUrl: 'https://example.com/decoder.onnx',
+            },
+          ],
+        }),
+        // These are real catalog entries in their own right (other tools
+        // address them directly by id) but must not also render as rows.
+        entry({
+          id: 'sam2-hiera-tiny-encoder',
+          name: 'Select Subject — Image Encoder',
+          sizeBytes: 134_000_000,
+          remoteUrl: 'https://example.com/encoder.onnx',
+        }),
+        entry({
+          id: 'sam2-hiera-tiny-decoder',
+          name: 'Select Subject — Prompt Decoder',
+          sizeBytes: 21_000_000,
+          remoteUrl: 'https://example.com/decoder.onnx',
+        }),
+      ];
+    }
+
+    it('shows exactly one row for the composite model, not one per component', async () => {
+      mockListAllModels.mockReturnValue(sam2Catalog());
+      mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set()));
+
+      render(<BgRemovalModelsTab />);
+
+      await waitFor(() => expect(screen.getByText('SAM2 Tiny')).toBeInTheDocument());
+      expect(screen.queryByText('Select Subject — Image Encoder')).not.toBeInTheDocument();
+      expect(screen.queryByText('Select Subject — Prompt Decoder')).not.toBeInTheDocument();
+      // Combined size of both components (134MB + 21MB = 155MB).
+      expect(screen.getByText(/~155 MB/)).toBeInTheDocument();
+    });
+
+    it('reports installed only when every component is installed', async () => {
+      mockListAllModels.mockReturnValue(sam2Catalog());
+      // Only the encoder is downloaded — decoder still missing.
+      mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set(['sam2-hiera-tiny-encoder'])));
+
+      render(<BgRemovalModelsTab />);
+
+      await waitFor(() => expect(screen.getByText('SAM2 Tiny')).toBeInTheDocument());
+      expect(screen.getByText(/not installed/i)).toBeInTheDocument();
+    });
+
+    it('downloads every component with one click and reports combined progress', async () => {
+      mockListAllModels.mockReturnValue(sam2Catalog());
+      mockGetModelLoaderReady.mockResolvedValue(mockLoader(new Set()));
+
+      render(<BgRemovalModelsTab />);
+      const downloadBtn = await screen.findByRole('button', { name: /download sam2 tiny model/i });
+      fireEvent.click(downloadBtn);
+
+      await waitFor(() => expect(mockDownloadModel).toHaveBeenCalledTimes(2));
+      expect(mockDownloadModel).toHaveBeenCalledWith(
+        'sam2-hiera-tiny-encoder',
+        expect.any(Function),
+        expect.any(AbortSignal),
+      );
+      expect(mockDownloadModel).toHaveBeenCalledWith(
+        'sam2-hiera-tiny-decoder',
+        expect.any(Function),
+        expect.any(AbortSignal),
+      );
+      // No per-component dialog — the composite flow never opens one.
+      expect(screen.queryByTestId('download-dialog')).not.toBeInTheDocument();
+    });
   });
 });
