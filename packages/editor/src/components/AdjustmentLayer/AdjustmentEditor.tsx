@@ -1,5 +1,6 @@
 import type { Color } from '@strata/engine';
 import {
+  COLOR_HALFTONE_PRESETS,
   LUT_INPUT_SPACE_LABELS,
   parse3dlData,
   parseCubeData,
@@ -380,11 +381,15 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
           stops={adj.stops}
           dither={adj.dither}
           preserveLuminosity={adj.preserveLuminosity}
+          mode={adj.mode}
+          channelStops={adj.channelStops}
           onChange={(
             patch: Partial<{
               stops: import('@strata/scene').GradientMapStop[];
               dither: boolean;
               preserveLuminosity: boolean;
+              mode: 'luminance' | 'channel';
+              channelStops: import('@strata/scene').GradientMapAdjustment['channelStops'];
             }>,
           ) => onChange(patch as unknown as Partial<Adjustment>)}
         />
@@ -393,6 +398,9 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
 
     case 'tritone':
       return <TritoneEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'colorHalftone':
+      return <ColorHalftoneEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'lut':
       return <LutEditor adjustment={adjustment} onChange={onChange} />;
@@ -1202,6 +1210,145 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
+function ColorHalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').ColorHalftoneAdjustment;
+  const handleSelect = (key: string) => (value: string) => {
+    onChange({ [key]: value } as unknown as Partial<Adjustment>);
+  };
+  const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
+  };
+
+  const currentPresetId = useMemo(() => {
+    const match = COLOR_HALFTONE_PRESETS.find(
+      (p) =>
+        p.params.screenSize === adj.screenSize &&
+        p.params.angle === adj.angle &&
+        p.params.dotShape === adj.dotShape &&
+        p.params.mode === adj.mode,
+    );
+    return match?.id ?? '';
+  }, [adj]);
+
+  const handlePresetSelect = (value: string) => {
+    const preset = COLOR_HALFTONE_PRESETS.find((p) => p.id === value);
+    if (preset) {
+      onChange({
+        screenSize: preset.params.screenSize,
+        angle: preset.params.angle,
+        dotShape: preset.params.dotShape,
+        mode: preset.params.mode,
+        inkColor: preset.params.inkColor ? ([...preset.params.inkColor] as Color) : undefined,
+      } as unknown as Partial<Adjustment>);
+    }
+  };
+
+  return (
+    <div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Preset</span>
+        <Select
+          label="Color halftone preset"
+          value={currentPresetId}
+          placeholder="Custom"
+          options={COLOR_HALFTONE_PRESETS.map((p) => ({ value: p.id, label: p.name }))}
+          onChange={handlePresetSelect}
+        />
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Mode</span>
+        <Select
+          label="Channel mode"
+          value={adj.mode}
+          options={[
+            { value: 'cmyk', label: 'CMYK' },
+            { value: 'rgb', label: 'RGB' },
+            { value: 'mono', label: 'Mono' },
+          ]}
+          onChange={handleSelect('mode')}
+        />
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Dot Shape</span>
+        <Select
+          label="Dot shape"
+          value={adj.dotShape}
+          options={[
+            { value: 'round', label: 'Round' },
+            { value: 'square', label: 'Square' },
+            { value: 'diamond', label: 'Diamond' },
+            { value: 'line', label: 'Line' },
+          ]}
+          onChange={handleSelect('dotShape')}
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Screen Size</span>
+          <span>{adj.screenSize} LPI</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={3}
+          max={60}
+          step={1}
+          value={adj.screenSize}
+          onChange={handleSlider('screenSize')}
+          aria-label="Screen size"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Angle</span>
+          <span>{adj.angle}°</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={359}
+          step={1}
+          value={adj.angle}
+          onChange={handleSlider('angle')}
+          aria-label="Screen angle"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Intensity</span>
+          <span>{Math.round(adj.intensity * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(adj.intensity * 100)}
+          onChange={(e) =>
+            onChange({ intensity: Number(e.target.value) / 100 } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Color halftone intensity"
+        />
+      </div>
+      {adj.mode === 'mono' && (
+        <>
+          <div className="adj-editor__row">
+            <span className="adj-editor__label">Ink Color</span>
+          </div>
+          <ColorPicker
+            value={colorToManaged(adj.inkColor ?? [0, 0, 0, 255])}
+            onChange={(c) =>
+              onChange({ inkColor: managedToColor(c) } as unknown as Partial<Adjustment>)
+            }
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
 function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').PhotoFilterAdjustment;
   const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1385,6 +1532,22 @@ function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
             onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
           }
           aria-label="Preserve luminosity"
+        />
+      </div>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Interpolation</span>
+        <Select
+          label="Interpolation method"
+          value={adj.interpolation ?? 'smoothstep'}
+          options={[
+            { value: 'smoothstep', label: 'Smooth' },
+            { value: 'linear', label: 'Linear' },
+          ]}
+          onChange={(v) =>
+            onChange({
+              interpolation: v as 'smoothstep' | 'linear',
+            } as unknown as Partial<Adjustment>)
+          }
         />
       </div>
     </div>

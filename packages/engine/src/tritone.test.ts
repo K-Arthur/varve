@@ -396,3 +396,84 @@ describe('tritone monotonicity for identity gradient (all channels)', () => {
     }
   });
 });
+
+describe('tritone interpolation modes', () => {
+  const linearParams: TritoneParams = {
+    shadowColor: [0, 0, 0, 255],
+    midtoneColor: [128, 128, 128, 255],
+    highlightColor: [255, 255, 255, 255],
+    shadowPoint: 0.5,
+    highlightPoint: 0.5,
+    intensity: 1,
+    preserveLuminosity: false,
+    interpolation: 'linear',
+  };
+
+  it('linear interpolation produces a linear ramp in the shadow region', () => {
+    // At exactly half of shadowPoint (t=0.25), linear should give midpoint color
+    const [r, g, b] = tritoneMap(64, linearParams); // lum=64 → normalized=0.25
+    expect(r).toBeCloseTo(64, 0);
+    expect(g).toBeCloseTo(64, 0);
+    expect(b).toBeCloseTo(64, 0);
+  });
+
+  it('linear and smoothstep produce different values in the early shadow region', () => {
+    const smoothParams = { ...linearParams, interpolation: 'smoothstep' as const };
+    // lum=32 → normalized≈0.125. In shadow region (sp=0.5):
+    //   linear t = 0.125/0.5 = 0.25
+    //   smoothstep(0,0.5,0.125) = smoothstep(0.25) ≈ 0.156 (slower start)
+    // So smooth gives a darker (closer to shadow [0,0,0]) value than linear
+    const linear = tritoneMap(32, linearParams);
+    const smooth = tritoneMap(32, smoothParams);
+    expect(smooth[0]).toBeLessThan(linear[0]);
+    // Both should be between shadow (0) and midtone (128)
+    expect(linear[0]).toBeGreaterThan(0);
+    expect(linear[0]).toBeLessThan(128);
+  });
+
+  it('linear interpolation is C0 continuous at the shadowPoint boundary', () => {
+    const below = tritoneMap(127, linearParams); // just below shadowPoint (0.5)
+    const at = tritoneMap(128, linearParams); // just at shadowPoint
+    const diff = Math.abs(below[0]! - at[0]!);
+    expect(diff).toBeLessThanOrEqual(2); // small step
+  });
+
+  it('default interpolation (undefined) behaves as smoothstep', () => {
+    const defaultP = { ...linearParams };
+    delete defaultP.interpolation;
+    const result = tritoneMap(64, defaultP);
+    const smooth = tritoneMap(64, { ...linearParams, interpolation: 'smoothstep' });
+    expect(result[0]).toBe(smooth[0]);
+    expect(result[1]).toBe(smooth[1]);
+    expect(result[2]).toBe(smooth[2]);
+  });
+
+  it('applyTritone respects the interpolation field end-to-end', () => {
+    const data = createTestImageData(
+      4,
+      4,
+      [
+        32, 32, 32, 255, 64, 64, 64, 255, 96, 96, 96, 255, 128, 128, 128, 255, 160, 160, 160, 255,
+        192, 192, 192, 255, 224, 224, 224, 255, 255, 255, 255, 255, 0, 0, 0, 255, 50, 50, 50, 255,
+        100, 100, 100, 255, 150, 150, 150, 255, 200, 200, 200, 255, 250, 250, 250, 255, 128, 128,
+        128, 255, 64, 64, 64, 255,
+      ],
+    );
+
+    const linearData = createTestImageData(4, 4, Array.from(data.data));
+    const smoothData = createTestImageData(4, 4, Array.from(data.data));
+
+    applyTritone(linearData, { ...linearParams });
+    applyTritone(smoothData, { ...linearParams, interpolation: 'smoothstep' });
+
+    // The two outputs should differ for mid-transition pixels
+    let differs = false;
+    for (let i = 0; i < data.data.length; i += 4) {
+      if (Math.abs(linearData.data[i]! - smoothData.data[i]!) > 2) {
+        differs = true;
+        break;
+      }
+    }
+    expect(differs).toBe(true);
+  });
+});

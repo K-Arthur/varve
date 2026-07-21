@@ -19,6 +19,10 @@ import type { Color } from './types';
 export interface GradientMapStop {
   position: number;
   color: Color;
+  /** Per-stop opacity (0-1, default 1). */
+  opacity?: number;
+  /** Midpoint position (0-1, default 0.5) between this stop and the next. */
+  midpoint?: number;
 }
 
 export interface GradientMapParams {
@@ -27,6 +31,15 @@ export interface GradientMapParams {
   preserveLuminosity: boolean;
   /** Dither matrix size: 4 or 8. 8×8 = 64 levels, smoother but coarser grain. Default 8. */
   ditherSize?: 4 | 8;
+  /** Mapping mode: 'luminance' (default) maps luma through one gradient;
+   *  'channel' maps R, G, B independently through channelStops. */
+  mode?: 'luminance' | 'channel';
+  /** Per-channel gradient stops for channel-aware mode. */
+  channelStops?: {
+    r?: readonly GradientMapStop[];
+    g?: readonly GradientMapStop[];
+    b?: readonly GradientMapStop[];
+  };
 }
 
 /** 4x4 Bayer ordered dither matrix for banding reduction. */
@@ -57,8 +70,23 @@ function clampByte(v: number): number {
 }
 
 /**
- * Build a 256-entry LUT mapping luminance (0-255) to RGB colors
+ * Smoothstep for midpoint-based interpolation.
+ * Produces a C1-continuous S-curve between 0 and 1.
+ */
+function smoothstep01(t: number): number {
+  const x = Math.max(0, Math.min(1, t));
+  return x * x * (3 - 2 * x);
+}
+
+/**
+ * Build a 256-entry LUT mapping input value (0-255) to RGB colors
  * by interpolating between gradient stops.
+ *
+ * Supports per-stop midpoint: the midpoint controls where the 50% blend
+ * occurs between a stop and the next. Default 0.5 = linear. Values < 0.5
+ * push the transition earlier (more of the lower color), > 0.5 push it
+ * later (more of the upper color). This matches Photoshop's gradient map
+ * midpoint behavior.
  */
 export function buildGradientLUT(stops: readonly GradientMapStop[]): {
   r: Uint8Array;
@@ -89,9 +117,20 @@ export function buildGradientLUT(stops: readonly GradientMapStop[]): {
       }
     }
 
-    // Interpolate between lower and upper
+    // Interpolate between lower and upper, respecting midpoint
     const range = upper.position - lower.position;
-    const localT = range > 0 ? (t - lower.position) / range : 0;
+    let localT = range > 0 ? (t - lower.position) / range : 0;
+
+    // Apply midpoint shaping: remap localT through a curve that passes
+    // through 0.5 at the midpoint position.
+    const midpoint = upper.midpoint ?? 0.5;
+    if (midpoint > 0 && midpoint < 1) {
+      if (localT <= midpoint) {
+        localT = smoothstep01(localT / midpoint) * 0.5;
+      } else {
+        localT = 0.5 + smoothstep01((localT - midpoint) / (1 - midpoint)) * 0.5;
+      }
+    }
 
     const lc = lower.color;
     const uc = upper.color;
@@ -106,14 +145,19 @@ export function buildGradientLUT(stops: readonly GradientMapStop[]): {
 /**
  * Apply gradient map to ImageData in-place.
  *
- * - Maps each pixel's luminance (Rec. 709) through the gradient stop ramp
- * - Optionally applies ordered dithering to reduce banding
- * - Optionally preserves original luminance
- * - Preserves alpha channel (skips fully transparent pixels)
+ * Two modes:
+ * - 'luminance' (default): maps each pixel's Rec. 709 luma through the gradient ramp.
+ * - 'channel': maps R, G, B independently through per-channel gradient stops.
+ *   This enables advanced duotone / color-grading workflows where each channel
+ *   can be remapped separately (e.g., compress reds while expanding blues).
+ *
+ * In both modes: optional ordered dithering reduces banding, optional luminosity
+ * preservation keeps the original brightness, and alpha is always preserved.
  */
 export function applyGradientMapFilter(data: ImageData, params: GradientMapParams): ImageData {
   const { stops, dither, preserveLuminosity, ditherSize } = params;
-  if (stops.length < 2) return data;
+  const mode = params.mode ?? 'luminance';
+  if (stops.length < 2 && mode === 'luminance') return data;
 
   const pixels = data.data;
   const w = data.width;
@@ -121,8 +165,17 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
   const ditherMatrix = dSize === 4 ? BAYER_4X4 : BAYER_8X8;
   const ditherMask = dSize === 4 ? 3 : 7;
 
-  // Pre-compute LUT
-  const { r: lutR, g: lutG, b: lutB } = buildGradientLUT(stops);
+  // Pre-compute LUTs
+  const lumLut = buildGradientLUT(stops);
+
+  // Channel-mode LUTs: per-channel stops fall back to main stops if not provided
+  const channelStops = params.channelStops;
+  const rStops = channelStops?.r ?? stops;
+  const gStops = channelStops?.g ?? stops;
+  const bStops = channelStops?.b ?? stops;
+  const rLut = buildGradientLUT(rStops);
+  const gLut = buildGradientLUT(gStops);
+  const bLut = buildGradientLUT(bStops);
 
   for (let i = 0; i < pixels.length; i += 4) {
     const r = pixels[i]!;
@@ -133,36 +186,46 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
     // Skip fully transparent pixels — no visual contribution
     if (a === 0) continue;
 
-    // Luminance (Rec. 709 luma coefficients)
-    const lum = clampByte(0.2126 * r + 0.7152 * g + 0.0722 * b);
+    let nr: number, ng: number, nb: number;
 
-    let mappedLum = lum;
+    if (mode === 'channel') {
+      // Per-channel mapping: each channel value indexes its own LUT independently
+      nr = rLut.r[r]!;
+      ng = gLut.g[g]!;
+      nb = bLut.b[b]!;
+    } else {
+      // Luminance mapping (default)
+      const lum = clampByte(0.2126 * r + 0.7152 * g + 0.0722 * b);
 
-    // Optional ordered dithering for banding reduction
-    // Uses document-relative coordinates for viewport-stable dither
-    if (dither) {
-      const x = Math.round((i / 4) % w);
-      const y = Math.floor(i / 4 / w);
-      const ditherVal = ((ditherMatrix[y & ditherMask]?.[x & ditherMask] ?? 0.5) - 0.5) * 1.5;
-      mappedLum = clampByte(lum + Math.round(ditherVal));
+      let mappedLum = lum;
+
+      // Optional ordered dithering for banding reduction
+      // Uses document-relative coordinates for viewport-stable dither
+      if (dither) {
+        const x = Math.round((i / 4) % w);
+        const y = Math.floor(i / 4 / w);
+        const ditherVal = ((ditherMatrix[y & ditherMask]?.[x & ditherMask] ?? 0.5) - 0.5) * 1.5;
+        mappedLum = clampByte(lum + Math.round(ditherVal));
+      }
+
+      nr = lumLut.r[mappedLum]!;
+      ng = lumLut.g[mappedLum]!;
+      nb = lumLut.b[mappedLum]!;
     }
-
-    const nr = lutR[mappedLum]!;
-    const ng = lutG[mappedLum]!;
-    const nb = lutB[mappedLum]!;
 
     if (preserveLuminosity) {
       // Scale mapped color to preserve original luminance
-      const mappedLum2 = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
-      const scale = mappedLum > 0 && mappedLum2 > 0 ? lum / mappedLum2 : 1;
-      pixels[i] = clampByte(nr * scale);
-      pixels[i + 1] = clampByte(ng * scale);
-      pixels[i + 2] = clampByte(nb * scale);
-    } else {
-      pixels[i] = clampByte(nr);
-      pixels[i + 1] = clampByte(ng);
-      pixels[i + 2] = clampByte(nb);
+      const origLum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const mappedLum = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
+      const scale = mappedLum > 0 ? origLum / mappedLum : 1;
+      nr = nr * scale;
+      ng = ng * scale;
+      nb = nb * scale;
     }
+
+    pixels[i] = clampByte(nr);
+    pixels[i + 1] = clampByte(ng);
+    pixels[i + 2] = clampByte(nb);
     // Alpha preserved — no change to pixels[i + 3]
   }
 

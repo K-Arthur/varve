@@ -56,6 +56,12 @@ const unitOptions: SegmentedOption<DocumentUnit>[] = [
 const colorModeOptions: SegmentedOption<ColorMode>[] = [
   { value: 'rgb', label: 'RGB' },
   { value: 'cmyk', label: 'CMYK' },
+  { value: 'grayscale', label: 'Grayscale' },
+];
+
+const bitDepthOptions: SegmentedOption<string>[] = [
+  { value: '8', label: '8-bit' },
+  { value: '16', label: '16-bit' },
 ];
 
 export function NewFileDialog({
@@ -82,6 +88,7 @@ export function NewFileDialog({
   const [colorMode, setColorMode] = useState<ColorMode>('rgb');
   const [bleed, setBleed] = useState(0);
   const [dpi, setDpi] = useState(300);
+  const [bitDepth, setBitDepth] = useState<number>(8);
   const [ratioLocked, setRatioLocked] = useState(false);
   const [lockedRatio, setLockedRatio] = useState(() => simplifyRatio(1920, 1080));
   const [savingPresetName, setSavingPresetName] = useState<string | null>(null);
@@ -97,6 +104,7 @@ export function NewFileDialog({
       setColorMode(preset.colorMode ?? 'rgb');
       setBleed(preset.bleed?.value ?? 0);
       setDpi(preset.dpi ?? 300);
+      setBitDepth(preset.bitDepth ?? 8);
       setLockedRatio(preset.aspectRatio ?? simplifyRatio(preset.width, preset.height));
       setSavingPresetName(null);
       onRecordRecentPreset?.(preset);
@@ -142,10 +150,11 @@ export function NewFileDialog({
       unit,
       orientation: customW === customH ? 'square' : customW > customH ? 'landscape' : 'portrait',
       colorMode,
+      bitDepth: bitDepth as 8 | 16,
       bleed: colorMode === 'cmyk' ? { value: bleed || 3, unit } : undefined,
       dpi: colorMode === 'cmyk' ? dpi : undefined,
     };
-  }, [selectedPreset, customW, customH, unit, colorMode, bleed, dpi]);
+  }, [selectedPreset, customW, customH, unit, colorMode, bitDepth, bleed, dpi]);
 
   const handleCreate = useCallback(() => {
     onCreate(getFinalPreset());
@@ -290,6 +299,13 @@ export function NewFileDialog({
                 value={colorMode}
                 options={colorModeOptions}
                 onChange={(c: string) => setColorMode(c as ColorMode)}
+              />
+              <span className="new-file__field-label new-file__field-label--gap">Bit depth</span>
+              <SegmentedControl
+                label="Bit depth"
+                value={String(bitDepth)}
+                options={bitDepthOptions}
+                onChange={(v: string) => setBitDepth(parseInt(v, 10))}
               />
             </div>
             {colorMode === 'cmyk' && (

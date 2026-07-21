@@ -53,25 +53,176 @@ function interpolatedColorAt(stops: GradientMapStop[], position: number): Color 
   return sorted[sorted.length - 1]!.color;
 }
 
+export interface GradientMapChannelStops {
+  r?: GradientMapStop[];
+  g?: GradientMapStop[];
+  b?: GradientMapStop[];
+}
+
 export interface GradientMapEditorProps {
   stops: GradientMapStop[];
   dither: boolean;
   preserveLuminosity: boolean;
+  /** Mapping mode: 'luminance' (default) or 'channel'. */
+  mode?: 'luminance' | 'channel';
+  /** Per-channel gradient stops for channel mode. */
+  channelStops?: GradientMapChannelStops;
   onChange: (
     patch: Partial<{
       stops: GradientMapStop[];
       dither: boolean;
       preserveLuminosity: boolean;
+      mode: 'luminance' | 'channel';
+      channelStops: GradientMapChannelStops;
     }>,
   ) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
 }
 
+/**
+ * Compact per-channel gradient bars for channel mapping mode.
+ * Each channel (R, G, B) gets its own gradient bar with editable stops.
+ */
+function ChannelBars({
+  rStops,
+  gStops,
+  bStops,
+  onChange,
+}: {
+  rStops: GradientMapStop[];
+  gStops: GradientMapStop[];
+  bStops: GradientMapStop[];
+  onChange: (ch: GradientMapChannelStops) => void;
+}) {
+  const channels: {
+    key: 'r' | 'g' | 'b';
+    label: string;
+    stops: GradientMapStop[];
+    accent: string;
+  }[] = [
+    { key: 'r', label: 'Red', stops: rStops, accent: '#dc2626' },
+    { key: 'g', label: 'Green', stops: gStops, accent: '#16a34a' },
+    { key: 'b', label: 'Blue', stops: bStops, accent: '#2563eb' },
+  ];
+
+  return (
+    <div className="gm-editor__channels">
+      {channels.map(({ key, label, stops, accent }) => (
+        <ChannelBar
+          key={key}
+          label={label}
+          accent={accent}
+          stops={stops}
+          onChange={(next) => onChange({ [key]: next } as GradientMapChannelStops)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ChannelBar({
+  label,
+  accent,
+  stops,
+  onChange,
+}: {
+  label: string;
+  accent: string;
+  stops: GradientMapStop[];
+  onChange: (stops: GradientMapStop[]) => void;
+}) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState(0);
+  const sorted = useMemo(() => [...stops].sort((a, b) => a.position - b.position), [stops]);
+
+  const handleBarClick = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      const bar = barRef.current;
+      if (!bar) return;
+      const rect = bar.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const near = sorted.findIndex((s) => Math.abs(s.position - pos) < 0.04);
+      if (near >= 0) {
+        setSelected(near);
+        return;
+      }
+      const color = interpolatedColorAt(sorted, pos);
+      onChange([...sorted, { position: pos, color }]);
+      setSelected(sorted.length);
+    },
+    [sorted, onChange],
+  );
+
+  const updateStop = useCallback(
+    (index: number, partial: Partial<GradientMapStop>) => {
+      const next = sorted.map((s, i) => (i === index ? { ...s, ...partial } : s));
+      onChange(next);
+    },
+    [sorted, onChange],
+  );
+
+  const current = sorted[selected];
+
+  return (
+    <div className="gm-editor__channel">
+      <div className="gm-editor__channel-header">
+        <span className="gm-editor__channel-label" style={{ color: accent }}>
+          {label}
+        </span>
+      </div>
+      <div
+        ref={barRef}
+        className="gm-editor__channel-bar"
+        style={{ background: gradientCss(sorted) }}
+        onPointerDown={handleBarClick}
+      >
+        {sorted.map((stop, i) => (
+          <button
+            key={`ch-${label}-${i}`}
+            type="button"
+            aria-label={`${label} stop ${i + 1} at ${Math.round(stop.position * 100)}%`}
+            className={`gm-editor__stop${selected === i ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
+            style={{ left: `${stop.position * 100}%`, background: stopColorCss(stop.color) }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setSelected(i);
+            }}
+          />
+        ))}
+      </div>
+      {current && (
+        <div className="gm-editor__channel-controls">
+          <ColorPicker
+            value={colorToManaged(current.color)}
+            onChange={(c) => updateStop(selected, { color: managedToColor(c) })}
+          />
+          <button
+            type="button"
+            className="gm-editor__channel-delete"
+            disabled={sorted.length <= 2}
+            aria-label={`Delete ${label} stop`}
+            onClick={() => {
+              if (sorted.length <= 2) return;
+              const next = sorted.filter((_, i) => i !== selected);
+              onChange(next);
+              setSelected(Math.max(0, Math.min(selected, next.length - 1)));
+            }}
+          >
+            Remove
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GradientMapEditor({
   stops,
   dither,
   preserveLuminosity,
+  mode = 'luminance',
+  channelStops,
   onChange,
   onEditStart,
   onEditEnd,
@@ -201,6 +352,19 @@ export function GradientMapEditor({
     [onChange],
   );
 
+  const rStops = channelStops?.r ?? [
+    { position: 0, color: [0, 0, 0, 255] as Color },
+    { position: 1, color: [255, 0, 0, 255] as Color },
+  ];
+  const gStops = channelStops?.g ?? [
+    { position: 0, color: [0, 0, 0, 255] as Color },
+    { position: 1, color: [0, 255, 0, 255] as Color },
+  ];
+  const bStops = channelStops?.b ?? [
+    { position: 0, color: [0, 0, 0, 255] as Color },
+    { position: 1, color: [0, 0, 255, 255] as Color },
+  ];
+
   return (
     <div className="gm-editor">
       <div className="gm-editor__row">
@@ -213,6 +377,26 @@ export function GradientMapEditor({
           onChange={handlePresetSelect}
         />
       </div>
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Mode</span>
+        <Select
+          label="Mapping mode"
+          value={mode}
+          options={[
+            { value: 'luminance', label: 'Luminance' },
+            { value: 'channel', label: 'Channel' },
+          ]}
+          onChange={(v) => onChange({ mode: v as 'luminance' | 'channel' })}
+        />
+      </div>
+      {mode === 'channel' && (
+        <ChannelBars
+          rStops={rStops}
+          gStops={gStops}
+          bStops={bStops}
+          onChange={(ch) => onChange({ channelStops: ch })}
+        />
+      )}
       <div
         ref={barRef}
         role="slider"
