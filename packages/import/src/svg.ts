@@ -863,7 +863,7 @@ function multiplyAffine(a: Affine, b: Affine): Affine {
 
 // ─── Color parsing ──────────────────────────────────────────────────────────
 
-function parseSvgColor(colorStr: string): ManagedColor | null {
+export function parseSvgColor(colorStr: string): ManagedColor | null {
   if (!colorStr || colorStr === 'none') return null;
 
   // #rgb / #rrggbb
@@ -893,6 +893,38 @@ function parseSvgColor(colorStr: string): ManagedColor | null {
     const a = rgbMatch[4] !== undefined ? Math.round(parseFloat(rgbMatch[4]) * 255) : 255;
     return { space: 'rgb' as const, r: r, g: g, b: b, a: a };
   }
+
+  // hsl() / hsla()
+  const hslMatch = colorStr.match(
+    /hsla?\s*\(\s*([0-9.]+)\s*,\s*([0-9.]+)%\s*,\s*([0-9.]+)%\s*(?:,\s*([0-9.]+))?\s*\)/,
+  );
+  if (hslMatch) {
+    const h = parseFloat(hslMatch[1]!) % 360;
+    const s = Math.max(0, Math.min(100, parseFloat(hslMatch[2]!))) / 100;
+    const l = Math.max(0, Math.min(100, parseFloat(hslMatch[3]!))) / 100;
+    const a = hslMatch[4] !== undefined ? Math.round(parseFloat(hslMatch[4]) * 255) : 255;
+    const [r, g, b] = hslToRgb(h < 0 ? h + 360 : h, s, l);
+    return { space: 'rgb' as const, r, g, b, a };
+  }
+
+  // icc-color(name, v1, v2, v3, ...) — SVG 1.1 color with ICC profile
+  const iccMatch = colorStr.match(
+    /icc-color\s*\(\s*([A-Za-z][A-Za-z0-9_-]*)\s*(?:,\s*([0-9.,\s]*))?\s*\)/,
+  );
+  if (iccMatch) {
+    const profile = iccMatch[1]!;
+    const rawValues = (iccMatch[2] ?? '')
+      .split(',')
+      .map((v) => parseFloat(v.trim()))
+      .filter((v) => Number.isFinite(v));
+    const r = Math.max(0, Math.min(255, Math.round(rawValues[0] ?? 0)));
+    const g = Math.max(0, Math.min(255, Math.round(rawValues[1] ?? 0)));
+    const b = Math.max(0, Math.min(255, Math.round(rawValues[2] ?? 0)));
+    return { space: 'rgb' as const, r, g, b, a: 255, profile };
+  }
+
+  // currentColor — unresolved at parse time, caller must inherit from context
+  if (colorStr.trim() === 'currentColor') return null;
 
   // Named colors (common subset)
   const named: Record<string, ManagedColor> = {
@@ -927,6 +959,24 @@ function parseSvgColor(colorStr: string): ManagedColor | null {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+/** HSL (h: 0–360, s/l: 0–1) → RGB (0–255) */
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const hp = h / 60;
+  const x = c * (1 - Math.abs((hp % 2) - 1));
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (hp >= 0 && hp < 1) [r, g, b] = [c, x, 0];
+  else if (hp < 2) [r, g, b] = [x, c, 0];
+  else if (hp < 3) [r, g, b] = [0, c, x];
+  else if (hp < 4) [r, g, b] = [0, x, c];
+  else if (hp < 5) [r, g, b] = [x, 0, c];
+  else [r, g, b] = [c, 0, x];
+  const m = l - c / 2;
+  return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+}
 
 function parsePoints(pointsStr: string, scale: number): Array<{ x: number; y: number }> {
   const parts = pointsStr.trim().split(/[\s,]+/);
