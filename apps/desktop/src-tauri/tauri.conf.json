@@ -52,12 +52,13 @@
     "homepage": "https://github.com/strata/strata",
     "copyright": "Copyright 2024-2026 Strata Contributors — AGPL-3.0-or-later",
     "category": "GraphicsAndDesign",
-    "shortDescription": "Local-first cross-platform design tool",
-    "longDescription": "Strata is a local-first, cross-platform design suite for UI and print. It runs natively on Linux, macOS, and Windows via a Tauri + Rust engine with a React frontend. No cloud, no lock-in.",
+    "shortDescription": "Local-first design application",
+    "longDescription": "Strata is a local-first design application for vector, raster, layout, typography, prototyping, animation, and print production. It runs natively on Linux, macOS, and Windows. Your designs stay on your machine. Free and open-source under AGPL-3.0-or-later.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ],

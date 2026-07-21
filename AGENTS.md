@@ -328,6 +328,81 @@ git log --oneline -3
 - `packaging/flatpak/dev.strata.desktop.yml` — Flatpak manifest stub
 - `justfile` — `package`, `aur-check`, platform-specific build recipes
 
+## Application Icon (cross-platform)
+
+| Asset | Source | Generator | Location |
+|---|---|---|---|
+| Master art (1024×1024) | `packages/ui/src/icons/strata-app-icon.svg` | — | `apps/desktop/src-tauri/icons/strata-icon-source.png` |
+| Mark-only (no background) | `packages/ui/src/icons/strata-icon.svg` | — | `apps/desktop/public/icons/strata-icon.svg` |
+| Tauri PNGs + .icns + .ico | `strata-app-icon.svg` | `just generate-icons` → `tauri icon` | `apps/desktop/src-tauri/icons/` |
+| Linux hicolor ladder (11 sizes + scalable + symbolic) | `strata-app-icon.svg` | `just generate-icons` → `rsvg-convert` | `apps/desktop/src-tauri/icons/hicolor/` |
+| Web/PWA favicons | `strata-icon.svg` + `strata-app-icon.svg` | `just generate-icons` → `magick` | `apps/desktop/public/icons/` |
+
+### Regenerating icons
+```bash
+just generate-icons   # runs apps/desktop/build-icons.sh
+```
+Requires: `rsvg-convert` (librsvg), `magick` (ImageMagick ≥7), `tauri` CLI.
+
+### Why the icon doesn't appear in `tauri dev` on Wayland
+
+On Wayland (KDE Plasma, GNOME), the compositor resolves the window icon by:
+1. Reading the window's `app_id` (set by Tauri from `tauri.conf.json`'s `identifier`)
+2. Looking up `~/.local/share/applications/<app_id>.desktop`
+3. Reading the `Icon=` field from that desktop entry
+4. Finding the icon in the hicolor theme at `~/.local/share/icons/hicolor/`
+
+**`tauri dev` does none of this automatically** — the `.desktop` file and hicolor
+icons are only installed during `tauri build` (via .deb/.rpm package scripts).
+Without them, the compositor shows a generic Wayland fallback icon.
+
+### Fix
+
+The `pretauri:dev` hook (in `apps/desktop/package.json`) runs
+`apps/desktop/scripts/install-dev-icons.sh` automatically on Linux, which:
+1. Copies hicolor PNGs/SVGs to `~/.local/share/icons/hicolor/`
+2. Installs `dev.strata.desktop.desktop` to `~/.local/share/applications/`
+3. Installs `strata-desktop.desktop` (NoDisplay alias for process-name matching)
+4. Refreshes icon/desktop caches (`gtk-update-icon-cache`, `update-desktop-database`,
+   `kbuildsycoca6`)
+
+To install manually:
+```bash
+just install-dev-icons
+```
+
+After installation, the icon appears in:
+- **Window taskbar/dock** — immediately on next `tauri dev` launch
+- **Application launcher / menu** — after KDE `kbuildsycoca6` refresh (automatic)
+- **Application switcher (Alt+Tab)** — immediately
+- **Packaged builds** (.deb/.rpm/AppImage) — installed by the package manager
+
+### Custom titlebar icon (web-level)
+
+The in-window titlebar icon (`src="/icons/strata-icon.svg"` in `TitleBar.tsx`)
+is served by Vite from `apps/desktop/public/icons/strata-icon.svg` and is
+independent of the native Wayland icon — it always works in dev and production.
+
+### Verifying icon assets
+```bash
+bash apps/desktop/scripts/verify-icons.sh
+```
+Checks: all `bundle.icon` paths exist, correct PNG dimensions, .ico/.icns
+valid, full hicolor ladder, desktop entry metadata, app_id consistency,
+no stale files, dev-mode installation state.
+
+### Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Generic Wayland icon in taskbar | Dev icons not installed | `just install-dev-icons` then re-launch `pnpm tauri:dev` |
+| Icon correct in dev but wrong in packaged build | `bundle.icon` list missing an entry | Verify with `bash apps/desktop/scripts/verify-icons.sh` |
+| Icon correct on X11 but missing on Wayland | No desktop entry for app_id | `just install-dev-icons` on Wayland |
+| Custom titlebar icon missing | Vite not serving `public/icons/` | Check `apps/desktop/public/icons/strata-icon.svg` exists |
+| KDE not picking up icon after install | KDE icon cache stale | `kbuildsycoca6 --noincremental` (run automatically by the install script) |
+| macOS dock icon wrong | `icon.icns` not regenerated from master | `just generate-icons` |
+| Windows taskbar icon wrong | `icon.ico` missing resolutions | `just generate-icons` |
+
 Always verify the commit exists before claiming work persisted:
 ```bash
 git log --oneline -3
