@@ -10,6 +10,7 @@
  * drift seen when each surface parses raw JSON independently.
  */
 
+import { isAssetReferenced, validateDocumentAsset } from './assets';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import {
@@ -24,6 +25,7 @@ import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
   normalizeLegacyBackgroundRemoval,
+  rehydrateEmbeddedAssetSrc,
   serializeDocument as serializeVersionedDocument,
 } from './version';
 
@@ -47,6 +49,8 @@ export interface DocumentClosure {
   nodeIds: Set<NodeId>;
   nodes: Record<NodeId, SceneNode>;
   rasterMaskAssets?: Document['rasterMaskAssets'];
+  /** Image assets (v2.6+) referenced by the closure's nodes — see ./assets.ts. */
+  assets?: Document['assets'];
 }
 
 function warning(
@@ -82,6 +86,12 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     if (!isRecord(raw.rasterMaskAssets)) return 'Document rasterMaskAssets must be an object';
     for (const [assetId, asset] of Object.entries(raw.rasterMaskAssets)) {
       if (!isRecord(asset)) return `Raster mask asset ${assetId} must be an object`;
+    }
+  }
+  if (raw.assets !== undefined) {
+    if (!isRecord(raw.assets)) return 'Document assets must be an object';
+    for (const [assetId, asset] of Object.entries(raw.assets)) {
+      if (!isRecord(asset)) return `Document asset ${assetId} must be an object`;
     }
   }
   return null;
@@ -180,6 +190,39 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
     ...doc,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
+}
+
+/**
+ * Sanitize Document.assets (v2.6+, see ./assets.ts): drop structurally
+ * invalid entries with a warning, materialize `ImageFillData.src` from the
+ * (now-valid) asset table so every downstream reader sees a normal src
+ * string, then garbage-collect entries no longer referenced by any node or
+ * paint. Mirrors sanitizeRasterMaskState's drop/repair/prune shape above.
+ */
+function sanitizeImageAssetState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  const validAssets = Object.fromEntries(
+    Object.entries(doc.assets ?? {}).filter(([assetId, asset]) => {
+      const error = validateDocumentAsset(asset);
+      if (!error) return true;
+      warnings.push(warning('document.invalid-image-asset', error, 'error', `assets.${assetId}`));
+      return false;
+    }),
+  );
+  const withValidAssets: Document = {
+    ...doc,
+    assets: Object.keys(validAssets).length > 0 ? validAssets : undefined,
+  };
+  const rehydrated = rehydrateEmbeddedAssetSrc(
+    withValidAssets as unknown as Record<string, unknown>,
+  ) as unknown as Document;
+
+  const referencedAssets = Object.fromEntries(
+    Object.entries(validAssets).filter(([assetId]) => isAssetReferenced(rehydrated, assetId)),
+  );
+  return {
+    ...rehydrated,
+    assets: Object.keys(referencedAssets).length > 0 ? referencedAssets : undefined,
   };
 }
 
@@ -389,6 +432,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   };
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
+  document = sanitizeImageAssetState(document, warnings);
   return { document, warnings };
 }
 
@@ -414,10 +458,19 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
     const asset = assetId ? getOwnRasterMaskAsset(doc, assetId) : undefined;
     if (assetId && asset) rasterMaskAssets[assetId] = asset;
   }
+  const assets: NonNullable<Document['assets']> = {};
+  for (const node of Object.values(nodes)) {
+    for (const fill of node.fills ?? []) {
+      const assetId = fill.type === 'image' ? fill.image?.assetId : undefined;
+      const asset = assetId ? doc.assets?.[assetId] : undefined;
+      if (assetId && asset) assets[assetId] = asset;
+    }
+  }
   return {
     nodeIds,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+    assets: Object.keys(assets).length > 0 ? assets : undefined,
   };
 }
 

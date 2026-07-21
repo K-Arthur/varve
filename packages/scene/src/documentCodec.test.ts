@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createEmbeddedAsset } from './assets';
 import {
   addNode,
   addPage,
@@ -8,6 +9,7 @@ import {
   validateDocument,
 } from './document';
 import { DocumentCodec } from './documentCodec';
+import { imageFill } from './fills';
 import type { Page } from './types';
 import { CURRENT_DOCUMENT_VERSION } from './version';
 
@@ -126,5 +128,83 @@ describe('DocumentCodec', () => {
 
     expect([...closure.nodeIds]).toEqual(['g1', 's1']);
     expect(Object.keys(closure.nodes)).toEqual(['g1', 's1']);
+  });
+
+  describe('document-level image assets', () => {
+    const DATA_URL = 'data:image/png;base64,aGVsbG8=';
+
+    function docWithAsset() {
+      const asset = createEmbeddedAsset({
+        dataUrl: DATA_URL,
+        mimeType: 'image/png',
+        naturalWidth: 10,
+        naturalHeight: 10,
+      });
+      let doc = createDocument('Assets', true);
+      const shape = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+      shape.fills = [imageFill(DATA_URL, { assetId: asset.id })];
+      doc = addNode(doc, shape);
+      doc = { ...doc, assets: { [asset.id]: asset } };
+      return { doc, asset };
+    }
+
+    it('rejects a malformed assets shape', () => {
+      const raw = { ...createDocument('Bad', true), assets: 'not-an-object' };
+      const result = DocumentCodec.decode(JSON.stringify(raw));
+      expect(result.ok).toBe(false);
+    });
+
+    it('round-trips a document with an embedded image asset', () => {
+      const { doc } = docWithAsset();
+      const decoded = DocumentCodec.decode(DocumentCodec.encode(doc));
+      expect(decoded.ok).toBe(true);
+      if (!decoded.ok) return;
+      const shape = decoded.document.nodes.s1;
+      const image = shape?.kind === 'shape' ? shape.fills?.[0]?.image : undefined;
+      expect(image?.src).toBe(DATA_URL);
+      expect(decoded.document.assets?.[image?.assetId as string]?.dataUrl).toBe(DATA_URL);
+    });
+
+    it('serializes the asset payload once, not once per referencing fill', () => {
+      const { doc: base, asset } = docWithAsset();
+      const shape2 = makeShapeNode('s2', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+      shape2.fills = [imageFill(DATA_URL, { assetId: asset.id })];
+      const doc = addNode(base, shape2);
+
+      const json = DocumentCodec.encode(doc);
+      const occurrences = json.split(DATA_URL.slice('data:image/png;base64,'.length)).length - 1;
+      expect(occurrences).toBe(1);
+    });
+
+    it('drops an invalid asset entry with a warning but keeps the document valid', () => {
+      const raw = {
+        ...createDocument('Invalid asset', true),
+        assets: { bad: { id: 'bad', storage: 'embedded', mimeType: 'image/png' } },
+      };
+      const result = DocumentCodec.decode(JSON.stringify(raw));
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.document.assets?.bad).toBeUndefined();
+      expect(result.warnings.some((w) => w.code === 'document.invalid-image-asset')).toBe(true);
+    });
+
+    it('prunes assets no longer referenced by any node', () => {
+      const { doc, asset } = docWithAsset();
+      const withoutFill = {
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          s1: { ...doc.nodes.s1!, fills: [] },
+        },
+      };
+      const normalized = DocumentCodec.normalize(withoutFill as typeof doc);
+      expect(normalized.document.assets?.[asset.id]).toBeUndefined();
+    });
+
+    it('includes referenced assets in the copy/paste dependency closure', () => {
+      const { doc, asset } = docWithAsset();
+      const closure = DocumentCodec.collectNodeClosure(doc, ['s1']);
+      expect(closure.assets?.[asset.id]).toEqual(asset);
+    });
   });
 });

@@ -70,6 +70,37 @@ export function createEmbeddedAsset(input: EmbeddedAssetInput): DocumentAsset {
   };
 }
 
+/** Structural validation for a persisted DocumentAsset. Mirrors masks.ts's validateRasterMaskAsset. */
+export function validateDocumentAsset(asset: DocumentAsset): string | null {
+  if (!asset || typeof asset !== 'object') return 'Document asset must be an object';
+  if (typeof asset.id !== 'string' || asset.id.length === 0) {
+    return 'Document asset id must be a non-empty string';
+  }
+  if (asset.storage !== 'embedded') {
+    return `Document asset ${asset.id} has an unsupported storage kind`;
+  }
+  if (typeof asset.mimeType !== 'string' || asset.mimeType.length === 0) {
+    return `Document asset ${asset.id} must have a mimeType`;
+  }
+  if (typeof asset.dataUrl !== 'string' || !asset.dataUrl.startsWith('data:')) {
+    return `Document asset ${asset.id} must have a valid data URL`;
+  }
+  if (!Number.isFinite(asset.naturalWidth) || asset.naturalWidth < 0) {
+    return `Document asset ${asset.id} naturalWidth must be a non-negative number`;
+  }
+  if (!Number.isFinite(asset.naturalHeight) || asset.naturalHeight < 0) {
+    return `Document asset ${asset.id} naturalHeight must be a non-negative number`;
+  }
+  const actualByteLength = decodedDataUrlByteLength(asset.dataUrl);
+  if (!Number.isInteger(asset.byteLength) || asset.byteLength !== actualByteLength) {
+    return `Document asset ${asset.id} byteLength must match its decoded payload`;
+  }
+  if (typeof asset.hash !== 'string' || asset.hash.length === 0) {
+    return `Document asset ${asset.id} must have a hash`;
+  }
+  return null;
+}
+
 export function getAsset(
   doc: Pick<Document, 'assets'>,
   assetId: string,
