@@ -21,5 +21,6 @@
     "@webtoon/psd": "^0.4.0",
     "fflate": "^0.8.3",
     "pdfjs-dist": "^6.1.200"
-  }
+  },
+  "license": "BSL-1.1"
 }
