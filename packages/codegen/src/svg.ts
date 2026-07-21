@@ -17,6 +17,7 @@ import { applyAffine, multiplyAffine } from '@strata/shared';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
+  colorToSvgValue,
   escapeXml,
   getChildren,
   rgba,
@@ -169,6 +170,13 @@ export interface SvgExportOptions {
   viewBoxWidth?: number;
   /** Height of the SVG viewBox. Defaults to node height. */
   viewBoxHeight?: number;
+  /**
+   * When true, preserve the document's color space in the output:
+   * CMYK → icc-color(), float16/32 → icc-color() with profile.
+   * When false (default), collapse everything to sRGB rgba() for
+   * maximum compatibility.
+   */
+  preserveColorSpace?: boolean;
 }
 
 interface SvgBounds {
@@ -246,14 +254,21 @@ function nodeSvgBounds(
 }
 
 /** P2: Generate SVG <defs> for gradient fills, returns {defs, fillRef}. */
-function fillToSvg(node: SceneNode, nodeId: string): { defs: string; fillAttr: string } {
+function fillToSvg(
+  node: SceneNode,
+  nodeId: string,
+  doc: SceneDocument,
+  preserveColorSpace: boolean,
+): { defs: string; fillAttr: string } {
   if (!node.fills || node.fills.length === 0) {
-    return { defs: '', fillAttr: rgba(node.fill) };
+    const result = colorToSvgValue(node.fill, doc, preserveColorSpace);
+    return { defs: result.warning ? `<!-- ${result.warning} -->\n` : '', fillAttr: result.value };
   }
 
   // For a single solid fill, use the color directly
   if (node.fills.length === 1 && node.fills[0]?.type === 'solid' && node.fills[0]?.color) {
-    return { defs: '', fillAttr: rgba(node.fills[0].color) };
+    const result = colorToSvgValue(node.fills[0].color, doc, preserveColorSpace);
+    return { defs: result.warning ? `<!-- ${result.warning} -->\n` : '', fillAttr: result.value };
   }
 
   // For gradient fills, generate <defs> with gradient elements
@@ -262,7 +277,7 @@ function fillToSvg(node: SceneNode, nodeId: string): { defs: string; fillAttr: s
 
   node.fills.forEach((fill, i) => {
     if (fill.type === 'solid' && fill.color) {
-      fillAttrs.push(rgba(fill.color));
+      fillAttrs.push(colorToSvgValue(fill.color, doc, preserveColorSpace).value);
     } else if (fill.type === 'gradient' && fill.gradient) {
       const gradId = `grad-${nodeId}-${i}`;
       const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
@@ -718,9 +733,10 @@ function nodeToSvgTag(
   doc: SceneDocument,
   depth: number,
   transform: Affine,
+  preserveColorSpace: boolean,
 ): string {
   const indent = '  '.repeat(depth);
-  const { fillAttr } = fillToSvg(node, node.id);
+  const { fillAttr } = fillToSvg(node, node.id, doc, preserveColorSpace);
   const t = affineToSvg(transform);
   const withTransform = ` transform="${t}"`;
   const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
@@ -848,7 +864,7 @@ function nodeToSvgTag(
         (child) => !(mask?.hideMaskSource && mask.sourceNodeId === child.id),
       );
       const children = filteredChildren
-        .map((child) => nodeToSvgTag(child, doc, depth + 1, child.transform))
+        .map((child) => nodeToSvgTag(child, doc, depth + 1, child.transform, preserveColorSpace))
         .join('\n');
       let groupAttrs = withTransform;
       groupAttrs += compositingSuffix;
@@ -880,7 +896,7 @@ export function exportNodeToSvg(
   };
   const maskDefs = collectSubtreeMaskDefs(doc, node);
   const defsSection = maskDefs.length > 0 ? `  <defs>\n${maskDefs.join('\n')}\n  </defs>\n` : '';
-  const inner = nodeToSvgTag(node, doc, 2, node.transform);
+  const inner = nodeToSvgTag(node, doc, 2, node.transform, opts?.preserveColorSpace ?? false);
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,

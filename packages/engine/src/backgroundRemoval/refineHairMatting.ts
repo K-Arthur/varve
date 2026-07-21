@@ -127,13 +127,15 @@ function applyClosedFormMatting(
   mask: Uint8Array,
   w: number,
   h: number,
-  opts: Required<Omit<HairMattingOptions, 'method' | 'radius' | 'edgeBandOnly' | 'epsilon'>> & {
+  opts: {
     laplacianEpsilon: number;
+    iterations: number;
+    lambda: number;
+    laplacianRadius: number;
+    edgeBandOnly: boolean;
   },
 ): Uint8Array {
-  const { laplacianEpsilon, iterations, lambda, edgeBandOnly } = opts as Required<
-    Omit<HairMattingOptions, 'method' | 'radius' | 'edgeBandOnly' | 'epsilon'>
-  > & { laplacianEpsilon: number; edgeBandOnly: boolean };
+  const { laplacianEpsilon, iterations, lambda, edgeBandOnly } = opts;
 
   const n = w * h;
   const result = new Float32Array(mask);
@@ -203,11 +205,13 @@ function applyClosedFormMatting(
       if (pxIndices.length < 3) continue;
 
       // Compute mean color in the window
-      let mR = 0, mG = 0, mB = 0;
+      let mR = 0,
+        mG = 0,
+        mB = 0;
       for (const c of colors) {
-        mR += c[0];
-        mG += c[1];
-        mB += c[2];
+        mR += c[0]!;
+        mG += c[1]!;
+        mB += c[2]!;
       }
       const nPx = colors.length;
       mR /= nPx;
@@ -215,31 +219,40 @@ function applyClosedFormMatting(
       mB /= nPx;
 
       // Compute covariance matrix (3×3)
-      let c00 = 0, c01 = 0, c02 = 0;
-      let c11 = 0, c12 = 0;
+      let c00 = 0,
+        c01 = 0,
+        c02 = 0;
+      let c11 = 0,
+        c12 = 0;
       let c22 = 0;
       for (const c of colors) {
-        c00 += (c[0] - mR) * (c[0] - mR);
-        c01 += (c[0] - mR) * (c[1] - mG);
-        c02 += (c[0] - mR) * (c[2] - mB);
-        c11 += (c[1] - mG) * (c[1] - mG);
-        c12 += (c[1] - mG) * (c[2] - mB);
-        c22 += (c[2] - mB) * (c[2] - mB);
+        c00 += (c[0]! - mR) * (c[0]! - mR);
+        c01 += (c[0]! - mR) * (c[1]! - mG);
+        c02 += (c[0]! - mR) * (c[2]! - mB);
+        c11 += (c[1]! - mG) * (c[1]! - mG);
+        c12 += (c[1]! - mG) * (c[2]! - mB);
+        c22 += (c[2]! - mB) * (c[2]! - mB);
       }
       const invN = 1 / nPx;
-      c00 *= invN; c01 *= invN; c02 *= invN;
-      c11 *= invN; c12 *= invN;
+      c00 *= invN;
+      c01 *= invN;
+      c02 *= invN;
+      c11 *= invN;
+      c12 *= invN;
       c22 *= invN;
 
       // Regularize: Σ_k + (ε / |w_k|) I
       const eps = opts.laplacianEpsilon;
       const reg = eps * invWindowSize;
-      c00 += reg; c11 += reg; c22 += reg;
+      c00 += reg;
+      c11 += reg;
+      c22 += reg;
 
       // Determinant of the 3×3 matrix
-      const det = c00 * (c11 * c22 - c12 * c12)
-                - c01 * (c01 * c22 - c12 * c02)
-                + c02 * (c01 * c12 - c11 * c02);
+      const det =
+        c00 * (c11 * c22 - c12 * c12) -
+        c01 * (c01 * c22 - c12 * c02) +
+        c02 * (c01 * c12 - c11 * c02);
 
       if (Math.abs(det) < 1e-12) continue;
 
@@ -255,39 +268,35 @@ function applyClosedFormMatting(
       // Compute affinity for each pair in the window
       for (let ii = 0; ii < pxIndices.length; ii++) {
         const iIdx = pxIndices[ii]!;
-        const bi = bandIndex[iIdx];
+        const bi = bandIndex[iIdx]!;
         if (bi < 0) continue;
 
         const ci = colors[ii]!;
-        // J_i = I_i - μ_k
-        const jr0 = ci[0] - mR;
-        const jg0 = ci[1] - mG;
-        const jb0 = ci[2] - mB;
+        const jr0 = ci[0]! - mR;
+        const jg0 = ci[1]! - mG;
+        const jb0 = ci[2]! - mB;
 
         for (let jj = 0; jj < pxIndices.length; jj++) {
           const jIdx = pxIndices[jj]!;
-          const bj = bandIndex[jIdx];
+          const bj = bandIndex[jIdx]!;
           if (bj < 0) continue;
 
           const cj = colors[jj]!;
-          const jr1 = cj[0] - mR;
-          const jg1 = cj[1] - mG;
-          const jb1 = cj[2] - mB;
+          const jr1 = cj[0]! - mR;
+          const jg1 = cj[1]! - mG;
+          const jb1 = cj[2]! - mB;
 
-          // (I_i - μ_k)^T * inv(Σ_k + εI) * (I_j - μ_k)
-          const t = jr0 * (ic00 * jr1 + ic01 * jg1 + ic02 * jb1)
-                  + jg0 * (ic01 * jr1 + ic11 * jg1 + ic12 * jb1)
-                  + jb0 * (ic02 * jr1 + ic12 * jg1 + ic22 * jb1);
+          const t =
+            jr0 * (ic00 * jr1 + ic01 * jg1 + ic02 * jb1) +
+            jg0 * (ic01 * jr1 + ic11 * jg1 + ic12 * jb1) +
+            jb0 * (ic02 * jr1 + ic12 * jg1 + ic22 * jb1);
 
-          // Affinity contribution
           const affinity = -invWindowSize * (1 + t);
 
           if (iIdx === jIdx) {
-            // Diagonal: accumulate positive contributions for (i,i)
             const cur = laplacianRows[bi]!.get(bj) ?? 0;
             laplacianRows[bi]!.set(bj, cur + (invWindowSize * nPx - 1 - affinity));
           } else {
-            // Off-diagonal store
             const cur = laplacianRows[bi]!.get(bj) ?? 0;
             laplacianRows[bi]!.set(bj, cur - affinity);
           }
@@ -302,29 +311,27 @@ function applyClosedFormMatting(
   const x = new Float32Array(bandCount);
   let idx = 0;
   for (let i = 0; i < n; i++) {
-    if (bandIndex[i] >= 0) {
+    if (bandIndex[i]! >= 0) {
       x[idx++] = result[i]!;
     }
   }
 
-  // Constraint: known fg (mask >= 245) and bg (mask <= 10) are fixed
-  // We set λ to a very high weight for these using a separate constraint array
   const constraintWeight = new Float32Array(bandCount).fill(lambda);
   const constraintValue = new Float32Array(bandCount);
 
   idx = 0;
   for (let i = 0; i < n; i++) {
-    if (bandIndex[i] >= 0) {
+    if (bandIndex[i]! >= 0) {
       const v = mask[i] ?? 0;
       if (v <= 10) {
-        constraintValue[idx] = 0 / 255;
-        constraintWeight[idx] = lambda * 10; // Strong constraint for BG
+        constraintValue[idx] = 0;
+        constraintWeight[idx] = lambda * 10;
       } else if (v >= 245) {
-        constraintValue[idx] = 255 / 255;
-        constraintWeight[idx] = lambda * 10; // Strong constraint for FG
+        constraintValue[idx] = 1;
+        constraintWeight[idx] = lambda * 10;
       } else {
         constraintValue[idx] = (mask[i] ?? 0) / 255;
-        constraintWeight[idx] = 1; // Weak constraint for unknown pixels
+        constraintWeight[idx] = 1;
       }
       idx++;
     }
@@ -349,7 +356,8 @@ function applyClosedFormMatting(
       const denominator = diag + (constraintWeight[i] ?? 0);
       if (denominator < 1e-12) continue;
 
-      const newVal = (-sumOffDiag + (constraintWeight[i] ?? 0) * (constraintValue[i] ?? 0)) / denominator;
+      const newVal =
+        (-sumOffDiag + (constraintWeight[i] ?? 0) * (constraintValue[i] ?? 0)) / denominator;
       const diff = Math.abs(newVal - x[i]!);
       if (diff > maxDiff) maxDiff = diff;
       x[i] = Math.max(0, Math.min(1, newVal));
@@ -361,10 +369,9 @@ function applyClosedFormMatting(
   const out = new Uint8Array(n);
   idx = 0;
   for (let i = 0; i < n; i++) {
-    if (bandIndex[i] >= 0) {
+    if (bandIndex[i]! >= 0) {
       out[i] = Math.round(Math.min(255, Math.max(0, x[idx++]! * 255)));
     } else {
-      // Preserve known fg/bg
       out[i] = mask[i] ?? 0;
     }
   }
@@ -393,7 +400,7 @@ export function refineHairMatting(
   const edgeBandOnly = opts.edgeBandOnly ?? true;
 
   if (method === 'closed-form') {
-    return applyClosedFormMatting(data, mask, width, height, {
+    return applyClosedFormMatting(data as unknown as Uint8Array, mask, width, height, {
       laplacianEpsilon: opts.epsilon ?? 1e-6,
       iterations: opts.iterations ?? 40,
       lambda: opts.lambda ?? 100,

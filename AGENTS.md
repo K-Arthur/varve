@@ -633,6 +633,67 @@ strokeWidth. Fallback to dissolve when no matched layers.
 - Graph editor: `role="img"` with descriptive label
 - Reduced-motion: `prefersReducedMotion()` skips to end state
 
+## Text Pipeline (2026-07-20)
+
+Multilingual text rendering, shaping, BiDi layout, and export. M1–M8 complete.
+
+### Architecture
+
+Paragraph/run-level BiDi (UAX #9 P2/P3) with browser-native `fillText`
+handling full UBA reordering at render time. Shaping uses Canvas2D
+`measureText` advances (not per-glyph rustybuzz). Non-Latin PDF export
+falls back to vector outlining (`outline_text_multi`); SVG export emits
+explicit `direction="rtl"` + `unicode-bidi="bidi-override"`.
+
+### Key files
+
+| File | Purpose |
+|------|---------|
+| `packages/engine/src/unicode/bidi.ts` | UAX #9 paragraph/run analysis |
+| `packages/engine/src/unicode/grapheme.ts` | UAX #29 grapheme boundaries |
+| `packages/engine/src/unicode/script.ts` | ISO 15924 script detection |
+| `packages/engine/src/shaping.ts` | `shapeRun`, `shapeText`, `hitTestCaret` |
+| `packages/engine/src/shapingCache.ts` | LRU cache for TextShaping |
+| `packages/engine/src/replay.ts` | RTL canvas rendering, `detectRTL` |
+| `packages/scene/src/typography.ts` | `RichText`, `CharacterFormat` |
+| `packages/scene/src/richTextOps.ts` | Pure run split/merge/format helpers |
+| `packages/codegen/src/svg.ts` | SVG direction export |
+| `crates/strata-print/src/lib.rs` | WinAnsi + outline fallback |
+| `packages/editor/src/components/TextEditOverlay.tsx` | Inline editing, caret reporting |
+| `packages/editor/src/components/Inspector/controls/RichTextSpanEditor.tsx` | Span-level formatting |
+
+### Scene model
+
+`TextNode` carries `direction: 'ltr'|'rtl'|'auto'` and `language: string`.
+Rich text uses `RichText → Paragraph[] → TextRun[] → CharacterFormat`.
+Pure run operations (`splitRunAt`, `mergeAdjacentRuns`,
+`applyFormatToSelection`, `promoteToRichText`) live in
+`packages/scene/src/richTextOps.ts`.
+
+### Context methods
+
+| Method | Purpose |
+|--------|---------|
+| `applyFormatToSelection(format)` | Apply character format to selected range |
+| `setPendingFormat(format)` | Store format for new typing |
+| `setSelectionRange(range)` | Report caret position from TextEditOverlay |
+
+### Export behavior
+
+| Script | SVG | PDF |
+|--------|-----|-----|
+| Latin | `text-anchor` | WinAnsiEncoding `Tj` |
+| Arabic/Hebrew/CJK | `direction="rtl"` + `unicode-bidi` | Vector outline paths |
+
+### Architecture decisions
+
+- **BiDi is paragraph/run-level**: browser-native `fillText` applies full UBA;
+  engine only establishes base direction and segments strong runs.
+- **Shaping uses browser advances**: `measureText`-based; `TextShaping` IR seam
+  allows a future rusthbuzz backend.
+- **Non-Latin PDF uses outlining**: `requires_outline()` detects codepoints
+  > U+00FF and falls back to `outline_text_multi` (ab_glyph path operators).
+
 ## Quality gates (Cascade Review, §7) — every task must pass
 TDD-first → tests green → token audit → zero emoji → axe-core zero violations
 → input-method audit (mouse/keyboard/touch/SR) → reduced-motion → 3-OS build
