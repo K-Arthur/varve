@@ -21,7 +21,7 @@ import { svgCompositing } from './shared';
 
 export { timelineToCSSKeyframes } from './animation-css';
 export type { InteractiveExportOptions, InteractiveExportResult } from './animation-interactive';
-export { exportInteractiveAnimations } from './animation-interactive';
+export { exportInteractiveAnimations, exportInteractivePrototype } from './animation-interactive';
 export { timelineToLottieJSON } from './animation-lottie';
 export { timelineToSVGAnimations } from './animation-svg';
 export { cssTargetGaps, exportNodeToCss } from './css';

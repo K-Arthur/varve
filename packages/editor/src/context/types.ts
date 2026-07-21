@@ -167,6 +167,9 @@ export interface EditorState {
   prototypeDebug: PrototypeDebugConsole;
   prototypeData: PrototypeData;
   isPresenting: boolean;
+  selectedStateMachineId: string | null;
+  selectedSMStateId: string | null;
+  selectedSMTransitionId: string | null;
   softProofEnabled: boolean;
   leftPanelVisible: boolean;
   rightPanelVisible: boolean;
@@ -706,6 +709,52 @@ export interface EditorContextValue {
   getPrototypeScreens: () => Array<{ id: string; name: string }>;
   prototypeCurrentScreen: string;
   navigatePrototypeTo: (screenId: string) => void;
+
+  // State machines
+  getStateMachines: () => import('@strata/scene').StateMachine[];
+  getPrimaryStateMachineId: () => string | null;
+  createStateMachine: (name: string) => string;
+  removeStateMachine: (smId: string) => void;
+  renameStateMachine: (smId: string, name: string) => void;
+  addSMState: (smId: string, name: string, timelineId: string) => string;
+  removeSMState: (smId: string, stateId: string) => void;
+  renameSMState: (smId: string, stateId: string, name: string) => void;
+  duplicateSMState: (smId: string, stateId: string) => void;
+  setSMEntryState: (smId: string, stateId: string) => void;
+  addSMTransition: (
+    smId: string,
+    fromStateId: string,
+    toStateId: string,
+    trigger: import('@strata/scene').SMTransitionTrigger,
+  ) => string;
+  removeSMTransition: (smId: string, transitionId: string) => void;
+  setSMTransitionTrigger: (
+    smId: string,
+    transitionId: string,
+    trigger: import('@strata/scene').SMTransitionTrigger,
+  ) => void;
+  setSMTransitionTarget: (smId: string, transitionId: string, toStateId: string) => void;
+  setSMTransitionCondition: (
+    smId: string,
+    transitionId: string,
+    condition: string | undefined,
+  ) => void;
+  setSMTransitionPriority: (smId: string, transitionId: string, priority: number) => void;
+  setSMTransitionDuration: (smId: string, transitionId: string, duration: number) => void;
+  setSMTransitionEasing: (
+    smId: string,
+    transitionId: string,
+    easing: import('@strata/shared').EasingDefinition,
+  ) => void;
+  addSMInput: (smId: string, name: string, type: import('@strata/scene').SMInputType) => string;
+  removeSMInput: (smId: string, inputId: string) => void;
+  validateStateMachine: (smId: string) => import('@strata/scene').SMValidationResult;
+  selectedStateMachineId: string | null;
+  selectStateMachine: (smId: string | null) => void;
+  selectedSMStateId: string | null;
+  selectSMState: (smId: string, stateId: string | null) => void;
+  selectedSMTransitionId: string | null;
+  selectSMTransition: (smId: string, transitionId: string | null) => void;
 
   // Motion
   playTimeline: (timelineId?: string) => void;
