@@ -7,6 +7,7 @@ import {
   isAssetReferenced,
   pruneUnusedAssets,
   upsertAsset,
+  validateDocumentAsset,
 } from '../assets';
 import { addNode, createDocument, makeShapeNode, removeNode } from '../document';
 import { imageFill } from '../fills';
@@ -72,6 +73,50 @@ describe('upsertAsset / getAsset', () => {
     const updated = upsertAsset(doc, asset);
     expect(getAsset(updated, asset.id)).toEqual(asset);
     expect(getAsset(updated, 'not-a-real-id')).toBeUndefined();
+  });
+});
+
+describe('validateDocumentAsset', () => {
+  const valid = () =>
+    createEmbeddedAsset({
+      dataUrl: DATA_URL_A,
+      mimeType: 'image/png',
+      naturalWidth: 10,
+      naturalHeight: 20,
+    });
+
+  it('accepts a well-formed embedded asset', () => {
+    expect(validateDocumentAsset(valid())).toBeNull();
+  });
+
+  it('rejects a non-object value', () => {
+    expect(validateDocumentAsset(null as unknown as ReturnType<typeof valid>)).not.toBeNull();
+    expect(validateDocumentAsset('nope' as unknown as ReturnType<typeof valid>)).not.toBeNull();
+  });
+
+  it('rejects a missing or non-string id', () => {
+    expect(validateDocumentAsset({ ...valid(), id: '' })).not.toBeNull();
+    expect(validateDocumentAsset({ ...valid(), id: 5 as unknown as string })).not.toBeNull();
+  });
+
+  it('rejects an unsupported storage kind', () => {
+    expect(
+      validateDocumentAsset({ ...valid(), storage: 'linked' as unknown as 'embedded' }),
+    ).not.toBeNull();
+  });
+
+  it('rejects a dataUrl that is not actually a data URL', () => {
+    expect(validateDocumentAsset({ ...valid(), dataUrl: '/etc/passwd' })).not.toBeNull();
+    expect(validateDocumentAsset({ ...valid(), dataUrl: '' })).not.toBeNull();
+  });
+
+  it('rejects non-finite or negative dimensions', () => {
+    expect(validateDocumentAsset({ ...valid(), naturalWidth: -1 })).not.toBeNull();
+    expect(validateDocumentAsset({ ...valid(), naturalHeight: Number.NaN })).not.toBeNull();
+  });
+
+  it('rejects a byteLength that does not match the decoded payload', () => {
+    expect(validateDocumentAsset({ ...valid(), byteLength: 999999 })).not.toBeNull();
   });
 });
 
