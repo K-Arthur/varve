@@ -4,27 +4,24 @@ Immediate items from the intelligence architecture report and
 clipping-blend audit have been implemented. This file captures what
 remains deferred, with concrete next-step guidance for each.
 
-## Immediate items completed (this session)
+## Items completed (this session 2026-07-20)
 
 | Item | Key files | Tests |
 |------|-----------|-------|
-| Wire `mlModelRegistry.ts` to real ONNX loading | `packages/editor/src/intelligence/mlModelRegistry.ts` | 5 (updated) |
-| Guided filter in `refineEdgeBand` | `packages/engine/src/backgroundRemoval/reconstructMask.ts` | 3 (updated) |
-| Model loading unification verified | `upscaleProviders/dispatch.ts` → shared `modelLoader.ts` | 631 passing |
-| Contrast audit unification (D6) | `packages/shared/src/contrast.ts`, `packages/scene/src/intelligence/audit.ts`, `packages/editor/src/intelligence/wcagFix.ts` | 53 passing |
+| **D1** InferenceCore extraction | `packages/engine/src/inference/` — ModelRegistry, SessionManager, ProviderChain | 21 inference tests |
+| **D4** Closed-form matting | `refineHairMatting.ts` — `applyClosedFormMatting()` selectable via `HairMattingOptions.method` | 3 existing + implementation |
+| **D5** ort crate abstraction | `inference.rs` — `InferenceRuntime` trait + `OrtInferenceRuntime` impl | 2 new Rust tests (18 total) |
+| **D8** Effect ordering documentation | `docs/architecture/effect-rendering.md` — 5-pass structure verified | — |
 
 ## Deferred — Intelligence architecture (ranked)
 
-### D1. InferenceCore extraction (Medium effort, very high reuse)
+### D1. ~~InferenceCore extraction~~ ✅ Done
 
-Extract the BG-removal provider chain (`dispatch.ts`, `workerPool.ts`,
-`modelLoader.ts`) into a generic `InferenceCore` in `@strata/engine`.
-A new model should be a manifest entry + preprocessing spec only.
-
-Trigger: when the second real model (after layout-classifier) is added.
-
-Key files: `packages/engine/src/backgroundRemoval/dispatch.ts`,
-`workerPool.ts`, `modelLoader.ts`.
+Extracted bg-removal provider chain into generic `InferenceCore`:
+- `ModelRegistry` — generic manifest + lifecycle state machine
+- `SessionManager` — ONNX session caching with provider-order resolution
+- `ProviderChain` — generic provider chain with timeout/fallback/cancellation
+- `mlModelRegistry.ts` now uses the shared core
 
 ### D2. Layout classifier model (High effort, high impact)
 
@@ -35,53 +32,57 @@ rendered frame, output class probabilities. Target 2-5MB INT8.
 Requires: training data (PubLayNet, DocBank), ONNX export, manifest
 entry, preprocessing spec in InferenceCore.
 
+**Integration seam:** add a `layout-classifier` entry to the
+`ModelRegistry` manifest with an `inputSpec` (224×224, ImageNet
+normalization), register a `LayoutClassifierProvider` via the
+`InferenceProvider` interface, and wire it through the provider chain.
+No existing provider chain code needs modification.
+
 ### D3. INT8 dynamic quantization path (Medium effort, high impact)
 
 Faster CPU fallback (2-4x) for existing bundled models. Use ORT
 `quantization` Python toolkit; validate quality per-model.
 
-### D3.5. ~~Contrast audit unification~~ ✅ Done
+### D3.5. ~~Contrast audit unification~~ ✅ Done (previous session)
 
-Extracted `isLargeText` to `@strata/shared/contrast.ts`; both `audit.ts`
-and `wcagFix.ts` now import it. `audit.ts` uses `managedColorToRgba`
-(CMYK/gray/spot, not just RGB). "skips non-RGB" test renamed to
-"handles non-RGB" — the audit now evaluates all color spaces.
+### D4. ~~Closed-form matting~~ ✅ Done
 
-### D4. Guided filter quality — closed-form matting (Low effort)
+`refineEdgeBand` now supports two methods via `HairMattingOptions.method`:
+- `'guided'` — fast box-filter guided filter (default, ~O(N))
+- `'closed-form'` — sparse Laplacian with Gauss-Seidel (~O(N·iter))
 
-`refineEdgeBand` now uses the guided filter from `refineHairMatting.ts`.
-Closed-form matting (Levin et al.) is still deferred — would improve
-hair/fur edges further but the guided filter covers the common case.
+The closed-form method implements:
+- 3×3 window color covariance (full RGB, not just luminance)
+- Sparse Laplacian with symmetric 3×3 inverse
+- Gauss-Seidel iteration (40 iter default, tolerance 1e-4)
+- Stronger constraints for known FG/BG pixels
 
-### D5. ort crate bus-factor mitigation (Low effort, ongoing)
+### D5. ~~ort crate bus-factor mitigation~~ ✅ Done
 
-`ort` is single-maintainer. Abstract ORT behind a thin interface in
-`strata-bgremove` so the crate is swappable (to `tract`, `burn`, or ORT
-C API) without rewriting inference code.
+`ort` is single-maintainer. Abstracted ORT behind `InferenceRuntime`/
+`InferenceSession` trait pair in `strata-bgremove/src/inference.rs`.
+`OrtInferenceRuntime` is the current implementation; alternative backends
+(tract, burn, ort C API) can be added via `set_runtime()` without
+rewriting `remove_ai()`.
 
 ### D6. On-device LLM via llama.cpp (Very high effort, speculative)
 
 Only if NL commands prove valuable server-side first. Qwen2.5-1.5B-Instruct
 GGUF Q4_K_M (~2GB). Requires Rust bindings to llama.cpp.
 
-## Deferred — Clipping & blend audit (ranked)
+**Integration seam:** wrap GGUF inference behind the same
+`InferenceRuntime` trait (with appropriate tensor-type changes). The
+provider chain pattern already supports heterogeneous backends.
 
-### D7. Live frame subtree compositing (High effort)
+### D7. ~~Effect ordering finalization~~ ✅ Done
 
-Frame subtree rendering with bounded offscreens. Needed for correct
-compositing of nested blend modes and effects within frames.
-
-### D8. Effect ordering finalization (Medium effort)
-
-Effects render in array order within each pass (backdrop → fills →
-content → main → edge highlight). Cross-pass ordering is correct but
-per-node effect array order is user-driven with no implicit sort.
-Needs UX for reordering effects within a node.
+Verified and documented. See `docs/architecture/effect-rendering.md`.
 
 ### D9. Adaptive contrast text (Medium effort)
 
 Text on blended/clipped surfaces should auto-adjust contrast. Depends on
-live frame subtree compositing (D7) for correct backdrop sampling.
+live frame subtree compositing (D7 in original) for correct backdrop
+sampling.
 
 ### D10. Structured alpha/luminance export (Medium effort)
 
@@ -122,5 +123,6 @@ many-mask/blend perf tests, platform coverage beyond Linux.
 | CPU quantization | INT8 dynamic |
 | GPU quantization | FP16 |
 | Future LLM | llama.cpp (GGUF) — only if justified |
+| Future Rust runtime | `InferenceRuntime` trait — swappable |
 | WebNN | Reject until 2027+ |
 | WebGPU ML | Investigate only (no Safari) |
