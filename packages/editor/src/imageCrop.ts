@@ -5,8 +5,13 @@
  */
 import type { Affine } from '@strata/engine';
 import type { Document, ImageFit, NodeId, ShapeNode } from '@strata/scene';
-import { getImageFill, isImageShape } from '@strata/scene';
-import { type PaddingSpec, paddingBounds } from './imageBounds';
+import { getImageFill, getOwnRasterMaskAsset, isImageShape } from '@strata/scene';
+import {
+  computeVisibleContentBounds,
+  type LocalBounds,
+  type PaddingSpec,
+  paddingBounds,
+} from './imageBounds';
 
 export interface LocalCropRect {
   x: number;
@@ -213,33 +218,76 @@ export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
   return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
 }
 
+export interface TrimToSubjectOptions {
+  /** Which source to trim from — falls back through the same chain as
+   * computeVisibleContentBounds regardless, but callers can request the
+   * raster mask specifically ('mask'), a plain alpha scan of the source
+   * image ('alpha'), or let the bounds engine pick the best available
+   * ('combined', the default). */
+  source?: 'mask' | 'alpha' | 'combined';
+  alphaThreshold?: number;
+  /** Optional pre-computed local-space bounds (e.g. from a DETR detection)
+   * to trim to directly, bypassing mask/alpha bounds computation entirely. */
+  explicitBounds?: LocalBounds;
+}
+
 /**
  * Trim an image node to its subject (visible content bounds).
- * Computes the tight bounds from raster alpha, vector mask, or clip mask
- * and shrinks the node to those bounds.
+ * Computes the tight bounds from the node's raster mask (e.g. a SAM2
+ * "Select Subject" selection applied as a mask), vector mask, clip mask,
+ * or source alpha via computeVisibleContentBounds, then shrinks the node
+ * to those bounds the same way a manual viewport crop would.
  *
- * Falls back to resetToSourceBounds when bounds cannot be computed.
+ * Falls back to resetToSourceBounds when no tighter bounds can be computed.
  */
-export function trimToSubject(doc: Document, nodeId: NodeId): Document {
+export async function trimToSubject(
+  doc: Document,
+  nodeId: NodeId,
+  padding = 0,
+  options: TrimToSubjectOptions = {},
+): Promise<Document> {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  const shapeNode = node as import('@strata/scene').ShapeNode;
+  const shapeNode = node as ShapeNode;
   if (shapeNode.shape.kind !== 'rect') return doc;
 
   const W = shapeNode.shape.w;
   const H = shapeNode.shape.h;
   if (W <= 0 || H <= 0) return doc;
 
-  // Simple heuristic: crop away uniform outer rows/columns from image fill.
-  // For true alpha-based trim, see imageBounds.computeVisibleContentBounds.
-  const fill = getImageFill(shapeNode);
-  if (!fill?.image) return resetToSourceBounds(doc, nodeId);
+  let local: LocalBounds | null = options.explicitBounds ?? null;
 
-  // If no fill offset or scale deviation, reset to source
-  if (fill.image.x === 0 && fill.image.y === 0 && fill.image.scale === 1) {
-    return resetToSourceBounds(doc, nodeId);
+  if (!local) {
+    const assetId = shapeNode.mask?.rasterMask?.assetId;
+    const rasterMaskAsset =
+      assetId && options.source !== 'alpha' ? getOwnRasterMaskAsset(doc, assetId) : undefined;
+
+    const result = await computeVisibleContentBounds(doc, nodeId, {
+      alphaThreshold: options.alphaThreshold,
+      rasterMaskAsset,
+    });
+    // 'source-alpha' and 'fallback' both mean "no real mask found" — the
+    // former is computeVisibleContentBounds's own fallback to the node's
+    // full shape bounds, which is a same-size no-op crop, not a trim.
+    if (
+      result &&
+      (result.method === 'vector-path' ||
+        result.method === 'raster-alpha' ||
+        result.method === 'clip-mask')
+    ) {
+      local = result.local;
+    }
   }
 
-  // Keep current crop; trim is applied via the fill offset/scale
-  return doc;
+  if (!local) return resetToSourceBounds(doc, nodeId);
+
+  const padded = padding > 0 ? paddingBounds(local, padding) : local;
+  // Clamp to the node's own current bounds — the computed subject can't
+  // be trimmed to something larger than the frame it's found within.
+  const x = clamp(padded.x, 0, Math.max(0, W - 1));
+  const y = clamp(padded.y, 0, Math.max(0, H - 1));
+  const w = clamp(padded.x + padded.w - x, 1, W - x);
+  const h = clamp(padded.y + padded.h - y, 1, H - y);
+
+  return commitImageCropExtended(doc, nodeId, { viewport: { x, y, w, h } });
 }

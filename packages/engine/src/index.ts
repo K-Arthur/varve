@@ -135,8 +135,6 @@ export {
 } from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
-export type { DenoiseOptions, DenoiseResult } from './denoiseProviders/dispatch';
-export { dispatchDenoise } from './denoiseProviders/dispatch';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
@@ -339,10 +337,6 @@ export {
 } from './inference/models/sam2';
 export type { ScunetInferenceInput, ScunetInferenceOutput } from './inference/models/scunet';
 export {
-  alignTo8,
-  blendTiles,
-  computeTiles,
-  extractTile,
   postprocessScunet,
   preprocessScunet,
   SCUNET_INPUT_SIZE,
@@ -380,7 +374,6 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
-export { applyLensBlur, depthToBlurWeight, depthToHeatmapImageData } from './lensBlur';
 export type {
   Lut1D,
   Lut3D,
@@ -565,17 +558,6 @@ export {
 } from './upscaleProviders/traceDispatch';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
-export type {
-  VideoEncodeCapabilities,
-  VideoEncodeOptions,
-  VideoEncodeResult,
-  VideoEncoderProvider,
-  VideoFrameSource,
-} from './videoEncoder';
-export {
-  detectVideoCapabilities,
-  encodeVideo,
-} from './videoEncoder';
 export type {
   VideoExportOptions,
   VideoExportResult,
