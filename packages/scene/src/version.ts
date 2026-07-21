@@ -496,7 +496,7 @@ const migrations: DocumentMigration[] = [
  * every load (not just the 2.5→2.6 migration step) because a document saved
  * at 2.6+ has `src` stripped from disk by `stripEmbeddedAssetPayloads` below.
  */
-function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<string, unknown> {
+export function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<string, unknown> {
   const assets = raw.assets as Record<string, Record<string, unknown>> | undefined;
   if (!assets) return raw;
 
