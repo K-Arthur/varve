@@ -77,24 +77,42 @@
     },
     {
       "id": "scunet",
-      "filename": "scunet.onnx",
-      "localPath": "/models/scunet.onnx",
+      "filename": "scunet_color_real_psnr.onnx",
+      "localPath": "/models/scunet_color_real_psnr.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "",
+      "remoteUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx",
+      "remoteDataUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data",
       "precision": "fp32",
-      "notes": "AI photo denoising — removes noise, JPEG artifacts, and grain while preserving detail. No verified ONNX export is currently available (the previously listed huggingface.co/Heliosoph/scunet-onnx URL returns 404; cszn/SCUNet has documented ONNX conversion failures). Needs a verified source before this feature can download a model. Input: 512x512 RGB (auto-resized)."
+      "notes": "SCUNet blind real-world denoising (PSNR variant). Removes sensor noise, JPEG artifacts, grain while preserving detail. Trained on synthetic data — works on real photos without paired training. Input: [1,3,H,W] float32 [0,1], H and W divisible by 8 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Default variant: general-purpose photo denoising."
     },
     {
       "id": "sam2-hiera-tiny",
-      "filename": "sam2-hiera-tiny.onnx",
-      "localPath": "/models/sam2-hiera-tiny.onnx",
+      "filename": "",
+      "localPath": "",
       "sha256": null,
       "bundled": false,
       "remoteUrl": "",
       "precision": "fp32",
-      "notes": "SAM2 Hiera Tiny — interactive object segmentation via point/box prompts (\"Select Subject\" tool). Virtual grouping entry — not directly downloadable itself. See sam2-hiera-tiny-encoder and sam2-hiera-tiny-decoder, both required.",
-      "components": ["sam2-hiera-tiny-encoder", "sam2-hiera-tiny-decoder"]
+      "notes": "SAM2.1 Hiera Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Encoder: ~39MB. Verified community source: onnx-community/sam2.1-hiera-tiny-ONNX (HuggingFace, Apache-2.0, converted from Meta). Separate ONNX graphs for encoder and decoder.",
+      "components": [
+        {
+          "id": "sam2-hiera-tiny-encoder",
+          "filename": "vision_encoder.onnx",
+          "localPath": "/models/sam2-hiera-tiny/vision_encoder.onnx",
+          "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx",
+          "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx.data",
+          "role": "encoder"
+        },
+        {
+          "id": "sam2-hiera-tiny-decoder",
+          "filename": "prompt_encoder_mask_decoder.onnx",
+          "localPath": "/models/sam2-hiera-tiny/prompt_encoder_mask_decoder.onnx",
+          "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx",
+          "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx.data",
+          "role": "decoder"
+        }
+      ]
     },
     {
       "id": "sam2-hiera-tiny-encoder",

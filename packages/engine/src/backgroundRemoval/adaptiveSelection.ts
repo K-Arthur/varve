@@ -116,10 +116,10 @@ const PROVIDER_RANK: Record<string, number> = {
 };
 
 function getProviderRank(caps: EnvironmentCapabilities, nativeReady = false): number {
-  if (nativeReady) return PROVIDER_RANK['native']!;
-  if (caps.hasWebGPU) return PROVIDER_RANK['webgpu']!;
-  if (caps.hasWebGL && !caps.isWebKitGTK) return PROVIDER_RANK['webgl']!;
-  return PROVIDER_RANK['wasm']!;
+  if (nativeReady) return PROVIDER_RANK.native!;
+  if (caps.hasWebGPU) return PROVIDER_RANK.webgpu!;
+  if (caps.hasWebGL && !caps.isWebKitGTK) return PROVIDER_RANK.webgl!;
+  return PROVIDER_RANK.wasm!;
 }
 
 function estimatePeakBytes(spec: TierSpec, sourcePixels: number): number {
@@ -241,7 +241,7 @@ async function tryTier(
   }
   const precisionMode = opts.precisionMode ?? 'automatic';
 
-  if (precisionMode !== 'highestQuality' && precisionMode !== 'quality') {
+  if (precisionMode !== 'highestQuality') {
     try {
       const { selectModelVariantSync } = await import('./precisionPolicy');
       const variant = selectModelVariantSync(spec.id, precisionMode, 'wasm');
