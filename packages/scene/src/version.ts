@@ -1,4 +1,6 @@
-export const CURRENT_DOCUMENT_VERSION = '2.5';
+import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
+
+export const CURRENT_DOCUMENT_VERSION = '2.6';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -18,6 +20,7 @@ export const SUPPORTED_VERSIONS = [
   '2.3',
   '2.4',
   '2.5',
+  '2.6',
 ];
 
 export interface DocumentMigration {
@@ -423,7 +426,183 @@ const migrations: DocumentMigration[] = [
       };
     },
   },
+  {
+    from: '2.5',
+    to: '2.6',
+    migrate: (raw) => {
+      // Generalizes RasterMaskAsset (raster masks, v2.1+) to image fills:
+      // extract inline data-URL image content into a document-level,
+      // content-hashed asset table (Document.assets) so identical bytes
+      // placed on multiple layers/paints are stored once. Fills keep `src`
+      // populated in-memory (rehydrateEmbeddedAssetSrc keeps this true on
+      // every future load); only `serializeDocument` strips the redundant
+      // copy at save time. See docs/audits/smart-object-feasibility-audit.md.
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const assets: Record<string, Record<string, unknown>> = {
+        ...((raw.assets as Record<string, Record<string, unknown>> | undefined) ?? {}),
+      };
+
+      const extractFromFill = (fillValue: unknown): unknown => {
+        if (!fillValue || typeof fillValue !== 'object') return fillValue;
+        const fill = fillValue as Record<string, unknown>;
+        if (fill.type !== 'image' || !fill.image || typeof fill.image !== 'object') return fill;
+        const image = fill.image as Record<string, unknown>;
+        const src = image.src;
+        if (image.assetId || typeof src !== 'string' || !src.startsWith('data:')) return fill;
+        const asset = createEmbeddedAsset({
+          dataUrl: src,
+          mimeType: mimeTypeFromDataUrl(src),
+          naturalWidth: typeof image.imageWidth === 'number' ? image.imageWidth : 0,
+          naturalHeight: typeof image.imageHeight === 'number' ? image.imageHeight : 0,
+        });
+        assets[asset.id] ??= asset as unknown as Record<string, unknown>;
+        return { ...fill, image: { ...image, assetId: asset.id } };
+      };
+
+      const migratedNodes: Record<string, Record<string, unknown>> = {};
+      for (const [id, node] of Object.entries(nodes)) {
+        migratedNodes[id] = Array.isArray(node.fills)
+          ? { ...node, fills: node.fills.map(extractFromFill) }
+          : node;
+      }
+
+      const rawPaints = raw.paints as Record<string, Record<string, unknown>> | undefined;
+      const migratedPaints = rawPaints
+        ? Object.fromEntries(
+            Object.entries(rawPaints).map(([paintId, paint]) => [
+              paintId,
+              { ...paint, fill: extractFromFill(paint.fill) },
+            ]),
+          )
+        : undefined;
+
+      return {
+        ...raw,
+        nodes: migratedNodes,
+        ...(migratedPaints ? { paints: migratedPaints } : {}),
+        assets: Object.keys(assets).length > 0 ? assets : undefined,
+        formatVersion: '2.6',
+      };
+    },
+  },
 ];
+
+/**
+ * Unconditional post-migration step: materializes `ImageFillData.src` from
+ * `Document.assets[assetId].dataUrl` wherever `assetId` is set. Every reader
+ * in the codebase (render, codegen, print export, thumbnail/IR cache keys)
+ * reads `.src` directly — this guarantees it is always populated in-memory,
+ * so none of those readers need to know the asset table exists. Runs on
+ * every load (not just the 2.5→2.6 migration step) because a document saved
+ * at 2.6+ has `src` stripped from disk by `stripEmbeddedAssetPayloads` below.
+ */
+function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<string, unknown> {
+  const assets = raw.assets as Record<string, Record<string, unknown>> | undefined;
+  if (!assets) return raw;
+
+  const rehydrateFill = (fillValue: unknown): unknown => {
+    if (!fillValue || typeof fillValue !== 'object') return fillValue;
+    const fill = fillValue as Record<string, unknown>;
+    if (fill.type !== 'image' || !fill.image || typeof fill.image !== 'object') return fill;
+    const image = fill.image as Record<string, unknown>;
+    const assetId = image.assetId;
+    if (typeof assetId !== 'string') return fill;
+    const asset = assets[assetId];
+    if (!asset || typeof asset.dataUrl !== 'string' || image.src === asset.dataUrl) return fill;
+    return { ...fill, image: { ...image, src: asset.dataUrl } };
+  };
+
+  const nodes = raw.nodes as Record<string, Record<string, unknown>> | undefined;
+  let nodesChanged = false;
+  const rehydratedNodes: Record<string, Record<string, unknown>> = {};
+  for (const [id, node] of Object.entries(nodes ?? {})) {
+    if (!Array.isArray(node.fills)) {
+      rehydratedNodes[id] = node;
+      continue;
+    }
+    const fills = node.fills.map(rehydrateFill);
+    if (fills.some((f, i) => f !== node.fills![i])) {
+      rehydratedNodes[id] = { ...node, fills };
+      nodesChanged = true;
+    } else {
+      rehydratedNodes[id] = node;
+    }
+  }
+
+  const paints = raw.paints as Record<string, Record<string, unknown>> | undefined;
+  let paintsChanged = false;
+  let rehydratedPaints: Record<string, Record<string, unknown>> | undefined;
+  if (paints) {
+    rehydratedPaints = {};
+    for (const [id, paint] of Object.entries(paints)) {
+      const fill = rehydrateFill(paint.fill);
+      if (fill !== paint.fill) {
+        rehydratedPaints[id] = { ...paint, fill };
+        paintsChanged = true;
+      } else {
+        rehydratedPaints[id] = paint;
+      }
+    }
+  }
+
+  if (!nodesChanged && !paintsChanged) return raw;
+  return {
+    ...raw,
+    ...(nodesChanged ? { nodes: rehydratedNodes } : {}),
+    ...(paintsChanged ? { paints: rehydratedPaints } : {}),
+  };
+}
+
+/**
+ * Inverse of `rehydrateEmbeddedAssetSrc`, applied only at serialize time:
+ * drops the per-fill `src` duplicate whenever it exactly matches the
+ * canonical `Document.assets[assetId].dataUrl` copy, so the saved JSON
+ * (and every autosave/recovery snapshot, which reuses this function) stores
+ * embedded bytes once instead of once per placement. If `src` doesn't match
+ * the asset (drift, or the asset is missing), it is left alone — never
+ * silently discard data that isn't provably redundant.
+ */
+function stripEmbeddedAssetPayloads(raw: Record<string, unknown>): Record<string, unknown> {
+  const assets = raw.assets as Record<string, Record<string, unknown>> | undefined;
+  if (!assets) return raw;
+
+  const stripFill = (fillValue: unknown): unknown => {
+    if (!fillValue || typeof fillValue !== 'object') return fillValue;
+    const fill = fillValue as Record<string, unknown>;
+    if (fill.type !== 'image' || !fill.image || typeof fill.image !== 'object') return fill;
+    const image = fill.image as Record<string, unknown>;
+    const assetId = image.assetId;
+    if (typeof assetId !== 'string') return fill;
+    const asset = assets[assetId];
+    if (!asset || image.src !== asset.dataUrl) return fill;
+    const { src: _src, ...rest } = image;
+    return { ...fill, image: rest };
+  };
+
+  const nodes = raw.nodes as Record<string, Record<string, unknown>> | undefined;
+  const strippedNodes: Record<string, Record<string, unknown>> = {};
+  for (const [id, node] of Object.entries(nodes ?? {})) {
+    strippedNodes[id] = Array.isArray(node.fills)
+      ? { ...node, fills: node.fills.map(stripFill) }
+      : node;
+  }
+
+  const paints = raw.paints as Record<string, Record<string, unknown>> | undefined;
+  const strippedPaints = paints
+    ? Object.fromEntries(
+        Object.entries(paints).map(([id, paint]) => [
+          id,
+          { ...paint, fill: stripFill(paint.fill) },
+        ]),
+      )
+    : undefined;
+
+  return {
+    ...raw,
+    nodes: strippedNodes,
+    ...(strippedPaints ? { paints: strippedPaints } : {}),
+  };
+}
 
 export interface MigrationResult {
   document: Record<string, unknown>;
@@ -454,7 +633,9 @@ export function stampVersion<T extends { formatVersion?: string }>(
 
 export function serializeDocument(doc: Record<string, unknown> | unknown): string {
   const target = doc as Record<string, unknown>;
-  return JSON.stringify(stampVersion(normalizeLegacyBackgroundRemoval(target)));
+  return JSON.stringify(
+    stripEmbeddedAssetPayloads(stampVersion(normalizeLegacyBackgroundRemoval(target))),
+  );
 }
 
 function decodedBase64Length(dataUrl: string): number {
@@ -685,7 +866,7 @@ export function migrateDocument(raw: unknown): Record<string, unknown> | null {
     result.formatVersion = CURRENT_DOCUMENT_VERSION;
   }
 
-  return result;
+  return rehydrateEmbeddedAssetSrc(result);
 }
 
 export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
@@ -715,7 +896,7 @@ export function migrateDocumentDetailed(raw: unknown): MigrationResult | null {
   }
 
   return {
-    document: result,
+    document: rehydrateEmbeddedAssetSrc(result),
     fromVersion,
     toVersion: result.formatVersion as string,
     migrated,

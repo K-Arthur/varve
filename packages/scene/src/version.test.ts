@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.5');
+    expect(migrated.formatVersion).toBe('2.6');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.5');
+    expect(migrated.formatVersion).toBe('2.6');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.5');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.6');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -319,7 +319,7 @@ describe('Document Migration', () => {
     };
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
-    expect((result as Record<string, unknown>).formatVersion).toBe('2.5');
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.6');
   });
 
   it('migrates v2.4 → v2.5: bakes rotation into transform', () => {
@@ -341,7 +341,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.5');
+    expect(result.formatVersion).toBe('2.6');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     // n1: rotation 90 baked into transform
     expect(nodes.n1!.rotation).toBe(0);
@@ -355,6 +355,89 @@ describe('Document Migration', () => {
     // n2: zero rotation, transform unchanged
     expect(nodes.n2!.rotation).toBe(0);
     expect(nodes.n2!.transform).toEqual([1, 0, 0, 1, 50, 50]);
+  });
+
+  it('migrates v2.5 → v2.6: extracts embedded image fills into Document.assets', () => {
+    const raw = {
+      formatVersion: '2.5',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          fills: [{ type: 'image', image: { src: 'data:image/png;base64,AAAA', fit: 'fill' } }],
+        },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    expect(result.formatVersion).toBe('2.6');
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    const fills = nodes.n1!.fills as Record<string, unknown>[];
+    const image = fills[0]!.image as Record<string, unknown>;
+    expect(typeof image.assetId).toBe('string');
+    // src stays populated in-memory — only stripped at serialize time.
+    expect(image.src).toBe('data:image/png;base64,AAAA');
+    const assets = result.assets as Record<string, Record<string, unknown>>;
+    expect(assets[image.assetId as string]?.dataUrl).toBe('data:image/png;base64,AAAA');
+  });
+
+  it('migrates v2.5 → v2.6: dedups identical image bytes across nodes into one asset', () => {
+    const raw = {
+      formatVersion: '2.5',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          fills: [{ type: 'image', image: { src: 'data:image/png;base64,SAME', fit: 'fill' } }],
+        },
+        n2: {
+          id: 'n2',
+          kind: 'shape',
+          fills: [{ type: 'image', image: { src: 'data:image/png;base64,SAME', fit: 'fill' } }],
+        },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    const assetId1 = (
+      (nodes.n1!.fills as Record<string, unknown>[])[0]!.image as Record<string, unknown>
+    ).assetId;
+    const assetId2 = (
+      (nodes.n2!.fills as Record<string, unknown>[])[0]!.image as Record<string, unknown>
+    ).assetId;
+    expect(assetId1).toBe(assetId2);
+    expect(Object.keys(result.assets as Record<string, unknown>)).toHaveLength(1);
+  });
+
+  it('rehydrates image fill src from Document.assets on load, even without a migration step', () => {
+    const raw = {
+      formatVersion: '2.6',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          fills: [{ type: 'image', image: { assetId: 'asset-1', src: '', fit: 'fill' } }],
+        },
+      },
+      assets: {
+        'asset-1': {
+          id: 'asset-1',
+          storage: 'embedded',
+          mimeType: 'image/png',
+          dataUrl: 'data:image/png;base64,REHYDRATED',
+          naturalWidth: 10,
+          naturalHeight: 10,
+          byteLength: 4,
+          hash: 'abc',
+        },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    const image = (nodes.n1!.fills as Record<string, unknown>[])[0]!.image as Record<
+      string,
+      unknown
+    >;
+    expect(image.src).toBe('data:image/png;base64,REHYDRATED');
   });
 
   it('migrates an unversioned document (pre-1.0)', () => {
@@ -680,5 +763,100 @@ describe('serializeDocument', () => {
     const doc = { id: 'd1', name: 'test', rootChildren: [], nodes: {} };
     const result = serializeDocument(doc);
     expect(typeof result).toBe('string');
+  });
+
+  it('strips redundant embedded-asset src payloads from image fills on save', () => {
+    const doc = {
+      id: 'd1',
+      name: 'test',
+      rootChildren: ['n1'],
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          fills: [
+            {
+              type: 'image',
+              image: { assetId: 'asset-1', src: 'data:image/png;base64,DUPLICATED', fit: 'fill' },
+            },
+          ],
+        },
+      },
+      assets: {
+        'asset-1': {
+          id: 'asset-1',
+          storage: 'embedded',
+          mimeType: 'image/png',
+          dataUrl: 'data:image/png;base64,DUPLICATED',
+          naturalWidth: 10,
+          naturalHeight: 10,
+          byteLength: 4,
+          hash: 'abc',
+        },
+      },
+    };
+    const json = serializeDocument(doc);
+    // The canonical copy in the asset table survives...
+    expect(json).toContain('data:image/png;base64,DUPLICATED');
+    const parsed = JSON.parse(json);
+    // ...but the per-fill duplicate does not: src is gone from the fill.
+    expect(parsed.nodes.n1.fills[0].image.src).toBeUndefined();
+    expect(parsed.assets['asset-1'].dataUrl).toBe('data:image/png;base64,DUPLICATED');
+    // Occurs exactly once in the whole payload — proof of dedup, not just omission.
+    expect(json.split('DUPLICATED').length - 1).toBe(1);
+  });
+
+  it('leaves src alone for image fills with no assetId (legacy/unmigrated)', () => {
+    const doc = {
+      id: 'd1',
+      name: 'test',
+      rootChildren: ['n1'],
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          fills: [{ type: 'image', image: { src: 'data:image/png;base64,LEGACY', fit: 'fill' } }],
+        },
+      },
+    };
+    const json = serializeDocument(doc);
+    const parsed = JSON.parse(json);
+    expect(parsed.nodes.n1.fills[0].image.src).toBe('data:image/png;base64,LEGACY');
+  });
+
+  it('preserves src when it has drifted from the referenced asset (safety net)', () => {
+    const doc = {
+      id: 'd1',
+      name: 'test',
+      rootChildren: ['n1'],
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          fills: [
+            {
+              type: 'image',
+              image: { assetId: 'asset-1', src: 'data:image/png;base64,DRIFTED', fit: 'fill' },
+            },
+          ],
+        },
+      },
+      assets: {
+        'asset-1': {
+          id: 'asset-1',
+          storage: 'embedded',
+          mimeType: 'image/png',
+          dataUrl: 'data:image/png;base64,CANONICAL',
+          naturalWidth: 10,
+          naturalHeight: 10,
+          byteLength: 4,
+          hash: 'abc',
+        },
+      },
+    };
+    const json = serializeDocument(doc);
+    const parsed = JSON.parse(json);
+    // Never silently discard data that doesn't match the asset table.
+    expect(parsed.nodes.n1.fills[0].image.src).toBe('data:image/png;base64,DRIFTED');
   });
 });
