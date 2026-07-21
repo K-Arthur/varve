@@ -8,18 +8,27 @@
  * Research basis: Figma's "Design review" + "Smart selection" panel concepts;
  * APG Disclosure pattern for collapsible groups.
  */
-import { getFontRegistry } from '@strata/engine';
+import {
+  getFontRegistry,
+  getInferenceWorkerHost,
+  getModelLoader,
+  normalizeEmbedding,
+  rankBySimilarity,
+} from '@strata/engine';
 import { validatePrototype } from '@strata/prototype';
+import type { NodeId, ShapeNode } from '@strata/scene';
 import {
   type DebtIssue,
   type DebtReport,
   type GovernanceIssue,
+  imageShapeSrc,
+  isImageShape,
   runDebtScan,
   runGovernanceRules,
   runIntelligenceAudit,
 } from '@strata/scene';
 import { Icon } from '@strata/ui';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
 import type { IntelligenceTab } from '../context/types';
 import { suggestAutoLayout } from '../intelligence/autoLayoutSuggestor';
@@ -39,7 +48,14 @@ import {
 import '../components/Inspector/inspector.css';
 
 const PRIMARY_TABS: IntelligenceTab[] = ['audit', 'spacing', 'naming'];
-const MORE_TABS: IntelligenceTab[] = ['governance', 'debt', 'prototype', 'layout', 'components'];
+const MORE_TABS: IntelligenceTab[] = [
+  'governance',
+  'debt',
+  'prototype',
+  'layout',
+  'components',
+  'similar',
+];
 
 export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab } = {}) {
   const [tab, setTab] = useState<IntelligenceTab>(initialTab ?? 'audit');
@@ -107,6 +123,7 @@ export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab
             >
               {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
               {t === 'debt' && <Icon name="TriangleAlert" label={undefined} size="0.8em" />}
+              {t === 'similar' && <Icon name="Images" label={undefined} size="0.8em" />}
               {t}
             </button>
           ))}
@@ -121,6 +138,7 @@ export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab
       {tab === 'prototype' && <PrototypeTab />}
       {tab === 'layout' && <LayoutTab />}
       {tab === 'components' && <ComponentsTab />}
+      {tab === 'similar' && <SimilarTab />}
     </div>
   );
 }
@@ -820,6 +838,307 @@ function ComponentsTab() {
           </div>
         </details>
       ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 9: Similar — Find Similar Images (SigLIP)                     */
+/* ------------------------------------------------------------------ */
+
+const SIGLIP_MODEL_ID = 'siglip-base-patch16-224';
+/** Bound how many document images get embedded per search — running
+ * inference on an unbounded document could stall the UI for a long time. */
+const MAX_SIMILAR_CANDIDATES = 30;
+
+interface SimilarMatch {
+  nodeId: NodeId;
+  src: string;
+  similarity: number;
+}
+
+function loadImageToImageDataForSimilarity(src: string): Promise<ImageData> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'));
+        return;
+      }
+      ctx.drawImage(img, 0, 0);
+      resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.crossOrigin = 'anonymous';
+    img.src = src;
+  });
+}
+
+function SimilarTab() {
+  const { state, setSelection, announce } = useEditor();
+  const abortRef = useRef<AbortController | null>(null);
+  const downloadAbortRef = useRef<AbortController | null>(null);
+  const embeddingCacheRef = useRef<Map<string, Float32Array>>(new Map());
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [modelAvailable, setModelAvailable] = useState(false);
+  const [status, setStatus] = useState<'idle' | 'downloading' | 'searching' | 'error'>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [matches, setMatches] = useState<SimilarMatch[] | null>(null);
+
+  const selectedNode =
+    state.selection.length === 1 ? state.document.nodes[state.selection[0]!] : null;
+  const isImage = Boolean(selectedNode && isImageShape(selectedNode));
+  const imageSrc = isImage ? imageShapeSrc(selectedNode as ShapeNode) : '';
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const available = await getModelLoader().isModelAvailable(SIGLIP_MODEL_ID);
+      if (!cancelled) setModelAvailable(available);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleDownload = useCallback(async () => {
+    setStatus('downloading');
+    setErrorMessage(null);
+    setDownloadProgress(0);
+    const controller = new AbortController();
+    downloadAbortRef.current = controller;
+    try {
+      const loader = getModelLoader();
+      await loader.downloadModel(
+        SIGLIP_MODEL_ID,
+        (loaded, total) => {
+          setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        },
+        controller.signal,
+      );
+      setStatus('idle');
+      setModelAvailable(true);
+      announce('Find Similar model downloaded');
+    } catch (err) {
+      if (controller.signal.aborted) {
+        setStatus('idle');
+        return;
+      }
+      setErrorMessage(err instanceof Error ? err.message : 'Download failed');
+      setStatus('error');
+    } finally {
+      downloadAbortRef.current = null;
+    }
+  }, [announce]);
+
+  const handleCancelDownload = useCallback(() => {
+    downloadAbortRef.current?.abort();
+  }, []);
+
+  const embed = useCallback(
+    async (src: string, modelPath: string, signal: AbortSignal): Promise<Float32Array> => {
+      const cached = embeddingCacheRef.current.get(src);
+      if (cached) return cached;
+
+      const imageData = await loadImageToImageDataForSimilarity(src);
+      if (signal.aborted) throw new Error('cancelled');
+
+      const host = getInferenceWorkerHost();
+      const result = await host.infer(
+        {
+          type: 'infer',
+          modelType: 'siglip-image',
+          modelPath,
+          modelId: SIGLIP_MODEL_ID,
+          imageData,
+          reuseSession: true,
+        },
+        { signal, timeoutMs: 30_000 },
+      );
+      if (signal.aborted) throw new Error('cancelled');
+
+      // Verified real output tensor name (see siglip.ts): "pooler_output".
+      const rawOutputs = result.outputs as {
+        pooler_output: { data: Float32Array; dims: number[] };
+      };
+      const raw = rawOutputs.pooler_output;
+      if (!raw) throw new Error('Embedding did not produce an output tensor');
+      const embedding = normalizeEmbedding(raw.data);
+      embeddingCacheRef.current.set(src, embedding);
+      return embedding;
+    },
+    [],
+  );
+
+  const handleSearch = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setStatus('searching');
+    setErrorMessage(null);
+
+    try {
+      if (!imageSrc || !selectedNode) throw new Error('No image selected');
+
+      const loader = getModelLoader();
+      const modelPath = await loader.getModelPath(SIGLIP_MODEL_ID, controller.signal);
+      if (!modelPath) throw new Error('Find Similar model not downloaded');
+
+      const queryEmbedding = await embed(imageSrc, modelPath, controller.signal);
+
+      const candidates: Array<{ item: { nodeId: NodeId; src: string }; embedding: Float32Array }> =
+        [];
+      let scanned = 0;
+      for (const [nodeId, candidateNode] of Object.entries(state.document.nodes)) {
+        if (controller.signal.aborted) throw new Error('cancelled');
+        if (nodeId === selectedNode.id) continue;
+        if (candidateNode.kind !== 'shape' || !isImageShape(candidateNode)) continue;
+        const src = imageShapeSrc(candidateNode as ShapeNode);
+        if (!src) continue;
+        if (scanned >= MAX_SIMILAR_CANDIDATES) break;
+        scanned++;
+        const candidateEmbedding = await embed(src, modelPath, controller.signal);
+        candidates.push({ item: { nodeId: nodeId as NodeId, src }, embedding: candidateEmbedding });
+      }
+
+      const ranked = rankBySimilarity(queryEmbedding, candidates, 5);
+      const results: SimilarMatch[] = ranked.map((r) => ({
+        nodeId: r.item.nodeId,
+        src: r.item.src,
+        similarity: r.similarity,
+      }));
+
+      setMatches(results);
+      setStatus('idle');
+      announce(
+        results.length === 0
+          ? 'No other images found in this document'
+          : `Found ${results.length} similar image${results.length === 1 ? '' : 's'}`,
+      );
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      setErrorMessage(err instanceof Error ? err.message : 'Search failed');
+      setStatus('error');
+    }
+  }, [imageSrc, selectedNode, state.document.nodes, embed, announce]);
+
+  const handleCancel = useCallback(() => {
+    abortRef.current?.abort();
+    setStatus('idle');
+  }, []);
+
+  if (!isImage) {
+    return (
+      <div className="intelligence-empty">
+        <Icon name="Images" label={undefined} size="1.2em" />
+        <p>Select an image to find visually similar images in this document.</p>
+      </div>
+    );
+  }
+
+  const isSearching = status === 'searching';
+  const needsDownload = !modelAvailable && status !== 'downloading';
+
+  return (
+    <div className="intelligence-tab-content">
+      <p className="intelligence-hint">
+        Embeds the selected image and ranks other images in this document by visual/semantic
+        similarity. Image-to-image only — runs locally in a web worker.
+      </p>
+
+      {needsDownload && (
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          onClick={handleDownload}
+          aria-label="Download Find Similar model (~201 MB)"
+        >
+          <Icon name="Download" label={undefined} size="0.85em" />
+          Download AI Model
+        </button>
+      )}
+
+      {status === 'downloading' && (
+        <>
+          <div
+            className="insp-progress-bar"
+            role="progressbar"
+            aria-valuenow={downloadProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            <div className="insp-progress-bar__fill" style={{ width: `${downloadProgress}%` }} />
+          </div>
+          <p aria-live="polite">Downloading… {downloadProgress}%</p>
+          <button type="button" className="intelligence-action-btn" onClick={handleCancelDownload}>
+            Cancel
+          </button>
+        </>
+      )}
+
+      {matches && (
+        <div className="intelligence-issue-list">
+          {matches.length === 0 ? (
+            <p>No other images found in this document.</p>
+          ) : (
+            matches.map((m) => (
+              <div key={m.nodeId} className="intelligence-issue intelligence-issue--info">
+                <button
+                  type="button"
+                  className="intelligence-issue__target"
+                  onClick={() => setSelection(m.nodeId)}
+                  title="Select this node"
+                >
+                  <img
+                    src={m.src}
+                    alt=""
+                    style={{
+                      width: 28,
+                      height: 28,
+                      objectFit: 'cover',
+                      borderRadius: 4,
+                      marginRight: 'var(--space-1)',
+                    }}
+                  />
+                  <span className="intelligence-issue__type">
+                    {Math.round(m.similarity * 100)}% match
+                  </span>
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {isSearching ? (
+        <>
+          <span aria-live="polite">Searching…</span>
+          <button type="button" className="intelligence-action-btn" onClick={handleCancel}>
+            Cancel
+          </button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          disabled={needsDownload}
+          onClick={handleSearch}
+          aria-label="Find similar images in this document"
+        >
+          <Icon name="Images" label={undefined} size="0.85em" />
+          Find Similar
+        </button>
+      )}
+
+      {status === 'error' && errorMessage && (
+        <p className="intelligence-issue--error" role="alert">
+          {errorMessage}
+        </p>
+      )}
     </div>
   );
 }
