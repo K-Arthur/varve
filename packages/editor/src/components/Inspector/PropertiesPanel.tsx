@@ -55,6 +55,7 @@ import { LayoutSection } from './sections/LayoutSection';
 import { LensBlurSection } from './sections/LensBlurSection';
 import { LineArtSection } from './sections/LineArtSection';
 import { MaskSection } from './sections/MaskSection';
+import { OcrSection } from './sections/OcrSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
 import { StateMachineSection } from './sections/StateMachineSection';
@@ -357,6 +358,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('line-art', <LineArtSection nodes={nodes} />);
     add('content-aware-fill', <ContentAwareFillSection nodes={nodes} />);
     add('detect-text', <DetectTextSection nodes={nodes} />);
+    add('ocr', <OcrSection nodes={nodes} />);
     add('blend-images', <BlendImagesSection nodes={nodes} />);
     add('palette', <PaletteSection />);
     add('stroke', <StrokeSection nodes={nodes} />);
