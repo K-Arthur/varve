@@ -17,6 +17,11 @@ import { applyLevels } from './adjustment/levels';
 import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 import { applySelectiveColor } from './adjustment/selectiveColor';
 import { gaussianBlurSeparable } from './blur';
+import {
+  applyColorHalftone,
+  type ColorHalftoneDotShape,
+  type ColorHalftoneMode,
+} from './colorHalftone';
 import { mapBlendMode } from './compositeCanvas';
 import { filterToCss, supportsCanvasFilter } from './filters';
 import { applyGradientMapFilter } from './gradientMap';
@@ -379,11 +384,21 @@ export function applySoftwareFilter(
         previewChannel?: 'composite' | 'c' | 'm' | 'y' | 'k';
         dotGain?: number;
       };
+      // Map the UI 'pattern' field to the engine's effective dotShape.
+      // Pattern is the high-level screen type; dotShape is the engine primitive.
+      // When they differ, pattern takes precedence so the UI selector works.
+      const patternToDotShape: Record<string, HalftoneDotShape> = {
+        dot: 'round',
+        line: 'line',
+        cross: 'cross',
+        circle: 'circle',
+      };
+      const effectiveDotShape = patternToDotShape[hf.pattern] ?? (hf.dotShape as HalftoneDotShape);
       applyHalftone(imageData, {
         pattern: hf.pattern as HalftonePattern,
         frequency: hf.frequency ?? 20,
         angle: hf.angle ?? 45,
-        dotShape: hf.dotShape as HalftoneDotShape,
+        dotShape: effectiveDotShape,
         channel: hf.channel as HalftoneChannel,
         method: hf.method as HalftoneMethod,
         threshold: hf.threshold,
@@ -453,6 +468,26 @@ export function applySoftwareFilter(
         intensity: tf.intensity,
         preserveLuminosity: tf.preserveLuminosity,
         interpolation: tf.interpolation,
+      });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'colorHalftone': {
+      const chf = filter as {
+        screenSize: number;
+        angle: number;
+        dotShape: string;
+        mode: string;
+        intensity: number;
+        inkColor?: readonly [number, number, number, number];
+      };
+      applyColorHalftone(imageData, {
+        screenSize: chf.screenSize ?? 12,
+        angle: chf.angle ?? 0,
+        dotShape: chf.dotShape as ColorHalftoneDotShape,
+        mode: chf.mode as ColorHalftoneMode,
+        intensity: chf.intensity ?? 1,
+        inkColor: chf.inkColor,
       });
       ctx.putImageData(imageData, 0, 0);
       break;

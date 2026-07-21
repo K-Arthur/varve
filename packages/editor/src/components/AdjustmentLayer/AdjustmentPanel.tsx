@@ -34,6 +34,7 @@ const ADJUSTMENT_KINDS: AdjustmentKind[] = [
   'halftone',
   'gradientMap',
   'tritone',
+  'colorHalftone',
   'lut',
 ];
 
