@@ -45,6 +45,66 @@ export function rgba(c: ManagedColor | readonly [number, number, number, number]
   return `rgba(${c[0]},${c[1]},${c[2]},${(c[3] / 255).toFixed(3)})`;
 }
 
+/** Result of converting a ManagedColor to an SVG color reference. */
+export interface SvgColorResult {
+  value: string;
+  warning?: string;
+}
+
+/**
+ * Convert a ManagedColor to an SVG-compatible color reference.
+ *
+ * When `preserveColorSpace` is false (default), collapses everything to
+ * CSS rgba() for maximum compatibility. When true:
+ * - CMYK → `icc-color(profileName, c, m, y, k)` (no RGB conversion)
+ * - float16/float32 + profile → `icc-color(profile, r, g, b)`
+ * - float16/float32 without profile → rgba() + warning comment
+ *
+ * Color space is detected by the `space` discriminant and `bitDepth` field
+ * — no dependency on @strata/scene type guards (avoids module-loading
+ * edge cases in the codegen package's vitest environment).
+ */
+export function colorToSvgValue(
+  color: ManagedColor,
+  doc: SceneDocument | null,
+  preserveColorSpace: boolean,
+): SvgColorResult {
+  if (!preserveColorSpace) {
+    return { value: rgba(color) };
+  }
+
+  // CMYK: preserve as icc-color, never convert to RGB
+  if (color.space === 'cmyk') {
+    const profile = doc?.colorConfig?.cmykProfile?.id ?? 'unknown';
+    const c = color as Extract<ManagedColor, { space: 'cmyk' }>;
+    return {
+      value: `icc-color(${profile}, ${c.c}, ${c.m}, ${c.y}, ${c.k})`,
+    };
+  }
+
+  // High-bit-depth RGB with profile → icc-color
+  const isHighPrecision =
+    'bitDepth' in color && (color.bitDepth === 'float32' || color.bitDepth === 'float16');
+  if (isHighPrecision && color.space === 'rgb' && color.profile) {
+    const rgb = color as Extract<ManagedColor, { space: 'rgb' }>;
+    return {
+      value: `icc-color(${rgb.profile}, ${rgb.r}, ${rgb.g}, ${rgb.b})`,
+    };
+  }
+
+  // High-bit-depth without profile → fall back to rgba with a warning
+  if (isHighPrecision && color.space === 'rgb') {
+    const bitDepth = color.bitDepth;
+    return {
+      value: rgba(color),
+      warning: `Warning: color uses ${bitDepth} precision but no ICC profile is assigned — fell back to sRGB rgb()`,
+    };
+  }
+
+  // Default: uint8 / sRGB → rgba()
+  return { value: rgba(color) };
+}
+
 export function colorToHex(c: ManagedColor | readonly [number, number, number, number]): string {
   if ('space' in c) {
     const [r, g, b] = managedColorToRgba(c);

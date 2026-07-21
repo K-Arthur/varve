@@ -44,7 +44,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
       ],
     } as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
-    expect(svg).toContain('rgb(255,0,0)');
+    expect(svg).toContain('rgba(255,0,0');
     expect(svg).not.toContain('icc-color');
   });
 
@@ -68,7 +68,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
     expect(svg).toContain('icc-color');
     expect(svg).toContain('fogra39');
-    expect(svg).not.toContain('rgb(');
+    expect(svg).not.toContain('rgba(');
   });
 
   it('emits icc-color() for float32 color with profile when preserveColorSpace is true', () => {
@@ -127,7 +127,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
       ],
     } as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
-    expect(svg).toContain('rgb(');
+    expect(svg).toContain('rgba(');
     expect(svg).toContain('Warning');
     expect(svg).toContain('float32');
   });
@@ -150,7 +150,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
       ],
     } as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: false });
-    expect(svg).toContain('rgb(');
+    expect(svg).toContain('rgba(');
     expect(svg).not.toContain('icc-color');
   });
 });
