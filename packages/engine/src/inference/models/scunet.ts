@@ -1,31 +1,13 @@
 /**
- * SCUNet — real-world image denoising via ONNX.
- *
- * Model: SCUNet (Apache-2.0, ~18MB)
- * Input: 512×512 RGB float32, range [0, 1]
- * Output: Denoised 512×512 RGB float32, range [0, 1]
- *
- * SCUNet uses a CNN+Transformer hybrid architecture that handles
- * real-world noise (not just synthetic Gaussian). It removes JPEG
- * artifacts, sensor noise, and grain while preserving detail.
- *
- * The model operates on RGB only — alpha channel is extracted before
- * inference and re-composited after, so transparency is preserved.
- *
- * Preprocessing resizes any input to 512×512 (the model's fixed input
- * size) using a center-fit resize that preserves aspect ratio, then
- * crops/pads to exactly 512×512. The original dimensions are returned
- * so postprocessing can resize the output back.
+ * SCUNet — real-world blind image denoising.
  */
-
 import type { TensorSpec } from '../imageTensor';
-import { letterboxResize } from '../imageTensor';
 
-export const SCUNET_INPUT_SIZE = 512;
+export const SCUNET_INPUT_SIZE = 0;
 
 export const SCUNET_TENSOR_SPEC: TensorSpec = {
-  inputWidth: SCUNET_INPUT_SIZE,
-  inputHeight: SCUNET_INPUT_SIZE,
+  inputWidth: 0,
+  inputHeight: 0,
   mean: [0, 0, 0],
   std: [1, 1, 1],
   paddingRgb: [0, 0, 0],
@@ -33,179 +15,264 @@ export const SCUNET_TENSOR_SPEC: TensorSpec = {
 
 export interface ScunetInferenceInput {
   imageData: ImageData;
-  /** Denoise strength 0-1 (0 = no change, 1 = full denoise). Default 1. */
   strength?: number;
+  tileSize?: number;
+  overlap?: number;
 }
 
 export interface ScunetInferenceOutput {
-  denoised: ImageData;
-  width: number;
-  height: number;
-  processingTimeMs: number;
+  imageData: ImageData;
+  processedWidth: number;
+  processedHeight: number;
 }
 
-/**
- * Preprocess image data for SCUNet inference.
- *
- * SCUNet expects RGB float32 in [0, 1] range at exactly 512×512.
- * Unlike most models, it does NOT use ImageNet normalization —
- * the input is simply divided by 255.
- *
- * Input images are center-fit resized to 512×512 (preserving aspect
- * ratio, padding with black) so the tensor always matches the model's
- * expected shape regardless of source dimensions.
- *
- * Returns the packed NCHW tensor and the original dimensions
- * needed for postprocessing.
- */
-export function preprocessScunet(imageData: ImageData): {
+export function alignTo8(n: number): number {
+  return Math.max(8, Math.ceil(n / 8) * 8);
+}
+
+export interface ScunetPreprocessResult {
   tensor: Float32Array;
+  alignedWidth: number;
+  alignedHeight: number;
   originalWidth: number;
   originalHeight: number;
   hasAlpha: boolean;
   alphaData: Uint8ClampedArray | null;
-} {
-  const { width, height, data } = imageData;
-  const pixelCount = width * height;
-
-  // Extract alpha channel if present (4th byte per pixel)
-  const hasAlpha = data.length === pixelCount * 4;
-  let alphaData: Uint8ClampedArray | null = null;
-  if (hasAlpha) {
-    alphaData = new Uint8ClampedArray(pixelCount);
-    for (let i = 0; i < pixelCount; i++) {
-      alphaData[i] = data[i * 4 + 3]!;
-    }
-  }
-
-  // Resize to exactly 512×512 with letterbox padding (black)
-  const { resized } = letterboxResize(
-    imageData,
-    SCUNET_INPUT_SIZE,
-    SCUNET_INPUT_SIZE,
-    SCUNET_TENSOR_SPEC.paddingRgb,
-  );
-
-  // Pack RGB into NCHW float32 [0, 1] — no normalization beyond /255
-  const resizedPixelCount = SCUNET_INPUT_SIZE * SCUNET_INPUT_SIZE;
-  const tensor = new Float32Array(resizedPixelCount * 3);
-  for (let i = 0; i < resizedPixelCount; i++) {
-    const offset = i * 4;
-    tensor[i] = resized.data[offset]! / 255; // R
-    tensor[resizedPixelCount + i] = resized.data[offset + 1]! / 255; // G
-    tensor[resizedPixelCount * 2 + i] = resized.data[offset + 2]! / 255; // B
-  }
-
-  return { tensor, originalWidth: width, originalHeight: height, hasAlpha, alphaData };
 }
 
-/**
- * Post-process SCUNet output back to ImageData.
- *
- * Takes the raw model output (NCHW float32 at 512×512), resizes
- * back to original dimensions, and re-composites the alpha channel.
- *
- * @param output - Raw model output tensor data
- * @param outputWidth - Model output width (512)
- * @param outputHeight - Model output height (512)
- * @param targetWidth - Original image width
- * @param targetHeight - Original image height
- * @param alphaData - Original alpha channel (null if no alpha)
- * @param strength - Blending strength 0-1
- * @param originalData - Original pixel data for strength blending
- */
-export function postprocessScunet(
-  output: Float32Array,
+export function preprocessScunet(imageData: ImageData): ScunetPreprocessResult {
+  const originalWidth = imageData.width;
+  const originalHeight = imageData.height;
+  const alignedWidth = alignTo8(originalWidth);
+  const alignedHeight = alignTo8(originalHeight);
+  let hasAlpha = false;
+  for (let i = 0; i < originalWidth * originalHeight; i++) {
+    if (imageData.data[i * 4 + 3]! < 255) {
+      hasAlpha = true;
+      break;
+    }
+  }
+  let alphaData: Uint8ClampedArray | null = null;
+  if (hasAlpha) {
+    alphaData = new Uint8ClampedArray(originalWidth * originalHeight);
+    for (let i = 0; i < originalWidth * originalHeight; i++)
+      alphaData[i] = imageData.data[i * 4 + 3]!;
+  }
+  const pixelCount = alignedWidth * alignedHeight;
+  const tensor = new Float32Array(pixelCount * 3);
+  for (let y = 0; y < alignedHeight; y++) {
+    for (let x = 0; x < alignedWidth; x++) {
+      const srcX = Math.min(x, originalWidth - 1);
+      const srcY = Math.min(y, originalHeight - 1);
+      const srcIdx = (srcY * originalWidth + srcX) * 4;
+      const dstIdx = y * alignedWidth + x;
+      tensor[dstIdx] = imageData.data[srcIdx]! / 255;
+      tensor[pixelCount + dstIdx] = imageData.data[srcIdx + 1]! / 255;
+      tensor[pixelCount * 2 + dstIdx] = imageData.data[srcIdx + 2]! / 255;
+    }
+  }
+  return {
+    tensor,
+    alignedWidth,
+    alignedHeight,
+    originalWidth,
+    originalHeight,
+    hasAlpha,
+    alphaData,
+  };
+}
+
+export interface ScunetTile {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export function computeTiles(
+  width: number,
+  height: number,
+  tileSize = 512,
+  overlap = 64,
+): ScunetTile[] {
+  if (overlap >= tileSize) throw new Error('overlap must be less than tileSize');
+  const stride = tileSize - overlap;
+  const tiles: ScunetTile[] = [];
+  for (let y = 0; y < height; y += stride) {
+    for (let x = 0; x < width; x += stride) {
+      tiles.push({
+        x,
+        y,
+        width: Math.min(tileSize, width - x),
+        height: Math.min(tileSize, height - y),
+      });
+    }
+  }
+  return tiles;
+}
+
+export function extractTile(
+  imageData: ImageData,
+  tile: ScunetTile,
+): {
+  tensor: Float32Array;
+  alignedWidth: number;
+  alignedHeight: number;
+  alphaData: Uint8ClampedArray | null;
+} {
+  const { width, height } = tile;
+  const tw = alignTo8(width);
+  const th = alignTo8(height);
+  const pixelCount = tw * th;
+  const tensor = new Float32Array(pixelCount * 3);
+  let hasAlpha = false;
+  for (let dy = 0; dy < tile.height; dy++) {
+    for (let dx = 0; dx < tile.width; dx++) {
+      const srcX = Math.min(tile.x + dx, imageData.width - 1);
+      const srcY = Math.min(tile.y + dy, imageData.height - 1);
+      if (imageData.data[(srcY * imageData.width + srcX) * 4 + 3]! < 255) {
+        hasAlpha = true;
+        break;
+      }
+    }
+    if (hasAlpha) break;
+  }
+  let alphaData: Uint8ClampedArray | null = null;
+  if (hasAlpha) {
+    alphaData = new Uint8ClampedArray(tile.width * tile.height);
+    for (let dy = 0; dy < tile.height; dy++) {
+      for (let dx = 0; dx < tile.width; dx++) {
+        const srcX = Math.min(tile.x + dx, imageData.width - 1);
+        const srcY = Math.min(tile.y + dy, imageData.height - 1);
+        alphaData[dy * tile.width + dx] = imageData.data[(srcY * imageData.width + srcX) * 4 + 3]!;
+      }
+    }
+  }
+  for (let dy = 0; dy < th; dy++) {
+    for (let dx = 0; dx < tw; dx++) {
+      const srcX = Math.min(tile.x + dx, imageData.width - 1);
+      const srcY = Math.min(tile.y + dy, imageData.height - 1);
+      const srcIdx = (srcY * imageData.width + srcX) * 4;
+      const dstIdx = dy * tw + dx;
+      tensor[dstIdx] = imageData.data[srcIdx]! / 255;
+      tensor[pixelCount + dstIdx] = imageData.data[srcIdx + 1]! / 255;
+      tensor[pixelCount * 2 + dstIdx] = imageData.data[srcIdx + 2]! / 255;
+    }
+  }
+  return { tensor, alignedWidth: tw, alignedHeight: th, alphaData };
+}
+
+export function blendTiles(
+  tiles: ScunetTile[],
+  tileResults: Float32Array[],
   outputWidth: number,
   outputHeight: number,
-  targetWidth: number,
-  targetHeight: number,
+  overlap: number,
+): Float32Array {
+  const pixelCount = outputWidth * outputHeight;
+  const output = new Float32Array(pixelCount * 3);
+  const weightAccum = new Float32Array(pixelCount);
+  for (let t = 0; t < tiles.length; t++) {
+    const tile = tiles[t]!;
+    const result = tileResults[t]!;
+    const tw = alignTo8(tile.width);
+    const th = alignTo8(tile.height);
+    const srcPixels = tw * th;
+    for (let dy = 0; dy < tile.height; dy++) {
+      for (let dx = 0; dx < tile.width; dx++) {
+        const outX = tile.x + dx;
+        const outY = tile.y + dy;
+        if (outX >= outputWidth || outY >= outputHeight) continue;
+        const distToEdge = Math.min(dx, dy, tile.width - 1 - dx, tile.height - 1 - dy);
+        const maxFeather = Math.min(overlap, tile.width >> 1, tile.height >> 1);
+        const weight = Math.min(1, distToEdge / Math.max(1, maxFeather));
+        const srcIdx = dy * tw + dx;
+        const outIdx = outY * outputWidth + outX;
+        output[outIdx] = output[outIdx]! + result[srcIdx]! * weight;
+        output[outIdx + pixelCount] =
+          output[outIdx + pixelCount]! + result[srcIdx + srcPixels]! * weight;
+        output[outIdx + pixelCount * 2] =
+          output[outIdx + pixelCount * 2]! + result[srcIdx + srcPixels * 2]! * weight;
+        weightAccum[outIdx] = weightAccum[outIdx]! + weight;
+      }
+    }
+  }
+  for (let i = 0; i < pixelCount; i++) {
+    const w = weightAccum[i]! || 1;
+    output[i] = output[i]! / w;
+    output[i + pixelCount] = output[i + pixelCount]! / w;
+    output[i + pixelCount * 2] = output[i + pixelCount * 2]! / w;
+  }
+  return output;
+}
+
+function clamp255(v: number): number {
+  return Math.max(0, Math.min(255, Math.round(v)));
+}
+
+export function postprocessScunet(
+  outputTensor: Float32Array,
+  outW: number,
+  outH: number,
+  targetW: number,
+  targetH: number,
   alphaData: Uint8ClampedArray | null,
   strength: number,
   originalData: Uint8ClampedArray,
 ): ImageData {
-  const pixelCount = targetWidth * targetHeight;
-  const result = new Uint8ClampedArray(pixelCount * 4);
-
-  // Resize from model output to target dimensions using bilinear interpolation
-  const xRatio = outputWidth / targetWidth;
-  const yRatio = outputHeight / targetHeight;
-
-  for (let y = 0; y < targetHeight; y++) {
-    for (let x = 0; x < targetWidth; x++) {
-      const srcX = x * xRatio;
-      const srcY = y * yRatio;
-      const x0 = Math.min(Math.floor(srcX), outputWidth - 1);
-      const y0 = Math.min(Math.floor(srcY), outputHeight - 1);
-      const x1 = Math.min(x0 + 1, outputWidth - 1);
-      const y1 = Math.min(y0 + 1, outputHeight - 1);
-      const xWeight = srcX - x0;
-      const yWeight = srcY - y0;
-
-      const chR = 0;
-      const chG = outputWidth * outputHeight;
-      const chB = outputWidth * outputHeight * 2;
-
-      // Bilinear sample each channel
-      const rTop =
-        output[y0 * outputWidth + x0 + chR]! * (1 - xWeight) +
-        output[y0 * outputWidth + x1 + chR]! * xWeight;
-      const rBot =
-        output[y1 * outputWidth + x0 + chR]! * (1 - xWeight) +
-        output[y1 * outputWidth + x1 + chR]! * xWeight;
-      const r = rTop * (1 - yWeight) + rBot * yWeight;
-
-      const gTop =
-        output[y0 * outputWidth + x0 + chG]! * (1 - xWeight) +
-        output[y0 * outputWidth + x1 + chG]! * xWeight;
-      const gBot =
-        output[y1 * outputWidth + x0 + chG]! * (1 - xWeight) +
-        output[y1 * outputWidth + x1 + chG]! * xWeight;
-      const g = gTop * (1 - yWeight) + gBot * yWeight;
-
-      const bTop =
-        output[y0 * outputWidth + x0 + chB]! * (1 - xWeight) +
-        output[y0 * outputWidth + x1 + chB]! * xWeight;
-      const bBot =
-        output[y1 * outputWidth + x0 + chB]! * (1 - xWeight) +
-        output[y1 * outputWidth + x1 + chB]! * xWeight;
-      const b = bTop * (1 - yWeight) + bBot * yWeight;
-
-      // Clamp and convert to uint8
-      const denoisedR = Math.round(Math.min(1, Math.max(0, r)) * 255);
-      const denoisedG = Math.round(Math.min(1, Math.max(0, g)) * 255);
-      const denoisedB = Math.round(Math.min(1, Math.max(0, b)) * 255);
-
-      // Blend with original based on strength
-      const dstIdx = (y * targetWidth + x) * 4;
-      const srcIdx = (y * targetWidth + x) * 4;
-      result[dstIdx] = Math.round(denoisedR * strength + originalData[srcIdx]! * (1 - strength));
-      result[dstIdx + 1] = Math.round(
-        denoisedG * strength + originalData[srcIdx + 1]! * (1 - strength),
-      );
-      result[dstIdx + 2] = Math.round(
-        denoisedB * strength + originalData[srcIdx + 2]! * (1 - strength),
-      );
-      result[dstIdx + 3] = alphaData ? alphaData[y * targetWidth + x]! : originalData[srcIdx + 3]!;
+  const result = new ImageData(targetW, targetH);
+  const outPixels = outW * outH;
+  if (outW === targetW && outH === targetH) {
+    for (let i = 0; i < targetW * targetH; i++) {
+      const dstIdx = i * 4;
+      for (let c = 0; c < 3; c++) {
+        const modelVal = outputTensor[i + c * outPixels]!;
+        const origVal = originalData[dstIdx + c]! / 255;
+        result.data[dstIdx + c] = clamp255((origVal * (1 - strength) + modelVal * strength) * 255);
+      }
+      result.data[dstIdx + 3] = alphaData ? alphaData[i]! : 255;
+    }
+  } else {
+    for (let y = 0; y < targetH; y++) {
+      for (let x = 0; x < targetW; x++) {
+        const srcX = (x / targetW) * outW;
+        const srcY = (y / targetH) * outH;
+        const x0 = Math.min(Math.floor(srcX), outW - 1);
+        const y0 = Math.min(Math.floor(srcY), outH - 1);
+        const x1 = Math.min(x0 + 1, outW - 1);
+        const y1 = Math.min(y0 + 1, outH - 1);
+        const xW = srcX - x0;
+        const yW = srcY - y0;
+        const dstIdx = (y * targetW + x) * 4;
+        for (let c = 0; c < 3; c++) {
+          const tl = outputTensor[y0 * outW + x0 + c * outPixels]!;
+          const tr = outputTensor[y0 * outW + x1 + c * outPixels]!;
+          const bl = outputTensor[y1 * outW + x0 + c * outPixels]!;
+          const br = outputTensor[y1 * outW + x1 + c * outPixels]!;
+          const val = (tl * (1 - xW) + tr * xW) * (1 - yW) + (bl * (1 - xW) + br * xW) * yW;
+          const origVal = originalData[dstIdx + c]! / 255;
+          result.data[dstIdx + c] = clamp255((origVal * (1 - strength) + val * strength) * 255);
+        }
+        result.data[dstIdx + 3] = alphaData ? alphaData[y * targetW + x]! : 255;
+      }
     }
   }
-
-  return new ImageData(result, targetWidth, targetHeight);
+  return result;
 }
 
-/**
- * Validate SCUNet inference input.
- *
- * Any image with non-zero dimensions is accepted — preprocessing resizes
- * to 512×512. Very large images are downscaled before resize to avoid
- * excessive memory use during the letterbox step.
- */
-export function validateScunetInput(input: ScunetInferenceInput): string | null {
-  if (!input.imageData) return 'Image data is required';
-  if (input.imageData.width === 0 || input.imageData.height === 0)
-    return 'Image has zero dimensions';
-  if (input.strength !== undefined && (input.strength < 0 || input.strength > 1)) {
-    return 'Strength must be between 0 and 1';
+export function validateScunetInput(input: unknown): string | null {
+  if (!input || typeof input !== 'object') return 'Input must be an object';
+  const obj = input as Record<string, unknown>;
+  if (!obj.imageData || typeof obj.imageData !== 'object') return 'imageData is required';
+  const img = obj.imageData as Record<string, unknown>;
+  if (typeof img.width !== 'number' || img.width <= 0) return 'imageData must have a valid width';
+  if (typeof img.height !== 'number' || img.height <= 0)
+    return 'imageData must have a valid height';
+  if (
+    obj.strength !== undefined &&
+    (typeof obj.strength !== 'number' || obj.strength < 0 || obj.strength > 1)
+  ) {
+    return 'strength must be a number between 0 and 1';
   }
   return null;
 }
