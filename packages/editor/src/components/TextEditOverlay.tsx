@@ -10,7 +10,8 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { TextNode } from '@strata/scene';
+import type { RichSelection, TextNode } from '@strata/scene';
+import { splitGraphemes } from '@strata/engine';
 import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,
@@ -20,6 +21,7 @@ import {
 } from '@strata/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useEditor } from '../context';
 
 interface TextEditOverlayProps {
   node: TextNode;
@@ -54,6 +56,7 @@ export function TextEditOverlay({
 }: TextEditOverlayProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const composingRef = useRef(false);
+  const ctx = useEditor();
 
   // Compute screen-space position from world-space transform
   // Use pre-composed world coordinates when available (accounts for ancestor transforms).
@@ -129,6 +132,31 @@ export function TextEditOverlay({
     }
   }, [onCommit]);
 
+  // Report grapheme-aware caret position to editor state so the span editor
+  // can apply formatting to the selected range. Maps UTF-16 textarea offsets
+  // to codepoint grapheme boundaries for correct multi-codepoint handling.
+  const handleSelect = useCallback(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const text = ta.value;
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    const graphs = splitGraphemes(text);
+    let startOffset = 0;
+    let endOffset = 0;
+    let utf16 = 0;
+    for (let i = 0; i < graphs.length; i++) {
+      if (utf16 < start) startOffset = i;
+      if (utf16 < end) endOffset = i + 1;
+      utf16 += graphs[i].length;
+    }
+    const range: RichSelection = {
+      start: { paragraphIndex: 0, offset: startOffset },
+      end: { paragraphIndex: 0, offset: endOffset },
+    };
+    ctx.setSelectionRange(range);
+  }, [ctx]);
+
   // Auto-focus on mount and select all text
   useEffect(() => {
     const ta = textareaRef.current;
@@ -149,6 +177,7 @@ export function TextEditOverlay({
       onCompositionUpdate={handleCompositionStart}
       onCompositionEnd={handleCompositionEnd}
       onBlur={handleBlur}
+      onSelect={handleSelect}
       dir="auto"
       style={{
         position: 'fixed',

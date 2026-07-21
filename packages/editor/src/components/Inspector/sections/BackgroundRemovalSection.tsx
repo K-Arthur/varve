@@ -369,9 +369,9 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
               )}
               {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && !needsGpuWarn && (
                 <p className="insp-hint insp-hint--warn" role="status">
-                  This model exceeds the safe WASM memory limit without GPU acceleration. The
-                  AI Balanced model will be used as fallback if AI Quality fails. Consider
-                  switching to AI Balanced for reliable results.
+                  This model exceeds the safe WASM memory limit without GPU acceleration. The AI
+                  Balanced model will be used as fallback if AI Quality fails. Consider switching to
+                  AI Balanced for reliable results.
                 </p>
               )}
             </div>

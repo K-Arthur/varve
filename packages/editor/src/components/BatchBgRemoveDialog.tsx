@@ -474,8 +474,8 @@ export function BatchBgRemoveDialog({
                     )}
                     {method === 'ai-quality' && !wasmModelSafe && !hasGpuAccel && (
                       <p className="batch-bg-remove__hint batch-bg-remove__hint--warn">
-                        AI Quality model may exceed available memory without GPU acceleration.
-                        AI Balanced will be used as fallback if this fails.
+                        AI Quality model may exceed available memory without GPU acceleration. AI
+                        Balanced will be used as fallback if this fails.
                       </p>
                     )}
 

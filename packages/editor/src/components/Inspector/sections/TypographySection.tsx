@@ -191,6 +191,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     setSelectedBinding,
   } = editor;
   const bindingTriggerRef = useRef<HTMLDivElement>(null);
+  const [richTextEnabled, setRichTextEnabled] = useState(false);
 
   const textNodes = useMemo(() => nodes.filter((n): n is TextNode => n.kind === 'text'), [nodes]);
 
@@ -279,15 +280,45 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     <DisclosureSection title="Typography">
       <div ref={bindingTriggerRef} className="insp-field-group">
         {textContent !== null && (
-          <FieldRow label="Content">
-            <textarea
-              className="typography__text-input"
-              value={textContent === '(Mixed)' ? '' : textContent}
-              onChange={(e) => handleTextChange(e.target.value)}
-              rows={3}
-              aria-label="Text content"
-            />
-          </FieldRow>
+          <>
+            <FieldRow label="Content">
+              {richTextEnabled && textNodes.length === 1 ? (
+                <RichTextSpanEditor
+                  richText={
+                    textNodes[0].richText ?? {
+                      paragraphs: [{ runs: [{ text: textNodes[0].text }] }],
+                    }
+                  }
+                  onChange={(rich) =>
+                    updateNode(textNodes[0].id, (n) =>
+                      n.kind === 'text' ? { ...n, richText: rich } : n,
+                    )
+                  }
+                />
+              ) : (
+                <textarea
+                  className="typography__text-input"
+                  value={textContent === '(Mixed)' ? '' : textContent}
+                  onChange={(e) => handleTextChange(e.target.value)}
+                  rows={3}
+                  aria-label="Text content"
+                />
+              )}
+            </FieldRow>
+            <FieldRow label="Rich Text">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={richTextEnabled}
+                aria-label="Enable rich text editing"
+                className="insp-segmented__btn"
+                style={{ flex: '0 0 auto' }}
+                onClick={() => setRichTextEnabled((v) => !v)}
+              >
+                {richTextEnabled ? 'On' : 'Off'}
+              </button>
+            </FieldRow>
+          </>
         )}
         <FieldRow label="Font">
           <Select
