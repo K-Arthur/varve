@@ -452,6 +452,7 @@ export function applySoftwareFilter(
         highlightPoint: tf.highlightPoint,
         intensity: tf.intensity,
         preserveLuminosity: tf.preserveLuminosity,
+        interpolation: tf.interpolation,
       });
       ctx.putImageData(imageData, 0, 0);
       break;
