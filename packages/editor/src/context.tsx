@@ -1289,7 +1289,10 @@ export interface EditorContextValue {
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
   setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => void;
-  trimToSubject: (padding?: number) => Promise<void>;
+  trimToSubject: (
+    padding?: number,
+    options?: import('./imageCrop').TrimToSubjectOptions,
+  ) => Promise<void>;
   expandImageBounds: (
     padding: number,
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
@@ -4193,12 +4196,17 @@ export function EditorProvider({
       },
 
       // Image bounds operations
-      trimToSubject: async (_padding?: number) => {
+      trimToSubject: async (
+        padding?: number,
+        options?: import('./imageCrop').TrimToSubjectOptions,
+      ) => {
         const sel = state.selection;
         if (sel.length === 0) return;
+        let nextDoc = state.document;
         for (const id of sel) {
-          updateDoc((doc) => trimToSubjectDoc(doc, id));
+          nextDoc = await trimToSubjectDoc(nextDoc, id, padding, options);
         }
+        updateDoc(() => nextDoc);
       },
       expandImageBounds: (
         padding: number,

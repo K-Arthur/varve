@@ -7,16 +7,20 @@
  * Research basis: Figma image crop inspector, Sketch image trimming,
  * Canva background removal bounds.
  */
+import { decodeDetrOutput, getInferenceWorkerHost, getModelLoader } from '@strata/engine';
 import type { ImageFit, SceneNode, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
-import { Icon } from '@strata/ui';
-import { useCallback, useState } from 'react';
+import { Button, Icon } from '@strata/ui';
+import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
+import type { TrimToSubjectOptions } from '../../../imageCrop';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { NumberField } from '../controls/NumberField';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import type { SectionId } from '../sectionRegistry';
+
+const DETR_MODEL_ID = 'detr-resnet-50';
 
 const FIT_OPTIONS: readonly { readonly value: ImageFit; readonly label: string }[] = [
   { value: 'fill', label: 'Fill' },
@@ -94,7 +98,14 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
         </FieldRow>
 
         {/* Trim to Subject */}
-        <TrimControls hasMask={hasMask} trimToSubject={trimToSubject} />
+        <TrimControls
+          hasMask={hasMask}
+          trimToSubject={trimToSubject}
+          imageSrc={img.src}
+          fillX={img.x}
+          fillY={img.y}
+          fillScale={img.scale ?? 1}
+        />
 
         {/* Expand Bounds */}
         <ExpandControls
@@ -127,16 +138,36 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
 function TrimControls({
   hasMask,
   trimToSubject,
+  imageSrc,
+  fillX,
+  fillY,
+  fillScale,
 }: {
   hasMask: boolean;
-  trimToSubject: (
-    padding?: number,
-    options?: { source?: 'mask' | 'alpha' | 'combined'; alphaThreshold?: number },
-  ) => Promise<void>;
+  trimToSubject: (padding?: number, options?: TrimToSubjectOptions) => Promise<void>;
+  imageSrc: string;
+  fillX: number;
+  fillY: number;
+  fillScale: number;
 }) {
   const [padding, setPadding] = useState(0);
   const [source, setSource] = useState<'mask' | 'alpha' | 'combined'>('mask');
   const [trimming, setTrimming] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [modelAvailable, setModelAvailable] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const available = await getModelLoader().isModelAvailable(DETR_MODEL_ID);
+      if (!cancelled) setModelAvailable(available);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleTrim = useCallback(async () => {
     setTrimming(true);
@@ -146,6 +177,92 @@ function TrimControls({
       setTrimming(false);
     }
   }, [padding, source, trimToSubject]);
+
+  const handleDetectSubject = useCallback(async () => {
+    setDetecting(true);
+    setDetectError(null);
+    try {
+      const loader = getModelLoader();
+      if (!(await loader.isModelAvailable(DETR_MODEL_ID))) {
+        setDownloadProgress(0);
+        await loader.downloadModel(DETR_MODEL_ID, (loaded, total) => {
+          setDownloadProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+        });
+        setModelAvailable(true);
+        setDownloadProgress(null);
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error('Failed to load image'));
+        img.src = imageSrc;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas unavailable');
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+      const modelPath = await loader.getModelPath(DETR_MODEL_ID);
+      if (!modelPath) throw new Error('Detect Objects model not downloaded');
+
+      const host = getInferenceWorkerHost();
+      const result = await host.infer(
+        {
+          type: 'infer',
+          modelType: 'detr',
+          modelPath,
+          modelId: DETR_MODEL_ID,
+          imageData,
+          reuseSession: true,
+        },
+        { timeoutMs: 30_000 },
+      );
+
+      const rawOutputs = result.outputs as {
+        logits: { data: Float32Array; dims: number[] };
+        pred_boxes: { data: Float32Array; dims: number[] };
+        letterbox?: { offsetX: number; offsetY: number };
+      };
+      if (!rawOutputs.logits || !rawOutputs.pred_boxes) {
+        throw new Error('Detection did not produce output tensors');
+      }
+
+      const detections = decodeDetrOutput(
+        rawOutputs.logits.data,
+        rawOutputs.pred_boxes.data,
+        imageData.width,
+        imageData.height,
+        rawOutputs.letterbox,
+      );
+      const best = detections[0];
+      if (!best) {
+        setDetectError('No subject detected in this image.');
+        return;
+      }
+
+      // DETR's box is in source-image pixel space; convert to node-local
+      // space through the same fill offset/scale used for raster mask
+      // bounds (see computeVisibleContentBounds's raster-alpha branch).
+      await trimToSubject(padding, {
+        explicitBounds: {
+          x: fillX + best.box.x * fillScale,
+          y: fillY + best.box.y * fillScale,
+          w: best.box.width * fillScale,
+          h: best.box.height * fillScale,
+        },
+      });
+    } catch (err) {
+      setDetectError(err instanceof Error ? err.message : 'Detection failed');
+    } finally {
+      setDetecting(false);
+      setDownloadProgress(null);
+    }
+  }, [imageSrc, fillX, fillY, fillScale, padding, trimToSubject]);
 
   return (
     <DisclosureSection title="Trim to Subject" defaultExpanded={false}>
@@ -171,12 +288,43 @@ function TrimControls({
             unit="px"
           />
         </FieldRow>
+        {!hasMask && (
+          <div className="insp-field-group">
+            <p className="insp-hint">
+              No selection mask yet — detect the main subject automatically instead
+              {modelAvailable ? '' : ' (downloads a small ~41 MB AI model on first use)'}.
+            </p>
+            <div className="insp-actions">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleDetectSubject}
+                loading={detecting}
+                disabled={detecting}
+                aria-label="Detect subject automatically and trim to it"
+              >
+                Detect Subject Automatically
+              </Button>
+            </div>
+            {downloadProgress !== null && (
+              <p className="insp-hint" aria-live="polite">
+                Downloading model… {downloadProgress}%
+              </p>
+            )}
+            {detectError && (
+              <p className="insp-hint insp-hint--error" role="alert">
+                {detectError}
+              </p>
+            )}
+          </div>
+        )}
         <div className="insp-crop-section__trim-actions">
           <button
             type="button"
             className="insp-btn-sm"
             onClick={handleTrim}
-            disabled={trimming}
+            disabled={trimming || !hasMask}
             title="Trim to subject"
           >
             <Icon name="Scissors" size="0.85em" />
