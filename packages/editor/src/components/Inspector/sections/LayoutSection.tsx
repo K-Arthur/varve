@@ -51,8 +51,8 @@ const JUSTIFY_OPTIONS: readonly SegmentedOption<
 
 const SIZING_OPTIONS: { value: LayoutSizing; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
-  { value: 'hug', label: 'Hug' },
-  { value: 'fill', label: 'Fill' },
+  { value: 'hug', label: 'Fit to Content' },
+  { value: 'fill', label: 'Fill Parent' },
 ];
 
 const GRID_AUTO_FLOW_OPTIONS: { value: NonNullable<LayoutStyle['gridAutoFlow']>; label: string }[] =

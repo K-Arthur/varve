@@ -77,7 +77,7 @@ export const TOOLS: Record<string, HelpArticle> = {
     id: 'tool:frame',
     title: 'Frame Tool (F)',
     summary: 'Create containers for organizing content.',
-    body: 'Click and drag to draw a frame. Frames can contain other shapes and clip their contents. Use frames to create screens, artboards, and component containers. Frames support auto-layout for responsive designs. Apply frame presets for common device sizes.',
+    body: 'Click and drag to draw a frame. Frames can contain other shapes and clip their contents. Use frames to create screens, artboards, and component containers. Frames support flex layout for responsive designs. Apply frame presets for common device sizes.',
     keywords: ['frame', 'container', 'artboard', 'screen', 'f'],
     category: 'Tools',
     related: ['tool:rect', 'tool:select', 'panel:layers'],
