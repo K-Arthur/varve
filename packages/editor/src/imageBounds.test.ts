@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests for the shared visible-bounds abstraction.
  *

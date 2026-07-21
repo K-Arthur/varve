@@ -55,6 +55,7 @@ interface CurvePoint {
   x: number;
   y: number;
   keyframeIndex: number;
+  trackId?: string;
 }
 
 export const GraphEditor: FC<GraphEditorProps> = ({
@@ -134,8 +135,8 @@ export const GraphEditor: FC<GraphEditorProps> = ({
       const kfs = [...track.keyframes].sort((a, b) => a.progress - b.progress);
       if (kfs.length === 0) return '';
       if (kfs.length === 1) {
-        const x = progressToX(kfs[0].progress);
-        const y = valueToY(typeof kfs[0].value === 'number' ? kfs[0].value : 0);
+        const x = progressToX(kfs[0]!.progress);
+        const y = valueToY(typeof kfs[0]!.value === 'number' ? kfs[0]!.value : 0);
         return `M ${x} ${y}`;
       }
 
@@ -150,15 +151,15 @@ export const GraphEditor: FC<GraphEditorProps> = ({
         let segStart = 0;
         let segEnd = kfs.length - 1;
         for (let s = 0; s < kfs.length - 1; s++) {
-          if (t >= kfs[s].progress && t <= kfs[s + 1].progress) {
+          if (t >= kfs[s]!.progress && t <= kfs[s + 1]!.progress) {
             segStart = s;
             segEnd = s + 1;
             break;
           }
         }
 
-        const from = kfs[segStart];
-        const to = kfs[segEnd];
+        const from = kfs[segStart]!;
+        const to = kfs[segEnd]!;
         const segDuration = to.progress - from.progress;
         const localT = segDuration > 0 ? (t - from.progress) / segDuration : 0;
 
@@ -202,7 +203,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
       // Check if clicking near a keyframe
       for (const track of visibleTracks) {
         for (let i = 0; i < track.keyframes.length; i++) {
-          const kf = track.keyframes[i];
+          const kf = track.keyframes[i]!;
           const kx = progressToX(kf.progress);
           const ky = valueToY(typeof kf.value === 'number' ? kf.value : 0);
           const dist = Math.hypot(x - kx, e.clientY - rect.top - ky);
@@ -226,7 +227,7 @@ export const GraphEditor: FC<GraphEditorProps> = ({
       if (onMoveKeyframe) {
         const track = visibleTracks.find((t) => t.id === dragging.trackId);
         if (track) {
-          const oldKf = track.keyframes[dragging.keyframeIndex];
+          const oldKf = track.keyframes[dragging.keyframeIndex]!;
           if (oldKf) {
             onMoveKeyframe(timeline.id, dragging.trackId, oldKf.progress, newProgress);
           }

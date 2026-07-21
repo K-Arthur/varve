@@ -9,12 +9,7 @@
 import { Icon } from '@strata/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import {
-  CATEGORY_LABELS,
-  getAllSections,
-  getSectionDefinition,
-  type SectionId,
-} from './sectionRegistry';
+import { CATEGORY_LABELS, getAllSections, getSectionDefinition } from './sectionRegistry';
 import { countHiddenSections, getHiddenSectionIds } from './sectionState';
 
 export function SectionManagerTrigger() {
@@ -62,7 +57,7 @@ export function SectionManagerTrigger() {
     return () => document.removeEventListener('keydown', handle);
   }, [open]);
 
-  const allSections = getAllSections();
+  const allSections = getAllSections() as import('./sectionRegistry').SectionDefinition[];
   const grouped = new Map<string, typeof allSections>();
   for (const s of allSections) {
     const cat = CATEGORY_LABELS[s.category] ?? s.category;

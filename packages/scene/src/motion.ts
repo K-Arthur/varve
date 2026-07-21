@@ -169,6 +169,8 @@ export function updateTrack(
       | 'nodeId'
       | 'nestedTimelineId'
       | 'nestedStartProgress'
+      | 'muted'
+      | 'solo'
     >
   >,
 ): Document {

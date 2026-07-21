@@ -100,7 +100,7 @@ export function SelectionQuickBarHost({
       try {
         await dispatchQuickBarAction(id, {
           selection: state.selection,
-          setTool: editor.setTool,
+          setTool: editor.setTool as (tool: string) => void,
           setSelectedFlipH: editor.setSelectedFlipH,
           setSelectedFlipV: editor.setSelectedFlipV,
           removeBackgroundWithOptions: editor.removeBackgroundWithOptions,

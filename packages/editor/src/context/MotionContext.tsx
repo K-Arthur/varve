@@ -422,7 +422,7 @@ export function MotionProvider({
 
   const addTrackToTimeline = useCallback(
     (timelineId: string, nodeId: NodeId, property: string) => {
-      updateDoc((doc) => addTrack(doc, timelineId, nodeId, property));
+      updateDoc((doc) => addTrack(doc, timelineId, nodeId, property).doc);
       invalidateSamplerCache();
     },
     [updateDoc, invalidateSamplerCache],

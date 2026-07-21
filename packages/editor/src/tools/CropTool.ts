@@ -148,10 +148,10 @@ export class CropTool extends BaseTool {
     if (e.altKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
       const step = 5;
       const d = {
-        ArrowUp: [0, -step],
-        ArrowDown: [0, step],
-        ArrowLeft: [-step, 0],
-        ArrowRight: [step, 0],
+        ArrowUp: [0, -step] as const,
+        ArrowDown: [0, step] as const,
+        ArrowLeft: [-step, 0] as const,
+        ArrowRight: [step, 0] as const,
       }[e.key]!;
       this.panFill(d[0], d[1]);
       return true;

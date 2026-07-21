@@ -94,11 +94,10 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
         </FieldRow>
 
         {/* Trim to Subject */}
-        <TrimControls nodeId={node.id} hasMask={hasMask} trimToSubject={trimToSubject} />
+        <TrimControls hasMask={hasMask} trimToSubject={trimToSubject} />
 
         {/* Expand Bounds */}
         <ExpandControls
-          nodeId={node.id}
           isCropMode={isCropMode}
           expandImageBounds={expandImageBounds}
           convertToCropAndExpand={convertToCropAndExpand}
@@ -126,11 +125,9 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
 // ---------------------------------------------------------------------------
 
 function TrimControls({
-  _nodeId,
   hasMask,
   trimToSubject,
 }: {
-  _nodeId: string;
   hasMask: boolean;
   trimToSubject: (
     padding?: number,
@@ -196,34 +193,30 @@ function TrimControls({
 // ---------------------------------------------------------------------------
 
 function ExpandControls({
-  _nodeId,
   isCropMode,
   expandImageBounds,
   convertToCropAndExpand,
 }: {
-  _nodeId: string;
   isCropMode: boolean;
   expandImageBounds: (
     padding: number,
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
-    options?: { fromCenter?: boolean },
   ) => void;
-  convertToCropAndExpand: (
-    padding?: number,
+  convertToCropAndExpand?: (
+    padding: number,
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
-    options?: { fromCenter?: boolean },
   ) => void;
 }) {
   const [padding, setPadding] = useState(20);
   const [fromCenter, setFromCenter] = useState(false);
 
   const handleExpand = useCallback(() => {
-    expandImageBounds(padding, undefined, { fromCenter });
-  }, [padding, fromCenter, expandImageBounds]);
+    expandImageBounds(padding);
+  }, [padding, expandImageBounds]);
 
   const handleConvertAndExpand = useCallback(() => {
-    convertToCropAndExpand(padding, undefined, { fromCenter });
-  }, [padding, fromCenter, convertToCropAndExpand]);
+    convertToCropAndExpand?.(padding);
+  }, [padding, convertToCropAndExpand]);
 
   return (
     <DisclosureSection title="Expand Bounds" defaultExpanded={false}>

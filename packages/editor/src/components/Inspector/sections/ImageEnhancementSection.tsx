@@ -26,13 +26,9 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
     clearSelectedLiveTrace,
   } = useEditor();
   const node = nodes[0];
-  const scaleId = useId();
-  const methodId = useId();
-  const traceModeId = useId();
   const thresholdId = useId();
   const colorsId = useId();
   const areaId = useId();
-  const foregroundId = useId();
   const simplifyId = useId();
   const maxPathsId = useId();
   const alphaThresholdId = useId();

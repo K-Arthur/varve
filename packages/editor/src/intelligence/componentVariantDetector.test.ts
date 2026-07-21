@@ -119,12 +119,12 @@ describe('detectVariantCandidates', () => {
 
     const result = detectVariantCandidates(doc);
     expect(result).toHaveLength(1);
-    expect(result[0].nodeIds).toEqual(['a', 'b', 'c']);
-    expect(result[0].differingProperties).toHaveLength(1);
-    expect(result[0].differingProperties[0].property).toBe('fill');
-    expect(result[0].differingProperties[0].values).toHaveLength(3);
-    expect(result[0].suggestedVariantName).toBe('state');
-    expect(result[0].score).toBeGreaterThan(50);
+    expect(result[0]!.nodeIds).toEqual(['a', 'b', 'c']);
+    expect(result[0]!.differingProperties).toHaveLength(1);
+    expect(result[0]!.differingProperties[0]!.property).toBe('fill');
+    expect(result[0]!.differingProperties[0]!.values).toHaveLength(3);
+    expect(result[0]!.suggestedVariantName).toBe('state');
+    expect(result[0]!.score).toBeGreaterThan(50);
   });
 
   it('detects size variants in text nodes', () => {
@@ -143,8 +143,8 @@ describe('detectVariantCandidates', () => {
 
     const result = detectVariantCandidates(doc);
     expect(result).toHaveLength(1);
-    expect(result[0].differingProperties[0].property).toBe('fontSize');
-    expect(result[0].suggestedVariantName).toBe('size');
+    expect(result[0]!.differingProperties[0]!.property).toBe('fontSize');
+    expect(result[0]!.suggestedVariantName).toBe('size');
   });
 
   it('detects text content variants via differing fill values', () => {
@@ -175,7 +175,7 @@ describe('detectVariantCandidates', () => {
 
     const result = detectVariantCandidates(doc);
     expect(result).toHaveLength(1);
-    expect(result[0].differingProperties[0].property).toBe('fill');
+    expect(result[0]!.differingProperties[0]!.property).toBe('fill');
   });
 
   it('returns empty for empty document', () => {
@@ -258,9 +258,9 @@ describe('detectVariantCandidates', () => {
     };
     const result = detectVariantCandidates(doc);
     expect(result).toHaveLength(1);
-    expect(result[0].nodeIds).toContain('f1');
-    expect(result[0].nodeIds).toContain('f2');
-    expect(result[0].differingProperties[0].property).toBe('height');
+    expect(result[0]!.nodeIds).toContain('f1');
+    expect(result[0]!.nodeIds).toContain('f2');
+    expect(result[0]!.differingProperties[0]!.property).toBe('height');
   });
 
   it('returns deterministic results', () => {

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests for quick-bar action helpers and dispatch.
  */

@@ -35,7 +35,7 @@ let frameBudgetMs = 16.67;
 /** Initialise frame budget from display refresh rate. */
 export function initFrameBudget(): void {
   if (typeof window !== 'undefined' && 'screen' in window) {
-    const rate = window.screen.refreshRate ?? 60;
+    const rate = (screen as { refreshRate?: number }).refreshRate ?? 60;
     displayRefreshRate = rate;
     frameBudgetMs = 1000 / rate;
   }

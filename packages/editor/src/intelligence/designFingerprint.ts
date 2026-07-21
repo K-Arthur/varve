@@ -14,7 +14,7 @@ function collectNodeColors(doc: Document): Map<string, { color: ManagedColor; co
   const colorMap = new Map<string, { color: ManagedColor; count: number }>();
 
   for (const node of Object.values(doc.nodes)) {
-    const fills = (node as Record<string, unknown>).fills as
+    const fills = (node as unknown as unknown as Record<string, unknown>).fills as
       | Array<Record<string, unknown>>
       | undefined;
     if (fills && fills.length > 0) {
@@ -33,7 +33,9 @@ function collectNodeColors(doc: Document): Map<string, { color: ManagedColor; co
         }
       }
     } else {
-      const fillColor = (node as Record<string, unknown>).fill as ManagedColor | undefined;
+      const fillColor = (node as unknown as unknown as Record<string, unknown>).fill as
+        | ManagedColor
+        | undefined;
       if (fillColor && fillColor.a !== 0) {
         const key = colorKey(fillColor);
         const existing = colorMap.get(key);
@@ -76,9 +78,11 @@ export function computeFingerprint(doc: Document): DesignFingerprint {
     if (
       node.kind === 'shape' &&
       node.shape.kind === 'rect' &&
-      typeof (node as Record<string, unknown>).cornerRadius === 'number'
+      typeof (node as unknown as unknown as Record<string, unknown>).cornerRadius === 'number'
     ) {
-      cornerRadii.add((node as Record<string, unknown>).cornerRadius as number);
+      cornerRadii.add(
+        (node as unknown as unknown as Record<string, unknown>).cornerRadius as number,
+      );
     }
   }
 

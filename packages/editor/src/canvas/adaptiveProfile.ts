@@ -75,8 +75,8 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
 function selectTier(
   avgFrameTime: number,
   overBudgetCount: number,
-  nodeCount: number,
-  caps: PlatformCapabilities,
+  _nodeCount: number,
+  _caps: PlatformCapabilities,
 ): ProfileTier {
   const budget = 1000 / 60;
 

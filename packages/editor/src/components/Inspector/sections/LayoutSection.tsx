@@ -75,7 +75,7 @@ export function LayoutSection({ node }: { node: FrameNode }) {
     [node.children, state.document.nodes],
   );
   const suggestion = useMemo(
-    () => (!ls || ls.mode === 'none' ? suggestAutoLayout(node, children, state.document) : null),
+    () => (!ls ? suggestAutoLayout(node, children, state.document) : null),
     [node, children, ls, state.document],
   );
 

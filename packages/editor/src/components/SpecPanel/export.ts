@@ -266,9 +266,9 @@ function makeSimpleImagePdf(rgbaPixels: Uint8Array, width: number, height: numbe
   const rgb = new Uint8Array(width * height * 3);
   for (let i = 0; i < width * height; i++) {
     const off = i * 4;
-    rgb[off] = rgbaPixels[off];
-    rgb[off + 1] = rgbaPixels[off + 1];
-    rgb[off + 2] = rgbaPixels[off + 2];
+    rgb[off] = rgbaPixels[off]!;
+    rgb[off + 1] = rgbaPixels[off + 1]!;
+    rgb[off + 2] = rgbaPixels[off + 2]!;
   }
 
   const streamData = rgb;
@@ -377,7 +377,7 @@ export async function exportNodeAsPdf(
     const imageData = ctx.getImageData(0, 0, img.width, img.height);
     img.close();
 
-    const pdfBytes = makeSimpleImagePdf(imageData.data, img.width, img.height);
+    const pdfBytes = makeSimpleImagePdf(imageData.data as unknown as Uint8Array, img.width, img.height);
     const filename = buildFilename(node.name, 'pdf');
     return { bytes: pdfBytes, filename };
   }

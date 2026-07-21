@@ -16,7 +16,8 @@
 import type { Affine } from '@strata/engine';
 import type { Document, NodeId, RasterMaskAsset, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
-import { type PathPoint as BezierPathPoint, cubicBezierBBox, transformRect } from '@strata/shared';
+import type { PathPoint } from '@strata/engine';
+import { cubicBezierBBox, transformRect } from '@strata/shared';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -91,7 +92,7 @@ export interface VisibleBoundsOptions {
  * mask transform.
  */
 export function computeVectorMaskBounds(
-  points: BezierPathPoint[],
+  points: PathPoint[],
   closed: boolean,
   _fillRule: 'nonzero' | 'evenodd',
   maskTransform?: Affine,
@@ -111,7 +112,7 @@ export function computeVectorMaskBounds(
   };
 
   for (let i = 0; i < points.length; i++) {
-    const pt = points[i];
+    const pt = points[i]!;
     // Anchor point
     expand(pt.x, pt.y);
 
@@ -125,7 +126,7 @@ export function computeVectorMaskBounds(
     }
 
     // Also consider the incoming handle of the next point (if connected)
-    const nextPt = closed ? points[(i + 1) % points.length] : points[i + 1];
+    const nextPt: PathPoint | undefined = closed ? points[(i + 1) % points.length] : points[i + 1];
     if (nextPt) {
       if (nextPt.handleIn) {
         expand(nextPt.handleIn[0], nextPt.handleIn[1]);
@@ -136,12 +137,14 @@ export function computeVectorMaskBounds(
 
     // For curves with handles, use cubicBezierBBox for tighter bounds
     if (pt.handleOut && nextPt) {
+      const ho = pt.handleOut;
+      const ni = nextPt.handleIn;
       const cb = {
         p0: { x: pt.x, y: pt.y },
-        p1: { x: pt.handleOut[0], y: pt.handleOut[1] },
+        p1: { x: ho[0], y: ho[1] },
         p2: {
-          x: nextPt.handleIn ? nextPt.handleIn[0] : nextPt.x,
-          y: nextPt.handleIn ? nextPt.handleIn[1] : nextPt.y,
+          x: ni ? ni[0] : nextPt.x,
+          y: ni ? ni[1] : nextPt.y,
         },
         p3: { x: nextPt.x, y: nextPt.y },
       };
@@ -211,7 +214,7 @@ function alphaAbove(
   y: number,
   threshold: number,
 ): boolean {
-  return data[(y * w + x) * 4 + 3] > threshold;
+  return data[(y * w + x) * 4 + 3]! > threshold;
 }
 
 /**
@@ -596,13 +599,13 @@ export async function computeVisibleContentBounds(
     if (shape.kind === 'rect') {
       local = { x: 0, y: 0, w: shape.w, h: shape.h };
       method = 'source-alpha';
-    } else if (shape.kind === 'ellipse' || shape.kind === 'circle') {
-      // Ellipse/circle bounds from center + radii
-      const cx = shape.cx ?? 0;
-      const cy = shape.cy ?? 0;
-      const rx = shape.rx ?? (shape.kind === 'circle' ? (shape.r ?? 0) : 0);
-      const ry = shape.ry ?? (shape.kind === 'circle' ? (shape.r ?? 0) : 0);
+    } else if (shape.kind === 'ellipse') {
+      const { cx = 0, cy = 0, rx = 0, ry = 0 } = shape;
       local = { x: cx - rx, y: cy - ry, w: rx * 2, h: ry * 2 };
+      method = 'source-alpha';
+    } else if (shape.kind === 'circle') {
+      const { cx = 0, cy = 0, r = 0 } = shape;
+      local = { x: cx - r, y: cy - r, w: r * 2, h: r * 2 };
       method = 'source-alpha';
     }
   }

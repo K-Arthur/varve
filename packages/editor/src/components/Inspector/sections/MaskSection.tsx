@@ -20,10 +20,11 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
     setMaskType,
     setMaskFillRule,
     setMaskVectorPath,
-    document,
+    state,
   } = editor;
 
-  const node = nodes[0];
+  const node = nodes[0]!;
+  const document = state.document;
   const container = node as SceneNode & { mask?: unknown; children?: string[] };
   const mask = (container.mask ?? null) as {
     type: MaskType;
@@ -142,7 +143,10 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleEditVectorPath = useCallback(() => {
     if (setMaskVectorPath && mask?.vectorMask) {
-      setMaskVectorPath(mask.vectorMask.points, mask.vectorMask.closed);
+      setMaskVectorPath(
+        mask.vectorMask.points as import('@strata/engine').PathPoint[],
+        mask.vectorMask.closed,
+      );
     }
   }, [setMaskVectorPath, mask?.vectorMask]);
 

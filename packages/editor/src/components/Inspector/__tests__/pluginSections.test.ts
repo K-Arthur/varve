@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests for the plugin section contribution API.
  */

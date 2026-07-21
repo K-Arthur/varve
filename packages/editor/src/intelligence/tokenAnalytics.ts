@@ -62,7 +62,7 @@ function hasTokenSpacing(node: SceneNode): boolean {
     }
   }
 
-  return gap !== undefined || padding?.some((p) => p > 0);
+  return gap !== undefined || (padding?.some((p) => p > 0) ?? false);
 }
 
 function hasTokenFont(node: SceneNode): boolean {

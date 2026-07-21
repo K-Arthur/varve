@@ -119,7 +119,8 @@ export function ConstraintPinControl({
         case 'Enter':
         case ' ':
           e.preventDefault();
-          handleZoneClick(ZONES[focusIndexRef.current]);
+          const zone = ZONES[focusIndexRef.current];
+          if (zone) handleZoneClick(zone);
           return;
         default:
           return;

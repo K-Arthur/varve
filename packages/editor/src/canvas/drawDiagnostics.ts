@@ -2,7 +2,7 @@
  * Dev-only diagnostics overlay for canvas draw timing and correctness.
  *
  * Collects per-frame metrics in a ring buffer and exposes them for a
- * <canvas> overlay or console inspection. Guarded by import.meta.env.DEV.
+ * <canvas> overlay or console inspection. Guarded by (import.meta as any).env.DEV.
  */
 
 export interface FrameDiagnostics {
@@ -27,7 +27,7 @@ const diagRing: FrameDiagnostics[] = [];
 let diagEnabled = false;
 
 export function enableDrawDiagnostics(force = false): void {
-  diagEnabled = force || import.meta.env.DEV;
+  diagEnabled = force || (import.meta as any).env.DEV;
 }
 
 export function isDiagnosticsEnabled(): boolean {

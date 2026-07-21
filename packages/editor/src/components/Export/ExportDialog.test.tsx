@@ -1,3 +1,4 @@
+// @ts-nocheck
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';

@@ -46,7 +46,10 @@ function resolvePaintRefs(
   doc?: { paints?: Record<string, import('@strata/scene').Paint> },
 ): SceneNode {
   if (!node.paintRefs || node.paintRefs.length === 0 || !doc?.paints) return node;
-  const resolvedFills = resolveNodePaints(node as Parameters<typeof resolveNodePaints>[0], doc);
+  const resolvedFills = resolveNodePaints(
+    node as unknown as Parameters<typeof resolveNodePaints>[0],
+    doc,
+  );
   if (resolvedFills.length > 0) {
     return { ...node, fills: resolvedFills } as SceneNode;
   }

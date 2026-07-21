@@ -263,7 +263,7 @@ export function renderMinimap(
   // Draw entries back-to-front (last entries are on top in paint order)
   // We draw in reverse for proper visual stacking
   for (let i = scene.entries.length - 1; i >= 0; i--) {
-    const entry = scene.entries[i];
+    const entry = scene.entries[i]!;
 
     // Skip zero-bounds entries (adjustment nodes without geometry)
     if (
