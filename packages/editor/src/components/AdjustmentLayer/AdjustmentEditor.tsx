@@ -380,11 +380,15 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
           stops={adj.stops}
           dither={adj.dither}
           preserveLuminosity={adj.preserveLuminosity}
+          mode={adj.mode}
+          channelStops={adj.channelStops}
           onChange={(
             patch: Partial<{
               stops: import('@strata/scene').GradientMapStop[];
               dither: boolean;
               preserveLuminosity: boolean;
+              mode: 'luminance' | 'channel';
+              channelStops: import('@strata/scene').GradientMapAdjustment['channelStops'];
             }>,
           ) => onChange(patch as unknown as Partial<Adjustment>)}
         />
