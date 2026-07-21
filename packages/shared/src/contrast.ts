@@ -55,6 +55,16 @@ export const WCAG_AAA_NORMAL = 7.0;
 export const WCAG_AAA_LARGE = 4.5;
 
 /**
+ * True when the given font size/weight qualifies for WCAG's "large text"
+ * thresholds (≥18pt or ≥14pt bold). Font size is in CSS px; converted to
+ * points at 96dpi (×0.75).
+ */
+export function isLargeText(fontSize: number, fontWeight?: number): boolean {
+  const pt = fontSize * 0.75;
+  return pt >= 18 || (pt >= 14 && (fontWeight ?? 400) >= 700);
+}
+
+/**
  * Determine the WCAG compliance level for a given contrast ratio.
  *
  * @param ratio - The contrast ratio (≥1).

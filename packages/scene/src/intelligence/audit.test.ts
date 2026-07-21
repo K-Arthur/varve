@@ -100,9 +100,9 @@ describe('runIntelligenceAudit', () => {
     expect(runIntelligenceAudit(doc)).toHaveLength(0);
   });
 
-  it('skips non-RGB text fills without crashing', () => {
+  it('handles non-RGB text fills without crashing', () => {
     const frame = makeFrame();
-    const text = makeText({ fill: { space: 'cmyk', c: 0, m: 0, y: 0, k: 100, a: 255 } });
+    const text = makeText({ fill: { space: 'cmyk', c: 0, m: 0, y: 0, k: 255, a: 255 } });
     expect(() => runIntelligenceAudit(makeDoc(frame, text))).not.toThrow();
     expect(runIntelligenceAudit(makeDoc(frame, text))).toHaveLength(0);
   });

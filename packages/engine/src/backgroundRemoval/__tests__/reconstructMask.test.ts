@@ -198,12 +198,30 @@ describe('extractAlignedEdgeBand', () => {
 });
 
 describe('refineEdgeBand', () => {
-  it('returns a copy of the band alpha (placeholder)', () => {
+  it('returns a new array of the same length', () => {
     const band = new Uint8Array([0, 128, 255]);
     const crop = { x: 0, y: 0, w: 3, h: 1 };
     const rgba = new Uint8Array(12);
     const result = refineEdgeBand(band, crop, rgba, 3);
-    expect(result).toEqual(band);
+    expect(result.length).toBe(band.length);
     expect(result).not.toBe(band);
+  });
+
+  it('preserves fully opaque and fully transparent pixels (edge-band only)', () => {
+    const band = new Uint8Array([0, 5, 128, 245, 255]);
+    const crop = { x: 0, y: 0, w: 5, h: 1 };
+    const rgba = new Uint8Array(20);
+    const result = refineEdgeBand(band, crop, rgba, 5);
+    expect(result[0]).toBe(0);
+    expect(result[1]).toBe(5);
+    expect(result[4]).toBe(255);
+  });
+
+  it('returns a copy when crop dimensions are invalid', () => {
+    const band = new Uint8Array([100, 150]);
+    const crop = { x: 0, y: 0, w: 3, h: 1 };
+    const rgba = new Uint8Array(12);
+    const result = refineEdgeBand(band, crop, rgba, 3);
+    expect(result).toEqual(band);
   });
 });
