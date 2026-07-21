@@ -325,14 +325,29 @@ export const DEFAULT_BLACK_GENERATION: BlackGenerationConfig = {
 // ── Document Color Configuration ────────────────────────────────────────────
 
 /**
+ * Working color space for compositing and blending.
+ *
+ * - 'srgb': blend in gamma-encoded sRGB (current behavior, fast, but
+ *   mathematically incorrect for multiply/screen/overlay).
+ * - 'linear': decode to linear light before blending, re-encode after
+ *   (physically correct — how compositing works in Photoshop, Figma, CSS).
+ */
+export type WorkingSpace = 'srgb' | 'linear';
+
+/**
  * Complete color management configuration for a document.
  *
  * This is stored as `Document.colorConfig` and drives all color behavior:
- * default color space, profile assignment, output intent, and black generation.
+ * default color space, bit depth, profile assignment, output intent, and
+ * black generation.
  */
 export interface ColorConfig {
   /** Document color mode. */
   mode: ColorMode;
+  /** Default bit depth for newly created colors. */
+  bitDepth: BitDepth;
+  /** Working color space for blending and compositing. */
+  workingSpace: WorkingSpace;
   /** Working RGB profile (for RGB documents). */
   rgbProfile: ColorProfileRef;
   /** Working CMYK profile (for CMYK documents and output intent). */
@@ -365,10 +380,16 @@ export const CMYK_PROFILES = {
   japanColor2011: { id: 'japan-color-2011', name: 'Japan Color 2011 Coated' },
 } as const;
 
+/** Default working space: sRGB (backward compatible). Existing documents
+ *  blend in gamma space; new documents can opt into 'linear'. */
+export const DEFAULT_WORKING_SPACE: WorkingSpace = 'srgb';
+
 /** Default color configuration for RGB documents. */
-export function defaultRgbColorConfig(): ColorConfig {
+export function defaultRgbColorConfig(bitDepth: BitDepth = DEFAULT_BIT_DEPTH): ColorConfig {
   return {
     mode: 'rgb',
+    bitDepth,
+    workingSpace: DEFAULT_WORKING_SPACE,
     rgbProfile: { ...RGB_PROFILES.srgb },
     cmykProfile: { ...CMYK_PROFILES.fogra39 },
     blackGeneration: { ...DEFAULT_BLACK_GENERATION },
@@ -376,9 +397,11 @@ export function defaultRgbColorConfig(): ColorConfig {
 }
 
 /** Default color configuration for CMYK documents. */
-export function defaultCmykColorConfig(): ColorConfig {
+export function defaultCmykColorConfig(bitDepth: BitDepth = DEFAULT_BIT_DEPTH): ColorConfig {
   return {
     mode: 'cmyk',
+    bitDepth,
+    workingSpace: DEFAULT_WORKING_SPACE,
     rgbProfile: { ...RGB_PROFILES.srgb },
     cmykProfile: { ...CMYK_PROFILES.fogra39 },
     outputIntent: {
@@ -390,10 +413,24 @@ export function defaultCmykColorConfig(): ColorConfig {
   };
 }
 
-/** Default color configuration based on color mode. */
-export function defaultColorConfig(mode: ColorMode = 'rgb'): ColorConfig {
-  if (mode === 'cmyk') return defaultCmykColorConfig();
-  return defaultRgbColorConfig();
+/** Default color configuration based on color mode and bit depth. */
+export function defaultColorConfig(
+  mode: ColorMode = 'rgb',
+  bitDepth: BitDepth = DEFAULT_BIT_DEPTH,
+): ColorConfig {
+  if (mode === 'cmyk') return defaultCmykColorConfig(bitDepth);
+  return defaultRgbColorConfig(bitDepth);
+}
+
+/** Return a ColorConfig with bitDepth and workingSpace fields set to safe
+ *  defaults when missing (documents saved before v2.4). */
+export function colorConfigWithDefaults(config: ColorConfig | undefined): ColorConfig {
+  const base = config ?? defaultColorConfig('rgb', DEFAULT_BIT_DEPTH);
+  return {
+    ...base,
+    bitDepth: base.bitDepth ?? DEFAULT_BIT_DEPTH,
+    workingSpace: base.workingSpace ?? DEFAULT_WORKING_SPACE,
+  };
 }
 
 // ── Helper Functions ────────────────────────────────────────────────────────

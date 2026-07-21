@@ -17,6 +17,8 @@ function gray(v: number, a = 255): ManagedColor {
 
 const defaultColorConfig: ColorConfig = {
   mode: 'rgb' as const,
+  bitDepth: 'uint8' as const,
+  workingSpace: 'srgb' as const,
   rgbProfile: { id: 'srgb', name: 'sRGB' },
   cmykProfile: { id: 'fogra39', name: 'Fogra39' },
   blackGeneration: { mode: 'standard' as const, overprintBlack: false },
