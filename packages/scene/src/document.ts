@@ -185,6 +185,10 @@ export interface Document {
    * shared `Paint`. See `DocumentAsset` doc comment in ./types.
    */
   assets?: Record<string, import('./types').DocumentAsset>;
+
+  /** Persisted linter configuration (v2.7+). Undefined for pre-v2.7 docs,
+   *  in which case DEFAULT_LINTER_CONFIG applies at scan time. */
+  linterConfig?: import('./intelligence/linterTypes').LinterConfig;
 }
 
 export interface NodeEntry {

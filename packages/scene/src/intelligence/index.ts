@@ -36,3 +36,30 @@ export {
   validateComponentProperties,
   validateNamingConventions,
 } from './governanceRules';
+export {
+  analyzeFocusOrder,
+  checkEmptyContainers,
+  checkFocusOrder,
+  checkNonTextContrast,
+  checkOffCanvasLayers,
+  checkTouchTargets,
+  checkZeroSizeLayers,
+  runLinterScan,
+} from './linterScanner';
+export type {
+  FocusOrderAnalysis,
+  LinterCategory,
+  LinterConfig,
+  LinterFix,
+  LinterIssue,
+  LinterIssueGroup,
+  LinterOptions,
+  LinterReport,
+  LinterScope,
+  LinterSeverity,
+} from './linterTypes';
+export {
+  buildReport,
+  createDefaultLinterConfig,
+  DEFAULT_LINTER_CONFIG,
+} from './linterTypes';

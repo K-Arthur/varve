@@ -15,6 +15,7 @@ export * from './layoutScore';
 export * from './mlModelRegistry';
 export * from './motionPresetRecommender';
 export * from './onboardingAdapter';
+export * from './paletteMapper';
 export * from './progressiveComplexity';
 export * from './prototypeFlowAnalyzer';
 export * from './registry';

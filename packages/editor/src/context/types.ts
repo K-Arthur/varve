@@ -34,7 +34,8 @@ export type IntelligenceTab =
   | 'prototype'
   | 'layout'
   | 'components'
-  | 'similar';
+  | 'similar'
+  | 'linter';
 
 export type MaskPreviewMode =
   | 'checkerboard'

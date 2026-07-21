@@ -24,9 +24,12 @@ import {
   type GovernanceIssue,
   imageShapeSrc,
   isImageShape,
+  type LinterIssue,
+  type LinterReport,
   runDebtScan,
   runGovernanceRules,
   runIntelligenceAudit,
+  runLinterScan,
 } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -56,6 +59,7 @@ const MORE_TABS: IntelligenceTab[] = [
   'layout',
   'components',
   'similar',
+  'linter',
 ];
 
 export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab } = {}) {
@@ -140,7 +144,367 @@ export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab
       {tab === 'layout' && <LayoutTab />}
       {tab === 'components' && <ComponentsTab />}
       {tab === 'similar' && <SimilarTab />}
+      {tab === 'linter' && <LinterTab />}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 10: Linter — Design Linter Rules                              */
+/* ------------------------------------------------------------------ */
+
+function LinterTab() {
+  const { state, setSelection, updateDoc } = useEditor();
+  const [report, setReport] = useState<LinterReport | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [showConfig, setShowConfig] = useState(false);
+  const scanIdRef = useRef(0);
+
+  const runScan = useCallback(() => {
+    const cfg = (state.document as unknown as Record<string, unknown>).linterConfig as
+      | {
+          touchTargetMinWidth?: number;
+          touchTargetMinHeight?: number;
+          touchTargetMinSpacing?: number;
+          nonTextContrastThreshold?: number;
+          origin?: Record<string, string>;
+        }
+      | undefined;
+    const minW = cfg?.touchTargetMinWidth ?? 44;
+    const minH = cfg?.touchTargetMinHeight ?? 44;
+    const nonTextThreshold = cfg?.nonTextContrastThreshold ?? 3;
+    const result = runLinterScan(state.document, {
+      touchTargetMinSize: Math.min(minW, minH),
+      nonTextContrastThreshold: nonTextThreshold,
+    });
+    scanIdRef.current = result.scanId;
+    setReport(result);
+  }, [state.document]);
+
+  useEffect(() => {
+    runScan();
+  }, [runScan]);
+
+  if (!report) {
+    return (
+      <div className="intelligence-empty">
+        <p>Scanning\u2026</p>
+      </div>
+    );
+  }
+
+  const total = report.issues.length;
+  const visible = report.issues.filter((i) => !dismissed.has(`${i.ruleId}:${i.nodeIds.join(',')}`));
+
+  if (visible.length === 0) {
+    return (
+      <div className="intelligence-tab-content">
+        <div className="intelligence-analysis" style={{ marginBottom: 'var(--space-2)' }}>
+          <div className="intelligence-analysis__row">
+            <span>Issues found</span>
+            <span className="intelligence-analysis__value">{total}</span>
+          </div>
+          <div className="intelligence-analysis__row">
+            <span>Errors</span>
+            <span className="intelligence-analysis__value">{report.totalErrors}</span>
+          </div>
+          <div className="intelligence-analysis__row">
+            <span>Warnings</span>
+            <span className="intelligence-analysis__value">{report.totalWarnings}</span>
+          </div>
+          <div className="intelligence-analysis__row">
+            <span>Info / Suggestions</span>
+            <span className="intelligence-analysis__value">
+              {report.totalInfo + report.totalSuggestions}
+            </span>
+          </div>
+        </div>
+        <p className="intelligence-empty">
+          <Icon name="CircleCheck" label={undefined} size="1.2em" /> All issues dismissed
+        </p>
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          onClick={() => setDismissed(new Set())}
+        >
+          Reset dismissals
+        </button>
+      </div>
+    );
+  }
+
+  const byCategory: Record<string, LinterIssue[]> = {};
+  for (const issue of visible) {
+    const cat = byCategory[issue.category] ?? [];
+    cat.push(issue);
+    byCategory[issue.category] = cat;
+  }
+
+  return (
+    <div className="intelligence-tab-content">
+      <div className="intelligence-analysis" style={{ marginBottom: 'var(--space-2)' }}>
+        <div className="intelligence-analysis__row">
+          <span>Issues</span>
+          <span className="intelligence-analysis__value">{total}</span>
+        </div>
+        <div className="intelligence-analysis__row">
+          <span>Errors</span>
+          <span className="intelligence-analysis__value">{report.totalErrors}</span>
+        </div>
+        <div className="intelligence-analysis__row">
+          <span>Warnings</span>
+          <span className="intelligence-analysis__value">{report.totalWarnings}</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-2)' }}>
+        <button type="button" className="intelligence-action-btn" onClick={runScan}>
+          <Icon name="RotateCcw" label={undefined} size="0.85em" /> Re-scan
+        </button>
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          onClick={() => setShowConfig((s) => !s)}
+        >
+          <Icon name="Settings" label={undefined} size="0.85em" /> Config
+        </button>
+      </div>
+
+      {showConfig && <LinterConfigEditor />}
+
+      {Object.entries(byCategory).map(([category, issues]) => (
+        <details key={category} className="intelligence-section" open>
+          <summary className="intelligence-section__summary">
+            {category === 'color' && <Icon name="Palette" label={undefined} size="0.85em" />}
+            {category === 'layer-hygiene' && <Icon name="Layers" label={undefined} size="0.85em" />}
+            {category === 'touch-target' && <Icon name="Pointer" label={undefined} size="0.85em" />}
+            {category === 'focus-order' && <Icon name="List" label={undefined} size="0.85em" />}{' '}
+            {category.replace('-', ' ')} ({issues.length})
+          </summary>
+
+          <div className="intelligence-issue-list">
+            {issues.map((issue, i) => {
+              const key = `${issue.ruleId}:${issue.nodeIds.join(',')}`;
+              const sev =
+                issue.severity === 'error'
+                  ? 'error'
+                  : issue.severity === 'warning'
+                    ? 'warning'
+                    : 'info';
+              return (
+                <div
+                  key={`${key}-${i}`}
+                  className={`intelligence-issue intelligence-issue--${sev}`}
+                >
+                  <button
+                    type="button"
+                    className="intelligence-issue__target"
+                    onClick={() => {
+                      if (issue.nodeIds.length > 0) {
+                        setSelection(issue.nodeIds[0] ?? null);
+                      }
+                    }}
+                    title={issue.nodeIds.length > 0 ? 'Select this node' : undefined}
+                  >
+                    <span className="intelligence-severity-dot" />
+                    <span className="intelligence-issue__type">{issue.ruleId}</span>
+                  </button>
+                  <p className="intelligence-issue__message">{issue.message}</p>
+                  {issue.detail && (
+                    <p
+                      className="intelligence-issue__detail"
+                      style={{ fontSize: '0.85em', opacity: 0.8 }}
+                    >
+                      {issue.detail}
+                    </p>
+                  )}
+
+                  <div
+                    className="intelligence-issue__actions"
+                    style={{ display: 'flex', gap: 4, marginTop: 4 }}
+                  >
+                    {issue.fixes.map((fix) => (
+                      <button
+                        key={fix.id}
+                        type="button"
+                        className="intelligence-action-btn"
+                        onClick={() => {
+                          const result = fix.apply(state.document);
+                          if (result) updateDoc(() => result);
+                        }}
+                      >
+                        <Icon name="Wand" label={undefined} size="0.85em" /> {fix.label}
+                      </button>
+                    ))}
+                    {issue.dismissable && (
+                      <button
+                        type="button"
+                        className="intelligence-action-btn"
+                        onClick={() => setDismissed((prev) => new Set(prev).add(key))}
+                        title="Dismiss this issue"
+                      >
+                        <Icon name="X" label={undefined} size="0.85em" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Linter Config Editor                                              */
+/* ------------------------------------------------------------------ */
+
+function LinterConfigEditor() {
+  const { state, updateDoc } = useEditor();
+  const config = ((state.document as unknown as Record<string, unknown>).linterConfig ?? {
+    version: '1',
+    touchTargetMinWidth: 44,
+    touchTargetMinHeight: 44,
+    touchTargetMinSpacing: 8,
+    nonTextContrastThreshold: 3,
+  }) as {
+    version: string;
+    touchTargetMinWidth?: number;
+    touchTargetMinHeight?: number;
+    touchTargetMinSpacing?: number;
+    nonTextContrastThreshold?: number;
+    origin?: Record<string, string>;
+  };
+
+  const updateField = (key: string, value: number) => {
+    if (!Number.isFinite(value) || value < 0) return;
+    updateDoc((doc) => {
+      const docAny = doc as unknown as Record<string, unknown>;
+      const existingLinter = docAny.linterConfig as Record<string, unknown> | undefined;
+      return {
+        ...doc,
+        linterConfig: {
+          ...(existingLinter ?? { version: '1' }),
+          [key]: value,
+          version: '1',
+          origin: {
+            ...((existingLinter?.origin as Record<string, string> | undefined) ?? {}),
+            [key]: 'project',
+          },
+        },
+      } as unknown as typeof doc;
+    });
+  };
+
+  const handleReset = () => {
+    updateDoc(
+      (doc) =>
+        ({
+          ...doc,
+          linterConfig: {
+            version: '1',
+            touchTargetMinWidth: 44,
+            touchTargetMinHeight: 44,
+            touchTargetMinSpacing: 8,
+            nonTextContrastThreshold: 3,
+          },
+        }) as unknown as typeof doc,
+    );
+  };
+
+  const fields: Array<{
+    key: string;
+    label: string;
+    min: number;
+    max: number;
+    step: number;
+    defaultVal: number;
+    hint: string;
+  }> = [
+    {
+      key: 'touchTargetMinWidth',
+      label: 'Touch target min width (px)',
+      min: 24,
+      max: 88,
+      step: 1,
+      defaultVal: 44,
+      hint: 'WCAG 2.5.8 recommends 44px',
+    },
+    {
+      key: 'touchTargetMinHeight',
+      label: 'Touch target min height (px)',
+      min: 24,
+      max: 88,
+      step: 1,
+      defaultVal: 44,
+      hint: 'WCAG 2.5.8 recommends 44px',
+    },
+    {
+      key: 'touchTargetMinSpacing',
+      label: 'Min spacing between targets (px)',
+      min: 0,
+      max: 48,
+      step: 1,
+      defaultVal: 8,
+      hint: 'Minimum gap between adjacent interactive elements',
+    },
+    {
+      key: 'nonTextContrastThreshold',
+      label: 'Non-text contrast ratio',
+      min: 2,
+      max: 7,
+      step: 0.1,
+      defaultVal: 3,
+      hint: 'WCAG 2.1 SC 1.4.11 requires 3:1',
+    },
+  ];
+
+  return (
+    <details className="intelligence-section" open>
+      <summary className="intelligence-section__header">
+        <span className="intelligence-section__title">Project Linter Config</span>
+      </summary>
+      <div className="intelligence-issue-list" style={{ padding: 'var(--space-2)' }}>
+        {fields.map((field) => {
+          const value =
+            (config as unknown as Record<string, number | undefined>)[field.key] ??
+            field.defaultVal;
+          const origin =
+            (config.origin as Record<string, string> | undefined)?.[field.key] ?? 'default';
+          return (
+            <div key={field.key} style={{ marginBottom: 'var(--space-2)' }}>
+              <label style={{ fontSize: '0.85em', display: 'block', marginBottom: 2 }}>
+                {field.label}
+                <span style={{ fontSize: '0.8em', opacity: 0.6, marginLeft: 4 }}>({origin})</span>
+              </label>
+              <input
+                type="number"
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                value={value}
+                onChange={(e) =>
+                  updateField(field.key, parseFloat(e.target.value) || field.defaultVal)
+                }
+                style={{ width: '100%', padding: '2px 4px' }}
+                aria-label={field.label}
+              />
+              <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0 0' }}>{field.hint}</p>
+            </div>
+          );
+        })}
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          onClick={handleReset}
+          style={{ marginTop: 'var(--space-1)' }}
+        >
+          <Icon name="RotateCcw" label={undefined} size="0.85em" /> Reset to defaults
+        </button>
+      </div>
+    </details>
   );
 }
 
