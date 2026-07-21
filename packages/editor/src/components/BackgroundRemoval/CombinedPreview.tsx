@@ -128,9 +128,9 @@ export function CombinedPreview({
               aria-label={`${bg} background`}
               aria-pressed={background === bg}
             >
-              {bg === 'checkerboard' && '▦'}
-              {bg === 'black' && '■'}
-              {bg === 'white' && '□'}
+              {bg === 'checkerboard' && '#'}
+              {bg === 'black' && 'B'}
+              {bg === 'white' && 'W'}
             </button>
           ))}
         </div>

@@ -56,7 +56,7 @@ export const SubjectCard = memo(function SubjectCard({
         className={`subject-card ${selected ? 'subject-card--selected' : ''}`}
         role="option"
         aria-selected={selected}
-        aria-label={`Subject ${index + 1}, ${bbox.w}×${bbox.h} pixels, ${areaPercent}% of image${selected ? ', selected' : ''}${isLargest ? ', largest' : ''}`}
+        aria-label={`Subject ${index + 1}, ${bbox.w}x${bbox.h} pixels, ${areaPercent}% of image${selected ? ', selected' : ''}${isLargest ? ', largest' : ''}`}
         tabIndex={0}
         onClick={handleToggle}
         onMouseEnter={handleMouseEnter}
@@ -93,7 +93,7 @@ export const SubjectCard = memo(function SubjectCard({
         <div className="subject-card__info">
           <span className="subject-card__label">Subject {index + 1}</span>
           <span className="subject-card__meta">
-            {bbox.w}×{bbox.h} · {areaPercent}%
+            {bbox.w}x{bbox.h} | {areaPercent}%
           </span>
           <div className="subject-card__confidence">
             <div
@@ -117,9 +117,9 @@ export const SubjectCard = memo(function SubjectCard({
               aria-label={`${mode} preview`}
               aria-pressed={previewMode === mode}
             >
-              {mode === 'isolated' && '✦'}
-              {mode === 'original' && '◱'}
-              {mode === 'mask' && '◉'}
+              {mode === 'isolated' && 'I'}
+              {mode === 'original' && 'O'}
+              {mode === 'mask' && 'M'}
             </button>
           ))}
         </div>
