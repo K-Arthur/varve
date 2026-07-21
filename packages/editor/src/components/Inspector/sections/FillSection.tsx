@@ -441,6 +441,7 @@ function FillRow({
         <ImageFillControls
           image={fill.image}
           onChange={(img: ImageFillData) => patch({ image: img })}
+          registerAsset={editor.registerEmbeddedImageAsset}
         />
       )}
 
