@@ -296,6 +296,21 @@ export type {
   WorkerInferResult,
   WorkerModelType,
 } from './inference/inferenceWorker';
+export {
+  estimateModelMemory,
+  getModelById,
+  getModelRegistry,
+  getRecommendedProvider,
+  initializeModelCatalog,
+  isModelAvailable as isModelCatalogEntryAvailable,
+  isModelReady,
+  listAllModels,
+  listModelsByCategory,
+  resetModelCatalog,
+  resolveBestModel,
+  setModelState,
+  subscribeToModel,
+} from './inference/modelCatalog';
 export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
 export type { DetrDetection } from './inference/models/detr';
