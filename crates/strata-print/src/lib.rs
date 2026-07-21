@@ -143,7 +143,6 @@ fn color_to_rgb_string(fill: &EngineColor) -> String {
     format!("{rf:.3} {gf:.3} {bf:.3} rg")
 }
 
-
 fn is_spot_color(color: &EngineColor) -> bool {
     matches!(color, EngineColor::Spot { .. })
 }
@@ -172,7 +171,14 @@ fn color_to_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> St
     }
     let (r, g, b, _) = engine_color_rgba(fill);
     let (c, m, y, k) = match profile {
-        Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
+        Some(p) => crate::cmyk::rgb_to_cmyk_icc(
+            p,
+            r,
+            g,
+            b,
+            crate::profiles::RenderingIntent::Relative,
+            true,
+        ),
         None => crate::cmyk::rgb_to_cmyk(r, g, b),
     };
     format!(
@@ -195,7 +201,14 @@ fn color_to_stroke_rgb_string(fill: &EngineColor) -> String {
 fn color_to_stroke_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> String {
     let (r, g, b, _) = engine_color_rgba(fill);
     let (c, m, y, k) = match profile {
-        Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
+        Some(p) => crate::cmyk::rgb_to_cmyk_icc(
+            p,
+            r,
+            g,
+            b,
+            crate::profiles::RenderingIntent::Relative,
+            true,
+        ),
         None => crate::cmyk::rgb_to_cmyk(r, g, b),
     };
     format!(
@@ -501,7 +514,10 @@ struct ShadingRegistry {
 
 impl ShadingRegistry {
     fn new() -> Self {
-        Self { definitions: Vec::new(), next_id: 1 }
+        Self {
+            definitions: Vec::new(),
+            next_id: 1,
+        }
     }
 
     /// Register a linear gradient. Returns the resource name (e.g., "Sh1").
@@ -513,11 +529,14 @@ impl ShadingRegistry {
     ) -> String {
         let name = format!("Sh{}", self.next_id);
         self.next_id += 1;
-        self.definitions.push((name.clone(), GradientShadingDef {
-            stops: stops.to_vec(),
-            use_cmyk,
-            profile,
-        }));
+        self.definitions.push((
+            name.clone(),
+            GradientShadingDef {
+                stops: stops.to_vec(),
+                use_cmyk,
+                profile,
+            },
+        ));
         name
     }
 
@@ -538,7 +557,8 @@ impl ShadingRegistry {
                 "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
             };
             let shading_id = doc.new_object_id();
-            doc.objects.insert(shading_id, Object::Dictionary(shading_dict));
+            doc.objects
+                .insert(shading_id, Object::Dictionary(shading_dict));
             resources.push((name.clone(), shading_id));
         }
         resources
@@ -561,7 +581,14 @@ fn create_sampled_function(
         let (r, g, b, _) = engine_color_rgba(&color);
         if use_cmyk {
             let (cc, cm, cy, ck) = match profile {
-                Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
+                Some(p) => crate::cmyk::rgb_to_cmyk_icc(
+                    p,
+                    r,
+                    g,
+                    b,
+                    crate::profiles::RenderingIntent::Relative,
+                    true,
+                ),
                 None => crate::cmyk::rgb_to_cmyk(r, g, b),
             };
             samples.push(cc);
@@ -598,7 +625,14 @@ fn create_sampled_function(
 /// Sample a gradient at position t (0.0-1.0) by interpolating between stops.
 fn sample_gradient(stops: &[GradientStop], t: f64) -> EngineColor {
     if stops.is_empty() {
-        return EngineColor::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 255.0, bitDepth: None, profile: None };
+        return EngineColor::Rgb {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 255.0,
+            bitDepth: None,
+            profile: None,
+        };
     }
     if stops.len() == 1 {
         return stops[0].color.clone();
@@ -614,13 +648,15 @@ fn sample_gradient(stops: &[GradientStop], t: f64) -> EngineColor {
         }
     }
     let range = upper.position - lower.position;
-    let local_t = if range > 0.0 { (t - lower.position) / range } else { 0.0 };
+    let local_t = if range > 0.0 {
+        (t - lower.position) / range
+    } else {
+        0.0
+    };
     // Linear interpolation in RGB space
     let (r1, g1, b1, a1) = engine_color_rgba(&lower.color);
     let (r2, g2, b2, a2) = engine_color_rgba(&upper.color);
-    let lerp = |a: u8, b: u8| -> f64 {
-        a as f64 + (b as f64 - a as f64) * local_t
-    };
+    let lerp = |a: u8, b: u8| -> f64 { a as f64 + (b as f64 - a as f64) * local_t };
     EngineColor::Rgb {
         r: lerp(r1, r2),
         g: lerp(g1, g2),
@@ -980,12 +1016,14 @@ fn render_fills(
                         let use_shading = stops.len() >= 2;
                         if use_shading {
                             if let Some(registry) = shading_registry.as_mut() {
-                                let shading_name = registry.add_linear_gradient(stops, use_cmyk, profile);
+                                let shading_name =
+                                    registry.add_linear_gradient(stops, use_cmyk, profile);
                                 buf.extend(&path_ops);
                                 buf.extend_from_slice(b"W n\n");
                                 buf.extend(format!("/{shading_name} sh\n").as_bytes());
                             } else {
-                                let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
+                                let color_str =
+                                    fill_to_color_string(fill, use_cmyk, profile, lossy);
                                 buf.extend(color_str.as_bytes());
                                 buf.extend(b"\n");
                                 buf.extend(&path_ops);
@@ -1027,7 +1065,12 @@ fn render_fills(
 }
 
 /// Render strokes from `node.strokes`.
-fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool, profile: Option<PrintProfile>) -> Vec<u8> {
+fn render_strokes(
+    node: &SceneNode,
+    page_height: f64,
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
+) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() || node.strokes.is_empty() {
         return Vec::new();
@@ -1091,7 +1134,12 @@ fn render_strokes(node: &SceneNode, page_height: f64, use_cmyk: bool, profile: O
 
 /// Render effects. dropShadow is rendered as an offset, semi-transparent
 /// black copy of the path. Other effects are emitted as comments.
-fn render_effects(node: &SceneNode, page_height: f64, use_cmyk: bool, profile: Option<PrintProfile>) -> Vec<u8> {
+fn render_effects(
+    node: &SceneNode,
+    page_height: f64,
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
+) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     let has_filters = node
         .filters
@@ -1294,14 +1342,22 @@ fn shape_to_pdf_content(
     buf.extend_from_slice(b"q\n");
     let effects = render_effects(node, page_height, false, None);
     buf.extend(&effects);
-    let fills = render_fills(node, page_height, false, image_state, manifest, None, None, false);
+    let fills = render_fills(
+        node,
+        page_height,
+        false,
+        image_state,
+        manifest,
+        None,
+        None,
+        false,
+    );
     buf.extend(&fills);
     let strokes = render_strokes(node, page_height, false, None);
     buf.extend(&strokes);
     buf.extend_from_slice(b"Q\n");
     buf
 }
-
 
 /// Check if a fill contains high bit depth colors that will lose precision
 /// when converted to 8-bit PDF. Prints a warning to stderr.
@@ -1320,15 +1376,18 @@ fn check_lossy_color(fill: &FillIR) {
         };
         if let Some(bd) = bit_depth {
             if bd != "uint8" && bd != "uint16" {
-                eprintln!(
-                    "[warn] exporting {bd} color as 8-bit PDF — precision will be lost"
-                );
+                eprintln!("[warn] exporting {bd} color as 8-bit PDF — precision will be lost");
             }
         }
     }
 }
 /// Helper: convert a FillIR to an RGB or CMYK fill color string.
-fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProfile>, lossy: bool) -> String {
+fn fill_to_color_string(
+    fill: &FillIR,
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
+    lossy: bool,
+) -> String {
     if lossy {
         check_lossy_color(fill);
     }
@@ -1349,14 +1408,17 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProf
                     color_to_rgb_string(&stop.color)
                 }
             } else if use_cmyk {
-                color_to_cmyk_string(&EngineColor::Rgb {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 255.0,
-                    bitDepth: None,
-                    profile: None,
-                }, profile)
+                color_to_cmyk_string(
+                    &EngineColor::Rgb {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 255.0,
+                        bitDepth: None,
+                        profile: None,
+                    },
+                    profile,
+                )
             } else {
                 color_to_rgb_string(&EngineColor::Rgb {
                     r: 0.0,
@@ -1370,14 +1432,17 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProf
         }
         FillIR::Image { .. } | FillIR::Pattern { .. } => {
             if use_cmyk {
-                color_to_cmyk_string(&EngineColor::Rgb {
-                    r: 0.0,
-                    g: 0.0,
-                    b: 0.0,
-                    a: 255.0,
-                    bitDepth: None,
-                    profile: None,
-                }, profile)
+                color_to_cmyk_string(
+                    &EngineColor::Rgb {
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
+                        a: 255.0,
+                        bitDepth: None,
+                        profile: None,
+                    },
+                    profile,
+                )
             } else {
                 color_to_rgb_string(&EngineColor::Rgb {
                     r: 0.0,
@@ -1805,8 +1870,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             // (Arabic, Hebrew, CJK cannot be encoded in WinAnsiEncoding and MUST
             // be outlined even when opts.outline_text is false).
             if do_outline
-                || shape_text(node)
-                    .map_or(false, |t| !t.is_empty() && requires_outline(t))
+                || shape_text(node).map_or(false, |t| !t.is_empty() && requires_outline(t))
             {
                 if let Shape::Text {
                     text,
@@ -2342,7 +2406,12 @@ mod tests {
             name: "PANTONE 185 C".into(),
             tint: 80.0,
             a: 255.0,
-            process_fallback: Some(CmykFallback { c: 0.0, m: 91.0, y: 76.0, k: 0.0 }),
+            process_fallback: Some(CmykFallback {
+                c: 0.0,
+                m: 91.0,
+                y: 76.0,
+                k: 0.0,
+            }),
         };
         node.fills = Some(vec![FillIR::Solid {
             color: spot,
@@ -2367,11 +2436,27 @@ mod tests {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![gradient_fill(true)]);
         let mut registry = ShadingRegistry::new();
-        let result = render_fills(&node, 100.0, false, None, None, None, Some(&mut registry), false);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            None,
+            None,
+            None,
+            Some(&mut registry),
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
-        assert!(s.contains("/Sh1 sh"), "should emit shading operator for gradient");
+        assert!(
+            s.contains("/Sh1 sh"),
+            "should emit shading operator for gradient"
+        );
         assert!(s.contains("W n"), "should clip to path before shading");
-        assert_eq!(registry.definitions.len(), 1, "should have one gradient definition");
+        assert_eq!(
+            registry.definitions.len(),
+            1,
+            "should have one gradient definition"
+        );
     }
 
     #[test]
@@ -2549,7 +2634,16 @@ mod tests {
 
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None, None, false);
+        let content = render_fills(
+            &node,
+            800.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("/Pat"),
@@ -2626,7 +2720,16 @@ mod tests {
             visible: true,
         }]);
 
-        let content = render_fills(&node, 800.0, false, None, Some(&manifest), None, None, false);
+        let content = render_fills(
+            &node,
+            800.0,
+            false,
+            None,
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2673,7 +2776,16 @@ mod tests {
 
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None, None, false);
+        let content = render_fills(
+            &node,
+            800.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&content);
         assert!(s.contains("/Pat"), "should contain pattern XObject: {s}");
         assert!(
@@ -2724,7 +2836,16 @@ mod tests {
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("/Im0 Do"),
@@ -2797,7 +2918,16 @@ mod tests {
         };
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("W n"),
@@ -2827,7 +2957,16 @@ mod tests {
         }]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("opacity=0.500"),
@@ -2884,7 +3023,16 @@ mod tests {
         ]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
+        let result = render_fills(
+            &node,
+            100.0,
+            false,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "should have solid fill color");
         assert!(s.contains("/Im0 Do"), "should have image Do operator");
@@ -2896,7 +3044,16 @@ mod tests {
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, true, Some(&mut state), None, None, None, false);
+        let result = render_fills(
+            &node,
+            100.0,
+            true,
+            Some(&mut state),
+            None,
+            None,
+            None,
+            false,
+        );
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("CMYK conversion not yet implemented"),
@@ -3523,8 +3680,10 @@ mod tests {
             "ICC and analytical CMYK conversion should differ for this color"
         );
         // Both should contain CMYK operators (end with 'k')
-        assert!(analytical.ends_with('k'), "analytical should be CMYK: {analytical}");
+        assert!(
+            analytical.ends_with('k'),
+            "analytical should be CMYK: {analytical}"
+        );
         assert!(icc.ends_with('k'), "icc should be CMYK: {icc}");
     }
-
 }

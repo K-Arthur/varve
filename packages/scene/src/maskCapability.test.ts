@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  FORMAT_CAPABILITIES,
   assessMaskCompatibility,
+  FORMAT_CAPABILITIES,
   getMaskFeatureCapability,
   isFormatSupported,
 } from './maskCapability';
