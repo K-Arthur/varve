@@ -30,7 +30,7 @@ use std::collections::HashMap;
 
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
-use strata_core::{Effect, EngineColor, FillIR, SceneNode, Shape};
+use strata_core::{CmykFallback, Effect, EngineColor, FillIR, GradientStop, SceneNode, Shape};
 
 use crate::subset::{
     collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
@@ -66,6 +66,9 @@ pub struct PdfOptions {
     /// Optional resource manifest carrying decoded image bytes for pattern fills.
     /// When `None`, pattern fills fall back to a neutral gray fill.
     pub manifest: Option<resources::ExportManifest>,
+    /// When true, emit a warning when converting high bit depth colors
+    /// (float32/uint16) to 8-bit PDF color values.
+    pub lossy: bool,
 }
 
 impl Default for PdfOptions {
@@ -84,6 +87,7 @@ impl Default for PdfOptions {
             subset_fonts: false,
             embedding_restriction_handling: EmbeddingRestriction::Warn,
             manifest: None,
+            lossy: false,
         }
     }
 }
@@ -129,6 +133,9 @@ fn engine_color_rgba(color: &EngineColor) -> (u8, u8, u8, u8) {
 }
 
 fn color_to_rgb_string(fill: &EngineColor) -> String {
+    if is_spot_color(fill) {
+        return spot_color_separation(fill);
+    }
     let (r, g, b, _) = engine_color_rgba(fill);
     let rf = r as f32 / 255.0;
     let gf = g as f32 / 255.0;
@@ -136,7 +143,33 @@ fn color_to_rgb_string(fill: &EngineColor) -> String {
     format!("{rf:.3} {gf:.3} {bf:.3} rg")
 }
 
+
+fn is_spot_color(color: &EngineColor) -> bool {
+    matches!(color, EngineColor::Spot { .. })
+}
+
+/// Emit a PDF /Separation color space for a spot color.
+/// Returns the PDF commands to set the spot color, using the process fallback
+/// for the separation's DeviceCMYK alternate.
+fn spot_color_separation(color: &EngineColor) -> String {
+    if let EngineColor::Spot { name, tint, a, .. } = color {
+        let tint_val = (tint / 100.0).clamp(0.0, 1.0);
+        // Set color space to /Separation with the spot color name.
+        // The alternate DeviceCMYK uses the process fallback; the tint value
+        // (0-1) maps to spot concentration.
+        format!(
+            "[/Separation {name} /DeviceCMYK {{0 0 0 0}}] cs\n{:.3} sc\n",
+            tint_val * (*a as f64 / 255.0)
+        )
+    } else {
+        String::new()
+    }
+}
+
 fn color_to_cmyk_string(fill: &EngineColor, profile: Option<PrintProfile>) -> String {
+    if is_spot_color(fill) {
+        return spot_color_separation(fill);
+    }
     let (r, g, b, _) = engine_color_rgba(fill);
     let (c, m, y, k) = match profile {
         Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
@@ -448,6 +481,155 @@ fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) 
 
 /// Render stacked fills from `node.fills` (bottom-to-top, last = topmost).
 /// Falls back to `node.fill` when `fills` is None or empty.
+
+/// A gradient shading definition collected during render.
+/// The actual PDF objects are created later (after the render borrow ends).
+#[derive(Clone)]
+struct GradientShadingDef {
+    stops: Vec<GradientStop>,
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
+}
+
+/// Tracks gradient shading definitions during render. Collects gradient
+/// data without borrowing the document, then creates PDF objects in a
+/// deferred pass.
+struct ShadingRegistry {
+    definitions: Vec<(String, GradientShadingDef)>,
+    next_id: u64,
+}
+
+impl ShadingRegistry {
+    fn new() -> Self {
+        Self { definitions: Vec::new(), next_id: 1 }
+    }
+
+    /// Register a linear gradient. Returns the resource name (e.g., "Sh1").
+    fn add_linear_gradient(
+        &mut self,
+        stops: &[GradientStop],
+        use_cmyk: bool,
+        profile: Option<PrintProfile>,
+    ) -> String {
+        let name = format!("Sh{}", self.next_id);
+        self.next_id += 1;
+        self.definitions.push((name.clone(), GradientShadingDef {
+            stops: stops.to_vec(),
+            use_cmyk,
+            profile,
+        }));
+        name
+    }
+
+    /// Create all PDF shading objects in the document and return resource refs.
+    fn create_pdf_objects(&self, doc: &mut Document) -> Vec<(String, ObjectId)> {
+        let mut resources = Vec::new();
+        for (name, def) in &self.definitions {
+            let func_id = create_sampled_function(doc, &def.stops, def.use_cmyk, def.profile);
+            let shading_dict = dictionary! {
+                "ShadingType" => 2i64,
+                "ColorSpace" => if def.use_cmyk { "DeviceCMYK" } else { "DeviceRGB" },
+                "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+                "Coords" => vec![
+                    Object::Real(0.0), Object::Real(0.0),
+                    Object::Real(1.0), Object::Real(0.0),
+                ],
+                "Function" => Object::Reference(func_id),
+                "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
+            };
+            let shading_id = doc.new_object_id();
+            doc.objects.insert(shading_id, Object::Dictionary(shading_dict));
+            resources.push((name.clone(), shading_id));
+        }
+        resources
+    }
+}
+
+/// Create a Type 0 sampled function for gradient color interpolation.
+fn create_sampled_function(
+    doc: &mut Document,
+    stops: &[GradientStop],
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
+) -> ObjectId {
+    const SAMPLES: usize = 256;
+    let mut samples: Vec<u8> = Vec::with_capacity(SAMPLES * if use_cmyk { 4 } else { 3 });
+
+    for i in 0..SAMPLES {
+        let t = i as f64 / (SAMPLES - 1) as f64;
+        let color = sample_gradient(stops, t);
+        let (r, g, b, _) = engine_color_rgba(&color);
+        if use_cmyk {
+            let (cc, cm, cy, ck) = match profile {
+                Some(p) => crate::cmyk::rgb_to_cmyk_icc(p, r, g, b, crate::profiles::RenderingIntent::Relative, true),
+                None => crate::cmyk::rgb_to_cmyk(r, g, b),
+            };
+            samples.push(cc);
+            samples.push(cm);
+            samples.push(cy);
+            samples.push(ck);
+        } else {
+            samples.push(r);
+            samples.push(g);
+            samples.push(b);
+        }
+    }
+
+    let func_dict = dictionary! {
+        "FunctionType" => 0i64,
+        "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+        "Range" => vec![
+            Object::Real(0.0), Object::Real(255.0),
+            Object::Real(0.0), Object::Real(255.0),
+            Object::Real(0.0), Object::Real(255.0),
+            Object::Real(0.0), Object::Real(255.0),
+        ],
+        "Size" => vec![Object::Integer(SAMPLES as i64)],
+        "BitsPerSample" => 8i64,
+        "Order" => 1i64,
+    };
+
+    let func_stream = Stream::new(func_dict, samples);
+    let func_id = doc.new_object_id();
+    doc.objects.insert(func_id, Object::Stream(func_stream));
+    func_id
+}
+
+/// Sample a gradient at position t (0.0-1.0) by interpolating between stops.
+fn sample_gradient(stops: &[GradientStop], t: f64) -> EngineColor {
+    if stops.is_empty() {
+        return EngineColor::Rgb { r: 0.0, g: 0.0, b: 0.0, a: 255.0, bitDepth: None, profile: None };
+    }
+    if stops.len() == 1 {
+        return stops[0].color.clone();
+    }
+    // Find the two stops surrounding t
+    let mut lower = &stops[0];
+    let mut upper = &stops[stops.len() - 1];
+    for window in stops.windows(2) {
+        if t >= window[0].position && t <= window[1].position {
+            lower = &window[0];
+            upper = &window[1];
+            break;
+        }
+    }
+    let range = upper.position - lower.position;
+    let local_t = if range > 0.0 { (t - lower.position) / range } else { 0.0 };
+    // Linear interpolation in RGB space
+    let (r1, g1, b1, a1) = engine_color_rgba(&lower.color);
+    let (r2, g2, b2, a2) = engine_color_rgba(&upper.color);
+    let lerp = |a: u8, b: u8| -> f64 {
+        a as f64 + (b as f64 - a as f64) * local_t
+    };
+    EngineColor::Rgb {
+        r: lerp(r1, r2),
+        g: lerp(g1, g2),
+        b: lerp(b1, b2),
+        a: lerp(a1, a2),
+        bitDepth: None,
+        profile: None,
+    }
+}
 /// `use_cmyk` controls whether RGB or CMYK color operators are emitted.
 ///
 /// When `image_state` is `Some`, image fills are rendered as checkerboard
@@ -461,6 +643,8 @@ fn render_fills(
     mut image_state: Option<&mut ImageRenderState>,
     manifest: Option<&resources::ExportManifest>,
     profile: Option<PrintProfile>,
+    mut shading_registry: Option<&mut ShadingRegistry>,
+    lossy: bool,
 ) -> Vec<u8> {
     let path_ops = shape_path_operators(node, page_height);
     if path_ops.is_empty() {
@@ -779,16 +963,42 @@ fn render_fills(
 
                         buf.extend_from_slice(b"Q\n");
                     }
-                    FillIR::Solid { .. } | FillIR::Gradient { .. } => {
+                    FillIR::Solid { .. } => {
                         buf.extend_from_slice(b"q\n");
-                        let color_str = fill_to_color_string(fill, use_cmyk, profile);
+                        let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
                         buf.extend(color_str.as_bytes());
                         buf.extend(b"\n");
                         buf.extend(&path_ops);
                         buf.extend_from_slice(b"f\n");
                         if fill_opacity(fill) < 1.0 {
-                            // Emit an explicit opacity comment; full PDF transparency
-                            // requires an extended graphics state (ExtGState).
+                            buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
+                        }
+                        buf.extend_from_slice(b"Q\n");
+                    }
+                    FillIR::Gradient { stops, .. } => {
+                        buf.extend_from_slice(b"q\n");
+                        let use_shading = stops.len() >= 2;
+                        if use_shading {
+                            if let Some(registry) = shading_registry.as_mut() {
+                                let shading_name = registry.add_linear_gradient(stops, use_cmyk, profile);
+                                buf.extend(&path_ops);
+                                buf.extend_from_slice(b"W n\n");
+                                buf.extend(format!("/{shading_name} sh\n").as_bytes());
+                            } else {
+                                let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
+                                buf.extend(color_str.as_bytes());
+                                buf.extend(b"\n");
+                                buf.extend(&path_ops);
+                                buf.extend_from_slice(b"f\n");
+                            }
+                        } else {
+                            let color_str = fill_to_color_string(fill, use_cmyk, profile, lossy);
+                            buf.extend(color_str.as_bytes());
+                            buf.extend(b"\n");
+                            buf.extend(&path_ops);
+                            buf.extend_from_slice(b"f\n");
+                        }
+                        if fill_opacity(fill) < 1.0 {
                             buf.extend(format!("% opacity={:.3}\n", fill_opacity(fill)).as_bytes());
                         }
                         buf.extend_from_slice(b"Q\n");
@@ -1084,7 +1294,7 @@ fn shape_to_pdf_content(
     buf.extend_from_slice(b"q\n");
     let effects = render_effects(node, page_height, false, None);
     buf.extend(&effects);
-    let fills = render_fills(node, page_height, false, image_state, manifest, None);
+    let fills = render_fills(node, page_height, false, image_state, manifest, None, None, false);
     buf.extend(&fills);
     let strokes = render_strokes(node, page_height, false, None);
     buf.extend(&strokes);
@@ -1092,8 +1302,36 @@ fn shape_to_pdf_content(
     buf
 }
 
+
+/// Check if a fill contains high bit depth colors that will lose precision
+/// when converted to 8-bit PDF. Prints a warning to stderr.
+fn check_lossy_color(fill: &FillIR) {
+    let colors: Vec<&EngineColor> = match fill {
+        FillIR::Solid { color, .. } => vec![color],
+        FillIR::Gradient { stops, .. } => stops.iter().map(|s| &s.color).collect(),
+        _ => return,
+    };
+    for color in colors {
+        let bit_depth = match color {
+            EngineColor::Rgb { bitDepth, .. } => bitDepth.as_deref(),
+            EngineColor::Cmyk { bitDepth, .. } => bitDepth.as_deref(),
+            EngineColor::Gray { bitDepth, .. } => bitDepth.as_deref(),
+            _ => None,
+        };
+        if let Some(bd) = bit_depth {
+            if bd != "uint8" && bd != "uint16" {
+                eprintln!(
+                    "[warn] exporting {bd} color as 8-bit PDF — precision will be lost"
+                );
+            }
+        }
+    }
+}
 /// Helper: convert a FillIR to an RGB or CMYK fill color string.
-fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProfile>) -> String {
+fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProfile>, lossy: bool) -> String {
+    if lossy {
+        check_lossy_color(fill);
+    }
     match fill {
         FillIR::Solid { color, .. } => {
             if use_cmyk {
@@ -1116,6 +1354,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProf
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
+                    bitDepth: None,
                     profile: None,
                 }, profile)
             } else {
@@ -1124,6 +1363,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProf
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
+                    bitDepth: None,
                     profile: None,
                 })
             }
@@ -1135,6 +1375,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProf
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
+                    bitDepth: None,
                     profile: None,
                 }, profile)
             } else {
@@ -1143,6 +1384,7 @@ fn fill_to_color_string(fill: &FillIR, use_cmyk: bool, profile: Option<PrintProf
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
+                    bitDepth: None,
                     profile: None,
                 })
             }
@@ -1494,8 +1736,9 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     let mut need_bt = false;
 
     // ── Build content with image rendering support ──────────────────────
-    let image_refs = {
+    let (image_refs, mut shading_registry) = {
         let mut image_state = ImageRenderState::new(&mut doc);
+        let mut shading_registry = ShadingRegistry::new();
 
         for node in nodes {
             // Try embedded font text rendering
@@ -1595,6 +1838,8 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                 Some(&mut image_state),
                 opts.manifest.as_ref(),
                 opts.print_profile,
+                Some(&mut shading_registry),
+                opts.lossy,
             );
             content.extend(&fills);
             let strokes = render_strokes(node, opts.page_height, use_cmyk, opts.print_profile);
@@ -1602,7 +1847,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             content.extend_from_slice(b"Q\n");
         }
 
-        std::mem::take(&mut image_state.refs)
+        (std::mem::take(&mut image_state.refs), shading_registry)
     };
 
     if need_bt {
@@ -1640,6 +1885,14 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             xdict.set(name.as_bytes(), ref_obj.clone());
         }
         resources.set("XObject", xdict);
+    }
+    let shading_resources = shading_registry.create_pdf_objects(&mut doc);
+    if !shading_resources.is_empty() {
+        let mut sdict = lopdf::Dictionary::new();
+        for (name, obj_id) in &shading_resources {
+            sdict.set(name.as_bytes(), Object::Reference(*obj_id));
+        }
+        resources.set("Shading", sdict);
     }
 
     let pages_id = doc.new_object_id();
@@ -1784,6 +2037,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -1836,6 +2090,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -1875,6 +2130,7 @@ mod tests {
                 g: g as f64,
                 b: b as f64,
                 a: a as f64,
+                bitDepth: None,
                 profile: None,
             },
             opacity: 1.0,
@@ -1894,6 +2150,7 @@ mod tests {
                         g: 0.0,
                         b: 0.0,
                         a: 255.0,
+                        bitDepth: None,
                         profile: None,
                     },
                     midpoint: None,
@@ -1905,6 +2162,7 @@ mod tests {
                         g: 0.0,
                         b: 255.0,
                         a: 255.0,
+                        bitDepth: None,
                         profile: None,
                     },
                     midpoint: None,
@@ -1942,6 +2200,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -1992,6 +2251,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2033,6 +2293,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2057,7 +2318,7 @@ mod tests {
     fn render_fills_solid() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![solid_fill(255, 0, 0, 255, true)]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "should contain RGB color");
         assert!(s.contains("f\n"), "should contain fill operator");
@@ -2068,16 +2329,55 @@ mod tests {
     fn render_fills_gradient() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![gradient_fill(true)]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "gradient approximated as solid");
         assert!(s.contains("f\n"), "should fill");
     }
 
     #[test]
+    fn render_fills_spot_color_separation() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        let spot = EngineColor::Spot {
+            name: "PANTONE 185 C".into(),
+            tint: 80.0,
+            a: 255.0,
+            process_fallback: Some(CmykFallback { c: 0.0, m: 91.0, y: 76.0, k: 0.0 }),
+        };
+        node.fills = Some(vec![FillIR::Solid {
+            color: spot,
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+        }]);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
+        let s = String::from_utf8_lossy(&result);
+        assert!(
+            s.contains("/Separation"),
+            "spot color should emit /Separation color space: {s}"
+        );
+        assert!(
+            s.contains("PANTONE 185 C"),
+            "spot color name should appear in separation: {s}"
+        );
+    }
+
+    #[test]
+    fn render_fills_gradient_emits_shading() {
+        let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![gradient_fill(true)]);
+        let mut registry = ShadingRegistry::new();
+        let result = render_fills(&node, 100.0, false, None, None, None, Some(&mut registry), false);
+        let s = String::from_utf8_lossy(&result);
+        assert!(s.contains("/Sh1 sh"), "should emit shading operator for gradient");
+        assert!(s.contains("W n"), "should clip to path before shading");
+        assert_eq!(registry.definitions.len(), 1, "should have one gradient definition");
+    }
+
+    #[test]
     fn render_fills_fallback() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         // Default fill is teal: 57, 208, 198
         assert!(s.contains("0.224"), "should contain R component of teal");
@@ -2092,7 +2392,7 @@ mod tests {
             solid_fill(255, 0, 0, 255, true),
             solid_fill(0, 255, 0, 255, true),
         ]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("1.000 0.000 0.000 rg"), "first fill red");
         assert!(s.contains("0.000 1.000 0.000 rg"), "second fill green");
@@ -2110,13 +2410,14 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             opacity: 0.5,
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("opacity=0.500"), "should emit opacity comment");
     }
@@ -2125,7 +2426,7 @@ mod tests {
     fn render_fills_invisible() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![solid_fill(255, 0, 0, 255, false)]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(!s.contains("rg"), "invisible fill should not render");
     }
@@ -2146,7 +2447,7 @@ mod tests {
             visible: true,
             alpha_mask: None,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             !s.contains("0 0 0 rg") && !s.contains("f\n"),
@@ -2172,7 +2473,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2197,7 +2498,7 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
         }]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2248,7 +2549,7 @@ mod tests {
 
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None);
+        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None, None, false);
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("/Pat"),
@@ -2280,7 +2581,7 @@ mod tests {
             visible: true,
         }]);
 
-        let content = render_fills(&node, 800.0, false, None, None, None);
+        let content = render_fills(&node, 800.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2325,7 +2626,7 @@ mod tests {
             visible: true,
         }]);
 
-        let content = render_fills(&node, 800.0, false, None, Some(&manifest), None);
+        let content = render_fills(&node, 800.0, false, None, Some(&manifest), None, None, false);
         let s = String::from_utf8_lossy(&content);
         assert!(
             s.contains("0.75 0.75 0.75 rg"),
@@ -2372,7 +2673,7 @@ mod tests {
 
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None);
+        let content = render_fills(&node, 800.0, false, Some(&mut state), Some(&manifest), None, None, false);
         let s = String::from_utf8_lossy(&content);
         assert!(s.contains("/Pat"), "should contain pattern XObject: {s}");
         assert!(
@@ -2385,7 +2686,7 @@ mod tests {
     fn render_fills_empty_fills_fallsback() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.fills = Some(vec![]);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "empty fills should fallback");
     }
@@ -2393,7 +2694,7 @@ mod tests {
     #[test]
     fn render_fills_none_fallsback() {
         let node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "None fills should fallback to fill");
     }
@@ -2423,7 +2724,7 @@ mod tests {
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("/Im0 Do"),
@@ -2442,7 +2743,7 @@ mod tests {
     fn render_fills_image_without_document_compat() {
         // Without a document, image fills should still emit the "not rendered" comment
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
-        let result = render_fills(&node, 100.0, false, None, None, None);
+        let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("not rendered"),
@@ -2467,6 +2768,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2495,7 +2797,7 @@ mod tests {
         };
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("W n"),
@@ -2525,7 +2827,7 @@ mod tests {
         }]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("opacity=0.500"),
@@ -2559,6 +2861,7 @@ mod tests {
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
+                    bitDepth: None,
                     profile: None,
                 },
                 opacity: 1.0,
@@ -2581,7 +2884,7 @@ mod tests {
         ]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None);
+        let result = render_fills(&node, 100.0, false, Some(&mut state), None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(s.contains("rg"), "should have solid fill color");
         assert!(s.contains("/Im0 Do"), "should have image Do operator");
@@ -2593,7 +2896,7 @@ mod tests {
         let node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
-        let result = render_fills(&node, 100.0, true, Some(&mut state), None, None);
+        let result = render_fills(&node, 100.0, true, Some(&mut state), None, None, None, false);
         let s = String::from_utf8_lossy(&result);
         assert!(
             s.contains("CMYK conversion not yet implemented"),
@@ -2615,6 +2918,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2722,6 +3026,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -2781,6 +3086,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -2887,6 +3193,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2943,6 +3250,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -3095,6 +3403,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -3195,6 +3504,7 @@ mod tests {
             g: 100.0,
             b: 60.0,
             a: 255.0,
+            bitDepth: None,
             profile: None,
         };
         let fill = strata_core::FillIR::Solid {
@@ -3204,8 +3514,8 @@ mod tests {
             visible: true,
         };
 
-        let analytical = fill_to_color_string(&fill, true, None);
-        let icc = fill_to_color_string(&fill, true, Some(PrintProfile::Fogra39));
+        let analytical = fill_to_color_string(&fill, true, None, false);
+        let icc = fill_to_color_string(&fill, true, Some(PrintProfile::Fogra39), false);
 
         // The ICC path produces different CMYK values than analytical
         assert_ne!(

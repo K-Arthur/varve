@@ -66,6 +66,8 @@ pub enum EngineColor {
         b: f64,
         a: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        bitDepth: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
     },
     #[serde(rename = "cmyk")]
@@ -76,12 +78,16 @@ pub enum EngineColor {
         k: f64,
         a: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
+        bitDepth: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
     },
     #[serde(rename = "gray")]
     Gray {
         v: f64,
         a: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        bitDepth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
     },
@@ -221,6 +227,7 @@ impl Default for Stroke {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None,
             },
             weight: 1.0,
