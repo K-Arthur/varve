@@ -1,58 +1,76 @@
-import { addInteraction, addNode, createDocument, makeShapeNode } from '@strata/scene';
+import { addSMState, addSMTransition, createDocument, createStateMachine } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { exportInteractiveAnimations } from './animation-interactive';
+import { exportInteractivePrototype, type InteractiveExportResult } from './animation-interactive';
 
-describe('exportInteractiveAnimations', () => {
-  it('emits navigate handler referencing targetId', () => {
-    let doc = createDocument();
-    const { doc: next } = addInteraction(doc, 'btn1', {
-      name: 'Go home',
-      trigger: { kind: 'onClick' },
-      actions: [
-        {
-          kind: 'navigateTo',
-          targetId: 'f2',
-          transition: { kind: 'instant', duration: 0, easing: { kind: 'linear' } },
-        },
-      ],
-      enabled: true,
-    });
-    doc = next;
-    const result = exportInteractiveAnimations(doc);
-    expect(result.reactHandlers).toContain('Go home');
-    expect(result.reactHandlers).toContain("navigate('/screen/f2')");
-    expect(result.reactHandlers).toContain('onClick');
+function makeDocWithSM(): ReturnType<typeof createDocument> {
+  let doc = createDocument('test');
+  doc = createStateMachine(doc, 'sm-1', 'Test SM');
+  const { stateId: idle, doc: d1 } = addSMState(doc, 'sm-1', 'Idle', 'tl-idle', true);
+  const { stateId: active, doc: d2 } = addSMState(d1, 'sm-1', 'Active', 'tl-active');
+  doc = addSMTransition(d2, 'sm-1', idle, active, 'onClick', {
+    duration: 300,
+    easing: { kind: 'ease' },
+    priority: 1,
+  }).doc;
+  return doc;
+}
+
+describe('exportInteractivePrototype', () => {
+  it('produces a self-contained HTML document', () => {
+    const doc = makeDocWithSM();
+    const result: InteractiveExportResult = exportInteractivePrototype(doc);
+    expect(result.html).toContain('<!DOCTYPE html>');
+    expect(result.html).toContain('<script>');
+    expect(result.html).toContain('State Machine Runtime');
+    expect(result.html).toContain('</html>');
   });
 
-  it('includes css scroll binding for scroll triggers when requested', () => {
-    let doc = createDocument();
-    doc = addNode(doc, makeShapeNode('hero', { kind: 'rect', x: 0, y: 0, w: 100, h: 40 }));
-    const { doc: withIx } = addInteraction(doc, 'hero', {
-      name: 'Parallax',
-      trigger: { kind: 'onScroll' },
-      actions: [{ kind: 'toggleVisibility' }],
-      enabled: true,
-    });
-    const result = exportInteractiveAnimations(withIx, { useScrollTimeline: true });
-    expect(result.cssBindings).toContain('animation-timeline: view()');
-    expect(result.cssBindings).toContain('[data-strata-node="hero"]');
+  it('includes state machine transitions as JSON', () => {
+    const doc = makeDocWithSM();
+    const result = exportInteractivePrototype(doc);
+    expect(result.html).toContain('smTransitions');
+    expect(result.html).toContain('"trigger":"onClick"');
+    expect(result.html).toContain('"priority":1');
   });
 
-  it('skips disabled interactions', () => {
-    const doc = createDocument();
-    const { doc: next } = addInteraction(doc, 'n1', {
-      name: 'Disabled',
-      trigger: { kind: 'onClick' },
-      actions: [
-        {
-          kind: 'navigateTo',
-          targetId: 'f1',
-          transition: { kind: 'instant', duration: 0, easing: { kind: 'linear' } },
-        },
-      ],
-      enabled: false,
-    });
-    const result = exportInteractiveAnimations(next);
-    expect(result.reactHandlers).not.toContain('Disabled');
+  it('includes the entry state', () => {
+    const doc = makeDocWithSM();
+    const result = exportInteractivePrototype(doc);
+    expect(result.html).toContain("smCurrentState = 'st-");
+  });
+
+  it('reports summary with counts', () => {
+    const doc = makeDocWithSM();
+    const result = exportInteractivePrototype(doc);
+    expect(result.summary.stateMachineCount).toBe(1);
+    expect(result.summary.stateCount).toBe(2);
+    expect(result.summary.transitionCount).toBe(1);
+    expect(result.summary.features).toContain('state-machines');
+  });
+
+  it('warns when no frames exist', () => {
+    const doc = createDocument('test');
+    const result = exportInteractivePrototype(doc);
+    expect(result.summary.warnings.length).toBeGreaterThan(0);
+    expect(result.summary.warnings[0]).toContain('No frame');
+  });
+
+  it('respects includeStateMachines=false', () => {
+    const doc = makeDocWithSM();
+    const result = exportInteractivePrototype(doc, { includeStateMachines: false });
+    expect(result.html).not.toContain('State Machine Runtime');
+  });
+
+  it('includes variable initialization', () => {
+    const doc = makeDocWithSM();
+    const result = exportInteractivePrototype(doc);
+    expect(result.html).toContain('variables');
+  });
+
+  it('escapes HTML in titles', () => {
+    const doc = makeDocWithSM();
+    const result = exportInteractivePrototype(doc, { title: '<script>alert(1)</script>' });
+    expect(result.html).not.toContain('<script>alert(1)</script>');
+    expect(result.html).toContain('&lt;script&gt;');
   });
 });

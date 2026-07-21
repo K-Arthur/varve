@@ -35,6 +35,7 @@ import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
 import { BrushSection } from './sections/BrushSection';
 import { CognitiveLoadIndicator } from './sections/CognitiveLoadIndicator';
+import { ColorizeSection } from './sections/ColorizeSection';
 import { ComponentSection } from './sections/ComponentSection';
 import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
@@ -51,6 +52,7 @@ import { LineArtSection } from './sections/LineArtSection';
 import { MaskSection } from './sections/MaskSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
+import { StateMachineSection } from './sections/StateMachineSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
@@ -151,6 +153,7 @@ export function PropertiesPanel() {
           )}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
+          <StateMachineSection />
         </div>
       )}
 
@@ -341,6 +344,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('image-enhancement', <ImageEnhancementSection nodes={nodes} />);
     add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
+    add('colorize', <ColorizeSection nodes={nodes} />);
     add('ai-denoise', <AIDenoiseSection nodes={nodes} />);
     add('lens-blur', <LensBlurSection nodes={nodes} />);
     add('line-art', <LineArtSection nodes={nodes} />);
