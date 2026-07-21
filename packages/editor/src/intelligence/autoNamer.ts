@@ -150,7 +150,12 @@ function getDefaultKindName(node: SceneNode): string {
   return KIND_NAMES[node.kind] ?? 'Node';
 }
 
-export function suggestName(node: SceneNode, doc: Document, index?: number): NamingSuggestion {
+export function suggestName(
+  node: SceneNode,
+  doc: Document,
+  index?: number,
+  imageLabels?: Map<NodeId, string>,
+): NamingSuggestion {
   // 1. Text with button-like content -> "Button: {text}" (high)
   if (node.kind === 'text' && isButtonLikeText(node.text)) {
     return {
@@ -277,8 +282,16 @@ export function suggestName(node: SceneNode, doc: Document, index?: number): Nam
     };
   }
 
-  // 13. Image shape -> "Image" (high)
+  // 13. Image shape -> classified content label if available, else "Image" (high)
   if (isImageShape(node)) {
+    const label = imageLabels?.get(node.id);
+    if (label) {
+      return {
+        name: label.charAt(0).toUpperCase() + label.slice(1),
+        confidence: 'high',
+        matchedRule: '13-image-classified',
+      };
+    }
     return {
       name: 'Image',
       confidence: 'high',
@@ -389,8 +402,13 @@ function nextUniqueDefaultName(doc: Document, kindName: string, excludeId?: Node
  * if the name already exists in the document. For default fallback names
  * it finds the next available sequential number for the kind.
  */
-export function autoName(doc: Document, node: SceneNode, index?: number): string {
-  const suggestion = suggestName(node, doc, index);
+export function autoName(
+  doc: Document,
+  node: SceneNode,
+  index?: number,
+  imageLabels?: Map<NodeId, string>,
+): string {
+  const suggestion = suggestName(node, doc, index, imageLabels);
   const base = suggestion.name;
 
   if (suggestion.matchedRule === '17-default') {
@@ -405,6 +423,7 @@ export function renameSelected(
   doc: Document,
   nodeIds: NodeId[],
   onlyIfDefault?: boolean,
+  imageLabels?: Map<NodeId, string>,
 ): Document {
   let newDoc: Document = doc;
   for (const id of nodeIds) {
@@ -413,7 +432,7 @@ export function renameSelected(
 
     if (onlyIfDefault && !DEFAULT_NAME_RE.test(node.name)) continue;
 
-    const name = autoName(newDoc, node);
+    const name = autoName(newDoc, node, undefined, imageLabels);
     if (name !== node.name) {
       newDoc = {
         ...newDoc,
