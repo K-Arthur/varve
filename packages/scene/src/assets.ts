@@ -39,6 +39,15 @@ export function decodedDataUrlByteLength(dataUrl: string): number {
   return Math.max(0, Math.floor((payload.length * 3) / 4) - padding);
 }
 
+/**
+ * MIME type parsed from a `data:<mime>;base64,...` prefix. `ImageFillData`
+ * has no separate mime field — the data URL itself is the source of truth.
+ */
+export function mimeTypeFromDataUrl(dataUrl: string): string {
+  const match = /^data:([^;,]+)/.exec(dataUrl);
+  return match?.[1] || 'application/octet-stream';
+}
+
 export interface EmbeddedAssetInput {
   dataUrl: string;
   mimeType: string;
