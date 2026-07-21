@@ -122,3 +122,14 @@ Independent of the Smart Object decision — recommend fixing now, as separate w
 - No external file linking, file-watching, relink UI, or project packaging in Phase 1.
 - No changes to the component/instance/variant system — it already solves reuse for vector/frame content; this work is scoped to raster image assets only.
 - No masking changes beyond what already exists (shared/reusable mask sources across unrelated containers is a real but separate, smaller gap — not required for this feature).
+
+---
+
+## 9. Implementation status (2026-07-20)
+
+Phase 1 shipped as scoped in §7. Schema bumped to v2.6. See AGENTS.md "Session 53 — Smart Object Feasibility Audit & Embedded Image Asset System" for the full file list and verification results. Summary of what changed from the plan during implementation:
+
+- The record shape landed as designed: `DocumentAsset { id, storage: 'embedded', mimeType, dataUrl, naturalWidth, naturalHeight, byteLength, hash }`, with `storage` as the extension point for a future `'linked'` variant.
+- `ImageFillData.src` was kept, not removed — it stays populated in-memory at all times (materialized from `Document.assets[assetId].dataUrl` on load) so every existing render/export/cache consumer needed zero changes. Deduplication happens only at the two shared serialization chokepoints (`serializeDocument` strips the redundant per-fill copy on save; migration/load rehydrates it back). This turned out to be a smaller-blast-radius design than the "~6 places" cost estimate in §5 — codegen, the Rust PDF exporter, and the Rust canvas IR builder needed no changes at all, since they all consume the already-hydrated in-memory `Document`.
+- The one concretely-identified bug (§2, replace-image stale dimensions) is fixed.
+- Phase 2 (Linked Asset) and the broader drag-and-drop/paste/import-parser ingestion wiring remain deferred, as scoped — tracked in AGENTS.md Session 53's "Deferred, flagged separately" list, along with two unrelated bugs (non-functional PSD import, possible retouch-tool data loss) surfaced incidentally during the audit.

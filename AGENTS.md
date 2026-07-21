@@ -2927,3 +2927,67 @@ dispatches by node kind, used by both TransformEngine and inspector resize paths
 - Fill offset/scale adjustments during crop not persisted between edit sessions
 - No E2E Playwright tests for interactive crop workflows (E2E suite has pre-existing setup failures)
 - Constraint inspector UI still missing (users set constraints only via code/defaults)
+
+## Session 53 — Smart Object Feasibility Audit & Embedded Image Asset System (2026-07-20)
+
+User asked for a Photoshop-style "Smart Object" capability. Per the requested
+decision-gate process, audited existing scene/asset/rendering systems and
+current-generation competitor behavior (Photoshop, Illustrator, Affinity,
+Figma, Sketch, GIMP, Krita) before writing any code. Full findings, options
+considered, and rationale: `docs/audits/smart-object-feasibility-audit.md`.
+
+### Decision
+
+A full Smart Object system (nested-document editing + its own Smart Filters
+stack) was **not justified**: it would duplicate two systems Strata already
+has — the component/instance override system and the `AdjustmentNode`
+non-destructive filter stack — while resting on a data model (images with no
+identity, `ImageFillData.src` literally commented "stub until asset system
+lands") that doesn't exist yet. Built instead: the narrower, prerequisite
+layer — a document-level **Embedded Asset** model — deliberately named to
+avoid Photoshop-specific branding and to leave room for a future **Linked
+Asset** (external file) storage kind without a schema redesign.
+
+### What shipped (schema v2.6)
+
+| Area | What | Key files |
+|---|---|---|
+| Asset model | `Document.assets`: content-hashed, deduped image payloads, generalizing the existing `RasterMaskAsset` pattern from raster masks to all image fills | `packages/scene/src/assets.ts`, `types.ts` |
+| Migration | v2.5→v2.6 extracts inline data-URL image fills into the asset table, deduping identical bytes across nodes/paints into one entry | `packages/scene/src/version.ts` |
+| Transparent hydration | `ImageFillData.src` stays populated in-memory on every load (`rehydrateEmbeddedAssetSrc`) — every existing reader (render, codegen, print export, thumbnail/IR cache) needed zero changes | `version.ts` |
+| Dedup on save | `serializeDocument` strips the now-redundant per-fill `src` copy at save/autosave/recovery time via `stripEmbeddedAssetPayloads`; a safety net skips stripping if `src` doesn't exactly match the asset (never discards unrecoverable data) | `version.ts` |
+| Codec integration | Validates/sanitizes `Document.assets` shape, garbage-collects unreferenced entries, carries referenced assets through `collectNodeClosure` (copy/paste between documents) | `documentCodec.ts` |
+| Bug fix | "Replace image" in the inspector previously never recomputed `imageWidth`/`imageHeight`, silently corrupting crop/fit framing on aspect-ratio change. Now decodes the new file's natural dimensions and registers it as a (deduped) asset before applying the fill | `context.tsx:registerEmbeddedImageAsset`, `ImageFillControls.tsx`, `FillSection.tsx` |
+
+### Verification
+
+- 1264/1264 `packages/scene` tests pass (66 new: `assets.test.ts`, `documentCodec.test.ts` additions, `version.test.ts` additions)
+- `ImageFillControls.test.tsx`: 5/5 (2 new: stale-assetId-on-edit/clear, dimension-decode-on-replace)
+- Typecheck: 0 new errors in `@strata/scene` or `@strata/editor` (pre-existing ~24 errors in unrelated files, all from concurrent in-flight color/text-pipeline work, unchanged)
+- Lint: 0 errors/warnings on the 12 files touched (1 pre-existing `noArrayIndexKey` warning in `FillSection.tsx`, predates this change)
+- Full `pnpm test`: 7520/7566 pass; all 40 failures are in files this change never touched (SVG color codegen, RTL text shaping, ML capability-gating mocks — pre-existing, from concurrent work)
+- `pnpm audit:emoji` / `pnpm audit:tokens`: clean
+
+### Explicit non-goals (see audit doc §8)
+
+- No new "Smart Object" node kind or a second, node-scoped filter stack.
+- No nested-document-in-document editing; no PSD/AI/PDF "keep editable" round-trip.
+- No Linked Asset (external file) storage kind yet — the record shape supports it, but it ships only behind real demand (Phase 2).
+- No changes to the component/instance/variant system.
+
+### Deferred, flagged separately (found during the audit, not fixed here)
+
+- `packages/import/src/psd.ts` declares `@webtoon/psd` as a dependency but never uses it — `parsePsdData` reads a few header bytes and emits placeholder layers with `src: ''`. AGENTS.md's Session 30 log claiming full layer-tree extraction is inaccurate to current code.
+- Healing Brush / Clone Stamp / Patch tools (`HealingBrushTool.ts`, `CloneStampTool.ts`, `PatchTool.ts`) appear to paint directly on the shared on-screen canvas rather than persisting into `RasterLayerNode` tile data or calling `updateDoc` — edits may not survive a redraw. Needs live verification; possible silent data loss, unrelated to this session's work.
+- Drag-and-drop/paste/import-parser image ingestion paths still create inline (non-deduped) fills — only the inspector's replace/choose-image flow was routed through the new asset table this session.
+
+### Key files
+
+| File | Purpose |
+|---|---|
+| `packages/scene/src/assets.ts` | Asset CRUD, content hashing, dedup, reference tracking, GC |
+| `packages/scene/src/version.ts` | Migration 2.5→2.6, rehydrate-on-load, strip-on-save |
+| `packages/scene/src/documentCodec.ts` | Validation, sanitization, copy/paste closure |
+| `packages/editor/src/context.tsx` | `registerEmbeddedImageAsset` |
+| `packages/editor/src/components/Inspector/sections/ImageFillControls.tsx` | Natural-dimension decode, stale-assetId cleanup |
+| `docs/audits/smart-object-feasibility-audit.md` | Full decision record |
