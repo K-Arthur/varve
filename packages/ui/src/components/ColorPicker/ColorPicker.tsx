@@ -1,7 +1,14 @@
-import type { ColorMode, ManagedColor } from '@strata/scene';
+import type { BitDepth, ColorMode, ManagedColor } from '@strata/scene';
 import { isCmykColor, isGrayColor, isRgbColor, isSpotColor } from '@strata/scene';
-import { managedColorToRgba, rgbToCmyk } from '@strata/shared';
+import {
+  denormalizeChannel,
+  managedColorToRgba,
+  normalizeChannel,
+  rgbToCmyk,
+} from '@strata/shared';
 import { useCallback, useMemo, useState } from 'react';
+import type { SegmentedOption } from '../SegmentedControl';
+import { SegmentedControl } from '../SegmentedControl';
 import { CmykColorFields } from './CmykColorFields';
 import { ColorArea } from './ColorArea';
 import { ColorFields } from './ColorFields';
@@ -23,6 +30,10 @@ export interface ColorPickerProps {
   bgColor?: Color;
   /** Document colour mode — when set, default initial space to match document mode. */
   documentColorMode?: ColorMode;
+  /** Current bit depth for high-precision workflows. */
+  bitDepth?: BitDepth;
+  /** Called when the user changes the bit depth. */
+  onBitDepthChange?: (bitDepth: BitDepth) => void;
 }
 
 function managedColorToRgbTuple(c: ManagedColor): Color {
@@ -39,7 +50,47 @@ function initialSpace(c: ManagedColor, documentColorMode?: ColorMode): ColorSpac
   return 'rgb';
 }
 
-export function ColorPicker({ value, onChange, bgColor, documentColorMode }: ColorPickerProps) {
+function reinterpretBitDepth(color: ManagedColor, newBitDepth: BitDepth): ManagedColor {
+  // Convert channels to normalized 0-1 float first, then denormalize to target depth
+  const toNormalized = (v: number, fromDepth: BitDepth) => normalizeChannel(v, fromDepth);
+  const toTarget = (v: number, toDepth: BitDepth) => denormalizeChannel(v, toDepth);
+
+  const sourceDepth: BitDepth = color.bitDepth ?? 'uint8';
+
+  if (color.space === 'rgb') {
+    const nR = toNormalized(color.r, sourceDepth);
+    const nG = toNormalized(color.g, sourceDepth);
+    const nB = toNormalized(color.b, sourceDepth);
+    const nA = toNormalized(color.a, sourceDepth);
+    return {
+      space: 'rgb',
+      bitDepth: newBitDepth,
+      r: toTarget(nR, newBitDepth),
+      g: toTarget(nG, newBitDepth),
+      b: toTarget(nB, newBitDepth),
+      a: toTarget(nA, newBitDepth),
+      profile: color.profile,
+    };
+  }
+
+  if (color.space === 'cmyk') {
+    return { ...color, bitDepth: newBitDepth };
+  }
+
+  if (color.space === 'gray') {
+    return { ...color, bitDepth: newBitDepth };
+  }
+
+  return color;
+}
+export function ColorPicker({
+  value,
+  onChange,
+  bgColor,
+  documentColorMode,
+  bitDepth,
+  onBitDepthChange,
+}: ColorPickerProps) {
   const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value, documentColorMode));
 
   const rgbTuple = useMemo(() => managedColorToRgbTuple(value), [value]);
@@ -167,6 +218,16 @@ export function ColorPicker({ value, onChange, bgColor, documentColorMode }: Col
     setSpace(newSpace);
   }, []);
 
+  const handleBitDepthChange = useCallback(
+    (newBitDepth: BitDepth) => {
+      onBitDepthChange?.(newBitDepth);
+      // Reinterpret the current color at the new precision
+      const reinterpreted = reinterpretBitDepth(value, newBitDepth);
+      onChange(reinterpreted);
+    },
+    [value, onChange, onBitDepthChange],
+  );
+
   const overlayColor: Color = [rgbTuple[0], rgbTuple[1], rgbTuple[2], 255];
   const alphaVal = value.a / 255;
 
@@ -180,6 +241,13 @@ export function ColorPicker({ value, onChange, bgColor, documentColorMode }: Col
   }, [rgbTuple, bgColor]);
 
   const showAreaAndSliders = space !== 'gray' && space !== 'spot';
+
+  const bitDepthOptions: SegmentedOption<BitDepth>[] = [
+    { value: 'uint8', label: '8-bit' },
+    { value: 'uint16', label: '16-bit' },
+    { value: 'float16', label: '16f' },
+    { value: 'float32', label: '32f' },
+  ];
 
   return (
     <div className="color-picker">
@@ -225,12 +293,32 @@ export function ColorPicker({ value, onChange, bgColor, documentColorMode }: Col
             {alphaVal < 1 ? ` (${Math.round(alphaVal * 100)}%)` : ''}
           </span>
         </div>
-        {isRgbColor(value) && <GamutWarning r={value.r} g={value.g} b={value.b} />}
+        {isRgbColor(value) && (
+          <GamutWarning
+            r={value.r}
+            g={value.g}
+            b={value.b}
+            bitDepth={bitDepth}
+            documentColorMode={documentColorMode}
+          />
+        )}
         {!isRgbColor(value) && space !== 'gray' && space !== 'spot' && (
           <GamutWarning r={rgbTuple[0]} g={rgbTuple[1]} b={rgbTuple[2]} />
         )}
         <EyeDropperButton onPick={handleEyeDropper} />
       </div>
+
+      {bitDepth && onBitDepthChange && (
+        <>
+          <span className="color-picker__field-label">Bit depth</span>
+          <SegmentedControl
+            label="Bit depth"
+            value={bitDepth}
+            options={bitDepthOptions}
+            onChange={handleBitDepthChange}
+          />
+        </>
+      )}
 
       {space === 'rgb' && <ColorFields color={rgbTuple} onChange={handleFieldsChange} />}
 

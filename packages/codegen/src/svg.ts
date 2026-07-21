@@ -6,6 +6,7 @@
 
 import type { Affine } from '@strata/engine';
 import type {
+  ManagedColor,
   Mask,
   Document as SceneDocument,
   SceneNode,
@@ -104,7 +105,7 @@ function shapeBounds(shape: import('@strata/engine').Shape): {
   }
 }
 
-function shapeClipPath(node: import('@strata/scene').SceneNode): string {
+function shapeClipPath(node: SceneNode): string {
   if (node.kind !== 'shape') return '';
   const s = node.shape;
   switch (s.kind) {
@@ -259,16 +260,16 @@ function fillToSvg(
   nodeId: string,
   doc: SceneDocument,
   preserveColorSpace: boolean,
-): { defs: string; fillAttr: string } {
+): { fillAttr: string; comment?: string } {
   if (!node.fills || node.fills.length === 0) {
     const result = colorToSvgValue(node.fill, doc, preserveColorSpace);
-    return { defs: result.warning ? `<!-- ${result.warning} -->\n` : '', fillAttr: result.value };
+    return { fillAttr: result.value, comment: result.warning };
   }
 
   // For a single solid fill, use the color directly
   if (node.fills.length === 1 && node.fills[0]?.type === 'solid' && node.fills[0]?.color) {
     const result = colorToSvgValue(node.fills[0].color, doc, preserveColorSpace);
-    return { defs: result.warning ? `<!-- ${result.warning} -->\n` : '', fillAttr: result.value };
+    return { fillAttr: result.value, comment: result.warning };
   }
 
   // For gradient fills, generate <defs> with gradient elements
@@ -736,7 +737,7 @@ function nodeToSvgTag(
   preserveColorSpace: boolean,
 ): string {
   const indent = '  '.repeat(depth);
-  const { fillAttr } = fillToSvg(node, node.id, doc, preserveColorSpace);
+  const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
   const t = affineToSvg(transform);
   const withTransform = ` transform="${t}"`;
   const compositing = svgCompositing(node, node.kind === 'frame' || node.kind === 'group');
@@ -763,7 +764,15 @@ function nodeToSvgTag(
           const bounds = shapeBounds(s);
           shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
         }
-        return buildMaskedNode(shapeInner, node, doc, indent);
+        return buildMaskedNode(
+          comment
+            ? `${indent}<!-- ${comment} -->
+${shapeInner}`
+            : shapeInner,
+          node,
+          doc,
+          indent,
+        );
       }
       let shapeInner: string;
       switch (s.kind) {
@@ -799,7 +808,15 @@ function nodeToSvgTag(
         default:
           shapeInner = '';
       }
-      return buildMaskedNode(shapeInner, node, doc, indent);
+      return buildMaskedNode(
+        comment
+          ? `${indent}<!-- ${comment} -->
+${shapeInner}`
+          : shapeInner,
+        node,
+        doc,
+        indent,
+      );
     }
     case 'text': {
       const textNode = node as TextNode;

@@ -487,6 +487,65 @@
   color: var(--color-text-muted);
 }
 
+.gm-editor__channels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.gm-editor__channel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.gm-editor__channel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.gm-editor__channel-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.gm-editor__channel-bar {
+  position: relative;
+  height: var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  cursor: pointer;
+}
+
+.gm-editor__channel-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+
+.gm-editor__channel-delete {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-base);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+
+.gm-editor__channel-delete:hover:not(:disabled) {
+  border-color: var(--color-accent-primary);
+  color: var(--color-text-primary);
+}
+
+.gm-editor__channel-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .adj-lut-editor {
   display: flex;
   flex-direction: column;

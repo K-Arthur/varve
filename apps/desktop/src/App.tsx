@@ -109,6 +109,8 @@ export function App() {
             <Shell
               onBackToHome={handleBackToHome}
               openFile={openRequest}
+              documentJson={openRequest?.json ?? undefined}
+              documentName={openRequest?.name ?? undefined}
               platform={platform}
               active={view === 'editor'}
             />

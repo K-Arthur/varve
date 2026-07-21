@@ -33,6 +33,9 @@ export interface TritoneParams {
   highlightPoint: number;
   intensity: number;
   preserveLuminosity: boolean;
+  /** Interpolation shape: 'smoothstep' (default) for natural transitions,
+   *  'linear' for sharp photographic splits. */
+  interpolation?: 'smoothstep' | 'linear';
 }
 
 /**
@@ -62,10 +65,28 @@ function lerp(a: number, b: number, t: number): number {
  *
  * Transitions use smoothstep for natural tonal separation.
  */
+/**
+ * Interpolation function based on params.interpolation.
+ * 'smoothstep' (default) for natural C1-continuous transitions.
+ * 'linear' for sharp photographic splits.
+ */
+function interpolate(
+  edge0: number,
+  edge1: number,
+  x: number,
+  interpolation: 'smoothstep' | 'linear',
+): number {
+  if (interpolation === 'linear') {
+    return Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  }
+  return smoothstep(edge0, edge1, x);
+}
+
 export function tritoneMap(lum: number, params: TritoneParams): [number, number, number] {
   const normalized = lum / 255;
   const sp = params.shadowPoint;
   const hp = params.highlightPoint;
+  const interp = params.interpolation ?? 'smoothstep';
 
   const sc = params.shadowColor;
   const mc = params.midtoneColor;
@@ -75,22 +96,21 @@ export function tritoneMap(lum: number, params: TritoneParams): [number, number,
 
   if (normalized <= sp) {
     // Shadow region: full shadow color at 0, transitioning to midtone at sp
-    const t = sp > 0 ? smoothstep(0, sp, normalized) : 1;
+    const t = sp > 0 ? interpolate(0, sp, normalized, interp) : 1;
     r = lerp(sc[0], mc[0], t);
     g = lerp(sc[1], mc[1], t);
     b = lerp(sc[2], mc[2], t);
   } else if (normalized >= hp) {
     // Highlight region: transitioning from midtone at hp to full highlight at 1
-    const t = hp < 1 ? smoothstep(hp, 1, normalized) : 0;
+    const t = hp < 1 ? interpolate(hp, 1, normalized, interp) : 0;
     r = lerp(mc[0], hc[0], t);
     g = lerp(mc[1], hc[1], t);
     b = lerp(mc[2], hc[2], t);
   } else {
     // Midtone region: constant midtone color.
-    // The shadow and highlight regions already use smoothstep to transition
-    // to/from midtoneColor, so the midtone region is continuous at both
-    // boundaries (sp and hp) without any additional blending. Adding a pull
-    // toward shadow/highlight here would break continuity and monotonicity.
+    // The shadow and highlight regions already use the chosen interpolation
+    // to transition to/from midtoneColor, so the midtone region is continuous
+    // at both boundaries (sp and hp) without any additional blending.
     r = mc[0];
     g = mc[1];
     b = mc[2];
