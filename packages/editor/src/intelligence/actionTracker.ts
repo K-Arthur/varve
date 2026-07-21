@@ -70,10 +70,12 @@ export class ActionTracker {
     const CO_OCCURRENCE_WINDOW_MS = 5000;
 
     for (let i = 0; i < windowRecords.length; i++) {
+      const ri = windowRecords[i]!;
       for (let j = i + 1; j < windowRecords.length; j++) {
-        const diff = windowRecords[j].timestamp - windowRecords[i].timestamp;
+        const rj = windowRecords[j]!;
+        const diff = rj.timestamp - ri.timestamp;
         if (diff > CO_OCCURRENCE_WINDOW_MS) break;
-        const key = [windowRecords[i].actionId, windowRecords[j].actionId].sort().join('::');
+        const key = [ri.actionId, rj.actionId].sort().join('::');
         coOccurrence.set(key, (coOccurrence.get(key) ?? 0) + 1);
       }
     }

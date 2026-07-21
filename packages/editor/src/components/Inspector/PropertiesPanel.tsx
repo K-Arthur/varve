@@ -28,7 +28,6 @@ import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorColorPopover } from './controls/InspectorColorPopover';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import type { SectionId } from './sectionRegistry';
-import type { SectionVisibilityState } from './sectionState';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
@@ -97,10 +96,10 @@ export function PropertiesPanel() {
           const idx = tabs.indexOf(tab);
           if (e.key === 'ArrowRight') {
             e.preventDefault();
-            setTab(tabs[(idx + 1) % tabs.length]);
+            setTab(tabs[(idx + 1) % tabs.length]!);
           } else if (e.key === 'ArrowLeft') {
             e.preventDefault();
-            setTab(tabs[(idx - 1 + tabs.length) % tabs.length]);
+            setTab(tabs[(idx - 1 + tabs.length) % tabs.length]!);
           }
         }}
       >
@@ -324,38 +323,24 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     };
 
     if (isComponentInstance)
-      add(
-        'component',
-        <ComponentSection node={node as import('@strata/scene').FrameNode} sectionId="component" />,
-      );
+      add('component', <ComponentSection node={node as import('@strata/scene').FrameNode} />);
     if (isFrame && !isComponentInstance)
-      add('frame-presets', <FramePresetsSection mode="resize" sectionId="frame-presets" />);
-    add('position-size', <PositionSizeSection nodes={nodes} sectionId="position-size" />);
-    add('constraints', <ConstraintSection nodes={nodes} sectionId="constraints" />);
-    if (isRect || isFrame)
-      add('corner-radius', <CornerRadiusSection nodes={nodes} sectionId="corner-radius" />);
-    if (isFrame)
-      add(
-        'layout',
-        <LayoutSection node={node as import('@strata/scene').FrameNode} sectionId="layout" />,
-      );
-    add('appearance', <AppearanceSection nodes={nodes} sectionId="appearance" />);
-    add('mask', <MaskSection nodes={nodes} sectionId="mask" />);
-    add('fills', <FillSection nodes={nodes} sectionId="fills" />);
-    add('paint-library', <PaintLibrarySection sectionId="paint-library" />);
-    add('image-placement', <ImagePlacementSection nodes={nodes} sectionId="image-placement" />);
-    add(
-      'image-enhancement',
-      <ImageEnhancementSection nodes={nodes} sectionId="image-enhancement" />,
-    );
-    add(
-      'background-removal',
-      <BackgroundRemovalSection nodes={nodes} sectionId="background-removal" />,
-    );
-    add('stroke', <StrokeSection nodes={nodes} sectionId="stroke" />);
-    add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
-    add('typography', <TypographySection nodes={nodes} sectionId="typography" />);
-    add('interaction', <InteractionSection sectionId="interaction" />);
+      add('frame-presets', <FramePresetsSection mode="resize" />);
+    add('position-size', <PositionSizeSection nodes={nodes} />);
+    add('constraints', <ConstraintSection nodes={nodes} />);
+    if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
+    if (isFrame) add('layout', <LayoutSection node={node as import('@strata/scene').FrameNode} />);
+    add('appearance', <AppearanceSection nodes={nodes} />);
+    add('mask', <MaskSection nodes={nodes} />);
+    add('fills', <FillSection nodes={nodes} />);
+    add('paint-library', <PaintLibrarySection />);
+    add('image-placement', <ImagePlacementSection nodes={nodes} />);
+    add('image-enhancement', <ImageEnhancementSection nodes={nodes} />);
+    add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
+    add('stroke', <StrokeSection nodes={nodes} />);
+    add('effects', <EffectsSection nodes={nodes} />);
+    add('typography', <TypographySection nodes={nodes} />);
+    add('interaction', <InteractionSection />);
     if (state.prototypeMode) {
       add(
         'prototype-flow',
@@ -423,13 +408,13 @@ function MultiSelectionPanel({
       entries.push({ id, order: o ?? 500, el });
     };
 
-    add('position-size', <PositionSizeSection nodes={nodes} sectionId="position-size" />);
-    add('appearance', <AppearanceSection nodes={nodes} sectionId="appearance" />);
-    add('fills', <FillSection nodes={nodes} sectionId="fills" />);
-    add('paint-library', <PaintLibrarySection sectionId="paint-library" />);
-    add('stroke', <StrokeSection nodes={nodes} sectionId="stroke" />);
-    add('effects', <EffectsSection nodes={nodes} sectionId="effects" />);
-    add('typography', <TypographySection nodes={nodes} sectionId="typography" />);
+    add('position-size', <PositionSizeSection nodes={nodes} />);
+    add('appearance', <AppearanceSection nodes={nodes} />);
+    add('fills', <FillSection nodes={nodes} />);
+    add('paint-library', <PaintLibrarySection />);
+    add('stroke', <StrokeSection nodes={nodes} />);
+    add('effects', <EffectsSection nodes={nodes} />);
+    add('typography', <TypographySection nodes={nodes} />);
     add(
       'cognitive-load',
       <DisclosureSection title="Cognitive Load" sectionId="cognitive-load" defaultExpanded={false}>

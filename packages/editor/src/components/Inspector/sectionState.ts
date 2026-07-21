@@ -28,6 +28,8 @@ export interface SectionState {
   hidden: boolean;
   /** Nested subsections, keyed by local name (e.g. 'openTypeFeatures' under 'typography'). */
   subsections?: Record<string, SectionState>;
+  /** Effective display order (lower = first). */
+  order?: number;
 }
 
 /** Full section-visibility state keyed by section ID. */
@@ -420,7 +422,9 @@ export function moveSectionUp(
   const ordered = getOrderedSectionIds(state);
   const idx = ordered.indexOf(sectionId);
   if (idx <= 0) return state;
-  return moveSectionBefore(state, sectionId, ordered[idx - 1]);
+  const prev = ordered[idx - 1]!;
+  if (prev === undefined) return state;
+  return moveSectionBefore(state, sectionId, prev);
 }
 
 /** Move a section down one position. */
@@ -431,7 +435,9 @@ export function moveSectionDown(
   const ordered = getOrderedSectionIds(state);
   const idx = ordered.indexOf(sectionId);
   if (idx === -1 || idx >= ordered.length - 1) return state;
-  return moveSectionAfter(state, sectionId, ordered[idx + 1]);
+  const next = ordered[idx + 1]!;
+  if (next === undefined) return state;
+  return moveSectionAfter(state, sectionId, next);
 }
 
 /** Move a section to the start of the list. */
@@ -473,8 +479,8 @@ function assignStableOrders(
 ): SectionVisibilityState {
   const next = { ...state };
   for (let i = 0; i < orderedIds.length; i++) {
-    const id = orderedIds[i];
-    next[id] = { ...next[id], order: (i + 1) * 10 };
+    const id = orderedIds[i]!;
+    next[id] = { ...next[id]!, order: (i + 1) * 10 };
   }
   return next;
 }

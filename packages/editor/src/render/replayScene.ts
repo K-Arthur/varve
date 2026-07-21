@@ -115,7 +115,7 @@ export function replayStructuredScene(context: SceneContext, input: StructuredRe
           const imageData = contentSurface.context.getImageData(0, 0, w, h);
           if (imageData) {
             renderEnhancedMask(
-              contentSurface.context,
+              contentSurface.context as CanvasRenderingContext2D,
               { draw: (ctx) => ctx.drawImage(maskSurface.canvas as CanvasImageSource, 0, 0) },
               {
                 draw: (_ctx) => {

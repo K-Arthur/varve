@@ -137,11 +137,6 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
       const dy = lineShape.to[1] - lineShape.from[1];
       const currentLen = Math.sqrt(dx * dx + dy * dy);
       if (currentLen === 0) return;
-      const scale = len / currentLen;
-      const newTo: [number, number] = [
-        lineShape.from[0] + dx * scale,
-        lineShape.from[1] + dy * scale,
-      ];
       editor.beginTransaction();
       for (const n of nodes) {
         if (n.kind !== 'shape') continue;

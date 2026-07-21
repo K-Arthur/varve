@@ -65,7 +65,7 @@ export function detectPatterns(tracker: ActionTracker, windowMs?: number): Workf
     trigramKeys.add(key);
 
     const parts = key.split('|');
-    const seq = [parts[0], parts[1], parts[2]];
+    const seq: string[] = [parts[0]!, parts[1]!, parts[2]!];
     const distinct = new Set(seq);
     if (distinct.size >= 2) {
       patterns.push({ sequence: seq, frequency, suggestion: generateSuggestion(seq) });
@@ -94,7 +94,7 @@ export function detectPatterns(tracker: ActionTracker, windowMs?: number): Workf
     if (frequency < 3) continue;
 
     const parts = key.split('|');
-    const seq = [parts[0], parts[1]];
+    const seq: string[] = [parts[0]!, parts[1]!];
     const distinct = new Set(seq);
     if (distinct.size >= 2) {
       patterns.push({ sequence: seq, frequency, suggestion: generateSuggestion(seq) });

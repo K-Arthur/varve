@@ -28,12 +28,8 @@ describe('computeLayoutScore', () => {
   it('returns 100 for perfectly grid-aligned nodes on 8px grid', () => {
     let doc = createDocument('test', true);
     const ids: NodeId[] = [];
-    for (const [x, y] of [
-      [0, 0],
-      [128, 0],
-      [256, 0],
-    ]) {
-      const r = makeRect(doc, x, y, 96, 80);
+    for (const [x, y] of [[0, 0] as const, [128, 0] as const, [256, 0] as const]) {
+      const r = makeRect(doc, x as number, y as number, 96, 80);
       doc = r.doc;
       ids.push(r.id);
     }

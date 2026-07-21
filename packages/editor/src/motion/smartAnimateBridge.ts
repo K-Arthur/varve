@@ -118,7 +118,7 @@ export function computeSmartAnimateHotspotOverrides(
       const toRgba = layerValues.fill.to;
       const interpolated = interpolateColor(fromRgba, toRgba, easedT);
       if (Array.isArray(interpolated) && interpolated.length >= 4) {
-        const [r, g, b, a] = interpolated as number[];
+        const [r, g, b, a] = interpolated as [number, number, number, number];
         fill = `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${(a / 255).toFixed(3)})`;
       }
     }

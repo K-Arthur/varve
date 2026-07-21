@@ -42,12 +42,12 @@ function findNearestKeyframe(
   let best: number | null = null;
   let bestDist = Infinity;
   for (let i = 0; i < keyframes.length; i++) {
-    const kf = keyframes[i];
+    const kf = keyframes[i]!;
     const x = rect.left + kf.progress * duration * zoom;
     const dist = Math.abs(clientX - x);
     if (dist < EPSILON && dist < bestDist) {
       bestDist = dist;
-      best = kf.progress;
+      best = kf!.progress;
     }
   }
   return best;
@@ -61,7 +61,7 @@ export const TrackRow: FC<TrackRowProps> = ({
   selected,
   selectedKeyframeIndex,
   timelines,
-  activeTimelineId,
+  activeTimelineId: _activeTimelineId,
   onSelectTrack,
   onClickKeyframe,
   onSetNestedTimeline,

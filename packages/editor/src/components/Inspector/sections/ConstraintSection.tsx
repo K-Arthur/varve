@@ -77,10 +77,10 @@ export function ConstraintSection({ nodes }: ConstraintSectionProps) {
 
   const currentConstraint = useMemo((): Constraints | null => {
     if (nodes.length === 0) return null;
-    const first = nodes[0].constraints;
+    const first = nodes[0]?.constraints;
     if (!first) return null;
     for (let i = 1; i < nodes.length; i++) {
-      const c = nodes[i].constraints;
+      const c = nodes[i]?.constraints;
       if (!c || c.horizontal !== first.horizontal || c.vertical !== first.vertical) {
         return null;
       }

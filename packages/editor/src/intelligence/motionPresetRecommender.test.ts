@@ -40,7 +40,7 @@ describe('recommendPresets', () => {
   it('returns results sorted by matchScore descending', () => {
     const results = recommendPresets('opacity', 'ease', 300);
     for (let i = 1; i < results.length; i++) {
-      expect(results[i].matchScore).toBeLessThanOrEqual(results[i - 1].matchScore);
+      expect(results[i]!.matchScore).toBeLessThanOrEqual(results[i - 1]!.matchScore);
     }
   });
 

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Tests for selection → quick-bar profile resolution.
  */

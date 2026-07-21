@@ -50,7 +50,7 @@ export function AdjustmentScopeSection({
     scopeMode === 'image-local'
       ? 'Single Image'
       : scopeMode === 'explicit-targets'
-        ? `Explicit (${scope?.targetNodeIds.length} targets)`
+        ? `Explicit (${(scope?.mode === 'explicit-targets' ? scope.targetNodeIds : []).length} targets)`
         : scopeMode === 'container-descendant'
           ? 'Container Descendants'
           : scopeMode === 'document'
@@ -65,8 +65,8 @@ export function AdjustmentScopeSection({
           const eligible = Object.values(doc.nodes).filter(
             (n) => n.kind === 'shape' || n.kind === 'rasterLayer',
           );
-          if (eligible.length > 0) {
-            onChangeScope({ mode: 'image-local', targetNodeId: eligible[0].id });
+          if (eligible.length > 0 && eligible[0]) {
+            if (eligible[0]) onChangeScope({ mode: 'image-local', targetNodeId: eligible[0].id });
           }
           break;
         }

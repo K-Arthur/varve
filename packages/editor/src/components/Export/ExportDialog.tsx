@@ -58,12 +58,6 @@ export interface ExportDialogProps {
   initialTemplate?: string;
 }
 
-const BG_METHOD_OPTIONS: { value: BackgroundRemovalMethod; label: string }[] = [
-  { value: 'quick', label: 'Quick' },
-  { value: 'ai-balanced', label: 'AI Balanced' },
-  { value: 'ai-quality', label: 'AI Quality' },
-];
-
 function safeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
 }

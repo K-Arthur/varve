@@ -233,7 +233,7 @@ export class OnionSkinCompositor {
     // Doc version is embedded in the serialized key. We scan and remove
     // entries whose key contains the old version. For performance, we
     // iterate the full cache since invalidation is infrequent.
-    for (const [key, entry] of this.cache) {
+    for (const [key, _entry] of this.cache) {
       // The doc version is the 3rd segment in the key (after timelineId and frameTime)
       const parts = key.split(':');
       if (parts[2] === String(_docVersion)) {
@@ -247,13 +247,13 @@ export class OnionSkinCompositor {
    */
   getCacheStats(): { entries: number; memoryEstimate: number } {
     let memoryEstimate = 0;
-    for (const entry of this.cache.values()) {
-      const el = entry.bitmap;
+    for (const _entry of this.cache.values()) {
+      const el = _entry.bitmap;
       if (el instanceof HTMLCanvasElement) {
         memoryEstimate += el.width * el.height * 4;
       } else {
         // ImageBitmap — approximate from canvas dimensions encoded in the key
-        const parts = entry.key.split(':');
+        const parts = _entry.key.split(':');
         const cw = Number(parts[5]) || 0;
         const ch = Number(parts[6]) || 0;
         memoryEstimate += cw * ch * 4;
@@ -334,9 +334,9 @@ export class OnionSkinCompositor {
     while (this.cache.size > this.options.maxCacheEntries) {
       let oldestKey: string | null = null;
       let oldestTime = Infinity;
-      for (const [key, entry] of this.cache) {
-        if (entry.timestamp < oldestTime) {
-          oldestTime = entry.timestamp;
+      for (const [key, _entry] of this.cache) {
+        if (_entry.timestamp < oldestTime) {
+          oldestTime = _entry.timestamp;
           oldestKey = key;
         }
       }

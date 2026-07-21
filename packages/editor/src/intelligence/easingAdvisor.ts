@@ -8,7 +8,7 @@ const EASE_SUGGESTIONS: Record<
   string,
   {
     base: { easing: string; reason: string; confidence: 'high' | 'medium' | 'low' };
-    long?: { easing: string; reason: string };
+    long?: { easing: string; reason: string; confidence?: 'high' | 'medium' | 'low' };
   }
 > = {
   opacity: {

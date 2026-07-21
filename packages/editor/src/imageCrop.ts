@@ -61,10 +61,11 @@ export function commitImageCropExtended(
 ): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  if (node.shape.kind !== 'rect') return doc;
+  const shapeNode = node as import('@strata/scene').ShapeNode;
+  if (shapeNode.shape.kind !== 'rect') return doc;
 
-  const W = node.shape.w;
-  const H = node.shape.h;
+  const W = shapeNode.shape.w;
+  const H = shapeNode.shape.h;
   if (W <= 0 || H <= 0) return doc;
 
   const { viewport, fillScale, fillOffsetX, fillOffsetY, fillFit } = cropState;
@@ -77,8 +78,8 @@ export function commitImageCropExtended(
     Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9 && Math.abs(w - W) < 1e-9 && Math.abs(h - H) < 1e-9;
 
   // If only fill scale/offset/fit changed, apply those without viewport crop
-  const fill = getImageFill(node);
-  const fills = (node.fills ?? []).map((f) => {
+  const fill = getImageFill(shapeNode);
+  const fills = (shapeNode.fills ?? []).map((f) => {
     if (f.type !== 'image' || !f.image) return f;
     const img = f.image;
     return {
@@ -108,7 +109,7 @@ export function commitImageCropExtended(
 
   if (noViewportChange) {
     // Check if any fill properties actually changed; if not, return doc as-is
-    const img = node.fills?.find((f) => f.type === 'image')?.image;
+    const img = shapeNode.fills?.find((f) => f.type === 'image')?.image;
     const fillChanged =
       (fillScale !== undefined && Math.abs(fillScale - (img?.scale ?? 1)) > 0.001) ||
       (fillOffsetX !== undefined && Math.abs(fillOffsetX - (img?.x ?? 0)) > 0.001) ||
@@ -116,7 +117,7 @@ export function commitImageCropExtended(
       (fillFit !== undefined && fillFit !== img?.fit);
     if (!fillChanged) return doc;
     // Only fill property changes — no viewport crop
-    const updated: ShapeNode = { ...node, fills };
+    const updated: ShapeNode = { ...shapeNode, fills };
     if (!getImageFill(updated) && fill) {
       updated.fills = [fill];
     }
@@ -124,9 +125,9 @@ export function commitImageCropExtended(
   }
 
   const updated: ShapeNode = {
-    ...node,
+    ...shapeNode,
     shape: { kind: 'rect', x: 0, y: 0, w, h },
-    transform: translateAffine(node.transform, x, y),
+    transform: translateAffine(shapeNode.transform, x, y),
     fills,
   };
 
@@ -158,25 +159,22 @@ export function expandBounds(
   },
 ): Document {
   const node = doc.nodes[nodeId];
-  if (!node || (node.kind !== 'shape' && node.kind !== 'frame')) return doc;
-  if (node.shape?.kind !== 'rect') return doc;
+  if (!node || node.kind !== 'shape') return doc;
+  const shapeNode = node as import('@strata/scene').ShapeNode;
+  if (shapeNode.shape.kind !== 'rect') return doc;
 
+  const shape = shapeNode.shape as { w: number; h: number };
   const padding: PaddingSpec = opts.paddingSides ?? opts.padding;
-  const expanded = paddingBounds({ x: 0, y: 0, w: node.shape.w, h: node.shape.h }, padding);
+  const expanded = paddingBounds({ x: 0, y: 0, w: shape.w, h: shape.h }, padding);
 
-  if (
-    expanded.x === 0 &&
-    expanded.y === 0 &&
-    expanded.w === node.shape.w &&
-    expanded.h === node.shape.h
-  ) {
+  if (expanded.x === 0 && expanded.y === 0 && expanded.w === shape.w && expanded.h === shape.h) {
     return doc;
   }
 
   const updated = {
-    ...node,
-    shape: { ...node.shape, w: expanded.w, h: expanded.h },
-    transform: translateAffine(node.transform, -expanded.x, -expanded.y),
+    ...shapeNode,
+    shape: { ...shapeNode.shape, w: expanded.w, h: expanded.h },
+    transform: translateAffine(shapeNode.transform, -expanded.x, -expanded.y),
   };
 
   return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
@@ -189,20 +187,21 @@ export function expandBounds(
 export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  if (node.shape.kind !== 'rect') return doc;
+  const shapeNode = node as import('@strata/scene').ShapeNode;
+  if (shapeNode.shape.kind !== 'rect') return doc;
 
-  const fill = getImageFill(node);
+  const fill = getImageFill(shapeNode);
   if (!fill?.image) return doc;
 
-  const sourceW = fill.image.imageWidth ?? node.shape.w;
-  const sourceH = fill.image.imageHeight ?? node.shape.h;
+  const sourceW = fill.image.imageWidth ?? shapeNode.shape.w;
+  const sourceH = fill.image.imageHeight ?? shapeNode.shape.h;
   if (sourceW <= 0 || sourceH <= 0) return doc;
 
   const updated: ShapeNode = {
-    ...node,
+    ...shapeNode,
     shape: { kind: 'rect', x: 0, y: 0, w: sourceW, h: sourceH },
     transform: [1, 0, 0, 1, 0, 0],
-    fills: (node.fills ?? []).map((f) => {
+    fills: (shapeNode.fills ?? []).map((f) => {
       if (f.type !== 'image' || !f.image) return f;
       return {
         ...f,
@@ -224,15 +223,16 @@ export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
 export function trimToSubject(doc: Document, nodeId: NodeId): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
-  if (node.shape.kind !== 'rect') return doc;
+  const shapeNode = node as import('@strata/scene').ShapeNode;
+  if (shapeNode.shape.kind !== 'rect') return doc;
 
-  const W = node.shape.w;
-  const H = node.shape.h;
+  const W = shapeNode.shape.w;
+  const H = shapeNode.shape.h;
   if (W <= 0 || H <= 0) return doc;
 
   // Simple heuristic: crop away uniform outer rows/columns from image fill.
   // For true alpha-based trim, see imageBounds.computeVisibleContentBounds.
-  const fill = getImageFill(node);
+  const fill = getImageFill(shapeNode);
   if (!fill?.image) return resetToSourceBounds(doc, nodeId);
 
   // If no fill offset or scale deviation, reset to source

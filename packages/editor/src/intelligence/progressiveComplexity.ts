@@ -24,12 +24,6 @@ function countActions(tracker: ActionTracker): number {
   return tracker.getRecentActions(WINDOW_30_DAYS).length;
 }
 
-function _countUniqueTools(tracker: ActionTracker): number {
-  const recent = tracker.getRecentActions(WINDOW_30_DAYS);
-  const tools = new Set(recent.map((r) => r.actionId));
-  return tools.size;
-}
-
 function countAdvancedFeatures(tracker: ActionTracker): number {
   const recent = tracker.getRecentActions(WINDOW_30_DAYS);
   let count = 0;

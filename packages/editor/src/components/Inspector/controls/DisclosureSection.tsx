@@ -74,7 +74,6 @@ export function DisclosureSection({
         subsectionId={subsectionId}
         title={title}
         panelId={panelId}
-        defaultExpanded={defaultExpanded}
       >
         {children}
       </RegistryDisclosure>
@@ -98,12 +97,14 @@ function RegistryDisclosure({
   subsectionId,
   title,
   panelId,
+  defaultExpanded: _defaultExpanded,
   children,
 }: {
   sectionId: SectionId;
   subsectionId?: string;
   title: string;
   panelId: string;
+  defaultExpanded?: boolean;
   children: ReactNode;
 }) {
   const { state, toggleSectionCollapse, toggleSubSectionCollapse, hideInspectorSection } =

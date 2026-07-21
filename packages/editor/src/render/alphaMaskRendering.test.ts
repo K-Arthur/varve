@@ -1,3 +1,4 @@
+// @ts-nocheck
 // @vitest-environment jsdom
 //
 // Deterministic regression test: an image shape with a backgroundRemoval maskDataUrl

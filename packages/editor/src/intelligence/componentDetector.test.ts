@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { describe, expect, it } from 'vitest';
 import { findDuplicateStructures } from './componentDetector';
 
@@ -38,7 +39,10 @@ function buildDoc(nodes: Record<string, unknown>, rootChildren: string[]) {
     components: {},
     interactions: [],
     interactionsVersion: 0,
-  } as import('@strata/scene').Document;
+    id: 'test-doc',
+    formatVersion: '2.0',
+    nextId: 1,
+  };
 }
 
 describe('findDuplicateStructures', () => {

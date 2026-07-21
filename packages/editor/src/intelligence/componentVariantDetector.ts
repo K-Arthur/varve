@@ -119,12 +119,12 @@ export function detectVariantCandidates(doc: Document): VariantCandidate[] {
     .filter((e): e is { id: string; node: SceneNode; sig: StructuralSignature } => e.sig !== null);
 
   for (let i = 0; i < entries.length; i++) {
-    const a = entries[i];
+    const a = entries[i]!;
     if (processed.has(a.id)) continue;
 
     const group: typeof entries = [a];
     for (let j = i + 1; j < entries.length; j++) {
-      const b = entries[j];
+      const b = entries[j]!;
       if (processed.has(b.id)) continue;
       if (signaturesSimilar(a.sig, b.sig)) {
         group.push(b);
@@ -135,7 +135,7 @@ export function detectVariantCandidates(doc: Document): VariantCandidate[] {
     processed.add(a.id);
 
     const allDiffs: Map<string, string[]> = new Map();
-    const ref = group[0].node;
+    const ref = group[0]!.node;
 
     for (const entry of group) {
       const nodeDiffs = compareProperties(ref, entry.node);
@@ -143,7 +143,7 @@ export function detectVariantCandidates(doc: Document): VariantCandidate[] {
         if (!allDiffs.has(d.property)) {
           allDiffs.set(d.property, [d.aValue]);
         }
-        const vals = allDiffs.get(d.property)!;
+        const vals = allDiffs.get(d.property)!!;
         if (!vals.includes(d.bValue)) {
           vals.push(d.bValue);
         }
@@ -157,7 +157,7 @@ export function detectVariantCandidates(doc: Document): VariantCandidate[] {
     if (differingProperties.length < 1 || differingProperties.length > 3) continue;
 
     const score = Math.round((1 - differingProperties.length * 0.2) * 100);
-    const firstProp = differingProperties[0].property;
+    const firstProp = differingProperties[0]!.property;
     const suggestedVariantName =
       {
         fill: 'state',

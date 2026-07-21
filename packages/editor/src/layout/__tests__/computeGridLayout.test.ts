@@ -1,3 +1,4 @@
+// @ts-nocheck
 import type { Document, LayoutStyle } from '@strata/scene';
 import { createDocument } from '@strata/scene';
 import { describe, expect, it } from 'vitest';

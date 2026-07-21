@@ -31,7 +31,15 @@ export const SubjectCard = memo(function SubjectCard({
   onBlur,
   onPreviewModeChange,
 }: SubjectCardProps) {
-  const { id, pixelCount, bbox, confidence, relativeArea, isLargest, mergedFrom } = component;
+  const {
+    id,
+    pixelCount: _pixelCount,
+    bbox,
+    confidence,
+    relativeArea,
+    isLargest,
+    mergedFrom,
+  } = component;
 
   const handleToggle = useCallback(() => onToggle(id), [id, onToggle]);
   const handleMouseEnter = useCallback(() => onHoverStart(id), [id, onHoverStart]);
