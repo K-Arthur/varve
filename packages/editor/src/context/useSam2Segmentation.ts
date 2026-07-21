@@ -1,7 +1,6 @@
-import type { WorkerInferResult } from '@strata/engine';
+import type { WorkerInferResult, WorkerTensor } from '@strata/engine';
 import {
-  decodeSam2Mask,
-  encodeSam2Prompts,
+  decodeSam2DecoderOutput,
   getImageCache,
   getInferenceWorkerHost,
   getModelLoader,
@@ -10,6 +9,7 @@ import type { Document, NodeId } from '@strata/scene';
 import { useCallback, useRef } from 'react';
 import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
+import { nodeWorldBounds } from '../scene/world';
 import type { EditorState } from './types';
 
 export interface Sam2SegmentationAPI {
@@ -34,6 +34,13 @@ export function useSam2Segmentation(
 ): Sam2SegmentationAPI {
   const abortRef = useRef<AbortController | null>(null);
   const generationRef = useRef(0);
+  const embeddingCacheRef = useRef<{
+    nodeId: NodeId;
+    src: string;
+    embeddings: Record<string, WorkerTensor>;
+    naturalW: number;
+    naturalH: number;
+  } | null>(null);
 
   const cancelSam2Segmentation = useCallback(() => {
     abortRef.current?.abort();
@@ -77,7 +84,6 @@ export function useSam2Segmentation(
         return null;
       }
 
-      // Abort any in-flight SAM2 request
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -91,9 +97,8 @@ export function useSam2Segmentation(
         return null;
       }
 
-      announcerRef.current?.announce('Running SAM2 segmentation...');
+      announcerRef.current?.announce('Analyzing subject…');
 
-      // Load source image and extract pixel data at natural resolution
       let img: HTMLImageElement | ImageBitmap | null = null;
       try {
         img = await getImageCache().load(src);
@@ -138,87 +143,121 @@ export function useSam2Segmentation(
 
       if (combinedSignal.aborted) return null;
 
-      // Encode prompts (normalized 0-1 coords) and dispatch inference.
-      // Resolve model path via ModelLoader (checks bundled files first, then
-      // IndexedDB for downloaded models, then falls back to the default path).
-      const encoded = encodeSam2Prompts(prompts, naturalW, naturalH);
-      const modelId = 'sam2-hiera-tiny';
+      const worldBounds = nodeWorldBounds(currentDoc, nodeId);
+      const normPrompts = normalizePromptsTo01(prompts, worldBounds, naturalW, naturalH);
+
+      const encoderId = 'sam2-hiera-tiny-encoder';
+      const decoderId = 'sam2-hiera-tiny-decoder';
       const loader = getModelLoader();
-      const resolvedModelPath = await loader.getModelPath(modelId, combinedSignal);
-      const modelPath = resolvedModelPath ?? `/models/${modelId}.onnx`;
+      const resolvedEncoderPath = await loader.getModelPath(encoderId, combinedSignal);
+      const resolvedDecoderPath = await loader.getModelPath(decoderId, combinedSignal);
+
+      if (!resolvedEncoderPath || !resolvedDecoderPath) {
+        announcerRef.current?.announce(
+          'Select Subject needs a one-time download — install it from Settings > AI Models before using this tool.',
+        );
+        return null;
+      }
 
       try {
         const host = getInferenceWorkerHost();
-        const result: WorkerInferResult = await host.infer(
+
+        let cached = embeddingCacheRef.current;
+        if (!cached || cached.nodeId !== nodeId || cached.src !== src) {
+          if (combinedSignal.aborted) return null;
+
+          const encResult: WorkerInferResult = await host.infer(
+            {
+              type: 'infer',
+              modelType: 'sam2-encoder',
+              modelPath: resolvedEncoderPath,
+              modelId: encoderId,
+              imageData,
+              reuseSession: true,
+            },
+            { signal: combinedSignal },
+          );
+
+          if (generation !== generationRef.current || combinedSignal.aborted) return null;
+
+          const encOutputs = encResult.outputs as {
+            image_embed: WorkerTensor;
+            high_res_feats_0: WorkerTensor;
+            high_res_feats_1: WorkerTensor;
+          };
+
+          cached = {
+            nodeId,
+            src,
+            embeddings: {
+              image_embed: encOutputs.image_embed,
+              high_res_feats_0: encOutputs.high_res_feats_0,
+              high_res_feats_1: encOutputs.high_res_feats_1,
+            },
+            naturalW,
+            naturalH,
+          };
+          embeddingCacheRef.current = cached;
+        }
+
+        if (generation !== generationRef.current || combinedSignal.aborted) return null;
+
+        const decResult: WorkerInferResult = await host.infer(
           {
             type: 'infer',
-            modelType: 'sam2',
-            modelPath,
-            modelId,
-            imageData,
+            modelType: 'sam2-decoder',
+            modelPath: resolvedDecoderPath,
+            modelId: decoderId,
+            embeddings: cached.embeddings,
             params: {
-              pointCoords: encoded.pointCoords,
-              pointLabels: encoded.pointLabels,
-              boxCoords: encoded.boxCoords,
-              hasBox: encoded.hasBox,
+              points: normPrompts.points,
+              box: normPrompts.box,
             },
             reuseSession: true,
           },
           { signal: combinedSignal },
         );
 
-        // Stale check after inference returns
-        if (generation !== generationRef.current || combinedSignal.aborted) {
-          return null;
-        }
+        if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
-        const outputs = result.outputs as {
-          data: Float32Array;
-          dims: number[];
+        const decOutputs = decResult.outputs as {
+          masks: { data: Float32Array; dims: number[] };
+          iou_predictions?: { data: Float32Array; dims: number[] };
           executionProvider: string;
-          inputWidth: number;
-          inputHeight: number;
         };
 
-        // SAM2 outputs a low-res mask; dims layout is [1, 1, H, W]
-        const rawH = outputs.dims[2] ?? outputs.dims[1] ?? 256;
-        const rawW = outputs.dims[3] ?? outputs.dims[2] ?? 256;
-
-        const { mask, confidence } = decodeSam2Mask(
-          outputs.data,
-          rawW,
-          rawH,
+        const decoded = decodeSam2DecoderOutput(
+          decOutputs.masks.data,
+          decOutputs.masks.dims,
+          decOutputs.iou_predictions?.data ?? null,
+          decOutputs.iou_predictions?.dims ?? null,
           naturalW,
           naturalH,
-          0.0,
         );
 
-        // Stale check after mask decode
-        if (generation !== generationRef.current || combinedSignal.aborted) {
-          return null;
-        }
+        if (generation !== generationRef.current || combinedSignal.aborted) return null;
 
+        const bestMask = decoded.masks[decoded.selectedIndex]!;
         const maskResult = {
-          mask,
+          mask: bestMask.mask,
           width: naturalW,
           height: naturalH,
-          confidence,
+          confidence: decoded.confidence,
         };
 
         switch (operation) {
-          case 'preview': {
+          case 'preview':
             setState((prev) => ({
               ...prev,
               maskPreviewMode: 'overlay' as const,
             }));
             announcerRef.current?.announce(
-              `Subject preview ready (${Math.round(confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
+              `Subject preview ready (${Math.round(decoded.confidence * 100)}% confidence). Press Enter to apply, Escape to cancel.`,
             );
             return maskResult;
-          }
 
           case 'mask': {
-            const maskDataUrl = await maskToDataUrl(mask, naturalW, naturalH);
+            const maskDataUrl = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
             let committed = false;
             updateDoc((doc) => {
               const updated = commitRasterMask(doc, nodeId, {
@@ -227,7 +266,7 @@ export function useSam2Segmentation(
                 height: naturalH,
                 method: 'ai-quality',
                 modelId: 'sam2-hiera-tiny',
-                confidence,
+                confidence: decoded.confidence,
                 generatedAt: Date.now(),
                 sourceLocator: src,
               });
@@ -236,26 +275,25 @@ export function useSam2Segmentation(
             });
             if (committed) {
               announcerRef.current?.announce(
-                `Selection applied as a mask (${Math.round(confidence * 100)}% confidence)`,
+                `Selection applied as a mask (${Math.round(decoded.confidence * 100)}% confidence)`,
               );
             }
             return maskResult;
           }
 
-          case 'selection': {
+          case 'selection':
             setState((prev) => ({
               ...prev,
               selection: [nodeId],
               maskPreviewMode: 'overlay' as const,
             }));
             announcerRef.current?.announce(
-              `Selected node with SAM2 mask (${Math.round(confidence * 100)}% confidence)`,
+              `Selected subject (${Math.round(decoded.confidence * 100)}% confidence)`,
             );
             return maskResult;
-          }
 
           case 'layer': {
-            const maskDataUrlLayer = await maskToDataUrl(mask, naturalW, naturalH);
+            const maskDataUrlLayer = await maskToDataUrl(bestMask.mask, naturalW, naturalH);
             updateDoc((doc) =>
               commitRasterMask(doc, nodeId, {
                 dataUrl: maskDataUrlLayer,
@@ -263,32 +301,73 @@ export function useSam2Segmentation(
                 height: naturalH,
                 method: 'ai-quality',
                 modelId: 'sam2-hiera-tiny',
-                confidence,
+                confidence: decoded.confidence,
                 generatedAt: Date.now(),
                 sourceLocator: src,
               }),
             );
             setState((prev) => ({ ...prev, selection: [nodeId] }));
             announcerRef.current?.announce(
-              `Selection created as a new mask layer (${Math.round(confidence * 100)}% confidence)`,
+              `Selection created as a new mask layer (${Math.round(decoded.confidence * 100)}% confidence)`,
             );
             return maskResult;
           }
         }
       } catch (e) {
         if ((e as Error).message === 'cancelled') return null;
-        announcerRef.current?.announce(`SAM2 segmentation failed: ${(e as Error).message}`);
+        announcerRef.current?.announce(`Subject selection failed: ${(e as Error).message}`);
         return null;
       } finally {
         if (generation === generationRef.current) {
           abortRef.current = null;
         }
       }
+
+      return null;
     },
     [stateRef, setState, updateDoc, announcerRef],
   );
 
   return { applySam2Segmentation, cancelSam2Segmentation };
+}
+
+function normalizePromptsTo01(
+  prompts: {
+    points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+    box?: { x1: number; y1: number; x2: number; y2: number };
+  },
+  worldBounds: { x: number; y: number; w: number; h: number } | null,
+  naturalW: number,
+  naturalH: number,
+): {
+  points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+  box?: { x1: number; y1: number; x2: number; y2: number };
+} {
+  const bw = worldBounds?.w ?? naturalW;
+  const bh = worldBounds?.h ?? naturalH;
+  const bx = worldBounds?.x ?? 0;
+  const by = worldBounds?.y ?? 0;
+
+  const result: typeof prompts = {};
+
+  if (prompts.points) {
+    result.points = prompts.points.map((p) => ({
+      x: Math.max(0, Math.min(1, (p.x - bx) / bw)),
+      y: Math.max(0, Math.min(1, (p.y - by) / bh)),
+      label: p.label,
+    }));
+  }
+
+  if (prompts.box) {
+    result.box = {
+      x1: Math.max(0, Math.min(1, (prompts.box.x1 - bx) / bw)),
+      y1: Math.max(0, Math.min(1, (prompts.box.y1 - by) / bh)),
+      x2: Math.max(0, Math.min(1, (prompts.box.x2 - bx) / bw)),
+      y2: Math.max(0, Math.min(1, (prompts.box.y2 - by) / bh)),
+    };
+  }
+
+  return result;
 }
 
 function combineAbortSignals(...signals: AbortSignal[]): AbortSignal {

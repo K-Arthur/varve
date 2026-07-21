@@ -95,7 +95,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
   {
     id: 'birefnet-general',
     name: 'BiRefNet Full',
-    description: 'Best quality segmentation for hair, fur, transparency.',
+    description:
+      'Best quality segmentation for hair, fur, transparency, and fine detail. ' +
+      'UNVERIFIED CHECKSUM — this model has no published SHA-256 hash and cannot be ' +
+      'downloaded through the secure pipeline until integrity metadata is published. ' +
+      'Native Tauri builds with onnxruntime can load it via local file if placed manually.',
     sizeBytes: 928_000_000,
     remoteUrl:
       'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx',
@@ -169,9 +173,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
   },
   {
     id: 'sam2-hiera-tiny',
-    name: 'SAM2 Tiny',
+    name: 'Select Subject (SAM2 Tiny)',
     description:
-      'SAM2-Hiera-Tiny — interactive segmentation via point/box/mask prompts. Click foreground/background points, drag boxes, iteratively refine.',
+      'Interactive subject selection via point/box prompts. Virtual grouping entry — see sam2-hiera-tiny-encoder and sam2-hiera-tiny-decoder, both required.',
     sizeBytes: 39_000_000,
     remoteUrl: '',
     checksum: '',
@@ -181,6 +185,40 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     precision: 'fp32',
     category: 'segmentation',
     peakMemoryBytes: 312_000_000,
+    gpuRecommended: false,
+  },
+  {
+    id: 'sam2-hiera-tiny-encoder',
+    name: 'Select Subject — Image Encoder',
+    description:
+      'Runs once per image to produce embeddings for interactive selection. Verified source: vietanhdev/segment-anything-2-onnx-models (Apache-2.0).',
+    sizeBytes: 134_000_000,
+    remoteUrl:
+      'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
+    checksum: '',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    precision: 'fp32',
+    category: 'segmentation',
+    peakMemoryBytes: 700_000_000,
+    gpuRecommended: true,
+  },
+  {
+    id: 'sam2-hiera-tiny-decoder',
+    name: 'Select Subject — Prompt Decoder',
+    description:
+      'Runs per click/drag using the cached encoder output. Verified source: vietanhdev/segment-anything-2-onnx-models (Apache-2.0).',
+    sizeBytes: 20_600_000,
+    remoteUrl:
+      'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.decoder.onnx',
+    checksum: '',
+    bundled: false,
+    inputSpec: null,
+    quality: 3.5,
+    precision: 'fp32',
+    category: 'segmentation',
+    peakMemoryBytes: 90_000_000,
     gpuRecommended: false,
   },
   {

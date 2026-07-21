@@ -281,6 +281,7 @@ export type {
   WorkerInferRequest,
   WorkerInferResult,
   WorkerModelType,
+  WorkerTensor,
 } from './inference/inferenceWorker';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
 export type {
@@ -296,17 +297,33 @@ export {
   validateFontDetectInput,
 } from './inference/models/fontDetect';
 export type {
-  Sam2InferenceInput,
-  Sam2InferenceOutput,
+  Sam2DecoderInput,
+  Sam2DecoderOutput,
+  Sam2EncoderInput,
+  Sam2EncoderOutput,
+  Sam2MaskCandidate,
   Sam2Prompt,
 } from './inference/models/sam2';
 export {
-  decodeSam2Mask,
+  decodeSam2DecoderOutput,
   encodeSam2Prompts,
+  resizeMaskBilinear,
   SAM2_INPUT_SIZE,
   SAM2_TENSOR_SPEC,
   validateSam2Prompts,
 } from './inference/models/sam2';
+export type { ScunetInferenceInput, ScunetInferenceOutput } from './inference/models/scunet';
+export {
+  alignTo8,
+  blendTiles,
+  computeTiles,
+  extractTile,
+  postprocessScunet,
+  preprocessScunet,
+  SCUNET_INPUT_SIZE,
+  SCUNET_TENSOR_SPEC,
+  validateScunetInput,
+} from './inference/models/scunet';
 export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
 export {
   postprocessTrOcr,
