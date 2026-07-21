@@ -470,7 +470,7 @@ export function HomeShell({
   // Create a document from a preset (blank or print) and open it. Shared by the
   // New File dialog and the home quick-start row.
   const createFromPreset = useCallback(
-    (preset: Preset) => {
+    async (preset: Preset) => {
       const id = crypto.randomUUID();
       const now = Date.now();
       const doc = createDocumentFromPreset(preset);
@@ -489,7 +489,10 @@ export function HomeShell({
         ordering: '',
         contentHash: contentHash(docJson),
       };
-      platform.upsertFile(entry, docJson);
+      // Await the persistence so readFile in handleOpenFile always finds the
+      // document. Without this await, readFile races with upsertFile and may
+      // return null, causing a blank document to appear instead of the content.
+      await platform.upsertFile(entry, docJson).catch(() => undefined);
       generateThumbnail(platform, entry, docJson);
       onOpenFile(entry);
     },

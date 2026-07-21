@@ -578,6 +578,15 @@
   opacity: 0.25;
 }
 
+/* Mixed visibility/lock state — dash icon for multi-selection with mixed values */
+.layers-row__toggle--visibility-mixed {
+  opacity: 0.55;
+}
+
+.layers-row__toggle--locked-mixed {
+  opacity: 0.55;
+}
+
 /* ─── Filter bar — multi-faceted layer filter ─────── */
 .layers-filter-bar {
   display: flex;
@@ -1109,4 +1118,18 @@
 }
 .layers-bulk-bar__color-btn--gray {
   background: var(--color-layer-tag-gray);
+}
+
+/* Clear colour button — transparent with border, distinct from coloured dots */
+.layers-bulk-bar__color-btn--clear {
+  background: transparent;
+  border-color: var(--color-border-subtle);
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.layers-bulk-bar__color-btn--clear:hover {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
 }
