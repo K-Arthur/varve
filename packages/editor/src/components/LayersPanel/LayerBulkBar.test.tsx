@@ -11,6 +11,7 @@ describe('LayerBulkBar', () => {
     onHideAll: () => {},
     onShowAll: () => {},
     onColorTag: () => {},
+    onClearColorTag: () => {},
     onDeleteAll: () => {},
   };
 
