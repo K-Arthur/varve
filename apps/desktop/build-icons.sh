@@ -20,6 +20,14 @@ echo "    Source: $SRC_SVG"
 echo "    Output: $ICON_DIR"
 echo ""
 
+# ── 0. Clean stale files from previous naming conventions ────────────────────
+echo "--> Cleaning stale icon assets"
+# Remove strata.png files from hicolor (old naming convention, superseded by
+# dev.strata.desktop.png matching the Tauri app identifier).
+find "$HICOLOR_DIR" -name "strata.png" -delete 2>/dev/null || true
+# Also clean any .DS_Store or macOS metadata artifacts that might interfere.
+find "$HICOLOR_DIR" -name ".DS_Store" -delete 2>/dev/null || true
+
 # ── 1. Export 1024px master PNG ──────────────────────────────────────────────
 echo "--> Exporting 1024px master PNG"
 rsvg-convert -w 1024 -h 1024 "$SRC_SVG" -o "$TMP/app-icon-1024.png"
