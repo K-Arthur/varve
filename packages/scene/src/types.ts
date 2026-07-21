@@ -634,6 +634,10 @@ export interface TextNode extends NodeBase {
   textMode?: import('./typography').TextMode;
   /** Path text settings (when textMode === 'path'). */
   pathTextSettings?: import('./typography').PathTextSettings;
+  /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect from content). */
+  direction?: 'ltr' | 'rtl' | 'auto';
+  /** ISO language tag for language-specific shaping (e.g. 'ar', 'hi', 'th'). */
+  language?: string;
   /** F6: stacked strokes on text. */
   strokes: Stroke[];
   /** F6: stacked effects on text. */
