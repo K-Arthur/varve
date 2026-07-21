@@ -1,0 +1,331 @@
+name: Model Quantization & Validation
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'apps/desktop/public/models/**'
+      - 'scripts/quantize/**'
+      - '.github/workflows/quantize.yml'
+  pull_request:
+    paths:
+      - 'apps/desktop/public/models/**'
+      - 'scripts/quantize/**'
+  schedule:
+    # Weekly full re-validation to catch ONNX Runtime / toolchain drift
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      full_quantize:
+        description: 'Run full quantization (slow)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Fast PR gate: verify manifest schema, source hashes, existing artifact
+  # integrity. No Python/ORT needed — runs in Node.js.
+  # ---------------------------------------------------------------------------
+  manifest-verify:
+    name: Manifest verification
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate manifest JSON schema
+        run: |
+          node -e "
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
+          
+          // Check version
+          if (manifest.version !== 2) {
+            console.error('ERROR: manifest version must be 2, got', manifest.version);
+            process.exit(1);
+          }
+          
+          // Check all entries have required fields
+          const required = ['id', 'filename', 'localPath', 'bundled', 'remoteUrl'];
+          for (const entry of manifest.models) {
+            for (const field of required) {
+              if (entry[field] === undefined) {
+                console.error('ERROR: entry', entry.id, 'missing required field:', field);
+                process.exit(1);
+              }
+            }
+            // INT8 entries must have sourceModelId and sourceSha256
+            if (entry.precision === 'int8' && (!entry.sourceModelId || !entry.sourceSha256)) {
+              console.error('ERROR: INT8 entry', entry.id, 'missing sourceModelId or sourceSha256');
+              process.exit(1);
+            }
+          }
+          
+          console.log('Manifest OK:', manifest.models.length, 'entries');
+          "
+
+      - name: Verify bundled model files exist
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
+          
+          let errors = 0;
+          for (const entry of manifest.models) {
+            if (entry.bundled) {
+              const filePath = path.join('apps/desktop/public/models', entry.localPath);
+              if (!fs.existsSync(filePath)) {
+                console.error('ERROR: bundled model not found:', filePath);
+                errors++;
+              }
+            }
+          }
+          
+          if (errors > 0) {
+            console.error(errors, 'bundled model(s) missing');
+            process.exit(1);
+          }
+          console.log('All bundled model files present');
+          "
+
+      - name: Verify quantized artifact reports exist
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const quantizedDir = 'apps/desktop/public/models/quantized';
+          if (!fs.existsSync(quantizedDir)) {
+            console.log('No quantized directory — skipping report check');
+            process.exit(0);
+          }
+          
+          const entries = fs.readdirSync(quantizedDir);
+          const reports = entries.filter(f => f.endsWith('-report.json'));
+          
+          for (const report of reports) {
+            const data = JSON.parse(fs.readFileSync(path.join(quantizedDir, report), 'utf-8'));
+            if (!data.source_hash || !data.ort_version || !data.weight_type) {
+              console.error('ERROR: report', report, 'missing required provenance fields');
+              process.exit(1);
+            }
+          }
+          console.log(reports.length, 'quantization reports OK');
+          "
+
+  # ---------------------------------------------------------------------------
+  # Validate quantized model quality against FP32 baseline
+  # Requires Python + ONNX Runtime — runs only on manifest changes or dispatch.
+  # ---------------------------------------------------------------------------
+  quality-validate:
+    name: Quality validation
+    needs: [manifest-verify]
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'quantize'))
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/quantize/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r scripts/quantize/requirements.txt
+
+      - name: Validate quantized models
+        run: |
+          python3 scripts/quantize/validate_model.py --all --synthetic 2>&1 | tee validation.log
+          if grep -q 'FAILED\|REJECTED' validation.log; then
+            echo "ERROR: Quality validation failed"
+            exit 1
+          fi
+
+      - name: Upload validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantization-validation-report
+          path: apps/desktop/public/models/quantized/*-validation-report.json
+
+  # ---------------------------------------------------------------------------
+  # Full quantization run (manual only — slow, generates new artifacts)
+  # ---------------------------------------------------------------------------
+  full-quantize:
+    name: Full quantization
+    needs: [manifest-verify]
+    if: github.event_name == 'workflow_dispatch' && inputs.full_quantize
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: scripts/quantize/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r scripts/quantize/requirements.txt
+
+      - name: Verify source model hashes
+        run: |
+          node -e "
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
+          
+          let errors = 0;
+          for (const entry of manifest.models) {
+            if (entry.bundled && entry.sha256) {
+              const filePath = 'apps/desktop/public/models' + entry.localPath;
+              const data = fs.readFileSync(filePath);
+              const hash = crypto.createHash('sha256').update(data).digest('hex');
+              if (hash !== entry.sha256) {
+                console.error('ERROR: hash mismatch for', entry.id);
+                console.error('  expected:', entry.sha256);
+                console.error('  actual:  ', hash);
+                errors++;
+              }
+            }
+          }
+          
+          if (errors > 0) {
+            console.error(errors, 'hash mismatch(es)');
+            process.exit(1);
+          }
+          console.log('All source model hashes verified');
+          "
+
+      - name: Quantize all models
+        run: |
+          python3 scripts/quantize/quantize_model.py --all 2>&1 | tee quantize.log
+
+      - name: Validate quantized models
+        run: |
+          python3 scripts/quantize/validate_model.py --all --synthetic 2>&1 | tee validate.log
+          if grep -q 'FAILED\|REJECTED' validate.log; then
+            echo "ERROR: Quality validation failed for quantized models"
+            exit 1
+          fi
+
+      - name: Verify manifest consistency
+        run: |
+          node -e "
+          const fs = require('fs');
+          const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
+          const crypto = require('crypto');
+          
+          // Check that quantized artifacts match manifest entries
+          for (const entry of manifest.models) {
+            if (entry.precision === 'int8') {
+              const filePath = 'apps/desktop/public/models' + entry.localPath;
+              if (!fs.existsSync(filePath)) {
+                console.error('ERROR: quantized artifact missing:', filePath);
+                process.exit(1);
+              }
+              // Verify SHA-256
+              if (entry.sha256) {
+                const data = fs.readFileSync(filePath);
+                const hash = crypto.createHash('sha256').update(data).digest('hex');
+                if (hash !== entry.sha256) {
+                  console.error('ERROR: hash mismatch for quantized', entry.id);
+                  console.error('  expected:', entry.sha256);
+                  console.error('  actual:  ', hash);
+                  process.exit(1);
+                }
+              }
+            }
+          }
+          console.log('Quantized artifacts consistent with manifest');
+          "
+
+      - name: Upload quantized artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantized-models
+          path: apps/desktop/public/models/quantized/
+
+      - name: Upload manifests and reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: quantization-reports
+          path: |
+            apps/desktop/public/models/quantized/*-report.json
+            apps/desktop/public/models/quantized/*-validation-report.json
+
+  # ---------------------------------------------------------------------------
+  # Platform-specific runtime smoke test
+  # ---------------------------------------------------------------------------
+  runtime-smoke:
+    name: Runtime smoke (${{ matrix.os }})
+    needs: [manifest-verify]
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ONNX Runtime
+        run: |
+          python3 -m pip install onnxruntime
+
+      - name: Load each bundled model and verify graph metadata
+        run: |
+          python3 -c "
+          import onnxruntime as ort
+          import json
+          import os
+          
+          manifest_path = 'apps/desktop/public/models/manifest.json'
+          with open(manifest_path) as f:
+              manifest = json.load(f)
+          
+          for entry in manifest['models']:
+              if not entry.get('bundled'):
+                  continue
+              model_path = os.path.join('apps/desktop/public/models', entry['localPath'])
+              if not os.path.exists(model_path):
+                  print(f'SKIP (not found): {entry[\"id\"]}')
+                  continue
+              
+              try:
+                  session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
+                  meta = session.get_modelmeta()
+                  print(f'OK: {entry[\"id\"]} — {len(session.get_inputs())} input(s), {len(session.get_outputs())} output(s)')
+                  
+                  # Check input/output names are non-empty
+                  for inp in session.get_inputs():
+                      assert inp.name, f'Empty input name in {entry[\"id\"]}'
+                  for out in session.get_outputs():
+                      assert out.name, f'Empty output name in {entry[\"id\"]}'
+              except Exception as e:
+                  print(f'FAIL: {entry[\"id\"]} — {e}')
+                  raise
+          print('All bundled models loaded successfully')
+          "
