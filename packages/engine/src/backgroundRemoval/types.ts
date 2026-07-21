@@ -63,6 +63,12 @@ export interface BackgroundRemovalOptions {
   previewMaxDimension?: number;
   /** Precision preference for AI model selection. Controls FP32 vs INT8 variant. */
   qualityPreference?: InferenceQualityPreference;
+  /**
+   * Monotonic revision counter for stale-result rejection.
+   * When set, the caller can increment this value on each new request;
+   * results from an older revision are discarded.
+   */
+  requestRevision?: number;
 }
 
 export interface BackgroundRemovalResult {
@@ -82,18 +88,20 @@ export interface BackgroundRemovalResult {
   precisionFallback?: boolean;
   /** Human-readable reason for precision fallback. */
   precisionFallbackReason?: string;
-  /** Raw single-channel mask data at the result's width/height (0-255).
-   *  Set by providers alongside maskDataUrl to avoid redundant PNG decode
-   *  during source-resolution reconstruction. */
+  /** Raw single-channel mask data at the result's width/height (0-255). */
   rawMask?: Uint8Array;
-  /** Source-resolution composited alpha (0-255 per pixel), set when
-   *  source dimensions differ from preview dimensions. Reconstructed
-   *  via letterbox-aware bilinear interpolation from the model mask. */
+  /** Source-resolution composited alpha (0-255 per pixel). */
   sourceAlpha?: Uint8Array;
   sourceWidth?: number;
   sourceHeight?: number;
   /** Dimensions and transform used to reconstruct the source-resolution matte. */
   sourceResolutionInfo?: SourceResolutionInfo;
+  /**
+   * The request revision that produced this result, for stale-result
+   * rejection. Callers should compare against their current revision
+   * before applying the mask.
+   */
+  requestRevision?: number;
 }
 
 export interface SourceResolutionInfo {
