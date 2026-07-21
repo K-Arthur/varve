@@ -6,6 +6,8 @@ import { composeSourceAndSubjectAlpha } from './reconstructMask';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from './types';
 import { DEFAULT_PREVIEW_MAX_DIMENSION } from './types';
 
+export type { AdaptiveSelection, AdaptiveSelectionOptions } from './adaptiveSelection';
+export { selectAdaptiveModel } from './adaptiveSelection';
 export type { CategoryProfile, ImageCategoryFeatures } from './categoryTuning';
 export {
   extractCategoryFeatures,
@@ -19,6 +21,8 @@ export {
   resetCloudConfig,
   saveCloudConfig,
 } from './cloudConfig';
+export type { PipelineDiagnostics } from './diagnostics/diagnosticsSnapshot';
+export { buildDiagnostics, classifyMemory } from './diagnostics/diagnosticsSnapshot';
 export type {
   InferenceDiagnosticEvent,
   InferenceDiagnosticsState,
@@ -47,9 +51,12 @@ export { decodeMaskDataUrl } from './maskDecode';
 export type { MaskComponent, MaskComponentBBox } from './maskOps';
 export {
   assignStableIds,
+  contractMask,
   decontaminateMask,
+  expandMask,
   extractComponentMask,
   featherMaskArray,
+  fillMaskHoles,
   filterMaskByComponents,
   findConnectedComponents,
   maskFromImageData,
@@ -57,6 +64,13 @@ export {
   mergeNearbyComponents,
   unionComponentMasks,
 } from './maskOps';
+export type {
+  ContractValidationResult,
+  ContractViolation,
+  ModelContract,
+  TensorContract,
+} from './modelContract';
+export { MODEL_CONTRACTS, validateModelContract } from './modelContract';
 export type { ModelInfo } from './modelInfo';
 export { getModelInfo, MODEL_INFO_MAP } from './modelInfo';
 export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
@@ -166,6 +180,16 @@ export async function removeBackground(
   const result = await dispatchBackgroundRemoval(workingBuffer, resolved, signal);
   const srcW = imageData.width;
   const srcH = imageData.height;
+
+  // Stale-result rejection: if the caller provided a revision, verify this
+  // result is still relevant. This catches the case where the user changed
+  // quality/settings while inference was running on a stale request.
+  const resolvedRevision = resolved.requestRevision;
+  if (resolvedRevision !== undefined && result.requestRevision !== undefined) {
+    if (result.requestRevision < resolvedRevision) {
+      throw new Error('cancelled');
+    }
+  }
 
   const sourceInfo = {
     modelWidth: result.width,

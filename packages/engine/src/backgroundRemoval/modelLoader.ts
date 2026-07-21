@@ -416,9 +416,22 @@ class ModelLoader {
         }
       }
 
+      // Refuse downloads for models whose manifest explicitly declares no
+      // checksum — integrity verification is impossible and a corrupt or
+      // malicious file would go undetected. If the manifest is unreachable
+      // (offline, test environment) we allow the download through; the
+      // post-download checksum verification will skip when no hash is known.
+      const manifestEntry = await getManifestEntry(modelId, signal);
+      if (manifestEntry && !manifestEntry.sha256) {
+        throw new Error(
+          `Model ${modelId} has no SHA-256 checksum and cannot be verified. ` +
+            'This model is not available for download until its integrity metadata is published. ' +
+            'Use a supported model (u2netp, isnet-general-use, birefnet-general-lite) instead.',
+        );
+      }
+
       const sources = await this.resolveDownloadSources(modelId, signal);
       const localPath = sources?.local ?? `/models/${modelId}.onnx`;
-      const manifestEntry = await getManifestEntry(modelId, signal);
       remoteUrl = sources?.remote ?? model.remoteUrl;
 
       const existingPartial =

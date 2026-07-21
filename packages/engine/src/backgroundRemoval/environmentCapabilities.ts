@@ -204,39 +204,54 @@ async function detectWebGPUAsync(): Promise<boolean> {
  * Determine whether a given model ID can safely run via WASM inference
  * in the current environment.
  *
- * This is a conservative heuristic — returning `true` means "likely safe",
+ * Uses the model catalog's `peakMemoryBytes` when available (which accounts
+ * for input tensor size and intermediate activations), falling back to a
+ * conservative `sizeBytes * multiplier` heuristic.
+ *
+ * This is a conservative check — returning `true` means "likely safe",
  * not "guaranteed safe". Returning `false` means "known to be unsafe or
  * likely to exceed available memory".
  */
 export async function isWasmModelSafe(modelId: string): Promise<boolean> {
   const caps = await getEnvironmentCapabilities();
 
-  // Estimate model peak memory: model file + input tensor + intermediate
-  // activations. For segmentation models, intermediate activations can
-  // be 2-5x the model file size at inference time.
+  // Use the unified model catalog for size metadata.
   let modelFileSize: number;
+  let peakMultiplier = 3;
 
-  switch (modelId) {
-    case 'u2netp':
-      modelFileSize = 4_700_000;
-      break;
-    case 'isnet-general-use':
-      modelFileSize = 178_648_008;
-      break;
-    case 'birefnet-general-lite':
-      modelFileSize = 224_000_000;
-      break;
-    case 'birefnet-general':
-      modelFileSize = 928_000_000;
-      break;
-    default:
-      return true; // Unknown model — let it try
+  try {
+    const { getModelById } = await import('../inference/modelCatalog');
+    const entry = getModelById(modelId);
+    if (entry) {
+      if (entry.peakMemoryBytes) {
+        return entry.peakMemoryBytes <= caps.wasmSafeModelBytes;
+      }
+      modelFileSize = entry.sizeBytes;
+    } else {
+      // Unknown model — use a generous default multiplier.
+      return true;
+    }
+  } catch {
+    // Import or catalog unavailable — fall back to hardcoded values.
+    switch (modelId) {
+      case 'u2netp':
+        modelFileSize = 4_700_000;
+        break;
+      case 'isnet-general-use':
+        modelFileSize = 178_648_008;
+        break;
+      case 'birefnet-general-lite':
+        modelFileSize = 224_000_000;
+        break;
+      case 'birefnet-general':
+        modelFileSize = 928_000_000;
+        break;
+      default:
+        return true;
+    }
   }
 
-  // Conservative peak-memory multiplier for segmentation models during
-  // inference (model loading + input + intermediate activations).
-  // BiRefNet at 1024×1024 with float32 produces large intermediate tensors.
-  const peakMultiplier = modelId === 'u2netp' ? 3 : 4;
+  peakMultiplier = modelId === 'u2netp' ? 3 : 4;
   const estimatedPeakBytes = modelFileSize * peakMultiplier;
 
   return estimatedPeakBytes <= caps.wasmSafeModelBytes;

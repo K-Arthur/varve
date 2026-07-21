@@ -12,6 +12,7 @@ import {
   normalizeSegmentationOutput,
   resizeMaskBilinear,
 } from './maskOps';
+import { validateModelContract } from './modelContract';
 import { getSegmentationModelSpec, packModelInput } from './modelSpec';
 import { configureOrtRuntime } from './ortRuntimeAssets';
 import { downscaleImageData } from './previewDownscale';
@@ -29,6 +30,8 @@ interface WorkerCommand {
   feather?: number;
   decontaminate?: boolean;
   previewMaxDimension?: number;
+  /** Monotonic revision for stale-result rejection. */
+  requestRevision?: number;
 }
 
 interface WorkerResponse {
@@ -98,6 +101,7 @@ async function getSession(
         // silently create a WASM session.
         executionProviders: [provider],
       });
+      verifySessionContract(modelId, cachedSession);
       cachedExecutionProvider = provider;
       cachedModelPath = modelPath;
       return { session: cachedSession, executionProvider: provider };
@@ -125,9 +129,29 @@ async function getSession(
   cachedSession = await ort.InferenceSession.create(modelPath, {
     executionProviders: ['wasm'],
   });
+  verifySessionContract(modelId, cachedSession);
   cachedExecutionProvider = 'wasm';
   cachedModelPath = modelPath;
   return { session: cachedSession, executionProvider: 'wasm' };
+}
+
+/**
+ * Verify the ONNX session matches the expected model contract.
+ * Throws on mismatch so a corrupted or wrong model file fails fast
+ * instead of producing garbage output.
+ */
+function verifySessionContract(modelId: string, session: InferenceSession): void {
+  const result = validateModelContract(
+    modelId as WorkerModelId,
+    session.inputNames,
+    session.outputNames,
+  );
+  if (!result.valid) {
+    const details = result.violations
+      .map((v) => `${v.kind}[${v.index}].${v.field}: expected ${v.expected}, got ${v.actual}`)
+      .join('; ');
+    throw new Error(`Model contract verification failed for ${modelId}: ${details}`);
+  }
 }
 
 /** Reset cached provider preference (used in tests and when environment changes). */
@@ -150,6 +174,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
     feather,
     decontaminate,
     previewMaxDimension,
+    requestRevision,
   } = data as WorkerCommand;
 
   try {
@@ -288,6 +313,7 @@ self.onmessage = async (e: MessageEvent<unknown>) => {
         modelId,
         modelPrecision: isInt8 ? 'int8' : 'fp32',
         rawMask: fullMask,
+        requestRevision,
       },
     };
     self.postMessage(response);
