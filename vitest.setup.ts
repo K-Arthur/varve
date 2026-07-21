@@ -316,9 +316,13 @@ Object.defineProperty(globalThis, 'sessionStorage', {
 });
 
 // jsdom does not implement matchMedia
+// NOTE: must be a plain function, NOT vi.fn(). vi.restoreAllMocks() resets
+// vi.fn() implementations to return undefined, which breaks code paths that
+// call window.matchMedia(...).matches — the reducedMotionManager crashes
+// with "Cannot read properties of undefined (reading 'matches')".
 Object.defineProperty(globalThis, 'matchMedia', {
   configurable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
+  value: (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -327,7 +331,7 @@ Object.defineProperty(globalThis, 'matchMedia', {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(),
-  })),
+  }),
 });
 
 // jsdom does not implement the popover API
