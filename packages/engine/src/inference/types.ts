@@ -7,6 +7,8 @@
  * caching, provider fallback, or memory-safety gating.
  */
 
+export type ModelPrecision = 'fp32' | 'int8';
+
 /** Specification for a model's input preprocessing. */
 export interface ModelInputSpec {
   /** Expected input width/height (models square). */
@@ -19,6 +21,14 @@ export interface ModelInputSpec {
   paddingRgb: [number, number, number];
   /** Apply sigmoid to output logits. */
   applySigmoid: boolean;
+}
+
+export interface QualityValidation {
+  passed: boolean;
+  meanMae: number;
+  meanPsnrDb: number;
+  validatedAt: string;
+  ortVersion: string;
 }
 
 /** Entry in the model manifest. */
@@ -44,6 +54,18 @@ export interface ModelManifestEntry {
   gpuRecommended?: boolean;
   /** How many concurrent sessions to cache (-1 = unlimited). */
   maxSessions?: number;
+  /** Weight precision (default fp32). */
+  precision?: ModelPrecision;
+  /** For INT8 variants: the FP32 source model this was quantized from. */
+  sourceModelId?: string;
+  /** SHA-256 of the FP32 source at quantization time. */
+  sourceSha256?: string;
+  /** Model category — segmentation, upscaling, denoising, etc. */
+  category?: string;
+  /** Local path to the model file (relative to public/). */
+  localPath?: string;
+  /** INT8 quality validation results (set for bundled INT8 variants). */
+  qualityValidation?: QualityValidation;
 }
 
 export type ModelState = 'unavailable' | 'downloading' | 'ready' | 'error';

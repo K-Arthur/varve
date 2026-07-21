@@ -219,6 +219,18 @@ export interface ToolContext {
   /** Commit a raster mask as a native RasterMaskAsset. */
   commitRasterMask?: (nodeId: string, dataUrl: string, width: number, height: number) => void;
   createRasterLayer: (width: number, height: number) => string | null;
+
+  /** SAM2 interactive segmentation */
+  applySam2Segmentation?: (params: {
+    nodeId: string;
+    prompts: {
+      points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+      box?: { x1: number; y1: number; x2: number; y2: number };
+    };
+    signal?: AbortSignal;
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
+  }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
+  cancelSam2Segmentation?: () => void;
 }
 
 export interface Tool {

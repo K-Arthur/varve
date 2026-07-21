@@ -50,6 +50,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   spotHeal: 'Spot Heal',
   patch: 'Patch Tool',
   smudge: 'Smudge',
+  sam2Segment: 'SAM2 Segment',
 };
 
 const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
@@ -74,6 +75,7 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   healBrush: 'J 2x',
   spotHeal: 'J 3x',
   smudge: 'U',
+  sam2Segment: 'M',
 };
 
 /** Tools hidden in structured-layout modes (Print, Design): raster painting
@@ -109,6 +111,7 @@ const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'text' },
   { id: 'eyedropper' },
   { id: 'frame' },
+  { id: 'sam2Segment', groupStart: true },
 ];
 
 const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
@@ -125,6 +128,7 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'eyedropper' },
   { id: 'scale' },
   { id: 'inspect' },
+  { id: 'sam2Segment', groupStart: true },
   { id: 'paint', groupStart: true },
   { id: 'eraser' },
   { id: 'smudge' },

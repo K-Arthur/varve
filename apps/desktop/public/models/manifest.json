@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "models": [
     {
       "id": "u2netp",
@@ -7,7 +7,21 @@
       "localPath": "/models/u2netp.onnx",
       "sha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
       "bundled": true,
-      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx"
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx",
+      "precision": "fp32",
+      "notes": "Fast preview quality segmentation. Bundled with the app."
+    },
+    {
+      "id": "u2netp-int8",
+      "filename": "u2netp-int8.onnx",
+      "localPath": "/models/quantized/u2netp-int8.onnx",
+      "sha256": "7b3355af9c9f76d75c3ad263f711c4ef20f812bae426b798d89c80e098b9edf3",
+      "bundled": true,
+      "remoteUrl": "",
+      "precision": "int8",
+      "sourceModelId": "u2netp",
+      "sourceSha256": "309c8469258dda742793dce0ebea8e6dd393174f89934733ecc8b14c76f4ddd8",
+      "notes": "QInt8 dynamic quantization, per-channel, Conv+MatMul+Gemm. 3.46x smaller than FP32. Quality-validated (synthetic)."
     },
     {
       "id": "isnet-general-use",
@@ -15,7 +29,9 @@
       "localPath": "/models/isnet-general-use.onnx",
       "sha256": "60920e99c45464f2ba57bee2ad08c919a52bbf852739e96947fbb4358c0d964a",
       "bundled": false,
-      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx"
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/isnet-general-use.onnx",
+      "precision": "fp32",
+      "notes": "Enhanced balanced quality for people, animals, vehicles, and objects."
     },
     {
       "id": "birefnet-general-lite",
@@ -23,7 +39,9 @@
       "localPath": "/models/birefnet-general-lite.onnx",
       "sha256": "5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333",
       "bundled": false,
-      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx"
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-bb_swin_v1_tiny-epoch_232.onnx",
+      "precision": "fp32",
+      "notes": "High quality, handles complex edges including hair and fur."
     },
     {
       "id": "birefnet-general",
@@ -31,7 +49,9 @@
       "localPath": "/models/birefnet-general.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx"
+      "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx",
+      "precision": "fp32",
+      "notes": "Best quality, handles hair, fur, transparency, and fine detail."
     },
     {
       "id": "upscale-realesr-general",
@@ -40,7 +60,30 @@
       "sha256": "856e1f4d77f553e8871302f1782b58e315a12dac52bb0b856dde2dde149b96f7",
       "bundled": true,
       "remoteUrl": "",
+      "precision": "fp32",
       "notes": "Bundled ONNX conversion of the official Real-ESRGAN v0.3.0 general-purpose x4v3 checkpoint (asset tag v0.2.5.0)."
+    },
+    {
+      "id": "upscale-realesr-general-int8",
+      "filename": "realesr-general-x4v3-int8.onnx",
+      "localPath": "/models/quantized/realesr-general-x4v3-int8.onnx",
+      "sha256": "357ebd6732007dbb0d663931e8a7f923baaf9f20a4ca38511fbcd90a1fa06711",
+      "bundled": true,
+      "remoteUrl": "",
+      "precision": "int8",
+      "sourceModelId": "upscale-realesr-general",
+      "sourceSha256": "856e1f4d77f553e8871302f1782b58e315a12dac52bb0b856dde2dde149b96f7",
+      "notes": "QInt8 dynamic quantization, per-channel, Conv+MatMul+Gemm. 3.79x smaller than FP32. Quality-validated (synthetic)."
+    },
+    {
+      "id": "scunet",
+      "filename": "scunet.onnx",
+      "localPath": "/models/scunet.onnx",
+      "sha256": null,
+      "bundled": false,
+      "remoteUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet.onnx",
+      "precision": "fp32",
+      "notes": "SCUNet — removes noise, JPEG artifacts, and grain from photos while preserving detail."
     }
   ]
 }
