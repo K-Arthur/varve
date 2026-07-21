@@ -46,6 +46,10 @@ export type SectionId =
   | 'ai-denoise'
   | 'lens-blur'
   | 'line-art'
+  | 'image-crop'
+  | 'content-aware-fill'
+  | 'detect-text'
+  | 'blend-images'
   | 'adaptive-contrast'
   | 'colorize';
 
@@ -320,6 +324,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
   {
+    id: 'image-crop',
+    title: 'Crop & Bounds',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 275,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
     id: 'image-enhancement',
     title: 'Image & Vector',
     defaultExpanded: true,
@@ -376,6 +390,36 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 296,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'content-aware-fill',
+    title: 'Content-Aware Fill',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 297,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'detect-text',
+    title: 'Detect Text Regions',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 299,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'blend-images',
+    title: 'Blend Images',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 300,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },

@@ -22,6 +22,7 @@ export type {
   Sam2DecoderOutput,
   Sam2EncoderInput,
   Sam2EncoderOutput,
+  Sam2Letterbox,
   Sam2MaskCandidate,
   Sam2Prompt,
 } from './models/sam2';
