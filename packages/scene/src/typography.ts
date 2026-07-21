@@ -360,6 +360,100 @@ export function resolveCharacterFormat(
   return resolved;
 }
 
+// ── Adaptive Contrast State ─────────────────────────────────────────────────
+
+export type AdaptiveContrastPolicy = 'wcag-aa' | 'wcag-aaa' | 'custom';
+
+/**
+ * Persistent adaptive contrast state stored on a TextNode.
+ * The `resolvedColor` is computed at render time by the adaptive contrast
+ * engine; the stored `fill` on the TextNode remains the author's original
+ * choice so switching adaptive contrast on/off is non-destructive.
+ */
+export interface AdaptiveContrastState {
+  enabled: boolean;
+  policy: AdaptiveContrastPolicy;
+  /** Light candidate color shown on dark backdrops. */
+  lightColor?: import('./types').ManagedColor;
+  /** Dark candidate color shown on light backdrops. */
+  darkColor?: import('./types').ManagedColor;
+  /** Custom target ratio when policy is 'custom' (4.5 - 21). */
+  customRatio?: number;
+  /** Hysteresis threshold to prevent flickering (0-1, default 0.5). */
+  hysteresis?: number;
+  /** Last keyboard focus/active visible start time for re-evaluation. */
+  lastResolved?: number;
+  /**
+   * The resolved text colour from the last adaptive contrast evaluation.
+   * This overrides the stored fill during rendering and export.
+   * Reset to undefined when adaptive contrast is disabled.
+   */
+  resolvedColor?: import('./types').ManagedColor;
+}
+
+/**
+ * Set or update adaptive contrast state on a text node.
+ * Returns a new document with the updated node.
+ */
+export function setTextAdaptiveContrast(
+  doc: import('./types').Document,
+  nodeId: string,
+  ac: Partial<AdaptiveContrastState>,
+): import('./types').Document {
+  const node = doc.nodes[nodeId];
+  if (!node || node.kind !== 'text') return doc;
+
+  const existing = (node as import('./types').TextNode).adaptiveContrast;
+  if (ac.enabled === false) {
+    // Disabling: clear resolvedColor so rendering falls back to stored fill
+    const updatedNode = {
+      ...node,
+      adaptiveContrast: {
+        ...existing,
+        ...ac,
+        enabled: false,
+        resolvedColor: undefined,
+      } as AdaptiveContrastState,
+    };
+    return {
+      ...doc,
+      nodes: { ...doc.nodes, [nodeId]: updatedNode as import('./types').SceneNode },
+    };
+  }
+
+  const updatedNode = {
+    ...node,
+    adaptiveContrast: { ...existing, ...ac } as AdaptiveContrastState,
+  };
+  return { ...doc, nodes: { ...doc.nodes, [nodeId]: updatedNode as import('./types').SceneNode } };
+}
+
+/**
+ * Resolve the effective text colour for a text node, accounting for adaptive
+ * contrast. Returns the resolved colour if adaptive contrast is enabled and a
+ * `resolvedColor` exists, otherwise returns the node's stored fill.
+ */
+export function resolveTextColor(node: import('./types').TextNode): import('./types').ManagedColor {
+  const ac = node.adaptiveContrast;
+  if (ac?.enabled && ac.resolvedColor) {
+    return ac.resolvedColor;
+  }
+  return node.fill;
+}
+
+/**
+ * Resolve the effective text colour for a text node, given an explicit
+ * resolved colour override. Used by the render pipeline to temporarily
+ * override the stored fill without mutating the document.
+ */
+export function resolveTextColorWithOverride(
+  node: import('./types').TextNode,
+  overrideColor?: import('./types').ManagedColor,
+): import('./types').ManagedColor {
+  if (overrideColor) return overrideColor;
+  return resolveTextColor(node);
+}
+
 /**
  * Resolve a paragraph format by walking the style inheritance chain.
  * Merges from the most ancestral style through intermediates, then applies

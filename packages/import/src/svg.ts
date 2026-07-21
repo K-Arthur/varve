@@ -7,6 +7,7 @@
 import type { Affine, PathPoint, Shape } from '@strata/engine';
 import type { Document, FrameNode, ManagedColor, SceneNode } from '@strata/scene';
 import {
+  addMask,
   addNode,
   createDocument,
   makeFrameNode,
@@ -122,7 +123,8 @@ function convertElement(
       gIds.push(...r.ids);
     }
     if (gIds.length > 0) {
-      const { id } = nextNodeId(gDoc);
+      const { id, doc: gDocWithId } = nextNodeId(gDoc);
+      gDoc = gDocWithId;
       const groupTransformAffine = composeTransforms(transforms);
       const { x, y, w, h } = computeGroupBounds(gDoc, gIds);
       const groupNode: FrameNode = {
@@ -149,6 +151,8 @@ function convertElement(
         ...gDoc,
         rootChildren: [...gDoc.rootChildren.filter((nid) => !gIds.includes(nid)), id],
       };
+      // Apply clip-path or mask if present on the group
+      gDoc = applyGroupClipOrMask(gDoc, id, el, defs, transforms, opts, warnings);
       ids.push(id);
       return { doc: gDoc, ids };
     }
@@ -226,6 +230,18 @@ function convertElement(
     const node = { ...styled, id } as SceneNode;
     doc = addNode(d2, node);
     ids.push(id);
+
+    // If the leaf element has clip-path or mask, wrap in a group and apply
+    const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
+    const maskRef = parseUrlReference(el.attrs.mask ?? '');
+    if (clipRef || maskRef) {
+      const wrapped = wrapNodeInMaskedGroup(doc, id, el, defs, transforms, opts, warnings);
+      if (wrapped) {
+        doc = wrapped.doc;
+        ids.length = 0;
+        ids.push(wrapped.groupId);
+      }
+    }
   }
 
   return { doc, ids };
@@ -553,6 +569,247 @@ function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
   }
 
   return result;
+}
+
+// ─── SVG clipPath / mask handling ──────────────────────────────────────────
+
+/**
+ * Parse a `url(#id)` reference from a clip-path or mask attribute.
+ * Returns the referenced ID or null if the format is invalid.
+ */
+function parseUrlReference(value: string): string | null {
+  const match = value.trim().match(/^url\(#([^)]+)\)$/);
+  return match ? match[1]! : null;
+}
+
+/**
+ * Determine the mask type from a <mask> element's mask-type attribute.
+ * SVG default is alpha; `mask-type="luminance"` selects luminance.
+ */
+function maskTypeFromElement(el: ParsedElement): 'alpha' | 'luminance' {
+  const maskType = el.attrs['mask-type'];
+  if (maskType === 'luminance') return 'luminance';
+  return 'alpha';
+}
+
+/**
+ * Convert the children of a <clipPath> or <mask> element into a single
+ * mask source node. Multiple children are wrapped in a group.
+ */
+function buildMaskSourceNode(
+  defEl: ParsedElement,
+  doc: Document,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  opts: ImportOptions,
+  warnings: string[],
+): { doc: Document; sourceId: string | null } {
+  const childNodes: string[] = [];
+  let d = doc;
+
+  for (const child of defEl.children) {
+    const r = convertElement(child, d, defs, transforms, opts, warnings);
+    d = r.doc;
+    childNodes.push(...r.ids);
+  }
+
+  if (childNodes.length === 0) {
+    return { doc: d, sourceId: null };
+  }
+
+  // Remove created nodes from rootChildren — they will be children of the
+  // masked container, not root-level nodes.
+  d = {
+    ...d,
+    rootChildren: d.rootChildren.filter((nid) => !childNodes.includes(nid)),
+  };
+
+  if (childNodes.length === 1) {
+    return { doc: d, sourceId: childNodes[0]! };
+  }
+
+  // Multiple children: wrap in a group
+  const { id, doc: d2 } = nextNodeId(d);
+  d = d2;
+  const { x, y, w, h } = computeGroupBounds(d, childNodes);
+  const groupNode: FrameNode = {
+    ...makeFrameNode(id, {
+      name: 'Mask Source',
+      children: childNodes,
+      w,
+      h,
+    }),
+    transform: [1, 0, 0, 1, x, y] as Affine,
+  };
+  for (const childId of childNodes) {
+    adjustNodePosition(d, childId, -x, -y);
+  }
+  d = { ...d, nodes: { ...d.nodes, [id]: groupNode as SceneNode } };
+  return { doc: d, sourceId: id };
+}
+
+/**
+ * Apply an SVG clip-path or mask reference to a container node.
+ * Creates the mask source from the def, adds it as a child, and sets the mask.
+ */
+function applySvgClipOrMask(
+  doc: Document,
+  containerId: string,
+  defEl: ParsedElement,
+  maskType: 'clip' | 'alpha' | 'luminance',
+  opts: ImportOptions,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  warnings: string[],
+): Document {
+  const { doc: d2, sourceId } = buildMaskSourceNode(defEl, doc, defs, transforms, opts, warnings);
+  if (!sourceId) {
+    warnings.push('clipPath/mask definition is empty — skipping');
+    return d2;
+  }
+
+  // Ensure the source is a child of the container
+  const container = d2.nodes[containerId];
+  if (!container) return d2;
+  const children = 'children' in container ? container.children : undefined;
+  let d = d2;
+  if (children && !children.includes(sourceId)) {
+    // Add source as first child (mask sources should be first in Strata)
+    d = {
+      ...d,
+      nodes: {
+        ...d.nodes,
+        [containerId]: { ...container, children: [sourceId, ...children] } as SceneNode,
+      },
+    };
+  }
+
+  d = addMask(d, containerId, sourceId, maskType, {
+    fillRule: defEl.attrs['clip-rule'] === 'evenodd' ? 'evenodd' : 'nonzero',
+  });
+
+  return d;
+}
+
+/**
+ * Apply clip-path or mask attributes from an SVG element to a Strata group.
+ * Looks up the referenced def and creates the mask source node.
+ */
+function applyGroupClipOrMask(
+  doc: Document,
+  groupId: string,
+  el: ParsedElement,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  opts: ImportOptions,
+  warnings: string[],
+): Document {
+  let d = doc;
+
+  // Handle clip-path
+  const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
+  if (clipRef) {
+    const clipDef = defs.get(clipRef);
+    if (clipDef) {
+      d = applySvgClipOrMask(d, groupId, clipDef, 'clip', opts, defs, transforms, warnings);
+    } else {
+      warnings.push(`clip-path references unknown id: #${clipRef}`);
+    }
+  }
+
+  // Handle mask
+  const maskRef = parseUrlReference(el.attrs.mask ?? '');
+  if (maskRef) {
+    const maskDef = defs.get(maskRef);
+    if (maskDef) {
+      const maskType = maskTypeFromElement(maskDef);
+      d = applySvgClipOrMask(d, groupId, maskDef, maskType, opts, defs, transforms, warnings);
+    } else {
+      warnings.push(`mask references unknown id: #${maskRef}`);
+    }
+  }
+
+  return d;
+}
+
+/**
+ * Wrap a single node in a group so a clip-path or mask can be applied.
+ * Returns the group node ID and updated document, or null if no mask was applied.
+ */
+function wrapNodeInMaskedGroup(
+  doc: Document,
+  nodeId: string,
+  el: ParsedElement,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  opts: ImportOptions,
+  warnings: string[],
+): { doc: Document; groupId: string } | null {
+  const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
+  const maskRef = parseUrlReference(el.attrs.mask ?? '');
+  if (!clipRef && !maskRef) return null;
+
+  const { id: groupId, doc: d0 } = nextNodeId(doc);
+  let d = d0;
+  const node = d.nodes[nodeId];
+  if (!node) return null;
+  const bounds = nodeBounds(node);
+  const groupNode: FrameNode = {
+    ...makeFrameNode(groupId, {
+      name: 'Masked Group',
+      children: [nodeId],
+      w: bounds.w,
+      h: bounds.h,
+    }),
+    transform: [1, 0, 0, 1, bounds.x, bounds.y] as Affine,
+  };
+  d = { ...d, nodes: { ...d.nodes, [groupId]: groupNode as SceneNode } };
+  d = {
+    ...d,
+    rootChildren: [...d.rootChildren.filter((nid) => nid !== nodeId), groupId],
+  };
+  d = applyGroupClipOrMask(d, groupId, el, defs, transforms, opts, warnings);
+  return { doc: d, groupId };
+}
+
+/**
+ * Compute the world-space bounds of a single node based on its transform
+ * and intrinsic dimensions. Used to size wrapper groups for masked leaves.
+ */
+function nodeBounds(node: SceneNode): { x: number; y: number; w: number; h: number } {
+  const tx = node.transform[4] ?? 0;
+  const ty = node.transform[5] ?? 0;
+  let bw = 0;
+  let bh = 0;
+  if (node.kind === 'shape') {
+    const s = node.shape;
+    if (s.kind === 'rect') {
+      bw = s.w;
+      bh = s.h;
+    } else if (s.kind === 'circle') {
+      bw = s.r * 2;
+      bh = s.r * 2;
+    } else if (s.kind === 'ellipse') {
+      bw = s.rx * 2;
+      bh = s.ry * 2;
+    } else if (s.kind === 'polygon') {
+      bw = s.radius * 2;
+      bh = s.radius * 2;
+    } else if (s.kind === 'star') {
+      bw = s.outerRadius * 2;
+      bh = s.outerRadius * 2;
+    } else if (s.kind === 'line' || s.kind === 'arrow') {
+      bw = Math.abs(s.to[0] - s.from[0]) || 4;
+      bh = Math.abs(s.to[1] - s.from[1]) || 4;
+    }
+  } else if (node.kind === 'text') {
+    bw = (node.fontSize ?? 16) * 6;
+    bh = (node.fontSize ?? 16) * 1.4;
+  } else if (node.kind === 'group' || node.kind === 'frame') {
+    bw = node.w;
+    bh = node.h;
+  }
+  return { x: tx, y: ty, w: bw, h: bh };
 }
 
 // ─── SVG path data parser ──────────────────────────────────────────────────

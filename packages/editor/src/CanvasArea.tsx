@@ -156,6 +156,7 @@ import { PenTool } from './tools/PenTool';
 import { PolygonTool } from './tools/PolygonTool';
 import { RectangleTool } from './tools/RectangleTool';
 import { RefineMaskTool } from './tools/RefineMaskTool';
+import { Sam2SegmentationTool } from './tools/Sam2SegmentationTool';
 import { ScaleTool } from './tools/ScaleTool';
 import { SelectTool } from './tools/SelectTool';
 import { SliceTool } from './tools/SliceTool';
@@ -466,6 +467,7 @@ function getToolManager(): ToolManager {
     toolManager.register('paint', () => new PaintTool(false));
     toolManager.register('eraser', () => new PaintTool(true));
     toolManager.register('smudge', () => new SmudgeTool());
+    toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
   }
   toolManager.setTool('select');
   return toolManager;
