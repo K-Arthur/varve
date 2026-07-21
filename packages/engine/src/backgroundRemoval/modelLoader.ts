@@ -21,12 +21,26 @@ import { AVAILABLE_MODELS } from './types';
 // for an async manifest fetch.
 const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; size: number }> = {
   scunet: {
-    // No verified ONNX export exists (huggingface.co/Heliosoph/scunet-onnx
-    // 404s; cszn/SCUNet has documented ONNX conversion failures). Kept
-    // empty deliberately — see apps/desktop/public/models/manifest.json.
-    remoteUrl: '',
+    // Verified 2026-07-21: Heliosoph/scunet-onnx on Hugging Face, Apache-2.0.
+    // Fully convolutional blind denoising. Total ~77MB (graph + external weights).
+    remoteUrl:
+      'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
     name: 'SCUNet Denoise',
-    size: 18_000_000,
+    size: 76_936_854,
+  },
+  'paddleocr-det-v4': {
+    // Verified 2026-07-21: deepghs/paddleocr PP-OCRv4 detector (Apache-2.0).
+    remoteUrl:
+      'https://huggingface.co/deepghs/paddleocr/resolve/main/det/ch_PP-OCRv4_det/model.onnx',
+    name: 'PaddleOCR v4 Detection',
+    size: 4_745_517,
+  },
+  'paddleocr-rec-v4': {
+    // Verified 2026-07-21: deepghs/paddleocr PP-OCRv4 recognition (Apache-2.0).
+    remoteUrl:
+      'https://huggingface.co/deepghs/paddleocr/resolve/main/rec/ch_PP-OCRv4_rec/model.onnx',
+    name: 'PaddleOCR v4 Recognition',
+    size: 10_826_336,
   },
   'depth-anything-v2-small': {
     // Verified: onnx-community/depth-anything-v2-small on Hugging Face
