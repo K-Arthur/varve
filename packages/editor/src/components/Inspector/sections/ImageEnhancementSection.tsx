@@ -64,6 +64,8 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [replaceSource, setReplaceSource] = useState(false);
   const liveTraceState = node?.kind === 'shape' && 'liveTrace' in node ? node.liveTrace : undefined;
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [replaceSource, setReplaceSource] = useState(false);
   const [liveTrace, setLiveTrace] = useState(() => liveTraceState != null);
 
   // Source image natural dimensions drive the memory + output estimates.
@@ -81,6 +83,21 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
     [],
   );
   const [showAdvanced, setShowAdvanced] = useState(false);
+
+  // Source image natural dimensions drive the memory + output estimates.
+  const imageFill = node && isImageShape(node) ? getImageFill(node) : undefined;
+  const naturalWidth = imageFill?.imageWidth ?? (node?.kind === 'shape' ? node.shape.w : 0);
+  const naturalHeight = imageFill?.imageHeight ?? (node?.kind === 'shape' ? node.shape.h : 0);
+  const aiScale = 4;
+  const outW = method === 'ai' ? naturalWidth * aiScale : Math.round(naturalWidth * scale);
+  const outH = method === 'ai' ? naturalHeight * aiScale : Math.round(naturalHeight * scale);
+  const outputBytes = outW > 0 && outH > 0 ? outW * outH * 4 : 0;
+  const memoryWarning = outputBytes > MEMORY_WARNING_BYTES;
+  const memoryExceeded = outputBytes > MEMORY_MAX_BYTES;
+  const onProgress: UpscaleProgressFn = useMemo(
+    () => (done, total) => setProgress({ done, total }),
+    [],
+  );
   const requestIdRef = useRef(0);
 
   useEffect(() => {
