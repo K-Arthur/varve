@@ -12,7 +12,7 @@ import {
   workerModelIdForMethod,
 } from '@strata/engine';
 import { Button, RegionLoader } from '@strata/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
 interface InstalledModelRow {
@@ -25,6 +25,10 @@ interface InstalledModelRow {
   description?: string;
   precision?: 'fp32' | 'int8';
   isQuantized: boolean;
+  /** Present for multi-file models (e.g. SAM2's separate encoder + decoder
+   * graphs) — download/delete acts on every id in this list as one unit
+   * instead of showing each part as its own row. */
+  componentIds?: string[];
 }
 
 function formatMb(bytes: number): string {
@@ -42,9 +46,34 @@ async function buildRows(
   loader: Awaited<ReturnType<typeof getModelLoaderReady>>,
 ): Promise<InstalledModelRow[]> {
   const catalog = listAllModels();
+  // Component ids (e.g. SAM2's encoder/decoder) are downloadable individually
+  // by the tools that use them, but shouldn't also show as their own rows
+  // here — their parent multiComponent entry represents them as one unit.
+  const hiddenComponentIds = new Set(catalog.flatMap((m) => m.components?.map((c) => c.id) ?? []));
   const results: InstalledModelRow[] = [];
 
   for (const model of catalog) {
+    if (hiddenComponentIds.has(model.id)) continue;
+
+    if (model.multiComponent && model.components && model.components.length > 0) {
+      const componentAvailability = await Promise.all(
+        model.components.map((c) => loader.isModelAvailable(c.id)),
+      );
+      results.push({
+        id: model.id,
+        name: model.name,
+        size: model.components.reduce((sum, c) => sum + c.sizeBytes, 0),
+        installed: componentAvailability.every(Boolean),
+        source: componentAvailability.some(Boolean) ? 'downloaded' : 'none',
+        downloadable: model.components.every((c) => Boolean(c.remoteUrl)),
+        description: model.description,
+        precision: model.precision as 'fp32' | 'int8' | undefined,
+        isQuantized: model.precision === 'int8',
+        componentIds: model.components.map((c) => c.id),
+      });
+      continue;
+    }
+
     const installed = await loader.isModelAvailable(model.id);
     results.push({
       id: model.id,
@@ -82,6 +111,12 @@ export function BgRemovalModelsTab() {
   const [loading, setLoading] = useState(true);
   const [downloadModelId, setDownloadModelId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [compositeDownload, setCompositeDownload] = useState<{
+    id: string;
+    progress: number;
+  } | null>(null);
+  const [compositeError, setCompositeError] = useState<string | null>(null);
+  const compositeAbortRef = useRef<AbortController | null>(null);
   const [bundleStatus, setBundleStatus] = useState<'unknown' | 'verified' | 'corrupt' | 'skipped'>(
     'unknown',
   );
@@ -109,16 +144,63 @@ export function BgRemovalModelsTab() {
     );
   }, [refresh]);
 
-  const handleDelete = async (id: string) => {
-    setBusyId(id);
+  const handleDelete = async (row: InstalledModelRow) => {
+    setBusyId(row.id);
     try {
       const loader = await getModelLoaderReady();
-      await loader.deleteModel(id);
+      for (const id of row.componentIds ?? [row.id]) {
+        await loader.deleteModel(id);
+      }
       await refresh();
     } finally {
       setBusyId(null);
     }
   };
+
+  const handleCompositeDownload = useCallback(
+    async (row: InstalledModelRow) => {
+      const componentIds = row.componentIds;
+      if (!componentIds || componentIds.length === 0) return;
+      setCompositeError(null);
+      setCompositeDownload({ id: row.id, progress: 0 });
+      const controller = new AbortController();
+      compositeAbortRef.current = controller;
+      const loaded = new Map<string, number>();
+      const totals = new Map<string, number>();
+      try {
+        const loader = await getModelLoaderReady();
+        for (const id of componentIds) {
+          await loader.downloadModel(
+            id,
+            (partLoaded, partTotal) => {
+              loaded.set(id, partLoaded);
+              totals.set(id, partTotal);
+              const sumLoaded = [...loaded.values()].reduce((a, b) => a + b, 0);
+              const sumTotal = [...totals.values()].reduce((a, b) => a + b, 0);
+              setCompositeDownload({
+                id: row.id,
+                progress: sumTotal > 0 ? Math.round((sumLoaded / sumTotal) * 100) : 0,
+              });
+            },
+            controller.signal,
+          );
+        }
+        await refresh();
+      } catch (err) {
+        if (!controller.signal.aborted) {
+          setCompositeError(err instanceof Error ? err.message : 'Download failed');
+        }
+      } finally {
+        setCompositeDownload(null);
+        compositeAbortRef.current = null;
+      }
+    },
+    [refresh],
+  );
+
+  const handleCompositeCancel = useCallback(() => {
+    compositeAbortRef.current?.abort();
+  }, []);
 
   // Group rows by category
   const categories = new Map<string, InstalledModelRow[]>();
@@ -166,26 +248,66 @@ export function BgRemovalModelsTab() {
                     {row.description && (
                       <span className="bg-models-list__desc">{row.description}</span>
                     )}
+                    {compositeDownload?.id === row.id && (
+                      <div
+                        className="insp-progress-bar"
+                        role="progressbar"
+                        aria-valuenow={compositeDownload.progress}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className="insp-progress-bar__fill"
+                          style={{ width: `${compositeDownload.progress}%` }}
+                        />
+                      </div>
+                    )}
+                    {compositeError && row.id === compositeDownload?.id && (
+                      <span className="bg-models-list__meta" role="alert">
+                        {compositeError}
+                      </span>
+                    )}
                   </div>
                   <div className="bg-models-list__actions">
                     {row.installed && row.source === 'downloaded' && (
                       <Button
                         variant="ghost"
-                        onClick={() => void handleDelete(row.id)}
+                        onClick={() => void handleDelete(row)}
                         disabled={busyId === row.id}
                         aria-label={`Remove ${row.name} model`}
                       >
                         {busyId === row.id ? 'Removing...' : 'Remove'}
                       </Button>
                     )}
-                    {!row.installed && row.downloadable && (
-                      <Button
-                        variant="primary"
-                        onClick={() => setDownloadModelId(row.id)}
-                        aria-label={`Download ${row.name} model`}
-                      >
-                        {row.source === 'bundled' ? 'Verify' : 'Download'}
-                      </Button>
+                    {!row.installed && row.downloadable && row.componentIds ? (
+                      compositeDownload?.id === row.id ? (
+                        <Button
+                          variant="ghost"
+                          onClick={handleCompositeCancel}
+                          aria-label={`Cancel ${row.name} download`}
+                        >
+                          Cancel
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          onClick={() => void handleCompositeDownload(row)}
+                          aria-label={`Download ${row.name} model (${row.componentIds.length} parts)`}
+                        >
+                          Download
+                        </Button>
+                      )
+                    ) : (
+                      !row.installed &&
+                      row.downloadable && (
+                        <Button
+                          variant="primary"
+                          onClick={() => setDownloadModelId(row.id)}
+                          aria-label={`Download ${row.name} model`}
+                        >
+                          {row.source === 'bundled' ? 'Verify' : 'Download'}
+                        </Button>
+                      )
                     )}
                     {!row.installed && !row.downloadable && (
                       <span className="bg-models-list__meta">Unavailable</span>
