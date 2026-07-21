@@ -238,8 +238,7 @@ describe('Panel', () => {
   });
 
   it('applies reduced-motion class when prefers-reduced-motion', () => {
-    const matchMedia = window.matchMedia as unknown as ReturnType<typeof vi.fn>;
-    matchMedia.mockReturnValue({
+    vi.spyOn(window, 'matchMedia').mockReturnValue({
       matches: true,
       media: '',
       onchange: null,
@@ -248,7 +247,7 @@ describe('Panel', () => {
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
-    });
+    } as MediaQueryList);
 
     const { container } = render(
       <Panel storageKey="test" label="Resize sidebar">
