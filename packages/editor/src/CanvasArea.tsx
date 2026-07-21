@@ -1139,6 +1139,8 @@ export function CanvasArea({
         const entry = e.getTrimapData(nodeId);
         if (entry) e.setTrimapData(nodeId, trimap, entry.width, entry.height);
       },
+      applySam2Segmentation: (params) => e.applySam2Segmentation(params),
+      cancelSam2Segmentation: () => e.cancelSam2Segmentation(),
       commitRasterMask: (nodeId, dataUrl, width, height) => {
         import('./backgroundRemoval/commitRasterMask').then(({ commitRasterMask }) => {
           e.updateDoc((doc) => commitRasterMask(doc, nodeId, { dataUrl, width, height }));

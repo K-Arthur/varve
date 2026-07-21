@@ -11,6 +11,8 @@
  */
 import type { TensorSpec } from './imageTensor';
 import { packNchwTensor } from './imageTensor';
+import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
+import { SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 
 /** Supported model types in this worker */
 export type WorkerModelType = 'sam2' | 'depth';
@@ -62,6 +64,30 @@ export function registerModelType(
 ): void {
   modelRegistry.set(modelType, preprocessor);
 }
+
+registerModelType('depth', {
+  tensorSpec: DEPTH_ANYTHING_TENSOR_SPEC,
+  getInputSize: () => DEPTH_ANYTHING_INPUT_SIZE,
+});
+
+registerModelType('sam2', {
+  tensorSpec: SAM2_TENSOR_SPEC,
+  getInputSize: () => SAM2_INPUT_SIZE,
+  encodePrompts: (params: Record<string, unknown>) => {
+    const pointCoords = params.pointCoords as Float32Array | undefined;
+    const pointLabels = params.pointLabels as Float32Array | undefined;
+    const boxCoords = params.boxCoords as Float32Array | undefined;
+    const result: Record<string, Float32Array> = {};
+    if (pointCoords && pointCoords.length > 0) {
+      result.point_coords = pointCoords;
+      result.point_labels = pointLabels ?? new Float32Array(pointCoords.length / 2);
+    }
+    if (boxCoords && boxCoords.length === 4) {
+      result.box_coords = boxCoords;
+    }
+    return result;
+  },
+});
 
 /** Session cache per model path */
 interface CachedSession {
@@ -219,14 +245,21 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     const inputNames = (session as OrtSession).inputNames;
     feeds[inputNames[0]!] = new ort.Tensor('float32', imageTensor, [1, 3, inputSize, inputSize]);
 
-    // Add encoded prompts if the model has them
+    // Add encoded prompts if the model has them.
+    // Encoded prompt keys are matched against the session's actual input
+    // names (e.g. "point_coords", "point_labels", "box_coords") so the
+    // ordering of the ONNX graph's inputs does not matter.
     if (modelPre.encodePrompts) {
       const encoded = modelPre.encodePrompts(params);
-      const extraInputs = Object.keys(encoded);
-      for (let i = 0; i < extraInputs.length && i + 1 < inputNames.length; i++) {
-        const name = extraInputs[i]!;
-        const arr = encoded[name]!;
-        feeds[inputNames[i + 1]!] = new ort.Tensor('float32', arr, [1, arr.length]);
+      const inputNameSet = new Set(inputNames);
+      for (const [key, arr] of Object.entries(encoded)) {
+        // Match exact name or case-insensitive fallback
+        const match = inputNameSet.has(key)
+          ? key
+          : inputNames.find((n) => n.toLowerCase() === key.toLowerCase());
+        if (match) {
+          feeds[match] = new ort.Tensor('float32', arr, [1, arr.length]);
+        }
       }
     }
 

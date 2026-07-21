@@ -88,19 +88,45 @@ export class Sam2SegmentationTool extends BaseTool {
     return false;
   }
 
-  private async runSegmentation(_ctx: ToolContext): void {
-    // Segmentation is triggered via context method — the actual inference
-    // runs through the generic worker host. This tool collects prompts
-    // and delegates to the editor context for execution.
+  private async runSegmentation(ctx: ToolContext): Promise<void> {
     if (this.points.length === 0 && !this.pendingBox) return;
+    if (!ctx.applySam2Segmentation) return;
 
-    // The context method applySam2Segmentation is wired in context.tsx
-    // and handles: image extraction → worker inference → mask → selection
+    // Find the selected image node
+    const selection = ctx.selection;
+    if (!selection || selection.length === 0) return;
+    const nodeId = selection[0]!;
+
+    // Build prompts from collected points and box
+    const points = this.points.map((p) => ({
+      x: p.x,
+      y: p.y,
+      label: p.label as 0 | 1,
+    }));
+
+    const prompts: {
+      points?: typeof points;
+      box?: { x1: number; y1: number; x2: number; y2: number };
+    } = {};
+    if (points.length > 0) prompts.points = points;
+    if (this.pendingBox) {
+      prompts.box = {
+        x1: this.pendingBox.x1,
+        y1: this.pendingBox.y1,
+        x2: this.pendingBox.x2,
+        y2: this.pendingBox.y2,
+      };
+    }
+
     try {
-      // Placeholder: actual invocation happens through ctx.applySam2Segmentation
-      // which is added to the context interface separately
+      ctx.announce('Running SAM2 segmentation...');
+      await ctx.applySam2Segmentation({
+        nodeId,
+        prompts,
+        operation: 'preview',
+      });
     } catch {
-      // Error handling is managed by the context layer
+      ctx.announce('SAM2 segmentation cancelled');
     }
   }
 
