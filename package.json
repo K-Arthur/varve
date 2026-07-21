@@ -2,7 +2,7 @@
   "name": "strata",
   "version": "0.0.0",
   "private": true,
-  "description": "Strata — local-first, cross-platform design suite (native Rust engine, no WASM ceiling on desktop).",
+  "description": "Strata — local-first design application for vector, raster, layout, typography, motion, and print production.",
   "license": "AGPL-3.0-or-later",
   "packageManager": "pnpm@11.9.0",
   "engines": {

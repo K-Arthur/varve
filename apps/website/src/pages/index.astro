@@ -5,26 +5,26 @@ import BentoGrid from '../components/BentoGrid.astro';
 import BentoCard from '../components/BentoCard.astro';
 ---
 
-<Layout title="Strata - Local-first, cross-platform design suite">
+<Layout title="Strata - Design across disciplines" description="A local-first design application for creators who work across vector, raster, layout, typography, prototyping, animation, and print. Cross-platform. No subscription.">
   <section class="hero">
     <div class="container-custom">
       <div class="hero-content">
         <h1 class="hero-title">
-          Local-first, cross-platform design suite
+          Design across disciplines.<br/>One canvas.
         </h1>
         <p class="hero-subtitle">
-          Native Rust performance. No cloud lock-in. No subscription.
+          Move between vector design, illustration, layout, typography, prototyping, animation, and print production without switching applications. Your work stays on your machine.
         </p>
         <div class="hero-ctas">
           <Button href="/download" variant="primary">
-            Download for Your Platform
+            Download the beta
           </Button>
-          <Button href="/product" variant="secondary">
-            Learn More
+          <Button href="/features" variant="secondary">
+            See what's built
           </Button>
         </div>
         <p class="hero-platforms">
-          Linux • macOS • Windows
+          Linux • macOS • Windows &nbsp;·&nbsp; Free and open-source (AGPL-3.0)
         </p>
       </div>
     </div>
@@ -32,34 +32,48 @@ import BentoCard from '../components/BentoCard.astro';
 
   <section class="features-preview">
     <div class="container-custom">
-      <h2 class="section-title">Built for serious design work</h2>
+      <h2 class="section-title">More creative work, fewer applications</h2>
       <BentoGrid cols={2}>
         <BentoCard>
-          <h3>Canvas & Rendering</h3>
-          <p>86fps IR-replay rendering, infinite canvas, precision tools with native Rust performance</p>
+          <h3>Vector and illustration</h3>
+          <p>Shapes, bezier paths with handles, boolean operations, layers, groups, and precision snapping — backed by a native Rust geometry engine.</p>
         </BentoCard>
         <BentoCard>
-          <h3>Motion & Prototyping</h3>
-          <p>Timeline-based animation, Smart Animate, prototype interactions with code export</p>
+          <h3>Layout and typography</h3>
+          <p>Flex and auto-layout, text rendering with OpenType features and variable fonts, frames with constraints, and multi-page documents.</p>
         </BentoCard>
         <BentoCard>
-          <h3>Export & Code Generation</h3>
-          <p>SVG, React/Tailwind, Flutter, SwiftUI — export your designs to production code</p>
+          <h3>Motion and prototyping</h3>
+          <p>Timeline-based animation with keyframes and easing, prototype interactions with triggers and transitions, export to CSS, Lottie, and video.</p>
         </BentoCard>
         <BentoCard>
-          <h3>Vector & Typography</h3>
-          <p>Complete vector tools, text engine, color management with CMYK support</p>
+          <h3>Color, effects, and print</h3>
+          <p>RGB and CMYK color management, blend modes, shadows, blur, adjustment layers, halftone screening, and PDF/X export with crop marks.</p>
         </BentoCard>
       </BentoGrid>
+    </div>
+  </section>
+
+  <section class="workflow-section">
+    <div class="container-custom">
+      <div class="workflow-content">
+        <h2 class="section-title">Designed for connected workflows</h2>
+        <p class="workflow-text">
+          Strata is built around the idea that creative work does not always fit neatly into one category. A poster needs vector shapes, typography, and print output. A social media set needs layout, animation, and export. A UI needs components, prototyping, and developer handoff.
+        </p>
+        <p class="workflow-text">
+          Instead of switching between separate applications for each task, Strata keeps your work in one environment with one document model, one layer system, and one set of shortcuts.
+        </p>
+      </div>
     </div>
   </section>
 
   <section class="story-section">
     <div class="container-custom">
       <div class="story-content">
-        <h2 class="section-title">Built independently</h2>
+        <h2 class="section-title">Built in the open</h2>
         <p class="story-text">
-          Strata is built by one designer-developer, committed to transparent development, honest limitations, and community input. No VC pressure, no feature creep, just focused tools for designers.
+          Strata is built by one designer-developer with input from its community. Development is transparent — architecture decisions, known limitations, and progress are documented publicly. No VC pressure, no hidden agenda, just focused tools shaped by the people who use them.
         </p>
         <Button href="/about" variant="secondary">Read the story</Button>
       </div>
@@ -68,9 +82,14 @@ import BentoCard from '../components/BentoCard.astro';
 
   <section class="download-preview">
     <div class="container-custom">
-      <h2 class="section-title">Download Strata</h2>
-      <p class="download-subtitle">Free forever. AGPL-3.0-or-later licensed. Your designs stay on your machine.</p>
-      <Button href="/download" variant="primary">Download Now</Button>
+      <h2 class="section-title">Try Strata beta</h2>
+      <p class="download-subtitle">
+        Strata is in active beta. Core features are functional, but you may encounter rough edges. Recommended for testing, exploration, and influencing development — not yet for critical production work without backups.
+      </p>
+      <Button href="/download" variant="primary">Download the beta</Button>
+      <p class="download-note">
+        Free and open-source under AGPL-3.0-or-later. Your designs stay on your machine.
+      </p>
     </div>
   </section>
 </Layout>
@@ -128,6 +147,23 @@ import BentoCard from '../components/BentoCard.astro';
     color: var(--color-text-primary);
   }
 
+  .workflow-section {
+    padding: 5rem 0;
+  }
+
+  .workflow-content {
+    max-width: 700px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .workflow-text {
+    font-size: 1.125rem;
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+    color: var(--color-text-secondary);
+  }
+
   .story-section {
     background: var(--color-surface-sunken);
     color: var(--color-text-primary);
@@ -160,6 +196,15 @@ import BentoCard from '../components/BentoCard.astro';
     font-size: 1.125rem;
     color: var(--color-text-secondary);
     margin-bottom: 2rem;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .download-note {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    margin-top: 1rem;
   }
   
   @media (max-width: 768px) {

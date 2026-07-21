@@ -11,36 +11,37 @@ import Layout from '../../layouts/Layout.astro';
 
       <h1>Typography</h1>
       <p class="feature-intro">
-        Text engine with rich text types, variable fonts, OpenType features, and multi-line layout.
+        Multi-line text rendering, OpenType feature toggles, variable font axes, text-on-path, inline editing, and CJK line breaking.
       </p>
 
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Strata's typography system has a strong type foundation with rich text, character/paragraph styles, variable fonts, OpenType features, and text chains. The data model supports advanced typography features, though the rendering layer is still being strengthened.
+          Strata's typography system provides full text rendering with multi-line layout, text decoration, text overflow with ellipsis, list styles, per-glyph letter spacing, vertical alignment, and text case transforms. It supports OpenType feature toggles, variable font axis control, and text placed along arbitrary paths.
         </p>
       </section>
 
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
-          <li><strong>Rich text data model:</strong> TextNode with richText, variableAxes, openTypeFeatures</li>
-          <li><strong>Character styles:</strong> Font family, size, weight, line height, letter spacing</li>
-          <li><strong>Paragraph styles:</strong> Alignment, vertical align, text direction, text wrap</li>
-          <li><strong>Variable fonts:</strong> VariableFontSettings type declared (rendering in progress)</li>
-          <li><strong>OpenType features:</strong> Feature tag support declared (rendering in progress)</li>
-          <li><strong>Text chains:</strong> Path text settings declared (rendering in progress)</li>
-          <li><strong>Typography inspector:</strong> F6 panel for text property editing</li>
+          <li><strong>Text rendering:</strong> Multi-line with line height, paragraph spacing, text decoration (underline, strikethrough), text overflow (clip, ellipsis)</li>
+          <li><strong>Inline editing:</strong> Positioned textarea overlay with IME and RTL support</li>
+          <li><strong>OpenType features:</strong> 14 common feature toggles (liga, kern, salt, ss01-ss20) with per-font support detection</li>
+          <li><strong>Variable fonts:</strong> Per-axis slider control with min/max/default from font metadata</li>
+          <li><strong>Text on path:</strong> Place text along any shape path — circle, bezier, rectangle, polygon, star</li>
+          <li><strong>CJK support:</strong> Line breaking via Intl.Segmenter for Chinese, Japanese, and Korean text</li>
+          <li><strong>Font system:</strong> Google Fonts loading, @fontsource bundled fonts, CSS fallback chains</li>
+          <li><strong>Typography inspector:</strong> Font family, weight, style, size, line height, letter spacing, alignment, OpenType features</li>
         </ul>
       </section>
 
       <section class="feature-section">
         <h2>Technical Depth</h2>
         <p>
-          The typography system has a comprehensive type foundation in packages/scene/src/types.ts with TextNode supporting richText, variableAxes, openTypeFeatures, pathId, and pathTextSettings. The FontRegistry provides CSS-quoting and availability fixes. The engine IR has been extended for rich text, and Canvas2D replay rendering supports multi-line and rich text.
+          Text rendering uses cached offscreen canvas measurement for accurate metrics. The FontRegistry manages font loading, CSS fallback chains, and variable font axis discovery. Text-on-path uses adaptive Simpson integration for cubic bezier arc-length sampling. The engine IR carries all 15 typography properties through to the canvas replay.
         </p>
         <p>
-          SVG export includes multi-line and rich text support. Typography preflight has been strengthened with 14 tests covering font availability, CSS generation, and text measurement.
+          SVG export includes multi-line and rich text support. Typography preflight checks font availability and CSS generation.
         </p>
       </section>
 
@@ -49,22 +50,19 @@ import Layout from '../../layouts/Layout.astro';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Rich text, variable fonts, and OpenType features are declared but not fully rendered</li>
-            <li>No inline text editor or text selection/caret</li>
-            <li>No real text shaping (complex scripts, CJK, RTL, bidi not supported)</li>
-            <li>Text flow chain rendering not implemented</li>
-            <li>Document-wide typography styles not implemented</li>
-            <li>Missing-glyph detection not implemented</li>
-            <li>Quality bugs: invalid CSS from FontRegistry, incorrect letter-spacing/ellipsis overflow</li>
+            <li>Complex script shaping (Arabic, Devanagari, Thai) not supported — Latin, CJK, and simple scripts work</li>
+            <li>BiDi (bidirectional) text layout not implemented</li>
+            <li>Text-to-outlines produces placeholder bounding boxes (real glyph path extraction deferred)</li>
+            <li>Rich text (per-span formatting) data model exists but UI editing is limited</li>
           </ul>
         </div>
       </section>
 
       <section class="feature-section">
         <h2>Status</h2>
-        <div class="status-badge in-development">
-          <span class="badge-text">In Development</span>
-          <p>Strong type foundation with partial rendering. Typography execution layer is being strengthened.</p>
+        <div class="status-badge built">
+          <span class="badge-text">Built</span>
+          <p>Core text rendering, OpenType features, variable fonts, text-on-path, and inline editing are functional. Complex script shaping and rich text editing are deferred.</p>
         </div>
       </section>
 

@@ -24,13 +24,15 @@ import Layout from '../../layouts/Layout.astro';
       <section class="feature-section">
         <h2>Key Capabilities</h2>
         <ul>
-          <li><strong>Shape primitives:</strong> Rectangle, ellipse, circle, line with precise controls</li>
-          <li><strong>Path editing:</strong> Bezier curves, point manipulation, smooth/sharp corners</li>
-          <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude (in development)</li>
-          <li><strong>Transformation:</strong> Move, rotate, scale with affine transforms</li>
-          <li><strong>Layers:</strong> Layer organization with color tags, visibility, locking</li>
-          <li><strong>Groups:</strong> Group and ungroup objects for organization</li>
-          <li><strong>Frames:</strong> Spatial containers with auto-layout (Taffy-backed, in development)</li>
+          <li><strong>Shape primitives:</strong> Rectangle, ellipse, circle, line, arrow, polygon, star with precise controls</li>
+          <li><strong>Pen tool:</strong> Click to place bezier anchors, drag to create smooth handles, corner/smooth toggle</li>
+          <li><strong>Pencil tool:</strong> Freehand drawing with automatic bezier curve fitting (Schneider algorithm)</li>
+          <li><strong>Node editing:</strong> Select and drag individual anchors and bezier handles on any path</li>
+          <li><strong>Boolean operations:</strong> Union, subtract, intersect, exclude on selected shapes</li>
+          <li><strong>Transformation:</strong> Move, rotate, scale with affine transforms and centroid-based scaling</li>
+          <li><strong>Layers:</strong> Virtualized layer tree with search, filter, thumbnails, drag-to-reorder, inline rename</li>
+          <li><strong>Groups and frames:</strong> Group/ungroup, spatial containers with flex and grid auto-layout</li>
+          <li><strong>Snapping:</strong> Sticky snap to edges, centers, and other objects with configurable thresholds</li>
         </ul>
       </section>
 
@@ -40,7 +42,7 @@ import Layout from '../../layouts/Layout.astro';
           The vector system is built on kurbo, a Rust geometry library providing Point, Rect, Affine, Circle, Ellipse, Line, and Path types. The ShapeNode enum encapsulates all shape types with point-containment testing for hit detection. The scene graph uses fractional-indexing for CRDT-safe concurrent ordering.
         </p>
         <p>
-          Geometry operations include point-to-segment distance squared calculations, rect_contains for bounding box tests, and hit_test with inverse-transform world-to-local coordinate conversion (topmost wins).
+          Path editing uses bezier handles with smooth/corner toggle. The pencil tool fits freehand strokes to cubic bezier curves using least-squares optimization. Boolean operations use polygon clipping with support for self-intersecting paths and degenerate geometry.
         </p>
       </section>
 
@@ -49,10 +51,8 @@ import Layout from '../../layouts/Layout.astro';
         <div class="limitations">
           <p><strong>Current limitations:</strong></p>
           <ul>
-            <li>Boolean operations are declared in types but not fully implemented</li>
-            <li>Auto-layout (Taffy integration) is in stub phase</li>
-            <li>Path editing UI needs refinement</li>
-            <li>No pen tool or freehand drawing yet</li>
+            <li>Complex boolean operations on curved paths may produce approximate results</li>
+            <li>Auto-layout reflow triggers on insert/remove but not on property changes</li>
           </ul>
         </div>
       </section>
