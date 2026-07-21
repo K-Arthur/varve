@@ -3,11 +3,11 @@
  *
  * DDColor (ICCV 2023) and most learned colorizers operate with luminance
  * separation: the model predicts chrominance (a*b*) while preserving the
- * source luminance (L). We reuse the D65-illuminant CIELAB↔RGB functions
+ * source luminance (L). We reuse the D65-illuminant CIELAB-to-RGB functions
  * from `nonSeparable.ts` which are the standard for deep-learning pipelines.
  *
  * These wrappers iterate ImageData in a single pass for the combine step
- * (L from input + predicted a*b* → RGB), which is the hot path in
+ * (L from input + predicted a*b* to RGB), which is the hot path in
  * postprocessing.
  */
 
