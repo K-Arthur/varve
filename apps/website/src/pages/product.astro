@@ -2,74 +2,80 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Product Overview - Strata">
+<Layout title="What is Strata?" description="Strata is a local-first design application that combines vector design, raster editing, layout, typography, prototyping, animation, and print production in one cross-platform environment.">
   <div class="container-custom">
     <div class="product-page">
       <h1>What is Strata?</h1>
       <p class="product-intro">
-        Strata is a local-first, cross-platform design suite with a native Rust engine on desktop and WASM fallback on web. Built independently by one designer-developer, Strata combines professional features with honest development and transparent limitations.
+        Strata is a local-first design application that combines vector design, illustration, raster editing, layout, typography, prototyping, animation, and print production in one cross-platform environment. It runs natively on Linux, macOS, and Windows, with a WASM-based web version using the same architecture.
       </p>
 
       <section class="product-section">
-        <h2>Local-First by Design</h2>
+        <h2>Connected creative workflows</h2>
         <p>
-          Your designs belong on your machine, not in our cloud. Strata stores all data locally with no account required and no cloud sync. You own your files, you control your data, and you can collaborate when you choose to (future feature).
+          Most creative work spans multiple disciplines. A poster needs vector shapes, typography, and print-ready export. A social media campaign needs layout, animation, and multiple output formats. A product design needs components, prototyping, and developer handoff.
+        </p>
+        <p>
+          Strata is designed to keep this work in one place. Instead of switching between separate applications and rebuilding your context each time, you move between tasks within the same document, the same layer system, and the same interface.
         </p>
       </section>
 
       <section class="product-section">
-        <h2>Cross-Platform Native Performance</h2>
+        <h2>Local-first, your files, your machine</h2>
         <p>
-          Strata runs natively on Linux, macOS, and Windows with a Rust engine that delivers 86fps canvas2D rendering via IR-replay architecture. The same facade works on desktop (native) and web (WASM) with zero compromise in functionality.
+          Strata stores all design data locally. No account is required, no cloud sync is needed, and no telemetry is transmitted. You own your files, you control where they live, and you can work offline. The desktop application uses a native Rust engine; the web version uses the same engine compiled to WASM.
         </p>
       </section>
 
       <section class="product-section">
-        <h2>Technical Depth</h2>
+        <h2>Cross-platform native performance</h2>
         <p>
-          Built with serious engineering: IR-replay rendering separates scene computation from display, viewport culling and dirty-rect redraw optimize performance at scale, and spatial indexing enables fast hit testing. The architecture is documented, tested, and extensible.
+          Strata runs natively on Linux (CachyOS, Arch, Ubuntu, Fedora), macOS (Intel and Apple Silicon), and Windows. The rendering architecture separates scene computation from display, using an intermediate representation that replays efficiently to the canvas. The same codebase powers both the native desktop and WASM web builds.
         </p>
       </section>
 
       <section class="product-section">
-        <h2>Honest Development</h2>
+        <h2>Open source, shaped by its users</h2>
         <p>
-          Strata is built by one developer, not a VC-funded startup. This means transparent development, clear communication about limitations, and community input on priorities. No marketing fluff, no hidden agendas, just focused tools for designers.
+          Strata is licensed under AGPL-3.0-or-later — free to use, with source code available on GitHub. Development is transparent: architecture decisions, known limitations, and progress are documented publicly. Community input influences priorities. No VC pressure, no feature creep, just focused tools shaped by the people who use them.
         </p>
       </section>
 
       <section class="product-section">
-        <h2>No Subscription</h2>
-        <p>
-          Download Strata once and own your tools forever. No monthly payments, no feature lockouts, no cloud subscription required. AGPL-3.0-or-later licensed, source available, community-owned.
-        </p>
-      </section>
-
-      <section class="product-section">
-        <h2>Who is Strata For?</h2>
+        <h2>Who is Strata for?</h2>
         <div class="audience-grid">
           <div class="audience-card">
-            <h3>Independent Designers</h3>
-            <p>Value performance, offline workflows, no cloud lock-in, cross-platform flexibility</p>
+            <h3>Multi-disciplinary creators</h3>
+            <p>Designers, illustrators, and content creators who regularly switch between vector, layout, motion, and print work.</p>
           </div>
           <div class="audience-card">
-            <h3>Linux Designers</h3>
-            <p>Need first-class Linux support (CachyOS, Arch, Ubuntu, Fedora) with native packages</p>
+            <h3>Independent designers</h3>
+            <p>Freelancers and small studios who want professional tools without subscription costs or cloud dependencies.</p>
           </div>
           <div class="audience-card">
-            <h3>Privacy-Conscious Designers</h3>
-            <p>Avoid cloud-based tools, want local data control, concerned about surveillance capitalism</p>
+            <h3>Linux users</h3>
+            <p>Creators on Linux who need a native design application with first-class platform support.</p>
           </div>
           <div class="audience-card">
-            <h3>Technical Designers</h3>
-            <p>Value technical architecture, performance, code quality, and extensibility</p>
+            <h3>Early adopters</h3>
+            <p>People who want to test emerging workflows, report problems, and influence the direction of a developing creative tool.</p>
           </div>
         </div>
       </section>
 
+      <section class="product-section">
+        <h2>Beta status</h2>
+        <p>
+          Strata is in active beta. Core features are functional and tested, but you may encounter bugs, incomplete tools, or changes to workflows and file formats as development continues. We recommend keeping backups of important work and not relying on Strata as the sole tool for critical production projects at this stage.
+        </p>
+        <p>
+          The value of participating now: test emerging workflows, report problems that matter to you, and help shape where Strata goes next. See the <a href="/support/known-issues">known issues</a> and <a href="/releases">release notes</a> for current limitations.
+        </p>
+      </section>
+
       <div class="product-cta">
-        <h2>Ready to try Strata?</h2>
-        <a href="/download" class="btn-primary">Download for Your Platform</a>
+        <h2>Try Strata beta</h2>
+        <a href="/download" class="btn-primary">Download the beta</a>
       </div>
     </div>
   </div>

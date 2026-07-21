@@ -25,8 +25,8 @@ export function WelcomeDialog({
         </div>
         <h2 className="welcome-dialog__heading">Welcome to Strata</h2>
         <p className="welcome-dialog__subtitle">
-          A local-first, cross-platform design suite. Create shapes, export code, and collaborate in
-          real time.
+          A local-first design application for vector, raster, layout, typography, motion, and
+          print. Your work stays on your machine.
         </p>
 
         <div className="welcome-dialog__options">

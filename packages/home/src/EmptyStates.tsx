@@ -71,7 +71,8 @@ const EMPTY_COPY: Record<string, CopyEntry> = {
   },
   activity: {
     headline: 'Quiet around here',
-    description: 'Changes to your workspace — file edits, comments, shares — will show up here.',
+    description:
+      'Changes to your workspace — file edits, imports, and version saves — will show up here.',
     cta: 'Browse all files',
   },
   missing: {
