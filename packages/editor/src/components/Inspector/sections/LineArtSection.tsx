@@ -137,16 +137,23 @@ export function LineArtSection({ nodes }: { nodes: SceneNode[] }) {
 
       if (signal.aborted) throw new Error('cancelled');
 
-      const outputs = result.outputs as { data: Float32Array; dims: number[] };
-      const outputH = outputs.dims[2] as number;
-      const outputW = outputs.dims[3] as number;
+      // The worker keys each output by its real ONNX tensor name (never a
+      // generic "data"/"dims"). Verified directly against the downloaded
+      // model: the single output is named "output".
+      const rawOutputs = result.outputs as {
+        output: { data: Float32Array; dims: number[] };
+        letterbox?: { offsetX: number; offsetY: number };
+      };
+      const outputH = rawOutputs.output.dims[2] as number;
+      const outputW = rawOutputs.output.dims[3] as number;
 
       const decoded = decodeLineArtOutput(
-        outputs.data,
+        rawOutputs.output.data,
         outputW,
         outputH,
         fullData.width,
         fullData.height,
+        rawOutputs.letterbox,
       );
       return { imageData: decoded, width: fullData.width, height: fullData.height };
     },

@@ -41,5 +41,45 @@ describe('lineArt', () => {
       expect(result.width).toBe(2);
       expect(result.height).toBe(2);
     });
+
+    it('crops out letterbox padding before resizing to target (non-square source)', () => {
+      // 4x4 model output where only the center 4x2 rows are "real content"
+      // (rows 1-2), rows 0 and 3 are white letterbox padding — matching a
+      // wide source image that was scaled to fit width and padded top/bottom.
+      // biome-ignore format: readability of the grid layout
+      const data = new Float32Array([
+        1, 1, 1, 1, // padding row (white)
+        0, 0, 1, 1, // real content: left half black, right half white
+        0, 0, 1, 1, // real content: left half black, right half white
+        1, 1, 1, 1, // padding row (white)
+      ]);
+      const withoutCrop = decodeLineArtOutput(data, 4, 4, 8, 4);
+      const withCrop = decodeLineArtOutput(data, 4, 4, 8, 4, { offsetX: 0, offsetY: 1 });
+
+      // Without cropping, the padding rows get stretched into the output,
+      // diluting/shifting the real content vertically.
+      // With cropping, every output row should show the same clean
+      // left-black/right-white pattern (no padding-derived rows).
+      for (let y = 0; y < 4; y++) {
+        const rowStart = y * 8 * 4;
+        expect(withCrop.data[rowStart]).toBe(0); // left = black
+        expect(withCrop.data[rowStart + 7 * 4]).toBe(255); // right = white
+      }
+      // Sanity: the uncropped version is NOT uniformly black-left/white-right
+      // for every row (it includes the stretched white padding), proving the
+      // two code paths actually produce different output.
+      const uncroppedRows = new Set<number>();
+      for (let y = 0; y < 4; y++) {
+        uncroppedRows.add(withoutCrop.data[y * 8 * 4]!);
+      }
+      expect(uncroppedRows.size).toBeGreaterThan(1);
+    });
+
+    it('leaves output unchanged when letterbox offsets are zero (square source)', () => {
+      const data = new Float32Array([0.1, 0.9, 0.3, 0.7]);
+      const withZeroOffset = decodeLineArtOutput(data, 2, 2, 2, 2, { offsetX: 0, offsetY: 0 });
+      const withoutParam = decodeLineArtOutput(data, 2, 2, 2, 2);
+      expect(Array.from(withZeroOffset.data)).toEqual(Array.from(withoutParam.data));
+    });
   });
 });

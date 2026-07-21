@@ -1,4 +1,4 @@
-import type { WorkerInferResult, WorkerTensor } from '@strata/engine';
+import type { WorkerInferResult } from '@strata/engine';
 import {
   decodeSam2DecoderOutput,
   getImageCache,
@@ -11,6 +11,8 @@ import { commitRasterMask } from '../backgroundRemoval/commitRasterMask';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import { nodeWorldBounds } from '../scene/world';
 import type { EditorState } from './types';
+
+type WorkerTensor = { data: Float32Array; dims: number[] };
 
 export interface Sam2SegmentationAPI {
   applySam2Segmentation: (params: {
@@ -38,6 +40,12 @@ export function useSam2Segmentation(
     nodeId: NodeId;
     src: string;
     embeddings: Record<string, WorkerTensor>;
+    // The letterbox transform the encoder's *own* preprocessing applied to
+    // this image (scale-to-fit + center + pad for non-square images).
+    // Prompt encoding must reuse this exact transform — see sam2.ts — so
+    // it's cached alongside the embeddings it was computed from, not
+    // recomputed from the image dimensions independently.
+    letterbox: { offsetX: number; offsetY: number };
     naturalW: number;
     naturalH: number;
   } | null>(null);
@@ -184,6 +192,7 @@ export function useSam2Segmentation(
             image_embed: WorkerTensor;
             high_res_feats_0: WorkerTensor;
             high_res_feats_1: WorkerTensor;
+            letterbox?: { offsetX: number; offsetY: number };
           };
 
           cached = {
@@ -194,6 +203,7 @@ export function useSam2Segmentation(
               high_res_feats_0: encOutputs.high_res_feats_0,
               high_res_feats_1: encOutputs.high_res_feats_1,
             },
+            letterbox: encOutputs.letterbox ?? { offsetX: 0, offsetY: 0 },
             naturalW,
             naturalH,
           };
@@ -212,6 +222,7 @@ export function useSam2Segmentation(
             params: {
               points: normPrompts.points,
               box: normPrompts.box,
+              letterbox: cached.letterbox,
             },
             reuseSession: true,
           },

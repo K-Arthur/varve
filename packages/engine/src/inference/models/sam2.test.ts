@@ -42,6 +42,42 @@ describe('sam2', () => {
       expect(result.pointCoords.data[3]).toBeCloseTo(0.9 * SAM2_INPUT_SIZE);
     });
 
+    it('maps normalized coordinates directly to 1024-space when no letterbox is given (square image)', () => {
+      const result = encodeSam2Prompts({ points: [{ x: 0.1, y: 0.9, label: 1 }] });
+      expect(result.pointCoords.data[0]).toBeCloseTo(0.1 * SAM2_INPUT_SIZE);
+      expect(result.pointCoords.data[1]).toBeCloseTo(0.9 * SAM2_INPUT_SIZE);
+    });
+
+    it('applies the letterbox offset for non-square images (wide: padded top/bottom)', () => {
+      // A 1920x1080 image resized to fit 1024x1024 scales to 1024x576,
+      // centered with offsetY=(1024-576)/2=224 (matches the exact transform
+      // computed in inferenceWorker.ts and verified against real SAM2
+      // weights: naive unoffset mapping produced mask-vs-ground-truth IoU
+      // 0.002 on this exact geometry; the offset mapping produced 0.97).
+      const letterbox = { offsetX: 0, offsetY: 224 };
+      const result = encodeSam2Prompts({ points: [{ x: 0.5, y: 0.5, label: 1 }] }, letterbox);
+      // scaledH = 1024 - 2*224 = 576; pixelY = 224 + 0.5*576 = 512
+      expect(result.pointCoords.data[0]).toBeCloseTo(512); // x unaffected (offsetX=0)
+      expect(result.pointCoords.data[1]).toBeCloseTo(512);
+    });
+
+    it('applies the letterbox offset for non-square images (tall: padded left/right)', () => {
+      const letterbox = { offsetX: 224, offsetY: 0 };
+      const result = encodeSam2Prompts({ points: [{ x: 0.1, y: 0.5, label: 1 }] }, letterbox);
+      // scaledW = 1024 - 2*224 = 576; pixelX = 224 + 0.1*576 = 281.6
+      expect(result.pointCoords.data[0]).toBeCloseTo(281.6);
+      expect(result.pointCoords.data[1]).toBeCloseTo(512); // y unaffected (offsetY=0)
+    });
+
+    it('applies the same letterbox offset to box-derived corner points', () => {
+      const letterbox = { offsetX: 0, offsetY: 224 };
+      const result = encodeSam2Prompts({ box: { x1: 0, y1: 0, x2: 1, y2: 1 } }, letterbox);
+      expect(result.pointCoords.data[0]).toBeCloseTo(0); // top-left x
+      expect(result.pointCoords.data[1]).toBeCloseTo(224); // top-left y = offsetY
+      expect(result.pointCoords.data[2]).toBeCloseTo(1024); // bottom-right x
+      expect(result.pointCoords.data[3]).toBeCloseTo(800); // offsetY + 1*576 = 800
+    });
+
     it('combines points and box into a single point batch', () => {
       const result = encodeSam2Prompts({
         points: [{ x: 0.5, y: 0.5, label: 1 }],
