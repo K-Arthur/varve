@@ -369,6 +369,9 @@ export {
   patchRegion,
   spotHeal,
 } from './retouch';
+export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
+// ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
+export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
 export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
@@ -399,11 +402,36 @@ export type {
   Scene,
   SceneNode,
   Shape,
+  ShapedGlyph,
+  ShapedRun,
   Stroke,
   StrokeAlign,
   StrokeCap,
   StrokeJoin,
+  TextShaping,
 } from './types';
+export type { BidiClass, BidiDirection, BidiParagraph, BidiRun } from './unicode/bidi';
+export {
+  analyzeParagraph,
+  autoParagraphDirection,
+  bidiClassOf,
+  logicalToVisual,
+  reorderRuns,
+  segmentRuns,
+  visualToLogical,
+} from './unicode/bidi';
+export type { GraphemeBoundary } from './unicode/grapheme';
+export {
+  codepointOffset,
+  graphemeBoundaries,
+  graphemeCount,
+  graphemeIndexAt,
+  splitGraphemes,
+  utf16IndexAtCodepointOffset,
+  utf16IndexAtGrapheme,
+} from './unicode/grapheme';
+export type { ScriptCode, ScriptRun } from './unicode/script';
+export { detectScript, dominantScript, segmentByScript } from './unicode/script';
 export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
