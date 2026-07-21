@@ -13,37 +13,34 @@ import Layout from '../layouts/Layout.astro';
       <div class="current-release">
         <div class="release-header">
           <h2>Current Release</h2>
-          <span class="version-badge">0.0.0</span>
+          <span class="version-badge">Beta</span>
         </div>
-        <p class="release-date">Released: 2026-07-08</p>
+        <p class="release-date">Last updated: 2026-07-20</p>
         
         <div class="release-notes">
           <h3>Release Notes</h3>
-          <p>This is the initial development release of Strata. The project is in active development with major features being implemented.</p>
+          <p>Strata is in active beta. Core systems are built and functional. This page tracks the current state of the release.</p>
           
-          <h4>Phase A-C Complete</h4>
+          <h4>What's built</h4>
           <ul>
-            <li>Product Truth Matrix documenting actual capabilities</li>
-            <li>Research findings on competitor websites and funding models</li>
-            <li>Comprehensive strategy for website and product positioning</li>
-            <li>Astro-based marketing website with core pages</li>
+            <li>Canvas: Infinite canvas, viewport culling, sticky snap, rulers, guides, view rotation, zoom range 0.001x-64x</li>
+            <li>Vector tools: Shapes, pen/pencil with bezier handles, boolean operations, node editing, layers, groups, frames</li>
+            <li>Typography: Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</li>
+            <li>Color and effects: RGB/CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</li>
+            <li>Motion: Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</li>
+            <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, multi-page, facing pages</li>
+            <li>Import: SVG, PDF, PSD, AI, EPS, and common image formats</li>
+            <li>Design systems: Styles, variables, components, variants, libraries</li>
+            <li>Background removal: AI-based with u2netp (bundled) and BiRefNet-Lite, hair edge refinement</li>
+            <li>Workspace modes: Design, Print, Draw, Photo, Motion with per-mode toolbars and panels</li>
           </ul>
           
-          <h4>Core Systems Built</h4>
+          <h4>Known limitations</h4>
           <ul>
-            <li>Canvas & Rendering: IR-replay architecture, 86fps rendering</li>
-            <li>Vector Tools: Shape primitives, path editing, layers, groups</li>
-            <li>Motion: Timeline animation, Smart Animate, export to CSS/Lottie/MP4/WebM</li>
-            <li>Export: SVG, React/Tailwind, Flutter, SwiftUI, PDF export</li>
-            <li>Color Management: RGB/CMYK/grayscale, blend modes, effects</li>
-          </ul>
-          
-          <h4>Known Limitations</h4>
-          <ul>
-            <li>Typography: Rich text and variable fonts declared but not fully rendered</li>
-            <li>Collaboration: UI scaffolding only, no transport</li>
-            <li>Print: Bleed not visualized on canvas, DPI awareness missing</li>
-            <li>Canvas: No view rotation, narrow zoom range</li>
+            <li>Complex script shaping (Arabic, Devanagari) not supported</li>
+            <li>Collaboration features are UI scaffolding only</li>
+            <li>Canvas bleed and trim visualization not implemented</li>
+            <li>Background removal with BiRefNet-Lite requires native desktop (WASM has 4GB memory limit)</li>
           </ul>
         </div>
       </div>

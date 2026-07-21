@@ -18,24 +18,24 @@ import Layout from '../../layouts/Layout.astro';
         <h2>Typography</h2>
         
         <div class="issue-item">
-          <h3>Rich text not fully rendered</h3>
-          <p><strong>Status:</strong> In Development</p>
-          <p>Rich text, variable fonts, and OpenType features are declared in types but rendering is still in progress. Use basic text styling for now.</p>
-          <p><strong>Workaround:</strong> Use font family, size, weight, and basic styling. Avoid rich text, variable axes, and OpenType features until rendering is complete.</p>
+          <h3>Complex script shaping not supported</h3>
+          <p><strong>Status:</strong> Not Implemented</p>
+          <p>Complex scripts requiring shaping (Arabic, Devanagari, Thai) are not supported. Latin, CJK, and simple scripts work correctly.</p>
+          <p><strong>Workaround:</strong> Use Latin or CJK scripts. Complex script shaping is planned for future development.</p>
         </div>
 
         <div class="issue-item">
-          <h3>No inline text editor</h3>
+          <h3>BiDi text layout not implemented</h3>
           <p><strong>Status:</strong> Not Implemented</p>
-          <p>Text editing requires selecting the text node and using the inspector panel. There is no inline text selection or caret.</p>
-          <p><strong>Workaround:</strong> Use the F6 inspector panel to edit text properties.</p>
+          <p>Bidirectional text (mixed left-to-right and right-to-left) layout is not implemented.</p>
+          <p><strong>Workaround:</strong> Use single-direction text. BiDi support is planned for future development.</p>
         </div>
 
         <div class="issue-item">
-          <h3>No text shaping for complex scripts</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Complex scripts (CJK, RTL, bidi) are not supported. Text shaping is not implemented.</p>
-          <p><strong>Workaround:</strong> Use Latin scripts for now. Complex script support is planned for future development.</p>
+          <h3>Rich text per-span editing limited</h3>
+          <p><strong>Status:</strong> Partial</p>
+          <p>The rich text data model exists and inline editing works, but per-span formatting (different styles within a single text node) is limited in the UI.</p>
+          <p><strong>Workaround:</strong> Use separate text nodes for different styles within the same area.</p>
         </div>
       </div>
 
@@ -50,37 +50,16 @@ import Layout from '../../layouts/Layout.astro';
         </div>
 
         <div class="issue-item">
-          <h3>NewFileDialog settings not persisted</h3>
-          <p><strong>Status:</strong> Partial</p>
-          <p>The NewFileDialog collects unit, colorMode, and bleed settings, but these are not persisted to the Document interface. The Document remains pixel-only.</p>
-          <p><strong>Workaround:</strong> Document is currently pixel-only. Unit and color settings will be wired in future development.</p>
-        </div>
-
-        <div class="issue-item">
-          <h3>No DPI awareness</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>Internal storage is always in pixels with no DPI awareness. Physical units (pt, mm, cm, in) are converted but not DPI-aware.</p>
-          <p><strong>Workaround:</strong> Work in pixels for now. DPI awareness is planned for future development.</p>
+          <h3>8-bit color storage only</h3>
+          <p><strong>Status:</strong> Limitation</p>
+          <p>Color storage is always 8-bit RGBA. No 16-bit, floating-point, or CMYK storage at the document level.</p>
+          <p><strong>Workaround:</strong> 8-bit is sufficient for most screen and print workflows. Higher bit-depth is planned for future development.</p>
         </div>
       </div>
 
       <div class="known-issues-section">
         <h2>Canvas & Tools</h2>
         
-        <div class="issue-item">
-          <h3>No view rotation</h3>
-          <p><strong>Status:</strong> Not Implemented</p>
-          <p>The canvas cannot be rotated. Only zoom and pan are supported.</p>
-          <p><strong>Workaround:</strong> Use zoom and pan for navigation. View rotation is planned for future development.</p>
-        </div>
-
-        <div class="issue-item">
-          <h3>Narrow zoom range</h3>
-          <p><strong>Status:</strong> Limitation</p>
-          <p>Zoom range is narrower than professional tools. May not support extreme zoom levels.</p>
-          <p><strong>Workaround:</strong> Use available zoom range. Expanded zoom range is planned for future development.</p>
-        </div>
-
         <div class="issue-item">
           <h3>No artboard-local coordinate space</h3>
           <p><strong>Status:</strong> Limitation</p>

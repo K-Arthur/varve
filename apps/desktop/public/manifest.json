@@ -1,11 +1,11 @@
 {
   "name": "Strata",
   "short_name": "Strata",
-  "description": "Local-first, cross-platform design suite",
+  "description": "A local-first design application for vector, raster, layout, typography, motion, and print",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#f5f7fa",
-  "theme_color": "#bc7410",
+  "theme_color": "#39D0C6",
   "icons": [
     {
       "src": "/icons/icon-192.png",

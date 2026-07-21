@@ -2,66 +2,66 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="Features - Strata">
+<Layout title="Features - Strata" description="Explore what Strata can do today — vector design, raster editing, layout, typography, motion, prototyping, color management, and code export.">
   <div class="container-custom">
     <div class="features-page">
       <h1>Features</h1>
       <p class="features-intro">
-        Deep dives into Strata's capabilities, with honest communication about what's built and what's in development.
+        What Strata can do today, with honest status indicators for each area. Strata is in beta — features are functional but evolving.
       </p>
 
       <div class="features-grid">
         <a href="/features/canvas" class="feature-card">
           <h2>Canvas & Rendering</h2>
-          <p>86fps IR-replay rendering, infinite canvas, precision tools</p>
+          <p>Infinite canvas, viewport culling, sticky snap, rulers, guides, grid overlays, multi-page documents</p>
           <span class="status built">Built</span>
         </a>
 
         <a href="/features/vector-tools" class="feature-card">
           <h2>Vector Tools</h2>
-          <p>Shapes, paths, boolean operations, transformation tools</p>
+          <p>Shapes, pen and pencil with bezier handles, boolean operations, node editing, layers, groups, frames</p>
           <span class="status built">Built</span>
         </a>
 
         <a href="/features/typography" class="feature-card">
           <h2>Typography</h2>
-          <p>Rich text, variable fonts, OpenType features, multi-line layout</p>
-          <span class="status in-development">In Development</span>
+          <p>Multi-line text, OpenType features, variable fonts, text-on-path, inline editing, CJK line breaking</p>
+          <span class="status built">Built</span>
         </a>
 
         <a href="/features/color-effects" class="feature-card">
           <h2>Color & Effects</h2>
-          <p>CMYK support, blend modes, effects, image adjustments</p>
-          <span class="status partial">Partial</span>
+          <p>RGB and CMYK color management, ICC profiles, blend modes, shadows, blur, adjustment layers, halftone</p>
+          <span class="status built">Built</span>
         </a>
 
         <a href="/features/motion" class="feature-card">
           <h2>Motion & Prototyping</h2>
-          <p>Timeline animation, Smart Animate, prototype interactions</p>
+          <p>Timeline animation, keyframes, easing, Smart Animate, prototype interactions, CSS/Lottie/video export</p>
           <span class="status built">Built</span>
         </a>
 
         <a href="/features/export" class="feature-card">
           <h2>Export & Code Generation</h2>
-          <p>SVG, React/Tailwind, Flutter, SwiftUI, PDF export</p>
+          <p>SVG, React/Tailwind, Flutter, SwiftUI, PDF with CMYK, PDF/X-1a and PDF/X-4, per-node export settings</p>
           <span class="status built">Built</span>
         </a>
       </div>
 
       <div class="status-legend">
-        <h3>Status Legend</h3>
+        <h3>What the status labels mean</h3>
         <div class="legend-items">
           <div class="legend-item">
             <span class="legend-status built"></span>
-            <span>Built - Fully functional and tested</span>
+            <span>Functional and tested. May have rough edges or missing polish.</span>
           </div>
           <div class="legend-item">
             <span class="legend-status partial"></span>
-            <span>Partial - Strong foundation, some features deferred</span>
+            <span>Core foundation exists. Some capabilities are deferred or incomplete.</span>
           </div>
           <div class="legend-item">
             <span class="legend-status in-development"></span>
-            <span>In Development - Types declared, rendering in progress</span>
+            <span>Actively being built. Types and structure exist, rendering is in progress.</span>
           </div>
         </div>
       </div>

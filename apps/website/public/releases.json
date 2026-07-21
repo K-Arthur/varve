@@ -2,7 +2,7 @@
   "latest": {
     "version": "0.0.0",
     "releaseDate": "2026-07-08",
-    "description": "Pre-release development build. Core features functional: canvas rendering, vector tools, text engine, motion & prototyping, code generation, effects system.",
+    "description": "Beta build. Features include: canvas rendering, vector tools with pen/pencil, typography with OpenType features, motion and prototyping, code generation, color management with CMYK, adjustment layers, effects, and background removal.",
     "isPrerelease": true,
     "githubUrl": "https://github.com/strata/strata",
     "releasesUrl": "https://github.com/strata/strata/releases",
@@ -28,7 +28,7 @@
           "format": "rpm"
         },
         "aur": {
-          "command": "yay -S strata-desktop-bin",
+          "command": "yay -S strata-desktop",
           "format": "AUR"
         }
       }
