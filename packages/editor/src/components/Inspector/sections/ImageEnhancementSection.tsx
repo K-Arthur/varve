@@ -227,12 +227,12 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
       <div className="insp-field-group">
         <p className="insp-subsection__label">Vectorize</p>
 
-        <FieldRow label="Live trace">
+        <FieldRow label="Auto trace">
           <label className="insp-field__control insp-field__control--inline">
             <input
               type="checkbox"
               checked={liveTrace}
-              aria-label="Enable live trace"
+              aria-label="Enable auto trace"
               onChange={(event) => {
                 setLiveTrace(event.target.checked);
                 if (!event.target.checked) {
@@ -254,7 +254,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
             )}
             {isLiveResolved && (
               <p className="insp-hint" role="status">
-                Live trace active
+                Auto trace active
               </p>
             )}
             {isLiveError && (

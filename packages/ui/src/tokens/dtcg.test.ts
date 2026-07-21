@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildDTCGExport, dtcgExport, dtcgFlatExport, figmaTokensExport } from './dtcg';
+import { buildDTCGExport, dtcgExport, dtcgFlatExport, tokensStudioExport } from './dtcg';
 
 describe('DTCG Export — Structure', () => {
   it('exports all 3 themes', () => {
@@ -108,16 +108,16 @@ describe('DTCG Export — Flat Format', () => {
   });
 });
 
-describe('Figma Tokens Studio Export', () => {
+describe('Tokens Studio Export', () => {
   it('exports in Tokens Studio format', () => {
-    const result = figmaTokensExport();
+    const result = tokensStudioExport();
     expect(result.global).toBeDefined();
     expect(result.dark).toBeDefined();
     expect(result['high-contrast']).toBeDefined();
   });
 
   it('uses {value, type} format with CTI nesting', () => {
-    const result = figmaTokensExport();
+    const result = tokensStudioExport();
     const global = result.global as Record<string, unknown>;
     const color = global.color as Record<string, unknown>;
     const surface = color.surface as Record<string, unknown>;

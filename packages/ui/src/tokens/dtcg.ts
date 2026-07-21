@@ -188,13 +188,13 @@ export interface DTCGTokenEntry {
   $value: DTCGColorValue;
 }
 
-// ── Figma Tokens Studio v2 format export ────────────────────────────────────
+// ── Tokens Studio v2 format export ──────────────────────────────────────
 
 /**
- * Export tokens in Figma Tokens Studio v2 format.
- * This format is compatible with the "Tokens Studio for Figma" plugin.
+ * Export tokens in Tokens Studio v2 format.
+ * This format is compatible with the "Tokens Studio" plugin ecosystem.
  */
-export function figmaTokensExport(): Record<string, unknown> {
+export function tokensStudioExport(): Record<string, unknown> {
   const result: Record<string, unknown> = {};
 
   for (const [themeName, tokens] of Object.entries(SEMANTIC)) {

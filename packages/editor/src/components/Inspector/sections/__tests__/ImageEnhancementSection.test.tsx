@@ -78,7 +78,7 @@ describe('ImageEnhancementSection — live trace', () => {
 
   it('renders live trace toggle checkbox', () => {
     render(<ImageEnhancementSection nodes={[imageNode()]} />);
-    expect(screen.getByLabelText(/live trace/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/auto trace/i)).toBeInTheDocument();
   });
 
   it('live trace mode shows loading state when node has unresolved liveTrace', () => {
@@ -124,7 +124,7 @@ describe('ImageEnhancementSection — live trace', () => {
       },
     });
     render(<ImageEnhancementSection nodes={[node]} />);
-    expect(screen.getByText(/live trace active/i)).toBeInTheDocument();
+    expect(screen.getByText(/auto trace active/i)).toBeInTheDocument();
   });
 
   it('live trace mode shows error state when lastError is set', () => {
