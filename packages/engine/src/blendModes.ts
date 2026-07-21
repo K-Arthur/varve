@@ -299,6 +299,9 @@ function getBlendFn(
  * @param source    Non-premultiplied [r, g, b, a] in [0, 1].
  * @param mode      Blend mode name.
  * @param opacity   Source opacity multiplier [0, 1].
+ * @param linearize When true, decode sRGB→linear before blending and
+ *                  re-encode after (physically correct for multiply/screen/
+ *                  overlay). Default false (gamma-space, backward compat).
  * @returns         Non-premultiplied [r, g, b, a] result in [0, 1].
  *
  * @remarks Inputs and opacity must be finite normalized values in [0, 1].
@@ -310,12 +313,30 @@ export function blend(
   source: readonly [number, number, number, number],
   mode: string,
   opacity: number,
+  linearize = false,
 ): [number, number, number, number] {
   const [br, bg, bb, ba] = backdrop;
   const [srIn, sgIn, sbIn, saIn] = source;
 
   const sa = Math.max(0, Math.min(1, saIn * opacity));
   const clamp = (v: number) => Math.max(0, Math.min(1, v));
+
+  // Linear-light path: decode sRGB→linear, blend, re-encode.
+  // Multiply/screen/overlay are only physically correct in linear space.
+  if (linearize) {
+    const toLinear = (c: number) => {
+      if (c <= 0.04045) return c / 12.92;
+      return ((c + 0.055) / 1.055) ** 2.4;
+    };
+    const toSrgb = (c: number) => {
+      const v = c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+      return Math.max(0, Math.min(1, v));
+    };
+    const [lr, lg, lb] = [toLinear(br), toLinear(bg), toLinear(bb)];
+    const [lsr, lsg, lsb] = [toLinear(srIn), toLinear(sgIn), toLinear(sbIn)];
+    const [mr, mg, mb] = blend([lr, lg, lb, ba], [lsr, lsg, lsb, saIn], mode, opacity);
+    return [toSrgb(mr), toSrgb(mg), toSrgb(mb), clamp(sa + ba * (1 - sa))];
+  }
 
   if (mode === 'plusLighter') {
     const ao = Math.min(1, sa + ba);
@@ -368,12 +389,16 @@ export function blend(
  * Operates on the same signature as the existing `blendPixels` in
  * compositeCanvas.ts, but uses the individual blend functions from
  * this module.
+ *
+ * @param linearize When true, blend in linear-light space (physically
+ *                  correct for multiply/screen/overlay).
  */
 export function blendPixels(
   backdrop: ImageData,
   source: ImageData,
   blendMode: string,
   opacity: number,
+  linearize = false,
 ): ImageData {
   const w = Math.min(backdrop.width, source.width);
   const h = Math.min(backdrop.height, source.height);
@@ -395,7 +420,13 @@ export function blendPixels(
     const sb = sd[offset + 2]! / 255;
     const sa = sd[offset + 3]! / 255;
 
-    const [mr, mg, mb, ma] = blend([br, bg, bb, ba], [sr, sg, sb, sa], blendMode, opacity);
+    const [mr, mg, mb, ma] = blend(
+      [br, bg, bb, ba],
+      [sr, sg, sb, sa],
+      blendMode,
+      opacity,
+      linearize,
+    );
 
     rd[offset] = Math.round(Math.max(0, Math.min(255, mr * 255)));
     rd[offset + 1] = Math.round(Math.max(0, Math.min(255, mg * 255)));

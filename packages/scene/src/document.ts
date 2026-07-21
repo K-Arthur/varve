@@ -18,6 +18,7 @@ import { generateKeyBetween, physicalToPx } from '@strata/shared';
 import { stripBindingForVariable } from './bindings';
 import { deepCloneSubtree } from './clone';
 import type {
+  BitDepth,
   BleedConfig,
   ColorConfig,
   ColorMode,
@@ -190,6 +191,8 @@ export interface NodeEntry {
 export interface CreateDocumentOptions {
   flat?: boolean;
   colorMode?: ColorMode;
+  /** Color channel bit depth. Defaults to 'uint8' when omitted. */
+  bitDepth?: BitDepth;
   physicalWidth?: number;
   physicalHeight?: number;
   documentUnit?: DocumentUnit;
@@ -256,7 +259,7 @@ export function createDocument(
       pages: [page],
       rootChildren: [contentRootId],
       nodes: { ...d1.nodes, [contentRootId]: contentRoot },
-      colorConfig: opts.colorMode ? defaultColorConfig(opts.colorMode) : undefined,
+      colorConfig: opts.colorMode ? defaultColorConfig(opts.colorMode, opts.bitDepth) : undefined,
       documentUnit: opts.documentUnit,
       physicalWidth: opts.physicalWidth,
       physicalHeight: opts.physicalHeight,
