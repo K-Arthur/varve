@@ -100,11 +100,15 @@ export function decodeTextRegions(
       if (y < minY) minY = y;
       if (y > maxY) maxY = y;
 
-      const neighbors = [idx - 1, idx + 1, idx - width, idx + width];
+      // Left/right neighbors must stay within the same row — checking only
+      // "does n land in column 0 or width-1" (as a prior version of this
+      // guard did) misfires for narrow grids, since a legitimate one-step
+      // move can coincidentally land in the last column too.
+      const left = x > 0 ? idx - 1 : -1;
+      const right = x < width - 1 ? idx + 1 : -1;
+      const neighbors = [left, right, idx - width, idx + width];
       for (const n of neighbors) {
         if (n < 0 || n >= width * height) continue;
-        if (n % width === 0 && idx % width === width - 1) continue; // wrap guard (right edge)
-        if (n % width === width - 1 && idx % width === 0) continue; // wrap guard (left edge)
         if (visited[n] || data[n]! < probThreshold) continue;
         visited[n] = 1;
         stack.push(n);
