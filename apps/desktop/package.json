@@ -12,7 +12,9 @@
     "build:wdio": "tsc --noEmit && vite build --mode wdio",
     "preview": "vite preview",
     "tauri": "tauri",
+    "pretauri:dev": "node scripts/pre-tauri-dev.mjs",
     "tauri:dev": "tauri dev --features ai",
+    "posttauri:dev": "echo '[info] Dev mode (build) — no icon steps needed'",
     "tauri:build": "tauri build --features ai",
     "typecheck": "tsc --noEmit"
   },
