@@ -90,18 +90,59 @@ export interface Sam2DecoderOutput {
 }
 
 /**
+ * Letterbox transform applied when the source image was resized into the
+ * model's fixed square input while preserving aspect ratio (scale to fit,
+ * center, pad). Only non-zero for non-square source images — SEE BUG NOTE
+ * below for why this must be threaded through to prompt encoding.
+ */
+export interface Sam2Letterbox {
+  offsetX: number;
+  offsetY: number;
+}
+
+/**
  * Encode prompts into the exact tensors the verified decoder graph expects.
  * Box prompts become two extra points (top-left label 2, bottom-right
  * label 3) — there is no separate box_coords input on this graph.
  * mask_input/has_mask_input are always returned (zero-filled when there's
  * no previous mask) because the decoder requires both as inputs.
+ *
+ * BUG FIX (found via real-model validation against actual downloaded
+ * weights, not unit tests — see docs/testing/sam2-lineart-validation-
+ * 2026-07-21.md): point/box coordinates are normalized 0-1 relative to
+ * the *original* image, but the encoder's input is letterboxed — scaled
+ * to fit within 1024x1024 and centered with padding, not stretched to
+ * fill it. For any non-square image (the overwhelming majority of real
+ * photos), naively mapping `x_norm * 1024` ignores that letterbox offset
+ * and lands the prompt in the wrong place. Confirmed empirically: a
+ * 1920x1080 synthetic test with a known subject went from mask-vs-
+ * ground-truth IoU 0.002 (naive mapping, while the model *confidently*
+ * reported 0.98 IoU for the wrong region — a silent-wrong-answer
+ * failure) to IoU 0.97 once the letterbox offset was applied — and
+ * produces a correct, clean subject mask on a real complex photo. The
+ * `letterbox` parameter must be the transform the *same* image actually
+ * went through in the worker's preprocessing (see
+ * WorkerInferResult.outputs.letterbox from the encoder call) — passing
+ * the wrong offset is worse than passing none.
  */
-export function encodeSam2Prompts(prompts: Sam2Prompt): {
+export function encodeSam2Prompts(
+  prompts: Sam2Prompt,
+  letterbox?: Sam2Letterbox,
+): {
   pointCoords: { data: Float32Array; dims: number[] };
   pointLabels: { data: Float32Array; dims: number[] };
   maskInput: { data: Float32Array; dims: number[] };
   hasMaskInput: { data: Float32Array; dims: number[] };
 } {
+  const offsetX = letterbox?.offsetX ?? 0;
+  const offsetY = letterbox?.offsetY ?? 0;
+  // scaledWidth = SAM2_INPUT_SIZE - 2*offsetX (centered padding), so a
+  // point normalized 0-1 across the *original* image maps to
+  // offset + norm * scaledDimension in 1024-space, without needing the
+  // original width/height or scale factor separately.
+  const scaledW = SAM2_INPUT_SIZE - 2 * offsetX;
+  const scaledH = SAM2_INPUT_SIZE - 2 * offsetY;
+
   const points = prompts.points ?? [];
   const hasBox = !!prompts.box;
   const nPoints = points.length + (hasBox ? 2 : 0);
@@ -115,18 +156,18 @@ export function encodeSam2Prompts(prompts: Sam2Prompt): {
 
   let i = 0;
   for (const p of points) {
-    pointCoords[i * 2] = p.x * SAM2_INPUT_SIZE;
-    pointCoords[i * 2 + 1] = p.y * SAM2_INPUT_SIZE;
+    pointCoords[i * 2] = offsetX + p.x * scaledW;
+    pointCoords[i * 2 + 1] = offsetY + p.y * scaledH;
     pointLabels[i] = p.label;
     i++;
   }
   if (prompts.box) {
-    pointCoords[i * 2] = prompts.box.x1 * SAM2_INPUT_SIZE;
-    pointCoords[i * 2 + 1] = prompts.box.y1 * SAM2_INPUT_SIZE;
+    pointCoords[i * 2] = offsetX + prompts.box.x1 * scaledW;
+    pointCoords[i * 2 + 1] = offsetY + prompts.box.y1 * scaledH;
     pointLabels[i] = 2; // top-left corner
     i++;
-    pointCoords[i * 2] = prompts.box.x2 * SAM2_INPUT_SIZE;
-    pointCoords[i * 2 + 1] = prompts.box.y2 * SAM2_INPUT_SIZE;
+    pointCoords[i * 2] = offsetX + prompts.box.x2 * scaledW;
+    pointCoords[i * 2 + 1] = offsetY + prompts.box.y2 * scaledH;
     pointLabels[i] = 3; // bottom-right corner
     i++;
   }

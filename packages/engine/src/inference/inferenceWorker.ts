@@ -12,7 +12,7 @@ import type { TensorSpec } from './imageTensor';
 import { packNchwTensor } from './imageTensor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
-import type { Sam2Prompt } from './models/sam2';
+import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 
 export type WorkerModelType =
@@ -119,7 +119,13 @@ registerModelType('sam2-decoder', {
       box: params.box as Sam2Prompt['box'],
       previousMask: params.previousMask as Sam2Prompt['previousMask'],
     };
-    const encoded = encodeSam2Prompts(prompt);
+    // The decoder call has no imageData of its own (it consumes cached
+    // encoder embeddings), so the letterbox transform can't be recomputed
+    // here — it must be the one the caller cached from the encoder call
+    // that produced those embeddings. See sam2.ts encodeSam2Prompts for
+    // why using the wrong (or no) offset silently breaks non-square images.
+    const letterbox = params.letterbox as Sam2Letterbox | undefined;
+    const encoded = encodeSam2Prompts(prompt, letterbox);
     return {
       point_coords: encoded.pointCoords,
       point_labels: encoded.pointLabels,
@@ -297,6 +303,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
 
     const inputNames = (session as OrtSession).inputNames;
     const feeds: Record<string, unknown> = {};
+    let letterbox: { offsetX: number; offsetY: number } | null = null;
 
     if (modelPre.hasImageInput && imageData) {
       const inputSize = modelPre.getInputSize();
@@ -319,6 +326,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         const scale = Math.min(inputSize / imageData.width, inputSize / imageData.height);
         const offsetX = (inputSize - imageData.width * scale) / 2;
         const offsetY = (inputSize - imageData.height * scale) / 2;
+        letterbox = { offsetX, offsetY };
 
         ctx.drawImage(
           srcCanvas,
@@ -392,6 +400,15 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       outputs.originalHeight = targetHeight ?? imageData.height;
       outputs.paddedWidth = imageData.width;
       outputs.paddedHeight = imageData.height;
+    }
+
+    if (letterbox) {
+      // Exposed so callers that need to map coordinates into the padded
+      // model-input space (e.g. SAM2 prompt encoding) use the *actual*
+      // transform this image went through, not a guess. See sam2.ts for
+      // why this matters — naive normalized-coordinate mapping silently
+      // breaks for any non-square source image.
+      outputs.letterbox = letterbox;
     }
 
     self.postMessage({ type: 'result', requestId, modelType, outputs } satisfies WorkerInferResult);

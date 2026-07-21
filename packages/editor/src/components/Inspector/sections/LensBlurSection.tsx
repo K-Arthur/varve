@@ -221,8 +221,14 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
         { timeoutMs: 120_000 },
       );
 
-      const rawData = result.outputs.data as Float32Array;
-      const dims = result.outputs.dims as number[];
+      // The worker keys each output by its real ONNX tensor name (never a
+      // generic "data"/"dims"). Verified directly against the downloaded
+      // depth-anything-v2-small graph: the single output is named
+      // "predicted_depth", not "data" — reading result.outputs.data here
+      // returned undefined and would have crashed on first real use.
+      const depthOutput = result.outputs.predicted_depth as { data: Float32Array; dims: number[] };
+      const rawData = depthOutput.data;
+      const dims = depthOutput.dims;
       const outputH = dims[2] as number;
       const outputW = dims[3] as number;
 

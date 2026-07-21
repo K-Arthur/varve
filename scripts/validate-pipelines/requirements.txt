@@ -1,0 +1,10 @@
+# Pinned dependencies for real end-to-end model pipeline validation.
+# Matches scripts/quantize/requirements.txt plus Pillow for image I/O.
+#
+# Install: pip install -r requirements.txt
+# Or via venv: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+onnxruntime==1.27.0
+onnx==1.22.0
+numpy>=2.0,<3.0
+pillow>=10.0,<12.0
