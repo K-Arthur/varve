@@ -77,7 +77,8 @@ export type ToolId =
   | 'crop'
   | 'paint'
   | 'eraser'
-  | 'smudge';
+  | 'smudge'
+  | 'sam2Segment';
 
 export type TrimapPenMode = 'foreground' | 'unknown' | 'background';
 
@@ -681,6 +682,18 @@ export interface EditorContextValue {
   cancelSubjectPicker: () => void;
   getTrimapData: (nodeId: NodeId) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapData: (nodeId: NodeId, data: Uint8Array, width: number, height: number) => void;
+
+  // SAM2 segmentation
+  applySam2Segmentation: (params: {
+    nodeId: NodeId;
+    prompts: {
+      points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+      box?: { x1: number; y1: number; x2: number; y2: number };
+    };
+    signal?: AbortSignal;
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
+  }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
+  cancelSam2Segmentation: () => void;
 
   // Prototype
   setPrototypeMode: (active: boolean) => void;

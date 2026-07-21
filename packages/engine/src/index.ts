@@ -59,6 +59,7 @@ export {
   removeBackground,
   resetEnvironmentCapabilities,
   resetModelLoader,
+  saveModelBlob,
   solveTrimapMatting,
   TRIMap,
   terminateWorkerPool,
@@ -118,6 +119,8 @@ export {
 } from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
+export type { DenoiseOptions, DenoiseResult } from './denoiseProviders/dispatch';
+export { dispatchDenoise } from './denoiseProviders/dispatch';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
@@ -266,7 +269,53 @@ export type {
   ModelState as InferenceModelState,
   ProviderChainOptions,
 } from './inference';
-export { ModelRegistry, runProviderChain, SessionManager } from './inference';
+export {
+  disposeInferenceWorkerHost,
+  getInferenceWorkerHost,
+  InferenceWorkerHost,
+  ModelRegistry,
+  runProviderChain,
+  SessionManager,
+} from './inference';
+export type {
+  WorkerInferRequest,
+  WorkerInferResult,
+  WorkerModelType,
+} from './inference/inferenceWorker';
+export { decodeDepthOutput, depthToMask } from './inference/models/depth';
+export type {
+  FontCandidate,
+  FontDetectInput,
+  FontDetectOutput,
+} from './inference/models/fontDetect';
+export {
+  FONT_DETECT_INPUT_SIZE,
+  FONT_DETECT_TENSOR_SPEC,
+  heuristicFontMatch,
+  preprocessFontDetect,
+  validateFontDetectInput,
+} from './inference/models/fontDetect';
+export type {
+  Sam2InferenceInput,
+  Sam2InferenceOutput,
+  Sam2Prompt,
+} from './inference/models/sam2';
+export {
+  decodeSam2Mask,
+  encodeSam2Prompts,
+  SAM2_INPUT_SIZE,
+  SAM2_TENSOR_SPEC,
+  validateSam2Prompts,
+} from './inference/models/sam2';
+export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
+export {
+  postprocessTrOcr,
+  preprocessTrOcr,
+  TROCR_INPUT_SIZE,
+  TROCR_MAX_SEQUENCE_LENGTH,
+  TROCR_TENSOR_SPEC,
+  validateTrOcrInput,
+} from './inference/models/trocr';
 export type { HarmonyPalette, PaletteResult } from './intelligence/paletteExtractor';
 export {
   analogousHarmony,
@@ -282,6 +331,7 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
+export { applyLensBlur, depthToBlurWeight, depthToHeatmapImageData } from './lensBlur';
 export type {
   Lut1D,
   Lut3D,

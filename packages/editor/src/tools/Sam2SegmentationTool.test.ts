@@ -21,7 +21,7 @@ describe('Sam2SegmentationTool', () => {
     );
     expect(tool.getPrompts().points.length).toBe(1);
 
-    tool.onActivate();
+    tool.onActivate(mockCtx());
     expect(tool.getPrompts().points.length).toBe(0);
   });
 

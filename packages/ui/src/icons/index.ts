@@ -59,6 +59,8 @@ export const TOOL_ICONS = {
   refineMask: 'Paintbrush',
   trimapEdit: 'Paintbrush',
   adjustment: 'SlidersHorizontal',
+  smudge: 'Fingerprint',
+  sam2Segment: 'Scan',
 } as const satisfies Record<string, IconName>;
 
 /** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
@@ -93,7 +95,6 @@ export const SOLID_TOOL_ICONS = {
   inspect: 'MagnifyingGlass',
   paint: 'PaintBrush',
   eraser: 'Eraser',
-  smudge: 'PaintBrush',
   cloneStamp: 'Stamp',
   healBrush: 'PaintBrush',
   spotHeal: 'PaintBrush',
@@ -101,6 +102,8 @@ export const SOLID_TOOL_ICONS = {
   refineMask: 'PaintBrush',
   trimapEdit: 'PaintBrush',
   adjustment: 'Faders',
+  smudge: 'Fingerprint',
+  sam2Segment: 'MagnifyingGlass',
 } as const satisfies Record<string, SolidIconName>;
 
 /** General chrome icons. */

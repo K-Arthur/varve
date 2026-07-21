@@ -114,7 +114,6 @@ import {
   createClippingMask as createClippingMaskDoc,
   createComponent,
   createDocument,
-  createEmbeddedAsset,
   createGuideId,
   createMaster as createMasterDoc,
   createTextChain as createTextChainDoc,
@@ -218,7 +217,6 @@ import {
   updateInteraction as updateInteractionDoc,
   updateTrack as updateTrackDoc,
   updateVariableInDocument,
-  upsertAsset,
   type Variable,
   type VariableValue,
   validateDocument,
@@ -316,6 +314,7 @@ import type {
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { usePersistence } from './context/usePersistence';
+import { useSam2Segmentation } from './context/useSam2Segmentation';
 import {
   computeFitAllCamera,
   computeZoomStep,
@@ -862,14 +861,6 @@ export interface EditorContextValue {
   setAdjustmentLayerOpacity: (nodeId: NodeId, opacity: number) => void;
   /** Set blend mode on an adjustment layer node. */
   setAdjustmentLayerBlendMode: (nodeId: NodeId, blendMode: string) => void;
-  /**
-   * Register (or reuse, by content hash) an embedded image asset in
-   * Document.assets and return its id. See @strata/scene's assets.ts and
-   * docs/audits/smart-object-feasibility-audit.md. Callers still apply the
-   * returned id to a fill via the normal onChange/updateNodeProp path —
-   * this only owns the document-level asset table update.
-   */
-  registerEmbeddedImageAsset: (input: import('@strata/scene').EmbeddedAssetInput) => string;
   /** Copy selected nodes to system clipboard. */
   copySelected: () => void;
   /** Cut selected nodes (copy + remove). */
@@ -960,6 +951,19 @@ export interface EditorContextValue {
   cancelBackgroundRemoval: () => void;
   applyBackgroundRemovalPreview: () => void;
   cancelBackgroundRemovalPreview: () => void;
+
+  /** SAM2 interactive segmentation — run point/box-prompted segmentation on an image node. */
+  applySam2Segmentation: (params: {
+    nodeId: import('@strata/scene').NodeId;
+    prompts: {
+      points?: Array<{ x: number; y: number; label: 0 | 1 }>;
+      box?: { x1: number; y1: number; x2: number; y2: number };
+    };
+    signal?: AbortSignal;
+    operation: 'preview' | 'mask' | 'selection' | 'layer';
+  }) => Promise<{ mask: Uint8Array; width: number; height: number; confidence: number } | null>;
+  cancelSam2Segmentation: () => void;
+
   /** Enlarge the selected image into a new editable image layer. */
   upscaleSelectedImage: (options: import('@strata/engine').UpscaleOptions) => Promise<void>;
   /** Trace the selected image into a new editable vector group. */
@@ -1455,6 +1459,7 @@ function shapeForTool(tool: ToolId): Shape {
     case 'paint':
     case 'eraser':
     case 'smudge':
+    case 'sam2Segment':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -2235,6 +2240,8 @@ export function EditorProvider({
     processingBgNodeRef,
     trimapStoreRef,
   );
+
+  const sam2Seg = useSam2Segmentation(state, stateRef, setState, announcerRef);
 
   const value = useMemo<EditorContextValue>(
     () => ({
@@ -5087,16 +5094,6 @@ export function EditorProvider({
         updateNodeProp(nodeId, (n) => ({ ...n, blendMode }) as SceneNode);
       },
 
-      registerEmbeddedImageAsset: (input) => {
-        // The asset id is purely content-derived (see createEmbeddedAsset),
-        // so it's known synchronously without waiting for updateDoc to
-        // flush. updateDoc still re-dedups against the freshest document
-        // (functional setState — safe even if called again before re-render).
-        const asset = createEmbeddedAsset(input);
-        updateDoc((doc) => upsertAsset(doc, asset));
-        return asset.id;
-      },
-
       createLinkedAdjustment: (
         targetIds: import('@strata/scene').NodeId[],
         initialAdjustments: import('@strata/scene').Adjustment[] | undefined,
@@ -6391,6 +6388,10 @@ export function EditorProvider({
       getTrimapData: bgRemoval.getTrimapData,
 
       setTrimapData: bgRemoval.setTrimapData,
+
+      // SAM2 segmentation
+      applySam2Segmentation: sam2Seg.applySam2Segmentation,
+      cancelSam2Segmentation: sam2Seg.cancelSam2Segmentation,
 
       ...(protoValue ?? PROTO_NOOP),
 

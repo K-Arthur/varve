@@ -138,6 +138,7 @@ export function createActionHandlers(
     toolEraser: setTool('eraser'),
     toolSmudge: setTool('smudge'),
     toolCrop: setTool('crop'),
+    toolSam2Segment: setTool('sam2Segment'),
 
     // ── Object ──
     group: () => e.groupSelected(),
