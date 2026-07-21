@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { parseSvg } from './svg';
 
 describe('SVG clipPath import (D12)', () => {
