@@ -50,7 +50,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   spotHeal: 'Spot Heal',
   patch: 'Patch Tool',
   smudge: 'Smudge',
-  sam2Segment: 'SAM2 Segment',
+  sam2Segment: 'Select Subject',
 };
 
 const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
