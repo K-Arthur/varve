@@ -19,6 +19,17 @@ export {
   resetCloudConfig,
   saveCloudConfig,
 } from './cloudConfig';
+export type {
+  InferenceDiagnosticEvent,
+  InferenceDiagnosticsState,
+} from './diagnostics/inferenceDiagnostics';
+export {
+  getInferenceDiagnostics,
+  recordColdStart,
+  recordInferenceEvent,
+  resetInferenceDiagnostics,
+  subscribeInferenceDiagnostics,
+} from './diagnostics/inferenceDiagnostics';
 export type { EnvironmentCapabilities } from './environmentCapabilities';
 export {
   getBestOnnxProviders,
@@ -49,6 +60,7 @@ export {
 export type { ModelInfo } from './modelInfo';
 export { getModelInfo, MODEL_INFO_MAP } from './modelInfo';
 export { getModelLoader, getModelLoaderReady, resetModelLoader } from './modelLoader';
+export type { ResolvedWebModel } from './modelSelection';
 export type { SegmentationModelSpec } from './modelSpec';
 export { getSegmentationModelSpec, packModelInput } from './modelSpec';
 export {
@@ -60,6 +72,15 @@ export {
 } from './modelStore';
 export type { FlowVector } from './opticalFlow';
 export { computeBlockFlow, warpMask } from './opticalFlow';
+export type { PrecisionCapabilities } from './precisionCapabilities';
+export {
+  detectPrecisionCapabilities,
+  getPrecisionCapabilitiesSync,
+  isInt8FasterOnThisCpu,
+  overridePrecisionCapabilities,
+  resetPrecisionCapabilities,
+  runPrecisionBenchmark,
+} from './precisionCapabilities';
 export { downscaleImageData } from './previewDownscale';
 export { cloudRemovalProvider } from './providers/cloudProvider';
 export { AI_PROVIDER_CHAIN } from './providers/dispatch';
@@ -86,6 +107,7 @@ export type {
   BackgroundRemovalOptions,
   BackgroundRemovalResult,
   HeuristicMethod,
+  InferenceQualityPreference,
   ModelMetadata,
   ModelState,
   RemovalMethod,
@@ -95,7 +117,11 @@ export type {
 export {
   AVAILABLE_MODELS,
   DEFAULT_PREVIEW_MAX_DIMENSION,
+  DEFAULT_QUALITY_PREFERENCE,
+  fp32SourceId,
+  int8VariantId,
   preferredWorkerModelIdForMethod,
+  resolveModelIdForPreference,
   workerModelIdForMethod,
 } from './types';
 export type { VideoFrame, VideoMatteOptions, VideoMatteResult } from './videoMatte';

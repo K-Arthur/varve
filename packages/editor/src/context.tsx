@@ -2241,7 +2241,7 @@ export function EditorProvider({
     trimapStoreRef,
   );
 
-  const sam2Seg = useSam2Segmentation(state, stateRef, setState, announcerRef);
+  const sam2Seg = useSam2Segmentation(state, stateRef, setState, updateDoc, announcerRef);
 
   const value = useMemo<EditorContextValue>(
     () => ({
