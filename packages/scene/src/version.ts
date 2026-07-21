@@ -516,12 +516,13 @@ export function rehydrateEmbeddedAssetSrc(raw: Record<string, unknown>): Record<
   let nodesChanged = false;
   const rehydratedNodes: Record<string, Record<string, unknown>> = {};
   for (const [id, node] of Object.entries(nodes ?? {})) {
-    if (!Array.isArray(node.fills)) {
+    const originalFills = node.fills;
+    if (!Array.isArray(originalFills)) {
       rehydratedNodes[id] = node;
       continue;
     }
-    const fills = node.fills.map(rehydrateFill);
-    if (fills.some((f, i) => f !== node.fills![i])) {
+    const fills = originalFills.map(rehydrateFill);
+    if (fills.some((f, i) => f !== originalFills[i])) {
       rehydratedNodes[id] = { ...node, fills };
       nodesChanged = true;
     } else {

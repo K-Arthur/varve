@@ -6,10 +6,31 @@
  *
  * Research basis: Figma image fill controls; APG file input patterns.
  */
-import type { ImageFillData, ImageFit } from '@strata/scene';
+import type { EmbeddedAssetInput, ImageFillData, ImageFit } from '@strata/scene';
 import { Icon, Select } from '@strata/ui';
 import { useCallback, useId, useRef } from 'react';
 import { FieldRow } from '../controls/FieldRow';
+
+/**
+ * Decode a data URL's natural pixel dimensions. Used so a replaced image
+ * gets its own correct imageWidth/imageHeight instead of inheriting the
+ * previous image's — previously never recomputed, which silently corrupted
+ * crop/fit framing whenever the replacement had a different aspect ratio.
+ * Resolves { width: 0, height: 0 } on decode failure (never throws/hangs) so
+ * a replace action always completes.
+ */
+function decodeNaturalSize(dataUrl: string): Promise<{ width: number; height: number }> {
+  return new Promise((resolve) => {
+    if (typeof Image === 'undefined') {
+      resolve({ width: 0, height: 0 });
+      return;
+    }
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => resolve({ width: 0, height: 0 });
+    img.src = dataUrl;
+  });
+}
 
 const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
   { value: 'fill', label: 'Fill' },
@@ -22,9 +43,17 @@ const FIT_OPTIONS: { value: ImageFit; label: string }[] = [
 export function ImageFillControls({
   image,
   onChange,
+  registerAsset,
 }: {
   image: ImageFillData;
   onChange: (img: ImageFillData) => void;
+  /**
+   * Registers file bytes as a document-level embedded asset (dedup'd by
+   * content hash) and returns its id. Optional so existing callers/tests
+   * that don't need asset-table dedup keep working — file picks fall back
+   * to the previous inline-src behavior when omitted.
+   */
+  registerAsset?: (input: EmbeddedAssetInput) => string;
 }) {
   const fileInputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -39,7 +68,10 @@ export function ImageFillControls({
 
   const handleSrcChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      onChange({ ...image, src: e.target.value });
+      // A manually typed src leaves the embedded-asset path entirely (it's
+      // no longer the asset table's bytes) — drop the stale assetId rather
+      // than let it keep pointing at unrelated content.
+      onChange({ ...image, src: e.target.value, assetId: undefined });
     },
     [image, onChange],
   );
@@ -52,17 +84,34 @@ export function ImageFillControls({
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result;
-        if (typeof result === 'string') {
+        if (typeof result !== 'string') return;
+        if (!registerAsset) {
           onChange({ ...image, src: result });
+          return;
         }
+        void decodeNaturalSize(result).then(({ width, height }) => {
+          const assetId = registerAsset({
+            dataUrl: result,
+            mimeType: file.type || 'application/octet-stream',
+            naturalWidth: width,
+            naturalHeight: height,
+          });
+          onChange({
+            ...image,
+            assetId,
+            src: result,
+            ...(width > 0 ? { imageWidth: width } : {}),
+            ...(height > 0 ? { imageHeight: height } : {}),
+          });
+        });
       };
       reader.readAsDataURL(file);
     },
-    [image, onChange],
+    [image, onChange, registerAsset],
   );
 
   const clearImage = useCallback(() => {
-    onChange({ ...image, src: '' });
+    onChange({ ...image, src: '', assetId: undefined });
   }, [image, onChange]);
 
   return (
