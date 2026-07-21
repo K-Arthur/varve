@@ -137,7 +137,12 @@ export {
 } from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
-export type { DenoiseOptions, DenoiseResult } from './denoiseProviders';
+export type {
+  DenoiseOptions,
+  DenoiseOptions,
+  DenoiseResult,
+  DenoiseResult,
+} from './denoiseProviders';
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
 export { dispatchDenoise, nativeDenoiseProvider, workerDenoiseProvider } from './denoiseProviders';
 export type {
@@ -343,6 +348,8 @@ export { decodeLamaOutput, LAMA_INPUT_SIZE } from './inference/models/lama';
 export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
 export type { TextRegion } from './inference/models/paddleocr';
 export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
+export type { PaddleRecInput, PaddleRecResult } from './inference/models/paddlerec';
+export { ctcDecode, packRecTensor } from './inference/models/paddlerec';
 export { decodeRifeOutput, RIFE_INPUT_SIZE } from './inference/models/rife';
 export type {
   Sam2DecoderInput,
@@ -462,6 +469,9 @@ export {
   setLum,
   setSat,
 } from './nonSeparable';
+// ── OCR (PaddleOCR v4) ───────────────────────────────────────────────
+export { runOcrPipeline } from './ocrPipeline/pipeline';
+export type { OcrOptions, OcrResult, OcrWord } from './ocrPipeline/types';
 export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
