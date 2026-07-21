@@ -19,7 +19,6 @@ describe('inference worker model registry', () => {
   });
 
   it('allows registering a new model type', () => {
-    // Register a test model type (overwrites if already present)
     registerModelType('depth', {
       tensorSpec: {
         inputWidth: 64,
@@ -29,8 +28,8 @@ describe('inference worker model registry', () => {
         paddingRgb: [0, 0, 0],
       },
       getInputSize: () => 64,
+      hasImageInput: true,
     });
-    // No throw = success
     expect(true).toBe(true);
   });
 
@@ -44,15 +43,34 @@ describe('inference worker model registry', () => {
         paddingRgb: [0, 0, 0],
       },
       getInputSize: () => 1024,
+      hasImageInput: true,
       encodePrompts: (params: Record<string, unknown>) => {
         const pointCoords = params.pointCoords as Float32Array | undefined;
-        const result: Record<string, Float32Array> = {};
+        const result: Record<string, { data: Float32Array; dims: number[] }> = {};
         if (pointCoords && pointCoords.length > 0) {
-          result.point_coords = pointCoords;
-          result.point_labels = new Float32Array(pointCoords.length / 2);
+          result.point_coords = { data: pointCoords, dims: [1, pointCoords.length / 2, 2] };
+          result.point_labels = {
+            data: new Float32Array(pointCoords.length / 2),
+            dims: [1, pointCoords.length / 2],
+          };
         }
         return result;
       },
+    });
+    expect(true).toBe(true);
+  });
+
+  it('allows registering scunet model type', () => {
+    registerModelType('scunet', {
+      tensorSpec: {
+        inputWidth: 0,
+        inputHeight: 0,
+        mean: [0, 0, 0],
+        std: [1, 1, 1],
+        paddingRgb: [0, 0, 0],
+      },
+      getInputSize: () => 0,
+      hasImageInput: true,
     });
     expect(true).toBe(true);
   });
