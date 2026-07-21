@@ -218,7 +218,7 @@ export function useSam2Segmentation(
             modelType: 'sam2-decoder',
             modelPath: resolvedDecoderPath,
             modelId: decoderId,
-            embeddings: cached.embeddings,
+            tensors: cached.embeddings,
             params: {
               points: normPrompts.points,
               box: normPrompts.box,

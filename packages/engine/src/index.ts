@@ -300,6 +300,10 @@ export type {
 } from './inference/inferenceWorker';
 export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
+export type { DetrDetection } from './inference/models/detr';
+export { COCO_CLASSES, DETR_INPUT_SIZE, decodeDetrOutput } from './inference/models/detr';
+export type { ClassificationResult } from './inference/models/efficientnet';
+export { decodeEfficientNetOutput, EFFICIENTNET_INPUT_SIZE } from './inference/models/efficientnet';
 export type {
   FontCandidate,
   FontDetectInput,
@@ -312,7 +316,11 @@ export {
   preprocessFontDetect,
   validateFontDetectInput,
 } from './inference/models/fontDetect';
+export { decodeLamaOutput, LAMA_INPUT_SIZE } from './inference/models/lama';
 export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
+export type { TextRegion } from './inference/models/paddleocr';
+export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
+export { decodeRifeOutput, RIFE_INPUT_SIZE } from './inference/models/rife';
 export type {
   Sam2DecoderInput,
   Sam2DecoderOutput,
@@ -341,6 +349,13 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './inference/models/scunet';
+export type { SimilarityMatch } from './inference/models/siglip';
+export {
+  cosineSimilarity,
+  normalizeEmbedding,
+  rankBySimilarity,
+  SIGLIP_IMAGE_SIZE,
+} from './inference/models/siglip';
 export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
 export {
   postprocessTrOcr,
