@@ -35,7 +35,10 @@ function collectErrors() {
     raw = e.stdout ?? '';
   }
   raw = raw.replace(
-    /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g,
+    new RegExp(
+      `[${String.fromCharCode(0x1b)}${String.fromCharCode(0x9b)}][[()#;?]*(?:[0-9]{1,4}(?:[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]`,
+      'g',
+    ),
     '',
   );
 
