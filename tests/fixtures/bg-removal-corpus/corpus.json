@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "description": "Real-image validation corpus for background removal quality assessment.",
+  "license": "Pexels License (free for personal and commercial use)",
+  "created": "2026-07-21",
+  "corpusDir": "tests/fixtures/bg-removal-corpus",
+  "images": [
+    {
+      "id": "human",
+      "file": "human.jpg",
+      "category": "portrait",
+      "description": "Human portrait with hair — tests hair/fur edge quality",
+      "dimensions": "320x483",
+      "source": "Pexels #2379004",
+      "license": "Pexels License",
+      "hasGroundTruthMask": false,
+      "expectedProperties": {
+        "minForegroundRatio": 0.15,
+        "maxForegroundRatio": 0.85,
+        "expectedSubjectType": "person"
+      }
+    },
+    {
+      "id": "cat",
+      "file": "cat.jpg",
+      "category": "animal",
+      "description": "Cat portrait — tests fur edge quality and animal detection",
+      "dimensions": "320x213",
+      "source": "Pexels #1170572",
+      "license": "Pexels License",
+      "hasGroundTruthMask": false,
+      "expectedProperties": {
+        "minForegroundRatio": 0.1,
+        "maxForegroundRatio": 0.8,
+        "expectedSubjectType": "animal"
+      }
+    },
+    {
+      "id": "car",
+      "file": "car.jpg",
+      "category": "product",
+      "description": "Vehicle — tests hard-edge segmentation and product photography",
+      "dimensions": "320x256",
+      "source": "Pexels #3802510",
+      "license": "Pexels License",
+      "hasGroundTruthMask": false,
+      "expectedProperties": {
+        "minForegroundRatio": 0.2,
+        "maxForegroundRatio": 0.7,
+        "expectedSubjectType": "vehicle"
+      }
+    },
+    {
+      "id": "object",
+      "file": "object.jpg",
+      "category": "object",
+      "description": "Still-life object — tests object segmentation on simple scenes",
+      "dimensions": "320x214",
+      "source": "Pexels #1037992",
+      "license": "Pexels License",
+      "hasGroundTruthMask": false,
+      "expectedProperties": {
+        "minForegroundRatio": 0.05,
+        "maxForegroundRatio": 0.8,
+        "expectedSubjectType": "object"
+      }
+    }
+  ]
+}

@@ -27,6 +27,7 @@
  *   - ORT CPU EP: INT8 GEMM requires AVX-512 VNNI for acceleration.
  */
 
+import { isInt8Validated } from '../inference/manifest';
 import type { ModelPrecision } from '../inference/types';
 import { detectPrecisionCapabilities, getPrecisionCapabilitiesSync } from './precisionCapabilities';
 
@@ -78,10 +79,30 @@ const INT8_VARIANTS: Record<string, { int8Id: string; fp32Bytes: number; int8Byt
 };
 
 /**
+ * Check whether an INT8 variant passed quality validation.
+ *
+ * INT8 quantization can silently destroy model quality (e.g. u2netp-int8
+ * produces near-blank output: MAE 0.4177, PSNR 3.8dB). Never select an
+ * INT8 model for inference unless it has passed quality validation —
+ * regardless of the user's download-size or memory preference.
+ */
+async function isInt8QualitySafe(int8ModelId: string): Promise<boolean> {
+  try {
+    return await isInt8Validated(int8ModelId);
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Select the best model variant for a given source model and user mode.
  *
  * This is the single decision point that replaces the old
  * "performance = INT8" assumption with hardware-aware logic.
+ *
+ * Safety gate: INT8 variants that failed quality validation are never
+ * selected for inference, even when the user requests small download
+ * or low memory. Producing garbage output is never acceptable.
  *
  * @param sourceModelId  The FP32 source model ID (e.g. 'u2netp').
  * @param mode           The user's precision mode.
@@ -110,6 +131,9 @@ export async function selectModelVariant(
     };
   }
 
+  // Quality gate: INT8 is only an option if it passed quality validation.
+  const int8QualitySafe = await isInt8QualitySafe(variant.int8Id);
+
   switch (mode) {
     case 'highestQuality':
       return {
@@ -123,31 +147,53 @@ export async function selectModelVariant(
       };
 
     case 'smallDownload':
+      if (int8QualitySafe) {
+        return {
+          modelId: variant.int8Id,
+          precision: 'int8',
+          reason: `Small download mode: INT8 is ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller (${formatBytes(variant.int8Bytes)} vs ${formatBytes(variant.fp32Bytes)}).`,
+          adjusted: false,
+          requestedMode: mode,
+          downloadSizeBytes: variant.int8Bytes,
+          label: 'INT8 (small download)',
+        };
+      }
       return {
-        modelId: variant.int8Id,
-        precision: 'int8',
-        reason: `Small download mode: INT8 is ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller (${formatBytes(variant.int8Bytes)} vs ${formatBytes(variant.fp32Bytes)}).`,
-        adjusted: false,
+        modelId: sourceModelId,
+        precision: 'fp32',
+        reason: `Small download requested but INT8 variant failed quality validation. Using FP32 for correct results.`,
+        adjusted: true,
         requestedMode: mode,
-        downloadSizeBytes: variant.int8Bytes,
-        label: 'INT8 (small download)',
+        downloadSizeBytes: variant.fp32Bytes,
+        label: 'FP32 (INT8 quality-failed)',
       };
 
     case 'lowMemory':
-      // INT8 weights are 3.5x smaller → lower peak memory.
+      if (int8QualitySafe) {
+        // INT8 weights are 3.5x smaller → lower peak memory.
+        return {
+          modelId: variant.int8Id,
+          precision: 'int8',
+          reason: `Low memory mode: INT8 weights are ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller, reducing peak memory.`,
+          adjusted: false,
+          requestedMode: mode,
+          downloadSizeBytes: variant.int8Bytes,
+          label: 'INT8 (low memory)',
+        };
+      }
       return {
-        modelId: variant.int8Id,
-        precision: 'int8',
-        reason: `Low memory mode: INT8 weights are ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller, reducing peak memory.`,
-        adjusted: false,
+        modelId: sourceModelId,
+        precision: 'fp32',
+        reason: `Low memory requested but INT8 variant failed quality validation. Using FP32 for correct results.`,
+        adjusted: true,
         requestedMode: mode,
-        downloadSizeBytes: variant.int8Bytes,
-        label: 'INT8 (low memory)',
+        downloadSizeBytes: variant.fp32Bytes,
+        label: 'FP32 (INT8 quality-failed)',
       };
 
     case 'fastest':
-      // Only use INT8 for inference if it's actually faster.
-      if (caps.int8Accelerated) {
+      // Only use INT8 for inference if it's actually faster AND quality-safe.
+      if (caps.int8Accelerated && int8QualitySafe) {
         return {
           modelId: variant.int8Id,
           precision: 'int8',
@@ -169,8 +215,8 @@ export async function selectModelVariant(
       };
     default:
       // Conservative default: FP32 for inference. INT8 is never faster
-      // unless benchmarked otherwise.
-      if (caps.int8Accelerated) {
+      // unless benchmarked otherwise AND quality-validated.
+      if (caps.int8Accelerated && int8QualitySafe) {
         return {
           modelId: variant.int8Id,
           precision: 'int8',
@@ -191,6 +237,19 @@ export async function selectModelVariant(
         label: 'FP32 (auto)',
       };
   }
+}
+
+/**
+ * Synchronous quality gate for INT8 variants.
+ *
+ * Mirrors the async isInt8QualitySafe() for the sync path. Bundled INT8
+ * models have their quality validation status known at build time (set
+ * in modelCatalog.ts); this set enumerates the ones that failed.
+ */
+const INT8_QUALITY_FAILED = new Set<string>(['u2netp-int8', 'upscale-realesr-general-int8']);
+
+function isInt8QualitySafeSync(int8ModelId: string): boolean {
+  return !INT8_QUALITY_FAILED.has(int8ModelId);
 }
 
 /**
@@ -217,6 +276,8 @@ export function selectModelVariantSync(
     };
   }
 
+  const int8QualitySafe = isInt8QualitySafeSync(variant.int8Id);
+
   switch (mode) {
     case 'highestQuality':
       return {
@@ -229,27 +290,49 @@ export function selectModelVariantSync(
         label: 'FP32 (highest quality)',
       };
     case 'smallDownload':
+      if (int8QualitySafe) {
+        return {
+          modelId: variant.int8Id,
+          precision: 'int8',
+          reason: `Small download: INT8 ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller.`,
+          adjusted: false,
+          requestedMode: mode,
+          downloadSizeBytes: variant.int8Bytes,
+          label: 'INT8 (small download)',
+        };
+      }
       return {
-        modelId: variant.int8Id,
-        precision: 'int8',
-        reason: `Small download: INT8 ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller.`,
-        adjusted: false,
+        modelId: sourceModelId,
+        precision: 'fp32',
+        reason: 'Small download requested but INT8 variant failed quality validation. Using FP32.',
+        adjusted: true,
         requestedMode: mode,
-        downloadSizeBytes: variant.int8Bytes,
-        label: 'INT8 (small download)',
+        downloadSizeBytes: variant.fp32Bytes,
+        label: 'FP32 (INT8 quality-failed)',
       };
     case 'lowMemory':
+      if (int8QualitySafe) {
+        return {
+          modelId: variant.int8Id,
+          precision: 'int8',
+          reason: `Low memory: INT8 weights ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller.`,
+          adjusted: false,
+          requestedMode: mode,
+          downloadSizeBytes: variant.int8Bytes,
+          label: 'INT8 (low memory)',
+        };
+      }
       return {
-        modelId: variant.int8Id,
-        precision: 'int8',
-        reason: `Low memory: INT8 weights ${formatRatio(variant.fp32Bytes, variant.int8Bytes)}x smaller.`,
-        adjusted: false,
+        modelId: sourceModelId,
+        precision: 'fp32',
+        reason: 'Low memory requested but INT8 variant failed quality validation. Using FP32.',
+        adjusted: true,
         requestedMode: mode,
-        downloadSizeBytes: variant.int8Bytes,
-        label: 'INT8 (low memory)',
+        downloadSizeBytes: variant.fp32Bytes,
+        label: 'FP32 (INT8 quality-failed)',
       };
     case 'fastest':
-      if (caps.int8Accelerated) {
+      if (caps.int8Accelerated && int8QualitySafe) {
         return {
           modelId: variant.int8Id,
           precision: 'int8',
@@ -270,7 +353,7 @@ export function selectModelVariantSync(
         label: 'FP32 (fastest on this CPU)',
       };
     default:
-      if (caps.int8Accelerated) {
+      if (caps.int8Accelerated && int8QualitySafe) {
         return {
           modelId: variant.int8Id,
           precision: 'int8',
