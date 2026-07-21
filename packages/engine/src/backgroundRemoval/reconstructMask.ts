@@ -1,3 +1,5 @@
+import { refineHairMatting } from './refineHairMatting';
+
 export interface Rect {
   x: number;
   y: number;
@@ -205,11 +207,27 @@ export function extractAlignedEdgeBand(
 
 export function refineEdgeBand(
   bandAlpha: Uint8Array,
-  _sourceCrop: Rect,
-  _sourceRgba: Uint8Array,
-  _sourceW: number,
+  sourceCrop: Rect,
+  sourceRgba: Uint8Array,
+  sourceW: number,
 ): Uint8Array {
-  // Placeholder: returns the edge band unchanged.
-  // TODO: implement guided filter or closed-form matting using source RGB data.
-  return new Uint8Array(bandAlpha);
+  const { x, y, w, h } = sourceCrop;
+  if (w <= 0 || h <= 0 || bandAlpha.length !== w * h) {
+    return new Uint8Array(bandAlpha);
+  }
+
+  const sourceH = sourceRgba.length / (sourceW * 4);
+  if (sourceH <= 0 || y + h > sourceH || x + w > sourceW) {
+    return new Uint8Array(bandAlpha);
+  }
+
+  const cropRgba = new Uint8Array(w * h * 4);
+  for (let row = 0; row < h; row++) {
+    const srcOffset = ((y + row) * sourceW + x) * 4;
+    const dstOffset = row * w * 4;
+    cropRgba.set(sourceRgba.subarray(srcOffset, srcOffset + w * 4), dstOffset);
+  }
+
+  const imageData = { data: cropRgba, width: w, height: h } as unknown as ImageData;
+  return refineHairMatting(imageData, bandAlpha, { edgeBandOnly: true });
 }

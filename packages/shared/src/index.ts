@@ -105,6 +105,7 @@ export {
 export {
   autoFixContrast,
   contrastRatio,
+  isLargeText,
   relativeLuminance,
   WCAG_AA_LARGE,
   WCAG_AA_NORMAL,
