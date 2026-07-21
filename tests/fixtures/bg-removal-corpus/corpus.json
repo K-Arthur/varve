@@ -12,7 +12,16 @@
     "synthetic": "Programmatic fixtures for narrow edge-case tests (e.g., solid-color shapes, gradient boundaries). Not representative of real-world segmentation."
   },
   "metrics": {
-    "supported": ["IoU", "Dice", "boundaryFScore", "precision", "recall", "alphaMAE", "latencyMs", "peakMemoryBytes"],
+    "supported": [
+      "IoU",
+      "Dice",
+      "boundaryFScore",
+      "precision",
+      "recall",
+      "alphaMAE",
+      "latencyMs",
+      "peakMemoryBytes"
+    ],
     "perCategory": true,
     "aggregateSeparately": true,
     "note": "Never aggregate all fixtures into one score that hides regressions in hair, fur, or transparency."
@@ -36,7 +45,10 @@
       },
       "reviewer": null,
       "reviewDate": null,
-      "knownAmbiguities": ["Hair strands against similar-color background", "Partial ear visibility"],
+      "knownAmbiguities": [
+        "Hair strands against similar-color background",
+        "Partial ear visibility"
+      ],
       "expectedProperties": {
         "minForegroundRatio": 0.15,
         "maxForegroundRatio": 0.85,

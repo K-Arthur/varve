@@ -22,7 +22,10 @@ use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
 /// and are selected at the call site via a builder or config.
 pub trait InferenceRuntime: Send + Sync {
     /// Create an inference session for the given model path.
-    fn create_session(&self, model_path: &std::path::Path) -> Result<Box<dyn InferenceSession>, String>;
+    fn create_session(
+        &self,
+        model_path: &std::path::Path,
+    ) -> Result<Box<dyn InferenceSession>, String>;
 }
 
 /// A single loaded ONNX inference session.
@@ -49,7 +52,10 @@ struct OrtSession {
 }
 
 impl InferenceRuntime for OrtInferenceRuntime {
-    fn create_session(&self, model_path: &std::path::Path) -> Result<Box<dyn InferenceSession>, String> {
+    fn create_session(
+        &self,
+        model_path: &std::path::Path,
+    ) -> Result<Box<dyn InferenceSession>, String> {
         let session = Session::builder()
             .map_err(|e| format!("Failed to create ONNX session: {e}"))?
             .commit_from_file(model_path)
@@ -62,13 +68,17 @@ impl InferenceRuntime for OrtInferenceRuntime {
             .name()
             .to_owned();
 
-        Ok(Box::new(OrtSession { inner: session, output_name }))
+        Ok(Box::new(OrtSession {
+            inner: session,
+            output_name,
+        }))
     }
 }
 
 impl InferenceSession for OrtSession {
     fn run(&mut self, input: &[f32], input_size: u32) -> Result<Vec<f32>, String> {
-        let input_name = self.inner
+        let input_name = self
+            .inner
             .inputs()
             .first()
             .ok_or("No input found in model")?
@@ -81,7 +91,8 @@ impl InferenceSession for OrtSession {
         ))
         .map_err(|e| format!("Failed to create input tensor: {e}"))?;
 
-        let outputs = self.inner
+        let outputs = self
+            .inner
             .run(ort::inputs! { input_name.as_str() => tensor })
             .map_err(|e| format!("ONNX inference failed: {e}"))?;
 
@@ -106,11 +117,17 @@ static CURRENT_RUNTIME: OnceLock<Box<dyn InferenceRuntime>> = OnceLock::new();
 /// Set the inference runtime for the current process.
 /// Must be called before any inference; panics if called twice.
 pub fn set_runtime(runtime: Box<dyn InferenceRuntime>) {
-    CURRENT_RUNTIME.set(runtime).ok().expect("InferenceRuntime already set");
+    CURRENT_RUNTIME
+        .set(runtime)
+        .ok()
+        .expect("InferenceRuntime already set");
 }
 
 fn get_runtime() -> &'static dyn InferenceRuntime {
-    CURRENT_RUNTIME.get().map(|b| b.as_ref()).unwrap_or(&OrtInferenceRuntime)
+    CURRENT_RUNTIME
+        .get()
+        .map(|b| b.as_ref())
+        .unwrap_or(&OrtInferenceRuntime)
 }
 
 // ── Model spec ────────────────────────────────────────────────────────
@@ -364,7 +381,7 @@ fn resize_mask(mask: &[u8], src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> V
 mod tests {
     use super::{
         model_spec, normalize_segmentation_output, reconstruct_letterbox_mask, resize_mask,
-        LetterboxTransform, InferenceRuntime, InferenceSession, OrtInferenceRuntime,
+        InferenceRuntime, InferenceSession, LetterboxTransform, OrtInferenceRuntime,
     };
 
     #[test]
