@@ -113,7 +113,13 @@ import {
   isStaleResponse,
   type RenderWorkerHost,
 } from './render/workerHost';
-import { type FrameSpatialIndex, getOrCreateFrameSpatialIndex } from './scene/spatialIndex';
+import {
+  type FrameSpatialIndex,
+  getOrCreateFrameSpatialIndex,
+  getOrCreateSpatialIndex,
+  queryRect,
+  type SpatialIndex,
+} from './scene/spatialIndex';
 import {
   createTransformCache,
   getWorldBounds as getCachedWorldBounds,
@@ -183,6 +189,7 @@ import {
   type SnapGuide,
   type SnapSession,
   snapPosition,
+  snapTargetSearchRect,
 } from './tools/snapping';
 import { TextTool } from './tools/TextTool';
 import { TrimapEditTool } from './tools/TrimapEditTool';
@@ -580,6 +587,11 @@ export function CanvasArea({
   }, []);
   // Frame/group spatial index, cached by fingerprint for fast drag containment.
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
+  const snapIndexRef = useRef<{
+    index: SpatialIndex;
+    parentIndex: Map<string, string>;
+    documentId: string;
+  } | null>(null);
   const prevDrawDocRef = useRef(state.document);
   const lastRenderedDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
@@ -1060,20 +1072,32 @@ export function CanvasArea({
 
         // D-02: Spatial + hierarchical filtering of snap targets
         const doc = stateRef.current.document;
-        const allBoundsWithIds: Array<{
+        let snapIndex = snapIndexRef.current;
+        if (!snapIndex || snapIndex.documentId !== doc.id) {
+          snapIndex = {
+            index: getOrCreateSpatialIndex(doc, null),
+            parentIndex: buildParentIndexMap(doc),
+            documentId: doc.id,
+          };
+          snapIndexRef.current = snapIndex;
+        }
+        const nearbyIds = queryRect(snapIndex.index, snapTargetSearchRect(bounds, s.zoom));
+        const nearbyBoundsWithIds: Array<{
           nodeId: string;
           bounds: { x: number; y: number; w: number; h: number };
         }> = [];
-        for (const n of Object.values(doc.nodes)) {
-          const b = nodeWorldBounds(doc, n.id) ?? nodeWorldBoundsFn(n);
-          if (b) allBoundsWithIds.push({ nodeId: n.id, bounds: b });
+        for (const nodeId of nearbyIds) {
+          const node = doc.nodes[nodeId];
+          if (!node) continue;
+          const b = nodeWorldBounds(doc, node.id, snapIndex.parentIndex) ?? nodeWorldBoundsFn(node);
+          if (b) nearbyBoundsWithIds.push({ nodeId: node.id, bounds: b });
         }
-        const parentIdx = buildParentIndexMap(doc);
+        const parentIdx = snapIndex.parentIndex;
         const draggedId = stateRef.current.selection[0] ?? '';
         const filtered = filterSnapTargets(
           bounds,
           { zoom: s.zoom },
-          allBoundsWithIds,
+          nearbyBoundsWithIds,
           parentIdx,
           draggedId,
         );
@@ -3056,6 +3080,7 @@ export function CanvasArea({
     }
 
     snapSessionRef.current = createSnapSession();
+    snapIndexRef.current = null;
     const ctx = buildToolCtx(ne);
     tmInst.handlePointerDown(ne, ctx);
   }
@@ -3154,6 +3179,7 @@ export function CanvasArea({
   function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
     stopAutoPan();
     setSnapGuides([]);
+    snapIndexRef.current = null;
     if (e.pointerType === 'touch') {
       const wasPinching = pinchRef.current !== null;
       touchPointers.current.delete(e.pointerId);
@@ -3170,6 +3196,7 @@ export function CanvasArea({
 
   function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
     stopAutoPan();
+    snapIndexRef.current = null;
     if (e.pointerType === 'touch') {
       touchPointers.current.delete(e.pointerId);
       if (touchPointers.current.size < 2) pinchRef.current = null;

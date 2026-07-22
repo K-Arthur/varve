@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createSnapSession, filterSnapTargets, snapPosition, snapSize } from '../snapping';
+import {
+  createSnapSession,
+  filterSnapTargets,
+  snapPosition,
+  snapSize,
+  snapTargetSearchRect,
+} from '../snapping';
 
 const THRESHOLD = 8;
 
@@ -208,6 +214,14 @@ describe('snapSize', () => {
 });
 
 describe('filterSnapTargets — D-02', () => {
+  it('derives a zoom-aware spatial query around the dragged bounds', () => {
+    expect(snapTargetSearchRect({ x: 100, y: 200, w: 50, h: 25 }, 2)).toEqual({
+      x: 0,
+      y: 100,
+      w: 250,
+      h: 225,
+    });
+  });
   const dragged = { x: 0, y: 0, w: 100, h: 100 };
   const camera = { zoom: 1 };
 
