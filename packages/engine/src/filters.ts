@@ -36,6 +36,10 @@ export type AdjustmentKind =
   | 'gradientMap'
   | 'tritone'
   | 'colorHalftone'
+  | 'duotone'
+  | 'blackAndWhite'
+  | 'posterize'
+  | 'threshold'
   | 'lut';
 
 export type AdjustmentBlendMode =
@@ -271,6 +275,40 @@ export interface ColorHalftoneAdjustment extends AdjustmentBase {
   inkColor?: Color;
 }
 
+export interface DuotoneAdjustment extends AdjustmentBase {
+  kind: 'duotone';
+  shadowColor: Color;
+  highlightColor: Color;
+  shadowPoint: number;
+  highlightPoint: number;
+  intensity: number;
+  preserveLuminosity: boolean;
+  interpolation?: 'smoothstep' | 'linear';
+}
+
+export interface BlackAndWhiteAdjustment extends AdjustmentBase {
+  kind: 'blackAndWhite';
+  reds: number;
+  yellows: number;
+  greens: number;
+  cyans: number;
+  blues: number;
+  magentas: number;
+  brightness: number;
+  tintColor?: Color;
+  preserveLuminosity: boolean;
+}
+
+export interface PosterizeAdjustment extends AdjustmentBase {
+  kind: 'posterize';
+  levels: number;
+}
+
+export interface ThresholdAdjustment extends AdjustmentBase {
+  kind: 'threshold';
+  level: number;
+}
+
 export interface LutAdjustment extends AdjustmentBase {
   kind: 'lut';
   /** Serialized LUT transform (embedded in document) */
@@ -312,6 +350,10 @@ export type Adjustment =
   | GradientMapAdjustment
   | TritoneAdjustment
   | ColorHalftoneAdjustment
+  | DuotoneAdjustment
+  | BlackAndWhiteAdjustment
+  | PosterizeAdjustment
+  | ThresholdAdjustment
   | LutAdjustment;
 
 export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
@@ -480,6 +522,36 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
         interpolation: adjustment.interpolation,
         ...base,
       };
+    case 'duotone':
+      return {
+        kind: 'duotone',
+        shadowColor: adjustment.shadowColor as readonly [number, number, number, number],
+        highlightColor: adjustment.highlightColor as readonly [number, number, number, number],
+        shadowPoint: adjustment.shadowPoint,
+        highlightPoint: adjustment.highlightPoint,
+        intensity: adjustment.intensity,
+        preserveLuminosity: adjustment.preserveLuminosity,
+        interpolation: adjustment.interpolation,
+        ...base,
+      };
+    case 'blackAndWhite':
+      return {
+        kind: 'blackAndWhite',
+        reds: adjustment.reds,
+        yellows: adjustment.yellows,
+        greens: adjustment.greens,
+        cyans: adjustment.cyans,
+        blues: adjustment.blues,
+        magentas: adjustment.magentas,
+        brightness: adjustment.brightness,
+        tintColor: adjustment.tintColor as readonly [number, number, number, number] | undefined,
+        preserveLuminosity: adjustment.preserveLuminosity,
+        ...base,
+      };
+    case 'posterize':
+      return { kind: 'posterize', levels: adjustment.levels, ...base };
+    case 'threshold':
+      return { kind: 'threshold', level: adjustment.level, ...base };
     case 'colorHalftone':
       return {
         kind: 'colorHalftone',
@@ -549,6 +621,10 @@ export function filterToCss(filter: FilterIR): string | null {
     case 'gradientMap':
     case 'tritone':
     case 'colorHalftone':
+    case 'duotone':
+    case 'blackAndWhite':
+    case 'posterize':
+    case 'threshold':
       // No direct CSS equivalent; use identity or a placeholder.
       return null;
     case 'lut':
@@ -599,6 +675,14 @@ export function filterKindDisplayName(kind: AdjustmentKind): string {
       return 'Tritone';
     case 'colorHalftone':
       return 'Color Halftone';
+    case 'duotone':
+      return 'Duotone';
+    case 'blackAndWhite':
+      return 'Black & White';
+    case 'posterize':
+      return 'Posterize';
+    case 'threshold':
+      return 'Threshold';
     default:
       return kind.charAt(0).toUpperCase() + kind.slice(1);
   }
@@ -722,6 +806,38 @@ export function adjustmentDefaults(kind: AdjustmentKind): Omit<Adjustment, 'id' 
         dotShape: 'round',
         mode: 'cmyk',
         intensity: 1,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'duotone':
+      return {
+        ...base,
+        shadowColor: [30, 40, 100, 255] as Color,
+        highlightColor: [255, 220, 180, 255] as Color,
+        shadowPoint: 0.25,
+        highlightPoint: 0.75,
+        intensity: 1,
+        preserveLuminosity: false,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'blackAndWhite':
+      return {
+        ...base,
+        reds: 40,
+        yellows: 60,
+        greens: 40,
+        cyans: 60,
+        blues: 20,
+        magentas: 80,
+        brightness: 0,
+        preserveLuminosity: true,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'posterize':
+      return {
+        ...base,
+        levels: 4,
+      } as Omit<Adjustment, 'id' | 'kind'>;
+    case 'threshold':
+      return {
+        ...base,
+        level: 128,
       } as Omit<Adjustment, 'id' | 'kind'>;
     case 'lut':
       return {

@@ -311,7 +311,14 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 125,
     category: 'content',
-    isAvailable: (ctx) => ctx.activeTool === 'frame',
+    // Two call sites share this id: the empty-selection "create" form (frame
+    // tool active, nothing selected yet) and the single-selection "resize"
+    // form (an existing, non-component frame selected, any tool).
+    isAvailable: (ctx) =>
+      ctx.activeTool === 'frame' ||
+      (isSingleSelection(ctx) &&
+        isFrameNode(ctx.selectedNodes) &&
+        !isComponentInstance(ctx.selectedNodes)),
   },
 
   // -- Image-specific --
@@ -417,12 +424,32 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
   {
+    id: 'ocr',
+    title: 'OCR / Recognize Text',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 299.5,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
     id: 'blend-images',
     title: 'Blend Images',
     defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 300,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
+    id: 'palette',
+    title: 'Extract Palette',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 301,
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },

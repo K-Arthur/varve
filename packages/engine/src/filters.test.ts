@@ -88,6 +88,92 @@ describe('adjustmentToFilter', () => {
   });
 });
 
+describe('new adjustment kinds', () => {
+  it('makeAdjustment for duotone produces fully-populated DuotoneAdjustment', () => {
+    const adj = makeAdjustment('d1', 'duotone') as import('./filters').DuotoneAdjustment;
+    expect(adj.kind).toBe('duotone');
+    expect(adj.shadowColor).toBeDefined();
+    expect(adj.highlightColor).toBeDefined();
+    expect(typeof adj.shadowPoint).toBe('number');
+    expect(typeof adj.intensity).toBe('number');
+    const filter = narrow(adjustmentToFilter(adj), 'duotone');
+    expect(filter.shadowColor).toEqual(adj.shadowColor);
+  });
+
+  it('makeAdjustment for blackAndWhite produces fully-populated BlackAndWhiteAdjustment', () => {
+    const adj = makeAdjustment(
+      'bw1',
+      'blackAndWhite',
+    ) as import('./filters').BlackAndWhiteAdjustment;
+    expect(adj.kind).toBe('blackAndWhite');
+    expect(typeof adj.reds).toBe('number');
+    expect(typeof adj.greens).toBe('number');
+    expect(typeof adj.blues).toBe('number');
+    const filter = narrow(adjustmentToFilter(adj), 'blackAndWhite');
+    expect(filter.reds).toBe(adj.reds);
+  });
+
+  it('makeAdjustment for posterize produces fully-populated PosterizeAdjustment', () => {
+    const adj = makeAdjustment('p1', 'posterize') as import('./filters').PosterizeAdjustment;
+    expect(adj.kind).toBe('posterize');
+    expect(adj.levels).toBeGreaterThanOrEqual(2);
+    const filter = narrow(adjustmentToFilter(adj), 'posterize');
+    expect(filter.levels).toBe(adj.levels);
+  });
+
+  it('makeAdjustment for threshold produces fully-populated ThresholdAdjustment', () => {
+    const adj = makeAdjustment('t1', 'threshold') as import('./filters').ThresholdAdjustment;
+    expect(adj.kind).toBe('threshold');
+    expect(typeof adj.level).toBe('number');
+    const filter = narrow(adjustmentToFilter(adj), 'threshold');
+    expect(filter.level).toBe(adj.level);
+  });
+
+  it('filterKindDisplayName shows correct names for new kinds', () => {
+    expect(filterKindDisplayName('duotone')).toBe('Duotone');
+    expect(filterKindDisplayName('blackAndWhite')).toBe('Black & White');
+    expect(filterKindDisplayName('posterize')).toBe('Posterize');
+    expect(filterKindDisplayName('threshold')).toBe('Threshold');
+  });
+
+  it('filterToCss returns null for all new kinds (no CSS equivalent)', () => {
+    expect(
+      filterToCss({
+        kind: 'duotone',
+        shadowColor: [0, 0, 0, 255],
+        highlightColor: [255, 255, 255, 255],
+        shadowPoint: 0.25,
+        highlightPoint: 0.75,
+        intensity: 1,
+        preserveLuminosity: false,
+        opacity: 1,
+        blendMode: 'normal',
+      }),
+    ).toBeNull();
+    expect(
+      filterToCss({
+        kind: 'blackAndWhite',
+        reds: 40,
+        yellows: 60,
+        greens: 40,
+        cyans: 60,
+        blues: 20,
+        magentas: 80,
+        brightness: 0,
+        preserveLuminosity: true,
+        opacity: 1,
+        blendMode: 'normal',
+      }),
+    ).toBeNull();
+    expect(
+      filterToCss({ kind: 'posterize', levels: 4, opacity: 1, blendMode: 'normal' }),
+    ).toBeNull();
+    expect(
+      filterToCss({ kind: 'threshold', level: 128, opacity: 1, blendMode: 'normal' }),
+    ).toBeNull();
+  });
+});
+
 describe('adjustmentDefaults', () => {
   it('provides concrete halftone screening defaults (not undefined fields)', () => {
     const defaults = adjustmentDefaults('halftone') as Partial<HalftoneAdjustment>;

@@ -821,6 +821,44 @@ export type FilterIR =
       linearize: boolean;
       opacity: number;
       blendMode: string;
+    }
+  | {
+      kind: 'duotone';
+      shadowColor: readonly [number, number, number, number];
+      highlightColor: readonly [number, number, number, number];
+      shadowPoint: number;
+      highlightPoint: number;
+      intensity: number;
+      preserveLuminosity: boolean;
+      interpolation?: 'smoothstep' | 'linear';
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'blackAndWhite';
+      reds: number;
+      yellows: number;
+      greens: number;
+      cyans: number;
+      blues: number;
+      magentas: number;
+      brightness: number;
+      tintColor?: readonly [number, number, number, number];
+      preserveLuminosity: boolean;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'posterize';
+      levels: number;
+      opacity: number;
+      blendMode: string;
+    }
+  | {
+      kind: 'threshold';
+      level: number;
+      opacity: number;
+      blendMode: string;
     };
 
 /** P2: Fill IR — a single fill in the render IR (solid, gradient, image, or pattern). */
