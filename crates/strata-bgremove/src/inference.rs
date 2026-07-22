@@ -11,6 +11,9 @@
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgba};
 use ort::session::Session;
 
+use crate::session_pool::{
+    InferenceCancellationToken, SessionLease, SessionPool, SessionPoolLimits, SessionPoolMetrics,
+};
 use crate::{heuristic, mask_to_base64, model, RemovalOptions, RemovalResult};
 
 // ── InferenceRuntime trait ────────────────────────────────────────────
@@ -40,7 +43,7 @@ pub struct TensorOutput {
 }
 
 /// A single loaded ONNX inference session.
-pub trait InferenceSession {
+pub trait InferenceSession: Send {
     /// Run inference on preprocessed float32 input in CHW layout.
     /// Returns the raw output tensor data.
     ///
@@ -206,6 +209,7 @@ impl InferenceSession for OrtSession {
 use std::sync::OnceLock;
 
 static CURRENT_RUNTIME: OnceLock<Box<dyn InferenceRuntime>> = OnceLock::new();
+static SESSION_POOL: OnceLock<SessionPool<Box<dyn InferenceSession>>> = OnceLock::new();
 
 /// Set the inference runtime for the current process.
 /// Must be called before any inference; panics if called twice.
@@ -221,6 +225,40 @@ fn get_runtime() -> &'static dyn InferenceRuntime {
         .get()
         .map(|b| b.as_ref())
         .unwrap_or(&OrtInferenceRuntime)
+}
+
+fn get_session_pool() -> &'static SessionPool<Box<dyn InferenceSession>> {
+    SESSION_POOL.get_or_init(|| SessionPool::new(SessionPoolLimits::default()))
+}
+
+fn checkout_session(
+    model_path: &std::path::Path,
+    cancellation: &InferenceCancellationToken,
+) -> Result<SessionLease<Box<dyn InferenceSession>>, String> {
+    let key = model_path.to_string_lossy();
+    let estimated_bytes = std::fs::metadata(model_path)
+        .map(|metadata| metadata.len())
+        .unwrap_or_default();
+    get_session_pool().checkout(&key, estimated_bytes, cancellation, || {
+        get_runtime().create_session(model_path)
+    })
+}
+
+/// Snapshot native model-session reuse and admission metrics.
+pub fn session_pool_metrics() -> SessionPoolMetrics {
+    get_session_pool().metrics()
+}
+
+/// Explicitly unload idle sessions for one model. Active inference is not
+/// interrupted and can be unloaded after it returns.
+pub fn unload_model_session(model_id: &str) -> usize {
+    let path = model::model_path(model_id);
+    get_session_pool().unload(&path.to_string_lossy())
+}
+
+/// Explicitly unload every idle native model session.
+pub fn unload_all_model_sessions() -> usize {
+    get_session_pool().unload_all()
 }
 
 // ── Model spec ────────────────────────────────────────────────────────
@@ -313,7 +351,26 @@ pub fn denoise_image(
     strength: f32,
     model_id: &str,
 ) -> Result<DenoiseResult, String> {
+    denoise_image_cancellable(
+        img,
+        strength,
+        model_id,
+        &InferenceCancellationToken::default(),
+    )
+}
+
+/// Cancellable variant of [`denoise_image`]. Cancellation is checked before
+/// session loading, before inference, and before publishing the result.
+pub fn denoise_image_cancellable(
+    img: &DynamicImage,
+    strength: f32,
+    model_id: &str,
+    cancellation: &InferenceCancellationToken,
+) -> Result<DenoiseResult, String> {
     let start = std::time::Instant::now();
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
     let spec = image_model_spec(model_id)
         .ok_or_else(|| format!("Denoise: no image model spec for '{model_id}'"))?;
 
@@ -355,9 +412,14 @@ pub fn denoise_image(
         }
     }
 
-    let runtime = get_runtime();
-    let mut session = runtime.create_session(&model_path)?;
+    let mut session = checkout_session(&model_path, cancellation)?;
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
     let output = session.run_nd(&tensor_data, &[1, 3, proc_h as usize, proc_w as usize])?;
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
 
     let shape = &output.shape.0;
     if shape.len() != 4 || shape[0] != 1 || shape[1] != 3 {
@@ -430,7 +492,22 @@ pub fn remove_ai(
     opts: &RemovalOptions,
     model_id: &str,
 ) -> Result<RemovalResult, String> {
+    remove_ai_cancellable(img, opts, model_id, &InferenceCancellationToken::default())
+}
+
+/// Cancellable variant of [`remove_ai`]. A cancellation that arrives during
+/// ONNX execution suppresses the result; the checked-out session is still
+/// returned safely to the pool.
+pub fn remove_ai_cancellable(
+    img: &DynamicImage,
+    opts: &RemovalOptions,
+    model_id: &str,
+    cancellation: &InferenceCancellationToken,
+) -> Result<RemovalResult, String> {
     let start = std::time::Instant::now();
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
 
     let model_path = model::model_path(model_id);
     if !model_path.exists() {
@@ -441,8 +518,7 @@ pub fn remove_ai(
         ));
     }
 
-    let runtime = get_runtime();
-    let mut session = runtime.create_session(&model_path)?;
+    let mut session = checkout_session(&model_path, cancellation)?;
 
     let (orig_w, orig_h) = img.dimensions();
     let preview_max = opts
@@ -492,7 +568,13 @@ pub fn remove_ai(
         }
     }
 
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
     let output_data = session.run(&tensor_data, input_size)?;
+    if cancellation.is_cancelled() {
+        return Err("Inference cancelled".to_owned());
+    }
 
     let mask_size = output_data.len();
     let mask_dim = (mask_size as f64).sqrt() as u32;
