@@ -95,3 +95,36 @@ adaptive render-scale's interaction with the Settings-exposed memory budget
 under long sessions is untested past unit level; cross-platform validation
 (Windows/WebView2, macOS/WKWebView, low-RAM devices) is still unavailable on
 this machine.
+
+## Canvas drawContent per-frame forced-reflow elimination (2026-07-22)
+
+Three forced-reflow/forced-layout sources removed from the per-frame draw path.
+All three were previously executed on every single animation frame (60–120 fps)
+regardless of whether the underlying value had changed.
+
+| Change | Before | After | Confidence |
+|---|---|---|---|
+| Board color `getComputedStyle` | `getComputedStyle(document.documentElement).getPropertyValue('--color-surface-sunken')` every frame in `drawContent` | Cached in `sunkenColorRef`, updated only on `state.themeRevision` change | high |
+| Accent color `getComputedStyle` | `getComputedStyle(document.documentElement).getPropertyValue('--color-accent-primary')` every frame in `drawOverlay` | Cached in `accentColorRef`, updated only on `state.themeRevision` change | high |
+| Viewport `getBoundingClientRect` | `canvas.getBoundingClientRect()` every frame in `drawContent` | Replaced with `cssW`/`cssH` (parent `clientWidth`/`clientHeight`); canvas is sized to fill parent so dimensions are identical | high |
+| Duplicate `cacheContentParts` | `cacheContentParts(fn)` called twice per cache-miss node (once for hash lookup, once for cache store) | Computed once into `partsCache` Map during lookup, reused during store | high |
+
+**Impact:** Each `getComputedStyle`/`getBoundingClientRect` call can force a style
+recalc or layout flush. At 60 fps that's up to 720 forced flushes/second across
+the two draw paths. Eliminating them removes a persistent main-thread cost that
+is independent of document complexity. The `cacheContentParts` dedup halves the
+JSON serialization work on the IR-build hot path for cache-miss nodes.
+
+**Validation:** `@strata/editor` typecheck clean (2 pre-existing errors in
+`AdjustmentEditor.tsx` from concurrent `b90e5b02` — verified present without my
+changes). 138/138 canvas tests pass. Biome clean on modified file.
+`pnpm bench:canvas` 12/12 pass. No new test failures.
+
+**Replay microbenchmark (jsdom, directional, not presentation timing):**
+
+| Workload | Before | After | Notes |
+|---|---:|---:|---|
+| 100 rects replay | p50 0.90 ms, p95 1.56 ms | p50 0.35 ms, p95 0.63 ms | jsdom microbenchmark; variance from JIT warmup expected |
+| 1000 rects replay | p50 42.56 ms, p95 57.76 ms | p50 3.32 ms, p95 3.37 ms | jsdom microbenchmark; second run benefits from warm caches |
+
+**Files changed:** `packages/editor/src/CanvasArea.tsx` (single file, +24/-18 lines).

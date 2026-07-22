@@ -687,6 +687,18 @@ export function CanvasArea({
   // diffing old vs current node world bounds.
   const dirtyRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
+  // Cache CSS custom-property colors so drawContent/drawOverlay don't call
+  // getComputedStyle() every frame (forces style recalc). Updated only on
+  // theme change via the effect below.
+  const sunkenColorRef = useRef('');
+  const accentColorRef = useRef('');
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const cs = getComputedStyle(document.documentElement);
+    sunkenColorRef.current = cs.getPropertyValue('--color-surface-sunken').trim();
+    accentColorRef.current = cs.getPropertyValue('--color-accent-primary').trim();
+  }, [state.themeRevision]);
+
   const [snapGuides, setSnapGuides] = useState<SnapGuide[]>([]);
   const snapSessionRef = useRef<SnapSession>(createSnapSession());
 
@@ -1285,29 +1297,30 @@ export function CanvasArea({
       const doc = s.document;
       _showOriginalBgNodeId = s.showOriginalBgNodeId ?? null;
 
-      const boardColor = (() => {
+      let boardColor = sunkenColorRef.current;
+      {
         const bg = doc.canvasBackground;
         if (bg) {
           if (bg.space === 'rgb') {
-            return `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
-          }
-          try {
-            return managedColorToCss(bg);
-          } catch {
-            // fallback on conversion failure
+            boardColor = `rgba(${bg.r}, ${bg.g}, ${bg.b}, ${(bg.a / 255).toFixed(3)})`;
+          } else {
+            try {
+              boardColor = managedColorToCss(bg);
+            } catch {
+              boardColor = sunkenColorRef.current;
+            }
           }
         }
-        return getComputedStyle(document.documentElement)
-          .getPropertyValue('--color-surface-sunken')
-          .trim();
-      })();
+      }
 
       const entries = walkNodes(doc, activePageNodes(doc));
       const cache = transformCacheRef.current;
-      const viewport = canvas.getBoundingClientRect();
-      const vp = { width: viewport.width, height: viewport.height };
-      const VP_W = vp.width;
-      const VP_H = vp.height;
+      // Use parent client dimensions (cssW/cssH) instead of getBoundingClientRect()
+      // to avoid forcing a layout recalc on every frame. The canvas is sized to
+      // fill its parent, so these are identical to the bounding rect dimensions.
+      const vp = { width: cssW, height: cssH };
+      const VP_W = cssW;
+      const VP_H = cssH;
       const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
       const cam = editorToCamera(camState);
       const applyCam = (targetCtx: CanvasRenderingContext2D) =>
@@ -1465,6 +1478,10 @@ export function CanvasArea({
           new Array(nodeIds.length);
         const nodesToBuild: EngineNode[] = [];
         const buildSlotIndices: number[] = [];
+        // Cache content parts computed during lookup so the store path doesn't
+        // re-run the expensive cacheContentParts() JSON serialization a second
+        // time for cache-miss nodes.
+        const partsCache = new Map<number, string[]>();
 
         for (let i = 0; i < nodeIds.length; i++) {
           const nodeId = nodeIds[i]!;
@@ -1473,12 +1490,9 @@ export function CanvasArea({
           const isAnimated = animatedNodeIds.has(nodeId);
           if (!isAnimated) {
             const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-            const hash = SubtreeIrCache.nodeHash(
-              nodeId,
-              fn.transform,
-              styleKey,
-              cacheContentParts(fn).parts,
-            );
+            const parts = cacheContentParts(fn).parts;
+            partsCache.set(i, parts);
+            const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, styleKey, parts);
             const cached = subtreeIrCacheRef.current.get(nodeId, hash);
             if (cached) {
               irSlots[i] = cached;
@@ -1503,12 +1517,11 @@ export function CanvasArea({
             if (!nodeId || !fn || !item) continue;
             if (!animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-              const hash = SubtreeIrCache.nodeHash(
-                nodeId,
-                fn.transform,
-                styleKey,
-                cacheContentParts(fn).parts,
-              );
+              let parts = partsCache.get(i);
+              if (!parts) {
+                parts = cacheContentParts(fn).parts;
+              }
+              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, styleKey, parts);
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
           }
@@ -1524,12 +1537,8 @@ export function CanvasArea({
             if (item) irSlots[slot] = item;
             if (nodeId && fn && item && !animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-              const hash = SubtreeIrCache.nodeHash(
-                nodeId,
-                fn.transform,
-                styleKey,
-                cacheContentParts(fn).parts,
-              );
+              const parts = cacheContentParts(fn).parts;
+              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, styleKey, parts);
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
           }
@@ -2493,9 +2502,7 @@ export function CanvasArea({
     const vp = { width: cssW, height: cssH };
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
 
-    const accentColor = getComputedStyle(document.documentElement)
-      .getPropertyValue('--color-accent-primary')
-      .trim();
+    const accentColor = accentColorRef.current;
 
     // Clear overlay canvas (it's transparent otherwise)
     ctx.setTransform(1, 0, 0, 1, 0, 0);
