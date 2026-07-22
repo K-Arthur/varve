@@ -15,6 +15,8 @@ pub mod inference;
 pub mod model;
 #[cfg(feature = "ai")]
 pub mod runtime;
+#[cfg(feature = "ai")]
+pub mod session_pool;
 
 use image::DynamicImage;
 
@@ -106,6 +108,24 @@ pub fn denoise_image(
 ) -> Result<DenoiseResult, String> {
     inference::denoise_image(img, strength, model_id)
 }
+
+/// Cancellable native denoise. Cancellation suppresses stale results without
+/// discarding a healthy cached model session.
+#[cfg(feature = "ai")]
+pub fn denoise_image_cancellable(
+    img: &DynamicImage,
+    strength: f32,
+    model_id: &str,
+    cancellation: &session_pool::InferenceCancellationToken,
+) -> Result<DenoiseResult, String> {
+    inference::denoise_image_cancellable(img, strength, model_id, cancellation)
+}
+
+#[cfg(feature = "ai")]
+pub use inference::{session_pool_metrics, unload_all_model_sessions, unload_model_session};
+
+#[cfg(feature = "ai")]
+pub use session_pool::{InferenceCancellationToken, SessionPoolMetrics};
 
 /// Result of a denoise operation (re-exported for callers).
 #[cfg(feature = "ai")]
