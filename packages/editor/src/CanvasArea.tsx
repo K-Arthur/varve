@@ -69,7 +69,7 @@ import {
   worldToScreen,
   zoomAboutPoint,
 } from '@strata/shared';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import {
   resizeCanvasBackingStore,
@@ -78,7 +78,14 @@ import {
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import {
+  enableDrawDiagnostics,
+  recordFrame,
+  renderDrawDiagnostics,
+} from './canvas/drawDiagnostics';
+import { endFrameTiming, startFrameTiming } from './canvas/frameBudget';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
+import { getMemoryBudgets } from './canvas/memoryBudget';
 import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
@@ -556,7 +563,13 @@ export function CanvasArea({
   const editorRef = useRef(editor);
   editorRef.current = editor;
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
-  const subtreeIrCacheRef = useRef(new SubtreeIrCache());
+  const budgets = getMemoryBudgets();
+  const subtreeIrCacheRef = useRef(new SubtreeIrCache(500, budgets.subtreeIrCacheBytes));
+
+  // Enable frame diagnostics in dev mode once
+  useEffect(() => {
+    enableDrawDiagnostics();
+  }, []);
   // Frame/group spatial index, cached by fingerprint for fast drag containment.
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const prevDrawDocRef = useRef(state.document);
@@ -1173,6 +1186,15 @@ export function CanvasArea({
     editorRef.current.setCamera(camera);
   }
 
+  // ── Pre-computed values (memoized on document to avoid per-frame recomputation) ──
+  const precomputedStyles = useMemo(
+    () => (state.document ? resolveAllStyles(state.document) : new Map()),
+    [state.document],
+  );
+  const precomputedVariantCaches = useMemo(
+    () => (state.document ? buildAllVariantCaches(state.document) : new Map()),
+    [state.document],
+  );
   // ─── Drawing ─────────────────────────────────────────────────────────────
 
   // ── Content canvas draw: board background, IR replay, outline mode ──────
@@ -1211,6 +1233,7 @@ export function CanvasArea({
       return;
     }
     drawInFlightRef.current = true;
+    const frameStart = startFrameTiming();
     let frameBackend: CompositorBackend | null = null;
     let compositorFrameOpen = false;
     let dirtyClipOpen = false;
@@ -1250,7 +1273,7 @@ export function CanvasArea({
       const applyCam = (targetCtx: CanvasRenderingContext2D) =>
         applyEditorCameraToCtx(targetCtx, camState, dpr, vp);
       const hiddenByContainer = new Set<string>();
-      const resolvedStyles = resolveAllStyles(doc);
+      const resolvedStyles = doc === state.document ? precomputedStyles : resolveAllStyles(doc);
 
       for (const [id] of entries) {
         const n = doc.nodes[id];
@@ -1309,7 +1332,8 @@ export function CanvasArea({
         };
       }
 
-      const variantCaches = buildAllVariantCaches(doc);
+      const variantCaches =
+        doc === state.document ? precomputedVariantCaches : buildAllVariantCaches(doc);
       const variableStore = doc.variableStore ?? createVariableStore();
 
       const nodeIds: string[] = [];
@@ -1366,6 +1390,7 @@ export function CanvasArea({
 
       const docVersion = docVersionRef.current;
       const animatedNodeIds = new Set<string>();
+
       if (s.motion.activeTimelineId) {
         const activeTl = doc.timelines?.[s.motion.activeTimelineId];
         for (const tr of activeTl?.tracks ?? []) {
@@ -2268,8 +2293,31 @@ export function CanvasArea({
         ctx.restore();
         dirtyClipOpen = false;
       }
+      const budget = endFrameTiming(frameStart);
       frameBackend?.endFrame();
       compositorFrameOpen = false;
+      // Record frame diagnostics (dev-only ring buffer)
+      const cacheDiag = subtreeIrCacheRef.current.diagnostics();
+      recordFrame({
+        frameIndex: docVersionRef.current,
+        docVersion,
+        redrawCount: s.motion.isPlaying ? -1 : redrawCount,
+        nodeCount: nodeIds.length,
+        culledCount: hiddenByContainer.size,
+        cacheHitCount: 0,
+        buildIrMs: 0,
+        replayMs: 0,
+        totalMs: budget.elapsedMs,
+        renderPath: needsStructural
+          ? 'structural'
+          : workerBitmapRef.current
+            ? 'worker-cached'
+            : 'compositor',
+        wasDirty: dirty.kind !== 'none',
+        partialRedraw: !!usePartialRedraw,
+        cacheBytes: cacheDiag.bytes,
+        cacheEntries: cacheDiag.entries,
+      });
       const diag = compositorRef.current?.getDiagnostics?.();
       if (diag) setCompositorDiagnostics(diag);
       if (stateRef.current.document === doc) lastRenderedDocRef.current = doc;
@@ -2311,6 +2359,8 @@ export function CanvasArea({
     displayDpr,
     canvasSize.width,
     canvasSize.height,
+    precomputedStyles,
+    precomputedVariantCaches,
   ]);
 
   // ── requestRedraw: defence-in-depth redraw trigger ────────────────────
@@ -2825,6 +2875,9 @@ export function CanvasArea({
         ctx.fillText(label, sx + sw + 4, sy + 14);
       }
     }
+
+    // Dev-only diagnostics overlay (frame timing, cache stats, render path)
+    renderDrawDiagnostics(ctx, canvas.width);
   }, [
     draft,
     dropTargetFrameId,
