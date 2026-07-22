@@ -26,7 +26,9 @@ export type SMActionKind =
 export interface SMAction {
   id: string;
   kind: SMActionKind;
+  /** Target variable id for setVariable, target screen id for navigateTo, etc. */
   targetId?: string;
+  /** Value for setVariable, time in ms for seekTimeline, JS expression for custom. */
   value?: string | number | boolean;
 }
 
@@ -45,8 +47,11 @@ export interface SMTransition {
   condition?: string;
   duration?: number;
   easing?: EasingDefinition;
+  /** Priority when multiple transitions match (higher wins). Default 0. */
   priority?: number;
+  /** Whether this transition can interrupt an active transition. Default true. */
   canInterrupt?: boolean;
+  /** Actions fired when this transition fires. */
   actions?: SMAction[];
 }
 
@@ -55,7 +60,9 @@ export interface SMState {
   name: string;
   timelineId: string;
   isEntryState?: boolean;
+  /** Actions fired when entering this state. */
   entryActions?: SMAction[];
+  /** Actions fired when exiting this state. */
   exitActions?: SMAction[];
 }
 

@@ -10,6 +10,10 @@ export interface RecoveryManagerProps {
   document: Document;
 }
 
+/** Marker set on clean shutdown. Absent => the previous session crashed or
+/// lost power. Stored in localStorage so it survives app restarts. */
+const CLEAN_SHUTDOWN_KEY = 'strata-clean-shutdown';
+
 export function RecoveryManager({
   platform: _platform,
   document: _document,
@@ -19,12 +23,34 @@ export function RecoveryManager({
   const [showRecovery, setShowRecovery] = useState(false);
 
   useEffect(() => {
+    // Mark that we're running. On a clean shutdown this gets flipped to true;
+    // if it stays false on next launch, the previous session was unclean.
+    try {
+      localStorage.setItem(CLEAN_SHUTDOWN_KEY, 'false');
+    } catch {
+      // localStorage unavailable — skip crash detection this session
+    }
+
     const mgr = getSharedRecoveryManager();
     mgr.hasSessions().then((has) => {
-      if (has) {
+      if (!has) return;
+      // Only show the recovery dialog if the previous session ended
+      // uncleanly (crash / power loss). A normal close writes a marker.
+      let wasUnclean = true;
+      try {
+        wasUnclean = localStorage.getItem(CLEAN_SHUTDOWN_KEY) !== 'true';
+      } catch {
+        // If we can't read the marker, err on the side of recovery
+      }
+      if (wasUnclean) {
         mgr.listSessions().then((sessions) => {
           setRecoverySessions(sessions);
           setShowRecovery(true);
+        });
+      } else {
+        // Clean shutdown with stale sessions — discard them silently
+        mgr.listSessions().then((sessions) => {
+          for (const s of sessions) void mgr.deleteSession(s.id);
         });
       }
     });
@@ -35,6 +61,11 @@ export function RecoveryManager({
       if (editor.state.dirty) {
         editor.save();
         e.preventDefault();
+      }
+      try {
+        localStorage.setItem(CLEAN_SHUTDOWN_KEY, 'true');
+      } catch {
+        // ignore
       }
     };
     window.addEventListener('beforeunload', handler);

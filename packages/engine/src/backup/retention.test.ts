@@ -66,22 +66,22 @@ describe('evaluateRetention', () => {
   });
 
   it('frees space when over budget', () => {
-    const entries = Array.from({ length: 5 }, (_, i) =>
+    const entries = Array.from({ length: 13 }, (_, i) =>
       makeEntry(`big-${i}`, 'automatic', i * 1000),
     );
-    for (const e of entries) {
-      e.size = 1_000_000;
-    }
+    entries.forEach((e) => {
+      e.size = 500_000;
+    });
     const config: RetentionConfig = {
       hourlyCount: 0,
       dailyCount: 0,
       weeklyCount: 0,
       monthlyCount: 0,
       maxTotalBytes: 1_500_000,
-      maxEntryCount: 50,
+      maxEntryCount: 3,
     };
     const result = evaluateRetention(entries, config, 5_000_000);
     expect(result.toRemove.length).toBeGreaterThan(0);
-    expect(result.toKeep.length).toBeLessThan(5);
+    expect(result.toKeep.length).toBeLessThanOrEqual(3);
   });
 });

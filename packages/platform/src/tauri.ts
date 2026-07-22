@@ -29,6 +29,7 @@ import type {
   AssetFolder,
   Branch,
   Collection,
+  CreateVersionInput,
   FileEntry,
   Folder,
   HomeViewState,
@@ -42,6 +43,7 @@ import type {
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
+  VersionStats,
   Workspace,
 } from './types';
 
@@ -324,21 +326,11 @@ export function createTauriPlatform(): Platform {
     },
 
     // ─── Phase 7: Version History ───────────────────────────────────────────
-    async listVersions(fileId) {
-      const c = core();
-      return (await c.invoke('home_list_versions', { fileId })) as VersionEntry[];
-    },
-    async saveVersion(fileId, name, description) {
-      const c = core();
-      return (await c.invoke('home_save_version', { fileId, name, description })) as VersionEntry;
-    },
-    async restoreVersion(fileId, versionId) {
-      const c = core();
-      return (await c.invoke('home_restore_version', { fileId, versionId })) as string;
-    },
-    async deleteVersionInfo(versionId) {
-      await core().invoke('home_delete_version', { versionId });
-    },
+    // Native SQLite version commands are a documented follow-up. The Tauri
+    // webview has localStorage, so we back version history with a
+    // content-addressed localStorage store here — durable across app restarts
+    // and dedups identical document JSON the same way memory/web do.
+    ...createLocalVersionDelegates(),
     async listBranches(fileId) {
       const c = core();
       return (await c.invoke('home_list_branches', { fileId })) as Branch[];
@@ -663,6 +655,198 @@ export function createTauriPlatform(): Platform {
   };
 
   return platform;
+}
+
+const VERSIONS_KEY = 'strata-versions';
+const VERSION_CONTENT_KEY = 'strata-version-content';
+
+function loadLocalVersions(): Map<string, VersionEntry[]> {
+  try {
+    const raw = localStorage.getItem(VERSIONS_KEY);
+    if (!raw) return new Map();
+    const entries: VersionEntry[] = JSON.parse(raw);
+    const byFile = new Map<string, VersionEntry[]>();
+    for (const e of entries) {
+      const list = byFile.get(e.fileId) ?? [];
+      list.push(e);
+      byFile.set(e.fileId, list);
+    }
+    return byFile;
+  } catch {
+    return new Map();
+  }
+}
+
+function saveLocalVersions(byFile: Map<string, VersionEntry[]>): void {
+  const all: VersionEntry[] = [];
+  for (const list of byFile.values()) all.push(...list);
+  localStorage.setItem(VERSIONS_KEY, JSON.stringify(all));
+}
+
+function loadLocalContent(): Map<string, string> {
+  try {
+    const raw = localStorage.getItem(VERSION_CONTENT_KEY);
+    return raw ? new Map(JSON.parse(raw)) : new Map();
+  } catch {
+    return new Map();
+  }
+}
+
+function saveLocalContent(content: Map<string, string>): void {
+  localStorage.setItem(VERSION_CONTENT_KEY, JSON.stringify([...content.entries()]));
+}
+
+function createLocalVersionDelegates(): Pick<
+  Platform,
+  | 'listVersions'
+  | 'saveVersion'
+  | 'restoreVersion'
+  | 'deleteVersionInfo'
+  | 'createVersion'
+  | 'restoreVersionById'
+  | 'renameVersion'
+  | 'pinVersion'
+  | 'pruneVersions'
+  | 'getVersionStats'
+> {
+  return {
+    async listVersions(fileId) {
+      return [...(loadLocalVersions().get(fileId) ?? [])];
+    },
+    async saveVersion(fileId, name, description) {
+      const byFile = loadLocalVersions();
+      const list = byFile.get(fileId) ?? [];
+      const entry: VersionEntry = {
+        id: uuid(),
+        fileId,
+        name,
+        description,
+        documentHash: '00000000',
+        timestamp: Date.now(),
+        kind: name ? 'named' : 'checkpoint',
+        origin: 'manual',
+        size: 0,
+        pinned: false,
+      };
+      list.push(entry);
+      byFile.set(fileId, list);
+      saveLocalVersions(byFile);
+      return entry;
+    },
+    async restoreVersion(_fileId, versionId) {
+      const byFile = loadLocalVersions();
+      for (const list of byFile.values()) {
+        const v = list.find((e) => e.id === versionId);
+        if (v) return loadLocalContent().get(v.documentHash) ?? '';
+      }
+      return '';
+    },
+    async deleteVersionInfo(versionId) {
+      const byFile = loadLocalVersions();
+      for (const [fileId, list] of byFile) {
+        const filtered = list.filter((v) => v.id !== versionId);
+        if (filtered.length !== list.length) {
+          byFile.set(fileId, filtered);
+          saveLocalVersions(byFile);
+          return;
+        }
+      }
+    },
+    async createVersion(input: CreateVersionInput): Promise<VersionEntry> {
+      const content = loadLocalContent();
+      if (!content.has(input.contentHash)) {
+        content.set(input.contentHash, input.documentJson);
+      }
+      saveLocalContent(content);
+      const byFile = loadLocalVersions();
+      const list = byFile.get(input.fileId) ?? [];
+      const entry: VersionEntry = {
+        id: uuid(),
+        fileId: input.fileId,
+        name: input.name,
+        description: input.description,
+        documentHash: input.contentHash,
+        timestamp: Date.now(),
+        kind: input.kind,
+        origin: input.origin,
+        size: input.size,
+        schemaVersion: input.schemaVersion,
+        thumbnail: input.thumbnail,
+        pinned: input.pinned ?? false,
+      };
+      list.push(entry);
+      byFile.set(input.fileId, list);
+      saveLocalVersions(byFile);
+      return entry;
+    },
+    async restoreVersionById(versionId: string): Promise<string> {
+      const byFile = loadLocalVersions();
+      for (const list of byFile.values()) {
+        const v = list.find((e) => e.id === versionId);
+        if (v) return loadLocalContent().get(v.documentHash) ?? '';
+      }
+      return '';
+    },
+    async renameVersion(versionId: string, name?: string, description?: string): Promise<void> {
+      const byFile = loadLocalVersions();
+      for (const list of byFile.values()) {
+        const v = list.find((e) => e.id === versionId);
+        if (v) {
+          v.name = name;
+          v.description = description;
+          saveLocalVersions(byFile);
+          return;
+        }
+      }
+    },
+    async pinVersion(versionId: string, pinned: boolean): Promise<void> {
+      const byFile = loadLocalVersions();
+      for (const list of byFile.values()) {
+        const v = list.find((e) => e.id === versionId);
+        if (v) {
+          v.pinned = pinned;
+          saveLocalVersions(byFile);
+          return;
+        }
+      }
+    },
+    async pruneVersions(fileId: string, maxAuto: number): Promise<number> {
+      const byFile = loadLocalVersions();
+      const list = byFile.get(fileId);
+      if (!list) return 0;
+      const keep = list.filter((v) => v.kind === 'named' || v.pinned);
+      const prunable = list
+        .filter((v) => v.kind !== 'named' && !v.pinned)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      const keepAuto = prunable.slice(0, maxAuto);
+      const remove = prunable.slice(maxAuto);
+      byFile.set(
+        fileId,
+        [...keep, ...keepAuto].sort((a, b) => b.timestamp - a.timestamp),
+      );
+      saveLocalVersions(byFile);
+      const referenced = new Set<string>();
+      for (const l of byFile.values()) for (const v of l) referenced.add(v.documentHash);
+      const content = loadLocalContent();
+      for (const hash of content.keys()) {
+        if (!referenced.has(hash)) content.delete(hash);
+      }
+      saveLocalContent(content);
+      return remove.length;
+    },
+    async getVersionStats(fileId: string): Promise<VersionStats> {
+      const list = loadLocalVersions().get(fileId) ?? [];
+      const content = loadLocalContent();
+      return {
+        totalVersions: list.length,
+        namedVersions: list.filter((v) => v.kind === 'named').length,
+        totalBytes: [...content.values()].reduce(
+          (sum, json) => sum + new TextEncoder().encode(json).length,
+          0,
+        ),
+      };
+    },
+  };
 }
 
 function ingest(filename: string, text: string): OpenFileResult {

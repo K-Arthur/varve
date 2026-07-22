@@ -16,6 +16,7 @@ import type {
   AssetFolder,
   Branch,
   Collection,
+  CreateVersionInput,
   FileEntry,
   Folder,
   HomeViewState,
@@ -29,6 +30,7 @@ import type {
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
+  VersionStats,
   Workspace,
 } from './types';
 
@@ -123,6 +125,25 @@ export interface Platform {
   saveVersion(fileId: string, name: string, description?: string): Promise<VersionEntry>;
   restoreVersion(fileId: string, versionId: string): Promise<string>;
   deleteVersionInfo(versionId: string): Promise<void>;
+  /**
+   * Create a full version with content-addressed document storage.
+   * The document JSON is stored keyed by its content hash so identical
+   * content across versions shares one copy (dedup).
+   */
+  createVersion(input: CreateVersionInput): Promise<VersionEntry>;
+  /** Restore a version's full document JSON by version id. */
+  restoreVersionById(versionId: string): Promise<string>;
+  /** Rename / describe a version. */
+  renameVersion(versionId: string, name?: string, description?: string): Promise<void>;
+  /** Pin (protect from prune) or unpin a version. */
+  pinVersion(versionId: string, pinned: boolean): Promise<void>;
+  /**
+   * Prune auto/checkpoint versions beyond `maxAuto`, preserving named and
+   * pinned. Returns the number of versions removed.
+   */
+  pruneVersions(fileId: string, maxAuto: number): Promise<number>;
+  /** Stats for the version-history UI. */
+  getVersionStats(fileId: string): Promise<VersionStats>;
   listBranches(fileId: string): Promise<Branch[]>;
   createBranch(fileId: string, name: string, baseVersionId?: string): Promise<Branch>;
 
