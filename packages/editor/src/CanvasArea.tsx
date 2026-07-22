@@ -1427,6 +1427,7 @@ export function CanvasArea({
       let buildIrMs = 0;
       let replayStartTime = 0;
       let replayMs = 0;
+      let cacheHitsInFrame = 0;
 
       if (canUsePerNodeIrCache && nodeIds.length > 0) {
         const irSlots: Array<Awaited<ReturnType<Engine['buildIr']>>[number] | undefined> =
@@ -1450,6 +1451,7 @@ export function CanvasArea({
             const cached = subtreeIrCacheRef.current.get(nodeId, hash);
             if (cached) {
               irSlots[i] = cached;
+              cacheHitsInFrame++;
               continue;
             }
           }
@@ -2344,7 +2346,7 @@ export function CanvasArea({
         redrawCount: s.motion.isPlaying ? -1 : redrawCount,
         nodeCount: nodeIds.length,
         culledCount: hiddenByContainer.size,
-        cacheHitCount: 0,
+        cacheHitCount: cacheHitsInFrame,
         buildIrMs,
         replayMs,
         totalMs: budget.elapsedMs,
