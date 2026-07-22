@@ -71,3 +71,27 @@ figures are pre-optimization and informational; they are not CI budgets.
 Implementation, validation, directional before/after measurements, platform
 coverage, and evidence-qualified remaining work are recorded in
 [`2026-07-22-end-to-end-results.md`](2026-07-22-end-to-end-results.md).
+
+## Settings/UX exposure for the perf runtime (2026-07-22)
+
+Complementary session, run concurrently with the canvas-wiring work recorded
+above. This pass did not touch `CanvasArea.tsx` or the render hot path
+(another session owned that live) — it focused on exposing already-built
+capability to users and closing an untested correctness gap. No throughput
+numbers below; this is capability/coverage, not a speed measurement.
+
+| Change | Before | After | Confidence |
+|---|---|---|---|
+| Memory/cache budget control | Code-only (`settings.render.memoryBudget`), no UI | Exposed via Settings → Performance (Low/Balanced/High) | high |
+| Reduced-motion override | `reducedMotionManager.setReducedMotionOverride()` existed, zero callers | Exposed via Settings → Performance; applied at boot from persisted preference (`Shell.tsx`) and live on change | high |
+| Diagnostics capture | None | Read-only tier/frame-time/platform-capability stat block + "Copy performance diagnostics" JSON button in Settings | high |
+| `drawDiagnostics.ts` force-disable | `enableDrawDiagnostics(false)` was a no-op in any DEV/test build (`false \|\| DEV` always evaluated `true`) | `force` is a true override; omitting it falls back to DEV auto-detect | high — caught by a failing unit test before landing, not observed in production |
+| Zero-size viewport correctness | Untested since the 2026-07-14 canvas plan speced it; canvas-mounted-hidden-then-shown path had no regression guard | `tests/e2e/canvas/zero-viewport.spec.ts` added | high |
+| `memoryBudget.ts` test coverage | No test file existed | `memoryBudget.test.ts` added (6 cases: presets, ordering, fallback) | high |
+
+**Deferred, not attempted this pass** (see the concurrent session's canvas-wiring
+commits and `2026-07-22-end-to-end-results.md` for what *was* actuated):
+adaptive render-scale's interaction with the Settings-exposed memory budget
+under long sessions is untested past unit level; cross-platform validation
+(Windows/WebView2, macOS/WKWebView, low-RAM devices) is still unavailable on
+this machine.
