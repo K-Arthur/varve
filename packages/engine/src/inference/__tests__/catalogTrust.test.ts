@@ -5,9 +5,8 @@
  * fallback, trust modes, and signature scheme handling.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  type CatalogVerificationResult,
   clearLastKnownGood,
   getTrustMode,
   type LastKnownGoodEntry,

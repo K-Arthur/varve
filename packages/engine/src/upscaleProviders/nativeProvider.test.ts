@@ -43,7 +43,7 @@ describe('nativeUpscaleProvider', () => {
       decodeImageBytesToImageData: (_b: Uint8Array) => new ImageData(2, 2),
     }));
 
-    const invokeMock = vi.fn(async (cmd: string, args?: Record<string, unknown>) => {
+    const invokeMock = vi.fn(async (cmd: string, _args?: Record<string, unknown>) => {
       if (cmd === 'begin_upscale_job') return null;
       if (cmd === 'upscale_image') return [1, 2, 3];
       return null;

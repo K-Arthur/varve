@@ -27,14 +27,6 @@ vi.mock('@strata/engine', () => ({
   checkGifExportSupport: () => ({ supported: false, reason: 'test' }),
   checkVideoExportSupport: () => ({ supported: false, reason: 'test' }),
   isWasmModelSafe: vi.fn().mockResolvedValue(true),
-  getEnvironmentCapabilities: vi.fn().mockResolvedValue({
-    webgpu: false,
-    wasm: true,
-    wasmSimd: true,
-    onnxBackend: 'wasm',
-    executionProviders: [{ name: 'wasm' }],
-    maxMemoryMB: 512,
-  }),
   getModelLoaderReady: vi.fn().mockResolvedValue({
     getState: () => 'unavailable',
     isModelAvailable: mockExportIsModelAvailable,

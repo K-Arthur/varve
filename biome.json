@@ -24,6 +24,16 @@
           }
         }
       }
+    },
+    {
+      "includes": ["**/*.test.*", "**/__tests__/**", "tests/**", "scripts/**"],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noExplicitAny": "off"
+          }
+        }
+      }
     }
   ],
   "formatter": {
@@ -45,7 +55,8 @@
       "suspicious": {
         "noExplicitAny": "warn",
         "noNonNullAssertedOptionalChain": "warn",
-        "noArrayIndexKey": "warn"
+        "noArrayIndexKey": "warn",
+        "noAssignInExpressions": "warn"
       },
       "correctness": {
         "noUnusedVariables": "warn",

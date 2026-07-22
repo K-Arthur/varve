@@ -8,14 +8,12 @@
 import type { Document, ShapeNode, VectorMaskData } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
-  type AlphaBounds,
   computeAlphaBoundsFromImageData,
   computeSourceAlphaBounds,
   computeVectorMaskBounds,
   computeVisibleContentBounds,
   intersectBounds,
   paddingBounds,
-  type VisibleBounds,
 } from './imageBounds';
 
 // ---------------------------------------------------------------------------
@@ -64,7 +62,7 @@ function makeImageDoc(overrides: Partial<ShapeNode> = {}): { doc: Document; node
   return { doc, nodeId };
 }
 
-function makeImageDocWithRasterMask(
+function _makeImageDocWithRasterMask(
   maskW = 400,
   maskH = 300,
 ): {

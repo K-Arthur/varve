@@ -162,7 +162,6 @@ export function BatchRenameDialog({
               value={find}
               onChange={(e) => handleFindChange(e.target.value)}
               placeholder="Text to find\u2026"
-              autoFocus
             />
             {regexError && (
               <div className="batch-rename-dialog__error" role="alert">

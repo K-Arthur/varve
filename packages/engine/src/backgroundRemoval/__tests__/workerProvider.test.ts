@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 // Import the provider directly — the isAvailable method now does an async
 // model-availability check. We verify the behavioral contract rather than

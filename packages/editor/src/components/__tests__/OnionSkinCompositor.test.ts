@@ -17,7 +17,7 @@
  * - Multiple renders with same data reuse cache
  */
 
-import type { Affine, SceneNode as EngineNode } from '@strata/engine';
+import type { Affine } from '@strata/engine';
 import type { Document, SceneNode, Timeline } from '@strata/scene';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OnionSkinCompositor } from '../OnionSkinCompositor';

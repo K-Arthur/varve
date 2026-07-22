@@ -6327,7 +6327,7 @@ export function EditorProvider({
             };
             updateDoc((doc) => {
               const node = doc.nodes[processingNodeId];
-              if (!node || node.kind !== 'shape') return doc;
+              if (node?.kind !== 'shape') return doc;
               const { document: docWithAsset, assetId } = findOrCreateEmbeddedAsset(
                 doc,
                 assetInput,

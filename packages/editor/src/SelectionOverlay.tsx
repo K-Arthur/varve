@@ -576,7 +576,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         }
         updateDoc((doc) => {
           const n = doc.nodes[epDrag.nodeId];
-          if (!n || n.kind !== 'shape') return doc;
+          if (n?.kind !== 'shape') return doc;
           return {
             ...doc,
             nodes: {

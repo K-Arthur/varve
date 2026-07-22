@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { dispatchBackgroundRemoval } from '../providers/dispatch';
 
 // Simple test ImageData factory

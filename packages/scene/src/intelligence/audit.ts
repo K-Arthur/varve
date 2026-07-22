@@ -112,7 +112,7 @@ export function runIntelligenceAudit(doc: Document): AuditIssue[] {
         const fixed = autoFixContrast(fg.r, fg.g, fg.b, bg.r, bg.g, bg.b, minRatio);
         if (!fixed) return doc;
         const current = doc.nodes[nodeId];
-        if (!current || current.kind !== 'text' || current.fill.space !== 'rgb') return doc;
+        if (current?.kind !== 'text' || current.fill.space !== 'rgb') return doc;
         return {
           ...doc,
           nodes: {
