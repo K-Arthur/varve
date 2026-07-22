@@ -4,6 +4,7 @@ export type SettingsSection =
   | 'backup'
   | 'shortcuts'
   | 'export'
+  | 'performance'
   | 'models'
   | 'collab'
   | 'ai'

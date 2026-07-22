@@ -45,6 +45,13 @@ export interface AppearanceSettingsStore {
 export interface RenderSettingsStore {
   /** Prefer WebGPU compositor when adapter available (Canvas2D fallback on loss). */
   preferWebGpu: boolean;
+  /** IR cache byte budget preset — see packages/editor/src/canvas/memoryBudget.ts. */
+  memoryBudget: 'low' | 'medium' | 'high';
+}
+
+export interface PerformanceSettingsStore {
+  /** Reduced-motion preference override. 'system' defers to prefers-reduced-motion. */
+  reducedMotionOverride: 'system' | 'always' | 'never';
 }
 
 export interface StartupSettingsStore {
@@ -79,6 +86,7 @@ export interface EditorSettings {
   startup: StartupSettingsStore;
   viewport: ViewportSettingsStore;
   sections: SectionSettingsStore;
+  performance: PerformanceSettingsStore;
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -110,6 +118,11 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
 
 export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
   preferWebGpu: false,
+  memoryBudget: 'medium',
+};
+
+export const DEFAULT_PERFORMANCE_SETTINGS: PerformanceSettingsStore = {
+  reducedMotionOverride: 'system',
 };
 
 export const DEFAULT_STARTUP_SETTINGS: StartupSettingsStore = {
@@ -151,6 +164,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   startup: { ...DEFAULT_STARTUP_SETTINGS },
   viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
   sections: { ...DEFAULT_SECTION_SETTINGS },
+  performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -175,6 +189,7 @@ export function loadSettings(): EditorSettings {
         startup: { ...DEFAULT_STARTUP_SETTINGS },
         viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
         sections: { ...DEFAULT_SECTION_SETTINGS },
+        performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const exportSettings = mergePartial(
@@ -208,6 +223,10 @@ export function loadSettings(): EditorSettings {
             | undefined,
         ),
       },
+      performance: mergePartial(
+        DEFAULT_PERFORMANCE_SETTINGS,
+        parsed.performance as Partial<PerformanceSettingsStore>,
+      ),
     };
   } catch {
     return {
@@ -218,6 +237,7 @@ export function loadSettings(): EditorSettings {
       startup: { ...DEFAULT_STARTUP_SETTINGS },
       viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
       sections: { ...DEFAULT_SECTION_SETTINGS },
+      performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
     };
   }
 }
@@ -234,6 +254,7 @@ export interface EditorSettingsPatch {
   startup?: Partial<StartupSettingsStore>;
   viewport?: Partial<ViewportSettingsStore>;
   sections?: Partial<SectionSettingsStore>;
+  performance?: Partial<PerformanceSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -250,6 +271,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
       ...patch.sections,
       sections: patch.sections?.sections ?? current.sections.sections,
     },
+    performance: { ...current.performance, ...patch.performance },
   };
   saveSettings(next);
   return next;
@@ -264,6 +286,7 @@ export function resetSettings(): EditorSettings {
     startup: { ...DEFAULT_STARTUP_SETTINGS },
     viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
     sections: { ...DEFAULT_SECTION_SETTINGS },
+    performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
   };
   saveSettings(defaults);
   return defaults;

@@ -48,6 +48,7 @@ function mockMatchMedia(matches: boolean): MockMatchMediaResult {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   __resetReducedMotion();
 });
 
@@ -70,6 +71,15 @@ describe('isReducedMotion', () => {
 
   it('returns true when prefers-reduced-motion: reduce is set', () => {
     mockMatchMedia(true);
+    expect(isReducedMotion()).toBe(true);
+  });
+
+  it('applies the persisted application override before the settings dialog opens', () => {
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ performance: { reducedMotionOverride: 'always' } }),
+    );
+    mockMatchMedia(false);
     expect(isReducedMotion()).toBe(true);
   });
 });

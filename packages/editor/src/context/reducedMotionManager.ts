@@ -12,11 +12,20 @@
  * - Non-React subscribe/unsubscribe for RAF-driven code
  */
 import { useEffect, useState } from 'react';
+import { loadSettings } from '../settings';
 
 let mql: MediaQueryList | null = null;
 let reduced = false;
 let listeners: Set<(reduced: boolean) => void> = new Set();
 let override: boolean | null = null;
+let persistedOverrideLoaded = false;
+
+function ensurePersistedOverride(): void {
+  if (persistedOverrideLoaded || typeof window === 'undefined') return;
+  persistedOverrideLoaded = true;
+  const preference = loadSettings().performance.reducedMotionOverride;
+  override = preference === 'system' ? null : preference === 'always';
+}
 
 function ensureMql(): void {
   if (typeof window === 'undefined') return;
@@ -34,6 +43,7 @@ function onChange(ev: MediaQueryListEvent): void {
 
 /** Live value of the effective reduced-motion flag (override wins if set). */
 export function isReducedMotion(): boolean {
+  ensurePersistedOverride();
   if (override !== null) return override;
   if (typeof window === 'undefined') return false;
   ensureMql();
@@ -45,6 +55,7 @@ export function isReducedMotion(): boolean {
  * Pass `null` to clear the override and return to the OS/media-query value.
  */
 export function setReducedMotionOverride(value: boolean | null): void {
+  persistedOverrideLoaded = true;
   override = value;
   const effective = override ?? (mql ? mql.matches : false);
   for (const fn of listeners) fn(effective);
@@ -73,6 +84,7 @@ export function __resetReducedMotion(): void {
   reduced = false;
   listeners = new Set();
   override = null;
+  persistedOverrideLoaded = false;
 }
 
 /**

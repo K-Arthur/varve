@@ -48,6 +48,15 @@ describe('drawDiagnostics', () => {
     expect(getFrameCount()).toBe(2);
   });
 
+  it('can be force-disabled even when DEV auto-detection would otherwise enable it', () => {
+    enableDrawDiagnostics(true);
+    expect(isDiagnosticsEnabled()).toBe(true);
+    enableDrawDiagnostics(false);
+    expect(isDiagnosticsEnabled()).toBe(false);
+    recordFrame(makeFrame({ frameIndex: 1 }));
+    expect(getFrameCount()).toBe(0);
+  });
+
   it('getLastFrame returns null when empty', () => {
     enableDrawDiagnostics(true);
     expect(getLastFrame()).toBeNull();

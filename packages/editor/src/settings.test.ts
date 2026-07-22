@@ -17,6 +17,22 @@ describe('loadSettings', () => {
     expect(s.viewport.snapEnabled).toBe(true);
     expect(s.viewport.guidesVisible).toBe(true);
     expect(s.viewport.snapGrid).toBe(8);
+    expect(s.render.memoryBudget).toBe('medium');
+    expect(s.performance.reducedMotionOverride).toBe('system');
+  });
+
+  it('merges a partial performance/render patch without dropping unrelated fields', () => {
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({
+        render: { memoryBudget: 'low' },
+        performance: { reducedMotionOverride: 'always' },
+      }),
+    );
+    const s = loadSettings();
+    expect(s.render.memoryBudget).toBe('low');
+    expect(s.render.preferWebGpu).toBe(false);
+    expect(s.performance.reducedMotionOverride).toBe('always');
   });
 
   it('persists and loads startup settings', () => {
@@ -106,5 +122,15 @@ describe('resetSettings', () => {
     const r = resetSettings();
     expect(r.export.defaultFormat).toBe('png');
     expect(r.export.defaultBleedMm).toBe(3);
+  });
+
+  it('restores performance settings to factory defaults', () => {
+    updateSettings({
+      render: { memoryBudget: 'high' },
+      performance: { reducedMotionOverride: 'never' },
+    });
+    const r = resetSettings();
+    expect(r.render.memoryBudget).toBe('medium');
+    expect(r.performance.reducedMotionOverride).toBe('system');
   });
 });
