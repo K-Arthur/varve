@@ -16,7 +16,7 @@ import type { PropertyBinding } from './types';
 
 export type VariableType = 'color' | 'number' | 'string' | 'boolean';
 
-export type VariableValue = string | number | boolean;
+export type VariableValue = string | number | boolean | Record<string, unknown>;
 
 export interface Variable {
   id: string;

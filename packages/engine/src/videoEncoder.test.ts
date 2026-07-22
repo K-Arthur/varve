@@ -34,7 +34,7 @@ describe('detectVideoCapabilities', () => {
   });
 
   it('detects image-sequence when only canvas is available', async () => {
-    globalThis.OffscreenCanvas = class {} as typeof OffscreenCanvas;
+    globalThis.OffscreenCanvas = class {} as unknown as typeof OffscreenCanvas;
     const caps = await detectVideoCapabilities();
     expect(caps.provider).toBe('image-sequence');
     expect(caps.supported).toBe(true);
@@ -42,7 +42,7 @@ describe('detectVideoCapabilities', () => {
   });
 
   it('detects MediaRecorder when available but no WebCodecs', async () => {
-    globalThis.OffscreenCanvas = class {} as typeof OffscreenCanvas;
+    globalThis.OffscreenCanvas = class {} as unknown as typeof OffscreenCanvas;
     const isTypeSupported = vi.fn().mockReturnValue(true);
     globalThis.MediaRecorder = {
       isTypeSupported,
@@ -53,19 +53,19 @@ describe('detectVideoCapabilities', () => {
   });
 
   it('prefers WebCodecs when VideoEncoder + VideoFrame exist', async () => {
-    globalThis.OffscreenCanvas = class {} as typeof OffscreenCanvas;
+    globalThis.OffscreenCanvas = class {} as unknown as typeof OffscreenCanvas;
     const isConfigSupported = vi.fn().mockResolvedValue({ supported: true });
     globalThis.VideoEncoder = {
       isConfigSupported,
     } as unknown as typeof VideoEncoder;
-    globalThis.VideoFrame = class {} as typeof VideoFrame;
+    globalThis.VideoFrame = class {} as unknown as typeof VideoFrame;
     const caps = await detectVideoCapabilities();
     expect(caps.provider).toBe('webcodecs');
     expect(caps.supported).toBe(true);
   });
 
   it('does not use UA sniffing — only API detection', async () => {
-    globalThis.OffscreenCanvas = class {} as typeof OffscreenCanvas;
+    globalThis.OffscreenCanvas = class {} as unknown as typeof OffscreenCanvas;
     globalThis.MediaRecorder = {
       isTypeSupported: vi.fn().mockReturnValue(true),
     } as unknown as typeof MediaRecorder;
@@ -75,7 +75,7 @@ describe('detectVideoCapabilities', () => {
   });
 
   it('returns maxResolution for known providers', async () => {
-    globalThis.OffscreenCanvas = class {} as typeof OffscreenCanvas;
+    globalThis.OffscreenCanvas = class {} as unknown as typeof OffscreenCanvas;
     globalThis.MediaRecorder = {
       isTypeSupported: vi.fn().mockReturnValue(true),
     } as unknown as typeof MediaRecorder;

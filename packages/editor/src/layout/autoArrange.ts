@@ -4,9 +4,7 @@
  */
 import type { Document, NodeId, SceneNode } from '@strata/scene';
 import { computeCircleLayout } from './computeCircleLayout';
-import { computeFlexLayout } from './computeFlexLayout';
 import { computeForceLayout } from './computeForceLayout';
-import { computeGridLayout } from './computeGridLayout';
 
 export type ArrangeLayoutType = 'grid' | 'circle' | 'flow' | 'flex-row' | 'flex-column';
 
@@ -133,7 +131,7 @@ export function applyAutoArrange(
   nodeIds: NodeId[],
   options: AutoArrangeOptions,
 ): Document {
-  const sceneNodes = nodeIds.map((id) => doc.nodes[id]).filter(Boolean);
+  const sceneNodes = nodeIds.map((id) => doc.nodes[id]).filter((n): n is SceneNode => n != null);
   if (sceneNodes.length === 0) return doc;
 
   const items = sceneNodes.map((n) => ({

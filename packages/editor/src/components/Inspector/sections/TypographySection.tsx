@@ -285,12 +285,12 @@ export function TypographySection({ nodes }: TypographySectionProps) {
               {richTextEnabled && textNodes.length === 1 ? (
                 <RichTextSpanEditor
                   richText={
-                    textNodes[0].richText ?? {
-                      paragraphs: [{ runs: [{ text: textNodes[0].text }] }],
+                    textNodes[0]!.richText ?? {
+                      paragraphs: [{ runs: [{ text: textNodes[0]!.text }] }],
                     }
                   }
                   onChange={(rich) =>
-                    updateNode(textNodes[0].id, (n) =>
+                    updateNode(textNodes[0]!.id, (n) =>
                       n.kind === 'text' ? { ...n, richText: rich } : n,
                     )
                   }

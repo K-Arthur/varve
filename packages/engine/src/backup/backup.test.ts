@@ -31,14 +31,14 @@ function makeManifest(id: string, overrides: Partial<BackupManifest> = {}): Back
 }
 
 describe('computeChecksum', () => {
-  it('is deterministic', () => {
-    const a = computeChecksum('hello world');
-    const b = computeChecksum('hello world');
+  it('is deterministic', async () => {
+    const a = await computeChecksum('hello world');
+    const b = await computeChecksum('hello world');
     expect(a).toBe(b);
   });
 
-  it('differs for different input', () => {
-    expect(computeChecksum('aaa')).not.toBe(computeChecksum('bbb'));
+  it('differs for different input', async () => {
+    expect(await computeChecksum('aaa')).not.toBe(await computeChecksum('bbb'));
   });
 });
 
@@ -74,7 +74,7 @@ describe('MemoryBackupStore', () => {
   it('verifyBackup detects checksum mismatch', async () => {
     const store = createMemoryBackupStore();
     const doc = 'consistent-doc';
-    const manifest = makeManifest('b1', { documentChecksum: computeChecksum(doc) });
+    const manifest = makeManifest('b1', { documentChecksum: await computeChecksum(doc) });
     await store.saveBackup('p1', 'b1', manifest, doc);
     const result = await store.verifyBackup('b1');
     expect(result.valid).toBe(true);
@@ -100,7 +100,7 @@ describe('verifyBackup (standalone)', () => {
   it('verifies a matching document', async () => {
     const store = createMemoryBackupStore();
     const doc = 'original-document';
-    const manifest = makeManifest('b1', { documentChecksum: computeChecksum(doc) });
+    const manifest = makeManifest('b1', { documentChecksum: await computeChecksum(doc) });
     await store.saveBackup('proj-1', 'b1', manifest, doc);
     const result = await verifyBackup(store, 'b1', manifest);
     expect(result.valid).toBe(true);

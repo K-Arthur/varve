@@ -17,7 +17,7 @@ import { getSegmentationModelSpec, packModelInput } from './modelSpec';
 import { configureOrtRuntime } from './ortRuntimeAssets';
 import { downscaleImageData } from './previewDownscale';
 import { computeLetterboxTransform, reconstructModelMask } from './reconstructMask';
-import type { BackgroundRemovalResult } from './types';
+import type { BackgroundRemovalResult, WorkerModelId } from './types';
 
 interface WorkerCommand {
   type: 'infer';

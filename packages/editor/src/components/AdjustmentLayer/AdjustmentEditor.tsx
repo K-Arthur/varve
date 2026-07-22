@@ -1211,7 +1211,7 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 }
 
 function ColorHalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').ColorHalftoneAdjustment;
+  const adj = adjustment as import('@strata/engine').ColorHalftoneAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };

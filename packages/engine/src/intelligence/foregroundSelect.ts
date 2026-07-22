@@ -37,7 +37,7 @@ export function selectForegroundCenter(imageData: ImageData): ForegroundSelectio
   // Use color distance + edge barrier for flood fill
   const centerColor = getPixelColor(data, cx, cy, width);
   const visited = new Uint8Array(width * height);
-  const queue: Array<{ x: number; y: number }> = [{ x: cx, y: cy }];
+  const queue: { x: number; y: number }[] = [{ x: cx, y: cy }];
   visited[centerIdx] = 1;
 
   // Adaptive thresholds
@@ -67,7 +67,7 @@ export function selectForegroundCenter(imageData: ImageData): ForegroundSelectio
       visited[nIdx] = 1;
 
       // Strong edge = stop
-      if (edges[nIdx] > edgeThreshold) continue;
+      if ((edges[nIdx] ?? 0) > edgeThreshold) continue;
 
       // Color similar to center = foreground
       const pixelColor = getPixelColor(data, n.x, n.y, width);
@@ -253,7 +253,7 @@ function computeConfidence(
 
       if (isFg && hasNeighborBg) {
         boundaryCount++;
-        if (edges[idx] > 60) edgeAlignCount++;
+        if ((edges[idx] ?? 0) > 60) edgeAlignCount++;
       }
     }
   }

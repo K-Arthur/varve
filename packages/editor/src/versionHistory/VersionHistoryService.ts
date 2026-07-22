@@ -54,7 +54,7 @@ export class VersionHistoryService {
   private lastKnownHash: Map<string, string> = new Map();
 
   constructor(
-    private platform: Platform,
+    public readonly platform: Platform,
     config?: Partial<VersionHistoryConfig>,
   ) {
     this.cfg = { ...DEFAULT_CONFIG, ...config };

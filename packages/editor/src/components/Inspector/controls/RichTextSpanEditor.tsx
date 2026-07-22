@@ -11,7 +11,7 @@
 
 import type { CharacterFormat, RichSelection, RichText, TextRun } from '@strata/scene';
 import { applyFormatToSelection, mergeAdjacentRuns } from '@strata/scene';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { InspectorColorPopover } from './InspectorColorPopover';
 
@@ -22,6 +22,8 @@ export interface RichTextSpanEditorProps {
 
 const EMPTY_FORMAT: CharacterFormat = {};
 
+const DEFAULT_COLOR = { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
+
 function runKey(run: TextRun, i: number): string {
   return `${i}:${run.text}`;
 }
@@ -29,10 +31,6 @@ function runKey(run: TextRun, i: number): string {
 export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorProps) {
   const editor = useEditor();
   const editorRef = useRef<HTMLDivElement>(null);
-  const [colorTarget, setColorTarget] = useState<{
-    runIndex: number;
-    anchor: HTMLElement;
-  } | null>(null);
 
   const flatRuns = useMemo(() => {
     const out: { paraIndex: number; runIndex: number; run: TextRun }[] = [];
@@ -93,8 +91,6 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
       >
         {flatRuns.map(({ run, paraIndex, runIndex }, i) => {
           const fmt = run.format ?? EMPTY_FORMAT;
-          const isBold = fmt.fontWeight && fmt.fontWeight >= 600;
-          const isItalic = fmt.fontStyle === 'italic';
           return (
             <span
               key={runKey(run, i)}
@@ -142,32 +138,15 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
         >
           I
         </button>
-        <button
-          type="button"
-          aria-label="Text color"
-          className="rich-span-editor__btn"
-          ref={(el) => {
-            if (el && colorTarget) {
-              // anchor already set via click below
-            }
-          }}
-          onClick={(e) => {
-            setColorTarget({ runIndex: 0, anchor: e.currentTarget });
-          }}
-        >
-          Color
-        </button>
-      </div>
-      {colorTarget && (
         <InspectorColorPopover
-          anchorEl={colorTarget.anchor}
-          onClose={() => setColorTarget(null)}
-          onColorSelected={(rgba) => {
-            applyFormat({ color: rgba });
-            setColorTarget(null);
+          label="Text color"
+          value={DEFAULT_COLOR}
+          onChange={(color) => {
+            const c = color as { space: 'rgb'; r: number; g: number; b: number; a: number };
+            applyFormat({ color: [c.r, c.g, c.b, c.a] });
           }}
         />
-      )}
+      </div>
     </div>
   );
 }
@@ -200,7 +179,8 @@ function offsetToAddress(
 function offsetOfSpan(flatRuns: { run: TextRun }[], index: number): number {
   let offset = 0;
   for (let i = 0; i < index; i++) {
-    offset += flatRuns[i].run.text.length;
+    const r = flatRuns[i];
+    if (r) offset += r.run.text.length;
   }
   return offset;
 }

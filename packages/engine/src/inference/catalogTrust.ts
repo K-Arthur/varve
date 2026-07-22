@@ -151,7 +151,7 @@ export async function verifyCatalogEnvelope(
     };
   } else if (envelope.scheme !== 'none' && envelope.signature) {
     result.signature = await verifySignature(envelope, knownKeyIds);
-    if (!result.signature.verified) {
+    if (result.signature && !result.signature.verified) {
       if (trustMode === 'strict') {
         result.reason = `Signature verification failed: ${result.signature.error}`;
         return result;
@@ -345,6 +345,7 @@ export function resetCatalogTrust(): void {
 // ── Utility ──────────────────────────────────────────────────────────────
 
 async function sha256Hex(data: Uint8Array): Promise<string> {
-  const hash = await crypto.subtle.digest('SHA-256', data);
+  const copy = data.slice().buffer as ArrayBuffer;
+  const hash = await crypto.subtle.digest('SHA-256', copy);
   return [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }

@@ -118,7 +118,7 @@ describe('applyBindingsToNode', () => {
     const node = makeShapeNode({ bindings: { width: { variableId: 'v2' } } });
     const store = makeStore();
     const result = applyBindingsToNode(node, store);
-    const s = result.shape!;
+    const s = (result as { shape: { kind: string; w: number; h: number } }).shape;
     if (s.kind === 'rect') {
       expect(s.w).toBe(300);
     } else {
@@ -130,7 +130,7 @@ describe('applyBindingsToNode', () => {
     const node = makeShapeNode({ bindings: { height: { variableId: 'v3' } } });
     const store = makeStore();
     const result = applyBindingsToNode(node, store);
-    const s = result.shape!;
+    const s = (result as { shape: { kind: string; w: number; h: number } }).shape;
     if (s.kind === 'rect') {
       expect(s.h).toBe(200);
     }
@@ -161,7 +161,7 @@ describe('applyBindingsToNode', () => {
     const node = makeShapeNode({ bindings: { w: { variableId: 'v2' } } });
     const store = makeStore();
     const result = applyBindingsToNode(node, store);
-    const s = result.shape!;
+    const s = (result as { shape: { kind: string; w: number; h: number } }).shape;
     if (s.kind === 'rect') {
       expect(s.w).toBe(300);
     }

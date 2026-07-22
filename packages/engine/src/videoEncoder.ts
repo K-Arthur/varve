@@ -566,7 +566,10 @@ async function sourceToVideoFrame(
             c.height = height;
             return c;
           })();
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d') as
+      | CanvasRenderingContext2D
+      | OffscreenCanvasRenderingContext2D
+      | null;
     if (!ctx) throw new Error('2D context unavailable');
     const clamped = new Uint8ClampedArray(expected);
     clamped.set(source.subarray(0, expected));
@@ -586,7 +589,7 @@ async function sourceToVideoFrame(
 
 function drawSourceToCanvas(
   source: ImageBitmap | Uint8Array | HTMLCanvasElement,
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   width: number,
   height: number,
 ): void {
@@ -617,7 +620,10 @@ async function sourceToDataUrl(
           c.height = height;
           return c;
         })();
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d') as
+    | CanvasRenderingContext2D
+    | OffscreenCanvasRenderingContext2D
+    | null;
   if (!ctx) throw new Error('2D context unavailable');
   drawSourceToCanvas(source, ctx, width, height);
   if (typeof (canvas as HTMLCanvasElement).toDataURL === 'function') {

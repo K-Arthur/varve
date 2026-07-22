@@ -180,7 +180,10 @@ export async function queryBackendCapabilities(): Promise<BackendCapabilities> {
 
   // Check for Tauri native ONNX
   try {
-    if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
+    if (
+      typeof window !== 'undefined' &&
+      (window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
+    ) {
       const { invoke } = await import('@tauri-apps/api/core');
       const status = await invoke('native_ai_status');
       caps.hasNativeOnnx = status === true;

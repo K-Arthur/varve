@@ -55,6 +55,9 @@ function reinterpretBitDepth(color: ManagedColor, newBitDepth: BitDepth): Manage
   const toNormalized = (v: number, fromDepth: BitDepth) => normalizeChannel(v, fromDepth);
   const toTarget = (v: number, toDepth: BitDepth) => denormalizeChannel(v, toDepth);
 
+  // Spot colors don't have bit depth — return unchanged
+  if (color.space === 'spot') return color;
+
   const sourceDepth: BitDepth = color.bitDepth ?? 'uint8';
 
   if (color.space === 'rgb') {

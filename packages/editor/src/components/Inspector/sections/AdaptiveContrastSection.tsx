@@ -10,7 +10,7 @@
  */
 
 import type { ManagedColor, SceneNode, TextNode } from '@strata/scene';
-import { managedColorToRgba, wcagLevel } from '@strata/shared';
+import { contrastRatio, managedColorToRgba, relativeLuminance, wcagLevel } from '@strata/shared';
 import { Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -76,21 +76,25 @@ function resolveCommonConfig(nodes: SceneNode[]): {
     ? (first?.customRatio ?? 4.5)
     : 'mixed';
 
-  const lightColor = textNodes.every(
-    (n) =>
-      n.adaptiveContrast?.lightColor?.r === first?.lightColor?.r &&
-      n.adaptiveContrast?.lightColor?.g === first?.lightColor?.g &&
-      n.adaptiveContrast?.lightColor?.b === first?.lightColor?.b,
-  )
+  const lightColor = textNodes.every((n) => {
+    const lc = n.adaptiveContrast?.lightColor;
+    const fc = first?.lightColor;
+    if (!lc || !fc) return lc === fc;
+    const [lr, lg, lb] = managedColorToRgba(lc as ManagedColor);
+    const [fr, fg, fb] = managedColorToRgba(fc as ManagedColor);
+    return lr === fr && lg === fg && lb === fb;
+  })
     ? (first?.lightColor ?? DEFAULT_LIGHT)
     : 'mixed';
 
-  const darkColor = textNodes.every(
-    (n) =>
-      n.adaptiveContrast?.darkColor?.r === first?.darkColor?.r &&
-      n.adaptiveContrast?.darkColor?.g === first?.darkColor?.g &&
-      n.adaptiveContrast?.darkColor?.b === first?.darkColor?.b,
-  )
+  const darkColor = textNodes.every((n) => {
+    const dc = n.adaptiveContrast?.darkColor;
+    const fc = first?.darkColor;
+    if (!dc || !fc) return dc === fc;
+    const [dr, dg, db] = managedColorToRgba(dc as ManagedColor);
+    const [fr, fg, fb] = managedColorToRgba(fc as ManagedColor);
+    return dr === fr && dg === fg && db === fb;
+  })
     ? (first?.darkColor ?? DEFAULT_DARK)
     : 'mixed';
 
@@ -118,11 +122,11 @@ function resolveCommonConfig(nodes: SceneNode[]): {
 
 function computeResolvedRatio(node: TextNode, resolved: ManagedColor): number | null {
   if (!node.fill) return null;
-  const [_rr, _rg, _rb] = managedColorToRgba(resolved);
-  const [_br, _bg, _bb] = managedColorToRgba(node.fill);
-  const { relativeLuminance, contrastRatio } =
-    (globalThis as Record<string, unknown>).__vite__ ?? ({} as Record<string, unknown>);
-  return null;
+  const [rr, rg, rb] = managedColorToRgba(resolved);
+  const [br, bg, bb] = managedColorToRgba(node.fill);
+  const fgLum = relativeLuminance(rr, rg, rb);
+  const bgLum = relativeLuminance(br, bg, bb);
+  return contrastRatio(fgLum, bgLum);
 }
 
 export function AdaptiveContrastSection({ nodes }: AdaptiveContrastSectionProps) {
@@ -161,7 +165,10 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
           policy: localPolicy as 'wcag-aa' | 'wcag-aaa' | 'custom',
           customRatio: localPolicy === 'custom' ? localCustomRatio : undefined,
         };
-        editor.setTextAdaptiveContrast(node.id, updated as TextNode['adaptiveContrast']);
+        editor.updateNode(node.id, (n) => {
+          if (n.kind !== 'text') return n;
+          return { ...n, adaptiveContrast: updated } as TextNode;
+        });
       }
     },
     [nodes, editor, localPolicy, localCustomRatio],
@@ -182,7 +189,10 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
           policy: value as 'wcag-aa' | 'wcag-aaa' | 'custom',
           customRatio: value === 'custom' ? localCustomRatio : undefined,
         };
-        editor.setTextAdaptiveContrast(node.id, updated as TextNode['adaptiveContrast']);
+        editor.updateNode(node.id, (n) => {
+          if (n.kind !== 'text') return n;
+          return { ...n, adaptiveContrast: updated } as TextNode;
+        });
       }
     },
     [nodes, editor, localCustomRatio],
@@ -198,7 +208,10 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
           hysteresis: 0.5,
         };
         const updated = { ...current, enabled: true, policy: 'custom', customRatio: value };
-        editor.setTextAdaptiveContrast(node.id, updated as TextNode['adaptiveContrast']);
+        editor.updateNode(node.id, (n) => {
+          if (n.kind !== 'text') return n;
+          return { ...n, adaptiveContrast: updated } as TextNode;
+        });
       }
     },
     [nodes, editor],
@@ -212,11 +225,13 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
           policy: 'wcag-aa',
           hysteresis: 0.5,
         };
-        editor.setTextAdaptiveContrast(node.id, {
-          ...current,
-          enabled: true,
-          lightColor: color,
-        } as TextNode['adaptiveContrast']);
+        editor.updateNode(node.id, (n) => {
+          if (n.kind !== 'text') return n;
+          return {
+            ...n,
+            adaptiveContrast: { ...current, enabled: true, lightColor: color },
+          } as TextNode;
+        });
       }
     },
     [nodes, editor],
@@ -230,11 +245,13 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
           policy: 'wcag-aa',
           hysteresis: 0.5,
         };
-        editor.setTextAdaptiveContrast(node.id, {
-          ...current,
-          enabled: true,
-          darkColor: color,
-        } as TextNode['adaptiveContrast']);
+        editor.updateNode(node.id, (n) => {
+          if (n.kind !== 'text') return n;
+          return {
+            ...n,
+            adaptiveContrast: { ...current, enabled: true, darkColor: color },
+          } as TextNode;
+        });
       }
     },
     [nodes, editor],
@@ -256,16 +273,19 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
             <input
               type="checkbox"
               checked={common.enabled === true}
-              indeterminate={common.enabled === 'mixed'}
               onChange={(e) => handleToggle(e.target.checked)}
               className="insp-checkbox"
               aria-label="Enable adaptive contrast"
+              ref={(el) => {
+                if (el) el.indeterminate = common.enabled === 'mixed';
+              }}
             />
           </div>
         </label>
 
         <FieldRow label="Policy">
           <Select
+            label="Contrast policy"
             value={localPolicy}
             onChange={handlePolicyChange}
             options={POLICY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
@@ -276,6 +296,7 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
         {isCustom && (
           <FieldRow label="Target Ratio">
             <NumberField
+              label="Custom contrast ratio"
               value={localCustomRatio}
               onChange={handleCustomRatioChange}
               min={4.5}

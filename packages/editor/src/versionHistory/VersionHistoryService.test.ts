@@ -26,8 +26,8 @@ function makeDoc(overrides: Partial<Document> = {}): Document {
         blendMode: 'normal',
         visible: true,
         locked: false,
-      } as Document['nodes']['n1'],
-    } as Document['nodes'],
+      } as unknown as Document['nodes']['n1'],
+    } as unknown as Document['nodes'],
     components: {},
     nextId: 2,
     ...overrides,
@@ -194,8 +194,8 @@ describe('VersionHistoryService', () => {
           blendMode: 'normal',
           visible: true,
           locked: false,
-        } as Document['nodes']['n1'],
-      } as Document['nodes'],
+        } as unknown as Document['nodes']['n1'],
+      } as unknown as Document['nodes'],
       nextId: 3,
     } as Partial<Document>);
     const v2 = await service.createVersion({ fileId, kind: 'manual', origin: 'save' }, doc2, {
@@ -212,8 +212,8 @@ describe('VersionHistoryService', () => {
     const entry = await service.createVersion({ fileId, kind: 'manual', origin: 'save' }, doc);
     await service.renameVersion(entry!.id, 'Renamed', 'A note');
     const list = await service.listVersions(fileId);
-    expect(list[0].name).toBe('Renamed');
-    expect(list[0].description).toBe('A note');
+    expect(list[0]!.name).toBe('Renamed');
+    expect(list[0]!.description).toBe('A note');
   });
 
   it('pins and unpins a version', async () => {
@@ -222,10 +222,10 @@ describe('VersionHistoryService', () => {
     const entry = await service.createVersion({ fileId, kind: 'manual', origin: 'save' }, doc);
     await service.pinVersion(entry!.id, true);
     let list = await service.listVersions(fileId);
-    expect(list[0].pinned).toBe(true);
+    expect(list[0]!.pinned).toBe(true);
     await service.pinVersion(entry!.id, false);
     list = await service.listVersions(fileId);
-    expect(list[0].pinned).toBe(false);
+    expect(list[0]!.pinned).toBe(false);
   });
 
   it('getVersionStats returns correct counts', async () => {

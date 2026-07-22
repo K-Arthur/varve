@@ -54,8 +54,8 @@ describe('RichTextSpanEditor', () => {
     const box = screen.getByRole('textbox');
     fireEvent.blur(box);
     expect(onChange).toHaveBeenCalledTimes(1);
-    const result = onChange.mock.calls[0][0] as RichText;
-    expect(result.paragraphs[0].runs).toHaveLength(1);
-    expect(result.paragraphs[0].runs[0].text).toBe('Hello');
+    const result = onChange.mock.calls[0]![0] as RichText;
+    expect(result.paragraphs[0]!.runs).toHaveLength(1);
+    expect(result.paragraphs[0]!.runs[0]!.text).toBe('Hello');
   });
 });

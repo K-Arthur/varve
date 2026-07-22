@@ -24,6 +24,8 @@ export interface UpscaleOptions {
    * thread roughly once per upscaled tile (a 1024px image yields ~225 tiles).
    */
   onProgress?: UpscaleProgressFn;
+  /** When true, replaces the source image in place instead of creating a new layer. */
+  replaceSource?: boolean;
 }
 
 /** Default bundled Real-ESRGAN model used by the shared worker path. */

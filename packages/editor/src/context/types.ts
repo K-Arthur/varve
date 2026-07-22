@@ -132,6 +132,9 @@ export interface BackgroundRemovalPreviewSession {
   decontaminate: boolean;
   executionProvider?: 'webgpu' | 'webgl' | 'wasm' | 'native';
   modelId?: string;
+  modelPrecision?: 'fp32' | 'int8';
+  precisionFallback?: boolean;
+  precisionFallbackReason?: string;
 }
 
 export type CanvasMode = 'full' | 'outline' | 'preview';
@@ -303,6 +306,8 @@ export interface EditorState {
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
   themeRevision: number;
+  /** Monotonic revision counter for document backup/recovery. */
+  revision: number;
 }
 
 export interface EditorContextValue {
