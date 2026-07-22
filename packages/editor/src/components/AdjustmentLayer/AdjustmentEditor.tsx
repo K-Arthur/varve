@@ -402,6 +402,18 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
     case 'colorHalftone':
       return <ColorHalftoneEditor adjustment={adjustment} onChange={onChange} />;
 
+    case 'duotone':
+      return <DuotoneEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'blackAndWhite':
+      return <BlackAndWhiteEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'posterize':
+      return <PosterizeEditor adjustment={adjustment} onChange={onChange} />;
+
+    case 'threshold':
+      return <ThresholdEditor adjustment={adjustment} onChange={onChange} />;
+
     case 'lut':
       return <LutEditor adjustment={adjustment} onChange={onChange} />;
 
@@ -1395,6 +1407,222 @@ function managedToColor(c: ManagedColor): Color {
   if (c.space === 'rgb') return [c.r, c.g, c.b, c.a] as Color;
   const [r, g, b, a] = managedColorToRgba(c as Parameters<typeof managedColorToRgba>[0]);
   return [r, g, b, a] as Color;
+}
+
+function DuotoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').DuotoneAdjustment;
+  const handleColor = (key: 'shadowColor' | 'highlightColor') => (c: ManagedColor) => {
+    onChange({ [key]: managedToColor(c) } as unknown as Partial<Adjustment>);
+  };
+
+  return (
+    <div className="adj-editor__group">
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Shadow Point</span>
+          <span>{adj.shadowPoint.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={1}
+          step={0.01}
+          value={adj.shadowPoint}
+          onChange={(e) =>
+            onChange({ shadowPoint: Number(e.target.value) } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Shadow point"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Highlight Point</span>
+          <span>{adj.highlightPoint.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={1}
+          step={0.01}
+          value={adj.highlightPoint}
+          onChange={(e) =>
+            onChange({ highlightPoint: Number(e.target.value) } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Highlight point"
+        />
+      </div>
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Intensity</span>
+          <span>{adj.intensity.toFixed(2)}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={0}
+          max={1}
+          step={0.01}
+          value={adj.intensity}
+          onChange={(e) =>
+            onChange({ intensity: Number(e.target.value) } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Intensity"
+        />
+      </div>
+      <div className="adj-editor__color-row">
+        <span className="adj-editor__label">Shadow Color</span>
+        <ColorPicker
+          color={
+            {
+              space: 'rgb',
+              r: adj.shadowColor[0],
+              g: adj.shadowColor[1],
+              b: adj.shadowColor[2],
+              a: adj.shadowColor[3] ?? 255,
+            } as ManagedColor
+          }
+          onChange={handleColor('shadowColor')}
+        />
+      </div>
+      <div className="adj-editor__color-row">
+        <span className="adj-editor__label">Highlight Color</span>
+        <ColorPicker
+          color={
+            {
+              space: 'rgb',
+              r: adj.highlightColor[0],
+              g: adj.highlightColor[1],
+              b: adj.highlightColor[2],
+              a: adj.highlightColor[3] ?? 255,
+            } as ManagedColor
+          }
+          onChange={handleColor('highlightColor')}
+        />
+      </div>
+      <label className="adj-editor__checkbox-row">
+        <input
+          type="checkbox"
+          checked={adj.preserveLuminosity}
+          onChange={(e) =>
+            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
+          }
+        />
+        <span>Preserve Luminosity</span>
+      </label>
+    </div>
+  );
+}
+
+function BlackAndWhiteEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').BlackAndWhiteAdjustment;
+  const channels: { key: keyof import('@strata/scene').BlackAndWhiteAdjustment; label: string }[] =
+    [
+      { key: 'reds', label: 'Reds' },
+      { key: 'yellows', label: 'Yellows' },
+      { key: 'greens', label: 'Greens' },
+      { key: 'cyans', label: 'Cyans' },
+      { key: 'blues', label: 'Blues' },
+      { key: 'magentas', label: 'Magentas' },
+    ];
+
+  return (
+    <div className="adj-editor__group">
+      {channels.map((ch) => (
+        <div key={ch.key} className="adj-editor__slider-row">
+          <div className="adj-editor__slider-label">
+            <span>{ch.label}</span>
+            <span>{adj[ch.key] as number}</span>
+          </div>
+          <input
+            type="range"
+            className="adj-editor__slider"
+            min={-200}
+            max={300}
+            value={adj[ch.key] as number}
+            onChange={(e) =>
+              onChange({ [ch.key]: Number(e.target.value) } as unknown as Partial<Adjustment>)
+            }
+            aria-label={ch.label}
+          />
+        </div>
+      ))}
+      <div className="adj-editor__slider-row">
+        <div className="adj-editor__slider-label">
+          <span>Brightness</span>
+          <span>{adj.brightness}</span>
+        </div>
+        <input
+          type="range"
+          className="adj-editor__slider"
+          min={-100}
+          max={100}
+          value={adj.brightness}
+          onChange={(e) =>
+            onChange({ brightness: Number(e.target.value) } as unknown as Partial<Adjustment>)
+          }
+          aria-label="Brightness"
+        />
+      </div>
+      <label className="adj-editor__checkbox-row">
+        <input
+          type="checkbox"
+          checked={adj.preserveLuminosity}
+          onChange={(e) =>
+            onChange({ preserveLuminosity: e.target.checked } as unknown as Partial<Adjustment>)
+          }
+        />
+        <span>Preserve Luminosity</span>
+      </label>
+    </div>
+  );
+}
+
+function PosterizeEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').PosterizeAdjustment;
+  return (
+    <div className="adj-editor__slider-row">
+      <div className="adj-editor__slider-label">
+        <span>Levels</span>
+        <span>{adj.levels}</span>
+      </div>
+      <input
+        type="range"
+        className="adj-editor__slider"
+        min={2}
+        max={256}
+        value={adj.levels}
+        onChange={(e) =>
+          onChange({ levels: Number(e.target.value) } as unknown as Partial<Adjustment>)
+        }
+        aria-label="Posterize levels"
+      />
+    </div>
+  );
+}
+
+function ThresholdEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+  const adj = adjustment as import('@strata/scene').ThresholdAdjustment;
+  return (
+    <div className="adj-editor__slider-row">
+      <div className="adj-editor__slider-label">
+        <span>Level</span>
+        <span>{adj.level}</span>
+      </div>
+      <input
+        type="range"
+        className="adj-editor__slider"
+        min={0}
+        max={255}
+        value={adj.level}
+        onChange={(e) =>
+          onChange({ level: Number(e.target.value) } as unknown as Partial<Adjustment>)
+        }
+        aria-label="Threshold level"
+      />
+    </div>
+  );
 }
 
 function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {

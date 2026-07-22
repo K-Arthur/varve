@@ -16,6 +16,7 @@ import { applyCurve, buildCurveLUT } from './adjustment/curves';
 import { applyLevels } from './adjustment/levels';
 import type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
 import { applySelectiveColor } from './adjustment/selectiveColor';
+import { applyBlackAndWhite } from './blackAndWhite';
 import { gaussianBlurSeparable } from './blur';
 import {
   applyColorHalftone,
@@ -23,6 +24,7 @@ import {
   type ColorHalftoneMode,
 } from './colorHalftone';
 import { mapBlendMode } from './compositeCanvas';
+import { applyDuotone } from './duotone';
 import { filterToCss, supportsCanvasFilter } from './filters';
 import { applyGradientMapFilter } from './gradientMap';
 import {
@@ -33,7 +35,9 @@ import {
   type HalftonePattern,
 } from './halftone';
 import { applyLutToImageData, type LutTransform } from './lut';
+import { applyPosterize } from './posterize';
 import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
+import { applyThreshold } from './threshold';
 import { applyTritone } from './tritone';
 import type { FilterIR } from './types';
 
@@ -489,6 +493,66 @@ export function applySoftwareFilter(
         intensity: chf.intensity ?? 1,
         inkColor: chf.inkColor,
       });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'duotone': {
+      const df = filter as {
+        shadowColor: readonly [number, number, number, number];
+        highlightColor: readonly [number, number, number, number];
+        shadowPoint: number;
+        highlightPoint: number;
+        intensity: number;
+        preserveLuminosity: boolean;
+        interpolation?: 'smoothstep' | 'linear';
+      };
+      applyDuotone(imageData, {
+        shadowColor: df.shadowColor,
+        highlightColor: df.highlightColor,
+        shadowPoint: df.shadowPoint,
+        highlightPoint: df.highlightPoint,
+        intensity: df.intensity,
+        preserveLuminosity: df.preserveLuminosity,
+        interpolation: df.interpolation,
+      });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'blackAndWhite': {
+      const bf = filter as {
+        reds: number;
+        yellows: number;
+        greens: number;
+        cyans: number;
+        blues: number;
+        magentas: number;
+        brightness: number;
+        tintColor?: readonly [number, number, number, number];
+        preserveLuminosity: boolean;
+      };
+      applyBlackAndWhite(imageData, {
+        reds: bf.reds,
+        yellows: bf.yellows,
+        greens: bf.greens,
+        cyans: bf.cyans,
+        blues: bf.blues,
+        magentas: bf.magentas,
+        brightness: bf.brightness,
+        tintColor: bf.tintColor,
+        preserveLuminosity: bf.preserveLuminosity,
+      });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'posterize': {
+      const pf = filter as { levels: number };
+      applyPosterize(imageData, { levels: pf.levels });
+      ctx.putImageData(imageData, 0, 0);
+      break;
+    }
+    case 'threshold': {
+      const tf = filter as { level: number };
+      applyThreshold(imageData, { level: tf.level });
       ctx.putImageData(imageData, 0, 0);
       break;
     }

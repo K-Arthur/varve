@@ -75,6 +75,7 @@ export {
   workerModelIdForMethod,
 } from './backgroundRemoval';
 export * from './backup';
+export { applyBlackAndWhite, type BlackAndWhiteParams } from './blackAndWhite';
 export type {
   BlendCategory,
   BlendDomain,
@@ -158,6 +159,7 @@ export type {
   DenoiseTileRequest,
   DenoiseTileResult,
 } from './denoiseProviders/types';
+export { applyDuotone, type DuotoneParams } from './duotone';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
@@ -177,6 +179,7 @@ export type {
   AdjustmentBase,
   AdjustmentBlendMode,
   AdjustmentKind,
+  BlackAndWhiteAdjustment,
   BlurAdjustment,
   BrightnessAdjustment,
   ChannelMixerAdjustment,
@@ -186,6 +189,7 @@ export type {
   ContrastAdjustment,
   CurvesAdjustment,
   CurvesPoint,
+  DuotoneAdjustment,
   ExposureAdjustment,
   GradientMapAdjustment,
   GradientMapStop,
@@ -197,11 +201,13 @@ export type {
   LutAdjustment,
   OpacityAdjustment,
   PhotoFilterAdjustment,
+  PosterizeAdjustment,
   SaturationAdjustment,
   SelectiveColorAdjustment,
   SepiaAdjustment,
   SharpenAdjustment,
   TemperatureAdjustment,
+  ThresholdAdjustment,
   TintAdjustment,
   TritoneAdjustment,
   VibranceAdjustment,
@@ -491,6 +497,7 @@ export {
   mapPorterDuffOp,
   porterDuffCompositing,
 } from './porterDuff';
+export { applyPosterize, type PosterizeParams } from './posterize';
 export type { GradientPreset, TritonePreset } from './presets';
 export { GRADIENT_MAP_PRESETS, TRITONE_PRESETS } from './presets';
 export type { RasterEngine, RasterFormat, RasterOptions, RasterResult } from './raster';
@@ -536,6 +543,7 @@ export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './text
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
+export { applyThreshold, type ThresholdParams } from './threshold';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
 export type { BezierFitOptions } from './traceBezierFit';
