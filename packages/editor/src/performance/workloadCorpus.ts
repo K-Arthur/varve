@@ -272,7 +272,7 @@ function motion(): PerformanceWorkload {
       id: 'timeline-main',
       name: 'Corpus motion',
       duration: 10_000,
-      defaultEasing: { type: 'linear' },
+      defaultEasing: { kind: 'linear' },
       tracks: Array.from({ length: 240 }, (_, index) => ({
         id: `track-${index}`,
         nodeId: `motion-${index}`,

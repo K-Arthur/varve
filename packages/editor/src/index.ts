@@ -17,6 +17,13 @@ export type {
 } from './performance/performanceCollector';
 export { createPerformanceCollector } from './performance/performanceCollector';
 export type {
+  SoakHarnessOptions,
+  SoakPlateau,
+  SoakResourceSnapshot,
+  SoakResult,
+} from './performance/soakHarness';
+export { runDeterministicSoak } from './performance/soakHarness';
+export type {
   PerformanceWorkload,
   PerformanceWorkloadId,
   WorkloadPointerSample,
