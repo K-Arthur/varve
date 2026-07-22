@@ -4900,6 +4900,7 @@ name = "strata-desktop"
 version = "0.0.0"
 dependencies = [
  "arboard",
+ "base64 0.22.1",
  "chrono",
  "glib 0.20.12",
  "image",
