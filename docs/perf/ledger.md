@@ -37,6 +37,20 @@ The session changed correctness and resource isolation more than raw replay thro
 so no unsupported app-wide speedup claim is made. Closed dialogs now unmount expensive
 content, removing repeated reconciliation of hidden color pickers during pointer updates.
 
+## Draw pipeline measurement (2026-07-22)
+
+Pre-compute optimisation: moved `resolveAllStyles` and `buildAllVariantCaches`
+from per-frame drawContent calls to `useMemo` hooks, eliminating two O(n) full-
+document scans on every frame. These are now computed only when the document
+reference changes.
+
+| Workload | Before | After | Environment | Confidence | Notes |
+|---|---|---|---|---|---|
+| Frame with 1000 nodes, style resolution | 2 O(n) scans per frame | 0 scans when doc unchanged | jsdom, Vitest, CachyOS | high | Eliminated by pre-computation |
+| Per-frame timing instrumentation | Not available | p50/p95 per frame in ring buffer | jsdom, Vitest, CachyOS | high | `frameBudget.ts` wired into drawContent |
+| Dev diagnostics HUD | Not available | Frame timing, cache stats, render path overlay | browser, dev mode only | high | `drawDiagnostics.ts` overlay via `renderDrawDiagnostics` |
+| SubtreeIrCache memory budget | Fixed 500 entries / 50MB soft / 100MB hard | Configurable via settings.render.memoryBudget | jsdom, Vitest, CachyOS | high | low=10MB, medium=25MB, default=50MB, high=200MB |
+
 ## Environment Notes
 
 - **Primary dev:** CachyOS, Wayland, WebKitGTK 2.52 — WebGPU unavailable in Tauri webview.

@@ -15,17 +15,44 @@ export interface ImageCacheEntry {
   error?: Error;
 }
 
+export interface ImageCacheOptions {
+  maxEntries?: number;
+  /** Maximum estimated decoded RGBA bytes retained by the cache. */
+  maxBytes?: number;
+}
+
+export interface ImageCacheStats {
+  entries: number;
+  bytes: number;
+  hits: number;
+  misses: number;
+  evictions: number;
+  rejectedOversize: number;
+}
+
+const DEFAULT_MAX_ENTRIES = 200;
+const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
+
 export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
   private pending = new Map<string, Promise<HTMLImageElement>>();
   private listeners = new Map<string, Set<() => void>>();
   private globalListeners = new Set<() => void>();
   private maxEntries: number;
+  private maxBytes: number;
+  private retainedBytes = 0;
+  private entryBytes = new Map<string, number>();
+  private hits = 0;
+  private misses = 0;
+  private evictions = 0;
+  private rejectedOversize = 0;
   /** Tracks access order for LRU eviction: key → lastAccessTimestamp. */
   private accessTimes = new Map<string, number>();
 
-  constructor(maxEntries = 200) {
-    this.maxEntries = maxEntries;
+  constructor(options: number | ImageCacheOptions = {}) {
+    const resolved = typeof options === 'number' ? { maxEntries: options } : options;
+    this.maxEntries = Math.max(1, resolved.maxEntries ?? DEFAULT_MAX_ENTRIES);
+    this.maxBytes = Math.max(0, resolved.maxBytes ?? DEFAULT_MAX_BYTES);
   }
 
   /** Total number of entries in the cache. */
@@ -33,17 +60,46 @@ export class ImageCache {
     return this.cache.size;
   }
 
+  get stats(): ImageCacheStats {
+    return {
+      entries: this.cache.size,
+      bytes: this.retainedBytes,
+      hits: this.hits,
+      misses: this.misses,
+      evictions: this.evictions,
+      rejectedOversize: this.rejectedOversize,
+    };
+  }
+
+  private estimateBytes(image: HTMLImageElement): number {
+    const width = image.naturalWidth || image.width || 0;
+    const height = image.naturalHeight || image.height || 0;
+    return width * height * 4;
+  }
+
+  private remove(url: string, countEviction: boolean): void {
+    const bytes = this.entryBytes.get(url) ?? 0;
+    this.retainedBytes = Math.max(0, this.retainedBytes - bytes);
+    this.entryBytes.delete(url);
+    this.cache.delete(url);
+    this.accessTimes.delete(url);
+    this.listeners.delete(url);
+    if (countEviction) this.evictions++;
+  }
+
   /** Evict least-recently-accessed entries when over limit. */
   private evictIfNeeded(): void {
-    if (this.cache.size <= this.maxEntries) return;
-    const sorted = [...this.accessTimes.entries()]
-      .filter(([k]) => this.cache.has(k))
-      .sort((a, b) => a[1] - b[1]);
-    const remove = sorted.slice(0, this.cache.size - this.maxEntries);
-    for (const [url] of remove) {
-      this.cache.delete(url);
-      this.accessTimes.delete(url);
-      this.listeners.delete(url);
+    while (this.cache.size > this.maxEntries || this.retainedBytes > this.maxBytes) {
+      let oldestKey: string | undefined;
+      let oldestTime = Infinity;
+      for (const [key, time] of this.accessTimes) {
+        if (this.cache.has(key) && time < oldestTime) {
+          oldestTime = time;
+          oldestKey = key;
+        }
+      }
+      if (!oldestKey) break;
+      this.remove(oldestKey, true);
     }
   }
 
@@ -94,12 +150,19 @@ export class ImageCache {
     // Already loaded
     const existing = this.cache.get(url);
     if (existing?.state === 'loaded' && existing.image) {
+      this.hits++;
+      this.touch(url);
       return existing.image;
     }
 
     // Already pending
     const pending = this.pending.get(url);
-    if (pending) return pending;
+    if (pending) {
+      this.hits++;
+      return pending;
+    }
+
+    this.misses++;
 
     // Evict oldest entries if at capacity (LRU via accessTimes)
     while (this.cache.size >= this.maxEntries) {
@@ -112,9 +175,7 @@ export class ImageCache {
         }
       }
       if (oldestKey) {
-        this.cache.delete(oldestKey);
-        this.accessTimes.delete(oldestKey);
-        this.listeners.delete(oldestKey);
+        this.remove(oldestKey, true);
       } else {
         break;
       }
@@ -143,11 +204,21 @@ export class ImageCache {
     // Inline data:/blob: URLs are always same-origin, so skip the CORS dance.
     const promise = (isInline ? attempt(false) : attempt(true).catch(() => attempt(false)))
       .then((img) => {
+        const bytes = this.estimateBytes(img);
         this.cache.set(url, { state: 'loaded', image: img });
-        this.evictIfNeeded();
         this.pending.delete(url);
         this.touch(url);
+        this.entryBytes.set(url, bytes);
+        this.retainedBytes += bytes;
+        // Notify while the completed entry is observable, even when it cannot
+        // be admitted to the retained cache and will be released immediately.
         this.notifyListeners(url);
+        if (bytes > this.maxBytes) {
+          this.rejectedOversize++;
+          this.remove(url, false);
+        } else {
+          this.evictIfNeeded();
+        }
         return img;
       })
       .catch((error: Error) => {
@@ -191,14 +262,16 @@ export class ImageCache {
   /** Remove an entry from the cache. */
   evict(url: string): void {
     this.pending.delete(url);
-    this.cache.delete(url);
-    this.listeners.delete(url);
+    this.remove(url, false);
   }
 
   /** Clear all cached images. */
   clear(): void {
     this.cache.clear();
     this.pending.clear();
+    this.entryBytes.clear();
+    this.accessTimes.clear();
+    this.retainedBytes = 0;
     this.listeners.clear();
     this.globalListeners.clear();
   }
@@ -244,11 +317,21 @@ export class ImageCache {
    * already has the decoded image and wants it available synchronously.
    */
   setLoaded(url: string, image: HTMLImageElement): void {
+    const previousBytes = this.entryBytes.get(url) ?? 0;
+    this.retainedBytes = Math.max(0, this.retainedBytes - previousBytes);
+    const bytes = this.estimateBytes(image);
     this.cache.set(url, { state: 'loaded', image });
-    this.evictIfNeeded();
     this.pending.delete(url);
     this.touch(url);
+    this.entryBytes.set(url, bytes);
+    this.retainedBytes += bytes;
     this.notifyListeners(url);
+    if (bytes > this.maxBytes) {
+      this.rejectedOversize++;
+      this.remove(url, false);
+    } else {
+      this.evictIfNeeded();
+    }
   }
 
   private notifyListeners(url: string): void {
