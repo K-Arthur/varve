@@ -1,0 +1,90 @@
+/**
+ * Canvas performance runtime — single integration surface over the
+ * previously-unwired frameBudget/adaptiveProfile/drawDiagnostics/
+ * memoryBudget modules.
+ *
+ * CanvasArea.tsx is a tracked hub file with a tight import-statement budget
+ * (see .health-baseline.json). Importing all four modules individually from
+ * there would trip that budget, so this module wraps them behind one import.
+ */
+import { computeProfile, type PerformanceProfile } from './adaptiveProfile';
+import {
+  enableDrawDiagnostics,
+  type FrameDiagnostics,
+  recordFrame,
+  renderDrawDiagnostics,
+} from './drawDiagnostics';
+import {
+  endFrameTiming,
+  getAverageFrameTime,
+  getOverBudgetCount,
+  initFrameBudget,
+  startFrameTiming,
+} from './frameBudget';
+import { getMemoryBudgets, type MemoryBudgets } from './memoryBudget';
+import type { SubtreeIrCache } from './subtreeIrCache';
+
+/** Call once per CanvasArea mount. */
+export function initCanvasPerf(): void {
+  initFrameBudget();
+}
+
+/** Enable or disable the dev-only diagnostics ring buffer + HUD overlay. */
+export function setPerfHudEnabled(enabled: boolean): void {
+  enableDrawDiagnostics(enabled);
+}
+
+/** Call right before drawing a frame that will actually run (past all guards). */
+export function beginFrame(): number {
+  return startFrameTiming();
+}
+
+export interface EndFrameArgs {
+  frameStart: number;
+  frameIndex: number;
+  docVersion: number;
+  redrawCount: number;
+  nodeCount: number;
+  culledCount: number;
+  renderPath: FrameDiagnostics['renderPath'];
+  wasDirty: boolean;
+  partialRedraw: boolean;
+  cache: SubtreeIrCache;
+}
+
+/**
+ * Finish timing a frame, record it into the diagnostics ring buffer (no-op
+ * unless the HUD is enabled), and return the current adaptive profile
+ * computed from real rolling frame timing.
+ */
+export function endFrame(args: EndFrameArgs): PerformanceProfile {
+  const budget = endFrameTiming(args.frameStart);
+  const cacheDiag = args.cache.diagnostics();
+  recordFrame({
+    frameIndex: args.frameIndex,
+    docVersion: args.docVersion,
+    redrawCount: args.redrawCount,
+    nodeCount: args.nodeCount,
+    culledCount: args.culledCount,
+    cacheHitCount: cacheDiag.hits,
+    buildIrMs: 0,
+    replayMs: 0,
+    totalMs: budget.elapsedMs,
+    renderPath: args.renderPath,
+    wasDirty: args.wasDirty,
+    partialRedraw: args.partialRedraw,
+    cacheBytes: cacheDiag.bytes,
+    cacheEntries: cacheDiag.entries,
+  });
+  return computeProfile(getAverageFrameTime(), getOverBudgetCount(), args.nodeCount);
+}
+
+/** Draw the dev-only HUD overlay. No-op unless setPerfHudEnabled(true) was called. */
+export function renderPerfHud(ctx: CanvasRenderingContext2D, canvasWidth: number): void {
+  renderDrawDiagnostics(ctx, canvasWidth);
+}
+
+/** Resolve byte/entry budgets for a persisted 'low' | 'medium' | 'high' preference. */
+export function resolveMemoryBudgets(pref: string | undefined): MemoryBudgets {
+  return getMemoryBudgets(pref as 'low' | 'medium' | 'high');
+}

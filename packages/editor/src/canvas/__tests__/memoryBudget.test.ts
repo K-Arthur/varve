@@ -1,0 +1,45 @@
+import { describe, expect, it } from 'vitest';
+import { DEFAULT_MEMORY_BUDGETS, getMemoryBudgets } from '../memoryBudget';
+
+describe('memoryBudget', () => {
+  it('returns the default budgets when no preference is given', () => {
+    expect(getMemoryBudgets()).toEqual(DEFAULT_MEMORY_BUDGETS);
+    expect(getMemoryBudgets(undefined)).toEqual(DEFAULT_MEMORY_BUDGETS);
+  });
+
+  it('returns the default budgets for an unrecognised preference', () => {
+    expect(getMemoryBudgets('ultra' as 'low')).toEqual(DEFAULT_MEMORY_BUDGETS);
+  });
+
+  it('low tightens the IR cache, backdrop cache, and transform cache', () => {
+    const budgets = getMemoryBudgets('low');
+    expect(budgets.subtreeIrCacheBytes).toBe(10 * 1024 * 1024);
+    expect(budgets.backdropCacheEntries).toBe(5);
+    expect(budgets.transformCacheEntries).toBe(2000);
+    expect(budgets.gradientCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.gradientCacheEntries);
+    expect(budgets.workerImageBitmaps).toBe(DEFAULT_MEMORY_BUDGETS.workerImageBitmaps);
+    expect(budgets.thumbnailCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.thumbnailCacheEntries);
+  });
+
+  it('medium only widens the IR cache relative to the default', () => {
+    const budgets = getMemoryBudgets('medium');
+    expect(budgets.subtreeIrCacheBytes).toBe(25 * 1024 * 1024);
+    expect(budgets.transformCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.transformCacheEntries);
+    expect(budgets.backdropCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.backdropCacheEntries);
+  });
+
+  it('high widens only the IR cache, well beyond the default', () => {
+    const budgets = getMemoryBudgets('high');
+    expect(budgets.subtreeIrCacheBytes).toBe(200 * 1024 * 1024);
+    expect(budgets.transformCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.transformCacheEntries);
+  });
+
+  it('ranks the presets in ascending IR cache size: low < medium < default < high', () => {
+    const low = getMemoryBudgets('low');
+    const medium = getMemoryBudgets('medium');
+    const high = getMemoryBudgets('high');
+    expect(low.subtreeIrCacheBytes).toBeLessThan(medium.subtreeIrCacheBytes);
+    expect(medium.subtreeIrCacheBytes).toBeLessThan(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes);
+    expect(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes).toBeLessThan(high.subtreeIrCacheBytes);
+  });
+});

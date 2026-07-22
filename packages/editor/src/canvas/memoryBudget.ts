@@ -24,9 +24,9 @@ export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
   thumbnailCacheEntries: 200,
 };
 
-export function getMemoryBudgets(settings?: { memoryBudget?: string }): MemoryBudgets {
-  if (!settings?.memoryBudget) return DEFAULT_MEMORY_BUDGETS;
-  switch (settings.memoryBudget) {
+export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): MemoryBudgets {
+  if (!memoryBudget) return DEFAULT_MEMORY_BUDGETS;
+  switch (memoryBudget) {
     case 'low':
       return {
         ...DEFAULT_MEMORY_BUDGETS,
