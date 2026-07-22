@@ -16,6 +16,18 @@ export type {
   PerformanceCollectorOptions,
 } from './performance/performanceCollector';
 export { createPerformanceCollector } from './performance/performanceCollector';
+export type {
+  PerformanceWorkload,
+  PerformanceWorkloadId,
+  WorkloadPointerSample,
+  WorkloadViewport,
+} from './performance/workloadCorpus';
+export {
+  createPerformanceWorkload,
+  createPerformanceWorkloadCorpus,
+  PERFORMANCE_WORKLOAD_IDS,
+  PERFORMANCE_WORKLOAD_VERSION,
+} from './performance/workloadCorpus';
 export { SelectionOverlay } from './SelectionOverlay';
 export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
