@@ -1,10 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import {
-  applyDepthFog,
-  applyDepthOfField,
-  computeHeuristicDepth,
-} from './depthEffects';
+import { applyDepthFog, applyDepthOfField, computeHeuristicDepth } from './depthEffects';
 
 function makeTestImage(width: number, height: number): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);

@@ -52,7 +52,9 @@ describe('placeLabels', () => {
   it('handles many targets without error', () => {
     const targets: LabelTarget[] = [];
     for (let i = 0; i < 20; i++) {
-      targets.push(makeTarget(`n${i}`, (i % 5) * 150, Math.floor(i / 5) * 150, 50, 50, `Node ${i}`));
+      targets.push(
+        makeTarget(`n${i}`, (i % 5) * 150, Math.floor(i / 5) * 150, 50, 50, `Node ${i}`),
+      );
     }
     const result = placeLabels(targets);
     expect(result).toHaveLength(20);

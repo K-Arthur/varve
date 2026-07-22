@@ -3,12 +3,7 @@
  * Each generator produces a data URL for use as a pattern tile.
  */
 
-export type PatternType =
-  | 'checkerboard'
-  | 'stripes'
-  | 'polka-dots'
-  | 'crosshatch'
-  | 'hex-grid';
+export type PatternType = 'checkerboard' | 'stripes' | 'polka-dots' | 'crosshatch' | 'hex-grid';
 
 export interface PatternOptions {
   tileSize: number;
@@ -49,10 +44,24 @@ export function generatePattern(
       drawCheckerboard(ctx, tileSize, options.color1, options.color2);
       break;
     case 'stripes':
-      drawStripes(ctx, tileSize, options.color1, options.color2, options.angle ?? 45, options.density ?? 0.5);
+      drawStripes(
+        ctx,
+        tileSize,
+        options.color1,
+        options.color2,
+        options.angle ?? 45,
+        options.density ?? 0.5,
+      );
       break;
     case 'polka-dots':
-      drawPolkaDots(ctx, tileSize, options.color1, options.color2, options.density ?? 0.3, options.seed);
+      drawPolkaDots(
+        ctx,
+        tileSize,
+        options.color1,
+        options.color2,
+        options.density ?? 0.3,
+        options.seed,
+      );
       break;
     case 'crosshatch':
       drawCrosshatch(ctx, tileSize, options.color1, options.color2, options.density ?? 0.5);
@@ -177,12 +186,7 @@ function drawHexGrid(
   }
 }
 
-function drawHexagon(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  r: number,
-): void {
+function drawHexagon(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
   ctx.beginPath();
   for (let i = 0; i < 6; i++) {
     const angle = (Math.PI / 3) * i - Math.PI / 6;

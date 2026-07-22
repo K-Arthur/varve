@@ -22,9 +22,7 @@ export interface ForegroundSelectionResult {
  * Select foreground using center-priority flood fill.
  * Best for images with a centered subject on a plain background.
  */
-export function selectForegroundCenter(
-  imageData: ImageData,
-): ForegroundSelectionResult {
+export function selectForegroundCenter(imageData: ImageData): ForegroundSelectionResult {
   const { data, width, height } = imageData;
   const mask = new Uint8Array(width * height);
 
@@ -91,9 +89,7 @@ export function selectForegroundCenter(
  * Select foreground using simple border detection + center crop.
  * Fast fallback when flood fill fails (e.g., complex backgrounds).
  */
-export function selectForegroundBorder(
-  imageData: ImageData,
-): ForegroundSelectionResult {
+export function selectForegroundBorder(imageData: ImageData): ForegroundSelectionResult {
   const { width, height } = imageData;
   const mask = new Uint8Array(width * height);
 
@@ -151,10 +147,7 @@ function getPixelColor(
   return [data[idx]!, data[idx + 1]!, data[idx + 2]!];
 }
 
-function colorDistance(
-  a: [number, number, number],
-  b: [number, number, number],
-): number {
+function colorDistance(a: [number, number, number], b: [number, number, number]): number {
   const dr = a[0] - b[0];
   const dg = a[1] - b[1];
   const db = a[2] - b[2];
@@ -179,11 +172,7 @@ function computeMeanColor(
   return [r / count, g / count, b / count];
 }
 
-function computeEdgeEnergy(
-  data: Uint8ClampedArray,
-  width: number,
-  height: number,
-): Uint8Array {
+function computeEdgeEnergy(data: Uint8ClampedArray, width: number, height: number): Uint8Array {
   const edges = new Uint8Array(width * height);
 
   for (let y = 1; y < height - 1; y++) {
@@ -195,9 +184,19 @@ function computeEdgeEnergy(
       const down = ((y + 1) * width + x) * 4;
 
       const gx =
-        -data[left]! + data[right]! - data[left + 1]! + data[right + 1]! - data[left + 2]! + data[right + 2]!;
+        -data[left]! +
+        data[right]! -
+        data[left + 1]! +
+        data[right + 1]! -
+        data[left + 2]! +
+        data[right + 2]!;
       const gy =
-        -data[up]! + data[down]! - data[up + 1]! + data[down + 1]! - data[up + 2]! + data[down + 2]!;
+        -data[up]! +
+        data[down]! -
+        data[up + 1]! +
+        data[down + 1]! -
+        data[up + 2]! +
+        data[down + 2]!;
 
       const magnitude = Math.min(255, Math.sqrt(gx * gx + gy * gy) / 3);
       edges[y * width + x] = Math.round(magnitude);
@@ -207,11 +206,7 @@ function computeEdgeEnergy(
   return edges;
 }
 
-function estimateColorThreshold(
-  data: Uint8ClampedArray,
-  width: number,
-  height: number,
-): number {
+function estimateColorThreshold(data: Uint8ClampedArray, width: number, height: number): number {
   const cx = Math.floor(width / 2);
   const cy = Math.floor(height / 2);
   const centerColor = getPixelColor(data, cx, cy, width);
