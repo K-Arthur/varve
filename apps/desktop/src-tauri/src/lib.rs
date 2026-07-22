@@ -558,15 +558,11 @@ fn native_ai_status(_app: tauri::AppHandle) -> bool {
     }
 }
 
-/// Generic native ONNX inference for colorization workflows (SCUNet, SAM2,
-/// DDColor). Accepts a model type, model path, optional image data as
-/// base64, optional pre-computed tensors, and model-specific parameters.
-/// Returns inference outputs and timing information.
+/// Reserved native ONNX inference command for colorization workflows.
 ///
-/// The frontend's provider abstraction calls this command when native AI
-/// is available (native_ai_status returns true). The command validates
-/// the model path, creates or reuses a session, and runs inference
-/// outside the UI thread.
+/// This route must report itself as unavailable until it performs verified
+/// inference. Returning an empty output map with a native execution-provider
+/// label would make capability diagnostics and provider routing misleading.
 #[allow(unused_variables)]
 #[tauri::command]
 async fn native_colorize_infer(
@@ -579,40 +575,17 @@ async fn native_colorize_infer(
     target_width: Option<u32>,
     target_height: Option<u32>,
 ) -> Result<NativeInferResult, String> {
-    #[cfg(feature = "ai")]
-    {
-        if !ensure_native_ai(&app) {
-            return Err("Native ONNX Runtime not available".into());
-        }
-
-        let start = std::time::Instant::now();
-
-        // Decode image data if provided
-        let _image_bytes = if let Some(b64) = &image_data_base64 {
-            use base64::Engine;
-            base64::engine::general_purpose::STANDARD
-                .decode(b64)
-                .map_err(|e| format!("Failed to decode image data: {e}"))?
-        } else {
-            Vec::new()
-        };
-
-        // For now, return a structured response indicating the command
-        // is received and the model type. Full inference pipeline
-        // implementation requires ort session management per model type.
-        let elapsed_ms = start.elapsed().as_millis() as u64;
-
-        Ok(NativeInferResult {
-            outputs: std::collections::HashMap::new(),
-            execution_provider: "native-ort".to_string(),
-            processing_time_ms: elapsed_ms,
-        })
-    }
-    #[cfg(not(feature = "ai"))]
-    {
-        let _ = (app, model_type, model_path, image_data_base64, tensors, infer_params, target_width, target_height);
-        Err("Native AI not compiled in (missing 'ai' feature)".into())
-    }
+    let _ = (
+        app,
+        model_type,
+        model_path,
+        image_data_base64,
+        tensors,
+        infer_params,
+        target_width,
+        target_height,
+    );
+    Err("Native colorization is unavailable: ONNX inference is not implemented".into())
 }
 
 #[derive(Debug, Serialize, Deserialize)]
