@@ -105,6 +105,9 @@ comparison.
 - Targeted Chromium: canvas tools 8/8, pen/pencil 3/3, transform 2/2,
   performance-budget 5/5, and hidden/zero-size viewport recovery 1/1.
 - Browser production build: pass.
+- Production Tauri release executable: compiled and remained running for a
+  15-second isolated Wayland smoke launch. The deb (52 MB), rpm (52 MB), and
+  AppImage (149 MB) bundles were produced.
 - Deterministic soak correctness and plateau logic: 4/4 unit tests pass.
 - Native ONNX pool: 8 non-AI and 25 AI-feature tests pass.
 
@@ -115,7 +118,7 @@ not native frame-presentation gates.
 
 | Target | Build/test status | Native presentation status |
 |---|---|---|
-| CachyOS/Wayland/WebKitGTK | browser build and Linux native compilation exercised | frame pacing, fractional scale, monitor movement, and touchpad gestures unmeasured |
+| CachyOS/Wayland/WebKitGTK | release executable, deb, rpm, AppImage, and isolated launch pass | frame pacing, fractional scale, monitor movement, and touchpad gestures unmeasured |
 | Chromium browser | production build and targeted E2E pass | headless compositor only |
 | Firefox browser | not run in this tranche | unmeasured |
 | WebKit browser | not run in this tranche | unmeasured |
@@ -127,6 +130,14 @@ not native frame-presentation gates.
 WebKitGTK acceleration policy is treated as diagnostic context, not proof of an
 accelerated Canvas path. WebGPU, OffscreenCanvas, pointer coalescing/prediction,
 and worker RAF are capability-probed rather than inferred from the OS name.
+
+On this rolling CachyOS host, Tauri's downloaded linuxdeploy image used an old
+`strip` that did not understand Arch libraries containing `.relr.dyn` sections.
+The release executable, deb, and rpm succeeded; the first AppImage packaging
+attempt failed while stripping system libraries. linuxdeploy's supported
+`NO_STRIP=1` packaging option produced the AppImage. This is a packaging-tool
+compatibility finding, not a WebKitGTK runtime acceleration workaround, and it
+should be validated in the release container before being automated.
 
 ## Remaining limitations and next priorities
 
