@@ -40,7 +40,20 @@ export interface SnapOptions {
   layoutGridStep?: number;
 }
 
-const SNAP_RANGE_PX = 200;
+export const SNAP_RANGE_PX = 200;
+
+export function snapTargetSearchRect(
+  bounds: { x: number; y: number; w: number; h: number },
+  zoom: number,
+): { x: number; y: number; w: number; h: number } {
+  const padding = SNAP_RANGE_PX / Math.max(0.001, zoom);
+  return {
+    x: bounds.x - padding,
+    y: bounds.y - padding,
+    w: bounds.w + padding * 2,
+    h: bounds.h + padding * 2,
+  };
+}
 
 function thresholdWorld(zoom: number): number {
   return 8 / Math.max(0.001, zoom);
