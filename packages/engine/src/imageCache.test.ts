@@ -6,6 +6,10 @@ class MockImage {
   loading = '';
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
+  naturalWidth = 100;
+  naturalHeight = 100;
+  width = 100;
+  height = 100;
   private _src = '';
 
   get src(): string {
@@ -91,5 +95,73 @@ describe('ImageCache cross-origin loading', () => {
       'Failed to load image',
     );
     expect(cache.state('https://dead.example.com/missing.png')).toBe('error');
+  });
+});
+
+describe('ImageCache memory budget', () => {
+  function image(width: number, height: number): HTMLImageElement {
+    return {
+      naturalWidth: width,
+      naturalHeight: height,
+      width,
+      height,
+    } as HTMLImageElement;
+  }
+
+  it('evicts least-recently-used decoded images to remain within the byte budget', () => {
+    const cache = new ImageCache({ maxEntries: 10, maxBytes: 800 });
+    cache.setLoaded('first', image(10, 10));
+    cache.setLoaded('second', image(10, 10));
+    cache.getImage('first');
+    cache.setLoaded('third', image(10, 10));
+
+    expect(cache.has('first')).toBe(true);
+    expect(cache.has('second')).toBe(false);
+    expect(cache.has('third')).toBe(true);
+    expect(cache.stats).toMatchObject({ bytes: 800, evictions: 1 });
+  });
+
+  it('returns but does not retain an image larger than the entire budget', async () => {
+    const originalImage = globalThis.Image;
+    globalThis.Image = MockImage as unknown as typeof Image;
+    MockImage.dispatch = (img) => {
+      img.naturalWidth = 100;
+      img.naturalHeight = 100;
+      img.onload?.();
+    };
+
+    try {
+      const cache = new ImageCache({ maxBytes: 1_000 });
+      const loaded = await cache.load('data:image/png;base64,AAAA');
+      expect(loaded).toBeInstanceOf(MockImage);
+      expect(cache.has('data:image/png;base64,AAAA')).toBe(false);
+      expect(cache.stats).toMatchObject({ bytes: 0, misses: 1, rejectedOversize: 1 });
+    } finally {
+      globalThis.Image = originalImage;
+    }
+  });
+
+  it('resets byte accounting on explicit eviction and clear', () => {
+    const cache = new ImageCache({ maxBytes: 10_000 });
+    cache.setLoaded('one', image(10, 10));
+    cache.evict('one');
+    expect(cache.stats.bytes).toBe(0);
+
+    cache.setLoaded('two', image(10, 10));
+    cache.clear();
+    expect(cache.stats).toMatchObject({ entries: 0, bytes: 0 });
+  });
+
+  it('notifies subscribers before rejecting an oversized decoded image', () => {
+    const cache = new ImageCache({ maxBytes: 100 });
+    let observedLoaded = false;
+    cache.subscribe('large', () => {
+      observedLoaded = cache.isLoaded('large');
+    });
+
+    cache.setLoaded('large', image(10, 10));
+
+    expect(observedLoaded).toBe(true);
+    expect(cache.has('large')).toBe(false);
   });
 });
