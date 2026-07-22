@@ -59,7 +59,7 @@ export {
 } from './bezier';
 export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
-export type { BitDepth } from './colorConversion';
+export type { BitDepth, ManagedColorShim } from './colorConversion';
 export {
   channelMax,
   clampChannel,
