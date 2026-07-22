@@ -10,6 +10,7 @@ import {
 } from '@strata/scene';
 import { BrushWorkerHost } from '../render/brushWorkerHost';
 import { BaseTool } from './BaseTool';
+import { collectSourceEvents } from './inputNormalizer';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 export class PaintTool extends BaseTool {
@@ -167,15 +168,13 @@ export class PaintTool extends BaseTool {
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
 
-    const events =
-      typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
-        ? e.getCoalescedEvents()
-        : [e];
+    const events = ctx.sourceEvents.length > 0 ? ctx.sourceEvents : collectSourceEvents(e, true);
 
     for (const ev of events) {
+      if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
-      const tilt = (Math.abs(ev.tiltX ?? 0) + Math.abs(ev.tiltY ?? 0)) / 2;
+      const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
       this.sampleStrokePoint(world, pressure, undefined, tilt);
     }
 

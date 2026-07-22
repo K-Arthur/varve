@@ -2,6 +2,7 @@
 
 import { makeRasterLayerNode } from '@strata/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { normalizeInputEvent } from '../inputNormalizer';
 import { PaintTool } from '../PaintTool';
 import type { ToolContext } from '../types';
 
@@ -332,6 +333,19 @@ describe('PaintTool', () => {
     tool.onPointerMove(moveEvent, ctx);
 
     expect(ctx.updateNode).toHaveBeenCalled();
+  });
+
+  it('consumes centrally normalized samples without reading the browser event twice', () => {
+    const pointer = makePointerEvent(100, 200, { pointerId: 1 });
+    tool.onPointerDown(pointer, ctx);
+    const getCoalescedEvents = vi.fn(() => {
+      throw new Error('coalesced input was consumed twice');
+    });
+    const moveEvent = makePointerEvent(110, 200, { pointerId: 1, getCoalescedEvents });
+    ctx.sourceEvents = [normalizeInputEvent(moveEvent)];
+
+    expect(() => tool.onPointerMove(moveEvent, ctx)).not.toThrow();
+    expect(getCoalescedEvents).not.toHaveBeenCalled();
   });
 
   it('tilt values propagate through pointer events', () => {
