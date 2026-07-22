@@ -71,9 +71,17 @@ describe('suggestConstraintsForSelection', () => {
     let doc = createDocument('Test');
     const frame = makeFrameNode('f1', { w: 400, h: 300, name: 'Frame', children: [] });
     doc = addNode(doc, frame);
-    const c1 = makeShapeNode('c1', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, { name: 'C1', transform: [1, 0, 0, 1, 0, 0] });
+    const c1 = makeShapeNode(
+      'c1',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      { name: 'C1', transform: [1, 0, 0, 1, 0, 0] },
+    );
     doc = addChild(doc, 'f1', c1);
-    const c2 = makeShapeNode('c2', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, { name: 'C2', transform: [1, 0, 0, 1, 300, 0] });
+    const c2 = makeShapeNode(
+      'c2',
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      { name: 'C2', transform: [1, 0, 0, 1, 300, 0] },
+    );
     doc = addChild(doc, 'f1', c2);
 
     const suggestions = suggestConstraintsForSelection(doc, ['c1', 'c2']);

@@ -17,10 +17,7 @@ const EDGE_TOLERANCE = 4;
  * Suggest responsive constraints for a node based on its position
  * and size relative to its parent frame.
  */
-export function suggestConstraint(
-  doc: Document,
-  nodeId: NodeId,
-): ConstraintSuggestion | null {
+export function suggestConstraint(doc: Document, nodeId: NodeId): ConstraintSuggestion | null {
   const node = doc.nodes[nodeId];
   if (!node) return null;
 
@@ -51,7 +48,8 @@ export function suggestConstraint(
   const nearTop = localY <= EDGE_TOLERANCE;
   const nearBottom = Math.abs(parentH - (localY + localH)) <= EDGE_TOLERANCE;
 
-  const edgeCount = (nearLeft ? 1 : 0) + (nearRight ? 1 : 0) + (nearTop ? 1 : 0) + (nearBottom ? 1 : 0);
+  const edgeCount =
+    (nearLeft ? 1 : 0) + (nearRight ? 1 : 0) + (nearTop ? 1 : 0) + (nearBottom ? 1 : 0);
   const hSpan = localW >= parentW * 0.8;
   const vSpan = localH >= parentH * 0.8;
   const hCenter = Math.abs(localX + localW / 2 - parentW / 2) <= EDGE_TOLERANCE;

@@ -107,13 +107,16 @@ export function placeLabels(
         h: target.labelH,
       });
 
-      const overlaps = occupied.length > 1 &&
-        occupied.slice(0, -1).some((occ) =>
-          rectsOverlap(
-            { x: bestCandidate!.x, y: bestCandidate!.y, w: target.labelW, h: target.labelH },
-            occ,
-          ),
-        );
+      const overlaps =
+        occupied.length > 1 &&
+        occupied
+          .slice(0, -1)
+          .some((occ) =>
+            rectsOverlap(
+              { x: bestCandidate!.x, y: bestCandidate!.y, w: target.labelW, h: target.labelH },
+              occ,
+            ),
+          );
 
       placed.push({
         nodeId: target.nodeId,
@@ -143,19 +146,31 @@ function computeLabelPosition(
     case 'n':
       return { x: cx - target.labelW / 2, y: target.targetY - target.labelH - offsetY };
     case 'ne':
-      return { x: target.targetX + target.targetW + offsetX, y: target.targetY - target.labelH - offsetY };
+      return {
+        x: target.targetX + target.targetW + offsetX,
+        y: target.targetY - target.labelH - offsetY,
+      };
     case 'e':
       return { x: target.targetX + target.targetW + offsetX, y: cy - target.labelH / 2 };
     case 'se':
-      return { x: target.targetX + target.targetW + offsetX, y: target.targetY + target.targetH + offsetY };
+      return {
+        x: target.targetX + target.targetW + offsetX,
+        y: target.targetY + target.targetH + offsetY,
+      };
     case 's':
       return { x: cx - target.labelW / 2, y: target.targetY + target.targetH + offsetY };
     case 'sw':
-      return { x: target.targetX - target.labelW - offsetX, y: target.targetY + target.targetH + offsetY };
+      return {
+        x: target.targetX - target.labelW - offsetX,
+        y: target.targetY + target.targetH + offsetY,
+      };
     case 'w':
       return { x: target.targetX - target.labelW - offsetX, y: cy - target.labelH / 2 };
     case 'nw':
-      return { x: target.targetX - target.labelW - offsetX, y: target.targetY - target.labelH - offsetY };
+      return {
+        x: target.targetX - target.labelW - offsetX,
+        y: target.targetY - target.labelH - offsetY,
+      };
   }
 }
 

@@ -52,11 +52,7 @@ export function boundedDamerauLevenshtein(a: string, b: string, maxDist: number)
     for (let j = 1; j <= bLen; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
 
-      let val = Math.min(
-        cur[j - 1]! + 1,
-        prev[j]! + 1,
-        prev[j - 1]! + cost,
-      );
+      let val = Math.min(cur[j - 1]! + 1, prev[j]! + 1, prev[j - 1]! + cost);
 
       // Transposition (swap two adjacent chars = 1 operation)
       if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {

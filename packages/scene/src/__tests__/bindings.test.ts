@@ -11,7 +11,12 @@ function makeStore(): ReturnType<typeof createVariableStore> {
     v3: { id: 'v3', name: 'heightVar', type: 'number', valuesByMode: { default: 200 } },
     v4: { id: 'v4', name: 'xVar', type: 'number', valuesByMode: { default: 100 } },
     v5: { id: 'v5', name: 'yVar', type: 'number', valuesByMode: { default: 50 } },
-    v6: { id: 'v6', name: 'fillVar', type: 'color', valuesByMode: { default: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } } },
+    v6: {
+      id: 'v6',
+      name: 'fillVar',
+      type: 'color',
+      valuesByMode: { default: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+    },
     v7: { id: 'v7', name: 'textVar', type: 'string', valuesByMode: { default: 'Hello' } },
     v8: { id: 'v8', name: 'opacityVar', type: 'number', valuesByMode: { default: 0.5 } },
   };

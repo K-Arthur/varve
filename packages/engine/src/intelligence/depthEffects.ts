@@ -122,8 +122,12 @@ export function applyDepthFog(
       const fogFactor = (1 - depth / 255) * fogStrength;
 
       output[outIdx] = Math.round(data[outIdx]! * (1 - fogFactor) + fogColor[0] * fogFactor);
-      output[outIdx + 1] = Math.round(data[outIdx + 1]! * (1 - fogFactor) + fogColor[1] * fogFactor);
-      output[outIdx + 2] = Math.round(data[outIdx + 2]! * (1 - fogFactor) + fogColor[2] * fogFactor);
+      output[outIdx + 1] = Math.round(
+        data[outIdx + 1]! * (1 - fogFactor) + fogColor[1] * fogFactor,
+      );
+      output[outIdx + 2] = Math.round(
+        data[outIdx + 2]! * (1 - fogFactor) + fogColor[2] * fogFactor,
+      );
       output[outIdx + 3] = data[outIdx + 3]!;
     }
   }
@@ -149,7 +153,12 @@ function computePixelEdge(
   const down = ((y + 1) * width + x) * 4;
 
   const gx =
-    -data[left]! + data[right]! - data[left + 1]! + data[right + 1]! - data[left + 2]! + data[right + 2]!;
+    -data[left]! +
+    data[right]! -
+    data[left + 1]! +
+    data[right + 1]! -
+    data[left + 2]! +
+    data[right + 2]!;
   const gy =
     -data[up]! + data[down]! - data[up + 1]! + data[down + 1]! - data[up + 2]! + data[down + 2]!;
 
