@@ -3,7 +3,12 @@ import { loadSettings } from '../settings';
 import { type BootManager, type BootState, createBootManager } from './bootManager';
 import { checkStartupCapabilities, type StartupCapabilities } from './capabilityCheck';
 import { STARTUP_TIMEOUT_MS } from './startupConstants';
-import { createStartupTimer, type StartupTimer } from './startupTimer';
+import {
+  createStartupTimer,
+  STARTUP_MILESTONES,
+  type StartupTimelineExport,
+  type StartupTimer,
+} from './startupTimer';
 
 export interface UseStartupOptions {
   onBootComplete?: () => void;
@@ -18,8 +23,11 @@ export interface UseStartupResult {
   retryCount: number;
   capabilities: StartupCapabilities;
   startupTime: number;
+  markHomeDataReady: () => void;
+  markEditorStateInitialized: () => void;
   onHomeReady: () => void;
   onEditorReady: () => void;
+  exportStartupTimeline: () => StartupTimelineExport;
   onBootError: (err: Error) => void;
 }
 
@@ -49,10 +57,7 @@ export function useStartup(opts: UseStartupOptions): UseStartupResult {
   const timeoutFired = useRef(false);
 
   useEffect(() => {
-    startupTimer.mark('app_mount');
-    if (typeof performance !== 'undefined' && performance.mark) {
-      performance.mark('app_mount');
-    }
+    startupTimer.markOnce(STARTUP_MILESTONES.APP_MOUNT);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isWarmRestart = useMemo(() => {
@@ -63,12 +68,6 @@ export function useStartup(opts: UseStartupOptions): UseStartupResult {
     }
     return false;
   }, []);
-
-  useEffect(() => {
-    if ((!showBrandedLoader || isWarmRestart) && bootManager.state() === 'init') {
-      bootManager.markHomeReady();
-    }
-  }, [showBrandedLoader, isWarmRestart, bootManager]);
 
   const reportBootError = (err: Error) => {
     setBootError(err.message);
@@ -111,8 +110,18 @@ export function useStartup(opts: UseStartupOptions): UseStartupResult {
     },
     capabilities,
     startupTime,
-    onHomeReady: () => bootManager.markHomeReady(),
-    onEditorReady: () => bootManager.markEditorReady(),
+    markHomeDataReady: () => startupTimer.markOnce(STARTUP_MILESTONES.HOME_DATA_READY),
+    markEditorStateInitialized: () =>
+      startupTimer.markOnce(STARTUP_MILESTONES.EDITOR_STATE_INITIALIZED),
+    onHomeReady: () => {
+      startupTimer.markOnce(STARTUP_MILESTONES.HOME_INTERACTIVE);
+      bootManager.markHomeReady();
+    },
+    onEditorReady: () => {
+      startupTimer.markOnce(STARTUP_MILESTONES.EDITOR_FIRST_VISIBLE_CANVAS);
+      bootManager.markEditorReady();
+    },
+    exportStartupTimeline: () => startupTimer.exportTimeline(),
     onBootError: reportBootError,
   };
 }
