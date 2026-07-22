@@ -41,8 +41,15 @@ export { Shell } from './Shell';
 export { formatShortcut, SHORTCUT_DEFS, useShortcuts } from './shortcuts';
 export type { StartupCapabilities } from './startup/capabilityCheck';
 export { checkStartupCapabilities } from './startup/capabilityCheck';
-export type { StartupMark, StartupTimer } from './startup/startupTimer';
-export { createStartupTimer } from './startup/startupTimer';
+export type {
+  StartupMark,
+  StartupMilestone,
+  StartupTimelineExport,
+  StartupTimer,
+} from './startup/startupTimer';
+export { createStartupTimer, STARTUP_MILESTONES } from './startup/startupTimer';
 export type { UseStartupOptions, UseStartupResult } from './startup/useStartup';
 export { useStartup } from './startup/useStartup';
+export type { VisibleSurfaceOptions } from './startup/visibleSurface';
+export { afterFirstVisiblePaint } from './startup/visibleSurface';
 export { TabStrip } from './TabStrip';
