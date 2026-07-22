@@ -7,12 +7,7 @@
  * Research basis: ADR-0009 document color architecture, IEEE 754 float ops.
  */
 
-import {
-  denormalizeChannel,
-  managedColorToNormalized,
-  managedColorToRgba,
-  normalizeChannel,
-} from '@strata/shared';
+import { denormalizeChannel, managedColorToRgba, normalizeChannel } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import { blend } from '../blendModes';
 

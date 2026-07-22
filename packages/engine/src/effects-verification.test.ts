@@ -6,14 +6,9 @@
  * verification that the effects pipeline produces correct visual output.
  */
 import { describe, expect, it } from 'vitest';
-import {
-  applyGradientMapFilter,
-  buildGradientLUT,
-  type GradientMapParams,
-  type GradientMapStop,
-} from './gradientMap';
-import { applyHalftone, type HalftoneParams } from './halftone';
-import { applyTritone, type TritoneParams, tritoneMap } from './tritone';
+import { applyGradientMapFilter, buildGradientLUT, type GradientMapStop } from './gradientMap';
+import { applyHalftone } from './halftone';
+import { applyTritone } from './tritone';
 
 function createImageData(width: number, height: number, pixels: number[]): ImageData {
   const data = new Uint8ClampedArray(width * height * 4);

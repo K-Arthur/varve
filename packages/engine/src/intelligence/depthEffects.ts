@@ -146,7 +146,7 @@ function computePixelEdge(
 ): number {
   if (x < 1 || x >= width - 1 || y < 1 || y >= height - 1) return 0;
 
-  const idx = (y * width + x) * 4;
+  const _idx = (y * width + x) * 4;
   const left = (y * width + (x - 1)) * 4;
   const right = (y * width + (x + 1)) * 4;
   const up = ((y - 1) * width + x) * 4;

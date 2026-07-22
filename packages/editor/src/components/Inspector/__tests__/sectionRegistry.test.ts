@@ -332,7 +332,7 @@ describe('Section state', () => {
     const state = createDefaultSectionState();
     // Sections with defaultExpanded=true should have collapsed=false
     expect(state['position-size'].collapsed).toBe(false);
-    expect(state['fills'].collapsed).toBe(false);
+    expect(state.fills.collapsed).toBe(false);
     // Sections with defaultExpanded=false should have collapsed=true
     expect(state['cognitive-load'].collapsed).toBe(true);
   });
@@ -363,16 +363,16 @@ describe('Section state', () => {
 
   it('hideSection sets hidden=true', () => {
     const initial = createDefaultSectionState();
-    expect(initial['effects'].hidden).toBe(false);
+    expect(initial.effects.hidden).toBe(false);
     const hidden = hideSection(initial, 'effects');
-    expect(hidden['effects'].hidden).toBe(true);
+    expect(hidden.effects.hidden).toBe(true);
   });
 
   it('showSection sets hidden=false', () => {
     const initial = createDefaultSectionState();
     const hidden = hideSection(initial, 'effects');
     const shown = showSection(hidden, 'effects');
-    expect(shown['effects'].hidden).toBe(false);
+    expect(shown.effects.hidden).toBe(false);
   });
 
   it('showAllSections unhides all', () => {
@@ -381,8 +381,8 @@ describe('Section state', () => {
     state = hideSection(state, 'typography');
     state = hideSection(state, 'corner-radius');
     const shown = showAllSections(state);
-    expect(shown['effects'].hidden).toBe(false);
-    expect(shown['typography'].hidden).toBe(false);
+    expect(shown.effects.hidden).toBe(false);
+    expect(shown.typography.hidden).toBe(false);
     expect(shown['corner-radius'].hidden).toBe(false);
   });
 
@@ -391,8 +391,8 @@ describe('Section state', () => {
     state = hideSection(state, 'effects');
     state = setCollapsed(state, 'fills', true);
     const restored = restoreDefaultSectionState(state);
-    expect(restored['effects'].hidden).toBe(false);
-    expect(restored['fills'].collapsed).toBe(false);
+    expect(restored.effects.hidden).toBe(false);
+    expect(restored.fills.collapsed).toBe(false);
   });
 
   it('restoreDefaultCollapsed resets only collapsed state', () => {
@@ -400,8 +400,8 @@ describe('Section state', () => {
     state = hideSection(state, 'effects');
     state = setCollapsed(state, 'fills', true);
     const restored = restoreDefaultCollapsed(state);
-    expect(restored['effects'].hidden).toBe(true); // hidden preserved
-    expect(restored['fills'].collapsed).toBe(false); // collapsed reset
+    expect(restored.effects.hidden).toBe(true); // hidden preserved
+    expect(restored.fills.collapsed).toBe(false); // collapsed reset
   });
 
   it('hideOptionalSections hides all non-essential sections', () => {
@@ -409,12 +409,12 @@ describe('Section state', () => {
     const hidden = hideOptionalSections(state);
     // Essential sections remain visible
     expect(hidden['position-size'].hidden).toBe(false);
-    expect(hidden['fills'].hidden).toBe(false);
-    expect(hidden['stroke'].hidden).toBe(false);
-    expect(hidden['appearance'].hidden).toBe(false);
+    expect(hidden.fills.hidden).toBe(false);
+    expect(hidden.stroke.hidden).toBe(false);
+    expect(hidden.appearance.hidden).toBe(false);
     // Optional sections are hidden
-    expect(hidden['effects'].hidden).toBe(true);
-    expect(hidden['typography'].hidden).toBe(true);
+    expect(hidden.effects.hidden).toBe(true);
+    expect(hidden.typography.hidden).toBe(true);
     expect(hidden['corner-radius'].hidden).toBe(true);
   });
 });
@@ -466,7 +466,7 @@ describe('Section state queries', () => {
 describe('Subsection state', () => {
   it('default state has no subsections', () => {
     const state = createDefaultSectionState();
-    expect(state['typography'].subsections).toBeUndefined();
+    expect(state.typography.subsections).toBeUndefined();
   });
 
   it('toggleSubSectionCollapsed toggles nested collapsed state', () => {
@@ -520,9 +520,9 @@ describe('Subsection state', () => {
   it('hideSubSection and showSubSection toggle hidden state', () => {
     let state = createDefaultSectionState();
     state = hideSubSection(state, 'typography', 'openTypeFeatures');
-    expect(state['typography'].subsections?.['openTypeFeatures']?.hidden).toBe(true);
+    expect(state.typography.subsections?.openTypeFeatures?.hidden).toBe(true);
     state = showSubSection(state, 'typography', 'openTypeFeatures');
-    expect(state['typography'].subsections?.['openTypeFeatures']?.hidden).toBe(false);
+    expect(state.typography.subsections?.openTypeFeatures?.hidden).toBe(false);
   });
 
   it('subsections with no parent state get defaults', () => {
@@ -540,7 +540,7 @@ describe('Subsection state', () => {
     expect(isSubSectionCollapsed(state, 'typography', 'openTypeFeatures')).toBe(true);
     expect(isSubSectionCollapsed(state, 'typography', 'variableFontAxes')).toBe(true);
     // Unrelated section has no subsections
-    expect(state['fills'].subsections).toBeUndefined();
+    expect(state.fills.subsections).toBeUndefined();
   });
 });
 
@@ -572,8 +572,8 @@ describe('Section state migration', () => {
     });
     expect(state['position-size'].collapsed).toBe(true);
     expect(state['position-size'].hidden).toBe(false);
-    expect(state['effects'].collapsed).toBe(false);
-    expect(state['effects'].hidden).toBe(true);
+    expect(state.effects.collapsed).toBe(false);
+    expect(state.effects.hidden).toBe(true);
   });
 
   it('migrateSectionState ignores unknown IDs', () => {
@@ -593,7 +593,7 @@ describe('Section state migration', () => {
     });
     // Falls back to defaults for malformed entries
     expect(state['position-size'].collapsed).toBe(false);
-    expect(state['effects'].hidden).toBe(false);
+    expect(state.effects.hidden).toBe(false);
   });
 
   it('migrateSectionState handles wrapped format', () => {

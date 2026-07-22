@@ -18,7 +18,7 @@
 
 import { totalEffectExpansion } from './adjustmentPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
-import { createRasterSurface, encodeRasterSurface, type RasterSurface } from './rasterSurface';
+import { createRasterSurface, type RasterSurface } from './rasterSurface';
 import type { FilterIR } from './types';
 
 /**

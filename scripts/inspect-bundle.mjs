@@ -11,7 +11,7 @@
  * Default --platform: auto-detected from host OS.
  */
 import { execSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const bundleDir = resolve(process.argv[2] || 'apps/desktop/src-tauri/target/release/bundle');

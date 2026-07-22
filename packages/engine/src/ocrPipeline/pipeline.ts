@@ -136,7 +136,7 @@ export async function runOcrPipeline(
         confidence: 0,
         charConfidences: [],
       })),
-      executionProvider: (detResult.outputs['executionProvider'] as string) ?? 'wasm',
+      executionProvider: (detResult.outputs.executionProvider as string) ?? 'wasm',
       processingTimeMs: elapsed,
       dictionaryAvailable: false,
     };
@@ -197,7 +197,7 @@ export async function runOcrPipeline(
   const elapsed = performance.now() - start;
   return {
     words,
-    executionProvider: (detResult.outputs['executionProvider'] as string) ?? 'wasm',
+    executionProvider: (detResult.outputs.executionProvider as string) ?? 'wasm',
     processingTimeMs: elapsed,
     dictionaryAvailable,
   };

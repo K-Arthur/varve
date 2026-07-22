@@ -402,7 +402,7 @@ export function setTextAdaptiveContrast(
   ac: Partial<AdaptiveContrastState>,
 ): Document {
   const node = doc.nodes[nodeId];
-  if (!node || node.kind !== 'text') return doc;
+  if (node?.kind !== 'text') return doc;
 
   const existing = (node as import('./types').TextNode).adaptiveContrast;
   if (ac.enabled === false) {

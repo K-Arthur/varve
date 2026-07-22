@@ -177,7 +177,7 @@ function computeEdgeEnergy(data: Uint8ClampedArray, width: number, height: numbe
 
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
-      const idx = (y * width + x) * 4;
+      const _idx = (y * width + x) * 4;
       const left = (y * width + (x - 1)) * 4;
       const right = (y * width + (x + 1)) * 4;
       const up = ((y - 1) * width + x) * 4;
