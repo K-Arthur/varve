@@ -381,7 +381,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -413,7 +413,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -546,7 +546,7 @@ mod tests {
                 g,
                 b,
                 a,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             }
         };
@@ -658,7 +658,7 @@ mod tests {
                 g: 200.0,
                 b: 200.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -671,7 +671,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -691,7 +691,7 @@ mod tests {
                 g: 255.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -711,7 +711,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -729,7 +729,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -753,7 +753,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None
             }
         );

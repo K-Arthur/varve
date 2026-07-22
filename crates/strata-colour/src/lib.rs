@@ -294,7 +294,7 @@ mod tests {
             g: 208.0,
             b: 198.0,
             a: 255.0,
-            bitDepth: None,
+            bit_depth: None,
             profile: None,
         };
         let (r, g, b, a) = engine_color_rgba(&color);
@@ -309,7 +309,7 @@ mod tests {
             y: 255.0,
             k: 0.0,
             a: 255.0,
-            bitDepth: None,
+            bit_depth: None,
             profile: None,
         };
         let (r, _g, b, _a) = engine_color_rgba(&color);

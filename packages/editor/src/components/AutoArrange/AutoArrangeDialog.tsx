@@ -1,4 +1,5 @@
-import { Button, Dialog, NumberInput } from '@strata/ui';
+import type { IconName } from '@strata/ui';
+import { Button, Dialog, Icon, NumberInput } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -19,12 +20,12 @@ function childSize(n: import('@strata/scene').SceneNode): { width: number; heigh
   return { width: 100, height: 60 };
 }
 
-const LAYOUT_TYPES: { value: ArrangeLayoutType; label: string; icon: string }[] = [
-  { value: 'grid', label: 'Grid', icon: '▦' },
-  { value: 'circle', label: 'Circle', icon: '○' },
-  { value: 'flow', label: 'Flow', icon: '↗' },
-  { value: 'flex-row', label: 'Flex Row', icon: '⇉' },
-  { value: 'flex-column', label: 'Flex Column', icon: '⇊' },
+const LAYOUT_TYPES: { value: ArrangeLayoutType; label: string; icon: IconName }[] = [
+  { value: 'grid', label: 'Grid', icon: 'LayoutGrid' },
+  { value: 'circle', label: 'Circle', icon: 'Circle' },
+  { value: 'flow', label: 'Flow', icon: 'ArrowUpRight' },
+  { value: 'flex-row', label: 'Flex Row', icon: 'ArrowLeftRight' },
+  { value: 'flex-column', label: 'Flex Column', icon: 'ArrowUpDown' },
 ];
 
 export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrangeDialogProps) {
@@ -123,8 +124,8 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
                 className={`auto-arrange__layout-btn${layoutType === lt.value ? ' auto-arrange__layout-btn--active' : ''}`}
                 onClick={() => setLayoutType(lt.value)}
               >
-                <span className="auto-arrange__layout-icon" aria-hidden="true">
-                  {lt.icon}
+                <span className="auto-arrange__layout-icon">
+                  <Icon name={lt.icon} />
                 </span>
                 <span className="auto-arrange__layout-label">{lt.label}</span>
               </button>

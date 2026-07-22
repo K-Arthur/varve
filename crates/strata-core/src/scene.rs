@@ -66,7 +66,7 @@ pub enum EngineColor {
         b: f64,
         a: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        bitDepth: Option<String>,
+        bit_depth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
     },
@@ -78,7 +78,7 @@ pub enum EngineColor {
         k: f64,
         a: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        bitDepth: Option<String>,
+        bit_depth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
     },
@@ -87,7 +87,7 @@ pub enum EngineColor {
         v: f64,
         a: f64,
         #[serde(default, skip_serializing_if = "Option::is_none")]
-        bitDepth: Option<String>,
+        bit_depth: Option<String>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         profile: Option<String>,
     },
@@ -227,7 +227,7 @@ impl Default for Stroke {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             weight: 1.0,
@@ -440,7 +440,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -493,7 +493,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),

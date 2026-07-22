@@ -30,7 +30,7 @@ use std::collections::HashMap;
 
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
-use strata_core::{CmykFallback, Effect, EngineColor, FillIR, GradientStop, SceneNode, Shape};
+use strata_core::{Effect, EngineColor, FillIR, GradientStop, SceneNode, Shape};
 
 use crate::subset::{
     collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
@@ -158,7 +158,7 @@ fn spot_color_separation(color: &EngineColor) -> String {
         // (0-1) maps to spot concentration.
         format!(
             "[/Separation {name} /DeviceCMYK {{0 0 0 0}}] cs\n{:.3} sc\n",
-            tint_val * (*a as f64 / 255.0)
+            tint_val * (*a / 255.0)
         )
     } else {
         String::new()
@@ -494,7 +494,7 @@ fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) 
 
 /// Render stacked fills from `node.fills` (bottom-to-top, last = topmost).
 /// Falls back to `node.fill` when `fills` is None or empty.
-
+///
 /// A gradient shading definition collected during render.
 /// The actual PDF objects are created later (after the render borrow ends).
 #[derive(Clone)]
@@ -630,7 +630,7 @@ fn sample_gradient(stops: &[GradientStop], t: f64) -> EngineColor {
             g: 0.0,
             b: 0.0,
             a: 255.0,
-            bitDepth: None,
+            bit_depth: None,
             profile: None,
         };
     }
@@ -662,7 +662,7 @@ fn sample_gradient(stops: &[GradientStop], t: f64) -> EngineColor {
         g: lerp(g1, g2),
         b: lerp(b1, b2),
         a: lerp(a1, a2),
-        bitDepth: None,
+        bit_depth: None,
         profile: None,
     }
 }
@@ -1369,9 +1369,9 @@ fn check_lossy_color(fill: &FillIR) {
     };
     for color in colors {
         let bit_depth = match color {
-            EngineColor::Rgb { bitDepth, .. } => bitDepth.as_deref(),
-            EngineColor::Cmyk { bitDepth, .. } => bitDepth.as_deref(),
-            EngineColor::Gray { bitDepth, .. } => bitDepth.as_deref(),
+            EngineColor::Rgb { bit_depth, .. } => bit_depth.as_deref(),
+            EngineColor::Cmyk { bit_depth, .. } => bit_depth.as_deref(),
+            EngineColor::Gray { bit_depth, .. } => bit_depth.as_deref(),
             _ => None,
         };
         if let Some(bd) = bit_depth {
@@ -1414,7 +1414,7 @@ fn fill_to_color_string(
                         g: 0.0,
                         b: 0.0,
                         a: 255.0,
-                        bitDepth: None,
+                        bit_depth: None,
                         profile: None,
                     },
                     profile,
@@ -1425,7 +1425,7 @@ fn fill_to_color_string(
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
-                    bitDepth: None,
+                    bit_depth: None,
                     profile: None,
                 })
             }
@@ -1438,7 +1438,7 @@ fn fill_to_color_string(
                         g: 0.0,
                         b: 0.0,
                         a: 255.0,
-                        bitDepth: None,
+                        bit_depth: None,
                         profile: None,
                     },
                     profile,
@@ -1449,7 +1449,7 @@ fn fill_to_color_string(
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
-                    bitDepth: None,
+                    bit_depth: None,
                     profile: None,
                 })
             }
@@ -1801,7 +1801,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     let mut need_bt = false;
 
     // ── Build content with image rendering support ──────────────────────
-    let (image_refs, mut shading_registry) = {
+    let (image_refs, shading_registry) = {
         let mut image_state = ImageRenderState::new(&mut doc);
         let mut shading_registry = ShadingRegistry::new();
 
@@ -1869,8 +1869,7 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
             // Try outline mode — or forced outline for non-WinAnsi text
             // (Arabic, Hebrew, CJK cannot be encoded in WinAnsiEncoding and MUST
             // be outlined even when opts.outline_text is false).
-            if do_outline
-                || shape_text(node).map_or(false, |t| !t.is_empty() && requires_outline(t))
+            if do_outline || shape_text(node).is_some_and(|t| !t.is_empty() && requires_outline(t))
             {
                 if let Shape::Text {
                     text,
@@ -2101,7 +2100,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2154,7 +2153,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2194,7 +2193,7 @@ mod tests {
                 g: g as f64,
                 b: b as f64,
                 a: a as f64,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             opacity: 1.0,
@@ -2214,7 +2213,7 @@ mod tests {
                         g: 0.0,
                         b: 0.0,
                         a: 255.0,
-                        bitDepth: None,
+                        bit_depth: None,
                         profile: None,
                     },
                     midpoint: None,
@@ -2226,7 +2225,7 @@ mod tests {
                         g: 0.0,
                         b: 255.0,
                         a: 255.0,
-                        bitDepth: None,
+                        bit_depth: None,
                         profile: None,
                     },
                     midpoint: None,
@@ -2264,7 +2263,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2315,7 +2314,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2357,7 +2356,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -2406,7 +2405,7 @@ mod tests {
             name: "PANTONE 185 C".into(),
             tint: 80.0,
             a: 255.0,
-            process_fallback: Some(CmykFallback {
+            process_fallback: Some(strata_core::CmykFallback {
                 c: 0.0,
                 m: 91.0,
                 y: 76.0,
@@ -2495,7 +2494,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -2889,7 +2888,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -3000,7 +2999,7 @@ mod tests {
                     g: 0.0,
                     b: 0.0,
                     a: 255.0,
-                    bitDepth: None,
+                    bit_depth: None,
                     profile: None,
                 },
                 opacity: 1.0,
@@ -3075,7 +3074,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -3183,7 +3182,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -3243,7 +3242,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -3350,7 +3349,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -3407,7 +3406,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             opacity: 0.5,
@@ -3560,7 +3559,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
-                bitDepth: None,
+                bit_depth: None,
                 profile: None,
             },
             children: Vec::new(),
@@ -3661,7 +3660,7 @@ mod tests {
             g: 100.0,
             b: 60.0,
             a: 255.0,
-            bitDepth: None,
+            bit_depth: None,
             profile: None,
         };
         let fill = strata_core::FillIR::Solid {
