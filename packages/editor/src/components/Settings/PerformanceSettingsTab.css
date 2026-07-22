@@ -1,0 +1,30 @@
+.performance-settings__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+.performance-settings__stat {
+  --color-text-muted: var(--color-text-muted-on-sunken);
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-md);
+}
+.performance-settings__stat-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.performance-settings__stat-value {
+  font-size: var(--font-size-sm);
+  font-family: monospace;
+  color: var(--color-text-primary);
+}
+
+/* ── High-contrast overrides ──────────────────────────── */
+[data-theme="high-contrast"] .performance-settings__stat {
+  border: 1px solid var(--color-border-strong);
+}
