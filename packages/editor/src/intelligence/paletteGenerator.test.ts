@@ -2,9 +2,9 @@
  * Tests for the accessible palette generator.
  */
 
-import { describe, expect, it } from 'vitest';
 import { createDocument } from '@strata/scene';
-import { generateAccessiblePalette, applyPaletteAsSwatches } from './paletteGenerator';
+import { describe, expect, it } from 'vitest';
+import { applyPaletteAsSwatches, generateAccessiblePalette } from './paletteGenerator';
 
 describe('generateAccessiblePalette', () => {
   const doc = createDocument({});

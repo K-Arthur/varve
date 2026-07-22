@@ -6,19 +6,19 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ModelManifestEntry } from '../types';
 import {
   type CatalogVerificationResult,
-  type LastKnownGoodEntry,
-  type SignedManifestEnvelope,
   clearLastKnownGood,
   getTrustMode,
+  type LastKnownGoodEntry,
   loadLastKnownGood,
   resetCatalogTrust,
+  type SignedManifestEnvelope,
   saveLastKnownGood,
   setTrustMode,
   verifyCatalogEnvelope,
 } from '../catalogTrust';
+import type { ModelManifestEntry } from '../types';
 
 // Mock localStorage
 const localStorageMock: Record<string, string> = {};

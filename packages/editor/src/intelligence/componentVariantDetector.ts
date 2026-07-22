@@ -143,7 +143,7 @@ export function detectVariantCandidates(doc: Document): VariantCandidate[] {
         if (!allDiffs.has(d.property)) {
           allDiffs.set(d.property, [d.aValue]);
         }
-        const vals = allDiffs.get(d.property)!!;
+        const vals = allDiffs.get(d.property)!;
         if (!vals.includes(d.bValue)) {
           vals.push(d.bValue);
         }

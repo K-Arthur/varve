@@ -9,9 +9,9 @@
  * Research basis: Figma multi-run text editing, ARIA textbox + activedescendant.
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
 import type { CharacterFormat, RichSelection, RichText, TextRun } from '@strata/scene';
 import { applyFormatToSelection, mergeAdjacentRuns } from '@strata/scene';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { InspectorColorPopover } from './InspectorColorPopover';
 

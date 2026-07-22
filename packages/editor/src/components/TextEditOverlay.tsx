@@ -10,8 +10,8 @@
  */
 
 import type { Affine } from '@strata/engine';
-import type { RichSelection, TextNode } from '@strata/scene';
 import { splitGraphemes } from '@strata/engine';
+import type { RichSelection, TextNode } from '@strata/scene';
 import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,

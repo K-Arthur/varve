@@ -13,10 +13,9 @@
  * Research basis: Figma trim-to-subject, Photoshop alpha bounds,
  * Illustrator clipping mask bounds, SVG clipPath geometry.
  */
-import type { Affine } from '@strata/engine';
+import type { Affine, PathPoint } from '@strata/engine';
 import type { Document, NodeId, RasterMaskAsset, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
-import type { PathPoint } from '@strata/engine';
 import { cubicBezierBBox, transformRect } from '@strata/shared';
 
 // ---------------------------------------------------------------------------

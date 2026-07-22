@@ -4,7 +4,7 @@
  * Uses real PSD binary fixtures where available, and tests the parser's
  * mask extraction, conversion to canonical masks, and import reporting.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @webtoon/psd
 vi.mock('@webtoon/psd', () => ({

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  type BatchRenameOptions,
   applyBatchRename,
+  type BatchRenameOptions,
   computeBatchRenamePreview,
   validateRegex,
 } from '../batchRename';

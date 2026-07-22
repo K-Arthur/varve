@@ -1,8 +1,8 @@
-import { cleanup, render, screen, fireEvent, act } from '@testing-library/react';
+import type { TextNode } from '@strata/scene';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider } from '../context';
 import { TextEditOverlay } from './TextEditOverlay';
-import type { TextNode } from '@strata/scene';
 
 afterEach(cleanup);
 

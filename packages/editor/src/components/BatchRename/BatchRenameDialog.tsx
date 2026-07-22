@@ -2,9 +2,9 @@ import type { NodeId } from '@strata/scene';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
+  applyBatchRename,
   type BatchRenameOptions,
   type BatchRenamePreview,
-  applyBatchRename,
   computeBatchRenamePreview,
   validateRegex,
 } from './batchRename';
