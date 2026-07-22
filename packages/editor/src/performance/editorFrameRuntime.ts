@@ -1,0 +1,50 @@
+import {
+  createFrameScheduler,
+  type FrameJob,
+  type FrameLane,
+  type FrameScheduler,
+} from './frameScheduler';
+
+let scheduler: FrameScheduler | null = null;
+let nextKey = 1;
+let removeVisibilityListener: (() => void) | null = null;
+
+function createRuntimeScheduler(): FrameScheduler {
+  const runtime = createFrameScheduler({
+    requestFrame: (callback) => window.requestAnimationFrame(callback),
+    cancelFrame: (id) => window.cancelAnimationFrame(id),
+  });
+  if (typeof document !== 'undefined') {
+    const updateVisibility = () => runtime.setVisible(document.visibilityState !== 'hidden');
+    updateVisibility();
+    document.addEventListener('visibilitychange', updateVisibility);
+    removeVisibilityListener = () =>
+      document.removeEventListener('visibilitychange', updateVisibility);
+  }
+  return runtime;
+}
+
+export function getEditorFrameScheduler(): FrameScheduler {
+  scheduler ??= createRuntimeScheduler();
+  return scheduler;
+}
+
+export function createEditorFrameKey(scope: string): string {
+  return `${scope}:${nextKey++}`;
+}
+
+export function requestEditorFrame(key: string, lane: FrameLane, job: FrameJob): void {
+  getEditorFrameScheduler().request(key, lane, job);
+}
+
+export function cancelEditorFrame(key: string): boolean {
+  return getEditorFrameScheduler().cancel(key);
+}
+
+export function resetEditorFrameRuntimeForTests(): void {
+  scheduler?.dispose();
+  scheduler = null;
+  removeVisibilityListener?.();
+  removeVisibilityListener = null;
+  nextKey = 1;
+}

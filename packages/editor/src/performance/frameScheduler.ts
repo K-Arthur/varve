@@ -73,7 +73,7 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
   };
 
   const ensureFrame = () => {
-    if (disposed || scheduledFrame !== null || queuedCount() === 0) return;
+    if (disposed || !visible || scheduledFrame !== null || queuedCount() === 0) return;
     scheduledFrame = requestFrame(flush);
   };
 
@@ -129,6 +129,10 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
         if (queues.get(lane)?.delete(key)) {
           diagnostics.cancelledJobs++;
           diagnostics.queuedJobs = queuedCount();
+          if (diagnostics.queuedJobs === 0 && scheduledFrame !== null) {
+            cancelFrame(scheduledFrame);
+            scheduledFrame = null;
+          }
           return true;
         }
       }
@@ -144,7 +148,12 @@ export function createFrameScheduler(options: FrameSchedulerOptions = {}): Frame
     },
     setVisible(nextVisible) {
       visible = nextVisible;
-      if (visible) ensureFrame();
+      if (!visible && scheduledFrame !== null) {
+        cancelFrame(scheduledFrame);
+        scheduledFrame = null;
+      } else if (visible) {
+        ensureFrame();
+      }
     },
     getDiagnostics() {
       return { ...diagnostics, queuedJobs: queuedCount() };

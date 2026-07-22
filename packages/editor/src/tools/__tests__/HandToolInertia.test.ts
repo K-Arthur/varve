@@ -1,5 +1,6 @@
 import { createDocument } from '@strata/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetEditorFrameRuntimeForTests } from '../../performance/editorFrameRuntime';
 import { HandTool } from '../HandTool';
 
 /**
@@ -16,6 +17,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
   let pan: { x: number; y: number };
 
   beforeEach(() => {
+    resetEditorFrameRuntimeForTests();
     rafCallbacks = new Map();
     rafIdCounter = 0;
     pan = { x: 0, y: 0 };
@@ -31,6 +33,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
   });
 
   afterEach(() => {
+    resetEditorFrameRuntimeForTests();
     vi.restoreAllMocks();
   });
 
