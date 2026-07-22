@@ -20,14 +20,15 @@ export interface FrameDiagnostics {
   partialRedraw: boolean;
   cacheBytes: number;
   cacheEntries: number;
+  profileTier: string;
 }
 
 const MAX_DIAG_FRAMES = 120;
 const diagRing: FrameDiagnostics[] = [];
 let diagEnabled = false;
 
-export function enableDrawDiagnostics(force = false): void {
-  diagEnabled = force || (import.meta as any).env.DEV;
+export function enableDrawDiagnostics(force?: boolean): void {
+  diagEnabled = force !== undefined ? force : (import.meta as any).env.DEV;
 }
 
 export function isDiagnosticsEnabled(): boolean {
@@ -73,7 +74,7 @@ export function renderDrawDiagnostics(ctx: CanvasRenderingContext2D, canvasWidth
   ctx.fillStyle = '#0f0';
   ctx.textAlign = 'right';
   const lines = [
-    `F#${last.frameIndex}  dv#${last.docVersion}  rc#${last.redrawCount}`,
+    `F#${last.frameIndex}  dv#${last.docVersion}  rc#${last.redrawCount}  tier:${last.profileTier}`,
     `path:${last.renderPath}  ${last.wasDirty ? 'dirty' : 'clean'}  ${last.partialRedraw ? 'partial' : 'full'}`,
     `nodes:${last.nodeCount}  culled:${last.culledCount}  cache:${last.cacheHitCount}`,
     `cache: ${last.cacheEntries} entries, ${(last.cacheBytes / 1024).toFixed(0)} KB`,

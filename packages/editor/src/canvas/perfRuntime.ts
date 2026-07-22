@@ -60,6 +60,7 @@ export interface EndFrameArgs {
 export function endFrame(args: EndFrameArgs): PerformanceProfile {
   const budget = endFrameTiming(args.frameStart);
   const cacheDiag = args.cache.diagnostics();
+  const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), args.nodeCount);
   recordFrame({
     frameIndex: args.frameIndex,
     docVersion: args.docVersion,
@@ -75,8 +76,9 @@ export function endFrame(args: EndFrameArgs): PerformanceProfile {
     partialRedraw: args.partialRedraw,
     cacheBytes: cacheDiag.bytes,
     cacheEntries: cacheDiag.entries,
+    profileTier: profile.tier,
   });
-  return computeProfile(getAverageFrameTime(), getOverBudgetCount(), args.nodeCount);
+  return profile;
 }
 
 /** Draw the dev-only HUD overlay. No-op unless setPerfHudEnabled(true) was called. */
@@ -85,6 +87,6 @@ export function renderPerfHud(ctx: CanvasRenderingContext2D, canvasWidth: number
 }
 
 /** Resolve byte/entry budgets for a persisted 'low' | 'medium' | 'high' preference. */
-export function resolveMemoryBudgets(pref: string | undefined): MemoryBudgets {
-  return getMemoryBudgets(pref as 'low' | 'medium' | 'high');
+export function resolveMemoryBudgets(pref: 'low' | 'medium' | 'high' | undefined): MemoryBudgets {
+  return getMemoryBudgets(pref);
 }

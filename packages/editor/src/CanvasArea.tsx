@@ -70,6 +70,7 @@ import {
   zoomAboutPoint,
 } from '@strata/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { computeProfile, resetProfile } from './canvas/adaptiveProfile';
 import { applyEditorCameraToCtx, toCamera as editorToCamera } from './canvas/cameraState';
 import {
   resizeCanvasBackingStore,
@@ -83,7 +84,12 @@ import {
   recordFrame,
   renderDrawDiagnostics,
 } from './canvas/drawDiagnostics';
-import { endFrameTiming, startFrameTiming } from './canvas/frameBudget';
+import {
+  endFrameTiming,
+  getAverageFrameTime,
+  getOverBudgetCount,
+  startFrameTiming,
+} from './canvas/frameBudget';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { getMemoryBudgets } from './canvas/memoryBudget';
 import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
@@ -576,6 +582,8 @@ export function CanvasArea({
   const prevDrawDocRef = useRef(state.document);
   const lastRenderedDocRef = useRef(state.document);
   if (state.document !== prevDrawDocRef.current) {
+    // Reset adaptive profile on document change — fresh frame timing baseline
+    resetProfile();
     const prevDoc = prevDrawDocRef.current;
     if (prevDoc && isOnlyVariableStoreChange(prevDoc, state.document)) {
       // Variable-only change: selectively invalidate only the nodes bound to
@@ -1392,6 +1400,13 @@ export function CanvasArea({
       const docVersion = docVersionRef.current;
       const animatedNodeIds = new Set<string>();
 
+      // Adaptive quality profile based on frameBudget's rolling frame timings
+      const avgFrameTime = getAverageFrameTime();
+      const overBudgetCount = getOverBudgetCount();
+      const profile = computeProfile(avgFrameTime, overBudgetCount, nodeIds.length);
+      const cacheMultiplier = profile.cacheMultiplier;
+      const profileCanUseWorker = profile.enableWorker;
+
       if (s.motion.activeTimelineId) {
         const activeTl = doc.timelines?.[s.motion.activeTimelineId];
         for (const tr of activeTl?.tracks ?? []) {
@@ -1537,6 +1552,7 @@ export function CanvasArea({
 
       const dirtyRect = dirtyRectRef.current;
       const usePartialRedraw =
+        profile.enablePartialRedraw &&
         (s.cameraRotation ?? 0) === 0 &&
         dirtyRect &&
         dirtyRect.w > 0 &&
@@ -2199,7 +2215,12 @@ export function CanvasArea({
         for (const id of deferredAdjustments) {
           replaySubtree(id);
         }
-      } else if (renderWorkerRef.current && !workerFailedRef.current && workerReady) {
+      } else if (
+        renderWorkerRef.current &&
+        !workerFailedRef.current &&
+        workerReady &&
+        profileCanUseWorker
+      ) {
         const wb = workerBitmapRef.current;
         const cameraMatches =
           wb &&
@@ -2297,6 +2318,11 @@ export function CanvasArea({
       const budget = endFrameTiming(frameStart);
       frameBackend?.endFrame();
       compositorFrameOpen = false;
+      // Apply adaptive cache multiplier: shrink soft budget when struggling
+      if (cacheMultiplier < 1) {
+        const adjusted = Math.round(budgets.subtreeIrCacheBytes * cacheMultiplier);
+        subtreeIrCacheRef.current.setSoftBudget(adjusted);
+      }
       // Record frame diagnostics (dev-only ring buffer)
       const cacheDiag = subtreeIrCacheRef.current.diagnostics();
       recordFrame({
@@ -2318,6 +2344,7 @@ export function CanvasArea({
         partialRedraw: !!usePartialRedraw,
         cacheBytes: cacheDiag.bytes,
         cacheEntries: cacheDiag.entries,
+        profileTier: profile.tier,
       });
       const diag = compositorRef.current?.getDiagnostics?.();
       if (diag) setCompositorDiagnostics(diag);
