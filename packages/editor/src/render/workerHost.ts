@@ -1,37 +1,44 @@
 /**
- * Render worker host — OffscreenCanvas replay with docVersion stale guards.
+ * Render worker host — latest-only OffscreenCanvas replay with render-revision guards.
  */
 import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
-import type { Camera, Viewport } from '@strata/shared';
+import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@strata/shared';
 import { closeImageBitmapMap } from './collectImageBitmaps';
 
+export interface WorkerRenderCommand {
+  type: 'render';
+  /** @deprecated Worker replay consumes IR; retained only for source compatibility and never cloned. */
+  nodes?: EngineNode[];
+  ir: RenderItem[];
+  camera: Camera;
+  viewport: Viewport;
+  /** History identity retained for diagnostics and compatibility. */
+  docVersion: number;
+  /** Pixel identity; unlike docVersion this includes camera/resources/async results. */
+  renderRevision?: RenderRevision;
+  dpr: number;
+  /** Pre-decoded ImageBitmaps keyed by image src URL (Structured Clone transport). */
+  images?: Record<string, ImageBitmap>;
+}
+
 export type WorkerCommand =
-  | {
-      type: 'render';
-      nodes: EngineNode[];
-      ir: RenderItem[];
-      camera: Camera;
-      viewport: Viewport;
-      docVersion: number;
-      dpr: number;
-      /** Pre-decoded ImageBitmaps keyed by image src URL (Structured Clone transport). */
-      images?: Record<string, ImageBitmap>;
-    }
+  | WorkerRenderCommand
   | { type: 'hitTest'; worldX: number; worldY: number; docVersion: number }
   | { type: 'resize'; width: number; height: number; dpr: number }
-  | { type: 'cancel'; docVersion: number };
+  | { type: 'cancel'; docVersion: number; renderRevision?: RenderRevision };
 
 export type WorkerResponse =
   | {
       type: 'frameRendered';
       docVersion: number;
+      renderRevision: RenderRevision;
       camera: Camera;
       viewport: Viewport;
       dpr: number;
       bitmap?: ImageBitmap;
     }
   | { type: 'hitTestResult'; nodeId: number | null; docVersion: number }
-  | { type: 'error'; message: string; docVersion?: number };
+  | { type: 'error'; message: string; docVersion?: number; renderRevision?: RenderRevision };
 
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
@@ -40,6 +47,22 @@ export interface RenderWorkerHost {
   readonly permanentFailure: boolean;
   readonly restartCount: number;
   readonly resizeGeneration: number;
+  readonly inFlightRenderRevision: RenderRevision | null;
+  readonly pendingRenderRevision: RenderRevision | null;
+}
+
+type NormalizedRenderCommand = WorkerRenderCommand & { renderRevision: RenderRevision };
+interface PendingRender {
+  command: NormalizedRenderCommand;
+  transfer?: Transferable[];
+}
+
+function normalizeRenderCommand(command: WorkerRenderCommand): NormalizedRenderCommand {
+  const { nodes: _unusedNodes, ...workerCommand } = command;
+  return {
+    ...workerCommand,
+    renderRevision: command.renderRevision ?? asRenderRevision(command.docVersion),
+  };
 }
 
 export function createRenderWorkerHost(
@@ -65,14 +88,23 @@ export function createRenderWorkerHost(
   let resizeGeneration = 0;
   let lastRenderResizeGeneration = 0;
   let permanentFailure = false;
-  let lastRenderCommand: WorkerCommand | null = null;
+  let lastRenderCommand: NormalizedRenderCommand | null = null;
   let lastRenderUsedTransfer = false;
+  let inFlightRenderRevision: RenderRevision | null = null;
+  let pendingRender: PendingRender | null = null;
+  let latestRequestedRevision: RenderRevision | null = null;
   let latestFrameIdentity: { viewport: Viewport; dpr: number } | null = null;
   let restartTimeout: ReturnType<typeof setTimeout> | null = null;
   const maxRestarts = 5;
 
   function closeCommandResources(command: WorkerCommand): void {
     if (command.type === 'render' && command.images) closeImageBitmapMap(command.images);
+  }
+
+  function closePendingRender(): void {
+    if (!pendingRender) return;
+    closeCommandResources(pendingRender.command);
+    pendingRender = null;
   }
 
   function closeResponseResources(response: WorkerResponse): void {
@@ -92,6 +124,8 @@ export function createRenderWorkerHost(
     worker?.terminate();
     worker = null;
     workerGen++;
+    closePendingRender();
+    inFlightRenderRevision = null;
     lastRenderCommand = null;
     lastRenderUsedTransfer = false;
     onPermanentFailure?.();
@@ -106,6 +140,38 @@ export function createRenderWorkerHost(
     );
   }
 
+  function dispatchRender(render: PendingRender): boolean {
+    if (!worker || permanentFailure) {
+      closeCommandResources(render.command);
+      return false;
+    }
+    try {
+      if (render.transfer?.length) {
+        worker.postMessage(render.command, render.transfer);
+      } else {
+        worker.postMessage(render.command);
+      }
+    } catch {
+      closeCommandResources(render.command);
+      markPermanentFailure();
+      return false;
+    }
+    inFlightRenderRevision = render.command.renderRevision;
+    lastRenderUsedTransfer = Boolean(render.transfer?.length);
+    // Transferred or cloned ImageBitmaps cannot be replayed safely after a
+    // worker crash. Plain IR commands can be retried after restart.
+    lastRenderCommand = lastRenderUsedTransfer || render.command.images ? null : render.command;
+    lastRenderResizeGeneration = resizeGeneration;
+    return true;
+  }
+
+  function dispatchPendingRender(): void {
+    if (inFlightRenderRevision !== null || !pendingRender) return;
+    const next = pendingRender;
+    pendingRender = null;
+    dispatchRender(next);
+  }
+
   function createWorker(): Worker | null {
     const gen = ++workerGen;
     try {
@@ -116,11 +182,32 @@ export function createRenderWorkerHost(
           closeResponseResources(msg);
           return;
         }
+        if (msg.type === 'frameRendered') {
+          const responseRevision = msg.renderRevision ?? asRenderRevision(msg.docVersion);
+          if (inFlightRenderRevision === null || responseRevision !== inFlightRenderRevision) {
+            closeResponseResources(msg);
+            return;
+          }
+          const obsolete =
+            (latestRequestedRevision !== null && responseRevision < latestRequestedRevision) ||
+            lastRenderResizeGeneration !== resizeGeneration ||
+            !frameIdentityMatches(msg);
+          inFlightRenderRevision = null;
+          if (obsolete) closeResponseResources(msg);
+          else onResponse(msg);
+          dispatchPendingRender();
+          return;
+        }
         if (
-          msg.type === 'frameRendered' &&
-          (lastRenderResizeGeneration !== resizeGeneration || !frameIdentityMatches(msg))
+          msg.type === 'error' &&
+          msg.renderRevision !== undefined &&
+          msg.renderRevision === inFlightRenderRevision
         ) {
-          closeResponseResources(msg);
+          inFlightRenderRevision = null;
+          const obsolete =
+            latestRequestedRevision !== null && msg.renderRevision < latestRequestedRevision;
+          if (!obsolete) onResponse(msg);
+          dispatchPendingRender();
           return;
         }
         onResponse(msg);
@@ -135,6 +222,7 @@ export function createRenderWorkerHost(
           return;
         }
         worker?.terminate();
+        inFlightRenderRevision = null;
         clearRestartTimeout();
         worker = createWorker();
         if (!worker) {
@@ -143,9 +231,12 @@ export function createRenderWorkerHost(
         }
         const delay = Math.min(2 ** restartCount, 30) * 1000;
         restartTimeout = setTimeout(() => {
-          if (lastRenderCommand && !permanentFailure) {
+          if (permanentFailure) return;
+          if (pendingRender) {
+            dispatchPendingRender();
+          } else if (lastRenderCommand) {
             try {
-              worker?.postMessage(lastRenderCommand);
+              dispatchRender({ command: lastRenderCommand });
             } catch {
               markPermanentFailure();
             }
@@ -171,10 +262,34 @@ export function createRenderWorkerHost(
     get resizeGeneration() {
       return resizeGeneration;
     },
+    get inFlightRenderRevision() {
+      return inFlightRenderRevision;
+    },
+    get pendingRenderRevision() {
+      return pendingRender?.command.renderRevision ?? null;
+    },
     post(command, transfer) {
       if (!worker || permanentFailure) {
         closeCommandResources(command);
         return false;
+      }
+      if (command.type === 'render') {
+        const normalized = normalizeRenderCommand(command);
+        if (
+          latestRequestedRevision !== null &&
+          normalized.renderRevision < latestRequestedRevision
+        ) {
+          closeCommandResources(normalized);
+          return false;
+        }
+        latestRequestedRevision = normalized.renderRevision;
+        latestFrameIdentity = { viewport: normalized.viewport, dpr: normalized.dpr };
+        if (inFlightRenderRevision !== null) {
+          closePendingRender();
+          pendingRender = { command: normalized, transfer };
+          return true;
+        }
+        return dispatchRender({ command: normalized, transfer });
       }
       try {
         if (transfer?.length) {
@@ -187,14 +302,6 @@ export function createRenderWorkerHost(
         markPermanentFailure();
         return false;
       }
-      if (command.type === 'render') {
-        lastRenderUsedTransfer = Boolean(transfer?.length);
-        // Commands containing ImageBitmaps are resource-bearing even when a
-        // caller accidentally omits the transfer list; never retain them.
-        lastRenderCommand = lastRenderUsedTransfer || command.images ? null : command;
-        lastRenderResizeGeneration = resizeGeneration;
-        latestFrameIdentity = { viewport: command.viewport, dpr: command.dpr };
-      }
       if (command.type === 'resize') {
         resizeGeneration++;
       }
@@ -206,13 +313,26 @@ export function createRenderWorkerHost(
       worker?.terminate();
       worker = null;
       workerGen++;
+      closePendingRender();
+      inFlightRenderRevision = null;
       lastRenderCommand = null;
       lastRenderUsedTransfer = false;
     },
   };
 }
 
-/** Drop stale worker responses when document version advanced. */
+/** Drop stale worker responses when any pixel-producing input advanced. */
+export function isStaleRenderResponse(
+  latestRevision: RenderRevision,
+  responseRevision: RenderRevision,
+): boolean {
+  return responseRevision < latestRevision;
+}
+
+/** @deprecated Prefer isStaleRenderResponse with the distinct render revision. */
 export function isStaleResponse(latestDocVersion: number, responseDocVersion: number): boolean {
-  return responseDocVersion < latestDocVersion;
+  return isStaleRenderResponse(
+    asRenderRevision(latestDocVersion),
+    asRenderRevision(responseDocVersion),
+  );
 }

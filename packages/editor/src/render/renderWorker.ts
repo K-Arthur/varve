@@ -3,21 +3,23 @@
  * Supports pre-decoded ImageBitmaps via Structured Clone for image fills.
  */
 import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
+import { asRenderRevision } from '@strata/shared';
 import { canvasBackingSize } from '../canvas/canvasSurface';
-import { replaceImageBitmapMap } from './collectImageBitmaps';
+import { closeImageBitmapMap, replaceImageBitmapMap } from './collectImageBitmaps';
+import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 import { applyWorkerCamera } from './workerCamera';
 import type { WorkerCommand, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
-let activeDocVersion = 0;
+let activeRenderRevision = asRenderRevision(0);
 /** Image fill bitmaps keyed by src URL, received via Structured Clone. */
 let imageMap: Record<string, ImageBitmap> = {};
 
 self.onmessage = (e: MessageEvent<WorkerCommand>) => {
   const msg = e.data;
   if (msg.type === 'cancel') {
-    activeDocVersion = msg.docVersion;
+    activeRenderRevision = msg.renderRevision ?? asRenderRevision(msg.docVersion);
     return;
   }
   if (msg.type === 'resize') {
@@ -29,8 +31,12 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     return;
   }
   if (msg.type === 'render') {
-    if (msg.docVersion < activeDocVersion) return;
-    activeDocVersion = msg.docVersion;
+    const renderRevision = msg.renderRevision ?? asRenderRevision(msg.docVersion);
+    if (renderRevision < activeRenderRevision) {
+      if (msg.images) closeImageBitmapMap(msg.images);
+      return;
+    }
+    activeRenderRevision = renderRevision;
     const backingWidth = canvasBackingSize(msg.viewport.width, msg.dpr);
     const backingHeight = canvasBackingSize(msg.viewport.height, msg.dpr);
     if (!canvas || !ctx || canvas.width !== backingWidth || canvas.height !== backingHeight) {
@@ -42,6 +48,7 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
         type: 'error',
         message: 'OffscreenCanvas 2d unavailable',
         docVersion: msg.docVersion,
+        renderRevision,
       });
       return;
     }
@@ -54,12 +61,13 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       applyWorkerCamera(ctx, msg.camera, msg.dpr, msg.viewport);
       replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[], (src) => imageMap[src]);
       ctx.restore();
-      if (msg.docVersion >= activeDocVersion) {
+      if (shouldTransferRenderedFrame(renderRevision, activeRenderRevision)) {
         const bitmap = canvas.transferToImageBitmap();
         post(
           {
             type: 'frameRendered',
             docVersion: msg.docVersion,
+            renderRevision,
             camera: msg.camera,
             viewport: msg.viewport,
             dpr: msg.dpr,
@@ -70,7 +78,12 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       }
     } catch (err) {
       const detail = err instanceof Error ? (err.stack ?? err.message) : String(err);
-      post({ type: 'error', message: `render failed: ${detail}`, docVersion: msg.docVersion });
+      post({
+        type: 'error',
+        message: `render failed: ${detail}`,
+        docVersion: msg.docVersion,
+        renderRevision,
+      });
     }
     return;
   }
