@@ -1,7 +1,12 @@
 import type { Platform } from '@strata/platform';
 import type { Document } from '@strata/scene';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import {
+  beginRecoverySession,
+  createLifecycleFlushCoordinator,
+  type LifecycleFlushCoordinator,
+} from '../../persistence/lifecycleFlush';
 import { getSharedRecoveryManager, type RecoverySession } from '../../recovery';
 import { RecoveryDialog } from '../RecoveryDialog';
 
@@ -19,29 +24,35 @@ export function RecoveryManager({
   document: _document,
 }: RecoveryManagerProps) {
   const editor = useEditor();
+  const editorRef = useRef(editor);
+  editorRef.current = editor;
   const [recoverySessions, setRecoverySessions] = useState<RecoverySession[]>([]);
   const [showRecovery, setShowRecovery] = useState(false);
+  const flushRef = useRef<LifecycleFlushCoordinator | null>(null);
+  if (!flushRef.current) {
+    flushRef.current = createLifecycleFlushCoordinator({
+      save: () => editorRef.current.save(),
+      isDirty: () => editorRef.current.state.dirty,
+      getRevision: () => editorRef.current.state.revision,
+      markClean: () => {
+        try {
+          localStorage.setItem(CLEAN_SHUTDOWN_KEY, 'true');
+        } catch {
+          // localStorage unavailable — recovery remains conservatively unclean
+        }
+      },
+    });
+  }
 
   useEffect(() => {
-    // Mark that we're running. On a clean shutdown this gets flipped to true;
-    // if it stays false on next launch, the previous session was unclean.
-    try {
-      localStorage.setItem(CLEAN_SHUTDOWN_KEY, 'false');
-    } catch {
-      // localStorage unavailable — skip crash detection this session
-    }
+    const previousWasClean = beginRecoverySession(localStorage, CLEAN_SHUTDOWN_KEY);
 
     const mgr = getSharedRecoveryManager();
     mgr.hasSessions().then((has) => {
       if (!has) return;
       // Only show the recovery dialog if the previous session ended
       // uncleanly (crash / power loss). A normal close writes a marker.
-      let wasUnclean = true;
-      try {
-        wasUnclean = localStorage.getItem(CLEAN_SHUTDOWN_KEY) !== 'true';
-      } catch {
-        // If we can't read the marker, err on the side of recovery
-      }
+      const wasUnclean = previousWasClean !== true;
       if (wasUnclean) {
         mgr.listSessions().then((sessions) => {
           setRecoverySessions(sessions);
@@ -57,40 +68,35 @@ export function RecoveryManager({
   }, []);
 
   useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      if (editor.state.dirty) {
-        editor.save();
-        e.preventDefault();
-      }
-      try {
-        localStorage.setItem(CLEAN_SHUTDOWN_KEY, 'true');
-      } catch {
-        // ignore
-      }
-    };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [editor, editor.state.dirty]);
-
-  useEffect(() => {
-    const handler = () => {
-      if (document.hidden && editor.state.dirty) {
-        editor.save();
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      const flush = flushRef.current;
+      if (!flush) return;
+      if (editorRef.current.state.dirty) {
+        void flush.request(true);
+        event.preventDefault();
+      } else {
+        flush.markCleanNow();
       }
     };
-    document.addEventListener('visibilitychange', handler);
-    return () => document.removeEventListener('visibilitychange', handler);
-  }, [editor, editor.state.dirty]);
-
-  useEffect(() => {
-    const handler = () => {
-      if (editor.state.dirty) {
-        editor.save();
+    const visibilityChange = () => {
+      if (document.hidden && editorRef.current.state.dirty) {
+        void flushRef.current?.request();
       }
     };
-    window.addEventListener('pagehide', handler);
-    return () => window.removeEventListener('pagehide', handler);
-  }, [editor, editor.state.dirty]);
+    const pageHide = () => {
+      if (editorRef.current.state.dirty) {
+        void flushRef.current?.request();
+      }
+    };
+    window.addEventListener('beforeunload', beforeUnload);
+    document.addEventListener('visibilitychange', visibilityChange);
+    window.addEventListener('pagehide', pageHide);
+    return () => {
+      window.removeEventListener('beforeunload', beforeUnload);
+      document.removeEventListener('visibilitychange', visibilityChange);
+      window.removeEventListener('pagehide', pageHide);
+    };
+  }, []);
 
   const handleRecoveryRestore = useCallback(
     (id: string) => {
