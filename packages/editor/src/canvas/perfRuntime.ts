@@ -7,6 +7,12 @@
  * (see .health-baseline.json). Importing all four modules individually from
  * there would trip that budget, so this module wraps them behind one import.
  */
+import {
+  cancelEditorFrame,
+  createEditorFrameKey,
+  requestEditorFrame,
+} from '../performance/editorFrameRuntime';
+import type { FrameJob, FrameLane } from '../performance/frameScheduler';
 import { computeProfile, type PerformanceProfile } from './adaptiveProfile';
 import {
   enableDrawDiagnostics,
@@ -23,6 +29,29 @@ import {
 } from './frameBudget';
 import { getMemoryBudgets, type MemoryBudgets } from './memoryBudget';
 import type { SubtreeIrCache } from './subtreeIrCache';
+
+export {
+  enableDrawDiagnostics,
+  endFrameTiming,
+  getAverageFrameTime,
+  getMemoryBudgets,
+  getOverBudgetCount,
+  recordFrame,
+  renderDrawDiagnostics,
+  startFrameTiming,
+};
+
+export function createCanvasFrameKey(scope: string): string {
+  return createEditorFrameKey(`canvas-${scope}`);
+}
+
+export function scheduleCanvasFrame(key: string, lane: FrameLane, job: FrameJob): void {
+  requestEditorFrame(key, lane, job);
+}
+
+export function cancelCanvasFrame(key: string): boolean {
+  return cancelEditorFrame(key);
+}
 
 /** Call once per CanvasArea mount. */
 export function initCanvasPerf(): void {

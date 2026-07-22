@@ -1,5 +1,5 @@
 /**
- * Timeline playback engine using requestAnimationFrame.
+ * Timeline playback engine using the coordinated editor frame scheduler.
  *
  * Manages playback state (idle/playing/paused/finished), speed control,
  * direction (forward/reverse), iteration counting, and frame callbacks.
@@ -7,6 +7,12 @@
  * Research basis: Web Animations API Animation interface (§4.4),
  * GSAP Timeline play/pause/seek/reverse contract.
  */
+
+import {
+  cancelEditorFrame,
+  createEditorFrameKey,
+  requestEditorFrame,
+} from '../performance/editorFrameRuntime';
 
 export type EngineState = 'idle' | 'playing' | 'paused' | 'finished';
 
@@ -36,7 +42,7 @@ export class TimelineEngine {
   private _speed = 1;
   private _direction: 'forward' | 'reverse' = 'forward';
   private _config: EngineConfig;
-  private _rafId: number | null = null;
+  private readonly _frameKey = createEditorFrameKey('timeline');
   private _lastTimestamp: number | null = null;
   private _onFrame: ((time: number, iteration: number) => void) | null = null;
   private _onFinish: (() => void) | null = null;
@@ -157,7 +163,7 @@ export class TimelineEngine {
 
   private _scheduleFrame(): void {
     if (typeof requestAnimationFrame === 'undefined') return;
-    this._rafId = requestAnimationFrame((timestamp) => {
+    requestEditorFrame(this._frameKey, 'canvas', (timestamp) => {
       if (this._state !== 'playing') return;
 
       if (this._lastTimestamp === null) {
@@ -178,10 +184,7 @@ export class TimelineEngine {
   }
 
   private _cancelFrame(): void {
-    if (this._rafId !== null && typeof cancelAnimationFrame !== 'undefined') {
-      cancelAnimationFrame(this._rafId);
-      this._rafId = null;
-    }
+    cancelEditorFrame(this._frameKey);
   }
 
   /** Check if the engine should transition to finished state. Returns true if finished. */
