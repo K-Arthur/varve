@@ -30,29 +30,13 @@ import type { ColorizationProvider } from '../providerAbstraction';
 
 const NATIVE_PROVIDER_ID = 'native-tauri';
 
-/**
- * Check if we're running inside Tauri with native AI available.
- */
-async function checkTauriNativeAi(): Promise<boolean> {
-  try {
-    if (
-      typeof window === 'undefined' ||
-      !(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
-    ) {
-      return false;
-    }
-    const { invoke } = await import('@tauri-apps/api/core');
-    const status = await invoke('native_ai_status');
-    return status === true;
-  } catch {
-    return false;
-  }
-}
+const NATIVE_COLORIZATION_UNAVAILABLE =
+  'Native colorization is unavailable because its ONNX inference pipeline is not implemented';
 
 /**
  * Invoke a native inference command through Tauri IPC.
  */
-async function nativeInfer(params: {
+async function nativeInfer(_params: {
   modelType: string;
   modelPath: string;
   imageData?: ArrayBuffer;
@@ -65,40 +49,7 @@ async function nativeInfer(params: {
   executionProvider: string;
   processingTimeMs: number;
 }> {
-  const { invoke } = await import('@tauri-apps/api/core');
-
-  // Convert ImageData ArrayBuffer to base64 for IPC transport
-  const inputPayload: Record<string, unknown> = {
-    modelType: params.modelType,
-    modelPath: params.modelPath,
-    targetWidth: params.targetWidth,
-    targetHeight: params.targetHeight,
-  };
-
-  if (params.imageData) {
-    // Convert ArrayBuffer to Uint8Array for base64 encoding
-    const bytes = new Uint8Array(params.imageData);
-    let binary = '';
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]!);
-    }
-    inputPayload.imageDataBase64 = btoa(binary);
-  }
-
-  if (params.tensors) {
-    inputPayload.tensors = params.tensors;
-  }
-
-  if (params.params) {
-    inputPayload.inferParams = params.params;
-  }
-
-  const result = await invoke('native_colorize_infer', inputPayload);
-  return result as {
-    outputs: Record<string, unknown>;
-    executionProvider: string;
-    processingTimeMs: number;
-  };
+  throw new Error(NATIVE_COLORIZATION_UNAVAILABLE);
 }
 
 /**
@@ -113,7 +64,9 @@ export const nativeTauriColorizationProvider: ColorizationProvider = {
   name: 'Native ONNX Runtime (Tauri)',
   estimatedPeakMemory: 2 * 1024 * 1024 * 1024, // ~2GB for SAM2 encoder
 
-  isAvailable: () => checkTauriNativeAi(),
+  // The native AI runtime is used by other verified features, but this
+  // provider must remain unavailable until colorization returns real output.
+  isAvailable: () => false,
 
   supportsModel: (modelId: string) => {
     const supported = new Set([
