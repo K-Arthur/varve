@@ -27,18 +27,41 @@ export interface OnionFrameKey {
   panY: number;
   canvasWidth: number;
   canvasHeight: number;
+  dpr: number;
 }
 
 export interface OnionFrameEntry {
   key: string;
   bitmap: ImageBitmap | HTMLCanvasElement;
   timestamp: number;
+  byteSize: number;
+}
+
+export type OnionSkinCacheEvictionReason =
+  | 'byte-budget'
+  | 'entry-limit'
+  | 'invalidate'
+  | 'clear'
+  | 'oversized-entry';
+
+export interface OnionSkinCacheStats {
+  entries: number;
+  /** Current decoded pixel memory held by the cache. */
+  memoryBytes: number;
+  /** @deprecated Use memoryBytes. Kept for diagnostics compatibility. */
+  memoryEstimate: number;
+  maxBytes: number;
+  hits: number;
+  misses: number;
+  evictions: number;
+  evictionsByReason: Record<OnionSkinCacheEvictionReason, number>;
 }
 
 export interface OnionSkinCompositorOptions {
   beforeTint: [number, number, number];
   afterTint: [number, number, number];
   maxCacheEntries: number;
+  maxCacheBytes: number;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -47,7 +70,12 @@ export interface OnionSkinCompositorOptions {
  * Serialize a frame key into a stable string for cache lookup.
  */
 function serializeFrameKey(key: OnionFrameKey): string {
-  return `${key.timelineId}:${key.frameTime.toFixed(2)}:${key.docVersion}:${key.zoom.toFixed(4)}:${key.panX.toFixed(2)}:${key.panY.toFixed(2)}:${key.canvasWidth}:${key.canvasHeight}`;
+  return `${key.timelineId}:${key.frameTime.toFixed(2)}:${key.docVersion}:${key.zoom.toFixed(4)}:${key.panX.toFixed(2)}:${key.panY.toFixed(2)}:${key.canvasWidth}:${key.canvasHeight}:${key.dpr.toFixed(3)}`;
+}
+
+function closeBitmap(bitmap: ImageBitmap | HTMLCanvasElement): void {
+  const close = (bitmap as ImageBitmap).close;
+  if (typeof close === 'function') close.call(bitmap);
 }
 
 /**
@@ -98,10 +126,22 @@ const DEFAULT_OPTIONS: OnionSkinCompositorOptions = {
   beforeTint: [255, 100, 100],
   afterTint: [100, 200, 100],
   maxCacheEntries: 30,
+  maxCacheBytes: 128 * 1024 * 1024,
 };
 
 export class OnionSkinCompositor {
   private cache = new Map<string, OnionFrameEntry>();
+  private cacheBytes = 0;
+  private hits = 0;
+  private misses = 0;
+  private evictions = 0;
+  private evictionsByReason: Record<OnionSkinCacheEvictionReason, number> = {
+    'byte-budget': 0,
+    'entry-limit': 0,
+    invalidate: 0,
+    clear: 0,
+    'oversized-entry': 0,
+  };
   private options: OnionSkinCompositorOptions;
 
   constructor(options?: Partial<OnionSkinCompositorOptions>) {
@@ -178,11 +218,14 @@ export class OnionSkinCompositor {
         panY: pan.y,
         canvasWidth: canvasSize.width,
         canvasHeight: canvasSize.height,
+        dpr,
       };
       const serializedKey = serializeFrameKey(key);
 
       let entry = this.cache.get(serializedKey);
+      let disposeAfterDraw = false;
       if (!entry) {
+        this.misses++;
         entry = await this.renderFrameToBitmap(
           doc,
           timeline,
@@ -195,8 +238,9 @@ export class OnionSkinCompositor {
           parentIndex,
         );
         entry.key = serializedKey;
-        this.cache.set(serializedKey, entry);
-        this.evictIfNeeded();
+        disposeAfterDraw = !this.admitEntry(entry);
+      } else {
+        this.hits++;
       }
       entry.timestamp = Date.now();
 
@@ -204,16 +248,20 @@ export class OnionSkinCompositor {
       const tint = isBefore ? this.options.beforeTint : this.options.afterTint;
 
       ctx.save();
-      ctx.globalAlpha = frameOpacity;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(entry.bitmap, 0, 0, canvasSize.width, canvasSize.height);
+      try {
+        ctx.globalAlpha = frameOpacity;
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.drawImage(entry.bitmap, 0, 0, canvasSize.width, canvasSize.height);
 
-      // Apply tint via multiply blend
-      ctx.globalCompositeOperation = 'multiply';
-      ctx.fillStyle = `rgb(${tint[0]}, ${tint[1]}, ${tint[2]})`;
-      ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.restore();
+        // Apply tint via multiply blend
+        ctx.globalCompositeOperation = 'multiply';
+        ctx.fillStyle = `rgb(${tint[0]}, ${tint[1]}, ${tint[2]})`;
+        ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+        ctx.globalCompositeOperation = 'source-over';
+      } finally {
+        ctx.restore();
+        if (disposeAfterDraw) closeBitmap(entry.bitmap);
+      }
     }
   }
 
@@ -221,7 +269,7 @@ export class OnionSkinCompositor {
    * Clear all cached bitmaps.
    */
   clearCache(): void {
-    this.cache.clear();
+    for (const key of [...this.cache.keys()]) this.removeEntry(key, 'clear');
   }
 
   /**
@@ -233,11 +281,11 @@ export class OnionSkinCompositor {
     // Doc version is embedded in the serialized key. We scan and remove
     // entries whose key contains the old version. For performance, we
     // iterate the full cache since invalidation is infrequent.
-    for (const [key, _entry] of this.cache) {
+    for (const key of [...this.cache.keys()]) {
       // The doc version is the 3rd segment in the key (after timelineId and frameTime)
       const parts = key.split(':');
       if (parts[2] === String(_docVersion)) {
-        this.cache.delete(key);
+        this.removeEntry(key, 'invalidate');
       }
     }
   }
@@ -245,21 +293,17 @@ export class OnionSkinCompositor {
   /**
    * Get cache stats for debugging.
    */
-  getCacheStats(): { entries: number; memoryEstimate: number } {
-    let memoryEstimate = 0;
-    for (const _entry of this.cache.values()) {
-      const el = _entry.bitmap;
-      if (el instanceof HTMLCanvasElement) {
-        memoryEstimate += el.width * el.height * 4;
-      } else {
-        // ImageBitmap — approximate from canvas dimensions encoded in the key
-        const parts = _entry.key.split(':');
-        const cw = Number(parts[5]) || 0;
-        const ch = Number(parts[6]) || 0;
-        memoryEstimate += cw * ch * 4;
-      }
-    }
-    return { entries: this.cache.size, memoryEstimate };
+  getCacheStats(): OnionSkinCacheStats {
+    return {
+      entries: this.cache.size,
+      memoryBytes: this.cacheBytes,
+      memoryEstimate: this.cacheBytes,
+      maxBytes: this.options.maxCacheBytes,
+      hits: this.hits,
+      misses: this.misses,
+      evictions: this.evictions,
+      evictionsByReason: { ...this.evictionsByReason },
+    };
   }
 
   // ── Private ────────────────────────────────────────────────────────────────
@@ -324,14 +368,28 @@ export class OnionSkinCompositor {
       key: '',
       bitmap,
       timestamp: Date.now(),
+      byteSize: bitmap.width * bitmap.height * 4,
     };
   }
 
   /**
-   * Evict the oldest entry when cache exceeds maxCacheEntries.
+   * Admit an entry if it can fit, evicting older entries when necessary.
+   * Returns false when the caller must use the frame transiently and dispose it.
    */
-  private evictIfNeeded(): void {
-    while (this.cache.size > this.options.maxCacheEntries) {
+  private admitEntry(entry: OnionFrameEntry): boolean {
+    if (
+      this.options.maxCacheEntries <= 0 ||
+      this.options.maxCacheBytes <= 0 ||
+      entry.byteSize > this.options.maxCacheBytes
+    ) {
+      this.recordEviction('oversized-entry');
+      return false;
+    }
+
+    while (
+      this.cache.size >= this.options.maxCacheEntries ||
+      this.cacheBytes + entry.byteSize > this.options.maxCacheBytes
+    ) {
       let oldestKey: string | null = null;
       let oldestTime = Infinity;
       for (const [key, _entry] of this.cache) {
@@ -341,10 +399,33 @@ export class OnionSkinCompositor {
         }
       }
       if (oldestKey) {
-        this.cache.delete(oldestKey);
+        const reason =
+          this.cacheBytes + entry.byteSize > this.options.maxCacheBytes
+            ? 'byte-budget'
+            : 'entry-limit';
+        this.removeEntry(oldestKey, reason);
       } else {
-        break;
+        this.recordEviction('oversized-entry');
+        return false;
       }
     }
+
+    this.cache.set(entry.key, entry);
+    this.cacheBytes += entry.byteSize;
+    return true;
+  }
+
+  private removeEntry(key: string, reason: OnionSkinCacheEvictionReason): void {
+    const entry = this.cache.get(key);
+    if (!entry) return;
+    this.cache.delete(key);
+    this.cacheBytes = Math.max(0, this.cacheBytes - entry.byteSize);
+    closeBitmap(entry.bitmap);
+    this.recordEviction(reason);
+  }
+
+  private recordEviction(reason: OnionSkinCacheEvictionReason): void {
+    this.evictions++;
+    this.evictionsByReason[reason]++;
   }
 }

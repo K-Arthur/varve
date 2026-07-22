@@ -41,3 +41,9 @@ content, removing repeated reconciliation of hidden color pickers during pointer
 
 - **Primary dev:** CachyOS, Wayland, WebKitGTK 2.52 — WebGPU unavailable in Tauri webview.
 - **WebGPU targets:** macOS 26+ WKWebView, Windows WebView2 (stable), Chromium browser.
+
+## End-to-end program baseline (2026-07-22)
+
+The measurement audit and raw results are recorded in
+[`2026-07-22-end-to-end-baseline.md`](2026-07-22-end-to-end-baseline.md). These
+figures are pre-optimization and informational; they are not CI budgets.

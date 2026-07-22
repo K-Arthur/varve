@@ -179,6 +179,27 @@ export {
   snapToFrame,
   snapToKeyframe,
 } from './pathProjection';
+export type {
+  BenchmarkResult,
+  CapabilitySupport,
+  DurationSummary,
+  MemoryBudget,
+  MetricSample,
+  PerformanceEnvironment,
+  PerformanceProfile,
+  PerformanceTrace,
+  RenderRevision,
+  RuntimeCapabilities,
+} from './performance';
+export {
+  appendBoundedMetric,
+  createPerformanceTrace,
+  nextRenderRevision,
+  PERFORMANCE_TRACE_SCHEMA_VERSION,
+  percentile,
+  summarizeDurations,
+  validatePerformanceTrace,
+} from './performance';
 export {
   deriveHeight,
   deriveWidth,

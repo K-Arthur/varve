@@ -366,6 +366,189 @@ describe('OnionSkinCompositor', () => {
     expect(compositor.getCacheStats().memoryEstimate).toBe(0);
   });
 
+  it('accounts for physical DPR pixels and does not reuse a bitmap across DPR changes', async () => {
+    const ctx = makeCanvasContext();
+    const doc = makeDoc([{ id: 'node-1' }]);
+    const timeline = makeTimeline('tl-1', 5000);
+
+    await compositor.render(
+      ctx,
+      doc,
+      timeline,
+      2500,
+      1,
+      0,
+      0.3,
+      { width: 100, height: 50 },
+      1,
+      { x: 0, y: 0 },
+      2,
+    );
+    expect(compositor.getCacheStats().memoryBytes).toBe(100 * 2 * 50 * 2 * 4);
+
+    await compositor.render(
+      ctx,
+      doc,
+      timeline,
+      2500,
+      1,
+      0,
+      0.3,
+      { width: 100, height: 50 },
+      1,
+      { x: 0, y: 0 },
+      1,
+    );
+    expect(compositor.getCacheStats().entries).toBe(2);
+    expect(compositor.getCacheStats().memoryBytes).toBe((100 * 2 * 50 * 2 + 100 * 50) * 4);
+  });
+
+  it('evicts by byte budget and closes the evicted ImageBitmap', async () => {
+    const close = vi.fn();
+    const originalCreateImageBitmap = globalThis.createImageBitmap;
+    globalThis.createImageBitmap = vi.fn(async (canvas: HTMLCanvasElement) => ({
+      width: canvas.width,
+      height: canvas.height,
+      close,
+    })) as typeof createImageBitmap;
+
+    try {
+      compositor = new OnionSkinCompositor({ maxCacheBytes: 100 * 100 * 4 });
+      const ctx = makeCanvasContext();
+      const doc = makeDoc([{ id: 'node-1' }]);
+      const timeline = makeTimeline('tl-1', 5000);
+
+      await compositor.render(
+        ctx,
+        doc,
+        timeline,
+        2500,
+        1,
+        0,
+        0.3,
+        { width: 100, height: 100 },
+        1,
+        { x: 0, y: 0 },
+        1,
+      );
+      await compositor.render(
+        ctx,
+        doc,
+        timeline,
+        3000,
+        1,
+        0,
+        0.3,
+        { width: 100, height: 100 },
+        1,
+        { x: 0, y: 0 },
+        1,
+      );
+
+      const stats = compositor.getCacheStats();
+      expect(stats.entries).toBe(1);
+      expect(stats.memoryBytes).toBe(100 * 100 * 4);
+      expect(stats.evictionsByReason['byte-budget']).toBe(1);
+      expect(close).toHaveBeenCalledTimes(1);
+    } finally {
+      globalThis.createImageBitmap = originalCreateImageBitmap;
+    }
+  });
+
+  it('draws an oversized frame once and then closes it without caching it', async () => {
+    const close = vi.fn();
+    const originalCreateImageBitmap = globalThis.createImageBitmap;
+    globalThis.createImageBitmap = vi.fn(async (canvas: HTMLCanvasElement) => ({
+      width: canvas.width,
+      height: canvas.height,
+      close,
+    })) as typeof createImageBitmap;
+
+    try {
+      compositor = new OnionSkinCompositor({ maxCacheBytes: 1 });
+      const ctx = makeCanvasContext();
+      await compositor.render(
+        ctx,
+        makeDoc([{ id: 'node-1' }]),
+        makeTimeline('tl-1', 5000),
+        2500,
+        1,
+        0,
+        0.3,
+        { width: 100, height: 100 },
+        1,
+        { x: 0, y: 0 },
+        1,
+      );
+
+      expect(ctx.drawImage).toHaveBeenCalledTimes(1);
+      expect(close).toHaveBeenCalledTimes(1);
+      expect(compositor.getCacheStats()).toMatchObject({
+        entries: 0,
+        memoryBytes: 0,
+        misses: 1,
+        evictionsByReason: { 'oversized-entry': 1 },
+      });
+    } finally {
+      globalThis.createImageBitmap = originalCreateImageBitmap;
+    }
+  });
+
+  it('closes ImageBitmaps removed by invalidation and clear', async () => {
+    const closes: ReturnType<typeof vi.fn>[] = [];
+    const originalCreateImageBitmap = globalThis.createImageBitmap;
+    globalThis.createImageBitmap = vi.fn(async (canvas: HTMLCanvasElement) => {
+      const close = vi.fn();
+      closes.push(close);
+      return { width: canvas.width, height: canvas.height, close };
+    }) as typeof createImageBitmap;
+
+    try {
+      const ctx = makeCanvasContext();
+      const doc = makeDoc([{ id: 'node-1' }]);
+      const timeline = makeTimeline('tl-1', 5000);
+      await compositor.render(
+        ctx,
+        doc,
+        timeline,
+        2500,
+        1,
+        0,
+        0.3,
+        { width: 100, height: 100 },
+        1,
+        { x: 0, y: 0 },
+        1,
+        7,
+      );
+      compositor.invalidateDoc(7);
+      expect(closes[0]).toHaveBeenCalledTimes(1);
+
+      await compositor.render(
+        ctx,
+        doc,
+        timeline,
+        3000,
+        1,
+        0,
+        0.3,
+        { width: 100, height: 100 },
+        1,
+        { x: 0, y: 0 },
+        1,
+        8,
+      );
+      compositor.clearCache();
+      expect(closes[1]).toHaveBeenCalledTimes(1);
+      expect(compositor.getCacheStats().evictionsByReason).toMatchObject({
+        invalidate: 1,
+        clear: 1,
+      });
+    } finally {
+      globalThis.createImageBitmap = originalCreateImageBitmap;
+    }
+  });
+
   it('respects before and after frame counts', async () => {
     const { sampleTimeline } = await import('../../timeline/TimelineSampler');
     const { createEngine } = await import('@strata/engine');
@@ -608,8 +791,8 @@ describe('OnionSkinCompositor', () => {
       1,
     );
 
-    // Only 1 cache entry (all renders hit cache)
-    expect(compositor.getCacheStats().entries).toBe(1);
+    // Only 1 cache entry: the first render missed and subsequent renders hit.
+    expect(compositor.getCacheStats()).toMatchObject({ entries: 1, misses: 1, hits: 2 });
   });
 
   it('returns early when opacity is zero', async () => {
