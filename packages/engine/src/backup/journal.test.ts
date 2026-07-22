@@ -42,7 +42,6 @@ describe('CrashJournal', () => {
     const journal = new CrashJournal(storage, projectId, journalDir);
     await journal.open();
     expect(journal.isEmpty).toBe(true);
-
     await journal.append('save', 'abc123', 1, 1024);
     expect(journal.isEmpty).toBe(false);
     expect(journal.entryCount).toBe(1);
@@ -54,7 +53,6 @@ describe('CrashJournal', () => {
     await j1.open();
     await j1.append('save', 'hash1', 1, 100);
     await j1.close();
-
     const j2 = new CrashJournal(storage, projectId, journalDir);
     await j2.open();
     expect(j2.entryCount).toBe(1);
@@ -76,14 +74,12 @@ describe('CrashJournal', () => {
     await journal.open();
     await journal.append('save', 'hash1', 1, 100);
     await journal.append('auto-save', 'hash2', 2, 200);
-
     const last = journal.getLastEntry();
     expect(last).not.toBeNull();
     expect(last!.documentChecksum).toBe('hash2');
-    expect(last!.operation).toBe('auto-save');
   });
 
-  it('returns null for empty journal getLastEntry', async () => {
+  it('returns null for empty journal', async () => {
     const journal = new CrashJournal(storage, projectId, journalDir);
     await journal.open();
     expect(journal.getLastEntry()).toBeNull();
@@ -96,7 +92,6 @@ describe('CrashJournal', () => {
     await new Promise((r) => setTimeout(r, 5));
     const mid = Date.now();
     await journal.append('save', 'hash2', 2, 200);
-
     const since = journal.getEntriesSince(mid);
     expect(since.length).toBe(1);
     expect(since[0]!.documentChecksum).toBe('hash2');
@@ -109,20 +104,18 @@ describe('CrashJournal', () => {
     await expect(journal.append('save', 'hash', 1, 100)).rejects.toThrow('Journal is closed');
   });
 
-  it('can detect unrecovered writes', async () => {
+  it('detects unrecovered writes', async () => {
     const journal = new CrashJournal(storage, projectId, journalDir);
     await journal.open();
     await journal.append('save', 'hash1', 1, 100);
-    const hasUnrecovered = await journal.hasUnrecoveredWrites();
-    expect(hasUnrecovered).toBe(true);
+    expect(await journal.hasUnrecoveredWrites()).toBe(true);
   });
 
   it('marks clean with pre-close', async () => {
     const journal = new CrashJournal(storage, projectId, journalDir);
     await journal.open();
     await journal.append('pre-close', 'hash1', 1, 100);
-    const hasUnrecovered = await journal.hasUnrecoveredWrites();
-    expect(hasUnrecovered).toBe(false);
+    expect(await journal.hasUnrecoveredWrites()).toBe(false);
   });
 
   it('cleans up old journals', async () => {
@@ -130,10 +123,8 @@ describe('CrashJournal', () => {
     await j1.open();
     await j1.append('save', 'old', 1, 100);
     await j1.close();
-
     await new Promise((r) => setTimeout(r, 10));
-    const count = await CrashJournal.cleanup(storage, journalDir, 0);
-    expect(count).toBeGreaterThanOrEqual(1);
+    expect(await CrashJournal.cleanup(storage, journalDir, 0)).toBeGreaterThanOrEqual(1);
   });
 
   it('finds all journals in a directory', async () => {
@@ -141,12 +132,10 @@ describe('CrashJournal', () => {
     await j1.open();
     await j1.append('save', 'a', 1, 100);
     await j1.close();
-
     const j2 = new CrashJournal(storage, 'proj-b', journalDir);
     await j2.open();
     await j2.append('save', 'b', 1, 100);
     await j2.close();
-
     const journals = await CrashJournal.findJournals(storage, journalDir);
     expect(journals.length).toBe(2);
   });

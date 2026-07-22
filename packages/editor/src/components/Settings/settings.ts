@@ -1,6 +1,7 @@
 export type SettingsSection =
   | 'general'
   | 'appearance'
+  | 'backup'
   | 'shortcuts'
   | 'export'
   | 'models'

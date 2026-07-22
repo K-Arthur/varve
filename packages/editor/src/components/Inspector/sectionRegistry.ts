@@ -374,6 +374,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
   {
+    id: 'colorize',
+    title: 'Colorize',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 294,
+    category: 'advanced',
+    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+  },
+  {
     id: 'lens-blur',
     title: 'Lens Blur',
     defaultExpanded: true,

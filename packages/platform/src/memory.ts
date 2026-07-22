@@ -20,6 +20,7 @@ import type {
   Branch,
   Collection,
   CollectionEntry,
+  CreateVersionInput,
   FileEntry,
   FileTag,
   Folder,
@@ -34,6 +35,7 @@ import type {
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
+  VersionStats,
   Workspace,
 } from './types';
 
@@ -52,6 +54,8 @@ interface MemoryState {
   assets: Map<string, Asset>;
   assetFolders: Map<string, AssetFolder>;
   versions: Map<string, VersionEntry[]>;
+  /** Content-addressed document store: hash → JSON string (dedup across versions). */
+  versionContent: Map<string, string>;
   branches: Map<string, Branch[]>;
   permissions: Map<string, Permission[]>;
   activity: ActivityEvent[];
@@ -83,6 +87,7 @@ function freshState(): MemoryState {
     assets: new Map(),
     assetFolders: new Map(),
     versions: new Map(),
+    versionContent: new Map(),
     branches: new Map(),
     permissions: new Map(),
     activity: [],
@@ -602,6 +607,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         documentHash: rec?.entry.contentHash ?? '00000000',
         timestamp: now,
         kind: name ? 'named' : 'checkpoint',
+        origin: 'manual',
+        size: rec?.entry.size ?? 0,
+        pinned: false,
       };
       const list = state.versions.get(fileId) ?? [];
       list.push(version);
@@ -622,6 +630,89 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
           return;
         }
       }
+    },
+    async createVersion(input: CreateVersionInput): Promise<VersionEntry> {
+      if (!state.versionContent.has(input.contentHash)) {
+        state.versionContent.set(input.contentHash, input.documentJson);
+      }
+      const entry: VersionEntry = {
+        id: uuid(),
+        fileId: input.fileId,
+        name: input.name,
+        description: input.description,
+        documentHash: input.contentHash,
+        timestamp: Date.now(),
+        kind: input.kind,
+        origin: input.origin,
+        size: input.size,
+        schemaVersion: input.schemaVersion,
+        thumbnail: input.thumbnail,
+        pinned: input.pinned ?? false,
+      };
+      const list = state.versions.get(input.fileId) ?? [];
+      list.push(entry);
+      state.versions.set(input.fileId, list);
+      return entry;
+    },
+    async restoreVersionById(versionId: string): Promise<string> {
+      for (const list of state.versions.values()) {
+        const version = list.find((v) => v.id === versionId);
+        if (version) {
+          return state.versionContent.get(version.documentHash) ?? '';
+        }
+      }
+      return '';
+    },
+    async renameVersion(versionId: string, name?: string, description?: string): Promise<void> {
+      for (const list of state.versions.values()) {
+        const version = list.find((v) => v.id === versionId);
+        if (version) {
+          version.name = name;
+          version.description = description;
+          return;
+        }
+      }
+    },
+    async pinVersion(versionId: string, pinned: boolean): Promise<void> {
+      for (const list of state.versions.values()) {
+        const version = list.find((v) => v.id === versionId);
+        if (version) {
+          version.pinned = pinned;
+          return;
+        }
+      }
+    },
+    async pruneVersions(fileId: string, maxAuto: number): Promise<number> {
+      const list = state.versions.get(fileId);
+      if (!list) return 0;
+      const keep = list.filter((v) => v.kind === 'named' || v.pinned);
+      const prunable = list
+        .filter((v) => v.kind !== 'named' && !v.pinned)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      const keepAuto = prunable.slice(0, maxAuto);
+      const remove = prunable.slice(maxAuto);
+      const next = [...keep, ...keepAuto].sort((a, b) => b.timestamp - a.timestamp);
+      state.versions.set(fileId, next);
+      const referenced = new Set<string>();
+      for (const l of state.versions.values()) {
+        for (const v of l) referenced.add(v.documentHash);
+      }
+      for (const hash of state.versionContent.keys()) {
+        if (!referenced.has(hash)) state.versionContent.delete(hash);
+      }
+      return remove.length;
+    },
+    async getVersionStats(fileId: string): Promise<VersionStats> {
+      const list = state.versions.get(fileId) ?? [];
+      const content = state.versionContent;
+      return {
+        totalVersions: list.length,
+        namedVersions: list.filter((v) => v.kind === 'named').length,
+        totalBytes: [...content.values()].reduce(
+          (sum, json) => sum + new TextEncoder().encode(json).length,
+          0,
+        ),
+      };
     },
     async listBranches(fileId) {
       return [...(state.branches.get(fileId) ?? [])];

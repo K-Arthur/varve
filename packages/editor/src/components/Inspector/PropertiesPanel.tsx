@@ -351,6 +351,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
     add('colorize', <ColorizeSection nodes={nodes} />);
     add('ai-denoise', <AIDenoiseSection nodes={nodes} />);
+    add('colorize', <ColorizeSection nodes={nodes} />);
     add('lens-blur', <LensBlurSection nodes={nodes} />);
     add('line-art', <LineArtSection nodes={nodes} />);
     add('content-aware-fill', <ContentAwareFillSection nodes={nodes} />);
