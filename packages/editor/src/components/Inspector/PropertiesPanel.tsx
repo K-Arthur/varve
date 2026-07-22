@@ -27,7 +27,11 @@ import { SpecPanel } from '../SpecPanel/SpecPanel';
 import { DisclosureSection } from './controls/DisclosureSection';
 import { InspectorColorPopover } from './controls/InspectorColorPopover';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
-import type { SectionId } from './sectionRegistry';
+import {
+  getSectionDefinition,
+  type SectionAvailabilityContext,
+  type SectionId,
+} from './sectionRegistry';
 import { AdaptiveContrastSection } from './sections/AdaptiveContrastSection';
 import { AIDenoiseSection } from './sections/AIDenoiseSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
@@ -329,8 +333,21 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
 
   // Build ordered section list based on state ordering
   const sectionEntries = useMemo(() => {
+    const availabilityCtx: SectionAvailabilityContext = {
+      selectionKind: 'single',
+      selectedNodes: nodes,
+      sharedKind: node.kind,
+      workspaceMode: state.workspaceMode,
+      activeTool: state.tool,
+      prototypeMode: state.prototypeMode,
+    };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
+    // Registry-gated: skip mounting sections the current selection/tool/mode
+    // doesn't support, rather than mounting every section and letting each
+    // component self-gate its own JSX return (which still runs hooks/effects).
     const add = (id: SectionId, el: React.ReactNode) => {
+      const def = getSectionDefinition(id);
+      if (def && !def.isAvailable(availabilityCtx)) return;
       const o = state.sectionVisibility[id]?.order;
       entries.push({ id, order: o ?? 500, el });
     };
@@ -427,8 +444,18 @@ function MultiSelectionPanel({
   const { state } = useEditor();
 
   const sectionEntries = useMemo(() => {
+    const availabilityCtx: SectionAvailabilityContext = {
+      selectionKind: 'multi',
+      selectedNodes: nodes,
+      sharedKind: summary.sharedKind,
+      workspaceMode: state.workspaceMode,
+      activeTool: state.tool,
+      prototypeMode: state.prototypeMode,
+    };
     const entries: { id: SectionId; order: number; el: React.ReactNode }[] = [];
     const add = (id: SectionId, el: React.ReactNode) => {
+      const def = getSectionDefinition(id);
+      if (def && !def.isAvailable(availabilityCtx)) return;
       const o = state.sectionVisibility[id]?.order;
       entries.push({ id, order: o ?? 500, el });
     };
@@ -448,7 +475,7 @@ function MultiSelectionPanel({
     );
 
     return entries.sort((a, b) => a.order - b.order);
-  }, [nodes, state]);
+  }, [nodes, state, summary.sharedKind]);
 
   return (
     <>
