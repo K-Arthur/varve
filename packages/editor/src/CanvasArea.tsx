@@ -563,7 +563,8 @@ export function CanvasArea({
   const editorRef = useRef(editor);
   editorRef.current = editor;
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
-  const budgets = getMemoryBudgets();
+  const settings = loadSettings();
+  const budgets = getMemoryBudgets(settings.render.memoryBudget);
   const subtreeIrCacheRef = useRef(new SubtreeIrCache(500, budgets.subtreeIrCacheBytes));
 
   // Enable frame diagnostics in dev mode once
