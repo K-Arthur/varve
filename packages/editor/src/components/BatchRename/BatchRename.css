@@ -1,0 +1,258 @@
+.batch-rename-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal, 2000);
+  background: var(--color-backdrop, rgb(0 0 0 / 0.3));
+}
+
+.batch-rename-dialog {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg, 0 8px 32px rgb(0 0 0 / 0.18));
+  width: 480px;
+  max-width: 90vw;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.batch-rename-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.batch-rename-dialog__title {
+  margin: 0;
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.batch-rename-dialog__close {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--space-1);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.batch-rename-dialog__close:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.batch-rename-dialog__body {
+  padding: var(--space-4);
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.batch-rename-dialog__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.batch-rename-dialog__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.batch-rename-dialog__input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+  font-family: var(--font-family-mono, monospace);
+  background: var(--color-surface-default);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  outline: none;
+  box-sizing: border-box;
+}
+
+.batch-rename-dialog__input:focus {
+  border-color: var(--color-accent-primary);
+  box-shadow: 0 0 0 2px var(--color-accent-subtle, rgb(57 208 198 / 0.15));
+}
+
+.batch-rename-dialog__input--error {
+  border-color: var(--color-status-critical, #e53935);
+}
+
+.batch-rename-dialog__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-status-critical, #e53935);
+  margin-top: var(--space-1);
+}
+
+.batch-rename-dialog__toggles {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.batch-rename-dialog__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.batch-rename-dialog__checkbox input[type="checkbox"] {
+  accent-color: var(--color-accent-primary);
+}
+
+.batch-rename-dialog__scope {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.batch-rename-dialog__scope label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.batch-rename-dialog__scope input[type="radio"] {
+  accent-color: var(--color-accent-primary);
+}
+
+.batch-rename-dialog__match-count {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding: var(--space-2) 0;
+}
+
+.batch-rename-dialog__match-count strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.batch-rename-dialog__match-count strong.changed {
+  color: var(--color-accent-primary);
+}
+
+.batch-rename-dialog__preview {
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--color-surface-sunken);
+}
+
+.batch-rename-dialog__preview-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-sm);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.batch-rename-dialog__preview-item:last-child {
+  border-bottom: none;
+}
+
+.batch-rename-dialog__preview-item--unchanged {
+  opacity: 0.5;
+}
+
+.batch-rename-dialog__preview-icon {
+  color: var(--color-accent-primary);
+  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+}
+
+.batch-rename-dialog__preview-old {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+  flex-shrink: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-rename-dialog__preview-arrow {
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.batch-rename-dialog__preview-new {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batch-rename-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.batch-rename-dialog__btn {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--ease-fast, 0.15s ease);
+}
+
+.batch-rename-dialog__btn--primary {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent, #000);
+  border-color: var(--color-accent-primary);
+}
+
+.batch-rename-dialog__btn--primary:hover {
+  background: var(--color-accent-hover, rgb(45 190 180));
+}
+
+.batch-rename-dialog__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.batch-rename-dialog__btn--secondary {
+  background: var(--color-surface-default);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default);
+}
+
+.batch-rename-dialog__btn--secondary:hover {
+  background: var(--color-surface-hover);
+}
