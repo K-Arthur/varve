@@ -71,5 +71,8 @@ export type {
   ModelManifestEntry,
   ModelPrecision,
   ModelState,
+  ModelTensorContract,
+  ModelValidation,
+  ModelValidationStatus,
   QualityValidation,
 } from './types';

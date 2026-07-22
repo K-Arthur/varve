@@ -70,7 +70,11 @@ function parsePsdData(data: Uint8Array, opts: ImportOptions, warnings: string[])
   const nodeIds: string[] = [];
 
   try {
-    const psd = Psd.parse(data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength));
+    const buf = data.buffer.slice(
+      data.byteOffset,
+      data.byteOffset + data.byteLength,
+    ) as ArrayBuffer;
+    const psd = Psd.parse(buf);
 
     if (!psd.children || psd.children.length === 0) {
       warnings.push('PSD file contains no layers');

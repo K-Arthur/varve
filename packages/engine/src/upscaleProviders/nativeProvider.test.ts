@@ -62,7 +62,9 @@ describe('nativeUpscaleProvider', () => {
     expect(invokeCalls).toContain('upscale_image');
 
     const upscaleCall = invokeMock.mock.calls.find((c) => c[0] === 'upscale_image');
-    expect(upscaleCall?.[1].options.modelId).toBe('upscale-realesr-general');
+    const args = upscaleCall?.[1] as Record<string, unknown> | undefined;
+    const opts = args?.options as Record<string, unknown> | undefined;
+    expect(opts?.modelId).toBe('upscale-realesr-general');
   });
 
   it('rejects cancellation signaled before invoke', async () => {

@@ -75,7 +75,7 @@ describe('TextEditOverlay', () => {
 
   it('reports grapheme-aware selection range on select', () => {
     const node = makeNode('Hello');
-    const { baseElement } = renderOverlay(node);
+    const { baseElement: _baseElement } = renderOverlay(node);
     const ta = screen.getByRole('textbox') as HTMLTextAreaElement;
     act(() => {
       ta.focus();

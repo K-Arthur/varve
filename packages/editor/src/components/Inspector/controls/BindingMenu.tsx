@@ -31,7 +31,8 @@ function formatValue(v: VariableValue): string {
   if (typeof v === 'number') return String(v);
   if (typeof v === 'boolean') return String(v);
   if (Array.isArray(v)) return `rgba(${v.join(',')})`;
-  return v;
+  if (typeof v === 'string') return v;
+  return JSON.stringify(v);
 }
 
 export function BindingMenu({

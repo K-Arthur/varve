@@ -167,7 +167,7 @@ describe('SVG mask import (D12)', () => {
     expect(maskSourceId).toBeDefined();
     const maskSource = result.document.nodes[maskSourceId!];
     expect(maskSource).toBeDefined();
-    if (maskSource.kind === 'frame' || maskSource.kind === 'group') {
+    if (maskSource && (maskSource.kind === 'frame' || maskSource.kind === 'group')) {
       expect(maskSource.children.length).toBe(2);
     }
   });

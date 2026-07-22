@@ -44,7 +44,8 @@ describe('shaping performance', () => {
       { text: 'नमस्ते दुनिया', fontFamily: 'Inter', fontSize: 16, direction: 'auto', language: 'hi' },
     ];
     for (let i = 0; i < count; i++) {
-      docs.push(samples[i % samples.length]);
+      const sample = samples[i % samples.length];
+      if (sample) docs.push(sample);
     }
     return docs;
   }

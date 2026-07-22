@@ -16,30 +16,70 @@ vi.mock('@webtoon/psd', () => ({
 import Psd from '@webtoon/psd';
 import { createPsdParser } from './psd';
 
-function makeBasicPsdResponse() {
+type MockLayer = {
+  type: 'Layer';
+  name: string;
+  width: number;
+  height: number;
+  top: number;
+  left: number;
+  opacity: number;
+  composedOpacity: number;
+  isHidden: boolean;
+  isTransparencyLocked: boolean;
+  maskData: null | {
+    top: number;
+    left: number;
+    bottom: number;
+    right: number;
+    backgroundColor: number;
+    flags: {
+      positionRelativeToLayer: boolean;
+      layerMaskDisabled: boolean;
+      invertMaskWhenBlending: boolean;
+      userMaskFromRenderingOtherData: boolean;
+      masksHaveParametersApplied: boolean;
+    };
+  };
+  parent?: Record<string, unknown> | null;
+  userMask: ReturnType<typeof vi.fn>;
+  realUserMask: ReturnType<typeof vi.fn>;
+};
+
+type MockPsdResponse = {
+  width: number;
+  height: number;
+  channelCount: number;
+  depth: number;
+  colorMode: number;
+  children: MockLayer[];
+};
+
+function makeBasicPsdResponse(): MockPsdResponse {
+  const children: MockLayer[] = [
+    {
+      type: 'Layer',
+      name: 'Layer 1',
+      width: 100,
+      height: 100,
+      top: 10,
+      left: 10,
+      opacity: 255,
+      composedOpacity: 1,
+      isHidden: false,
+      isTransparencyLocked: false,
+      maskData: null,
+      userMask: vi.fn().mockResolvedValue(undefined),
+      realUserMask: vi.fn().mockResolvedValue(undefined),
+    },
+  ];
   return {
     width: 200,
     height: 200,
     channelCount: 4,
     depth: 8,
     colorMode: 3,
-    children: [
-      {
-        type: 'Layer',
-        name: 'Layer 1',
-        width: 100,
-        height: 100,
-        top: 10,
-        left: 10,
-        opacity: 255,
-        composedOpacity: 1,
-        isHidden: false,
-        isTransparencyLocked: false,
-        maskData: null,
-        userMask: vi.fn().mockResolvedValue(undefined),
-        realUserMask: vi.fn().mockResolvedValue(undefined),
-      },
-    ],
+    children,
   };
 }
 
@@ -114,7 +154,7 @@ describe('PSD mask import (D13)', () => {
           masksHaveParametersApplied: false,
         },
       },
-    };
+    } as MockLayer;
     (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue(psd);
 
     const parser = createPsdParser();
@@ -148,7 +188,7 @@ describe('PSD mask import (D13)', () => {
           masksHaveParametersApplied: false,
         },
       },
-    };
+    } as MockLayer;
     (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue(psd);
 
     const parser = createPsdParser();
@@ -178,7 +218,7 @@ describe('PSD mask import (D13)', () => {
           masksHaveParametersApplied: false,
         },
       },
-    };
+    } as MockLayer;
     (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue(psd);
 
     const parser = createPsdParser();
@@ -192,7 +232,7 @@ describe('PSD mask import (D13)', () => {
     psd.children[0] = {
       ...psd.children[0],
       isHidden: true,
-    };
+    } as MockLayer;
     (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue(psd);
 
     const parser = createPsdParser();
@@ -205,48 +245,54 @@ describe('PSD mask import (D13)', () => {
   });
 
   it('imports a group with multiple layers', () => {
-    const psd = makeBasicPsdResponse();
-    psd.children = [
-      {
-        type: 'Group',
-        name: 'My Group',
-        opacity: 255,
-        composedOpacity: 1,
-        parent: null,
-        children: [
-          {
-            type: 'Layer',
-            name: 'Child 1',
-            width: 50,
-            height: 50,
-            top: 0,
-            left: 0,
-            opacity: 255,
-            composedOpacity: 1,
-            isHidden: false,
-            isTransparencyLocked: false,
-            maskData: null,
-            userMask: vi.fn().mockResolvedValue(undefined),
-            realUserMask: vi.fn().mockResolvedValue(undefined),
-          },
-          {
-            type: 'Layer',
-            name: 'Child 2',
-            width: 50,
-            height: 50,
-            top: 50,
-            left: 50,
-            opacity: 128,
-            composedOpacity: 0.5,
-            isHidden: false,
-            isTransparencyLocked: false,
-            maskData: null,
-            userMask: vi.fn().mockResolvedValue(undefined),
-            realUserMask: vi.fn().mockResolvedValue(undefined),
-          },
-        ],
-      },
-    ];
+    const psd = {
+      width: 200,
+      height: 200,
+      channelCount: 4,
+      depth: 8,
+      colorMode: 3,
+      children: [
+        {
+          type: 'Group' as const,
+          name: 'My Group',
+          opacity: 255,
+          composedOpacity: 1,
+          parent: null,
+          children: [
+            {
+              type: 'Layer' as const,
+              name: 'Child 1',
+              width: 50,
+              height: 50,
+              top: 0,
+              left: 0,
+              opacity: 255,
+              composedOpacity: 1,
+              isHidden: false,
+              isTransparencyLocked: false,
+              maskData: null,
+              userMask: vi.fn().mockResolvedValue(undefined),
+              realUserMask: vi.fn().mockResolvedValue(undefined),
+            },
+            {
+              type: 'Layer' as const,
+              name: 'Child 2',
+              width: 50,
+              height: 50,
+              top: 50,
+              left: 50,
+              opacity: 128,
+              composedOpacity: 0.5,
+              isHidden: false,
+              isTransparencyLocked: false,
+              maskData: null,
+              userMask: vi.fn().mockResolvedValue(undefined),
+              realUserMask: vi.fn().mockResolvedValue(undefined),
+            },
+          ],
+        },
+      ],
+    };
     (Psd.parse as ReturnType<typeof vi.fn>).mockReturnValue(psd);
 
     const parser = createPsdParser();

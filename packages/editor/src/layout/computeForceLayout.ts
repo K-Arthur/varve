@@ -59,7 +59,6 @@ export function computeForceLayout(
     return computeGridFallback(nodes, opts.width, opts.height);
   }
 
-  const idMap = new Map(nodes.map((n) => [n.id, n]));
   const positions = new Map<string, { x: number; y: number; vx: number; vy: number }>();
 
   // Initialise random positions

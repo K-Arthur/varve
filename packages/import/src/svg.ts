@@ -805,9 +805,12 @@ function nodeBounds(node: SceneNode): { x: number; y: number; w: number; h: numb
   } else if (node.kind === 'text') {
     bw = (node.fontSize ?? 16) * 6;
     bh = (node.fontSize ?? 16) * 1.4;
-  } else if (node.kind === 'group' || node.kind === 'frame') {
+  } else if (node.kind === 'frame') {
     bw = node.w;
     bh = node.h;
+  } else if (node.kind === 'group') {
+    bw = 0;
+    bh = 0;
   }
   return { x: tx, y: ty, w: bw, h: bh };
 }

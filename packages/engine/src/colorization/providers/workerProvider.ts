@@ -5,12 +5,13 @@
  * This is the default provider for browser environments and serves as
  * the fallback when native Tauri inference is unavailable.
  */
+
+import { getInferenceWorkerHost } from '../../inference/inferenceWorkerHost';
 import type {
   ColorizationRequestContract,
   ColorizationResultContract,
-} from '../colorization/colorizationRequest';
-import { getInferenceWorkerHost } from '../inference/inferenceWorkerHost';
-import type { ColorizationProvider } from './providerAbstraction';
+} from '../colorizationRequest';
+import type { ColorizationProvider } from '../providerAbstraction';
 
 const WORKER_PROVIDER_ID = 'worker';
 

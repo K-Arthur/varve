@@ -37,7 +37,7 @@ describe('richTextOps', () => {
         ],
       });
       expect(para.runs).toHaveLength(1);
-      expect(para.runs[0].text).toBe('Hello');
+      expect(para.runs[0]!.text).toBe('Hello');
     });
 
     it('keeps runs with different format separate', () => {
@@ -58,7 +58,7 @@ describe('richTextOps', () => {
         { start: { paragraphIndex: 0, offset: 6 }, end: { paragraphIndex: 0, offset: 11 } },
         { fontWeight: 700 },
       );
-      expect(result.paragraphs[0].runs).toEqual([
+      expect(result.paragraphs[0]!.runs).toEqual([
         { text: 'Hello ' },
         { text: 'World', format: { fontWeight: 700 } },
       ]);
@@ -75,14 +75,14 @@ describe('richTextOps', () => {
         { start: { paragraphIndex: 0, offset: 3 }, end: { paragraphIndex: 0, offset: 8 } },
         { fontWeight: 700 },
       );
-      const runs = result.paragraphs[0].runs;
+      const runs = result.paragraphs[0]!.runs;
       expect(runs).toHaveLength(3);
-      expect(runs[0].text).toBe('Hel');
-      expect(runs[0].format).toEqual({ fontWeight: 400 });
-      expect(runs[1].text).toBe('lo Wo');
-      expect(runs[1].format).toEqual({ fontWeight: 700 });
-      expect(runs[2].text).toBe('rld');
-      expect(runs[2].format).toEqual({ fontWeight: 400 });
+      expect(runs[0]!.text).toBe('Hel');
+      expect(runs[0]!.format).toEqual({ fontWeight: 400 });
+      expect(runs[1]!.text).toBe('lo Wo');
+      expect(runs[1]!.format).toEqual({ fontWeight: 700 });
+      expect(runs[2]!.text).toBe('rld');
+      expect(runs[2]!.format).toEqual({ fontWeight: 400 });
     });
 
     it('normalizes reversed selection', () => {
@@ -91,9 +91,9 @@ describe('richTextOps', () => {
         { start: { paragraphIndex: 0, offset: 4 }, end: { paragraphIndex: 0, offset: 1 } },
         { fontWeight: 700 },
       );
-      expect(result.paragraphs[0].runs[0].text).toBe('H');
-      expect(result.paragraphs[0].runs[1].text).toBe('ell');
-      expect(result.paragraphs[0].runs[1].format).toEqual({ fontWeight: 700 });
+      expect(result.paragraphs[0]!.runs[0]!.text).toBe('H');
+      expect(result.paragraphs[0]!.runs[1]!.text).toBe('ell');
+      expect(result.paragraphs[0]!.runs[1]!.format).toEqual({ fontWeight: 700 });
     });
   });
 
@@ -101,14 +101,14 @@ describe('richTextOps', () => {
     it('creates a single-paragraph rich text from plain text', () => {
       const r = promoteToRichText(undefined, 'Hello');
       expect(r.paragraphs).toHaveLength(1);
-      expect(r.paragraphs[0].runs[0].text).toBe('Hello');
+      expect(r.paragraphs[0]!.runs[0]!.text).toBe('Hello');
     });
 
     it('splits on newlines into paragraphs', () => {
       const r = promoteToRichText(undefined, 'Line 1\nLine 2');
       expect(r.paragraphs).toHaveLength(2);
-      expect(r.paragraphs[0].runs[0].text).toBe('Line 1');
-      expect(r.paragraphs[1].runs[0].text).toBe('Line 2');
+      expect(r.paragraphs[0]!.runs[0]!.text).toBe('Line 1');
+      expect(r.paragraphs[1]!.runs[0]!.text).toBe('Line 2');
     });
 
     it('returns existing rich text unchanged', () => {

@@ -22,7 +22,7 @@ vi.mock('../../controls/DisclosureSection', () => ({
 
 vi.mock('../../../../context', () => ({
   useEditor: () => ({
-    state: { document: { nodes: {} }, sectionVisibility: {} },
+    state: { document: { nodes: {} }, sectionVisibility: {}, selection: [] },
     selectedNodes: () => [],
     announce: vi.fn(),
     updateDoc: vi.fn(),

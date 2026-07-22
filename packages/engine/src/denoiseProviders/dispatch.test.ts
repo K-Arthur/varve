@@ -19,7 +19,7 @@ const { fakeDenoise, mockIsModelAvailable } = vi.hoisted(() => ({
       return { imageData: img, executionProvider: 'fake', processingTimeMs: 1 };
     },
   ),
-  mockIsModelAvailable: vi.fn(async () => true),
+  mockIsModelAvailable: vi.fn(async (..._args: unknown[]) => true),
 }));
 
 function makeImageData(width: number, height: number, fill = 200, alpha = 255): ImageData {

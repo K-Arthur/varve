@@ -18,13 +18,13 @@ import type { Shape } from '@strata/engine';
 import type {
   Document,
   FrameNode,
-  isRgbColor,
   ManagedColor,
   SceneNode,
   SMState,
   SMTransition,
   StateMachine,
 } from '@strata/scene';
+import { isRgbColor } from '@strata/scene';
 
 export interface InteractiveExportOptions {
   /** Emit CSS animation-timeline scroll bindings where supported. */

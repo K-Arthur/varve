@@ -9,9 +9,8 @@ import type { Mask } from './types';
 
 function makeMask(overrides: Partial<Mask> & { type: Mask['type'] }): Mask {
   return {
-    type: overrides.type,
     visible: true,
-    fillRule: 'nonzero',
+    fillRule: 'nonzero' as const,
     inverted: false,
     feather: 0,
     density: 1,
@@ -19,12 +18,12 @@ function makeMask(overrides: Partial<Mask> & { type: Mask['type'] }): Mask {
     hideMaskSource: false,
     sourceNodeId: 'node-1',
     ...overrides,
-  };
+  } as Mask;
 }
 
 describe('FORMAT_CAPABILITIES', () => {
   it('declares SVG with full native support', () => {
-    const svg = FORMAT_CAPABILITIES.svg;
+    const svg = FORMAT_CAPABILITIES.svg!;
     expect(svg).toBeDefined();
     expect(svg.clip.type).toBe('native');
     expect(svg.alpha.type).toBe('native');
@@ -34,7 +33,7 @@ describe('FORMAT_CAPABILITIES', () => {
   });
 
   it('declares PDF with partial support', () => {
-    const pdf = FORMAT_CAPABILITIES.pdf;
+    const pdf = FORMAT_CAPABILITIES.pdf!;
     expect(pdf).toBeDefined();
     expect(pdf.clip.type).toBe('native');
     expect(pdf.clip.feather).toBe('unsupported');
@@ -43,7 +42,7 @@ describe('FORMAT_CAPABILITIES', () => {
   });
 
   it('declares PSD with partial support', () => {
-    const psd = FORMAT_CAPABILITIES.psd;
+    const psd = FORMAT_CAPABILITIES.psd!;
     expect(psd).toBeDefined();
     expect(psd.clip.type).toBe('native');
     expect(psd.clip.feather).toBe('native');

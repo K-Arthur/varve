@@ -51,7 +51,9 @@ export type SectionId =
   | 'detect-text'
   | 'blend-images'
   | 'adaptive-contrast'
-  | 'colorize';
+  | 'colorize'
+  | 'ocr'
+  | 'palette';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -373,16 +375,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'advanced',
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
-  {
-    id: 'colorize',
-    title: 'Colorize',
-    defaultExpanded: true,
-    canHide: true,
-    essential: false,
-    order: 294,
-    category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
-  },
+
   {
     id: 'lens-blur',
     title: 'Lens Blur',

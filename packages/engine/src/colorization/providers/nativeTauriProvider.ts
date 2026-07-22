@@ -25,8 +25,8 @@
 import type {
   ColorizationRequestContract,
   ColorizationResultContract,
-} from '../colorization/colorizationRequest';
-import type { ColorizationProvider } from '../colorization/providerAbstraction';
+} from '../colorizationRequest';
+import type { ColorizationProvider } from '../providerAbstraction';
 
 const NATIVE_PROVIDER_ID = 'native-tauri';
 
@@ -35,7 +35,10 @@ const NATIVE_PROVIDER_ID = 'native-tauri';
  */
 async function checkTauriNativeAi(): Promise<boolean> {
   try {
-    if (typeof window === 'undefined' || !(window as Record<string, unknown>).__TAURI_INTERNALS__) {
+    if (
+      typeof window === 'undefined' ||
+      !(window as unknown as Record<string, unknown>).__TAURI_INTERNALS__
+    ) {
       return false;
     }
     const { invoke } = await import('@tauri-apps/api/core');
@@ -190,7 +193,7 @@ export async function nativeScunetInfer(
     modelType: 'scunet',
     modelPath,
     imageData: imageDataToArrayBuffer(imageData),
-    params: { strength },
+    params: { strength: _strength },
     targetWidth: imageData.width,
     targetHeight: imageData.height,
   });

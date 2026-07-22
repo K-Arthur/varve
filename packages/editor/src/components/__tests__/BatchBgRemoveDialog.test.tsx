@@ -18,6 +18,15 @@ vi.mock('@strata/engine', () => ({
   getImageCache: () => mockImageCache,
   removeBackground: mockRemoveBackground,
   DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
+  getEnvironmentCapabilities: vi.fn().mockResolvedValue({
+    webgpu: false,
+    wasm: true,
+    wasmSimd: true,
+    onnxBackend: 'wasm',
+    executionProviders: [{ name: 'wasm' }],
+    maxMemoryMB: 512,
+  }),
+  isWasmModelSafe: vi.fn().mockResolvedValue(true),
   finalizeMaskResult: vi.fn(async (result: { maskDataUrl: string }) => ({
     ...result,
     needsSubjectPicker: false,

@@ -18,8 +18,34 @@
 
 import { totalEffectExpansion } from './adjustmentPipeline';
 import { applyFilterWithCompositing } from './filterCompositor';
-import { createRasterSurface, type RasterSurface } from './rasterSurface';
+import { createRasterSurface, encodeRasterSurface, type RasterSurface } from './rasterSurface';
 import type { FilterIR } from './types';
+
+/**
+ * Encode a RasterCanvas to a PNG data URL (async path).
+ */
+async function surfaceToDataUrl(canvas: RasterSurface['canvas']): Promise<string> {
+  if (typeof (canvas as HTMLCanvasElement).toDataURL === 'function') {
+    return (canvas as HTMLCanvasElement).toDataURL('image/png');
+  }
+  const blob = await (canvas as OffscreenCanvas).convertToBlob({ type: 'image/png' });
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to encode PNG from OffscreenCanvas'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Encode a RasterCanvas to a PNG data URL (synchronous path, HTMLCanvasElement only).
+ */
+function surfaceToDataUrlSync(canvas: RasterSurface['canvas']): string {
+  if (typeof (canvas as HTMLCanvasElement).toDataURL === 'function') {
+    return (canvas as HTMLCanvasElement).toDataURL('image/png');
+  }
+  throw new Error('Synchronous PNG encoding requires an HTMLCanvasElement');
+}
 
 export interface ExportRasterOptions {
   /** Export scale factor (e.g., 2 for @2x). */
@@ -103,16 +129,16 @@ export async function exportRasterizedSubtree(
   context.save();
   context.translate(expL * scale, expT * scale);
   context.scale(scale, scale);
-  renderTarget(context);
+  renderTarget(context as CanvasRenderingContext2D);
   context.restore();
 
   // Apply filter stack
   if (filters.length > 0) {
-    applyFilterWithCompositing(context, filters, expPixelW, expPixelH);
+    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH);
   }
 
   // Encode to PNG data URL
-  const dataUrl = canvas.toDataURL('image/png');
+  const dataUrl = await surfaceToDataUrl(canvas);
 
   return {
     dataUrl,
@@ -162,14 +188,14 @@ export function exportRasterizedSubtreeSync(
   context.save();
   context.translate(expL * scale, expT * scale);
   context.scale(scale, scale);
-  renderTarget(context);
+  renderTarget(context as CanvasRenderingContext2D);
   context.restore();
 
   if (filters.length > 0) {
-    applyFilterWithCompositing(context, filters, expPixelW, expPixelH);
+    applyFilterWithCompositing(context as CanvasRenderingContext2D, filters, expPixelW, expPixelH);
   }
 
-  const dataUrl = canvas.toDataURL('image/png');
+  const dataUrl = surfaceToDataUrlSync(canvas);
 
   return {
     dataUrl,

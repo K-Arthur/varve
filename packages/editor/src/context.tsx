@@ -922,6 +922,8 @@ export interface EditorContextValue {
   setFocusedField: (field: string | null) => void;
   /** F6: batch-edit corner smoothing on all selected shape nodes. */
   setSelectedCornerSmoothing: (value: number) => void;
+  /** Report the selected grapheme range within the focused text node. */
+  setSelectionRange: (range: import('@strata/scene').RichSelection | null) => void;
   /** Set cursor position on canvas (null when pointer leaves). */
   setCursorPos: (pos: { x: number; y: number } | null) => void;
   /** Set the display unit type. */
@@ -1954,6 +1956,7 @@ export function EditorProvider({
         height: 0,
       },
       themeRevision: 0,
+      revision: 0,
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -3743,7 +3746,7 @@ export function EditorProvider({
 
       // M5b: rich-text span formatting — apply a character format to the
       // selected range of the focused text node's rich text.
-      applyFormatToSelection: (format) => {
+      applyFormatToSelection: (format: import('@strata/scene').CharacterFormat) => {
         const sel = stateRef.current.selection;
         if (sel.length === 0) return;
         const range = stateRef.current.selectionRange;
@@ -3761,7 +3764,7 @@ export function EditorProvider({
         });
       },
 
-      setPendingFormat: (format) => {
+      setPendingFormat: (format: import('@strata/scene').CharacterFormat | null) => {
         setState((s) => ({ ...s, pendingFormat: format }));
       },
 
@@ -6329,15 +6332,19 @@ export function EditorProvider({
                 doc,
                 assetInput,
               );
+              const currentFill = fill?.type === 'image' && fill.image ? fill.image : undefined;
               const nextFill = {
                 type: 'image' as const,
+                opacity: fill?.opacity ?? 1,
+                blendMode: fill?.blendMode ?? ('normal' as const),
+                visible: fill?.visible ?? true,
                 image: {
                   src: dataUrl,
                   assetId,
-                  fit: fill?.fit ?? ('fill' as const),
-                  x: fill?.x ?? 0,
-                  y: fill?.y ?? 0,
-                  scale: fill?.scale ?? 1,
+                  fit: currentFill?.fit ?? ('fill' as const),
+                  x: currentFill?.x ?? 0,
+                  y: currentFill?.y ?? 0,
+                  scale: currentFill?.scale ?? 1,
                   imageWidth: output.width,
                   imageHeight: output.height,
                 },
@@ -6852,7 +6859,8 @@ export function EditorProvider({
 
       setSelectedGuideId: (id) => patch({ selectedGuideId: id }),
 
-      setSelectionRange: (range) => patch({ selectionRange: range }),
+      setSelectionRange: (range: import('@strata/scene').RichSelection | null) =>
+        patch({ selectionRange: range }),
 
       nudgeSelectedGuide: (dx, dy) => {
         const guideId = stateRef.current.selectedGuideId;
@@ -6956,7 +6964,8 @@ export function EditorProvider({
           state.revision,
           meta?.fileId,
         );
-        return result.success ? result.backupId : null;
+        if (!result) return null;
+        return result.success && result.backupId ? result.backupId : null;
       },
     }),
     [

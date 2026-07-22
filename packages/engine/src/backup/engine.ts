@@ -138,6 +138,7 @@ export class BackupEngine {
       } else {
         manifest.verificationStatus = 'corrupted';
       }
+      await this.store.saveBackup(projectId, backupId, manifest, documentJson, assetsMap);
 
       return {
         success: true,

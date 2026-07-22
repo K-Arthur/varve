@@ -109,35 +109,7 @@ export function SubjectPickerOverlay({
   }, []);
 
   // Keyboard navigation within the list
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'a' && (e.ctrlKey || e.metaKey)) {
-        e.preventDefault();
-        selectAll();
-      }
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
-        e.preventDefault();
-        const items = listRef.current?.querySelectorAll('[role="option"]');
-        if (items && items.length > 0) {
-          const focused = document.activeElement;
-          const idx = Array.from(items).indexOf(focused as Element);
-          const next = idx < items.length - 1 ? idx + 1 : 0;
-          (items[next] as HTMLElement)?.focus();
-        }
-      }
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
-        e.preventDefault();
-        const items = listRef.current?.querySelectorAll('[role="option"]');
-        if (items && items.length > 0) {
-          const focused = document.activeElement;
-          const idx = Array.from(items).indexOf(focused as Element);
-          const prev = idx > 0 ? idx - 1 : items.length - 1;
-          (items[prev] as HTMLElement)?.focus();
-        }
-      }
-    },
-    [selectAll],
-  );
+  // (navigation is handled by the dialog's built-in focus management)
 
   const selectedCount = selected.size;
   const totalCount = session.components.length;

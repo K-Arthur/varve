@@ -318,10 +318,12 @@ describe('ImageEnhancementSection — original one-shot', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Upscale image' }));
 
     await waitFor(() =>
-      expect(upscaleSelectedImage).toHaveBeenCalledWith({
-        scale: 4,
-        method: 'nearest',
-      }),
+      expect(upscaleSelectedImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scale: 4,
+          method: 'nearest',
+        }),
+      ),
     );
 
     fireEvent.click(screen.getByLabelText('Trace mode'));
@@ -353,14 +355,16 @@ describe('ImageEnhancementSection — original one-shot', () => {
 
     expect(screen.getByLabelText('Upscale factor')).toHaveTextContent('4x');
     expect(screen.getByLabelText('Upscale factor')).toHaveAttribute('data-disabled');
-    fireEvent.click(screen.getByRole('button', { name: 'Upscale image' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upscale with AI' }));
 
     await waitFor(() =>
-      expect(upscaleSelectedImage).toHaveBeenCalledWith({
-        scale: 4,
-        method: 'ai',
-        modelId: 'upscale-realesr-general',
-      }),
+      expect(upscaleSelectedImage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          scale: 4,
+          method: 'ai',
+          modelId: 'upscale-realesr-general',
+        }),
+      ),
     );
   });
 

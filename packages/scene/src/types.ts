@@ -17,6 +17,8 @@ import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
+export type { ManagedColor };
+
 export type NodeId = string;
 
 export type LayerColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray' | null;

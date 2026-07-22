@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { applyPaletteAsSwatches, generateAccessiblePalette } from './paletteGenerator';
 
 describe('generateAccessiblePalette', () => {
-  const doc = createDocument({});
+  const doc = createDocument();
 
   const heroColor = { space: 'rgb' as const, r: 57, g: 208, b: 198, a: 1 };
   const whiteBg = { space: 'rgb' as const, r: 255, g: 255, b: 255, a: 1 };
@@ -117,7 +117,7 @@ describe('generateAccessiblePalette', () => {
 
 describe('applyPaletteAsSwatches', () => {
   it('adds palette colors as swatches', () => {
-    const doc = createDocument({});
+    const doc = createDocument();
     const result = generateAccessiblePalette(doc, {
       heroColor: { space: 'rgb', r: 57, g: 208, b: 198, a: 1 },
       backgrounds: [{ name: 'light', color: { space: 'rgb', r: 255, g: 255, b: 255, a: 1 } }],
@@ -132,7 +132,7 @@ describe('applyPaletteAsSwatches', () => {
   });
 
   it('adds palette colors as swatches', () => {
-    const doc = createDocument({});
+    const doc = createDocument();
     const result = generateAccessiblePalette(doc, {
       heroColor: { space: 'rgb', r: 57, g: 208, b: 198, a: 1 },
       backgrounds: [{ name: 'light', color: { space: 'rgb', r: 255, g: 255, b: 255, a: 1 } }],

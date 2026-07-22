@@ -25,7 +25,7 @@ function contentFingerprint(data: ImageData): string {
   const len = Math.min(d.length, 512);
   let hash = 0;
   for (let i = 0; i < len; i++) {
-    hash = ((hash << 5) - hash + d[i]) | 0;
+    hash = ((hash << 5) - hash + (d[i] ?? 0)) | 0;
   }
   return `${data.width}x${data.height}:${hash}`;
 }

@@ -16,6 +16,9 @@ function makeVersion(id: string, overrides?: Partial<VersionEntry>): VersionEntr
     documentHash: 'hash',
     timestamp: REF_NOW,
     kind: 'auto',
+    origin: 'autosave' as const,
+    size: 0,
+    pinned: false,
     ...overrides,
   };
 }
