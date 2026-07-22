@@ -65,3 +65,9 @@ reference changes.
 The measurement audit and raw results are recorded in
 [`2026-07-22-end-to-end-baseline.md`](2026-07-22-end-to-end-baseline.md). These
 figures are pre-optimization and informational; they are not CI budgets.
+
+## End-to-end program results (2026-07-22)
+
+Implementation, validation, directional before/after measurements, platform
+coverage, and evidence-qualified remaining work are recorded in
+[`2026-07-22-end-to-end-results.md`](2026-07-22-end-to-end-results.md).
