@@ -54,3 +54,31 @@ describe('ExportSettingsTab', () => {
     expect(screen.getByLabelText('ICC profile')).toBeTruthy();
   });
 });
+
+describe('PerformanceSettingsTab', () => {
+  function openPerformanceTab() {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    const tabs = screen.getAllByRole('tab');
+    const performanceTab = tabs.find((t) => t.textContent === 'Performance');
+    expect(performanceTab).toBeTruthy();
+    fireEvent.click(performanceTab!);
+  }
+
+  it('shows the memory budget and reduce motion selectors', () => {
+    openPerformanceTab();
+    expect(screen.getByLabelText('Memory / cache budget')).toBeTruthy();
+    expect(screen.getByLabelText('Reduce motion')).toBeTruthy();
+  });
+
+  it('shows read-only diagnostics stats', () => {
+    openPerformanceTab();
+    expect(screen.getByText('Adaptive quality tier')).toBeTruthy();
+    expect(screen.getByText('Avg. frame time')).toBeTruthy();
+  });
+
+  it('copy diagnostics button does not throw when clicked', () => {
+    openPerformanceTab();
+    const copyBtn = screen.getByText('Copy performance diagnostics');
+    expect(() => fireEvent.click(copyBtn)).not.toThrow();
+  });
+});

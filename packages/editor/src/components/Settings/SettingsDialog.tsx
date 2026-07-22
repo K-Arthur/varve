@@ -11,6 +11,7 @@ import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
+import { PerformanceSettingsTab } from './PerformanceSettingsTab';
 import { useSettings } from './SettingsContext';
 import type { SettingsSection, ThemeMode, UnitType } from './settings';
 
@@ -20,6 +21,7 @@ const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'backup', label: 'Backup & Recovery' },
   { id: 'shortcuts', label: 'Keyboard Shortcuts' },
   { id: 'export', label: 'Export' },
+  { id: 'performance', label: 'Performance' },
   { id: 'models', label: 'Offline Models' },
   { id: 'collab', label: 'Collab' },
   { id: 'ai', label: 'AI Assistant' },
@@ -153,6 +155,7 @@ export function SettingsDialog({
               <ShortcutsSection onOpenPalette={() => setShortcutsOpen(true)} />
             )}
             {activeSection === 'export' && <ExportSettingsTab />}
+            {activeSection === 'performance' && <PerformanceSettingsTab />}
             {activeSection === 'models' && (
               <>
                 <BgRemovalModelsTab />
