@@ -79,19 +79,20 @@ import {
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import {
+  cancelCanvasFrame,
+  createCanvasFrameKey,
   enableDrawDiagnostics,
-  recordFrame,
-  renderDrawDiagnostics,
-} from './canvas/drawDiagnostics';
-import {
   endFrameTiming,
   getAverageFrameTime,
+  getMemoryBudgets,
   getOverBudgetCount,
+  recordFrame,
+  renderDrawDiagnostics,
+  scheduleCanvasFrame,
   startFrameTiming,
-} from './canvas/frameBudget';
-import { computeInvalidationPlan } from './canvas/invalidationPlan';
-import { getMemoryBudgets } from './canvas/memoryBudget';
+} from './canvas/perfRuntime';
 import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
@@ -645,8 +646,10 @@ export function CanvasArea({
   // identity changes (and thus a RAF reschedule) on every mutation path, even when
   // rootNodes/zoom/pan etc. are unchanged due to React batching edge cases.
   const [redrawCount, setRedrawCount] = useState(0);
-  const contentDrawRafRef = useRef<number | null>(null);
-  const overlayDrawRafRef = useRef<number | null>(null);
+  const contentDrawFrameKey = useRef<string | null>(null);
+  contentDrawFrameKey.current ??= createCanvasFrameKey('content');
+  const overlayDrawFrameKey = useRef<string | null>(null);
+  overlayDrawFrameKey.current ??= createCanvasFrameKey('overlay');
   // Concurrency guard for drawContent's async body: `drawContent`'s identity
   // (and thus the RAF-scheduling effect below) changes on every document
   // mutation, camera move, etc., but cancelling a *scheduled* animation frame
@@ -663,7 +666,9 @@ export function CanvasArea({
   const drawPendingRef = useRef(false);
 
   // E1: Auto-pan when dragging near canvas edge.
-  const autoPanRaf = useRef<number | null>(null);
+  const autoPanFrameKey = useRef<string | null>(null);
+  autoPanFrameKey.current ??= createCanvasFrameKey('auto-pan');
+  const autoPanActive = useRef(false);
   const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   // B-04: Dirty-rect tracking for partial redraw. Populated by draw()
@@ -2379,10 +2384,9 @@ export function CanvasArea({
       drawInFlightRef.current = false;
       if (drawPendingRef.current) {
         drawPendingRef.current = false;
-        // A trigger arrived while this draw was in flight — run once more
-        // (on the next frame) to reflect the latest state, instead of
-        // starting an overlapping build immediately.
-        requestAnimationFrame(() => drawContent());
+        // A trigger arrived while this draw was in flight — schedule one more
+        // pass via the frame scheduler to reflect the latest state.
+        scheduleCanvasFrame(contentFrameKey, 'canvas', () => drawContent());
       }
     });
   }, [
@@ -2421,14 +2425,24 @@ export function CanvasArea({
   const requestRedrawRef = useRef<() => void>(requestRedraw);
   requestRedrawRef.current = requestRedraw;
 
+  // Scheduler key for the draw-content job
+  const contentFrameKey = useMemo(() => createCanvasFrameKey('draw-content'), []);
+  const overlayFrameKey = useMemo(() => createCanvasFrameKey('draw-overlay'), []);
+
   useEffect(() => {
+    const key = contentFrameKey;
     requestContentDrawRef.current = () => {
-      drawContent();
-      // Also bump the redraw counter so the next React render gets a new
-      // drawContent identity, making the RAF-scheduling effect re-fire.
+      // Schedule the draw via the frame scheduler's canvas lane.
+      // Multiple triggers within the same frame coalesce — the scheduler
+      // replaces jobs with the same key, so only one RAF callback fires.
+      scheduleCanvasFrame(key, 'canvas', () => {
+        drawContent();
+      });
+      // Still bump the redraw counter so the React render cycle re-fires
+      // the effects that recreate drawContent on state change.
       requestRedrawRef.current();
     };
-  }, [drawContent, requestRedraw]);
+  }, [drawContent, requestRedraw, contentFrameKey]);
 
   // ── Overlay canvas draw: layout grid overlay, draft shapes ──────────────
 
@@ -2935,6 +2949,13 @@ export function CanvasArea({
     displayDpr,
   ]);
 
+  // Schedule the overlay draw on the ui lane (lower priority than canvas content)
+  useEffect(() => {
+    scheduleCanvasFrame(overlayFrameKey, 'ui', () => {
+      drawOverlay();
+    });
+  }, [drawOverlay, overlayFrameKey]);
+
   // ── Theme-change redraw guard ────────────────────────────────────────────
   // Theme changes (data-theme on <html>) do not change any EditorState field,
   // so drawContent's identity stays the same and the RAF-scheduling effect
@@ -2954,34 +2975,24 @@ export function CanvasArea({
   // ── RAF scheduling ──────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (contentDrawRafRef.current !== null) {
-      cancelAnimationFrame(contentDrawRafRef.current);
-    }
-    contentDrawRafRef.current = requestAnimationFrame(() => {
-      contentDrawRafRef.current = null;
+    const frameKey = contentDrawFrameKey.current;
+    if (!frameKey) return;
+    scheduleCanvasFrame(frameKey, 'canvas', () => {
       drawContent();
     });
     return () => {
-      if (contentDrawRafRef.current !== null) {
-        cancelAnimationFrame(contentDrawRafRef.current);
-        contentDrawRafRef.current = null;
-      }
+      cancelCanvasFrame(frameKey);
     };
   }, [drawContent]);
 
   useEffect(() => {
-    if (overlayDrawRafRef.current !== null) {
-      cancelAnimationFrame(overlayDrawRafRef.current);
-    }
-    overlayDrawRafRef.current = requestAnimationFrame(() => {
-      overlayDrawRafRef.current = null;
+    const frameKey = overlayDrawFrameKey.current;
+    if (!frameKey) return;
+    scheduleCanvasFrame(frameKey, 'ui', () => {
       drawOverlay();
     });
     return () => {
-      if (overlayDrawRafRef.current !== null) {
-        cancelAnimationFrame(overlayDrawRafRef.current);
-        overlayDrawRafRef.current = null;
-      }
+      cancelCanvasFrame(frameKey);
     };
   }, [drawOverlay]);
 
@@ -3005,10 +3016,9 @@ export function CanvasArea({
   // ─── Auto-pan (edge scroll during drag) ────────────────────────────────
 
   function stopAutoPan() {
-    if (autoPanRaf.current !== null) {
-      cancelAnimationFrame(autoPanRaf.current);
-      autoPanRaf.current = null;
-    }
+    const frameKey = autoPanFrameKey.current;
+    if (frameKey) cancelCanvasFrame(frameKey);
+    autoPanActive.current = false;
     autoPanVelocity.current = { x: 0, y: 0 };
   }
 
@@ -3116,7 +3126,10 @@ export function CanvasArea({
         const vy = computeEdgeVelocity(e.clientY, rect.top, rect.bottom);
         autoPanVelocity.current = { x: vx, y: vy };
         if (vx !== 0 || vy !== 0) {
-          if (autoPanRaf.current === null) {
+          if (!autoPanActive.current) {
+            const frameKey = autoPanFrameKey.current;
+            if (!frameKey) return;
+            autoPanActive.current = true;
             const tick = () => {
               const v = autoPanVelocity.current;
               if (v.x === 0 && v.y === 0) {
@@ -3125,9 +3138,9 @@ export function CanvasArea({
               }
               const s = stateRef.current;
               editor.setPan({ x: s.pan.x + v.x, y: s.pan.y + v.y });
-              autoPanRaf.current = requestAnimationFrame(tick);
+              scheduleCanvasFrame(frameKey, 'input', tick);
             };
-            autoPanRaf.current = requestAnimationFrame(tick);
+            scheduleCanvasFrame(frameKey, 'input', tick);
           }
         } else {
           stopAutoPan();
@@ -3197,7 +3210,8 @@ export function CanvasArea({
     };
 
     // ── Inertial scroll state (A-06) ──────────────────────────────────
-    const inertiaRef = { current: { vx: 0, vy: 0, rafId: 0, active: false } };
+    const inertiaRef = { current: { vx: 0, vy: 0, active: false } };
+    const inertiaFrameKey = createCanvasFrameKey('wheel-inertia');
     const INERTIA_FRICTION = 0.9;
     const INERTIA_THRESHOLD = 0.5;
 
@@ -3216,13 +3230,13 @@ export function CanvasArea({
         editorRef.current.setPan({ x: s.pan.x + v.vx, y: s.pan.y + v.vy });
         v.vx *= INERTIA_FRICTION;
         v.vy *= INERTIA_FRICTION;
-        v.rafId = requestAnimationFrame(tick);
+        scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
       };
-      inertiaRef.current.rafId = requestAnimationFrame(tick);
+      scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
     }
 
     function cancelInertia(): void {
-      if (inertiaRef.current.rafId) cancelAnimationFrame(inertiaRef.current.rafId);
+      cancelCanvasFrame(inertiaFrameKey);
       inertiaRef.current.active = false;
       inertiaRef.current.vx = 0;
       inertiaRef.current.vy = 0;
