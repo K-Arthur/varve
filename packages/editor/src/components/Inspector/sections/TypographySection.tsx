@@ -229,8 +229,6 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     [textNodes, updateNode, beginTransaction, commitTransaction],
   );
 
-  if (textNodes.length === 0) return null;
-
   const textFillColor = useMemo(() => {
     if (textNodes.length !== 1) return null;
     const n = textNodes[0];
@@ -247,6 +245,8 @@ export function TypographySection({ nodes }: TypographySectionProps) {
     }
     return null;
   }, [textNodes]);
+
+  if (textNodes.length === 0) return null;
 
   const familyRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontFamily ?? ''));
   const weightRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.fontWeight ?? 400));
