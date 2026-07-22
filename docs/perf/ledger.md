@@ -50,6 +50,10 @@ reference changes.
 | Per-frame timing instrumentation | Not available | p50/p95 per frame in ring buffer | jsdom, Vitest, CachyOS | high | `frameBudget.ts` wired into drawContent |
 | Dev diagnostics HUD | Not available | Frame timing, cache stats, render path overlay | browser, dev mode only | high | `drawDiagnostics.ts` overlay via `renderDrawDiagnostics` |
 | SubtreeIrCache memory budget | Fixed 500 entries / 50MB soft / 100MB hard | Configurable via settings.render.memoryBudget | jsdom, Vitest, CachyOS | high | low=10MB, medium=25MB, default=50MB, high=200MB |
+| Adaptive profile integration | Not wired — profile modules existed unused | Profile controls: partial redraw, worker eligibility, cache budget (4 tiers) | jsdom, Vitest, CachyOS | high | Hysteresis prevents tier oscillation; cooldown 30 frames |
+| Per-phase frame timing | buildIrMs=0, replayMs=0 (hardcoded) | Real buildIrMs/replayMs per frame in diagnostics ring buffer | jsdom, Vitest, CachyOS | high | Three buildIr timing points + replay section wrapper |
+| Cache hit count in diagnostics | cacheHitCount=0 (hardcoded) | Real cacheHitCount tracked per frame | jsdom, Vitest, CachyOS | high | 3 lines added in the cache loop |
+| Diagnostics HUD | No overlay | Overlay shows F#, dv#, rc#, tier, path, dirty state, node/culled/cache counts, build/replay/total ms, avg30/p95 | browser, dev mode | high | `renderDrawDiagnostics()` renders to overlay canvas |
 
 ## Environment Notes
 
