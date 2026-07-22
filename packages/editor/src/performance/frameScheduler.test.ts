@@ -1,0 +1,94 @@
+import { describe, expect, it, vi } from 'vitest';
+import { createFrameScheduler } from './frameScheduler';
+
+function makeHarness() {
+  let callback: FrameRequestCallback | null = null;
+  let now = 0;
+  const scheduler = createFrameScheduler({
+    requestFrame: (next) => {
+      callback = next;
+      return 1;
+    },
+    cancelFrame: () => {
+      callback = null;
+    },
+    now: () => now,
+    frameWorkBudgetMs: 8,
+  });
+  return {
+    scheduler,
+    advance(ms = 1) {
+      now += ms;
+      const next = callback;
+      callback = null;
+      if (next) next(now);
+    },
+  };
+}
+
+describe('frame scheduler', () => {
+  it('runs lanes in interaction, canvas, UI, background order', () => {
+    const harness = makeHarness();
+    const order: string[] = [];
+    harness.scheduler.request('background', 'background', () => order.push('background'));
+    harness.scheduler.request('ui', 'ui', () => order.push('ui'));
+    harness.scheduler.request('canvas', 'canvas', () => order.push('canvas'));
+    harness.scheduler.request('input', 'input', () => order.push('input'));
+    harness.advance();
+    expect(order).toEqual(['input', 'canvas', 'ui', 'background']);
+  });
+
+  it('replaces queued work with the latest job for a key', () => {
+    const harness = makeHarness();
+    const first = vi.fn();
+    const latest = vi.fn();
+    harness.scheduler.request('canvas-content', 'canvas', first);
+    harness.scheduler.request('canvas-content', 'canvas', latest);
+    harness.advance();
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledOnce();
+    expect(harness.scheduler.getDiagnostics().replacedJobs).toBe(1);
+  });
+
+  it('defers background work while an interaction is active', () => {
+    const harness = makeHarness();
+    const background = vi.fn();
+    harness.scheduler.beginInteraction();
+    harness.scheduler.request('prefetch', 'background', background);
+    harness.advance();
+    expect(background).not.toHaveBeenCalled();
+    harness.scheduler.endInteraction();
+    harness.advance(150);
+    expect(background).toHaveBeenCalledOnce();
+  });
+
+  it('retains canvas and background jobs while hidden', () => {
+    const harness = makeHarness();
+    const canvas = vi.fn();
+    const background = vi.fn();
+    harness.scheduler.setVisible(false);
+    harness.scheduler.request('canvas', 'canvas', canvas);
+    harness.scheduler.request('background', 'background', background);
+    harness.advance();
+    expect(canvas).not.toHaveBeenCalled();
+    expect(background).not.toHaveBeenCalled();
+    harness.scheduler.setVisible(true);
+    harness.advance();
+    expect(canvas).toHaveBeenCalledOnce();
+    expect(background).toHaveBeenCalledOnce();
+  });
+
+  it('cancels keyed work and releases all queued work on dispose', () => {
+    const harness = makeHarness();
+    const job = vi.fn();
+    harness.scheduler.request('job', 'canvas', job);
+    expect(harness.scheduler.cancel('job')).toBe(true);
+    harness.advance();
+    expect(job).not.toHaveBeenCalled();
+    harness.scheduler.request('job', 'canvas', job);
+    harness.scheduler.dispose();
+    harness.advance();
+    expect(job).not.toHaveBeenCalled();
+    expect(harness.scheduler.getDiagnostics().queuedJobs).toBe(0);
+  });
+});

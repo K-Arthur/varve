@@ -3,6 +3,19 @@ export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './con
 export { EditorProvider, useEditor } from './context';
 export type { PackageExportResult, PackageManifest } from './packageExport';
 export { buildPackageExport } from './packageExport';
+export type {
+  FrameJob,
+  FrameLane,
+  FrameScheduler,
+  FrameSchedulerDiagnostics,
+  FrameSchedulerOptions,
+} from './performance/frameScheduler';
+export { createFrameScheduler } from './performance/frameScheduler';
+export type {
+  PerformanceCollector,
+  PerformanceCollectorOptions,
+} from './performance/performanceCollector';
+export { createPerformanceCollector } from './performance/performanceCollector';
 export { SelectionOverlay } from './SelectionOverlay';
 export type { OpenFileRequest, ShellProps } from './Shell';
 export { Shell } from './Shell';
