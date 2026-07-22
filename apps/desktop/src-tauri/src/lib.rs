@@ -681,7 +681,7 @@ fn begin_upscale_job(app: tauri::AppHandle, jobId: u64) {
             job_id: jobId,
             flag: std::sync::Arc::new(AtomicBool::new(false)),
         });
-    }
+    };
 }
 
 #[tauri::command]
@@ -1037,6 +1037,7 @@ impl PdfXOptions {
             subset_fonts: self.outline_text,
             embedding_restriction_handling: strata_print::subset::EmbeddingRestriction::Warn,
             manifest: None,
+            lossy: false,
         }
     }
 }
