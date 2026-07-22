@@ -34,6 +34,7 @@ import type {
   Branch,
   Collection,
   CollectionEntry,
+  CreateVersionInput,
   FileEntry,
   Folder,
   HomeViewState,
@@ -47,6 +48,7 @@ import type {
   TemplateLibrary,
   ThumbnailRecord,
   VersionEntry,
+  VersionStats,
   Workspace,
 } from './types';
 import { DRAFTS_ID } from './types';
@@ -66,6 +68,7 @@ const STORE_TEMPLATES = 'templates';
 const STORE_ASSETS = 'assets';
 const STORE_ASSET_FOLDERS = 'assetFolders';
 const STORE_VERSIONS = 'versions';
+const STORE_VERSION_CONTENT = 'versionContent';
 const STORE_BRANCHES = 'branches';
 const STORE_TAGS = 'tags';
 const STORE_FILE_TAGS = 'fileTags';
@@ -99,6 +102,7 @@ interface DbSchema {
   assets: Asset;
   assetFolders: AssetFolder;
   versions: VersionEntry;
+  versionContent: { hash: string; json: string };
   branches: Branch;
   tags: Tag;
   fileTags: FileTagRecord;
@@ -167,6 +171,9 @@ async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
           const store = db.createObjectStore(STORE_VERSIONS, { keyPath: 'id' });
           store.createIndex('fileId', 'fileId');
           store.createIndex('timestamp', 'timestamp');
+        }
+        if (!db.objectStoreNames.contains(STORE_VERSION_CONTENT)) {
+          db.createObjectStore(STORE_VERSION_CONTENT, { keyPath: 'hash' });
         }
         if (!db.objectStoreNames.contains(STORE_BRANCHES)) {
           const store = db.createObjectStore(STORE_BRANCHES, { keyPath: 'id' });
@@ -665,6 +672,9 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         documentHash: rec?.entry.contentHash ?? '00000000',
         timestamp: now,
         kind: name ? 'named' : 'checkpoint',
+        origin: 'manual',
+        size: rec?.entry.size ?? 0,
+        pinned: false,
       };
       await db.put(STORE_VERSIONS, version);
       return version;
@@ -675,6 +685,93 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     },
     async deleteVersionInfo(versionId) {
       await db.delete(STORE_VERSIONS, versionId);
+    },
+    async createVersion(input: CreateVersionInput): Promise<VersionEntry> {
+      const existing = await db.get(STORE_VERSION_CONTENT, input.contentHash);
+      if (!existing) {
+        await db.put(STORE_VERSION_CONTENT, { hash: input.contentHash, json: input.documentJson });
+      }
+      const entry: VersionEntry = {
+        id: uuid(),
+        fileId: input.fileId,
+        name: input.name,
+        description: input.description,
+        documentHash: input.contentHash,
+        timestamp: Date.now(),
+        kind: input.kind,
+        origin: input.origin,
+        size: input.size,
+        schemaVersion: input.schemaVersion,
+        thumbnail: input.thumbnail,
+        pinned: input.pinned ?? false,
+      };
+      await db.put(STORE_VERSIONS, entry);
+      return entry;
+    },
+    async restoreVersionById(versionId: string): Promise<string> {
+      const version = (await db.get(STORE_VERSIONS, versionId)) as VersionEntry | undefined;
+      if (!version) return '';
+      const content = await db.get(STORE_VERSION_CONTENT, version.documentHash);
+      return content?.json ?? '';
+    },
+    async renameVersion(versionId: string, name?: string, description?: string): Promise<void> {
+      const version = (await db.get(STORE_VERSIONS, versionId)) as VersionEntry | undefined;
+      if (version) {
+        version.name = name;
+        version.description = description;
+        await db.put(STORE_VERSIONS, version);
+      }
+    },
+    async pinVersion(versionId: string, pinned: boolean): Promise<void> {
+      const version = (await db.get(STORE_VERSIONS, versionId)) as VersionEntry | undefined;
+      if (version) {
+        version.pinned = pinned;
+        await db.put(STORE_VERSIONS, version);
+      }
+    },
+    async pruneVersions(fileId: string, maxAuto: number): Promise<number> {
+      const all = (await db.getAllFromIndex(STORE_VERSIONS, 'fileId', fileId)) as VersionEntry[];
+      const keep = all.filter((v) => v.kind === 'named' || v.pinned);
+      const prunable = all
+        .filter((v) => v.kind !== 'named' && !v.pinned)
+        .sort((a, b) => b.timestamp - a.timestamp);
+      const keepAuto = prunable.slice(0, maxAuto);
+      const remove = prunable.slice(maxAuto);
+      const next = [...keep, ...keepAuto].sort((a, b) => b.timestamp - a.timestamp);
+      const tx = db.transaction(STORE_VERSIONS, 'readwrite');
+      const fileIds = new Set(all.map((v) => v.id));
+      const allVersions = (await tx.store.getAll()) as VersionEntry[];
+      for (const v of allVersions) {
+        if (fileIds.has(v.id) && !next.some((n) => n.id === v.id)) {
+          await tx.store.delete(v.id);
+        }
+      }
+      for (const v of next) {
+        await tx.store.put(v);
+      }
+      await tx.done;
+      const referenced = new Set<string>();
+      const remaining = (await db.getAll(STORE_VERSIONS)) as VersionEntry[];
+      for (const v of remaining) referenced.add(v.documentHash);
+      const tx2 = db.transaction(STORE_VERSION_CONTENT, 'readwrite');
+      const contentHashes = (await tx2.store.getAllKeys()) as string[];
+      for (const hash of contentHashes) {
+        if (!referenced.has(hash)) await tx2.store.delete(hash);
+      }
+      await tx2.done;
+      return remove.length;
+    },
+    async getVersionStats(fileId: string): Promise<VersionStats> {
+      const list = (await db.getAllFromIndex(STORE_VERSIONS, 'fileId', fileId)) as VersionEntry[];
+      const content = (await db.getAll(STORE_VERSION_CONTENT)) as Array<{
+        hash: string;
+        json: string;
+      }>;
+      return {
+        totalVersions: list.length,
+        namedVersions: list.filter((v) => v.kind === 'named').length,
+        totalBytes: content.reduce((sum, c) => sum + new TextEncoder().encode(c.json).length, 0),
+      };
     },
     async listBranches(fileId) {
       if (!fileId) return await db.getAll(STORE_BRANCHES);

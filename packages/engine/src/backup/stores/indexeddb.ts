@@ -81,19 +81,6 @@ export function createIndexedDbBackupStore(): BackupStore {
     );
   }
 
-  function _del(storeName: string, key: string): Promise<void> {
-    return db().then(
-      (database) =>
-        new Promise<void>((resolve, reject) => {
-          const tx = database.transaction(storeName, 'readwrite');
-          const store = tx.objectStore(storeName);
-          const request = store.delete(key);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        }),
-    );
-  }
-
   const store: BackupStore = {
     kind: 'indexeddb' as const,
 
@@ -207,9 +194,21 @@ export function createIndexedDbBackupStore(): BackupStore {
       if (!archive.entries) return 'no-entries';
       let count = 0;
       for (const entry of archive.entries) {
-        const projectId = entry.manifest?.projectId ?? 'imported';
-        const backupId = entry.manifest?.id ?? `import-${count}`;
-        await store.saveBackup(projectId, backupId, entry.manifest, entry.document);
+        const pId = entry.manifest?.projectId ?? 'imported';
+        const bId = entry.manifest?.id ?? `import-${count}`;
+        await store.saveBackup(pId, bId, entry.manifest, entry.document);
+        const index = await store.getProjectIndex(pId);
+        if (!index) {
+          await store.saveProjectIndex(pId, {
+            formatVersion: 1,
+            projectId: pId,
+            backups: [],
+            totalSize: 0,
+            entryCount: 0,
+            lastBackupAt: 0,
+            lastVerificationAt: 0,
+          });
+        }
         count++;
       }
       return `imported-${count}`;
@@ -221,7 +220,7 @@ export function createIndexedDbBackupStore(): BackupStore {
       if (!manifest || !document) {
         return { valid: false, computedChecksum: '' };
       }
-      const checksum = computeChecksum(document);
+      const checksum = await computeChecksum(document);
       return {
         valid: checksum === manifest.documentChecksum,
         computedChecksum: checksum,

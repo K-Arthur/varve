@@ -285,14 +285,54 @@ export interface AssetFolder {
 // ─── Phase 7: Version History & Branching ────────────────────────────────────
 export type VersionKind = 'checkpoint' | 'named' | 'auto';
 
+export type VersionOrigin =
+  | 'save'
+  | 'autosave'
+  | 'checkpoint'
+  | 'manual'
+  | 'import'
+  | 'migration'
+  | 'sync';
+
 export interface VersionEntry {
   id: string;
   fileId: string;
   name?: string;
   description?: string;
+  /** FNV-1a content hash of the stored document JSON (dedup key). */
   documentHash: string;
   timestamp: number;
   kind: VersionKind;
+  /** Why this version was created. */
+  origin: VersionOrigin;
+  /** Byte size of the stored document JSON. */
+  size: number;
+  /** Schema (document-format) version at capture time. */
+  schemaVersion?: string;
+  /** Optional base64/data-URI thumbnail preview. */
+  thumbnail?: string;
+  /** Pinned versions are never pruned. */
+  pinned: boolean;
+}
+
+export interface CreateVersionInput {
+  fileId: string;
+  kind: VersionKind;
+  name?: string;
+  description?: string;
+  origin: VersionOrigin;
+  documentJson: string;
+  contentHash: string;
+  size: number;
+  schemaVersion?: string;
+  thumbnail?: string;
+  pinned?: boolean;
+}
+
+export interface VersionStats {
+  totalVersions: number;
+  namedVersions: number;
+  totalBytes: number;
 }
 
 export interface Branch {

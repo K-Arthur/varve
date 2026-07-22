@@ -1,14 +1,5 @@
-export type {
-  ArchiveBuilder,
-  ArchiveError,
-  ArchiveExtractor,
-  ArchiveImportResult,
-} from './archive';
-export {
-  createArchiveManifest,
-  detectArchiveType,
-  validateArchiveImport,
-} from './archive';
+export type { ArchiveError, ArchiveExtractor, ArchiveImportResult } from './archive';
+export { detectArchiveType, validateArchiveImport } from './archive';
 export { BackupEngine } from './engine';
 export type { JournalStorage } from './journal';
 export { CrashJournal } from './journal';
@@ -20,24 +11,24 @@ export type {
   BackupJob,
   BackupProgress,
   BackupResult,
-  BackupSchedulerDelegate,
   SchedulerConfig,
   SchedulerStatus,
 } from './scheduler';
-export { BackupScheduler } from './scheduler';
-export type { BackupStore } from './storage';
+export type { BackupStore, BackupStoreFactory } from './storage';
 export type { BackupEnvironment } from './stores/factory';
 export { createBackupStore } from './stores/factory';
 export { createIndexedDbBackupStore } from './stores/indexeddb';
 export { createMemoryBackupStore } from './stores/memory';
 export type {
+  ArchiveEntry,
+  ArchivePackage,
   BackupFilter,
   BackupIndexEntry,
   BackupManifest,
   BackupStorageInfo,
-  BackupStorageInfo as BackupStats,
   BackupType,
   BackupVerificationStatus,
+  BulkBackupOptions,
   JournalEntry,
   JournalHeader,
   ProjectBackupIndex,

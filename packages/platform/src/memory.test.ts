@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createMemoryPlatform, makeFileEntry, makeProject } from './memory';
 import { contentHash, defaultViewState, uuid } from './pure';
-import type { FileEntry } from './types';
+import type { CreateVersionInput, FileEntry } from './types';
 
 function sampleJson(name: string): string {
   return JSON.stringify({ id: 'n1', name, rootChildren: [], nodes: {}, components: {}, nextId: 1 });
@@ -310,5 +310,98 @@ describe('createMemoryPlatform — saved searches', () => {
     await p.deleteSavedSearch(search.id);
     const all = await p.listSavedSearches();
     expect(all).toHaveLength(0);
+  });
+});
+
+describe('createMemoryPlatform — version history', () => {
+  let p: ReturnType<typeof createMemoryPlatform>;
+  let fileId: string;
+
+  beforeEach(async () => {
+    p = createMemoryPlatform();
+    fileId = uuid();
+    await p.upsertFile(makeFileEntry({ id: fileId, name: 'Doc' }), '{}');
+  });
+
+  function makeInput(overrides: Partial<CreateVersionInput> = {}): CreateVersionInput {
+    const json = JSON.stringify({ name: overrides.name ?? 'v', nodes: {} });
+    return {
+      fileId,
+      kind: 'auto',
+      origin: 'autosave',
+      documentJson: json,
+      contentHash: contentHash(json),
+      size: json.length,
+      ...overrides,
+    };
+  }
+
+  it('createVersion stores content-addressed document', async () => {
+    const entry = await p.createVersion(makeInput());
+    expect(entry.id).toBeTruthy();
+    expect(entry.fileId).toBe(fileId);
+    expect(entry.size).toBeGreaterThan(0);
+    expect(entry.pinned).toBe(false);
+    const json = await p.restoreVersionById(entry.id);
+    expect(json).toContain('"nodes"');
+  });
+
+  it('dedups identical content across versions', async () => {
+    const input = makeInput();
+    await p.createVersion(input);
+    await p.createVersion({
+      ...input,
+      contentHash: input.contentHash,
+      documentJson: input.documentJson,
+    });
+    const list = await p.listVersions(fileId);
+    expect(list).toHaveLength(2);
+    expect(list[0]!.documentHash).toBe(list[1]!.documentHash);
+  });
+
+  it('renameVersion updates name and description', async () => {
+    const entry = await p.createVersion(makeInput());
+    await p.renameVersion(entry.id, 'Final', 'Approved');
+    const list = await p.listVersions(fileId);
+    expect(list[0]!.name).toBe('Final');
+    expect(list[0]!.description).toBe('Approved');
+  });
+
+  it('pinVersion protects from prune', async () => {
+    const named = await p.createVersion(makeInput({ kind: 'named', name: 'Keep' }));
+    await p.pinVersion(named.id, true);
+    const removed = await p.pruneVersions(fileId, 0);
+    expect(removed).toBe(0);
+    const list = await p.listVersions(fileId);
+    expect(list[0]!.id).toBe(named.id);
+  });
+
+  it('pruneVersions removes auto beyond limit, preserves named', async () => {
+    await p.createVersion(makeInput({ kind: 'named', name: 'Named' }));
+    for (let i = 0; i < 5; i++) {
+      await p.createVersion(makeInput({ name: `auto${i}` }));
+    }
+    const removed = await p.pruneVersions(fileId, 2);
+    expect(removed).toBe(3);
+    const list = await p.listVersions(fileId);
+    expect(list.some((v) => v.name === 'Named')).toBe(true);
+    const autoCount = list.filter((v) => v.kind === 'auto').length;
+    expect(autoCount).toBe(2);
+  });
+
+  it('getVersionStats returns correct counts', async () => {
+    await p.createVersion(makeInput({ kind: 'named', name: 'N' }));
+    await p.createVersion(makeInput());
+    const stats = await p.getVersionStats(fileId);
+    expect(stats.totalVersions).toBe(2);
+    expect(stats.namedVersions).toBe(1);
+    expect(stats.totalBytes).toBeGreaterThan(0);
+  });
+
+  it('garbage-collects unreferenced content on prune', async () => {
+    const e1 = await p.createVersion(makeInput({ name: 'a' }));
+    await p.pruneVersions(fileId, 0);
+    const json = await p.restoreVersionById(e1.id);
+    expect(json).toBe('');
   });
 });

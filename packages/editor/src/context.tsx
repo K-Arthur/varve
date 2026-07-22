@@ -42,6 +42,19 @@ export function setBumpThemeRevisionHandler(fn: (() => void) | null): void {
   bumpThemeRevisionHandler = fn;
 }
 
+/** Module-level bridge giving the BackupSettingsPanel access to the editor's
+ *  BackupService without threading it through the EditorContextValue interface.
+ *  Registered by EditorProvider once the service initializes. */
+let backupServiceGetter: (() => BackupService | null) | null = null;
+
+export function setBackupServiceGetter(fn: (() => BackupService | null) | null): void {
+  backupServiceGetter = fn;
+}
+
+export function getBackupService(): BackupService | null {
+  return backupServiceGetter?.() ?? null;
+}
+
 export function bumpThemeRevision(): void {
   bumpThemeRevisionHandler?.();
 }
@@ -271,6 +284,7 @@ import {
   useState,
 } from 'react';
 import { AutoSaveService } from './autoSaveService';
+import { BackupService } from './backupService';
 import { CanvasAnnouncer } from './canvas/CanvasAnnouncer';
 import {
   editorScreenToWorld,
@@ -1302,7 +1316,6 @@ export interface EditorContextValue {
     sides?: { top?: number; right?: number; bottom?: number; left?: number },
   ) => void;
   resetImageBounds: () => void;
-
   // State machines (delegated to context/types.ts EditorContextValue)
   getStateMachines: () => import('@strata/scene').StateMachine[];
   getPrimaryStateMachineId: () => string | null;
@@ -1348,6 +1361,13 @@ export interface EditorContextValue {
   selectSMState: (smId: string, stateId: string | null) => void;
   selectedSMTransitionId: string | null;
   selectSMTransition: (smId: string, transitionId: string | null) => void;
+
+  /** Restore a document from a backup. If `asCopy`, loads into a new session
+   *  with a "(restored)" suffix; otherwise replaces the current project after
+   *  first creating a safety snapshot. */
+  restoreFromBackup: (backupId: string, asCopy: boolean) => Promise<boolean>;
+  /** Create a named snapshot of the current document (manual restore point). */
+  createSnapshot: (notes: string) => Promise<string | null>;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -2041,6 +2061,12 @@ export function EditorProvider({
     });
     autoSaveRef.current.start();
   }
+  /** Automatic versioned-backup service (distinct from crash-recovery auto-save). */
+  const backupRef = useRef<BackupService | null>(null);
+  if (!backupRef.current) {
+    backupRef.current = new BackupService();
+    void backupRef.current.initialize();
+  }
   /** Ref mirror of the active tool, updated synchronously in setTool so that
    *  createShapeAt sees the latest tool even when React 18 automatic batching
    *  queues a setTool + createShapeAt together. Without this, createShapeAt
@@ -2079,12 +2105,28 @@ export function EditorProvider({
     }
   }, [state.selection]);
 
-  /** Notify auto-save on every document mutation. */
+  /** Notify auto-save + backup on every document mutation. */
   useEffect(() => {
-    if (state.dirty && autoSaveRef.current) {
-      autoSaveRef.current.notifyEdit();
+    if (state.dirty) {
+      autoSaveRef.current?.notifyEdit();
+      const meta = state.sessions.find((sess) => sess.id === state.activeId);
+      const pid = meta?.fileId ?? state.activeId;
+      // Pass the serialized document so the scheduler can back it up without
+      // needing to re-serialize at tick time (the snapshot is frozen here).
+      try {
+        const json = serializeDocument();
+        backupRef.current?.markDirty(
+          pid,
+          json,
+          meta?.name ?? 'Untitled',
+          state.revision,
+          meta?.fileId,
+        );
+      } catch {
+        // serialization failure — skip backup this tick
+      }
     }
-  }, [state.document, state.dirty]);
+  }, [state.document, state.dirty, state.sessions, state.activeId, state.revision]);
 
   /** Cleanup auto-save and background-removal worker pool on unmount. */
   useEffect(() => {
@@ -2096,6 +2138,7 @@ export function EditorProvider({
       imageProcessingAbortRef.current = null;
       processingImageNodeRef.current = null;
       autoSaveRef.current?.stop();
+      void backupRef.current?.shutdown();
       void import('@strata/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
   }, []);
@@ -2115,6 +2158,13 @@ export function EditorProvider({
     });
     return () => setBumpThemeRevisionHandler(null);
   }, [patch]);
+
+  // Register the backup service bridge so SettingsDialog's BackupSettingsPanel
+  // can reach the live service without context drilling.
+  useEffect(() => {
+    setBackupServiceGetter(() => backupRef.current);
+    return () => setBackupServiceGetter(null);
+  }, []);
 
   /** Persistence (save/load/document lifecycle). */
   const { newDocument, serializeDocument, save, saveAs, loadDocument } = usePersistence(
@@ -6809,6 +6859,59 @@ export function EditorProvider({
           };
         });
         return true;
+      },
+
+      // Phase 3: restore from backup with safety snapshot
+      restoreFromBackup: async (backupId: string, asCopy: boolean) => {
+        const svc = getBackupService();
+        if (!svc) return false;
+        const entry = await svc.getBackupDocument(backupId);
+        if (!entry) return false;
+        if (asCopy) {
+          // Load as a new session — never overwrites current work.
+          loadDocument(entry.documentJson, {
+            name: `${entry.manifest.sourceName} (restored)`,
+          });
+        } else {
+          // Replace mode: create a safety snapshot first.
+          try {
+            const currentJson = serializeDocument();
+            const meta = state.sessions.find((sess) => sess.id === state.activeId);
+            await svc.createBackup(
+              meta?.fileId ?? state.activeId,
+              'pre-migration',
+              currentJson,
+              `${meta?.name ?? 'Untitled'} (pre-restore)`,
+              state.revision,
+              'Safety snapshot before restore',
+              meta?.fileId,
+            );
+          } catch {
+            // Safety snapshot failure should not block restore
+          }
+          loadDocument(entry.documentJson, {
+            name: entry.manifest.sourceName,
+          });
+        }
+        return true;
+      },
+
+      // Phase 3: manual named snapshot
+      createSnapshot: async (notes: string) => {
+        const svc = getBackupService();
+        if (!svc) return null;
+        const meta = state.sessions.find((sess) => sess.id === state.activeId);
+        const pid = meta?.fileId ?? state.activeId;
+        const json = serializeDocument();
+        const result = await svc.createSnapshot(
+          pid,
+          json,
+          meta?.name ?? 'Untitled',
+          notes,
+          state.revision,
+          meta?.fileId,
+        );
+        return result.success ? result.backupId : null;
       },
     }),
     [

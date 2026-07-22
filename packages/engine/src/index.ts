@@ -66,6 +66,7 @@ export {
   trimapFromMask,
   workerModelIdForMethod,
 } from './backgroundRemoval';
+export * from './backup';
 export type {
   BlendCategory,
   BlendDomain,

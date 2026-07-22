@@ -137,9 +137,7 @@ export function createMemoryBackupStore(): BackupStore {
         const pId = entry.manifest?.projectId ?? 'imported';
         const bId = entry.manifest?.id ?? `import-${count}`;
         await store.saveBackup(pId, bId, entry.manifest, entry.document);
-        if (!projectData.has(pId)) {
-          projectData.set(pId, []);
-        }
+        if (!projectData.has(pId)) projectData.set(pId, []);
         projectData.get(pId)!.push({ id: bId, manifest: entry.manifest });
         count++;
       }
@@ -178,7 +176,7 @@ export function createMemoryBackupStore(): BackupStore {
       for (const [, project] of projects) {
         const entry = project.get(backupId);
         if (entry) {
-          const checksum = computeChecksum(entry.documentJson);
+          const checksum = await computeChecksum(entry.documentJson);
           return {
             valid: checksum === entry.manifest.documentChecksum,
             computedChecksum: checksum,

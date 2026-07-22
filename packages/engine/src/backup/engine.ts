@@ -2,6 +2,8 @@ import { evaluateRetention } from './retention';
 import type { BackupResult } from './scheduler';
 import type { BackupStore } from './storage';
 import type {
+  ArchiveEntry,
+  ArchivePackage,
   BackupFilter,
   BackupIndexEntry,
   BackupManifest,
@@ -15,8 +17,6 @@ import { computeChecksum, verifyBackup } from './verify';
 const CURRENT_DOCUMENT_VERSION = '2.6';
 
 import { CrashJournal, type JournalStorage } from './journal';
-
-export type { BackupStore, BackupStoreFactory } from './storage';
 
 export class BackupEngine {
   private revisionCounter = 0;
@@ -46,8 +46,7 @@ export class BackupEngine {
     const startTime = performance.now();
     try {
       const backupId = this.generateBackupId(type);
-
-      const checksum = computeChecksum(documentJson);
+      const checksum = await computeChecksum(documentJson);
       const documentSize = new TextEncoder().encode(documentJson).length;
       if (revision === undefined) {
         this.revisionCounter++;
@@ -57,7 +56,7 @@ export class BackupEngine {
       let schemaVersion: string;
       try {
         const parsed = JSON.parse(documentJson);
-        schemaVersion = parsed.formatVersion || CURRENT_DOCUMENT_VERSION;
+        schemaVersion = parsed.formatVersion ?? CURRENT_DOCUMENT_VERSION;
       } catch {
         schemaVersion = CURRENT_DOCUMENT_VERSION;
       }
@@ -139,8 +138,6 @@ export class BackupEngine {
       } else {
         manifest.verificationStatus = 'corrupted';
       }
-      // Persist the updated manifest (verification status + timestamps).
-      await this.store.saveBackup(projectId, backupId, manifest, documentJson, assetsMap);
 
       return {
         success: true,
@@ -157,24 +154,19 @@ export class BackupEngine {
     }
   }
 
+  async listProjects(): Promise<string[]> {
+    return this.store.listProjects();
+  }
+
   async listBackups(projectId: string, filter?: BackupFilter): Promise<BackupIndexEntry[]> {
     const index = await this.store.getProjectIndex(projectId);
     if (!index) return [];
     let entries = index.backups;
-    if (filter?.types) {
-      entries = entries.filter((e) => filter.types!.includes(e.type));
-    }
-    if (filter?.since) {
-      entries = entries.filter((e) => e.createdAt >= filter.since!);
-    }
-    if (filter?.until) {
-      entries = entries.filter((e) => e.createdAt <= filter.until!);
-    }
-    if (filter?.verified !== undefined) {
-      entries = entries.filter((e) =>
-        filter.verified ? e.verificationStatus === 'verified' : true,
-      );
-    }
+    if (filter?.types) entries = entries.filter((e) => filter.types!.includes(e.type));
+    if (filter?.since) entries = entries.filter((e) => e.createdAt >= filter.since!);
+    if (filter?.until) entries = entries.filter((e) => e.createdAt <= filter.until!);
+    if (filter?.verified !== undefined)
+      entries = entries.filter((e) => e.verificationStatus === 'verified');
     return entries.sort((a, b) => b.createdAt - a.createdAt);
   }
 
@@ -203,15 +195,12 @@ export class BackupEngine {
   async applyRetention(projectId: string, config: RetentionConfig): Promise<number> {
     const index = await this.store.getProjectIndex(projectId);
     if (!index || index.backups.length === 0) return 0;
-
     const result = evaluateRetention(index.backups, config, index.totalSize);
     let removed = 0;
     for (const id of result.toRemove) {
       await this.store.deleteBackup(projectId, id);
       const entry = index.backups.find((e) => e.id === id);
-      if (entry) {
-        index.totalSize -= entry.size;
-      }
+      if (entry) index.totalSize -= entry.size;
       removed++;
     }
     index.backups = index.backups.filter((e) => !result.toRemove.includes(e.id));
@@ -228,9 +217,7 @@ export class BackupEngine {
     backupId: string,
   ): Promise<{ valid: boolean; computedChecksum: string; status: string }> {
     const manifest = await this.store.readBackupManifest(backupId);
-    if (!manifest) {
-      return { valid: false, computedChecksum: '', status: 'missing' };
-    }
+    if (!manifest) return { valid: false, computedChecksum: '', status: 'missing' };
     const result = await verifyBackup(this.store, backupId, manifest);
     if (result.valid) {
       manifest.verificationStatus = 'verified';
@@ -276,8 +263,7 @@ export class BackupEngine {
       for (const projectId of projects) {
         const existingIndex = await this.store.getProjectIndex(projectId);
         if (!existingIndex) {
-          const newIndex = this.createEmptyIndex(projectId);
-          await this.store.saveProjectIndex(projectId, newIndex);
+          await this.store.saveProjectIndex(projectId, this.createEmptyIndex(projectId));
         }
       }
       return { success: true, errors: [], importedCount: projects.length };
@@ -288,6 +274,60 @@ export class BackupEngine {
         importedCount: 0,
       };
     }
+  }
+
+  /** Create a portable single-file archive for a backup, optionally including
+   *  embedded asset data so the archive is self-contained. Caller supplies
+   *  the asset payloads keyed by already-computed hash. */
+  async createPortableArchive(
+    backupId: string,
+    assets?: Map<string, { data: string; mimeType: string }>,
+  ): Promise<Uint8Array> {
+    const manifest = await this.store.readBackupManifest(backupId);
+    const document = await this.store.readBackupDocument(backupId);
+    if (!manifest || !document) {
+      throw new Error(`Backup ${backupId} not found`);
+    }
+    const entries: ArchiveEntry[] = [
+      {
+        path: 'manifest.json',
+        size: new TextEncoder().encode(JSON.stringify(manifest)).length,
+        checksum: await computeChecksum(JSON.stringify(manifest)),
+        contentType: 'manifest',
+      },
+      {
+        path: 'document.strata',
+        size: manifest.documentSize,
+        checksum: manifest.documentChecksum,
+        contentType: 'document',
+      },
+    ];
+    let totalSize = entries[0]!.size + entries[1]!.size;
+    if (assets) {
+      for (const [hash, info] of assets) {
+        const size = new TextEncoder().encode(info.data).length;
+        entries.push({
+          path: `assets/${hash}`,
+          size,
+          checksum: await computeChecksum(info.data),
+          contentType: 'asset',
+          data: info.data,
+          mimeType: info.mimeType,
+        });
+        totalSize += size;
+      }
+    }
+    const pkg: ArchivePackage = {
+      formatVersion: 1,
+      archiveType: 'project-backup',
+      createdAt: Date.now(),
+      appVersion: manifest.appVersion,
+      schemaVersion: manifest.schemaVersion,
+      entries,
+      totalUncompressedSize: totalSize,
+      checksum: await computeChecksum(document),
+    };
+    return new TextEncoder().encode(JSON.stringify(pkg));
   }
 
   async close(): Promise<void> {

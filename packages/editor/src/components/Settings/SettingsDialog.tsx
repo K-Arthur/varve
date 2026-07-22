@@ -3,10 +3,11 @@ import { managedColorToRgba } from '@strata/shared';
 import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useState } from 'react';
-import { bumpThemeRevision } from '../../context';
+import { bumpThemeRevision, getBackupService } from '../../context';
 import { loadSettings, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
+import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
@@ -16,6 +17,7 @@ import type { SettingsSection, ThemeMode, UnitType } from './settings';
 const SECTIONS: { id: SettingsSection; label: string }[] = [
   { id: 'general', label: 'General' },
   { id: 'appearance', label: 'Appearance' },
+  { id: 'backup', label: 'Backup & Recovery' },
   { id: 'shortcuts', label: 'Keyboard Shortcuts' },
   { id: 'export', label: 'Export' },
   { id: 'models', label: 'Offline Models' },
@@ -143,6 +145,9 @@ export function SettingsDialog({
             )}
             {activeSection === 'appearance' && (
               <AppearanceSection onThemeChange={handleThemeChange} />
+            )}
+            {activeSection === 'backup' && (
+              <BackupSettingsPanel backupService={getBackupService()!} onClose={onClose} />
             )}
             {activeSection === 'shortcuts' && (
               <ShortcutsSection onOpenPalette={() => setShortcutsOpen(true)} />
@@ -451,11 +456,11 @@ function AboutSection() {
       <div className="settings-about">
         <div className="settings-about__row">
           <span className="settings-about__key">Version</span>
-          <span className="settings-about__value">0.0.0</span>
+          <span className="settings-about__value">Developer Preview</span>
         </div>
         <div className="settings-about__row">
           <span className="settings-about__key">License</span>
-          <span className="settings-about__value">AGPL-3.0</span>
+          <span className="settings-about__value">BSL 1.1 to MIT</span>
         </div>
         <Divider />
         <div className="settings-about__links">
