@@ -130,13 +130,13 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
 
       // Build palette from selected swatches
       let paletteColors: string[] = [];
-      if (workflow === 'palette' && selectedSwatchIds.length > 0) {
+      if (workflow === 'palette' && _selectedSwatchIds.length > 0) {
         const doc = state.document;
         const swatches = doc.swatches ?? [];
-        paletteColors = selectedSwatchIds
-          .map((id) => swatches.find((s) => s.id === id))
-          .filter(Boolean)
-          .map((s) => managedColorToHex(s!.color));
+        paletteColors = _selectedSwatchIds
+          .map((id: string) => swatches.find((s: { id: string }) => s.id === id))
+          .filter((s): s is NonNullable<typeof s> => s != null)
+          .map((s) => managedColorToHex(s.color));
       }
 
       const request = {
@@ -162,8 +162,8 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
               maskId: 'current',
               revision: 0,
               data: maskData,
-              width: maskWidth,
-              height: maskHeight,
+              width: _maskWidth,
+              height: _maskHeight,
             }
           : undefined,
         palette:
@@ -191,10 +191,10 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       saturationScale,
       luminancePreservation,
       adherence,
-      selectedSwatchIds,
+      _selectedSwatchIds,
       maskData,
-      maskWidth,
-      maskHeight,
+      _maskWidth,
+      _maskHeight,
       state.selection,
       state.document,
     ],

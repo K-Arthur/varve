@@ -259,7 +259,7 @@ function fillToSvg(
   nodeId: string,
   doc: SceneDocument,
   preserveColorSpace: boolean,
-): { fillAttr: string; comment?: string } {
+): { fillAttr: string; comment?: string; defs?: string } {
   if (!node.fills || node.fills.length === 0) {
     const result = colorToSvgValue(node.fill, doc, preserveColorSpace);
     return { fillAttr: result.value, comment: result.warning };

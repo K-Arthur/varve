@@ -14,7 +14,7 @@ export interface VariantGenerationResult {
  * Groups child instances by structural similarity,
  * then identifies differing properties within each group.
  */
-export function detectVariants(doc: Document, componentId: string): VariantGenerationResult {
+export function detectVariants(doc: Document, _componentId: string): VariantGenerationResult {
   const candidates = detectVariantCandidates(doc);
 
   return {

@@ -6,6 +6,11 @@
  * is talking to. The render IR is replayed to canvas by `replayIr`.
  */
 
+export {
+  backdropChangedSinceLastResolve,
+  resolveAdaptiveTextColor,
+  sampleRegionBackdrop,
+} from './adaptiveContrast';
 export type { AdjustmentChannel, AdjustmentParams } from './adjustment';
 export {
   analyticalCmykToRgb,
@@ -27,6 +32,7 @@ export type {
   FinalizeMaskResult,
   HairMattingOptions,
   HeuristicMethod,
+  InferenceDiagnosticEvent,
   MaskComponent,
   MaskComponentBBox,
   ModelInfo,
@@ -46,6 +52,7 @@ export {
   getBestOnnxProviders,
   getEnvironmentCapabilities,
   getEnvironmentCapabilitiesSync,
+  getInferenceDiagnostics,
   getModelInfo,
   getModelLoader,
   getModelLoaderReady,
@@ -61,6 +68,7 @@ export {
   resetModelLoader,
   saveModelBlob,
   solveTrimapMatting,
+  subscribeInferenceDiagnostics,
   TRIMap,
   terminateWorkerPool,
   trimapFromMask,
@@ -107,9 +115,11 @@ export {
   applyColorHalftone,
   COLOR_HALFTONE_PRESETS,
 } from './colorHalftone';
+export { generateColorizationRequestId } from './colorization/colorizationRequest';
 export { combineLabToImageData } from './colorization/colorSpace';
 export { harmonize } from './colorization/harmonize';
 export { colorizationPipeline, paletteColorize } from './colorization/pipeline';
+export { dispatchColorization, validateColorizationRequest } from './colorization/pipelineDispatch';
 export { selectiveRecolor } from './colorization/recolor';
 export { DD_COLOR_MODELS, resolveRuntime } from './colorization/runtimeResolver';
 export { analyzeImageData, classifyTask } from './colorization/taskClassifier';
@@ -139,8 +149,6 @@ export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
 export type {
   DenoiseOptions,
-  DenoiseOptions,
-  DenoiseResult,
   DenoiseResult,
 } from './denoiseProviders';
 // ── Denoise (SCUNet) ─────────────────────────────────────────────────
@@ -267,7 +275,7 @@ export {
 } from './iccImageConverter';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
-export type { UpscaleMethod, UpscaleOptions } from './imageEnhancement';
+export type { UpscaleMethod, UpscaleOptions, UpscaleProgressFn } from './imageEnhancement';
 export {
   computeUpscaleDimensions,
   DEFAULT_AI_UPSCALE_MODEL_ID,
@@ -406,6 +414,7 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
+export { applyLensBlur, depthToHeatmapImageData } from './lensBlur';
 export type {
   Lut1D,
   Lut3D,

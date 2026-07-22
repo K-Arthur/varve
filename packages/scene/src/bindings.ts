@@ -49,10 +49,34 @@ export function applyBindingsToNode(node: SceneNode, store: VariableStore | unde
         next = { ...next, opacity: resolved } as SceneNode;
       } else if (property === 'rotation' && typeof resolved === 'number') {
         next = { ...next, rotation: resolved } as SceneNode;
-      } else if (property === 'w' && typeof resolved === 'number' && next.kind === 'frame') {
-        next = { ...next, w: resolved } as SceneNode;
-      } else if (property === 'h' && typeof resolved === 'number' && next.kind === 'frame') {
-        next = { ...next, h: resolved } as SceneNode;
+      } else if (property === 'x' && typeof resolved === 'number') {
+        next = {
+          ...next,
+          transform: [...(next.transform || [1, 0, 0, 1, 0, 0])] as SceneNode['transform'],
+        } as SceneNode;
+        (next.transform as unknown as number[])[4] = resolved;
+      } else if (property === 'y' && typeof resolved === 'number') {
+        next = {
+          ...next,
+          transform: [...(next.transform || [1, 0, 0, 1, 0, 0])] as SceneNode['transform'],
+        } as SceneNode;
+        (next.transform as unknown as number[])[5] = resolved;
+      } else if ((property === 'w' || property === 'width') && typeof resolved === 'number') {
+        if (next.kind === 'frame') {
+          next = { ...next, w: resolved } as SceneNode;
+        } else if (next.kind === 'text') {
+          next = { ...next, w: resolved } as SceneNode;
+        } else if ('shape' in next && next.shape) {
+          next = { ...next, shape: { ...next.shape, w: resolved } } as SceneNode;
+        }
+      } else if ((property === 'h' || property === 'height') && typeof resolved === 'number') {
+        if (next.kind === 'frame') {
+          next = { ...next, h: resolved } as SceneNode;
+        } else if (next.kind === 'text') {
+          next = { ...next, h: resolved } as SceneNode;
+        } else if ('shape' in next && next.shape) {
+          next = { ...next, shape: { ...next.shape, h: resolved } } as SceneNode;
+        }
       } else if (property === 'fontSize' && typeof resolved === 'number' && next.kind === 'text') {
         next = { ...next, fontSize: resolved } as SceneNode;
       } else if (property === 'text' && typeof resolved === 'string' && next.kind === 'text') {

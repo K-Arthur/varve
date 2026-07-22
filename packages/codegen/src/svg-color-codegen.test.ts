@@ -22,7 +22,7 @@ function makeDocWithNode(node: SceneNode): Document {
       cmykProfile: { id: 'fogra39', name: 'Fogra39' },
       blackGeneration: { type: 'none' },
     },
-  } as Document;
+  } as unknown as Document;
 }
 
 describe('exportNodeToSvg — preserveColorSpace', () => {
@@ -42,7 +42,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
           visible: true,
         },
       ],
-    } as SceneNode;
+    } as unknown as unknown as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
     expect(svg).toContain('rgba(255,0,0');
     expect(svg).not.toContain('icc-color');
@@ -64,7 +64,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
           visible: true,
         },
       ],
-    } as SceneNode;
+    } as unknown as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
     expect(svg).toContain('icc-color');
     expect(svg).toContain('fogra39');
@@ -103,7 +103,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
           visible: true,
         },
       ],
-    } as SceneNode;
+    } as unknown as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
     expect(svg).toContain('icc-color');
     expect(svg).toContain('display-p3');
@@ -125,7 +125,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
           visible: true,
         },
       ],
-    } as SceneNode;
+    } as unknown as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: true });
     expect(svg).toContain('rgba(');
     expect(svg).toContain('Warning');
@@ -148,7 +148,7 @@ describe('exportNodeToSvg — preserveColorSpace', () => {
           visible: true,
         },
       ],
-    } as SceneNode;
+    } as unknown as SceneNode;
     const svg = exportNodeToSvg(node, makeDocWithNode(node), { preserveColorSpace: false });
     expect(svg).toContain('rgba(');
     expect(svg).not.toContain('icc-color');

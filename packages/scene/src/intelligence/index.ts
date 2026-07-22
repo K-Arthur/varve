@@ -36,6 +36,7 @@ export {
   validateComponentProperties,
   validateNamingConventions,
 } from './governanceRules';
+export type { FocusOrderAnalysis } from './linterScanner';
 export {
   analyzeFocusOrder,
   checkEmptyContainers,
@@ -47,7 +48,6 @@ export {
   runLinterScan,
 } from './linterScanner';
 export type {
-  FocusOrderAnalysis,
   LinterCategory,
   LinterConfig,
   LinterFix,

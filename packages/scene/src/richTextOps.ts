@@ -41,8 +41,9 @@ function formatsEqual(a: CharacterFormat | undefined, b: CharacterFormat | undef
   const bKeys = Object.keys(b).sort();
   if (aKeys.length !== bKeys.length) return false;
   for (let i = 0; i < aKeys.length; i++) {
-    if (aKeys[i] !== bKeys[i]) return false;
-    if ((a as Record<string, unknown>)[aKeys[i]] !== (b as Record<string, unknown>)[bKeys[i]]) {
+    const k = aKeys[i]!;
+    if (k !== bKeys[i]) return false;
+    if ((a as Record<string, unknown>)[k] !== (b as Record<string, unknown>)[bKeys[i]!]) {
       return false;
     }
   }

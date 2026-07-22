@@ -44,7 +44,7 @@ describe('ColorPicker — bit depth selector', () => {
     });
     expect(onBitDepthChange).toHaveBeenCalledWith('uint16');
     // The color should be reinterpreted at uint16
-    const emittedColor = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    const emittedColor = onChange.mock.calls[onChange.mock.calls.length - 1]![0];
     expect(emittedColor.space).toBe('rgb');
     expect(emittedColor.bitDepth).toBe('uint16');
     // 128/255 * 65535 ≈ 32898
@@ -67,7 +67,7 @@ describe('ColorPicker — bit depth selector', () => {
     act(() => {
       float32Btn.click();
     });
-    const emittedColor = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    const emittedColor = onChange.mock.calls[onChange.mock.calls.length - 1]![0];
     expect(emittedColor.bitDepth).toBe('float32');
     // uint8 128 → normalized ~0.502
     expect(emittedColor.r).toBeCloseTo(0.502, 2);

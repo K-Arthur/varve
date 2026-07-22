@@ -64,9 +64,10 @@ describe('modelManifest', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
-        () =>
-          new Promise(() => {
-            // never resolves
+        (_url: string, init?: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+            (init?.signal as AbortSignal)?.addEventListener('abort', onAbort, { once: true });
           }),
       ),
     );
@@ -77,9 +78,10 @@ describe('modelManifest', () => {
 
   it('getManifestEntry aborts manifest fetch when the caller signal is aborted', async () => {
     const fetchMock = vi.fn(
-      () =>
-        new Promise(() => {
-          // never resolves
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+          (init?.signal as AbortSignal)?.addEventListener('abort', onAbort, { once: true });
         }),
     );
     vi.stubGlobal('fetch', fetchMock);

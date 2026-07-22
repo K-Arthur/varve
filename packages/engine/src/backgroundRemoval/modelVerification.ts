@@ -8,7 +8,7 @@
  * - Repair/redownload actions when verification fails
  */
 
-import type { ModelManifestEntry, ModelValidationStatus } from '../inference/types';
+import type { ModelManifestEntry, ModelValidationStatus } from '../inference';
 
 // ── Types ────────────────────────────────────────────────────────────────
 

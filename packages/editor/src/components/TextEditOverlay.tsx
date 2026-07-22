@@ -148,7 +148,8 @@ export function TextEditOverlay({
     for (let i = 0; i < graphs.length; i++) {
       if (utf16 < start) startOffset = i;
       if (utf16 < end) endOffset = i + 1;
-      utf16 += graphs[i].length;
+      const g = graphs[i];
+      if (g) utf16 += g.length;
     }
     const range: RichSelection = {
       start: { paragraphIndex: 0, offset: startOffset },

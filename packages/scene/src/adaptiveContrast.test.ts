@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { RgbColor } from './colorManagement';
 import { addNode, createDocument, makeTextNode } from './document';
 import type { ManagedColor, TextNode } from './types';
 import {
@@ -100,11 +101,11 @@ describe('resolveTextColor', () => {
     const node = doc.nodes.t1 as TextNode;
     const color = resolveTextColor(node);
     expect(color.space).toBe('rgb');
-    expect(color.r).toBe(255);
+    expect((color as RgbColor).r).toBe(255);
   });
 
   it('returns resolvedColor when adaptive contrast is enabled', () => {
-    const resolved: ManagedColor = { space: 'rgb', r: 50, g: 50, b: 50, a: 255 };
+    const resolved: RgbColor = { space: 'rgb', r: 50, g: 50, b: 50, a: 255 };
     const doc = makeSimpleDoc();
     let updated = setTextAdaptiveContrast(doc, 't1', { enabled: true, policy: 'wcag-aa' });
     const node = updated.nodes.t1 as TextNode;
@@ -120,7 +121,7 @@ describe('resolveTextColor', () => {
     };
     const n = updated.nodes.t1 as TextNode;
     const color = resolveTextColor(n);
-    expect(color.r).toBe(50);
+    expect((color as RgbColor).r).toBe(50);
   });
 
   it('returns stored fill when enabled but no resolvedColor', () => {
@@ -128,7 +129,7 @@ describe('resolveTextColor', () => {
     const updated = setTextAdaptiveContrast(doc, 't1', { enabled: true, policy: 'wcag-aa' });
     const node = updated.nodes.t1 as TextNode;
     const color = resolveTextColor(node);
-    expect(color.r).toBe(255); // stored fill
+    expect((color as RgbColor).r).toBe(255); // stored fill
   });
 });
 
@@ -136,15 +137,15 @@ describe('resolveTextColorWithOverride', () => {
   it('returns override when provided', () => {
     const doc = makeSimpleDoc();
     const node = doc.nodes.t1 as TextNode;
-    const override: ManagedColor = { space: 'rgb', r: 100, g: 100, b: 100, a: 255 };
+    const override: RgbColor = { space: 'rgb', r: 100, g: 100, b: 100, a: 255 };
     const color = resolveTextColorWithOverride(node, override);
-    expect(color.r).toBe(100);
+    expect((color as RgbColor).r).toBe(100);
   });
 
   it('falls back to resolveTextColor when no override', () => {
     const doc = makeSimpleDoc();
     const node = doc.nodes.t1 as TextNode;
     const color = resolveTextColorWithOverride(node);
-    expect(color.r).toBe(255);
+    expect((color as RgbColor).r).toBe(255);
   });
 });

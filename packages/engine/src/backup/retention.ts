@@ -15,8 +15,12 @@ export function evaluateRetention(
   const toRemove: string[] = [];
   const toKeep: string[] = [];
 
-  if (sorted.length <= config.maxEntryCount) {
-    return { toRemove: [], toKeep: sorted.map((e) => e.id), reason: 'Within count budget' };
+  if (sorted.length <= config.maxEntryCount && _currentTotalBytes <= config.maxTotalBytes) {
+    return {
+      toRemove: [],
+      toKeep: sorted.map((e) => e.id),
+      reason: 'Within count and byte budgets',
+    };
   }
 
   const keepSet = new Set<string>();

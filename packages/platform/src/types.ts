@@ -283,7 +283,7 @@ export interface AssetFolder {
 }
 
 // ─── Phase 7: Version History & Branching ────────────────────────────────────
-export type VersionKind = 'checkpoint' | 'named' | 'auto';
+export type VersionKind = 'checkpoint' | 'named' | 'auto' | 'manual';
 
 export type VersionOrigin =
   | 'save'

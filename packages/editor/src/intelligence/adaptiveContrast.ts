@@ -13,11 +13,11 @@
 
 import {
   backdropChangedSinceLastResolve,
-  managedColorToRgba,
   resolveAdaptiveTextColor,
   sampleRegionBackdrop,
 } from '@strata/engine';
 import type { Document, ManagedColor, NodeId, TextNode } from '@strata/scene';
+import { managedColorToRgba } from '@strata/shared';
 import { useEffect, useRef } from 'react';
 import { useEditor } from '../context';
 import { nodeWorldBounds } from '../scene/world';
@@ -169,7 +169,7 @@ export function useAdaptiveContrastEvaluation(nodeIds: NodeId[]): void {
         const lw = Math.min(bounds.w + DEFAULT_OPTIONS.padding * 2, DEFAULT_OPTIONS.maxDimension);
         const lh = Math.min(bounds.h + DEFAULT_OPTIONS.padding * 2, DEFAULT_OPTIONS.maxDimension);
 
-        const _handle = requestIdleCallback(
+        requestIdleCallback(
           () => {
             if (controller.signal.aborted) return;
 

@@ -32,6 +32,40 @@ export interface QualityValidation {
   failureReasons?: string[];
 }
 
+/** Tensor contract for ONNX model input/output specification. */
+export interface ModelTensorContract {
+  version: number;
+  inputs: Array<{ name: string; dims: number[]; dtype: string }>;
+  outputs: Array<{ name: string; dims: number[]; dtype: string }>;
+  outputActivation: 'sigmoid' | 'softmax' | 'none' | 'linear';
+  normalization?: {
+    mean: [number, number, number];
+    std: [number, number, number];
+    channelOrder: 'rgb' | 'bgr';
+  };
+}
+
+/** Model validation check results. */
+export interface ModelValidation {
+  contractVerified: boolean;
+  contractVerifiedAt?: string;
+  contractVersion?: number;
+  integrityVerified: boolean;
+  integrityVerifiedAt?: string;
+  provenanceStatus: 'unverified' | 'signed' | 'verified' | 'revoked' | 'expired';
+  provenanceVerifiedAt?: string;
+  inferenceVerified: boolean;
+  inferenceVerifiedAt?: string;
+  validationSummary?: string;
+}
+
+export type ModelValidationStatus =
+  | 'fully-verified'
+  | 'partially-verified'
+  | 'unverified'
+  | 'verification-failed'
+  | 'disabled';
+
 /** Entry in the model manifest. */
 export interface ModelManifestEntry {
   id: string;
@@ -73,6 +107,12 @@ export interface ModelManifestEntry {
   source?: string;
   /** SPDX license identifier for the model weights. */
   sourceLicense?: string;
+  /** SHA-256 checksum of the model file (may differ from `checksum` in the manifest JSON). */
+  sha256?: string | null;
+  /** Tensor contract for ONNX model input/output specification. */
+  tensorContract?: ModelTensorContract;
+  /** Model validation check results. */
+  validation?: ModelValidation;
   /** True when this entry is a virtual grouping of several download components
    * (e.g. SAM2's separate encoder + decoder graphs) rather than a single file. */
   multiComponent?: boolean;

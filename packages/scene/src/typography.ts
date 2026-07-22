@@ -6,6 +6,7 @@
  * OpenType variation axis registry, HarfBuzz variable font API.
  */
 
+import type { Document } from './document';
 import type { NodeId } from './types';
 
 // ── OpenType Features ───────────────────────────────────────────────────────
@@ -396,10 +397,10 @@ export interface AdaptiveContrastState {
  * Returns a new document with the updated node.
  */
 export function setTextAdaptiveContrast(
-  doc: import('./types').Document,
+  doc: Document,
   nodeId: string,
   ac: Partial<AdaptiveContrastState>,
-): import('./types').Document {
+): Document {
   const node = doc.nodes[nodeId];
   if (!node || node.kind !== 'text') return doc;
 

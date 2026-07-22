@@ -97,7 +97,7 @@ export function AIPerformancePanel() {
               .slice()
               .reverse()
               .slice(0, 10)
-              .map((e) => (
+              .map((e: import('@strata/engine').InferenceDiagnosticEvent) => (
                 <li key={e.seq} className="ai-perf__list-item">
                   <span className="ai-perf__time">{formatTimestamp(e.timestamp)}</span>
                   <span className="ai-perf__model">{e.modelId}</span>

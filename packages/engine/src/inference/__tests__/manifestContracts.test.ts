@@ -11,7 +11,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import type { ModelManifestEntry, ModelTensorContract } from '../../inference/types';
+import type { ModelManifestEntry } from '../../inference/types';
 
 const manifestPath = resolve(__dirname, '../../../../../apps/desktop/public/models/manifest.json');
 

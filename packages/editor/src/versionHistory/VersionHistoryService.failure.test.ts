@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { Document } from '@strata/platform';
+import { createMemoryPlatform } from '@strata/platform';
 /**
  * Failure injection tests for VersionHistoryService.
  *
@@ -8,7 +8,7 @@ import type { Document } from '@strata/platform';
  * and behavior at storage boundaries. These verify the system degrades
  * gracefully rather than losing data or corrupting history.
  */
-import { createMemoryPlatform } from '@strata/platform';
+import type { Document } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { VersionHistoryService } from './VersionHistoryService';
 
@@ -33,8 +33,8 @@ function makeDoc(overrides: Partial<Document> = {}): Document {
         blendMode: 'normal',
         visible: true,
         locked: false,
-      } as Document['nodes']['n1'],
-    } as Document['nodes'],
+      } as unknown as Document['nodes']['n1'],
+    } as unknown as Document['nodes'],
     components: {},
     nextId: 2,
     ...overrides,
@@ -71,7 +71,7 @@ async function setup() {
 
 describe('VersionHistoryService failure injection', () => {
   it('survives rapid identical saves (content dedup under load)', async () => {
-    const { service, fileId, platform } = await setup();
+    const { service, fileId } = await setup();
     const doc = makeDoc();
     // Simulate 100 rapid saves of the same content. Concurrent calls may
     // each create a version record (no locking), but content is deduplicated
@@ -87,7 +87,7 @@ describe('VersionHistoryService failure injection', () => {
     const list = await service.listVersions(fileId);
     expect(list.length).toBeGreaterThan(0);
     // All versions share the same content hash (content dedup).
-    const hashes = new Set(list.map((v) => v.contentHash));
+    const hashes = new Set(list.map((v) => v.documentHash));
     expect(hashes.size).toBe(1);
   });
 
@@ -172,7 +172,7 @@ describe('VersionHistoryService failure injection', () => {
   });
 
   it('maintains correct ref counts through create/delete cycles', async () => {
-    const { service, fileId, platform } = await setup();
+    const { service, fileId } = await setup();
     const doc = makeDoc();
     // Create two versions with same content.
     const v1 = await service.createVersion({ fileId, kind: 'manual', origin: 'save' }, doc, {
@@ -197,7 +197,6 @@ describe('VersionHistoryService failure injection', () => {
 
   it('prune handles the boundary: exactly at limit', async () => {
     const { service, fileId } = await setup();
-    const _doc = makeDoc();
     // Create exactly maxAutoVersions auto versions.
     for (let i = 0; i < 5; i++) {
       await service.createVersion(
@@ -215,7 +214,6 @@ describe('VersionHistoryService failure injection', () => {
 
   it('prune removes exactly the overflow', async () => {
     const { service, fileId } = await setup();
-    const _doc = makeDoc();
     // Create 8 auto versions (limit is 5).
     for (let i = 0; i < 8; i++) {
       await service.createVersion(
