@@ -627,6 +627,7 @@ mod tests {
             g,
             b,
             a,
+            bitDepth: None,
             profile: None,
         }
     }
@@ -638,6 +639,7 @@ mod tests {
             y,
             k,
             a,
+            bitDepth: None,
             profile: None,
         }
     }
@@ -646,6 +648,7 @@ mod tests {
         strata_core::EngineColor::Gray {
             v,
             a,
+            bitDepth: None,
             profile: None,
         }
     }

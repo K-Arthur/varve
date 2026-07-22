@@ -616,6 +616,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None
             }
         );
@@ -642,6 +643,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
+                bitDepth: None,
                 profile: None
             }
         );
