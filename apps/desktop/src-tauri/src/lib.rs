@@ -696,19 +696,19 @@ impl UpscaleCancelState {
 }
 
 #[tauri::command]
-fn begin_upscale_job(app: tauri::AppHandle, jobId: u64) {
+fn begin_upscale_job(app: tauri::AppHandle, job_id: u64) {
     let Some(state) = app.try_state::<UpscaleCancelState>() else {
         return;
     };
-    state.register(jobId);
+    state.register(job_id);
 }
 
 #[tauri::command]
-fn cancel_upscale(app: tauri::AppHandle, jobId: u64) {
+fn cancel_upscale(app: tauri::AppHandle, job_id: u64) {
     let Some(state) = app.try_state::<UpscaleCancelState>() else {
         return;
     };
-    state.cancel(jobId);
+    state.cancel(job_id);
 }
 
 const MAX_UPSCALE_INPUT_BYTES: usize = 128 * 1024 * 1024;
