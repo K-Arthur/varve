@@ -19,6 +19,7 @@ import {
 import { BaseTool } from './BaseTool';
 import type { Point2D } from './fitting';
 import { fitPathToBeziers, simplifyPoints } from './fitting';
+import { collectSourceEvents } from './inputNormalizer';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 interface CapturedPoint extends Point2D {
@@ -77,14 +78,11 @@ export class PencilTool extends BaseTool {
 
     // Sample coalesced sub-frame events when available (Chrome/Firefox/Safari 18.2+).
     // WebKitGTK returns a stub — falls back to the single event.
-    const events =
-      typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
-        ? e.getCoalescedEvents()
-        : [e];
+    const events = ctx.sourceEvents.length > 0 ? ctx.sourceEvents : collectSourceEvents(e, true);
     for (const ev of events) {
+      if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
-      const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
-      this.samplePoint(world, pressure, ctx);
+      this.samplePoint(world, ev.pressure > 0 ? ev.pressure : 0.5, ctx);
     }
   }
 
