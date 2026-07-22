@@ -1,3 +1,4 @@
+import { asRenderRevision } from '@strata/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerCommand } from './workerHost';
 import { createRenderWorkerHost } from './workerHost';
@@ -81,6 +82,9 @@ describe('render worker host restarts', () => {
     };
     host!.post(renderCmd);
     expect(firstWorker.postMessage).toHaveBeenCalledTimes(1);
+    expect(firstWorker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'render', docVersion: 1, renderRevision: 1 }),
+    );
 
     firstWorker.onerror!();
 
@@ -93,7 +97,9 @@ describe('render worker host restarts', () => {
 
     vi.advanceTimersByTime(2000);
 
-    expect(secondWorker.postMessage).toHaveBeenCalledWith(renderCmd);
+    expect(secondWorker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'render', docVersion: 1, renderRevision: 1 }),
+    );
     expect(onPermanentFailure).not.toHaveBeenCalled();
   });
 
@@ -148,7 +154,9 @@ describe('render worker host restarts', () => {
     host!.post(renderCmd);
 
     const firstWorker = mockWorkers[0]!;
-    expect(firstWorker.postMessage).toHaveBeenCalledWith(renderCmd);
+    expect(firstWorker.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'render', docVersion: 5, renderRevision: 5 }),
+    );
 
     firstWorker.onerror!();
 
@@ -161,6 +169,22 @@ describe('render worker host restarts', () => {
 
     expect(host!.restartCount).toBe(1);
     expect(host!.permanentFailure).toBe(false);
+  });
+
+  it('restarts with the latest pending render instead of replaying obsolete work', () => {
+    const host = createRenderWorkerHost(vi.fn())!;
+    host.post(renderCommand({ renderRevision: asRenderRevision(1) }));
+    host.post(renderCommand({ docVersion: 2, renderRevision: asRenderRevision(2) }));
+
+    mockWorkers[0]!.onerror!();
+    vi.advanceTimersByTime(2000);
+
+    expect(mockWorkers[1]!.postMessage).toHaveBeenCalledTimes(1);
+    expect(mockWorkers[1]!.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ docVersion: 2, renderRevision: 2 }),
+    );
+    expect(host.inFlightRenderRevision).toBe(2);
+    expect(host.pendingRenderRevision).toBeNull();
   });
 
   it('never retries a render whose ImageBitmaps were transferred', () => {
@@ -256,6 +280,7 @@ describe('render worker host restarts', () => {
     const response = {
       type: 'frameRendered' as const,
       docVersion: 1,
+      renderRevision: asRenderRevision(1),
       camera: { pan: { x: 0, y: 0 }, zoom: 1 },
       viewport: { width: 100, height: 100 },
       dpr: 1,
@@ -266,5 +291,96 @@ describe('render worker host restarts', () => {
 
     expect(onResponse).toHaveBeenCalledWith(response);
     expect(bitmap.close).not.toHaveBeenCalled();
+  });
+
+  it('keeps one in-flight render and only dispatches the latest pending revision', () => {
+    const onResponse = vi.fn();
+    const host = createRenderWorkerHost(onResponse)!;
+    const supersededBitmap = mockBitmap();
+    const staleFrameBitmap = mockBitmap();
+
+    expect(
+      host.post(
+        renderCommand({
+          renderRevision: asRenderRevision(1),
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      host.post(
+        renderCommand({
+          renderRevision: asRenderRevision(2),
+          images: { superseded: supersededBitmap },
+        }),
+        [supersededBitmap],
+      ),
+    ).toBe(true);
+    expect(host.post(renderCommand({ renderRevision: asRenderRevision(3) }))).toBe(true);
+
+    expect(mockWorkers[0]!.postMessage).toHaveBeenCalledTimes(1);
+    expect(mockWorkers[0]!.postMessage.mock.calls[0]![0]).not.toHaveProperty('nodes');
+    expect(supersededBitmap.close).toHaveBeenCalledTimes(1);
+    expect(host.inFlightRenderRevision).toBe(1);
+    expect(host.pendingRenderRevision).toBe(3);
+
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          bitmap: staleFrameBitmap,
+        },
+      }),
+    );
+
+    expect(staleFrameBitmap.close).toHaveBeenCalledTimes(1);
+    expect(onResponse).not.toHaveBeenCalled();
+    expect(mockWorkers[0]!.postMessage).toHaveBeenCalledTimes(2);
+    expect(mockWorkers[0]!.postMessage.mock.calls[1]![0]).toEqual(
+      expect.objectContaining({ renderRevision: 3 }),
+    );
+    expect(host.inFlightRenderRevision).toBe(3);
+    expect(host.pendingRenderRevision).toBeNull();
+  });
+
+  it('rejects a render older than the latest requested revision and closes its resources', () => {
+    const host = createRenderWorkerHost(vi.fn())!;
+    const obsoleteBitmap = mockBitmap();
+    host.post(renderCommand({ renderRevision: asRenderRevision(5) }));
+
+    expect(
+      host.post(
+        renderCommand({
+          renderRevision: asRenderRevision(4),
+          images: { obsolete: obsoleteBitmap },
+        }),
+        [obsoleteBitmap],
+      ),
+    ).toBe(false);
+    expect(obsoleteBitmap.close).toHaveBeenCalledTimes(1);
+    expect(mockWorkers[0]!.postMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes a pending render when the host terminates', () => {
+    const host = createRenderWorkerHost(vi.fn())!;
+    const pendingBitmap = mockBitmap();
+    host.post(renderCommand({ renderRevision: asRenderRevision(1) }));
+    host.post(
+      renderCommand({
+        renderRevision: asRenderRevision(2),
+        images: { pending: pendingBitmap },
+      }),
+      [pendingBitmap],
+    );
+
+    host.terminate();
+
+    expect(pendingBitmap.close).toHaveBeenCalledTimes(1);
+    expect(host.inFlightRenderRevision).toBeNull();
+    expect(host.pendingRenderRevision).toBeNull();
   });
 });

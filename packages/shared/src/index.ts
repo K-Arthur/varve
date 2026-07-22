@@ -193,6 +193,7 @@ export type {
 } from './performance';
 export {
   appendBoundedMetric,
+  asRenderRevision,
   createPerformanceTrace,
   nextRenderRevision,
   PERFORMANCE_TRACE_SCHEMA_VERSION,

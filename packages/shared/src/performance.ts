@@ -9,7 +9,15 @@
 export const PERFORMANCE_TRACE_SCHEMA_VERSION = 1 as const;
 
 export type PerformanceProfile = 'automatic' | 'battery-saver' | 'balanced' | 'high-performance';
-export type RenderRevision = number;
+declare const renderRevisionBrand: unique symbol;
+/**
+ * Monotonic identity for every input that can change rendered pixels.
+ *
+ * This is deliberately distinct from a document/history version: camera,
+ * viewport, resources, variables, and asynchronous results can all invalidate
+ * a frame without creating an undo entry.
+ */
+export type RenderRevision = number & { readonly [renderRevisionBrand]: 'RenderRevision' };
 
 export interface MetricSample {
   name: string;
@@ -164,7 +172,14 @@ export function validatePerformanceTrace(trace: PerformanceTrace): string[] {
   return errors;
 }
 
-export function nextRenderRevision(current: RenderRevision): RenderRevision {
-  if (!Number.isSafeInteger(current) || current < 0 || current >= Number.MAX_SAFE_INTEGER) return 1;
-  return current + 1;
+export function asRenderRevision(value: number): RenderRevision {
+  if (!Number.isSafeInteger(value) || value < 0) return 0 as RenderRevision;
+  return value as RenderRevision;
+}
+
+export function nextRenderRevision(current: RenderRevision | number): RenderRevision {
+  if (!Number.isSafeInteger(current) || current < 0 || current >= Number.MAX_SAFE_INTEGER) {
+    return asRenderRevision(1);
+  }
+  return asRenderRevision(current + 1);
 }
