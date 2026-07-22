@@ -11,6 +11,11 @@
 
 import type { PathPoint } from '@strata/engine';
 import { OneEuroFilter, oneEuroFilterPoint, strokePoint } from '@strata/scene';
+import {
+  cancelEditorFrame,
+  createEditorFrameKey,
+  requestEditorFrame,
+} from '../performance/editorFrameRuntime';
 import { BaseTool } from './BaseTool';
 import type { Point2D } from './fitting';
 import { fitPathToBeziers, simplifyPoints } from './fitting';
@@ -24,7 +29,7 @@ export class PencilTool extends BaseTool {
   id = 'pencil' as const;
 
   private captured: CapturedPoint[] = [];
-  private rafId: number | null = null;
+  private readonly frameKey = createEditorFrameKey('pencil');
   /** Per-point pressure tracking. Updated from each pointer event. */
   private currentPressure: number = 0.5;
 
@@ -169,16 +174,13 @@ export class PencilTool extends BaseTool {
       if (this.captured.length > 0) {
         this.samplePoint(this.drag.currentWorld, this.currentPressure, ctx);
       }
-      this.rafId = requestAnimationFrame(capture);
+      requestEditorFrame(this.frameKey, 'input', capture);
     };
-    this.rafId = requestAnimationFrame(capture);
+    requestEditorFrame(this.frameKey, 'input', capture);
   }
 
   private stopCapture(): void {
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
+    cancelEditorFrame(this.frameKey);
   }
 
   private reset(): void {

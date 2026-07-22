@@ -8,6 +8,11 @@
  *                 Figma Space-bar spring-loaded pan.
  */
 
+import {
+  cancelEditorFrame,
+  createEditorFrameKey,
+  requestEditorFrame,
+} from '../performance/editorFrameRuntime';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -19,7 +24,7 @@ export class HandTool extends BaseTool {
    *  the state object, it does not mutate ctx.pan in place). */
   private currentPan: { x: number; y: number } = { x: 0, y: 0 };
   private velocity: { x: number; y: number } | null = null;
-  private rafId: number | null = null;
+  private readonly frameKey = createEditorFrameKey('hand-inertia');
   private positionHistory: Array<{ x: number; y: number; time: number }> = [];
 
   override cursor(state: ToolCursorState): CursorSpec {
@@ -94,21 +99,17 @@ export class HandTool extends BaseTool {
       this.velocity = { x: vx, y: vy };
       if (Math.abs(vx) < threshold && Math.abs(vy) < threshold) {
         this.velocity = null;
-        this.rafId = null;
         return;
       }
       this.currentPan = { x: this.currentPan.x + vx, y: this.currentPan.y + vy };
       ctx.setPan(this.currentPan);
-      this.rafId = requestAnimationFrame(tick);
+      requestEditorFrame(this.frameKey, 'input', tick);
     };
-    this.rafId = requestAnimationFrame(tick);
+    requestEditorFrame(this.frameKey, 'input', tick);
   }
 
   private stopMomentum(): void {
-    if (this.rafId !== null) {
-      cancelAnimationFrame(this.rafId);
-      this.rafId = null;
-    }
+    cancelEditorFrame(this.frameKey);
     this.velocity = null;
   }
 }

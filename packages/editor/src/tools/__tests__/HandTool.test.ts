@@ -1,5 +1,6 @@
 import { createDocument } from '@strata/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetEditorFrameRuntimeForTests } from '../../performance/editorFrameRuntime';
 import { HandTool } from '../HandTool';
 
 function makeCtx(overrides?: Record<string, unknown>) {
@@ -86,6 +87,7 @@ describe('HandTool — pan with momentum', () => {
   let rafIdCounter: number;
 
   beforeEach(() => {
+    resetEditorFrameRuntimeForTests();
     rafCallbacks = new Map();
     rafIdCounter = 0;
     vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
@@ -99,6 +101,7 @@ describe('HandTool — pan with momentum', () => {
   });
 
   afterEach(() => {
+    resetEditorFrameRuntimeForTests();
     vi.restoreAllMocks();
   });
 

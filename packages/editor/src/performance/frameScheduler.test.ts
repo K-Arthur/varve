@@ -91,4 +91,18 @@ describe('frame scheduler', () => {
     expect(job).not.toHaveBeenCalled();
     expect(harness.scheduler.getDiagnostics().queuedJobs).toBe(0);
   });
+
+  it('cancels the shared RAF when the final keyed job is removed', () => {
+    let cancelled = 0;
+    const scheduler = createFrameScheduler({
+      requestFrame: () => 42,
+      cancelFrame: (id) => {
+        cancelled = id;
+      },
+    });
+    scheduler.request('only-job', 'input', () => undefined);
+
+    expect(scheduler.cancel('only-job')).toBe(true);
+    expect(cancelled).toBe(42);
+  });
 });
