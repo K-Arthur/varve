@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashSet;
 use std::io::Write;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
 use strata_core::Point;
 use tauri::ipc::Response;
@@ -567,6 +567,7 @@ fn native_ai_status(_app: tauri::AppHandle) -> bool {
 /// is available (native_ai_status returns true). The command validates
 /// the model path, creates or reuses a session, and runs inference
 /// outside the UI thread.
+#[allow(unused_variables)]
 #[tauri::command]
 async fn native_colorize_infer(
     app: tauri::AppHandle,
