@@ -254,7 +254,7 @@ export interface EvictionEvent {
 
 export class SubtreeIrCache {
   private readonly maxEntries: number;
-  private readonly softBytes: number;
+  private softBytes: number;
   private readonly hardBytes: number;
   private readonly entries = new Map<string, SubtreeIrCacheEntry>();
   private currentBytes = 0;
@@ -396,6 +396,15 @@ export class SubtreeIrCache {
   /** Soft byte budget. */
   get softBudget(): number {
     return this.softBytes;
+  }
+
+  /** Adjust soft budget dynamically (e.g., from adaptive profile). Triggers eviction if needed. */
+  setSoftBudget(bytes: number): void {
+    const oldSoft = this.softBytes;
+    this.softBytes = Math.max(bytes, 1024 * 1024);
+    if (this.softBytes < oldSoft) {
+      this.evictIfNeeded();
+    }
   }
 
   /** Hard byte limit (entries exceeding this are refused). */
