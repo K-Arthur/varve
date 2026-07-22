@@ -255,7 +255,7 @@ fn model_spec(model_id: &str) -> ModelSpec {
 const DENOISE_INPUT_DIVISIBLE: u32 = 8;
 
 fn align_to(n: u32, to: u32) -> u32 {
-    if n % to == 0 {
+    if n.is_multiple_of(to) {
         n
     } else {
         n + (to - n % to)
