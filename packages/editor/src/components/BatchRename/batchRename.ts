@@ -23,7 +23,7 @@ function escapeRegex(str: string): string {
 function buildPattern(find: string, options: BatchRenameOptions): RegExp | null {
   let pattern = options.useRegex ? find : escapeRegex(find);
   if (options.wholeWord) {
-    pattern = '\\b' + pattern + '\\b';
+    pattern = `\\b${pattern}\\b`;
   }
   const flags = options.caseSensitive ? 'g' : 'gi';
   try {

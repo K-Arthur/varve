@@ -216,8 +216,8 @@ describe('applyBatchRename', () => {
       { id: 'n2', name: 'no-match' },
     ]);
     const result = applyBatchRename(doc, ['n1', 'n2'], baseOptions);
-    expect(result.nodes['n1']?.name).toBe('newShape');
-    expect(result.nodes['n2']?.name).toBe('no-match');
+    expect(result.nodes.n1?.name).toBe('newShape');
+    expect(result.nodes.n2?.name).toBe('no-match');
   });
 
   it('renames only scope ids when subset is passed', () => {
@@ -226,14 +226,14 @@ describe('applyBatchRename', () => {
       { id: 'n2', name: 'old B' },
     ]);
     const result = applyBatchRename(doc, ['n1'], baseOptions);
-    expect(result.nodes['n1']?.name).toBe('new A');
-    expect(result.nodes['n2']?.name).toBe('old B');
+    expect(result.nodes.n1?.name).toBe('new A');
+    expect(result.nodes.n2?.name).toBe('old B');
   });
 
   it('is immutable (does not mutate input)', () => {
     const doc = makeDoc([{ id: 'n1', name: 'oldShape' }]);
-    const originalName = doc.nodes['n1']!.name;
+    const originalName = doc.nodes.n1!.name;
     applyBatchRename(doc, ['n1'], baseOptions);
-    expect(doc.nodes['n1']?.name).toBe(originalName);
+    expect(doc.nodes.n1?.name).toBe(originalName);
   });
 });

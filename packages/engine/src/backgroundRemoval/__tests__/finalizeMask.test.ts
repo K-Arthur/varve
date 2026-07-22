@@ -12,7 +12,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
-function makeResult(mask: Uint8Array, width: number, height: number): BackgroundRemovalResult {
+function makeResult(_mask: Uint8Array, width: number, height: number): BackgroundRemovalResult {
   return {
     maskDataUrl: 'data:image/png;base64,fake',
     confidence: 0.9,

@@ -164,7 +164,7 @@ export function expandBounds(
   },
 ): Document {
   const node = doc.nodes[nodeId];
-  if (!node || node.kind !== 'shape') return doc;
+  if (node?.kind !== 'shape') return doc;
   const shapeNode = node as import('@strata/scene').ShapeNode;
   if (shapeNode.shape.kind !== 'rect') return doc;
 

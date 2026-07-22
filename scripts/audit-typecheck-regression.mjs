@@ -21,7 +21,7 @@ const ROOT = resolve(import.meta.dirname, '..');
 const BASELINE_PATH = resolve(ROOT, '.typecheck-baseline.json');
 const UPDATE = process.argv.includes('--update');
 
-const SEPARATOR = '---ERROR_SEPARATOR---';
+const _SEPARATOR = '---ERROR_SEPARATOR---';
 
 function collectErrors() {
   let raw;

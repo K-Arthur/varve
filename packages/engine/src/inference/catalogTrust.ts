@@ -257,7 +257,7 @@ export function clearLastKnownGood(): void {
 
 async function verifySignature(
   envelope: SignedManifestEnvelope,
-  knownKeyIds?: Set<string>,
+  _knownKeyIds?: Set<string>,
 ): Promise<CatalogVerificationResult['signature']> {
   const base = {
     verified: false,
