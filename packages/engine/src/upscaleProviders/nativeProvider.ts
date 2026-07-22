@@ -7,6 +7,32 @@ function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
+const MAX_NATIVE_UPSCALE_OUTPUT_PIXELS = 64 * 1024 * 1024;
+
+let lastJobId = 0;
+
+function nextJobId(): number {
+  lastJobId = Math.max(lastJobId + 1, Date.now());
+  return lastJobId;
+}
+
+function arrayBufferForBytes(bytes: Uint8Array): ArrayBuffer {
+  if (
+    bytes.byteOffset === 0 &&
+    bytes.byteLength === bytes.buffer.byteLength &&
+    bytes.buffer instanceof ArrayBuffer
+  ) {
+    return bytes.buffer;
+  }
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
+function responseBytes(value: ArrayBuffer | number[]): Uint8Array {
+  return value instanceof ArrayBuffer ? new Uint8Array(value) : new Uint8Array(value);
+}
+
 /**
  * Native desktop upscaling via Tauri `upscale_image`. IPC returns PNG bytes
  * (not raw RGBA). Each job carries a monotonic id so the Rust side can report
@@ -38,8 +64,9 @@ export const nativeUpscaleProvider: UpscaleProvider = {
       import('@tauri-apps/api/event'),
     ]);
 
-    // Monotonic job id (ms + counter) — unique enough to correlate progress.
-    const jobId = Date.now();
+    // A strictly monotonic id prevents concurrent jobs created in the same
+    // millisecond from accepting each other's progress or completion events.
+    const jobId = nextJobId();
 
     // Signal the Rust side that job `jobId` is starting so a later cancel maps
     // to the right in-flight inference.
@@ -75,20 +102,30 @@ export const nativeUpscaleProvider: UpscaleProvider = {
     }
 
     try {
-      const resultBytes = await invoke<number[]>('upscale_image', {
-        imageData: Array.from(bytes),
-        options: {
-          scale,
-          method,
-          modelId: options.modelId ?? DEFAULT_AI_UPSCALE_MODEL_ID,
-          maxPixels: options.maxPixels,
-          targetWidth: options.targetWidth,
-          targetHeight: options.targetHeight,
-          jobId,
-        },
-      });
+      const wireOptions = {
+        scale,
+        method,
+        modelId: options.modelId ?? DEFAULT_AI_UPSCALE_MODEL_ID,
+        maxPixels: Math.min(
+          options.maxPixels ?? MAX_NATIVE_UPSCALE_OUTPUT_PIXELS,
+          MAX_NATIVE_UPSCALE_OUTPUT_PIXELS,
+        ),
+        targetWidth: options.targetWidth,
+        targetHeight: options.targetHeight,
+        jobId,
+      };
+      // Supplying ArrayBuffer as the invoke body selects Tauri's raw request
+      // transport. The compact options object travels as a header, avoiding a
+      // JSON number array for both directions of the large payload.
+      const resultBytes = await invoke<ArrayBuffer | number[]>(
+        'upscale_image_binary',
+        arrayBufferForBytes(bytes),
+        { headers: { 'x-strata-upscale-options': JSON.stringify(wireOptions) } },
+      );
       if (signal?.aborted) throw new Error('cancelled');
-      return decodeImageBytesToImageData(new Uint8Array(resultBytes));
+      // Current Tauri returns ArrayBuffer for the raw Rust `Response`. Keep
+      // number[] support as a compatibility adapter for older desktop builds.
+      return decodeImageBytesToImageData(responseBytes(resultBytes));
     } finally {
       unlisten?.();
       unlistenDone?.();
