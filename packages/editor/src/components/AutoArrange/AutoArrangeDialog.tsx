@@ -2,9 +2,9 @@ import { Button, Dialog, NumberInput } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
-  applyAutoArrange,
   type ArrangeLayoutType,
   type AutoArrangeOptions,
+  applyAutoArrange,
 } from '../../layout/autoArrange';
 import './AutoArrange.css';
 

@@ -1,7 +1,7 @@
-import { cleanup, render, screen, fireEvent } from '@testing-library/react';
+import type { TextNode } from '@strata/scene';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../../context';
-import type { TextNode } from '@strata/scene';
 import { TypographySection } from '../TypographySection';
 
 afterEach(cleanup);

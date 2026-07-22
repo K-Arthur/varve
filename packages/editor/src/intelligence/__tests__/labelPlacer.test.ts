@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { placeLabels, type LabelTarget } from '../labelPlacer';
+import { type LabelTarget, placeLabels } from '../labelPlacer';
 
 function makeTarget(
   id: string,
