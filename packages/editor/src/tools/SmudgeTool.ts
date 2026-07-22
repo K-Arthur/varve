@@ -20,6 +20,7 @@ import {
   strokePoint,
 } from '@strata/scene';
 import { BaseTool } from './BaseTool';
+import { collectSourceEvents, type NormalizedInputEvent } from './inputNormalizer';
 import { PreviewCanvas } from './previewCanvas';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -152,15 +153,13 @@ export class SmudgeTool extends BaseTool {
     this.drag.currentCanvas = { x: e.clientX, y: e.clientY };
     this.drag.currentWorld = ctx.canvasToWorld(e.clientX, e.clientY);
 
-    const events =
-      typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
-        ? e.getCoalescedEvents()
-        : [e];
+    const events = ctx.sourceEvents.length > 0 ? ctx.sourceEvents : collectSourceEvents(e, true);
 
     for (const ev of events) {
+      if (ev.isPredicted) continue;
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
-      const tilt = (Math.abs(ev.tiltX ?? 0) + Math.abs(ev.tiltY ?? 0)) / 2;
+      const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
       this.sampleStrokePoint(world, pressure, undefined, tilt);
     }
 
@@ -168,11 +167,9 @@ export class SmudgeTool extends BaseTool {
     this.flushDabs(ctx);
 
     // Render predicted events as preview overlay
-    if (typeof e.getPredictedEvents === 'function') {
-      const predicted = e.getPredictedEvents();
-      if (predicted.length > 0) {
-        this.renderPredictedPreview(ctx, predicted);
-      }
+    const predicted = events.filter((event) => event.isPredicted);
+    if (predicted.length > 0) {
+      this.renderPredictedPreview(ctx, predicted);
     }
 
     this.updatePreview(ctx);
@@ -281,7 +278,7 @@ export class SmudgeTool extends BaseTool {
     this.strokePoints = [pts[pts.length - 1]!];
   }
 
-  private renderPredictedPreview(ctx: ToolContext, predictedEvents: PointerEvent[]): void {
+  private renderPredictedPreview(ctx: ToolContext, predictedEvents: NormalizedInputEvent[]): void {
     if (predictedEvents.length === 0) return;
 
     const canvas = ctx.canvasElement;
@@ -294,7 +291,7 @@ export class SmudgeTool extends BaseTool {
     for (const ev of predictedEvents) {
       const world = ctx.canvasToWorld(ev.clientX, ev.clientY);
       const pressure = ev.pressure > 0 ? ev.pressure : 0.5;
-      const tilt = (Math.abs(ev.tiltX ?? 0) + Math.abs(ev.tiltY ?? 0)) / 2;
+      const tilt = (Math.abs(ev.tiltX) + Math.abs(ev.tiltY)) / 2;
       pts.push(strokePoint(world.x, world.y, { pressure, tilt }));
     }
 

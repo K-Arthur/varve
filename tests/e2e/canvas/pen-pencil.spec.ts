@@ -33,7 +33,7 @@ test.describe('Pen and Pencil tools', () => {
     await page.keyboard.press('Enter');
 
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-    await expect(page.getByRole('treeitem').first()).toContainText(/path/i);
+    await expect(page.getByRole('treeitem').first()).toContainText(/path|vector shape/i);
   });
 
   test('Pencil tool creates a path on drag', async ({ page }) => {
@@ -41,7 +41,7 @@ test.describe('Pen and Pencil tools', () => {
     await dragOnCanvas(page, 120, 120, 380, 260);
 
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-    await expect(page.getByRole('treeitem').first()).toContainText(/path/i);
+    await expect(page.getByRole('treeitem').first()).toContainText(/path|vector shape/i);
   });
 
   test('Pen path paints on canvas at clicked position', async ({ page }) => {

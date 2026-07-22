@@ -948,11 +948,13 @@ export function CanvasArea({
   // repair (Phase 1) — tools must use ctx.canvasToWorld, which accepts
   // viewport-relative clientX/Y.
 
-  function buildToolCtx(ev: PointerEvent): ToolContext {
+  function buildToolCtx(
+    ev: PointerEvent,
+    sourceEvents = collectSourceEvents(ev, true),
+  ): ToolContext {
     const s = stateRef.current;
     const e = editorRef.current;
     const eng = engineRef.current;
-    const sourceEvents = collectSourceEvents(ev, true);
     return {
       document: s.document,
       selection: s.selection,
@@ -3052,6 +3054,7 @@ export function CanvasArea({
     const ne = e.nativeEvent as PointerEvent;
     const tmInst = tm.current;
     if (!tmInst) return;
+    const ctx = buildToolCtx(ne);
 
     // Canvas-scoped shortcuts (zoom presets, tool hotkeys, delete/nudge,
     // Space-pan) are handled by this element's own onKeyDown, so they only
@@ -3066,7 +3069,7 @@ export function CanvasArea({
     if (e.pointerType === 'touch') {
       touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (touchPointers.current.size === 2) {
-        tmInst.handlePointerCancel(ne, buildToolCtx(ne));
+        tmInst.handlePointerCancel(ne, ctx);
         const geo = pinchGeometry();
         if (geo) pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
         return;
@@ -3081,12 +3084,12 @@ export function CanvasArea({
 
     snapSessionRef.current = createSnapSession();
     snapIndexRef.current = null;
-    const ctx = buildToolCtx(ne);
     tmInst.handlePointerDown(ne, ctx);
   }
 
   function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
     const ne = e.nativeEvent as PointerEvent;
+    const ctx = buildToolCtx(ne);
     // Active pinch: update this finger, re-derive distance + centroid.
     if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
       touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -3126,7 +3129,7 @@ export function CanvasArea({
     const now = performance.now();
     if (now - lastCursorUpdate.current > 32) {
       lastCursorUpdate.current = now;
-      const world = buildToolCtx(ne).canvasToWorld(e.clientX, e.clientY);
+      const world = ctx.canvasToWorld(e.clientX, e.clientY);
       editor.setCursorPos(world);
     }
 
@@ -3134,14 +3137,13 @@ export function CanvasArea({
     if (!tmInst) return;
 
     if (state.tool === 'inspect') {
-      const ctx = buildToolCtx(ne);
       // canvasToWorld now includes rect subtraction; pass raw clientX/Y.
       const world = ctx.canvasToWorld(ne.clientX, ne.clientY);
       const hit = editor.hitTestNode(world);
       setHoveredNode(hit?.node ?? null);
     }
 
-    tmInst.handlePointerMove(ne, buildToolCtx(ne));
+    tmInst.handlePointerMove(ne, ctx);
 
     // E1: Auto-pan when dragging near canvas edge.
     if (e.buttons !== 0) {
