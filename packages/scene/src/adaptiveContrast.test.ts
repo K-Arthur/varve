@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { createDocument, makeTextNode, addNode } from './document';
+import { describe, expect, it } from 'vitest';
+import { addNode, createDocument, makeTextNode } from './document';
+import type { ManagedColor, TextNode } from './types';
 import {
-  setTextAdaptiveContrast,
   resolveTextColor,
   resolveTextColorWithOverride,
+  setTextAdaptiveContrast,
 } from './typography';
-import type { TextNode, ManagedColor } from './types';
 
 function makeSimpleDoc() {
   let doc = createDocument('Test');
@@ -125,7 +125,7 @@ describe('resolveTextColor', () => {
 
   it('returns stored fill when enabled but no resolvedColor', () => {
     const doc = makeSimpleDoc();
-    let updated = setTextAdaptiveContrast(doc, 't1', { enabled: true, policy: 'wcag-aa' });
+    const updated = setTextAdaptiveContrast(doc, 't1', { enabled: true, policy: 'wcag-aa' });
     const node = updated.nodes.t1 as TextNode;
     const color = resolveTextColor(node);
     expect(color.r).toBe(255); // stored fill

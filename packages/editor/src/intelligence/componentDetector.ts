@@ -66,7 +66,7 @@ function extractFeatures(node: SceneNode, _doc: Document): FeatureVector | null 
 function fillTypeOf(node: SceneNode): string {
   const fills = 'fills' in node ? (node.fills as { type?: string }[] | undefined) : undefined;
   if (fills && fills.length > 0) {
-    const visible = fills[0]!!;
+    const visible = fills[0]!;
     return visible?.type ?? 'none';
   }
   const fill = 'fill' in node ? (node.fill as ManagedColor | undefined) : undefined;

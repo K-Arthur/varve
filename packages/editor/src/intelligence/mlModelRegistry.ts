@@ -5,8 +5,9 @@
  *
  * A new model = a manifest entry + optional pre/post-processor only.
  */
-import { ModelRegistry, SessionManager } from '@strata/engine';
+
 import type { ModelManifestEntry } from '@strata/engine';
+import { ModelRegistry, SessionManager } from '@strata/engine';
 
 const MANIFEST: ModelManifestEntry[] = [
   {
@@ -46,8 +47,8 @@ const MANIFEST: ModelManifestEntry[] = [
 
 export const registry = new ModelRegistry(MANIFEST);
 
-export { ModelRegistry, SessionManager };
 export type { ModelManifestEntry };
+export { ModelRegistry, SessionManager };
 
 const sessionManager = new SessionManager(3);
 
