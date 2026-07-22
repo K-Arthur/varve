@@ -630,6 +630,7 @@ fn ensure_native_ai(app: &tauri::AppHandle) -> bool {
 /// the cancel command can flip it without re-entering the async runtime.
 struct UpscaleCancelState {
     active: Mutex<Option<CancelEntry>>,
+    execution_gate: std::sync::Arc<Mutex<()>>,
 }
 
 struct CancelEntry {
@@ -641,7 +642,56 @@ impl UpscaleCancelState {
     fn new() -> Self {
         Self {
             active: Mutex::new(None),
+            execution_gate: std::sync::Arc::new(Mutex::new(())),
         }
+    }
+
+    /// Install the latest job and request cancellation of any superseded job.
+    /// Only one native upscale is admitted at a time: running multiple image
+    /// models concurrently can exhaust memory on the 4 GB support tier.
+    fn register(&self, job_id: u64) -> std::sync::Arc<AtomicBool> {
+        if let Ok(mut guard) = self.active.lock() {
+            if let Some(current) = guard.as_ref() {
+                if current.job_id == job_id {
+                    return current.flag.clone();
+                }
+            }
+            let flag = std::sync::Arc::new(AtomicBool::new(false));
+            if let Some(previous) = guard.replace(CancelEntry {
+                job_id,
+                flag: flag.clone(),
+            }) {
+                previous.flag.store(true, Ordering::SeqCst);
+            }
+            return flag;
+        }
+        // Poisoning disables cross-command cancellation, but the job remains
+        // locally safe and bounded rather than panicking the command handler.
+        std::sync::Arc::new(AtomicBool::new(false))
+    }
+
+    fn cancel(&self, job_id: u64) {
+        if let Ok(guard) = self.active.lock() {
+            if let Some(entry) = guard.as_ref() {
+                if entry.job_id == job_id {
+                    entry.flag.store(true, Ordering::SeqCst);
+                }
+            }
+        }
+    }
+
+    /// Clear the active slot only if it still belongs to this job. A stale
+    /// completion must never remove a newer job's cancellation handle.
+    fn finish(&self, job_id: u64) {
+        if let Ok(mut guard) = self.active.lock() {
+            if guard.as_ref().is_some_and(|entry| entry.job_id == job_id) {
+                *guard = None;
+            }
+        }
+    }
+
+    fn execution_gate(&self) -> std::sync::Arc<Mutex<()>> {
+        self.execution_gate.clone()
     }
 }
 
@@ -650,12 +700,7 @@ fn begin_upscale_job(app: tauri::AppHandle, jobId: u64) {
     let Some(state) = app.try_state::<UpscaleCancelState>() else {
         return;
     };
-    if let Ok(mut guard) = state.active.lock() {
-        *guard = Some(CancelEntry {
-            job_id: jobId,
-            flag: std::sync::Arc::new(AtomicBool::new(false)),
-        });
-    };
+    state.register(jobId);
 }
 
 #[tauri::command]
@@ -663,15 +708,11 @@ fn cancel_upscale(app: tauri::AppHandle, jobId: u64) {
     let Some(state) = app.try_state::<UpscaleCancelState>() else {
         return;
     };
-    let Ok(guard) = state.active.lock() else {
-        return;
-    };
-    if let Some(entry) = guard.as_ref() {
-        if entry.job_id == jobId {
-            entry.flag.store(true, Ordering::SeqCst);
-        }
-    }
+    state.cancel(jobId);
 }
+
+const MAX_UPSCALE_INPUT_BYTES: usize = 128 * 1024 * 1024;
+const MAX_UPSCALE_OUTPUT_PIXELS: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 struct UpscaleImageOptions {
@@ -687,6 +728,7 @@ struct UpscaleImageOptions {
     #[serde(default, rename = "targetHeight")]
     target_height: Option<u32>,
     #[serde(default)]
+    #[serde(rename = "jobId")]
     job_id: Option<u64>,
 }
 
@@ -699,7 +741,42 @@ async fn upscale_image(
     app: tauri::AppHandle,
     image_data: Vec<u8>,
     options: UpscaleImageOptions,
-) -> Result<Vec<u8>, String> {
+) -> Result<Response, String> {
+    upscale_image_command(app, image_data, options).await
+}
+
+/// Raw binary IPC variant. Options remain a small JSON header while the PNG
+/// request body and PNG response both stay out of JSON serialization.
+#[tauri::command]
+async fn upscale_image_binary(
+    app: tauri::AppHandle,
+    request: tauri::ipc::Request<'_>,
+) -> Result<Response, String> {
+    const OPTIONS_HEADER: &str = "x-strata-upscale-options";
+    let image_data = match request.body() {
+        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err("Binary upscale requires an application/octet-stream body".into())
+        }
+    };
+    let options_json = request
+        .headers()
+        .get(OPTIONS_HEADER)
+        .ok_or_else(|| format!("Missing {OPTIONS_HEADER} header"))?
+        .to_str()
+        .map_err(|_| format!("Invalid {OPTIONS_HEADER} header"))?
+        .to_owned();
+    let options: UpscaleImageOptions =
+        serde_json::from_str(&options_json).map_err(|e| format!("Invalid upscale options: {e}"))?;
+    drop(request);
+    upscale_image_command(app, image_data, options).await
+}
+
+async fn upscale_image_command(
+    app: tauri::AppHandle,
+    image_data: Vec<u8>,
+    options: UpscaleImageOptions,
+) -> Result<Response, String> {
     #[cfg(feature = "ai")]
     if options.method == "ai" && !crate::ensure_native_ai(&app) {
         return Err(
@@ -712,32 +789,38 @@ async fn upscale_image(
 
     let job_id = options.job_id.unwrap_or(0);
 
+    if image_data.len() > MAX_UPSCALE_INPUT_BYTES {
+        return Err(format!(
+            "Upscale input is {} bytes; the native limit is {MAX_UPSCALE_INPUT_BYTES} bytes",
+            image_data.len()
+        ));
+    }
+
     // Register a cancellable job with a shared flag. The worker thread below
     // receives a clone of the same Arc, so `cancel_upscale` flipping the bool
     // interrupts inference between tiles. Guarded by a Mutex so begin/cancel
     // racing on the active slot is sound.
-    let cancel_flag: std::sync::Arc<AtomicBool> = std::sync::Arc::new(AtomicBool::new(false));
-    if let Some(state) = app.try_state::<UpscaleCancelState>() {
-        if let Ok(mut guard) = state.active.lock() {
-            *guard = Some(CancelEntry {
-                job_id,
-                flag: cancel_flag.clone(),
-            });
-        }
-    }
+    let (cancel_flag, execution_gate) = app.try_state::<UpscaleCancelState>().map_or_else(
+        || {
+            (
+                std::sync::Arc::new(AtomicBool::new(false)),
+                std::sync::Arc::new(Mutex::new(())),
+            )
+        },
+        |state| (state.register(job_id), state.execution_gate()),
+    );
     let cancel_for_worker = cancel_flag.clone();
 
     // Progress callback: emit a `upscale:progress` event the frontend listens to.
     let app_for_progress = app.clone();
     let clamped_job_id = job_id;
-    let progress_callback: Option<strata_upscale::ProgressCallback> = Some(Box::new(
-        move |done: usize, total: usize| {
+    let progress_callback: Option<strata_upscale::ProgressCallback> =
+        Some(Box::new(move |done: usize, total: usize| {
             let _ = app_for_progress.emit(
                 "upscale:progress",
                 serde_json::json!({ "jobId": clamped_job_id, "done": done, "total": total }),
             );
-        },
-    ));
+        }));
 
     let method = options.method.clone();
     let model_id = options
@@ -749,15 +832,31 @@ async fn upscale_image(
     let target_height = options.target_height;
     let scale_opt = options.scale;
 
-    // Decode the image on the async thread (cheap), then hand raw RGBA to the
-    // blocking worker so a large inference can't starve the async runtime.
-    let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
-    let rgba = img.to_rgba8();
-    let (width, height) = rgba.dimensions();
-    let pixels = rgba.into_raw();
-    drop(image_data);
-
     let result = tauri::async_runtime::spawn_blocking(move || {
+        // Serialize native upscale allocations. Superseded jobs remain cheap
+        // queued closures and observe their cancellation flag before decoding
+        // or allocating an output buffer.
+        let _permit = execution_gate
+            .lock()
+            .map_err(|_| "Native upscale execution gate was poisoned".to_string())?;
+        if cancel_for_worker.load(Ordering::SeqCst) {
+            return Err("Upscale cancelled".into());
+        }
+        let dimensions = image::ImageReader::new(std::io::Cursor::new(&image_data))
+            .with_guessed_format()
+            .map_err(|e| format!("Image format error: {e}"))?
+            .into_dimensions()
+            .map_err(|e| format!("Image dimensions error: {e}"))?;
+        let source_pixels = u64::from(dimensions.0) * u64::from(dimensions.1);
+        if source_pixels > MAX_UPSCALE_OUTPUT_PIXELS {
+            return Err(format!(
+                "Upscale source contains {source_pixels} pixels; the native limit is {MAX_UPSCALE_OUTPUT_PIXELS} pixels"
+            ));
+        }
+        let img = load_from_memory(&image_data).map_err(|e| format!("Image decode error: {e}"))?;
+        let rgba = img.to_rgba8();
+        let (width, height) = rgba.dimensions();
+        let pixels = rgba.into_raw();
         upscale_image_impl(
             &pixels,
             width,
@@ -773,13 +872,20 @@ async fn upscale_image(
         )
     })
     .await
-    .map_err(|e| format!("Upscale task panicked: {e}"))??;
+    .map_err(|e| format!("Upscale task panicked: {e}"));
+
+    if let Some(state) = app.try_state::<UpscaleCancelState>() {
+        state.finish(job_id);
+    }
+    let result = result??;
 
     let _ = app.emit(
         "upscale:done",
         serde_json::json!({ "jobId": job_id, "cancelled": false }),
     );
-    Ok(result)
+    // `Response` selects Tauri's application/octet-stream IPC response. A
+    // Vec<u8> would be serialized as a large JSON number array.
+    Ok(Response::new(result))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -796,6 +902,12 @@ fn upscale_image_impl(
     progress_callback: Option<strata_upscale::ProgressCallback>,
     cancel_flag: std::sync::Arc<AtomicBool>,
 ) -> Result<Vec<u8>, String> {
+    if cancel_flag.load(Ordering::SeqCst) {
+        return Err("Upscale cancelled".into());
+    }
+    if !scale_opt.is_finite() || scale_opt <= 0.0 {
+        return Err("Upscale scale must be finite and greater than zero".into());
+    }
     let scale = if let (Some(tw), Some(th)) = (target_width, target_height) {
         let sx = tw as f64 / width as f64;
         let sy = th as f64 / height as f64;
@@ -804,12 +916,24 @@ fn upscale_image_impl(
         scale_opt
     };
 
-    let out_w = (width as f64 * scale).round().max(1.0) as u32;
-    let out_h = (height as f64 * scale).round().max(1.0) as u32;
-    if let Some(max) = max_pixels {
-        if (out_w as u64) * (out_h as u64) > max {
-            return Err(format!("Output exceeds the maximum of {max} pixels"));
-        }
+    let (out_w, out_h) = if method == "ai" {
+        (
+            width.checked_mul(4).ok_or("Upscale width overflow")?,
+            height.checked_mul(4).ok_or("Upscale height overflow")?,
+        )
+    } else {
+        (
+            (width as f64 * scale).round().max(1.0) as u32,
+            (height as f64 * scale).round().max(1.0) as u32,
+        )
+    };
+    let output_pixels = (out_w as u64) * (out_h as u64);
+    let requested_max = max_pixels.unwrap_or(MAX_UPSCALE_OUTPUT_PIXELS);
+    let effective_max = requested_max.min(MAX_UPSCALE_OUTPUT_PIXELS);
+    if output_pixels > effective_max {
+        return Err(format!(
+            "Output contains {output_pixels} pixels; the effective limit is {effective_max} pixels"
+        ));
     }
 
     let result = if method == "ai" {
@@ -817,7 +941,7 @@ fn upscale_image_impl(
         {
             let upscale_opts = strata_upscale::UpscaleOptions {
                 progress: progress_callback,
-                cancel: Some(cancel_flag),
+                cancel: Some(cancel_flag.clone()),
             };
             strata_upscale::ai_upscale(pixels, width, height, model_id, upscale_opts)?
         }
@@ -837,11 +961,12 @@ fn upscale_image_impl(
         }
     };
 
-    let result_w = if method == "ai" { width * 4 } else { out_w };
-    let result_h = if method == "ai" { height * 4 } else { out_h };
+    if cancel_flag.load(Ordering::SeqCst) {
+        return Err("Upscale cancelled".into());
+    }
 
     let out_img = image::DynamicImage::ImageRgba8(
-        image::ImageBuffer::from_raw(result_w, result_h, result)
+        image::ImageBuffer::from_raw(out_w, out_h, result)
             .ok_or("Failed to construct output image")?,
     );
 
@@ -1793,6 +1918,7 @@ pub fn run() {
             denoise_image,
             trace_image,
             upscale_image,
+            upscale_image_binary,
             begin_upscale_job,
             cancel_upscale,
             export_node_pdf,
@@ -2494,7 +2620,10 @@ mod tests {
             options.target_height,
             options.max_pixels,
             &options.method,
-            options.model_id.as_deref().unwrap_or("upscale-realesr-general"),
+            options
+                .model_id
+                .as_deref()
+                .unwrap_or("upscale-realesr-general"),
             None,
             std::sync::Arc::new(AtomicBool::new(false)),
         )
@@ -2502,6 +2631,99 @@ mod tests {
         let decoded = image::load_from_memory(&result).expect("result must be PNG");
         assert_eq!(decoded.width(), 16);
         assert_eq!(decoded.height(), 16);
+    }
+
+    #[test]
+    fn upscale_binary_response_preserves_every_byte_without_json() {
+        use tauri::ipc::{InvokeResponseBody, IpcResponse};
+
+        let expected = vec![0, 1, 127, 128, 254, 255];
+        let body = Response::new(expected.clone())
+            .body()
+            .expect("response body");
+        match body {
+            InvokeResponseBody::Raw(actual) => assert_eq!(actual, expected),
+            InvokeResponseBody::Json(_) => panic!("binary upscale response was JSON encoded"),
+        }
+    }
+
+    #[test]
+    fn upscale_options_accept_frontend_camel_case_job_id() {
+        let options: UpscaleImageOptions = serde_json::from_value(serde_json::json!({
+            "scale": 2,
+            "method": "nearest",
+            "jobId": 42,
+            "maxPixels": 1024,
+        }))
+        .expect("deserialize frontend options");
+        assert_eq!(options.job_id, Some(42));
+        assert_eq!(options.max_pixels, Some(1024));
+    }
+
+    #[test]
+    fn upscale_state_is_latest_only_and_stale_finish_is_ignored() {
+        let state = UpscaleCancelState::new();
+        let gate = state.execution_gate();
+        assert!(std::sync::Arc::ptr_eq(&gate, &state.execution_gate()));
+        let first = state.register(10);
+        let same = state.register(10);
+        assert!(std::sync::Arc::ptr_eq(&first, &same));
+
+        let second = state.register(11);
+        assert!(
+            first.load(Ordering::SeqCst),
+            "replacement must cancel job 10"
+        );
+        assert!(!second.load(Ordering::SeqCst));
+
+        state.finish(10);
+        state.cancel(11);
+        assert!(
+            second.load(Ordering::SeqCst),
+            "stale completion must not clear job 11"
+        );
+    }
+
+    #[test]
+    fn upscale_rejects_work_above_hard_pixel_budget_before_processing() {
+        let error = upscale_image_impl(
+            &[0, 0, 0, 0],
+            4096,
+            4096,
+            3.0,
+            None,
+            None,
+            None,
+            "nearest",
+            "unused",
+            None,
+            std::sync::Arc::new(AtomicBool::new(false)),
+        )
+        .expect_err("large output must be rejected");
+        assert!(
+            error.contains("effective limit"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn upscale_honors_preexisting_cancellation_before_processing() {
+        let cancelled = std::sync::Arc::new(AtomicBool::new(true));
+        let error = upscale_image_impl(
+            &[0, 0, 0, 255],
+            1,
+            1,
+            2.0,
+            None,
+            None,
+            None,
+            "nearest",
+            "unused",
+            None,
+            cancelled,
+        )
+        .expect_err("cancelled job must not run");
+        assert_eq!(error, "Upscale cancelled");
     }
 
     #[test]
