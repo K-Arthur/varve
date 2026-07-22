@@ -2,8 +2,12 @@
 
 use std::path::Path;
 use std::sync::Mutex;
+use std::time::Duration;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, Transaction};
+
+const SCHEMA_VERSION: i64 = 1;
+const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Persistent storage for Strata documents.
 /// Row type for file entries (mirrors TS FileEntry).
@@ -44,8 +48,22 @@ pub struct DocumentStore {
 
 impl DocumentStore {
     pub fn new(path: &Path) -> Result<Self, rusqlite::Error> {
-        let conn = Connection::open(path)?;
-        conn.execute_batch(
+        let mut conn = Connection::open(path)?;
+        conn.busy_timeout(BUSY_TIMEOUT)?;
+        Self::migrate(&mut conn)?;
+        Ok(DocumentStore {
+            conn: Mutex::new(conn),
+        })
+    }
+
+    fn migrate(conn: &mut Connection) -> Result<(), rusqlite::Error> {
+        let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if version >= SCHEMA_VERSION {
+            return Ok(());
+        }
+
+        let transaction = conn.transaction()?;
+        transaction.execute_batch(
             "CREATE TABLE IF NOT EXISTS documents (
                 id TEXT PRIMARY KEY,
                 data TEXT NOT NULL,
@@ -88,7 +106,22 @@ impl DocumentStore {
                 value TEXT NOT NULL
             );",
         )?;
-        conn.execute_batch(
+
+        // Databases created before this migration may not have the column even
+        // though newly created databases include it in the table definition.
+        let has_favorited_at = {
+            let mut columns = transaction.prepare("PRAGMA table_info(files)")?;
+            let names = columns.query_map([], |row| row.get::<_, String>(1))?;
+            names
+                .collect::<Result<Vec<_>, _>>()?
+                .iter()
+                .any(|name| name == "favorited_at")
+        };
+        if !has_favorited_at {
+            transaction.execute("ALTER TABLE files ADD COLUMN favorited_at INTEGER", [])?;
+        }
+
+        transaction.execute_batch(
             "CREATE VIRTUAL TABLE IF NOT EXISTS files_fts USING fts5(
                 name, kind,
                 content='files',
@@ -106,11 +139,8 @@ impl DocumentStore {
             END;
             INSERT INTO files_fts(files_fts) VALUES('rebuild');",
         )?;
-        // Idempotent migration for DBs created before favorited_at existed.
-        let _ = conn.execute("ALTER TABLE files ADD COLUMN favorited_at INTEGER", []);
-        Ok(DocumentStore {
-            conn: Mutex::new(conn),
-        })
+        transaction.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+        transaction.commit()
     }
 
     // ── Documents ──────────────────────────────────────────────────────────
@@ -125,6 +155,27 @@ impl DocumentStore {
             rusqlite::params![id, data, now],
         )?;
         Ok(())
+    }
+
+    /// Atomically persists document content and its file metadata.
+    ///
+    /// The file identifier is also used as the document identifier, matching
+    /// the store's existing one-file-per-document model.
+    pub fn save_document_with_file(
+        &self,
+        data: &str,
+        file: &FileRow,
+    ) -> Result<(), rusqlite::Error> {
+        let mut conn = self.conn.lock().unwrap();
+        let transaction = conn.transaction()?;
+        transaction.execute(
+            "INSERT INTO documents (id, data, updated_at)
+             VALUES (?1, ?2, ?3)
+             ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+            rusqlite::params![file.id, data, file.updated_at],
+        )?;
+        Self::upsert_file_in_transaction(&transaction, file)?;
+        transaction.commit()
     }
 
     pub fn load_document(&self, id: &str) -> Result<Option<String>, rusqlite::Error> {
@@ -238,6 +289,46 @@ impl DocumentStore {
             rusqlite::params![
                 id, name, kind, project_id, created_at, updated_at, opened_at, size,
                 pinned as i64, trashed_at, file_path, ordering, content_hash, favorited_at
+            ],
+        )?;
+        Ok(())
+    }
+
+    fn upsert_file_in_transaction(
+        transaction: &Transaction<'_>,
+        file: &FileRow,
+    ) -> Result<(), rusqlite::Error> {
+        transaction.execute(
+            "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
+             ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                kind = excluded.kind,
+                project_id = excluded.project_id,
+                updated_at = excluded.updated_at,
+                opened_at = excluded.opened_at,
+                size = excluded.size,
+                pinned = excluded.pinned,
+                trashed_at = excluded.trashed_at,
+                file_path = excluded.file_path,
+                ordering = excluded.ordering,
+                content_hash = excluded.content_hash,
+                favorited_at = excluded.favorited_at",
+            rusqlite::params![
+                file.id,
+                file.name,
+                file.kind,
+                file.project_id,
+                file.created_at,
+                file.updated_at,
+                file.opened_at,
+                file.size,
+                file.pinned as i64,
+                file.trashed_at,
+                file.file_path,
+                file.ordering,
+                file.content_hash,
+                file.favorited_at
             ],
         )?;
         Ok(())
@@ -491,16 +582,40 @@ mod tests {
 
     static COUNTER: AtomicU32 = AtomicU32::new(0);
 
-    fn temp_store() -> DocumentStore {
+    fn temp_db_path() -> std::path::PathBuf {
         let n = COUNTER.fetch_add(1, Ordering::SeqCst);
         let dir = std::env::temp_dir();
         let path = dir.join(format!("strata_sync_test_{}_{}.db", std::process::id(), n));
         let _ = std::fs::remove_file(&path);
-        DocumentStore::new(&path).expect("create temp store")
+        path
+    }
+
+    fn temp_store() -> DocumentStore {
+        DocumentStore::new(&temp_db_path()).expect("create temp store")
     }
 
     fn now() -> String {
         chrono::Utc::now().to_rfc3339()
+    }
+
+    fn file_row(id: &str, name: &str) -> FileRow {
+        let timestamp = now();
+        FileRow {
+            id: id.to_string(),
+            name: name.to_string(),
+            kind: "strata".to_string(),
+            project_id: None,
+            created_at: timestamp.clone(),
+            updated_at: timestamp.clone(),
+            opened_at: timestamp,
+            size: 2,
+            pinned: false,
+            trashed_at: None,
+            file_path: None,
+            ordering: String::new(),
+            content_hash: "hash".to_string(),
+            favorited_at: None,
+        }
     }
 
     #[test]
@@ -511,6 +626,49 @@ mod tests {
             .expect("save");
         let loaded = store.load_document("doc-1").expect("load");
         assert_eq!(loaded, Some(r#"{"name":"test"}"#.to_string()));
+    }
+
+    #[test]
+    fn save_document_with_file_is_atomic() {
+        let store = temp_store();
+        let file = file_row("atomic", "Atomic Design");
+        store
+            .save_document_with_file("{}", &file)
+            .expect("atomic save");
+
+        assert_eq!(
+            store.load_document("atomic").expect("load"),
+            Some("{}".into())
+        );
+        assert_eq!(
+            store
+                .get_file("atomic")
+                .expect("get file")
+                .expect("file")
+                .name,
+            "Atomic Design"
+        );
+    }
+
+    #[test]
+    fn save_document_with_file_rolls_back_both_rows_on_failure() {
+        let store = temp_store();
+        {
+            let conn = store.conn.lock().unwrap();
+            conn.execute_batch(
+                "CREATE TRIGGER reject_file BEFORE INSERT ON files
+                 WHEN new.id = 'rejected'
+                 BEGIN
+                    SELECT RAISE(ABORT, 'rejected for test');
+                 END;",
+            )
+            .expect("install rejection trigger");
+        }
+        let file = file_row("rejected", "Rejected Design");
+
+        assert!(store.save_document_with_file("{}", &file).is_err());
+        assert!(store.load_document("rejected").expect("load").is_none());
+        assert!(store.get_file("rejected").expect("get file").is_none());
     }
 
     #[test]
@@ -684,6 +842,83 @@ mod tests {
         assert_eq!(results[0].name, "Alpha");
         let empty = store.search_files("nonexistent").expect("search");
         assert!(empty.is_empty());
+    }
+
+    #[test]
+    fn legacy_database_migrates_and_populates_search_once() {
+        let path = temp_db_path();
+        let legacy = Connection::open(&path).expect("open legacy database");
+        legacy
+            .execute_batch(
+                "CREATE TABLE documents (
+                    id TEXT PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT NOT NULL
+                );
+                CREATE TABLE files (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    kind TEXT NOT NULL DEFAULT 'strata',
+                    project_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    opened_at TEXT NOT NULL DEFAULT '1970-01-01T00:00:00Z',
+                    size INTEGER NOT NULL DEFAULT 0,
+                    pinned INTEGER NOT NULL DEFAULT 0,
+                    trashed_at TEXT,
+                    file_path TEXT,
+                    ordering TEXT NOT NULL DEFAULT '',
+                    content_hash TEXT NOT NULL DEFAULT ''
+                );
+                INSERT INTO files (
+                    id, name, kind, created_at, updated_at, opened_at
+                ) VALUES (
+                    'legacy', 'Legacy Searchable', 'strata', 'now', 'now', 'now'
+                );",
+            )
+            .expect("create legacy schema");
+        drop(legacy);
+
+        let store = DocumentStore::new(&path).expect("migrate legacy database");
+        let result = store.search_files("legacy").expect("search migrated index");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "legacy");
+        assert!(result[0].favorited_at.is_none());
+        let version: i64 = store
+            .conn
+            .lock()
+            .unwrap()
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .expect("read schema version");
+        assert_eq!(version, SCHEMA_VERSION);
+    }
+
+    #[test]
+    fn reopening_current_database_does_not_write_or_rebuild_search() {
+        let path = temp_db_path();
+        {
+            let store = DocumentStore::new(&path).expect("create database");
+            let file = file_row("stable", "Stable Search Index");
+            store
+                .save_document_with_file("{}", &file)
+                .expect("seed database");
+        }
+
+        // SQLite increments data_version when another connection commits. A
+        // rebuild on open would therefore make this observer's value change.
+        let observer = Connection::open(&path).expect("open observer");
+        let before: i64 = observer
+            .pragma_query_value(None, "data_version", |row| row.get(0))
+            .expect("read data version");
+        let reopened = DocumentStore::new(&path).expect("reopen database");
+        let after: i64 = observer
+            .pragma_query_value(None, "data_version", |row| row.get(0))
+            .expect("read data version");
+
+        assert_eq!(after, before, "reopen unexpectedly wrote to the database");
+        let result = reopened
+            .search_files("stable")
+            .expect("search after reopen");
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].id, "stable");
     }
 
     #[test]
