@@ -13,10 +13,7 @@
  * dHash is a fast, scale-invariant perceptual hash.
  * Returns a hex string hash of the given bit length.
  */
-export function dHash(
-  imageData: ImageData,
-  bits = 64,
-): string {
+export function dHash(imageData: ImageData, bits = 64): string {
   const size = Math.ceil(Math.sqrt(bits));
   const small = resizeToGrayscale(imageData, size + 1, size);
 
@@ -37,10 +34,7 @@ export function dHash(
  * More robust than dHash but slower.
  * Returns a hex string hash of the given bit length.
  */
-export function pHash(
-  imageData: ImageData,
-  bits = 64,
-): string {
+export function pHash(imageData: ImageData, bits = 64): string {
   const size = 32;
   const gray = resizeToGrayscale(imageData, size, size);
   const dct = computeDCT(gray, size);
@@ -96,11 +90,7 @@ export function rankBySimilarity(
 
 // ── Helpers ────────────────────────────────────────────────
 
-function resizeToGrayscale(
-  imageData: ImageData,
-  targetW: number,
-  targetH: number,
-): Float64Array {
+function resizeToGrayscale(imageData: ImageData, targetW: number, targetH: number): Float64Array {
   const { data, width, height } = imageData;
   const result = new Float64Array(targetW * targetH);
 
@@ -113,8 +103,7 @@ function resizeToGrayscale(
       const sy = Math.min(Math.floor(ty * yRatio), height - 1);
       const srcIdx = (sy * width + sx) * 4;
       // BT.601 luma
-      const gray =
-        0.299 * data[srcIdx]! + 0.587 * data[srcIdx + 1]! + 0.114 * data[srcIdx + 2]!;
+      const gray = 0.299 * data[srcIdx]! + 0.587 * data[srcIdx + 1]! + 0.114 * data[srcIdx + 2]!;
       result[ty * targetW + tx] = gray;
     }
   }
@@ -148,9 +137,7 @@ function computeDCT(data: Float64Array, size: number): Float64Array {
 function computeMedian(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1]! + sorted[mid]!) / 2
-    : sorted[mid]!;
+  return sorted.length % 2 === 0 ? (sorted[mid - 1]! + sorted[mid]!) / 2 : sorted[mid]!;
 }
 
 function bitsToHex(bits: number[], count: number): string {

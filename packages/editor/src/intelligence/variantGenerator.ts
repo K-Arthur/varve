@@ -14,19 +14,14 @@ export interface VariantGenerationResult {
  * Groups child instances by structural similarity,
  * then identifies differing properties within each group.
  */
-export function detectVariants(
-  doc: Document,
-  componentId: string,
-): VariantGenerationResult {
+export function detectVariants(doc: Document, componentId: string): VariantGenerationResult {
   const candidates = detectVariantCandidates(doc);
 
   return {
     candidates: candidates.map((c) => ({
       nodeIds: c.nodeIds,
       variantName: c.suggestedVariantName,
-      propertyDiffs: c.differingProperties.map(
-        (dp) => `${dp.property}: ${dp.values.join(', ')}`,
-      ),
+      propertyDiffs: c.differingProperties.map((dp) => `${dp.property}: ${dp.values.join(', ')}`),
     })),
   };
 }
