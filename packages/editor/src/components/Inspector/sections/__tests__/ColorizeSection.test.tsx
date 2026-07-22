@@ -83,73 +83,68 @@ describe('ColorizeSection', () => {
     expect(screen.getByLabelText('Colorization workflow')).toBeTruthy();
   });
 
-  it('renders quality mode buttons', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText('Fast')).toBeTruthy();
-    expect(screen.getByText('Balanced')).toBeTruthy();
-    expect(screen.getByText('Quality')).toBeTruthy();
-    expect(screen.getByText('Automatic')).toBeTruthy();
-  });
-
-  it('renders correct number of quality mode options', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    const radios = document.querySelectorAll('input[type="radio"]');
-    expect(radios).toHaveLength(4);
-  });
-
-  it('shows Colorize button for photo workflow', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText('Colorize')).toBeTruthy();
-  });
-
-  it('shows Apply button for selective-recolor workflow', () => {
+  it('renders all workflow options', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
     const select = screen.getByLabelText('Colorization workflow');
-    fireEvent.change(select, { target: { value: 'selective-recolor' } });
-    expect(screen.getByText('Apply')).toBeTruthy();
+    expect(select).toBeTruthy();
+    const options = Array.from(select.querySelectorAll('option'));
+    expect(options.map((o) => o.textContent)).toEqual([
+      'Recolor (Hue Shift)',
+      'Palette Colorize',
+      'Reference Transfer',
+      'Harmonize',
+    ]);
   });
 
-  it('shows Transfer button for reference-transfer workflow', () => {
+  it('renders recolor controls by default', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByLabelText('Target hue shift in degrees')).toBeTruthy();
+    expect(screen.getByLabelText('Saturation scale')).toBeTruthy();
+  });
+
+  it('renders palette hint when palette workflow selected', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
     const select = screen.getByLabelText('Colorization workflow');
-    fireEvent.change(select, { target: { value: 'reference-transfer' } });
-    expect(screen.getByText('Transfer')).toBeTruthy();
+    fireEvent.change(select, { target: { value: 'palette' } });
+    expect(screen.getByText(/Select document swatches/i)).toBeTruthy();
   });
 
-  it('renders luminance slider for photo workflow', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByLabelText(/luminance preservation/i)).toBeTruthy();
-  });
-
-  it('renders chroma slider for photo workflow', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByLabelText(/chroma strength/i)).toBeTruthy();
-  });
-
-  it('renders skin protection checkbox for photo workflow', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText('Skin tone protection')).toBeTruthy();
-  });
-
-  it('renders neutral protection checkbox for photo workflow', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText('Neutral region protection')).toBeTruthy();
-  });
-
-  it('renders adherence slider for palette workflow', () => {
+  it('renders transfer hint when transfer workflow selected', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
     const select = screen.getByLabelText('Colorization workflow');
-    fireEvent.change(select, { target: { value: 'palette-colorize' } });
+    fireEvent.change(select, { target: { value: 'transfer' } });
+    expect(screen.getByText(/Pick a reference image/i)).toBeTruthy();
+  });
+
+  it('renders luminance preservation slider', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByLabelText(/luminance preservation strength/i)).toBeTruthy();
+  });
+
+  it('renders blend strength slider', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByLabelText(/blend strength/i)).toBeTruthy();
+  });
+
+  it('renders palette adherence slider when palette workflow selected', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    const select = screen.getByLabelText('Colorization workflow');
+    fireEvent.change(select, { target: { value: 'palette' } });
     expect(screen.getByLabelText(/palette adherence/i)).toBeTruthy();
+  });
+
+  it('renders preview button by default', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByRole('button', { name: /preview/i })).toBeTruthy();
+  });
+
+  it('does not render cancel button when idle', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
   });
 
   it('shows returns null when no node provided', () => {
     const { container } = render(<ColorizeSection nodes={[]} />);
     expect(container.innerHTML).toBe('');
-  });
-
-  it('shows model hint when no DDColor models available', () => {
-    render(<ColorizeSection nodes={[makeImageNode()]} />);
-    expect(screen.getByText(/DDColor model not yet available/i)).toBeTruthy();
   });
 });

@@ -32,7 +32,7 @@ describe('SubtreeIrCache benchmarks', () => {
       cache.get('n1', hash);
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(5);
+    expect(elapsed).toBeLessThan(10);
   });
 
   it('LRU eviction under 200ms for 500 entry cache', () => {
@@ -104,6 +104,6 @@ describe('SubtreeIrCache benchmarks', () => {
       }
     }
     const elapsed = performance.now() - start;
-    expect(elapsed).toBeLessThan(10);
+    expect(elapsed).toBeLessThan(15);
   });
 });

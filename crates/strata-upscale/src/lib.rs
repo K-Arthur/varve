@@ -14,7 +14,7 @@ use image::{DynamicImage, ImageBuffer, Rgba};
 #[cfg(feature = "ai")]
 mod ai;
 #[cfg(feature = "ai")]
-pub use ai::{ai_upscale, UpscaleOptions};
+pub use ai::{ai_upscale, ProgressCallback, UpscaleOptions};
 
 /// CPU filter used for conventional enlargement.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
