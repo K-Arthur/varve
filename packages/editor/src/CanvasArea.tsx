@@ -1424,6 +1424,9 @@ export function CanvasArea({
 
       const canUsePerNodeIrCache = s.canvasMode === 'full';
       let ir: Awaited<ReturnType<Engine['buildIr']>>;
+      let buildIrMs = 0;
+      let replayStartTime = 0;
+      let replayMs = 0;
 
       if (canUsePerNodeIrCache && nodeIds.length > 0) {
         const irSlots: Array<Awaited<ReturnType<Engine['buildIr']>>[number] | undefined> =
@@ -1457,7 +1460,9 @@ export function CanvasArea({
         if (buildSlotIndices.length === 0) {
           ir = irSlots as Awaited<ReturnType<Engine['buildIr']>>;
         } else if (buildSlotIndices.length === nodeIds.length) {
+          const t0 = performance.now();
           ir = await eng.buildIr({ nodes: flatNodes });
+          buildIrMs = performance.now() - t0;
           for (let i = 0; i < nodeIds.length; i++) {
             const nodeId = nodeIds[i];
             const fn = flatNodes[i];
@@ -1475,7 +1480,9 @@ export function CanvasArea({
             }
           }
         } else {
+          const t0b = performance.now();
           const built = await eng.buildIr({ nodes: nodesToBuild });
+          buildIrMs = performance.now() - t0b;
           let builtIdx = 0;
           for (const slot of buildSlotIndices) {
             const nodeId = nodeIds[slot];
@@ -1496,7 +1503,9 @@ export function CanvasArea({
           ir = irSlots as Awaited<ReturnType<Engine['buildIr']>>;
         }
       } else {
+        const t0c = performance.now();
         ir = await eng.buildIr({ nodes: flatNodes });
+        buildIrMs = performance.now() - t0c;
       }
       const needsStructural = sceneNeedsStructuralCompositing(doc);
 
@@ -2200,6 +2209,7 @@ export function CanvasArea({
       // image fill src is loaded (ImageBitmap Structured Clone transport).
       const workerReady = sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src));
 
+      replayStartTime = performance.now();
       if (needsStructural) {
         const deferredAdjustments: string[] = [];
         for (const [id, entry] of entries) {
@@ -2311,6 +2321,9 @@ export function CanvasArea({
         compositorRef.current?.drawVectorItems(ir);
       }
 
+      // Record replay time: from the first replay call to just before cleanup
+      replayMs = performance.now() - replayStartTime;
+
       if (dirtyClipOpen) {
         ctx.restore();
         dirtyClipOpen = false;
@@ -2332,8 +2345,8 @@ export function CanvasArea({
         nodeCount: nodeIds.length,
         culledCount: hiddenByContainer.size,
         cacheHitCount: 0,
-        buildIrMs: 0,
-        replayMs: 0,
+        buildIrMs,
+        replayMs,
         totalMs: budget.elapsedMs,
         renderPath: needsStructural
           ? 'structural'
