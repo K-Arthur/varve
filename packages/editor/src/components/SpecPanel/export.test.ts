@@ -60,7 +60,7 @@ describe('exportNodeAsRaster', () => {
     expect(payload.nodes[0]?.transform).toEqual([1, 0, 0, 1, 0, 0]);
   });
 
-  it('rejects native PDF features that would otherwise be silently approximated', async () => {
+  it('falls back to rasterized PNG-in-PDF for image fills (native PDF cannot embed raster image fills with alpha)', async () => {
     const doc = createDocument('PDF', true);
     const base = makeShapeNode('pdf-gradient', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
     const node = {
@@ -72,10 +72,13 @@ describe('exportNodeAsRaster', () => {
       core: { invoke: vi.fn(async () => []) },
     };
 
-    await expect(exportNodeAsPdf(node, pdfDoc, 1)).rejects.toThrow(/cannot yet preserve/);
+    const result = await exportNodeAsPdf(node, pdfDoc, 1);
+    expect(result.bytes).toBeInstanceOf(Uint8Array);
+    expect(result.bytes.length).toBeGreaterThan(0);
+    expect(result.filename).toMatch(/\.pdf$/);
   });
 
-  it('rejects text instead of exporting the native PDF rectangle placeholder', async () => {
+  it('falls back to rasterized PNG-in-PDF for text nodes (native PDF text outlining not wired)', async () => {
     const doc = createDocument('PDF text', true);
     const node = makeTextNode('pdf-text', 'Actual words', { w: 120, h: 32 });
     const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
@@ -83,10 +86,12 @@ describe('exportNodeAsRaster', () => {
       core: { invoke: vi.fn(async () => []) },
     };
 
-    await expect(exportNodeAsPdf(node, pdfDoc, 1)).rejects.toThrow(/text outlining.*not.*wired/i);
+    const result = await exportNodeAsPdf(node, pdfDoc, 1);
+    expect(result.bytes).toBeInstanceOf(Uint8Array);
+    expect(result.bytes.length).toBeGreaterThan(0);
   });
 
-  it('rejects fill and stroke alpha or blend semantics the native PDF path drops', async () => {
+  it('falls back to rasterized PNG-in-PDF for fill/stroke alpha and blend semantics', async () => {
     const doc = createDocument('PDF transparency', true);
     const base = makeShapeNode('pdf-alpha', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
     const node = {
@@ -116,7 +121,9 @@ describe('exportNodeAsRaster', () => {
       core: { invoke: vi.fn(async () => []) },
     };
 
-    await expect(exportNodeAsPdf(node, pdfDoc, 1)).rejects.toThrow(/transparency.*blends/i);
+    const result = await exportNodeAsPdf(node, pdfDoc, 1);
+    expect(result.bytes).toBeInstanceOf(Uint8Array);
+    expect(result.bytes.length).toBeGreaterThan(0);
   });
 
   it('awaits font readiness before rendering, so exports never race a font swap', async () => {
@@ -357,7 +364,7 @@ describe('exportNodeAsRaster', () => {
     ]);
   });
 
-  it('rejects group compositing and masks that the native PDF backend cannot preserve', async () => {
+  it('falls back to rasterized PNG-in-PDF for group compositing and masks', async () => {
     let doc = createDocument('PDF group', true);
     const group = {
       ...makeGroupNode('group', { opacity: 0.5 }),
@@ -370,7 +377,9 @@ describe('exportNodeAsRaster', () => {
       core: { invoke: vi.fn(async () => []) },
     };
 
-    await expect(exportNodeAsPdf(group, doc, 1)).rejects.toThrow(/cannot yet preserve/);
+    const result = await exportNodeAsPdf(group, doc, 1);
+    expect(result.bytes).toBeInstanceOf(Uint8Array);
+    expect(result.bytes.length).toBeGreaterThan(0);
   });
 
   it('uses the strict text wire contract for text nested in an exported frame', async () => {
