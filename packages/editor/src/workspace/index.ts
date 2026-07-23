@@ -24,7 +24,9 @@ export {
 export {
   ALL_WORKSPACE_MODES,
   type CanvasOverlayConfig,
+  DEPRECATED_TAB_FALLBACKS,
   getDefaultInspectorTab,
+  getGroupedInspectorTabs,
   getHiddenTools,
   getOrderedPanels,
   getVisibleInspectorTabs,
@@ -32,6 +34,7 @@ export {
   // Helpers
   getWorkspaceConfig,
   type InspectorTabConfig,
+  type InspectorTabGroup,
   type InspectorTabId,
   isValidWorkspaceConfig,
   migrateWorkspaceConfig,
@@ -43,6 +46,8 @@ export {
   type ShortcutLayer,
   type StatusSectionConfig,
   type StatusSectionId,
+  TAB_GROUP_LABELS,
+  TAB_GROUP_ORDER,
   type ToolbarConfig,
   type ToolbarItem,
   WORKSPACE_CONFIG_VERSION,

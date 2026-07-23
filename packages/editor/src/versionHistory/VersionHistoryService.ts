@@ -26,6 +26,7 @@ import type {
 import { contentHash } from '@strata/platform';
 import type { Document } from '@strata/scene';
 import { serializeDocument } from '@strata/scene';
+import { VersionThumbnailQueue } from '../thumbnail/versionThumbnailQueue';
 
 export interface VersionHistoryConfig {
   /** Minimum interval between auto-versions (ms). */
@@ -52,12 +53,23 @@ export class VersionHistoryService {
   private cfg: VersionHistoryConfig;
   private lastAutoVersionAt: Map<string, number> = new Map();
   private lastKnownHash: Map<string, string> = new Map();
+  private thumbnailQueue: VersionThumbnailQueue;
 
   constructor(
     public readonly platform: Platform,
     config?: Partial<VersionHistoryConfig>,
   ) {
     this.cfg = { ...DEFAULT_CONFIG, ...config };
+    this.thumbnailQueue = new VersionThumbnailQueue(platform);
+  }
+
+  get pendingThumbnails(): number {
+    return this.thumbnailQueue.pending;
+  }
+
+  /** Access the queue for testing or shutdown. */
+  getThumbnailQueueForTest(): VersionThumbnailQueue {
+    return this.thumbnailQueue;
   }
 
   async listVersions(fileId: string): Promise<VersionEntry[]> {
@@ -72,6 +84,12 @@ export class VersionHistoryService {
    * Create a version from the given document. Performs content-dedup:
    * if the latest version already has the same hash, skips creation
    * (unless `force` is set, e.g. for named checkpoints).
+   *
+   * Thumbnail generation is decoupled from version creation: the
+   * version is persisted immediately without waiting for a thumbnail,
+   * and thumbnail generation is enqueued as a low-priority background
+   * job. A version is never reported as failed solely because
+   * thumbnail generation failed.
    */
   async createVersion(
     input: Omit<CreateVersionInput, 'documentJson' | 'contentHash' | 'size'>,
@@ -86,16 +104,31 @@ export class VersionHistoryService {
       if (lastHash === hash) return null;
     }
 
+    // Pre-supplied thumbnail (e.g., from op-level caller) or undefined
+    const thumbnail: string | undefined = opts?.thumbnail;
+
     const platformInput: CreateVersionInput = {
       ...input,
       documentJson: json,
       contentHash: hash,
       size: new TextEncoder().encode(json).length,
-      thumbnail: opts?.thumbnail,
+      thumbnail,
       schemaVersion: document.formatVersion,
     };
     const entry = await this.platform.createVersion(platformInput);
     this.lastKnownHash.set(input.fileId, hash);
+
+    // Enqueue async thumbnail generation (never blocks version creation).
+    // If a pre-supplied thumbnail was provided, skip enqueue.
+    if (!opts?.thumbnail && entry) {
+      this.thumbnailQueue.enqueue({
+        versionId: entry.id,
+        fileId: input.fileId,
+        document,
+        revisionHash: hash,
+      });
+    }
+
     return entry;
   }
 

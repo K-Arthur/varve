@@ -25,7 +25,7 @@ export function exportNodeToCssModules(
   const css = exportNodeToCss(node, doc, opts);
   const selector = node.name.toLowerCase().replace(/[^a-z0-9-]/g, '-') || 'node';
   const componentName =
-    (opts?.componentName ?? node.name[0]?.toUpperCase() + node.name.slice(1)) || 'Component';
+    opts?.componentName || node.name[0]?.toUpperCase() + node.name.slice(1) || 'Component';
 
   const cssWithModule = css.replace(/\.([a-z][\w-]*)/, `.${selector}`);
   const jsx =

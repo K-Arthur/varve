@@ -272,13 +272,59 @@ function nodeSvgBounds(
   return transformedBounds(points, worldTransform);
 }
 
+/**
+ * Collect SVG gradient definition elements from a node's fills.
+ * Returns an array of raw SVG element strings suitable for inclusion
+ * in a <defs> block. Returns empty array when no gradient defs needed.
+ */
+function collectGradientDefs(
+  node: SceneNode,
+  nodeId: string,
+  preserveColorSpace: boolean,
+): string[] {
+  const defs: string[] = [];
+  const fills = node.fills ?? [];
+  fills.forEach((fill, i) => {
+    if (fill.type !== 'gradient' || !fill.gradient) return;
+    const gradId = `grad-${nodeId}-${i}`;
+    const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
+    const cx = 50;
+    const cy = 50;
+    const gradType = fill.gradient.type;
+    const stops = fill.gradient.stops
+      .map(
+        (s) =>
+          `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
+      )
+      .join('\n');
+
+    if (gradType === 'linear') {
+      const x1 = cx - Math.cos(rot) * cx;
+      const y1 = cy - Math.sin(rot) * cy;
+      const x2 = cx + Math.cos(rot) * cx;
+      const y2 = cy + Math.sin(rot) * cy;
+      defs.push(
+        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%">\n${stops}\n    </linearGradient>`,
+      );
+    } else if (gradType === 'radial') {
+      const halfDiag = Math.sqrt(cx * cx + cy * cy);
+      defs.push(
+        `    <radialGradient id="${gradId}" cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}>\n${stops}\n    </radialGradient>`,
+      );
+    }
+    // Angular/conic and diamond gradients have no SVG equivalent;
+    // they're handled by raster fallback from the compositor.
+  });
+  return defs;
+}
+
 /** P2: Generate SVG <defs> for gradient fills, returns {defs, fillRef}. */
 function fillToSvg(
   node: SceneNode,
   nodeId: string,
   doc: SceneDocument,
   preserveColorSpace: boolean,
-): { fillAttr: string; comment?: string; defs?: string } {
+): { fillAttr: string; comment?: string; defs?: string; needsRasterFallback?: boolean } {
   if (!node.fills || node.fills.length === 0) {
     if (node.kind === 'adjustment') {
       return { fillAttr: 'none' };
@@ -293,37 +339,40 @@ function fillToSvg(
     return { fillAttr: result.value, comment: result.warning };
   }
 
-  // For gradient fills, generate <defs> with gradient elements
-  const defs: string[] = [];
+  // For gradient fills, generate fill attribute references and detect
+  // gradient types that need raster fallback (angular, diamond).
   const fillAttrs: string[] = [];
+  let needsRasterFallback = false;
 
   node.fills.forEach((fill, i) => {
     if (fill.type === 'solid' && fill.color) {
       fillAttrs.push(colorToSvgValue(fill.color, doc, preserveColorSpace).value);
     } else if (fill.type === 'gradient' && fill.gradient) {
       const gradId = `grad-${nodeId}-${i}`;
-      const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
-      const x1 = 50 - Math.cos(rot) * 50;
-      const y1 = 50 - Math.sin(rot) * 50;
-      const x2 = 50 + Math.cos(rot) * 50;
-      const y2 = 50 + Math.sin(rot) * 50;
-      const stops = fill.gradient.stops
-        .map(
-          (s) =>
-            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
-        )
-        .join('\n');
-      defs.push(
-        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%">\n${stops}\n    </linearGradient>`,
-      );
-      fillAttrs.push(`url(#${gradId})`);
+      const gradType = fill.gradient.type;
+
+      // Linear and radial gradients have native SVG elements.
+      // Angular/conic and diamond have no SVG equivalent and require raster fallback.
+      if (gradType === 'linear' || gradType === 'radial') {
+        fillAttrs.push(`url(#${gradId})`);
+      } else {
+        needsRasterFallback = true;
+        const fallbackColor = fill.gradient.stops[0]?.color ?? node.fill;
+        fillAttrs.push(rgba(fallbackColor));
+      }
     }
   });
 
-  // For stacked fills, we'd need multiple elements with different fills.
-  // For now, use the topmost fill as the SVG fill attribute.
+  if (needsRasterFallback) {
+    return {
+      defs: '',
+      fillAttr: fillAttrs[fillAttrs.length - 1] ?? rgba(node.fill),
+      needsRasterFallback: true,
+    };
+  }
+
   return {
-    defs: defs.length > 0 ? `  <defs>\n${defs.join('\n')}\n  </defs>\n` : '',
+    defs: '',
     fillAttr: fillAttrs[fillAttrs.length - 1] ?? rgba(node.fill),
   };
 }
@@ -759,6 +808,18 @@ function nodeToSvgTag(
   rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): string {
   const indent = '  '.repeat(depth);
+
+  // Check for a pre-rendered raster asset first — this handles gradient types
+  // (angular, diamond) and effects that SVG cannot represent natively.
+  const rasterAsset = rasterAssets?.[node.id];
+  if (rasterAsset) {
+    const w = rasterAsset.cssWidth;
+    const h = rasterAsset.cssHeight;
+    const href = escapeXml(rasterAsset.dataUrl);
+    const t = affineToSvg(transform);
+    return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" transform="${t}" />`;
+  }
+
   const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
   const t = affineToSvg(transform);
   const withTransform = ` transform="${t}"`;
@@ -984,7 +1045,9 @@ export function exportNodeToSvg(
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
   const maskDefs = collectSubtreeMaskDefs(doc, node);
-  const defsSection = maskDefs.length > 0 ? `  <defs>\n${maskDefs.join('\n')}\n  </defs>\n` : '';
+  const gradDefs = collectGradientDefs(node, node.id, opts?.preserveColorSpace ?? false);
+  const allDefs = [...maskDefs, ...gradDefs];
+  const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
   const inner = nodeToSvgTag(
     node,
     doc,
@@ -1031,6 +1094,27 @@ export function svgTargetGaps(
   }
 
   const fills = node.fills ?? [];
+  const nonLinearGradientFill = fills.find(
+    (f) =>
+      f.type === 'gradient' &&
+      f.gradient &&
+      f.gradient.type !== 'linear' &&
+      f.gradient.type !== 'radial',
+  );
+  if (nonLinearGradientFill?.gradient) {
+    const gradType = nonLinearGradientFill.gradient.type;
+    const flattened = flattenedNodes?.has(node.id);
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `${gradType} gradient fill`,
+      severity: flattened ? 'info' : 'warning',
+      fallback: flattened
+        ? 'Rasterized at export resolution — gradient preserved as pixel-accurate image'
+        : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient',
+    });
+  }
+
   if (fills.some((f) => f.type === 'pattern')) {
     gaps.push({
       nodeId: node.id,

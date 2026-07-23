@@ -14,7 +14,7 @@ describe('Inspector feature ownership', () => {
     expect(ownedIds).toEqual(sectionIds);
   });
 
-  it('keeps the contextual Properties surface intentionally concise', () => {
+  it('keeps the contextual Properties surface intentionally concise, now including document settings', () => {
     expect(getFeaturesForSurface('properties')).toEqual([
       'align-distribute',
       'position-size',
@@ -27,6 +27,8 @@ describe('Inspector feature ownership', () => {
       'stroke',
       'image-placement',
       'typography',
+      'canvas-background',
+      'document-color',
     ]);
   });
 
@@ -61,7 +63,7 @@ describe('Inspector feature ownership', () => {
       'appearance',
       'adjustments',
       'prototype',
-      'document',
+      'export',
       'tool-options',
       'audit',
     ]);

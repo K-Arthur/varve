@@ -4864,6 +4864,7 @@ dependencies = [
  "ort",
  "serde",
  "serde_json",
+ "sha2",
 ]
 
 [[package]]
@@ -4944,6 +4945,7 @@ dependencies = [
  "font-subset",
  "lopdf",
  "serde",
+ "serde_json",
  "strata-colour",
  "strata-core",
 ]

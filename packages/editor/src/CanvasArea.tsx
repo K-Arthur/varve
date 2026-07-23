@@ -3887,6 +3887,7 @@ export function CanvasArea({
         }}
         onBlur={() => {
           stopAutoPan();
+          editor.commitTransaction();
           tm.current?.activeTool.onPointerCancel?.(
             new PointerEvent('pointercancel'),
             buildToolCtx(new PointerEvent('pointercancel')),

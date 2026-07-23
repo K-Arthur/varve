@@ -1,6 +1,7 @@
 import { Icon, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { getActionRegistry } from '../actions/ActionRegistry';
 import {
   captureKeyCombo,
   clearAllOverrides,
@@ -179,6 +180,7 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
   const handleRowClick = useCallback(
     (id: string) => {
       if (remappingId) return;
+      getActionRegistry().recordUsage(id);
       onSelect(id);
       onClose();
     },

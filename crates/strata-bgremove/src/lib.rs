@@ -121,8 +121,26 @@ pub fn denoise_image_cancellable(
     inference::denoise_image_cancellable(img, strength, model_id, cancellation)
 }
 
+/// Run LaMa inpainting natively (non-cancellable).
 #[cfg(feature = "ai")]
-pub use inference::{session_pool_metrics, unload_all_model_sessions, unload_model_session};
+pub fn lama_inpaint(request: LamaInpaintRequest) -> Result<LamaInpaintResult, String> {
+    inference::lama_inpaint(request)
+}
+
+/// Run LaMa inpainting natively (cancellable).
+#[cfg(feature = "ai")]
+pub fn lama_inpaint_cancellable(
+    request: LamaInpaintRequest,
+    cancellation: &session_pool::InferenceCancellationToken,
+) -> Result<LamaInpaintResult, String> {
+    inference::lama_inpaint_cancellable(request, cancellation)
+}
+
+#[cfg(feature = "ai")]
+pub use inference::{
+    session_pool_metrics, unload_all_model_sessions, unload_model_session, LamaInpaintRequest,
+    LamaInpaintResult,
+};
 
 #[cfg(feature = "ai")]
 pub use session_pool::{InferenceCancellationToken, SessionPoolMetrics};

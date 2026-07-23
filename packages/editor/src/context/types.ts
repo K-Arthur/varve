@@ -247,6 +247,8 @@ export interface EditorState {
     sourceWidth?: number;
     sourceHeight?: number;
   };
+  /** Tracks the last duplicate offset for the Repeat Duplicate command. */
+  lastDuplicateOffset: { x: number; y: number } | null;
   trimapEditOptions: {
     brushSize: number;
     hardness: number;
@@ -440,6 +442,8 @@ export interface EditorContextValue {
   renameSelected: (name: string) => void;
   moveNode: (id: NodeId, toIndex: number) => void;
   duplicateSelected: () => void;
+  /** Repeat the last duplicate with the same offset (Cmd/Ctrl+D after initial duplicate). */
+  repeatDuplicate: () => void;
   setSelectedFill: (color: import('@strata/scene').ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
