@@ -181,10 +181,18 @@ export function applySoftwareFilter(
         'channel' in filter
           ? ((filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue')
           : 'rgb';
-      const points =
+      const serializedPoints =
         'points' in filter
-          ? (filter as unknown as { points: Array<{ x: number; y: number }> }).points
+          ? (
+              filter as unknown as {
+                points: Array<{ input?: number; output?: number; x?: number; y?: number }>;
+              }
+            ).points
           : [];
+      const points = serializedPoints.map((point) => ({
+        x: point.input !== undefined ? point.input / 255 : (point.x ?? 0),
+        y: point.output !== undefined ? point.output / 255 : (point.y ?? 0),
+      }));
       const lut = buildCurveLUT(points);
       const result = applyCurve(imageData, channel, lut);
       ctx.putImageData(result, 0, 0);
@@ -196,6 +204,11 @@ export function applySoftwareFilter(
           ? ((filter as { channel: string }).channel as 'rgb' | 'red' | 'green' | 'blue')
           : 'rgb';
       const lvlFilter = filter as {
+        inputShadows?: number;
+        inputMidtones?: number;
+        inputHighlights?: number;
+        outputShadows?: number;
+        outputHighlights?: number;
         inputBlack?: number;
         inputWhite?: number;
         gamma?: number;
@@ -203,11 +216,11 @@ export function applySoftwareFilter(
         outputWhite?: number;
       };
       const result = applyLevels(imageData, channel, {
-        inputBlack: lvlFilter.inputBlack ?? 0,
-        inputWhite: lvlFilter.inputWhite ?? 255,
-        gamma: lvlFilter.gamma ?? 1,
-        outputBlack: lvlFilter.outputBlack ?? 0,
-        outputWhite: lvlFilter.outputWhite ?? 255,
+        inputBlack: lvlFilter.inputShadows ?? lvlFilter.inputBlack ?? 0,
+        inputWhite: lvlFilter.inputHighlights ?? lvlFilter.inputWhite ?? 255,
+        gamma: lvlFilter.inputMidtones ?? lvlFilter.gamma ?? 1,
+        outputBlack: lvlFilter.outputShadows ?? lvlFilter.outputBlack ?? 0,
+        outputWhite: lvlFilter.outputHighlights ?? lvlFilter.outputWhite ?? 255,
       });
       ctx.putImageData(result, 0, 0);
       break;

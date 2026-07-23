@@ -101,6 +101,65 @@ describe('filter compositing', () => {
     expect(Array.from(output?.data ?? [])).toEqual([150, 75, 38, 255]);
   });
 
+  it('maps the serialized Levels fields into the levels kernel', () => {
+    const input = makeTestImageData([[64, 128, 255, 255]], 1, 1);
+    let output: ImageData | undefined;
+    const context = {
+      getImageData: () => input,
+      putImageData: (data: ImageData) => {
+        output = data;
+      },
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      {
+        kind: 'levels',
+        inputShadows: 64,
+        inputMidtones: 1,
+        inputHighlights: 255,
+        outputShadows: 0,
+        outputHighlights: 255,
+        channel: 'rgb',
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+
+    expect(Array.from(output?.data ?? [])).toEqual([0, 85, 255, 255]);
+  });
+
+  it('maps 0-255 serialized Curves points into the normalized curve kernel', () => {
+    const input = makeTestImageData([[64, 128, 255, 255]], 1, 1);
+    let output: ImageData | undefined;
+    const context = {
+      getImageData: () => input,
+      putImageData: (data: ImageData) => {
+        output = data;
+      },
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      {
+        kind: 'curves',
+        points: [
+          { input: 0, output: 255 },
+          { input: 255, output: 0 },
+        ],
+        channel: 'rgb',
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+
+    expect(Array.from(output?.data ?? [])).toEqual([191, 127, 0, 255]);
+  });
+
   it('applies CSS-compatible filter directly when opacity=1 and blendMode=normal', () => {
     const { target } = mockTarget();
     const filters: FilterIR[] = [

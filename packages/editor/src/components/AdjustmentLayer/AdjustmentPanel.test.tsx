@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 import { AdjustmentPanel } from './AdjustmentPanel';
@@ -70,10 +71,51 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByRole('menuitem', { name: 'Halftone' })).toBeInTheDocument();
   });
 
-  // TODO: these 3 tests fail because the custom Select component renders
-  // SolidIcon from @phosphor-icons/react which doesn't work in jsdom.
-  // The functionality is tested via the AdjustmentEditor tests.
-  it.skip('adding a halftone adjustment creates a fully-populated entry and renders live screening controls', async () => {
+  it('adds the non-first adjustment selected with a real pointer interaction', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await waitFor(() => screen.getByText('Adjustment Layer'));
+
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    const contrastOption = screen.getByRole('menuitem', { name: 'Contrast' });
+    contrastOption.focus();
+    expect(contrastOption).toHaveFocus();
+    await user.click(contrastOption);
+
+    expect(screen.getByRole('slider', { name: 'Contrast' })).toBeInTheDocument();
+    expect(screen.queryByRole('slider', { name: 'Brightness' })).toBeNull();
+  });
+
+  it('supports arrow-key selection without snapping focus back to Brightness', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await waitFor(() => screen.getByText('Adjustment Layer'));
+
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    expect(screen.getByRole('menuitem', { name: 'Brightness' })).toHaveFocus();
+    await user.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+
+    expect(screen.getByLabelText(/histogram with level sliders/i)).toBeInTheDocument();
+    expect(screen.queryByRole('slider', { name: 'Brightness' })).toBeNull();
+  });
+
+  it('returns focus to the add button when the menu is dismissed', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await waitFor(() => screen.getByText('Adjustment Layer'));
+
+    const addButton = screen.getByRole('button', { name: /add adjustment/i });
+    await user.click(addButton);
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('menu')).toBeNull();
+    expect(addButton).toHaveFocus();
+  });
+
+  it('adding a halftone adjustment creates a fully-populated entry and renders live screening controls', async () => {
     renderHarness();
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
@@ -91,7 +133,7 @@ describe('AdjustmentPanel', () => {
     expect(screen.getByLabelText('Screen angle in degrees')).toBeInTheDocument();
   });
 
-  it.skip('editing the frequency slider updates the underlying HalftoneAdjustment', async () => {
+  it('editing the frequency slider updates the underlying HalftoneAdjustment', async () => {
     renderHarness();
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
@@ -108,7 +150,7 @@ describe('AdjustmentPanel', () => {
     });
   });
 
-  it.skip('removing the halftone adjustment clears its editor controls', async () => {
+  it('removing the halftone adjustment clears its editor controls', async () => {
     renderHarness();
     fireEvent.click(screen.getByText('Create adjustment layer'));
     await waitFor(() => screen.getByText('Adjustment Layer'));
