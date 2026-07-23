@@ -501,7 +501,20 @@ export {
 } from './nonSeparable';
 // ── OCR (PaddleOCR v4) ───────────────────────────────────────────────
 export { runOcrPipeline } from './ocrPipeline/pipeline';
-export type { OcrOptions, OcrResult, OcrWord } from './ocrPipeline/types';
+export type {
+  OcrOptions,
+  OcrResult,
+  OcrWord,
+  OcrModelConfig,
+  OrientationResult,
+} from './ocrPipeline/types';
+export { getOcrModelConfig, validateDictionary } from './ocrPipeline/modelMetadata';
+export {
+  detectOrientationFromRegions,
+  detectOrientationFromPixels,
+  rotateImageData,
+  mapCoordsThroughRotation,
+} from './ocrPipeline/orientation';
 export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';

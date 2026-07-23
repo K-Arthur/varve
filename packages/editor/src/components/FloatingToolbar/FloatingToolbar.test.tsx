@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { useEffect } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
@@ -52,6 +52,23 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     expect(screen.getByLabelText('Paint Brush')).toBeInTheDocument();
     expect(screen.getByLabelText('Eraser')).toBeInTheDocument();
     expect(screen.queryByLabelText('Boolean operations menu')).not.toBeInTheDocument();
+  });
+
+  it('moves full brush configuration into a keyboard-accessible tool-options popover', async () => {
+    renderInMode('drawing');
+    fireEvent.click(screen.getByLabelText('Paint Brush'));
+
+    const options = screen.getByRole('button', { name: 'Tool options' });
+    expect(options).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(options);
+
+    expect(await screen.findByRole('dialog', { name: 'paint tool options' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Brush' })).toBeInTheDocument();
+    expect(options).toHaveAttribute('aria-expanded', 'true');
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'paint tool options' })).not.toBeInTheDocument();
+    expect(options).toHaveFocus();
   });
 
   it('Image mode hides the frame tool and boolean ops, keeps retouch tools', () => {

@@ -62,6 +62,7 @@ function recorder(): RecorderProxy {
     transform: mk('transform'),
     translate: mk('translate'),
     rotate: mk('rotate'),
+    scale: mk('scale'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),

@@ -23,7 +23,15 @@ import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 
-export type InspectorTab = 'properties' | 'export' | 'spec' | 'score' | 'audit';
+export type InspectorTab =
+  | 'properties'
+  | 'appearance'
+  | 'adjustments'
+  | 'prototype'
+  | 'document'
+  | 'export'
+  | 'spec'
+  | 'audit';
 
 export type IntelligenceTab =
   | 'audit'

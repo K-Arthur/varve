@@ -162,6 +162,27 @@ function isAllTextNodes(nodes: SceneNode[]): boolean {
   return nodes.length > 0 && nodes.every((n) => n.kind === 'text');
 }
 
+function isAllStrokeNodes(nodes: SceneNode[]): boolean {
+  return (
+    nodes.length > 0 &&
+    nodes.every((n) => n.kind === 'shape' || n.kind === 'text' || n.kind === 'frame')
+  );
+}
+
+function isAllEffectNodes(nodes: SceneNode[]): boolean {
+  return (
+    nodes.length > 0 &&
+    nodes.every(
+      (n) =>
+        n.kind === 'shape' ||
+        n.kind === 'text' ||
+        n.kind === 'frame' ||
+        n.kind === 'adjustment' ||
+        n.kind === 'path',
+    )
+  );
+}
+
 function hasNodes(ctx: SectionAvailabilityContext): boolean {
   return ctx.selectedNodes.length > 0;
 }
@@ -271,7 +292,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: true,
     order: 240,
     category: 'appearance',
-    isAvailable: (ctx) => hasNodes(ctx),
+    isAvailable: (ctx) => isAllStrokeNodes(ctx.selectedNodes),
   },
   {
     id: 'effects',
@@ -281,7 +302,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 250,
     category: 'appearance',
-    isAvailable: (ctx) => hasNodes(ctx),
+    isAvailable: (ctx) => isAllEffectNodes(ctx.selectedNodes),
   },
 
   // -- Content group --
@@ -293,7 +314,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 300,
     category: 'content',
-    isAvailable: (ctx) => hasNodes(ctx),
+    isAvailable: (ctx) => isAllTextNodes(ctx.selectedNodes),
   },
   {
     id: 'component',

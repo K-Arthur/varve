@@ -13,6 +13,8 @@
  *
  * Uses the shared colorization request contract and pipeline dispatch.
  */
+import type { QualityMode } from '@strata/engine';
+import { listAllModels } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { imageShapeSrc, isImageShape } from '@strata/scene';
 import { Button } from '@strata/ui';
@@ -56,6 +58,11 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const [luminancePreservation, setLuminancePreservation] = useState(1);
   const [blendStrength, setBlendStrength] = useState(1);
   const [adherence, setAdherence] = useState(0.5);
+  const [qualityMode, setQualityMode] = useState<QualityMode>('balanced');
+  const [chromaStrength, setChromaStrength] = useState(1);
+  const [skinProtection, setSkinProtection] = useState(true);
+  const [neutralProtection, setNeutralProtection] = useState(true);
+  const [modelAvailable, setModelAvailable] = useState<boolean | null>(null);
   const [_selectedSwatchIds, _setSelectedSwatchIds] = useState<string[]>([]);
   const [_referenceSrc, _setReferenceSrc] = useState<string | null>(null);
   const [maskData, _setMaskData] = useState<Uint8Array | null>(null);
@@ -104,6 +111,16 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       elapsedMs: 0,
       modelAvailable: prev.modelAvailable,
     }));
+  }, []);
+
+  // Check model availability
+  useEffect(() => {
+    try {
+      const models = listAllModels();
+      setModelAvailable(models.some((m) => m.id === 'ddcolor' || m.id === 'ddcolor-tiny'));
+    } catch {
+      setModelAvailable(false);
+    }
   }, []);
 
   // Load image from cache
@@ -155,7 +172,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           width: fullData.width,
           height: fullData.height,
         },
-        qualityMode: 'balanced' as const,
+        qualityMode,
         provider: { backend: 'auto' as const, intent: 'full' as const },
         mask: maskData
           ? {
@@ -178,6 +195,9 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           targetHue,
           saturationScale,
           luminancePreservation,
+          chromaStrength,
+          skinProtection,
+          neutralProtection,
         },
         signal: abortRef.current?.signal,
       };
@@ -190,7 +210,11 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
       targetHue,
       saturationScale,
       luminancePreservation,
+      chromaStrength,
+      skinProtection,
+      neutralProtection,
       adherence,
+      qualityMode,
       _selectedSwatchIds,
       maskData,
       _maskWidth,
@@ -385,6 +409,29 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
           </>
         )}
 
+        {/* Quality mode */}
+        <fieldset className="colorize-section__quality-row">
+          <legend className="insp-label">Quality</legend>
+          <div
+            className="colorize-section__quality-options"
+            role="radiogroup"
+            aria-label="Quality mode"
+          >
+            {(['fast', 'balanced', 'quality', 'automatic'] as QualityMode[]).map((qm) => (
+              <button
+                key={qm}
+                type="button"
+                role="radio"
+                aria-checked={qualityMode === qm}
+                className={`insp-radio-btn${qualityMode === qm ? ' insp-radio-btn--active' : ''}`}
+                onClick={() => setQualityMode(qm)}
+              >
+                {qm.charAt(0).toUpperCase() + qm.slice(1)}
+              </button>
+            ))}
+          </div>
+        </fieldset>
+
         {/* Palette controls */}
         {workflow === 'palette' && (
           <p className="insp-hint">
@@ -399,6 +446,47 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             Pick a reference image to transfer its color characteristics to the selected image. Uses
             Reinhard et al. (2001) LAB-space transfer.
           </p>
+        )}
+
+        {/* Photo/recolor controls */}
+        {workflow === 'recolor' && (
+          <>
+            <FieldRow label="Chroma" htmlFor={`${hueId}-chroma`}>
+              <input
+                id={`${hueId}-chroma`}
+                type="range"
+                className="insp-range"
+                min={0}
+                max={2}
+                step={0.05}
+                value={chromaStrength}
+                disabled={isProcessing}
+                aria-label="Chroma strength"
+                onChange={(e) => setChromaStrength(Number(e.target.value))}
+              />
+              <output htmlFor={`${hueId}-chroma`}>{Math.round(chromaStrength * 100)}%</output>
+            </FieldRow>
+            <div className="insp-field-group">
+              <label className="insp-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={skinProtection}
+                  disabled={isProcessing}
+                  onChange={(e) => setSkinProtection(e.target.checked)}
+                />
+                <span>Skin tone protection</span>
+              </label>
+              <label className="insp-checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={neutralProtection}
+                  disabled={isProcessing}
+                  onChange={(e) => setNeutralProtection(e.target.checked)}
+                />
+                <span>Neutral region protection</span>
+              </label>
+            </div>
+          </>
         )}
 
         {/* Shared controls */}
@@ -546,6 +634,12 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
         {colorize.status === 'error' && colorize.errorMessage && (
           <p className="insp-hint insp-hint--error" role="alert">
             {colorize.errorMessage}
+          </p>
+        )}
+
+        {modelAvailable === false && (
+          <p className="insp-hint">
+            DDColor model not yet available. Open Settings Models to download it.
           </p>
         )}
       </div>

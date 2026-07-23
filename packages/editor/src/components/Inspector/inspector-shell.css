@@ -1,0 +1,23 @@
+.insp-panel__tabs {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+
+.insp-panel__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.insp-panel__tab {
+  flex: 0 0 auto;
+  min-block-size: var(--space-8);
+  padding-inline: var(--space-3);
+  white-space: nowrap;
+  scroll-margin-inline: var(--space-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .insp-panel__tabs {
+    scroll-behavior: auto;
+  }
+}

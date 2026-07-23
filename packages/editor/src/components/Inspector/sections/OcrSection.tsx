@@ -3,17 +3,27 @@
  *
  * Pipeline: runOcrPipeline() -> OcrWord[] (boxes + text + confidence).
  * The user reviews the recognized text (editable), then either creates
- * editable text layers (one per region, using the original image's
- * coordinate space) or copies the merged text to the clipboard.
+ * editable text layers (one per region, mapped to world coordinates)
+ * or copies the merged text to the clipboard.
  *
- * The original image is never modified unless the user explicitly
- * creates new text layers (which are added as siblings, full undo support).
+ * Coordinate flow:
+ *   1. OCR pipeline returns words in source-image pixel coordinates.
+ *   2. sourcePixelToLocal() maps source pixels through fill placement
+ *      (fit/fill/crop/scale/offset) to node-local space.
+ *   3. nodeWorldTransform() maps node-local to world coordinates.
+ *   4. createTextNodeAt() places the text layer at the correct world
+ *      position in a single undoable transaction.
  */
-
 import type { OcrResult, OcrWord } from '@strata/engine';
-import { runOcrPipeline } from '@strata/engine';
+import {
+  computeImagePlacement,
+  getModelLoader,
+  getOcrModelConfig,
+  runOcrPipeline,
+  sourcePixelToLocal,
+} from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
+import { imageShapeSrc, isImageShape, nodeWorldTransform } from '@strata/scene';
 import { Button } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -21,7 +31,6 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 
 const DET_MODEL_ID = 'paddleocr-det-v4';
-const REC_MODEL_ID = 'paddleocr-rec-v4';
 
 type Status = 'idle' | 'downloading' | 'recognizing' | 'error';
 
@@ -29,9 +38,9 @@ interface OcrState {
   status: Status;
   errorMessage: string | null;
   result: OcrResult | null;
-  /** Editable copy of the recognized words (user can correct mistakes). */
   editedWords: OcrWord[];
-  modelAvailable: boolean;
+  detModelAvailable: boolean;
+  recModelAvailable: boolean;
 }
 
 export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
@@ -43,7 +52,8 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
     errorMessage: null,
     result: null,
     editedWords: [],
-    modelAvailable: false,
+    detModelAvailable: false,
+    recModelAvailable: false,
   });
 
   const isImage = Boolean(node && isImageShape(node));
@@ -55,13 +65,15 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
     let cancelled = false;
     (async () => {
       try {
-        const { getModelLoader } = await import('@strata/engine');
         const loader = getModelLoader();
         const detOk = await loader.isModelAvailable(DET_MODEL_ID);
-        const recOk = await loader.isModelAvailable(REC_MODEL_ID);
-        if (!cancelled) setState((p) => ({ ...p, modelAvailable: detOk && recOk }));
+        const recConfig = getOcrModelConfig('paddleocr-rec-v4');
+        const recOk = recConfig ? await loader.isModelAvailable(recConfig.modelId) : false;
+        if (!cancelled)
+          setState((p) => ({ ...p, detModelAvailable: detOk, recModelAvailable: recOk }));
       } catch {
-        if (!cancelled) setState((p) => ({ ...p, modelAvailable: false }));
+        if (!cancelled)
+          setState((p) => ({ ...p, detModelAvailable: false, recModelAvailable: false }));
       }
     })();
     return () => {
@@ -89,11 +101,13 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
     abortRef.current = controller;
     setState((p) => ({ ...p, status: 'downloading', errorMessage: null }));
     try {
-      const { getModelLoader } = await import('@strata/engine');
       const loader = getModelLoader(controller.signal);
       await loader.downloadModel(DET_MODEL_ID, () => {}, controller.signal);
-      await loader.downloadModel(REC_MODEL_ID, () => {}, controller.signal);
-      setState((p) => ({ ...p, status: 'idle', modelAvailable: true }));
+      const recConfig = getOcrModelConfig('paddleocr-rec-v4');
+      if (recConfig) {
+        await loader.downloadModel(recConfig.modelId, () => {}, controller.signal);
+      }
+      setState((p) => ({ ...p, status: 'idle', detModelAvailable: true, recModelAvailable: true }));
       announce('OCR models downloaded (detection + recognition)');
     } catch (err) {
       if (controller.signal.aborted) {
@@ -124,16 +138,26 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
     try {
       const fullData = await loadImageData(imageSrc);
       if (controller.signal.aborted) return;
+
       const result = await runOcrPipeline(fullData, {
         signal: controller.signal,
+        autoRotate: true,
+        language: 'en',
         onProgress: () => {},
       });
+
       if (controller.signal.aborted) return;
+
+      const words = result.words.map((w) => ({
+        ...w,
+        orientationCorrected: result.orientationCorrected ? result.detectedOrientation : undefined,
+      }));
+
       setState((p) => ({
         ...p,
         status: 'idle',
         result,
-        editedWords: result.words.map((w) => ({ ...w })),
+        editedWords: words,
       }));
       announce(
         result.words.length === 1
@@ -160,27 +184,78 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
 
   const handleCreateLayers = useCallback(async () => {
     if (!state_.editedWords.length || !typedNode) return;
-    const { insertDerivedImageShape } = await import('../../../imageOperations');
-    // Create text layers from recognized words. Uses the source image's
-    // bounding box mapped to the node's local space.
-    const workingDoc = state.document;
-    const suffixBase = 'ocr';
-    for (const word of state_.editedWords) {
-      // Only create layers for non-empty, reasonably confident text.
-      if (!word.text.trim()) continue;
-      const textNode = {
-        text: word.text,
-        // Position is in source-image space; the caller (context) maps to
-        // world via the node transform. We store a marker for the overlay
-        // system to consume; full transform wiring lives in the context layer.
-        meta: { ocr: true, conf: word.confidence },
-      };
-      void textNode; // wiring deferred to context integration (Milestone 2c)
+
+    const nonEmptyWords = state_.editedWords.filter((w) => w.text.trim());
+    if (nonEmptyWords.length === 0) {
+      announce('No non-empty text to create layers from');
+      return;
     }
-    void insertDerivedImageShape;
-    void suffixBase;
-    announce(`Created ${state_.editedWords.filter((w) => w.text.trim()).length} text layer(s)`);
-    updateDoc(() => workingDoc);
+
+    const doc = state.document;
+    const fill = typedNode.fills?.find((f) => f.type === 'image')?.image;
+    if (!fill) return;
+
+    const sourceW = fill.imageWidth ?? 100;
+    const sourceH = fill.imageHeight ?? 100;
+    const nodeBounds = { x: 0, y: 0, w: 1, h: 1 };
+
+    if (typedNode.shape.kind === 'rect') {
+      nodeBounds.w = typedNode.shape.w;
+      nodeBounds.h = typedNode.shape.h;
+    } else {
+      const bounds = typedNode.shape as unknown as { w?: number; h?: number };
+      nodeBounds.w = bounds.w ?? 200;
+      nodeBounds.h = bounds.h ?? 160;
+    }
+
+    const placement = computeImagePlacement({
+      fit: fill.fit ?? 'crop',
+      sourceWidth: sourceW,
+      sourceHeight: sourceH,
+      bounds: nodeBounds,
+      x: fill.x ?? 0,
+      y: fill.y ?? 0,
+      scale: fill.scale ?? 1,
+    });
+
+    if (!placement) {
+      announce('Could not compute image placement — crop/fit configuration may be incompatible');
+      return;
+    }
+
+    const worldTx = nodeWorldTransform(doc, typedNode.id);
+    const fontSize = Math.max(8, Math.min(nodeBounds.h * 0.08, 48));
+
+    updateDoc((s) => {
+      let workingDoc = s;
+
+      for (const word of nonEmptyWords) {
+        const localPt = sourcePixelToLocal(placement, { x: word.x, y: word.y });
+        if (!localPt) continue;
+
+        const worldX = worldTx[0] * localPt.x + worldTx[2] * localPt.y + worldTx[4];
+        const worldY = worldTx[1] * localPt.x + worldTx[3] * localPt.y + worldTx[5];
+
+        const wordW = (word.width / sourceW) * nodeBounds.w;
+        const wordH = (word.height / sourceH) * nodeBounds.h;
+        const estimatedFontSize = Math.max(8, Math.min(wordH, fontSize));
+
+        const { makeTextNode, nextNodeId, addNode } = require('@strata/scene');
+        const { id, doc: afterAlloc } = nextNodeId(workingDoc);
+        const textNode = makeTextNode(id, word.text, {
+          name: `OCR: ${word.text.slice(0, 20)}`,
+          transform: [1, 0, 0, 1, worldX, worldY],
+          fontSize: estimatedFontSize,
+          w: Math.max(wordW, 10),
+          h: Math.max(wordH, estimatedFontSize * 1.4),
+        });
+        workingDoc = addNode(afterAlloc, textNode);
+      }
+
+      return workingDoc;
+    });
+
+    announce(`Created ${nonEmptyWords.length} text layer(s) from OCR`);
   }, [state_.editedWords, typedNode, state.document, announce, updateDoc]);
 
   const handleCopyAll = useCallback(async () => {
@@ -204,16 +279,27 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
   if (!isImage || !typedNode) return null;
 
   const isProcessing = state_.status === 'recognizing' || state_.status === 'downloading';
-  const needsDownload = !state_.modelAvailable && state_.status !== 'downloading';
+  const needsDownload = !state_.detModelAvailable && state_.status !== 'downloading';
   const hasResults = state_.editedWords.length > 0;
+  const hasOrientation = state_.result?.orientationCorrected;
+  const orientationAngle = state_.result?.detectedOrientation;
+  const orientationConf = state_.result?.orientationConfidence;
 
   return (
     <DisclosureSection title="Recognize Text" sectionId="ocr">
       <div className="insp-field-group">
         <p className="insp-hint">
-          Reads text from this image locally in a web worker. Recognition needs two small model
-          downloads (~15 MB total). Stored on-device only.
+          Reads text from this image locally. Uses orientation detection (auto-rotate) and AI-based
+          recognition in a web worker. Supports English and Chinese text.
         </p>
+
+        {hasOrientation && (
+          <div className="insp-info-row" role="status">
+            <span className="insp-badge insp-badge--info">
+              Rotated {orientationAngle}° (conf: {Math.round((orientationConf ?? 0) * 100)}%)
+            </span>
+          </div>
+        )}
 
         {needsDownload && (
           <div className="insp-actions">
@@ -257,6 +343,13 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
           </div>
         )}
 
+        {state_.result?.recognitionModelId && (
+          <p className="insp-hint">
+            Recognition model: {state_.result.recognitionModelId}
+            {state_.result.orientationCorrected && ' (orientation corrected)'}
+          </p>
+        )}
+
         {hasResults && (
           <section className="insp-nested-panel" aria-label="Recognized text">
             <p className="insp-subsection__label">
@@ -266,7 +359,7 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
             <div className="ocr-results">
               {state_.editedWords.map((word, i) => (
                 <FieldRow
-                  key={i}
+                  key={`ocr-${i}-${word.text.slice(0, 8)}`}
                   label={`${Math.round(word.confidence * 100)}%`}
                   aria-label={`Recognized text ${i + 1}, confidence ${Math.round(word.confidence * 100)} percent`}
                 >

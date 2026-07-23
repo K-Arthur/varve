@@ -1,0 +1,73 @@
+import { describe, expect, it } from 'vitest';
+import {
+  FEATURE_OWNERSHIP,
+  getFeaturesForSurface,
+  type InspectorSurface,
+} from '../featureOwnership';
+import { getAllSectionIds } from '../sectionRegistry';
+
+describe('Inspector feature ownership', () => {
+  it('assigns every registered section to exactly one durable surface', () => {
+    const sectionIds = getAllSectionIds().sort();
+    const ownedIds = Object.keys(FEATURE_OWNERSHIP).sort();
+
+    expect(ownedIds).toEqual(sectionIds);
+  });
+
+  it('keeps the contextual Properties surface intentionally concise', () => {
+    expect(getFeaturesForSurface('properties')).toEqual([
+      'align-distribute',
+      'position-size',
+      'component',
+      'corner-radius',
+      'constraints',
+      'layout',
+      'appearance',
+      'fills',
+      'stroke',
+      'image-placement',
+      'typography',
+    ]);
+  });
+
+  it('moves temporary tool configuration out of selection properties', () => {
+    expect(getFeaturesForSurface('tool-options')).toEqual([
+      'brush-settings',
+      'frame-presets',
+      'image-crop',
+    ]);
+  });
+
+  it('keeps complex image processing on one workflow surface', () => {
+    expect(getFeaturesForSurface('adjustments')).toEqual([
+      'adjustment',
+      'image-enhancement',
+      'background-removal',
+      'colorize',
+      'ai-denoise',
+      'lens-blur',
+      'line-art',
+      'content-aware-fill',
+      'detect-text',
+      'ocr',
+      'blend-images',
+      'palette',
+    ]);
+  });
+
+  it('uses only known ownership surfaces', () => {
+    const surfaces = new Set<InspectorSurface>([
+      'properties',
+      'appearance',
+      'adjustments',
+      'prototype',
+      'document',
+      'tool-options',
+      'audit',
+    ]);
+
+    for (const feature of Object.values(FEATURE_OWNERSHIP)) {
+      expect(surfaces.has(feature.surface)).toBe(true);
+    }
+  });
+});
