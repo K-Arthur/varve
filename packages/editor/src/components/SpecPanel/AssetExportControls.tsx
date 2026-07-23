@@ -4,6 +4,7 @@ import type { Platform } from '@strata/platform';
 import type { SceneNode } from '@strata/scene';
 import { CopyButton, Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
 import {
   buildFilename,
@@ -102,7 +103,7 @@ export function AssetExportControls({
           setMessage('PDF export requires the desktop app');
           return;
         }
-        const { bytes, filename } = await exportNodeAsPdf(node, doc, effectiveScale);
+        const { bytes, filename } = await exportNodeAsPdf(node, doc, effectiveScale, eng ?? undefined);
         const saved = await platform?.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
         setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
       } else if (format === 'svg') {
