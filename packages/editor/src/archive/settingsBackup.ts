@@ -150,7 +150,7 @@ export function validateSettingsEntry(entry: unknown): entry is SettingsBackupEn
  */
 export function migrateSettingsEntry(
   entry: SettingsBackupEntry,
-  fromVersion: string,
+  _fromVersion: string,
 ): SettingsBackupEntry {
   // Future migration logic:
   // if (fromVersion === '0.9') { ... }
