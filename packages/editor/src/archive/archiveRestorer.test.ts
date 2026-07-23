@@ -46,7 +46,7 @@ function makeTestDocument(): Document {
     },
     components: {},
     nextId: 2,
-  } as Document;
+  } as unknown as Document;
 }
 
 function makeManifest(overrides?: Partial<ArchiveManifest>): ArchiveManifest {

@@ -51,7 +51,7 @@ function makeTestDocument(): Document {
     },
     components: {},
     nextId: 2,
-  } as Document;
+  } as unknown as Document;
 }
 
 describe('archiveBuilder', () => {
@@ -202,7 +202,7 @@ describe('archiveBuilder', () => {
             ],
           },
         },
-      } as Document;
+      } as unknown as Document;
 
       const assets = collectArchiveAssets(doc);
       expect(assets.length).toBe(1);
@@ -260,7 +260,7 @@ describe('archiveBuilder', () => {
             ],
           },
         },
-      } as Document;
+      } as unknown as Document;
 
       const assets = collectArchiveAssets(doc);
       expect(assets.length).toBe(1); // Deduplicated
