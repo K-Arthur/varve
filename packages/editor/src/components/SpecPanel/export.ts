@@ -10,19 +10,22 @@ import {
   createRasterSurface,
   DEFAULT_RASTER_SURFACE_POLICY,
   type Engine,
+  type SceneNode as EngineNode,
   type ExportFontRequest,
   encodeRasterSurface,
   fitRasterDimensions,
   getImageCache,
   primitiveBounds,
-  type SceneNode as EngineNode,
   type RenderItem,
 } from '@strata/engine';
-import type { Document as SceneDocument, ShapeNode, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode, ShapeNode } from '@strata/scene';
 import { imageFill } from '@strata/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@strata/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
-import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
+import {
+  composeFlattenedRasterAssetsForNode,
+  findFlattenBoundaries,
+} from '../../export/compositor';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { worldBBox } from './measurement';
@@ -128,40 +131,6 @@ function exportWorldBounds(
   };
 }
 
-/**
- * Group-level effects (a blur/shadow/glow applied to the group as a single
- * composited unit, rather than to each child individually) have no render
- * path yet — `replayStructuredScene`'s group branch only isolates
- * opacity/blend mode, it never applies the group's own `effects`. This is a
- * real gap in the engine's compositing pipeline, not something a shared
- * export flattener can route around: raster IS the most capable target, so
- * there's nowhere more capable to flatten a raster export into.
- *
- * Rather than aborting the whole export (the previous behaviour), degrade
- * gracefully: render everything else faithfully and report which groups'
- * effects were skipped, so the user sees a correct-minus-one-effect export
- * instead of no export at all.
- */
-function collectUnsupportedGroupEffectWarnings(node: SceneNode, doc: SceneDocument): string[] {
-  const warnings: string[] = [];
-  const stack: SceneNode[] = [doc.nodes[node.id] ?? node];
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    if (current.kind === 'group' && current.effects.some((effect) => effect.visible)) {
-      warnings.push(
-        `Group "${current.name}" has effects applied to the whole group; raster export does not yet support group-level effect compositing, so this effect was omitted. Apply the effect to its children instead, or export SVG/PDF.`,
-      );
-    }
-    if ('children' in current) {
-      for (const childId of current.children) {
-        const child = doc.nodes[childId];
-        if (child) stack.push(child);
-      }
-    }
-  }
-  return warnings;
-}
-
 export async function exportNodeAsRaster(
   node: SceneNode,
   doc: SceneDocument,
@@ -180,8 +149,7 @@ export async function exportNodeAsRaster(
   await awaitExportsReady(collectEngineFonts(flattened.nodes));
   await preloadEngineImages(flattened.nodes);
 
-  const warnings: string[] = collectUnsupportedGroupEffectWarnings(node, doc);
-
+  const warnings: string[] = [];
   const ir = await eng.buildIr({ nodes: flattened.nodes });
   const bbox = exportWorldBounds(node, doc, flattened.ids, ir);
 
@@ -354,68 +322,31 @@ function makeSimpleImagePdf(rgbaPixels: Uint8Array, width: number, height: numbe
 
 /**
  * Check whether a subtree requires raster fallback for PDF export.
- * Returns true when the subtree uses any feature the Rust print engine
- * cannot represent natively — filters/adjustments, transparency, blends,
- * effects, masks, frames with clipContent, text, gradients, patterns,
- * images, or non-identity transforms.
+ *
+ * Uses the compositor for scene-level structural analysis (effects, masks,
+ * adjustments, gradient types, rotation/skew) and supplements with
+ * engine-level checks for properties only visible after flattening (fill
+ * opacity/blend, node opacity/blend, filters, non-identity transforms).
+ *
+ * When any node or fill requires rasterization, the entire subtree is
+ * rendered to a raster bitmap — strata-print cannot mix vector and raster
+ * content in a single page.
  */
-function subtreeRequiresRasterPdfFallback(node: SceneNode, doc: SceneDocument): boolean {
-  const structuralStack: SceneNode[] = [doc.nodes[node.id] ?? node];
-  while (structuralStack.length > 0) {
-    const current = structuralStack.pop()!;
+async function subtreeRequiresRasterPdfFallback(
+  node: SceneNode,
+  doc: SceneDocument,
+): Promise<boolean> {
+  // 1. Compositor: scene-level structural analysis
+  const boundaries = findFlattenBoundaries([node], doc, 'pdf');
+  if (boundaries.length > 0) return true;
 
-    // Group compositing that Rust can't render
-    if (current.kind === 'group') {
-      if (
-        (current.opacity ?? 1) < 1 ||
-        (current.blendMode !== undefined &&
-          current.blendMode !== 'normal' &&
-          current.blendMode !== 'passThrough') ||
-        current.isolated === true ||
-        current.effects?.some((effect) => effect.visible) ||
-        current.mask?.visible === true
-      ) {
-        return true;
-      }
-    }
-
-    // Adjustment nodes always need rasterization
-    if (current.kind === 'adjustment') {
-      return true;
-    }
-
-    // Visible masks beyond the raster-mask case handled above
-    if ('mask' in current && current.mask?.visible === true) {
-      return true;
-    }
-
-    // Frame clipping
-    if (
-      current.kind === 'frame' &&
-      current.clipContent !== false &&
-      (current.children?.length ?? 0) > 0
-    ) {
-      return true;
-    }
-
-    if ('children' in current) {
-      for (const childId of current.children ?? []) {
-        const child = doc.nodes[childId];
-        if (child) structuralStack.push(child);
-      }
-    }
-  }
-
-  // Check flattened engine nodes for features the Rust engine cannot render
-  // (we do this lazily — only if the structural check passes)
+  // 2. Engine-level checks for properties only visible after flattening
   const subtree = flattenSceneToEngine(doc, [node.id]);
   for (const sceneNode of subtree.nodes) {
     const [a, b, c, d] = sceneNode.transform;
     if (a !== 1 || b !== 0 || c !== 0 || d !== 1) return true;
-    if (sceneNode.kind === 'text') return true;
     if ((sceneNode.opacity ?? 1) < 1) return true;
     if (sceneNode.blendMode && sceneNode.blendMode !== 'normal') return true;
-    if (sceneNode.effects?.some((effect) => effect.visible)) return true;
     if ((sceneNode.filters?.length ?? 0) > 0) return true;
     if (
       sceneNode.fills?.some(
@@ -547,7 +478,12 @@ export async function exportNodeAsPdf(
   // and basic shapes natively. Everything else falls back to a rasterized
   // PNG-in-PDF produced by the live canvas renderer, which handles the
   // full filter/adjustment/compositing pipeline.
-  const needsRaster = subtreeRequiresRasterPdfFallback(node, doc);
+  //
+  // The compositor's capability assessment identifies which nodes the Rust
+  // engine cannot represent (effects, text, non-linear gradients, masks,
+  // adjustments, rotation/skew) and returns the boundaries that need
+  // pre-rasterization.
+  const needsRaster = await subtreeRequiresRasterPdfFallback(node, doc);
   const filename = buildFilename(node.name, 'pdf');
 
   if (needsRaster) {

@@ -69,7 +69,7 @@ describe('exportNodeAsRaster', () => {
     };
     const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
     (window as unknown as Record<string, unknown>).__TAURI__ = {
-      core: { invoke: vi.fn(async () => []) },
+      core: { invoke: vi.fn(async () => [37, 80, 68, 70]) },
     };
 
     const result = await exportNodeAsPdf(node, pdfDoc, 1);
@@ -83,7 +83,7 @@ describe('exportNodeAsRaster', () => {
     const node = makeTextNode('pdf-text', 'Actual words', { w: 120, h: 32 });
     const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
     (window as unknown as Record<string, unknown>).__TAURI__ = {
-      core: { invoke: vi.fn(async () => []) },
+      core: { invoke: vi.fn(async () => [37, 80, 68, 70]) },
     };
 
     const result = await exportNodeAsPdf(node, pdfDoc, 1);
@@ -118,7 +118,7 @@ describe('exportNodeAsRaster', () => {
     };
     const pdfDoc = { ...doc, rootChildren: [node.id], nodes: { [node.id]: node } };
     (window as unknown as Record<string, unknown>).__TAURI__ = {
-      core: { invoke: vi.fn(async () => []) },
+      core: { invoke: vi.fn(async () => [37, 80, 68, 70]) },
     };
 
     const result = await exportNodeAsPdf(node, pdfDoc, 1);
@@ -322,7 +322,9 @@ describe('exportNodeAsRaster', () => {
     expect(createRasterSurface).toHaveBeenCalledWith(11, 10, { alpha: true });
   });
 
-  it('exports group content and reports a warning instead of aborting when group-level effects cannot be composited', async () => {
+  it('exports group content successfully when group-level effects are present', async () => {
+    // replayScene.ts's group branch (compositeIsolated) handles group-level
+    // effects via offscreen compositing — no special warning is needed.
     let doc = createDocument('Group effect export', true);
     const group = {
       ...makeGroupNode('group'),
@@ -339,7 +341,7 @@ describe('exportNodeAsRaster', () => {
     });
 
     expect(blob).toBeInstanceOf(Blob);
-    expect(warnings.some((w) => /group-level effect compositing/i.test(w))).toBe(true);
+    expect(warnings).toEqual([]);
   });
 
   it('loads every visible image, pattern tile, and background-removal mask before export', async () => {
@@ -378,7 +380,7 @@ describe('exportNodeAsRaster', () => {
     doc = addNode(doc, group);
     doc = addChild(doc, group.id, child);
     (window as unknown as Record<string, unknown>).__TAURI__ = {
-      core: { invoke: vi.fn(async () => []) },
+      core: { invoke: vi.fn(async () => [37, 80, 68, 70]) },
     };
 
     const result = await exportNodeAsPdf(group, doc, 1);
