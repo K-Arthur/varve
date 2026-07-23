@@ -42,8 +42,72 @@
 /* Visually-hidden utility lives in components.css; import that instead. */
 .insp-panel__tabs {
   display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.insp-panel__tabs-primary {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--color-border-subtle);
+  overflow: hidden;
+}
+.insp-panel__tabs-secondary {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  background: var(--color-surface-sunken);
+}
+.insp-panel__tab-group {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+.insp-panel__tabs-secondary .insp-panel__tab-group {
+  flex: initial;
+}
+.insp-panel__tabs-primary .insp-panel__tab {
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--font-size-sm);
+}
+.insp-panel__tabs-secondary .insp-panel__tab {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.insp-panel__tabs-secondary .insp-panel__tab[aria-selected="true"] {
+  color: var(--color-text-primary);
+  background: var(--color-surface-app);
+  border-bottom-color: var(--color-interactive-default);
+}
+.insp-panel__tier-sep {
+  display: block;
+  height: 0;
+}
+
+/* Legacy single-tab-strip mode (when no secondary tabs configured) */
+.insp-panel__tabs--single {
+  display: flex;
+  align-items: stretch;
   border-bottom: 1px solid var(--color-border-subtle);
   flex-shrink: 0;
+  overflow: hidden;
+}
+.insp-panel__tabs--single .insp-panel__tab-group {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
+}
+.insp-panel__tab-group {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  flex: 1;
+  min-width: 0;
 }
 .insp-panel__tab {
   flex: 1;
@@ -56,6 +120,8 @@
   font-size: var(--font-size-xs);
   text-transform: capitalize;
   cursor: pointer;
+  min-width: 0;
+  white-space: nowrap;
 }
 .insp-panel__tab[aria-selected="true"] {
   color: var(--color-text-primary);
@@ -65,10 +131,165 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
+.insp-panel__tab--overflow {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+}
+.insp-panel__tab-sep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 0.75rem;
+  color: var(--color-text-muted);
+  opacity: 0.4;
+  align-self: center;
+  pointer-events: none;
+}
+
+/* Overflow menu */
+.insp-panel__overflow-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+.insp-panel__overflow-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 1000;
+  min-width: 10rem;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
+  padding: var(--space-1);
+  display: flex;
+  flex-direction: column;
+}
+.insp-panel__overflow-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.insp-panel__overflow-item:hover,
+.insp-panel__overflow-item:focus-visible {
+  background: var(--color-surface-hover);
+}
+.insp-panel__overflow-item:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+/* Export sub-tabs */
+.insp-panel__sub-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+.insp-panel__sub-tab {
+  flex: 1;
+  padding: var(--space-1) 0;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.insp-panel__sub-tab[aria-selected="true"] {
+  color: var(--color-text-primary);
+  border-bottom-color: var(--color-interactive-default);
+}
+.insp-panel__sub-tab:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.insp-panel__sub-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 .insp-panel__multi-count {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   padding: var(--space-1) var(--space-3);
+}
+
+/* ---------- Quick bar (persistent single-selection frequent properties) ---------- */
+.insp-quick-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-app);
+  flex-shrink: 0;
+}
+.insp-quick-bar__field {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.insp-quick-bar__label {
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  width: 1rem;
+  flex-shrink: 0;
+  text-align: center;
+}
+.insp-quick-bar__input {
+  width: 0;
+  min-width: 2.5rem;
+  flex: 1;
+  height: var(--space-6);
+  padding: 0 var(--space-1);
+  background: var(--color-surface-sunken);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  font-feature-settings: "tnum";
+  outline: none;
+}
+.insp-quick-bar__input:hover {
+  border-color: var(--color-border-subtle);
+}
+.insp-quick-bar__input:focus-visible {
+  border-color: var(--color-border-focus);
+}
+.insp-quick-bar__swatch {
+  width: var(--space-6);
+  height: var(--space-6);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.insp-quick-bar__opacity {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+.insp-quick-bar__opacity input[type="range"] {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ---------- Selection header (single node) ---------- */
@@ -194,9 +415,11 @@
   position: relative;
   border-bottom: 1px solid var(--color-border-subtle);
   padding: 0 var(--space-3);
+  margin-bottom: var(--space-1);
 }
 .insp-disclosure:last-child {
   border-bottom: none;
+  margin-bottom: 0;
 }
 
 .insp-disclosure__trigger {
@@ -209,7 +432,7 @@
   border: none;
   color: var(--color-text-primary);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.01em;
   cursor: pointer;
@@ -476,7 +699,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
-  min-height: 1.75rem;
+  min-height: 2rem;
 }
 
 .insp-field__label {
@@ -494,8 +717,8 @@
 .insp-panel .strata-select__trigger,
 .insp-disclosure .strata-select__trigger,
 .insp-fill-add .strata-select__trigger {
-  min-height: 1.75rem;
-  height: 1.75rem;
+  min-height: 2rem;
+  height: 2rem;
   padding: 0 var(--space-2);
   font-size: var(--font-size-xs);
   border-radius: var(--radius-sm);
@@ -615,7 +838,7 @@
    * must never contribute to row sizing, or rows overflow the card. */
   width: 0;
   min-width: 3.5rem;
-  height: var(--space-5);
+  height: var(--space-6);
   padding: 0 var(--space-2);
   background: var(--color-surface-sunken);
   border: 1px solid transparent;
@@ -1532,6 +1755,14 @@
   min-height: 12rem;
   padding-bottom: var(--space-3);
 }
+.insp-panel__empty-doc {
+  padding: 0 var(--space-3);
+}
+.insp-panel__empty-doc-buttons {
+  display: flex;
+  gap: var(--space-2);
+  padding: 0 var(--space-3) var(--space-2);
+}
 .insp-canvas-props {
   display: flex;
   flex-direction: column;
@@ -1756,6 +1987,32 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+}
+.intelligence-more-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.intelligence-more-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  align-items: center;
+}
+.intelligence-more-group__label {
+  width: 100%;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: var(--space-1) 0 0;
+}
+.intelligence-tab--small {
+  flex: 0 0 auto;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--font-size-2xs);
 }
 .intelligence-hint {
   margin: 0;
@@ -1991,6 +2248,39 @@
   font-size: var(--font-size-xs);
   color: var(--color-feedback-success);
   margin: 0;
+}
+
+/* ---------- Content-Aware Fill entry point ---------- */
+.caf-entry-thumb {
+  margin: var(--space-2) 0;
+}
+.caf-entry-thumb__img {
+  display: block;
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+.caf-entry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  width: 100%;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.caf-entry-button:hover {
+  background: var(--color-accent-primary-hover);
+}
+.caf-entry-button:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
 }
 
 [data-theme="high-contrast"] .intelligence-issue,
@@ -2749,4 +3039,142 @@
   gap: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--color-border-subtle);
+}
+
+/* ------------------------------------------------------------------ */
+/*  AuditBadge — L1 status bar indicator                               */
+/* ------------------------------------------------------------------ */
+
+.audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-default);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    color 0.15s;
+  line-height: 1;
+}
+.audit-badge:hover {
+  background: var(--color-surface-raised);
+}
+.audit-badge--error {
+  color: var(--color-status-error);
+  border-color: var(--color-status-error);
+}
+.audit-badge--error:hover {
+  background: oklch(0.95 0.02 25);
+}
+.audit-badge--warning {
+  color: var(--color-status-warning);
+  border-color: var(--color-status-warning);
+}
+.audit-badge--warning:hover {
+  background: oklch(0.95 0.04 80);
+}
+.audit-badge__count {
+  font-weight: var(--font-weight-medium);
+}
+
+/* ------------------------------------------------------------------ */
+/*  ContextualAuditSummary — L2 inline findings                        */
+/* ------------------------------------------------------------------ */
+
+.contextual-audit-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: var(--space-1) 0;
+}
+.contextual-audit-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+  max-width: 100%;
+}
+.contextual-audit-chip--error {
+  background: oklch(0.95 0.02 25);
+  color: var(--color-status-error);
+}
+.contextual-audit-chip--warning {
+  background: oklch(0.95 0.04 80);
+  color: var(--color-status-warning);
+}
+.contextual-audit-chip--suggestion,
+.contextual-audit-chip--advisory,
+.contextual-audit-chip--info {
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+}
+.contextual-audit-chip__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.contextual-audit-more {
+  font-size: var(--font-size-xs);
+  color: var(--color-accent-primary);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 1px 4px;
+}
+.contextual-audit-more:hover {
+  text-decoration: underline;
+}
+.contextual-audit-link {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 1px 2px;
+}
+.contextual-audit-link:hover {
+  color: var(--color-accent-primary);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Review tab — filter chips                                          */
+/* ------------------------------------------------------------------ */
+
+.intelligence-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-default);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+  line-height: 1.4;
+}
+.intelligence-filter-chip:hover {
+  background: var(--color-surface-raised);
+}
+.intelligence-filter-chip--active {
+  background: var(--color-accent-primary);
+  color: var(--color-text-on-accent);
+  border-color: var(--color-accent-primary);
+}
+.intelligence-filter-chip--clear {
+  border-style: dashed;
+}
+.intelligence-filter-chip--clear:hover {
+  border-style: solid;
 }

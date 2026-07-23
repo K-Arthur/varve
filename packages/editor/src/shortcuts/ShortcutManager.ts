@@ -10,6 +10,11 @@ export const SHORTCUT_DEFS = {
   cut: { binding: { key: 'x', ctrl: true }, label: 'Cut', category: 'Edit' },
   paste: { binding: { key: 'v', ctrl: true }, label: 'Paste', category: 'Edit' },
   duplicate: { binding: { key: 'd', ctrl: true }, label: 'Duplicate', category: 'Edit' },
+  repeatDuplicate: {
+    binding: { key: 'd', ctrl: true, shift: true },
+    label: 'Repeat Duplicate',
+    category: 'Edit',
+  },
   flipH: { binding: { key: 'h', shift: true }, label: 'Flip Horizontal', category: 'Object' },
   flipV: { binding: { key: 'v', shift: true }, label: 'Flip Vertical', category: 'Object' },
   newDocument: { binding: { key: 'n', ctrl: true }, label: 'New', category: 'File' },
@@ -438,6 +443,32 @@ export const SHORTCUT_DEFS = {
     binding: { key: 'l', ctrl: true, shift: true },
     label: 'Restore Archive\u2026',
     category: 'File',
+  },
+
+  // ── Nudge (canvas-context: dispatched by the tool layer, not globally) ──
+  nudgeUp: {
+    binding: { key: 'ArrowUp' },
+    label: 'Nudge Up',
+    category: 'Arrange',
+    context: 'canvas',
+  },
+  nudgeDown: {
+    binding: { key: 'ArrowDown' },
+    label: 'Nudge Down',
+    category: 'Arrange',
+    context: 'canvas',
+  },
+  nudgeLeft: {
+    binding: { key: 'ArrowLeft' },
+    label: 'Nudge Left',
+    category: 'Arrange',
+    context: 'canvas',
+  },
+  nudgeRight: {
+    binding: { key: 'ArrowRight' },
+    label: 'Nudge Right',
+    category: 'Arrange',
+    context: 'canvas',
   },
 } satisfies Record<string, ShortcutDef>;
 

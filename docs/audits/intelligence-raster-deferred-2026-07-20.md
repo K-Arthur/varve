@@ -4,14 +4,16 @@ Immediate items from the intelligence architecture report and
 clipping-blend audit have been implemented. This file captures what
 remains deferred, with concrete next-step guidance for each.
 
-## Items completed (this session 2026-07-20)
+## Items completed
 
-| Item | Key files | Tests |
-|------|-----------|-------|
-| **D1** InferenceCore extraction | `packages/engine/src/inference/` — ModelRegistry, SessionManager, ProviderChain | 21 inference tests |
-| **D4** Closed-form matting | `refineHairMatting.ts` — `applyClosedFormMatting()` selectable via `HairMattingOptions.method` | 3 existing + implementation |
-| **D5** ort crate abstraction | `inference.rs` — `InferenceRuntime` trait + `OrtInferenceRuntime` impl | 2 new Rust tests (18 total) |
-| **D8** Effect ordering documentation | `docs/architecture/effect-rendering.md` — 5-pass structure verified | — |
+| Session | Item | Key files | Tests |
+|---------|------|-----------|-------|
+| 2026-07-20 | **D1** InferenceCore extraction | `packages/engine/src/inference/` — ModelRegistry, SessionManager, ProviderChain | 21 inference tests |
+| 2026-07-20 | **D4** Closed-form matting | `refineHairMatting.ts` — `applyClosedFormMatting()` selectable via `HairMattingOptions.method` | 3 existing + implementation |
+| 2026-07-20 | **D5** ort crate abstraction | `inference.rs` — `InferenceRuntime` trait + `OrtInferenceRuntime` impl | 2 new Rust tests (18 total) |
+| 2026-07-20 | **D8** Effect ordering documentation | `docs/architecture/effect-rendering.md` — 5-pass structure verified | — |
+| 2026-07-23 | **CAF Pipeline** Content-Aware Fill core | `packages/engine/src/contentAwareFill/` — types, context extraction, coordinate mapping, PatchMatch heuristic, LaMa pipeline, compositing | 29 unit+integration |
+| 2026-07-23 | **CAF UI** Section enhancement | `packages/editor/src/components/Inspector/sections/ContentAwareFillSection.tsx` — quality modes (fast/balanced/quality), before/after toggle, regenerate, download flow | — |
 
 ## Deferred — Intelligence architecture (ranked)
 
@@ -113,6 +115,56 @@ WebGPU EP (via Dawn) is the browser-accelerated path.
 
 Browser E2E visual regression fixtures, desktop WebDriver verification,
 many-mask/blend perf tests, platform coverage beyond Linux.
+
+## Content-Aware Fill — Deferred items
+
+### CAF-D1. Native Rust LaMa inference (Medium effort)
+
+The existing `InferenceRuntime`/`InferenceSession` trait pair in
+`strata-bgremove/src/inference.rs` supports loading arbitrary ONNX models.
+Add a `lama-inpainting` model entry to `strata-bgremove`'s `AVAILABLE_MODELS`,
+implement `remove_ai_cancellable`-style inpainting (two-input: image + mask),
+and wire through a new Tauri command `content_aware_fill`.
+
+**Integration seam:** `inference.rs` already has the `model_spec()` dispatch
+and `remove_ai_cancellable()` pattern. A `inpaint_ai_cancellable()` would
+follow the same shape with a second named input for the mask.
+
+### CAF-D2. SHA-256 for LaMa manifest (Low effort)
+
+Compute and pin the SHA-256 checksum for `lama_fp32.onnx` in
+`apps/desktop/public/models/manifest.json`. Currently null — blocks secure
+download verification.
+
+### CAF-D3. Tiled processing for large images (Medium effort)
+
+The current pipeline extracts a bounded context region but processes it as a
+single tile. For images > 4K resolution with large mask regions, implement
+overlap-aware tiling (LaMa-native 512×512 tiles with feathered overlap
+blending). Use the existing `overlap: 32` / feather-composite pattern from
+`replay.ts`'s tile renderer.
+
+### CAF-D4. Dedicated preview dialog (Medium effort)
+
+The current section is inline in the Properties panel, limiting the preview
+size to ~260px. A `ContentAwareFillDialog` (like `ExportDialog`) would
+provide: full-resolution preview, side-by-side comparison, zoom-to-region,
+history of previous fills, seed control, and output mode (new layer / replace
+pixels / update mask).
+
+### CAF-D5. E2E Playwright tests (Medium effort)
+
+Test the full CAF workflow end-to-end:
+1. Open an image node, paint mask, generate preview
+2. Switch quality modes
+3. Before/after toggle
+4. Apply result as new layer
+5. Undo/redo
+6. Missing model state
+7. Cancel during inference
+
+Use synthetic ImageData fixtures (real pixel content). Do NOT require the
+~208MB LaMa download — Fast (PatchMatch) mode should be tested directly.
 
 ## Architecture decisions locked
 

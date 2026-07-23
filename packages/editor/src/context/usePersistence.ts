@@ -3,6 +3,7 @@ import { createDocument, type Document, DocumentCodec, validateDocument } from '
 import type { Viewport } from '@strata/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
+import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
 import type { EditorState } from './types';
 import { getCanvasViewport } from './viewportOps';
 
@@ -58,6 +59,9 @@ export function usePersistence(
         return await saveAsImpl(platform, stateRef, recoveryRef, patch);
       }
       await recoveryRef.current?.deleteSession(s.activeId);
+      // Non-blocking thumbnail persistence after save (falls back to
+      // automatic document overview when no preference is set).
+      void persistProjectThumbnail(platform, s.document).catch(() => undefined);
       patch({
         dirty: false,
         saveState: 'saved',
@@ -129,6 +133,8 @@ export async function saveAsImpl(
     const filePath = await platform.saveDocumentToDisk(meta?.name ?? 'Untitled', json);
     if (filePath) {
       await recoveryRef.current?.deleteSession(s.activeId);
+      // Non-blocking thumbnail persistence after save-as
+      void persistProjectThumbnail(platform, s.document).catch(() => undefined);
       const fileId = crypto.randomUUID();
       patch({
         dirty: false,

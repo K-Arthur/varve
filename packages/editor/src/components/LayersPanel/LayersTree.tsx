@@ -50,7 +50,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useEditor } from '../../context';
+import { setInvalidateThumbnailHandler, useEditor } from '../../context';
 import type { DragNodeData } from '../../dnd-types';
 import {
   getOrCreateParentCache,
@@ -70,6 +70,7 @@ import {
 } from './layerSearchIndex';
 import { usePresence } from './presenceStore';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
+import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
 
@@ -453,6 +454,15 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // mounting the panel, or focusIdx changing because selection changed from
   // the canvas, never steals focus from elsewhere in the app.
   const focusedNodeId = entries[focusIdx]?.node.id;
+  // Register thumbnail invalidation bridge so context mutation methods
+  // (setNodeFill, setNodeSize, etc.) can clear stale thumbnail cache entries.
+  useEffect(() => {
+    setInvalidateThumbnailHandler((nodeId: string) => {
+      sharedThumbnailCache.invalidate(nodeId);
+    });
+    return () => setInvalidateThumbnailHandler(null);
+  }, []);
+
   useEffect(() => {
     if (!treeRef.current?.contains(document.activeElement)) return;
     if (!focusedNodeId) return;

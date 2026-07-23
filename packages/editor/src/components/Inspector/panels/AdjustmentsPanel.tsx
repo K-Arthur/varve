@@ -19,7 +19,7 @@ import { PaletteSection } from '../sections/PaletteSection';
  * editors and preview effects do not enter the Properties render path.
  */
 export function AdjustmentsPanel() {
-  const { selectedNodes } = useEditor();
+  const { selectedNodes, openCafDialog } = useEditor();
   const nodes = selectedNodes();
   const node = nodes[0];
 
@@ -45,7 +45,7 @@ export function AdjustmentsPanel() {
       <AIDenoiseSection nodes={nodes} />
       <LensBlurSection nodes={nodes} />
       <LineArtSection nodes={nodes} />
-      <ContentAwareFillSection nodes={nodes} />
+      <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
       <DetectTextSection nodes={nodes} />
       <OcrSection nodes={nodes} />
       <BlendImagesSection nodes={nodes} />

@@ -1,5 +1,6 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import { extractPalette as engineExtractPalette } from '@strata/engine';
+import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
@@ -36,6 +37,7 @@ export function createActionHandlers(
     cut: () => e.cutSelected(),
     paste: () => e.paste(),
     duplicate: () => e.duplicateSelected(),
+    repeatDuplicate: () => e.repeatDuplicate(),
     selectAll: () => {
       const nodes = e.rootNodes();
       if (nodes.length === 0) return;
@@ -223,28 +225,74 @@ export function createActionHandlers(
       }
     },
     toggleFacingPages: () => e.toggleFacingPages?.(),
-    nudgeUp: () => {},
-    nudgeDown: () => {},
-    nudgeLeft: () => {},
-    nudgeRight: () => {},
+    nudgeUp: () => {
+      const sel = e.state.selection;
+      if (sel.length === 0) return;
+      e.beginTransaction();
+      executeNudge('up', getNudgeStep('standard'), {
+        document: e.state.document,
+        selection: sel,
+        getNode: (id) => e.getNode(id),
+        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
+      });
+      e.commitTransaction();
+    },
+    nudgeDown: () => {
+      const sel = e.state.selection;
+      if (sel.length === 0) return;
+      e.beginTransaction();
+      executeNudge('down', getNudgeStep('standard'), {
+        document: e.state.document,
+        selection: sel,
+        getNode: (id) => e.getNode(id),
+        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
+      });
+      e.commitTransaction();
+    },
+    nudgeLeft: () => {
+      const sel = e.state.selection;
+      if (sel.length === 0) return;
+      e.beginTransaction();
+      executeNudge('left', getNudgeStep('standard'), {
+        document: e.state.document,
+        selection: sel,
+        getNode: (id) => e.getNode(id),
+        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
+      });
+      e.commitTransaction();
+    },
+    nudgeRight: () => {
+      const sel = e.state.selection;
+      if (sel.length === 0) return;
+      e.beginTransaction();
+      executeNudge('right', getNudgeStep('standard'), {
+        document: e.state.document,
+        selection: sel,
+        getNode: (id) => e.getNode(id),
+        setNodePosition: (id, x, y) => e.setNodePosition(id, x, y),
+      });
+      e.commitTransaction();
+    },
     bindField: () => {
       if (e.focusedField) e.setBindingField(e.focusedField);
     },
     enterFrame: () => {
       const sel = e.state.selection;
-      if (sel.length !== 1) return;
-      const node = e.state.document.nodes[sel[0]];
+      if (sel.length !== 1 || !sel[0]) return;
+      const node = e.state.document.nodes[sel[0]!];
       if (!node) return;
       const containerKinds: string[] = ['group', 'frame'];
-      if (containerKinds.includes(node.kind)) {
+      if (containerKinds.includes((node as { kind: string }).kind)) {
         e.enterIsolation(node.id);
-        e.announce?.(`Entered "${'name' in node ? node.name : node.kind}"`);
+        e.announce?.(
+          `Entered "${'name' in node ? (node as { name: string }).name : (node as { kind: string }).kind}"`,
+        );
       }
     },
     editText: () => {
       const sel = e.state.selection;
-      if (sel.length !== 1) return;
-      const node = e.state.document.nodes[sel[0]];
+      if (sel.length !== 1 || !sel[0]) return;
+      const node = e.state.document.nodes[sel[0]!];
       if (node?.kind === 'text') {
         startTextEditing(node.id);
       }
@@ -322,6 +370,125 @@ export function createActionHandlers(
         e.addKeyframeToSelected('opacity');
         e.addKeyframeToSelected('rotation');
       }
+    },
+
+    // ── Text Formatting ──
+    textBold: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          // Toggle bold on the text node
+          const textNode = node as unknown as { fontWeight?: string | number };
+          textNode.fontWeight = textNode.fontWeight === 'bold' ? 'normal' : 'bold';
+        }
+        return doc;
+      });
+    },
+    textItalic: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { fontStyle?: string };
+          textNode.fontStyle = textNode.fontStyle === 'italic' ? 'normal' : 'italic';
+        }
+        return doc;
+      });
+    },
+    textUnderline: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { textDecoration?: string };
+          textNode.textDecoration = textNode.textDecoration === 'underline' ? 'none' : 'underline';
+        }
+        return doc;
+      });
+    },
+    textIncreaseSize: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { fontSize?: number };
+          textNode.fontSize = (textNode.fontSize || 16) * 1.2;
+        }
+        return doc;
+      });
+    },
+    textDecreaseSize: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { fontSize?: number };
+          textNode.fontSize = Math.max(8, (textNode.fontSize || 16) / 1.2);
+        }
+        return doc;
+      });
+    },
+    textAlignLeft: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { textAlign?: string };
+          textNode.textAlign = 'left';
+        }
+        return doc;
+      });
+    },
+    textAlignCenter: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { textAlign?: string };
+          textNode.textAlign = 'center';
+        }
+        return doc;
+      });
+    },
+    textAlignRight: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { textAlign?: string };
+          textNode.textAlign = 'right';
+        }
+        return doc;
+      });
+    },
+    textAlignJustify: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1 || !sel[0]) return;
+      e.updateDoc((doc) => {
+        const node = doc.nodes[sel[0]!];
+        if (node?.kind === 'text') {
+          const textNode = node as unknown as { textAlign?: string };
+          textNode.textAlign = 'justify';
+        }
+        return doc;
+      });
+    },
+    textToOutlines: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1) return;
+      e.announce?.('Convert to outlines - not yet implemented');
+    },
+    findReplace: () => {
+      e.announce?.('Find & Replace - not yet implemented');
     },
 
     // ── Other ──

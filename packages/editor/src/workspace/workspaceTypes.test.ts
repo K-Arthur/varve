@@ -205,22 +205,14 @@ describe('workspaceTypes', () => {
 
   // ─── Inspector tabs ──────────────────────────────────────────────────────
 
-  it('design mode exposes durable workflow tabs without the legacy score duplicate', () => {
+  it('design mode exposes grouped tabs without legacy document or spec', () => {
     const tabs = getVisibleInspectorTabs('design');
-    expect(tabs).toEqual([
-      'properties',
-      'appearance',
-      'prototype',
-      'document',
-      'export',
-      'spec',
-      'audit',
-    ]);
+    expect(tabs).toEqual(['properties', 'appearance', 'prototype', 'export', 'audit']);
   });
 
-  it('print mode prioritizes appearance and document production workflows', () => {
+  it('print mode places audit before export for preflight-before-output workflow', () => {
     const tabs = getVisibleInspectorTabs('print');
-    expect(tabs).toEqual(['properties', 'appearance', 'document', 'export', 'spec', 'audit']);
+    expect(tabs).toEqual(['properties', 'appearance', 'audit', 'export']);
   });
 
   it('drawing mode keeps a compact inspector because brush settings live in tool options', () => {
@@ -228,16 +220,9 @@ describe('workspaceTypes', () => {
     expect(tabs).toEqual(['properties', 'appearance', 'export']);
   });
 
-  it('image mode exposes the focused adjustments workflow', () => {
+  it('image mode places adjustments before appearance for photo-processing-first workflow', () => {
     const tabs = getVisibleInspectorTabs('image');
-    expect(tabs).toEqual([
-      'properties',
-      'appearance',
-      'adjustments',
-      'document',
-      'export',
-      'audit',
-    ]);
+    expect(tabs).toEqual(['properties', 'adjustments', 'appearance', 'export', 'audit']);
   });
 
   it('default inspector tab is properties for all modes', () => {

@@ -661,6 +661,8 @@ export interface EditorContextValue {
   moveNode: (id: NodeId, toIndex: number) => void;
   /** Duplicate all selected nodes with new IDs. */
   duplicateSelected: () => void;
+  /** Repeat the last duplicate with the same offset (Cmd/Ctrl+D after initial duplicate). */
+  repeatDuplicate: () => void;
   /** Update the fill of all selected nodes. */
   setSelectedFill: (color: ManagedColor) => void;
   /** P2: Set the entire fill stack on all selected nodes. */
@@ -1960,6 +1962,7 @@ export function EditorProvider({
       maskPreviewMode: 'checkerboard' as const,
       sectionVisibility: loadSettings().sections.sections,
       refineMaskOptions: { brushSize: 20, hardness: 0.8 },
+      lastDuplicateOffset: null,
       trimapEditOptions: { brushSize: 20, hardness: 0.8, penMode: 'unknown' as const },
       brushSettings: {
         presetId: 'built-in-round',
@@ -3278,6 +3281,15 @@ export function EditorProvider({
         const sel = state.selection;
         if (sel.length === 0) return;
 
+        const offsetX = 20;
+        const offsetY = 20;
+
+        // Track the offset for repeat duplicate
+        setState((s) => ({
+          ...s,
+          lastDuplicateOffset: { x: offsetX, y: offsetY },
+        }));
+
         /**
          * Deep clone a node and all its container descendants.
          * @returns [newId, updatedDoc, oldId -> newId map for the cloned tree]
@@ -3285,6 +3297,7 @@ export function EditorProvider({
         function cloneNodeDeep(
           nodeId: string,
           doc: Document,
+          offset: { x: number; y: number },
         ): [string, Document, Record<string, string>] {
           const node = doc.nodes[nodeId];
           if (!node) return [nodeId, doc, {}];
@@ -3303,8 +3316,8 @@ export function EditorProvider({
               node.transform[1],
               node.transform[2],
               node.transform[3],
-              node.transform[4] + 20,
-              node.transform[5] + 20,
+              node.transform[4] + offset.x,
+              node.transform[5] + offset.y,
             ] as typeof node.transform,
           };
 
@@ -3312,7 +3325,7 @@ export function EditorProvider({
           if (isContainer(node)) {
             const newChildIds: string[] = [];
             for (const childId of node.children) {
-              const [newChildId, d2, childMap] = cloneNodeDeep(childId, d);
+              const [newChildId, d2, childMap] = cloneNodeDeep(childId, d, offset);
               d = d2;
               newChildIds.push(newChildId);
               idMap = { ...idMap, ...childMap };
@@ -3359,12 +3372,261 @@ export function EditorProvider({
           let d = s.document;
           const newIds: string[] = [];
           for (const id of sel) {
-            const [newId, d2] = cloneNodeDeep(id, d);
+            const [newId, d2] = cloneNodeDeep(id, d, { x: offsetX, y: offsetY });
             d = d2;
 
             // Add to same parent. For paged docs, "root" (parentId === null)
             // means the node sits under the active page's contentRoot — not
             // doc.rootChildren, which holds page group IDs.
+            const parentId = getParentFast(s.document, id, parentCacheRef.current);
+            if (parentId === null) {
+              const activePage = d.pages?.find((p) => p.id === d.activePageId);
+              const contentRootId = activePage?.contentRoot;
+              if (contentRootId && d.nodes[contentRootId]) {
+                const cr = d.nodes[contentRootId] as ContainerNode;
+                const crChildren = cr.children ?? [];
+                d = {
+                  ...d,
+                  nodes: {
+                    ...d.nodes,
+                    [contentRootId]: { ...cr, children: [...crChildren, newId] } as SceneNode,
+                  },
+                };
+              } else {
+                d = { ...d, rootChildren: [...d.rootChildren, newId] };
+              }
+            } else {
+              const parent = d.nodes[parentId];
+              if (parent && 'children' in parent) {
+                d = {
+                  ...d,
+                  nodes: {
+                    ...d.nodes,
+                    [parentId]: { ...parent, children: [...(parent.children || []), newId] },
+                  },
+                };
+              }
+            }
+            newIds.push(newId);
+          }
+          return {
+            ...s,
+            document: d,
+            selection: newIds,
+            dirty: true,
+            sessions: s.sessions.map((sess) =>
+              sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+            ),
+          };
+        });
+      },
+
+      repeatDuplicate: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+
+        const offset = state.lastDuplicateOffset;
+        if (!offset) {
+          // If no offset tracked, fall back to default duplicate with default offset
+          const offsetX = 20;
+          const offsetY = 20;
+          setState((s) => ({
+            ...s,
+            lastDuplicateOffset: { x: offsetX, y: offsetY },
+          }));
+          // Call the duplicate logic inline
+          const sel = state.selection;
+          if (sel.length === 0) return;
+
+          function cloneNodeDeep(
+            nodeId: string,
+            doc: Document,
+            offset: { x: number; y: number },
+          ): [string, Document, Record<string, string>] {
+            const node = doc.nodes[nodeId];
+            if (!node) return [nodeId, doc, {}];
+
+            const { id: newId, doc: d1 } = nextNodeId(doc);
+            let d = d1;
+            let idMap: Record<string, string> = { [nodeId]: newId };
+
+            const cloned = {
+              ...node,
+              id: newId,
+              name: `${node.name} copy`,
+              transform: [
+                node.transform[0],
+                node.transform[1],
+                node.transform[2],
+                node.transform[3],
+                node.transform[4] + offset.x,
+                node.transform[5] + offset.y,
+              ] as typeof node.transform,
+            };
+
+            if (isContainer(node)) {
+              const newChildIds: string[] = [];
+              for (const childId of node.children) {
+                const [newChildId, d2, childMap] = cloneNodeDeep(childId, d, offset);
+                d = d2;
+                newChildIds.push(newChildId);
+                idMap = { ...idMap, ...childMap };
+              }
+              const clonedContainer = cloned as import('@strata/scene').ContainerNode;
+              clonedContainer.children = newChildIds;
+
+              if (clonedContainer.mask?.sourceNodeId) {
+                clonedContainer.mask = {
+                  ...clonedContainer.mask,
+                  sourceNodeId:
+                    idMap[clonedContainer.mask.sourceNodeId] ?? clonedContainer.mask.sourceNodeId,
+                };
+              }
+
+              if ('slots' in clonedContainer && clonedContainer.slots) {
+                clonedContainer.slots = Object.fromEntries(
+                  Object.entries(clonedContainer.slots)
+                    .map(([slotId, childId]) => [slotId, idMap[childId]] as const)
+                    .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
+                );
+              }
+            }
+
+            d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
+            return [newId, d, idMap];
+          }
+
+          setState((s) => {
+            if (!inTransactionRef.current) {
+              undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+              undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+              redoStackRef.current = [];
+              redoSelStackRef.current = [];
+            }
+
+            let d = s.document;
+            const newIds: string[] = [];
+            for (const id of sel) {
+              const [newId, d2] = cloneNodeDeep(id, d, { x: offsetX, y: offsetY });
+              d = d2;
+
+              const parentId = getParentFast(s.document, id, parentCacheRef.current);
+              if (parentId === null) {
+                const activePage = d.pages?.find((p) => p.id === d.activePageId);
+                const contentRootId = activePage?.contentRoot;
+                if (contentRootId && d.nodes[contentRootId]) {
+                  const cr = d.nodes[contentRootId] as ContainerNode;
+                  const crChildren = cr.children ?? [];
+                  d = {
+                    ...d,
+                    nodes: {
+                      ...d.nodes,
+                      [contentRootId]: { ...cr, children: [...crChildren, newId] } as SceneNode,
+                    },
+                  };
+                } else {
+                  d = { ...d, rootChildren: [...d.rootChildren, newId] };
+                }
+              } else {
+                const parent = d.nodes[parentId];
+                if (parent && 'children' in parent) {
+                  d = {
+                    ...d,
+                    nodes: {
+                      ...d.nodes,
+                      [parentId]: { ...parent, children: [...(parent.children || []), newId] },
+                    },
+                  };
+                }
+              }
+              newIds.push(newId);
+            }
+            return {
+              ...s,
+              document: d,
+              selection: newIds,
+              dirty: true,
+              sessions: s.sessions.map((sess) =>
+                sess.id === s.activeId ? { ...sess, dirty: true } : sess,
+              ),
+            };
+          });
+          return;
+        }
+
+        // Use the same clone logic but with the tracked offset
+        function cloneNodeDeep(
+          nodeId: string,
+          doc: Document,
+          offset: { x: number; y: number },
+        ): [string, Document, Record<string, string>] {
+          const node = doc.nodes[nodeId];
+          if (!node) return [nodeId, doc, {}];
+
+          const { id: newId, doc: d1 } = nextNodeId(doc);
+          let d = d1;
+          let idMap: Record<string, string> = { [nodeId]: newId };
+
+          const cloned = {
+            ...node,
+            id: newId,
+            name: `${node.name} copy`,
+            transform: [
+              node.transform[0],
+              node.transform[1],
+              node.transform[2],
+              node.transform[3],
+              node.transform[4] + offset.x,
+              node.transform[5] + offset.y,
+            ] as typeof node.transform,
+          };
+
+          if (isContainer(node)) {
+            const newChildIds: string[] = [];
+            for (const childId of node.children) {
+              const [newChildId, d2, childMap] = cloneNodeDeep(childId, d, offset);
+              d = d2;
+              newChildIds.push(newChildId);
+              idMap = { ...idMap, ...childMap };
+            }
+            const clonedContainer = cloned as import('@strata/scene').ContainerNode;
+            clonedContainer.children = newChildIds;
+
+            if (clonedContainer.mask?.sourceNodeId) {
+              clonedContainer.mask = {
+                ...clonedContainer.mask,
+                sourceNodeId:
+                  idMap[clonedContainer.mask.sourceNodeId] ?? clonedContainer.mask.sourceNodeId,
+              };
+            }
+
+            if ('slots' in clonedContainer && clonedContainer.slots) {
+              clonedContainer.slots = Object.fromEntries(
+                Object.entries(clonedContainer.slots)
+                  .map(([slotId, childId]) => [slotId, idMap[childId]] as const)
+                  .filter((entry): entry is readonly [string, string] => Boolean(entry[1])),
+              );
+            }
+          }
+
+          d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
+          return [newId, d, idMap];
+        }
+
+        setState((s) => {
+          if (!inTransactionRef.current) {
+            undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+            undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+            redoStackRef.current = [];
+            redoSelStackRef.current = [];
+          }
+
+          let d = s.document;
+          const newIds: string[] = [];
+          for (const id of sel) {
+            const [newId, d2] = cloneNodeDeep(id, d, offset);
+            d = d2;
+
             const parentId = getParentFast(s.document, id, parentCacheRef.current);
             if (parentId === null) {
               const activePage = d.pages?.find((p) => p.id === d.activePageId);
@@ -7140,6 +7402,7 @@ export function EditorProvider({
       renameSelected: value.renameSelected,
       moveNode: value.moveNode,
       duplicateSelected: value.duplicateSelected,
+      repeatDuplicate: value.repeatDuplicate,
       setSelectedFill: value.setSelectedFill,
       setSelectedFills: value.setSelectedFills,
       updateSelectedFillAt: value.updateSelectedFillAt,

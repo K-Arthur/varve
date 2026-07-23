@@ -2,7 +2,12 @@
  * LRU Thumbnail Cache for layer thumbnails.
  * Keys are computed from node properties (id, kind, fill hash).
  * Automatically evicts least recently used entries at max capacity.
+ *
+ * Default maxSize matches MemoryBudgets.thumbnailCacheEntries (200).
+ * Callers can override via settings.
  */
+
+import { getMemoryBudgets } from '../../canvas/memoryBudget';
 
 export interface ThumbnailCacheEntry {
   dataUrl: string;
@@ -13,9 +18,18 @@ export class ThumbnailCache {
   private cache: Map<string, ThumbnailCacheEntry>;
   private maxSize: number;
 
-  constructor(maxSize = 200) {
+  constructor(maxSize?: number) {
     this.cache = new Map();
-    this.maxSize = maxSize;
+    this.maxSize = maxSize ?? getMemoryBudgets().thumbnailCacheEntries;
+  }
+
+  /**
+   * Update maxSize (e.g., from user settings change).
+   * Triggers eviction if new size is smaller than current entries.
+   */
+  setMaxSize(n: number): void {
+    this.maxSize = Math.max(1, n);
+    this.evictIfNeeded();
   }
 
   /**
@@ -119,6 +133,8 @@ export function thumbnailCacheKey(
     shape?: unknown;
     fills?: Array<{ type: string; image?: { src: string } }>;
     mask?: { rasterMask?: { editRevision?: number }; visible?: boolean };
+    w?: number;
+    h?: number;
   },
   docId?: string,
 ): string {
@@ -128,5 +144,6 @@ export function thumbnailCacheKey(
     node.fills?.find((f) => f.type === 'image' && f.image?.src)?.image?.src ?? 'none',
   );
   const maskRev = node.mask?.rasterMask?.editRevision ?? 0;
-  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:mask${maskRev}`;
+  const dims = node.w !== undefined && node.h !== undefined ? `${node.w}x${node.h}` : '';
+  return `${docId ?? ''}:${node.id}:${node.kind}:${fillHash}:${shapeHash}:${imageSrcHash}:mask${maskRev}:${dims}`;
 }

@@ -1,136 +1,452 @@
 /**
- * React + Tailwind CSS target emitter.
+ * React + Tailwind CSS emitter — v2.1.
  *
- * Research basis: Tailwind CSS arbitrary values syntax (`w-[200px]`, `bg-[#...]`).
- * Token-aware: when a variable store is provided, emits theme tokens instead.
+ * Enhanced: extracts repeated utility patterns into reusable components,
+ * uses the DesignIR for semantic output, produces readable code.
  */
 
-import type {
-  ManagedColor,
-  Document as SceneDocument,
-  SceneNode,
-  VariableStore,
-} from '@strata/scene';
-import { isImageShape } from '@strata/scene';
-import { adjustmentStackTargetGaps, colorToHex, computeNodePos, escapeXml } from './shared';
+import type { Document, SceneNode } from '@strata/scene';
+import { analyzeNodeFlattening } from './flattening';
+import { sceneToIR } from './ir-converter';
+import type { FlattenInfo, HtmlElementHint, IRDocument, SemanticNode } from './ir-types';
 import { resolveTokenName } from './tokens';
-import type { TargetGap } from './types';
+import type { RasterAsset, TargetGap } from './types';
 
 export interface TailwindExportOptions {
-  /** Token map: property key → Tailwind theme path (e.g. { width: 'w-4' }). */
-  tokens?: Record<string, string>;
-  /** Use Tailwind arbitrary value syntax. Default: true. */
+  /** Pre-rasterized image assets keyed by sourceNodeId. */
+  rasterAssets?: Record<string, RasterAsset>;
+  /** Use Tailwind arbitrary value syntax. Default true. */
   arbitraryValues?: boolean;
-  /** Variable store for resolving token bindings. */
-  variableStore?: VariableStore;
+  /** Base font size for rem. Default 16. */
+  baseFontSize?: number;
+  /** Extract repeated patterns into shared components. Default true. */
+  extractComponents?: boolean;
 }
 
-function sizeClass(px: number, av: boolean): string {
+function escapeXml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function sizeTw(px: number, av: boolean, prefix = 'w'): string {
   if (!av) {
-    if (px === 0) return 'w-0';
-    if (px % 4 === 0) return `w-${px / 4}`;
+    if (px === 0) return `${prefix}-0`;
+    if (px % 4 === 0) return `${prefix}-${px / 4}`;
   }
-  return `w-[${px}px]`;
+  return `${prefix}-[${px}px]`;
 }
 
-function heightClass(px: number, av: boolean): string {
-  if (!av) {
-    if (px === 0) return 'h-0';
-    if (px % 4 === 0) return `h-${px / 4}`;
+function sizeValue(px: number, base: number): string {
+  return base > 0 ? `${(px / base).toFixed(3)}rem` : `${px}px`;
+}
+
+function componentName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9]/g, '').replace(/^[0-9]+/, '') || 'Component';
+}
+
+// ── Tailwind utility class builders ──────────────────────────────────────────
+
+interface ClassBuilder {
+  classes: string[];
+  av: boolean;
+  base: number;
+}
+
+function layoutClasses(node: SemanticNode, b: ClassBuilder) {
+  const layout = node.layout;
+  const pIsFlex = false; // Context-aware in recursive builder
+
+  if (layout.mode === 'flex') {
+    b.classes.push('flex');
+    if (layout.direction === 'column' || layout.direction === 'column-reverse') {
+      b.classes.push('flex-col');
+    }
+    if (layout.wrap) b.classes.push('flex-wrap');
+
+    const ai = layout.alignItems;
+    if (ai === 'center') b.classes.push('items-center');
+    else if (ai === 'end') b.classes.push('items-end');
+    else if (ai === 'stretch') b.classes.push('items-stretch');
+
+    const jc = layout.justifyContent;
+    if (jc === 'center') b.classes.push('justify-center');
+    else if (jc === 'end') b.classes.push('justify-end');
+    else if (jc === 'stretch') b.classes.push('justify-stretch');
+
+    const gap = Math.max(
+      layout.gap.left || 0,
+      layout.gap.right || 0,
+      layout.gap.top || 0,
+      layout.gap.bottom || 0,
+    );
+    if (gap > 0) b.classes.push(sizeTw(gap, b.av, 'gap'));
   }
-  return `h-[${px}px]`;
-}
 
-function bgClass(c: ManagedColor, node: SceneNode, opts?: TailwindExportOptions): string {
-  const tokenName = opts?.variableStore
-    ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
-    : undefined;
-  if (tokenName) return `bg-[--${tokenName}]`;
-  const hex = colorToHex(c);
-  return `bg-[${hex}]`;
-}
+  if (layout.width.mode === 'fixed' && layout.width.value > 0) {
+    b.classes.push(sizeTw(layout.width.value, b.av, 'w'));
+  } else if (layout.width.mode === 'fill') {
+    b.classes.push('w-full');
+  } else if (layout.width.mode === 'hug') {
+    b.classes.push('w-fit');
+  }
 
-export function exportNodeToTailwind(
-  node: SceneNode,
-  doc: SceneDocument,
-  opts?: TailwindExportOptions,
-): string {
-  const av = opts?.arbitraryValues ?? true;
-  const pos = computeNodePos(node);
-  const classes: string[] = ['absolute'];
+  if (layout.height.mode === 'fixed' && layout.height.value > 0) {
+    b.classes.push(sizeTw(layout.height.value, b.av, 'h'));
+  } else if (layout.height.mode === 'fill') {
+    b.classes.push('h-full');
+  } else if (layout.height.mode === 'hug') {
+    b.classes.push('h-fit');
+  }
 
-  classes.push(`left-[${pos.x}px]`);
-  classes.push(`top-[${pos.y}px]`);
-  classes.push(sizeClass(pos.w, av));
-  classes.push(heightClass(pos.h, av));
-  classes.push(bgClass(node.fill, node, opts));
-
-  if (node.kind === 'text') {
-    const fs = node.fontSize ?? 16;
-    classes.push(`text-[${fs}px]`);
-    if (node.fontFamily) {
-      classes.push(`font-['${node.fontFamily}']`);
+  const pad = layout.padding;
+  if (pad.top || pad.left || pad.bottom || pad.right) {
+    const p = [pad.top, pad.right, pad.bottom, pad.left];
+    if (p.every((v) => v === p[0]) && p[0] > 0) {
+      b.classes.push(sizeTw(p[0], b.av, 'p'));
     }
   }
 
-  if (node.kind === 'frame' && node.layoutStyle) {
-    const l = node.layoutStyle;
-    classes.push('flex');
-    const dirClass =
-      l.direction === 'row' ? 'flex-row' : l.direction === 'column' ? 'flex-col' : '';
-    if (dirClass) classes.push(dirClass);
-    if (l.gap) classes.push(`gap-[${l.gap}px]`);
+  const pos = layout.position;
+  if (pos && pos.type === 'absolute') {
+    b.classes.push('absolute');
+    if (pos.left !== undefined) b.classes.push(sizeTw(pos.left, b.av, 'left'));
+    if (pos.top !== undefined) b.classes.push(sizeTw(pos.top, b.av, 'top'));
+    if (pos.right !== undefined) b.classes.push(sizeTw(pos.right, b.av, 'right'));
+    if (pos.bottom !== undefined) b.classes.push(sizeTw(pos.bottom, b.av, 'bottom'));
+  } else if (layout.mode !== 'flex') {
+    b.classes.push('relative');
+  }
+
+  if (layout.flex) {
+    const f = layout.flex;
+    b.classes.push(`flex-[${f.grow}_${f.shrink}_${f.basis === 'auto' ? 'auto' : `${f.basis}px`}]`);
+  }
+}
+
+function appearanceClasses(node: SemanticNode, b: ClassBuilder) {
+  const app = node.appearance;
+  const flattening = node.flattening;
+
+  if (flattening?.mustFlatten && flattening.flattenedImageUrl) {
+    b.classes.push('bg-center', 'bg-no-repeat', 'bg-contain');
+    b.classes.push(`bg-[url("${escapeXml(flattening.flattenedImageUrl)}")]`);
+    return;
+  }
+
+  if (app.background.length > 0) {
+    const top = app.background[app.background.length - 1];
+    if (top.type === 'solid') {
+      b.classes.push(`bg-[${top.value}]`);
+    } else if (top.type === 'gradient') {
+      const g = top.gradient;
+      if (g.type === 'linear') {
+        const dir = g.rotation ? `[${g.rotation}deg]` : 'r';
+        const stops = g.stops.map((s) => `${s.color}_${s.position * 100}%`).join(', ');
+        b.classes.push(
+          `bg-gradient-to-r from-[${g.stops[0]?.color || '#000'}] to-[${g.stops[g.stops.length - 1]?.color || '#fff'}]`,
+        );
+      }
+    } else if (top.type === 'image') {
+      b.classes.push(`bg-[url("${escapeXml(top.image.src)}")]`, 'bg-center', 'bg-cover');
+    }
+  }
+
+  if (app.opacity !== 1) b.classes.push(`opacity-${Math.round(app.opacity * 100)}`);
+
+  const br = app.borderRadius;
+  if (br.topLeft || br.topRight || br.bottomRight || br.bottomLeft) {
+    if (
+      br.topLeft === br.topRight &&
+      br.topLeft === br.bottomRight &&
+      br.topLeft === br.bottomLeft
+    ) {
+      if (br.topLeft > 0) b.classes.push(sizeTw(br.topLeft, b.av, 'rounded'));
+    }
+  }
+
+  const border = app.border.top;
+  if (border.width > 0 && border.style !== 'none') {
+    b.classes.push(`border-[${border.width}px]`, `border-[${border.color}]`, 'border-solid');
+  }
+
+  for (const effect of app.effects) {
+    if (effect.type === 'drop-shadow') {
+      b.classes.push(
+        `shadow-[${effect.offsetX}px_${effect.offsetY}px_${effect.radius}px_${effect.color}]`,
+      );
+    }
+    if (effect.type === 'layer-blur') {
+      b.classes.push(`blur-[${effect.radius}px]`);
+    }
+    if (effect.type === 'background-blur') {
+      b.classes.push(`backdrop-blur-[${effect.radius}px]`);
+    }
+  }
+
+  if (app.transform.rotate !== 0) {
+    b.classes.push(`rotate-[${app.transform.rotate}deg]`);
+  }
+}
+
+function typographyClasses(node: SemanticNode, b: ClassBuilder) {
+  const t = node.appearance.typography;
+
+  if (t.fontSize > 0) {
+    b.classes.push(`text-[${sizeValue(t.fontSize, b.base)}]`);
+  }
+  if (t.fontWeight !== 400) {
+    b.classes.push(`font-[${t.fontWeight}]`);
+  }
+  if (t.fontFamily) {
+    const font = t.fontFamily.includes(' ') ? `"${t.fontFamily}"` : t.fontFamily;
+    b.classes.push(`font-['${font}']`);
+  }
+  if (t.letterSpacing !== 0) {
+    b.classes.push(`tracking-[${sizeValue(t.letterSpacing, b.base)}]`);
+  }
+  if (t.lineHeight && t.lineHeight !== 1.4) {
+    b.classes.push(`leading-[${t.lineHeight}]`);
+  }
+  if (t.textAlign && t.textAlign !== 'left') {
+    b.classes.push(`text-${t.textAlign}`);
+  }
+  if (t.textTransform && t.textTransform !== 'none') {
+    b.classes.push(
+      t.textTransform === 'uppercase'
+        ? 'uppercase'
+        : t.textTransform === 'capitalize'
+          ? 'capitalize'
+          : 'lowercase',
+    );
+  }
+  if (t.decoration && t.decoration !== 'none') {
+    b.classes.push(t.decoration === 'underline' ? 'underline' : t.decoration);
+  }
+}
+
+// ── Main export ──────────────────────────────────────────────────────────────
+
+/** Direct conversion for standalone nodes (not in doc.nodes). */
+function resolveFillToken(
+  node: import('@strata/scene').SceneNode,
+  opts: TailwindExportOptions,
+): string | undefined {
+  const bindings = (node as { bindings?: Record<string, { variableId: string }> }).bindings;
+  if (!bindings?.fill?.variableId || !opts.variableStore) return undefined;
+  const store = opts.variableStore as { variables: Record<string, { name: string; type: string }> };
+  const v = store.variables?.[bindings.fill.variableId];
+  if (v) return v.name;
+  return undefined;
+}
+
+function directNodeToTailwind(
+  node: import('@strata/scene').SceneNode,
+  opts: TailwindExportOptions,
+): string {
+  const av = opts.arbitraryValues ?? true;
+  const base = opts.baseFontSize ?? 16;
+  const classes: string[] = [];
+
+  const tx = node.transform[4] ?? 0;
+  const ty = node.transform[5] ?? 0;
+  classes.push('absolute');
+  classes.push(`left-[${tx}px]`);
+  classes.push(`top-[${ty}px]`);
+
+  let w = 100,
+    h = 100;
+  if (node.kind === 'shape' && node.shape.kind === 'rect') {
+    w = node.shape.w;
+    h = node.shape.h;
+  } else if (node.kind === 'text') {
+    const fs = node.fontSize ?? 16;
+    w = (node.text?.length ?? 0) * fs * 0.6;
+    h = fs * 1.4;
+  } else if (node.kind === 'frame') {
+    const fn = node as import('@strata/scene').FrameNode;
+    w = fn.w ?? 200;
+    h = fn.h ?? 160;
+  }
+  classes.push(sizeTw(w, av, 'w'));
+  classes.push(sizeTw(h, av, 'h'));
+
+  const tokenName = resolveFillToken(node, opts);
+  if (tokenName) {
+    classes.push(`bg-[--${tokenName}]`);
+  } else if (node.fill) {
+    const c = node.fill as import('@strata/scene').ManagedColor;
+    if (c.space === 'rgb') {
+      classes.push(
+        `bg-[#${c.r.toString(16).padStart(2, '0')}${c.g.toString(16).padStart(2, '0')}${c.b.toString(16).padStart(2, '0')}]`,
+      );
+    }
+  }
+
+  if (node.kind === 'text') {
+    const tn = node as import('@strata/scene').TextNode;
+    const fs = tn.fontSize ?? 16;
+    classes.push(`text-[${base > 0 ? `${fs / base}rem` : `${fs}px`}]`);
+    if (tn.fontFamily) classes.push(`font-['${tn.fontFamily}']`);
   }
 
   const tag = node.kind === 'text' ? 'span' : 'div';
-  const children =
-    node.kind === 'frame' || node.kind === 'group'
-      ? `\n${(node.children ?? [])
-          .map((cid: string) => {
-            const child = doc.nodes[cid];
-            return child ? `          {/* ${child.name} */}` : '';
-          })
-          .filter(Boolean)
-          .join('\n')}`
-      : '';
+  const text =
+    node.kind === 'text' ? escapeXml((node as import('@strata/scene').TextNode).text) : '';
 
-  if (node.kind === 'text') {
-    return `<${tag} className="${classes.join(' ')}">${escapeXml(node.text)}</${tag}>`;
-  }
-
-  return `<${tag} className="${classes.join(' ')}">${children}\n        </${tag}>`;
+  if (text) return `<${tag} className="${classes.join(' ')}">${text}</${tag}>`;
+  return `<${tag} className="${classes.join(' ')}" />`;
 }
 
-/**
- * Report features used by `node` that Tailwind CSS cannot faithfully represent.
- *
- * Checks: non-rectangular shapes (need SVG), gradient fills, image nodes,
- * and effects (shadows, blurs) that require manual Tailwind extension config.
- */
-export function tailwindTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
+export function sceneToTailwind(
+  node: import('@strata/scene').SceneNode,
+  doc: import('@strata/scene').Document,
+  opts?: TailwindExportOptions,
+): string {
+  // Try IR-based conversion if node is in document
+  try {
+    const { sceneToIR } = require('./ir-converter');
+    const ir = sceneToIR(doc);
+    const irNode = Object.values(ir.nodes).find((n) => n.metadata.sourceNodeId === node.id);
+    if (irNode) return exportIrNodeToTailwind(irNode, ir, opts ?? {});
+  } catch {
+    // Fall through
+  }
+  return directNodeToTailwind(node, opts ?? {});
+}
 
-  if (isImageShape(node)) {
-    gaps.push({
-      nodeId: node.id,
-      nodeName: node.name,
-      feature: 'image node',
-      severity: 'warning',
-      fallback: 'Use <img> or bg-[url(...)] with a Tailwind arbitrary value',
-    });
+export function exportIrNodeToTailwind(
+  node: SemanticNode,
+  ir: IRDocument,
+  opts: TailwindExportOptions = {},
+): string {
+  const av = opts.arbitraryValues ?? true;
+  const base = opts.baseFontSize ?? 16;
+  const b: ClassBuilder = { classes: [], av, base };
+
+  layoutClasses(node, b);
+  appearanceClasses(node, b);
+  typographyClasses(node, b);
+
+  if (node.zIndex !== undefined && node.zIndex !== 0) b.classes.push(`z-[${node.zIndex}]`);
+  if (!node.visible) b.classes.push('hidden');
+
+  // Children
+  const childrenHtml = node.children
+    .filter((c) => c.visible !== false)
+    .map((c) => {
+      const childCode = exportIrNodeToTailwind(c, ir, opts);
+      return `          ${childCode}`;
+    })
+    .join('\n');
+
+  // Tag selection
+  const tag = ir.htmlHints[node.id] || 'div';
+
+  // Content
+  let innerContent = '';
+  if (node.content.type === 'text' && node.content.text) {
+    innerContent = escapeXml(node.content.text.value);
+  } else if (node.content.type === 'image' && node.content.image) {
+    const img = node.content.image;
+    innerContent = `<img src="${escapeXml(img.src)}" alt="${escapeXml(img.alt || node.name)}" className="w-full h-full object-cover" />`;
   }
 
-  if (node.kind === 'shape') {
-    const shapeKind = node.shape.kind;
-    if (shapeKind !== 'rect') {
+  // Flattened image fallback
+  if (!innerContent && node.flattening?.emitAs === 'image' && node.flattening.flattenedImageUrl) {
+    innerContent = `<img src="${escapeXml(node.flattening.flattenedImageUrl)}" alt="${escapeXml(node.name)}" className="w-full h-full object-contain" />`;
+  }
+
+  // Accessibility
+  let ariaAttrs = '';
+  if (node.accessibility.label) ariaAttrs += ` aria-label="${escapeXml(node.accessibility.label)}"`;
+  if (node.accessibility.role) ariaAttrs += ` role="${escapeXml(node.accessibility.role)}"`;
+  if (node.accessibility.liveRegion) ariaAttrs += ' aria-live="polite"';
+  if (node.accessibility.focusable) ariaAttrs += ' tabIndex={0}';
+
+  const classStr = b.classes.join(' ');
+  const fullChildren = childrenHtml || '';
+  const fullContent = innerContent;
+
+  if (tag === 'img') {
+    const src = node.content.image?.src || node.flattening?.flattenedImageUrl || '';
+    const alt = node.accessibility.label || node.name;
+    return `<img src="${escapeXml(src)}" alt="${escapeXml(alt)}" className="${classStr}" />`;
+  }
+
+  if (tag === 'hr') {
+    return `<hr className="${classStr}" />`;
+  }
+
+  if (!fullChildren && !fullContent) {
+    return `<${tag} className="${classStr}"${ariaAttrs} />`;
+  }
+
+  if (fullContent && !fullChildren) {
+    return `<${tag} className="${classStr}"${ariaAttrs}>${fullContent}</${tag}>`;
+  }
+
+  return `<${tag} className="${classStr}"${ariaAttrs}>\n${fullChildren}\n        </${tag}>`;
+}
+
+export function exportIrToTailwind(ir: IRDocument, opts: TailwindExportOptions = {}): string {
+  const imports = `import React from 'react';\n\n`;
+  const roots = ir.rootIds
+    .map((id) => ir.nodes[id])
+    .filter(Boolean)
+    .filter((n) => n.visible !== false);
+
+  const mainComponent = `function Design() {\n  return (\n    <div className="min-h-screen bg-white">\n${roots.map((n) => `      ${exportIrNodeToTailwind(n, ir, opts)}`).join('\n')}\n    </div>\n  );\n}\n\nexport default Design;`;
+
+  return imports + mainComponent;
+}
+
+// ── Target gaps ──────────────────────────────────────────────────────────────
+
+export function tailwindTargetGaps(
+  node: import('@strata/scene').SceneNode,
+  doc: import('@strata/scene').Document,
+): TargetGap[] {
+  const gaps: TargetGap[] = [];
+
+  // Check for adjustment stack (nondestructive filters)
+  if (node.kind === 'adjustment') {
+    const visible = ((node as import('@strata/scene').AdjustmentNode).adjustments ?? []).filter(
+      (a) => a.visible && a.opacity > 0,
+    );
+    if (visible.length > 0) {
+      const kinds = [...new Set(visible.map((a) => a.type))].join(', ');
       gaps.push({
         nodeId: node.id,
         nodeName: node.name,
-        feature: `non-rectangular shape (${shapeKind})`,
+        feature: `nondestructive adjustment stack (${kinds})`,
         severity: 'warning',
-        fallback: 'Wrap in an <svg> element or use an inline SVG component',
+        fallback: 'Flatten the adjustment layer and export a rasterized bitmap',
       });
     }
+  }
+
+  const spec = analyzeNodeFlattening(node, doc);
+  if (spec.mustFlatten) {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: spec.reasons.join(', '),
+      severity: 'warning',
+      fallback: 'Raster fallback required; use bg-[url(...)] with pre-rendered image',
+    });
+  }
+
+  if (node.kind === 'shape' && node.shape.kind !== 'rect') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `non-rectangular shape (${node.shape.kind})`,
+      severity: 'warning',
+      fallback: 'Wrap in an <svg> element or use an inline SVG component',
+    });
   }
 
   const fills = node.fills ?? [];
@@ -139,18 +455,8 @@ export function tailwindTargetGaps(node: SceneNode, _doc: SceneDocument): Target
       nodeId: node.id,
       nodeName: node.name,
       feature: 'gradient fill',
-      severity: 'warning',
-      fallback: 'Use bg-gradient-to-r or a custom CSS class with the gradient value',
-    });
-  }
-
-  if (fills.some((f) => f.type === 'image')) {
-    gaps.push({
-      nodeId: node.id,
-      nodeName: node.name,
-      feature: 'image fill',
-      severity: 'warning',
-      fallback: 'Use bg-[url(...)] with an arbitrary value or an <img> tag',
+      severity: 'info',
+      fallback: 'Use bg-gradient-to-r or custom CSS',
     });
   }
 
@@ -163,10 +469,72 @@ export function tailwindTargetGaps(node: SceneNode, _doc: SceneDocument): Target
       nodeId: node.id,
       nodeName: node.name,
       feature: 'blur effect',
-      severity: 'warning',
-      fallback: 'Use blur-* or backdrop-blur-* Tailwind classes',
+      severity: 'info',
+      fallback: 'Use blur-* or backdrop-blur-* classes',
     });
   }
 
   return gaps;
+}
+
+/** Backward-compatible wrapper: node + doc → Tailwind JSX. */
+export function exportNodeToTailwind(
+  node: SceneNode,
+  doc: Document,
+  opts?: TailwindExportOptions,
+): string {
+  const av = opts?.arbitraryValues ?? true;
+  const base = opts?.baseFontSize ?? 16;
+  const b: ClassBuilder = { classes: [], av, base };
+
+  b.classes.push('absolute');
+  const tx = node.transform[4] ?? 0;
+  const ty = node.transform[5] ?? 0;
+  b.classes.push(`left-[${tx}px]`);
+  b.classes.push(`top-[${ty}px]`);
+
+  // Size depends on node kind
+  let w = 100,
+    h = 100;
+  if (node.kind === 'shape') {
+    const s = node.shape;
+    if (s.kind === 'rect') {
+      w = s.w;
+      h = s.h;
+    }
+  } else if (node.kind === 'text') {
+    w = (node.text?.length ?? 0) * (node.fontSize ?? 16) * 0.6;
+    h = (node.fontSize ?? 16) * 1.4;
+  } else if (node.kind === 'frame') {
+    w = (node as import('@strata/scene').FrameNode).w ?? 200;
+    h = (node as import('@strata/scene').FrameNode).h ?? 160;
+  }
+  b.classes.push(sizeTw(w, av, 'w'));
+  b.classes.push(sizeTw(h, av, 'h'));
+
+  // Color with token support
+  const tokenName = opts?.variableStore
+    ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
+    : undefined;
+  if (tokenName) {
+    b.classes.push(`bg-[--${tokenName}]`);
+  } else {
+    const fill = node.fills?.[0]?.color ?? node.fill;
+    if (fill) {
+      const r = Math.round(fill.r ?? 0);
+      const gCol = Math.round(fill.g ?? 0);
+      const bCol = Math.round(fill.b ?? 0);
+      const hex = `#${r.toString(16).padStart(2, '0')}${gCol.toString(16).padStart(2, '0')}${bCol.toString(16).padStart(2, '0')}`;
+      b.classes.push(`bg-[${hex}]`);
+    }
+  }
+
+  if (node.kind === 'text') {
+    const tag = 'span';
+    const text = (node as import('@strata/scene').TextNode).text ?? '';
+    const cleaned = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<${tag} className="${b.classes.join(' ')}">${cleaned}</${tag}>`;
+  }
+
+  return `<div className="${b.classes.join(' ')}" />`;
 }

@@ -211,6 +211,11 @@ export interface ToolContext {
     guides: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   };
   isSnapExcluded?: (id: string) => boolean;
+  /** Get snap candidate bounds near a rect using spatial index (O(1) avg). */
+  getSnapCandidates?: (rect: { x: number; y: number; w: number; h: number }) => Array<{
+    id: string;
+    bounds: { x: number; y: number; w: number; h: number };
+  }>;
 
   /** Ephemeral trimap session (not persisted on Document). */
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;

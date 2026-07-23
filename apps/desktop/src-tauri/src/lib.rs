@@ -529,6 +529,75 @@ async fn denoise_image(
     .map_err(|e| format!("Denoise task failed: {e}"))?
 }
 
+// ── Native content-aware fill (LaMa inpainting) ────────────────────────
+
+/// Options for native content-aware fill.
+#[derive(Debug, serde::Deserialize)]
+pub struct ContentAwareFillOptions {
+    pub image_data: Vec<u8>,
+    pub image_w: u32,
+    pub image_h: u32,
+    pub mask: Vec<u8>,
+    pub mask_w: u32,
+    pub mask_h: u32,
+    pub preview_max_dimension: Option<u32>,
+}
+
+/// Result of a native content-aware fill operation.
+#[derive(Debug, serde::Serialize)]
+pub struct ContentAwareFillResult {
+    pub png_base64: String,
+    pub width: u32,
+    pub height: u32,
+    pub model_id: String,
+    pub execution_backend: String,
+    pub processing_time_ms: u64,
+    pub warnings: Vec<String>,
+}
+
+/// Run native LaMa inpainting on an image+mask pair.
+///
+/// Preferred over the WASM-worker path on desktop because native ONNX
+/// Runtime is faster and not bound by the wasm32 4 GB address space.
+#[tauri::command]
+async fn content_aware_fill(
+    app: tauri::AppHandle,
+    options: ContentAwareFillOptions,
+) -> Result<ContentAwareFillResult, String> {
+    if !ensure_native_ai(&app) {
+        return Err(
+            "Native AI runtime is unavailable on this system; use the in-app (WASM) model instead"
+                .into(),
+        );
+    }
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let request = strata_bgremove::LamaInpaintRequest {
+            image_rgba: options.image_data,
+            image_w: options.image_w,
+            image_h: options.image_h,
+            mask: options.mask,
+            mask_w: options.mask_w,
+            mask_h: options.mask_h,
+            preview_max_dimension: options.preview_max_dimension,
+        };
+
+        let result = strata_bgremove::lama_inpaint(request)?;
+
+        Ok(ContentAwareFillResult {
+            png_base64: result.png_base64,
+            width: result.width,
+            height: result.height,
+            model_id: result.model_id,
+            execution_backend: result.execution_backend,
+            processing_time_ms: result.processing_time_ms,
+            warnings: result.warnings,
+        })
+    })
+    .await
+    .map_err(|e| format!("Content-aware fill task failed: {e}"))?
+}
+
 /// Whether native ONNX inference is actually usable right now — the `ai`
 /// Cargo feature is compiled in *and* the bundled onnxruntime dylib loads
 /// successfully.
@@ -1637,6 +1706,14 @@ fn home_evict_thumbnails(
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+fn home_delete_thumbnail(
+    store: tauri::State<'_, strata_sync::DocumentStore>,
+    hash: String,
+) -> Result<(), String> {
+    store.delete_thumbnail(&hash).map_err(|e| e.to_string())
+}
+
 // ── Search ───────────────────────────────────────────────────────────
 
 #[tauri::command]
@@ -1902,6 +1979,7 @@ pub fn run() {
             home_get_thumbnail,
             home_put_thumbnail,
             home_evict_thumbnails,
+            home_delete_thumbnail,
             home_search_files,
             home_reorder_file,
             home_read_text_file,
@@ -1916,6 +1994,7 @@ pub fn run() {
             cancel_background_removal_model_download,
             delete_background_removal_model,
             denoise_image,
+            content_aware_fill,
             trace_image,
             upscale_image,
             upscale_image_binary,

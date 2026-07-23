@@ -220,6 +220,10 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
       rec.entry = { ...rec.entry, trashedAt: null };
     },
     async purgeFile(id) {
+      const rec = state.files.get(id);
+      if (rec?.entry.contentHash) {
+        state.thumbnails.delete(rec.entry.contentHash);
+      }
       state.files.delete(id);
     },
 
@@ -285,6 +289,9 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     },
     async putThumbnail(record) {
       state.thumbnails.set(record.hash, record);
+    },
+    async deleteThumbnail(hash) {
+      state.thumbnails.delete(hash);
     },
     async evictThumbnails(keepCount) {
       const entries = [...state.thumbnails.values()].sort((a, b) => a.createdAt - b.createdAt);
@@ -669,6 +676,15 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         if (version) {
           version.name = name;
           version.description = description;
+          return;
+        }
+      }
+    },
+    async updateVersionThumbnail(versionId: string, thumbnail: string | undefined): Promise<void> {
+      for (const list of state.versions.values()) {
+        const version = list.find((v) => v.id === versionId);
+        if (version) {
+          version.thumbnail = thumbnail;
           return;
         }
       }

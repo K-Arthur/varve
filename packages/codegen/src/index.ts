@@ -26,17 +26,56 @@ export { timelineToLottieJSON } from './animation-lottie';
 export { timelineToSVGAnimations } from './animation-svg';
 export { cssTargetGaps, exportNodeToCss } from './css';
 export { cssModulesTargetGaps, exportNodeToCssModules } from './css-modules';
+export type { DesignAuditOptions } from './design-audit';
+export { runCodegenReadiness, runDesignAudit } from './design-audit';
+export type {
+  EmitStrategy,
+  FlattenedNodeSpec,
+  FlatteningAnalysis,
+  FlattenReason,
+  RenderCapability,
+} from './flattening';
+export {
+  analyzeFlattening,
+  analyzeNodeFlattening,
+  blendModeToCss,
+  canEmitAsHtml,
+  getEmitTag,
+  getRenderCapability,
+} from './flattening';
 export { exportNodeToFlutter, flutterTargetGaps } from './flutter';
+export type { HtmlExportOptions } from './html';
+export { exportIrToHtml } from './html';
+export { deserializeIR, sceneToIR, serializeIR } from './ir-converter';
+export type { AuditCategory, AuditFinding, DesignAuditReport } from './ir-types';
+export * from './ir-types';
 export type { OptContext, OptimizationResult } from './optimizers';
 export { optimizeCode } from './optimizers';
+export type { RasterAuditFinding, RasterIssueType } from './raster-audit';
+export { runRasterAudit } from './raster-audit';
 export * from './shared';
 export * from './spec';
+export { exportNodeToSvelte, type SvelteExportOptions, svelteTargetGaps } from './svelte';
 export { exportNodeToSvg, svgTargetGaps } from './svg';
 export { exportNodeToSwiftUI, swiftuiTargetGaps } from './swiftui';
-export { exportNodeToTailwind, tailwindTargetGaps } from './tailwind';
+export {
+  exportIrNodeToTailwind,
+  exportIrToTailwind,
+  exportNodeToTailwind,
+  sceneToTailwind,
+  tailwindTargetGaps,
+} from './tailwind';
 export * from './target-analysis';
 export { resolveTokenName } from './tokens';
 export type { CodeEmitter, ExportMetadata, RasterAsset, TargetGap } from './types';
+export type { VectorAuditFinding, VectorIssueType } from './vector-audit';
+export { runVectorAudit } from './vector-audit';
+export { exportNodeToVue, type VueExportOptions, vueTargetGaps } from './vue';
+export {
+  exportNodeToWebComponent,
+  type WebComponentExportOptions,
+  webComponentTargetGaps,
+} from './web-component';
 
 export const PACKAGE = '@strata/codegen' as const;
 

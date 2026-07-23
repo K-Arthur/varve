@@ -20,6 +20,7 @@ import { MasterPanel } from './components/MasterPanel/MasterPanel';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
+import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { PromptDialog, promptDialog } from './components/PromptDialog';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
@@ -597,6 +598,16 @@ function ShellInner({
             resetOnboarding(platform);
           }}
         />
+
+        {/* Content-Aware Fill dialog */}
+        {editor.state.cafDialogNodeId && (
+          <ContentAwareFillDialog
+            nodeId={editor.state.cafDialogNodeId}
+            isOpen={true}
+            onClose={editor.closeCafDialog}
+            onApplied={editor.closeCafDialog}
+          />
+        )}
 
         {/* State Machine panel — document-wide, opt-in (see toggleStateMachinePanel) */}
         <StateMachinePanel

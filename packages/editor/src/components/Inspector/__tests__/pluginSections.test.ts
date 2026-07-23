@@ -120,7 +120,7 @@ describe('Plugin Section API', () => {
       registerPlugin(makeManifest([contrib1, contrib2]));
       expect(getContributionsForTab('properties').length).toBe(1);
       expect(getContributionsForTab('export').length).toBe(1);
-      expect(getContributionsForTab('spec').length).toBe(0);
+      expect(getContributionsForTab('audit').length).toBe(0);
     });
   });
 
