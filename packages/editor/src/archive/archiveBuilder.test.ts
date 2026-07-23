@@ -7,8 +7,6 @@
 
 import type { Document } from '@strata/scene';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { SettingsBackupEntry } from './archiveTypes';
-import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
 import {
   buildArchive,
   buildFullArchive,
@@ -17,6 +15,8 @@ import {
   createArchiveManifest,
   packageArchive,
 } from './archiveBuilder';
+import type { SettingsBackupEntry } from './archiveTypes';
+import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
 import { inMemoryClear } from './safeWrite';
 
 function makeTestDocument(): Document {

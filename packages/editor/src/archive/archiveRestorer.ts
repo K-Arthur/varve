@@ -10,7 +10,7 @@
  * Chrome profile restore with conflict resolution.
  */
 
-import { DocumentCodec, type Document } from '@strata/scene';
+import { type Document, DocumentCodec } from '@strata/scene';
 import { unzipSync } from 'fflate';
 import type {
   ArchiveConflict,
@@ -29,6 +29,47 @@ const MAX_ARCHIVE_SIZE = 100 * 1024 * 1024;
 
 /** Maximum number of entries in the archive */
 const MAX_ENTRY_COUNT = 1000;
+
+/**
+ * Maximum uncompressed size for a single archive entry (200 MB). Checked
+ * against the ZIP local header's declared original size *before* fflate
+ * inflates the entry, so a maliciously crafted small ZIP with an extreme
+ * compression ratio (a decompression bomb) is rejected without ever
+ * allocating the expanded buffer.
+ */
+const MAX_ENTRY_UNCOMPRESSED_SIZE = 200 * 1024 * 1024;
+
+/** Reject `..` segments and absolute paths (POSIX or Windows-drive-letter). */
+function isSafeArchivePath(name: string): boolean {
+  if (name.startsWith('/') || name.startsWith('\\')) return false;
+  if (/^[a-zA-Z]:/.test(name)) return false;
+  return !name.split(/[/\\]/).some((segment) => segment === '..');
+}
+
+/**
+ * Unzip with decompression-bomb and path-traversal guards. Rejects the
+ * whole archive (rather than silently skipping entries) so restore never
+ * partially applies content from a hostile archive.
+ */
+function safeUnzip(bytes: Uint8Array): Record<string, Uint8Array> {
+  let rejectionReason: string | null = null;
+  const files = unzipSync(bytes, {
+    filter(file) {
+      if (rejectionReason) return false;
+      if (!isSafeArchivePath(file.name)) {
+        rejectionReason = `Archive entry has an unsafe path: ${file.name}`;
+        return false;
+      }
+      if (file.originalSize > MAX_ENTRY_UNCOMPRESSED_SIZE) {
+        rejectionReason = `Archive entry exceeds the maximum allowed size (possible decompression bomb): ${file.name}`;
+        return false;
+      }
+      return true;
+    },
+  });
+  if (rejectionReason) throw new Error(rejectionReason);
+  return files;
+}
 
 /**
  * Restore from an archive buffer. This is the main entry point for restore.
@@ -72,8 +113,9 @@ export async function restoreArchive(
   onProgress?.('extracting', 0.3);
   let files: Record<string, Uint8Array>;
   try {
-    files = unzipSync(archiveBytes);
-  } catch {
+    files = safeUnzip(archiveBytes);
+  } catch (err) {
+    if (err instanceof Error && /unsafe path|decompression bomb/i.test(err.message)) throw err;
     throw new Error('Invalid ZIP archive');
   }
 
@@ -167,7 +209,7 @@ export async function validateArchive(bytes: Uint8Array): Promise<{
       return { valid: false, error: 'Archive exceeds maximum size' };
     }
 
-    const files = unzipSync(bytes);
+    const files = safeUnzip(bytes);
     const manifestBytes = files['manifest.json'];
     if (!manifestBytes) {
       return { valid: false, error: 'Missing manifest.json' };
@@ -191,7 +233,10 @@ export async function validateArchive(bytes: Uint8Array): Promise<{
     }
 
     return { valid: true, manifest };
-  } catch {
+  } catch (err) {
+    if (err instanceof Error && /unsafe path|decompression bomb/i.test(err.message)) {
+      return { valid: false, error: err.message };
+    }
     return { valid: false, error: 'Invalid ZIP archive' };
   }
 }

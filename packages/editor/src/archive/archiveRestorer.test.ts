@@ -5,13 +5,10 @@
  * and restore application.
  */
 
-import { strToU8 } from 'fflate';
 import type { Document } from '@strata/scene';
+import { strToU8 } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { ArchiveManifest, SettingsBackupEntry } from './archiveTypes';
-import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
 import { buildArchive } from './archiveBuilder';
-import { encryptBytes } from './encryption';
 import {
   applyRestore,
   decryptArchive,
@@ -21,6 +18,9 @@ import {
   restoreArchive,
   validateArchive,
 } from './archiveRestorer';
+import type { ArchiveManifest, SettingsBackupEntry } from './archiveTypes';
+import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
+import { encryptBytes } from './encryption';
 
 function makeTestDocument(): Document {
   return {
@@ -171,6 +171,52 @@ describe('archiveRestorer', () => {
       const result = await validateArchive(zip);
       expect(result.valid).toBe(false);
       expect(result.error).toContain('Missing manifest');
+    });
+
+    it('rejects entries with path-traversal names before extracting anything', async () => {
+      const { zipSync } = await import('fflate');
+      const files: Record<string, Uint8Array> = {
+        'manifest.json': strToU8(
+          JSON.stringify({
+            formatVersion: ARCHIVE_FORMAT_VERSION,
+            kind: 'settings-only',
+            appVersion: '0.1.0',
+            createdAt: new Date().toISOString(),
+            checksums: {},
+            compatibility: { minAppVersion: '0.1.0', flags: [] },
+          }),
+        ),
+        '../../../../etc/passwd': strToU8('malicious'),
+      };
+      const zip = zipSync(files);
+      const result = await validateArchive(zip);
+      expect(result.valid).toBe(false);
+      expect(result.error).toMatch(/unsafe path/i);
+    });
+
+    it('rejects entries whose declared uncompressed size exceeds the per-entry cap', async () => {
+      const { zipSync } = await import('fflate');
+      // A highly compressible payload — small on disk, declares a huge
+      // originalSize once fflate reads its local header. The filter must
+      // reject it using that declared size, without inflating it first.
+      const bomb = new Uint8Array(210 * 1024 * 1024); // zeros compress extremely well
+      const files: Record<string, Uint8Array> = {
+        'manifest.json': strToU8(
+          JSON.stringify({
+            formatVersion: ARCHIVE_FORMAT_VERSION,
+            kind: 'settings-only',
+            appVersion: '0.1.0',
+            createdAt: new Date().toISOString(),
+            checksums: {},
+            compatibility: { minAppVersion: '0.1.0', flags: [] },
+          }),
+        ),
+        'assets/huge.bin': bomb,
+      };
+      const zip = zipSync(files, { level: 9 });
+      const result = await validateArchive(zip);
+      expect(result.valid).toBe(false);
+      expect(result.error).toMatch(/decompression bomb/i);
     });
   });
 

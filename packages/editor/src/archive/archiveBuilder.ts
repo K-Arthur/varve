@@ -18,13 +18,13 @@
  * Sketch .sketch archive format.
  */
 
-import { DocumentCodec, type Document } from '@strata/scene';
+import { type Document, DocumentCodec } from '@strata/scene';
 import { strToU8, zipSync } from 'fflate';
 import type {
   ArchiveBuildOptions,
   ArchiveBuildResult,
-  ArchiveManifest,
   ArchiveKind,
+  ArchiveManifest,
   SettingsBackupEntry,
   SettingsCategory,
 } from './archiveTypes';
