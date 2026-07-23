@@ -37,12 +37,12 @@
 import { getInferenceWorkerHost } from '../inference/inferenceWorkerHost';
 import { decodeTextRegions, padToStride } from '../inference/models/paddleocr';
 import { ctcDecode, preprocessPaddleRec } from '../inference/models/paddlerec';
-import { preprocessTrOcr, postprocessTrOcr } from '../inference/models/trocr';
+import { postprocessTrOcr, preprocessTrOcr } from '../inference/models/trocr';
 import { loadOcrDictionary } from '../inference/ocrDictionary';
-import { validateDictionary, getOcrModelConfig } from './modelMetadata';
+import { getOcrModelConfig, validateDictionary } from './modelMetadata';
 import {
-  detectOrientationFromRegions,
   detectOrientationFromPixels,
+  detectOrientationFromRegions,
   mapCoordsThroughRotation,
 } from './orientation';
 import type { OcrOptions, OcrResult, OcrWord, OrientationResult } from './types';

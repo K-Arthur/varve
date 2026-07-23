@@ -155,6 +155,26 @@ export {
 } from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
+// ── Content-Aware Fill ─────────────────────────────────────────────
+export type {
+  ContentAwareFillOptions,
+  ContentAwareFillOutputMode,
+  ContentAwareFillQuality,
+  ContentAwareFillResult,
+  FillTransform,
+} from './contentAwareFill';
+export {
+  applyFillTransform,
+  compositeFillResult,
+  computeFillOffset,
+  computeMaskBounds,
+  extractBoundedContext,
+  mapMaskThroughTransform,
+  patchMatchFill,
+  runContentAwareFillPipeline,
+  runLaMaInference,
+  unmapFillResult,
+} from './contentAwareFill';
 export type {
   DenoiseOptions,
   DenoiseResult,
@@ -499,22 +519,22 @@ export {
   setLum,
   setSat,
 } from './nonSeparable';
+export { getOcrModelConfig, validateDictionary } from './ocrPipeline/modelMetadata';
+export {
+  detectOrientationFromPixels,
+  detectOrientationFromRegions,
+  mapCoordsThroughRotation,
+  rotateImageData,
+} from './ocrPipeline/orientation';
 // ── OCR (PaddleOCR v4) ───────────────────────────────────────────────
 export { runOcrPipeline } from './ocrPipeline/pipeline';
 export type {
+  OcrModelConfig,
   OcrOptions,
   OcrResult,
   OcrWord,
-  OcrModelConfig,
   OrientationResult,
 } from './ocrPipeline/types';
-export { getOcrModelConfig, validateDictionary } from './ocrPipeline/modelMetadata';
-export {
-  detectOrientationFromRegions,
-  detectOrientationFromPixels,
-  rotateImageData,
-  mapCoordsThroughRotation,
-} from './ocrPipeline/orientation';
 export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
@@ -574,6 +594,15 @@ export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
+export type {
+  ThumbnailBackground,
+  ThumbnailFit,
+  ThumbnailMetadata,
+  ThumbnailOptions as UnifiedThumbnailOptions,
+  ThumbnailResult,
+  ThumbnailSource,
+} from './thumbnail/index';
+export { generateThumbnail } from './thumbnail/index';
 export type { BezierFitOptions } from './traceBezierFit';
 export { fitBezierToContour } from './traceBezierFit';
 export { traceSceneNodeOutline } from './tracing';
