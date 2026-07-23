@@ -93,6 +93,40 @@ describe('encryption', () => {
       const decrypted = await decryptBytes(encrypted, password);
       expect(arraysEqual(decrypted, data)).toBe(true);
     });
+
+    it('round-trips data spanning multiple chunks (chunked STREAM construction)', async () => {
+      // CHUNK_SIZE is 1 MiB — this forces at least 3 chunks, exercising the
+      // per-chunk nonce derivation and the mid-stream/final AAD marker.
+      const data = new Uint8Array(2.5 * 1024 * 1024);
+      for (let i = 0; i < data.length; i++) data[i] = i % 251;
+      const encrypted = await encryptBytes(data, password);
+      const decrypted = await decryptBytes(encrypted, password);
+      expect(arraysEqual(decrypted, data)).toBe(true);
+    });
+
+    it('rejects a truncated ciphertext (dropped final chunk) instead of returning a shorter file', async () => {
+      const data = new Uint8Array(2.5 * 1024 * 1024);
+      for (let i = 0; i < data.length; i++) data[i] = i % 251;
+      const encrypted = await encryptBytes(data, password);
+      // Drop everything after the first full chunk (salt+baseNonce+chunkSize
+      // header, plus exactly one ciphertext+tag chunk) — a naive
+      // non-authenticated framing would happily decrypt this as a valid,
+      // just-shorter file.
+      const headerAndOneChunk = 32 + (1024 * 1024 + 16);
+      const truncated = encrypted.slice(0, headerAndOneChunk);
+      await expect(decryptBytes(truncated, password)).rejects.toThrow();
+    });
+
+    it('rejects tampering with the unauthenticated chunk-size header field', async () => {
+      const data = new TextEncoder().encode('Header tamper test');
+      const encrypted = await encryptBytes(data, password);
+      const tampered = new Uint8Array(encrypted);
+      // Byte 29 is inside the chunk-size field (offset 28..32), not the
+      // GCM-protected ciphertext — a design that only authenticates the
+      // ciphertext body would let this slip through.
+      tampered[29] ^= 0xff;
+      await expect(decryptBytes(tampered, password)).rejects.toThrow();
+    });
   });
 
   describe('computeChecksum', () => {
