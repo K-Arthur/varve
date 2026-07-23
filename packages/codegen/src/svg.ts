@@ -777,13 +777,54 @@ function nodeToSvgTag(
         const img = imgFill.image;
         const par = fitToPreserveAspectRatio(img.fit);
         const href = escapeXml(img.src);
+
+        // Build image transform for rotation/flip (applied in node-local space).
+        const transforms: string[] = [];
+        if (img.rotation) {
+          // Rotate around the center of the image bounds
+          const cx = s.kind === 'rect' ? s.w / 2 : shapeBounds(s).x + shapeBounds(s).width / 2;
+          const cy = s.kind === 'rect' ? s.h / 2 : shapeBounds(s).y + shapeBounds(s).height / 2;
+          transforms.push(`rotate(${img.rotation.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})`);
+        }
+        if (img.flipH) {
+          const cx = s.kind === 'rect' ? s.w / 2 : shapeBounds(s).x + shapeBounds(s).width / 2;
+          transforms.push(
+            `translate(${cx.toFixed(2)} 0) scale(-1 1) translate(${-cx.toFixed(2)} 0)`,
+          );
+        }
+        if (img.flipV) {
+          const cy = s.kind === 'rect' ? s.h / 2 : shapeBounds(s).y + shapeBounds(s).height / 2;
+          transforms.push(
+            `translate(0 ${cy.toFixed(2)}) scale(1 -1) translate(0 ${-cy.toFixed(2)})`,
+          );
+        }
+        const imgTransform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
+
+        // Build crop clip path if crop is set
+        let cropClipAttr = '';
+        let cropClipDef = '';
+        if (img.crop && img.imageWidth && img.imageHeight) {
+          const cropClipId = `crop-${node.id}`;
+          // Map source-pixel crop to node-local coordinates
+          const scaleX =
+            s.kind === 'rect' ? s.w / img.imageWidth : shapeBounds(s).width / img.imageWidth;
+          const scaleY =
+            s.kind === 'rect' ? s.h / img.imageHeight : shapeBounds(s).height / img.imageHeight;
+          const cx = img.crop.x * scaleX;
+          const cy = img.crop.y * scaleY;
+          const cw = img.crop.w * scaleX;
+          const ch = img.crop.h * scaleY;
+          cropClipDef = `${indent}  <clipPath id="${cropClipId}"><rect x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" /></clipPath>\n`;
+          cropClipAttr = ` clip-path="url(#${cropClipId})"`;
+        }
+
         let shapeInner: string;
         if (s.kind === 'rect') {
-          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${cropClipAttr}${imgTransform}${compositingSuffix} />`;
         } else {
           const clipId = `clip-${node.id}`;
           const bounds = shapeBounds(s);
-          shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
+          shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${cropClipDef}${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})"${cropClipAttr}${imgTransform} />\n${indent}</g>`;
         }
         return buildMaskedNode(
           comment

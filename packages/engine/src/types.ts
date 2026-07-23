@@ -385,6 +385,14 @@ export interface EngineGradientFill {
   tilingMode?: GradientTilingMode;
 }
 
+/** Crop window in source-pixel coordinates (mirrors scene ImageCropRect). */
+export interface EngineImageCropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface EngineImageFillData {
   src: string;
   fit: 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
@@ -395,6 +403,18 @@ export interface EngineImageFillData {
   imageWidth?: number;
   /** Natural image height in pixels. When omitted, fill bounds height is used. */
   imageHeight?: number;
+  /**
+   * Non-destructive crop window in source-pixel coordinates. When set, only
+   * the region [x,y,w,h] of the source image is visible. Stored on the fill
+   * (not baked into node geometry) so it survives save/reopen.
+   */
+  crop?: EngineImageCropRect;
+  /** Rotation of image content in degrees clockwise. Applied before placement. */
+  rotation?: number;
+  /** Horizontal flip of image content. Applied before placement. */
+  flipH?: boolean;
+  /** Vertical flip of image content. Applied before placement. */
+  flipV?: boolean;
 }
 
 export interface EnginePatternFillData {
@@ -885,6 +905,14 @@ export type FillIR =
       scale: number;
       imageWidth?: number;
       imageHeight?: number;
+      /** Non-destructive crop window in source-pixel coordinates. */
+      crop?: EngineImageCropRect;
+      /** Rotation of image content in degrees clockwise. */
+      rotation?: number;
+      /** Horizontal flip of image content. */
+      flipH?: boolean;
+      /** Vertical flip of image content. */
+      flipV?: boolean;
       opacity: number;
       blendMode: BlendMode;
       visible: boolean;

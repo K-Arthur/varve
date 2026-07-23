@@ -413,6 +413,29 @@ export interface GradientFill {
 export type ImageFit = 'fill' | 'fit' | 'stretch' | 'tile' | 'crop';
 
 /**
+ * Non-destructive crop window in source-pixel coordinates.
+ *
+ * Defines the visible region of the source image. Pixels outside this
+ * rectangle are hidden but preserved — the crop can be re-edited, reset,
+ * or removed without losing source data. When undefined, the entire source
+ * image is visible.
+ *
+ * Coordinates are in the source image's natural pixel space (0,0 = top-left
+ * of the full decoded image, before any EXIF rotation is applied by the
+ * renderer).
+ */
+export interface ImageCropRect {
+  /** X offset from source image left edge, in source pixels. */
+  x: number;
+  /** Y offset from source image top edge, in source pixels. */
+  y: number;
+  /** Width of the crop window in source pixels. */
+  w: number;
+  /** Height of the crop window in source pixels. */
+  h: number;
+}
+
+/**
  * Where an asset's bytes live. Only 'embedded' ships today; 'linked' (an
  * external file resolved by path + fingerprint) is a deliberate future
  * addition — see docs/audits/smart-object-feasibility-audit.md. The record
@@ -475,7 +498,29 @@ export interface ImageFillData {
   imageWidth?: number;
   /** Natural image height in pixels. When omitted, the node bounds height is used. */
   imageHeight?: number;
-  /** Opacity multiplier specific to the image (combined with Fill.opacity). */
+  /**
+   * Non-destructive crop window in source-pixel coordinates.
+   *
+   * Defines which rectangular region of the source image is visible. When
+   * undefined, the entire source image is shown. The crop is stored on the
+   * fill (not baked into node geometry) so it can be re-edited, reset, or
+   * removed after save/reopen without losing source pixels.
+   *
+   * Coordinate space: (0,0) = top-left of the full decoded source image.
+   * The crop rect must satisfy 0 ≤ x, 0 ≤ y, x + w ≤ imageWidth,
+   * y + h ≤ imageHeight (enforced by validateImageCropRect).
+   */
+  crop?: ImageCropRect;
+  /**
+   * Rotation of the image content within the node, in degrees clockwise.
+   * Applied to the source pixels before fit/placement math. Stored on the
+   * fill so it is independent of the node's object-space transform.
+   */
+  rotation?: number;
+  /** Horizontal flip of the image content. Applied before fit/placement. */
+  flipH?: boolean;
+  /** Vertical flip of the image content. Applied before fit/placement. */
+  flipV?: boolean;
 }
 
 export interface PatternFillData {
@@ -1294,4 +1339,64 @@ export function shapeHeight(shape: Shape): number {
       return Math.max(...ys) - Math.min(...ys);
     }
   }
+}
+
+// ── Image crop + transform validation ──────────────────────────────────────
+
+/** Clamp a crop rect to be within the source image bounds. */
+export function clampImageCropRect(
+  crop: ImageCropRect,
+  sourceWidth: number,
+  sourceHeight: number,
+): ImageCropRect {
+  const sw = Math.max(1, sourceWidth);
+  const sh = Math.max(1, sourceHeight);
+  const x = Math.max(0, Math.min(crop.x, sw - 1));
+  const y = Math.max(0, Math.min(crop.y, sh - 1));
+  const w = Math.max(1, Math.min(crop.w, sw - x));
+  const h = Math.max(1, Math.min(crop.h, sh - y));
+  return { x, y, w, h };
+}
+
+/** Returns true if the crop rect covers the entire source image (or is degenerate). */
+export function isFullImageCrop(
+  crop: ImageCropRect | undefined,
+  sourceWidth: number,
+  sourceHeight: number,
+): boolean {
+  if (!crop) return true;
+  const sw = Math.max(1, sourceWidth);
+  const sh = Math.max(1, sourceHeight);
+  return crop.x <= 0 && crop.y <= 0 && crop.w >= sw && crop.h >= sh;
+}
+
+/** Validate and normalize an image crop rect. Returns undefined for full-image crops. */
+export function normalizeImageCropRect(
+  crop: ImageCropRect | undefined,
+  sourceWidth: number,
+  sourceHeight: number,
+): ImageCropRect | undefined {
+  if (!crop) return undefined;
+  if (
+    !Number.isFinite(crop.x) ||
+    !Number.isFinite(crop.y) ||
+    !Number.isFinite(crop.w) ||
+    !Number.isFinite(crop.h)
+  ) {
+    return undefined;
+  }
+  const clamped = clampImageCropRect(crop, sourceWidth, sourceHeight);
+  if (isFullImageCrop(clamped, sourceWidth, sourceHeight)) return undefined;
+  return clamped;
+}
+
+/** Validate image rotation is finite. Normalizes to [0, 360). */
+export function normalizeImageRotation(rotation: number | undefined): number | undefined {
+  if (rotation === undefined) return undefined;
+  if (!Number.isFinite(rotation)) return undefined;
+  // Normalize to [0, 360) to avoid drift
+  const normalized = ((rotation % 360) + 360) % 360;
+  // Snap near-zero to 0
+  if (Math.abs(normalized) < 1e-6 || Math.abs(normalized - 360) < 1e-6) return 0;
+  return normalized;
 }

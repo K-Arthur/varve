@@ -55,6 +55,17 @@ pub struct CmykFallback {
     pub k: f64,
 }
 
+/// Mirrors TS `EngineImageCropRect` — non-destructive crop window in
+/// source-pixel coordinates.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CropRect {
+    pub x: f64,
+    pub y: f64,
+    pub w: f64,
+    pub h: f64,
+}
+
 /// Mirrors the TS `EngineColor` discriminated union tagged by `"space"`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "space")]
@@ -179,6 +190,18 @@ pub enum FillIR {
         visible: bool,
         #[serde(default, skip_serializing_if = "Option::is_none", rename = "alphaMask")]
         alpha_mask: Option<String>,
+        /// Non-destructive crop rect in source-pixel coordinates.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        crop: Option<CropRect>,
+        /// Image content rotation in degrees clockwise.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
+        /// Horizontal flip of image content.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "flipH")]
+        flip_h: Option<bool>,
+        /// Vertical flip of image content.
+        #[serde(default, skip_serializing_if = "Option::is_none", rename = "flipV")]
+        flip_v: Option<bool>,
     },
     #[serde(rename = "pattern")]
     Pattern {

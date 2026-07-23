@@ -102,6 +102,29 @@ describe('ColorizeSection', () => {
     expect(screen.getByLabelText('Saturation scale')).toBeTruthy();
   });
 
+  it('renders quality mode buttons', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByRole('radio', { name: 'Fast' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Balanced' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Quality' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Automatic' })).toBeTruthy();
+  });
+
+  it('renders chroma slider for recolor workflow', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByLabelText(/chroma strength/i)).toBeTruthy();
+  });
+
+  it('renders skin protection checkbox for recolor workflow', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByText('Skin tone protection')).toBeTruthy();
+  });
+
+  it('renders neutral protection checkbox for recolor workflow', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByText('Neutral region protection')).toBeTruthy();
+  });
+
   it('renders palette hint when palette workflow selected', () => {
     render(<ColorizeSection nodes={[makeImageNode()]} />);
     const select = screen.getByLabelText('Colorization workflow');
@@ -143,7 +166,12 @@ describe('ColorizeSection', () => {
     expect(screen.queryByRole('button', { name: /cancel/i })).toBeNull();
   });
 
-  it('shows returns null when no node provided', () => {
+  it('shows DDColor model hint when no models available', () => {
+    render(<ColorizeSection nodes={[makeImageNode()]} />);
+    expect(screen.getByText(/DDColor model not yet available/i)).toBeTruthy();
+  });
+
+  it('returns null when no node provided', () => {
     const { container } = render(<ColorizeSection nodes={[]} />);
     expect(container.innerHTML).toBe('');
   });

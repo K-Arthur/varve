@@ -1,9 +1,19 @@
 /**
  * Tests for non-destructive image crop commit math.
+ *
+ * Crop is stored on the image fill in source-pixel coordinates, NOT baked
+ * into node geometry. Node bounds are preserved.
  */
 import { createDocument, makeImageShapeNode, makeShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { commitImageCrop, translateAffine, trimToSubject } from './imageCrop';
+import {
+  commitImageCrop,
+  resetImageCrop,
+  setImageFlip,
+  setImageRotation,
+  translateAffine,
+  trimToSubject,
+} from './imageCrop';
 
 describe('translateAffine', () => {
   it('adds local translation through identity', () => {
@@ -24,12 +34,14 @@ describe('commitImageCrop', () => {
     expect(commitImageCrop(doc, 'r', { x: 10, y: 10, w: 50, h: 40 })).toBe(doc);
   });
 
-  it('shrinks rect and shifts transform', () => {
+  it('stores crop on fill in source pixels — node bounds preserved', () => {
     let doc = createDocument('t', true);
     const img = makeImageShapeNode('i1', {
       src: 'data:image/png;base64,AA',
       w: 200,
       h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
       transform: [1, 0, 0, 1, 50, 60],
     });
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
@@ -37,9 +49,17 @@ describe('commitImageCrop', () => {
     const n = next.nodes.i1!;
     expect(n.kind).toBe('shape');
     if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
-    expect(n.shape.w).toBe(100);
-    expect(n.shape.h).toBe(50);
-    expect(n.transform).toEqual([1, 0, 0, 1, 70, 70]);
+    // Node bounds preserved (crop is on the fill, not baked into geometry)
+    expect(n.shape.w).toBe(200);
+    expect(n.shape.h).toBe(100);
+    expect(n.transform).toEqual([1, 0, 0, 1, 50, 60]);
+    // Crop stored in source-pixel coordinates
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    expect(crop!.x).toBeCloseTo((20 / 200) * 400);
+    expect(crop!.y).toBeCloseTo((10 / 100) * 200);
+    expect(crop!.w).toBeCloseTo((100 / 200) * 400);
+    expect(crop!.h).toBeCloseTo((50 / 100) * 200);
   });
 
   it('preserves image src and backgroundRemoval', () => {
@@ -63,33 +83,20 @@ describe('commitImageCrop', () => {
     expect(n.backgroundRemoval?.maskDataUrl).toBe('data:image/png;base64,MASK');
   });
 
-  it('adjusts fill offset so mapped content stays put', () => {
+  it('no-ops when crop is full frame (normalized to undefined)', () => {
     let doc = createDocument('t', true);
-    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
-    // Force known fill offset
-    const withOffset = {
-      ...img,
-      fills: img.fills!.map((f) =>
-        f.type === 'image' && f.image
-          ? { ...f, image: { ...f.image, x: 0, y: 0, fit: 'fill' as const } }
-          : f,
-      ),
-    };
-    doc = { ...doc, nodes: { ...doc.nodes, i1: withOffset }, rootChildren: ['i1'] };
-    const next = commitImageCrop(doc, 'i1', { x: 25, y: 25, w: 50, h: 50 });
-    const n = next.nodes.i1!;
-    if (n.kind !== 'shape') throw new Error('shape');
-    const image = n.fills?.[0]?.image;
-    // x' = 0 + (100-50)/2 - 25 = 0
-    expect(image?.x).toBeCloseTo(0);
-    expect(image?.y).toBeCloseTo(0);
-  });
-
-  it('no-ops when crop is full frame', () => {
-    let doc = createDocument('t', true);
-    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 80, h: 60 });
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 80,
+      h: 60,
+      imageWidth: 80,
+      imageHeight: 60,
+    });
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
-    expect(commitImageCrop(doc, 'i1', { x: 0, y: 0, w: 80, h: 60 })).toBe(doc);
+    const next = commitImageCrop(doc, 'i1', { x: 0, y: 0, w: 80, h: 60 });
+    // Full-frame crop is normalized to undefined → no change
+    const n = next.nodes.i1!;
+    expect(n.fills?.[0]?.image?.crop).toBeUndefined();
   });
 
   it('preserves raster mask through crop', () => {
@@ -149,9 +156,15 @@ describe('trimToSubject', () => {
     expect(await trimToSubject(doc, 'r')).toBe(doc);
   });
 
-  it('crops to explicitBounds directly (DETR-style detection box), bypassing mask/alpha lookup', async () => {
+  it('crops to explicitBounds — stores crop on fill, preserves node bounds', async () => {
     let doc = createDocument('t', true);
-    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 200, h: 100 });
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
 
     const next = await trimToSubject(doc, 'i1', 0, {
@@ -159,13 +172,27 @@ describe('trimToSubject', () => {
     });
     const n = next.nodes.i1!;
     if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
-    expect(n.shape.w).toBe(100);
-    expect(n.shape.h).toBe(50);
+    // Node bounds preserved
+    expect(n.shape.w).toBe(200);
+    expect(n.shape.h).toBe(100);
+    // Crop stored on fill
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    expect(crop!.x).toBeCloseTo(20);
+    expect(crop!.y).toBeCloseTo(10);
+    expect(crop!.w).toBeCloseTo(100);
+    expect(crop!.h).toBeCloseTo(50);
   });
 
   it('applies padding around explicitBounds before cropping', async () => {
     let doc = createDocument('t', true);
-    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 200, h: 100 });
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
 
     const next = await trimToSubject(doc, 'i1', 10, {
@@ -173,29 +200,51 @@ describe('trimToSubject', () => {
     });
     const n = next.nodes.i1!;
     if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
-    // padded: x=40,y=20,w=80,h=50 — well within the 200x100 frame, no clamping needed
-    expect(n.shape.w).toBe(80);
-    expect(n.shape.h).toBe(50);
+    // Node bounds preserved; crop stored on fill
+    expect(n.shape.w).toBe(200);
+    expect(n.shape.h).toBe(100);
+    const crop = n.fills?.[0]?.image?.crop;
+    // padded: x=40,y=20,w=80,h=50
+    expect(crop!.x).toBeCloseTo(40);
+    expect(crop!.y).toBeCloseTo(20);
+    expect(crop!.w).toBeCloseTo(80);
+    expect(crop!.h).toBeCloseTo(50);
   });
 
-  it('clamps bounds that would extend past the frame', async () => {
+  it('clamps crop that would extend past the source bounds', async () => {
     let doc = createDocument('t', true);
-    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 100,
+      h: 100,
+      imageWidth: 100,
+      imageHeight: 100,
+    });
     doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
 
-    // Padding pushes the box past the frame on every side.
+    // Padding pushes the box past the frame on every side → clamped to source
     const next = await trimToSubject(doc, 'i1', 30, {
       explicitBounds: { x: 10, y: 10, w: 80, h: 80 },
     });
     const n = next.nodes.i1!;
     if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
-    expect(n.shape.w).toBeLessThanOrEqual(100);
-    expect(n.shape.h).toBeLessThanOrEqual(100);
+    // Node bounds preserved
+    expect(n.shape.w).toBe(100);
+    expect(n.shape.h).toBe(100);
+    // Crop clamped to source dimensions (full image → normalized to undefined)
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeUndefined();
   });
 
   it('trims to a vector mask (geometry-based, no image decode needed)', async () => {
     let doc = createDocument('t', true);
-    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 200, h: 100 });
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 200,
+      imageHeight: 100,
+    });
     const withMask = {
       ...img,
       mask: {
@@ -218,8 +267,15 @@ describe('trimToSubject', () => {
     const next = await trimToSubject(doc, 'i1');
     const n = next.nodes.i1!;
     if (n.kind !== 'shape' || n.shape.kind !== 'rect') throw new Error('expected rect');
-    expect(n.shape.w).toBe(100);
-    expect(n.shape.h).toBe(50);
+    // Node bounds preserved; crop stored on fill
+    expect(n.shape.w).toBe(200);
+    expect(n.shape.h).toBe(100);
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    expect(crop!.x).toBeCloseTo(20);
+    expect(crop!.y).toBeCloseTo(10);
+    expect(crop!.w).toBeCloseTo(100);
+    expect(crop!.h).toBeCloseTo(50);
   });
 
   it('falls back to resetToSourceBounds when no mask or explicit bounds are available', async () => {
@@ -237,5 +293,165 @@ describe('trimToSubject', () => {
     expect(fill?.x).toBe(0);
     expect(fill?.y).toBe(0);
     expect(fill?.scale).toBe(1);
+  });
+});
+
+describe('resetImageCrop', () => {
+  it('removes crop and resets fill transforms', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
+    });
+    // Apply a crop first
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    let next = commitImageCrop(doc, 'i1', { x: 20, y: 10, w: 100, h: 50 });
+    // Now reset
+    next = resetImageCrop(next, 'i1');
+    const n = next.nodes.i1!;
+    const fill = n.fills?.[0]?.image;
+    expect(fill?.crop).toBeUndefined();
+    expect(fill?.x).toBe(0);
+    expect(fill?.y).toBe(0);
+    expect(fill?.scale).toBe(1);
+    expect(fill?.fit).toBe('fill');
+  });
+
+  it('no-ops when no crop or transforms exist', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    expect(resetImageCrop(doc, 'i1')).toBe(doc);
+  });
+});
+
+describe('setImageRotation', () => {
+  it('stores rotation on the fill', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    const next = setImageRotation(doc, 'i1', 90);
+    const fill = next.nodes.i1?.fills?.[0]?.image;
+    expect(fill?.rotation).toBe(90);
+  });
+
+  it('normalizes negative rotation', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    const next = setImageRotation(doc, 'i1', -90);
+    const fill = next.nodes.i1?.fills?.[0]?.image;
+    expect(fill?.rotation).toBe(270);
+  });
+
+  it('removes rotation when set to 0', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    let next = setImageRotation(doc, 'i1', 90);
+    next = setImageRotation(next, 'i1', 0);
+    const fill = next.nodes.i1?.fills?.[0]?.image;
+    expect(fill?.rotation).toBeUndefined();
+  });
+});
+
+describe('non-rect shape cropping', () => {
+  it('crops ellipse shape with image fill', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 200,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
+    });
+    // Convert to ellipse shape
+    const ellipseNode = {
+      ...img,
+      shape: { kind: 'ellipse' as const, cx: 100, cy: 50, rx: 100, ry: 50 },
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: ellipseNode }, rootChildren: ['i1'] };
+    const next = commitImageCrop(doc, 'i1', { x: 20, y: 10, w: 100, h: 50 });
+    const n = next.nodes.i1!;
+    if (n.kind !== 'shape') throw new Error('expected shape');
+    expect(n.shape.kind).toBe('ellipse');
+    // Crop stored in source-pixel coordinates
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    expect(crop!.x).toBeCloseTo((20 / 200) * 400);
+    expect(crop!.y).toBeCloseTo((10 / 100) * 200);
+  });
+
+  it('crops circle shape with image fill', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 100,
+      h: 100,
+      imageWidth: 100,
+      imageHeight: 100,
+    });
+    const circleNode = {
+      ...img,
+      shape: { kind: 'circle' as const, cx: 50, cy: 50, r: 50 },
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: circleNode }, rootChildren: ['i1'] };
+    const next = commitImageCrop(doc, 'i1', { x: 10, y: 10, w: 80, h: 80 });
+    const n = next.nodes.i1!;
+    if (n.kind !== 'shape') throw new Error('expected shape');
+    expect(n.shape.kind).toBe('circle');
+    const crop = n.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    expect(crop!.x).toBeCloseTo(10);
+    expect(crop!.y).toBeCloseTo(10);
+  });
+
+  it('preserves backgroundRemoval through crop', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 100,
+      h: 100,
+      imageWidth: 100,
+      imageHeight: 100,
+    });
+    const withBgRemoval = {
+      ...img,
+      backgroundRemoval: {
+        method: 'quick' as const,
+        maskDataUrl: 'data:image/png;base64,MASK',
+        confidence: 0.95,
+        appliedAt: Date.now(),
+      },
+    };
+    doc = { ...doc, nodes: { ...doc.nodes, i1: withBgRemoval }, rootChildren: ['i1'] };
+    const next = commitImageCrop(doc, 'i1', { x: 10, y: 10, w: 50, h: 50 });
+    const n = next.nodes.i1!;
+    expect(n.backgroundRemoval).toBeDefined();
+    expect(n.backgroundRemoval!.method).toBe('quick');
+    expect(n.backgroundRemoval!.maskDataUrl).toBe('data:image/png;base64,MASK');
+  });
+});
+
+describe('setImageFlip', () => {
+  it('toggles horizontal flip', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    let next = setImageFlip(doc, 'i1', 'horizontal');
+    expect(next.nodes.i1?.fills?.[0]?.image?.flipH).toBe(true);
+    next = setImageFlip(next, 'i1', 'horizontal');
+    expect(next.nodes.i1?.fills?.[0]?.image?.flipH).toBe(false);
+  });
+
+  it('toggles vertical flip', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,AA', w: 100, h: 100 });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    const next = setImageFlip(doc, 'i1', 'vertical');
+    expect(next.nodes.i1?.fills?.[0]?.image?.flipV).toBe(true);
   });
 });

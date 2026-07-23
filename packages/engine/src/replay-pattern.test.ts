@@ -35,6 +35,7 @@ function target(overrides: Partial<ReplayTarget> = {}): ReplayTarget {
     transform: () => undefined,
     translate: () => undefined,
     rotate: () => undefined,
+    scale: () => undefined,
     fillRect: () => undefined,
     strokeRect: () => undefined,
     beginPath: () => undefined,

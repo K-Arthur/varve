@@ -21,7 +21,14 @@ import type {
   PatternFillData,
   SceneNode,
 } from '@strata/scene';
-import { gradientFill, imageFill, patternFill, resolveNodeFills, solidFill } from '@strata/scene';
+import {
+  createEmbeddedAsset,
+  gradientFill,
+  imageFill,
+  patternFill,
+  resolveNodeFills,
+  solidFill,
+} from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { Icon, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -441,7 +448,18 @@ function FillRow({
         <ImageFillControls
           image={fill.image}
           onChange={(img: ImageFillData) => patch({ image: img })}
-          registerAsset={(input) => input.dataUrl}
+          registerAsset={(input) => {
+            const asset = createEmbeddedAsset(input);
+            // Dedup: if the asset already exists, reuse its id
+            const existing = editor.state.document.assets?.[asset.id];
+            if (!existing) {
+              editor.updateDoc((doc) => ({
+                ...doc,
+                assets: { ...doc.assets, [asset.id]: asset },
+              }));
+            }
+            return asset.id;
+          }}
         />
       )}
 

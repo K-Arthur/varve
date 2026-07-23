@@ -104,6 +104,22 @@ export function registerEditorActions(
     );
   }
 
+  const panelActions = [
+    ['openInspectorProperties', 'Open Properties', ['inspector', 'selection', 'properties']],
+    ['openAppearancePanel', 'Open Appearance', ['effects', 'mask', 'paint', 'styles']],
+    ['openAdjustmentsPanel', 'Open Adjustments', ['image', 'retouch', 'enhance', 'ai']],
+    ['openPrototypePanel', 'Open Prototype', ['interaction', 'flow', 'trigger']],
+    ['openDocumentPanel', 'Open Document Settings', ['canvas', 'color mode', 'document']],
+    ['openExportPanel', 'Open Export', ['asset', 'png', 'svg', 'pdf']],
+    ['openInspectPanel', 'Open Inspect', ['spec', 'handoff', 'measure', 'code']],
+    ['openAuditPanel', 'Open Audit', ['accessibility', 'quality', 'score']],
+  ] as const;
+  for (const [id, label, keywords] of panelActions) {
+    reg(id, label, 'panel', handlers[id] ?? (() => {}));
+    const action = r.get(id);
+    if (action) action.keywords = [...keywords];
+  }
+
   reg('toggleLeftPanel', 'Toggle Layers Panel', 'panel', () => ctx.toggleLeftPanel());
   reg('toggleRightPanel', 'Toggle Inspector Panel', 'panel', () => ctx.toggleRightPanel());
   reg('home', 'Go to Home', 'file', () => {});
