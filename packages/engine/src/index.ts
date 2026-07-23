@@ -22,6 +22,13 @@ export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
+export {
+  anyRequiresRasterExport,
+  effectPixelExpansion,
+  getFilterProperties,
+  requiresRasterExport,
+  totalEffectExpansion,
+} from './adjustmentPipeline';
 export type { AlphaContour, ContourOptions, ContourShapeNodeData } from './alphaContour';
 export { alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 export type {
@@ -173,6 +180,7 @@ export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
+export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,
