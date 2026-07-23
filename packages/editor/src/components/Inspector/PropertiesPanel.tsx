@@ -62,7 +62,6 @@ import { OcrSection } from './sections/OcrSection';
 import { PaintLibrarySection } from './sections/PaintLibrarySection';
 import { PaletteSection } from './sections/PaletteSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
-import { StateMachineSection } from './sections/StateMachineSection';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
@@ -163,7 +162,6 @@ export function PropertiesPanel() {
           )}
           {summary.kind === 'single' && <SingleSelectionPanel nodes={selNodes} />}
           {summary.kind === 'multi' && <MultiSelectionPanel nodes={selNodes} summary={summary} />}
-          <StateMachineSection />
         </div>
       )}
 

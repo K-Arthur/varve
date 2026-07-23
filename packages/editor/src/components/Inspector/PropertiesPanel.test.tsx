@@ -91,4 +91,20 @@ describe('PropertiesPanel section gating for a real single selection', () => {
       expect(screen.queryByRole('button', { name: title })).toBeNull();
     }
   });
+
+  it('does not render the State Machine section inline (moved to its own panel)', async () => {
+    // State machines are document-wide (document.stateMachines), not tied to
+    // the current selection — it previously rendered unconditionally at the
+    // bottom of every properties-tab view regardless of selection. It now
+    // lives in its own dialog, opened via toggleStateMachinePanel.
+    await renderPanelWithSelectedRect();
+    expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
+  });
+});
+
+describe('PropertiesPanel empty selection', () => {
+  it('does not render the State Machine section inline', () => {
+    renderPanel();
+    expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
+  });
 });
