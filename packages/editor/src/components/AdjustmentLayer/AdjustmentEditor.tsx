@@ -13,6 +13,7 @@ import { Select } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
+import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
 import './adjustment.css';
 
 export interface AdjustmentEditorProps {
@@ -613,14 +614,36 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
   }
 }
 
+// LevelsAdjustment (document model: inputShadows/inputMidtones/inputHighlights/
+// outputShadows/outputHighlights) and HistogramWidget's LevelParams (inputBlack/
+// gamma/inputWhite/outputBlack/outputWhite) are the same five concepts under
+// different names — no unit/space conversion, just a field-rename adapter.
+function levelsAdjustmentToParams(
+  adj: import('@strata/scene').LevelsAdjustment,
+): import('@strata/engine').LevelParams {
+  return {
+    inputBlack: adj.inputShadows,
+    gamma: adj.inputMidtones,
+    inputWhite: adj.inputHighlights,
+    outputBlack: adj.outputShadows,
+    outputWhite: adj.outputHighlights,
+  };
+}
+
+function paramsToLevelsAdjustmentPatch(
+  params: import('@strata/engine').LevelParams,
+): Partial<import('@strata/scene').LevelsAdjustment> {
+  return {
+    inputShadows: params.inputBlack,
+    inputMidtones: params.gamma,
+    inputHighlights: params.inputWhite,
+    outputShadows: params.outputBlack,
+    outputHighlights: params.outputWhite,
+  };
+}
+
 function LevelsEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').LevelsAdjustment;
-  const handleNumber = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number.parseFloat(e.target.value);
-    if (!Number.isNaN(v)) {
-      onChange({ [key]: v } as unknown as Partial<Adjustment>);
-    }
-  };
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
@@ -641,67 +664,10 @@ function LevelsEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={handleSelect('channel')}
         />
       </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Input Shadows</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.inputShadows}
-          onChange={handleNumber('inputShadows')}
-          min={0}
-          max={255}
-          aria-label="Input shadows"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Input Midtones</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.inputMidtones}
-          onChange={handleNumber('inputMidtones')}
-          min={0.01}
-          max={9.99}
-          step={0.01}
-          aria-label="Input midtones"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Input Highlights</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.inputHighlights}
-          onChange={handleNumber('inputHighlights')}
-          min={0}
-          max={255}
-          aria-label="Input highlights"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Output Shadows</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.outputShadows}
-          onChange={handleNumber('outputShadows')}
-          min={0}
-          max={255}
-          aria-label="Output shadows"
-        />
-      </div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Output Highlights</span>
-        <input
-          type="number"
-          className="adj-editor__number"
-          value={adj.outputHighlights}
-          onChange={handleNumber('outputHighlights')}
-          min={0}
-          max={255}
-          aria-label="Output highlights"
-        />
-      </div>
+      <HistogramWidget
+        levels={levelsAdjustmentToParams(adj)}
+        onChange={(params) => onChange(paramsToLevelsAdjustmentPatch(params))}
+      />
     </div>
   );
 }
