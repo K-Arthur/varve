@@ -36,6 +36,7 @@ import {
 } from './components/Shell';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
+import { StateMachinePanel } from './components/StateMachinePanel';
 import { EditorProvider, setToastHandler, useEditor } from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { LayersPanel } from './LayersPanel';
@@ -595,6 +596,12 @@ function ShellInner({
           onOnboardingReset={() => {
             resetOnboarding(platform);
           }}
+        />
+
+        {/* State Machine panel — document-wide, opt-in (see toggleStateMachinePanel) */}
+        <StateMachinePanel
+          open={editor.state.stateMachinePanelVisible}
+          onClose={editor.toggleStateMachinePanel}
         />
 
         {/* Export dialog + batch BG removal (self-contained) */}

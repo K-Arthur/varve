@@ -149,6 +149,7 @@ import {
   duplicateMaster as duplicateMasterDoc,
   duplicateSMState,
   fillSlot as fillSlotDoc,
+  findOrCreateEmbeddedAsset,
   flattenLiveTrace as flattenLiveTraceDoc,
   type Guide,
   activePageNodes as getActivePageNodes,
@@ -197,6 +198,7 @@ import {
   renameNode,
   renameSMState,
   reparentNode as reparentNodeDoc,
+  replaceNodesWithFlattened,
   resetInstanceOverrides as resetInstanceOverridesDoc,
   resolve,
   resolveGuidePageId,
@@ -1106,6 +1108,7 @@ export interface EditorContextValue {
   applyMotionPreset: (presetId: string, timelineId: string) => void;
   toggleAutoKeyframe: () => void;
   toggleGraphEditor: () => void;
+  toggleStateMachinePanel: () => void;
   deleteKeyframe: (timelineId: string, trackId: string, progress: number) => void;
   moveKeyframe: (
     timelineId: string,
@@ -1905,6 +1908,10 @@ export function EditorProvider({
       canvasMode: 'full',
       workspaceMode: 'design' as WorkspaceMode,
       graphEditorVisible: false,
+      // Hidden by default, same reasoning as timelinePanelVisible above:
+      // state machines are a document-wide prototyping workflow, opt-in via
+      // its own toggle rather than something every selection surfaces.
+      stateMachinePanelVisible: false,
       selectedGraphProperty: null,
       pendingFormat: null,
       selectionRange: null,
@@ -5088,6 +5095,64 @@ export function EditorProvider({
         updateDoc((doc) => detachInstanceDoc(doc, id));
       },
 
+      flattenSelected: (mode, scale) => {
+        const sel = state.selection;
+        if (sel.length === 0) {
+          announcerRef.current?.announce('Select layers to flatten');
+          return;
+        }
+        const opts: import('@strata/engine').FlattenOptions = {
+          mode,
+          scale: scale ?? 1,
+          background: 'transparent',
+          textPolicy: 'rasterize',
+        };
+        import('@strata/engine').then(({ flattenNodes }) => {
+          flattenNodes(state.document, sel, opts)
+            .then((result) => {
+              const replacementId = `flat-${Date.now()}`;
+              updateDoc((doc) => {
+                let d = replaceNodesWithFlattened(doc, sel, {
+                  nodeId: replacementId,
+                  bounds: result.sourceBounds,
+                  dataUrl: result.dataUrl,
+                  assetId: result.assetId,
+                  placement: result.placement,
+                  cssWidth: result.cssWidth,
+                  cssHeight: result.cssHeight,
+                });
+                d = findOrCreateEmbeddedAsset(d, {
+                  dataUrl: result.dataUrl,
+                  mimeType: 'image/png',
+                  naturalWidth: result.pixelWidth,
+                  naturalHeight: result.pixelHeight,
+                }).document;
+                return d;
+              });
+              announcerRef.current?.announce(
+                mode === 'rasterize'
+                  ? 'Selection rasterized'
+                  : mode === 'merge'
+                    ? 'Layers merged'
+                    : 'Selection flattened',
+              );
+            })
+            .catch((err) => {
+              announcerRef.current?.announce(
+                `Flatten failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+              );
+            });
+        });
+      },
+
+      rasterizeSelected: (scale) => {
+        value.flattenSelected('rasterize', scale);
+      },
+
+      mergeSelected: () => {
+        value.flattenSelected('merge', 1);
+      },
+
       createAdjustmentLayer: (initialAdjustments) => {
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
         redoStackRef.current = [];
@@ -6587,6 +6652,9 @@ export function EditorProvider({
       },
 
       // --- State machines ---
+      toggleStateMachinePanel: () => {
+        patch({ stateMachinePanelVisible: !stateRef.current.stateMachinePanelVisible });
+      },
       getStateMachines: () => {
         const sms = stateRef.current.document.stateMachines ?? {};
         return Object.values(sms);
@@ -7072,6 +7140,9 @@ export function EditorProvider({
       createClippingMaskFromSelected: value.createClippingMaskFromSelected,
       releaseClippingMaskFromSelected: value.releaseClippingMaskFromSelected,
       detachSelected: value.detachSelected,
+      flattenSelected: value.flattenSelected,
+      rasterizeSelected: value.rasterizeSelected,
+      mergeSelected: value.mergeSelected,
       copySelected: value.copySelected,
       cutSelected: value.cutSelected,
       paste: value.paste,

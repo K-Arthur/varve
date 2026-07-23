@@ -133,6 +133,10 @@ vi.mock('./shortcuts', () => ({
       binding: { key: 'g', ctrl: true, alt: true },
       label: 'Graph Editor',
     },
+    toggleStateMachinePanel: {
+      binding: { key: 'k', ctrl: true, alt: true },
+      label: 'State Machine Panel',
+    },
     newAdjustmentLayer: {
       binding: { key: 'n', alt: true },
       label: 'New Adjustment Layer',
