@@ -27,6 +27,7 @@ import {
   type EngineColor,
   type SceneNode as EngineNode,
   fitRasterDimensions,
+  gaussianBlurSeparable,
   getFontRegistry,
   getImageCache,
   mapBlendMode,
@@ -317,7 +318,6 @@ function renderGroupInsetEffect(
     // Blur the solid silhouette
     const blurData = insetCtx.getImageData(0, 0, w, h);
     if (blur > 0) {
-      const { gaussianBlurSeparable } = require('@strata/engine');
       const blurred = gaussianBlurSeparable(blurData, Math.max(1, blur));
       insetCtx.putImageData(blurred, 0, 0);
     }
@@ -369,7 +369,6 @@ function renderGroupInsetEffect(
     // Blur
     const gData = insetCtx.getImageData(0, 0, w, h);
     if (blur > 0) {
-      const { gaussianBlurSeparable } = require('@strata/engine');
       const blurred = gaussianBlurSeparable(gData, Math.max(1, blur));
       insetCtx.putImageData(blurred, 0, 0);
     }

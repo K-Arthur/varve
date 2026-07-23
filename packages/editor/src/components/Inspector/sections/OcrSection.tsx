@@ -23,7 +23,14 @@ import {
   sourcePixelToLocal,
 } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape, nodeWorldTransform } from '@strata/scene';
+import {
+  addNode,
+  imageShapeSrc,
+  isImageShape,
+  makeTextNode,
+  nextNodeId,
+  nodeWorldTransform,
+} from '@strata/scene';
 import { Button } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -240,7 +247,6 @@ export function OcrSection({ nodes }: { nodes: SceneNode[] }) {
         const wordH = (word.height / sourceH) * nodeBounds.h;
         const estimatedFontSize = Math.max(8, Math.min(wordH, fontSize));
 
-        const { makeTextNode, nextNodeId, addNode } = require('@strata/scene');
         const { id, doc: afterAlloc } = nextNodeId(workingDoc);
         const textNode = makeTextNode(id, word.text, {
           name: `OCR: ${word.text.slice(0, 20)}`,
