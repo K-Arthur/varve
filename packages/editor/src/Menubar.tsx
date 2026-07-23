@@ -10,6 +10,8 @@ import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
+import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
+import { ArchiveDialog } from './components/Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from './context';
 import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
@@ -54,6 +56,16 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         label: 'Export\u2026',
         shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
         action: 'export',
+      },
+      {
+        label: 'Backup Archive\u2026',
+        shortcut: formatShortcut(SHORTCUT_DEFS.archiveBackup.binding),
+        action: 'archiveBackup',
+      },
+      {
+        label: 'Restore Archive\u2026',
+        shortcut: formatShortcut(SHORTCUT_DEFS.archiveRestore.binding),
+        action: 'archiveRestore',
       },
       { label: '---' },
       {
@@ -461,6 +473,9 @@ export function Menubar({
     toggleDistractionFreeMode,
     recordAction,
     createAdjustmentLayer,
+    showArchiveDialog,
+    setShowArchiveDialog,
+    platform,
   } = useEditor();
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
@@ -561,6 +576,12 @@ export function Menubar({
           return;
         case 'export':
           setShowExportDialog(true);
+          return;
+        case 'archiveBackup':
+          setShowArchiveDialog(true, 'backup');
+          return;
+        case 'archiveRestore':
+          setShowArchiveDialog(true, 'restore');
           return;
         case 'addAlphaMask':
           addMaskToSelected('alpha');
@@ -669,6 +690,7 @@ export function Menubar({
       onOpenAbout,
       onBatchBgRemove,
       setShowExportDialog,
+      setShowArchiveDialog,
       addMaskToSelected,
       removeMaskFromSelected,
       toggleMask,
@@ -1029,6 +1051,39 @@ export function Menubar({
         description="Create a new document? Unsaved changes will be lost."
         confirmLabel="Create"
         variant="danger"
+      />
+
+      <ArchiveDialog
+        open={showArchiveDialog}
+        onClose={() => setShowArchiveDialog(false)}
+        document={state.document as ArchiveDialogProps['document']}
+        platform={platform}
+        onCreateArchive={(result) => {
+          // Desktop: native Save dialog + the atomic write_binary_file
+          // command. Browser: no filesystem access, so a plain download is
+          // the only option and the browser itself handles it atomically.
+          if (platform?.kind === 'tauri') {
+            void platform.saveBinaryFile(
+              result.fileName.replace(/\.zip$/, ''),
+              result.bytes,
+              'application/zip',
+              '.zip',
+            );
+            return;
+          }
+          const blob = new Blob([new Uint8Array(result.bytes)], { type: 'application/zip' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = result.fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        onRestoreArchive={(result) => {
+          if (result.document) {
+            loadDocument(JSON.stringify(result.document), { name: result.document.name });
+          }
+        }}
       />
     </div>
   );

@@ -28,9 +28,7 @@ export type InspectorTab =
   | 'appearance'
   | 'adjustments'
   | 'prototype'
-  | 'document'
   | 'export'
-  | 'spec'
   | 'audit';
 
 export type IntelligenceTab =
@@ -317,6 +315,9 @@ export interface EditorState {
     /** Canvas height of the coverage buffer (px). */
     height: number;
   };
+  /** Node ID for the Content-Aware Fill dialog target. When set, Shell
+   *  renders the dialog. Null when closed. */
+  cafDialogNodeId: NodeId | null;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -554,7 +555,7 @@ export interface EditorContextValue {
   syncAllInstances: () => import('@strata/scene').SyncResult;
 
   // Flatten
-  flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
+  flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (scale?: number) => void;
   mergeSelected: () => void;
 
@@ -679,6 +680,11 @@ export interface EditorContextValue {
   // Export
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
+
+  // Archive
+  showArchiveDialog: boolean;
+  archiveDialogMode: 'backup' | 'restore';
+  setShowArchiveDialog: (show: boolean, mode?: 'backup' | 'restore') => void;
   addPreset: (nodeId: NodeId, preset: import('@strata/scene').ExportPreset) => void;
   updatePreset: (nodeId: NodeId, preset: import('@strata/scene').ExportPreset) => void;
   removePreset: (nodeId: NodeId, presetId: string) => void;
@@ -936,4 +942,8 @@ export interface EditorContextValue {
 
   // Inspector panel navigation (status-bar badges -> inspector tabs)
   setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => void;
+
+  // Content-Aware Fill dialog
+  openCafDialog: (nodeId: NodeId) => void;
+  closeCafDialog: () => void;
 }

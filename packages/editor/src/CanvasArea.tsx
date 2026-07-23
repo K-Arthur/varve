@@ -97,7 +97,7 @@ import {
 import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
-import { nodeWorldBoundsFn, useEditor } from './context';
+import { nodeWorldBoundsFn, setStartTextEditingHandler, useEditor } from './context';
 import { collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { type CropState, commitImageCropExtended } from './imageCrop';
@@ -707,6 +707,11 @@ export function CanvasArea({
     new Set(),
   );
   const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
+  // Register module-level bridge so createActionHandlers.editText works
+  useEffect(() => {
+    setStartTextEditingHandler((nodeId: string) => setTextEditTargetId(nodeId));
+    return () => setStartTextEditingHandler(null);
+  }, []);
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const [warpMesh, setWarpMesh] = useState<import('@strata/engine').MeshWarp | null>(null);

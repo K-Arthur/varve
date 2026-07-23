@@ -68,7 +68,7 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   text: 'T',
   scale: 'S',
   slice: 'K',
-  eyedropper: 'I',
+  eyedropper: '',
   inspect: 'Ctrl',
   paint: 'B',
   eraser: 'E',
