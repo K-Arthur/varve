@@ -39,6 +39,30 @@ test.describe('Inspector feature ownership', () => {
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toBeVisible();
   });
 
+  test('a common shape stays within the contextual inspector DOM budget', async ({ page }) => {
+    const canvas = page.locator('canvas.editor-canvas__content-layer');
+    const box = await canvas.boundingBox();
+    if (!box) throw new Error('canvas not found');
+
+    await page.keyboard.press('r');
+    await page.mouse.move(box.x + 250, box.y + 220);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 390, box.y + 320);
+    await page.mouse.up();
+    await page.getByRole('tab', { name: 'Properties' }).click();
+
+    const metrics = await page.locator('.editor-inspector').evaluate((element) => ({
+      descendants: element.querySelectorAll('*').length,
+      scrollHeight: element.scrollHeight,
+      viewportHeight: element.clientHeight,
+    }));
+
+    expect(metrics.descendants).toBeLessThanOrEqual(240);
+    expect(metrics.scrollHeight / metrics.viewportHeight).toBeLessThanOrEqual(1.75);
+    await expect(page.getByRole('button', { name: 'Effects' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
+  });
+
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
     await page.getByRole('radio', { name: 'Draw', exact: true }).click();
     await page.keyboard.press('b');
