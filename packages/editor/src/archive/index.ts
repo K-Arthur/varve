@@ -4,7 +4,23 @@
  * @module archive
  */
 
-export { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
+export {
+  buildArchive,
+  buildFullArchive,
+  buildSettingsArchive,
+  collectArchiveAssets,
+  createArchiveManifest,
+  packageArchive,
+} from './archiveBuilder';
+export {
+  applyRestore,
+  decryptArchive,
+  detectConflicts,
+  extractArchiveDocument,
+  extractArchiveSettings,
+  restoreArchive,
+  validateArchive,
+} from './archiveRestorer';
 export type {
   ArchiveBuildOptions,
   ArchiveBuildResult,
@@ -18,60 +34,40 @@ export type {
   SafeWriteOptions,
   SettingsBackupEntry,
   SettingsCategory,
+  SettingsRollbackSnapshot,
 } from './archiveTypes';
-
+export { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
 export {
-  buildArchive,
-  buildFullArchive,
-  buildSettingsArchive,
-  collectArchiveAssets,
-  createArchiveManifest,
-  packageArchive,
-} from './archiveBuilder';
-
+  coalesceEditsDuringBackup,
+  createBackupSnapshot,
+  detectStaleInput,
+  verifySnapshot,
+} from './concurrentSafety';
 export {
-  restoreArchive,
-  validateArchive,
-  decryptArchive,
-  extractArchiveDocument,
-  extractArchiveSettings,
-  detectConflicts,
-  applyRestore,
-} from './archiveRestorer';
-
-export {
+  bytesToHex,
+  computeChecksum,
+  decryptBytes,
   deriveKey,
   encryptBytes,
-  decryptBytes,
-  computeChecksum,
-  verifyChecksum,
   getKdfParams,
-  bytesToHex,
   hexToBytes,
+  verifyChecksum,
 } from './encryption';
 
 export {
-  collectSettingsBackup,
-  applySettingsBackup,
-  validateSettingsEntry,
-  migrateSettingsEntry,
-  createRollbackSnapshot,
-  restoreRollbackSnapshot,
-} from './settingsBackup';
-
-export {
-  safeWriteFile,
-  safeWriteWithRetry,
-  registerSafeWriteIo,
-  resetSafeWriteIo,
+  inMemoryClear,
   inMemoryFileExists,
   inMemoryReadFile,
-  inMemoryClear,
+  registerSafeWriteIo,
+  resetSafeWriteIo,
+  safeWriteFile,
+  safeWriteWithRetry,
 } from './safeWrite';
-
 export {
-  createBackupSnapshot,
-  verifySnapshot,
-  detectStaleInput,
-  coalesceEditsDuringBackup,
-} from './concurrentSafety';
+  applySettingsBackup,
+  collectSettingsBackup,
+  createRollbackSnapshot,
+  migrateSettingsEntry,
+  restoreRollbackSnapshot,
+  validateSettingsEntry,
+} from './settingsBackup';

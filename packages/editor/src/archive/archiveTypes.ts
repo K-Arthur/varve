@@ -136,3 +136,16 @@ export interface BackupSnapshot {
   settingsHash: string;
   createdAt: string;
 }
+
+/**
+ * A settings rollback point — unlike `BackupSnapshot` (which only carries
+ * hashes for staleness comparison), this captures the actual raw
+ * localStorage values so a failed restore can be reverted for real.
+ */
+export interface SettingsRollbackSnapshot {
+  id: string;
+  createdAt: string;
+  settingsHash: string;
+  /** Raw localStorage value per settings key; `null` means the key was absent. */
+  values: Record<string, string | null>;
+}

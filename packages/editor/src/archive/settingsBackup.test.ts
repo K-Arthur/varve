@@ -217,27 +217,49 @@ describe('settingsBackup', () => {
   });
 
   describe('restoreRollbackSnapshot', () => {
-    it('returns true when settings match snapshot', () => {
+    it('is a no-op success when current state already matches the snapshot', () => {
       localStorage.setItem(
         'strata-editor-settings',
         JSON.stringify({ export: { defaultScale: 2 } }),
       );
       const snap = createRollbackSnapshot();
       expect(restoreRollbackSnapshot(snap)).toBe(true);
+      expect(localStorage.getItem('strata-editor-settings')).toBe(
+        JSON.stringify({ export: { defaultScale: 2 } }),
+      );
     });
 
-    it('returns false when settings differ from snapshot', () => {
+    it('actually reverts localStorage to the snapshotted values after a failed apply', () => {
+      // This is the real use case: a restore-apply modifies settings, then
+      // fails partway through. Rollback must write the original bytes back
+      // — refusing to act because "current differs from snapshot" would
+      // defeat the entire purpose, since that mismatch is expected here.
       localStorage.setItem(
         'strata-editor-settings',
         JSON.stringify({ export: { defaultScale: 2 } }),
       );
       const snap = createRollbackSnapshot();
-      // Modify settings
+
+      // Simulate a partially-applied restore that changed settings.
       localStorage.setItem(
         'strata-editor-settings',
         JSON.stringify({ export: { defaultScale: 99 } }),
       );
-      expect(restoreRollbackSnapshot(snap)).toBe(false);
+
+      expect(restoreRollbackSnapshot(snap)).toBe(true);
+      expect(localStorage.getItem('strata-editor-settings')).toBe(
+        JSON.stringify({ export: { defaultScale: 2 } }),
+      );
+    });
+
+    it('removes keys that were absent at snapshot time', () => {
+      localStorage.removeItem('strata-workspace');
+      const snap = createRollbackSnapshot();
+
+      localStorage.setItem('strata-workspace', JSON.stringify({ workspace: { layout: 'x' } }));
+
+      expect(restoreRollbackSnapshot(snap)).toBe(true);
+      expect(localStorage.getItem('strata-workspace')).toBeNull();
     });
   });
 });

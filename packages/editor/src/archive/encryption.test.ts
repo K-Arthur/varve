@@ -7,13 +7,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+  bytesToHex,
   computeChecksum,
   decryptBytes,
   deriveKey,
   encryptBytes,
   getKdfParams,
   hexToBytes,
-  bytesToHex,
   verifyChecksum,
 } from './encryption';
 
