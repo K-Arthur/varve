@@ -230,6 +230,7 @@ export function collectArchiveAssets(doc: Document): ArchiveAssetEntry[] {
 
       const mimeType = dataUrlMatch[1];
       const b64 = dataUrlMatch[2];
+      if (!mimeType || !b64) continue;
       if (seen.has(b64)) continue;
 
       const ext = extensionForMime(mimeType);
@@ -246,7 +247,7 @@ export function collectArchiveAssets(doc: Document): ArchiveAssetEntry[] {
       const b64Match = /^data:[^;]+;base64,(.+)$/i.exec(maskAsset.dataUrl);
       if (!b64Match) continue;
       const b64 = b64Match[1];
-      if (seen.has(b64)) continue;
+      if (!b64 || seen.has(b64)) continue;
 
       const safeName = assetId.replace(/[^a-zA-Z0-9_-]/g, '_');
       const path = `masks/${safeName}.png`;

@@ -33,6 +33,19 @@ export function setInspectorTabHandler(fn: ((req: InspectorTabRequest) => void) 
   inspectorTabHandler = fn;
 }
 
+/** Module-level bridge: invalidate a specific node's layer thumbnail
+ *  after the node's fill, shape, or dimensions change. Registered by
+ *  LayersTree on mount to forward to the sharedThumbnailCache. */
+let invalidateThumbnailHandler: ((nodeId: string) => void) | null = null;
+
+export function setInvalidateThumbnailHandler(fn: ((nodeId: string) => void) | null): void {
+  invalidateThumbnailHandler = fn;
+}
+
+export function invalidateNodeThumbnail(nodeId: string): void {
+  invalidateThumbnailHandler?.(nodeId);
+}
+
 /** Module-level bridge: call after setTheme() + localStorage so EditorProvider
  *  bumps themeRevision, causing Minimap, Ruler, and other subscribers to
  *  re-resolve theme-dependent colours.  Registered in EditorProvider. */
@@ -954,6 +967,14 @@ export interface EditorContextValue {
   /** Show the export dialog modal. */
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
+  /** Show the archive dialog modal. */
+  showArchiveDialog: boolean;
+  archiveDialogMode: 'backup' | 'restore';
+  setShowArchiveDialog: (show: boolean, mode?: 'backup' | 'restore') => void;
+  /** Flatten/rasterize/merge the current selection (unified flatten system). */
+  flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
+  rasterizeSelected: (scale?: number) => void;
+  mergeSelected: () => void;
   /** Add an export preset to a node. */
   addPreset: (nodeId: NodeId, preset: ExportPreset) => void;
   /** Update an export preset on a node. */
@@ -1950,6 +1971,7 @@ export function EditorProvider({
       },
       subjectPickerSession: null,
       subjectHighlightId: null,
+      cafDialogNodeId: null,
       backgroundRemovalPreviewSession: null,
       keyObjectId: null,
       alignToPage: false,
@@ -1968,6 +1990,15 @@ export function EditorProvider({
     };
   });
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialogState] = useState(false);
+  const [archiveDialogMode, setArchiveDialogMode] = useState<'backup' | 'restore'>('backup');
+  const setShowArchiveDialog = useCallback(
+    (show: boolean, mode: 'backup' | 'restore' = 'backup') => {
+      setArchiveDialogMode(mode);
+      setShowArchiveDialogState(show);
+    },
+    [],
+  );
   /** Ref keeping the latest state for async callbacks (auto-save, recovery). */
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -3491,6 +3522,7 @@ export function EditorProvider({
 
       setNodeSize: (id, w, h) => {
         updateNodeProp(id, (n) => resizeSceneNode(n, w, h));
+        invalidateNodeThumbnail(id);
       },
 
       // Batch edits: one undo step for the whole selection (Strata plan §8).
@@ -3555,6 +3587,7 @@ export function EditorProvider({
             if (!bounds) continue;
             const oldW = node.kind === 'frame' ? (node.w ?? bounds.w) : bounds.w;
             nodes[id] = resizeNodeGeometry(node, w, bounds.h);
+            invalidateNodeThumbnail(id);
             // Propagate constraints to frame children
             if (node.kind === 'frame') {
               const childUpdates = propagateFrameConstraints(
@@ -3565,6 +3598,7 @@ export function EditorProvider({
               );
               for (const [cid, child] of Object.entries(childUpdates)) {
                 nodes[cid] = child;
+                invalidateNodeThumbnail(cid);
               }
             }
           }
@@ -3584,6 +3618,7 @@ export function EditorProvider({
             if (!bounds) continue;
             const oldH = node.kind === 'frame' ? (node.h ?? bounds.h) : bounds.h;
             nodes[id] = resizeNodeGeometry(node, bounds.w, h);
+            invalidateNodeThumbnail(id);
             // Propagate constraints to frame children
             if (node.kind === 'frame') {
               const childUpdates = propagateFrameConstraints(
@@ -3594,6 +3629,7 @@ export function EditorProvider({
               );
               for (const [cid, child] of Object.entries(childUpdates)) {
                 nodes[cid] = child;
+                invalidateNodeThumbnail(cid);
               }
             }
           }
@@ -4634,6 +4670,14 @@ export function EditorProvider({
           updateSettings({ panel: { rightPanelVisible: true } });
         }
         inspectorTabHandler?.({ tab, subTab });
+      },
+
+      openCafDialog: (nodeId) => {
+        patch({ cafDialogNodeId: nodeId });
+      },
+
+      closeCafDialog: () => {
+        patch({ cafDialogNodeId: null });
       },
 
       setNodeLocked: (id, locked) => {
@@ -6175,6 +6219,9 @@ export function EditorProvider({
 
       showExportDialog,
       setShowExportDialog,
+      showArchiveDialog,
+      archiveDialogMode,
+      setShowArchiveDialog,
 
       addPreset: (nodeId, preset) => {
         updateDoc((doc) => {
@@ -7057,6 +7104,9 @@ export function EditorProvider({
       focusedField,
       setFocusedField,
       showExportDialog,
+      showArchiveDialog,
+      archiveDialogMode,
+      setShowArchiveDialog,
       protoValue,
       bgRemoval,
       platform,
@@ -7171,6 +7221,9 @@ export function EditorProvider({
       pasteGuides: value.pasteGuides,
       showExportDialog: value.showExportDialog,
       setShowExportDialog: value.setShowExportDialog,
+      showArchiveDialog: value.showArchiveDialog,
+      archiveDialogMode: value.archiveDialogMode,
+      setShowArchiveDialog: value.setShowArchiveDialog,
       addPreset: value.addPreset,
       updatePreset: value.updatePreset,
       removePreset: value.removePreset,
