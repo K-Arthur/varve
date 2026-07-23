@@ -15,6 +15,14 @@ import {
   safeWriteWithRetry,
 } from './safeWrite';
 
+function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  for (let i = 0; i < a.byteLength; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
 describe('safeWrite', () => {
   beforeEach(() => {
     inMemoryClear();
@@ -30,7 +38,9 @@ describe('safeWrite', () => {
       const data = new TextEncoder().encode('hello world');
       await safeWriteFile({ destination: '/test/file.txt', bytes: data });
       expect(inMemoryFileExists('/test/file.txt')).toBe(true);
-      expect(inMemoryReadFile('/test/file.txt')).toEqual(data);
+      const stored = inMemoryReadFile('/test/file.txt');
+      expect(stored).toBeDefined();
+      expect(arraysEqual(stored!, data)).toBe(true);
     });
 
     it('does not leave temp file on success', async () => {
@@ -118,7 +128,9 @@ describe('safeWrite', () => {
       const data = new TextEncoder().encode('tracked');
       await safeWriteFile({ destination: '/tracked.txt', bytes: data });
       expect(inMemoryFileExists('/tracked.txt')).toBe(true);
-      expect(inMemoryReadFile('/tracked.txt')).toEqual(data);
+      const stored = inMemoryReadFile('/tracked.txt');
+      expect(stored).toBeDefined();
+      expect(arraysEqual(stored!, data)).toBe(true);
     });
 
     it('inMemoryClear removes all files', async () => {

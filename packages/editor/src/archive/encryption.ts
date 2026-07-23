@@ -74,7 +74,7 @@ export async function encryptBytes(data: Uint8Array, password: string): Promise<
   const nonce = crypto.getRandomValues(new Uint8Array(NONCE_LENGTH));
   const key = await deriveKey(password, salt);
 
-  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', nonce }, key, data);
+  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, data);
 
   // Concatenate: salt + nonce + ciphertext (includes auth tag)
   const result = new Uint8Array(salt.length + nonce.length + ciphertext.byteLength);
@@ -99,7 +99,7 @@ export async function decryptBytes(data: Uint8Array, password: string): Promise<
   const ciphertext = data.slice(SALT_LENGTH + NONCE_LENGTH);
   const key = await deriveKey(password, salt);
 
-  const decrypted = await subtle.decrypt({ name: 'AES-GCM', nonce }, key, ciphertext);
+  const decrypted = await subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ciphertext);
   return new Uint8Array(decrypted);
 }
 
