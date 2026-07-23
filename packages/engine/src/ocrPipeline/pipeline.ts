@@ -167,10 +167,10 @@ export async function runOcrPipeline(
   );
   onProgress?.('detecting', 1, 1);
 
-  // Map regions back through orientation correction
+  // Map regions back through orientation correction, preserving confidence
   const mappedRegions = orientationCorrected
-    ? regions.map((r) =>
-        mapCoordsThroughRotation(
+    ? regions.map((r) => ({
+        ...mapCoordsThroughRotation(
           r.x,
           r.y,
           r.width,
@@ -179,7 +179,8 @@ export async function runOcrPipeline(
           source.height,
           orientation.angle as 0 | 90 | 180 | 270,
         ),
-      )
+        confidence: r.confidence,
+      }))
     : regions;
 
   // Early-out: detection-only mode (fast preview with boxes, no text).

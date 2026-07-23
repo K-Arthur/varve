@@ -6,7 +6,7 @@
  */
 
 import type { Document } from '@strata/scene';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { SettingsBackupEntry } from './archiveTypes';
 import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
 import {

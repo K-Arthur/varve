@@ -5,10 +5,9 @@
  * and restore application.
  */
 
-import { unzipSync } from 'fflate';
 import { strToU8 } from 'fflate';
 import type { Document } from '@strata/scene';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { ArchiveManifest, SettingsBackupEntry } from './archiveTypes';
 import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
 import { buildArchive } from './archiveBuilder';
@@ -117,23 +116,17 @@ describe('archiveRestorer', () => {
     });
 
     it('rejects empty archive', async () => {
-      await expect(
-        restoreArchive({ bytes: new Uint8Array(0) }),
-      ).rejects.toThrow('empty');
+      await expect(restoreArchive({ bytes: new Uint8Array(0) })).rejects.toThrow('empty');
     });
 
     it('rejects oversized archive', async () => {
       const huge = new Uint8Array(200 * 1024 * 1024);
-      await expect(
-        restoreArchive({ bytes: huge }),
-      ).rejects.toThrow('exceeds maximum size');
+      await expect(restoreArchive({ bytes: huge })).rejects.toThrow('exceeds maximum size');
     });
 
     it('rejects invalid ZIP', async () => {
       const garbage = new Uint8Array([0, 1, 2, 3, 4, 5]);
-      await expect(
-        restoreArchive({ bytes: garbage }),
-      ).rejects.toThrow('Invalid ZIP');
+      await expect(restoreArchive({ bytes: garbage })).rejects.toThrow('Invalid ZIP');
     });
 
     it('reports progress during restore', async () => {
@@ -285,12 +278,7 @@ describe('archiveRestorer', () => {
 
     it('handles empty inputs', () => {
       expect(detectConflicts([], [])).toHaveLength(0);
-      expect(
-        detectConflicts(
-          [{ category: 'export', key: 'a', value: 1 }],
-          [],
-        ),
-      ).toHaveLength(0);
+      expect(detectConflicts([{ category: 'export', key: 'a', value: 1 }], [])).toHaveLength(0);
     });
   });
 
@@ -298,7 +286,11 @@ describe('archiveRestorer', () => {
     it('applies settings from restore result', async () => {
       const result = {
         settings: [
-          { category: 'export' as const, key: 'strata-editor-settings', value: { defaultScale: 3 } },
+          {
+            category: 'export' as const,
+            key: 'strata-editor-settings',
+            value: { defaultScale: 3 },
+          },
         ],
         warnings: [],
         conflicts: [],
