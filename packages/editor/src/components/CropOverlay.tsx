@@ -14,6 +14,7 @@
  *
  * Research basis: Figma image crop, Canva crop handle pattern.
  */
+import { computeImagePlacement } from '@strata/engine';
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import type { LocalCropRect } from '../imageCrop';
 import type { CropTool } from '../tools/CropTool';
@@ -181,7 +182,6 @@ export function CropOverlay({
     const nodeSize = tool.getNodeSize();
     if (!cropState || !nodeSize) return;
 
-    const { computeImagePlacement } = require('@strata/engine');
     const fillScale = cropState.fillScale ?? 1;
     const fillOffX = cropState.fillOffsetX ?? 0;
     const fillOffY = cropState.fillOffsetY ?? 0;
