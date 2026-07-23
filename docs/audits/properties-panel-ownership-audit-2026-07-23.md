@@ -21,6 +21,11 @@ changed `aria-selected` without moving focus. At 800 px width the inspector
 drawer was translated to an on-screen state but its box remained entirely
 outside the viewport.
 
+After restructuring, the same rectangle workflow measured 511 px of content
+(one viewport) and 221 descendants. A Chromium E2E budget now caps this common
+state at 1.75 viewports and 240 descendants, and asserts that Effects and
+Prototype editors are not mounted on the Properties surface.
+
 ## Original inventory
 
 | Feature | Actual applicability | Scope | Frequency | Complexity | Duplicate or temporary | Status | New owner |
@@ -100,6 +105,89 @@ which tabs are normally visible, while image or adjustment selections expose
 Adjustments contextually and action-registry commands can deep-link to every
 workflow.
 
+## Kept, moved, merged, and removed
+
+- Kept in Properties: position and size, alignment, constraints, corner radius,
+  layout, opacity and blend, fills, strokes, basic image placement, component
+  basics, and typography.
+- Moved to Appearance: masks, shared paint/style management, and effect stacks.
+- Moved to Adjustments: adjustment layers, enhancement, background removal,
+  colorization, denoise, lens blur, line art, content-aware fill, OCR, image
+  blending, and palette extraction.
+- Moved to Tool Options: brush behavior, frame creation presets, and crop/bounds.
+- Moved to Prototype, Document, and Audit: interactions/flow, canvas and document
+  color, and accessibility/intelligence diagnostics respectively.
+- Merged image fitting into Image Placement; Crop now links into a focused tool
+  workflow rather than repeating fit and edit-crop controls.
+- Removed the duplicate Score tab. Its layout diagnostics remain searchable and
+  available through Audit.
+
+No moved editor gained a new document-state path: the dedicated surfaces reuse
+the existing editor context commands and history behavior.
+
+## Navigation and command changes
+
+Searchable action-registry entries now open Properties, Appearance, Adjustments,
+Prototype, Document, Export, Inspect, and Audit directly. A requested workflow
+can temporarily appear even when it is not one of the current workspace mode's
+default tabs, preserving command-palette deep links. Workspace mode
+configuration is now the runtime source for inspector tab composition.
+
+Inspector tabs implement the ARIA tabs keyboard pattern with roving focus:
+Left/Right wrap, Home selects the first tab, and End selects the last. Compact
+Properties summaries and empty states link directly to their canonical
+workflow. At narrow widths, the inspector opens as an in-viewport drawer.
+
+## Performance and accessibility
+
+- Dedicated panels and tool editors use lazy imports and mount only while active.
+- Registry applicability prevents unsupported section components from mounting.
+- Heterogeneous selections no longer expose Typography, Stroke, or Effects when
+  the whole selection cannot support the operation.
+- Locked selections make selection workflows inert and announce the read-only
+  state; hidden selections receive an explicit status.
+- Mixed numeric values retain their existing accessible value text.
+- The section manager now performs real show/hide operations, preserves order
+  through migration, and scopes its choices to the Properties surface.
+- The browser DOM budget records the rectangle reduction from 1,497 px and 276
+  descendants to 511 px and 221 descendants.
+- Token contrast remains 120/120 across light, dark, and high-contrast themes;
+  reduced-motion behavior uses the existing design-system rules.
+
+## Verification
+
+Added or updated coverage includes:
+
+- exhaustive feature-ownership and surface classification tests;
+- section ordering, migration, applicability, and manager visibility tests;
+- mixed heterogeneous selection tests;
+- action registration and deep-link tests;
+- locked-selection and workspace-mode composition tests;
+- floating Tool Options keyboard/dialog tests;
+- Chromium E2E tests for roving tab focus, moved Prototype/Document workflows,
+  brush Tool Options, responsive drawer placement, and the Properties DOM budget.
+
+Verified on CachyOS/Linux in the browser runtime and Chromium. Rust workspace
+check, clippy with warnings denied, and all Rust tests pass. WebKit browser
+execution was attempted but the Playwright WebKit binary is not installed.
+Windows WebView2, macOS WKWebView, and native Tauri window automation were not
+available in this environment.
+
+Repository-wide JS verification was affected by concurrent work: 9,003 tests
+passed and 14 failures were isolated to newly added archive encryption and
+export compositor tests. The inspector-focused suite and all five new Chromium
+E2E scenarios pass. Repository typecheck/build failures are in concurrent
+flatten, adjustment, crop, and scene changes; no error is reported from the
+new inspector modules. The architecture import-budget audit and both UI audits
+pass.
+
+## Future additions
+
+`docs/architecture/inspector-feature-ownership.md` defines the placement
+decision tree, required proposal metadata, session checklist, and rejection
+rules. `featureOwnership.ts` is exhaustive over every registered section, so a
+session adding a section without choosing an owner fails the test suite.
+
 ## Evidence-based limitations
 
 - Typography still combines common and advanced controls in one component.
@@ -109,4 +197,3 @@ workflow.
   production render factory contract.
 - Locked and hidden selection editing policy still needs a capability-level model.
 - macOS WKWebView and Windows WebView2 were not available in this Linux environment.
-
