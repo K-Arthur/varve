@@ -10,7 +10,7 @@
  *
  * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
  */
-import type { SceneNode } from '@strata/scene';
+import { isImageShape, type SceneNode } from '@strata/scene';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import type { SelectionKind } from './selection/selectionState';
 
@@ -106,22 +106,34 @@ export interface SectionDefinition {
 // Helper predicates
 // ---------------------------------------------------------------------------
 
+/**
+ * True for exactly the nodes the image sections (placement, crop, AI denoise,
+ * lens blur, line art, content-aware fill, detect text, OCR, blend, colorize)
+ * actually render controls for. Delegates to `isImageShape` — the same check
+ * every one of those section components uses internally — rather than
+ * reimplementing a (previously narrower and out-of-sync) shape/fill test here.
+ */
 function isImageNode(nodes: SceneNode[]): boolean {
+  return nodes.length === 1 && !!nodes[0] && isImageShape(nodes[0]);
+}
+
+/**
+ * BackgroundRemovalSection's real eligibility, mirrored from its own
+ * `hasMask` check: an image fill, OR a node that already carries mask /
+ * background-removal state from a previous run (whose fill may no longer be
+ * classified as an image fill). Narrower than this — e.g. plain `isImageNode`
+ * — would hide the section for a node the user just ran removal on.
+ */
+function isBackgroundRemovalEligible(nodes: SceneNode[]): boolean {
   if (nodes.length !== 1) return false;
   const n = nodes[0];
   if (!n) return false;
-  if (n.kind === 'rasterLayer') return true;
-  if (n.kind === 'shape') {
-    const shape = (n as { shape?: { kind?: string } }).shape;
-    if (shape?.kind === 'rect' || shape?.kind === 'ellipse') {
-      const fills = (n as { fills?: unknown[] }).fills;
-      if (fills && fills.length > 0) {
-        const first = fills[0] as { type?: string };
-        if (first?.type === 'image') return true;
-      }
-    }
-  }
-  return false;
+  if (isImageShape(n)) return true;
+  const withState = n as SceneNode & {
+    mask?: { rasterMask?: unknown };
+    backgroundRemoval?: unknown;
+  };
+  return Boolean(withState.mask?.rasterMask) || Boolean(withState.backgroundRemoval);
 }
 
 function isFrameNode(nodes: SceneNode[]): boolean {
@@ -360,7 +372,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 290,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) => isSingleSelection(ctx) && isBackgroundRemovalEligible(ctx.selectedNodes),
   },
   {
     id: 'colorize',
@@ -497,7 +509,12 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 400,
     category: 'prototype',
-    isAvailable: (ctx) => isSingleSelection(ctx) && ctx.prototypeMode,
+    // Authoring interactions (add trigger/action) is not gated behind
+    // `prototypeMode` — InteractionSection has never checked that flag
+    // internally, and `prototypeMode` currently has no UI toggle anywhere in
+    // the app (see prototype-flow below), so requiring it here would make
+    // this section permanently unreachable.
+    isAvailable: (ctx) => isSingleSelection(ctx),
   },
   {
     id: 'prototype-flow',
@@ -507,6 +524,10 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 410,
     category: 'prototype',
+    // Pre-existing: gated on `prototypeMode`, which has no UI toggle, so this
+    // section is currently unreachable. Left as-is (unlike `interaction`
+    // above) rather than un-gated here — the flow graph needs real width and
+    // belongs in a dedicated Prototype panel, not a wider sidebar accordion.
     isAvailable: (ctx) => ctx.prototypeMode,
   },
 
