@@ -322,7 +322,7 @@ describe('exportNodeAsRaster', () => {
     expect(createRasterSurface).toHaveBeenCalledWith(11, 10, { alpha: true });
   });
 
-  it('rejects group effects instead of silently omitting them from raster output', async () => {
+  it('exports group content and reports a warning instead of aborting when group-level effects cannot be composited', async () => {
     let doc = createDocument('Group effect export', true);
     const group = {
       ...makeGroupNode('group'),
@@ -333,9 +333,13 @@ describe('exportNodeAsRaster', () => {
     doc = addChild(doc, group.id, child);
     const eng = await createEngine('stub');
 
-    await expect(
-      exportNodeAsRaster(group, doc, eng, { format: 'image/png', scale: 1 }),
-    ).rejects.toThrow(/cannot yet preserve effects applied to group/i);
+    const { blob, warnings } = await exportNodeAsRaster(group, doc, eng, {
+      format: 'image/png',
+      scale: 1,
+    });
+
+    expect(blob).toBeInstanceOf(Blob);
+    expect(warnings.some((w) => /group-level effect compositing/i.test(w))).toBe(true);
   });
 
   it('loads every visible image, pattern tile, and background-removal mask before export', async () => {

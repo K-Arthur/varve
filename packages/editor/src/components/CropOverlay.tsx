@@ -1,25 +1,20 @@
 /**
  * CropOverlay — dim outside crop window + resize handles for CropTool.
  *
- * Design: the overlay provides only interaction chrome (dim, crop window,
- * resize handles, action buttons). The image preview is rendered as a
- * lightweight <img> element overlaid on the canvas, using the same
- * placement math as computeImagePlacement() to ensure pixel parity with
- * the authoritative canvas renderer.
+ * Design: the overlay provides interaction chrome (dim, crop window,
+ * resize handles, action buttons). The image preview is rendered on a
+ * dedicated canvas element using the same computeImagePlacement() and
+ * traceOutline() logic as the authoritative CanvasArea renderer,
+ * ensuring pixel parity between the interactive preview and the
+ * committed canvas output.
  *
- * Why <img> instead of canvas:
- *   - Interactive editing requires 60fps response to pointer/wheel events.
- *     Full canvas re-render (IR build + replay + clip) introduces ~4-8ms
- *     latency per frame that is perceptible during drag operations.
- *   - The <img> overlay tracks the same transform math and is visually
- *     indistinguishable from the committed canvas output at the same
- *     fillScale/fillOffset/fillFit values.
- *   - On commit, the values are written to the document and rendered
- *     through the authoritative CanvasArea render pipeline.
+ * For non-rectangular shapes (ellipse, circle, polygon, star, path),
+ * the preview canvas clips to the shape outline before drawing the
+ * image, matching the final composited result.
  *
  * Research basis: Figma image crop, Canva crop handle pattern.
  */
-import { type PointerEvent as ReactPointerEvent, useEffect, useReducer, useRef } from 'react';
+import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from 'react';
 import type { LocalCropRect } from '../imageCrop';
 import type { CropTool } from '../tools/CropTool';
 import './CropOverlay.css';
@@ -34,6 +29,10 @@ export interface CropOverlayProps {
   imageWidth?: number;
   /** Natural image height in pixels (from fill metadata). */
   imageHeight?: number;
+  /** Shape kind for non-rectangular clipping (rect if omitted). */
+  shapeKind?: string;
+  /** Shape-specific parameters for traceOutline. */
+  shapeParams?: Record<string, unknown>;
   onDone: () => void;
   onCancel: () => void;
 }
@@ -51,12 +50,88 @@ function clampCrop(rect: LocalCropRect, maxW: number, maxH: number): LocalCropRe
   return { x, y, w, h };
 }
 
+/** Trace a shape outline path on a canvas context (mirrors traceOutline from replay.ts). */
+function traceShapeOutline(
+  ctx: CanvasRenderingContext2D,
+  kind: string,
+  params: Record<string, unknown>,
+  offsetX: number,
+  offsetY: number,
+): void {
+  const TAU = Math.PI * 2;
+  ctx.beginPath();
+  switch (kind) {
+    case 'rect': {
+      const x = (params.x as number) ?? 0;
+      const y = (params.y as number) ?? 0;
+      const w = (params.w as number) ?? 200;
+      const h = (params.h as number) ?? 160;
+      ctx.rect(offsetX + x, offsetY + y, w, h);
+      break;
+    }
+    case 'ellipse': {
+      const cx = offsetX + ((params.cx as number) ?? 0);
+      const cy = offsetY + ((params.cy as number) ?? 0);
+      const rx = (params.rx as number) ?? 100;
+      const ry = (params.ry as number) ?? 80;
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, TAU);
+      break;
+    }
+    case 'circle': {
+      const cx = offsetX + ((params.cx as number) ?? 0);
+      const cy = offsetY + ((params.cy as number) ?? 0);
+      const r = (params.r as number) ?? 100;
+      ctx.arc(cx, cy, r, 0, TAU);
+      break;
+    }
+    case 'polygon': {
+      const cx = offsetX + ((params.cx as number) ?? 0);
+      const cy = offsetY + ((params.cy as number) ?? 0);
+      const radius = (params.radius as number) ?? 100;
+      const sides = (params.sides as number) ?? 6;
+      const rotation = (params.rotation as number) ?? 0;
+      for (let i = 0; i < sides; i++) {
+        const a = (TAU * i) / sides - Math.PI / 2 + rotation;
+        const px = cx + radius * Math.cos(a);
+        const py = cy + radius * Math.sin(a);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    }
+    case 'star': {
+      const cx = offsetX + ((params.cx as number) ?? 0);
+      const cy = offsetY + ((params.cy as number) ?? 0);
+      const outerR = (params.outerRadius as number) ?? 100;
+      const innerR = (params.innerRadius as number) ?? 50;
+      const points = (params.points as number) ?? 5;
+      const rotation = (params.rotation as number) ?? 0;
+      for (let i = 0; i < points * 2; i++) {
+        const a = (Math.PI * i) / points - Math.PI / 2 + rotation;
+        const r = i % 2 === 0 ? outerR : innerR;
+        const px = cx + r * Math.cos(a);
+        const py = cy + r * Math.sin(a);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      break;
+    }
+    default:
+      ctx.rect(offsetX, offsetY, (params.w as number) ?? 200, (params.h as number) ?? 160);
+      break;
+  }
+}
+
 export function CropOverlay({
   tool,
   screenBounds,
   imageSrc,
   imageWidth,
   imageHeight,
+  shapeKind = 'rect',
+  shapeParams = {},
   onDone,
   onCancel,
 }: CropOverlayProps) {
@@ -67,8 +142,108 @@ export function CropOverlay({
     startX: number;
     startY: number;
   } | null>(null);
+  const previewRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<CanvasImageSource | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
   useEffect(() => tool.subscribe(() => bump()), [tool]);
+
+  useEffect(() => {
+    if (!imageSrc) return;
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (!cancelled) {
+        imageRef.current = img;
+        setImageLoaded(true);
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) setImageLoaded(false);
+    };
+    img.src = imageSrc;
+    return () => {
+      cancelled = true;
+    };
+  }, [imageSrc]);
+
+  // Draw preview canvas whenever state changes
+  useEffect(() => {
+    const canvas = previewRef.current;
+    const img = imageRef.current;
+    if (!canvas || !img || !imageSrc) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const cropState = tool.getCropState();
+    const nodeSize = tool.getNodeSize();
+    if (!cropState || !nodeSize) return;
+
+    const { computeImagePlacement } = require('@strata/engine');
+    const fillScale = cropState.fillScale ?? 1;
+    const fillOffX = cropState.fillOffsetX ?? 0;
+    const fillOffY = cropState.fillOffsetY ?? 0;
+    const fillFit = cropState.fillFit ?? 'crop';
+    const srcW = imageWidth ?? nodeSize.w;
+    const srcH = imageHeight ?? nodeSize.h;
+
+    const placement = computeImagePlacement({
+      fit: fillFit,
+      sourceWidth: srcW,
+      sourceHeight: srcH,
+      bounds: { x: 0, y: 0, w: nodeSize.w, h: nodeSize.h },
+      x: fillOffX,
+      y: fillOffY,
+      scale: fillScale,
+    });
+
+    canvas.width = Math.ceil(screenBounds.w);
+    canvas.height = Math.ceil(screenBounds.h);
+
+    const sx = screenBounds.w / nodeSize.w;
+    const sy = screenBounds.h / nodeSize.h;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    if (placement) {
+      ctx.save();
+      // Scale from node-local to screen space
+      ctx.scale(sx, sy);
+
+      // Clip to shape outline for non-rect shapes
+      if (shapeKind !== 'rect') {
+        traceShapeOutline(ctx, shapeKind, shapeParams, 0, 0);
+        ctx.clip();
+      }
+
+      // Draw the image at the placement position
+      ctx.drawImage(
+        img,
+        placement.drawRect.x,
+        placement.drawRect.y,
+        placement.drawRect.w,
+        placement.drawRect.h,
+      );
+
+      ctx.restore();
+    }
+
+    // Apply dim to regions outside the crop window
+    ctx.save();
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    // Left of crop
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Clear crop window (reveal the image)
+    const left = cropState.viewport.x * sx;
+    const top = cropState.viewport.y * sy;
+    const cw = cropState.viewport.w * sx;
+    const ch = cropState.viewport.h * sy;
+    ctx.clearRect(left, top, cw, ch);
+    ctx.restore();
+  }, [tool, screenBounds, imageSrc, imageWidth, imageHeight, shapeKind, shapeParams, imageLoaded]);
 
   const cropState = tool.getCropState();
   const crop = tool.getCropRect();
@@ -81,41 +256,6 @@ export function CropOverlay({
   const top = screenBounds.y + crop.y * sy;
   const width = crop.w * sx;
   const height = crop.h * sy;
-
-  // Image preview: use explicit sizing matching computeImagePlacement math
-  // so the overlay preview is pixel-identical to the committed canvas render.
-  const fillScale = cropState.fillScale ?? 1;
-  const fillOffX = cropState.fillOffsetX ?? 0;
-  const fillOffY = cropState.fillOffsetY ?? 0;
-  const hasNaturalDims = typeof imageWidth === 'number' && typeof imageHeight === 'number';
-
-  const previewStyle: React.CSSProperties | undefined = imageSrc
-    ? hasNaturalDims
-      ? {
-          position: 'absolute' as const,
-          left: (fillOffX - crop.x) * sx,
-          top: (fillOffY - crop.y) * sy,
-          width: imageWidth * fillScale * sx,
-          height: imageHeight * fillScale * sy,
-          pointerEvents: 'none' as const,
-          opacity: 0.5,
-          objectFit: 'fill' as const,
-        }
-      : // Fallback when natural dimensions are unknown: use CSS transform + objectFit: none
-        // (same as computeImagePlacement's fallback when sourceWidth/sourceHeight are undefined)
-        {
-          position: 'absolute' as const,
-          left: 0,
-          top: 0,
-          width: nodeSize.w * sx,
-          height: nodeSize.h * sy,
-          transform: `translate(${-crop.x * sx + fillOffX * sx}px, ${-crop.y * sy + fillOffY * sy}px) scale(${fillScale})`,
-          transformOrigin: '0 0',
-          pointerEvents: 'none' as const,
-          opacity: 0.5,
-          objectFit: 'none' as const,
-        }
-    : undefined;
 
   const onPointerDown = (handle: Handle) => (e: ReactPointerEvent) => {
     e.stopPropagation();
@@ -170,17 +310,20 @@ export function CropOverlay({
 
   return (
     <div className="crop-overlay" data-testid="crop-overlay">
-      {/* Dim full image */}
-      <div
-        className="crop-overlay__dim"
+      {/* Canvas preview — renders image through same placement math as main renderer */}
+      <canvas
+        ref={previewRef}
+        className="crop-overlay__preview"
         style={{
+          position: 'absolute',
           left: screenBounds.x,
           top: screenBounds.y,
           width: screenBounds.w,
           height: screenBounds.h,
+          pointerEvents: 'none',
         }}
       />
-      {/* Clear crop window — includes image preview + handles */}
+      {/* Clear crop window — handles + badge */}
       <div
         className="crop-overlay__window"
         style={{ left, top, width, height, overflow: 'hidden' }}
@@ -190,8 +333,6 @@ export function CropOverlay({
         onPointerCancel={onPointerUp}
         onWheel={onWheel}
       >
-        {/* Image preview rendered at current zoom/pan */}
-        {imageSrc && <img src={imageSrc} alt="" style={previewStyle} draggable={false} />}
         {handles.map((h) => (
           <button
             key={h}
@@ -224,4 +365,10 @@ export function CropOverlay({
       </div>
     </div>
   );
+}
+
+function useReducer(reducer: (n: number) => number, initial: number): [number, () => void] {
+  const [state, dispatch] = useState(initial);
+  const dispatchAction = () => dispatch(reducer);
+  return [state, dispatchAction];
 }

@@ -211,6 +211,13 @@ export function CanvasOverlays({
     const imageSrc = cropImageFill?.src;
     const imageWidth = cropImageFill?.imageWidth;
     const imageHeight = cropImageFill?.imageHeight;
+    // Extract shape info for non-rectangular clipping in the preview canvas
+    const shapeKind =
+      cropNode && 'shape' in cropNode
+        ? (cropNode.shape as { kind?: string }).kind ?? 'rect'
+        : 'rect';
+    const shapeParams =
+      cropNode && 'shape' in cropNode ? (cropNode.shape as Record<string, unknown>) : {};
     return (
       <CropOverlay
         tool={cropTool}
@@ -223,6 +230,8 @@ export function CanvasOverlays({
         imageSrc={imageSrc}
         imageWidth={imageWidth}
         imageHeight={imageHeight}
+        shapeKind={shapeKind}
+        shapeParams={shapeParams}
         onDone={() => cropTool.applyCrop(buildToolCtx(new PointerEvent('pointerup')))}
         onCancel={() => cropTool.cancel(buildToolCtx(new PointerEvent('pointerup')))}
       />

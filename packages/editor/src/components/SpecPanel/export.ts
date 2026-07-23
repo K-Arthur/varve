@@ -123,13 +123,28 @@ function exportWorldBounds(
   };
 }
 
-function assertRasterStructuralSupport(node: SceneNode, doc: SceneDocument): void {
+/**
+ * Group-level effects (a blur/shadow/glow applied to the group as a single
+ * composited unit, rather than to each child individually) have no render
+ * path yet — `replayStructuredScene`'s group branch only isolates
+ * opacity/blend mode, it never applies the group's own `effects`. This is a
+ * real gap in the engine's compositing pipeline, not something a shared
+ * export flattener can route around: raster IS the most capable target, so
+ * there's nowhere more capable to flatten a raster export into.
+ *
+ * Rather than aborting the whole export (the previous behaviour), degrade
+ * gracefully: render everything else faithfully and report which groups'
+ * effects were skipped, so the user sees a correct-minus-one-effect export
+ * instead of no export at all.
+ */
+function collectUnsupportedGroupEffectWarnings(node: SceneNode, doc: SceneDocument): string[] {
+  const warnings: string[] = [];
   const stack: SceneNode[] = [doc.nodes[node.id] ?? node];
   while (stack.length > 0) {
     const current = stack.pop()!;
     if (current.kind === 'group' && current.effects.some((effect) => effect.visible)) {
-      throw new Error(
-        `Raster export cannot yet preserve effects applied to group "${current.name}". Apply the effect to its children, or export SVG until shared group-surface effects are implemented.`,
+      warnings.push(
+        `Group "${current.name}" has effects applied to the whole group; raster export does not yet support group-level effect compositing, so this effect was omitted. Apply the effect to its children instead, or export SVG/PDF.`,
       );
     }
     if ('children' in current) {
@@ -139,6 +154,7 @@ function assertRasterStructuralSupport(node: SceneNode, doc: SceneDocument): voi
       }
     }
   }
+  return warnings;
 }
 
 export async function exportNodeAsRaster(
@@ -151,7 +167,6 @@ export async function exportNodeAsRaster(
   // resource readiness. Waiting on the raw model can load a stale font/image
   // while the resolved render node uses a different resource.
   const flattened = flattenSceneToEngine(doc, [node.id]);
-  assertRasterStructuralSupport(node, doc);
   // Guard against exporting mid-font-swap: a font requested via fontFamily
   // may still be loading (bundled FontFace fetch, Google Fonts injection, or
   // a race right after the user picks a new typeface). Without this, text
@@ -160,7 +175,7 @@ export async function exportNodeAsRaster(
   await awaitExportsReady(collectEngineFonts(flattened.nodes));
   await preloadEngineImages(flattened.nodes);
 
-  const warnings: string[] = [];
+  const warnings: string[] = collectUnsupportedGroupEffectWarnings(node, doc);
 
   const ir = await eng.buildIr({ nodes: flattened.nodes });
   const bbox = exportWorldBounds(node, doc, flattened.ids, ir);

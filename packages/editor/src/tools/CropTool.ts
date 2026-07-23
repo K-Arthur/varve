@@ -25,6 +25,8 @@ export class CropTool extends BaseTool {
   private cropState: CropState | null = null;
   private nodeId: string | null = null;
   private nodeSize: { w: number; h: number } | null = null;
+  private shapeKind: string = 'rect';
+  private shapeParams: Record<string, unknown> = {};
   private listeners = new Set<() => void>();
   private commitHandler: ((state: CropState) => void) | null = null;
 
@@ -58,6 +60,14 @@ export class CropTool extends BaseTool {
 
   getNodeSize(): { w: number; h: number } | null {
     return this.nodeSize;
+  }
+
+  getShapeKind(): string {
+    return this.shapeKind;
+  }
+
+  getShapeParams(): Record<string, unknown> {
+    return this.shapeParams;
   }
 
   setCropRect(rect: LocalCropRect): void {
@@ -114,6 +124,15 @@ export class CropTool extends BaseTool {
       return;
     }
     this.nodeSize = { w: bounds.w, h: bounds.h };
+    // Store shape kind and params for canvas preview clipping
+    if ('shape' in node) {
+      const shape = node.shape as { kind?: string };
+      this.shapeKind = shape.kind ?? 'rect';
+      this.shapeParams = node.shape as Record<string, unknown>;
+    } else {
+      this.shapeKind = 'rect';
+      this.shapeParams = {};
+    }
     const imageFill =
       'fills' in node
         ? (node.fills ?? []).find((f: { type: string }) => f.type === 'image')?.image
@@ -152,6 +171,8 @@ export class CropTool extends BaseTool {
     this.cropState = null;
     this.nodeId = null;
     this.nodeSize = null;
+    this.shapeKind = 'rect';
+    this.shapeParams = {};
     this.notify();
   }
 
