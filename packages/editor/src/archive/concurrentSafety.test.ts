@@ -69,6 +69,10 @@ describe('concurrentSafety', () => {
     });
 
     it('captures settings hash', () => {
+      localStorage.setItem(
+        'strata-editor-settings',
+        JSON.stringify({ export: { defaultScale: 2 } }),
+      );
       const doc = makeTestDocument();
       const snap = createBackupSnapshot(doc);
       expect(snap.settingsHash).toBeTruthy();

@@ -194,6 +194,9 @@ function rgba(
   c: EngineColor | readonly [number, number, number, number],
   opacityOverride?: number,
 ): string {
+  if (c == null) {
+    return 'rgba(0, 0, 0, 0)';
+  }
   if (Array.isArray(c) || 'length' in c) {
     const arr = c as readonly [number, number, number, number];
     const alpha = opacityOverride !== undefined ? opacityOverride : arr[3] / 255;
