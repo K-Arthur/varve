@@ -854,6 +854,99 @@ async function renderBoundaryToSurface(
  * @param opts - Export options (scale, DPI, signal, background, progress).
  * @returns ExportSnapshot with raster assets and filtered node lists per target.
  */
+/** Rasterize a set of flatten boundaries, producing one asset per boundary node. */
+async function rasterizeBoundaries(
+  boundaries: FlattenBoundaryEntry[],
+  doc: Document,
+  eng: Engine,
+  exportScale: number,
+  dpi: number,
+  opts: Pick<ComposeSnapshotOptions, 'signal' | 'background' | 'onProgress'>,
+): Promise<{ rasterAssets: Record<string, RasterAsset>; rasterizedIds: Set<string> }> {
+  const rasterAssets: Record<string, RasterAsset> = {};
+  const rasterizedIds = new Set<string>();
+  let processed = 0;
+
+  for (const boundary of boundaries) {
+    if (opts.signal?.aborted) {
+      throw new DOMException('Export cancelled', 'AbortError');
+    }
+
+    opts.onProgress?.('rasterizing', processed, boundaries.length);
+    processed++;
+
+    const { node, bounds } = boundary;
+
+    const cssWidth = Math.max(1, bounds.w);
+    const cssHeight = Math.max(1, bounds.h);
+    const pixelW = Math.max(1, Math.round(cssWidth * exportScale));
+    const pixelH = Math.max(1, Math.round(cssHeight * exportScale));
+
+    // Skip if exceeds pixel budget (32 MiB = 33,554,432 pixels)
+    if (pixelW * pixelH > 33_554_432) {
+      rasterAssets[node.id] = {
+        nodeId: node.id,
+        dataUrl: '',
+        pixelWidth: 0,
+        pixelHeight: 0,
+        cssWidth,
+        cssHeight,
+        dpi,
+      };
+      rasterizedIds.add(node.id);
+      continue;
+    }
+
+    let surface: ReturnType<typeof createRasterSurface>;
+    try {
+      surface = createRasterSurface(pixelW, pixelH);
+    } catch {
+      // Renderer unavailable — skip this boundary
+      continue;
+    }
+
+    const { context } = surface;
+
+    // Paint background if provided
+    const bg = opts.background;
+    if (bg && bg[3] > 0) {
+      context.fillStyle = `rgba(${bg[0]},${bg[1]},${bg[2]},${bg[3] / 255})`;
+      context.fillRect(0, 0, pixelW, pixelH);
+    }
+
+    // Render the boundary through the real IR-replay pipeline so
+    // gradients, images, masks, blend modes, and adjustment compositing
+    // match the live document exactly.
+    await renderBoundaryToSurface(surface, node.id, doc, eng, exportScale, bounds);
+
+    let dataUrl: string;
+    try {
+      const blob = await encodeRasterSurface(surface, 'image/png');
+      dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to encode raster surface'));
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      continue;
+    }
+
+    rasterAssets[node.id] = {
+      nodeId: node.id,
+      dataUrl,
+      pixelWidth: Math.round(cssWidth * exportScale),
+      pixelHeight: Math.round(cssHeight * exportScale),
+      cssWidth,
+      cssHeight,
+      dpi,
+    };
+    rasterizedIds.add(node.id);
+  }
+
+  return { rasterAssets, rasterizedIds };
+}
+
 export async function composeFlattenedExportSnapshot(
   doc: Document,
   targets: ExportTarget[],
@@ -883,11 +976,7 @@ export async function composeFlattenedExportSnapshot(
     const rootNodes = rootIds.map((id) => doc.nodes[id]).filter(Boolean) as SceneNode[];
     const boundaries = findFlattenBoundaries(rootNodes, doc, target);
 
-    const rasterAssets: Record<string, RasterAsset> = {};
-    const rasterizedIds = new Set<string>();
     const supportedIds = new Set<string>();
-
-    // Mark all supported root nodes
     for (const id of rootIds) {
       const node = doc.nodes[id];
       if (node && assessNodeCapability(node, doc, target)) {
@@ -895,91 +984,16 @@ export async function composeFlattenedExportSnapshot(
       }
     }
 
-    // Rasterize each boundary
     const exportScale = scale * (dpi / 96);
-    let processed = 0;
+    const { rasterAssets, rasterizedIds } = await rasterizeBoundaries(
+      boundaries,
+      doc,
+      eng,
+      exportScale,
+      dpi,
+      opts,
+    );
 
-    for (const boundary of boundaries) {
-      if (opts.signal?.aborted) {
-        throw new DOMException('Export cancelled', 'AbortError');
-      }
-
-      opts.onProgress?.('rasterizing', processed, boundaries.length);
-      processed++;
-
-      const { node, bounds } = boundary;
-
-      // Compute pixel dimensions
-      const cssWidth = Math.max(1, bounds.w);
-      const cssHeight = Math.max(1, bounds.h);
-      const pixelW = Math.max(1, Math.round(cssWidth * exportScale));
-      const pixelH = Math.max(1, Math.round(cssHeight * exportScale));
-
-      // Skip if exceeds pixel budget (32 MiB = 33,554,432 pixels)
-      if (pixelW * pixelH > 33_554_432) {
-        rasterAssets[node.id] = {
-          nodeId: node.id,
-          dataUrl: '',
-          pixelWidth: 0,
-          pixelHeight: 0,
-          cssWidth,
-          cssHeight,
-          dpi,
-        };
-        rasterizedIds.add(node.id);
-        continue;
-      }
-
-      let surface: ReturnType<typeof createRasterSurface>;
-      try {
-        surface = createRasterSurface(pixelW, pixelH);
-      } catch {
-        // Renderer unavailable — skip this boundary
-        continue;
-      }
-
-      const { context } = surface;
-
-      // Paint background if provided
-      const bg = opts.background;
-      if (bg && bg[3] > 0) {
-        context.fillStyle = `rgba(${bg[0]},${bg[1]},${bg[2]},${bg[3] / 255})`;
-        context.fillRect(0, 0, pixelW, pixelH);
-      }
-
-      // Render the boundary through the real IR-replay pipeline so
-      // gradients, images, masks, blend modes, and adjustment compositing
-      // match the live document exactly.
-      await renderBoundaryToSurface(surface, node.id, doc, eng, exportScale, bounds);
-
-      // Encode to PNG data URL
-      let dataUrl: string;
-      try {
-        const blob = await encodeRasterSurface(surface, 'image/png');
-        dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('Failed to encode raster surface'));
-          reader.readAsDataURL(blob);
-        });
-      } catch {
-        continue;
-      }
-
-      rasterAssets[node.id] = {
-        nodeId: node.id,
-        dataUrl,
-        pixelWidth: Math.round(cssWidth * exportScale),
-        pixelHeight: Math.round(cssHeight * exportScale),
-        cssWidth,
-        cssHeight,
-        dpi,
-      };
-      rasterizedIds.add(node.id);
-    }
-
-    // Determine the filtered root node list: all root nodes are emitted,
-    // but rasterized nodes are replaced by their raster assets
     results[target] = {
       rasterAssets,
       rootNodeIds: rootIds,
@@ -993,4 +1007,29 @@ export async function composeFlattenedExportSnapshot(
   opts.onProgress?.('complete', totalPhases, totalPhases);
 
   return results as Record<ExportTarget, ExportSnapshot>;
+}
+
+/**
+ * Compose flattened raster assets for a single arbitrary node's subtree
+ * (not necessarily a document root child) — the shape SVG/PDF single-node
+ * export needs, as opposed to `composeFlattenedExportSnapshot`'s
+ * whole-document batch export.
+ */
+export async function composeFlattenedRasterAssetsForNode(
+  node: SceneNode,
+  doc: Document,
+  target: ExportTarget,
+  opts: ComposeSnapshotOptions,
+): Promise<Record<string, RasterAsset>> {
+  if (opts.signal?.aborted) {
+    throw new DOMException('Export cancelled', 'AbortError');
+  }
+  const scale = Math.max(0.01, opts.scale);
+  const dpi = opts.dpi ?? 96;
+  const eng = opts.engine ?? (await createEngine('stub'));
+  const exportScale = scale * (dpi / 96);
+
+  const boundaries = findFlattenBoundaries([node], doc, target);
+  const { rasterAssets } = await rasterizeBoundaries(boundaries, doc, eng, exportScale, dpi, opts);
+  return rasterAssets;
 }

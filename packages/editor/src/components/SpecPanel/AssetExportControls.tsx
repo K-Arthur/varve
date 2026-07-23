@@ -106,7 +106,11 @@ export function AssetExportControls({
         const saved = await platform?.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
         setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
       } else if (format === 'svg') {
-        const svg = exportNodeToSvg(node, doc);
+        const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
+          scale: 1,
+          engine: eng ?? undefined,
+        });
+        const svg = exportNodeToSvg(node, doc, { rasterAssets });
         if (isTauri && platform) {
           const bytes = new TextEncoder().encode(svg);
           await platform.saveBinaryFile(
