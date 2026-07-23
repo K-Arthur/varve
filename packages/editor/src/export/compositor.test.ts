@@ -1,7 +1,7 @@
 // @ts-nocheck
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
 import type { Document, SceneNode } from '@strata/scene';
-import type { ExportTarget } from './compositor';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   assessNodeCapability,
   CAPABILITY,
@@ -107,7 +107,7 @@ function makeTextNode(id: string, overrides?: Partial<SceneNode>): SceneNode {
   } as unknown as SceneNode;
 }
 
-function makeFrameNode(id: string, children: string[], overrides?: Partial<SceneNode>): SceneNode {
+function _makeFrameNode(id: string, children: string[], overrides?: Partial<SceneNode>): SceneNode {
   return {
     id,
     name: `Frame ${id}`,
@@ -497,10 +497,10 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
-    it('PDF supports text', () => {
+    it('PDF rejects text (font outlining not wired)', () => {
       const node = makeTextNode('t1');
       const doc = makeDoc({ t1: node });
-      expect(assessNodeCapability(node, doc, 'pdf')).toBe(true);
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
     });
   });
 
@@ -510,7 +510,7 @@ describe('assessNodeCapability', () => {
         's1',
         { kind: 'rect' },
         {
-          transform: [0.707, 0.707, -0.707, 0.707, 0, 0] as any, // 45-degree rotation
+          transform: [Math.SQRT1_2, Math.SQRT1_2, -Math.SQRT1_2, Math.SQRT1_2, 0, 0] as any, // 45-degree rotation
         },
       );
       const doc = makeDoc({ s1: node });
@@ -522,7 +522,7 @@ describe('assessNodeCapability', () => {
         's1',
         { kind: 'rect' },
         {
-          transform: [0.707, 0.707, -0.707, 0.707, 0, 0] as any,
+          transform: [Math.SQRT1_2, Math.SQRT1_2, -Math.SQRT1_2, Math.SQRT1_2, 0, 0] as any,
         },
       );
       const doc = makeDoc({ s1: node });
@@ -700,8 +700,8 @@ describe('composeFlattenedExportSnapshot', () => {
       dpi: 96,
     });
 
-    expect(result.svg.rasterAssets['s1']).toBeDefined();
-    expect(result.svg.rasterAssets['s1'].nodeId).toBe('s1');
+    expect(result.svg.rasterAssets.s1).toBeDefined();
+    expect(result.svg.rasterAssets.s1.nodeId).toBe('s1');
     expect(result.svg.rasterizedNodeIds.has('s1')).toBe(true);
   });
 
@@ -715,7 +715,7 @@ describe('composeFlattenedExportSnapshot', () => {
     });
 
     expect(result.svg.supportedNodeIds.has('s1')).toBe(true);
-    expect(result.svg.rasterAssets['s1']).toBeUndefined();
+    expect(result.svg.rasterAssets.s1).toBeUndefined();
   });
 
   it('clean export (all supported) produces no raster assets', async () => {
@@ -747,7 +747,7 @@ describe('composeFlattenedExportSnapshot', () => {
       dpi: 96,
     });
 
-    const asset = result.svg.rasterAssets['s1'];
+    const asset = result.svg.rasterAssets.s1;
     expect(asset).toBeDefined();
     expect(asset.pixelWidth).toBeGreaterThan(0);
     expect(asset.pixelHeight).toBeGreaterThan(0);
