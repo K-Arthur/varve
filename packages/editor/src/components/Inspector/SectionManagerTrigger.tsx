@@ -30,6 +30,7 @@ export function SectionManagerTrigger({ surface = 'properties' }: { surface?: In
   // Close on outside click
   useEffect(() => {
     if (!open) return;
+    panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
     const handle = (e: MouseEvent) => {
       if (
         panelRef.current &&

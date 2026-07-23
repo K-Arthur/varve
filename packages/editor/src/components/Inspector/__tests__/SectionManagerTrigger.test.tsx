@@ -13,6 +13,7 @@ describe('SectionManagerTrigger', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Customize sections' }));
+    expect(screen.getByRole('button', { name: 'Show all sections' })).toHaveFocus();
     const typography = screen.getByRole('checkbox', { name: 'Typography' });
     expect(typography).toBeChecked();
 
