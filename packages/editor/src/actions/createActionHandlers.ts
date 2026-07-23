@@ -101,6 +101,7 @@ export function createActionHandlers(
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
+    toggleStateMachinePanel: () => e.toggleStateMachinePanel(),
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
     toggleBeforeAfterCompare: () => e.toggleBeforeAfterCompare(),
     workspaceDesign: () => e.setWorkspaceMode('design'),

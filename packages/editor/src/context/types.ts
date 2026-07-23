@@ -192,6 +192,13 @@ export interface EditorState {
   workspaceMode: WorkspaceMode;
   /** Whether the graph editor panel is visible in the timeline area. */
   graphEditorVisible: boolean;
+  /**
+   * Whether the State Machine panel is visible. State machines are
+   * document-wide (keyed off `document.stateMachines`, not the current
+   * selection), so — like the timeline — they get their own opt-in panel
+   * rather than living in the per-selection Properties inspector.
+   */
+  stateMachinePanelVisible: boolean;
   /** Which property track is currently shown in the graph editor (nodeId.property). */
   selectedGraphProperty: string | null;
   /**
@@ -537,6 +544,11 @@ export interface EditorContextValue {
   syncInstance: (instanceId: NodeId) => import('@strata/scene').InstanceStatus;
   getInstanceStatus: (instanceId: NodeId) => import('@strata/scene').InstanceStatus;
   syncAllInstances: () => import('@strata/scene').SyncResult;
+
+  // Flatten
+  flattenSelected: (mode: import('@strata/engine').FlattenMode, scale?: number) => void;
+  rasterizeSelected: (scale?: number) => void;
+  mergeSelected: () => void;
 
   // Visibility
   setNodeLocked: (id: NodeId, locked: boolean) => void;

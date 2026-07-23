@@ -112,6 +112,11 @@ export const SHORTCUT_DEFS = {
   },
   bringForward: { binding: { key: ']', ctrl: true }, label: 'Bring Forward', category: 'Arrange' },
   sendBackward: { binding: { key: '[', ctrl: true }, label: 'Send Backward', category: 'Arrange' },
+  flattenSelection: {
+    binding: { key: 'f', ctrl: true, shift: true },
+    label: 'Flatten Selection',
+    category: 'Object',
+  },
   alignLeft: {
     binding: { key: 'ArrowLeft', ctrl: true, shift: true },
     label: 'Align left',
@@ -213,6 +218,11 @@ export const SHORTCUT_DEFS = {
   toggleGraphEditor: {
     binding: { key: 'g' },
     label: 'Toggle Graph Editor',
+    category: 'View',
+  },
+  toggleStateMachinePanel: {
+    binding: { key: 'k', ctrl: true, alt: true },
+    label: 'Toggle State Machine Panel',
     category: 'View',
   },
   motionWorkspace: {

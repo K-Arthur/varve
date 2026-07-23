@@ -151,6 +151,11 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
         shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
         action: 'toggleGraphEditor',
       },
+      {
+        label: 'State Machine Panel',
+        shortcut: formatShortcut(SHORTCUT_DEFS.toggleStateMachinePanel.binding),
+        action: 'toggleStateMachinePanel',
+      },
       { label: '---' },
       {
         label: 'Clear All Guides',
@@ -307,6 +312,14 @@ const MENUS: { id: MenuId; items: MenuItem[] }[] = [
       { label: 'Invert Mask', action: 'invertMask' },
       { label: '---' },
       {
+        label: 'Flatten Selection',
+        shortcut: formatShortcut(SHORTCUT_DEFS.flattenSelection.binding),
+        action: 'flattenSelection',
+      },
+      { label: 'Rasterize', action: 'rasterizeSelection' },
+      { label: 'Merge Selected Layers', action: 'mergeSelected' },
+      { label: '---' },
+      {
         label: 'Union',
         shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
         action: 'booleanUnion',
@@ -438,6 +451,9 @@ export function Menubar({
     removeMaskFromSelected,
     toggleMask,
     invertMask,
+    flattenSelected,
+    rasterizeSelected,
+    mergeSelected,
     assignMasterToPage,
     createMaster,
     toggleFacingPages,
@@ -563,6 +579,15 @@ export function Menubar({
           return;
         case 'invertMask':
           invertMask();
+          return;
+        case 'flattenSelection':
+          flattenSelected('flatten', 1);
+          return;
+        case 'rasterizeSelection':
+          rasterizeSelected(1);
+          return;
+        case 'mergeSelected':
+          mergeSelected();
           return;
         case 'clearGuides':
           clearAllGuides();
