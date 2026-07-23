@@ -63,6 +63,7 @@ export {
   safeWriteFile,
   safeWriteWithRetry,
   registerSafeWriteIo,
+  resetSafeWriteIo,
   inMemoryFileExists,
   inMemoryReadFile,
   inMemoryClear,
