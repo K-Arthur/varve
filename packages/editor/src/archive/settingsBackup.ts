@@ -12,9 +12,9 @@
 
 import type {
   ArchiveConflict,
-  BackupSnapshot,
   SettingsBackupEntry,
   SettingsCategory,
+  SettingsRollbackSnapshot,
 } from './archiveTypes';
 
 /** LocalStorage keys and their category mappings */
@@ -157,52 +157,54 @@ export function migrateSettingsEntry(
   return entry;
 }
 
-/**
- * Create a rollback snapshot of current localStorage state.
- * Used before applying a restore to enable undo.
- */
-export function createRollbackSnapshot(): BackupSnapshot {
-  const allKeys = Object.keys(SETTINGS_SOURCES);
-  const hashParts: string[] = [];
-
-  for (const key of allKeys) {
+function currentSettingsHashParts(): string[] {
+  return Object.keys(SETTINGS_SOURCES).map((key) => {
     const value = localStorage.getItem(key) ?? '';
-    hashParts.push(`${key}:${value.length}`);
+    return `${key}:${value.length}`;
+  });
+}
+
+/**
+ * Create a rollback snapshot of current localStorage state — captures the
+ * actual raw values (not just a length-based hash), so a failed restore can
+ * be reverted for real via `restoreRollbackSnapshot`.
+ */
+export function createRollbackSnapshot(): SettingsRollbackSnapshot {
+  const values: Record<string, string | null> = {};
+  for (const key of Object.keys(SETTINGS_SOURCES)) {
+    values[key] = localStorage.getItem(key);
   }
 
   return {
     id: `rollback-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    documentRevisionId: '',
-    documentHash: hashParts.join('|'),
-    settingsHash: hashParts.join('|'),
+    settingsHash: currentSettingsHashParts().join('|'),
+    values,
     createdAt: new Date().toISOString(),
   };
 }
 
 /**
- * Restore settings from a rollback snapshot.
- * Returns true if restoration succeeded, false if snapshot is stale.
+ * Restore settings from a rollback snapshot, writing the captured raw
+ * values back to localStorage unconditionally. This is meant to run after
+ * a restore-apply failure, so it must not refuse to act just because the
+ * current state (the partially-applied failure) differs from the snapshot
+ * — that mismatch is exactly why the rollback is needed.
+ *
+ * Returns false only if the write itself fails (e.g. storage unavailable).
  */
-export function restoreRollbackSnapshot(snapshot: BackupSnapshot): boolean {
-  // Verify the snapshot is still valid by comparing current hash
-  const allKeys = Object.keys(SETTINGS_SOURCES);
-  const hashParts: string[] = [];
-
-  for (const key of allKeys) {
-    const value = localStorage.getItem(key) ?? '';
-    hashParts.push(`${key}:${value.length}`);
+export function restoreRollbackSnapshot(snapshot: SettingsRollbackSnapshot): boolean {
+  try {
+    for (const [key, value] of Object.entries(snapshot.values)) {
+      if (value === null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+      }
+    }
+    return true;
+  } catch {
+    return false;
   }
-
-  const currentHash = hashParts.join('|');
-  if (currentHash !== snapshot.settingsHash) {
-    return false; // Stale snapshot
-  }
-
-  // Restore each key from the snapshot values
-  // Note: snapshot only stores hashes, not actual values.
-  // For a real rollback, we'd need to store the full state.
-  // This is a simplified version that validates the snapshot is current.
-  return true;
 }
 
 const ALL_CATEGORIES: SettingsCategory[] = [
