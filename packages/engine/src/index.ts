@@ -171,6 +171,8 @@ export {
   extractBoundedContext,
   mapMaskThroughTransform,
   patchMatchFill,
+  QUALITY_DESCRIPTIONS,
+  QUALITY_LABELS,
   runContentAwareFillPipeline,
   runLaMaInference,
   unmapFillResult,
@@ -592,6 +594,18 @@ export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './text
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
+export type { ThumbnailCapabilities } from './thumbnail/index';
+export {
+  getThumbnailCapabilities,
+  hasAnyCanvas,
+  hasCreateImageBitmap,
+  hasDomCanvas,
+  hasFileReader,
+  hasImageEncoding,
+  hasOffscreenCanvas,
+  hasWorkerSupport,
+  setThumbnailCapabilitiesForTest,
+} from './thumbnail/index';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
 export type {

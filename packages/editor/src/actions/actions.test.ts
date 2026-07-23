@@ -119,3 +119,87 @@ describe('ActionRegistry', () => {
     expect(r.get('dup')?.label).toBe('Second');
   });
 });
+
+describe('ActionRegistry fuzzy search', () => {
+  afterEach(() => {
+    resetActionRegistryForTesting();
+  });
+
+  it('finds actions by fuzzy subsequence match', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'bringFront', label: 'Bring to Front', category: 'arrange' }, () => {});
+    r.register({ id: 'sendBack', label: 'Send to Back', category: 'arrange' }, () => {});
+    r.register({ id: 'group', label: 'Group', category: 'object' }, () => {});
+    const results = r.search('bfr');
+    expect(results.length).toBeGreaterThan(0);
+    expect(results[0]?.id).toBe('bringFront');
+  });
+
+  it('ranks exact match above fuzzy match', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'undo', label: 'Undo', category: 'edit' }, () => {});
+    r.register({ id: 'duplicate', label: 'Duplicate', category: 'edit' }, () => {});
+    const results = r.search('undo');
+    expect(results[0]?.id).toBe('undo');
+  });
+
+  it('ranks prefix match above substring match', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'alignLeft', label: 'Align Left', category: 'object' }, () => {});
+    r.register(
+      { id: 'distributeHorizontal', label: 'Distribute Horizontally', category: 'object' },
+      () => {},
+    );
+    const results = r.search('align');
+    expect(results[0]?.id).toBe('alignLeft');
+  });
+
+  it('boosts recently used actions', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'actionA', label: 'Alpha Item', category: 'edit' }, () => {});
+    r.register({ id: 'actionB', label: 'Beta Item', category: 'edit' }, () => {});
+    r.recordUsage('actionB');
+    const results = r.search('item');
+    expect(results[0]?.id).toBe('actionB');
+  });
+
+  it('returns empty for no match', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'undo', label: 'Undo', category: 'edit' }, () => {});
+    expect(r.search('zzzz')).toHaveLength(0);
+  });
+});
+
+describe('ActionRegistry usage tracking', () => {
+  afterEach(() => {
+    resetActionRegistryForTesting();
+  });
+
+  it('tracks recent ids in order', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'a', label: 'A', category: 'edit' }, () => {});
+    r.register({ id: 'b', label: 'B', category: 'edit' }, () => {});
+    r.register({ id: 'c', label: 'C', category: 'edit' }, () => {});
+    r.recordUsage('a');
+    r.recordUsage('b');
+    r.recordUsage('c');
+    expect(r.getRecentIds()).toEqual(['c', 'b', 'a']);
+  });
+
+  it('moves re-used id to front', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'a', label: 'A', category: 'edit' }, () => {});
+    r.register({ id: 'b', label: 'B', category: 'edit' }, () => {});
+    r.recordUsage('a');
+    r.recordUsage('b');
+    r.recordUsage('a');
+    expect(r.getRecentIds()).toEqual(['a', 'b']);
+  });
+
+  it('ignores unknown ids', () => {
+    const r = getActionRegistry();
+    r.register({ id: 'a', label: 'A', category: 'edit' }, () => {});
+    r.recordUsage('nonexistent');
+    expect(r.getRecentIds()).toHaveLength(0);
+  });
+});

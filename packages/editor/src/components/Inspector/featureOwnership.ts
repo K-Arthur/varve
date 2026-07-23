@@ -13,7 +13,7 @@ export type InspectorSurface =
   | 'appearance'
   | 'adjustments'
   | 'prototype'
-  | 'document'
+  | 'export'
   | 'tool-options'
   | 'audit';
 
@@ -309,20 +309,22 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     duplicates: 'FloatingToolbar already exposes brush size and opacity.',
   },
   'canvas-background': {
-    surface: 'document',
+    surface: 'properties',
     scope: 'document',
     frequency: 'occasional',
     complexity: 'compact',
     status: 'functional',
-    rationale: 'Canvas background applies to the document rather than a selection.',
+    rationale:
+      'Canvas background applies to the document rather than a selection. Shown inline in Properties empty state.',
   },
   'document-color': {
-    surface: 'document',
+    surface: 'properties',
     scope: 'document',
     frequency: 'rare',
     complexity: 'moderate',
     status: 'functional',
-    rationale: 'Color mode conversion is document-wide and potentially destructive.',
+    rationale:
+      'Color mode conversion is document-wide and potentially destructive. Shown inline in Properties empty state.',
   },
 };
 

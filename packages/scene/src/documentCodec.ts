@@ -11,7 +11,6 @@
  */
 
 import {
-  createEmbeddedAsset,
   hashContent,
   isAssetReferenced,
   mimeTypeFromDataUrl,

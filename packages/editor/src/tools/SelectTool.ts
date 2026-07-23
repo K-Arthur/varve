@@ -28,6 +28,7 @@ import {
   pointToSegmentDistSq,
   tryInvertAffine,
 } from '@strata/shared';
+import { executeNudge, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
@@ -53,8 +54,14 @@ export class SelectTool extends BaseTool {
   private isMoveGesture = false;
   private initialPositions = new Map<string, { x: number; y: number }>();
   private hasDuplicated = false;
+  private nudgeGestureActive = false;
 
   override onDeactivate(ctx: ToolContext): void {
+    // Commit any active nudge transaction when switching tools
+    if (this.nudgeGestureActive) {
+      ctx.commitTransaction();
+      this.nudgeGestureActive = false;
+    }
     // Cancel any active drag when switching tools
     if (this.drag.kind === 'dragging') {
       if (this.isMoveGesture) {
@@ -178,14 +185,6 @@ export class SelectTool extends BaseTool {
         this.drag.currentCanvas.x - this.drag.startCanvas.x,
         this.drag.currentCanvas.y - this.drag.startCanvas.y,
       );
-      const allBounds: Array<{ id: string; b: { x: number; y: number; w: number; h: number } }> =
-        [];
-      for (const n of Object.values(ctx.document.nodes)) {
-        const b = ctx.nodeWorldBounds(n);
-        if (b) allBounds.push({ id: n.id, b });
-      }
-      const selectedIds = new Set(sel);
-
       // Calculate selection center for drop target frame detection
       let selCenterX = 0;
       let selCenterY = 0;
@@ -230,20 +229,13 @@ export class SelectTool extends BaseTool {
 
         const thisBounds = ctx.nodeWorldBounds(node);
         if (thisBounds) {
-          const otherBounds = allBounds
-            .filter(
-              (entry) => !selectedIds.has(entry.id) && !(ctx.isSnapExcluded?.(entry.id) ?? false),
-            )
-            .map((entry) => entry.b);
-          if (otherBounds.length > 0) {
-            const snapped = ctx.snapPosition(
-              { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
-              otherBounds,
-            );
-            const local = toLocal(snapped.x, snapped.y);
-            ctx.setNodePosition(id, local.x, local.y);
-            continue;
-          }
+          const snapped = ctx.snapPosition(
+            { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
+            [],
+          );
+          const local = toLocal(snapped.x, snapped.y);
+          ctx.setNodePosition(id, local.x, local.y);
+          continue;
         }
         const local = toLocal(newWorldX, newWorldY);
         ctx.setNodePosition(id, local.x, local.y);
@@ -401,22 +393,30 @@ export class SelectTool extends BaseTool {
       const sel = ctx.selection;
       if (sel.length === 0) return false;
       const step = e.shiftKey ? 10 : e.altKey ? 0.5 : 1;
-      ctx.beginTransaction();
-      for (const id of sel) {
-        const node = ctx.getNode(id);
-        if (!node) continue;
-        const t = node.transform;
-        // A2: Nudge along local affine axes (supports rotated nodes)
-        const [a, b, c, d] = t;
-        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
-        // Transform nudge vector by local axes: [a, b] for X, [c, d] for Y
-        ctx.setNodePosition(id, t[4] + dx * a + dy * c, t[5] + dx * b + dy * d);
+      const direction = e.key.slice('Arrow'.length).toLowerCase() as NudgeDirection;
+      if (!['up', 'down', 'left', 'right'].includes(direction)) return false;
+
+      // Key-repeat coalescing: only begin a transaction on the first press.
+      // Subsequent repeats share the same transaction; keyup commits it.
+      if (!e.repeat) {
+        if (this.nudgeGestureActive) {
+          ctx.commitTransaction();
+          this.nudgeGestureActive = false;
+        }
+        ctx.beginTransaction();
+        this.nudgeGestureActive = true;
       }
-      ctx.commitTransaction();
+
+      executeNudge(direction, step, {
+        document: ctx.document,
+        selection: sel,
+        getNode: (id) => ctx.getNode(id),
+        setNodePosition: (id, x, y) => ctx.setNodePosition(id, x, y),
+      });
+
       // Auto-reparent after nudge (matching drag-end behavior).
       // Hold Ctrl to bypass (Space is used for Hand tool spring).
-      if (!ctx.ctrlKey) {
+      if (!e.repeat && !ctx.ctrlKey) {
         // Collect all pending reparent ops first so we only start a
         // transaction when actual work is needed.
         const reparentOps: Array<{
@@ -501,6 +501,13 @@ export class SelectTool extends BaseTool {
       return true;
     }
     return false;
+  }
+
+  override onKeyUp(e: KeyboardEvent, ctx: ToolContext): void {
+    if (this.nudgeGestureActive && e.key.startsWith('Arrow')) {
+      ctx.commitTransaction();
+      this.nudgeGestureActive = false;
+    }
   }
 
   /**

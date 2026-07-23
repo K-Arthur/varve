@@ -181,4 +181,55 @@ describe('thumbnailCacheKey', () => {
     expect(withoutMask).not.toBe(withMask);
     expect(withMask).not.toBe(bumped);
   });
+
+  it('produces different key for different dimensions', () => {
+    const k1 = thumbnailCacheKey({ id: 'n1', kind: 'rect', w: 100, h: 200 });
+    const k2 = thumbnailCacheKey({ id: 'n1', kind: 'rect', w: 200, h: 200 });
+    expect(k1).not.toBe(k2);
+  });
+
+  it('produces same key when dimensions are undefined', () => {
+    const k1 = thumbnailCacheKey({ id: 'n1', kind: 'rect' });
+    const k2 = thumbnailCacheKey({ id: 'n1', kind: 'rect', w: undefined, h: undefined });
+    expect(k1).toBe(k2);
+  });
+});
+
+describe('ThumbnailCache setMaxSize', () => {
+  it('evicts entries when maxSize is reduced', () => {
+    const cache = new ThumbnailCache(5);
+    cache.set('a', 'url-a');
+    cache.set('b', 'url-b');
+    cache.set('c', 'url-c');
+    expect(cache.size).toBe(3);
+    cache.setMaxSize(2);
+    expect(cache.size).toBe(2);
+    expect(cache.get('a')).toBeUndefined();
+    // The remaining entries should be the most recently added
+    expect(cache.get('c')).toBe('url-c');
+  });
+
+  it('does not evict when maxSize is increased', () => {
+    const cache = new ThumbnailCache(3);
+    cache.set('a', 'url-a');
+    cache.set('b', 'url-b');
+    cache.set('c', 'url-c');
+    cache.setMaxSize(10);
+    expect(cache.size).toBe(3);
+    expect(cache.get('a')).toBe('url-a');
+  });
+
+  it('clamps maxSize to at least 1', () => {
+    const cache = new ThumbnailCache(3);
+    cache.set('a', 'url-a');
+    cache.set('b', 'url-b');
+    cache.setMaxSize(0);
+    // Clamped to 1, so 'a' (oldest) should be evicted
+    expect(cache.get('a')).toBeUndefined();
+    expect(cache.get('b')).toBe('url-b');
+    // Should still be able to add entries (evicting oldest)
+    cache.set('c', 'url-c');
+    expect(cache.get('b')).toBeUndefined();
+    expect(cache.get('c')).toBe('url-c');
+  });
 });

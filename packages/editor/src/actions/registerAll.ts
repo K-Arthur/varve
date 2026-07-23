@@ -106,7 +106,7 @@ export function registerEditorActions(
 
   const panelActions = [
     ['openInspectorProperties', 'Open Properties', ['inspector', 'selection', 'properties']],
-    ['openAppearancePanel', 'Open Appearance', ['effects', 'mask', 'paint', 'styles']],
+    ['openAppearancePanel', 'Open Appearance & Effects', ['effects', 'mask', 'paint', 'styles']],
     ['openAdjustmentsPanel', 'Open Adjustments', ['image', 'retouch', 'enhance', 'ai']],
     ['openPrototypePanel', 'Open Prototype', ['interaction', 'flow', 'trigger']],
     ['openDocumentPanel', 'Open Document Settings', ['canvas', 'color mode', 'document']],
@@ -171,8 +171,8 @@ export function registerEditorActions(
     'object',
     handlers.toggleFacingPages ?? (() => {}),
   );
-  reg('nudgeUp', 'Nudge Up', 'object', () => {});
-  reg('nudgeDown', 'Nudge Down', 'object', () => {});
-  reg('nudgeLeft', 'Nudge Left', 'object', () => {});
-  reg('nudgeRight', 'Nudge Right', 'object', () => {});
+  reg('nudgeUp', 'Nudge Up', 'object', handlers.nudgeUp ?? (() => {}));
+  reg('nudgeDown', 'Nudge Down', 'object', handlers.nudgeDown ?? (() => {}));
+  reg('nudgeLeft', 'Nudge Left', 'object', handlers.nudgeLeft ?? (() => {}));
+  reg('nudgeRight', 'Nudge Right', 'object', handlers.nudgeRight ?? (() => {}));
 }

@@ -11,6 +11,7 @@ import type {
   VariableStore,
 } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
+import { canEmitAsHtml, type FlattenReason } from './flattening';
 import { adjustmentStackTargetGaps, colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';
 import type { TargetGap } from './types';
@@ -59,6 +60,34 @@ export function exportNodeToCss(
   const selector = className(node, opts?.classPrefix);
   const pos = computeNodePos(node);
   const lines: string[] = [`${selector} {`];
+
+  // Check flattening requirements for this node
+  const emitResult = canEmitAsHtml(node, _doc);
+  const needsRaster = emitResult.emitAs !== 'native';
+
+  if (needsRaster && emitResult.emitAs === 'image') {
+    // Node must be rasterized — emit a placeholder with overlay text
+    lines.push(`  position: absolute;`);
+    lines.push(`  left: ${formatSize(pos.x, unit, base)};`);
+    lines.push(`  top: ${formatSize(pos.y, unit, base)};`);
+    lines.push(`  width: ${formatSize(pos.w, unit, base)};`);
+    lines.push(`  height: ${formatSize(pos.h, unit, base)};`);
+    lines.push(`  /* WARNING raster fallback needed: ${emitResult.reasons.join(', ')} */`);
+    lines.push(`  background: repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 20px 20px;`);
+    lines.push(`  display: flex;`);
+    lines.push(`  align-items: center;`);
+    lines.push(`  justify-content: center;`);
+    lines.push(`  color: #999;`);
+    lines.push(`  font-size: 12px;`);
+    lines.push(`  text-align: center;`);
+    lines.push(`  content: "${emitResult.reasons[0] || 'complex effect'}";`);
+    lines.push(`}`); // close before re-opening for native fallback
+    lines.push(``);
+    lines.push(`${selector}::after {`);
+    lines.push(`  content: "Raster fallback needed: ${emitResult.reasons.join(', ')}";`);
+    lines.push(`}`);
+    return lines.join('\n');
+  }
 
   lines.push(`  position: absolute;`);
   lines.push(`  left: ${formatSize(pos.x, unit, base)};`);
@@ -122,6 +151,44 @@ export function exportNodeToCss(
     }
   }
 
+  // Opacity and blend mode
+  const rawOpacity = node.opacity ?? 1;
+  if (rawOpacity < 1) lines.push(`  opacity: ${rawOpacity};`);
+  const blend = node.blendMode;
+  if (blend && blend !== 'normal' && blend !== 'passThrough') {
+    const cssBlend =
+      blend === 'colorDodge'
+        ? 'color-dodge'
+        : blend === 'colorBurn'
+          ? 'color-burn'
+          : blend === 'hardLight'
+            ? 'hard-light'
+            : blend === 'softLight'
+              ? 'soft-light'
+              : blend === 'plusDarker'
+                ? 'plus-darker'
+                : blend === 'plusLighter'
+                  ? 'plus-lighter'
+                  : blend;
+    if (
+      [
+        'multiply',
+        'screen',
+        'overlay',
+        'darken',
+        'lighten',
+        'color-dodge',
+        'color-burn',
+        'hard-light',
+        'soft-light',
+        'difference',
+        'exclusion',
+      ].includes(cssBlend)
+    ) {
+      lines.push(`  mix-blend-mode: ${cssBlend};`);
+    }
+  }
+
   lines.push('}');
   return lines.join('\n');
 }
@@ -177,6 +244,18 @@ export function cssTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[]
       feature: 'background blur effect',
       severity: 'warning',
       fallback: 'Use backdrop-filter: blur(...) with browser prefix if needed',
+    });
+  }
+
+  // Flattening analysis: check if node needs full raster fallback
+  const emitResult = canEmitAsHtml(node, _doc);
+  if (emitResult.emitAs !== 'native') {
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `complex rendering (${emitResult.reasons.join(', ')})`,
+      severity: 'warning',
+      fallback: 'Use a pre-rendered raster image or implement the effect in CSS/JS',
     });
   }
 

@@ -6,6 +6,13 @@ import { EditorProvider, useEditor } from '../../context';
 import { PropertiesPanel } from './PropertiesPanel';
 
 function renderPanel() {
+  // Mock clientWidth so the overflow logic doesn't trigger in jsdom
+  // (jsdom has no layout engine, so clientWidth defaults to 0, which would
+  // cause all movable tabs to overflow and prevent tab switching).
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    value: 800,
+  });
   return render(
     <EditorProvider>
       <PropertiesPanel />
@@ -46,68 +53,52 @@ async function renderPanelWithSelectedRect(locked = false) {
 }
 
 describe('PropertiesPanel canvas settings', () => {
-  it('uses the workspace ownership tabs and omits the duplicate Score tab', () => {
+  it('uses the grouped workspace tabs and omits legacy document and spec tabs', () => {
     renderPanel();
 
-    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual([
+    const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
+    const tabLabels = tabs.filter(Boolean);
+    expect(tabLabels).toEqual([
       'Properties',
-      'Appearance',
+      'Appearance & Effects',
       'Prototype',
-      'Document',
       'Export',
-      'Inspect',
       'Audit',
     ]);
+    expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Inspect' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Score' })).toBeNull();
   });
 
-  it('implements APG roving focus for arrow, Home, and End keys', () => {
+  it('implements APG roving focus for arrow, Home, and End keys within each tier', () => {
     renderPanel();
-    const properties = screen.getByRole('tab', { name: 'Properties' });
-    const appearance = screen.getByRole('tab', { name: 'Appearance' });
+    const appearance = screen.getByRole('tab', { name: 'Appearance & Effects' });
     const audit = screen.getByRole('tab', { name: 'Audit' });
 
-    properties.focus();
-    fireEvent.keyDown(properties, { key: 'ArrowRight' });
-    expect(appearance).toHaveFocus();
-    expect(appearance).toHaveAttribute('aria-selected', 'true');
+    appearance.focus();
+    fireEvent.keyDown(appearance, { key: 'ArrowRight' });
+    const prototype = screen.getByRole('tab', { name: 'Prototype' });
+    expect(prototype).toHaveFocus();
 
-    fireEvent.keyDown(appearance, { key: 'End' });
+    fireEvent.keyDown(prototype, { key: 'End' });
     expect(audit).toHaveFocus();
 
     fireEvent.keyDown(audit, { key: 'Home' });
-    expect(properties).toHaveFocus();
+    expect(appearance).toHaveFocus();
+
+    fireEvent.keyDown(appearance, { key: 'ArrowLeft' });
+    expect(audit).toHaveFocus();
   });
 
-  it('renders canvas and document color settings on the Document surface', async () => {
+  it('renders canvas settings inline in the Properties empty state', async () => {
     renderPanel();
-    fireEvent.click(screen.getByRole('tab', { name: 'Document' }));
-
-    expect(await screen.findByRole('button', { name: 'Canvas' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Document Color' })).toBeTruthy();
-    expect(screen.getByLabelText('Canvas background')).toBeTruthy();
-
-    expect(screen.getByRole('button', { name: 'RGB' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'CMYK' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Grayscale' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(screen.getByText(/Canvas background/i)).toBeTruthy();
   });
 
-  it('switches document color mode via the Document surface', async () => {
+  it('renders the document name and node count in the Properties empty state', async () => {
     renderPanel();
-    fireEvent.click(screen.getByRole('tab', { name: 'Document' }));
-
-    fireEvent.click(await screen.findByRole('button', { name: 'CMYK' }));
-
-    expect(screen.getByRole('button', { name: 'CMYK' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: 'RGB' })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: 'Grayscale' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(screen.getByText(/^Untitled$/)).toBeTruthy();
+    expect(screen.getByText(/nodes?/)).toBeTruthy();
   });
 });
 
@@ -151,6 +142,31 @@ describe('PropertiesPanel section gating for a real single selection', () => {
     // lives in its own dialog, opened via toggleStateMachinePanel.
     await renderPanelWithSelectedRect();
     expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
+  });
+});
+
+describe('PropertiesPanel export tab has merged export and code', () => {
+  it('renders the export tab with Format and Code sub-tabs when a node is selected', async () => {
+    const { makeShapeNode, addChild, createDocument } = await import('@strata/scene');
+    let doc = createDocument('export-test');
+    const rect = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 50, h: 50 });
+    doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, rect);
+
+    render(
+      <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+        <PropertiesPanel />
+      </EditorProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    expect(screen.getByRole('tab', { name: 'Format' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Code' })).toBeTruthy();
+  });
+
+  it('shows the empty state hint in the Export tab when nothing is selected', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    expect(screen.getByText(/Select a node to export/i)).toBeTruthy();
   });
 });
 

@@ -43,6 +43,7 @@ export interface DocumentContextValue {
   renameSelected: (name: string) => void;
   moveNode: (id: NodeId, toIndex: number) => void;
   duplicateSelected: () => void;
+  repeatDuplicate: () => void;
   setSelectedFill: (color: ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
