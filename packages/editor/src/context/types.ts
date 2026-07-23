@@ -546,7 +546,7 @@ export interface EditorContextValue {
   syncAllInstances: () => import('@strata/scene').SyncResult;
 
   // Flatten
-  flattenSelected: (mode: import('@strata/engine').FlattenMode, scale?: number) => void;
+  flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (scale?: number) => void;
   mergeSelected: () => void;
 

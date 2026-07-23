@@ -52,6 +52,7 @@ export * from './documentCodec';
 export * from './export-types';
 export * from './expr';
 export * from './fills';
+export * from './flatten';
 export * from './fontDefaults';
 export * from './governance';
 export * from './intelligence';
