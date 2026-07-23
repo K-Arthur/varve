@@ -75,8 +75,19 @@ function makeAdjustmentNode(overrides: Partial<SceneNode> = {}): SceneNode {
   return makeNode({ kind: 'adjustment', name: 'Adjustment 1', ...overrides });
 }
 
+/**
+ * A placed image asset — a `shape` node with an image fill, exactly what
+ * `isImageShape` (and every image section: placement, crop, denoise, lens
+ * blur, etc.) checks for. Distinct from a `rasterLayer` node, which is a
+ * paintable canvas layer created by the brush/smudge tools and is never
+ * treated as "an image" by these sections.
+ */
 function makeImageNode(overrides: Partial<SceneNode> = {}): SceneNode {
-  return makeNode({ kind: 'rasterLayer', name: 'Image 1', ...overrides });
+  return makeNode({
+    name: 'Image 1',
+    fills: [{ type: 'image', image: { src: 'blob:image-1' } }],
+    ...overrides,
+  } as unknown as Partial<SceneNode>);
 }
 
 function makeComponentFrame(): SceneNode {
@@ -241,10 +252,64 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(false);
   });
 
+  it('background-removal stays available for nodes with prior mask/removal state, not just live image fills', () => {
+    const def = getSectionDefinition('background-removal')!;
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()] }))).toBe(true);
+    expect(
+      def.isAvailable(
+        baseCtx({
+          selectedNodes: [makeNode({ mask: { rasterMask: 'mask-1' } } as never)],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      def.isAvailable(
+        baseCtx({
+          selectedNodes: [makeNode({ backgroundRemoval: { method: 'ai' } } as never)],
+        }),
+      ),
+    ).toBe(true);
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(false);
+  });
+
   it('image-placement only available for single image nodes', () => {
     const def = getSectionDefinition('image-placement')!;
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()] }))).toBe(true);
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(false);
+  });
+
+  it('image sections match isImageShape, not node kind or fill position', () => {
+    const def = getSectionDefinition('image-placement')!;
+    // A rasterLayer (paint-tool canvas layer) is never "an image" to these
+    // sections — only a shape node with an image fill is.
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode({ kind: 'rasterLayer' })] }))).toBe(
+      false,
+    );
+    // Any shape kind counts, not just rect/ellipse.
+    expect(
+      def.isAvailable(
+        baseCtx({
+          selectedNodes: [
+            makeImageNode({ shape: { kind: 'polygon', sides: 5, w: 100, h: 100 } } as never),
+          ],
+        }),
+      ),
+    ).toBe(true);
+    // An image fill anywhere in the stack counts, not just fills[0].
+    expect(
+      def.isAvailable(
+        baseCtx({
+          selectedNodes: [
+            makeImageNode({
+              fills: [
+                { type: 'solid', color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 } },
+                { type: 'image', image: { src: 'blob:image-2' } },
+              ],
+            } as never),
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('align-distribute only available for multi selection', () => {
@@ -273,10 +338,13 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ activeTool: 'select' }))).toBe(false);
   });
 
-  it('interaction only available in prototype mode with single selection', () => {
+  it('interaction is available for any single selection, independent of prototypeMode', () => {
+    // InteractionSection lets you author interactions on any node; it does
+    // not gate on prototypeMode (which has no UI toggle anywhere in the app —
+    // gating on it here previously made this section permanently unreachable).
     const def = getSectionDefinition('interaction')!;
     expect(def.isAvailable(baseCtx({ prototypeMode: true, selectionKind: 'single' }))).toBe(true);
-    expect(def.isAvailable(baseCtx({ prototypeMode: false, selectionKind: 'single' }))).toBe(false);
+    expect(def.isAvailable(baseCtx({ prototypeMode: false, selectionKind: 'single' }))).toBe(true);
     expect(def.isAvailable(baseCtx({ prototypeMode: true, selectionKind: 'multi' }))).toBe(false);
   });
 
