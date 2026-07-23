@@ -19,6 +19,11 @@ const NONCE_LENGTH = 12;
 const KEY_LENGTH = 256;
 const HASH = 'SHA-256';
 
+// `as BufferSource` casts below work around TS 5.7+'s generic `Uint8Array<TArrayBuffer>`:
+// SubtleCrypto's DOM types require the ArrayBuffer-specific view, but a plain
+// `Uint8Array` parameter widens to `Uint8Array<ArrayBufferLike>` (which also
+// covers SharedArrayBuffer) and no longer satisfies that structurally. Every
+// value here is always constructed over a real ArrayBuffer, so the cast is safe.
 function getSubtle(): SubtleCrypto {
   const c = globalThis.crypto?.subtle;
   if (!c) throw new Error('Web Crypto API not available');
@@ -53,7 +58,7 @@ export async function deriveKey(
   return subtle.deriveKey(
     {
       name: 'PBKDF2',
-      salt,
+      salt: salt as BufferSource,
       iterations: params?.iterations ?? DEFAULT_ITERATIONS,
       hash: params?.hash ?? HASH,
     },
@@ -74,7 +79,11 @@ export async function encryptBytes(data: Uint8Array, password: string): Promise<
   const nonce = crypto.getRandomValues(new Uint8Array(NONCE_LENGTH));
   const key = await deriveKey(password, salt);
 
-  const ciphertext = await subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, data);
+  const ciphertext = await subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce as BufferSource },
+    key,
+    data as BufferSource,
+  );
 
   // Concatenate: salt + nonce + ciphertext (includes auth tag)
   const result = new Uint8Array(salt.length + nonce.length + ciphertext.byteLength);
@@ -99,7 +108,11 @@ export async function decryptBytes(data: Uint8Array, password: string): Promise<
   const ciphertext = data.slice(SALT_LENGTH + NONCE_LENGTH);
   const key = await deriveKey(password, salt);
 
-  const decrypted = await subtle.decrypt({ name: 'AES-GCM', iv: nonce }, key, ciphertext);
+  const decrypted = await subtle.decrypt(
+    { name: 'AES-GCM', iv: nonce as BufferSource },
+    key,
+    ciphertext as BufferSource,
+  );
   return new Uint8Array(decrypted);
 }
 
@@ -109,7 +122,7 @@ export async function decryptBytes(data: Uint8Array, password: string): Promise<
  */
 export async function computeChecksum(data: Uint8Array): Promise<string> {
   const subtle = getSubtle();
-  const hash = await subtle.digest('SHA-256', data);
+  const hash = await subtle.digest('SHA-256', data as BufferSource);
   return bytesToHex(new Uint8Array(hash));
 }
 

@@ -36,6 +36,7 @@ import {
   restoreRollbackSnapshot,
   validateArchive,
 } from '../../archive';
+import { isCommonPassword } from '../../archive/commonPasswords';
 
 import './ArchiveDialog.css';
 
@@ -103,21 +104,54 @@ const PHASE_LABELS: Record<string, string> = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function evaluatePasswordStrength(password: string): PasswordStrength {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (password.length >= 12) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[a-z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
-  if (score <= 2) return 'weak';
-  if (score <= 3) return 'fair';
-  if (score <= 5) return 'strong';
-  return 'very-strong';
+/** Entropy estimation using the NIST SP 800-63B heuristic:
+ *  - 4 bits for the first character
+ *  - 2 bits for each of the next 7 characters
+ *  - 1.5 bits for each additional character
+ *  - +6 bonus bits for uppercase
+ *  - +6 bonus bits for lowercase
+ *  - +6 bonus bits for digits
+ *  - +6 bonus bits for special characters
+ *
+ *  This is a local-only estimate (no network calls, no logging).
+ *  It does NOT imply safety; it only identifies weak structural choices
+ *  and common passwords.
+ */
+function estimatePasswordEntropy(password: string): number {
+  if (password.length === 0) return 0;
+  let entropy = 4 + Math.min(password.length - 1, 7) * 2;
+  if (password.length > 8) entropy += (password.length - 8) * 1.5;
+  if (/[A-Z]/.test(password)) entropy += 6;
+  if (/[a-z]/.test(password)) entropy += 6;
+  if (/[0-9]/.test(password)) entropy += 6;
+  if (/[^A-Za-z0-9]/.test(password)) entropy += 6;
+  return entropy;
 }
 
-function strengthLabel(s: PasswordStrength): string {
+function evaluatePasswordStrength(password: string): {
+  strength: PasswordStrength;
+  isCommon: boolean;
+  entropy: number;
+} {
+  if (password.length === 0) {
+    return { strength: 'weak', isCommon: false, entropy: 0 };
+  }
+
+  const isCommon = isCommonPassword(password);
+  const entropy = estimatePasswordEntropy(password);
+
+  // Common password check takes priority
+  if (isCommon) return { strength: 'weak', isCommon: true, entropy };
+
+  // Entropy-based classification
+  if (entropy < 20) return { strength: 'weak', isCommon: false, entropy };
+  if (entropy < 30) return { strength: 'fair', isCommon: false, entropy };
+  if (entropy < 45) return { strength: 'strong', isCommon: false, entropy };
+  return { strength: 'very-strong', isCommon: false, entropy };
+}
+
+function strengthLabel(s: PasswordStrength, isCommon: boolean): string {
+  if (isCommon) return 'Common password';
   switch (s) {
     case 'weak':
       return 'Weak';
@@ -340,7 +374,7 @@ export function ArchiveDialog({
 
   const handleDownloadArchive = useCallback(() => {
     if (!createResult) return;
-    const blob = new Blob([createResult.bytes], { type: 'application/zip' });
+    const blob = new Blob([createResult.bytes as BlobPart], { type: 'application/zip' });
     const url = URL.createObjectURL(blob);
     const a = globalThis.document.createElement('a');
     a.href = url;
@@ -376,7 +410,7 @@ export function ArchiveDialog({
   }, []);
 
   const handleFileDrop = useCallback(
-    (e: DragEvent<HTMLDivElement>) => {
+    (e: DragEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
       dropZoneRef.current?.classList.remove('archive-dialog__drop-zone--active');
@@ -389,13 +423,13 @@ export function ArchiveDialog({
     [handleFileSelect],
   );
 
-  const handleFileDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleFileDragOver = useCallback((e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     dropZoneRef.current?.classList.add('archive-dialog__drop-zone--active');
   }, []);
 
-  const handleFileDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleFileDragLeave = useCallback((e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     dropZoneRef.current?.classList.remove('archive-dialog__drop-zone--active');
@@ -703,11 +737,11 @@ export function ArchiveDialog({
                 role="meter"
                 aria-label="Password strength"
                 aria-valuenow={
-                  passwordStrength === 'weak'
+                  passwordStrength.strength === 'weak'
                     ? 1
-                    : passwordStrength === 'fair'
+                    : passwordStrength.strength === 'fair'
                       ? 2
-                      : passwordStrength === 'strong'
+                      : passwordStrength.strength === 'strong'
                         ? 3
                         : 4
                 }
@@ -716,14 +750,19 @@ export function ArchiveDialog({
               >
                 <div className="archive-dialog__strength-bar">
                   <div
-                    className={`archive-dialog__strength-fill archive-dialog__strength-fill--${passwordStrength}`}
+                    className={`archive-dialog__strength-fill archive-dialog__strength-fill--${passwordStrength.strength}`}
                   />
                 </div>
                 <span
-                  className={`archive-dialog__strength-label archive-dialog__strength-label--${passwordStrength}`}
+                  className={`archive-dialog__strength-label archive-dialog__strength-label--${passwordStrength.strength}`}
                 >
-                  {strengthLabel(passwordStrength)}
+                  {strengthLabel(passwordStrength.strength, passwordStrength.isCommon)}
                 </span>
+                {passwordStrength.isCommon && (
+                  <span className="archive-dialog__strength-breach" role="alert">
+                    This password appears in known breach datasets — choose a unique one.
+                  </span>
+                )}
               </div>
             )}
           </div>

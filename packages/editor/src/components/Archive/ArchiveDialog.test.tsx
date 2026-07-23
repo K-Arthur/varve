@@ -147,7 +147,7 @@ describe('ArchiveDialog', () => {
       renderDialog();
       await user.click(screen.getByText('Encrypt archive with password'));
       const passwordInput = screen.getByLabelText('Password');
-      await user.type(passwordInput, 'strongP@ss1');
+      await user.type(passwordInput, 'Strata2024');
       expect(screen.getByRole('meter', { name: /password strength/i })).toBeInTheDocument();
       expect(screen.getByText('Strong')).toBeInTheDocument();
     });
@@ -325,7 +325,7 @@ describe('ArchiveDialog', () => {
       const user = userEvent.setup();
       renderDialog();
       await user.click(screen.getByText('Encrypt archive with password'));
-      await user.type(screen.getByLabelText('Password'), 'Password1');
+      await user.type(screen.getByLabelText('Password'), 'MyPass123');
       expect(screen.getByText('Strong')).toBeInTheDocument();
     });
 
