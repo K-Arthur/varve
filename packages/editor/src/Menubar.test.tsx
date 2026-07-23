@@ -137,6 +137,10 @@ vi.mock('./shortcuts', () => ({
       binding: { key: 'k', ctrl: true, alt: true },
       label: 'State Machine Panel',
     },
+    flattenSelection: {
+      binding: { key: 'f', ctrl: true, shift: true },
+      label: 'Flatten Selection',
+    },
     newAdjustmentLayer: {
       binding: { key: 'n', alt: true },
       label: 'New Adjustment Layer',

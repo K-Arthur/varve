@@ -130,10 +130,35 @@ export interface CurveEditorProps {
   onChange: (points: CurvePoint[]) => void;
   onDragStart?: () => void;
   onDragEnd?: () => void;
+  /**
+   * Controlled channel selection. Omit to fall back to uncontrolled local
+   * state (the channel buttons still render and toggle visually, but don't
+   * drive anything outside the component — fine for a single-channel curve).
+   * Pass both props when the consumer stores per-channel curves, so the
+   * buttons actually select what's being edited instead of only looking like
+   * they do.
+   */
+  channel?: Channel;
+  onChannelChange?: (channel: Channel) => void;
 }
 
-export function CurveEditor({ value, onChange, onDragStart, onDragEnd }: CurveEditorProps) {
-  const [channel, setChannel] = useState<Channel>('rgb');
+export function CurveEditor({
+  value,
+  onChange,
+  onDragStart,
+  onDragEnd,
+  channel: channelProp,
+  onChannelChange,
+}: CurveEditorProps) {
+  const [internalChannel, setInternalChannel] = useState<Channel>('rgb');
+  const channel = channelProp ?? internalChannel;
+  const setChannel = useCallback(
+    (next: Channel) => {
+      if (onChannelChange) onChannelChange(next);
+      else setInternalChannel(next);
+    },
+    [onChannelChange],
+  );
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
