@@ -63,7 +63,7 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
     fireEvent.click(options);
 
     expect(await screen.findByRole('dialog', { name: 'paint tool options' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Brush' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Brush' })).toHaveFocus();
     expect(options).toHaveAttribute('aria-expanded', 'true');
 
     fireEvent.keyDown(document, { key: 'Escape' });

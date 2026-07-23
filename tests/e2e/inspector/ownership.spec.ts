@@ -70,7 +70,7 @@ test.describe('Inspector feature ownership', () => {
 
     const dialog = page.getByRole('dialog', { name: 'paint tool options' });
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('button', { name: 'Brush' })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Brush' })).toBeFocused();
   });
 
   test('responsive inspector drawer is inside the viewport when opened', async ({ page }) => {
