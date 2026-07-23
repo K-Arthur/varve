@@ -430,7 +430,9 @@ function subtreeRequiresRasterPdfFallback(node: SceneNode, doc: SceneDocument): 
   return false;
 }
 
-type TauriBridge = { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } };
+type TauriBridge = {
+  core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> };
+};
 
 function getTauriBridge(): TauriBridge | undefined {
   return (window as unknown as Record<string, unknown>).__TAURI__ as TauriBridge | undefined;

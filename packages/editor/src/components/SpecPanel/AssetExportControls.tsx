@@ -103,7 +103,12 @@ export function AssetExportControls({
           setMessage('PDF export requires the desktop app');
           return;
         }
-        const { bytes, filename } = await exportNodeAsPdf(node, doc, effectiveScale, eng ?? undefined);
+        const { bytes, filename } = await exportNodeAsPdf(
+          node,
+          doc,
+          effectiveScale,
+          eng ?? undefined,
+        );
         const saved = await platform?.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
         setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
       } else if (format === 'svg') {
