@@ -10,7 +10,13 @@
  * drift seen when each surface parses raw JSON independently.
  */
 
-import { isAssetReferenced, validateDocumentAsset } from './assets';
+import {
+  createEmbeddedAsset,
+  hashContent,
+  isAssetReferenced,
+  mimeTypeFromDataUrl,
+  validateDocumentAsset,
+} from './assets';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import {
@@ -200,6 +206,135 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
  * string, then garbage-collect entries no longer referenced by any node or
  * paint. Mirrors sanitizeRasterMaskState's drop/repair/prune shape above.
  */
+/**
+ * Maximum inline data URL payload size to auto-register as an asset (10 MB).
+ * Larger payloads are logged and left inline to avoid blocking document load.
+ */
+const MAX_INLINE_ASSET_BYTES = 10_000_000;
+
+const SUPPORTED_IMAGE_MIME_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/avif',
+  'image/gif',
+  'image/svg+xml',
+]);
+
+/**
+ * Normalize inline image fills — detect images with inline data URLs that
+ * lack an assetId, create deduplicated asset entries, and set assetId on
+ * the fill. This ensures drag-and-drop, paste, and import-created image
+ * fills benefit from content-hash dedup and portable archive packing.
+ *
+ * Runs as part of DocumentCodec.decode so every loaded document is normalized.
+ * The src field is preserved (rehydrateEmbeddedAssetSrc will continue to work);
+ * the assetId is added alongside it.
+ */
+function normalizeInlineImageFills(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  let changed = false;
+  let assets = doc.assets ? { ...doc.assets } : undefined;
+
+  /**
+   * Process a single ImageFillData, creating an asset if it has an inline
+   * data URL but no assetId. Returns the (possibly updated) image fill data.
+   */
+  function processImageFill(
+    imageFill: {
+      src?: string;
+      assetId?: string;
+      imageWidth?: number;
+      imageHeight?: number;
+    },
+    nodeId: string,
+    fillIndex: number,
+  ): void {
+    const src = imageFill.src;
+    if (!src || !src.startsWith('data:image/')) return;
+    if (imageFill.assetId) return; // already registered
+
+    // Check MIME type
+    const mimeType = mimeTypeFromDataUrl(src);
+    if (!SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
+      warnings.push(
+        warning(
+          'document.unsupported-inline-image-format',
+          `Image fill on node ${nodeId} fill[${fillIndex}] has unsupported format '${mimeType}'`,
+          'warning',
+          `${nodeId}.fills[${fillIndex}]`,
+        ),
+      );
+      return;
+    }
+
+    // Check payload size (approximate from data URL length)
+    const payloadStart = src.indexOf(',') + 1;
+    const payload = payloadStart > 0 ? src.slice(payloadStart) : '';
+    const padding = payload.endsWith('==') ? 2 : payload.endsWith('=') ? 1 : 0;
+    const approxSize = Math.floor((payload.length * 3) / 4) - padding;
+    if (approxSize > MAX_INLINE_ASSET_BYTES) {
+      warnings.push(
+        warning(
+          'document.oversized-inline-image',
+          `Image fill on node ${nodeId} fill[${fillIndex}] (${approxSize} bytes) exceeds inline asset limit`,
+          'info',
+          `${nodeId}.fills[${fillIndex}]`,
+        ),
+      );
+      // Don't block load — leave inline
+      return;
+    }
+
+    const hash = hashContent(src);
+    const assetId = `asset-${hash}`;
+
+    // Check if asset already exists
+    if (assets?.[assetId]) {
+      imageFill.assetId = assetId;
+      changed = true;
+      return;
+    }
+
+    // Create the asset entry
+    if (!assets) assets = {};
+    assets[assetId] = {
+      id: assetId,
+      storage: 'embedded' as const,
+      mimeType,
+      dataUrl: src,
+      naturalWidth: imageFill.imageWidth ?? 0,
+      naturalHeight: imageFill.imageHeight ?? 0,
+      byteLength: approxSize,
+      hash,
+    };
+    imageFill.assetId = assetId;
+    changed = true;
+  }
+
+  // Scan all nodes
+  for (const [nodeId, node] of Object.entries(doc.nodes)) {
+    if (!node?.fills) continue;
+    for (let i = 0; i < node.fills.length; i++) {
+      const fill = node.fills[i];
+      if (fill?.type === 'image' && fill.image) {
+        processImageFill(fill.image, nodeId, i);
+      }
+    }
+  }
+
+  // Scan shared paints
+  if (doc.paints) {
+    for (const [paintId, paint] of Object.entries(doc.paints)) {
+      if (paint.fill?.type === 'image' && paint.fill.image) {
+        processImageFill(paint.fill.image, `paint:${paintId}`, 0);
+      }
+    }
+  }
+
+  if (!changed) return doc;
+  return { ...doc, assets };
+}
+
 function sanitizeImageAssetState(doc: Document, warnings: DocumentCodecWarning[]): Document {
   const validAssets = Object.fromEntries(
     Object.entries(doc.assets ?? {}).filter(([assetId, asset]) => {
@@ -430,6 +565,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     pages,
     activePageId,
   };
+  document = normalizeInlineImageFills(document, warnings);
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
