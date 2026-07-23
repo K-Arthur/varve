@@ -3,7 +3,7 @@ import { filterKindDisplayName } from '@strata/engine';
 import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@strata/scene';
 import { makeAdjustment } from '@strata/scene';
 import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';
 import { AdjustmentScopeSection } from '../Inspector/sections/AdjustmentScopeSection';
@@ -106,6 +106,7 @@ export function AdjustmentPanel() {
       });
       setSelectedAdjId(newId);
       setShowAddMenu(false);
+      addBtnRef.current?.focus();
     },
     [nodeId, updateNode],
   );
@@ -147,6 +148,11 @@ export function AdjustmentPanel() {
     },
     [handleUpdateAdjustment],
   );
+
+  const closeAddMenu = useCallback(() => {
+    setShowAddMenu(false);
+    addBtnRef.current?.focus();
+  }, []);
 
   if (!isAdjustmentNode) return null;
 
@@ -267,10 +273,7 @@ export function AdjustmentPanel() {
           </button>
 
           {showAddMenu && (
-            <AddAdjustmentMenu
-              onSelect={handleAddAdjustment}
-              onClose={() => setShowAddMenu(false)}
-            />
+            <AddAdjustmentMenu onSelect={handleAddAdjustment} onClose={closeAddMenu} />
           )}
         </div>
       </div>
@@ -303,6 +306,10 @@ function AddAdjustmentMenu({
   onClose: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -346,10 +353,6 @@ function AddAdjustmentMenu({
       role="menu"
       aria-label="Add adjustment"
       onKeyDown={handleKeyDown}
-      onFocus={() => {
-        const first = menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]');
-        first?.focus();
-      }}
     >
       {ADJUSTMENT_KINDS.map((kind) => (
         <button
