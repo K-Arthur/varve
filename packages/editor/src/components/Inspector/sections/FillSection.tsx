@@ -36,7 +36,7 @@ import { NumberField } from '../controls/NumberField';
 import type { SegmentedOption } from '../controls/SegmentedControl';
 import { SegmentedControl } from '../controls/SegmentedControl';
 import { commonValue, isMixed } from '../selection/selectionState';
-import { ContrastIndicator } from './ContrastIndicator';
+import { FillContrastIndicator } from './FillContrastIndicator';
 import { ImageFillControls } from './ImageFillControls';
 import { PatternFillControls } from './PatternFillControls';
 
@@ -343,7 +343,7 @@ function FillRow({
           />
         )}
         {fill.type === 'solid' && fill.color && (
-          <ContrastIndicator
+          <FillContrastIndicator
             fill={fill}
             fillIndex={index}
             fontSize={
