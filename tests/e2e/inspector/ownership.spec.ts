@@ -20,6 +20,9 @@ test.describe('Inspector feature ownership', () => {
     await page.getByRole('tab', { name: 'Document' }).click();
     await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Document Color' })).toBeVisible();
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('document-settings.png', {
+      animations: 'disabled',
+    });
   });
 
   test('prototype authoring is discoverable without living in Properties', async ({ page }) => {
@@ -61,6 +64,9 @@ test.describe('Inspector feature ownership', () => {
     expect(metrics.scrollHeight / metrics.viewportHeight).toBeLessThanOrEqual(1.75);
     await expect(page.getByRole('button', { name: 'Effects' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Prototype Interactions' })).toHaveCount(0);
+    await expect(page.locator('.editor-inspector')).toHaveScreenshot('rectangle-properties.png', {
+      animations: 'disabled',
+    });
   });
 
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
