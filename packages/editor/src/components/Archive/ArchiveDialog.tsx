@@ -48,6 +48,9 @@ export interface ArchiveDialogProps {
   document?: { id: string; name: string; formatVersion: string; nodes: Record<string, unknown> };
   onCreateArchive?: (result: ArchiveBuildResult) => void;
   onRestoreArchive?: (result: ArchiveRestoreResult) => void;
+  /** When provided (desktop), archives save via a native dialog + atomic
+   *  write instead of a browser download. */
+  platform?: import('@strata/platform').Platform;
 }
 
 type ArchiveTab = 'create' | 'restore';
@@ -192,6 +195,7 @@ export function ArchiveDialog({
   document: doc,
   onCreateArchive,
   onRestoreArchive,
+  platform,
 }: ArchiveDialogProps) {
   const [activeTab, setActiveTab] = useState<ArchiveTab>('create');
 
@@ -372,8 +376,26 @@ export function ArchiveDialog({
     setSelectedCategories(new Set());
   }, []);
 
-  const handleDownloadArchive = useCallback(() => {
+  const handleDownloadArchive = useCallback(async () => {
     if (!createResult) return;
+
+    // Desktop: native Save dialog + the already-atomic write_binary_file
+    // command (temp file, fsync, rename — never a partially-written
+    // archive on disk). Browser: no filesystem access, so a plain download
+    // is the only option and the browser itself handles it atomically.
+    if (platform?.kind === 'tauri') {
+      const savedPath = await platform.saveBinaryFile(
+        createResult.fileName.replace(/\.zip$/, ''),
+        createResult.bytes,
+        'application/zip',
+        '.zip',
+      );
+      if (savedPath) {
+        setCreateStatus(`Archive saved to ${savedPath}`);
+      }
+      return;
+    }
+
     const blob = new Blob([createResult.bytes as BlobPart], { type: 'application/zip' });
     const url = URL.createObjectURL(blob);
     const a = globalThis.document.createElement('a');
@@ -381,7 +403,7 @@ export function ArchiveDialog({
     a.download = createResult.fileName;
     a.click();
     URL.revokeObjectURL(url);
-  }, [createResult]);
+  }, [createResult, platform]);
 
   // ── Restore handlers ─────────────────────────────────────────────────────
 
@@ -1247,7 +1269,7 @@ export function ArchiveDialog({
               <button
                 type="button"
                 className="archive-dialog__btn archive-dialog__btn--secondary"
-                onClick={handleDownloadArchive}
+                onClick={() => void handleDownloadArchive()}
               >
                 Download
               </button>

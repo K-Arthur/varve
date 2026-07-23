@@ -187,8 +187,12 @@ export const SHORTCUT_DEFS = {
   toolPaint: { binding: { key: 'b' }, label: 'Paint brush', category: 'Tools' },
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },
   toolSmudge: { binding: { key: 'u' }, label: 'Smudge tool', category: 'Tools' },
+  toolScale: { binding: { key: 's' }, label: 'Scale tool', category: 'Tools' },
+  toolSlice: { binding: { key: 'k' }, label: 'Slice tool', category: 'Tools' },
+  toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
   toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
+  import: { binding: { key: 'i', ctrl: true }, label: 'Import\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
   toggleGuidesVisible: {
     binding: { key: ';', ctrl: true },
@@ -281,7 +285,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   canvasModeFull: {
-    binding: { key: 'Escape' },
+    binding: { key: 'Escape', ctrl: true, shift: true },
     label: 'Full Render Mode',
     category: 'View',
   },
@@ -416,7 +420,7 @@ export const SHORTCUT_DEFS = {
     category: 'Motion',
   },
   addKeyframe: {
-    binding: { key: 'i' },
+    binding: { key: 'i', shift: true },
     label: 'Add Keyframe at Playhead',
     category: 'Motion',
   },
@@ -424,6 +428,16 @@ export const SHORTCUT_DEFS = {
     binding: { key: 'n', alt: true },
     label: 'New Adjustment Layer',
     category: 'Object',
+  },
+  archiveBackup: {
+    binding: { key: 'n', ctrl: true, shift: true },
+    label: 'Backup Archive\u2026',
+    category: 'File',
+  },
+  archiveRestore: {
+    binding: { key: 'l', ctrl: true, shift: true },
+    label: 'Restore Archive\u2026',
+    category: 'File',
   },
 } satisfies Record<string, ShortcutDef>;
 

@@ -1,6 +1,7 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import { extractPalette as engineExtractPalette } from '@strata/engine';
 import type { EditorContextValue, ToolId } from '../context';
+import { startTextEditing } from '../context';
 import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmonizer';
 
 export interface ActionHandlerCallbacks {
@@ -139,6 +140,9 @@ export function createActionHandlers(
     toolEraser: setTool('eraser'),
     toolSmudge: setTool('smudge'),
     toolCrop: setTool('crop'),
+    toolScale: setTool('scale'),
+    toolSlice: setTool('slice'),
+    toolCloneStamp: setTool('cloneStamp'),
     toolSam2Segment: setTool('sam2Segment'),
 
     // ── Object ──
@@ -193,6 +197,32 @@ export function createActionHandlers(
       }
       void e.upscaleSelectedImage({ scale: 4, method: 'ai' });
     },
+    addAlphaMask: () => e.addMaskToSelected?.('alpha'),
+    addClipMask: () => e.addMaskToSelected?.('clip'),
+    addLuminanceMask: () => e.addMaskToSelected?.('luminance'),
+    removeMask: () => e.removeMaskFromSelected?.(),
+    toggleMask: () => e.toggleMask?.(),
+    invertMask: () => e.invertMask?.(),
+    rasterizeSelection: () => e.rasterizeSelected?.(1),
+    mergeSelected: () => e.mergeSelected?.(),
+    createMaster: () => {
+      const page = e.state.document.pages?.[e.state.currentPageId ?? ''];
+      e.createMaster?.('Master', page?.w ?? 1920, page?.h ?? 1080);
+    },
+    applyMaster: () => {
+      const activeId = e.state.currentPageId;
+      const masterEntries = e.state.document.masters ? Object.keys(e.state.document.masters) : [];
+      if (activeId && masterEntries.length > 0) {
+        e.assignMasterToPage?.(activeId, masterEntries[0]);
+      }
+    },
+    detachMaster: () => {
+      const activeId = e.state.currentPageId;
+      if (activeId) {
+        e.assignMasterToPage?.(activeId, null);
+      }
+    },
+    toggleFacingPages: () => e.toggleFacingPages?.(),
     nudgeUp: () => {},
     nudgeDown: () => {},
     nudgeLeft: () => {},
@@ -200,8 +230,25 @@ export function createActionHandlers(
     bindField: () => {
       if (e.focusedField) e.setBindingField(e.focusedField);
     },
-    enterFrame: () => {},
-    editText: () => {},
+    enterFrame: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1) return;
+      const node = e.state.document.nodes[sel[0]];
+      if (!node) return;
+      const containerKinds: string[] = ['group', 'frame'];
+      if (containerKinds.includes(node.kind)) {
+        e.enterIsolation(node.id);
+        e.announce?.(`Entered "${'name' in node ? node.name : node.kind}"`);
+      }
+    },
+    editText: () => {
+      const sel = e.state.selection;
+      if (sel.length !== 1) return;
+      const node = e.state.document.nodes[sel[0]];
+      if (node?.kind === 'text') {
+        startTextEditing(node.id);
+      }
+    },
 
     // ── Tabs ──
     tabNew: () => e.newTab(),
