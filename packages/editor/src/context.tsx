@@ -72,6 +72,18 @@ export function bumpThemeRevision(): void {
   bumpThemeRevisionHandler?.();
 }
 
+/** Module-level bridge: starts inline text editing for a node.
+ *  Registered by CanvasArea on mount. Used by createActionHandlers' editText. */
+let startTextEditingHandler: ((nodeId: string) => void) | null = null;
+
+export function setStartTextEditingHandler(fn: ((nodeId: string) => void) | null): void {
+  startTextEditingHandler = fn;
+}
+
+export function startTextEditing(nodeId: string): void {
+  startTextEditingHandler?.(nodeId);
+}
+
 /**
  * Editor state context — shared across all shell surfaces.
  *
