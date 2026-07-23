@@ -247,6 +247,48 @@ describe('Section availability predicates', () => {
     expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(false);
   });
 
+  it('the AI/ML image tool cluster requires Photo (image) workspace mode', () => {
+    const clusterIds = [
+      'image-enhancement',
+      'background-removal',
+      'colorize',
+      'ai-denoise',
+      'lens-blur',
+      'line-art',
+      'content-aware-fill',
+      'detect-text',
+      'ocr',
+      'blend-images',
+      'palette',
+    ] as const;
+    for (const id of clusterIds) {
+      const def = getSectionDefinition(id)!;
+      expect(
+        def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()], workspaceMode: 'image' })),
+      ).toBe(true);
+      expect(
+        def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()], workspaceMode: 'design' })),
+      ).toBe(false);
+      // Still requires an image selection even inside Photo mode.
+      expect(
+        def.isAvailable(baseCtx({ selectedNodes: [makeNode()], workspaceMode: 'image' })),
+      ).toBe(false);
+    }
+  });
+
+  it('ai-tools-hint is the mirror image of the cluster it points at', () => {
+    const def = getSectionDefinition('ai-tools-hint')!;
+    expect(
+      def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()], workspaceMode: 'design' })),
+    ).toBe(true);
+    expect(
+      def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()], workspaceMode: 'image' })),
+    ).toBe(false);
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()], workspaceMode: 'design' }))).toBe(
+      false,
+    );
+  });
+
   it('align-distribute only available for multi selection', () => {
     const def = getSectionDefinition('align-distribute')!;
     expect(
