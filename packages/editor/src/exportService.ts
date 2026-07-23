@@ -20,6 +20,7 @@ import {
   type RasterFormat,
 } from './components/SpecPanel/export';
 import { worldBBox } from './components/SpecPanel/measurement';
+import { composeFlattenedRasterAssetsForNode } from './export/compositor';
 
 export interface ExportFileReport {
   fileName: string;
@@ -128,12 +129,17 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
 
   switch (job.format) {
     case 'svg':
-    case 'svg-component':
+    case 'svg-component': {
+      const rasterAssets = await composeFlattenedRasterAssetsForNode(node, context.document, 'svg', {
+        scale: 1,
+        engine: context.engine ?? undefined,
+      });
       return {
-        bytes: encode(exportNodeToSvg(node, context.document)),
+        bytes: encode(exportNodeToSvg(node, context.document, { rasterAssets })),
         mimeType: 'image/svg+xml',
         warnings: [],
       };
+    }
     case 'react-tailwind':
       return {
         bytes: encode(exportNodeToTailwind(node, context.document)),
@@ -161,7 +167,7 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         warnings: [],
       };
     case 'pdf-screen': {
-      const result = await exportNodeAsPdf(node, context.document, 1);
+      const result = await exportNodeAsPdf(node, context.document, 1, context.engine ?? undefined);
       return {
         bytes: result.bytes,
         mimeType: 'application/pdf',

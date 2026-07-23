@@ -187,7 +187,10 @@ describe('archiveRestorer', () => {
       const password = 'test-password';
       const encrypted = await encryptBytes(data, password);
       const decrypted = await decryptArchive(encrypted, password);
-      expect(decrypted).toEqual(data);
+      expect(decrypted.byteLength).toBe(data.byteLength);
+      for (let i = 0; i < data.byteLength; i++) {
+        expect(decrypted[i]).toBe(data[i]);
+      }
     });
 
     it('throws on wrong password', async () => {

@@ -4,20 +4,25 @@
  */
 
 import { exportNodeToSvg } from '@strata/codegen';
-import type { Engine, SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import {
   awaitExportsReady,
+  createEngine,
   createRasterSurface,
   DEFAULT_RASTER_SURFACE_POLICY,
+  type Engine,
   type ExportFontRequest,
   encodeRasterSurface,
   fitRasterDimensions,
   getImageCache,
   primitiveBounds,
+  type SceneNode as EngineNode,
+  type RenderItem,
 } from '@strata/engine';
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, ShapeNode, SceneNode } from '@strata/scene';
+import { imageFill } from '@strata/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@strata/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
+import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { replayStructuredScene } from '../../render/replayScene';
 import { flattenSceneToEngine } from '../../render/sceneToEngine';
 import { worldBBox } from './measurement';
@@ -231,8 +236,16 @@ export async function exportNodeAsRaster(
   return { blob, warnings };
 }
 
-export async function exportNodeAsSvg(node: SceneNode, doc: SceneDocument): Promise<Blob> {
-  const svg = exportNodeToSvg(node, doc);
+export async function exportNodeAsSvg(
+  node: SceneNode,
+  doc: SceneDocument,
+  eng?: Engine,
+): Promise<Blob> {
+  const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
+    scale: 1,
+    engine: eng,
+  });
+  const svg = exportNodeToSvg(node, doc, { rasterAssets });
   return new Blob([svg], { type: 'image/svg+xml' });
 }
 
@@ -417,22 +430,36 @@ function subtreeRequiresRasterPdfFallback(node: SceneNode, doc: SceneDocument): 
   return false;
 }
 
+type TauriBridge = { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } };
+
+function getTauriBridge(): TauriBridge | undefined {
+  return (window as unknown as Record<string, unknown>).__TAURI__ as TauriBridge | undefined;
+}
+
+async function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error('Failed to encode rasterized PDF fallback'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 /**
- * Rasterize a subtree and embed as PNG-in-PDF.
- * Used as fallback when the Rust print engine cannot represent features
- * like filters, transparency, blends, non-identity transforms, or text.
+ * Rasterize a subtree and embed as PNG-in-PDF using a hand-written minimal
+ * PDF writer. This is the browser-build fallback: it has no dependency on
+ * the Tauri/Rust print engine, so it's the only option when `strata-print`
+ * isn't reachable. Used as fallback when the Rust print engine cannot
+ * represent features like filters, transparency, blends, non-identity
+ * transforms, or text.
  */
 async function rasterizeSubtreeToPdf(
   node: SceneNode,
   doc: SceneDocument,
   scale: number,
+  eng: Engine,
 ): Promise<{ bytes: Uint8Array; pixelWidth: number; pixelHeight: number }> {
-  const rasterResult = await exportNodeAsRaster(
-    node,
-    doc,
-    { buildIr: async () => [] } as unknown as Engine,
-    { format: 'image/png', scale },
-  );
+  const rasterResult = await exportNodeAsRaster(node, doc, eng, { format: 'image/png', scale });
   const blob = rasterResult.blob;
   const img = await createImageBitmap(blob);
   const canvas = document.createElement('canvas');
@@ -451,10 +478,67 @@ async function rasterizeSubtreeToPdf(
   return { bytes: pdfBytes, pixelWidth: img.width, pixelHeight: img.height };
 }
 
+/**
+ * Rasterize a subtree and embed it via `strata-print`'s real image-embedding
+ * path (colour-space handling, proper XObject placement) instead of the
+ * hand-rolled minimal PDF writer — used whenever the Tauri desktop bridge is
+ * available. The rasterized PNG is wrapped as a single ShapeNode with an
+ * image fill (the same "flattened replacement node" shape the flatten/
+ * rasterize/merge system uses) and sent through the existing vector PDF
+ * command, so no new Rust surface is needed.
+ */
+async function rasterizeSubtreeToPdfViaPrintEngine(
+  node: SceneNode,
+  doc: SceneDocument,
+  scale: number,
+  eng: Engine,
+  tauri: TauriBridge,
+): Promise<Uint8Array> {
+  const { blob } = await exportNodeAsRaster(node, doc, eng, { format: 'image/png', scale });
+  const dataUrl = await blobToDataUrl(blob);
+
+  const bbox = worldBBox(node, doc);
+  const w = Math.max(1, Math.ceil(bbox.w * scale));
+  const h = Math.max(1, Math.ceil(bbox.h * scale));
+
+  const replacement: ShapeNode = {
+    id: node.id,
+    kind: 'shape',
+    name: node.name,
+    layerColor: null,
+    fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+    order: 'a0',
+    visible: true,
+    locked: false,
+    opacity: 1,
+    blendMode: 'normal',
+    rotation: 0,
+    transform: [1, 0, 0, 1, 0, 0],
+    fills: [imageFill(dataUrl, { fit: 'fill', opacity: 1, blendMode: 'normal', visible: true })],
+    strokes: [],
+    effects: [],
+    shape: { kind: 'rect', x: 0, y: 0, w, h },
+  };
+  const replacementDoc: SceneDocument = {
+    ...doc,
+    rootChildren: [replacement.id],
+    nodes: { [replacement.id]: replacement },
+  };
+
+  const subtree = flattenSceneToEngine(replacementDoc, [replacement.id]);
+  const opts = { page_width: w, page_height: h, title: node.name, author: 'Strata' };
+  const bytes = (await tauri.core.invoke('export_node_pdf', {
+    nodes: subtree.nodes,
+    opts,
+  })) as number[];
+  return new Uint8Array(bytes);
+}
+
 export async function exportNodeAsPdf(
   node: SceneNode,
   doc: SceneDocument,
   scale: number,
+  eng?: Engine,
 ): Promise<{ bytes: Uint8Array; filename: string }> {
   // ── Decision: vector vs raster path ──────────────────────────────────
   // The Rust print engine (strata-print) handles solid fills, strokes,
@@ -462,10 +546,16 @@ export async function exportNodeAsPdf(
   // PNG-in-PDF produced by the live canvas renderer, which handles the
   // full filter/adjustment/compositing pipeline.
   const needsRaster = subtreeRequiresRasterPdfFallback(node, doc);
+  const filename = buildFilename(node.name, 'pdf');
 
   if (needsRaster) {
-    const result = await rasterizeSubtreeToPdf(node, doc, scale);
-    const filename = buildFilename(node.name, 'pdf');
+    const engine = eng ?? (await createEngine('stub'));
+    const tauri = getTauriBridge();
+    if (tauri) {
+      const bytes = await rasterizeSubtreeToPdfViaPrintEngine(node, doc, scale, engine, tauri);
+      return { bytes, filename };
+    }
+    const result = await rasterizeSubtreeToPdf(node, doc, scale, engine);
     return { bytes: result.bytes, filename };
   }
 
@@ -494,15 +584,12 @@ export async function exportNodeAsPdf(
     ] as const,
   }));
   const opts = { page_width: w, page_height: h, title: node.name, author: 'Strata' };
-  const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as
-    | { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
-    | undefined;
+  const tauri = getTauriBridge();
 
   if (!tauri) {
     throw new Error('PDF export requires the desktop app');
   }
 
   const bytes = (await tauri.core.invoke('export_node_pdf', { nodes, opts })) as number[];
-  const filename = buildFilename(node.name, 'pdf');
   return { bytes: new Uint8Array(bytes), filename };
 }

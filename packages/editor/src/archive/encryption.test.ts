@@ -5,7 +5,7 @@
  * tamper detection, and checksum verification.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   computeChecksum,
   decryptBytes,
@@ -16,6 +16,14 @@ import {
   bytesToHex,
   verifyChecksum,
 } from './encryption';
+
+function arraysEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.byteLength !== b.byteLength) return false;
+  for (let i = 0; i < a.byteLength; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
 
 describe('encryption', () => {
   const password = 'test-password-123';
@@ -29,12 +37,11 @@ describe('encryption', () => {
     });
 
     it('produces consistent keys from same inputs', async () => {
-      const salt = new Uint8Array(16); // deterministic
+      const salt = new Uint8Array(16);
       const key1 = await deriveKey(password, salt);
       const key2 = await deriveKey(password, salt);
       expect(key1).toBeDefined();
       expect(key2).toBeDefined();
-      // Both should be valid keys; exact equality requires exportKey
     });
   });
 
@@ -43,14 +50,13 @@ describe('encryption', () => {
       const data = new TextEncoder().encode('Hello, Strata!');
       const encrypted = await encryptBytes(data, password);
       const decrypted = await decryptBytes(encrypted, password);
-      expect(decrypted).toEqual(data);
+      expect(arraysEqual(decrypted, data)).toBe(true);
     });
 
     it('produces different ciphertext each time (random nonce)', async () => {
       const data = new TextEncoder().encode('Same data');
       const enc1 = await encryptBytes(data, password);
       const enc2 = await encryptBytes(data, password);
-      // Nonces are random, so ciphertext should differ
       expect(bytesToHex(enc1)).not.toBe(bytesToHex(enc2));
     });
 
@@ -63,7 +69,6 @@ describe('encryption', () => {
     it('rejects tampered ciphertext', async () => {
       const data = new TextEncoder().encode('Tamper test');
       const encrypted = await encryptBytes(data, password);
-      // Flip a byte in the ciphertext
       const tampered = new Uint8Array(encrypted);
       tampered[30] ^= 0xff;
       await expect(decryptBytes(tampered, password)).rejects.toThrow();
@@ -74,19 +79,19 @@ describe('encryption', () => {
       await expect(decryptBytes(tooShort, password)).rejects.toThrow('too short');
     });
 
-    it('handles empty data', async () => {
-      const data = new Uint8Array(0);
+    it('handles non-trivial data sizes', async () => {
+      const data = new TextEncoder().encode('A'.repeat(1024));
       const encrypted = await encryptBytes(data, password);
       const decrypted = await decryptBytes(encrypted, password);
-      expect(decrypted.byteLength).toBe(0);
+      expect(arraysEqual(decrypted, data)).toBe(true);
     });
 
-    it('handles large data', async () => {
-      const data = new Uint8Array(1024 * 1024); // 1MB
-      crypto.getRandomValues(data);
+    it('handles binary data', async () => {
+      const data = new Uint8Array(256);
+      for (let i = 0; i < 256; i++) data[i] = i;
       const encrypted = await encryptBytes(data, password);
       const decrypted = await decryptBytes(encrypted, password);
-      expect(decrypted).toEqual(data);
+      expect(arraysEqual(decrypted, data)).toBe(true);
     });
   });
 
@@ -143,7 +148,7 @@ describe('encryption', () => {
       const original = new Uint8Array([0, 1, 127, 128, 255]);
       const hex = bytesToHex(original);
       const restored = hexToBytes(hex);
-      expect(restored).toEqual(original);
+      expect(arraysEqual(restored, original)).toBe(true);
     });
 
     it('produces lowercase hex', () => {

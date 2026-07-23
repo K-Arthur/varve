@@ -386,6 +386,8 @@ pub(crate) struct ImageRenderState<'a> {
     pub doc: &'a mut Document,
     pub counter: u32,
     pub refs: Vec<(String, Object)>,
+    /// Graphics state dictionaries for fill opacity (opacity -> GS name).
+    gs_cache: HashMap<u32, String>,
 }
 
 impl<'a> ImageRenderState<'a> {
@@ -394,7 +396,25 @@ impl<'a> ImageRenderState<'a> {
             doc,
             counter: 0,
             refs: Vec::new(),
+            gs_cache: HashMap::new(),
         }
+    }
+
+    /// Get-or-create an ExtGState dictionary for a given fill opacity.
+    /// Returns the GS name (e.g. "GS075") to use with `gs` in the content stream.
+    pub fn get_or_create_opacity_gs(&mut self, opacity: f64) -> String {
+        let key = (opacity.clamp(0.0, 1.0) * 1000.0) as u32;
+        if let Some(name) = self.gs_cache.get(&key) {
+            return name.clone();
+        }
+        let name = format!("GS{key:03}");
+        let gs = dictionary! {
+            "Type" => "ExtGState",
+            "ca" => opacity.clamp(0.0, 1.0),
+        };
+        self.refs.push((name.clone(), Object::Dictionary(gs)));
+        self.gs_cache.insert(key, name.clone());
+        name
     }
 }
 
@@ -792,6 +812,14 @@ fn render_fills(
 
                                 match manifest_image {
                                     Some(img) if img.is_valid() => {
+                                        // Detect if source data is RGBA (width * height * 4 == data.len())
+                                        let is_rgba = img.data.len() >= (img.width * img.height * 4) as usize;
+                                        let alpha_data = if is_rgba {
+                                            Some(rgba_extract_alpha(&img.data))
+                                        } else {
+                                            None
+                                        };
+
                                         // Real pixel data from the TS-side ICC pipeline
                                         let (data, cs, bpc) = match img.color_space {
                                             resources::ColorSpace::Cmyk => {
@@ -799,8 +827,12 @@ fn render_fills(
                                                 (img.data.clone(), "DeviceCMYK", 4u32)
                                             }
                                             _ => {
-                                                // RGBA data: strip alpha to RGB
-                                                let rgb = rgba_to_rgb(&img.data);
+                                                // RGBA data: strip alpha to RGB for PDF
+                                                let rgb = if is_rgba {
+                                                    rgba_to_rgb(&img.data)
+                                                } else {
+                                                    img.data.clone()
+                                                };
                                                 (rgb, "DeviceRGB", 3u32)
                                             }
                                         };
@@ -823,6 +855,7 @@ fn render_fills(
 
                                         match embed_image_with_colorspace(
                                             state.doc, &data, img.width, img.height, bpc, cs,
+                                            alpha_data.as_deref(),
                                         ) {
                                             Ok(obj_ref) => {
                                                 let name = format!("Im{}", state.counter);
@@ -904,6 +937,14 @@ fn render_fills(
                                                 let scale_y = draw_h / (if has_crop { src_h } else { img_h });
                                                 let img_ox = if has_crop { tx + draw_ox - src_x * scale_x } else { tx + draw_ox };
                                                 let img_oy = if has_crop { ty + draw_oy - src_y * scale_y } else { ty + draw_oy };
+                                                // Apply per-fill opacity via ExtGState
+                                                if *opacity < 1.0 {
+                                                    let gs_name =
+                                                        state.get_or_create_opacity_gs(*opacity);
+                                                    buf.extend(
+                                                        format!("/{gs_name} gs\n").as_bytes(),
+                                                    );
+                                                }
                                                 buf.extend(
                                                     format!(
                                                         "{scale_x:.4} 0 0 {scale_y:.4} {img_ox:.4} {img_oy:.4} cm\n"
@@ -937,6 +978,15 @@ fn render_fills(
                                                 let sx = bw / PH as f64;
                                                 let sy = bh / PH as f64;
 
+                                                // Apply per-fill opacity via ExtGState
+                                                if *opacity < 1.0 {
+                                                    let gs_name =
+                                                        state.get_or_create_opacity_gs(*opacity);
+                                                    buf.extend(
+                                                        format!("/{gs_name} gs\n").as_bytes(),
+                                                    );
+                                                }
+
                                                 buf.extend(
                                                     format!(
                                                         "{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n"
@@ -945,20 +995,16 @@ fn render_fills(
                                                 );
                                                 buf.extend(format!("/{name} Do\n").as_bytes());
 
-                                                if *opacity < 1.0 {
-                                                    buf.extend(
-                                                        format!("% image opacity={:.3}\n", opacity)
-                                                            .as_bytes(),
-                                                    );
-                                                }
-
                                                 if use_cmyk {
                                                     let note = "% image fill CMYK conversion not yet implemented; checkerboard placeholder rendered as RGB\n";
                                                     buf.extend_from_slice(note.as_bytes());
                                                 }
 
-                                                if alpha_mask.is_some() {
-                                                    let note = "% alpha mask not yet implemented for image fills in PDF export; needs full pixel decode pipeline\n";
+                                                if let Some(mask_type) = alpha_mask {
+                                                    let note = format!(
+                                                        "% alpha mask type '{:?}' not yet implemented for image fill in PDF export; use SMask via RGBA data\n",
+                                                        mask_type
+                                                    );
                                                     buf.extend_from_slice(note.as_bytes());
                                                 }
                                             }
@@ -1440,6 +1486,7 @@ pub fn embed_image_with_colorspace(
     height: u32,
     bpc: u32,
     color_space_name: &str,
+    alpha_data: Option<&[u8]>,
 ) -> Result<Object, String> {
     let expected = (width * height * bpc) as usize;
     if image_data.len() < expected {
@@ -1449,21 +1496,50 @@ pub fn embed_image_with_colorspace(
         ));
     }
 
+    let mut image_dict = dictionary! {
+        "Type" => "XObject",
+        "Subtype" => "Image",
+        "Width" => width as i64,
+        "Height" => height as i64,
+        "ColorSpace" => color_space_name,
+        "BitsPerComponent" => 8,
+        "Length" => expected as i64,
+    };
+
+    // Embed alpha channel as a soft mask (SMask) for transparency support.
+    // The alpha is stored as a separate 1-component 8-bit image XObject
+    // and linked via /SMask in the image dictionary.
+    if let Some(alpha) = alpha_data {
+        let alpha_expected = (width * height) as usize;
+        if alpha.len() >= alpha_expected {
+            let mask_id = doc.new_object_id();
+            let mask_stream = Stream::new(
+                dictionary! {
+                    "Type" => "XObject",
+                    "Subtype" => "Image",
+                    "Width" => width as i64,
+                    "Height" => height as i64,
+                    "ColorSpace" => "DeviceGray",
+                    "BitsPerComponent" => 8,
+                    "Length" => alpha_expected as i64,
+                },
+                alpha[..alpha_expected].to_vec(),
+            );
+            doc.objects.insert(mask_id, Object::Stream(mask_stream));
+            image_dict.set("SMask", Object::Reference(mask_id));
+        }
+    }
+
     let image_id = doc.new_object_id();
-    let stream = Stream::new(
-        dictionary! {
-            "Type" => "XObject",
-            "Subtype" => "Image",
-            "Width" => width as i64,
-            "Height" => height as i64,
-            "ColorSpace" => color_space_name,
-            "BitsPerComponent" => 8,
-            "Length" => expected as i64,
-        },
-        image_data[..expected].to_vec(),
-    );
+    let stream = Stream::new(image_dict, image_data[..expected].to_vec());
     doc.objects.insert(image_id, Object::Stream(stream));
     Ok(Object::Reference(image_id))
+}
+
+/// Extract the alpha channel from RGBA pixel data.
+/// Returns Vec<u8> with one byte per pixel (the alpha value).
+pub fn rgba_extract_alpha(data: &[u8]) -> Vec<u8> {
+    data.chunks_exact(4).map(|rgba| rgba[3]).collect()
 }
 
 /// Convert RGBA pixel data to RGB by stripping the alpha channel.
@@ -2087,10 +2163,24 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     };
     if !image_refs.is_empty() {
         let mut xdict = lopdf::Dictionary::new();
+        let mut gs_dict = lopdf::Dictionary::new();
         for (name, ref_obj) in &image_refs {
-            xdict.set(name.as_bytes(), ref_obj.clone());
+            let is_ext_gs = match ref_obj {
+                Object::Dictionary(d) => {
+                    d.get(b"Type").ok().and_then(|o| o.as_name().ok()) == Some(b"ExtGState")
+                }
+                _ => false,
+            };
+            if is_ext_gs {
+                gs_dict.set(name.as_bytes(), ref_obj.clone());
+            } else {
+                xdict.set(name.as_bytes(), ref_obj.clone());
+            }
         }
         resources.set("XObject", xdict);
+        if !gs_dict.is_empty() {
+            resources.set("ExtGState", gs_dict);
+        }
     }
     let shading_resources = shading_registry.create_pdf_objects(&mut doc);
     if !shading_resources.is_empty() {
@@ -3127,8 +3217,8 @@ mod tests {
         );
         let s = String::from_utf8_lossy(&result);
         assert!(
-            s.contains("opacity=0.500"),
-            "image fill with opacity should emit opacity comment: {s}"
+            s.contains("GS500 gs"),
+            "image fill with opacity 0.5 should emit GS500 gs (ExtGState): {s}"
         );
         assert!(
             s.contains("/Im0 Do"),
