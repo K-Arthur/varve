@@ -354,6 +354,7 @@ import {
   getCanvasViewport,
 } from './context/viewportOps';
 import { applyDropPosition } from './dropUtils';
+import type { FlattenOptions } from './flatten/types';
 import { readGuidesFromClipboard, writeGuidesToClipboard } from './guideClipboard';
 import { HitTestEngine } from './hitTest';
 import { useSelectionHistory } from './hooks/useSelectionHistory';
@@ -5101,13 +5102,13 @@ export function EditorProvider({
           announcerRef.current?.announce('Select layers to flatten');
           return;
         }
-        const opts: import('@strata/engine').FlattenOptions = {
+        const opts: FlattenOptions = {
           mode,
           scale: scale ?? 1,
           background: 'transparent',
           textPolicy: 'rasterize',
         };
-        import('@strata/engine').then(({ flattenNodes }) => {
+        import('./flatten/renderSubtree').then(({ flattenNodes }) => {
           flattenNodes(state.document, sel, opts)
             .then((result) => {
               const replacementId = `flat-${Date.now()}`;
