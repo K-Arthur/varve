@@ -165,7 +165,8 @@ Added or updated coverage includes:
 - locked-selection and workspace-mode composition tests;
 - floating Tool Options keyboard/dialog tests;
 - Chromium E2E tests for roving tab focus, moved Prototype/Document workflows,
-  brush Tool Options, responsive drawer placement, and the Properties DOM budget.
+  brush Tool Options, responsive drawer placement, and the Properties DOM budget;
+- Chromium visual baselines for rectangle Properties and Document Settings.
 
 Verified on CachyOS/Linux in the browser runtime and Chromium. Rust workspace
 check, clippy with warnings denied, and all Rust tests pass. WebKit browser
