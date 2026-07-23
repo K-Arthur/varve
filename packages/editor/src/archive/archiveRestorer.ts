@@ -21,7 +21,7 @@ import type {
   SettingsCategory,
 } from './archiveTypes';
 import { ARCHIVE_FORMAT_VERSION } from './archiveTypes';
-import { computeChecksum, decryptBytes, verifyChecksum } from './encryption';
+import { decryptBytes, verifyChecksum } from './encryption';
 import { applySettingsBackup, validateSettingsEntry } from './settingsBackup';
 
 /** Maximum uncompressed archive size (100 MB) */
@@ -207,7 +207,7 @@ export async function decryptArchive(bytes: Uint8Array, password: string): Promi
  * Extract and decode a document from archive files.
  */
 export function extractArchiveDocument(
-  manifest: ArchiveManifest,
+  _manifest: ArchiveManifest,
   files: Record<string, Uint8Array>,
 ): { document?: Document; warnings: string[] } {
   const warnings: string[] = [];

@@ -130,10 +130,15 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
   switch (job.format) {
     case 'svg':
     case 'svg-component': {
-      const rasterAssets = await composeFlattenedRasterAssetsForNode(node, context.document, 'svg', {
-        scale: 1,
-        engine: context.engine ?? undefined,
-      });
+      const rasterAssets = await composeFlattenedRasterAssetsForNode(
+        node,
+        context.document,
+        'svg',
+        {
+          scale: 1,
+          engine: context.engine ?? undefined,
+        },
+      );
       return {
         bytes: encode(exportNodeToSvg(node, context.document, { rasterAssets })),
         mimeType: 'image/svg+xml',

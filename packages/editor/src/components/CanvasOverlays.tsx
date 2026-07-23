@@ -214,7 +214,7 @@ export function CanvasOverlays({
     // Extract shape info for non-rectangular clipping in the preview canvas
     const shapeKind =
       cropNode && 'shape' in cropNode
-        ? (cropNode.shape as { kind?: string }).kind ?? 'rect'
+        ? ((cropNode.shape as { kind?: string }).kind ?? 'rect')
         : 'rect';
     const shapeParams =
       cropNode && 'shape' in cropNode ? (cropNode.shape as Record<string, unknown>) : {};

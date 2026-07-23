@@ -5,8 +5,8 @@
  * rollback snapshot lifecycle, and localStorage interactions.
  */
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SettingsBackupEntry, SettingsCategory } from './archiveTypes';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { SettingsBackupEntry } from './archiveTypes';
 import {
   applySettingsBackup,
   collectSettingsBackup,
