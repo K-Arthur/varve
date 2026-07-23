@@ -1,4 +1,4 @@
-import type { Color } from '@strata/engine';
+import type { Color, CurvePoint } from '@strata/engine';
 import {
   COLOR_HALFTONE_PRESETS,
   LUT_INPUT_SPACE_LABELS,
@@ -12,6 +12,7 @@ import { managedColorToRgba } from '@strata/shared';
 import { Select } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
 import './adjustment.css';
@@ -672,101 +673,43 @@ function LevelsEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
+// CurvesAdjustment.points ({input, output}, 0-255, document/render space) and
+// CurveEditor's CurvePoint ({x, y}, 0-1, plot space) are the same tonal curve
+// in two different unit systems — a straight linear scale, not a lossy or
+// structural conversion. Order is preserved (not re-sorted) so a drag that
+// moves one point doesn't reshuffle the others; CurveEditor already sorts by
+// x internally for rendering/hit-testing.
+export function curvesPointsToCurvePoints(
+  points: import('@strata/scene').CurvesPoint[],
+): CurvePoint[] {
+  return points.map((p) => ({ x: p.input / 255, y: p.output / 255 }));
+}
+
+export function curvePointsToCurvesPoints(
+  points: CurvePoint[],
+): import('@strata/scene').CurvesPoint[] {
+  return points.map((p) => ({
+    input: Math.round(Math.max(0, Math.min(1, p.x)) * 255),
+    output: Math.round(Math.max(0, Math.min(1, p.y)) * 255),
+  }));
+}
+
 function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').CurvesAdjustment;
-  const handleNumber = (key: string, idx: number) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const v = Number.parseFloat(e.target.value);
-    if (Number.isNaN(v)) return;
-    const points = adj.points.map((p, i) => (i === idx ? { ...p, [key]: v } : p));
-    onChange({ points } as unknown as Partial<Adjustment>);
-  };
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
-  };
-  const addPoint = () => {
-    const last = adj.points[adj.points.length - 1];
-    const newInput = last ? Math.min(255, last.input + 32) : 0;
-    const newOutput = last ? Math.min(255, last.output + 32) : 0;
-    onChange({
-      points: [...adj.points, { input: newInput, output: newOutput }],
-    } as unknown as Partial<Adjustment>);
-  };
-  const removePoint = (idx: number) => () => {
-    if (adj.points.length <= 2) return;
-    onChange({
-      points: adj.points.filter((_, i) => i !== idx),
-    } as unknown as Partial<Adjustment>);
   };
 
   return (
     <div>
-      <div className="adj-editor__row">
-        <span className="adj-editor__label">Channel</span>
-        <Select
-          label="Curve channel"
-          value={adj.channel}
-          options={[
-            { value: 'rgb', label: 'RGB' },
-            { value: 'red', label: 'Red' },
-            { value: 'green', label: 'Green' },
-            { value: 'blue', label: 'Blue' },
-          ]}
-          onChange={handleSelect('channel')}
-        />
-      </div>
-      <div className="adj-editor__curve-points">
-        {adj.points.map((pt, i) => (
-          <div key={i} className="adj-editor__curve-point">
-            <span className="adj-editor__curve-point-label">{i + 1}</span>
-            <input
-              type="number"
-              className="adj-editor__number"
-              value={pt.input}
-              onChange={handleNumber('input', i)}
-              min={0}
-              max={255}
-              aria-label={`Point ${i + 1} input`}
-              title="Input"
-            />
-            <span
-              style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}
-              aria-hidden="true"
-            >
-              to
-            </span>
-            <input
-              type="number"
-              className="adj-editor__number"
-              value={pt.output}
-              onChange={handleNumber('output', i)}
-              min={0}
-              max={255}
-              aria-label={`Point ${i + 1} output`}
-              title="Output"
-            />
-            {adj.points.length > 2 && (
-              <button
-                type="button"
-                className="adj-editor__curve-add"
-                onClick={removePoint(i)}
-                aria-label={`Remove point ${i + 1}`}
-                style={{
-                  border: 'none',
-                  color: 'var(--color-danger)',
-                  cursor: 'pointer',
-                  fontSize: 'var(--font-size-xs)',
-                  padding: '0 4px',
-                }}
-              >
-                X
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
-      <button type="button" className="adj-editor__curve-add" onClick={addPoint}>
-        + Add point
-      </button>
+      <CurveEditor
+        value={curvesPointsToCurvePoints(adj.points)}
+        onChange={(points) =>
+          onChange({ points: curvePointsToCurvesPoints(points) } as unknown as Partial<Adjustment>)
+        }
+        channel={adj.channel as 'rgb' | 'red' | 'green' | 'blue'}
+        onChannelChange={handleSelect('channel')}
+      />
     </div>
   );
 }
