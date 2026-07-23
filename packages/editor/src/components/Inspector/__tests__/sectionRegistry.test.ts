@@ -378,6 +378,17 @@ describe('Section availability predicates', () => {
     expect(ids).not.toContain('align-distribute');
     expect(ids).not.toContain('brush-settings');
   });
+
+  it('does not expose generic appearance or legacy effects sections for an adjustment node', () => {
+    const available = getAvailableSections(
+      baseCtx({
+        selectionKind: 'single',
+        selectedNodes: [makeAdjustmentNode()],
+      }),
+    );
+
+    expect(available.map((definition) => definition.id)).toEqual(['adjustment']);
+  });
 });
 
 // ---------------------------------------------------------------------------

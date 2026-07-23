@@ -3,6 +3,8 @@ import {
   addNode,
   createDocument,
   imageFill,
+  makeAdjustment,
+  makeAdjustmentNode,
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
@@ -84,6 +86,28 @@ describe('sceneNeedsStructuralCompositing', () => {
         { name: 'Rect', transform: [1, 0, 0, 1, 10, 10] },
       ),
     );
+    expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
+  });
+
+  it('routes an active adjustment layer through structural backdrop compositing', () => {
+    let doc = createDocument('adjustment');
+    doc = addNode(doc, {
+      ...makeAdjustmentNode(
+        'a1',
+        'levels',
+        {
+          channel: 'rgb',
+          inputBlack: 0,
+          inputWhite: 255,
+          gamma: 1,
+          outputBlack: 0,
+          outputWhite: 255,
+        },
+        { opacity: 1 },
+      ),
+      adjustments: [makeAdjustment('brightness-1', 'brightness', { value: 20 })],
+    });
+
     expect(sceneNeedsStructuralCompositing(doc)).toBe(true);
   });
 });

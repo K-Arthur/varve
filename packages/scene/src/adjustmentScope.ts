@@ -158,7 +158,7 @@ function resolveLegacyScope(doc: Document, adjustmentNodeId: NodeId): NodeId[] {
     // We return just the eligible root siblings below this adjustment
     const ownIdx = doc.rootChildren.indexOf(adjustmentNodeId);
     if (ownIdx === -1) return collectAllEligibleNodes(doc);
-    return doc.rootChildren.slice(ownIdx + 1).filter((id) => {
+    return doc.rootChildren.slice(0, ownIdx).filter((id) => {
       const n = doc.nodes[id];
       return n && isAdjustmentEligible(n);
     });
@@ -168,7 +168,7 @@ function resolveLegacyScope(doc: Document, adjustmentNodeId: NodeId): NodeId[] {
   if (!parent || !isContainer(parent)) return [];
   const ownIdx = parent.children.indexOf(adjustmentNodeId);
   if (ownIdx === -1) return [];
-  const below = parent.children.slice(ownIdx + 1).filter((id) => {
+  const below = parent.children.slice(0, ownIdx).filter((id) => {
     const n = doc.nodes[id];
     return n && isAdjustmentEligible(n);
   });

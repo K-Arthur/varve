@@ -301,6 +301,23 @@ const migrations: DocumentMigration[] = [
     to: '2.3',
     migrate: (raw) => {
       const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+      const rootChildren = Array.isArray(raw.rootChildren)
+        ? raw.rootChildren.filter((id): id is string => typeof id === 'string')
+        : [];
+      const siblingBelow = (adjustmentId: string): string | undefined => {
+        let siblings = rootChildren;
+        for (const node of Object.values(nodes)) {
+          if (Array.isArray(node.children) && node.children.includes(adjustmentId)) {
+            siblings = node.children.filter((id): id is string => typeof id === 'string');
+            break;
+          }
+        }
+        const index = siblings.indexOf(adjustmentId);
+        if (index <= 0) return undefined;
+        const targetId = siblings[index - 1];
+        const target = targetId ? nodes[targetId] : undefined;
+        return target && target.kind !== 'adjustment' ? targetId : undefined;
+      };
       const migrated: Record<string, Record<string, unknown>> = {};
       for (const [id, node] of Object.entries(nodes)) {
         if (node.kind === 'adjustment') {
@@ -316,8 +333,8 @@ const migrations: DocumentMigration[] = [
             );
           let scope: Record<string, unknown> | undefined;
           if (clipping) {
-            // Legacy clipping: find the sibling below, convert to image-local
-            scope = { mode: 'image-local', targetNodeId: '' };
+            const targetNodeId = siblingBelow(id);
+            if (targetNodeId) scope = { mode: 'image-local', targetNodeId };
           } else if (hasActiveAdjustments) {
             // Non-clipping adjustment with content: set to document scope
             scope = { mode: 'document' };

@@ -166,8 +166,13 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
       formatVersion: '2.2',
       id: 'd1',
       name: 'legacy',
-      rootChildren: ['adj1'],
+      rootChildren: ['shape1', 'adj1'],
       nodes: {
+        shape1: {
+          id: 'shape1',
+          kind: 'shape',
+          visible: true,
+        },
         adj1: {
           id: 'adj1',
           kind: 'adjustment',
@@ -191,6 +196,7 @@ describe('AdjustmentScope - Migration v2.2 to v2.3', () => {
     const adj = (migrated.nodes as Record<string, Record<string, unknown>>).adj1!;
     expect(adj.scope).toBeDefined();
     expect((adj.scope as Record<string, unknown>).mode).toBe('image-local');
+    expect((adj.scope as Record<string, unknown>).targetNodeId).toBe('shape1');
   });
 
   it('migrates non-clipping adjustment with content to document scope', () => {

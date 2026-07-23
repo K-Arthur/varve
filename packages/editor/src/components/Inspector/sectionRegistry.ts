@@ -591,6 +591,14 @@ export function getAllSections(): readonly SectionDefinition[] {
 
 /** Get sections available for the current context, sorted by order. */
 export function getAvailableSections(ctx: SectionAvailabilityContext): SectionDefinition[] {
+  if (
+    ctx.selectionKind === 'single' &&
+    ctx.selectedNodes.length === 1 &&
+    ctx.selectedNodes[0]?.kind === 'adjustment'
+  ) {
+    const adjustment = getSectionDefinition('adjustment');
+    return adjustment ? [adjustment] : [];
+  }
   return SECTION_DEFINITIONS.filter((def) => def.isAvailable(ctx)).sort(
     (a, b) => a.order - b.order,
   );
