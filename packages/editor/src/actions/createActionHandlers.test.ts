@@ -37,4 +37,19 @@ describe('createActionHandlers — intelligence menu actions', () => {
     handlers.detectDuplicates?.();
     expect(editor.setInspectorTab).toHaveBeenCalledWith('audit', 'components');
   });
+
+  it.each([
+    ['openInspectorProperties', 'properties'],
+    ['openAppearancePanel', 'appearance'],
+    ['openAdjustmentsPanel', 'adjustments'],
+    ['openPrototypePanel', 'prototype'],
+    ['openDocumentPanel', 'document'],
+    ['openExportPanel', 'export'],
+    ['openInspectPanel', 'spec'],
+    ['openAuditPanel', 'audit'],
+  ] as const)('%s deep-links to its inspector workflow', (action, tab) => {
+    const editor = makeEditorMock();
+    createActionHandlers(editor)[action]?.();
+    expect(editor.setInspectorTab).toHaveBeenCalledWith(tab);
+  });
 });

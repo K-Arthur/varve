@@ -68,7 +68,15 @@ export interface ToolbarConfig {
 // Inspector tab configuration
 // ---------------------------------------------------------------------------
 
-export type InspectorTabId = 'properties' | 'export' | 'spec' | 'score' | 'audit';
+export type InspectorTabId =
+  | 'properties'
+  | 'appearance'
+  | 'adjustments'
+  | 'prototype'
+  | 'document'
+  | 'export'
+  | 'spec'
+  | 'audit';
 
 export interface InspectorTabConfig {
   id: InspectorTabId;
@@ -281,9 +289,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     },
     inspectorTabs: [
       { id: 'properties', label: 'Properties', visible: true, default: true },
+      { id: 'appearance', label: 'Appearance', visible: true },
+      { id: 'prototype', label: 'Prototype', visible: true },
+      { id: 'document', label: 'Document', visible: true },
       { id: 'export', label: 'Export', visible: true },
-      { id: 'spec', label: 'Spec', visible: true },
-      { id: 'score', label: 'Score', visible: true },
+      { id: 'spec', label: 'Inspect', visible: true },
       { id: 'audit', label: 'Audit', visible: true },
     ],
     statusSections: [
@@ -363,8 +373,10 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     },
     inspectorTabs: [
       { id: 'properties', label: 'Properties', visible: true, default: true },
+      { id: 'appearance', label: 'Appearance', visible: true },
+      { id: 'document', label: 'Document', visible: true },
       { id: 'export', label: 'Export', visible: true },
-      { id: 'spec', label: 'Spec', visible: true },
+      { id: 'spec', label: 'Inspect', visible: true },
       { id: 'audit', label: 'Audit', visible: true },
     ],
     statusSections: [
@@ -448,6 +460,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     },
     inspectorTabs: [
       { id: 'properties', label: 'Properties', visible: true, default: true },
+      { id: 'appearance', label: 'Appearance', visible: true },
       { id: 'export', label: 'Export', visible: true },
     ],
     statusSections: [
@@ -540,6 +553,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     },
     inspectorTabs: [
       { id: 'properties', label: 'Properties', visible: true, default: true },
+      { id: 'appearance', label: 'Appearance', visible: true },
+      { id: 'adjustments', label: 'Adjustments', visible: true },
+      { id: 'document', label: 'Document', visible: true },
       { id: 'export', label: 'Export', visible: true },
       { id: 'audit', label: 'Audit', visible: true },
     ],
@@ -623,6 +639,8 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     },
     inspectorTabs: [
       { id: 'properties', label: 'Properties', visible: true, default: true },
+      { id: 'appearance', label: 'Appearance', visible: true },
+      { id: 'prototype', label: 'Prototype', visible: true },
       { id: 'export', label: 'Export', visible: true },
       { id: 'audit', label: 'Audit', visible: true },
     ],

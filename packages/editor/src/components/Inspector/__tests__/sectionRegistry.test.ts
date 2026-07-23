@@ -213,6 +213,37 @@ describe('Section Registry', () => {
 // ---------------------------------------------------------------------------
 
 describe('Section availability predicates', () => {
+  it('does not offer subset-only typography edits for heterogeneous selections', () => {
+    const def = getSectionDefinition('typography')!;
+    expect(
+      def.isAvailable(
+        baseCtx({
+          selectionKind: 'multi',
+          selectedNodes: [makeTextNode(), makeTextNode({ id: 'text-2' })],
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      def.isAvailable(
+        baseCtx({
+          selectionKind: 'multi',
+          selectedNodes: [makeTextNode(), makeNode({ id: 'shape-2' })],
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('does not offer subset-only stroke or effect edits for heterogeneous selections', () => {
+    const group = makeNode({ id: 'group-1', kind: 'group' });
+    const mixed = baseCtx({
+      selectionKind: 'multi',
+      selectedNodes: [makeNode(), group],
+    });
+
+    expect(getSectionDefinition('stroke')!.isAvailable(mixed)).toBe(false);
+    expect(getSectionDefinition('effects')!.isAvailable(mixed)).toBe(false);
+  });
+
   it('position-size is available when there are selected nodes', () => {
     const def = getSectionDefinition('position-size')!;
     expect(def.isAvailable(baseCtx({ selectionKind: 'empty', selectedNodes: [] }))).toBe(false);
