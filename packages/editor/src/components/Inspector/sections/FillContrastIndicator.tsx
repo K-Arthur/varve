@@ -1,9 +1,17 @@
+/**
+ * FillContrastIndicator — interactive WCAG contrast dot for a single fill row.
+ *
+ * Distinct from `controls/ContrastIndicator` (a read-only fg/bg badge used by
+ * TypographySection): this one checks a `Fill` against an optional
+ * background, opens a popover with the ratio/level, and offers an Auto-fix
+ * action that mutates the fill via the editor. Used by FillSection.
+ */
 import type { Fill, ManagedColor } from '@strata/scene';
 import { useState } from 'react';
 import { useEditor } from '../../../context';
 import { checkFillContrast } from '../../../intelligence/wcagFix';
 
-export interface ContrastIndicatorProps {
+export interface FillContrastIndicatorProps {
   fill: Fill;
   background?: ManagedColor | null;
   fontSize?: number;
@@ -11,13 +19,13 @@ export interface ContrastIndicatorProps {
   fillIndex: number;
 }
 
-export function ContrastIndicator({
+export function FillContrastIndicator({
   fill,
   background,
   fontSize,
   fontWeight,
   fillIndex,
-}: ContrastIndicatorProps) {
+}: FillContrastIndicatorProps) {
   const editor = useEditor();
   const [showPopover, setShowPopover] = useState(false);
 
