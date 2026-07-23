@@ -177,6 +177,14 @@ export interface SvgExportOptions {
    * maximum compatibility.
    */
   preserveColorSpace?: boolean;
+  /**
+   * Pre-rasterized image assets for nodes that use effects which
+   * SVG 1.1 cannot represent natively (adjustment layers with
+   * curves/levels/halftone/duotone/blackAndWhite/posterize/threshold
+   * and similar CPU-only filters).  When present, the emitter embeds
+   * an `<image>` element instead of silently dropping the node.
+   */
+  rasterAssets?: Record<string, import('./types').RasterAsset>;
 }
 
 interface SvgBounds {
@@ -235,6 +243,17 @@ function nodeSvgBounds(
       worldTransform,
     );
   }
+  if (node.kind === 'adjustment') {
+    return transformedBounds(
+      [
+        [0, 0],
+        [200, 0],
+        [200, 160],
+        [0, 160],
+      ],
+      worldTransform,
+    );
+  }
   if (node.kind !== 'shape') return null;
   const bounds = shapeBounds(node.shape);
   const points: Array<readonly [number, number]> = [
@@ -261,8 +280,11 @@ function fillToSvg(
   preserveColorSpace: boolean,
 ): { fillAttr: string; comment?: string; defs?: string } {
   if (!node.fills || node.fills.length === 0) {
-    const result = colorToSvgValue(node.fill, doc, preserveColorSpace);
-    return { fillAttr: result.value, comment: result.warning };
+    if (node.kind === 'adjustment') {
+      return { fillAttr: 'none' };
+    }
+    const result = node.fill ? colorToSvgValue(node.fill, doc, preserveColorSpace) : undefined;
+    return { fillAttr: result?.value ?? 'none', comment: result?.warning };
   }
 
   // For a single solid fill, use the color directly
@@ -734,6 +756,7 @@ function nodeToSvgTag(
   depth: number,
   transform: Affine,
   preserveColorSpace: boolean,
+  rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): string {
   const indent = '  '.repeat(depth);
   const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
@@ -749,7 +772,6 @@ function nodeToSvgTag(
   switch (node.kind) {
     case 'shape': {
       const s = node.shape;
-      // Image fill: render <image> element instead of geometry shape.
       const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
       if (imgFill?.image) {
         const img = imgFill.image;
@@ -832,9 +854,6 @@ ${shapeInner}`
         attrs.push(
           `text-anchor="${textNode.textAlign === 'center' ? 'middle' : textNode.textAlign === 'right' ? 'end' : 'start'}"`,
         );
-      // RTL direction: emit dir + unicode-bidi so SVG renderers apply the
-      // Unicode Bidirectional Algorithm. LTR is the SVG default (omitted);
-      // 'auto' is left to the renderer.
       if (textNode.direction === 'rtl') {
         attrs.push('direction="rtl"', 'unicode-bidi="bidi-override"');
       }
@@ -880,7 +899,9 @@ ${shapeInner}`
         (child) => !(mask?.hideMaskSource && mask.sourceNodeId === child.id),
       );
       const children = filteredChildren
-        .map((child) => nodeToSvgTag(child, doc, depth + 1, child.transform, preserveColorSpace))
+        .map((child) =>
+          nodeToSvgTag(child, doc, depth + 1, child.transform, preserveColorSpace, rasterAssets),
+        )
         .join('\n');
       let groupAttrs = withTransform;
       groupAttrs += compositingSuffix;
@@ -894,6 +915,16 @@ ${shapeInner}`
       }
       return `${indent}<g${groupAttrs}>\n${children}\n${indent}</g>`;
     }
+    case 'adjustment': {
+      const asset = rasterAssets?.[node.id];
+      if (asset) {
+        const w = asset.cssWidth;
+        const h = asset.cssHeight;
+        const href = escapeXml(asset.dataUrl);
+        return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}"${withTransform} />`;
+      }
+      return '';
+    }
   }
   return '';
 }
@@ -903,6 +934,7 @@ export function exportNodeToSvg(
   doc: SceneDocument,
   opts?: SvgExportOptions,
 ): string {
+  const rasterAssets = opts?.rasterAssets;
   const bounds = nodeSvgBounds(node, doc);
   const pos = {
     x: bounds?.minX ?? node.transform[4] ?? 0,
@@ -912,7 +944,14 @@ export function exportNodeToSvg(
   };
   const maskDefs = collectSubtreeMaskDefs(doc, node);
   const defsSection = maskDefs.length > 0 ? `  <defs>\n${maskDefs.join('\n')}\n  </defs>\n` : '';
-  const inner = nodeToSvgTag(node, doc, 2, node.transform, opts?.preserveColorSpace ?? false);
+  const inner = nodeToSvgTag(
+    node,
+    doc,
+    2,
+    node.transform,
+    opts?.preserveColorSpace ?? false,
+    rasterAssets,
+  );
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,
@@ -931,8 +970,14 @@ export function exportNodeToSvg(
  * SVG has broad coverage; gaps are limited to embedded assets and
  * browser-specific filter support.
  */
-export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
+export function svgTargetGaps(
+  node: SceneNode,
+  _doc: SceneDocument,
+  flattenedNodes?: Set<string>,
+): TargetGap[] {
+  const gaps: TargetGap[] = [
+    ...adjustmentStackTargetGaps(node, undefined, flattenedNodes?.has(node.id)),
+  ];
 
   if (isImageShape(node)) {
     gaps.push({

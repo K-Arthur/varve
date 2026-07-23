@@ -36,7 +36,7 @@ export { exportNodeToSwiftUI, swiftuiTargetGaps } from './swiftui';
 export { exportNodeToTailwind, tailwindTargetGaps } from './tailwind';
 export * from './target-analysis';
 export { resolveTokenName } from './tokens';
-export type { CodeEmitter, TargetGap } from './types';
+export type { CodeEmitter, ExportMetadata, RasterAsset, TargetGap } from './types';
 
 export const PACKAGE = '@strata/codegen' as const;
 
@@ -45,6 +45,11 @@ export interface SvgExportOptions {
   minify?: boolean;
   includeHidden?: boolean;
   styleMode?: 'inline' | 'presentation';
+  /**
+   * Pre-rasterized image assets for nodes that use effects which
+   * vector formats cannot represent natively.
+   */
+  rasterAssets?: Record<string, import('./types').RasterAsset>;
 }
 
 function rgba(c: ManagedColor): string {
@@ -623,6 +628,16 @@ function nodeToSvg(
         }
       }
       return `${indent}<g${attrs}>${sep}${children}${sep}${indent}</g>`;
+    }
+    case 'adjustment': {
+      const asset = options.rasterAssets?.[node.id];
+      if (asset) {
+        const w = asset.cssWidth;
+        const h = asset.cssHeight;
+        const href = escapeXml(asset.dataUrl);
+        return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" transform="${transform}"${compositingSuffix} />`;
+      }
+      return '';
     }
     default:
       return '';
