@@ -70,10 +70,6 @@ async function preloadEngineImages(nodes: readonly EngineNode[]): Promise<void> 
   await Promise.all([...sources].map((source) => getImageCache().load(source)));
 }
 
-function colorHasAlpha(color: { a: number } | undefined): boolean {
-  return color !== undefined && color.a < 255;
-}
-
 function unionBounds(
   a: { x: number; y: number; w: number; h: number },
   b: { x: number; y: number; w: number; h: number },
@@ -242,22 +238,6 @@ export function buildFilename(nodeName: string, ext: string): string {
 }
 
 /**
- * Check if any node in the subtree rooted at `node` has an active raster mask.
- */
-function subtreeHasRasterMask(node: SceneNode, doc: SceneDocument): boolean {
-  if ('mask' in node && node.mask?.visible === true && 'rasterMask' in node.mask) {
-    return true;
-  }
-  if ('children' in node) {
-    for (const childId of node.children) {
-      const child = doc.nodes[childId];
-      if (child && subtreeHasRasterMask(child, doc)) return true;
-    }
-  }
-  return false;
-}
-
-/**
  * Generate a minimal 1-page PDF with an embedded RGB image.
  * Standard PDF structure: header, objects, cross-reference table, trailer.
  */
@@ -344,149 +324,149 @@ function makeSimpleImagePdf(rgbaPixels: Uint8Array, width: number, height: numbe
   return result.slice(0, pos);
 }
 
-export async function exportNodeAsPdf(
-  node: SceneNode,
-  doc: SceneDocument,
-  scale: number,
-): Promise<{ bytes: Uint8Array; filename: string }> {
-  // ── Raster mask detection: fall back to rasterized PNG-in-PDF ─────
-  // The Rust print engine does not yet support alpha masks via PDF SMask.
-  // When a raster mask is present, render the subtree via canvas at 1x
-  // and embed the result as a flat RGB image in a minimal PDF wrapper.
-  if (subtreeHasRasterMask(node, doc)) {
-    const rasterResult = await exportNodeAsRaster(
-      node,
-      doc,
-      {
-        buildIr: async () => [],
-      } as unknown as Engine,
-      {
-        format: 'image/png',
-        scale,
-      },
-    );
-    const blob = rasterResult.blob;
-
-    // Decode PNG to RGBA pixels for embedding as RGB in PDF
-    const img = await createImageBitmap(blob);
-    const canvas = document.createElement('canvas');
-    canvas.width = img.width;
-    canvas.height = img.height;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(img, 0, 0);
-    const imageData = ctx.getImageData(0, 0, img.width, img.height);
-    img.close();
-
-    const pdfBytes = makeSimpleImagePdf(
-      imageData.data as unknown as Uint8Array,
-      img.width,
-      img.height,
-    );
-    const filename = buildFilename(node.name, 'pdf');
-    return { bytes: pdfBytes, filename };
-  }
-
-  const subtree = flattenSceneToEngine(doc, [node.id]);
-  // Same font-readiness guard as raster export: worldBBox measures text via
-  // canvas metrics that depend on the requested font actually being loaded.
-  await awaitExportsReady(collectEngineFonts(subtree.nodes));
-
-  const bbox = worldBBox(node, doc);
-  if (scale !== 1) {
-    throw new Error(
-      'PDF is vector output and currently supports 1x document units only. Choose 1x, or export PNG/JPEG/WebP for scaled raster output.',
-    );
-  }
-  const w = Math.max(Math.ceil(bbox.w), 1);
-  const h = Math.max(Math.ceil(bbox.h), 1);
-
-  // Validate the structural scene before flattening. Groups are not raster
-  // primitives, so leaf-only checks would silently lose group compositing.
+/**
+ * Check whether a subtree requires raster fallback for PDF export.
+ * Returns true when the subtree uses any feature the Rust print engine
+ * cannot represent natively — filters/adjustments, transparency, blends,
+ * effects, masks, frames with clipContent, text, gradients, patterns,
+ * images, or non-identity transforms.
+ */
+function subtreeRequiresRasterPdfFallback(node: SceneNode, doc: SceneDocument): boolean {
   const structuralStack: SceneNode[] = [doc.nodes[node.id] ?? node];
   while (structuralStack.length > 0) {
     const current = structuralStack.pop()!;
+
+    // Group compositing that Rust can't render
     if (current.kind === 'group') {
-      const unsupportedGroupCompositing =
+      if (
         (current.opacity ?? 1) < 1 ||
         (current.blendMode !== undefined &&
           current.blendMode !== 'normal' &&
           current.blendMode !== 'passThrough') ||
         current.isolated === true ||
-        current.effects.some((effect) => effect.visible) ||
-        current.mask?.visible === true;
-      if (unsupportedGroupCompositing) {
-        throw new Error(
-          `PDF export cannot yet preserve group opacity, blends, isolation, effects, or masks on "${current.name}". Export PNG for exact Canvas 2D appearance.`,
-        );
+        current.effects?.some((effect) => effect.visible) ||
+        current.mask?.visible === true
+      ) {
+        return true;
       }
-    } else if ('mask' in current && current.mask?.visible === true) {
-      // Should not reach here — raster mask case handled above, but keep
-      // the guard for other mask types (clip, vector, sourceNodeId).
-      throw new Error(
-        `PDF export cannot yet preserve the mask on "${current.name}". Export PNG for exact Canvas 2D appearance.`,
-      );
     }
+
+    // Adjustment nodes always need rasterization
+    if (current.kind === 'adjustment') {
+      return true;
+    }
+
+    // Visible masks beyond the raster-mask case handled above
+    if ('mask' in current && current.mask?.visible === true) {
+      return true;
+    }
+
+    // Frame clipping
+    if (
+      current.kind === 'frame' &&
+      current.clipContent !== false &&
+      (current.children?.length ?? 0) > 0
+    ) {
+      return true;
+    }
+
     if ('children' in current) {
-      for (const childId of current.children) {
+      for (const childId of current.children ?? []) {
         const child = doc.nodes[childId];
         if (child) structuralStack.push(child);
       }
     }
   }
 
+  // Check flattened engine nodes for features the Rust engine cannot render
+  // (we do this lazily — only if the structural check passes)
+  const subtree = flattenSceneToEngine(doc, [node.id]);
   for (const sceneNode of subtree.nodes) {
     const [a, b, c, d] = sceneNode.transform;
-    if (a !== 1 || b !== 0 || c !== 0 || d !== 1) {
-      throw new Error(
-        `PDF export cannot yet preserve rotated, skewed, or scaled node "${sceneNode.name}". Export PNG for exact Canvas 2D appearance.`,
-      );
-    }
-    const unsupportedFillSemantics =
-      colorHasAlpha(sceneNode.fill) ||
-      (sceneNode.fills?.some(
+    if (a !== 1 || b !== 0 || c !== 0 || d !== 1) return true;
+    if (sceneNode.kind === 'text') return true;
+    if ((sceneNode.opacity ?? 1) < 1) return true;
+    if (sceneNode.blendMode && sceneNode.blendMode !== 'normal') return true;
+    if (sceneNode.effects?.some((effect) => effect.visible)) return true;
+    if ((sceneNode.filters?.length ?? 0) > 0) return true;
+    if (
+      sceneNode.fills?.some(
         (fill) =>
           fill.visible &&
-          (fill.type !== 'solid' ||
-            fill.opacity < 1 ||
-            fill.blendMode !== 'normal' ||
-            colorHasAlpha(fill.color)),
-      ) ??
-        false);
-    const unsupportedStrokeSemantics =
-      sceneNode.strokes?.some((stroke) => stroke.visible && colorHasAlpha(stroke.color)) ?? false;
-    if (sceneNode.kind === 'text') {
-      throw new Error(
-        `Native PDF text outlining is not wired for "${sceneNode.name}"; exporting it would replace the text with a rectangle. Use SVG to preserve editable text, or PNG for exact Canvas 2D appearance.`,
-      );
-    }
-    if (
-      (sceneNode.opacity ?? 1) < 1 ||
-      (sceneNode.blendMode && sceneNode.blendMode !== 'normal') ||
-      (sceneNode.effects?.some((effect) => effect.visible) ?? false) ||
-      (sceneNode.filters?.length ?? 0) > 0 ||
-      unsupportedFillSemantics ||
-      unsupportedStrokeSemantics
+          (fill.type !== 'solid' || fill.opacity < 1 || fill.blendMode !== 'normal'),
+      )
     ) {
-      throw new Error(
-        `PDF export cannot yet preserve transparency, blends, effects, filters, gradients, images, or patterns on "${sceneNode.name}". Export PNG for exact Canvas 2D appearance.`,
-      );
+      return true;
     }
   }
-  const stack: SceneNode[] = [doc.nodes[node.id] ?? node];
-  while (stack.length > 0) {
-    const current = stack.pop()!;
-    if (current.kind === 'frame' && current.clipContent !== false && current.children.length > 0) {
-      throw new Error(
-        `PDF export cannot yet preserve clipped descendants in frame "${current.name}". Export PNG for exact Canvas 2D appearance.`,
-      );
-    }
-    if ('children' in current) {
-      for (const childId of current.children) {
-        const child = doc.nodes[childId];
-        if (child) stack.push(child);
-      }
-    }
+  return false;
+}
+
+/**
+ * Rasterize a subtree and embed as PNG-in-PDF.
+ * Used as fallback when the Rust print engine cannot represent features
+ * like filters, transparency, blends, non-identity transforms, or text.
+ */
+async function rasterizeSubtreeToPdf(
+  node: SceneNode,
+  doc: SceneDocument,
+  scale: number,
+): Promise<{ bytes: Uint8Array; pixelWidth: number; pixelHeight: number }> {
+  const rasterResult = await exportNodeAsRaster(
+    node,
+    doc,
+    { buildIr: async () => [] } as unknown as Engine,
+    { format: 'image/png', scale },
+  );
+  const blob = rasterResult.blob;
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(img, 0, 0);
+  const imageData = ctx.getImageData(0, 0, img.width, img.height);
+  img.close();
+
+  const pdfBytes = makeSimpleImagePdf(
+    imageData.data as unknown as Uint8Array,
+    img.width,
+    img.height,
+  );
+  return { bytes: pdfBytes, pixelWidth: img.width, pixelHeight: img.height };
+}
+
+export async function exportNodeAsPdf(
+  node: SceneNode,
+  doc: SceneDocument,
+  scale: number,
+): Promise<{ bytes: Uint8Array; filename: string }> {
+  // ── Decision: vector vs raster path ──────────────────────────────────
+  // The Rust print engine (strata-print) handles solid fills, strokes,
+  // and basic shapes natively. Everything else falls back to a rasterized
+  // PNG-in-PDF produced by the live canvas renderer, which handles the
+  // full filter/adjustment/compositing pipeline.
+  const needsRaster = subtreeRequiresRasterPdfFallback(node, doc);
+
+  if (needsRaster) {
+    const result = await rasterizeSubtreeToPdf(node, doc, scale);
+    const filename = buildFilename(node.name, 'pdf');
+    return { bytes: result.bytes, filename };
   }
+
+  // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
+  const subtree = flattenSceneToEngine(doc, [node.id]);
+  await awaitExportsReady(collectEngineFonts(subtree.nodes));
+
+  const bbox = worldBBox(node, doc);
+  if (scale !== 1) {
+    throw new Error(
+      'PDF vector output supports 1x document units only. Use 1x or export PNG/JPEG/WebP for scaled raster output.',
+    );
+  }
+  const w = Math.max(Math.ceil(bbox.w), 1);
+  const h = Math.max(Math.ceil(bbox.h), 1);
+
   const nodes = subtree.nodes.map((sceneNode) => ({
     ...sceneNode,
     transform: [
