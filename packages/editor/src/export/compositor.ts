@@ -791,7 +791,7 @@ function widenAdjustmentBoundaries(
       boundary: 'group',
       node,
       bounds: computeNodeBounds(node, doc),
-      hasAdjustmentFilters: false, // filters now resolve through the IR, not a post-pass
+      hasAdjustmentFilters: subtreeHasAdjustmentFilters(node, doc),
     });
   }
 
@@ -907,7 +907,7 @@ export async function composeFlattenedExportSnapshot(
       opts.onProgress?.('rasterizing', processed, boundaries.length);
       processed++;
 
-      const { node, bounds, hasAdjustmentFilters } = boundary;
+      const { node, bounds } = boundary;
 
       // Compute pixel dimensions
       const cssWidth = Math.max(1, bounds.w);
@@ -947,17 +947,10 @@ export async function composeFlattenedExportSnapshot(
         context.fillRect(0, 0, pixelW, pixelH);
       }
 
-      // Render the subtree
-      context.save();
-      context.scale(exportScale, exportScale);
-      context.translate(-bounds.x, -bounds.y);
-      renderSubtreeToCtx(context as CanvasRenderingContext2D, node, doc);
-      context.restore();
-
-      // Apply adjustment filters if needed
-      if (hasAdjustmentFilters) {
-        applyAdjustmentFilters(context as CanvasRenderingContext2D, node, doc, pixelW, pixelH);
-      }
+      // Render the boundary through the real IR-replay pipeline so
+      // gradients, images, masks, blend modes, and adjustment compositing
+      // match the live document exactly.
+      await renderBoundaryToSurface(surface, node.id, doc, eng, exportScale, bounds);
 
       // Encode to PNG data URL
       let dataUrl: string;
@@ -1000,27 +993,4 @@ export async function composeFlattenedExportSnapshot(
   opts.onProgress?.('complete', totalPhases, totalPhases);
 
   return results as Record<ExportTarget, ExportSnapshot>;
-}
-
-/**
- * Apply adjustment node filters to a canvas context.
- */
-function applyAdjustmentFilters(
-  ctx: CanvasRenderingContext2D,
-  node: SceneNode,
-  _doc: Document,
-  pixelW: number,
-  pixelH: number,
-): void {
-  if (node.kind !== 'adjustment') return;
-
-  const rawFilters =
-    (node as unknown as { adjustments?: Array<Record<string, unknown>> }).adjustments ?? [];
-  const filters = rawFilters.filter((a) => a.visible !== false && (a.opacity as number) > 0);
-  if (filters.length === 0) return;
-
-  const irFilters = adjustmentsToFilters(
-    filters as unknown as Parameters<typeof adjustmentsToFilters>[0],
-  );
-  applyFilters(ctx, irFilters, pixelW, pixelH);
 }

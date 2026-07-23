@@ -18,11 +18,16 @@ import type { SafeWriteOptions } from './archiveTypes';
  */
 export async function safeWriteFile(options: SafeWriteOptions): Promise<void> {
   const { destination, bytes, validate, signal } = options;
+
+  if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+
   const tempPath = `${destination}.tmp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
   try {
     // Write to temp file
     await writeFileBytes(tempPath, bytes);
+
+    if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 
     // Validate before finalizing
     if (validate && !validate(bytes)) {
@@ -92,6 +97,13 @@ export function registerSafeWriteIo(handlers: {
   platformDelete = handlers.delete;
 }
 
+/** Reset platform I/O handlers to in-memory defaults (test helper). */
+export function resetSafeWriteIo(): void {
+  platformWriteFile = null;
+  platformRename = null;
+  platformDelete = null;
+}
+
 async function writeFileBytes(path: string, data: Uint8Array): Promise<void> {
   if (platformWriteFile) return platformWriteFile(path, data);
   // Fallback: in-memory (for tests / browser)
@@ -124,9 +136,10 @@ export function inMemoryReadFile(path: string): Uint8Array | undefined {
   return inMemoryFs.get(path);
 }
 
-/** Clear in-memory filesystem (test helper). */
+/** Clear in-memory filesystem and reset platform handlers (test helper). */
 export function inMemoryClear(): void {
   inMemoryFs.clear();
+  resetSafeWriteIo();
 }
 
 function sleep(ms: number): Promise<void> {
