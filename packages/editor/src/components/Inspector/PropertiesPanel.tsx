@@ -352,6 +352,11 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
       entries.push({ id, order: o ?? 500, el });
     };
 
+    // AdjustmentPanel is the canonical editor for adjustment nodes. Generic
+    // fill/stroke/legacy-effects sections expose unrelated NodeBase fields and
+    // create a second, conflicting effects pipeline.
+    if (node.kind === 'adjustment') return entries;
+
     if (isComponentInstance)
       add('component', <ComponentSection node={node as import('@strata/scene').FrameNode} />);
     if (isFrame && !isComponentInstance)

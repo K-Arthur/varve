@@ -41,16 +41,6 @@ import { applyThreshold } from './threshold';
 import { applyTritone } from './tritone';
 import type { FilterIR } from './types';
 
-/** Build a CSS filter string from all CSS-compatible filters, ignoring opacity/blend. */
-function filterChainToCssSimple(filters: FilterIR[]): string | null {
-  const parts: string[] = [];
-  for (const f of filters) {
-    const css = filterToCss(f);
-    if (css) parts.push(css);
-  }
-  return parts.length > 0 ? parts.join(' ') : null;
-}
-
 /**
  * Apply a filter chain to a canvas context with per-filter opacity and blend mode.
  * Replaces the simple applyFilterChain when filters require compositing.
@@ -68,37 +58,16 @@ export function applyFilterWithCompositing(
 ): void {
   if (filters.length === 0) return;
 
-  const cssParts: string[] = [];
-  let needsOffscreen = false;
-
-  // Phase 1: Determine batching strategy
-  // Separate simple CSS filters from those needing offscreen compositing
-  for (const f of filters) {
-    const css = filterToCss(f);
-    const isSimpleCss =
-      supportsCanvasFilter(target) && css !== null && f.opacity >= 1 && f.blendMode === 'normal';
-    if (isSimpleCss) {
-      cssParts.push(css);
-    } else {
-      needsOffscreen = true;
-      break;
-    }
-  }
-
-  // If all filters are simple CSS, apply them directly
-  if (!needsOffscreen) {
-    if (cssParts.length > 0) {
-      target.filter = cssParts.join(' ');
-    }
-    return;
-  }
-
   let current: ReturnType<typeof createRasterSurface>;
   try {
     current = createRasterSurface(width, height);
   } catch {
-    const css = filterChainToCssSimple(filters);
-    if (css && supportsCanvasFilter(target)) target.filter = css;
+    // This API is post-render: merely assigning ctx.filter here would only
+    // affect a future draw and leave the existing pixels unchanged. Use the
+    // portable software path when an intermediate surface is unavailable.
+    for (const filter of filters) {
+      applySoftwareFilter(target, filter, width, height);
+    }
     return;
   }
   current.context.drawImage(target.canvas, 0, 0);

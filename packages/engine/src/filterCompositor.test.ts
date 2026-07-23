@@ -160,13 +160,13 @@ describe('filter compositing', () => {
     expect(Array.from(output?.data ?? [])).toEqual([191, 127, 0, 255]);
   });
 
-  it('applies CSS-compatible filter directly when opacity=1 and blendMode=normal', () => {
-    const { target } = mockTarget();
+  it('applies a CSS-compatible filter to pixels that were already rendered', () => {
+    const { target, calls } = mockTarget();
     const filters: FilterIR[] = [
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'normal' },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    expect(target.filter).toContain('brightness');
+    expect(calls).toContain('drawImage');
   });
 
   it('handles opacity<1 filter via offscreen compositing when available', () => {
@@ -210,16 +210,14 @@ describe('filter compositing', () => {
     expect(target.filter).toBe('none');
   });
 
-  it('composes multiple CSS filters into one string', () => {
-    const { target } = mockTarget();
+  it('applies multiple CSS-compatible filters in order', () => {
+    const { target, calls } = mockTarget();
     const filters: FilterIR[] = [
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'normal' },
       { kind: 'contrast', value: 20, opacity: 1, blendMode: 'normal' },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    const filterStr = target.filter as string;
-    expect(filterStr).toContain('brightness');
-    expect(filterStr).toContain('contrast');
+    expect(calls.filter((call) => call === 'drawImage').length).toBeGreaterThanOrEqual(1);
   });
 
   it('handles mixed CSS and non-CSS filters with offscreen compositing', () => {
@@ -558,13 +556,15 @@ describe('filter compositing', () => {
   });
 
   it('uses offscreen compositing in browser environment', () => {
-    // Test the offscreen path logic by checking filter accumulation
-    const { target } = mockTarget();
+    const { target, calls } = mockTarget();
     const filters: FilterIR[] = [
       { kind: 'brightness', value: 10, opacity: 1, blendMode: 'normal' },
     ];
     applyFilterWithCompositing(target, filters, 100, 100);
-    // In a simple case, the filter should be set via CSS
-    expect(target.filter).toBe('brightness(110%)');
+    // This is a post-render API: the filtered surface must be drawn back into
+    // the target instead of leaving a CSS filter set for some future draw.
+    expect(calls).toContain('clearRect');
+    expect(calls).toContain('drawImage');
+    expect(target.filter).toBe('none');
   });
 });

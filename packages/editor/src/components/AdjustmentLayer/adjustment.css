@@ -60,7 +60,6 @@
   gap: var(--space-2);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  cursor: pointer;
   transition: background-color 0.1s;
   min-height: var(--space-6);
 }
@@ -73,12 +72,27 @@
   background-color: var(--color-accent-subtle);
 }
 
-.adj-panel__item-drag {
-  cursor: grab;
+.adj-panel__item-reorder {
   color: var(--color-text-muted);
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
+}
+
+.adj-panel__item-reorder-btn {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.adj-panel__item-reorder-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .adj-panel__item-vis {
@@ -112,6 +126,25 @@
   white-space: nowrap;
 }
 
+.adj-panel__item-select {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+}
+
+.adj-panel__item-select:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 .adj-panel__item-opacity {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
@@ -131,7 +164,8 @@
   transition: opacity 0.1s;
 }
 
-.adj-panel__item:hover .adj-panel__item-remove {
+.adj-panel__item:hover .adj-panel__item-remove,
+.adj-panel__item:focus-within .adj-panel__item-remove {
   opacity: 1;
 }
 
@@ -207,6 +241,30 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
+}
+
+.adj-panel__effect-controls {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.adj-panel__effect-actions {
+  display: flex;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+}
+
+.adj-panel__effect-action {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  cursor: pointer;
+}
+
+.adj-panel__effect-action:hover {
+  background: var(--color-interactive-hover);
 }
 
 .adj-editor__slider-row {

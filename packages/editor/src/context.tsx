@@ -5149,8 +5149,6 @@ export function EditorProvider({
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
         redoStackRef.current = [];
         const { id, doc: newDoc } = nextNodeId(state.document);
-        // Adjustment layers must have opacity=0 to trigger the adjustment-layer
-        // rendering path in replay.ts (line 679: item.opacity <= 0)
         const node = makeAdjustmentNode(
           id,
           'levels',
@@ -5164,7 +5162,7 @@ export function EditorProvider({
           },
           {
             name: `LUT ${lutAdjustment.kind === 'lut' ? (lutAdjustment.originalFilename ?? id.slice(0, 4)) : id.slice(0, 4)}`,
-            opacity: 0,
+            opacity: 1,
             blendMode: 'normal',
             effects: [],
           },

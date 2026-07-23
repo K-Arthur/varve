@@ -78,6 +78,20 @@ describe('adjustment layer', () => {
     }
   });
 
+  it('creates LUT adjustment layers at visible layer opacity', async () => {
+    const { getCtx } = setup();
+    await waitFor(() => expect(getCtx()).toBeDefined());
+
+    getCtx().addLutAdjustment(makeAdjustment('lut-1', 'lut'));
+
+    await waitFor(() => {
+      expect(getCtx().state.selection.length).toBe(1);
+    });
+    const node = getNode(getCtx(), firstSelectedId(getCtx()));
+    expect(node.kind).toBe('adjustment');
+    expect(node.opacity).toBe(1);
+  });
+
   it('addAdjustmentToLayer appends an adjustment', async () => {
     const { getCtx } = setup();
     await waitFor(() => expect(getCtx()).toBeDefined());
