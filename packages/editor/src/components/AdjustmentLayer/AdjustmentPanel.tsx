@@ -80,7 +80,15 @@ function localAdjId(): string {
  * or the scroll length exceeds 3 viewports.
  */
 export function AdjustmentPanel() {
-  const { state, updateNode, setSelectedOpacity, setSelectedBlendMode } = useEditor();
+  const {
+    state,
+    updateNode,
+    beginTransaction,
+    commitTransaction,
+    reorderAdjustmentInLayer,
+    setSelectedOpacity,
+    setSelectedBlendMode,
+  } = useEditor();
   const selId = state.selection.length === 1 ? state.selection[0] : undefined;
   const selNode = selId ? state.document.nodes[selId] : undefined;
   const isAdjustmentNode = selNode?.kind === 'adjustment';
@@ -94,6 +102,29 @@ export function AdjustmentPanel() {
   const [selectedAdjId, setSelectedAdjId] = useState<string | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addBtnRef = useRef<HTMLButtonElement>(null);
+  const editTransactionRef = useRef(false);
+
+  const startEditTransaction = useCallback(() => {
+    if (editTransactionRef.current) return;
+    editTransactionRef.current = true;
+    beginTransaction();
+  }, [beginTransaction]);
+
+  const finishEditTransaction = useCallback(() => {
+    if (!editTransactionRef.current) return;
+    editTransactionRef.current = false;
+    commitTransaction();
+  }, [commitTransaction]);
+
+  useEffect(
+    () => () => {
+      if (editTransactionRef.current) {
+        editTransactionRef.current = false;
+        commitTransaction();
+      }
+    },
+    [commitTransaction],
+  );
 
   const handleAddAdjustment = useCallback(
     (kind: AdjustmentKind) => {
@@ -147,6 +178,41 @@ export function AdjustmentPanel() {
       handleUpdateAdjustment(adjId)({ visible: !current } as Partial<Adjustment>);
     },
     [handleUpdateAdjustment],
+  );
+
+  const handleResetAdjustment = useCallback(
+    (adjId: string, kind: AdjustmentKind) => {
+      if (!nodeId) return;
+      updateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        return {
+          ...n,
+          adjustments: (n.adjustments ?? []).map((adjustment) =>
+            adjustment.id === adjId ? makeAdjustment(adjId, kind) : adjustment,
+          ),
+        };
+      });
+    },
+    [nodeId, updateNode],
+  );
+
+  const handleDuplicateAdjustment = useCallback(
+    (adjId: string) => {
+      if (!nodeId) return;
+      const duplicateId = localAdjId();
+      updateNode(nodeId, (n) => {
+        if (n.kind !== 'adjustment') return n;
+        const adjustments = n.adjustments ?? [];
+        const sourceIndex = adjustments.findIndex((adjustment) => adjustment.id === adjId);
+        if (sourceIndex < 0) return n;
+        const duplicate = { ...adjustments[sourceIndex]!, id: duplicateId };
+        const next = [...adjustments];
+        next.splice(sourceIndex + 1, 0, duplicate);
+        return { ...n, adjustments: next };
+      });
+      setSelectedAdjId(duplicateId);
+    },
+    [nodeId, updateNode],
   );
 
   const closeAddMenu = useCallback(() => {
@@ -210,14 +276,30 @@ export function AdjustmentPanel() {
           <span className="adj-panel__stack-title">Filter Stack</span>
         </div>
 
-        {adjustments.map((adj) => (
+        {adjustments.map((adj, index) => (
           <div
             key={adj.id}
             className={`adj-panel__item${selectedAdjId === adj.id ? ' adj-panel__item--selected' : ''}`}
-            onClick={() => setSelectedAdjId(adj.id === selectedAdjId ? null : adj.id)}
           >
-            <span className="adj-panel__item-drag" aria-label="Drag to reorder">
-              <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.7em" />
+            <span className="adj-panel__item-reorder">
+              <button
+                type="button"
+                className="adj-panel__item-reorder-btn"
+                disabled={index === 0}
+                onClick={() => reorderAdjustmentInLayer(nodeId!, adj.id, index - 1)}
+                aria-label={`Move ${filterKindDisplayName(adj.kind)} up`}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.chevronUp} size="0.65em" />
+              </button>
+              <button
+                type="button"
+                className="adj-panel__item-reorder-btn"
+                disabled={index === adjustments.length - 1}
+                onClick={() => reorderAdjustmentInLayer(nodeId!, adj.id, index + 1)}
+                aria-label={`Move ${filterKindDisplayName(adj.kind)} down`}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.chevronDown} size="0.65em" />
+              </button>
             </span>
 
             <span className="adj-panel__item-vis">
@@ -239,11 +321,17 @@ export function AdjustmentPanel() {
               </button>
             </span>
 
-            <span className="adj-panel__item-name">{filterKindDisplayName(adj.kind)}</span>
-
-            {adj.opacity < 1 && (
-              <span className="adj-panel__item-opacity">{Math.round(adj.opacity * 100)}%</span>
-            )}
+            <button
+              type="button"
+              className="adj-panel__item-select"
+              aria-expanded={selectedAdjId === adj.id}
+              onClick={() => setSelectedAdjId(adj.id === selectedAdjId ? null : adj.id)}
+            >
+              <span className="adj-panel__item-name">{filterKindDisplayName(adj.kind)}</span>
+              {adj.opacity < 1 && (
+                <span className="adj-panel__item-opacity">{Math.round(adj.opacity * 100)}%</span>
+              )}
+            </button>
 
             <button
               type="button"
@@ -279,7 +367,22 @@ export function AdjustmentPanel() {
       </div>
 
       {selectedAdj && (
-        <div className="adj-panel__editor">
+        <div
+          className="adj-panel__editor"
+          onPointerDownCapture={(event) => {
+            if ((event.target as Element).matches('input[type="range"]')) {
+              startEditTransaction();
+            }
+          }}
+          onPointerUpCapture={finishEditTransaction}
+          onPointerCancelCapture={finishEditTransaction}
+          onKeyDownCapture={(event) => {
+            if ((event.target as Element).matches('input[type="range"]')) {
+              startEditTransaction();
+            }
+          }}
+          onKeyUpCapture={finishEditTransaction}
+        >
           <div className="adj-panel__editor-header">
             <span className="adj-panel__editor-title">
               {filterKindDisplayName(selectedAdj.kind)}
@@ -291,7 +394,60 @@ export function AdjustmentPanel() {
           <AdjustmentEditor
             adjustment={selectedAdj}
             onChange={handleUpdateAdjustment(selectedAdj.id)}
+            onEditStart={startEditTransaction}
+            onEditEnd={finishEditTransaction}
           />
+          <div className="adj-panel__effect-controls">
+            <label className="adj-editor__slider-row">
+              <span className="adj-editor__slider-label">
+                <span>Effect Opacity</span>
+                <span>{Math.round(selectedAdj.opacity * 100)}%</span>
+              </span>
+              <input
+                type="range"
+                className="adj-editor__slider"
+                min={0}
+                max={100}
+                step={1}
+                value={Math.round(selectedAdj.opacity * 100)}
+                onChange={(event) =>
+                  handleUpdateAdjustment(selectedAdj.id)({
+                    opacity: Number(event.target.value) / 100,
+                  })
+                }
+                aria-label={`${filterKindDisplayName(selectedAdj.kind)} effect opacity`}
+              />
+            </label>
+            <div className="adj-editor__row">
+              <span className="adj-editor__label">Effect Blend</span>
+              <Select
+                label={`${filterKindDisplayName(selectedAdj.kind)} effect blend mode`}
+                value={selectedAdj.blendMode}
+                options={ADJUSTMENT_BLEND_OPTIONS}
+                onChange={(value) =>
+                  handleUpdateAdjustment(selectedAdj.id)({
+                    blendMode: value as AdjustmentBlendMode,
+                  })
+                }
+              />
+            </div>
+            <div className="adj-panel__effect-actions">
+              <button
+                type="button"
+                className="adj-panel__effect-action"
+                onClick={() => handleResetAdjustment(selectedAdj.id, selectedAdj.kind)}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className="adj-panel__effect-action"
+                onClick={() => handleDuplicateAdjustment(selectedAdj.id)}
+              >
+                Duplicate
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

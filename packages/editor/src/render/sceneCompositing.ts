@@ -19,6 +19,13 @@ function computeNeedsStructuralCompositing(doc: Document): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (!node) continue;
     if ('mask' in node && node.mask?.visible) return true;
+    if (
+      node.kind === 'adjustment' &&
+      node.visible !== false &&
+      (node.adjustments ?? []).some((adjustment) => adjustment.visible && adjustment.opacity > 0)
+    ) {
+      return true;
+    }
     if (node.kind === 'frame' && node.children.length > 0 && node.clipContent !== false) {
       return true;
     }

@@ -9,11 +9,14 @@ import { AdjustmentPanel } from './AdjustmentPanel';
 afterEach(cleanup);
 
 function Harness() {
-  const { createAdjustmentLayer } = useEditor();
+  const { createAdjustmentLayer, undo } = useEditor();
   return (
     <div>
       <button type="button" onClick={() => createAdjustmentLayer()}>
         Create adjustment layer
+      </button>
+      <button type="button" onClick={undo}>
+        Undo
       </button>
       <AdjustmentPanel />
     </div>
@@ -113,6 +116,66 @@ describe('AdjustmentPanel', () => {
 
     expect(screen.queryByRole('menu')).toBeNull();
     expect(addButton).toHaveFocus();
+  });
+
+  it('edits effect opacity and resets effect parameters without changing the layer opacity', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Brightness' }));
+
+    const brightness = screen.getByRole('slider', { name: 'Brightness' });
+    fireEvent.change(brightness, { target: { value: '40' } });
+    const effectOpacity = screen.getByRole('slider', { name: 'Brightness effect opacity' });
+    fireEvent.change(effectOpacity, {
+      target: { value: '35' },
+    });
+    expect(effectOpacity).toHaveValue('35');
+
+    await user.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(screen.getByRole('slider', { name: 'Brightness' })).toHaveValue('0');
+    expect(screen.getByRole('spinbutton', { name: 'Opacity' })).toHaveValue('1');
+  });
+
+  it('duplicates and reorders effects in the stack', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Brightness' }));
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Contrast' }));
+
+    await user.click(screen.getByRole('button', { name: 'Move Contrast up' }));
+    expect(
+      Array.from(document.querySelectorAll('.adj-panel__item-name')).map(
+        (element) => element.textContent,
+      ),
+    ).toEqual(['Contrast', 'Brightness']);
+
+    await user.click(screen.getByRole('button', { name: 'Duplicate' }));
+    expect(document.querySelectorAll('.adj-panel__item-name')).toHaveLength(3);
+  });
+
+  it('coalesces a slider scrub into one undo operation', async () => {
+    const user = userEvent.setup();
+    renderHarness();
+    await user.click(screen.getByText('Create adjustment layer'));
+    await user.click(screen.getByRole('button', { name: /add adjustment/i }));
+    await user.click(screen.getByRole('menuitem', { name: 'Brightness' }));
+
+    const brightness = screen.getByRole('slider', { name: 'Brightness' });
+    fireEvent.pointerDown(brightness);
+    fireEvent.change(brightness, { target: { value: '10' } });
+    fireEvent.change(brightness, { target: { value: '25' } });
+    fireEvent.change(brightness, { target: { value: '40' } });
+    fireEvent.pointerUp(brightness);
+    expect(brightness).toHaveValue('40');
+
+    await user.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByRole('slider', { name: 'Brightness' })).toHaveValue('0');
   });
 
   it('adding a halftone adjustment creates a fully-populated entry and renders live screening controls', async () => {

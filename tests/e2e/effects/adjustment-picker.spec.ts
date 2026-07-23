@@ -33,8 +33,8 @@ test.describe('Adjustment filter picker', () => {
     const contrast = page.getByRole('menuitem', { name: /^Contrast$/i });
     await contrast.click();
 
-    await expect(page.getByRole('slider', { name: 'Contrast' })).toBeVisible();
-    await expect(page.getByRole('slider', { name: 'Brightness' })).toHaveCount(0);
+    await expect(page.getByRole('slider', { name: 'Contrast', exact: true })).toBeVisible();
+    await expect(page.getByRole('slider', { name: 'Brightness', exact: true })).toHaveCount(0);
   });
 
   test('can select a filter that starts below the menu viewport', async ({ page }) => {

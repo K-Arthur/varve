@@ -20,9 +20,16 @@ import './adjustment.css';
 export interface AdjustmentEditorProps {
   adjustment: Adjustment;
   onChange: (patch: Partial<Adjustment>) => void;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }
 
-export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+export function AdjustmentEditor({
+  adjustment,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: AdjustmentEditorProps) {
   const handleSlider = useCallback(
     (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
       onChange({ [key]: Number(e.target.value) } as Partial<Adjustment>);
@@ -80,10 +87,24 @@ export function AdjustmentEditor({ adjustment, onChange }: AdjustmentEditorProps
       );
 
     case 'levels':
-      return <LevelsEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <LevelsEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'curves':
-      return <CurvesEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <CurvesEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'selectiveColor':
       return <SelectiveColorEditor adjustment={adjustment} onChange={onChange} />;
@@ -643,7 +664,7 @@ function paramsToLevelsAdjustmentPatch(
   };
 }
 
-function LevelsEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').LevelsAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -668,6 +689,8 @@ function LevelsEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       <HistogramWidget
         levels={levelsAdjustmentToParams(adj)}
         onChange={(params) => onChange(paramsToLevelsAdjustmentPatch(params))}
+        onDragStart={onEditStart}
+        onDragEnd={onEditEnd}
       />
     </div>
   );
@@ -694,7 +717,7 @@ export function curvePointsToCurvesPoints(
   }));
 }
 
-function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function CurvesEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').CurvesAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -709,6 +732,8 @@ function CurvesEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         }
         channel={adj.channel as 'rgb' | 'red' | 'green' | 'blue'}
         onChannelChange={handleSelect('channel')}
+        onDragStart={onEditStart}
+        onDragEnd={onEditEnd}
       />
     </div>
   );
@@ -1429,6 +1454,22 @@ function DuotoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         />
         <span>Preserve Luminosity</span>
       </label>
+      <div className="adj-editor__row">
+        <span className="adj-editor__label">Interpolation</span>
+        <Select
+          label="Duotone interpolation"
+          value={adj.interpolation ?? 'smoothstep'}
+          options={[
+            { value: 'smoothstep', label: 'Smooth' },
+            { value: 'linear', label: 'Linear' },
+          ]}
+          onChange={(value) =>
+            onChange({
+              interpolation: value as 'smoothstep' | 'linear',
+            } as unknown as Partial<Adjustment>)
+          }
+        />
+      </div>
     </div>
   );
 }
@@ -1493,6 +1534,26 @@ function BlackAndWhiteEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         />
         <span>Preserve Luminosity</span>
       </label>
+      <label className="adj-editor__checkbox-row">
+        <input
+          type="checkbox"
+          checked={adj.tintColor !== undefined}
+          onChange={(event) =>
+            onChange({
+              tintColor: event.target.checked ? ([190, 170, 140, 255] as Color) : undefined,
+            } as unknown as Partial<Adjustment>)
+          }
+        />
+        <span>Tint</span>
+      </label>
+      {adj.tintColor && (
+        <ColorPicker
+          value={colorToManaged(adj.tintColor)}
+          onChange={(color) =>
+            onChange({ tintColor: managedToColor(color) } as unknown as Partial<Adjustment>)
+          }
+        />
+      )}
     </div>
   );
 }
