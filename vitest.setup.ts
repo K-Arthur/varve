@@ -146,6 +146,33 @@ if (typeof ImageData === 'undefined') {
   });
 }
 
+// jsdom does not implement createImageBitmap (or real image decoding at all).
+// Callers only need a plausible {width, height, close()} shape back — actual
+// pixel content is irrelevant in tests, since getImageData()/putImageData()
+// are themselves mocked above and don't round-trip real bitmap data either.
+// Dimensions DO matter, though: callers like OnionSkinCompositor compute
+// cache byte sizes from bitmap.width/height, so a canvas-like source (which
+// already carries real width/height) must be reflected, not flattened to a
+// fixed placeholder. Only sourceless inputs (e.g. a Blob, which needs actual
+// decoding to know its dimensions) fall back to a 1x1 placeholder.
+if (typeof globalThis.createImageBitmap === 'undefined') {
+  class ImageBitmapMock {
+    readonly width: number;
+    readonly height: number;
+    constructor(width = 1, height = 1) {
+      this.width = width;
+      this.height = height;
+    }
+    close() {}
+  }
+  globalThis.createImageBitmap = vi.fn(async (source: unknown, ..._args: unknown[]) => {
+    const sized = source as { width?: number; height?: number };
+    const width = typeof sized?.width === 'number' && sized.width > 0 ? sized.width : 1;
+    const height = typeof sized?.height === 'number' && sized.height > 0 ? sized.height : 1;
+    return new ImageBitmapMock(width, height);
+  }) as unknown as typeof globalThis.createImageBitmap;
+}
+
 // jsdom does not implement OffscreenCanvas
 if (typeof OffscreenCanvas === 'undefined') {
   class OffscreenCanvasMock {
@@ -163,6 +190,7 @@ if (typeof OffscreenCanvas === 'undefined') {
           canvas: this,
           save: vi.fn(),
           restore: vi.fn(),
+          getTransform: vi.fn(() => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })),
           setTransform: vi.fn(),
           transform: vi.fn(),
           fillRect: vi.fn(),
