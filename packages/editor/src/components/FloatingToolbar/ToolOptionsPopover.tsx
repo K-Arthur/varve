@@ -35,6 +35,20 @@ export function ToolOptionsPopover() {
 
   useEffect(() => {
     if (!open) return;
+    const focusFirstControl = () => {
+      const control = popoverRef.current?.querySelector<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!control) return false;
+      control.focus();
+      return true;
+    };
+    const focusObserver = new MutationObserver(() => {
+      if (focusFirstControl()) focusObserver.disconnect();
+    });
+    if (!focusFirstControl() && popoverRef.current) {
+      focusObserver.observe(popoverRef.current, { childList: true, subtree: true });
+    }
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (!popoverRef.current?.contains(target) && !triggerRef.current?.contains(target)) {
@@ -51,6 +65,7 @@ export function ToolOptionsPopover() {
     document.addEventListener('pointerdown', onPointerDown);
     document.addEventListener('keydown', onKeyDown);
     return () => {
+      focusObserver.disconnect();
       document.removeEventListener('pointerdown', onPointerDown);
       document.removeEventListener('keydown', onKeyDown);
     };
