@@ -19,7 +19,7 @@ import type {
 } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { Icon, Select } from '@strata/ui';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
@@ -184,6 +184,9 @@ const EFFECT_TYPE_OPTIONS: { value: Effect['type']; label: string }[] = [
 export function EffectsSection({ nodes }: EffectsSectionProps) {
   const { updateNode, beginTransaction, commitTransaction, announce } = useEditor();
   const [newEffectType, setNewEffectType] = useState<Effect['type']>('dropShadow');
+  // Effect just added via the picker below — that row should mount expanded
+  // (ready to configure) instead of collapsed like the rest of the stack.
+  const [lastAddedIndex, setLastAddedIndex] = useState<number | null>(null);
 
   const effectNodes = useMemo(() => nodes.filter(hasEffects), [nodes]);
 
@@ -216,9 +219,12 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
   );
 
   const addEffect = useCallback(() => {
+    if (effectNodes.length > 0) {
+      setLastAddedIndex(Math.min(...effectNodes.map((n) => n.effects.length)));
+    }
     batchUpdate((effects) => [...effects, defaultEffect(newEffectType)]);
     announce('Effect added');
-  }, [newEffectType, batchUpdate, announce]);
+  }, [newEffectType, batchUpdate, announce, effectNodes]);
 
   const removeEffect = useCallback(
     (index: number) => {
@@ -262,6 +268,7 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
             onReorder={(dir: number) => reorderEffect(i, i + dir)}
             canMoveUp={i > 0}
             canMoveDown={i < minEffects - 1}
+            startExpanded={i === lastAddedIndex}
           />
         ))
       )}
@@ -292,6 +299,8 @@ interface EffectRowProps {
   onReorder: (dir: number) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  /** Mount already expanded — used for the effect just added via the picker. */
+  startExpanded?: boolean;
 }
 
 function EffectRow({
@@ -302,6 +311,7 @@ function EffectRow({
   onReorder,
   canMoveUp,
   canMoveDown,
+  startExpanded = false,
 }: EffectRowProps) {
   const typeRaw = commonValue(nodes, (n) => getEffect(n, index)?.type ?? 'dropShadow');
   const visibleRaw = commonValue(nodes, (n) => getEffect(n, index)?.visible ?? true);
@@ -310,6 +320,15 @@ function EffectRow({
   const visibility = isMixed(visibleRaw) ? true : visibleRaw;
 
   const typeLabel = type ?? 'Mixed';
+
+  // Collapsed by default: with several stacked effects, showing every
+  // effect's full parameter set (shadows/glow/blur/glass/etc. can each be a
+  // dozen fields) at once turns the section into a wall of sliders. Only the
+  // one-line summary row shows until expanded, matching how Figma/Sketch
+  // effect stacks behave. `startExpanded` (lazy initializer) opens the row
+  // that was just added instead of requiring an extra click to configure it.
+  const [expanded, setExpanded] = useState(startExpanded);
+  const paramsId = useId();
 
   return (
     <div
@@ -322,6 +341,24 @@ function EffectRow({
       }}
     >
       <div className="insp-field">
+        {type && (
+          <button
+            type="button"
+            className="insp-disclosure__trigger"
+            style={{ width: 'auto', padding: 0 }}
+            aria-expanded={expanded}
+            aria-controls={paramsId}
+            aria-label={`${expanded ? 'Collapse' : 'Expand'} ${typeLabel} parameters`}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <Icon
+              name="ChevronRight"
+              label={undefined}
+              className="insp-disclosure__chevron"
+              size="0.85em"
+            />
+          </button>
+        )}
         <button
           type="button"
           className="insp-inline-btn"
@@ -382,7 +419,11 @@ function EffectRow({
         </button>
       </div>
 
-      {type && <EffectParams type={type} nodes={nodes} index={index} onChange={onChange} />}
+      {type && expanded && (
+        <div id={paramsId}>
+          <EffectParams type={type} nodes={nodes} index={index} onChange={onChange} />
+        </div>
+      )}
     </div>
   );
 }

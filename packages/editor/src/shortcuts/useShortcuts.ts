@@ -92,6 +92,8 @@ export function useShortcuts(
         };
       case 'newAdjustmentLayer':
         return () => ref.current.createAdjustmentLayer();
+      case 'flattenSelection':
+        return () => ref.current.flattenSelected('flatten', 1);
       default:
         return null;
     }

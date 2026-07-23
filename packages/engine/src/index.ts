@@ -7,12 +7,6 @@
  */
 
 export {
-  computeFlattenBounds,
-  effectPadding,
-  findCommonAncestor,
-  nodeEffectPadding,
-} from '@strata/scene';
-export {
   backdropChangedSinceLastResolve,
   resolveAdaptiveTextColor,
   sampleRegionBackdrop,
@@ -243,17 +237,6 @@ export {
   filterToCss,
   makeAdjustment,
 } from './filters';
-export type {
-  BackgroundPolicy,
-  BoundsPolicy,
-  BoundsRect,
-  FlattenMode,
-  FlattenOptions,
-  FlattenResult,
-  FlattenWarning,
-  TextFlattenPolicy,
-} from './flatten';
-export { flattenNodes } from './flatten';
 export type {
   ExportFontRequest,
   FontEntry,
