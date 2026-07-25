@@ -34,6 +34,7 @@ import {
 } from './sectionRegistry';
 import { AdaptiveContrastSection } from './sections/AdaptiveContrastSection';
 import { AIDenoiseSection } from './sections/AIDenoiseSection';
+import { AiToolsHintSection } from './sections/AiToolsHintSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { BackgroundRemovalSection } from './sections/BackgroundRemovalSection';
@@ -371,6 +372,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('paint-library', <PaintLibrarySection />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
     add('image-crop', <ImageCropSection nodes={nodes} sectionId="image-crop" />);
+    add('ai-tools-hint', <AiToolsHintSection />);
     add('image-enhancement', <ImageEnhancementSection nodes={nodes} />);
     add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
     add('colorize', <ColorizeSection nodes={nodes} />);
