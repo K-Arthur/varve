@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type ContentAwareFillQuality,
   type ContentAwareFillResult,
-  QUALITY_LABELS,
-  QUALITY_DESCRIPTIONS,
   getModelLoader,
+  QUALITY_DESCRIPTIONS,
+  QUALITY_LABELS,
   runContentAwareFillPipeline,
 } from '@strata/engine';
 import { imageShapeSrc, isImageShape } from '@strata/scene';
 import { Button } from '@strata/ui';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { insertDerivedImageShape } from '../../imageOperations';
 import './ContentAwareFillDialog.css';

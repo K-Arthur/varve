@@ -43,7 +43,7 @@ vi.mock('../../thumbnail', () => ({
   })),
   generateDocThumbnailOptions: {} as never,
   ThumbnailSourceType: {} as never,
-  sourceLabel: vi.fn((s: unknown) => 'Mock'),
+  sourceLabel: vi.fn((_s: unknown) => 'Mock'),
 }));
 
 import { useEditor } from '../../context';

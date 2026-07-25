@@ -104,6 +104,7 @@ describe('WorkspaceConfig', () => {
 
   it('labels are defined for all modes', () => {
     expect(Object.keys(WORKSPACE_LABELS).sort()).toEqual([
+      'codegen',
       'design',
       'drawing',
       'image',

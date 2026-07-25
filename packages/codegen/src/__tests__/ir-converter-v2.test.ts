@@ -12,12 +12,6 @@ import {
 } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { sceneToIR } from '../ir-converter';
-import type {
-  AdjustmentScopeInfo,
-  FidelityWarning,
-  FlattenInfo,
-  HtmlElementHint,
-} from '../ir-types';
 
 describe('IR v2.1 — flattening info', () => {
   it('adds flattening info to every node', () => {

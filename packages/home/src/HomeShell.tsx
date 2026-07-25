@@ -4,8 +4,10 @@ import {
   detectFileKind,
   type FileEntry,
   type Platform,
+  type RecentWorkspaceFilter,
   type SavedSearch,
   type TemplateLibrary,
+  type EditorWorkspaceMode,
 } from '@strata/platform';
 import { createDocumentFromPreset, serializeDocument } from '@strata/scene';
 import { generateKeyBetween, type Preset } from '@strata/shared';
@@ -263,7 +265,7 @@ export function HomeShell({
   useHomeShortcuts(shortcutHandlers, dialogOpen);
 
   const sidebarEntries: SidebarEntry[] = [
-    { id: 'recent', label: 'Recent', icon: 'Clock', count: view.recentFiles.length },
+    { id: 'recent', label: 'Recent', icon: 'Clock', count: view.recentSectionCounts.all },
     {
       id: 'all',
       label: 'All Files',
@@ -291,7 +293,7 @@ export function HomeShell({
   ];
 
   const sidebarSectionCounts: Record<string, number> = {
-    recent: view.recentFiles.length,
+    recent: view.recentSectionCounts.all,
     all: view.files.length - view.trashedFiles.length,
     drafts: view.draftFiles.length,
     favorites: view.favoriteFiles.length,
@@ -841,6 +843,9 @@ export function HomeShell({
               view.setFilter({ kinds: [], pinnedOnly: false, dateFrom: null, dateTo: null });
               setActiveSavedSearchId(null);
             }}
+            section={view.state.section}
+            recentWorkspaceFilter={view.recentWorkspaceFilter}
+            onRecentWorkspaceFilterChange={view.setRecentWorkspaceFilter}
           />
         </div>
         {selectedIds.length > 0 && (

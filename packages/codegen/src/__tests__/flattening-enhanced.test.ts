@@ -4,7 +4,7 @@
 
 import { createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { analyzeNodeFlattening, canEmitAsHtml, getRenderCapability } from '../flattening';
+import { canEmitAsHtml, getRenderCapability } from '../flattening';
 
 describe('flattening v2.1 — getRenderCapability', () => {
   it('returns full for simple rect', () => {

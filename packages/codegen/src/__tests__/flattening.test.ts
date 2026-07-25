@@ -2,7 +2,7 @@
  * Tests for the flattening analysis module.
  */
 
-import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
   analyzeFlattening,

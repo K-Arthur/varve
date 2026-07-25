@@ -2,7 +2,7 @@
  * Tests for the Vue SFC emitter.
  */
 
-import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeShapeNode, makeTextNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToVue, vueTargetGaps } from '../vue';
 

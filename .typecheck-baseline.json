@@ -1,4 +1,4 @@
 {
-  "errors": [],
-  "updatedAt": "2026-07-22T15:40:54.828Z"
+  "errors": ["packages/scene typecheck: src/intelligence/auditCache.ts"],
+  "updatedAt": "2026-07-25T06:32:51.953Z"
 }

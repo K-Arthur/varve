@@ -17,27 +17,24 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { setInspectorTabHandler, useEditor } from '../../context';
 import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
-import { AssetExportControls } from '../SpecPanel/AssetExportControls';
-import { CodeGenView } from '../SpecPanel/CodeGenView';
-import { QuickBar } from './sections/QuickBar';
 import {
   getDefaultInspectorTab,
   getGroupedInspectorTabs,
   getVisibleInspectorTabs,
   getWorkspaceConfig,
-  TAB_GROUP_ORDER,
   type InspectorTabGroup,
   type InspectorTabId,
+  TAB_GROUP_ORDER,
 } from '../../workspace/workspaceTypes';
+import { AssetExportControls } from '../SpecPanel/AssetExportControls';
+import { CodeGenView } from '../SpecPanel/CodeGenView';
 import { SectionManagerTrigger } from './SectionManagerTrigger';
 import {
   getSectionDefinition,
   type SectionAvailabilityContext,
   type SectionId,
 } from './sectionRegistry';
-import { AdaptiveContrastSection } from './sections/AdaptiveContrastSection';
 import { AIDenoiseSection } from './sections/AIDenoiseSection';
-import { AiToolsHintSection } from './sections/AiToolsHintSection';
 import { AlignDistributeBar } from './sections/AlignDistributeBar';
 import { AppearanceSection } from './sections/AppearanceSection';
 import { ComponentSection } from './sections/ComponentSection';
@@ -47,6 +44,7 @@ import { FillSection } from './sections/FillSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
+import { QuickBar } from './sections/QuickBar';
 import { StrokeSection } from './sections/StrokeSection';
 import { TypographySection } from './sections/TypographySection';
 import { type SelectionSummary, summarize } from './selection/selectionState';
@@ -755,19 +753,6 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
     add('appearance', <AppearanceSection nodes={nodes} />);
     add('fills', <FillSection nodes={nodes} />);
     add('image-placement', <ImagePlacementSection nodes={nodes} />);
-    add('image-crop', <ImageCropSection nodes={nodes} sectionId="image-crop" />);
-    add('ai-tools-hint', <AiToolsHintSection />);
-    add('image-enhancement', <ImageEnhancementSection nodes={nodes} />);
-    add('background-removal', <BackgroundRemovalSection nodes={nodes} />);
-    add('colorize', <ColorizeSection nodes={nodes} />);
-    add('ai-denoise', <AIDenoiseSection nodes={nodes} />);
-    add('lens-blur', <LensBlurSection nodes={nodes} />);
-    add('line-art', <LineArtSection nodes={nodes} />);
-    add('content-aware-fill', <ContentAwareFillSection nodes={nodes} />);
-    add('detect-text', <DetectTextSection nodes={nodes} />);
-    add('ocr', <OcrSection nodes={nodes} />);
-    add('blend-images', <BlendImagesSection nodes={nodes} />);
-    add('palette', <PaletteSection />);
     add('stroke', <StrokeSection nodes={nodes} />);
     add('typography', <TypographySection nodes={nodes} />);
 

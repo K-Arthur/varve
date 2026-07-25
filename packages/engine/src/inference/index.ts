@@ -18,6 +18,7 @@ export {
   preprocessFontDetect,
   validateFontDetectInput,
 } from './models/fontDetect';
+export { decodeLamaOutput, LAMA_INPUT_SIZE } from './models/lama';
 export type {
   Sam2DecoderInput,
   Sam2DecoderOutput,
@@ -58,7 +59,6 @@ export {
 } from './models/trocr';
 export type { ProviderChainOptions } from './ProviderChain';
 export { runProviderChain } from './ProviderChain';
-export { decodeLamaOutput, LAMA_INPUT_SIZE } from './models/lama';
 export type { ManagedSession } from './SessionManager';
 export { SessionManager } from './SessionManager';
 export type {

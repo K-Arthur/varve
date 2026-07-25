@@ -9,21 +9,13 @@
 import type {
   Document,
   Effect,
-  Fill,
   FrameNode,
   NodeId,
-  BlendMode as SceneBlendMode,
   SceneNode,
   ShapeNode,
   TextNode,
 } from '@strata/scene';
-import {
-  activePageNodes,
-  getParent,
-  isImageShape,
-  resolveAdjustmentScope,
-  resolveMask,
-} from '@strata/scene';
+import { activePageNodes, getParent, isImageShape, resolveMask } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import {
   type AccessibilityMetadata,
@@ -31,11 +23,8 @@ import {
   type AppearanceSpec,
   type BlurSpec,
   type BorderRadiusSpec,
-  type BorderSideSpec,
   type BorderSpec,
-  type BreakpointConfig,
   type ColorStop,
-  type ComponentLibrary,
   type ComponentRef,
   type ConstraintSpec,
   type ContentSpec,
@@ -44,9 +33,7 @@ import {
   DEFAULT_BREAKPOINTS,
   DEFAULT_CONSTRAINT_SPEC,
   DEFAULT_CONTENT,
-  DEFAULT_FLATTEN_INFO,
   DEFAULT_LAYOUT_SPEC,
-  DEFAULT_METADATA,
   DEFAULT_TOKEN_BINDINGS,
   type DocumentMetadata,
   type EffectSpec,
@@ -63,15 +50,12 @@ import {
   type InteractionStateSpec,
   type IRDocument,
   type LayoutSpec,
-  type NodeMetadata,
   type ResponsiveBreakpointInference,
   type SceneAnalysisResult,
   type SemanticKind,
   type SemanticNode,
   type SemanticRole,
   type ShadowSpec,
-  type SizingSpec,
-  type Spacing,
   type StrokeSpec,
   type TokenBindings,
   type TokenLibrary,
@@ -346,7 +330,7 @@ function convertStrokes(node: SceneNode): StrokeSpec[] {
 
 // ── Border Conversion ──────────────────────────────────────────────────────────
 
-function convertBorder(node: SceneNode): BorderSpec {
+function convertBorder(_node: SceneNode): BorderSpec {
   return {
     top: { width: 0, color: '#000000', style: 'none' },
     right: { width: 0, color: '#000000', style: 'none' },
@@ -462,7 +446,7 @@ function convertTransform(node: SceneNode): TransformSpec {
 
 // ── Interaction State Extraction ───────────────────────────────────────────────
 
-function convertInteractions(node: SceneNode): InteractionStateSpec {
+function convertInteractions(_node: SceneNode): InteractionStateSpec {
   return {};
 }
 
@@ -471,7 +455,7 @@ function convertInteractions(node: SceneNode): InteractionStateSpec {
 function constraintsToLayoutSpec(
   constraints: ConstraintSpec,
   _parentLayout: LayoutSpec,
-  node: SceneNode,
+  _node: SceneNode,
 ): LayoutSpec {
   const layout: LayoutSpec = { ...DEFAULT_LAYOUT_SPEC };
 
@@ -1283,7 +1267,7 @@ function suggestHtmlElement(node: SemanticNode): HtmlElementHint {
 
 // ── Fidelity Warning Collection (v2.1) ────────────────────────────────────────
 
-function collectFidelityWarnings(node: SceneNode, doc: Document): FidelityWarning[] {
+function collectFidelityWarnings(node: SceneNode, _doc: Document): FidelityWarning[] {
   const warnings: FidelityWarning[] = [];
   const nodeId = node.id;
 

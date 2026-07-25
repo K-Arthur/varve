@@ -8,7 +8,7 @@
  */
 
 import type { AuditFinding } from '@strata/shared';
-import { useEffect, useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 
 interface AuditKeyboardNavOptions {
   /** Current findings */
@@ -102,21 +102,23 @@ export function useAuditKeyboardNav({
           navigateLast();
           break;
         case 'Enter':
-        case ' ':
+        case ' ': {
           event.preventDefault();
           const actionFinding = findings[selectedIndex];
           if (actionFinding) {
             onAction?.(actionFinding);
           }
           break;
+        }
         case 'Delete':
-        case 'Backspace':
+        case 'Backspace': {
           event.preventDefault();
           const dismissFinding = findings[selectedIndex];
           if (dismissFinding) {
             onDismiss?.(dismissFinding);
           }
           break;
+        }
         case 'Escape':
           event.preventDefault();
           onEscape?.();

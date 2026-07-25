@@ -225,9 +225,13 @@ describe('workspaceTypes', () => {
     expect(tabs).toEqual(['properties', 'adjustments', 'appearance', 'export', 'audit']);
   });
 
-  it('default inspector tab is properties for all modes', () => {
+  it('default inspector tab is properties for all modes (except codegen)', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
-      expect(getDefaultInspectorTab(mode)).toBe('properties');
+      if (mode === 'codegen') {
+        expect(getDefaultInspectorTab(mode)).toBe('codegen');
+      } else {
+        expect(getDefaultInspectorTab(mode)).toBe('properties');
+      }
     }
   });
 
@@ -264,9 +268,13 @@ describe('workspaceTypes', () => {
 
   // ─── Performance config ──────────────────────────────────────────────────
 
-  it('all modes have worker renderer enabled', () => {
+  it('all modes have worker renderer enabled (except codegen, which is intentionally lightweight)', () => {
     for (const mode of ALL_WORKSPACE_MODES) {
-      expect(getWorkspaceConfig(mode).performance.useWorkerRenderer).toBe(true);
+      if (mode === 'codegen') {
+        expect(getWorkspaceConfig(mode).performance.useWorkerRenderer).toBe(false);
+      } else {
+        expect(getWorkspaceConfig(mode).performance.useWorkerRenderer).toBe(true);
+      }
     }
   });
 

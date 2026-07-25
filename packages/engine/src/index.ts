@@ -566,8 +566,19 @@ export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './text
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
-export type { ThumbnailCapabilities } from './thumbnail/index';
+export type { ThumbnailOptions } from './thumbnail';
+export { renderThumbnail } from './thumbnail';
+export type {
+  ThumbnailBackground,
+  ThumbnailCapabilities,
+  ThumbnailFit,
+  ThumbnailMetadata,
+  ThumbnailOptions as UnifiedThumbnailOptions,
+  ThumbnailResult,
+  ThumbnailSource,
+} from './thumbnail/index';
 export {
+  generateThumbnail,
   getThumbnailCapabilities,
   hasAnyCanvas,
   hasCreateImageBitmap,
@@ -578,17 +589,6 @@ export {
   hasWorkerSupport,
   setThumbnailCapabilitiesForTest,
 } from './thumbnail/index';
-export type { ThumbnailOptions } from './thumbnail';
-export { renderThumbnail } from './thumbnail';
-export type {
-  ThumbnailBackground,
-  ThumbnailFit,
-  ThumbnailMetadata,
-  ThumbnailOptions as UnifiedThumbnailOptions,
-  ThumbnailResult,
-  ThumbnailSource,
-} from './thumbnail/index';
-export { generateThumbnail } from './thumbnail/index';
 export type { BezierFitOptions } from './traceBezierFit';
 export { fitBezierToContour } from './traceBezierFit';
 export { traceSceneNodeOutline } from './tracing';

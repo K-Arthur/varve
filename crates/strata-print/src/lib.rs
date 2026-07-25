@@ -667,7 +667,11 @@ impl ShadingRegistry {
         let mut resources = Vec::new();
         for (name, def) in &self.definitions {
             let func_id = create_sampled_function(doc, &def.stops, def.use_cmyk, def.profile);
-            let color_space = if def.use_cmyk { "DeviceCMYK" } else { "DeviceRGB" };
+            let color_space = if def.use_cmyk {
+                "DeviceCMYK"
+            } else {
+                "DeviceRGB"
+            };
             match def.kind {
                 ShadingKind::Linear => {
                     // Apply rotation around center (0.5, 0.5) to the Coords.
@@ -1296,8 +1300,10 @@ fn render_fills(
                         if use_shading {
                             if let Some(registry) = shading_registry.as_mut() {
                                 let shading_name = match gradient_type.as_str() {
-                                    "radial" => registry.add_radial_gradient(stops, use_cmyk, profile, *rotation),
-                                    _ => registry.add_linear_gradient(stops, use_cmyk, profile, *rotation),
+                                    "radial" => registry
+                                        .add_radial_gradient(stops, use_cmyk, profile, *rotation),
+                                    _ => registry
+                                        .add_linear_gradient(stops, use_cmyk, profile, *rotation),
                                 };
                                 buf.extend(&path_ops);
                                 buf.extend_from_slice(b"W n\n");
@@ -2089,7 +2095,8 @@ fn render_rich_text_to_pdf(
         w: _text_w,
         h: _text_h,
         ..
-    } = &node.shape else {
+    } = &node.shape
+    else {
         return None;
     };
 
@@ -2112,8 +2119,7 @@ fn render_rich_text_to_pdf(
     } else {
         color_to_rgb_string(&node.fill)
     };
-    let do_outline = opts.outline_text
-        && (opts.font_data.is_some() || !opts.fonts.is_empty());
+    let do_outline = opts.outline_text && (opts.font_data.is_some() || !opts.fonts.is_empty());
 
     let mut content = Vec::new();
     let mut current_x = *text_x;
@@ -2128,10 +2134,7 @@ fn render_rich_text_to_pdf(
         }
 
         let run_font_size = run.font_size.unwrap_or(*node_font_size);
-        let run_font_family = run
-            .font_family
-            .as_deref()
-            .unwrap_or(node_font_family);
+        let run_font_family = run.font_family.as_deref().unwrap_or(node_font_family);
         let run_text = &run.text;
 
         // Per-run approximation: text advances by character count × 0.5 × font_size
@@ -2139,17 +2142,14 @@ fn render_rich_text_to_pdf(
 
         // Try native PDF text (WinAnsi-encodable + embedded font available)
         let can_winansi = can_encode_win_ansi(run_text);
-        let has_matching_font = embedded_fonts
-            .iter()
-            .any(|ef| ef.family == run_font_family);
+        let has_matching_font = embedded_fonts.iter().any(|ef| ef.family == run_font_family);
 
         if !run_text.is_empty() && can_winansi && has_matching_font {
             if let Some(ef) = embedded_fonts
                 .iter()
                 .find(|ef| ef.family == run_font_family)
             {
-                let asc =
-                    get_ascender(opts, run_font_size);
+                let asc = get_ascender(opts, run_font_size);
                 let pdf_x = current_x + x_off;
                 let pdf_y = page_height - current_y - asc - y_off;
                 let encoded = encode_win_ansi(run_text);

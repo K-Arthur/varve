@@ -203,6 +203,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Denoise quality and model options are focused image processing.',
   },
+  'ai-tools-hint': {
+    surface: 'adjustments',
+    scope: 'selection',
+    frequency: 'rare',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Points users to Photo mode for image AI/ML tools when an image is selected outside Photo mode.',
+  },
   'lens-blur': {
     surface: 'adjustments',
     scope: 'selection',

@@ -18,10 +18,10 @@ import type { AuditIssue as SceneAuditIssue } from './audit';
 import type { DebtIssue } from './debtScanner';
 import type { GovernanceIssue } from './governanceRules';
 import type {
-  LinterIssue,
-  LinterSeverity,
   LinterCategory as LinterCategoryType,
+  LinterIssue,
   LinterScope as LinterScopeType,
+  LinterSeverity,
 } from './linterTypes';
 
 // ============================================================================

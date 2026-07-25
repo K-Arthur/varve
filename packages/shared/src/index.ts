@@ -43,6 +43,30 @@ export {
   obbToAABB,
   orientedBBox,
 } from './align';
+export type {
+  AuditCategory,
+  AuditFinding,
+  AuditFix,
+  AuditScope,
+  AuditSeverity,
+  ConfidenceLevel,
+  EditorMode,
+  ExecutionCost,
+  FixCapability,
+  FixPreview,
+  NodeId,
+  SuppressionRecord,
+  WorkspaceMode,
+} from './auditTypes';
+export {
+  classifyConfidence,
+  evidenceHash,
+  generateFindingId,
+  isBlockingSeverity,
+  mapLegacySeverity,
+  serializeEvidence,
+  shouldShowByDefault,
+} from './auditTypes';
 export type { CubicBezier, PathPoint as BezierPathPoint, Point2D } from './bezier';
 export {
   cubicBezierBBox,
@@ -283,30 +307,6 @@ export {
   textWrap,
 } from './textMeasure';
 export { DEFAULT_ARTWORK_FONT_FAMILY } from './typographyDefaults';
-export type {
-  AuditCategory,
-  AuditFinding,
-  AuditFix,
-  AuditScope,
-  AuditSeverity,
-  ConfidenceLevel,
-  EditorMode,
-  ExecutionCost,
-  FixCapability,
-  FixPreview,
-  NodeId,
-  SuppressionRecord,
-  WorkspaceMode,
-} from './auditTypes';
-export {
-  classifyConfidence,
-  evidenceHash,
-  generateFindingId,
-  isBlockingSeverity,
-  mapLegacySeverity,
-  serializeEvidence,
-  shouldShowByDefault,
-} from './auditTypes';
 export type { DocumentUnit, SpecUnit } from './units';
 export {
   convertDocumentUnit,

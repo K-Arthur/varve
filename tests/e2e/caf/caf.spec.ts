@@ -1,7 +1,7 @@
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { deflateSync } from 'node:zlib';
 import { expect, test } from '@playwright/test';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-import path from 'path';
-import { deflateSync } from 'zlib';
 
 const FIXTURES_DIR = path.resolve(__dirname, '..', 'fixtures');
 const CAF_PNG = path.join(FIXTURES_DIR, 'caf-test.png');
@@ -114,7 +114,7 @@ async function triggerCafDialog(
       while (hook) {
         if (hook.queue) {
           const st = hook.queue.lastRenderedState;
-          if (st && typeof st === 'object' && st.document && st.document.nodes) {
+          if (st && typeof st === 'object' && st.document?.nodes) {
             hook.queue.dispatch((prev: any) => ({ ...prev, cafDialogNodeId: nid }));
             return;
           }
@@ -190,7 +190,7 @@ async function dropImageAndSelect(page: import('@playwright/test').Page): Promis
       while (hook) {
         if (hook.queue) {
           const st = hook.queue.lastRenderedState;
-          if (st && typeof st === 'object' && st.document && st.document.nodes) {
+          if (st && typeof st === 'object' && st.document?.nodes) {
             for (const id of Object.keys(st.document.nodes)) {
               const n = st.document.nodes[id];
               if (n?.kind === 'shape' && n.fills?.some((fi: any) => fi.type === 'image')) {

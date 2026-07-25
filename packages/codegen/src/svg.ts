@@ -280,7 +280,7 @@ function nodeSvgBounds(
 function collectGradientDefs(
   node: SceneNode,
   nodeId: string,
-  preserveColorSpace: boolean,
+  _preserveColorSpace: boolean,
 ): string[] {
   const defs: string[] = [];
   const fills = node.fills ?? [];
