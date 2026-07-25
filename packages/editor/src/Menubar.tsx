@@ -22,6 +22,7 @@ import { bumpThemeRevision, useEditor } from './context';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
+import { computeCapabilities } from './menu/capabilities';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
@@ -59,9 +60,48 @@ function ariaShortcut(binding: {
   return parts.join('+');
 }
 
+const INSTALL_DISMISS_KEY = 'strata-install-desktop-dismissed';
+
+function safeLocalStorageGet(key: string): string | null {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+
+function safeLocalStorageSet(key: string, value: string): void {
+  try { localStorage.setItem(key, value); } catch { /* private browsing */ }
+}
+
+function isInstallDesktopDismissed(): boolean {
+  return safeLocalStorageGet(INSTALL_DISMISS_KEY) === 'true';
+}
+
+function isInIframe(): boolean {
+  try { return typeof window !== 'undefined' && window.self !== window.top; }
+  catch { return true; }
+}
+
+function safeOpenInstallPage(): void {
+  if (isInstallDesktopDismissed()) return;
+  safeLocalStorageSet(INSTALL_DISMISS_KEY, 'true');
+  const os = detectOS();
+  const base = 'https://strata.app/download';
+  const urls: Record<string, string> = {
+    mac: `${base}/mac`, windows: `${base}/windows`, linux: `${base}/linux`,
+  };
+  try { window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer'); }
+  catch { /* blocked popup */ }
+}
+
+function detectOS(): 'mac' | 'windows' | 'linux' | 'unknown' {
+  if (typeof navigator === 'undefined') return 'unknown';
+  const p = navigator.platform?.toLowerCase() ?? '';
+  if (p.includes('mac')) return 'mac';
+  if (p.includes('win')) return 'windows';
+  if (p.includes('linux')) return 'linux';
+  return 'unknown';
+}
+
 /**
  * Compute menu structure dynamically based on current editor state.
- * Returns items with `disabled` and `ariaKeyshortcut` fields populated.
  */
 function buildMenus(
   state: {
@@ -1967,7 +2007,7 @@ export function Menubar({
                     }
                   }}
                 >
-                  // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec
+                  {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec */}
                   <button
                     role={hasSubmenu ? 'menuitem' : role}
                     type="button"
@@ -2022,7 +2062,7 @@ export function Menubar({
                               currentTheme === subItem.action.slice(6)) ||
                             subChecked;
                           return (
-                            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec
+                            {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec */}
                             <button
                               key={subItem.label}
                               role={subRole}

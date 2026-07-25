@@ -15,6 +15,9 @@ export interface ShortcutDef {
   context?: 'canvas' | 'text-edit' | 'global';
   repeatable?: boolean;
   remappable?: boolean;
+  /** When present, this shortcut is only shown in the specified workspaces.
+   *  Absent = all workspaces. Used for workspace-tag display in the command palette. */
+  workspaces?: string[];
 }
 
 export interface ShortcutEntry {
