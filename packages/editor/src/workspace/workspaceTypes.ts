@@ -113,7 +113,8 @@ export type StatusSectionId =
   | 'layoutScore'
   | 'colorMode'
   | 'imageInfo'
-  | 'pageInfo';
+  | 'pageInfo'
+  | 'shortcutTip';
 
 export interface StatusSectionConfig {
   id: StatusSectionId;
@@ -319,6 +320,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'layoutScore', visible: true, order: 11 },
       { id: 'unit', visible: true, order: 20 },
       { id: 'debt', visible: true, order: 21 },
+      { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
       { id: 'selectionInfo', visible: true, order: 40 },
     ],
@@ -408,6 +410,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'preflight', visible: true, order: 12 },
       { id: 'unit', visible: true, order: 20 },
       { id: 'colorMode', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
       { id: 'selectionInfo', visible: true, order: 40 },
     ],
@@ -497,6 +500,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'cursorPos', visible: true, order: 10 },
       { id: 'unit', visible: true, order: 20 },
       { id: 'debt', visible: true, order: 21 },
+      { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
       { id: 'selectionInfo', visible: true, order: 40 },
     ],
@@ -600,6 +604,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'cursorPos', visible: true, order: 10 },
       { id: 'unit', visible: true, order: 20 },
       { id: 'colorMode', visible: true, order: 22 },
+      { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
       { id: 'selectionInfo', visible: true, order: 40 },
     ],
@@ -703,10 +708,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'toolName', visible: true, order: 0 },
       { id: 'cursorPos', visible: true, order: 10 },
       { id: 'layoutScore', visible: true, order: 11 },
-      { id: 'selectionInfo', visible: true, order: 12 },
       { id: 'unit', visible: true, order: 20 },
       { id: 'debt', visible: true, order: 21 },
+      { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
+      { id: 'selectionInfo', visible: true, order: 40 },
     ],
     canvasOverlays: {
       rulers: true,
@@ -718,7 +724,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       baselineGrid: false,
     },
     shortcuts: { extra: {}, disabled: [] },
-    performance: { ...COMMON_PERFORMANCE, useWorkerRenderer: false, realTimePreview: true },
+    performance: { ...COMMON_PERFORMANCE },
     onboarding: {
       description:
         'Design-to-code export, design audit, accessibility checks, and specification output.',
@@ -782,8 +788,11 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
       { id: 'cursorPos', visible: true, order: 10 },
-      { id: 'layoutScore', visible: true, order: 12 },
+      { id: 'layoutScore', visible: true, order: 11 },
+      { id: 'selectionInfo', visible: true, order: 12 },
       { id: 'unit', visible: true, order: 20 },
+      { id: 'debt', visible: true, order: 21 },
+      { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
       { id: 'selectionInfo', visible: true, order: 40 },
     ],
