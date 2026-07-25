@@ -315,7 +315,7 @@ async function checkDeadCode() {
     // Use relative path from ROOT; npx ts-prune resolves extends relative to -p location
     const relTsconfig = `${pkg.path}/tsconfig.json`;
     const out = run(
-      `npx ts-prune -p "${relTsconfig}" -e "(node_modules|__tests__|\.test\.|\.d\.ts|\.spec\.)" 2>/dev/null`,
+      `npx ts-prune -p "${relTsconfig}" -e "(node_modules|__tests__|.test.|.d.ts|.spec.)" 2>/dev/null`,
       { timeout: 60000 },
     );
 
