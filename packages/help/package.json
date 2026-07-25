@@ -15,5 +15,5 @@
     "test": "cd ../.. && vitest run packages/help"
   },
   "dependencies": {},
-  "license": "BSL-1.1"
+  "license": "FSL-1.1-MIT"
 }
