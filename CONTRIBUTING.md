@@ -2,18 +2,31 @@
 
 Thank you for your interest in contributing to Strata.
 
+## Current status: not yet open to external contributions
+
+Strata is not currently accepting external code contributions. The project
+is still stabilizing its own foundations (build, CI, and documentation), and
+the CLA/DCO infrastructure described below is not yet active. Everything in
+this document describes the process we intend to use once the project opens
+to outside contributors — treat it as a preview, not a live workflow.
+
+In the meantime, feedback, bug reports, and ideas are welcome via
+[GitHub Discussions](https://github.com/K-Arthur/Strata/discussions).
+
 ## Code of Conduct
 
 This project follows a standard Code of Conduct. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Licensing and DCO
 
-Strata is licensed under the **Business Source License 1.1 (BSL 1.1)**, with
-a change licence of **MIT** after four years. See [LICENSE](LICENSE) for full terms.
+Strata is licensed under the **Functional Source License, Version 1.1, MIT
+Future License (FSL-1.1-MIT)**, with a change licence of **MIT** after two
+years. See [LICENSE](LICENSE) for full terms.
 
-All contributions must include a **Developer Certificate of Origin** (DCO)
-sign-off. This certifies that you have the right to submit the work and
-that you understand it will be distributed under the project's licence.
+Once contributions open, all contributions will need to include a
+**Developer Certificate of Origin** (DCO) sign-off. This certifies that you
+have the right to submit the work and that you understand it will be
+distributed under the project's licence.
 
 To sign off a commit, add the following line to your commit message:
 
@@ -60,11 +73,13 @@ By making a contribution to this project, I certify that:
 
 ### First-time contributors
 
-If you have not contributed before, you may also be asked to sign a
-lightweight Contributor Licence Agreement (CLA) granting the project
-owner the right to distribute your contribution under the project's
-licence (including any future commercial licence for the Pro edition).
-This is a one-time process.
+Once contributions open, first-time contributors will also be asked to sign
+a lightweight Contributor Licence Agreement (CLA) granting the project owner
+the right to distribute your contribution under the project's licence
+(including any future commercial licence for the Pro edition). This will be
+a one-time process. See [CLA.md](CLA.md), [ICLA.md](ICLA.md), and
+[CCLA.md](CCLA.md) — note that the CLA/ICLA/CCLA documents are still drafts
+awaiting legal review and are not yet in effect.
 
 ## How to contribute
 

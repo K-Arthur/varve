@@ -43,8 +43,9 @@ project repository.
 
 **"Strata Project"** means the Strata design application software and any
 related documentation, including all versions and editions, whether
-current or future, and whether distributed under the Business Source
-License 1.1, the MIT License, or any other licence.
+current or future, and whether distributed under the Functional Source
+License, Version 1.1, MIT Future License (FSL-1.1-MIT), the MIT License,
+or any other licence.
 
 ## 2. Copyright Licence
 
