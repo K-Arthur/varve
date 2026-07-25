@@ -137,6 +137,10 @@ export function createTauriPlatform(): Platform {
       await core().invoke('home_restore', { id });
     },
     async purgeFile(id) {
+      const file = await this.getFile(id);
+      if (file?.contentHash) {
+        await this.deleteThumbnail(file.contentHash);
+      }
       await core().invoke('home_purge', { id });
     },
 
@@ -424,6 +428,10 @@ export function createTauriPlatform(): Platform {
         },
       });
     },
+    async deleteThumbnail(hash) {
+      const c = core();
+      await c.invoke('home_delete_thumbnail', { hash });
+    },
     async evictThumbnails(keepCount) {
       const c = core();
       return (await c.invoke('home_evict_thumbnails', { keepCount })) as number;
@@ -705,6 +713,7 @@ function createLocalVersionDelegates(): Pick<
   | 'createVersion'
   | 'restoreVersionById'
   | 'renameVersion'
+  | 'updateVersionThumbnail'
   | 'pinVersion'
   | 'pruneVersions'
   | 'getVersionStats'
@@ -794,6 +803,17 @@ function createLocalVersionDelegates(): Pick<
         if (v) {
           v.name = name;
           v.description = description;
+          saveLocalVersions(byFile);
+          return;
+        }
+      }
+    },
+    async updateVersionThumbnail(versionId: string, thumbnail: string | undefined): Promise<void> {
+      const byFile = loadLocalVersions();
+      for (const list of byFile.values()) {
+        const v = list.find((e) => e.id === versionId);
+        if (v) {
+          v.thumbnail = thumbnail;
           saveLocalVersions(byFile);
           return;
         }

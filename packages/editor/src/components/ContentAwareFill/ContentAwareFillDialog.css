@@ -1,0 +1,281 @@
+.strata-dialog--caf {
+  max-width: 820px;
+  max-height: 640px;
+  width: min(90vw, 820px);
+  height: min(90vh, 640px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.caf-dialog__body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) 0;
+  min-height: 0;
+}
+
+.caf-dialog__left {
+  width: 260px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  overflow-y: auto;
+  padding-bottom: var(--space-3);
+}
+
+.caf-dialog__right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.caf-dialog__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.caf-dialog__section--grow {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.caf-dialog__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.caf-dialog__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.caf-dialog__error {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-critical);
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--color-surface-critical-subtle);
+  border-radius: var(--radius-sm);
+}
+
+.caf-dialog__quality-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.caf-dialog__quality-btn {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.caf-dialog__quality-btn:hover {
+  border-color: var(--color-border-strong);
+}
+
+.caf-dialog__quality-btn--active {
+  border-color: var(--color-accent-primary);
+  background: var(--color-accent-subtle);
+}
+
+.caf-dialog__quality-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.caf-dialog__quality-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.caf-dialog__quality-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.4;
+}
+
+.caf-dialog__range {
+  width: 100%;
+  accent-color: var(--color-accent-primary);
+}
+
+.caf-dialog__checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.caf-dialog__checkbox input {
+  accent-color: var(--color-accent-primary);
+}
+
+.caf-dialog__progress {
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--color-surface-sunken);
+  overflow: hidden;
+}
+
+.caf-dialog__progress-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-accent-primary);
+  transition: width 0.2s ease;
+}
+
+.caf-dialog__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.caf-dialog__preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-2);
+  gap: var(--space-2);
+}
+
+.caf-dialog__preview-toggles,
+.caf-dialog__preview-zoom {
+  display: flex;
+  gap: 1px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+}
+
+.caf-dialog__preview-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  padding: var(--space-1) var(--space-3);
+}
+
+.caf-dialog__toggle-btn,
+.caf-dialog__zoom-btn {
+  background: none;
+  border: none;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-1) var(--space-3);
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+
+.caf-dialog__toggle-btn:hover,
+.caf-dialog__zoom-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.caf-dialog__toggle-btn--active,
+.caf-dialog__zoom-btn--active {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.caf-dialog__preview-area {
+  flex: 1;
+  position: relative;
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(45deg, var(--color-surface-sunken) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-surface-sunken) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-surface-sunken) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-surface-sunken) 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.caf-dialog__preview-area--zoom {
+  overflow: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.caf-dialog__preview-canvas {
+  display: none;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.caf-dialog__preview-canvas--visible {
+  display: block;
+}
+
+.caf-dialog__mask-canvas {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+  mix-blend-mode: screen;
+}
+
+.caf-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  gap: var(--space-3);
+}
+
+.caf-dialog__footer-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.caf-dialog__footer-text {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.caf-dialog__footer-text--error {
+  color: var(--color-text-critical);
+}
+
+.caf-dialog__footer-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}

@@ -22,6 +22,30 @@ vi.mock('../../context', () => ({
   useEditor: vi.fn(),
 }));
 
+// Mock thumbnail generation so PageNav tests don't try to create
+// OffscreenCanvas or call canvas encoding APIs — these tests verify
+// page navigation behaviour, not thumbnail content.
+vi.mock('../../thumbnail', () => ({
+  generateDocThumbnail: vi.fn(async () => ({
+    dataUrl: 'data:image/png;base64,mock',
+    metadata: {
+      cacheKey: 'mock',
+      sourceBounds: { x: 0, y: 0, w: 100, h: 100 },
+      scaleFactor: 1,
+      outputWidth: 180,
+      outputHeight: 90,
+      mimeType: 'image/png',
+      generatedAt: Date.now(),
+      revisionId: 'mock',
+      isPlaceholder: false,
+      warnings: [],
+    },
+  })),
+  generateDocThumbnailOptions: {} as never,
+  ThumbnailSourceType: {} as never,
+  sourceLabel: vi.fn((s: unknown) => 'Mock'),
+}));
+
 import { useEditor } from '../../context';
 import { computeReorderedPageIds, PageNav } from './PageNav';
 

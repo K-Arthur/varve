@@ -90,4 +90,24 @@ describe('CropTool', () => {
     tool.cycleFitMode();
     expect(tool.getCropState()!.fillFit).not.toBe(f0);
   });
+
+  it('activates on ellipse shape with image fill', () => {
+    const tool = new CropTool();
+    const doc = createDocument('t', true);
+    const img = makeImageShapeNode('e1', { src: 'data:image/png;base64,AA', w: 200, h: 100 });
+    const ellipseNode = {
+      ...img,
+      shape: { kind: 'ellipse' as const, cx: 100, cy: 50, rx: 100, ry: 50 },
+    };
+    doc.nodes['e1'] = ellipseNode;
+    doc.rootChildren = ['e1'];
+    const ctx = makeCtx({
+      selection: ['e1'],
+      document: doc,
+      getNode: (id: string) => doc.nodes[id],
+    });
+    tool.onActivate(ctx as never);
+    expect(tool.getNodeId()).toBe('e1');
+    expect(tool.getCropRect()).toBeDefined();
+  });
 });

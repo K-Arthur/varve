@@ -177,6 +177,14 @@ export interface SvgExportOptions {
    * maximum compatibility.
    */
   preserveColorSpace?: boolean;
+  /**
+   * Pre-rasterized image assets for nodes that use effects which
+   * SVG 1.1 cannot represent natively (adjustment layers with
+   * curves/levels/halftone/duotone/blackAndWhite/posterize/threshold
+   * and similar CPU-only filters).  When present, the emitter embeds
+   * an `<image>` element instead of silently dropping the node.
+   */
+  rasterAssets?: Record<string, import('./types').RasterAsset>;
 }
 
 interface SvgBounds {
@@ -235,6 +243,17 @@ function nodeSvgBounds(
       worldTransform,
     );
   }
+  if (node.kind === 'adjustment') {
+    return transformedBounds(
+      [
+        [0, 0],
+        [200, 0],
+        [200, 160],
+        [0, 160],
+      ],
+      worldTransform,
+    );
+  }
   if (node.kind !== 'shape') return null;
   const bounds = shapeBounds(node.shape);
   const points: Array<readonly [number, number]> = [
@@ -253,16 +272,65 @@ function nodeSvgBounds(
   return transformedBounds(points, worldTransform);
 }
 
+/**
+ * Collect SVG gradient definition elements from a node's fills.
+ * Returns an array of raw SVG element strings suitable for inclusion
+ * in a <defs> block. Returns empty array when no gradient defs needed.
+ */
+function collectGradientDefs(
+  node: SceneNode,
+  nodeId: string,
+  preserveColorSpace: boolean,
+): string[] {
+  const defs: string[] = [];
+  const fills = node.fills ?? [];
+  fills.forEach((fill, i) => {
+    if (fill.type !== 'gradient' || !fill.gradient) return;
+    const gradId = `grad-${nodeId}-${i}`;
+    const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
+    const cx = 50;
+    const cy = 50;
+    const gradType = fill.gradient.type;
+    const stops = fill.gradient.stops
+      .map(
+        (s) =>
+          `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
+      )
+      .join('\n');
+
+    if (gradType === 'linear') {
+      const x1 = cx - Math.cos(rot) * cx;
+      const y1 = cy - Math.sin(rot) * cy;
+      const x2 = cx + Math.cos(rot) * cx;
+      const y2 = cy + Math.sin(rot) * cy;
+      defs.push(
+        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%">\n${stops}\n    </linearGradient>`,
+      );
+    } else if (gradType === 'radial') {
+      const halfDiag = Math.sqrt(cx * cx + cy * cy);
+      defs.push(
+        `    <radialGradient id="${gradId}" cx="${cx}%" cy="${cy}%" r="${halfDiag}%"${rot !== 0 ? ` gradientTransform="rotate(${((fill.gradient.rotation ?? 0) * -1).toFixed(1)})"` : ''}>\n${stops}\n    </radialGradient>`,
+      );
+    }
+    // Angular/conic and diamond gradients have no SVG equivalent;
+    // they're handled by raster fallback from the compositor.
+  });
+  return defs;
+}
+
 /** P2: Generate SVG <defs> for gradient fills, returns {defs, fillRef}. */
 function fillToSvg(
   node: SceneNode,
   nodeId: string,
   doc: SceneDocument,
   preserveColorSpace: boolean,
-): { fillAttr: string; comment?: string; defs?: string } {
+): { fillAttr: string; comment?: string; defs?: string; needsRasterFallback?: boolean } {
   if (!node.fills || node.fills.length === 0) {
-    const result = colorToSvgValue(node.fill, doc, preserveColorSpace);
-    return { fillAttr: result.value, comment: result.warning };
+    if (node.kind === 'adjustment') {
+      return { fillAttr: 'none' };
+    }
+    const result = node.fill ? colorToSvgValue(node.fill, doc, preserveColorSpace) : undefined;
+    return { fillAttr: result?.value ?? 'none', comment: result?.warning };
   }
 
   // For a single solid fill, use the color directly
@@ -271,37 +339,40 @@ function fillToSvg(
     return { fillAttr: result.value, comment: result.warning };
   }
 
-  // For gradient fills, generate <defs> with gradient elements
-  const defs: string[] = [];
+  // For gradient fills, generate fill attribute references and detect
+  // gradient types that need raster fallback (angular, diamond).
   const fillAttrs: string[] = [];
+  let needsRasterFallback = false;
 
   node.fills.forEach((fill, i) => {
     if (fill.type === 'solid' && fill.color) {
       fillAttrs.push(colorToSvgValue(fill.color, doc, preserveColorSpace).value);
     } else if (fill.type === 'gradient' && fill.gradient) {
       const gradId = `grad-${nodeId}-${i}`;
-      const rot = (fill.gradient.rotation ?? 0) * (Math.PI / 180);
-      const x1 = 50 - Math.cos(rot) * 50;
-      const y1 = 50 - Math.sin(rot) * 50;
-      const x2 = 50 + Math.cos(rot) * 50;
-      const y2 = 50 + Math.sin(rot) * 50;
-      const stops = fill.gradient.stops
-        .map(
-          (s) =>
-            `      <stop offset="${(s.position * 100).toFixed(1)}%" stop-color="${rgba(s.color)}" />`,
-        )
-        .join('\n');
-      defs.push(
-        `    <linearGradient id="${gradId}" x1="${x1.toFixed(1)}%" y1="${y1.toFixed(1)}%" x2="${x2.toFixed(1)}%" y2="${y2.toFixed(1)}%">\n${stops}\n    </linearGradient>`,
-      );
-      fillAttrs.push(`url(#${gradId})`);
+      const gradType = fill.gradient.type;
+
+      // Linear and radial gradients have native SVG elements.
+      // Angular/conic and diamond have no SVG equivalent and require raster fallback.
+      if (gradType === 'linear' || gradType === 'radial') {
+        fillAttrs.push(`url(#${gradId})`);
+      } else {
+        needsRasterFallback = true;
+        const fallbackColor = fill.gradient.stops[0]?.color ?? node.fill;
+        fillAttrs.push(rgba(fallbackColor));
+      }
     }
   });
 
-  // For stacked fills, we'd need multiple elements with different fills.
-  // For now, use the topmost fill as the SVG fill attribute.
+  if (needsRasterFallback) {
+    return {
+      defs: '',
+      fillAttr: fillAttrs[fillAttrs.length - 1] ?? rgba(node.fill),
+      needsRasterFallback: true,
+    };
+  }
+
   return {
-    defs: defs.length > 0 ? `  <defs>\n${defs.join('\n')}\n  </defs>\n` : '',
+    defs: '',
     fillAttr: fillAttrs[fillAttrs.length - 1] ?? rgba(node.fill),
   };
 }
@@ -734,8 +805,21 @@ function nodeToSvgTag(
   depth: number,
   transform: Affine,
   preserveColorSpace: boolean,
+  rasterAssets?: Record<string, import('./types').RasterAsset>,
 ): string {
   const indent = '  '.repeat(depth);
+
+  // Check for a pre-rendered raster asset first — this handles gradient types
+  // (angular, diamond) and effects that SVG cannot represent natively.
+  const rasterAsset = rasterAssets?.[node.id];
+  if (rasterAsset) {
+    const w = rasterAsset.cssWidth;
+    const h = rasterAsset.cssHeight;
+    const href = escapeXml(rasterAsset.dataUrl);
+    const t = affineToSvg(transform);
+    return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" transform="${t}" />`;
+  }
+
   const { fillAttr, comment } = fillToSvg(node, node.id, doc, preserveColorSpace);
   const t = affineToSvg(transform);
   const withTransform = ` transform="${t}"`;
@@ -749,19 +833,59 @@ function nodeToSvgTag(
   switch (node.kind) {
     case 'shape': {
       const s = node.shape;
-      // Image fill: render <image> element instead of geometry shape.
       const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
       if (imgFill?.image) {
         const img = imgFill.image;
         const par = fitToPreserveAspectRatio(img.fit);
         const href = escapeXml(img.src);
+
+        // Build image transform for rotation/flip (applied in node-local space).
+        const transforms: string[] = [];
+        if (img.rotation) {
+          // Rotate around the center of the image bounds
+          const cx = s.kind === 'rect' ? s.w / 2 : shapeBounds(s).x + shapeBounds(s).width / 2;
+          const cy = s.kind === 'rect' ? s.h / 2 : shapeBounds(s).y + shapeBounds(s).height / 2;
+          transforms.push(`rotate(${img.rotation.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})`);
+        }
+        if (img.flipH) {
+          const cx = s.kind === 'rect' ? s.w / 2 : shapeBounds(s).x + shapeBounds(s).width / 2;
+          transforms.push(
+            `translate(${cx.toFixed(2)} 0) scale(-1 1) translate(${-cx.toFixed(2)} 0)`,
+          );
+        }
+        if (img.flipV) {
+          const cy = s.kind === 'rect' ? s.h / 2 : shapeBounds(s).y + shapeBounds(s).height / 2;
+          transforms.push(
+            `translate(0 ${cy.toFixed(2)}) scale(1 -1) translate(0 ${-cy.toFixed(2)})`,
+          );
+        }
+        const imgTransform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
+
+        // Build crop clip path if crop is set
+        let cropClipAttr = '';
+        let cropClipDef = '';
+        if (img.crop && img.imageWidth && img.imageHeight) {
+          const cropClipId = `crop-${node.id}`;
+          // Map source-pixel crop to node-local coordinates
+          const scaleX =
+            s.kind === 'rect' ? s.w / img.imageWidth : shapeBounds(s).width / img.imageWidth;
+          const scaleY =
+            s.kind === 'rect' ? s.h / img.imageHeight : shapeBounds(s).height / img.imageHeight;
+          const cx = img.crop.x * scaleX;
+          const cy = img.crop.y * scaleY;
+          const cw = img.crop.w * scaleX;
+          const ch = img.crop.h * scaleY;
+          cropClipDef = `${indent}  <clipPath id="${cropClipId}"><rect x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" /></clipPath>\n`;
+          cropClipAttr = ` clip-path="url(#${cropClipId})"`;
+        }
+
         let shapeInner: string;
         if (s.kind === 'rect') {
-          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${withTransform}${compositingSuffix} />`;
+          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${cropClipAttr}${imgTransform}${compositingSuffix} />`;
         } else {
           const clipId = `clip-${node.id}`;
           const bounds = shapeBounds(s);
-          shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})" />\n${indent}</g>`;
+          shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${cropClipDef}${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})"${cropClipAttr}${imgTransform} />\n${indent}</g>`;
         }
         return buildMaskedNode(
           comment
@@ -832,9 +956,6 @@ ${shapeInner}`
         attrs.push(
           `text-anchor="${textNode.textAlign === 'center' ? 'middle' : textNode.textAlign === 'right' ? 'end' : 'start'}"`,
         );
-      // RTL direction: emit dir + unicode-bidi so SVG renderers apply the
-      // Unicode Bidirectional Algorithm. LTR is the SVG default (omitted);
-      // 'auto' is left to the renderer.
       if (textNode.direction === 'rtl') {
         attrs.push('direction="rtl"', 'unicode-bidi="bidi-override"');
       }
@@ -880,7 +1001,9 @@ ${shapeInner}`
         (child) => !(mask?.hideMaskSource && mask.sourceNodeId === child.id),
       );
       const children = filteredChildren
-        .map((child) => nodeToSvgTag(child, doc, depth + 1, child.transform, preserveColorSpace))
+        .map((child) =>
+          nodeToSvgTag(child, doc, depth + 1, child.transform, preserveColorSpace, rasterAssets),
+        )
         .join('\n');
       let groupAttrs = withTransform;
       groupAttrs += compositingSuffix;
@@ -894,6 +1017,16 @@ ${shapeInner}`
       }
       return `${indent}<g${groupAttrs}>\n${children}\n${indent}</g>`;
     }
+    case 'adjustment': {
+      const asset = rasterAssets?.[node.id];
+      if (asset) {
+        const w = asset.cssWidth;
+        const h = asset.cssHeight;
+        const href = escapeXml(asset.dataUrl);
+        return `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}"${withTransform} />`;
+      }
+      return '';
+    }
   }
   return '';
 }
@@ -903,6 +1036,7 @@ export function exportNodeToSvg(
   doc: SceneDocument,
   opts?: SvgExportOptions,
 ): string {
+  const rasterAssets = opts?.rasterAssets;
   const bounds = nodeSvgBounds(node, doc);
   const pos = {
     x: bounds?.minX ?? node.transform[4] ?? 0,
@@ -911,8 +1045,17 @@ export function exportNodeToSvg(
     h: opts?.viewBoxHeight ?? Math.max(1, (bounds?.maxY ?? 160) - (bounds?.minY ?? 0)),
   };
   const maskDefs = collectSubtreeMaskDefs(doc, node);
-  const defsSection = maskDefs.length > 0 ? `  <defs>\n${maskDefs.join('\n')}\n  </defs>\n` : '';
-  const inner = nodeToSvgTag(node, doc, 2, node.transform, opts?.preserveColorSpace ?? false);
+  const gradDefs = collectGradientDefs(node, node.id, opts?.preserveColorSpace ?? false);
+  const allDefs = [...maskDefs, ...gradDefs];
+  const defsSection = allDefs.length > 0 ? `  <defs>\n${allDefs.join('\n')}\n  </defs>\n` : '';
+  const inner = nodeToSvgTag(
+    node,
+    doc,
+    2,
+    node.transform,
+    opts?.preserveColorSpace ?? false,
+    rasterAssets,
+  );
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,
@@ -931,8 +1074,14 @@ export function exportNodeToSvg(
  * SVG has broad coverage; gaps are limited to embedded assets and
  * browser-specific filter support.
  */
-export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[] {
-  const gaps: TargetGap[] = [...adjustmentStackTargetGaps(node)];
+export function svgTargetGaps(
+  node: SceneNode,
+  _doc: SceneDocument,
+  flattenedNodes?: Set<string>,
+): TargetGap[] {
+  const gaps: TargetGap[] = [
+    ...adjustmentStackTargetGaps(node, undefined, flattenedNodes?.has(node.id)),
+  ];
 
   if (isImageShape(node)) {
     gaps.push({
@@ -945,6 +1094,27 @@ export function svgTargetGaps(node: SceneNode, _doc: SceneDocument): TargetGap[]
   }
 
   const fills = node.fills ?? [];
+  const nonLinearGradientFill = fills.find(
+    (f) =>
+      f.type === 'gradient' &&
+      f.gradient &&
+      f.gradient.type !== 'linear' &&
+      f.gradient.type !== 'radial',
+  );
+  if (nonLinearGradientFill?.gradient) {
+    const gradType = nonLinearGradientFill.gradient.type;
+    const flattened = flattenedNodes?.has(node.id);
+    gaps.push({
+      nodeId: node.id,
+      nodeName: node.name,
+      feature: `${gradType} gradient fill`,
+      severity: flattened ? 'info' : 'warning',
+      fallback: flattened
+        ? 'Rasterized at export resolution — gradient preserved as pixel-accurate image'
+        : 'Flatten to a raster bitmap for correct export, or use a linear/radial gradient',
+    });
+  }
+
   if (fills.some((f) => f.type === 'pattern')) {
     gaps.push({
       nodeId: node.id,

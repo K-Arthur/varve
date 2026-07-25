@@ -205,36 +205,24 @@ describe('workspaceTypes', () => {
 
   // ─── Inspector tabs ──────────────────────────────────────────────────────
 
-  it('design mode has all 5 inspector tabs', () => {
+  it('design mode exposes grouped tabs without legacy document or spec', () => {
     const tabs = getVisibleInspectorTabs('design');
-    expect(tabs).toContain('properties');
-    expect(tabs).toContain('export');
-    expect(tabs).toContain('spec');
-    expect(tabs).toContain('score');
-    expect(tabs).toContain('audit');
+    expect(tabs).toEqual(['properties', 'appearance', 'prototype', 'export', 'audit']);
   });
 
-  it('print mode has 4 inspector tabs (no score)', () => {
+  it('print mode places audit before export for preflight-before-output workflow', () => {
     const tabs = getVisibleInspectorTabs('print');
-    expect(tabs).toContain('properties');
-    expect(tabs).toContain('export');
-    expect(tabs).toContain('spec');
-    expect(tabs).toContain('audit');
-    expect(tabs).not.toContain('score');
+    expect(tabs).toEqual(['properties', 'appearance', 'audit', 'export']);
   });
 
-  it('drawing mode has 2 inspector tabs (properties and export)', () => {
+  it('drawing mode keeps a compact inspector because brush settings live in tool options', () => {
     const tabs = getVisibleInspectorTabs('drawing');
-    expect(tabs).toContain('properties');
-    expect(tabs).toContain('export');
-    expect(tabs.length).toBe(2);
+    expect(tabs).toEqual(['properties', 'appearance', 'export']);
   });
 
-  it('image mode has 3 inspector tabs (properties, export, audit)', () => {
+  it('image mode places adjustments before appearance for photo-processing-first workflow', () => {
     const tabs = getVisibleInspectorTabs('image');
-    expect(tabs).toContain('properties');
-    expect(tabs).toContain('export');
-    expect(tabs).toContain('audit');
+    expect(tabs).toEqual(['properties', 'adjustments', 'appearance', 'export', 'audit']);
   });
 
   it('default inspector tab is properties for all modes', () => {

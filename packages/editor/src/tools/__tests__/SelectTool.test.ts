@@ -532,7 +532,7 @@ describe('SelectTool — keyboard selection cycle (Tab)', () => {
 });
 
 describe('SelectTool — keyboard nudge undo transaction', () => {
-  it('wraps arrow key nudge in beginTransaction/commitTransaction', () => {
+  it('begins transaction on keydown, commits on keyup for coalesced undo', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({
       selection: ['n1'],
@@ -540,8 +540,44 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     });
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
-    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
     expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('coalesces repeat keydowns into the same transaction', () => {
+    const tool = new SelectTool();
+    // Track position across calls so repeat gets the updated position
+    let posX = 100;
+    const ctx = makeCtx({
+      selection: ['n1'],
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 100, 100] }),
+      setNodePosition: vi.fn((_id: string, x: number) => {
+        posX = x;
+      }),
+    });
+    // Override getNode to return current position
+    (ctx.getNode as ReturnType<typeof vi.fn>).mockImplementation(() => ({
+      id: 'n1',
+      transform: [1, 0, 0, 1, posX, 100],
+    }));
+
+    // First press begins transaction, moves to 101
+    tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 101, 100);
+
+    // Repeat press shares the same transaction, moves to 102
+    (ctx.setNodePosition as ReturnType<typeof vi.fn>).mockClear();
+    tool.onKeyDown({ key: 'ArrowRight', repeat: true } as any, ctx);
+    expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
+    expect(ctx.commitTransaction).not.toHaveBeenCalled();
+    expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 102, 100);
+
+    // Keyup commits once
+    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('wraps shift+arrow nudge in beginTransaction/commitTransaction', () => {
@@ -552,8 +588,9 @@ describe('SelectTool — keyboard nudge undo transaction', () => {
     });
     tool.onKeyDown({ key: 'ArrowLeft', shiftKey: true } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(1);
-    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
     expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 90, 100);
+    tool.onKeyUp({ key: 'ArrowLeft' } as any, ctx);
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('does not call beginTransaction when no selection', () => {
@@ -602,7 +639,7 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
     expect(ctx.announceOperation).toHaveBeenCalledWith('Nudge', '1px');
   });
 
-  it('nudge triggers beginTransaction twice (move + reparent) when reparenting', () => {
+  it('nudge triggers beginTransaction twice and commitTransaction twice (move + reparent + keyup)', () => {
     const tool = new SelectTool();
     const ctx = makeCtx({
       selection: ['n1'],
@@ -616,6 +653,10 @@ describe('SelectTool — keyboard nudge auto-reparent', () => {
     });
     tool.onKeyDown({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.beginTransaction).toHaveBeenCalledTimes(2);
+    // First commit is for the auto-reparent transaction (inside onKeyDown)
+    expect(ctx.commitTransaction).toHaveBeenCalledTimes(1);
+    // Keyup commits the nudge transaction
+    tool.onKeyUp({ key: 'ArrowRight' } as any, ctx);
     expect(ctx.commitTransaction).toHaveBeenCalledTimes(2);
   });
 
@@ -776,5 +817,23 @@ describe('SelectTool — drop target frame highlighting', () => {
     (tool as any).onDragEnd?.(ctx);
 
     expect(setDropTargetFrame).toHaveBeenCalledWith(null);
+  });
+
+  it('delegates snap to ctx.snapPosition without pre-building bounds (spatial index optimization)', () => {
+    const tool = new SelectTool();
+    const snapPosition = vi.fn((b) => ({ x: b.x, y: b.y, guides: [] }));
+    const nodeWorldBounds = vi.fn().mockReturnValue({ x: 5, y: 5, w: 50, h: 50 });
+    const ctx = makeCtx({
+      selection: ['n1'],
+      snapPosition,
+      nodeWorldBounds,
+      getNode: vi.fn().mockReturnValue({ id: 'n1', transform: [1, 0, 0, 1, 0, 0] }),
+    });
+
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 20, y: 20 } };
+    (tool as any).initialPositions = new Map([['n1', { x: 0, y: 0 }]]);
+    (tool as any).onDragMove?.(ctx);
+
+    expect(snapPosition).toHaveBeenCalledWith({ x: 20, y: 20, w: 50, h: 50 }, []);
   });
 });

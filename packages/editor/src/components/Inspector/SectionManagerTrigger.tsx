@@ -9,27 +9,28 @@
 import { Icon } from '@strata/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';
 import { CATEGORY_LABELS, getAllSections, getSectionDefinition } from './sectionRegistry';
-import { countHiddenSections, getHiddenSectionIds } from './sectionState';
+import { getHiddenSectionIds } from './sectionState';
 
-export function SectionManagerTrigger() {
-  const {
-    state,
-    showAllInspectorSections,
-    restoreDefaultSectionState,
-    restoreDefaultCollapsed,
-    hideOptionalSections,
-    showInspectorSection,
-  } = useEditor();
+export function SectionManagerTrigger({ surface = 'properties' }: { surface?: InspectorSurface }) {
+  const { state, restoreDefaultSectionState, hideInspectorSection, showInspectorSection } =
+    useEditor();
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-  const hiddenCount = countHiddenSections(state.sectionVisibility);
-  const hiddenIds = getHiddenSectionIds(state.sectionVisibility);
+  const surfaceIds = new Set(
+    Object.entries(FEATURE_OWNERSHIP)
+      .filter(([, ownership]) => ownership.surface === surface)
+      .map(([id]) => id),
+  );
+  const hiddenIds = getHiddenSectionIds(state.sectionVisibility).filter((id) => surfaceIds.has(id));
+  const hiddenCount = hiddenIds.length;
 
   // Close on outside click
   useEffect(() => {
     if (!open) return;
+    panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus();
     const handle = (e: MouseEvent) => {
       if (
         panelRef.current &&
@@ -57,7 +58,9 @@ export function SectionManagerTrigger() {
     return () => document.removeEventListener('keydown', handle);
   }, [open]);
 
-  const allSections = getAllSections() as import('./sectionRegistry').SectionDefinition[];
+  const allSections = (getAllSections() as import('./sectionRegistry').SectionDefinition[]).filter(
+    (section) => surfaceIds.has(section.id),
+  );
   const grouped = new Map<string, typeof allSections>();
   for (const s of allSections) {
     const cat = CATEGORY_LABELS[s.category] ?? s.category;
@@ -93,7 +96,7 @@ export function SectionManagerTrigger() {
               type="button"
               className="insp-section-manager__action"
               onClick={() => {
-                showAllInspectorSections();
+                for (const section of allSections) showInspectorSection(section.id);
                 setOpen(false);
               }}
             >
@@ -103,21 +106,13 @@ export function SectionManagerTrigger() {
               type="button"
               className="insp-section-manager__action"
               onClick={() => {
-                hideOptionalSections();
+                for (const section of allSections) {
+                  if (section.canHide) hideInspectorSection(section.id);
+                }
                 setOpen(false);
               }}
             >
               Hide optional
-            </button>
-            <button
-              type="button"
-              className="insp-section-manager__action"
-              onClick={() => {
-                restoreDefaultCollapsed();
-                setOpen(false);
-              }}
-            >
-              Reset collapse
             </button>
             <button
               type="button"
@@ -150,8 +145,7 @@ export function SectionManagerTrigger() {
                           if (hidden) {
                             showInspectorSection(def.id);
                           } else {
-                            // Show all first if this was the only way to see it
-                            showInspectorSection(def.id);
+                            hideInspectorSection(def.id);
                           }
                         }}
                         className="insp-section-manager__checkbox"

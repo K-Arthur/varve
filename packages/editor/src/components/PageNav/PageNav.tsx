@@ -12,13 +12,14 @@ import {
 import { ContextMenu, type MenuEntry } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { usePageThumbnail } from './usePageThumbnail';
 import './pagenav.css';
 
 function pageThumbnailStyle(page: Page) {
-  const maxThumbH = 45;
+  const maxThumbH = 40;
   const aspect = page.width / page.height;
   const w = Math.round(maxThumbH * aspect);
-  return { width: Math.max(40, Math.min(w, 90)), height: maxThumbH };
+  return { width: Math.max(36, Math.min(w, 80)), height: maxThumbH };
 }
 
 /**
@@ -55,6 +56,7 @@ function SortablePageTab({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: page.id,
   });
+  const thumbnail = usePageThumbnail(page.id);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -83,7 +85,11 @@ function SortablePageTab({
       }}
     >
       <div className="page-nav__thumbnail" style={pageThumbnailStyle(page)}>
-        <span className="page-nav__thumb-label">{page.name}</span>
+        {thumbnail ? (
+          <img src={thumbnail} alt="" className="page-nav__thumb-img" />
+        ) : (
+          <span className="page-nav__thumb-label">{page.name}</span>
+        )}
       </div>
       <span className="page-nav__label">{page.name}</span>
     </div>

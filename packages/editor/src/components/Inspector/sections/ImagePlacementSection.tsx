@@ -32,7 +32,7 @@ interface ImagePlacementSectionProps {
 }
 
 export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
-  const { updateDoc } = useEditor();
+  const { updateDoc, setTool } = useEditor();
   const node = nodes[0];
 
   if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
@@ -129,6 +129,15 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
         </div>
 
         <div className="insp-image-placement__actions">
+          <button
+            type="button"
+            className="insp-btn-sm"
+            onClick={() => setTool('crop')}
+            title="Edit crop (C)"
+          >
+            <Icon name="Crop" size="0.85em" />
+            <span>Edit crop</span>
+          </button>
           <button
             type="button"
             className="insp-btn-sm"

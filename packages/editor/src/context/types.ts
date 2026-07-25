@@ -23,7 +23,13 @@ import type { MotionState } from '../state/motion-state';
 import type { DraftShape } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 
-export type InspectorTab = 'properties' | 'export' | 'spec' | 'score' | 'audit';
+export type InspectorTab =
+  | 'properties'
+  | 'appearance'
+  | 'adjustments'
+  | 'prototype'
+  | 'export'
+  | 'audit';
 
 export type IntelligenceTab =
   | 'audit'
@@ -192,6 +198,13 @@ export interface EditorState {
   workspaceMode: WorkspaceMode;
   /** Whether the graph editor panel is visible in the timeline area. */
   graphEditorVisible: boolean;
+  /**
+   * Whether the State Machine panel is visible. State machines are
+   * document-wide (keyed off `document.stateMachines`, not the current
+   * selection), so — like the timeline — they get their own opt-in panel
+   * rather than living in the per-selection Properties inspector.
+   */
+  stateMachinePanelVisible: boolean;
   /** Which property track is currently shown in the graph editor (nodeId.property). */
   selectedGraphProperty: string | null;
   /**
@@ -234,6 +247,8 @@ export interface EditorState {
     sourceWidth?: number;
     sourceHeight?: number;
   };
+  /** Tracks the last duplicate offset for the Repeat Duplicate command. */
+  lastDuplicateOffset: { x: number; y: number } | null;
   trimapEditOptions: {
     brushSize: number;
     hardness: number;
@@ -302,6 +317,9 @@ export interface EditorState {
     /** Canvas height of the coverage buffer (px). */
     height: number;
   };
+  /** Node ID for the Content-Aware Fill dialog target. When set, Shell
+   *  renders the dialog. Null when closed. */
+  cafDialogNodeId: NodeId | null;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -424,6 +442,8 @@ export interface EditorContextValue {
   renameSelected: (name: string) => void;
   moveNode: (id: NodeId, toIndex: number) => void;
   duplicateSelected: () => void;
+  /** Repeat the last duplicate with the same offset (Cmd/Ctrl+D after initial duplicate). */
+  repeatDuplicate: () => void;
   setSelectedFill: (color: import('@strata/scene').ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
@@ -537,6 +557,11 @@ export interface EditorContextValue {
   syncInstance: (instanceId: NodeId) => import('@strata/scene').InstanceStatus;
   getInstanceStatus: (instanceId: NodeId) => import('@strata/scene').InstanceStatus;
   syncAllInstances: () => import('@strata/scene').SyncResult;
+
+  // Flatten
+  flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
+  rasterizeSelected: (scale?: number) => void;
+  mergeSelected: () => void;
 
   // Visibility
   setNodeLocked: (id: NodeId, locked: boolean) => void;
@@ -659,6 +684,11 @@ export interface EditorContextValue {
   // Export
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
+
+  // Archive
+  showArchiveDialog: boolean;
+  archiveDialogMode: 'backup' | 'restore';
+  setShowArchiveDialog: (show: boolean, mode?: 'backup' | 'restore') => void;
   addPreset: (nodeId: NodeId, preset: import('@strata/scene').ExportPreset) => void;
   updatePreset: (nodeId: NodeId, preset: import('@strata/scene').ExportPreset) => void;
   removePreset: (nodeId: NodeId, presetId: string) => void;
@@ -916,4 +946,8 @@ export interface EditorContextValue {
 
   // Inspector panel navigation (status-bar badges -> inspector tabs)
   setInspectorTab: (tab: InspectorTab, subTab?: IntelligenceTab) => void;
+
+  // Content-Aware Fill dialog
+  openCafDialog: (nodeId: NodeId) => void;
+  closeCafDialog: () => void;
 }

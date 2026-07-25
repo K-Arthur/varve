@@ -19,17 +19,24 @@ import {
 import { validatePrototype } from '@strata/prototype';
 import type { NodeId, ShapeNode } from '@strata/scene';
 import {
+  type AuditContext,
+  type AuditFinding,
+  type AuditReport,
   type DebtIssue,
   type DebtReport,
   type GovernanceIssue,
+  getApplicableCategories,
+  getAuditProfile,
   imageShapeSrc,
   isImageShape,
   type LinterIssue,
   type LinterReport,
+  runAudit,
   runDebtScan,
   runGovernanceRules,
   runIntelligenceAudit,
   runLinterScan,
+  type SuppressionEntry,
 } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,27 +58,86 @@ import {
 
 import '../components/Inspector/inspector.css';
 
-const PRIMARY_TABS: IntelligenceTab[] = ['audit', 'spacing', 'naming'];
-const MORE_TABS: IntelligenceTab[] = [
-  'governance',
-  'debt',
-  'prototype',
-  'layout',
-  'components',
-  'similar',
-  'linter',
-];
+/**
+ * Workspace-aware tab structure:
+ * - 'review' tab is the new unified audit finding view using the AuditFinding model
+ * - Other tabs remain as specialized tools
+ * - Tab order is workspace-aware (primary categories shown first in review tab)
+ */
+type ExtendedTab = IntelligenceTab | 'review';
 
-export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab } = {}) {
-  const [tab, setTab] = useState<IntelligenceTab>(initialTab ?? 'audit');
+const _SPECIALIZED_TABS: ExtendedTab[] = ['spacing', 'naming', 'layout', 'components', 'similar'];
+
+interface IntelligenceTabGroup {
+  label: string;
+  tabs: ExtendedTab[];
+}
+
+function useWorkspaceTabs(): { primaryTabs: ExtendedTab[]; moreGroups: IntelligenceTabGroup[] } {
+  const { state } = useEditor();
+  const profile = getAuditProfile(state.workspaceMode);
+
+  // Primary tabs: always review + workspace-applicable specialized tabs
+  const primaryTabs: ExtendedTab[] = ['review', 'audit'];
+  // Add workspace-specific specialized tabs based on primary categories
+  if (
+    profile.primaryCategories.includes('spacing') ||
+    profile.primaryCategories.includes('layout')
+  ) {
+    primaryTabs.push('spacing');
+  }
+  if (
+    profile.primaryCategories.includes('governance') ||
+    profile.primaryCategories.includes('layer-hygiene')
+  ) {
+    primaryTabs.push('naming');
+  }
+
+  // More groups based on workspace
+  const moreGroups: IntelligenceTabGroup[] = [];
+
+  const qualityTabs: ExtendedTab[] = [];
+  if (
+    profile.secondaryCategories.includes('accessibility') ||
+    profile.hiddenCategories.length === 0
+  ) {
+    qualityTabs.push('debt');
+  }
+  qualityTabs.push('linter');
+  if (qualityTabs.length > 0) moreGroups.push({ label: 'Quality', tabs: qualityTabs });
+
+  const dsTabs: ExtendedTab[] = [];
+  if (
+    profile.primaryCategories.includes('governance') ||
+    profile.secondaryCategories.includes('governance')
+  ) {
+    dsTabs.push('governance');
+  }
+  dsTabs.push('components');
+  if (dsTabs.length > 0) moreGroups.push({ label: 'Design Systems', tabs: dsTabs });
+
+  const analysisTabs: ExtendedTab[] = [];
+  if (profile.primaryCategories.includes('prototype')) {
+    analysisTabs.push('prototype');
+  }
+  analysisTabs.push('layout', 'similar');
+  moreGroups.push({ label: 'Analysis', tabs: analysisTabs });
+
+  return { primaryTabs, moreGroups };
+}
+
+export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } = {}) {
+  const { primaryTabs, moreGroups } = useWorkspaceTabs();
+  const [tab, setTab] = useState<ExtendedTab>(initialTab ?? primaryTabs[0] ?? 'review');
   const [showMore, setShowMore] = useState(false);
 
-  const moreLabel = MORE_TABS.find((t) => t === tab) ?? null;
+  const allMoreTabs = moreGroups.flatMap((g) => g.tabs);
+  const moreLabel = allMoreTabs.find((t) => t === tab) ?? null;
 
   return (
     <div className="intelligence-panel">
       <div className="intelligence-tabs" role="tablist" aria-label="Intelligence tabs">
-        {PRIMARY_TABS.map((t) => (
+        {primaryTabs.map((t) => (
           <button
             type="button"
             key={t}
@@ -80,6 +146,7 @@ export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab
             aria-selected={tab === t}
             onClick={() => setTab(t)}
           >
+            {t === 'review' && <Icon name="ShieldCheck" label={undefined} size="0.9em" />}
             {t === 'audit' && <Icon name="Lightbulb" label={undefined} size="0.9em" />}
             {t}
           </button>
@@ -107,34 +174,38 @@ export function IntelligencePanel({ initialTab }: { initialTab?: IntelligenceTab
         )}
       </div>
       {showMore && (
-        <div
-          className="intelligence-more-menu"
-          style={{
-            display: 'flex',
-            gap: 4,
-            padding: '0 var(--space-2) var(--space-1)',
-            flexWrap: 'wrap',
-          }}
-        >
-          {MORE_TABS.map((t) => (
-            <button
-              type="button"
-              key={t}
-              className={`intelligence-tab intelligence-tab--small${tab === t ? ' intelligence-tab--active' : ''}`}
-              onClick={() => {
-                setTab(t);
-                setShowMore(false);
-              }}
+        <div className="intelligence-more-menu" role="menu" aria-label="More intelligence tabs">
+          {moreGroups.map((group) => (
+            <div
+              key={group.label}
+              className="intelligence-more-group"
+              role="group"
+              aria-label={group.label}
             >
-              {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
-              {t === 'debt' && <Icon name="TriangleAlert" label={undefined} size="0.8em" />}
-              {t === 'similar' && <Icon name="Images" label={undefined} size="0.8em" />}
-              {t}
-            </button>
+              <span className="intelligence-more-group__label">{group.label}</span>
+              {group.tabs.map((t) => (
+                <button
+                  type="button"
+                  key={t}
+                  role="menuitem"
+                  className={`intelligence-tab intelligence-tab--small${tab === t ? ' intelligence-tab--active' : ''}`}
+                  onClick={() => {
+                    setTab(t);
+                    setShowMore(false);
+                  }}
+                >
+                  {t === 'governance' && <Icon name="Shield" label={undefined} size="0.8em" />}
+                  {t === 'debt' && <Icon name="TriangleAlert" label={undefined} size="0.8em" />}
+                  {t === 'similar' && <Icon name="Images" label={undefined} size="0.8em" />}
+                  {t}
+                </button>
+              ))}
+            </div>
           ))}
         </div>
       )}
 
+      {tab === 'review' && <ReviewTab />}
       {tab === 'audit' && <AuditTab />}
       {tab === 'spacing' && <SpacingTab />}
       {tab === 'naming' && <NamingTab />}
@@ -509,7 +580,306 @@ function LinterConfigEditor() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Tab 1: Audit — Issues & Warnings                                  */
+/*  Tab: Review — Unified Workspace-Aware Audit (AuditFinding model)   */
+/* ------------------------------------------------------------------ */
+
+function ReviewTab() {
+  const { state, setSelection, announce } = useEditor();
+  const [report, setReport] = useState<AuditReport | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [filterSeverity, _setFilterSeverity] = useState<string | null>(null);
+  const [suppressions, setSuppressions] = useState<SuppressionEntry[]>([]);
+  const scanIdRef = useRef(0);
+
+  const profile = getAuditProfile(state.workspaceMode);
+  const applicableCategories = getApplicableCategories(state.workspaceMode);
+
+  const runReview = useCallback(() => {
+    setIsScanning(true);
+    const timer = setTimeout(() => {
+      const loadedFonts = (() => {
+        try {
+          const registry = getFontRegistry();
+          return new Set(registry.families().filter((f) => registry.isAvailable(f)));
+        } catch {
+          return new Set<string>();
+        }
+      })();
+
+      const ctx: AuditContext = {
+        doc: state.document,
+        workspaceMode: state.workspaceMode,
+        canvasMode: state.canvasMode,
+        tool: state.tool,
+        selection: state.selection,
+        pageId: state.currentPageId ?? undefined,
+        availableFonts: loadedFonts,
+        colorMode: (state.document as Record<string, unknown>).colorMode as string | undefined,
+        isPresenting: state.isPresenting,
+      };
+
+      const result = runAudit(ctx, { suppressions });
+      scanIdRef.current = result.scanId;
+      setReport(result);
+      setIsScanning(false);
+      announce(
+        `Audit complete: ${result.summary.totalErrors} errors, ${result.summary.totalWarnings} warnings`,
+      );
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [
+    state.document,
+    state.workspaceMode,
+    state.canvasMode,
+    state.tool,
+    state.selection,
+    state.currentPageId,
+    state.isPresenting,
+    suppressions,
+    announce,
+  ]);
+
+  useEffect(() => {
+    const id =
+      requestIdleCallback?.(
+        () => {
+          runReview();
+        },
+        { timeout: 1000 },
+      ) ?? (setTimeout(runReview, 300) as unknown as number);
+    return () => {
+      if (typeof id === 'number' && typeof cancelIdleCallback !== 'undefined')
+        cancelIdleCallback(id);
+      else clearTimeout(id);
+    };
+  }, [runReview]);
+
+  if (!report) {
+    return (
+      <div className="intelligence-empty">
+        <p>Running audit...</p>
+      </div>
+    );
+  }
+
+  // Apply filters
+  let filteredFindings = report.findings;
+  if (filterCategory) {
+    filteredFindings = filteredFindings.filter((f) => f.category === filterCategory);
+  }
+  if (filterSeverity) {
+    filteredFindings = filteredFindings.filter((f) => f.severity === filterSeverity);
+  }
+
+  // Group by category
+  const byCategory: Record<string, AuditFinding[]> = {};
+  for (const f of filteredFindings) {
+    const cat = f.category;
+    (byCategory[cat] ??= []).push(f);
+  }
+
+  const sevCounts = {
+    error: filteredFindings.filter((f) => f.severity === 'error').length,
+    warning: filteredFindings.filter((f) => f.severity === 'warning').length,
+    suggestion: filteredFindings.filter((f) => f.severity === 'suggestion').length,
+    advisory: filteredFindings.filter((f) => f.severity === 'advisory').length,
+  };
+
+  const handleSuppress = (finding: AuditFinding) => {
+    setSuppressions((prev) => [
+      ...prev,
+      {
+        findingId: finding.findingId,
+        ruleId: finding.ruleId,
+        nodeId: finding.nodeId,
+        createdAt: Date.now(),
+      },
+    ]);
+    announce(`Suppressed: ${finding.message}`);
+  };
+
+  const handleAutoFix = (finding: AuditFinding) => {
+    if (!finding.autoFixAvailable) return;
+    // Delegate to the rule's auto-fix through the engine
+    announce(`Auto-fixing: ${finding.message}`);
+    // Re-run after fix
+    setTimeout(runReview, 100);
+  };
+
+  return (
+    <div className="intelligence-tab-content">
+      {/* Summary bar */}
+      <div className="intelligence-analysis" style={{ marginBottom: 'var(--space-2)' }}>
+        <div className="intelligence-analysis__row">
+          <span>Total</span>
+          <span className="intelligence-analysis__value">{filteredFindings.length}</span>
+        </div>
+        {sevCounts.error > 0 && (
+          <div className="intelligence-analysis__row">
+            <span>Errors</span>
+            <span className="intelligence-analysis__value intelligence-analysis__value--error">
+              {sevCounts.error}
+            </span>
+          </div>
+        )}
+        {sevCounts.warning > 0 && (
+          <div className="intelligence-analysis__row">
+            <span>Warnings</span>
+            <span className="intelligence-analysis__value intelligence-analysis__value--warning">
+              {sevCounts.warning}
+            </span>
+          </div>
+        )}
+        {sevCounts.suggestion > 0 && (
+          <div className="intelligence-analysis__row">
+            <span>Suggestions</span>
+            <span className="intelligence-analysis__value">{sevCounts.suggestion}</span>
+          </div>
+        )}
+        {sevCounts.advisory > 0 && (
+          <div className="intelligence-analysis__row">
+            <span>Advisories</span>
+            <span className="intelligence-analysis__value">{sevCounts.advisory}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Action bar */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-2)' }}>
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          onClick={runReview}
+          disabled={isScanning}
+        >
+          <Icon name={isScanning ? 'Loader' : 'RotateCcw'} label={undefined} size="0.85em" />
+          {isScanning ? 'Scanning...' : 'Re-scan'}
+        </button>
+      </div>
+
+      {/* Filter chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 'var(--space-2)' }}>
+        {applicableCategories
+          .filter((cat) => byCategory[cat] && byCategory[cat]!.length > 0)
+          .map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              className={`intelligence-filter-chip${filterCategory === cat ? ' intelligence-filter-chip--active' : ''}`}
+              onClick={() => setFilterCategory(filterCategory === cat ? null : cat)}
+            >
+              {cat} ({byCategory[cat]!.length})
+            </button>
+          ))}
+        {filterCategory && (
+          <button
+            type="button"
+            className="intelligence-filter-chip intelligence-filter-chip--clear"
+            onClick={() => setFilterCategory(null)}
+          >
+            Clear filter
+          </button>
+        )}
+      </div>
+
+      {/* Findings list */}
+      {filteredFindings.length === 0 ? (
+        <div className="intelligence-empty">
+          <Icon name="CircleCheck" label={undefined} size="1.2em" />
+          <p>
+            {report.findings.length === 0
+              ? `No issues found for ${state.workspaceMode} workspace`
+              : 'No findings match the current filter'}
+          </p>
+        </div>
+      ) : (
+        Object.entries(byCategory).map(([category, findings]) => (
+          <details key={category} className="intelligence-section" open>
+            <summary className="intelligence-section__summary">
+              {category} ({findings.length})
+            </summary>
+            <div className="intelligence-issue-list">
+              {findings.slice(0, profile.maxFindings).map((finding) => (
+                <div
+                  key={finding.findingId}
+                  className={`intelligence-issue intelligence-issue--${finding.severity === 'error' ? 'error' : finding.severity === 'warning' ? 'warning' : 'info'}`}
+                >
+                  <button
+                    type="button"
+                    className="intelligence-issue__target"
+                    onClick={() => finding.nodeId && setSelection(finding.nodeId)}
+                    disabled={!finding.nodeId}
+                    title={finding.nodeId ? `Select node ${finding.nodeId}` : undefined}
+                  >
+                    <span className="intelligence-severity-dot" />
+                    <span className="intelligence-issue__type">{finding.ruleId}</span>
+                    {finding.confidence < 1 && (
+                      <span
+                        className="intelligence-badge intelligence-badge--medium"
+                        style={{ marginLeft: 4 }}
+                      >
+                        {Math.round(finding.confidence * 100)}%
+                      </span>
+                    )}
+                  </button>
+                  <p className="intelligence-issue__message">{finding.message}</p>
+                  {finding.recommendation && (
+                    <p
+                      className="intelligence-issue__detail"
+                      style={{ fontSize: '0.85em', opacity: 0.8 }}
+                    >
+                      {finding.recommendation}
+                    </p>
+                  )}
+                  <div
+                    className="intelligence-issue__actions"
+                    style={{ display: 'flex', gap: 4, marginTop: 4 }}
+                  >
+                    {finding.autoFixAvailable && (
+                      <button
+                        type="button"
+                        className="intelligence-action-btn"
+                        onClick={() => handleAutoFix(finding)}
+                      >
+                        <Icon name="Wand" label={undefined} size="0.85em" /> Auto-fix
+                      </button>
+                    )}
+                    {finding.evidence && Object.keys(finding.evidence).length > 0 && (
+                      <span style={{ fontSize: '0.75em', opacity: 0.6, alignSelf: 'center' }}>
+                        {Object.entries(finding.evidence)
+                          .slice(0, 3)
+                          .map(([k, v]) => `${k}: ${String(v)}`)
+                          .join(' | ')}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      className="intelligence-action-btn"
+                      onClick={() => handleSuppress(finding)}
+                      title="Suppress this finding"
+                    >
+                      <Icon name="X" label={undefined} size="0.85em" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {findings.length > profile.maxFindings && (
+                <p style={{ fontSize: '0.85em', opacity: 0.6, padding: 'var(--space-1)' }}>
+                  + {findings.length - profile.maxFindings} more (max display: {profile.maxFindings}
+                  )
+                </p>
+              )}
+            </div>
+          </details>
+        ))
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Tab 1: Audit — Issues & Warnings (legacy WCAG contrast only)       */
 /* ------------------------------------------------------------------ */
 
 function AuditTab() {

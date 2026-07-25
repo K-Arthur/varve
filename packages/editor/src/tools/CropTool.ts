@@ -3,10 +3,16 @@
  *
  * Overlay owns handle dragging; this tool handles Esc / Enter / wheel zoom
  * and fit-mode cycling.
+ *
+ * The crop is stored on the image fill in source-pixel coordinates, so it
+ * is re-editable: entering crop mode on an already-cropped image reads the
+ * existing crop and displays it.
+ *
  * Research basis: Figma image crop, Canva crop handle pattern.
  */
 
 import type { ImageFit } from '@strata/scene';
+import { nodeLocalBounds } from '@strata/scene';
 import type { CropState, LocalCropRect } from '../imageCrop';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
@@ -19,6 +25,8 @@ export class CropTool extends BaseTool {
   private cropState: CropState | null = null;
   private nodeId: string | null = null;
   private nodeSize: { w: number; h: number } | null = null;
+  private shapeKind: string = 'rect';
+  private shapeParams: Record<string, unknown> = {};
   private listeners = new Set<() => void>();
   private commitHandler: ((state: CropState) => void) | null = null;
 
@@ -52,6 +60,14 @@ export class CropTool extends BaseTool {
 
   getNodeSize(): { w: number; h: number } | null {
     return this.nodeSize;
+  }
+
+  getShapeKind(): string {
+    return this.shapeKind;
+  }
+
+  getShapeParams(): Record<string, unknown> {
+    return this.shapeParams;
   }
 
   setCropRect(rect: LocalCropRect): void {
@@ -93,19 +109,55 @@ export class CropTool extends BaseTool {
       ctx.setTool('select');
       return;
     }
+    const doc = ctx.document;
     const node = ctx.getNode(id);
-    if (node?.kind !== 'shape' || node.shape.kind !== 'rect') {
-      ctx.announce('Crop requires an image rectangle');
+    if (node?.kind !== 'shape') {
+      ctx.announce('Crop requires a shape with an image fill');
       ctx.setTool('select');
       return;
     }
-    this.nodeSize = { w: node.shape.w, h: node.shape.h };
+    // Use nodeLocalBounds to support any shape kind (not just rect)
+    const bounds = nodeLocalBounds(node, doc);
+    if (!bounds || bounds.w <= 0 || bounds.h <= 0) {
+      ctx.announce('Crop requires a shape with measurable bounds');
+      ctx.setTool('select');
+      return;
+    }
+    this.nodeSize = { w: bounds.w, h: bounds.h };
+    // Store shape kind and params for canvas preview clipping
+    if ('shape' in node) {
+      const shape = node.shape as { kind?: string };
+      this.shapeKind = shape.kind ?? 'rect';
+      this.shapeParams = node.shape as Record<string, unknown>;
+    } else {
+      this.shapeKind = 'rect';
+      this.shapeParams = {};
+    }
     const imageFill =
       'fills' in node
         ? (node.fills ?? []).find((f: { type: string }) => f.type === 'image')?.image
         : null;
+
+    // If the image already has a crop, convert from source-pixel space to
+    // node-local space so the overlay shows the current crop boundary.
+    let viewport: LocalCropRect;
+    if (imageFill?.crop && imageFill.imageWidth && imageFill.imageHeight) {
+      const nodeW = bounds.w;
+      const nodeH = bounds.h;
+      const srcW = imageFill.imageWidth;
+      const srcH = imageFill.imageHeight;
+      viewport = {
+        x: (imageFill.crop.x / srcW) * nodeW,
+        y: (imageFill.crop.y / srcH) * nodeH,
+        w: (imageFill.crop.w / srcW) * nodeW,
+        h: (imageFill.crop.h / srcH) * nodeH,
+      };
+    } else {
+      viewport = { x: 0, y: 0, w: bounds.w, h: bounds.h };
+    }
+
     this.cropState = {
-      viewport: { x: 0, y: 0, w: node.shape.w, h: node.shape.h },
+      viewport,
       fillScale: imageFill?.scale ?? 1,
       fillOffsetX: imageFill?.x ?? 0,
       fillOffsetY: imageFill?.y ?? 0,
@@ -119,6 +171,8 @@ export class CropTool extends BaseTool {
     this.cropState = null;
     this.nodeId = null;
     this.nodeSize = null;
+    this.shapeKind = 'rect';
+    this.shapeParams = {};
     this.notify();
   }
 

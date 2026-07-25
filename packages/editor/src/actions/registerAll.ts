@@ -104,14 +104,30 @@ export function registerEditorActions(
     );
   }
 
+  const panelActions = [
+    ['openInspectorProperties', 'Open Properties', ['inspector', 'selection', 'properties']],
+    ['openAppearancePanel', 'Open Appearance & Effects', ['effects', 'mask', 'paint', 'styles']],
+    ['openAdjustmentsPanel', 'Open Adjustments', ['image', 'retouch', 'enhance', 'ai']],
+    ['openPrototypePanel', 'Open Prototype', ['interaction', 'flow', 'trigger']],
+    ['openDocumentPanel', 'Open Document Settings', ['canvas', 'color mode', 'document']],
+    ['openExportPanel', 'Open Export', ['asset', 'png', 'svg', 'pdf']],
+    ['openInspectPanel', 'Open Inspect', ['spec', 'handoff', 'measure', 'code']],
+    ['openAuditPanel', 'Open Audit', ['accessibility', 'quality', 'score']],
+  ] as const;
+  for (const [id, label, keywords] of panelActions) {
+    reg(id, label, 'panel', handlers[id] ?? (() => {}));
+    const action = r.get(id);
+    if (action) action.keywords = [...keywords];
+  }
+
   reg('toggleLeftPanel', 'Toggle Layers Panel', 'panel', () => ctx.toggleLeftPanel());
   reg('toggleRightPanel', 'Toggle Inspector Panel', 'panel', () => ctx.toggleRightPanel());
   reg('home', 'Go to Home', 'file', () => {});
   reg('togglePixelGrid', 'Toggle Pixel Grid', 'canvas', () =>
     ctx.setPixelGridEnabled(!ctx.state.pixelGridEnabled),
   );
-  reg('enterFrame', 'Enter Frame', 'canvas', () => {});
-  reg('editText', 'Edit Text', 'text', () => {});
+  reg('enterFrame', 'Enter Frame', 'canvas', handlers.enterFrame ?? (() => {}));
+  reg('editText', 'Edit Text', 'text', handlers.editText ?? (() => {}));
   if (!r.has('upscaleImage')) {
     r.register(
       {
@@ -123,8 +139,40 @@ export function registerEditorActions(
       handlers.upscaleImage ?? (() => {}),
     );
   }
-  reg('nudgeUp', 'Nudge Up', 'object', () => {});
-  reg('nudgeDown', 'Nudge Down', 'object', () => {});
-  reg('nudgeLeft', 'Nudge Left', 'object', () => {});
-  reg('nudgeRight', 'Nudge Right', 'object', () => {});
+  // Mask operations (reachable via Object menu and Layers context menu)
+  const maskOps = [
+    ['addAlphaMask', 'Add Alpha Mask', ['mask', 'alpha', 'transparency']],
+    ['addClipMask', 'Add Clip Mask', ['mask', 'clip', 'vector']],
+    ['addLuminanceMask', 'Add Luminance Mask', ['mask', 'luminance', 'brightness']],
+    ['removeMask', 'Remove Mask', ['mask', 'delete', 'clear']],
+    ['toggleMask', 'Toggle Mask', ['mask', 'enable', 'disable']],
+    ['invertMask', 'Invert Mask', ['mask', 'invert', 'reverse']],
+  ] as const;
+  for (const [id, label, keywords] of maskOps) {
+    reg(id, label, 'object', handlers[id] ?? (() => {}));
+    const action = r.get(id);
+    if (action) action.keywords = [...keywords];
+  }
+  // Rasterize / Merge
+  reg(
+    'rasterizeSelection',
+    'Rasterize Selection',
+    'object',
+    handlers.rasterizeSelection ?? (() => {}),
+  );
+  reg('mergeSelected', 'Merge Selected', 'object', handlers.mergeSelected ?? (() => {}));
+  // Master page operations
+  reg('createMaster', 'Create Master', 'object', handlers.createMaster ?? (() => {}));
+  reg('applyMaster', 'Apply Master to Page', 'object', handlers.applyMaster ?? (() => {}));
+  reg('detachMaster', 'Detach Master from Page', 'object', handlers.detachMaster ?? (() => {}));
+  reg(
+    'toggleFacingPages',
+    'Toggle Facing Pages',
+    'object',
+    handlers.toggleFacingPages ?? (() => {}),
+  );
+  reg('nudgeUp', 'Nudge Up', 'object', handlers.nudgeUp ?? (() => {}));
+  reg('nudgeDown', 'Nudge Down', 'object', handlers.nudgeDown ?? (() => {}));
+  reg('nudgeLeft', 'Nudge Left', 'object', handlers.nudgeLeft ?? (() => {}));
+  reg('nudgeRight', 'Nudge Right', 'object', handlers.nudgeRight ?? (() => {}));
 }

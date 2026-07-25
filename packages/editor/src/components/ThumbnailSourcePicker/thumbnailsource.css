@@ -1,0 +1,94 @@
+/* ── Thumbnail Source Picker ─────────────────────────────── */
+
+.thumbnail-source-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 200px;
+  padding: var(--space-2);
+}
+
+.thumbnail-source-picker__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  padding-bottom: var(--space-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.thumbnail-source-picker__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.thumbnail-source-picker__sources {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.thumbnail-source-picker__option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  text-align: left;
+  font-size: var(--font-size-sm);
+  width: 100%;
+  transition: background var(--duration-fast) var(--ease-default);
+}
+
+.thumbnail-source-picker__option:hover {
+  background: var(--color-surface-raised);
+}
+
+.thumbnail-source-picker__option:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -1px;
+}
+
+.thumbnail-source-picker__option--active {
+  background: var(--color-interactive-subtle);
+  border-color: var(--color-interactive-default);
+}
+
+.thumbnail-source-picker__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.thumbnail-source-picker__option-label {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.thumbnail-source-picker__option-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+.thumbnail-source-picker__actions {
+  display: flex;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.thumbnail-source-picker__progress {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-1);
+  font-style: italic;
+}
