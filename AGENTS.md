@@ -49,16 +49,26 @@ jcodemunch triage suite to verify architectural metrics haven't regressed:
 Check these thresholds (2026-07-14 baseline):
 | Metric | Current | Ceiling |
 |--------|---------|---------|
-| Avg cyclomatic complexity | 5.9 | 7.0 |
-| Dead code % | 1.9% | 3.0% |
-| Unstable modules (I > 0.7) | 191 | 250 |
-| Dependency cycles | 4 | 5 |
+| Avg cyclomatic complexity (file) | 27.1 | 52.0 |
+| Dependency cycles (madge) | 19 | 21 |
 | Layer violations | 0 | 0 |
-| Test reachability | 99.3% | 95% |
-| Hotspot #1 score | 4808 | 5500 |
+| Hub files over budget | 0 | 0 |
+| Editor max complexity (context.tsx) | 810 | 847 |
+| CanvasArea max complexity | 602 | 630 |
+| Shell.tsx import count | 45 | 48 |
+
+See `docs/audits/architecture-health-baseline-2026-07-25.md` for full
+measurements. **Pre-2026-07-25 metrics are obsolete** — the earlier triage
+used different tools (scripting-jcodemunch/radon) that measured per-function
+complexity (not per-file) and used a different cycle detector. Current
+measurements come from `scripts/audit-architecture.mjs` (madge + TS compiler
+API), which is the single source of truth going forward.
 
 If any threshold is breached, stop and investigate — the change introduced
-architectural debt that must be resolved before merging.
+architectural debt that must be resolved before merging. Use
+`node scripts/audit-architecture.mjs --ci` for CI checks and
+`node scripts/audit-architecture.mjs --update` to reset the baseline after
+intentional improvements.
 
 ## Architecture constraints (do not violate)
 
