@@ -20,15 +20,15 @@
       "max_imports": 48
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 1629,
+      "lines": 1633,
       "imports": 10,
-      "max_lines": 1792,
+      "max_lines": 1796,
       "max_imports": 13
     },
     "packages/home/src/HomeShell.tsx": {
-      "lines": 1094,
+      "lines": 1104,
       "imports": 31,
-      "max_lines": 1203,
+      "max_lines": 1213,
       "max_imports": 34
     }
   },
