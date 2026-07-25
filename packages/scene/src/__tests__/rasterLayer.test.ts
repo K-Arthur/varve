@@ -277,7 +277,7 @@ describe('RasterLayerNode document integration', () => {
     let doc = createDocument('raster-clone-test');
     doc = addNode(doc, rl);
 
-    const result = deepCloneSubtree(doc, 'rl-clone-1');
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, 'rl-clone-1');
     const clonedNode = result.nodes[result.rootId] as import('../types').RasterLayerNode;
 
     expect(clonedNode.kind).toBe('rasterLayer');

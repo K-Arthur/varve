@@ -40,9 +40,8 @@ export function DeterminateProgress({
   const progressLabel = statusText ?? `${percentage}%`;
 
   return (
-    <div
+    <fieldset
       className={`det-progress det-progress--${size} ${className}`}
-      role="group"
       aria-label={label ?? 'Progress'}
     >
       {label && <div className="det-progress__label">{label}</div>}
@@ -79,6 +78,6 @@ export function DeterminateProgress({
           </span>
         )}
       </div>
-    </div>
+    </fieldset>
   );
 }

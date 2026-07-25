@@ -345,6 +345,13 @@ export function HomeSearchPalette({
                 className={`search-palette__result ${isActive ? 'search-palette__result--active' : ''}`}
                 onClick={() => selectItem(item)}
                 onMouseEnter={() => setActiveIdx(idx)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    selectItem(item);
+                  }
+                }}
+                tabIndex={0}
               >
                 <span className="search-palette__result-name">{item.name}</span>
                 {item.sub && <span className="search-palette__result-sub">{item.sub}</span>}

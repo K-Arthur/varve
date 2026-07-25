@@ -104,7 +104,7 @@ export const SubjectCard = memo(function SubjectCard({
           </div>
         </div>
 
-        <div className="subject-card__preview-modes" onClick={(e) => e.stopPropagation()}>
+        <div className="subject-card__preview-modes">
           {(['isolated', 'original', 'mask'] as const).map((mode) => (
             <button
               key={mode}

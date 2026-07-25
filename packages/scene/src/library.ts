@@ -9,9 +9,16 @@
  * Storybook publish workflow, npm package distribution model.
  */
 
-import type { Document } from './document';
-import { isContainer } from './document';
 import type { ComponentDefinition, NodeId, SceneNode, Style } from './types';
+import { isContainer } from './types';
+
+interface LibraryDoc {
+  nodes: Record<NodeId, SceneNode>;
+  nextId: number;
+  components: Record<NodeId, ComponentDefinition>;
+  styles?: Record<string, Style>;
+  installedLibraries?: Array<{ id: string; name: string; version: string; installedAt: string }>;
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -86,7 +93,7 @@ function bumpPatchVersion(version: string): string {
   return `${major}.${minor}.${patch + 1}`;
 }
 
-function collectSubtree(doc: Document, rootId: NodeId): Record<NodeId, SceneNode> {
+function collectSubtree(doc: LibraryDoc, rootId: NodeId): Record<NodeId, SceneNode> {
   const result: Record<NodeId, SceneNode> = {};
 
   function walk(id: NodeId) {
@@ -106,7 +113,7 @@ function collectSubtree(doc: Document, rootId: NodeId): Record<NodeId, SceneNode
 
 function remapSubtree(
   subtree: Record<NodeId, SceneNode>,
-  doc: Document,
+  doc: LibraryDoc,
 ): { nodes: Record<NodeId, SceneNode>; idMap: Map<NodeId, NodeId>; nextId: number } {
   const idMap = new Map<NodeId, NodeId>();
   let nextId = doc.nextId;
@@ -146,7 +153,7 @@ function remapSubtree(
 export function publishComponentToLibrary(
   library: Library,
   component: ComponentDefinition,
-  doc: Document,
+  doc: LibraryDoc,
 ): { library: Library } {
   const existingIndex = library.components.findIndex((c) => c.id === component.id);
   const published: ComponentDefinition = { ...component };
@@ -197,9 +204,9 @@ export function publishStyleToLibrary(library: Library, style: Style): { library
  * Clones bundled node subtrees with ID remapping for referential integrity.
  */
 export function installLibrary(
-  doc: Document,
+  doc: LibraryDoc,
   library: Library,
-): { doc: Document; installedComponentIds: NodeId[] } {
+): { doc: LibraryDoc; installedComponentIds: NodeId[] } {
   const installedComponentIds: NodeId[] = [];
   let workingDoc = doc;
 

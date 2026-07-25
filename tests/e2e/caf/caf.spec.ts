@@ -20,7 +20,7 @@ function crc32(buf: Buffer, off = 0, len = buf.length - off): number {
     }
   }
   let crc = -1;
-  for (let i = off; i < off + len; i++) crc = crcTable[(crc ^ buf[i]) & 0xff] ^ (crc >>> 8);
+  for (let i = off; i < off + len; i++) crc = crcTable![(crc ^ buf[i]!) & 0xff]! ^ (crc >>> 8);
   return (crc ^ -1) >>> 0;
 }
 

@@ -75,7 +75,6 @@ export function SegmentedControl<T extends string>({
     >
       {options.map((opt, i) => {
         const checked = opt.value === value;
-        const IconComponent = opt.solid ? SolidIcon : Icon;
         return (
           <label key={opt.value} className="strata-segmented__btn">
             <input
@@ -88,7 +87,12 @@ export function SegmentedControl<T extends string>({
               onKeyDown={(e) => onKeyDown(e, i)}
               className="strata-visually-hidden"
             />
-            {opt.icon && <IconComponent name={opt.icon as any} label={undefined} size="0.95em" />}
+            {opt.icon &&
+              (opt.solid ? (
+                <SolidIcon name={opt.icon as SolidIconName} label={undefined} size="0.95em" />
+              ) : (
+                <Icon name={opt.icon as IconName} label={undefined} size="0.95em" />
+              ))}
             <span>{opt.label}</span>
           </label>
         );

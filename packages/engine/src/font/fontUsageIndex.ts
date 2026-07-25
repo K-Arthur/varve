@@ -221,7 +221,10 @@ export class FontUsageIndex {
  */
 export function migrateLegacyFontRefs(doc: UsageDocument): UsageDocument {
   let changed = false;
-  const updatedNodes = { ...doc.nodes } as Record<string, any>;
+  const updatedNodes = { ...doc.nodes } as Record<
+    string,
+    UsageTextNode | { id: string; kind: string }
+  >;
 
   for (const [id, node] of Object.entries(updatedNodes)) {
     if (!isTextNode(node)) continue;
@@ -243,7 +246,7 @@ export function migrateLegacyFontRefs(doc: UsageDocument): UsageDocument {
       updatedNodes[id] = {
         ...updatedNodes[id],
         fontWeight: node.font,
-      };
+      } as UsageTextNode | { id: string; kind: string };
       changed = true;
     }
   }
@@ -253,11 +256,11 @@ export function migrateLegacyFontRefs(doc: UsageDocument): UsageDocument {
   if (doc.styles) {
     const styleEntries = Object.entries(doc.styles);
     let stylesChanged = false;
-    const newStyles: Record<string, any> = {};
+    const newStyles: Record<string, UsageTextStyle | { type: string; [key: string]: unknown }> = {};
 
     for (const [id, style] of styleEntries) {
       if (style.type === 'text') {
-        const ts = style as any;
+        const ts = style as UsageTextStyle;
         if (ts.font && typeof ts.font === 'string' && !ts.fontFamily) {
           const parsed = parseLegacyFontString(ts.font);
           newStyles[id] = {

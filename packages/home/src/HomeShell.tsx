@@ -4,10 +4,8 @@ import {
   detectFileKind,
   type FileEntry,
   type Platform,
-  type RecentWorkspaceFilter,
   type SavedSearch,
   type TemplateLibrary,
-  type EditorWorkspaceMode,
 } from '@strata/platform';
 import { createDocumentFromPreset, serializeDocument } from '@strata/scene';
 import { generateKeyBetween, type Preset } from '@strata/shared';
@@ -426,7 +424,7 @@ export function HomeShell({
       setContextPos(null);
       setContextFile(null);
     },
-    [contextFile, actions, onOpenFile, platform, handleStartRename],
+    [contextFile, actions, onOpenFile, platform, handleStartRename, view.refresh],
   );
 
   const handleMoveToProject = useCallback(
@@ -928,9 +926,7 @@ export function HomeShell({
             projects={view.projects}
             isTrash={view.state.section === 'trash'}
             isMissing={missingFiles.has(contextFile.id)}
-            isHidden={view.recentRecords.some(
-              (r) => r.id === contextFile.id && r.hidden,
-            )}
+            isHidden={view.recentRecords.some((r) => r.id === contextFile.id && r.hidden)}
           />
         )}
         <HomeSearchPalette

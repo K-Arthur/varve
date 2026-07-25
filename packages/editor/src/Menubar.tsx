@@ -1532,20 +1532,24 @@ export function Menubar({
                 };
               const solidIcon = WORKSPACE_SOLID_ICONS[mode];
               return (
-                <button
+                <label
                   key={mode}
-                  type="button"
-                  role="radio"
-                  aria-checked={state.workspaceMode === mode}
                   className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                  onClick={() => setWorkspaceMode(mode)}
                   title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
                 >
+                  <input
+                    type="radio"
+                    name="workspace-mode"
+                    value={mode}
+                    checked={state.workspaceMode === mode}
+                    onChange={() => setWorkspaceMode(mode)}
+                    className="sr-only"
+                  />
                   <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
                   <span className="editor-menubar__workspace-btn-label">
                     {WORKSPACE_LABELS[mode]}
                   </span>
-                </button>
+                </label>
               );
             },
           )}

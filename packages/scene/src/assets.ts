@@ -10,8 +10,16 @@
  *
  * See docs/audits/smart-object-feasibility-audit.md for the decision record.
  */
-import type { Document } from './document';
 import type { DocumentAsset } from './types';
+
+interface AssetDoc {
+  assets?: Record<string, DocumentAsset>;
+}
+
+interface AssetNodeMap {
+  nodes: Record<string, { fills?: Array<{ type: string; image?: { assetId?: string } }> }>;
+  paints?: Record<string, { fill: { type: string; image?: { assetId?: string } } }>;
+}
 
 /**
  * Sync, non-cryptographic content hash (two-lane FNV-1a, 64 bits as hex).
@@ -101,15 +109,12 @@ export function validateDocumentAsset(asset: DocumentAsset): string | null {
   return null;
 }
 
-export function getAsset(
-  doc: Pick<Document, 'assets'>,
-  assetId: string,
-): DocumentAsset | undefined {
+export function getAsset(doc: AssetDoc, assetId: string): DocumentAsset | undefined {
   return doc.assets?.[assetId];
 }
 
 /** Insert or overwrite one asset entry. */
-export function upsertAsset(doc: Document, asset: DocumentAsset): Document {
+export function upsertAsset<T extends AssetDoc>(doc: T, asset: DocumentAsset): T {
   const existing = doc.assets?.[asset.id];
   if (
     existing &&
@@ -129,10 +134,10 @@ export function upsertAsset(doc: Document, asset: DocumentAsset): Document {
  * This is the single choke point that makes "place the same image twice"
  * dedup automatically, with no separate user action required.
  */
-export function findOrCreateEmbeddedAsset(
-  doc: Document,
+export function findOrCreateEmbeddedAsset<T extends AssetDoc>(
+  doc: T,
   input: EmbeddedAssetInput,
-): { document: Document; assetId: string } {
+): { document: T; assetId: string } {
   const asset = createEmbeddedAsset(input);
   const existing = getAsset(doc, asset.id);
   if (existing) return { document: doc, assetId: asset.id };
@@ -140,10 +145,7 @@ export function findOrCreateEmbeddedAsset(
 }
 
 /** True if any node's fills or any shared Paint references `assetId`. */
-export function isAssetReferenced(
-  doc: Pick<Document, 'nodes' | 'paints'>,
-  assetId: string,
-): boolean {
+export function isAssetReferenced(doc: AssetNodeMap, assetId: string): boolean {
   for (const node of Object.values(doc.nodes)) {
     if (node.fills?.some((fill) => fill.type === 'image' && fill.image?.assetId === assetId)) {
       return true;
@@ -158,7 +160,7 @@ export function isAssetReferenced(
 }
 
 /** Garbage-collect asset entries no longer referenced by any node or paint. */
-export function pruneUnusedAssets(doc: Document): Document {
+export function pruneUnusedAssets<T extends AssetDoc & AssetNodeMap>(doc: T): T {
   if (!doc.assets) return doc;
   const kept = Object.fromEntries(
     Object.entries(doc.assets).filter(([assetId]) => isAssetReferenced(doc, assetId)),

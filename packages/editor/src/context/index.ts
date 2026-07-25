@@ -1,9 +1,4 @@
-export {
-  bumpThemeRevision,
-  setBumpThemeRevisionHandler,
-  setStartTextEditingHandler,
-  startTextEditing,
-} from '../context';
+export type { ToolId } from '../tools/types';
 export type { DocumentContextValue } from './DocumentContext';
 export { DocumentProvider, useDocument } from './DocumentContext';
 export type { MotionContextValue } from './MotionContext';
@@ -18,12 +13,17 @@ export {
 } from './reducedMotionManager';
 export type { SelectionContextValue } from './SelectionContext';
 export { SelectionProvider, useSelection } from './SelectionContext';
+export {
+  bumpThemeRevision,
+  setBumpThemeRevisionHandler,
+  setStartTextEditingHandler,
+  startTextEditing,
+} from './sessionGlobals';
 export type {
   CanvasMode,
   EditorContextValue,
   EditorState,
   SessionMeta,
-  ToolId,
 } from './types';
 export type { ViewportContextValue } from './ViewportContext';
 export { useViewport, ViewportProvider } from './ViewportContext';

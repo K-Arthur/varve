@@ -6,7 +6,7 @@ import {
   recentFileSections,
   recentRelevanceScore,
 } from '../pure';
-import type { RecentFileRecord } from '../types';
+import type { EditorWorkspaceMode, RecentFileRecord } from '../types';
 import {
   DEFAULT_RECENT_WORKSPACE_FILTER,
   MAX_RECENT_FILES,

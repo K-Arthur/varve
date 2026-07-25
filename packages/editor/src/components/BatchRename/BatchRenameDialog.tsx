@@ -244,12 +244,11 @@ export function BatchRenameDialog({
           </div>
 
           {previews.length > 0 && (
-            <div className="batch-rename-dialog__preview" role="list" aria-label="Rename preview">
+            <ul className="batch-rename-dialog__preview" aria-label="Rename preview">
               {previews.map((p) => (
-                <div
+                <li
                   key={p.nodeId}
                   className={`batch-rename-dialog__preview-item${!p.changed ? ' batch-rename-dialog__preview-item--unchanged' : ''}`}
-                  role="listitem"
                 >
                   {p.changed && (
                     <span className="batch-rename-dialog__preview-icon" aria-hidden="true">
@@ -269,9 +268,9 @@ export function BatchRenameDialog({
                       </span>
                     </>
                   )}
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
 

@@ -53,12 +53,7 @@ export function FolderView({
   );
 
   return (
-    <div
-      ref={containerRef}
-      className="folder-view__content"
-      role="region"
-      aria-label="Folder contents"
-    >
+    <section ref={containerRef} className="folder-view__content" aria-label="Folder contents">
       {childFolders.length > 0 && (
         <>
           <div className="folder-view__section-label">Folders</div>
@@ -115,6 +110,6 @@ export function FolderView({
           <p className="folder-view__empty-text">This folder is empty</p>
         </div>
       )}
-    </div>
+    </section>
   );
 }

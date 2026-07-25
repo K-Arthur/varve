@@ -6,7 +6,6 @@
  * the contract and report types.
  */
 
-import type { Document } from '../document';
 import type { NodeId } from '../types';
 
 /** Severity classification. */
@@ -38,7 +37,7 @@ export interface LinterFix {
    * Pure function that transforms the document. Returns `null` when the
    * fix would have no effect (issue already resolved by other means).
    */
-  apply: (doc: Document) => Document | null;
+  apply: (doc: unknown) => unknown | null;
   /** Whether the fix has a side effect beyond the document (e.g. selection). */
   changesSelection?: boolean;
 }

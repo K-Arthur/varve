@@ -40,7 +40,53 @@
       }
     ],
     "security": {
-      "csp": null,
+      "csp": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", "'wasm-unsafe-eval'", "blob:"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "blob:", "https:"],
+        "font-src": ["'self'", "data:"],
+        "connect-src": [
+          "'self'",
+          "ipc:",
+          "http://ipc.localhost",
+          "https://github.com",
+          "https://huggingface.co",
+          "https://raw.githubusercontent.com",
+          "https://www.googleapis.com"
+        ],
+        "worker-src": ["'self'"],
+        "media-src": ["'self'", "blob:", "data:"],
+        "object-src": ["'none'"],
+        "frame-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'none'"],
+        "manifest-src": ["'self'"]
+      },
+      "devCsp": {
+        "default-src": ["'self'"],
+        "script-src": ["'self'", "'wasm-unsafe-eval'", "blob:"],
+        "style-src": ["'self'", "'unsafe-inline'"],
+        "img-src": ["'self'", "data:", "blob:", "https:"],
+        "font-src": ["'self'", "data:"],
+        "connect-src": [
+          "'self'",
+          "ipc:",
+          "http://ipc.localhost",
+          "ws://localhost:1420",
+          "https://github.com",
+          "https://huggingface.co",
+          "https://raw.githubusercontent.com",
+          "https://www.googleapis.com"
+        ],
+        "worker-src": ["'self'"],
+        "media-src": ["'self'", "blob:", "data:"],
+        "object-src": ["'none'"],
+        "frame-src": ["'none'"],
+        "base-uri": ["'self'"],
+        "form-action": ["'none'"],
+        "manifest-src": ["'self'"]
+      },
       "capabilities": ["default"]
     }
   },

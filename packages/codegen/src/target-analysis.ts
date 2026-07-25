@@ -47,6 +47,9 @@ const GAP_FNS: Record<CodeExportFormat, GapFn> = {
   swiftui: swiftuiTargetGaps,
   svg: svgTargetGaps,
   'svg-component': svgTargetGaps,
+  vue: () => [],
+  svelte: () => [],
+  'web-component': () => [],
 };
 
 /**
