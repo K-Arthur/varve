@@ -8,11 +8,19 @@ import {
 } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
+import {
+  getTypeAheadResetMs,
+  isResetKey,
+  matchMenuTypeAhead,
+  shouldTypeAhead,
+} from '@strata/ui/utils/menuTypeAhead';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { ArchiveDialog } from './components/Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from './context';
+import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
+import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
@@ -26,6 +34,8 @@ interface MenuItem {
   disabled?: boolean;
   /** ARIA keyshortcut string for screen readers (e.g. "Ctrl+G"). */
   ariaKeyshortcut?: string;
+  /** Nested submenu items (2 levels max). */
+  items?: MenuItem[];
 }
 
 const THEMES: { id: Theme; label: string }[] = [
@@ -53,25 +63,45 @@ function ariaShortcut(binding: {
  * Compute menu structure dynamically based on current editor state.
  * Returns items with `disabled` and `ariaKeyshortcut` fields populated.
  */
-function buildMenus(state: {
-  selection: string[];
-  document: { activePageId?: string; masters?: Record<string, unknown> } | undefined;
-  canvasMode: string;
-  workspaceMode: string;
-  colorBlindnessView: string;
-  softProofEnabled: boolean;
-  timelinePanelVisible: boolean;
-  graphEditorVisible: boolean;
-  stateMachinePanelVisible: boolean;
-  guidesVisible: boolean;
-  distractionFreeMode: boolean;
-  beforeAfterCompare: boolean;
-  rulerMode: string;
-  snapEnabled: boolean;
-}): { id: MenuId; items: MenuItem[] }[] {
+function buildMenus(
+  state: {
+    selection: string[];
+    document: {
+      activePageId?: string;
+      pages?: Array<{ id: string; masterPageId?: string }>;
+      masters?: Record<string, { name?: string }>;
+    };
+    canvasMode: string;
+    workspaceMode: string;
+    colorBlindnessView: string;
+    softProofEnabled: boolean;
+    timelinePanelVisible: boolean;
+    graphEditorVisible: boolean;
+    stateMachinePanelVisible: boolean;
+    guidesVisible: boolean;
+    distractionFreeMode: boolean;
+    beforeAfterCompare: boolean;
+    rulerMode: string;
+    snapEnabled: boolean;
+  },
+  recentEntries: RecentEntry[],
+): { id: MenuId; items: MenuItem[] }[] {
+  const doc = state.document;
+  const activePageId = doc?.activePageId ?? null;
+  const activePage = activePageId ? doc?.pages?.find((p) => p.id === activePageId) : null;
+  const currentPageMasterId = activePage?.masterPageId ?? null;
+  const masterNames = doc?.masters
+    ? Object.fromEntries(Object.entries(doc.masters).map(([id, m]) => [id, m?.name ?? 'Unknown']))
+    : {};
+  const currentPageIsMaster = activePageId != null && masterNames[activePageId] != null;
+
   const hasSelection = state.selection.length > 0;
   const hasMultipleSelection = state.selection.length >= 2;
   const hasDocument = !!state.document;
+  const nodeCount =
+    hasDocument && 'nodes' in state.document ? Object.keys(state.document.nodes).length : 0;
+  const hasNodes = nodeCount >= 1;
+  const hasMultipleNodes = nodeCount >= 2;
 
   /** Disabled helper: returns true when action cannot run in current context. */
   const dis = (action: string): boolean | undefined => {
@@ -106,6 +136,17 @@ function buildMenus(state: {
       case 'nudgeRight':
       case 'harmonizeSpacing':
         return !hasSelection;
+      case 'alignLeft':
+      case 'alignCenterH':
+      case 'alignRight':
+      case 'alignTop':
+      case 'alignCenterV':
+      case 'alignBottom':
+      case 'tidySelected':
+        return !hasMultipleSelection;
+      case 'distributeHorizontal':
+      case 'distributeVertical':
+        return state.selection.length < 3;
       case 'newAdjustmentLayer':
       case 'createClippingMask':
         return !hasSelection;
@@ -120,9 +161,19 @@ function buildMenus(state: {
       case 'extractPalette':
       case 'batchBgRemove':
         return !hasSelection;
+      case 'createMaster':
+        return currentPageIsMaster;
       case 'applyMaster':
+        return !activePageId || !doc?.masters || Object.keys(doc.masters).length === 0;
       case 'detachMaster':
-        return !state.document?.activePageId;
+        return !currentPageMasterId;
+      case 'runAudit':
+      case 'scanDebt':
+        return !hasNodes;
+      case 'suggestNames':
+        return !hasSelection;
+      case 'detectDuplicates':
+        return !hasMultipleNodes;
       default:
         return undefined;
     }
@@ -160,6 +211,27 @@ function buildMenus(state: {
           action: 'saveAs',
         },
         { label: '---' },
+        ...(recentEntries.length > 0
+          ? [
+              {
+                label: 'Open Recent',
+                disabled: true,
+                action: '',
+              } as MenuItem,
+              ...recentEntries.slice(0, 10).map(
+                (e) =>
+                  ({
+                    label: labelWithFallback(e.label),
+                    action: `recent:${e.id}`,
+                  }) as MenuItem,
+              ),
+              {
+                label: 'Clear Recent Files',
+                action: 'clearRecent',
+              } as MenuItem,
+              { label: '---' },
+            ]
+          : []),
         {
           label: 'Import\u2026',
           shortcut: formatShortcut(SHORTCUT_DEFS.import.binding),
@@ -743,10 +815,14 @@ function buildMenus(state: {
         },
         { label: '---' },
         // Intelligence
-        { label: 'Audit', action: 'runAudit' },
-        { label: 'Scan for Debt', action: 'scanDebt' },
-        { label: 'Suggest Names', action: 'suggestNames' },
-        { label: 'Detect Duplicates', action: 'detectDuplicates' },
+        { label: 'Audit', action: 'runAudit', disabled: dis('runAudit') },
+        { label: 'Scan for Debt', action: 'scanDebt', disabled: dis('scanDebt') },
+        { label: 'Suggest Names', action: 'suggestNames', disabled: dis('suggestNames') },
+        {
+          label: 'Detect Duplicates',
+          action: 'detectDuplicates',
+          disabled: dis('detectDuplicates'),
+        },
       ],
     },
     {
@@ -782,63 +858,75 @@ function buildMenus(state: {
         },
         { label: '---' },
         {
-          label: 'Align Left',
-          shortcut: formatShortcut(SHORTCUT_DEFS.alignLeft.binding),
-          ariaKeyshortcut: ks('alignLeft'),
-          action: 'alignLeft',
-          disabled: dis('bringFront'),
+          label: 'Align',
+          disabled: dis('alignLeft'),
+          items: [
+            {
+              label: 'Align Left',
+              shortcut: formatShortcut(SHORTCUT_DEFS.alignLeft.binding),
+              ariaKeyshortcut: ks('alignLeft'),
+              action: 'alignLeft',
+              disabled: dis('alignLeft'),
+            },
+            {
+              label: 'Align Horizontal Center',
+              shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterH.binding),
+              ariaKeyshortcut: ks('alignCenterH'),
+              action: 'alignCenterH',
+              disabled: dis('alignCenterH'),
+            },
+            {
+              label: 'Align Right',
+              shortcut: formatShortcut(SHORTCUT_DEFS.alignRight.binding),
+              ariaKeyshortcut: ks('alignRight'),
+              action: 'alignRight',
+              disabled: dis('alignRight'),
+            },
+            { label: '---' },
+            {
+              label: 'Align Top',
+              shortcut: formatShortcut(SHORTCUT_DEFS.alignTop.binding),
+              ariaKeyshortcut: ks('alignTop'),
+              action: 'alignTop',
+              disabled: dis('alignTop'),
+            },
+            {
+              label: 'Align Vertical Center',
+              shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterV.binding),
+              ariaKeyshortcut: ks('alignCenterV'),
+              action: 'alignCenterV',
+              disabled: dis('alignCenterV'),
+            },
+            {
+              label: 'Align Bottom',
+              shortcut: formatShortcut(SHORTCUT_DEFS.alignBottom.binding),
+              ariaKeyshortcut: ks('alignBottom'),
+              action: 'alignBottom',
+              disabled: dis('alignBottom'),
+            },
+            { label: '---' },
+            {
+              label: 'Distribute Horizontally',
+              shortcut: formatShortcut(SHORTCUT_DEFS.distributeHorizontal.binding),
+              ariaKeyshortcut: ks('distributeHorizontal'),
+              action: 'distributeHorizontal',
+              disabled: dis('distributeHorizontal'),
+            },
+            {
+              label: 'Distribute Vertically',
+              shortcut: formatShortcut(SHORTCUT_DEFS.distributeVertical.binding),
+              ariaKeyshortcut: ks('distributeVertical'),
+              action: 'distributeVertical',
+              disabled: dis('distributeVertical'),
+            },
+            { label: '---' },
+            {
+              label: 'Tidy Up',
+              action: 'tidySelected',
+              disabled: dis('tidySelected'),
+            },
+          ],
         },
-        {
-          label: 'Align Horizontal Center',
-          shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterH.binding),
-          ariaKeyshortcut: ks('alignCenterH'),
-          action: 'alignCenterH',
-          disabled: dis('bringFront'),
-        },
-        {
-          label: 'Align Right',
-          shortcut: formatShortcut(SHORTCUT_DEFS.alignRight.binding),
-          ariaKeyshortcut: ks('alignRight'),
-          action: 'alignRight',
-          disabled: dis('bringFront'),
-        },
-        {
-          label: 'Align Top',
-          shortcut: formatShortcut(SHORTCUT_DEFS.alignTop.binding),
-          ariaKeyshortcut: ks('alignTop'),
-          action: 'alignTop',
-          disabled: dis('bringFront'),
-        },
-        {
-          label: 'Align Vertical Center',
-          shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterV.binding),
-          ariaKeyshortcut: ks('alignCenterV'),
-          action: 'alignCenterV',
-          disabled: dis('bringFront'),
-        },
-        {
-          label: 'Align Bottom',
-          shortcut: formatShortcut(SHORTCUT_DEFS.alignBottom.binding),
-          ariaKeyshortcut: ks('alignBottom'),
-          action: 'alignBottom',
-          disabled: dis('bringFront'),
-        },
-        { label: '---' },
-        {
-          label: 'Distribute Horizontally',
-          shortcut: formatShortcut(SHORTCUT_DEFS.distributeHorizontal.binding),
-          ariaKeyshortcut: ks('distributeHorizontal'),
-          action: 'distributeHorizontal',
-          disabled: dis('bringFront'),
-        },
-        {
-          label: 'Distribute Vertically',
-          shortcut: formatShortcut(SHORTCUT_DEFS.distributeVertical.binding),
-          ariaKeyshortcut: ks('distributeVertical'),
-          action: 'distributeVertical',
-          disabled: dis('bringFront'),
-        },
-        { label: '---' },
         {
           label: 'Harmonize Spacing',
           shortcut: formatShortcut(SHORTCUT_DEFS.harmonizeSpacing.binding),
@@ -880,17 +968,39 @@ function buildMenus(state: {
     {
       id: 'Page',
       items: [
+        ...(currentPageIsMaster
+          ? [{ label: 'This page is a master page', disabled: true }]
+          : currentPageMasterId
+            ? [
+                {
+                  label: `Current Master: ${masterNames[currentPageMasterId] ?? 'Unknown'}`,
+                  disabled: true,
+                },
+              ]
+            : [{ label: 'No master applied', disabled: true }]),
+        { label: '---' },
         {
           label: 'Create Master',
           action: 'createMaster',
+          disabled: dis('createMaster'),
         },
+        { label: '---' },
+        ...Object.entries(masterNames)
+          .filter(([id]) => id !== activePageId)
+          .map(([id, name]) => ({
+            label: name,
+            action: `applyMaster:${id}`,
+          })),
+        ...(Object.keys(masterNames).length > 0 ? [{ label: '---' }] : []),
         {
-          label: 'Apply Master to Page',
-          action: 'applyMaster',
-          disabled: dis('applyMaster'),
+          label: 'None',
+          action: 'applyMaster:',
         },
+        { label: '---' },
         {
-          label: 'Detach Master from Page',
+          label: currentPageMasterId
+            ? `Detach from '${masterNames[currentPageMasterId] ?? 'Unknown'}'`
+            : 'Detach from Master',
           action: 'detachMaster',
           disabled: dis('detachMaster'),
         },
@@ -936,6 +1046,7 @@ function itemRole(item: MenuItem): string {
   if (item.action?.startsWith('workspace')) return 'menuitemradio';
   if (item.action === 'rulerModeArtboard' || item.action === 'rulerModeGlobal')
     return 'menuitemradio';
+  if (item.action?.startsWith('applyMaster')) return 'menuitemradio';
   return 'menuitem';
 }
 
@@ -947,6 +1058,7 @@ function itemAriaChecked(
     workspaceMode: string;
     colorBlindnessView: string;
     rulerMode: string;
+    document?: { activePageId?: string; pages?: Array<{ id: string; masterPageId?: string }> };
   },
 ): boolean | undefined {
   if (item.action?.startsWith('theme:')) {
@@ -965,7 +1077,102 @@ function itemAriaChecked(
   }
   if (item.action === 'rulerModeArtboard') return state.rulerMode === 'artboard';
   if (item.action === 'rulerModeGlobal') return state.rulerMode === 'global';
+  if (item.action?.startsWith('applyMaster:')) {
+    const targetId = item.action.slice('applyMaster:'.length);
+    const activePageId = state.document?.activePageId ?? null;
+    const activePage = activePageId
+      ? state.document?.pages?.find((p) => p.id === activePageId)
+      : null;
+    const currentMasterId = activePage?.masterPageId ?? null;
+    if (targetId === '') return currentMasterId == null;
+    return currentMasterId === targetId;
+  }
   return undefined;
+}
+
+/**
+ * Workspace visibility filter map — mirrors the workspaces annotations in
+ * menu/defs.ts. Maps action IDs to allowed workspace modes.
+ * Absent from this map = shown in all workspaces.
+ */
+const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
+  // Text menu — hidden in codegen
+  textBold: ['design', 'print', 'drawing', 'image', 'motion'],
+  textItalic: ['design', 'print', 'drawing', 'image', 'motion'],
+  textUnderline: ['design', 'print', 'drawing', 'image', 'motion'],
+  textIncreaseSize: ['design', 'print', 'drawing', 'image', 'motion'],
+  textDecreaseSize: ['design', 'print', 'drawing', 'image', 'motion'],
+  textAlignLeft: ['design', 'print', 'drawing', 'image', 'motion'],
+  textAlignCenter: ['design', 'print', 'drawing', 'image', 'motion'],
+  textAlignRight: ['design', 'print', 'drawing', 'image', 'motion'],
+  textAlignJustify: ['design', 'print', 'drawing', 'image', 'motion'],
+  textToOutlines: ['design', 'print', 'drawing'],
+
+  // View menu — mode-specific panels
+  inspectMode: ['design', 'print', 'drawing', 'image', 'motion'],
+  toggleTimelinePanel: ['design', 'motion'],
+  toggleGraphEditor: ['design', 'motion'],
+  toggleStateMachinePanel: ['design', 'motion'],
+  toggleBeforeAfterCompare: ['design', 'print', 'drawing', 'image'],
+
+  // Object menu — mode-specific
+  newAdjustmentLayer: ['design', 'print', 'image'],
+  createClippingMask: ['design', 'print', 'drawing', 'image'],
+  releaseClippingMask: ['design', 'print', 'drawing', 'image'],
+  batchBgRemove: ['design', 'image'],
+  toolCrop: ['design', 'print', 'image'],
+  extractPalette: ['design', 'drawing', 'image'],
+  addAlphaMask: ['design', 'print', 'drawing', 'image'],
+  addClipMask: ['design', 'print', 'drawing', 'image'],
+  addLuminanceMask: ['design', 'print', 'drawing', 'image'],
+  removeMask: ['design', 'print', 'drawing', 'image'],
+  toggleMask: ['design', 'print', 'drawing', 'image'],
+  invertMask: ['design', 'print', 'drawing', 'image'],
+  flattenSelection: ['design', 'print', 'drawing', 'image'],
+  rasterizeSelection: ['design', 'print', 'drawing', 'image'],
+  mergeSelected: ['design', 'print', 'drawing', 'image'],
+  booleanUnion: ['design', 'print', 'drawing'],
+  booleanSubtract: ['design', 'print', 'drawing'],
+  booleanIntersect: ['design', 'print', 'drawing'],
+  booleanExclude: ['design', 'print', 'drawing'],
+
+  // Page menu — multi-page only
+  createMaster: ['design', 'print'],
+  applyMaster: ['design', 'print'],
+  detachMaster: ['design', 'print'],
+};
+
+function filterMenusByWorkspace(
+  menus: { id: MenuId; items: MenuItem[] }[],
+  workspace: WorkspaceMode,
+  showAll: boolean,
+): { id: MenuId; items: MenuItem[] }[] {
+  if (showAll) return menus;
+
+  function shouldKeep(action: string | undefined): boolean {
+    if (!action) return true;
+    const allowed = WORKSPACE_ITEM_FILTER[action];
+    if (!allowed) return true;
+    return allowed.includes(workspace);
+  }
+
+  function filterItems(items: MenuItem[]): MenuItem[] {
+    return items.filter((item) => {
+      if (item.label === '---') return true;
+      if (!shouldKeep(item.action)) return false;
+      if (item.items) {
+        item.items = filterItems(item.items);
+      }
+      return true;
+    });
+  }
+
+  return menus
+    .map((menu) => ({ id: menu.id, items: filterItems(menu.items) }))
+    .filter((menu) => {
+      const visible = menu.items.filter((i) => i.label !== '---');
+      return visible.length > 0;
+    });
 }
 
 export function Menubar({
@@ -1010,7 +1217,7 @@ export function Menubar({
     assignMasterToPage,
     createMaster,
     toggleFacingPages,
-    setWorkspaceMode,
+    requestWorkspaceSwitch,
     toggleDistractionFreeMode,
     recordAction,
     createAdjustmentLayer,
@@ -1018,8 +1225,33 @@ export function Menubar({
     setShowArchiveDialog,
     platform,
   } = useEditor();
-  const menus = useMemo(
-    () => buildMenus(state),
+  const { entries: recentEntries, remove: removeRecent, clear: clearRecent } = useRecentFiles();
+  const showAllMenuItems = useMemo(() => {
+    try {
+      return loadSettings().appearance.showAllMenuItems;
+    } catch {
+      return false;
+    }
+  }, [state.workspaceMode]);
+
+  const nativeMenuAvailable = useMemo(() => {
+    try {
+      return typeof window !== 'undefined' && '__TAURI__' in window;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const isMac = useMemo(() => {
+    try {
+      return navigator.platform?.toLowerCase().includes('mac') ?? false;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const rawMenus = useMemo(
+    () => buildMenus(state, recentEntries),
     [
       state.selection,
       state.document.activePageId,
@@ -1035,20 +1267,55 @@ export function Menubar({
       state.beforeAfterCompare,
       state.rulerMode,
       state.snapEnabled,
+      recentEntries,
     ],
   );
 
+  const menus = useMemo(() => {
+    let filtered = filterMenusByWorkspace(
+      rawMenus,
+      state.workspaceMode as WorkspaceMode,
+      showAllMenuItems,
+    );
+    if (nativeMenuAvailable) {
+      filtered = filtered.filter((m) => m.id !== 'Edit' && m.id !== 'Help');
+      if (isMac) {
+        filtered = filtered.map((m) => {
+          if (m.id === 'File') {
+            return {
+              ...m,
+              items: m.items.filter(
+                (item) => item.action !== 'settings' && item.action !== 'about',
+              ),
+            };
+          }
+          return m;
+        });
+      }
+    }
+    return filtered;
+  }, [rawMenus, state.workspaceMode, showAllMenuItems, nativeMenuAvailable, isMac]);
+
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
+  const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
   const menuRef = useRef<HTMLDivElement>(null);
   const dropdownMenuRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef<HTMLDivElement>(null);
   const topLevelRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [activeItemIndex, setActiveItemIndex] = useState(0);
+  const [activeSubmenuIndex, setActiveSubmenuIndex] = useState(0);
   const [editingName, setEditingName] = useState(false);
   const [confirmNewDoc, setConfirmNewDoc] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
+  const [missingFileDialog, setMissingFileDialog] = useState<{
+    message: string;
+    entryId: string;
+  } | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const typeaheadRef = useRef('');
+  const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('strata-theme') as Theme | null;
@@ -1086,6 +1353,24 @@ export function Menubar({
     }
   }, [openMenu, activeItemIndex]);
 
+  useEffect(() => {
+    return () => {
+      if (typeaheadTimerRef.current !== null) {
+        clearTimeout(typeaheadTimerRef.current);
+        typeaheadTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (openMenu) {
+      setOpenMenu(null);
+      setOpenSubmenu(null);
+      setActiveItemIndex(0);
+      setActiveSubmenuIndex(0);
+    }
+  }, [state.workspaceMode]);
+
   const openMenuIndex = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
   const openMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
   openMenuAnchorRef.current =
@@ -1107,10 +1392,94 @@ export function Menubar({
     }
   }, [nameDraft, state.document.name, serializeDocument, loadDocument]);
 
+  const openRecentFile = useCallback(
+    async (entry: RecentEntry) => {
+      if (entry.locator.kind === 'path') {
+        if (typeof window !== 'undefined' && '__TAURI__' in window) {
+          try {
+            const { invoke } = await import('@tauri-apps/api/core');
+            await invoke('plugin:fs|stat', { path: entry.locator.path });
+            const text = await invoke<string>('home_read_text_file', {
+              path: entry.locator.path,
+            });
+            loadDocument(text, { name: entry.label, filePath: entry.locator.path });
+            return;
+          } catch {
+            setMissingFileDialog({
+              message: `Couldn't find ${entry.label} — it may have been moved or deleted`,
+              entryId: entry.id,
+            });
+            return;
+          }
+        }
+        loadDocument('', { name: entry.label });
+        return;
+      }
+
+      if (entry.locator.kind === 'fsHandle') {
+        try {
+          const { loadHandle } = await import('./recentFiles/store');
+          const handle = await loadHandle(entry.locator.handleKey);
+          if (!handle) {
+            setMissingFileDialog({
+              message: `Couldn't find ${entry.label} — the file reference was lost`,
+              entryId: entry.id,
+            });
+            return;
+          }
+          const state = await handle.queryPermission({ mode: 'read' });
+          if (state === 'denied') {
+            setMissingFileDialog({
+              message: `Permission denied for ${entry.label}. Try opening it from the file dialog.`,
+              entryId: entry.id,
+            });
+            return;
+          }
+          if (state === 'prompt') {
+            const result = await handle.requestPermission({ mode: 'read' });
+            if (result !== 'granted') {
+              setMissingFileDialog({
+                message: `Permission denied for ${entry.label}.`,
+                entryId: entry.id,
+              });
+              return;
+            }
+          }
+          const file = await handle.getFile();
+          const text = await file.text();
+          loadDocument(text, { name: entry.label });
+        } catch (err) {
+          if (err instanceof DOMException && err.name === 'NotFoundError') {
+            setMissingFileDialog({
+              message: `${entry.label} no longer exists on disk.`,
+              entryId: entry.id,
+            });
+            return;
+          }
+          setMissingFileDialog({
+            message: `Failed to open ${entry.label}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+            entryId: entry.id,
+          });
+        }
+        return;
+      }
+
+      loadDocument('', { name: entry.label });
+    },
+    [loadDocument],
+  );
+
   const handleAction = useCallback(
     (action: string) => {
       setOpenMenu(null);
       recordAction(`menu:${action}`);
+
+      if (action.startsWith('recent:')) {
+        const id = action.slice(7);
+        const entry = recentEntries.find((e) => e.id === id);
+        if (entry) void openRecentFile(entry);
+        return;
+      }
 
       // Menubar-specific actions (not in the registry or with different behavior)
       switch (action) {
@@ -1119,6 +1488,14 @@ export function Menubar({
           return;
         case 'settings':
           onOpenSettings?.();
+          return;
+        case 'clearRecent':
+          clearRecent();
+          return;
+        case 'reopenLast':
+          if (recentEntries.length > 0) {
+            void openRecentFile(recentEntries[0]);
+          }
           return;
         case 'startTour':
           onStartTour?.();
@@ -1191,9 +1568,10 @@ export function Menubar({
           return;
         case 'applyMaster': {
           const activeId = state.document.activePageId;
-          const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
-          if (activeId && masterEntries.length > 0) {
-            assignMasterToPage(activeId, masterEntries[0]!);
+          if (activeId) {
+            const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
+            const first = masterEntries.find((id) => id !== activeId);
+            if (first) assignMasterToPage(activeId, first);
           }
           return;
         }
@@ -1211,6 +1589,14 @@ export function Menubar({
             setCurrentTheme(theme);
             localStorage.setItem('strata-theme', theme);
             bumpThemeRevision();
+            return;
+          }
+          if (action.startsWith('applyMaster:')) {
+            const masterId = action.slice('applyMaster:'.length);
+            const activeId = state.document.activePageId;
+            if (activeId) {
+              assignMasterToPage(activeId, masterId || null);
+            }
             return;
           }
           break;
@@ -1241,6 +1627,7 @@ export function Menubar({
     },
     [
       state,
+      recentEntries,
       onBackToHome,
       onOpenSettings,
       onStartTour,
@@ -1261,10 +1648,12 @@ export function Menubar({
       assignMasterToPage,
       createMaster,
       toggleFacingPages,
-      setWorkspaceMode,
+      requestWorkspaceSwitch,
       toggleDistractionFreeMode,
       recordAction,
       createAdjustmentLayer,
+      openRecentFile,
+      clearRecent,
     ],
   );
 
@@ -1282,15 +1671,99 @@ export function Menubar({
 
   // ─── keyboard navigation ──────────────────────────────────────────────
 
+  const currentSubmenuItems = useMemo(() => {
+    if (openSubmenu === null || openMenuIndex < 0) return [];
+    const item = menus[openMenuIndex]?.items[openSubmenu];
+    if (!item?.items) return [];
+    return item.items;
+  }, [openSubmenu, openMenuIndex, menus]);
+
   const handleMenuKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
+
+      if (openSubmenu !== null) {
+        // Submenu is open
+        const subItems = currentSubmenuItems.filter((i) => i.label !== '---');
+
+        switch (e.key) {
+          case 'ArrowDown':
+          case 'ArrowUp': {
+            e.preventDefault();
+            const dir = e.key === 'ArrowDown' ? 1 : -1;
+            setActiveSubmenuIndex((prev) => {
+              const next = prev + dir;
+              if (next < 0) return subItems.length - 1;
+              if (next >= subItems.length) return 0;
+              return next;
+            });
+            return;
+          }
+          case 'Enter':
+          case ' ': {
+            e.preventDefault();
+            const item = subItems[activeSubmenuIndex];
+            if (item?.action) handleAction(item.action);
+            return;
+          }
+          case 'ArrowLeft':
+          case 'Escape': {
+            e.preventDefault();
+            setOpenSubmenu(null);
+            setActiveSubmenuIndex(0);
+            return;
+          }
+        }
+        return;
+      }
 
       if (openIdx >= 0 && openMenu) {
         // Dropdown is open — navigate items
         const menu = menus[openIdx];
         if (!menu) return;
         const items = menu.items.filter((i) => i.label !== '---');
+
+        function resetTypeahead() {
+          typeaheadRef.current = '';
+          if (typeaheadTimerRef.current !== null) {
+            clearTimeout(typeaheadTimerRef.current);
+            typeaheadTimerRef.current = null;
+          }
+        }
+
+        if (shouldTypeAhead(e, typeaheadRef.current)) {
+          clearTimeout(typeaheadTimerRef.current ?? undefined);
+          typeaheadRef.current += e.key;
+          typeaheadTimerRef.current = setTimeout(() => {
+            typeaheadRef.current = '';
+          }, getTypeAheadResetMs());
+
+          const matchIdx = matchMenuTypeAhead(
+            typeaheadRef.current,
+            items.map((item) => ({
+              label: item.label,
+              disabled: item.disabled ?? false,
+            })),
+            activeItemIndex,
+          );
+          if (matchIdx !== null) {
+            e.preventDefault();
+            setActiveItemIndex(matchIdx);
+            setTimeout(() => {
+              const menuEl = dropdownMenuRef.current;
+              if (!menuEl) return;
+              const targetItems = menuEl.querySelectorAll<HTMLButtonElement>(
+                '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]',
+              );
+              targetItems[matchIdx]?.scrollIntoView({ block: 'nearest' });
+            }, 0);
+          }
+          return;
+        }
+
+        if (isResetKey(e)) {
+          resetTypeahead();
+        }
 
         switch (e.key) {
           case 'ArrowDown':
@@ -1309,30 +1782,45 @@ export function Menubar({
           case ' ': {
             e.preventDefault();
             const item = items[activeItemIndex];
-            if (item?.action) handleAction(item.action);
+            if (item?.items) {
+              setOpenSubmenu(activeItemIndex);
+              setActiveSubmenuIndex(0);
+            } else if (item?.action) {
+              handleAction(item.action);
+            }
+            return;
+          }
+          case 'ArrowRight': {
+            e.preventDefault();
+            const item = items[activeItemIndex];
+            if (item?.items) {
+              setOpenSubmenu(activeItemIndex);
+              setActiveSubmenuIndex(0);
+            } else {
+              const next = (openIdx + 1) % menus.length;
+              setOpenMenu(menus[next]?.id ?? null);
+              setActiveItemIndex(0);
+              setFocusedIndex(next);
+            }
+            return;
+          }
+          case 'ArrowLeft': {
+            e.preventDefault();
+            if (openSubmenu === null) {
+              const prev = (openIdx - 1 + menus.length) % menus.length;
+              setOpenMenu(menus[prev]?.id ?? null);
+              setActiveItemIndex(0);
+              setFocusedIndex(prev);
+            }
             return;
           }
           case 'Escape': {
             e.preventDefault();
             setOpenMenu(null);
+            setOpenSubmenu(null);
             setActiveItemIndex(0);
+            setActiveSubmenuIndex(0);
             topLevelRefs.current[openIdx]?.focus();
-            return;
-          }
-          case 'ArrowLeft': {
-            e.preventDefault();
-            const prev = (openIdx - 1 + menus.length) % menus.length;
-            setOpenMenu(menus[prev]?.id ?? null);
-            setActiveItemIndex(0);
-            setFocusedIndex(prev);
-            return;
-          }
-          case 'ArrowRight': {
-            e.preventDefault();
-            const next = (openIdx + 1) % menus.length;
-            setOpenMenu(menus[next]?.id ?? null);
-            setActiveItemIndex(0);
-            setFocusedIndex(next);
             return;
           }
           case 'Home': {
@@ -1387,7 +1875,15 @@ export function Menubar({
         }
       }
     },
-    [openMenu, focusedIndex, activeItemIndex, handleAction],
+    [
+      openMenu,
+      focusedIndex,
+      activeItemIndex,
+      handleAction,
+      openSubmenu,
+      activeSubmenuIndex,
+      currentSubmenuItems,
+    ],
   );
 
   return (
@@ -1439,7 +1935,9 @@ export function Menubar({
           open
           onClose={() => {
             setOpenMenu(null);
+            setOpenSubmenu(null);
             setActiveItemIndex(0);
+            setActiveSubmenuIndex(0);
           }}
           className="editor-menubar__menu"
         >
@@ -1455,23 +1953,99 @@ export function Menubar({
               const isActive =
                 (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
                 isChecked;
+              const hasSubmenu = !!item.items;
+              const isSubmenuOpen = openSubmenu === itemIdx;
               return (
-                // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec
-                <button
+                <div
                   key={item.label}
-                  role={role}
-                  type="button"
-                  aria-checked={isChecked}
-                  aria-keyshortcuts={item.ariaKeyshortcut}
-                  disabled={item.disabled}
-                  className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}`}
-                  onClick={() => handleAction(item.action ?? '')}
+                  role="none"
+                  className="editor-menubar__menu-item-wrapper"
+                  onMouseEnter={() => {
+                    if (hasSubmenu) {
+                      setOpenSubmenu(itemIdx);
+                      setActiveSubmenuIndex(0);
+                    }
+                  }}
                 >
-                  <span className="editor-menubar__menu-label">{item.label}</span>
-                  {item.shortcut && (
-                    <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                  // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec
+                  <button
+                    role={hasSubmenu ? 'menuitem' : role}
+                    type="button"
+                    aria-haspopup={hasSubmenu ? true : undefined}
+                    aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
+                    aria-checked={hasSubmenu ? undefined : isChecked}
+                    aria-keyshortcuts={item.ariaKeyshortcut}
+                    disabled={item.disabled && !hasSubmenu}
+                    className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
+                    onClick={() => {
+                      if (hasSubmenu) {
+                        setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                        setActiveSubmenuIndex(0);
+                      } else {
+                        handleAction(item.action ?? '');
+                      }
+                    }}
+                  >
+                    <span className="editor-menubar__menu-label">{item.label}</span>
+                    {hasSubmenu && (
+                      <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
+                    )}
+                    {!hasSubmenu && item.shortcut && (
+                      <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                    )}
+                  </button>
+                  {hasSubmenu && isSubmenuOpen && item.items && (
+                    <FloatingPortal
+                      anchorRef={dropdownMenuRef}
+                      open
+                      onClose={() => {
+                        setOpenSubmenu(null);
+                        setActiveSubmenuIndex(0);
+                      }}
+                      className="editor-menubar__submenu"
+                    >
+                      <div ref={submenuRef} role="menu" aria-label={item.label}>
+                        {item.items.map((subItem, subIdx) => {
+                          if (subItem.label === '---') {
+                            return (
+                              <hr
+                                key={`subsep-${subIdx}`}
+                                className="editor-menubar__menu-sep"
+                                tabIndex={-1}
+                              />
+                            );
+                          }
+                          const subRole = itemRole(subItem);
+                          const subChecked = itemAriaChecked(subItem, state);
+                          const subActive =
+                            (subItem.action?.startsWith('theme:') &&
+                              currentTheme === subItem.action.slice(6)) ||
+                            subChecked;
+                          return (
+                            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec
+                            <button
+                              key={subItem.label}
+                              role={subRole}
+                              type="button"
+                              aria-checked={subChecked}
+                              aria-keyshortcuts={subItem.ariaKeyshortcut}
+                              disabled={subItem.disabled}
+                              className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
+                              onClick={() => handleAction(subItem.action ?? '')}
+                            >
+                              <span className="editor-menubar__menu-label">{subItem.label}</span>
+                              {subItem.shortcut && (
+                                <span className="editor-menubar__menu-shortcut">
+                                  {subItem.shortcut}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </FloatingPortal>
                   )}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -1542,7 +2116,7 @@ export function Menubar({
                     name="workspace-mode"
                     value={mode}
                     checked={state.workspaceMode === mode}
-                    onChange={() => setWorkspaceMode(mode)}
+                    onChange={() => requestWorkspaceSwitch(mode)}
                     className="sr-only"
                   />
                   <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
@@ -1592,6 +2166,22 @@ export function Menubar({
         title="New Document"
         description="Create a new document? Unsaved changes will be lost."
         confirmLabel="Create"
+        variant="danger"
+      />
+
+      <AlertDialog
+        open={missingFileDialog !== null}
+        onClose={() => setMissingFileDialog(null)}
+        onConfirm={() => {
+          const entryId = missingFileDialog?.entryId;
+          setMissingFileDialog(null);
+          if (entryId) removeRecent(entryId);
+        }}
+        onCancel={() => setMissingFileDialog(null)}
+        title="File Not Found"
+        description={missingFileDialog?.message ?? ''}
+        confirmLabel="Remove from List"
+        cancelLabel="Keep in List"
         variant="danger"
       />
 
