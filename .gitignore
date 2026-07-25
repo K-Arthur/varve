@@ -44,6 +44,12 @@ Thumbs.db
 /*_MEMORY.md
 /CONTINUATION.md
 
+# --- Temporary hygiene audit progress ---
+/docs/repository-hygiene-progress.md
+
+# --- CI debug reports (generated, one-off) ---
+/ci-debug-report-*.md
+
 # --- Build caches / tmp ---
 .tmp/
 
