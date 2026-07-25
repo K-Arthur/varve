@@ -1,5 +1,9 @@
 # Product Truth Matrix — Strata Website Phase A Discovery
 
+> **Note:** This document predates the project's licensing decisions and
+> describes the project as AGPL-3.0-or-later. See `LICENSE` for the current
+> license (FSL-1.1-MIT).
+
 **Date:** 2026-07-08  
 **Purpose:** Evidence-based audit to prevent fictional marketing claims. Only claims with code evidence are safe to market.
 

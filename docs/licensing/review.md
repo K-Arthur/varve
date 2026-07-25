@@ -6,6 +6,35 @@
 
 ---
 
+## Migration Decision — 2026-07-25
+
+**Superseding decision:** Strata has moved from BSL-1.1 to the **Functional
+Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)**, with a
+**two-year** change date (not BSL's four-year window). This supersedes the
+"Primary Recommendation: Option B — Source-Available with BSL 1.1" section
+below; the analysis there remains useful context for *why* a source-available
+license was chosen at all, but every reference to BSL 1.1 specifically, the
+Additional Use Grant mechanism, and the four-year (or "3 years" / "3-4 years")
+change-date figures appearing later in this document reflects the prior
+BSL-era decision, not the current license.
+
+**Why FSL over BSL:** BSL's Additional Use Grant is bespoke text written per
+adopter, which undermines the predictability that made BSL-style licensing
+attractive in the first place — this is precisely the flaw Sentry built FSL
+to fix by freezing the Permitted Purpose / Competing Use language. FSL's
+default two-year window (vs. BSL's four) was adopted as-is, since Strata's
+Pro edition does not yet exist and there is no commercial urgency favoring a
+longer window; a shorter window also builds more goodwill and is easier to
+explain in one sentence.
+
+**What actually changed:** `LICENSE`, all workspace `package.json`/`Cargo.toml`
+license fields, and every doc/website page describing the license. See git
+history from 2026-07-25 onward for the specific commits. This document's
+historical BSL/AGPL analysis (below) has not been line-edited and should be
+read as the reasoning trail that led here, not the current state.
+
+---
+
 ## Executive Summary
 
 Strata is currently distributed without a licence file. The root `package.json` and

@@ -1,5 +1,9 @@
 # Website Strategy — Phase C
 
+> **Note:** This document predates the project's licensing decisions and
+> describes the project as AGPL-3.0-or-later. See `LICENSE` for the current
+> license (FSL-1.1-MIT).
+
 **Date:** 2026-07-08  
 **Purpose:** Evidence-based website strategy for Strata's public product presence, grounded in Phase A (Product Truth Matrix) and Phase B (Research Findings).
 
