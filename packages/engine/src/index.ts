@@ -22,6 +22,13 @@ export type { Histogram, HistogramStats } from './adjustment/histogram';
 export { autoLevelsParams, computeHistogram } from './adjustment/histogram';
 export type { LevelParams } from './adjustment/levels';
 export type { SelectiveColorParams, SelectiveColorTarget } from './adjustment/selectiveColor';
+export {
+  anyRequiresRasterExport,
+  effectPixelExpansion,
+  getFilterProperties,
+  requiresRasterExport,
+  totalEffectExpansion,
+} from './adjustmentPipeline';
 export type { AlphaContour, ContourOptions, ContourShapeNodeData } from './alphaContour';
 export { alphaContoursToShapeNodes, extractAlphaContours } from './alphaContour';
 export type {
@@ -147,6 +154,28 @@ export {
 } from './colourWasm';
 export type { CompositeCanvasOptions } from './compositeCanvas';
 export { blendPixels as canvasBlendPixels, CompositeCanvas, mapBlendMode } from './compositeCanvas';
+// ── Content-Aware Fill ─────────────────────────────────────────────
+export type {
+  ContentAwareFillOptions,
+  ContentAwareFillOutputMode,
+  ContentAwareFillQuality,
+  ContentAwareFillResult,
+  FillTransform,
+} from './contentAwareFill';
+export {
+  applyFillTransform,
+  compositeFillResult,
+  computeFillOffset,
+  computeMaskBounds,
+  extractBoundedContext,
+  mapMaskThroughTransform,
+  patchMatchFill,
+  QUALITY_DESCRIPTIONS,
+  QUALITY_LABELS,
+  runContentAwareFillPipeline,
+  runLaMaInference,
+  unmapFillResult,
+} from './contentAwareFill';
 export type {
   DenoiseOptions,
   DenoiseResult,
@@ -159,6 +188,13 @@ export type {
   DenoiseTileResult,
 } from './denoiseProviders/types';
 export { applyDuotone, type DuotoneParams } from './duotone';
+export type { EffectContractEntry, QualityTier, WorkingSpace } from './effectContract';
+export {
+  anyLinearLightEffect,
+  getEffectContract,
+  getEffectContracts,
+  requiresColorManagedPipeline,
+} from './effectContract';
 export {
   applyBackgroundBlurBackdrop,
   applyChromaticAberration,
@@ -172,6 +208,7 @@ export type { Engine } from './engine';
 export { applyStyleOverrides, createEngine } from './engine';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
+export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
   Adjustment,
@@ -456,9 +493,22 @@ export {
   setLum,
   setSat,
 } from './nonSeparable';
+export { getOcrModelConfig, validateDictionary } from './ocrPipeline/modelMetadata';
+export {
+  detectOrientationFromPixels,
+  detectOrientationFromRegions,
+  mapCoordsThroughRotation,
+  rotateImageData,
+} from './ocrPipeline/orientation';
 // ── OCR (PaddleOCR v4) ───────────────────────────────────────────────
 export { runOcrPipeline } from './ocrPipeline/pipeline';
-export type { OcrOptions, OcrResult, OcrWord } from './ocrPipeline/types';
+export type {
+  OcrModelConfig,
+  OcrOptions,
+  OcrResult,
+  OcrWord,
+  OrientationResult,
+} from './ocrPipeline/types';
 export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
@@ -516,8 +566,29 @@ export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './text
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
 export { applyThreshold, type ThresholdParams } from './threshold';
+export type { ThumbnailCapabilities } from './thumbnail/index';
+export {
+  getThumbnailCapabilities,
+  hasAnyCanvas,
+  hasCreateImageBitmap,
+  hasDomCanvas,
+  hasFileReader,
+  hasImageEncoding,
+  hasOffscreenCanvas,
+  hasWorkerSupport,
+  setThumbnailCapabilitiesForTest,
+} from './thumbnail/index';
 export type { ThumbnailOptions } from './thumbnail';
 export { renderThumbnail } from './thumbnail';
+export type {
+  ThumbnailBackground,
+  ThumbnailFit,
+  ThumbnailMetadata,
+  ThumbnailOptions as UnifiedThumbnailOptions,
+  ThumbnailResult,
+  ThumbnailSource,
+} from './thumbnail/index';
+export { generateThumbnail } from './thumbnail/index';
 export type { BezierFitOptions } from './traceBezierFit';
 export { fitBezierToContour } from './traceBezierFit';
 export { traceSceneNodeOutline } from './tracing';

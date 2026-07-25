@@ -27,6 +27,7 @@ function recorder(): RecorderProxy {
     transform: mk('transform'),
     translate: mk('translate'),
     rotate: mk('rotate'),
+    scale: mk('scale'),
     fillRect: mk('fillRect'),
     strokeRect: mk('strokeRect'),
     beginPath: mk('beginPath'),
@@ -179,6 +180,9 @@ class Recorder implements ReplayTarget {
   }
   rotate(angle: number) {
     this.calls.push(`rotate(${angle})`);
+  }
+  scale(x: number, y: number) {
+    this.calls.push(`scale(${x},${y})`);
   }
   fillRect(x: number, y: number, w: number, h: number) {
     this.calls.push(`fillRect(${x},${y},${w},${h})`);
@@ -899,6 +903,7 @@ describe('replayIr', () => {
         transform: vi.fn(),
         translate: vi.fn(),
         rotate: vi.fn(),
+        scale: vi.fn(),
         fillRect: vi.fn(),
         strokeRect: vi.fn(),
         rect: vi.fn(),

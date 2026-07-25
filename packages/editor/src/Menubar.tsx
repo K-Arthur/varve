@@ -8,18 +8,24 @@ import {
 } from '@strata/ui';
 import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
+import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
+import { ArchiveDialog } from './components/Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from './context';
-import { formatShortcut, SHORTCUT_DEFS } from './shortcuts';
+import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
-type MenuId = 'File' | 'Edit' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Plugins' | 'Help';
+type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
 interface MenuItem {
   label: string;
   shortcut?: string;
   action?: string;
+  /** Dynamic disabled state — computed per render from editor state. */
+  disabled?: boolean;
+  /** ARIA keyshortcut string for screen readers (e.g. "Ctrl+G"). */
+  ariaKeyshortcut?: string;
 }
 
 const THEMES: { id: Theme; label: string }[] = [
@@ -28,378 +34,938 @@ const THEMES: { id: Theme; label: string }[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ];
 
-const MENUS: { id: MenuId; items: MenuItem[] }[] = [
-  {
-    id: 'File',
-    items: [
-      { label: 'New', shortcut: formatShortcut(SHORTCUT_DEFS.newDocument.binding), action: 'new' },
-      { label: 'Open\u2026', shortcut: formatShortcut(SHORTCUT_DEFS.open.binding), action: 'open' },
-      { label: 'Save', shortcut: formatShortcut(SHORTCUT_DEFS.save.binding), action: 'save' },
-      {
-        label: 'Save As\u2026',
-        shortcut: formatShortcut(SHORTCUT_DEFS.saveAs.binding),
-        action: 'saveAs',
-      },
-      {
-        label: 'Export SVG\u2026',
-        shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
-        action: 'exportSvg',
-      },
-      {
-        label: 'Import\u2026',
-        shortcut: '\u2318I',
-        action: 'import',
-      },
-      {
-        label: 'Export\u2026',
-        shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
-        action: 'export',
-      },
-      { label: '---' },
-      {
-        label: 'Present\u2026',
-        shortcut: '\u21E7\u2318P',
-        action: 'present',
-      },
-      { label: '---' },
-      {
-        label: 'Settings\u2026',
-        shortcut: formatShortcut(SHORTCUT_DEFS.settings.binding),
-        action: 'settings',
-      },
-    ],
-  },
-  {
-    id: 'Edit',
-    items: [
-      { label: 'Undo', shortcut: formatShortcut(SHORTCUT_DEFS.undo.binding), action: 'undo' },
-      { label: 'Redo', shortcut: formatShortcut(SHORTCUT_DEFS.redo.binding), action: 'redo' },
-      { label: '---' },
-      { label: 'Cut', shortcut: formatShortcut(SHORTCUT_DEFS.cut.binding), action: 'cut' },
-      { label: 'Copy', shortcut: formatShortcut(SHORTCUT_DEFS.copy.binding), action: 'copy' },
-      { label: 'Paste', shortcut: formatShortcut(SHORTCUT_DEFS.paste.binding), action: 'paste' },
-      {
-        label: 'Duplicate',
-        shortcut: formatShortcut(SHORTCUT_DEFS.duplicate.binding),
-        action: 'duplicate',
-      },
-      { label: '---' },
-      {
-        label: 'Select All',
-        shortcut: formatShortcut(SHORTCUT_DEFS.selectAll.binding),
-        action: 'selectAll',
-      },
-      { label: 'Delete', shortcut: '\u232B', action: 'delete' },
-    ],
-  },
-  {
-    id: 'View',
-    items: [
-      ...THEMES.map((t) => ({
-        label: t.label,
-        action: `theme:${t.id}`,
-      })),
-      { label: '---' },
-      {
-        label: 'Zoom to 100%',
-        shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
-        action: 'zoomReset',
-      },
-      {
-        label: 'Inspect Mode',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
-        action: 'inspectMode',
-      },
-      { label: '---' },
-      {
-        label: 'Keyboard Shortcuts',
-        shortcut: formatShortcut(SHORTCUT_DEFS.shortcutPalette.binding),
-        action: 'shortcutPalette',
-      },
-      {
-        label: 'Toggle Snap',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
-        action: 'toggleSnap',
-      },
-      {
-        label: 'Show Guides',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toggleGuidesVisible.binding),
-        action: 'toggleGuidesVisible',
-      },
-      {
-        label: 'Lock All Guides',
-        shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
-        action: 'lockAllGuides',
-      },
-      { label: '---' },
-      {
-        label: 'Facing Pages',
-        action: 'toggleFacingPages',
-      },
-      {
-        label: 'Soft Proofing',
-        shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
-        action: 'softProof',
-      },
-      {
-        label: 'Timeline Panel',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
-        action: 'toggleTimelinePanel',
-      },
-      {
-        label: 'Graph Editor',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
-        action: 'toggleGraphEditor',
-      },
-      { label: '---' },
-      {
-        label: 'Clear All Guides',
-        action: 'clearGuides',
-      },
-      { label: '---' },
-      {
-        label: 'Outline Mode',
-        shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeOutline.binding),
-        action: 'canvasModeOutline',
-      },
-      {
-        label: 'Preview Mode',
-        shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
-        action: 'canvasModePreview',
-      },
-      { label: '---' },
-      { label: 'Workspace: Design', action: 'workspaceDesign' },
-      { label: 'Workspace: Print', action: 'workspacePrint' },
-      { label: 'Workspace: Draw', action: 'workspaceDrawing' },
-      { label: 'Workspace: Photo', action: 'workspaceImage' },
-      { label: 'Workspace: Motion', action: 'workspaceMotion' },
-      {
-        label: 'Reset Workspace to Default',
-        action: 'resetWorkspace',
-      },
-      { label: '---' },
-      {
-        label: 'Distraction-Free Mode',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toggleDistractionFree.binding),
-        action: 'toggleDistractionFree',
-      },
-      {
-        label: 'Compare Before/After',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toggleBeforeAfterCompare.binding),
-        action: 'toggleBeforeAfterCompare',
-      },
-      { label: '---' },
-      {
-        label: 'Fit Active Page',
-        shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
-        action: 'fitActivePage',
-      },
-      {
-        label: 'Fit Active Frame',
-        shortcut: formatShortcut(SHORTCUT_DEFS.fitActiveFrame.binding),
-        action: 'fitActiveFrame',
-      },
-      {
-        label: 'Reset View Rotation',
-        shortcut: formatShortcut(SHORTCUT_DEFS.resetViewRotation.binding),
-        action: 'resetViewRotation',
-      },
-      {
-        label: 'Rotate View Clockwise',
-        shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCW.binding),
-        action: 'rotateViewCW',
-      },
-      {
-        label: 'Rotate View Counter-clockwise',
-        shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCCW.binding),
-        action: 'rotateViewCCW',
-      },
-      {
-        label: 'Artboard Ruler Origin',
-        action: 'rulerModeArtboard',
-      },
-      {
-        label: 'Global Ruler Origin',
-        action: 'rulerModeGlobal',
-      },
-      {
-        label: 'Baseline Grid Overlay',
-        shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayBaseline.binding),
-        action: 'gridOverlayBaseline',
-      },
-      {
-        label: 'Isometric Grid Overlay',
-        shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayIsometric.binding),
-        action: 'gridOverlayIsometric',
-      },
-      { label: '---' },
-      {
-        label: '\u2616 Color Blindness: None',
-        action: 'colorBlindnessNone',
-        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessNone.binding),
-      },
-      {
-        label: '\u2616 Protanopia (red)',
-        action: 'colorBlindnessProtanopia',
-        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessProtanopia.binding),
-      },
-      {
-        label: '\u2616 Deuteranopia (green)',
-        action: 'colorBlindnessDeuteranopia',
-        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessDeuteranopia.binding),
-      },
-      {
-        label: '\u2616 Tritanopia (blue)',
-        action: 'colorBlindnessTritanopia',
-        shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessTritanopia.binding),
-      },
-      { label: '---' },
-      {
-        label: 'Home',
-        shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
-        action: 'home',
-      },
-    ],
-  },
-  {
-    id: 'Object',
-    items: [
-      { label: 'Group', shortcut: formatShortcut(SHORTCUT_DEFS.group.binding), action: 'group' },
-      {
-        label: 'Ungroup',
-        shortcut: formatShortcut(SHORTCUT_DEFS.ungroup.binding),
-        action: 'ungroup',
-      },
-      { label: '---' },
-      {
-        label: 'New Adjustment Layer',
-        shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
-        action: 'newAdjustmentLayer',
-      },
-      {
-        label: 'Create Clipping Mask',
-        shortcut: formatShortcut(SHORTCUT_DEFS.createClippingMask.binding),
-        action: 'createClippingMask',
-      },
-      {
-        label: 'Release Clipping Mask',
-        shortcut: formatShortcut(SHORTCUT_DEFS.releaseClippingMask.binding),
-        action: 'releaseClippingMask',
-      },
-      { label: 'Remove Background...', action: 'batchBgRemove' },
-      {
-        label: 'Crop Image',
-        shortcut: formatShortcut(SHORTCUT_DEFS.toolCrop.binding),
-        action: 'toolCrop',
-      },
-      { label: 'Extract Palette', action: 'extractPalette' },
-      { label: '---' },
-      { label: 'Audit', action: 'runAudit' },
-      { label: 'Scan for Debt', action: 'scanDebt' },
-      { label: 'Suggest Names', action: 'suggestNames' },
-      { label: 'Detect Duplicates', action: 'detectDuplicates' },
-      { label: '---' },
-      { label: 'Add Alpha Mask', action: 'addAlphaMask' },
-      { label: 'Add Clip Mask', action: 'addClipMask' },
-      { label: 'Add Luminance Mask', action: 'addLuminanceMask' },
-      { label: 'Remove Mask', action: 'removeMask' },
-      { label: 'Toggle Mask', action: 'toggleMask' },
-      { label: 'Invert Mask', action: 'invertMask' },
-      { label: '---' },
-      {
-        label: 'Union',
-        shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
-        action: 'booleanUnion',
-      },
-      {
-        label: 'Subtract',
-        shortcut: formatShortcut(SHORTCUT_DEFS.booleanSubtract.binding),
-        action: 'booleanSubtract',
-      },
-      {
-        label: 'Intersect',
-        shortcut: formatShortcut(SHORTCUT_DEFS.booleanIntersect.binding),
-        action: 'booleanIntersect',
-      },
-      {
-        label: 'Exclude',
-        shortcut: formatShortcut(SHORTCUT_DEFS.booleanExclude.binding),
-        action: 'booleanExclude',
-      },
-    ],
-  },
-  {
-    id: 'Arrange',
-    items: [
-      {
-        label: 'Bring to Front',
-        shortcut: formatShortcut(SHORTCUT_DEFS.bringFront.binding),
-        action: 'bringFront',
-      },
-      {
-        label: 'Bring Forward',
-        shortcut: formatShortcut(SHORTCUT_DEFS.bringForward.binding),
-        action: 'bringForward',
-      },
-      {
-        label: 'Send Backward',
-        shortcut: formatShortcut(SHORTCUT_DEFS.sendBackward.binding),
-        action: 'sendBackward',
-      },
-      {
-        label: 'Send to Back',
-        shortcut: formatShortcut(SHORTCUT_DEFS.sendBack.binding),
-        action: 'sendBack',
-      },
-      {
-        label: 'Harmonize Spacing',
-        shortcut: formatShortcut(SHORTCUT_DEFS.harmonizeSpacing.binding),
-        action: 'harmonizeSpacing',
-      },
-    ],
-  },
-  {
-    id: 'Page',
-    items: [
-      {
-        label: 'Create Master',
-        action: 'createMaster',
-      },
-      {
-        label: 'Apply Master to Page',
-        action: 'applyMaster',
-      },
-      {
-        label: 'Detach Master from Page',
-        action: 'detachMaster',
-      },
-      { label: '---' },
-      {
-        label: 'Facing Pages',
-        action: 'toggleFacingPages',
-      },
-    ],
-  },
-  { id: 'Plugins', items: [{ label: 'No plugins loaded', action: '' }] },
-  {
-    id: 'Help',
-    items: [
-      { label: 'Contextual help', shortcut: 'F1', action: 'openHelp' },
-      { label: 'Help center', shortcut: 'Ctrl+Shift+F1', action: 'openHelpCenter' },
-      { label: "What's this?", shortcut: 'Shift+F1', action: 'whatIsThis' },
-      { label: 'Take a tour', action: 'startTour' },
-      { label: '---' },
-      { label: 'About Strata', action: 'about' },
-    ],
-  },
-];
+/** Build a shortcut key string for aria-keyshortcuts (platform-independent, e.g. "Ctrl+G"). */
+function ariaShortcut(binding: {
+  key: string;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+}): string {
+  const parts: string[] = [];
+  if (binding.ctrl) parts.push('Ctrl');
+  if (binding.shift) parts.push('Shift');
+  if (binding.alt) parts.push('Alt');
+  parts.push(binding.key.length === 1 ? binding.key.toUpperCase() : binding.key);
+  return parts.join('+');
+}
+
+/**
+ * Compute menu structure dynamically based on current editor state.
+ * Returns items with `disabled` and `ariaKeyshortcut` fields populated.
+ */
+function buildMenus(state: {
+  selection: string[];
+  document: { activePageId?: string; masters?: Record<string, unknown> } | undefined;
+  canvasMode: string;
+  workspaceMode: string;
+  colorBlindnessView: string;
+  softProofEnabled: boolean;
+  timelinePanelVisible: boolean;
+  graphEditorVisible: boolean;
+  stateMachinePanelVisible: boolean;
+  guidesVisible: boolean;
+  distractionFreeMode: boolean;
+  beforeAfterCompare: boolean;
+  rulerMode: string;
+  snapEnabled: boolean;
+}): { id: MenuId; items: MenuItem[] }[] {
+  const hasSelection = state.selection.length > 0;
+  const hasMultipleSelection = state.selection.length >= 2;
+  const hasDocument = !!state.document;
+
+  /** Disabled helper: returns true when action cannot run in current context. */
+  const dis = (action: string): boolean | undefined => {
+    switch (action) {
+      // Selection-dependent actions
+      case 'cut':
+      case 'copy':
+      case 'duplicate':
+      case 'delete':
+      case 'selectAll':
+        return !hasDocument;
+      case 'group':
+      case 'ungroup':
+        return !hasMultipleSelection;
+      case 'flattenSelection':
+      case 'rasterizeSelection':
+      case 'mergeSelected':
+      case 'releaseClippingMask':
+        return !hasSelection;
+      case 'booleanUnion':
+      case 'booleanSubtract':
+      case 'booleanIntersect':
+      case 'booleanExclude':
+        return !hasMultipleSelection;
+      case 'bringFront':
+      case 'bringForward':
+      case 'sendBackward':
+      case 'sendBack':
+      case 'nudgeUp':
+      case 'nudgeDown':
+      case 'nudgeLeft':
+      case 'nudgeRight':
+      case 'harmonizeSpacing':
+        return !hasSelection;
+      case 'newAdjustmentLayer':
+      case 'createClippingMask':
+        return !hasSelection;
+      case 'addAlphaMask':
+      case 'addClipMask':
+      case 'addLuminanceMask':
+      case 'removeMask':
+      case 'toggleMask':
+      case 'invertMask':
+        return !hasSelection;
+      case 'toolCrop':
+      case 'extractPalette':
+      case 'batchBgRemove':
+        return !hasSelection;
+      case 'applyMaster':
+      case 'detachMaster':
+        return !state.document?.activePageId;
+      default:
+        return undefined;
+    }
+  };
+
+  /** Helper: build an aria-keyshortcut string from SHORTCUT_DEFS. */
+  const ks = (id: string): string => ariaShortcut(getEffectiveBinding(id));
+
+  return [
+    {
+      id: 'File',
+      items: [
+        {
+          label: 'New',
+          shortcut: formatShortcut(SHORTCUT_DEFS.newDocument.binding),
+          ariaKeyshortcut: ks('newDocument'),
+          action: 'new',
+        },
+        {
+          label: 'Open\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.open.binding),
+          ariaKeyshortcut: ks('open'),
+          action: 'open',
+        },
+        {
+          label: 'Save',
+          shortcut: formatShortcut(SHORTCUT_DEFS.save.binding),
+          ariaKeyshortcut: ks('save'),
+          action: 'save',
+        },
+        {
+          label: 'Save As\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.saveAs.binding),
+          ariaKeyshortcut: ks('saveAs'),
+          action: 'saveAs',
+        },
+        { label: '---' },
+        {
+          label: 'Import\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.import.binding),
+          ariaKeyshortcut: ks('import'),
+          action: 'import',
+        },
+        {
+          label: 'Export SVG\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.exportSvg.binding),
+          ariaKeyshortcut: ks('exportSvg'),
+          action: 'exportSvg',
+        },
+        {
+          label: 'Export\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
+          ariaKeyshortcut: ks('export'),
+          action: 'export',
+        },
+        { label: '---' },
+        {
+          label: 'Backup Archive\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.archiveBackup.binding),
+          ariaKeyshortcut: ks('archiveBackup'),
+          action: 'archiveBackup',
+        },
+        {
+          label: 'Restore Archive\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.archiveRestore.binding),
+          ariaKeyshortcut: ks('archiveRestore'),
+          action: 'archiveRestore',
+        },
+        { label: '---' },
+        {
+          label: 'Present\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.present.binding),
+          ariaKeyshortcut: ks('present'),
+          action: 'present',
+        },
+        { label: '---' },
+        {
+          label: 'Settings\u2026',
+          shortcut: formatShortcut(SHORTCUT_DEFS.settings.binding),
+          ariaKeyshortcut: ks('settings'),
+          action: 'settings',
+        },
+      ],
+    },
+    {
+      id: 'Edit',
+      items: [
+        {
+          label: 'Undo',
+          shortcut: formatShortcut(SHORTCUT_DEFS.undo.binding),
+          ariaKeyshortcut: ks('undo'),
+          action: 'undo',
+        },
+        {
+          label: 'Redo',
+          shortcut: formatShortcut(SHORTCUT_DEFS.redo.binding),
+          ariaKeyshortcut: ks('redo'),
+          action: 'redo',
+        },
+        { label: '---' },
+        {
+          label: 'Cut',
+          shortcut: formatShortcut(SHORTCUT_DEFS.cut.binding),
+          ariaKeyshortcut: ks('cut'),
+          action: 'cut',
+          disabled: dis('cut'),
+        },
+        {
+          label: 'Copy',
+          shortcut: formatShortcut(SHORTCUT_DEFS.copy.binding),
+          ariaKeyshortcut: ks('copy'),
+          action: 'copy',
+          disabled: dis('copy'),
+        },
+        {
+          label: 'Paste',
+          shortcut: formatShortcut(SHORTCUT_DEFS.paste.binding),
+          ariaKeyshortcut: ks('paste'),
+          action: 'paste',
+        },
+        {
+          label: 'Duplicate',
+          shortcut: formatShortcut(SHORTCUT_DEFS.duplicate.binding),
+          ariaKeyshortcut: ks('duplicate'),
+          action: 'duplicate',
+          disabled: dis('duplicate'),
+        },
+        {
+          label: 'Repeat Duplicate',
+          shortcut: formatShortcut(SHORTCUT_DEFS.repeatDuplicate.binding),
+          ariaKeyshortcut: ks('repeatDuplicate'),
+          action: 'repeatDuplicate',
+          disabled: dis('duplicate'),
+        },
+        { label: '---' },
+        {
+          label: 'Select All',
+          shortcut: formatShortcut(SHORTCUT_DEFS.selectAll.binding),
+          ariaKeyshortcut: ks('selectAll'),
+          action: 'selectAll',
+        },
+        {
+          label: 'Delete',
+          shortcut: formatShortcut(SHORTCUT_DEFS.delete.binding),
+          ariaKeyshortcut: ks('delete'),
+          action: 'delete',
+          disabled: dis('delete'),
+        },
+        { label: '---' },
+        {
+          label: 'Find & Replace…',
+          action: 'findReplace',
+        },
+        { label: '---' },
+        {
+          label: 'Selection History Back',
+          shortcut: formatShortcut(SHORTCUT_DEFS.selectionHistoryBack.binding),
+          ariaKeyshortcut: ks('selectionHistoryBack'),
+          action: 'selectionHistoryBack',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Selection History Forward',
+          shortcut: formatShortcut(SHORTCUT_DEFS.selectionHistoryForward.binding),
+          ariaKeyshortcut: ks('selectionHistoryForward'),
+          action: 'selectionHistoryForward',
+          disabled: !hasSelection,
+        },
+      ],
+    },
+    {
+      id: 'Text',
+      items: [
+        {
+          label: 'Bold',
+          shortcut: formatShortcut({ key: 'b', ctrl: true, shift: true }),
+          ariaKeyshortcut: ariaShortcut({ key: 'b', ctrl: true, shift: true }),
+          action: 'textBold',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Italic',
+          shortcut: formatShortcut({ key: 'i', ctrl: true, shift: true }),
+          ariaKeyshortcut: ariaShortcut({ key: 'i', ctrl: true, shift: true }),
+          action: 'textItalic',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Underline',
+          shortcut: formatShortcut({ key: 'u', ctrl: true, shift: true }),
+          ariaKeyshortcut: ariaShortcut({ key: 'u', ctrl: true, shift: true }),
+          action: 'textUnderline',
+          disabled: !hasSelection,
+        },
+        { label: '---' },
+        {
+          label: 'Increase Font Size',
+          shortcut: formatShortcut({ key: '=', ctrl: true, shift: true }),
+          ariaKeyshortcut: ariaShortcut({ key: '=', ctrl: true, shift: true }),
+          action: 'textIncreaseSize',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Decrease Font Size',
+          shortcut: formatShortcut({ key: '-', ctrl: true, shift: true }),
+          ariaKeyshortcut: ariaShortcut({ key: '-', ctrl: true, shift: true }),
+          action: 'textDecreaseSize',
+          disabled: !hasSelection,
+        },
+        { label: '---' },
+        {
+          label: 'Align Left',
+          action: 'textAlignLeft',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Align Center',
+          action: 'textAlignCenter',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Align Right',
+          action: 'textAlignRight',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Align Justify',
+          action: 'textAlignJustify',
+          disabled: !hasSelection,
+        },
+        { label: '---' },
+        {
+          label: 'Convert to Outlines',
+          action: 'textToOutlines',
+          disabled: !hasSelection,
+        },
+      ],
+    },
+    {
+      id: 'View',
+      items: [
+        // Theme
+        ...THEMES.map((t) => ({
+          label: t.label,
+          action: `theme:${t.id}`,
+        })),
+        { label: '---' },
+        // Zoom
+        {
+          label: 'Zoom to 100%',
+          shortcut: formatShortcut(SHORTCUT_DEFS.zoomReset.binding),
+          ariaKeyshortcut: ks('zoomReset'),
+          action: 'zoomReset',
+        },
+        {
+          label: 'Zoom In',
+          shortcut: formatShortcut(SHORTCUT_DEFS.zoomIn.binding),
+          ariaKeyshortcut: ks('zoomIn'),
+          action: 'zoomIn',
+        },
+        {
+          label: 'Zoom Out',
+          shortcut: formatShortcut(SHORTCUT_DEFS.zoomOut.binding),
+          ariaKeyshortcut: ks('zoomOut'),
+          action: 'zoomOut',
+        },
+        { label: '---' },
+        // Canvas Mode
+        {
+          label: 'Full Render Mode',
+          shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeFull.binding),
+          ariaKeyshortcut: ks('canvasModeFull'),
+          action: 'canvasModeFull',
+        },
+        {
+          label: 'Outline Mode',
+          shortcut: formatShortcut(SHORTCUT_DEFS.canvasModeOutline.binding),
+          ariaKeyshortcut: ks('canvasModeOutline'),
+          action: 'canvasModeOutline',
+        },
+        {
+          label: 'Preview Mode',
+          shortcut: formatShortcut(SHORTCUT_DEFS.canvasModePreview.binding),
+          ariaKeyshortcut: ks('canvasModePreview'),
+          action: 'canvasModePreview',
+        },
+        {
+          label: 'Inspect Mode',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toolInspect.binding),
+          ariaKeyshortcut: ks('toolInspect'),
+          action: 'inspectMode',
+        },
+        { label: '---' },
+        // Viewport
+        {
+          label: 'Fit Active Page',
+          shortcut: formatShortcut(SHORTCUT_DEFS.fitActivePage.binding),
+          ariaKeyshortcut: ks('fitActivePage'),
+          action: 'fitActivePage',
+        },
+        {
+          label: 'Fit Active Frame',
+          shortcut: formatShortcut(SHORTCUT_DEFS.fitActiveFrame.binding),
+          ariaKeyshortcut: ks('fitActiveFrame'),
+          action: 'fitActiveFrame',
+        },
+        {
+          label: 'Reset View Rotation',
+          shortcut: formatShortcut(SHORTCUT_DEFS.resetViewRotation.binding),
+          ariaKeyshortcut: ks('resetViewRotation'),
+          action: 'resetViewRotation',
+        },
+        {
+          label: 'Rotate View Clockwise',
+          shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCW.binding),
+          ariaKeyshortcut: ks('rotateViewCW'),
+          action: 'rotateViewCW',
+        },
+        {
+          label: 'Rotate View Counter-clockwise',
+          shortcut: formatShortcut(SHORTCUT_DEFS.rotateViewCCW.binding),
+          ariaKeyshortcut: ks('rotateViewCCW'),
+          action: 'rotateViewCCW',
+        },
+        { label: '---' },
+        // Rulers & Grids
+        {
+          label: 'Artboard Ruler Origin',
+          action: 'rulerModeArtboard',
+          disabled: state.rulerMode === 'artboard',
+        },
+        {
+          label: 'Global Ruler Origin',
+          action: 'rulerModeGlobal',
+          disabled: state.rulerMode === 'global',
+        },
+        {
+          label: 'Baseline Grid Overlay',
+          shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayBaseline.binding),
+          ariaKeyshortcut: ks('gridOverlayBaseline'),
+          action: 'gridOverlayBaseline',
+        },
+        {
+          label: 'Isometric Grid Overlay',
+          shortcut: formatShortcut(SHORTCUT_DEFS.gridOverlayIsometric.binding),
+          ariaKeyshortcut: ks('gridOverlayIsometric'),
+          action: 'gridOverlayIsometric',
+        },
+        { label: '---' },
+        // Guides
+        {
+          label: 'Toggle Snap',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleSnap.binding),
+          ariaKeyshortcut: ks('toggleSnap'),
+          action: 'toggleSnap',
+        },
+        {
+          label: state.guidesVisible ? 'Hide Guides' : 'Show Guides',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleGuidesVisible.binding),
+          ariaKeyshortcut: ks('toggleGuidesVisible'),
+          action: 'toggleGuidesVisible',
+        },
+        {
+          label: 'Lock All Guides',
+          shortcut: formatShortcut(SHORTCUT_DEFS.lockAllGuides.binding),
+          ariaKeyshortcut: ks('lockAllGuides'),
+          action: 'lockAllGuides',
+        },
+        {
+          label: 'Clear All Guides',
+          action: 'clearGuides',
+        },
+        { label: '---' },
+        // Print-specific
+        {
+          label: 'Facing Pages',
+          action: 'toggleFacingPages',
+        },
+        {
+          label: 'Soft Proofing',
+          shortcut: formatShortcut(SHORTCUT_DEFS.softProof.binding),
+          ariaKeyshortcut: ks('softProof'),
+          action: 'softProof',
+        },
+        { label: '---' },
+        // Panels
+        {
+          label: 'Timeline Panel',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleTimelinePanel.binding),
+          ariaKeyshortcut: ks('toggleTimelinePanel'),
+          action: 'toggleTimelinePanel',
+        },
+        {
+          label: 'Graph Editor',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleGraphEditor.binding),
+          ariaKeyshortcut: ks('toggleGraphEditor'),
+          action: 'toggleGraphEditor',
+        },
+        {
+          label: 'State Machine Panel',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleStateMachinePanel.binding),
+          ariaKeyshortcut: ks('toggleStateMachinePanel'),
+          action: 'toggleStateMachinePanel',
+        },
+        { label: '---' },
+        // Workspace
+        {
+          label: 'Workspace: Design',
+          action: 'workspaceDesign',
+          disabled: state.workspaceMode === 'design',
+        },
+        {
+          label: 'Workspace: Print',
+          action: 'workspacePrint',
+          disabled: state.workspaceMode === 'print',
+        },
+        {
+          label: 'Workspace: Draw',
+          action: 'workspaceDrawing',
+          disabled: state.workspaceMode === 'drawing',
+        },
+        {
+          label: 'Workspace: Photo',
+          action: 'workspaceImage',
+          disabled: state.workspaceMode === 'image',
+        },
+        {
+          label: 'Workspace: Motion',
+          action: 'workspaceMotion',
+          disabled: state.workspaceMode === 'motion',
+        },
+        {
+          label: 'Reset Workspace to Default',
+          action: 'resetWorkspace',
+        },
+        { label: '---' },
+        // Focus modes
+        {
+          label: 'Distraction-Free Mode',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleDistractionFree.binding),
+          ariaKeyshortcut: ks('toggleDistractionFree'),
+          action: 'toggleDistractionFree',
+        },
+        {
+          label: 'Compare Before/After',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleBeforeAfterCompare.binding),
+          ariaKeyshortcut: ks('toggleBeforeAfterCompare'),
+          action: 'toggleBeforeAfterCompare',
+        },
+        { label: '---' },
+        // Color Blindness
+        {
+          label: 'Color Blindness: None',
+          action: 'colorBlindnessNone',
+          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessNone.binding),
+          ariaKeyshortcut: ks('colorBlindnessNone'),
+        },
+        {
+          label: 'Color Blindness: Protanopia (red)',
+          action: 'colorBlindnessProtanopia',
+          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessProtanopia.binding),
+          ariaKeyshortcut: ks('colorBlindnessProtanopia'),
+        },
+        {
+          label: 'Color Blindness: Deuteranopia (green)',
+          action: 'colorBlindnessDeuteranopia',
+          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessDeuteranopia.binding),
+          ariaKeyshortcut: ks('colorBlindnessDeuteranopia'),
+        },
+        {
+          label: 'Color Blindness: Tritanopia (blue)',
+          action: 'colorBlindnessTritanopia',
+          shortcut: formatShortcut(SHORTCUT_DEFS.colorBlindnessTritanopia.binding),
+          ariaKeyshortcut: ks('colorBlindnessTritanopia'),
+        },
+        { label: '---' },
+        {
+          label: 'Keyboard Shortcuts',
+          shortcut: formatShortcut(SHORTCUT_DEFS.shortcutPalette.binding),
+          ariaKeyshortcut: ks('shortcutPalette'),
+          action: 'shortcutPalette',
+        },
+        {
+          label: 'Home',
+          shortcut: formatShortcut(SHORTCUT_DEFS.home.binding),
+          ariaKeyshortcut: ks('home'),
+          action: 'home',
+        },
+      ],
+    },
+    {
+      id: 'Object',
+      items: [
+        {
+          label: 'Group',
+          shortcut: formatShortcut(SHORTCUT_DEFS.group.binding),
+          ariaKeyshortcut: ks('group'),
+          action: 'group',
+          disabled: dis('group'),
+        },
+        {
+          label: 'Ungroup',
+          shortcut: formatShortcut(SHORTCUT_DEFS.ungroup.binding),
+          ariaKeyshortcut: ks('ungroup'),
+          action: 'ungroup',
+          disabled: dis('ungroup'),
+        },
+        { label: '---' },
+        {
+          label: 'Flip Horizontal',
+          shortcut: formatShortcut(SHORTCUT_DEFS.flipH.binding),
+          ariaKeyshortcut: ks('flipH'),
+          action: 'flipH',
+          disabled: !hasSelection,
+        },
+        {
+          label: 'Flip Vertical',
+          shortcut: formatShortcut(SHORTCUT_DEFS.flipV.binding),
+          ariaKeyshortcut: ks('flipV'),
+          action: 'flipV',
+          disabled: !hasSelection,
+        },
+        { label: '---' },
+        {
+          label: 'New Adjustment Layer',
+          shortcut: formatShortcut(SHORTCUT_DEFS.newAdjustmentLayer.binding),
+          ariaKeyshortcut: ks('newAdjustmentLayer'),
+          action: 'newAdjustmentLayer',
+        },
+        {
+          label: 'Create Clipping Mask',
+          shortcut: formatShortcut(SHORTCUT_DEFS.createClippingMask.binding),
+          ariaKeyshortcut: ks('createClippingMask'),
+          action: 'createClippingMask',
+          disabled: dis('createClippingMask'),
+        },
+        {
+          label: 'Release Clipping Mask',
+          shortcut: formatShortcut(SHORTCUT_DEFS.releaseClippingMask.binding),
+          ariaKeyshortcut: ks('releaseClippingMask'),
+          action: 'releaseClippingMask',
+          disabled: dis('releaseClippingMask'),
+        },
+        { label: '---' },
+        { label: 'Remove Background...', action: 'batchBgRemove', disabled: dis('batchBgRemove') },
+        {
+          label: 'Crop Image',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toolCrop.binding),
+          ariaKeyshortcut: ks('toolCrop'),
+          action: 'toolCrop',
+          disabled: dis('toolCrop'),
+        },
+        {
+          label: 'Extract Palette',
+          action: 'extractPalette',
+          disabled: dis('extractPalette'),
+        },
+        { label: '---' },
+        // Masks
+        { label: 'Add Alpha Mask', action: 'addAlphaMask', disabled: dis('addAlphaMask') },
+        { label: 'Add Clip Mask', action: 'addClipMask', disabled: dis('addClipMask') },
+        {
+          label: 'Add Luminance Mask',
+          action: 'addLuminanceMask',
+          disabled: dis('addLuminanceMask'),
+        },
+        { label: 'Remove Mask', action: 'removeMask', disabled: dis('removeMask') },
+        { label: 'Toggle Mask', action: 'toggleMask', disabled: dis('toggleMask') },
+        { label: 'Invert Mask', action: 'invertMask', disabled: dis('invertMask') },
+        { label: '---' },
+        // Flatten & Merge
+        {
+          label: 'Flatten Selection',
+          shortcut: formatShortcut(SHORTCUT_DEFS.flattenSelection.binding),
+          ariaKeyshortcut: ks('flattenSelection'),
+          action: 'flattenSelection',
+          disabled: dis('flattenSelection'),
+        },
+        {
+          label: 'Rasterize',
+          action: 'rasterizeSelection',
+          disabled: dis('rasterizeSelection'),
+        },
+        {
+          label: 'Merge Selected Layers',
+          action: 'mergeSelected',
+          disabled: dis('mergeSelected'),
+        },
+        { label: '---' },
+        // Boolean
+        {
+          label: 'Union',
+          shortcut: formatShortcut(SHORTCUT_DEFS.booleanUnion.binding),
+          ariaKeyshortcut: ks('booleanUnion'),
+          action: 'booleanUnion',
+          disabled: dis('booleanUnion'),
+        },
+        {
+          label: 'Subtract',
+          shortcut: formatShortcut(SHORTCUT_DEFS.booleanSubtract.binding),
+          ariaKeyshortcut: ks('booleanSubtract'),
+          action: 'booleanSubtract',
+          disabled: dis('booleanSubtract'),
+        },
+        {
+          label: 'Intersect',
+          shortcut: formatShortcut(SHORTCUT_DEFS.booleanIntersect.binding),
+          ariaKeyshortcut: ks('booleanIntersect'),
+          action: 'booleanIntersect',
+          disabled: dis('booleanIntersect'),
+        },
+        {
+          label: 'Exclude',
+          shortcut: formatShortcut(SHORTCUT_DEFS.booleanExclude.binding),
+          ariaKeyshortcut: ks('booleanExclude'),
+          action: 'booleanExclude',
+          disabled: dis('booleanExclude'),
+        },
+        { label: '---' },
+        // Intelligence
+        { label: 'Audit', action: 'runAudit' },
+        { label: 'Scan for Debt', action: 'scanDebt' },
+        { label: 'Suggest Names', action: 'suggestNames' },
+        { label: 'Detect Duplicates', action: 'detectDuplicates' },
+      ],
+    },
+    {
+      id: 'Arrange',
+      items: [
+        {
+          label: 'Bring to Front',
+          shortcut: formatShortcut(SHORTCUT_DEFS.bringFront.binding),
+          ariaKeyshortcut: ks('bringFront'),
+          action: 'bringFront',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Bring Forward',
+          shortcut: formatShortcut(SHORTCUT_DEFS.bringForward.binding),
+          ariaKeyshortcut: ks('bringForward'),
+          action: 'bringForward',
+          disabled: dis('bringForward'),
+        },
+        {
+          label: 'Send Backward',
+          shortcut: formatShortcut(SHORTCUT_DEFS.sendBackward.binding),
+          ariaKeyshortcut: ks('sendBackward'),
+          action: 'sendBackward',
+          disabled: dis('sendBackward'),
+        },
+        {
+          label: 'Send to Back',
+          shortcut: formatShortcut(SHORTCUT_DEFS.sendBack.binding),
+          ariaKeyshortcut: ks('sendBack'),
+          action: 'sendBack',
+          disabled: dis('sendBack'),
+        },
+        { label: '---' },
+        {
+          label: 'Align Left',
+          shortcut: formatShortcut(SHORTCUT_DEFS.alignLeft.binding),
+          ariaKeyshortcut: ks('alignLeft'),
+          action: 'alignLeft',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Align Horizontal Center',
+          shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterH.binding),
+          ariaKeyshortcut: ks('alignCenterH'),
+          action: 'alignCenterH',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Align Right',
+          shortcut: formatShortcut(SHORTCUT_DEFS.alignRight.binding),
+          ariaKeyshortcut: ks('alignRight'),
+          action: 'alignRight',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Align Top',
+          shortcut: formatShortcut(SHORTCUT_DEFS.alignTop.binding),
+          ariaKeyshortcut: ks('alignTop'),
+          action: 'alignTop',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Align Vertical Center',
+          shortcut: formatShortcut(SHORTCUT_DEFS.alignCenterV.binding),
+          ariaKeyshortcut: ks('alignCenterV'),
+          action: 'alignCenterV',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Align Bottom',
+          shortcut: formatShortcut(SHORTCUT_DEFS.alignBottom.binding),
+          ariaKeyshortcut: ks('alignBottom'),
+          action: 'alignBottom',
+          disabled: dis('bringFront'),
+        },
+        { label: '---' },
+        {
+          label: 'Distribute Horizontally',
+          shortcut: formatShortcut(SHORTCUT_DEFS.distributeHorizontal.binding),
+          ariaKeyshortcut: ks('distributeHorizontal'),
+          action: 'distributeHorizontal',
+          disabled: dis('bringFront'),
+        },
+        {
+          label: 'Distribute Vertically',
+          shortcut: formatShortcut(SHORTCUT_DEFS.distributeVertical.binding),
+          ariaKeyshortcut: ks('distributeVertical'),
+          action: 'distributeVertical',
+          disabled: dis('bringFront'),
+        },
+        { label: '---' },
+        {
+          label: 'Harmonize Spacing',
+          shortcut: formatShortcut(SHORTCUT_DEFS.harmonizeSpacing.binding),
+          ariaKeyshortcut: ks('harmonizeSpacing'),
+          action: 'harmonizeSpacing',
+          disabled: dis('harmonizeSpacing'),
+        },
+        { label: '---' },
+        {
+          label: 'Nudge Left',
+          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeLeft.binding),
+          ariaKeyshortcut: ks('nudgeLeft'),
+          action: 'nudgeLeft',
+          disabled: dis('nudgeLeft'),
+        },
+        {
+          label: 'Nudge Right',
+          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeRight.binding),
+          ariaKeyshortcut: ks('nudgeRight'),
+          action: 'nudgeRight',
+          disabled: dis('nudgeRight'),
+        },
+        {
+          label: 'Nudge Up',
+          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeUp.binding),
+          ariaKeyshortcut: ks('nudgeUp'),
+          action: 'nudgeUp',
+          disabled: dis('nudgeUp'),
+        },
+        {
+          label: 'Nudge Down',
+          shortcut: formatShortcut(SHORTCUT_DEFS.nudgeDown.binding),
+          ariaKeyshortcut: ks('nudgeDown'),
+          action: 'nudgeDown',
+          disabled: dis('nudgeDown'),
+        },
+      ],
+    },
+    {
+      id: 'Page',
+      items: [
+        {
+          label: 'Create Master',
+          action: 'createMaster',
+        },
+        {
+          label: 'Apply Master to Page',
+          action: 'applyMaster',
+          disabled: dis('applyMaster'),
+        },
+        {
+          label: 'Detach Master from Page',
+          action: 'detachMaster',
+          disabled: dis('detachMaster'),
+        },
+      ],
+    },
+    {
+      id: 'Help',
+      items: [
+        {
+          label: 'Contextual Help',
+          shortcut: formatShortcut(SHORTCUT_DEFS.openHelp.binding),
+          ariaKeyshortcut: ks('openHelp'),
+          action: 'openHelp',
+        },
+        {
+          label: 'Help Center',
+          shortcut: formatShortcut(SHORTCUT_DEFS.openHelpCenter.binding),
+          ariaKeyshortcut: ks('openHelpCenter'),
+          action: 'openHelpCenter',
+        },
+        {
+          label: "What's This?",
+          action: 'whatIsThis',
+        },
+        { label: '---' },
+        { label: 'Take a Tour', action: 'startTour' },
+        { label: '---' },
+        { label: 'About Strata', action: 'about' },
+      ],
+    },
+  ];
+}
 
 function itemRole(item: MenuItem): string {
   if (item.action?.startsWith('theme:')) return 'menuitemradio';
-  if (item.action?.startsWith('canvasMode')) return 'menuitemcheckbox';
+  if (
+    item.action === 'canvasModeOutline' ||
+    item.action === 'canvasModePreview' ||
+    item.action === 'canvasModeFull'
+  )
+    return 'menuitemcheckbox';
   if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
   if (item.action?.startsWith('workspace')) return 'menuitemradio';
+  if (item.action === 'rulerModeArtboard' || item.action === 'rulerModeGlobal')
+    return 'menuitemradio';
   return 'menuitem';
+}
+
+/** Compute aria-checked for a menu item based on current state. */
+function itemAriaChecked(
+  item: MenuItem,
+  state: {
+    canvasMode: string;
+    workspaceMode: string;
+    colorBlindnessView: string;
+    rulerMode: string;
+  },
+): boolean | undefined {
+  if (item.action?.startsWith('theme:')) {
+    return getTheme() === item.action.slice(6);
+  }
+  if (item.action === 'canvasModeOutline') return state.canvasMode === 'outline';
+  if (item.action === 'canvasModePreview') return state.canvasMode === 'preview';
+  if (item.action === 'canvasModeFull') return state.canvasMode === 'full';
+  if (item.action?.startsWith('colorBlindness')) {
+    const type = item.action.slice('colorBlindness'.length).toLowerCase();
+    return state.colorBlindnessView === type;
+  }
+  if (item.action?.startsWith('workspace')) {
+    const mode = item.action.replace('workspace', '').toLowerCase();
+    return state.workspaceMode === mode;
+  }
+  if (item.action === 'rulerModeArtboard') return state.rulerMode === 'artboard';
+  if (item.action === 'rulerModeGlobal') return state.rulerMode === 'global';
+  return undefined;
 }
 
 export function Menubar({
@@ -438,6 +1004,9 @@ export function Menubar({
     removeMaskFromSelected,
     toggleMask,
     invertMask,
+    flattenSelected,
+    rasterizeSelected,
+    mergeSelected,
     assignMasterToPage,
     createMaster,
     toggleFacingPages,
@@ -445,7 +1014,30 @@ export function Menubar({
     toggleDistractionFreeMode,
     recordAction,
     createAdjustmentLayer,
+    showArchiveDialog,
+    setShowArchiveDialog,
+    platform,
   } = useEditor();
+  const menus = useMemo(
+    () => buildMenus(state),
+    [
+      state.selection,
+      state.document.activePageId,
+      state.canvasMode,
+      state.workspaceMode,
+      state.colorBlindnessView,
+      state.softProofEnabled,
+      state.timelinePanelVisible,
+      state.graphEditorVisible,
+      state.stateMachinePanelVisible,
+      state.guidesVisible,
+      state.distractionFreeMode,
+      state.beforeAfterCompare,
+      state.rulerMode,
+      state.snapEnabled,
+    ],
+  );
+
   const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
   const [currentTheme, setCurrentTheme] = useState<Theme>(() => getTheme() ?? 'light');
   const menuRef = useRef<HTMLDivElement>(null);
@@ -494,7 +1086,7 @@ export function Menubar({
     }
   }, [openMenu, activeItemIndex]);
 
-  const openMenuIndex = openMenu ? MENUS.findIndex((m) => m.id === openMenu) : -1;
+  const openMenuIndex = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
   const openMenuAnchorRef = useRef<HTMLButtonElement | null>(null);
   openMenuAnchorRef.current =
     openMenuIndex >= 0 ? (topLevelRefs.current[openMenuIndex] ?? null) : null;
@@ -546,6 +1138,12 @@ export function Menubar({
         case 'export':
           setShowExportDialog(true);
           return;
+        case 'archiveBackup':
+          setShowArchiveDialog(true, 'backup');
+          return;
+        case 'archiveRestore':
+          setShowArchiveDialog(true, 'restore');
+          return;
         case 'addAlphaMask':
           addMaskToSelected('alpha');
           return;
@@ -563,6 +1161,15 @@ export function Menubar({
           return;
         case 'invertMask':
           invertMask();
+          return;
+        case 'flattenSelection':
+          flattenSelected('flatten', 1);
+          return;
+        case 'rasterizeSelection':
+          rasterizeSelected(1);
+          return;
+        case 'mergeSelected':
+          mergeSelected();
           return;
         case 'clearGuides':
           clearAllGuides();
@@ -644,6 +1251,7 @@ export function Menubar({
       onOpenAbout,
       onBatchBgRemove,
       setShowExportDialog,
+      setShowArchiveDialog,
       addMaskToSelected,
       removeMaskFromSelected,
       toggleMask,
@@ -676,11 +1284,11 @@ export function Menubar({
 
   const handleMenuKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const openIdx = openMenu ? MENUS.findIndex((m) => m.id === openMenu) : -1;
+      const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
 
       if (openIdx >= 0 && openMenu) {
         // Dropdown is open — navigate items
-        const menu = MENUS[openIdx];
+        const menu = menus[openIdx];
         if (!menu) return;
         const items = menu.items.filter((i) => i.label !== '---');
 
@@ -713,16 +1321,16 @@ export function Menubar({
           }
           case 'ArrowLeft': {
             e.preventDefault();
-            const prev = (openIdx - 1 + MENUS.length) % MENUS.length;
-            setOpenMenu(MENUS[prev]?.id ?? null);
+            const prev = (openIdx - 1 + menus.length) % menus.length;
+            setOpenMenu(menus[prev]?.id ?? null);
             setActiveItemIndex(0);
             setFocusedIndex(prev);
             return;
           }
           case 'ArrowRight': {
             e.preventDefault();
-            const next = (openIdx + 1) % MENUS.length;
-            setOpenMenu(MENUS[next]?.id ?? null);
+            const next = (openIdx + 1) % menus.length;
+            setOpenMenu(menus[next]?.id ?? null);
             setActiveItemIndex(0);
             setFocusedIndex(next);
             return;
@@ -744,7 +1352,7 @@ export function Menubar({
           case 'ArrowRight':
           case 'ArrowDown': {
             e.preventDefault();
-            const next = (focusedIndex + 1) % MENUS.length;
+            const next = (focusedIndex + 1) % menus.length;
             setFocusedIndex(next);
             topLevelRefs.current[next]?.focus();
             return;
@@ -752,7 +1360,7 @@ export function Menubar({
           case 'ArrowLeft':
           case 'ArrowUp': {
             e.preventDefault();
-            const prev = (focusedIndex - 1 + MENUS.length) % MENUS.length;
+            const prev = (focusedIndex - 1 + menus.length) % menus.length;
             setFocusedIndex(prev);
             topLevelRefs.current[prev]?.focus();
             return;
@@ -760,7 +1368,7 @@ export function Menubar({
           case 'Enter':
           case ' ': {
             e.preventDefault();
-            setOpenMenu(MENUS[focusedIndex]?.id ?? null);
+            setOpenMenu(menus[focusedIndex]?.id ?? null);
             setActiveItemIndex(0);
             return;
           }
@@ -772,8 +1380,8 @@ export function Menubar({
           }
           case 'End': {
             e.preventDefault();
-            setFocusedIndex(MENUS.length - 1);
-            topLevelRefs.current[MENUS.length - 1]?.focus();
+            setFocusedIndex(menus.length - 1);
+            topLevelRefs.current[menus.length - 1]?.focus();
             return;
           }
         }
@@ -801,7 +1409,7 @@ export function Menubar({
         >
           <StrataLogo size={16} />
         </button>
-        {MENUS.map((menu, i) => (
+        {menus.map((menu, i) => (
           <button
             key={menu.id}
             ref={(el) => {
@@ -836,51 +1444,27 @@ export function Menubar({
           className="editor-menubar__menu"
         >
           <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
-            {MENUS[openMenuIndex]?.items.map((item, itemIdx) => {
+            {menus[openMenuIndex]?.items.map((item, itemIdx) => {
               if (item.label === '---') {
                 return (
                   <hr key={`sep-${itemIdx}`} className="editor-menubar__menu-sep" tabIndex={-1} />
                 );
               }
+              const role = itemRole(item);
+              const isChecked = itemAriaChecked(item, state);
               const isActive =
-                item.action?.startsWith('theme:') && currentTheme === item.action.slice(6);
-              const colorBlindType = item.action?.startsWith('colorBlindness')
-                ? item.action.slice('colorBlindness'.length).toLowerCase()
-                : null;
-              const workspaceType = item.action?.startsWith('workspace')
-                ? item.action.replace('workspace', '').toLowerCase()
-                : null;
-              const isChecked =
-                item.action === 'canvasModeOutline'
-                  ? state.canvasMode === 'outline'
-                  : item.action === 'canvasModePreview'
-                    ? state.canvasMode === 'preview'
-                    : colorBlindType !== null
-                      ? state.colorBlindnessView === colorBlindType
-                      : workspaceType !== null
-                        ? state.workspaceMode === workspaceType
-                        : undefined;
+                (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
+                isChecked;
               return (
-                // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio role per ARIA spec
+                // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec
                 <button
                   key={item.label}
-                  role={itemRole(item)}
+                  role={role}
                   type="button"
-                  aria-checked={
-                    item.action?.startsWith('theme:')
-                      ? currentTheme === item.action.slice(6)
-                      : item.action === 'canvasModeOutline'
-                        ? state.canvasMode === 'outline'
-                        : item.action === 'canvasModePreview'
-                          ? state.canvasMode === 'preview'
-                          : colorBlindType !== null
-                            ? state.colorBlindnessView === colorBlindType
-                            : workspaceType !== null
-                              ? state.workspaceMode === workspaceType
-                              : undefined
-                  }
-                  disabled={!item.action}
-                  className={`editor-menubar__menu-item${isActive || isChecked ? ' editor-menubar__menu-item--active' : ''}`}
+                  aria-checked={isChecked}
+                  aria-keyshortcuts={item.ariaKeyshortcut}
+                  disabled={item.disabled}
+                  className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}`}
                   onClick={() => handleAction(item.action ?? '')}
                 >
                   <span className="editor-menubar__menu-label">{item.label}</span>
@@ -944,6 +1528,7 @@ export function Menubar({
                   drawing: 'paintBrush',
                   image: 'image',
                   motion: 'play',
+                  codegen: 'code',
                 };
               const solidIcon = WORKSPACE_SOLID_ICONS[mode];
               return (
@@ -1004,6 +1589,39 @@ export function Menubar({
         description="Create a new document? Unsaved changes will be lost."
         confirmLabel="Create"
         variant="danger"
+      />
+
+      <ArchiveDialog
+        open={showArchiveDialog}
+        onClose={() => setShowArchiveDialog(false)}
+        document={state.document as ArchiveDialogProps['document']}
+        platform={platform}
+        onCreateArchive={(result) => {
+          // Desktop: native Save dialog + the atomic write_binary_file
+          // command. Browser: no filesystem access, so a plain download is
+          // the only option and the browser itself handles it atomically.
+          if (platform?.kind === 'tauri') {
+            void platform.saveBinaryFile(
+              result.fileName.replace(/\.zip$/, ''),
+              result.bytes,
+              'application/zip',
+              '.zip',
+            );
+            return;
+          }
+          const blob = new Blob([new Uint8Array(result.bytes)], { type: 'application/zip' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = result.fileName;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}
+        onRestoreArchive={(result) => {
+          if (result.document) {
+            loadDocument(JSON.stringify(result.document), { name: result.document.name });
+          }
+        }}
       />
     </div>
   );

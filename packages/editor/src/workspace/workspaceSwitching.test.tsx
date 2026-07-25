@@ -66,9 +66,7 @@ describe('Workspace mode switching — motion mode', () => {
 
     it('has motion-specific inspector tabs', () => {
       const tabs = getVisibleInspectorTabs('motion');
-      expect(tabs).toContain('properties');
-      expect(tabs).toContain('export');
-      expect(tabs).toContain('audit');
+      expect(tabs).toEqual(['properties', 'appearance', 'prototype', 'export', 'audit']);
     });
 
     it('enables rulers and guides', () => {

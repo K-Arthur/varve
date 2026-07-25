@@ -1130,7 +1130,9 @@
   .editor__inspector-panel,
   .editor__library-panel {
     position: fixed;
-    top: 0;
+    inset-block: 0;
+    grid-area: unset;
+    margin: 0;
     z-index: var(--z-overlay);
     height: 100dvh;
     width: var(--sidebar-width);
@@ -1140,9 +1142,14 @@
     overflow-y: auto;
   }
   .editor__inspector-panel {
-    width: var(--inspector-width);
+    left: auto;
     right: 0;
+    width: var(--inspector-width);
     transform: translateX(100%);
+  }
+  .editor__layers-panel {
+    left: 0;
+    right: auto;
   }
   .editor__library-panel {
     width: 300px;
@@ -1241,6 +1248,29 @@
   border-top: var(--border-micro);
   background: var(--elevation-surface-default);
   box-shadow: 0 -1px 4px rgb(0 0 0 / 0.04);
+}
+
+/* Keep this after the base panel declarations. Their position:relative used
+ * to win the cascade and leave an "opened" mobile drawer in the zero-width
+ * inspector grid column, entirely outside the viewport. */
+@media (max-width: 899px) {
+  .editor__layers-panel,
+  .editor__inspector-panel,
+  .editor__library-panel {
+    position: fixed;
+    inset-block: 0;
+    grid-area: unset;
+    margin: 0;
+  }
+  .editor__layers-panel {
+    left: 0;
+    right: auto;
+  }
+  .editor__inspector-panel,
+  .editor__library-panel {
+    left: auto;
+    right: 0;
+  }
 }
 
 /* ── Glass panel modifier ──────────────────────────────

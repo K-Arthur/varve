@@ -66,8 +66,8 @@ export interface PluginSectionContribution {
   pluginId: PluginId;
   /** Unique contribution ID within the plugin. */
   contributionId: ContributionId;
-  /** Target inspector tab. */
-  targetTab: 'properties' | 'export' | 'spec' | 'score' | 'audit';
+  /** Target inspector tab. Mapped through DEPRECATED_TAB_FALLBACKS for migration. */
+  targetTab: string;
   /** Display metadata. */
   display: ContributionDisplay;
   /** Default display order within the tab (lower = higher). Default: 1000. */

@@ -44,6 +44,7 @@ function defaultStateForSection(sectionId: SectionId): SectionState {
   return {
     collapsed: def ? !def.defaultExpanded : false,
     hidden: false,
+    order: def?.order,
   };
 }
 
@@ -111,6 +112,10 @@ export function migrateSectionState(
         collapsed:
           typeof v.collapsed === 'boolean' ? v.collapsed : defaults[key as SectionId].collapsed,
         hidden: typeof v.hidden === 'boolean' ? v.hidden : defaults[key as SectionId].hidden,
+        order:
+          typeof v.order === 'number' && Number.isFinite(v.order)
+            ? v.order
+            : defaults[key as SectionId].order,
         ...(migratedSubsections && Object.keys(migratedSubsections).length > 0
           ? { subsections: migratedSubsections }
           : {}),

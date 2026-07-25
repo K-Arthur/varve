@@ -386,6 +386,8 @@ pub(crate) struct ImageRenderState<'a> {
     pub doc: &'a mut Document,
     pub counter: u32,
     pub refs: Vec<(String, Object)>,
+    /// Graphics state dictionaries for fill opacity (opacity -> GS name).
+    gs_cache: HashMap<u32, String>,
 }
 
 impl<'a> ImageRenderState<'a> {
@@ -394,7 +396,25 @@ impl<'a> ImageRenderState<'a> {
             doc,
             counter: 0,
             refs: Vec::new(),
+            gs_cache: HashMap::new(),
         }
+    }
+
+    /// Get-or-create an ExtGState dictionary for a given fill opacity.
+    /// Returns the GS name (e.g. "GS075") to use with `gs` in the content stream.
+    pub fn get_or_create_opacity_gs(&mut self, opacity: f64) -> String {
+        let key = (opacity.clamp(0.0, 1.0) * 1000.0) as u32;
+        if let Some(name) = self.gs_cache.get(&key) {
+            return name.clone();
+        }
+        let name = format!("GS{key:03}");
+        let gs = dictionary! {
+            "Type" => "ExtGState",
+            "ca" => opacity.clamp(0.0, 1.0),
+        };
+        self.refs.push((name.clone(), Object::Dictionary(gs)));
+        self.gs_cache.insert(key, name.clone());
+        name
     }
 }
 
@@ -418,6 +438,75 @@ fn generate_checkerboard() -> Vec<u8> {
 
 /// Compute the axis-aligned bounding box of a shape node in PDF space (Y-up).
 /// Returns `(x, y, w, h)` where `(x, y)` is the bottom-left corner.
+/// Compute PDF image placement (draw rect + offset) for the given fit mode,
+/// source dimensions, destination bounds, and scale override.
+///
+/// Returns (draw_w, draw_h, draw_offset_x, draw_offset_y) where the draw rect
+/// is positioned at shape_bounds + draw_offset in PDF coordinate space.
+#[allow(clippy::too_many_arguments)]
+fn compute_pdf_image_placement(
+    fit: &str,
+    src_w: f64,
+    src_h: f64,
+    dst_w: f64,
+    dst_h: f64,
+    user_scale: f64,
+) -> (f64, f64, f64, f64) {
+    if src_w <= 0.0 || src_h <= 0.0 || dst_w <= 0.0 || dst_h <= 0.0 {
+        return (dst_w, dst_h, 0.0, 0.0);
+    }
+    match fit {
+        "stretch" => (dst_w, dst_h, 0.0, 0.0),
+        "fit" => {
+            // CSS contain: fit within bounds while maintaining aspect ratio
+            let aspect = src_w / src_h;
+            let dst_aspect = dst_w / dst_h;
+            if aspect > dst_aspect {
+                // Source is wider: width matches bounds
+                let h = dst_w / aspect;
+                (dst_w, h, 0.0, (dst_h - h) / 2.0)
+            } else {
+                let w = dst_h * aspect;
+                (w, dst_h, (dst_w - w) / 2.0, 0.0)
+            }
+        }
+        "tile" => {
+            // Tile mode: use source size × user scale as tile size
+            (src_w * user_scale, src_h * user_scale, 0.0, 0.0)
+        }
+        "crop" => {
+            // CSS cover: cover the bounds while maintaining aspect ratio
+            let aspect = src_w / src_h;
+            let dst_aspect = dst_w / dst_h;
+            if aspect > dst_aspect {
+                // Source is wider: height matches bounds
+                let w = dst_h * aspect;
+                (w, dst_h, (dst_w - w) / 2.0, 0.0)
+            } else {
+                let h = dst_w / aspect;
+                (dst_w, h, 0.0, (dst_h - h) / 2.0)
+            }
+        }
+        _ => {
+            // Default "fill": source fills bounds
+            let sw = src_w * user_scale;
+            let sh = src_h * user_scale;
+            if sw > dst_w || sh > dst_h {
+                // Scale down to fit, center
+                let scale = (dst_w / sw).min(dst_h / sh);
+                (
+                    sw * scale,
+                    sh * scale,
+                    (dst_w - sw * scale) / 2.0,
+                    (dst_h - sh * scale) / 2.0,
+                )
+            } else {
+                (sw, sh, (dst_w - sw) / 2.0, (dst_h - sh) / 2.0)
+            }
+        }
+    }
+}
+
 fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) {
     let tx = node.transform.as_coeffs();
     let x_off = tx[4];
@@ -498,10 +587,17 @@ fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) 
 /// A gradient shading definition collected during render.
 /// The actual PDF objects are created later (after the render borrow ends).
 #[derive(Clone)]
+enum ShadingKind {
+    Linear,
+    Radial,
+}
+
 struct GradientShadingDef {
+    kind: ShadingKind,
     stops: Vec<GradientStop>,
     use_cmyk: bool,
     profile: Option<PrintProfile>,
+    rotation: f64,
 }
 
 /// Tracks gradient shading definitions during render. Collects gradient
@@ -526,15 +622,41 @@ impl ShadingRegistry {
         stops: &[GradientStop],
         use_cmyk: bool,
         profile: Option<PrintProfile>,
+        rotation: f64,
     ) -> String {
         let name = format!("Sh{}", self.next_id);
         self.next_id += 1;
         self.definitions.push((
             name.clone(),
             GradientShadingDef {
+                kind: ShadingKind::Linear,
                 stops: stops.to_vec(),
                 use_cmyk,
                 profile,
+                rotation,
+            },
+        ));
+        name
+    }
+
+    /// Register a radial gradient. Returns the resource name (e.g., "Sh1").
+    fn add_radial_gradient(
+        &mut self,
+        stops: &[GradientStop],
+        use_cmyk: bool,
+        profile: Option<PrintProfile>,
+        rotation: f64,
+    ) -> String {
+        let name = format!("Sh{}", self.next_id);
+        self.next_id += 1;
+        self.definitions.push((
+            name.clone(),
+            GradientShadingDef {
+                kind: ShadingKind::Radial,
+                stops: stops.to_vec(),
+                use_cmyk,
+                profile,
+                rotation,
             },
         ));
         name
@@ -545,21 +667,54 @@ impl ShadingRegistry {
         let mut resources = Vec::new();
         for (name, def) in &self.definitions {
             let func_id = create_sampled_function(doc, &def.stops, def.use_cmyk, def.profile);
-            let shading_dict = dictionary! {
-                "ShadingType" => 2i64,
-                "ColorSpace" => if def.use_cmyk { "DeviceCMYK" } else { "DeviceRGB" },
-                "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
-                "Coords" => vec![
-                    Object::Real(0.0), Object::Real(0.0),
-                    Object::Real(1.0), Object::Real(0.0),
-                ],
-                "Function" => Object::Reference(func_id),
-                "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
-            };
-            let shading_id = doc.new_object_id();
-            doc.objects
-                .insert(shading_id, Object::Dictionary(shading_dict));
-            resources.push((name.clone(), shading_id));
+            let color_space = if def.use_cmyk { "DeviceCMYK" } else { "DeviceRGB" };
+            match def.kind {
+                ShadingKind::Linear => {
+                    // Apply rotation around center (0.5, 0.5) to the Coords.
+                    // Default unrotated: [0, 0, 1, 0] (horizontal).
+                    let rot_rad = def.rotation * (std::f64::consts::PI / 180.0);
+                    let (cos, sin) = (rot_rad.cos() as f32, rot_rad.sin() as f32);
+                    let x1 = 0.5 - cos * 0.5;
+                    let y1 = 0.5 - sin * 0.5;
+                    let x2 = 0.5 + cos * 0.5;
+                    let y2 = 0.5 + sin * 0.5;
+                    let shading_dict = dictionary! {
+                        "ShadingType" => 2i64,
+                        "ColorSpace" => color_space,
+                        "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+                        "Coords" => vec![
+                            Object::Real(x1), Object::Real(y1),
+                            Object::Real(x2), Object::Real(y2),
+                        ],
+                        "Function" => Object::Reference(func_id),
+                        "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
+                    };
+                    let shading_id = doc.new_object_id();
+                    doc.objects
+                        .insert(shading_id, Object::Dictionary(shading_dict));
+                    resources.push((name.clone(), shading_id));
+                }
+                ShadingKind::Radial => {
+                    // Type 3 (Radial) shading: start circle at center with r=0,
+                    // end circle at center with r=0.707 (half the diagonal of
+                    // the unit square used by the clipping path).
+                    let shading_dict = dictionary! {
+                        "ShadingType" => 3i64,
+                        "ColorSpace" => color_space,
+                        "Domain" => vec![Object::Real(0.0), Object::Real(1.0)],
+                        "Coords" => vec![
+                            Object::Real(0.5), Object::Real(0.5), Object::Real(0.0),
+                            Object::Real(0.5), Object::Real(0.5), Object::Real(std::f64::consts::FRAC_1_SQRT_2 as f32),
+                        ],
+                        "Function" => Object::Reference(func_id),
+                        "Extend" => vec![Object::Boolean(true), Object::Boolean(true)],
+                    };
+                    let shading_id = doc.new_object_id();
+                    doc.objects
+                        .insert(shading_id, Object::Dictionary(shading_dict));
+                    resources.push((name.clone(), shading_id));
+                }
+            }
         }
         resources
     }
@@ -701,8 +856,14 @@ fn render_fills(
                         src,
                         x: fill_x,
                         y: fill_y,
+                        scale: fill_scale,
+                        fit: fill_fit,
                         opacity,
                         alpha_mask,
+                        crop,
+                        rotation: fill_rotation,
+                        flip_h,
+                        flip_v,
                         ..
                     } => {
                         match &mut image_state {
@@ -722,6 +883,15 @@ fn render_fills(
 
                                 match manifest_image {
                                     Some(img) if img.is_valid() => {
+                                        // Detect if source data is RGBA (width * height * 4 == data.len())
+                                        let is_rgba =
+                                            img.data.len() >= (img.width * img.height * 4) as usize;
+                                        let alpha_data = if is_rgba {
+                                            Some(rgba_extract_alpha(&img.data))
+                                        } else {
+                                            None
+                                        };
+
                                         // Real pixel data from the TS-side ICC pipeline
                                         let (data, cs, bpc) = match img.color_space {
                                             resources::ColorSpace::Cmyk => {
@@ -729,45 +899,144 @@ fn render_fills(
                                                 (img.data.clone(), "DeviceCMYK", 4u32)
                                             }
                                             _ => {
-                                                // RGBA data: strip alpha to RGB
-                                                let rgb = rgba_to_rgb(&img.data);
+                                                // RGBA data: strip alpha to RGB for PDF
+                                                let rgb = if is_rgba {
+                                                    rgba_to_rgb(&img.data)
+                                                } else {
+                                                    img.data.clone()
+                                                };
                                                 (rgb, "DeviceRGB", 3u32)
                                             }
                                         };
 
+                                        // Compute effective source dimensions respecting crop rect
+                                        let (src_x, src_y, src_w, src_h) = if let Some(c) = crop {
+                                            (c.x, c.y, c.w, c.h)
+                                        } else {
+                                            (0.0, 0.0, img.width as f64, img.height as f64)
+                                        };
+                                        let img_w = img.width as f64;
+                                        let img_h = img.height as f64;
+
+                                        // When cropped, clip the page context to the desired
+                                        // destination region then map source pixels into it.
+                                        let has_crop = src_x > 0.0
+                                            || src_y > 0.0
+                                            || src_w < img_w
+                                            || src_h < img_h;
+
                                         match embed_image_with_colorspace(
-                                            state.doc, &data, img.width, img.height, bpc, cs,
+                                            state.doc,
+                                            &data,
+                                            img.width,
+                                            img.height,
+                                            bpc,
+                                            cs,
+                                            alpha_data.as_deref(),
                                         ) {
                                             Ok(obj_ref) => {
                                                 let name = format!("Im{}", state.counter);
                                                 state.counter += 1;
                                                 state.refs.push((name.clone(), obj_ref));
 
-                                                // Position and scale the image to fill the shape
                                                 let (bx, by, bw, bh) =
                                                     shape_pdf_bounds(node, page_height);
+
+                                                // Apply fill offset
                                                 let tx = bx + fill_x;
                                                 let ty = by + fill_y;
-                                                // Scale image to fill the shape bounds in PDF space
-                                                let img_w = img.width as f64;
-                                                let img_h = img.height as f64;
-                                                let sx = bw / img_w;
-                                                let sy = bh / img_h;
 
+                                                // Compute placement based on fit mode and source dimensions
+                                                let (draw_w, draw_h, draw_ox, draw_oy) =
+                                                    compute_pdf_image_placement(
+                                                        fill_fit,
+                                                        src_w,
+                                                        src_h,
+                                                        bw,
+                                                        bh,
+                                                        *fill_scale,
+                                                    );
+
+                                                // Clip to the shape bounds when cropped
+                                                if has_crop {
+                                                    buf.extend(
+                                                        format!("1 0 0 1 {tx:.4} {ty:.4} cm\n")
+                                                            .as_bytes(),
+                                                    );
+                                                    buf.extend(
+                                                        format!("0 0 {bw:.4} {bh:.4} re W n\n")
+                                                            .as_bytes(),
+                                                    );
+                                                }
+
+                                                // Apply flips via PDF transform (around draw rect center)
+                                                let flip_h_val = *flip_h == Some(true);
+                                                let flip_v_val = *flip_v == Some(true);
+                                                let flip_sx = if flip_h_val { -1.0 } else { 1.0 };
+                                                let flip_sy = if flip_v_val { -1.0 } else { 1.0 };
+                                                if flip_sx < 0.0 || flip_sy < 0.0 {
+                                                    let cx = tx + draw_w / 2.0;
+                                                    let cy = ty + draw_h / 2.0;
+                                                    buf.extend(
+                                                        format!(
+                                                            "1 0 0 1 {cx:.4} {cy:.4} cm\n{flip_sx:.4} 0 0 {flip_sy:.4} 0 0 cm\n1 0 0 1 {ncx:.4} {ncy:.4} cm\n",
+                                                            ncx = -cx,
+                                                            ncy = -cy,
+                                                        )
+                                                            .as_bytes(),
+                                                    );
+                                                }
+
+                                                // Apply rotation (around draw rect center)
+                                                let rot = fill_rotation.unwrap_or(0.0);
+                                                if rot.abs() > 0.01 {
+                                                    let rad = rot.to_radians();
+                                                    let (cos, sin) = (rad.cos(), rad.sin());
+                                                    let cx = tx + draw_w / 2.0;
+                                                    let cy = ty + draw_h / 2.0;
+                                                    buf.extend(
+                                                        format!(
+                                                            "1 0 0 1 {cx:.4} {cy:.4} cm\n{cos:.4} {sin:.4} {nsin:.4} {cos:.4} 0 0 cm\n1 0 0 1 {ncx:.4} {ncy:.4} cm\n",
+                                                            nsin = -sin,
+                                                            ncx = -cx,
+                                                            ncy = -cy,
+                                                        )
+                                                            .as_bytes(),
+                                                    );
+                                                }
+
+                                                // Map the source rect to the draw rect
+                                                // If cropped: image[sx:sy:sw:sh] → drawRect
+                                                // If not cropped: full image → drawRect
+                                                let scale_x =
+                                                    draw_w / (if has_crop { src_w } else { img_w });
+                                                let scale_y =
+                                                    draw_h / (if has_crop { src_h } else { img_h });
+                                                let img_ox = if has_crop {
+                                                    tx + draw_ox - src_x * scale_x
+                                                } else {
+                                                    tx + draw_ox
+                                                };
+                                                let img_oy = if has_crop {
+                                                    ty + draw_oy - src_y * scale_y
+                                                } else {
+                                                    ty + draw_oy
+                                                };
+                                                // Apply per-fill opacity via ExtGState
+                                                if *opacity < 1.0 {
+                                                    let gs_name =
+                                                        state.get_or_create_opacity_gs(*opacity);
+                                                    buf.extend(
+                                                        format!("/{gs_name} gs\n").as_bytes(),
+                                                    );
+                                                }
                                                 buf.extend(
                                                     format!(
-                                                        "{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n"
+                                                        "{scale_x:.4} 0 0 {scale_y:.4} {img_ox:.4} {img_oy:.4} cm\n"
                                                     )
                                                     .as_bytes(),
                                                 );
                                                 buf.extend(format!("/{name} Do\n").as_bytes());
-
-                                                if *opacity < 1.0 {
-                                                    buf.extend(
-                                                        format!("% image opacity={:.3}\n", opacity)
-                                                            .as_bytes(),
-                                                    );
-                                                }
                                             }
                                             Err(e) => {
                                                 buf.extend(
@@ -794,6 +1063,15 @@ fn render_fills(
                                                 let sx = bw / PH as f64;
                                                 let sy = bh / PH as f64;
 
+                                                // Apply per-fill opacity via ExtGState
+                                                if *opacity < 1.0 {
+                                                    let gs_name =
+                                                        state.get_or_create_opacity_gs(*opacity);
+                                                    buf.extend(
+                                                        format!("/{gs_name} gs\n").as_bytes(),
+                                                    );
+                                                }
+
                                                 buf.extend(
                                                     format!(
                                                         "{sx:.4} 0 0 {sy:.4} {tx:.4} {ty:.4} cm\n"
@@ -802,20 +1080,16 @@ fn render_fills(
                                                 );
                                                 buf.extend(format!("/{name} Do\n").as_bytes());
 
-                                                if *opacity < 1.0 {
-                                                    buf.extend(
-                                                        format!("% image opacity={:.3}\n", opacity)
-                                                            .as_bytes(),
-                                                    );
-                                                }
-
                                                 if use_cmyk {
                                                     let note = "% image fill CMYK conversion not yet implemented; checkerboard placeholder rendered as RGB\n";
                                                     buf.extend_from_slice(note.as_bytes());
                                                 }
 
-                                                if alpha_mask.is_some() {
-                                                    let note = "% alpha mask not yet implemented for image fills in PDF export; needs full pixel decode pipeline\n";
+                                                if let Some(mask_type) = alpha_mask {
+                                                    let note = format!(
+                                                        "% alpha mask type '{:?}' not yet implemented for image fill in PDF export; use SMask via RGBA data\n",
+                                                        mask_type
+                                                    );
                                                     buf.extend_from_slice(note.as_bytes());
                                                 }
                                             }
@@ -1011,13 +1285,20 @@ fn render_fills(
                         }
                         buf.extend_from_slice(b"Q\n");
                     }
-                    FillIR::Gradient { stops, .. } => {
+                    FillIR::Gradient {
+                        gradient_type,
+                        stops,
+                        rotation,
+                        ..
+                    } => {
                         buf.extend_from_slice(b"q\n");
                         let use_shading = stops.len() >= 2;
                         if use_shading {
                             if let Some(registry) = shading_registry.as_mut() {
-                                let shading_name =
-                                    registry.add_linear_gradient(stops, use_cmyk, profile);
+                                let shading_name = match gradient_type.as_str() {
+                                    "radial" => registry.add_radial_gradient(stops, use_cmyk, profile, *rotation),
+                                    _ => registry.add_linear_gradient(stops, use_cmyk, profile, *rotation),
+                                };
                                 buf.extend(&path_ops);
                                 buf.extend_from_slice(b"W n\n");
                                 buf.extend(format!("/{shading_name} sh\n").as_bytes());
@@ -1297,6 +1578,7 @@ pub fn embed_image_with_colorspace(
     height: u32,
     bpc: u32,
     color_space_name: &str,
+    alpha_data: Option<&[u8]>,
 ) -> Result<Object, String> {
     let expected = (width * height * bpc) as usize;
     if image_data.len() < expected {
@@ -1306,21 +1588,50 @@ pub fn embed_image_with_colorspace(
         ));
     }
 
+    let mut image_dict = dictionary! {
+        "Type" => "XObject",
+        "Subtype" => "Image",
+        "Width" => width as i64,
+        "Height" => height as i64,
+        "ColorSpace" => color_space_name,
+        "BitsPerComponent" => 8,
+        "Length" => expected as i64,
+    };
+
+    // Embed alpha channel as a soft mask (SMask) for transparency support.
+    // The alpha is stored as a separate 1-component 8-bit image XObject
+    // and linked via /SMask in the image dictionary.
+    if let Some(alpha) = alpha_data {
+        let alpha_expected = (width * height) as usize;
+        if alpha.len() >= alpha_expected {
+            let mask_id = doc.new_object_id();
+            let mask_stream = Stream::new(
+                dictionary! {
+                    "Type" => "XObject",
+                    "Subtype" => "Image",
+                    "Width" => width as i64,
+                    "Height" => height as i64,
+                    "ColorSpace" => "DeviceGray",
+                    "BitsPerComponent" => 8,
+                    "Length" => alpha_expected as i64,
+                },
+                alpha[..alpha_expected].to_vec(),
+            );
+            doc.objects.insert(mask_id, Object::Stream(mask_stream));
+            image_dict.set("SMask", Object::Reference(mask_id));
+        }
+    }
+
     let image_id = doc.new_object_id();
-    let stream = Stream::new(
-        dictionary! {
-            "Type" => "XObject",
-            "Subtype" => "Image",
-            "Width" => width as i64,
-            "Height" => height as i64,
-            "ColorSpace" => color_space_name,
-            "BitsPerComponent" => 8,
-            "Length" => expected as i64,
-        },
-        image_data[..expected].to_vec(),
-    );
+    let stream = Stream::new(image_dict, image_data[..expected].to_vec());
     doc.objects.insert(image_id, Object::Stream(stream));
     Ok(Object::Reference(image_id))
+}
+
+/// Extract the alpha channel from RGBA pixel data.
+/// Returns Vec<u8> with one byte per pixel (the alpha value).
+pub fn rgba_extract_alpha(data: &[u8]) -> Vec<u8> {
+    data.chunks_exact(4).map(|rgba| rgba[3]).collect()
 }
 
 /// Convert RGBA pixel data to RGB by stripping the alpha channel.
@@ -1692,6 +2003,223 @@ fn embed_font_program(
     })
 }
 
+/// A single text run extracted from the rich text model.
+#[allow(dead_code)]
+struct RichTextRun {
+    text: String,
+    font_family: Option<String>,
+    font_size: Option<f64>,
+    font_weight: Option<i64>,
+    font_style: Option<String>,
+}
+
+/// Parse rich text runs from a `serde_json::Value` matching the TS `RichText`
+/// interface: `{ paragraphs: [{ runs: [{ text, format? }] }] }`.
+fn parse_rich_text_runs(value: &serde_json::Value) -> Vec<RichTextRun> {
+    let mut runs = Vec::new();
+    let paragraphs = match value.get("paragraphs").and_then(|v| v.as_array()) {
+        Some(p) => p,
+        None => return runs,
+    };
+    for para in paragraphs {
+        let run_list = match para.get("runs").and_then(|v| v.as_array()) {
+            Some(r) => r,
+            None => continue,
+        };
+        for run_val in run_list {
+            let text = run_val
+                .get("text")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let format = run_val.get("format");
+            let font_family = format
+                .and_then(|f| f.get("fontFamily"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let font_size = format
+                .and_then(|f| f.get("fontSize"))
+                .and_then(|v| v.as_f64());
+            let font_weight = format
+                .and_then(|f| f.get("fontWeight"))
+                .and_then(|v| v.as_i64());
+            let font_style = format
+                .and_then(|f| f.get("fontStyle"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            if !text.is_empty() {
+                runs.push(RichTextRun {
+                    text,
+                    font_family,
+                    font_size,
+                    font_weight,
+                    font_style,
+                });
+            }
+        }
+        // Add paragraph break as a newline between paragraphs
+        runs.push(RichTextRun {
+            text: "\n".to_string(),
+            font_family: None,
+            font_size: None,
+            font_weight: None,
+            font_style: None,
+        });
+    }
+    runs
+}
+
+/// Render a rich text node to PDF content using per-run fallback.
+/// WinAnsi-encodable runs get native PDF text (searchable/selectable),
+/// others are outlined as vector paths. This is more granular than the
+/// all-or-nothing approach that rasterizes the entire node when one
+/// span contains non-WinAnsi characters.
+fn render_rich_text_to_pdf(
+    node: &SceneNode,
+    opts: &PdfOptions,
+    embedded_fonts: &[EmbeddedFontEntry],
+    page_height: f64,
+) -> Option<Vec<u8>> {
+    let Shape::Text {
+        text: _,
+        font_size: node_font_size,
+        font_family: node_font_family,
+        x: text_x,
+        y: text_y,
+        w: _text_w,
+        h: _text_h,
+        ..
+    } = &node.shape else {
+        return None;
+    };
+
+    let rich_text = match &node.shape {
+        Shape::Text { rich_text, .. } => rich_text.as_ref()?,
+        _ => return None,
+    };
+
+    let runs = parse_rich_text_runs(rich_text);
+    if runs.is_empty() {
+        return None;
+    }
+
+    let tx = node.transform.as_coeffs();
+    let x_off = tx[4];
+    let y_off = tx[5];
+    let use_cmyk = opts.print_profile.is_some();
+    let _color_str = if use_cmyk {
+        color_to_cmyk_string(&node.fill, opts.print_profile)
+    } else {
+        color_to_rgb_string(&node.fill)
+    };
+    let do_outline = opts.outline_text
+        && (opts.font_data.is_some() || !opts.fonts.is_empty());
+
+    let mut content = Vec::new();
+    let mut current_x = *text_x;
+    let line_height = node_font_size * 1.2;
+    let mut current_y = *text_y;
+
+    for run in &runs {
+        if run.text == "\n" {
+            current_x = *text_x;
+            current_y += line_height;
+            continue;
+        }
+
+        let run_font_size = run.font_size.unwrap_or(*node_font_size);
+        let run_font_family = run
+            .font_family
+            .as_deref()
+            .unwrap_or(node_font_family);
+        let run_text = &run.text;
+
+        // Per-run approximation: text advances by character count × 0.5 × font_size
+        let run_width = run_text.len() as f64 * run_font_size * 0.5;
+
+        // Try native PDF text (WinAnsi-encodable + embedded font available)
+        let can_winansi = can_encode_win_ansi(run_text);
+        let has_matching_font = embedded_fonts
+            .iter()
+            .any(|ef| ef.family == run_font_family);
+
+        if !run_text.is_empty() && can_winansi && has_matching_font {
+            if let Some(ef) = embedded_fonts
+                .iter()
+                .find(|ef| ef.family == run_font_family)
+            {
+                let asc =
+                    get_ascender(opts, run_font_size);
+                let pdf_x = current_x + x_off;
+                let pdf_y = page_height - current_y - asc - y_off;
+                let encoded = encode_win_ansi(run_text);
+                let escaped = escape_pdf_string(&String::from_utf8_lossy(&encoded));
+
+                content.extend_from_slice(b"BT\n");
+                content.extend(
+                    format!(
+                        "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n({}) Tj\nET\n",
+                        ef.res_name, run_font_size, pdf_x, pdf_y, escaped
+                    )
+                    .as_bytes(),
+                );
+                current_x += run_width;
+                continue;
+            }
+        }
+
+        // Try outlining this run
+        if do_outline || !run_text.is_empty() && requires_outline(run_text) {
+            if let Some(mut cmd) = try_outline_node(
+                node,
+                run_text,
+                run_font_size,
+                run_font_family,
+                &current_x,
+                &current_y,
+                opts,
+            ) {
+                content.append(&mut cmd);
+                current_x += run_width;
+                continue;
+            }
+        }
+
+        // Fallback: rasterize as filled rect (same as existing shape fallback)
+        // at the run's position and estimated width
+        let fill_color = if use_cmyk {
+            color_to_cmyk_string(&node.fill, opts.print_profile)
+        } else {
+            color_to_rgb_string(&node.fill)
+        };
+        let asc = get_ascender(opts, run_font_size);
+        let pdf_y = page_height - current_y - asc - y_off;
+        let pdf_x = current_x + x_off;
+        content.extend_from_slice(b"q\n");
+        content.extend(fill_color.as_bytes());
+        content.extend(b"\n");
+        content.extend(
+            format!(
+                "{:.2} {:.2} {:.2} {:.2} re\nf\n",
+                pdf_x, pdf_y, run_width, run_font_size
+            )
+            .as_bytes(),
+        );
+        // Comment noting this run was rasterized
+        content.extend(
+            format!(
+                "% raster fallback for non-encodable/non-outlineable run: '{}'\n",
+                run_text
+            )
+            .as_bytes(),
+        );
+        content.extend_from_slice(b"Q\n");
+        current_x += run_width;
+    }
+
+    Some(content)
+}
+
 /// Export a scene to PDF bytes using lopdf.
 ///
 /// Each shape node becomes a filled path. When `opts.outline_text` is true
@@ -1806,7 +2334,35 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
         let mut shading_registry = ShadingRegistry::new();
 
         for node in nodes {
-            // Try embedded font text rendering
+            // Granular rich text fallback: when a node has rich text spans,
+            // process each run independently instead of all-or-nothing.
+            // Valid runs get native PDF text; non-WinAnsi runs are outlined.
+            let is_text_node = matches!(&node.shape, Shape::Text { .. });
+            let has_rich_text = matches!(
+                &node.shape,
+                Shape::Text {
+                    rich_text: Some(_),
+                    ..
+                }
+            );
+
+            if is_text_node && has_rich_text {
+                // Flush any pending BT first
+                if need_bt {
+                    content.extend_from_slice(b"ET\n");
+                    need_bt = false;
+                }
+                if let Some(mut rich_content) =
+                    render_rich_text_to_pdf(node, opts, &embedded_fonts, opts.page_height)
+                {
+                    content.append(&mut rich_content);
+                    continue;
+                }
+                // If rich text rendering fails (no runs), fall through to
+                // the flat text path below.
+            }
+
+            // Try embedded font text rendering (flat text, no rich text)
             if let Shape::Text {
                 text,
                 font_size,
@@ -1944,10 +2500,24 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
     };
     if !image_refs.is_empty() {
         let mut xdict = lopdf::Dictionary::new();
+        let mut gs_dict = lopdf::Dictionary::new();
         for (name, ref_obj) in &image_refs {
-            xdict.set(name.as_bytes(), ref_obj.clone());
+            let is_ext_gs = match ref_obj {
+                Object::Dictionary(d) => {
+                    d.get(b"Type").ok().and_then(|o| o.as_name().ok()) == Some(b"ExtGState")
+                }
+                _ => false,
+            };
+            if is_ext_gs {
+                gs_dict.set(name.as_bytes(), ref_obj.clone());
+            } else {
+                xdict.set(name.as_bytes(), ref_obj.clone());
+            }
         }
         resources.set("XObject", xdict);
+        if !gs_dict.is_empty() {
+            resources.set("ExtGState", gs_dict);
+        }
     }
     let shading_resources = shading_registry.create_pdf_objects(&mut doc);
     if !shading_resources.is_empty() {
@@ -2530,6 +3100,10 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
             alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
         }]);
         let result = render_fills(&node, 100.0, false, None, None, None, None, false);
         let s = String::from_utf8_lossy(&result);
@@ -2826,6 +3400,10 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
             alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
         }]);
         node
     }
@@ -2911,6 +3489,10 @@ mod tests {
                 blend_mode: BlendMode::Normal,
                 visible: true,
                 alpha_mask: None,
+                crop: None,
+                rotation: None,
+                flip_h: None,
+                flip_v: None,
             }]),
             corner_radius: None,
             filters: None,
@@ -2953,6 +3535,10 @@ mod tests {
             blend_mode: BlendMode::Normal,
             visible: true,
             alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
         }]);
         let mut doc = Document::new();
         let mut state = ImageRenderState::new(&mut doc);
@@ -2968,8 +3554,8 @@ mod tests {
         );
         let s = String::from_utf8_lossy(&result);
         assert!(
-            s.contains("opacity=0.500"),
-            "image fill with opacity should emit opacity comment: {s}"
+            s.contains("GS500 gs"),
+            "image fill with opacity 0.5 should emit GS500 gs (ExtGState): {s}"
         );
         assert!(
             s.contains("/Im0 Do"),
@@ -3018,6 +3604,10 @@ mod tests {
                 blend_mode: BlendMode::Normal,
                 visible: true,
                 alpha_mask: None,
+                crop: None,
+                rotation: None,
+                flip_h: None,
+                flip_v: None,
             },
         ]);
         let mut doc = Document::new();

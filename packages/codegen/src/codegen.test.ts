@@ -441,4 +441,124 @@ describe('legacy exports', () => {
     expect(react).toContain('ExportedScene');
     expect(react).toContain('<rect');
   });
+
+  describe('gradient fill export', () => {
+    it('emits linearGradient for linear gradient fills', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'GradBox' },
+      );
+      const fill: import('@strata/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'linear',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as Record<string, unknown>).fills = [fill];
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+      expect(svg).toContain('<linearGradient');
+      expect(svg).not.toContain('<radialGradient');
+      expect(svg).toContain('url(#grad-');
+    });
+
+    it('emits radialGradient for radial gradient fills', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'RadialBox' },
+      );
+      const fill: import('@strata/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'radial',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 255, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as Record<string, unknown>).fills = [fill];
+      const svg = exportNodeToSvg(node, createDocument('Test'));
+      expect(svg).toContain('<radialGradient');
+      expect(svg).toContain('cx="50%"');
+      expect(svg).toContain('cy="50%"');
+    });
+
+    it('flags angular gradient as needing raster fallback via svgTargetGaps', async () => {
+      const { svgTargetGaps } = await import('./svg');
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'AngularBox' },
+      );
+      const fill: import('@strata/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'angular',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 0.5, color: { space: 'rgb', r: 0, g: 255, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as Record<string, unknown>).fills = [fill];
+      const gaps = svgTargetGaps(node, createDocument('Test'));
+      const gradGap = gaps.find((g) => g.feature?.includes('angular gradient'));
+      expect(gradGap).toBeDefined();
+      expect(gradGap!.severity).toBe('warning');
+    });
+
+    it('uses raster asset when provided for angular gradient shape', () => {
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+        { name: 'AngularBox' },
+      );
+      const fill: import('@strata/scene').Fill = {
+        type: 'gradient',
+        gradient: {
+          type: 'angular',
+          stops: [
+            { position: 0, color: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 } },
+            { position: 1, color: { space: 'rgb', r: 0, g: 0, b: 255, a: 255 } },
+          ],
+        },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      };
+      (node as Record<string, unknown>).fills = [fill];
+      const rasterAssets = {
+        n1: {
+          nodeId: 'n1',
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPj/HwADBwIAMCbHYQAAAABJRU5ErkJggg==',
+          pixelWidth: 200,
+          pixelHeight: 100,
+          cssWidth: 200,
+          cssHeight: 100,
+          dpi: 96,
+        },
+      };
+      const svg = exportNodeToSvg(node, createDocument('Test'), { rasterAssets });
+      expect(svg).toContain('<image');
+      expect(svg).toContain('href="data:image/png;base64');
+      expect(svg).toContain('width="200"');
+    });
+  });
 });

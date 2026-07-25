@@ -38,6 +38,7 @@ export interface ReplayTarget {
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
   translate(x: number, y: number): void;
   rotate(angle: number): void;
+  scale(x: number, y: number): void;
   fillRect(x: number, y: number, w: number, h: number): void;
   strokeRect(x: number, y: number, w: number, h: number): void;
   beginPath(): void;
@@ -78,13 +79,22 @@ export interface ReplayTarget {
   filter: string;
   lineDashOffset: number;
   setLineDash(segments: number[]): void;
-  /** F6: draw an image. Matches the Canvas2D 3-arg and 5-arg overloads. */
+  /**
+   * Draw an image. Supports Canvas2D overloads:
+   *   3-arg: drawImage(image, dx, dy)
+   *   5-arg: drawImage(image, dx, dy, dw, dh)
+   *   9-arg: drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh)
+   */
   drawImage?(
     image: CanvasImageSource | string,
-    dx: number,
-    dy: number,
-    dw?: number,
-    dh?: number,
+    a1: number,
+    a2: number,
+    a3?: number,
+    a4?: number,
+    a5?: number,
+    a6?: number,
+    a7?: number,
+    a8?: number,
   ): void;
   /** P2: create a linear gradient for gradient fills. */
   createLinearGradient?(x0: number, y0: number, x1: number, y1: number): ReplayGradient;
@@ -184,6 +194,9 @@ function rgba(
   c: EngineColor | readonly [number, number, number, number],
   opacityOverride?: number,
 ): string {
+  if (c == null) {
+    return 'rgba(0, 0, 0, 0)';
+  }
   if (Array.isArray(c) || 'length' in c) {
     const arr = c as readonly [number, number, number, number];
     const alpha = opacityOverride !== undefined ? opacityOverride : arr[3] / 255;
@@ -1307,8 +1320,16 @@ function paintImageFill(
     width?: number;
     height?: number;
   };
-  const sourceWidth = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bw;
-  const sourceHeight = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bh;
+  const fullSourceWidth = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bw;
+  const fullSourceHeight = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bh;
+
+  // When a crop rect is set, the effective source is the crop region.
+  // The placement math operates on the crop dimensions so fit modes
+  // (fill/fit/stretch/tile) map the crop region onto the node bounds.
+  const hasCrop = fill.crop && fill.crop.w > 0 && fill.crop.h > 0;
+  const sourceWidth = hasCrop ? fill.crop!.w : fullSourceWidth;
+  const sourceHeight = hasCrop ? fill.crop!.h : fullSourceHeight;
+
   const placement = computeImagePlacement({
     fit: fill.fit ?? 'fill',
     sourceWidth,
@@ -1321,10 +1342,36 @@ function paintImageFill(
   if (!placement) return;
   const { x: dx, y: dy, w: dw, h: dh } = placement.drawRect;
 
+  // Source rectangle for 9-arg drawImage: when cropped, draw only the crop region.
+  const sx = hasCrop ? fill.crop!.x : 0;
+  const sy = hasCrop ? fill.crop!.y : 0;
+  const sw = hasCrop ? fill.crop!.w : fullSourceWidth;
+  const sh = hasCrop ? fill.crop!.h : fullSourceHeight;
+
+  // Determine if rotation/flip transforms are needed.
+  const rotationDeg = fill.rotation ?? 0;
+  const hasRotation = Math.abs(((rotationDeg % 360) + 360) % 360) > 0.001;
+  const hasFlip = fill.flipH || fill.flipV;
+  const hasTransform = hasRotation || hasFlip;
+
   if (placement.fit === 'tile') {
     for (let ty = dy; ty < bounds.y + bh; ty += dh) {
       for (let tx = dx; tx < bounds.x + bw; tx += dw) {
-        target.drawImage(image, tx, ty, dw, dh);
+        if (hasTransform) {
+          target.save();
+          applyImageTransform(
+            target,
+            tx + dw / 2,
+            ty + dh / 2,
+            rotationDeg,
+            fill.flipH,
+            fill.flipV,
+          );
+          target.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
+          target.restore();
+        } else {
+          target.drawImage(image, sx, sy, sw, sh, tx, ty, dw, dh);
+        }
       }
     }
     return;
@@ -1348,25 +1395,68 @@ function paintImageFill(
     if (maskImg) {
       try {
         const oc = document.createElement('canvas');
-        oc.width = bw;
-        oc.height = bh;
+        oc.width = dw;
+        oc.height = dh;
         const octx = oc.getContext('2d');
         if (octx) {
-          octx.drawImage(image, dx - bounds.x, dy - bounds.y, dw, dh);
+          if (hasTransform) {
+            octx.save();
+            applyImageTransform(octx, dw / 2, dh / 2, rotationDeg, fill.flipH, fill.flipV);
+            octx.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
+            octx.restore();
+          } else {
+            octx.drawImage(image, sx, sy, sw, sh, 0, 0, dw, dh);
+          }
           octx.globalCompositeOperation = 'destination-in';
-          octx.drawImage(maskImg, 0, 0, bw, bh);
-          target.drawImage(oc, bounds.x, bounds.y, bw, bh);
+          octx.drawImage(maskImg, 0, 0, dw, dh);
+          target.drawImage(oc, dx, dy, dw, dh);
         } else {
-          target.drawImage(image, dx, dy, dw, dh);
+          target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
         }
       } catch {
-        target.drawImage(image, dx, dy, dw, dh);
+        target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
       }
     } else {
-      target.drawImage(image, dx, dy, dw, dh);
+      if (hasTransform) {
+        target.save();
+        applyImageTransform(target, dx + dw / 2, dy + dh / 2, rotationDeg, fill.flipH, fill.flipV);
+        target.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
+        target.restore();
+      } else {
+        target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+      }
     }
+  } else if (hasTransform) {
+    target.save();
+    applyImageTransform(target, dx + dw / 2, dy + dh / 2, rotationDeg, fill.flipH, fill.flipV);
+    target.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
+    target.restore();
   } else {
-    target.drawImage(image, dx, dy, dw, dh);
+    target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+  }
+}
+
+/**
+ * Apply rotation and flip transforms to the canvas context, centered at (cx, cy).
+ * The caller is responsible for save/restore and must draw centered at origin
+ * (i.e. drawImage with dest rect centered at 0,0).
+ */
+function applyImageTransform(
+  ctx: ReplayTarget,
+  cx: number,
+  cy: number,
+  rotationDeg: number,
+  flipH?: boolean,
+  flipV?: boolean,
+): void {
+  ctx.translate(cx, cy);
+  if (Math.abs(((rotationDeg % 360) + 360) % 360) > 0.001) {
+    ctx.rotate((rotationDeg * Math.PI) / 180);
+  }
+  const scaleX = flipH ? -1 : 1;
+  const scaleY = flipV ? -1 : 1;
+  if (scaleX !== 1 || scaleY !== 1) {
+    ctx.scale(scaleX, scaleY);
   }
 }
 

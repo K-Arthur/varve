@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.6');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.7');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('stamps current version on new documents', () => {
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.6');
+    expect(migrated.formatVersion).toBe('2.7');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.6');
+    expect(migrated.formatVersion).toBe('2.7');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.6');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.7');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -319,7 +319,7 @@ describe('Document Migration', () => {
     };
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
-    expect((result as Record<string, unknown>).formatVersion).toBe('2.6');
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.7');
   });
 
   it('migrates v2.4 → v2.5: bakes rotation into transform', () => {
@@ -341,7 +341,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.6');
+    expect(result.formatVersion).toBe('2.7');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     // n1: rotation 90 baked into transform
     expect(nodes.n1!.rotation).toBe(0);
@@ -369,7 +369,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.6');
+    expect(result.formatVersion).toBe('2.7');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     const fills = nodes.n1!.fills as Record<string, unknown>[];
     const image = fills[0]!.image as Record<string, unknown>;
@@ -858,5 +858,158 @@ describe('serializeDocument', () => {
     const parsed = JSON.parse(json);
     // Never silently discard data that doesn't match the asset table.
     expect(parsed.nodes.n1.fills[0].image.src).toBe('data:image/png;base64,DRIFTED');
+  });
+});
+
+describe('v2.7 migration (image crop + transform fields)', () => {
+  it('stamps v2.7 on migrated documents', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.6',
+      nodes: {},
+    });
+    expect(migrated!.formatVersion).toBe('2.7');
+  });
+
+  it('normalizes an out-of-bounds crop rect', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.6',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'data:image/png;base64,AA',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 200,
+                imageHeight: 200,
+                crop: { x: -10, y: -10, w: 300, h: 300 },
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+    const fill = (
+      migrated!.nodes as Record<string, { fills: Array<{ image?: Record<string, unknown> }> }>
+    ).n1!.fills[0]!.image as Record<string, unknown>;
+    // Crop should be clamped to source dimensions → full image → normalized to undefined
+    expect(fill.crop).toBeUndefined();
+  });
+
+  it('removes a crop that covers the full source', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.6',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'data:image/png;base64,AA',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 200,
+                imageHeight: 200,
+                crop: { x: 0, y: 0, w: 200, h: 200 },
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+    const fill = (
+      migrated!.nodes as Record<string, { fills: Array<{ image?: Record<string, unknown> }> }>
+    ).n1!.fills[0]!.image as Record<string, unknown>;
+    expect(fill.crop).toBeUndefined();
+  });
+
+  it('normalizes rotation to [0, 360)', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.6',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'data:image/png;base64,AA',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                rotation: -90,
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+    const fill = (
+      migrated!.nodes as Record<string, { fills: Array<{ image?: Record<string, unknown> }> }>
+    ).n1!.fills[0]!.image as Record<string, unknown>;
+    expect(fill.rotation).toBe(270);
+  });
+
+  it('leaves valid crop/rotation/flip unchanged', () => {
+    const migrated = migrateDocument({
+      formatVersion: '2.6',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'shape',
+          shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+          fills: [
+            {
+              type: 'image',
+              image: {
+                src: 'data:image/png;base64,AA',
+                fit: 'fill',
+                x: 0,
+                y: 0,
+                scale: 1,
+                imageWidth: 200,
+                imageHeight: 200,
+                crop: { x: 10, y: 20, w: 50, h: 60 },
+                rotation: 45,
+                flipH: true,
+              },
+              opacity: 1,
+              blendMode: 'normal',
+              visible: true,
+            },
+          ],
+        },
+      },
+    });
+    const fill = (
+      migrated!.nodes as Record<string, { fills: Array<{ image?: Record<string, unknown> }> }>
+    ).n1!.fills[0]!.image as Record<string, unknown>;
+    expect(fill.crop).toEqual({ x: 10, y: 20, w: 50, h: 60 });
+    expect(fill.rotation).toBe(45);
+    expect(fill.flipH).toBe(true);
   });
 });

@@ -140,6 +140,18 @@ pub struct IpcEngineImageFillData {
     pub image_width: Option<f64>,
     #[serde(default, rename = "imageHeight")]
     pub image_height: Option<f64>,
+    /// Non-destructive crop rect in source-pixel coordinates.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub crop: Option<strata_core::scene::CropRect>,
+    /// Image content rotation in degrees clockwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotation: Option<f64>,
+    /// Horizontal flip of image content.
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "flipH")]
+    pub flip_h: Option<bool>,
+    /// Vertical flip of image content.
+    #[serde(default, skip_serializing_if = "Option::is_none", rename = "flipV")]
+    pub flip_v: Option<bool>,
 }
 
 fn default_scale() -> f64 {
@@ -246,6 +258,10 @@ impl IpcEngineFill {
                 blend_mode,
                 visible,
                 alpha_mask,
+                crop: image.crop,
+                rotation: image.rotation,
+                flip_h: image.flip_h,
+                flip_v: image.flip_v,
             },
             IpcEngineFill::Pattern {
                 pattern,

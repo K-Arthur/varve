@@ -26,6 +26,7 @@ import type { Sam2Letterbox, Sam2Prompt } from './models/sam2';
 import { encodeSam2Prompts, SAM2_INPUT_SIZE, SAM2_TENSOR_SPEC } from './models/sam2';
 import { SCUNET_INPUT_SIZE, SCUNET_TENSOR_SPEC } from './models/scunet';
 import { SIGLIP_IMAGE_SIZE, SIGLIP_IMAGE_TENSOR_SPEC } from './models/siglip';
+import { TROCR_INPUT_SIZE, TROCR_TENSOR_SPEC } from './models/trocr';
 
 export type WorkerModelType =
   | 'sam2'
@@ -41,6 +42,7 @@ export type WorkerModelType =
   | 'efficientnet'
   | 'paddleocr-det'
   | 'paddleocr-rec'
+  | 'trocr'
   | 'siglip-image';
 
 export interface WorkerTensor {
@@ -258,6 +260,12 @@ registerModelType('paddleocr-rec', {
   // normalization (mean/std=0.5) differs from the worker's default
   // /255 identity pack. The client preprocesses to NCHW+H=48 itself.
   getInputSize: () => 0,
+  hasImageInput: false,
+});
+
+registerModelType('trocr', {
+  tensorSpec: TROCR_TENSOR_SPEC,
+  getInputSize: () => TROCR_INPUT_SIZE,
   hasImageInput: false,
 });
 

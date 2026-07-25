@@ -1,6 +1,6 @@
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 
-export const CURRENT_DOCUMENT_VERSION = '2.6';
+export const CURRENT_DOCUMENT_VERSION = '2.7';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -21,6 +21,7 @@ export const SUPPORTED_VERSIONS = [
   '2.4',
   '2.5',
   '2.6',
+  '2.7',
 ];
 
 export interface DocumentMigration {
@@ -499,6 +500,108 @@ const migrations: DocumentMigration[] = [
         ...(migratedPaints ? { paints: migratedPaints } : {}),
         assets: Object.keys(assets).length > 0 ? assets : undefined,
         formatVersion: '2.6',
+      };
+    },
+  },
+  {
+    from: '2.6',
+    to: '2.7',
+    migrate: (raw) => {
+      // v2.7 adds non-destructive crop, rotation, flipH, flipV fields to
+      // ImageFillData. These fields are all optional and default to
+      // "no crop / no rotation / no flip", so existing fills need no
+      // structural change — we only normalize any already-present values
+      // (e.g. from a beta serialization) to guarantee invariants:
+      //   - crop is clamped to source dimensions
+      //   - crop covering the full source is stored as undefined
+      //   - rotation is normalized to [0, 360)
+      //   - flipH/flipV are booleans
+      const nodes = (raw.nodes as Record<string, Record<string, unknown>>) ?? {};
+
+      const normalizeFill = (fillValue: unknown): unknown => {
+        if (!fillValue || typeof fillValue !== 'object') return fillValue;
+        const fill = fillValue as Record<string, unknown>;
+        if (fill.type !== 'image' || !fill.image || typeof fill.image !== 'object') return fill;
+        const image = fill.image as Record<string, unknown>;
+        let changed = false;
+
+        // Normalize crop
+        if (image.crop !== undefined) {
+          const crop = image.crop as Record<string, unknown>;
+          if (
+            !crop ||
+            typeof crop !== 'object' ||
+            !Number.isFinite(crop.x) ||
+            !Number.isFinite(crop.y) ||
+            !Number.isFinite(crop.w) ||
+            !Number.isFinite(crop.h) ||
+            (crop.w as number) <= 0 ||
+            (crop.h as number) <= 0
+          ) {
+            delete image.crop;
+            changed = true;
+          } else {
+            const sw = Math.max(1, (image.imageWidth as number) ?? (crop.w as number));
+            const sh = Math.max(1, (image.imageHeight as number) ?? (crop.h as number));
+            const cx = Math.max(0, Math.min(crop.x as number, sw - 1));
+            const cy = Math.max(0, Math.min(crop.y as number, sh - 1));
+            const cw = Math.max(1, Math.min(crop.w as number, sw - cx));
+            const ch = Math.max(1, Math.min(crop.h as number, sh - cy));
+            const isFull = cx <= 0 && cy <= 0 && cw >= sw && ch >= sh;
+            if (isFull) {
+              delete image.crop;
+              changed = true;
+            } else if (cx !== crop.x || cy !== crop.y || cw !== crop.w || ch !== crop.h) {
+              image.crop = { x: cx, y: cy, w: cw, h: ch };
+              changed = true;
+            }
+          }
+        }
+
+        // Normalize rotation to [0, 360)
+        if (image.rotation !== undefined) {
+          const rot = image.rotation as number;
+          if (!Number.isFinite(rot)) {
+            delete image.rotation;
+            changed = true;
+          } else {
+            const normalized = ((rot % 360) + 360) % 360;
+            if (Math.abs(normalized) < 1e-6) {
+              delete image.rotation;
+              changed = true;
+            } else if (normalized !== rot) {
+              image.rotation = normalized;
+              changed = true;
+            }
+          }
+        }
+
+        // Normalize flipH/flipV to booleans
+        if (image.flipH !== undefined && typeof image.flipH !== 'boolean') {
+          image.flipH = Boolean(image.flipH);
+          changed = true;
+        }
+        if (image.flipV !== undefined && typeof image.flipV !== 'boolean') {
+          image.flipV = Boolean(image.flipV);
+          changed = true;
+        }
+
+        return changed ? { ...fill, image: { ...image } } : fill;
+      };
+
+      const migratedNodes: Record<string, Record<string, unknown>> = {};
+      for (const [id, node] of Object.entries(nodes)) {
+        if (Array.isArray(node.fills)) {
+          migratedNodes[id] = { ...node, fills: node.fills.map(normalizeFill) };
+        } else {
+          migratedNodes[id] = node;
+        }
+      }
+
+      return {
+        ...raw,
+        nodes: migratedNodes,
+        formatVersion: '2.7',
       };
     },
   },

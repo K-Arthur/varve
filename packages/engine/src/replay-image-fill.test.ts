@@ -67,6 +67,7 @@ function makeRecorder(): {
       transform: () => calls.push('transform'),
       translate: () => calls.push('translate'),
       rotate: () => calls.push('rotate'),
+      scale: () => calls.push('scale'),
       fillRect: () => calls.push('fillRect'),
       strokeRect: () => calls.push('strokeRect'),
       beginPath: () => calls.push('beginPath'),
@@ -101,14 +102,26 @@ function makeRecorder(): {
       setLineDash: () => calls.push('setLineDash'),
       drawImage: (
         image: CanvasImageSource | string,
-        dx: number,
-        dy: number,
-        dw: number,
-        dh: number,
+        a1: number,
+        a2: number,
+        a3: number,
+        a4: number,
+        ...rest: number[]
       ) => {
-        calls.push(
-          `drawImage ${image} ${dx.toFixed(1)} ${dy.toFixed(1)} ${dw.toFixed(1)} ${dh.toFixed(1)}`,
-        );
+        // Supports both 4-arg drawImage(image, dx, dy, dw, dh) and
+        // 9-arg drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh).
+        // Records the destination rect (dx, dy, dw, dh).
+        if (rest.length >= 4) {
+          // 9-arg: rest = [dx, dy, dw, dh]
+          calls.push(
+            `drawImage ${image} ${rest[0]!.toFixed(1)} ${rest[1]!.toFixed(1)} ${rest[2]!.toFixed(1)} ${rest[3]!.toFixed(1)}`,
+          );
+        } else {
+          // 4-arg: a1-a4 = dx, dy, dw, dh
+          calls.push(
+            `drawImage ${image} ${a1.toFixed(1)} ${a2.toFixed(1)} ${a3.toFixed(1)} ${a4.toFixed(1)}`,
+          );
+        }
       },
     },
   };
@@ -469,4 +482,179 @@ describe('worker image lookup parity', () => {
       expect(calls.filter((call) => call.startsWith('drawImage'))).toEqual(testCase.expected);
     });
   }
+});
+
+describe('image crop rect', () => {
+  it('renders only the crop region with 9-arg drawImage', () => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        50,
+        imageFill({
+          type: 'image',
+          src: 'img1',
+          fit: 'fill',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 200,
+          imageHeight: 100,
+          crop: { x: 50, y: 25, w: 100, h: 50 },
+        }),
+      ),
+    ]);
+    const draw = calls.filter((c) => c.startsWith('drawImage'));
+    expect(draw.length).toBe(1);
+    // Crop region 100x50 maps to full bounds 100x50 (fill of crop into bounds)
+    expect(draw[0]).toBe('drawImage img1 0.0 0.0 100.0 50.0');
+  });
+
+  it('crop changes effective source dimensions for fit mode', () => {
+    const { target, calls } = makeRecorder();
+    // Source is 200x100, crop is 100x100 (square). Fit into 100x100 bounds.
+    replayIr(target, [
+      rectItem(
+        100,
+        100,
+        imageFill({
+          type: 'image',
+          src: 'img2',
+          fit: 'fit',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 200,
+          imageHeight: 100,
+          crop: { x: 50, y: 0, w: 100, h: 100 },
+        }),
+      ),
+    ]);
+    const draw = calls.filter((c) => c.startsWith('drawImage'));
+    expect(draw.length).toBe(1);
+    // Square crop fits in 100x100 => exactly 100x100, centered
+    expect(draw[0]).toBe('drawImage img2 0.0 0.0 100.0 100.0');
+  });
+
+  it('crop with stretch fills bounds ignoring original aspect', () => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        80,
+        40,
+        imageFill({
+          type: 'image',
+          src: 'img1',
+          fit: 'stretch',
+          x: 0,
+          y: 0,
+          scale: 1,
+          imageWidth: 100,
+          imageHeight: 50,
+          crop: { x: 10, y: 5, w: 50, h: 25 },
+        }),
+      ),
+    ]);
+    const draw = calls.filter((c) => c.startsWith('drawImage'));
+    expect(draw.length).toBe(1);
+    expect(draw[0]).toBe('drawImage img1 0.0 0.0 80.0 40.0');
+  });
+});
+
+describe('image rotation and flip', () => {
+  it('applies rotation transform around draw rect center', () => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        50,
+        imageFill({
+          type: 'image',
+          src: 'img1',
+          fit: 'stretch',
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotation: 90,
+        }),
+      ),
+    ]);
+    // Should have save + translate + rotate + drawImage + restore
+    expect(calls).toContain('save');
+    expect(calls).toContain('translate');
+    expect(calls).toContain('rotate');
+    expect(calls).toContain('restore');
+    const draw = calls.filter((c) => c.startsWith('drawImage'));
+    expect(draw.length).toBe(1);
+  });
+
+  it('applies flipH via scale transform', () => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        50,
+        imageFill({
+          type: 'image',
+          src: 'img1',
+          fit: 'stretch',
+          x: 0,
+          y: 0,
+          scale: 1,
+          flipH: true,
+        }),
+      ),
+    ]);
+    expect(calls).toContain('save');
+    expect(calls).toContain('translate');
+    expect(calls).toContain('scale');
+    expect(calls).toContain('restore');
+  });
+
+  it('applies combined rotation + flip', () => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        50,
+        imageFill({
+          type: 'image',
+          src: 'img1',
+          fit: 'stretch',
+          x: 0,
+          y: 0,
+          scale: 1,
+          rotation: 45,
+          flipH: true,
+          flipV: true,
+        }),
+      ),
+    ]);
+    expect(calls).toContain('save');
+    expect(calls).toContain('translate');
+    expect(calls).toContain('rotate');
+    expect(calls).toContain('scale');
+    expect(calls).toContain('restore');
+  });
+
+  it('no transform calls when rotation=0 and no flip', () => {
+    const { target, calls } = makeRecorder();
+    replayIr(target, [
+      rectItem(
+        100,
+        50,
+        imageFill({
+          type: 'image',
+          src: 'img1',
+          fit: 'stretch',
+          x: 0,
+          y: 0,
+          scale: 1,
+        }),
+      ),
+    ]);
+    expect(calls).not.toContain('translate');
+    expect(calls).not.toContain('rotate');
+    expect(calls).not.toContain('scale');
+  });
 });

@@ -22,13 +22,13 @@ import type { ToolId } from '../context/types';
 // Workspace mode identity
 // ---------------------------------------------------------------------------
 
-export type WorkspaceMode = 'design' | 'print' | 'drawing' | 'image' | 'motion';
+export type WorkspaceMode = 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen';
 
 // ---------------------------------------------------------------------------
 // Panel configuration
 // ---------------------------------------------------------------------------
 
-export type PanelId = 'layers' | 'inspector' | 'timeline' | 'pagenav' | 'library';
+export type PanelId = 'layers' | 'inspector' | 'timeline' | 'pagenav' | 'library' | 'codegen';
 
 export interface PanelConfig {
   /** Whether this panel is visible by default in this mode. */
@@ -68,14 +68,34 @@ export interface ToolbarConfig {
 // Inspector tab configuration
 // ---------------------------------------------------------------------------
 
-export type InspectorTabId = 'properties' | 'export' | 'spec' | 'score' | 'audit';
+export type InspectorTabGroup = 'primary' | 'workflow' | 'output';
+
+export type InspectorTabId =
+  | 'properties'
+  | 'appearance'
+  | 'adjustments'
+  | 'prototype'
+  | 'export'
+  | 'audit'
+  | 'codegen';
+
+/** Legacy tab IDs that may appear in stored preferences — mapped on migration. */
+export type DeprecatedInspectorTabId = 'document' | 'spec';
 
 export interface InspectorTabConfig {
   id: InspectorTabId;
   label: string;
   visible: boolean;
+  /** Visual group for tab bar separators. Defaults to 'workflow'. */
+  group?: InspectorTabGroup;
   /** Whether this tab is the default when switching to this mode. */
   default?: boolean;
+  /**
+   * Overflow priority — when tabs exceed container width, tabs with higher
+   * overflow priority are moved to the overflow menu first. 0 = pinned
+   * (never overflows). Defaults to 1.
+   */
+  overflowPriority?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -280,11 +300,18 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       ],
     },
     inspectorTabs: [
-      { id: 'properties', label: 'Properties', visible: true, default: true },
-      { id: 'export', label: 'Export', visible: true },
-      { id: 'spec', label: 'Spec', visible: true },
-      { id: 'score', label: 'Score', visible: true },
-      { id: 'audit', label: 'Audit', visible: true },
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'prototype', label: 'Prototype', visible: true, group: 'workflow' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -362,10 +389,17 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       ],
     },
     inspectorTabs: [
-      { id: 'properties', label: 'Properties', visible: true, default: true },
-      { id: 'export', label: 'Export', visible: true },
-      { id: 'spec', label: 'Spec', visible: true },
-      { id: 'audit', label: 'Audit', visible: true },
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -447,8 +481,16 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       ],
     },
     inspectorTabs: [
-      { id: 'properties', label: 'Properties', visible: true, default: true },
-      { id: 'export', label: 'Export', visible: true },
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -539,9 +581,18 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       ],
     },
     inspectorTabs: [
-      { id: 'properties', label: 'Properties', visible: true, default: true },
-      { id: 'export', label: 'Export', visible: true },
-      { id: 'audit', label: 'Audit', visible: true },
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      { id: 'adjustments', label: 'Adjustments', visible: true, group: 'workflow' },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -589,6 +640,99 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
   },
 
   // ─── Motion Mode (animation, timeline, keyframes, prototyping) ──────────
+  // ─── Codegen & Audit Mode (design-to-code, design audit, spec output) ────
+  codegen: {
+    version: 1,
+    panels: {
+      layers: { visible: true, collapsed: false, order: 0, preferredWidth: '16rem' },
+      inspector: { visible: true, collapsed: false, order: 0, preferredWidth: '20rem' },
+      timeline: { visible: false, collapsed: false, order: 2 },
+      pagenav: { visible: true, collapsed: false, order: 3 },
+      library: { visible: true, collapsed: false, order: 4 },
+      codegen: { visible: true, collapsed: false, order: 5, preferredWidth: '100%' },
+    },
+    floatingToolbar: true,
+    statusBar: true,
+    tabStrip: true,
+    toolbar: {
+      tools: [
+        { toolId: 'select', groupStart: true },
+        { toolId: 'hand' },
+        { toolId: 'zoom' },
+        { toolId: 'inspect', groupStart: true },
+        { toolId: 'frame', groupStart: true },
+        { toolId: 'rect' },
+        { toolId: 'ellipse' },
+        { toolId: 'text' },
+        { toolId: 'line', groupStart: true },
+        { toolId: 'arrow' },
+        { toolId: 'pen', groupStart: true },
+        { toolId: 'pencil' },
+        { toolId: 'scale', groupStart: true },
+        { toolId: 'eyedropper' },
+      ],
+      flyouts: [
+        { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
+        {
+          id: 'boolean',
+          label: 'Boolean',
+          tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
+        },
+      ],
+    },
+    inspectorTabs: [
+      {
+        id: 'codegen',
+        label: 'Codegen',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        group: 'primary',
+        overflowPriority: 1,
+      },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
+    ],
+    statusSections: [
+      { id: 'toolName', visible: true, order: 0 },
+      { id: 'cursorPos', visible: true, order: 10 },
+      { id: 'layoutScore', visible: true, order: 11 },
+      { id: 'selectionInfo', visible: true, order: 12 },
+      { id: 'unit', visible: true, order: 20 },
+      { id: 'debt', visible: true, order: 21 },
+      { id: 'zoom', visible: true, order: 30 },
+    ],
+    canvasOverlays: {
+      rulers: true,
+      guides: true,
+      pixelGrid: false,
+      dotGrid: true,
+      bleedGuides: false,
+      layoutGrid: false,
+      baselineGrid: false,
+    },
+    shortcuts: { extra: {}, disabled: [] },
+    performance: { ...COMMON_PERFORMANCE, useWorkerRenderer: false, realTimePreview: true },
+    onboarding: {
+      description:
+        'Design-to-code export, design audit, accessibility checks, and specification output.',
+      shortcutHint: 'Ctrl+Shift+9',
+      tips: [
+        'Select a node to view its code in HTML, Tailwind, or SVG.',
+        'Use the Audit tab to check contrast, typography, and accessibility.',
+        'The Design Audit report lists all issues with severity levels.',
+        'Switch between codegen targets to compare output formats.',
+        'Flattened regions show fidelity warnings where effects are rasterized.',
+      ],
+    },
+  },
+
   motion: {
     version: 2,
     panels: {
@@ -622,9 +766,18 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       flyouts: [{ id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] }],
     },
     inspectorTabs: [
-      { id: 'properties', label: 'Properties', visible: true, default: true },
-      { id: 'export', label: 'Export', visible: true },
-      { id: 'audit', label: 'Audit', visible: true },
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'prototype', label: 'Prototype', visible: true, group: 'workflow' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -696,6 +849,7 @@ export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   drawing: 'Draw',
   image: 'Photo',
   motion: 'Motion',
+  codegen: 'Codegen & Audit',
 };
 
 export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
@@ -704,6 +858,7 @@ export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
   drawing: 'Paintbrush',
   image: 'Image',
   motion: 'Play',
+  codegen: 'Code',
 };
 
 /** All available workspace modes. */
@@ -713,6 +868,7 @@ export const ALL_WORKSPACE_MODES: readonly WorkspaceMode[] = [
   'drawing',
   'image',
   'motion',
+  'codegen',
 ] as const;
 
 /** Mode-specific keyboard shortcuts for switching. */
@@ -722,6 +878,7 @@ export const WORKSPACE_SHORTCUTS: Record<WorkspaceMode, string> = {
   drawing: 'Ctrl+Shift+R',
   image: 'Ctrl+Shift+I',
   motion: 'Ctrl+Shift+M',
+  codegen: 'Ctrl+Shift+9',
 };
 
 // ---------------------------------------------------------------------------
@@ -757,6 +914,41 @@ export function getDefaultInspectorTab(mode: WorkspaceMode): InspectorTabId {
   const config = getWorkspaceConfig(mode);
   return config.inspectorTabs.find((t) => t.default)?.id ?? 'properties';
 }
+
+/** Get inspector tab configs grouped by visual group, preserving per-group order. */
+export function getGroupedInspectorTabs(
+  mode: WorkspaceMode,
+): Partial<Record<InspectorTabGroup, InspectorTabConfig[]>> {
+  const config = getWorkspaceConfig(mode);
+  const groups: Partial<Record<InspectorTabGroup, InspectorTabConfig[]>> = {};
+  for (const tab of config.inspectorTabs) {
+    if (!tab.visible) continue;
+    const g = tab.group ?? 'workflow';
+    if (!groups[g]) groups[g] = [];
+    groups[g]!.push(tab);
+  }
+  return groups;
+}
+
+/** Tab group display labels. */
+export const TAB_GROUP_LABELS: Record<InspectorTabGroup, string> = {
+  primary: 'Properties',
+  workflow: 'Workflow',
+  output: 'Output',
+};
+
+/** Order of tab groups in the tab bar. */
+export const TAB_GROUP_ORDER: InspectorTabGroup[] = ['primary', 'workflow', 'output'];
+
+/**
+ * Labelled fallback for deprecated tab IDs that still appear in stored prefs or
+ * external callers. These should be resolved by migration but can appear in
+ * transient state (e.g. a stored activeTab from a previous session).
+ */
+export const DEPRECATED_TAB_FALLBACKS: Record<string, InspectorTabId> = {
+  document: 'properties',
+  spec: 'export',
+};
 
 /** Get tools that should be hidden in a given mode. */
 export function getHiddenTools(mode: WorkspaceMode): Set<ToolId> {

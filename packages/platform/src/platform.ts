@@ -135,6 +135,8 @@ export interface Platform {
   restoreVersionById(versionId: string): Promise<string>;
   /** Rename / describe a version. */
   renameVersion(versionId: string, name?: string, description?: string): Promise<void>;
+  /** Update a version's thumbnail data URL after async generation. */
+  updateVersionThumbnail(versionId: string, thumbnail: string | undefined): Promise<void>;
   /** Pin (protect from prune) or unpin a version. */
   pinVersion(versionId: string, pinned: boolean): Promise<void>;
   /**
@@ -204,6 +206,7 @@ export interface Platform {
   // ─── Thumbnails ──────────────────────────────────────────────────────────
   getThumbnail(hash: string): Promise<string | undefined>;
   putThumbnail(record: ThumbnailRecord): Promise<void>;
+  deleteThumbnail(hash: string): Promise<void>;
   evictThumbnails(keepCount: number): Promise<number>;
 
   // ─── View state ──────────────────────────────────────────────────────────

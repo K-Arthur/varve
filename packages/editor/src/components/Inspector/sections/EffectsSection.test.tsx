@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../../context', async (importOriginal) => {
@@ -278,6 +279,82 @@ function nodeWithOuterGlow(id: string) {
   };
 }
 
+describe('EffectsSection — per-row collapse/expand', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('collapses effect parameters by default', () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    expect(screen.queryByLabelText('Blur')).toBeNull();
+    expect(screen.getByRole('button', { name: /expand dropShadow parameters/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('reveals effect parameters when the row is expanded', () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand dropShadow parameters/i }));
+    expect(screen.getByLabelText('Blur')).toBeTruthy();
+    expect(screen.getByRole('button', { name: /collapse dropShadow parameters/i })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('collapses parameters again on a second click', () => {
+    render(<EffectsSection nodes={[nodeWithShadow('n1')]} />);
+    const toggle = screen.getByRole('button', { name: /expand dropShadow parameters/i });
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText('Blur')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /collapse dropShadow parameters/i }));
+    expect(screen.queryByLabelText('Blur')).toBeNull();
+  });
+
+  it('mounts a newly added effect already expanded', () => {
+    // updateNode must actually apply the updater and re-render with the new
+    // node for this — the plain vi.fn() spy used by the other tests in this
+    // file never mutates `nodes`, so a second effect row would never appear.
+    function StatefulHarness() {
+      const [node, setNode] = useState(nodeWithShadow('n1'));
+      mockedUseEditor.mockReturnValue({
+        updateNode: (_id: string, updater: (n: typeof node) => typeof node) =>
+          setNode((prev) => updater(prev)),
+        beginTransaction,
+        commitTransaction,
+        announce,
+        documentColorMode: 'rgb',
+      });
+      return <EffectsSection nodes={[node]} />;
+    }
+
+    render(<StatefulHarness />);
+    fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+
+    // The pre-existing dropShadow row (index 0) stays collapsed…
+    expect(screen.getAllByRole('button', { name: /expand dropShadow parameters/i })).toHaveLength(
+      1,
+    );
+    // …but the newly added row (index 1, default type: dropShadow) opens expanded.
+    expect(screen.getByRole('button', { name: /collapse dropShadow parameters/i })).toBeTruthy();
+  });
+});
+
 describe('EffectsSection — effect type dropdown', () => {
   const updateNode = vi.fn();
   const beginTransaction = vi.fn();
@@ -345,18 +422,22 @@ describe('EffectsSection — chromatic aberration', () => {
     expect(screen.getByText((c) => c.includes('chromaticAberration'))).toBeTruthy();
   });
 
-  it('renders intensity control', () => {
+  it('renders intensity control once expanded', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    // Params are collapsed by default (see EffectsSection's per-row disclosure).
+    fireEvent.click(screen.getByRole('button', { name: /expand chromaticAberration parameters/i }));
     expect(screen.getByLabelText('Intensity')).toBeTruthy();
   });
 
-  it('renders opacity control', () => {
+  it('renders opacity control once expanded', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand chromaticAberration parameters/i }));
     expect(screen.getByLabelText('Opacity')).toBeTruthy();
   });
 
-  it('renders blend mode selector', () => {
+  it('renders blend mode selector once expanded', () => {
     render(<EffectsSection nodes={[nodeWithChromaticAberration('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand chromaticAberration parameters/i }));
     expect(screen.getByLabelText('Aberration blend mode')).toBeTruthy();
   });
 });
@@ -385,19 +466,23 @@ describe('EffectsSection — glitch', () => {
     expect(screen.getByText((c) => c.includes('glitch'))).toBeTruthy();
   });
 
-  it('renders strength and density controls', () => {
+  it('renders strength and density controls once expanded', () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    // Params are collapsed by default (see EffectsSection's per-row disclosure).
+    fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
     expect(screen.getByLabelText('Strength')).toBeTruthy();
     expect(screen.getByLabelText('Density')).toBeTruthy();
   });
 
-  it('renders direction selector', () => {
+  it('renders direction selector once expanded', () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
     expect(screen.getByLabelText('Glitch direction')).toBeTruthy();
   });
 
   it('shows advanced section on click', async () => {
     render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
     const advancedBtn = screen.getByText('Advanced...');
     fireEvent.click(advancedBtn);
     await waitFor(() => {

@@ -8,7 +8,7 @@
  * Canva background removal bounds.
  */
 import { decodeDetrOutput, getInferenceWorkerHost, getModelLoader } from '@strata/engine';
-import type { ImageFit, SceneNode, ShapeNode } from '@strata/scene';
+import type { SceneNode, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
 import { Button, Icon } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
@@ -22,14 +22,6 @@ import type { SectionId } from '../sectionRegistry';
 
 const DETR_MODEL_ID = 'detr-resnet-50';
 
-const FIT_OPTIONS: readonly { readonly value: ImageFit; readonly label: string }[] = [
-  { value: 'fill', label: 'Fill' },
-  { value: 'fit', label: 'Fit' },
-  { value: 'crop', label: 'Crop' },
-  { value: 'stretch', label: 'Stretch' },
-  { value: 'tile', label: 'Tile' },
-];
-
 const TRIM_SOURCE_OPTIONS = [
   { value: 'mask', label: 'Mask' },
   { value: 'alpha', label: 'Alpha' },
@@ -42,14 +34,8 @@ interface ImageCropSectionProps {
 }
 
 export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
-  const {
-    updateDoc,
-    setTool,
-    trimToSubject,
-    expandImageBounds,
-    convertToCropAndExpand,
-    resetImageBounds,
-  } = useEditor();
+  const { trimToSubject, expandImageBounds, convertToCropAndExpand, resetImageBounds } =
+    useEditor();
   const node = nodes[0];
 
   if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
@@ -64,39 +50,6 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
   return (
     <DisclosureSection title="Crop & Bounds" sectionId={sectionId} defaultExpanded>
       <div className="insp-field-group">
-        {/* Edit Crop */}
-        <FieldRow label="Crop">
-          <button
-            type="button"
-            className="insp-btn-sm"
-            onClick={() => setTool('crop')}
-            title="Edit crop (C)"
-          >
-            <Icon name="Crop" size="0.85em" />
-            <span>Edit Crop</span>
-          </button>
-        </FieldRow>
-
-        {/* Fit Mode */}
-        <FieldRow label="Fit">
-          <SegmentedControl
-            label="Image fit mode"
-            options={FIT_OPTIONS}
-            value={img.fit}
-            onChange={(value) => {
-              updateDoc((doc) => {
-                const n = doc.nodes[node.id];
-                if (n?.kind !== 'shape') return doc;
-                const fills = (n.fills ?? []).map((f) => {
-                  if (f.type !== 'image' || !f.image) return f;
-                  return { ...f, image: { ...f.image, fit: value as ImageFit } };
-                });
-                return { ...doc, nodes: { ...doc.nodes, [node.id]: { ...n, fills } } };
-              });
-            }}
-          />
-        </FieldRow>
-
         {/* Trim to Subject */}
         <TrimControls
           hasMask={hasMask}
