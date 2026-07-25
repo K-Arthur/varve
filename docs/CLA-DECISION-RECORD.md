@@ -1,7 +1,11 @@
 # CLA Implementation — Decision Record
 
 **Date:** 2026-07-21  
-**Status:** Implemented (CLA workflow active; agreement documents awaiting legal review)  
+**Status:** Agreement documents (CLA.md/ICLA.md/CCLA.md) drafted, awaiting
+legal review. The GitHub Actions workflow, PR template, and issue templates
+described in §4 below were planned but were **not actually created** — see
+the 2026-07-25 correction note. Strata is not currently accepting external
+contributions.  
 **Author:** Project automation agent
 
 ---
@@ -12,7 +16,7 @@
 
 | Dimension | Value |
 |-----------|-------|
-| License | BSL 1.1 (source-available, converts to MIT after 4 years) |
+| License | FSL-1.1-MIT (source-available, converts to MIT after 2 years) |
 | Repository | Single public repo at `github.com/K-Arthur/Strata` |
 | Ownership | Personal GitHub account (K-Arthur) |
 | Editions | Free edition now; future Pro edition planned |
@@ -21,15 +25,15 @@
 
 | Model | Description | Pros | Cons |
 |-------|------------|------|------|
-| **A. Single repo, BSL 1.1 + CLA** (chosen) | All code in one repo under BSL. CLA grants relicensing rights for Pro edition. | Simple; no repo split; BSL already separates free use from commercial redistribution; contributor code flows to all editions via CLA. | Requires CLA enforcement; BSL is not OSI-approved open source. |
-| **B. Open core + proprietary extensions** | Core in public repo (MIT/BSL); Pro features in private repo. | Clear boundary between free and paid features. | Coordinating cross-repo development is complex; core contributors cannot see Pro extension APIs. |
-| **C. Dual license (BSL + commercial)** | Same codebase; users choose license. | Well-understood model (MySQL, etc.). | Adds friction for free users; BSL already achieves the same effect with Additional Use Grant. |
+| **A. Single repo, FSL-1.1-MIT + CLA** (chosen) | All code in one repo under FSL. CLA grants relicensing rights for Pro edition. | Simple; no repo split; FSL already separates free use from commercial redistribution; contributor code flows to all editions via CLA. | Requires CLA enforcement; FSL is not OSI-approved open source. |
+| **B. Open core + proprietary extensions** | Core in public repo (MIT/FSL); Pro features in private repo. | Clear boundary between free and paid features. | Coordinating cross-repo development is complex; core contributors cannot see Pro extension APIs. |
+| **C. Dual license (FSL + commercial)** | Same codebase; users choose license. | Well-understood model (MySQL, etc.). | Adds friction for free users; FSL already achieves the same effect via its Permitted Purpose/Competing Use terms. |
 | **D. Fully proprietary + selected contributions** | Private repo; accept only hand-picked external contributions. | Full control. | No community; defeats the purpose of a public repository. |
 
-### Recommendation: Single repo, BSL 1.1 + CLA
+### Recommendation: Single repo, FSL-1.1-MIT + CLA
 
 **Rationale:**
-- The BSL 1.1 already restricts commercial redistribution and hosted services,
+- FSL-1.1-MIT already restricts commercial redistribution and hosted services,
   while permitting internal use, personal projects, and plugin development.
   This separates free and paid use at the license level without needing a
   separate repository.
@@ -121,16 +125,22 @@ Both agreements clearly state:
 
 ## 4. Implementation Summary
 
+**Correction (2026-07-25):** The three rows marked "Implemented" below for
+the GitHub Actions workflow, PR template, and issue templates were never
+actually created — `.github/` contains no `workflows/cla.yml`,
+`pull_request_template.md`, or `ISSUE_TEMPLATE/` directory. This table
+originally overstated implementation status. Corrected below.
+
 | Component | Status | File |
 |-----------|--------|------|
 | CLA overview (plain language + FAQ) | Implemented | `CLA.md` |
 | Individual CLA (draft for legal review) | Implemented | `ICLA.md` |
 | Corporate CLA (draft for legal review) | Implemented | `CCLA.md` |
-| CLA workflow (GitHub Actions) | Implemented | `.github/workflows/cla.yml` |
-| Pull request template | Implemented | `.github/pull_request_template.md` |
-| Issue templates | Implemented | `.github/ISSUE_TEMPLATE/*.md` |
-| Maintainer guide | Implemented | `docs/CLA-MAINTAINER.md` |
-| CONTRIBUTING.md update | Implemented | `CONTRIBUTING.md` |
+| CLA workflow (GitHub Actions) | **Not created** | `.github/workflows/cla.yml` (does not exist) |
+| Pull request template | **Not created** | `.github/pull_request_template.md` (does not exist) |
+| Issue templates | **Not created** | `.github/ISSUE_TEMPLATE/*.md` (does not exist) |
+| Maintainer guide | Implemented (describes intended future operation) | `docs/CLA-MAINTAINER.md` |
+| CONTRIBUTING.md update | Implemented (now states contributions are not yet open) | `CONTRIBUTING.md` |
 | DCO requirement | Already documented | Kept in `CONTRIBUTING.md` |
 
 ---
@@ -159,8 +169,8 @@ The following items in the CLA drafts require qualified legal review:
 
 | Issue | Severity | Details |
 |-------|----------|---------|
-| `apps/desktop/src-tauri/Cargo.toml` missing license field | Medium | All other 31 packages declare `BSL-1.1`; this is the only one without a `license` field. |
-| No per-file license headers | Low | No Rust or TypeScript source files carry BSL-1.1 headers. |
+| `apps/desktop/src-tauri/Cargo.toml` missing license field | Resolved 2026-07-25 | Was the only package without a `license` field; now declares `FSL-1.1-MIT`. |
+| No per-file license headers | Low | No Rust or TypeScript source files carry license headers. |
 | No REUSE compliance | Low | No `.reuse/dep5` or `REUSE.toml` configuration. |
 | No branch protection codified | Medium | Branch protection rules exist only in GitHub UI settings, not in repository configuration. |
 

@@ -1,16 +1,22 @@
 # Contributor Licence Agreement — Strata
 
-Thank you for considering a contribution to Strata. This document explains why
-the project asks contributors to sign a Contributor Licence Agreement (CLA),
-what rights you grant, and what rights you retain.
+**Strata is not yet accepting external contributions.** This document
+describes the CLA process we intend to use once the project opens to
+outside contributors, so the plan is transparent in advance. Do not sign
+anything yet — see [ICLA.md](ICLA.md) and [CCLA.md](CCLA.md), which are
+still drafts awaiting legal review and are explicitly not in effect.
+
+Thank you for considering a future contribution to Strata. This document
+explains why the project asks contributors to sign a Contributor Licence
+Agreement (CLA), what rights you grant, and what rights you retain.
 
 ## Why a CLA?
 
-Strata is licensed under the **Business Source License 1.1 (BSL 1.1)** — a
-source-available licence that permits free use for internal operations,
-personal projects, and plugin development, but restricts commercial
-redistribution and hosted-service offerings. After four years each version
-converts to MIT.
+Strata is licensed under the **Functional Source License, Version 1.1, MIT
+Future License (FSL-1.1-MIT)** — a source-available licence that permits
+free use for internal operations, personal projects, and plugin development,
+but restricts competing commercial redistribution and hosted-service
+offerings. After two years each version converts to MIT.
 
 The project owner intends to offer a **future Pro edition** under a different
 licensing model (subscription or proprietary). Without a CLA, the project
