@@ -21,6 +21,10 @@
     "./components/ColorPicker": {
       "types": "./src/components/ColorPicker/index.ts",
       "default": "./src/components/ColorPicker/index.ts"
+    },
+    "./utils/menuTypeAhead": {
+      "types": "./src/utils/menuTypeAhead.ts",
+      "default": "./src/utils/menuTypeAhead.ts"
     }
   },
   "scripts": {

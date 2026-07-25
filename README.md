@@ -47,9 +47,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) — all contributions require a DCO sign-
 
 ## License
 
-Strata Community Edition is licensed under the **Business Source License 1.1**
-(BSL 1.1), with an automatic conversion to the **MIT License** after four
-years from each release. See [LICENSE](LICENSE) for full terms.
+Strata Community Edition is licensed under the **Functional Source License,
+Version 1.1, MIT Future License** (FSL-1.1-MIT), with an automatic conversion
+to the **MIT License** after two years from each release. See
+[LICENSE](LICENSE) for full terms.
 
 "Strata" is a trademark of K-Arthur. See [TRADEMARKS.md](TRADEMARKS.md) for usage guidelines.
 

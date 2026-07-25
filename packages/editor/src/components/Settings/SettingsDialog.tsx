@@ -463,7 +463,7 @@ function AboutSection() {
         </div>
         <div className="settings-about__row">
           <span className="settings-about__key">License</span>
-          <span className="settings-about__value">BSL 1.1 to MIT</span>
+          <span className="settings-about__value">FSL-1.1-MIT</span>
         </div>
         <Divider />
         <div className="settings-about__links">
