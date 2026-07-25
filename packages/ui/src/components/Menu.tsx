@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { Icon } from '../icons/Icon';
 import { FloatingPortal } from './FloatingPortal';
+import { getTypeAheadResetMs, matchMenuTypeAhead, shouldTypeAhead } from '../utils/menuTypeAhead';
 
 // ============================================================
 // Types
@@ -218,43 +219,60 @@ function MenuInternal({
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key.length === 1 && e.key !== ' ' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (shouldTypeAhead(e, typeaheadRef.current)) {
         window.clearTimeout(typeaheadTimerRef.current ?? undefined);
-        typeaheadRef.current += e.key.toLowerCase();
+        typeaheadRef.current += e.key;
         typeaheadTimerRef.current = window.setTimeout(() => {
           typeaheadRef.current = '';
-        }, 500);
+        }, getTypeAheadResetMs());
 
-        const matchIdx = flatItems.findIndex((item) =>
-          itemLabel(item).toLowerCase().startsWith(typeaheadRef.current),
-        );
-        if (matchIdx >= 0) {
+        const typeAheadItems = flatItems.map((item) => ({
+          label: itemLabel(item),
+          disabled: 'disabled' in item && item.disabled,
+        }));
+        const matchIdx = matchMenuTypeAhead(typeaheadRef.current, typeAheadItems, focusIdx);
+        if (matchIdx !== null) {
           e.preventDefault();
           e.stopPropagation();
           setFocusIdx(matchIdx);
+          setTimeout(() => {
+            const el = menuRef.current?.querySelector<HTMLElement>(
+              `[data-focusable-idx="${matchIdx}"]`,
+            );
+            el?.scrollIntoView({ block: 'nearest' });
+          }, 0);
         }
         return;
+      }
+
+      function resetTypeahead() {
+        typeaheadRef.current = '';
+        window.clearTimeout(typeaheadTimerRef.current ?? undefined);
       }
 
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
           e.stopPropagation();
+          resetTypeahead();
           setFocusIdx((i) => Math.min(i + 1, flatItems.length - 1));
           break;
         case 'ArrowUp':
           e.preventDefault();
           e.stopPropagation();
+          resetTypeahead();
           setFocusIdx((i) => Math.max(i - 1, 0));
           break;
         case 'Home':
           e.preventDefault();
           e.stopPropagation();
+          resetTypeahead();
           setFocusIdx(0);
           break;
         case 'End':
           e.preventDefault();
           e.stopPropagation();
+          resetTypeahead();
           setFocusIdx(flatItems.length - 1);
           break;
         case 'ArrowRight': {
@@ -262,6 +280,7 @@ function MenuInternal({
           if (item && isSubmenuItem(item)) {
             e.preventDefault();
             e.stopPropagation();
+            resetTypeahead();
             setOpenSubmenu(item.id);
           }
           break;
@@ -270,17 +289,20 @@ function MenuInternal({
           if (level > 0) {
             e.preventDefault();
             e.stopPropagation();
+            resetTypeahead();
             onClose();
           }
           break;
         case 'Escape':
           e.preventDefault();
           e.stopPropagation();
+          resetTypeahead();
           onClose();
           break;
         case 'Enter':
         case ' ': {
           e.preventDefault();
+          resetTypeahead();
           const item = flatItems[focusIdx];
           if (!item) break;
           if (isSubmenuItem(item)) {
@@ -298,6 +320,7 @@ function MenuInternal({
         }
         case 'Tab':
           e.preventDefault();
+          resetTypeahead();
           closeAll();
           break;
       }
