@@ -1,0 +1,10 @@
+# Git .mailmap
+#
+# Maps past identities to canonical project identity.
+# Does not alter commit history — only affects `git log` display tools.
+#
+# Strata Founder <founder@strata.local> was the early project identity
+# used by Kevin Arthur before adopting the canonical email. See
+# docs/development/provenance.md for the full provenance report.
+
+Kevin Arthur <hello@kevinarthur.design> Strata Founder <founder@strata.local>
