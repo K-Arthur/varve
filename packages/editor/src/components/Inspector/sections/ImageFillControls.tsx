@@ -190,6 +190,71 @@ export function ImageFillControls({
           onChange={handleFitChange}
         />
       </FieldRow>
+      <FieldRow label="Rotation">
+        <div className="insp-image-fill__transform-row">
+          <input
+            type="number"
+            value={image.rotation ?? 0}
+            onChange={(e) => onChange({ ...image, rotation: parseFloat(e.target.value) || 0 })}
+            aria-label="Image rotation degrees"
+            className="insp-num__input insp-image-fill__rot-input"
+            step={15}
+            min={-360}
+            max={360}
+          />
+          <span className="insp-image-fill__deg">°</span>
+        </div>
+      </FieldRow>
+      <FieldRow label="Flip">
+        <div className="insp-image-fill__flip-row">
+          <button
+            type="button"
+            className={`insp-image-fill__flip-btn${image.flipH ? ' insp-image-fill__flip-btn--active' : ''}`}
+            aria-pressed={!!image.flipH}
+            aria-label="Flip horizontal"
+            title="Flip horizontal"
+            onClick={() => onChange({ ...image, flipH: !image.flipH })}
+          >
+            <Icon name="FlipHorizontal" label={undefined} size="0.85em" />
+          </button>
+          <button
+            type="button"
+            className={`insp-image-fill__flip-btn${image.flipV ? ' insp-image-fill__flip-btn--active' : ''}`}
+            aria-pressed={!!image.flipV}
+            aria-label="Flip vertical"
+            title="Flip vertical"
+            onClick={() => onChange({ ...image, flipV: !image.flipV })}
+          >
+            <Icon name="FlipVertical" label={undefined} size="0.85em" />
+          </button>
+        </div>
+      </FieldRow>
+      {image.crop && (
+        <FieldRow label="Crop">
+          <div className="insp-image-fill__crop-info">
+            <span className="insp-image-fill__crop-dims">
+              {Math.round(image.crop.w)}x{Math.round(image.crop.h)} px
+            </span>
+            <button
+              type="button"
+              className="insp-inline-btn insp-image-fill__crop-reset"
+              aria-label="Reset crop"
+              title="Reset crop to full image"
+              onClick={() => {
+                const next = { ...image };
+                delete next.crop;
+                next.x = 0;
+                next.y = 0;
+                next.scale = 1;
+                onChange(next);
+              }}
+            >
+              <Icon name="RotateCcw" label={undefined} size="0.85em" />
+              <span>Reset</span>
+            </button>
+          </div>
+        </FieldRow>
+      )}
     </div>
   );
 }

@@ -92,6 +92,12 @@ export function useShortcuts(
         };
       case 'newAdjustmentLayer':
         return () => ref.current.createAdjustmentLayer();
+      case 'flattenSelection':
+        return () => ref.current.flattenSelected('flatten', 1);
+      case 'archiveBackup':
+        return () => ref.current.setShowArchiveDialog(true, 'backup');
+      case 'archiveRestore':
+        return () => ref.current.setShowArchiveDialog(true, 'restore');
       default:
         return null;
     }
@@ -149,7 +155,8 @@ export function useShortcuts(
         return;
       }
 
-      for (const [id, _def] of Object.entries(SHORTCUT_DEFS)) {
+      for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
+        if (def.context === 'canvas') continue;
         const binding = getEffectiveBinding(id);
         if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
         if (id === 'paste') {

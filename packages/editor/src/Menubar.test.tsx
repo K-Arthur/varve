@@ -8,12 +8,22 @@ import { Menubar } from './Menubar';
 vi.mock('./context', () => ({
   useEditor: () => ({
     state: {
-      document: { name: 'Test Doc' },
+      document: { name: 'Test Doc', activePageId: null },
       zoom: 1,
       canvasMode: 'full',
       snapEnabled: true,
       softProofEnabled: false,
       tool: 'select',
+      selection: [],
+      workspaceMode: 'design',
+      colorBlindnessView: 'none',
+      rulerMode: 'global',
+      timelinePanelVisible: false,
+      graphEditorVisible: false,
+      stateMachinePanelVisible: false,
+      guidesVisible: true,
+      distractionFreeMode: false,
+      beforeAfterCompare: false,
     },
     newDocument: vi.fn(),
     serializeDocument: () => '{}',
@@ -38,6 +48,17 @@ vi.mock('./context', () => ({
     setSnapEnabled: vi.fn(),
     setSoftProofEnabled: vi.fn(),
     toggleTimelinePanel: vi.fn(),
+    textBold: vi.fn(),
+    textItalic: vi.fn(),
+    textUnderline: vi.fn(),
+    textIncreaseSize: vi.fn(),
+    textDecreaseSize: vi.fn(),
+    textAlignLeft: vi.fn(),
+    textAlignCenter: vi.fn(),
+    textAlignRight: vi.fn(),
+    textAlignJustify: vi.fn(),
+    textToOutlines: vi.fn(),
+    findReplace: vi.fn(),
     setCanvasMode: vi.fn(),
     setRulerMode: vi.fn(),
     setGridOverlayMode: vi.fn(),
@@ -50,11 +71,38 @@ vi.mock('./context', () => ({
     clearAllGuides: vi.fn(),
     save: vi.fn(),
     saveAs: vi.fn(),
+    showArchiveDialog: false,
+    archiveDialogMode: 'backup' as const,
+    setShowArchiveDialog: vi.fn(),
+    recordAction: vi.fn(),
+    addMaskToSelected: vi.fn(),
+    removeMaskFromSelected: vi.fn(),
+    toggleMask: vi.fn(),
+    invertMask: vi.fn(),
+    flattenSelected: vi.fn(),
+    rasterizeSelected: vi.fn(),
+    mergeSelected: vi.fn(),
+    createAdjustmentLayer: vi.fn(),
+    assignMasterToPage: vi.fn(),
+    createMaster: vi.fn(),
+    toggleFacingPages: vi.fn(),
+    setWorkspaceMode: vi.fn(),
+    toggleDistractionFreeMode: vi.fn(),
   }),
 }));
 
 vi.mock('./shortcuts', () => ({
   formatShortcut: () => 'Ctrl+S',
+  getEffectiveBinding: (id: string) => {
+    const defs: Record<string, { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }> = {
+      import: { key: 'i', ctrl: true },
+      present: { key: 'p', ctrl: true, shift: true },
+      delete: { key: 'Backspace' },
+      openHelp: { key: 'F1' },
+      openHelpCenter: { key: 'F1', ctrl: true, shift: true },
+    };
+    return defs[id] ?? { key: '' };
+  },
   SHORTCUT_DEFS: {
     save: { binding: { key: 's', ctrl: true }, label: 'Save' },
     newDocument: { binding: { key: 'n', ctrl: true }, label: 'New' },
@@ -133,6 +181,14 @@ vi.mock('./shortcuts', () => ({
       binding: { key: 'g', ctrl: true, alt: true },
       label: 'Graph Editor',
     },
+    toggleStateMachinePanel: {
+      binding: { key: 'k', ctrl: true, alt: true },
+      label: 'State Machine Panel',
+    },
+    flattenSelection: {
+      binding: { key: 'f', ctrl: true, shift: true },
+      label: 'Flatten Selection',
+    },
     newAdjustmentLayer: {
       binding: { key: 'n', alt: true },
       label: 'New Adjustment Layer',
@@ -149,6 +205,60 @@ vi.mock('./shortcuts', () => ({
       binding: { key: 'c' },
       label: 'Crop tool',
     },
+    archiveBackup: {
+      binding: { key: 'n', ctrl: true, shift: true },
+      label: 'Backup Archive',
+    },
+    archiveRestore: {
+      binding: { key: 'l', ctrl: true, shift: true },
+      label: 'Restore Archive',
+    },
+    import: { binding: { key: 'i', ctrl: true }, label: 'Import' },
+    present: { binding: { key: 'p', ctrl: true, shift: true }, label: 'Present' },
+    delete: { binding: { key: 'Backspace' }, label: 'Delete' },
+    openHelp: { binding: { key: 'F1' }, label: 'Contextual Help' },
+    openHelpCenter: { binding: { key: 'F1', ctrl: true, shift: true }, label: 'Help Center' },
+    repeatDuplicate: { binding: { key: 'd', ctrl: true, shift: true }, label: 'Repeat Duplicate' },
+    selectionHistoryBack: {
+      binding: { key: 'ArrowLeft', alt: true },
+      label: 'Selection History Back',
+    },
+    selectionHistoryForward: {
+      binding: { key: 'ArrowRight', alt: true },
+      label: 'Selection History Forward',
+    },
+    flipH: { binding: { key: 'h', shift: true }, label: 'Flip Horizontal' },
+    flipV: { binding: { key: 'v', shift: true }, label: 'Flip Vertical' },
+    canvasModeFull: {
+      binding: { key: 'Escape', ctrl: true, shift: true },
+      label: 'Full Render Mode',
+    },
+    zoomIn: { binding: { key: '=', ctrl: true }, label: 'Zoom In' },
+    zoomOut: { binding: { key: '-', ctrl: true }, label: 'Zoom Out' },
+    alignLeft: { binding: { key: 'ArrowLeft', ctrl: true, shift: true }, label: 'Align left' },
+    alignCenterH: {
+      binding: { key: 'Home', ctrl: true, shift: true },
+      label: 'Align horizontal center',
+    },
+    alignRight: { binding: { key: 'ArrowRight', ctrl: true, shift: true }, label: 'Align right' },
+    alignTop: { binding: { key: 'ArrowUp', ctrl: true, shift: true }, label: 'Align top' },
+    alignCenterV: {
+      binding: { key: 'PageUp', ctrl: true, shift: true },
+      label: 'Align vertical center',
+    },
+    alignBottom: { binding: { key: 'ArrowDown', ctrl: true, shift: true }, label: 'Align bottom' },
+    distributeHorizontal: {
+      binding: { key: 'h', ctrl: true, alt: true },
+      label: 'Distribute horizontally',
+    },
+    distributeVertical: {
+      binding: { key: 'v', ctrl: true, alt: true },
+      label: 'Distribute vertically',
+    },
+    nudgeLeft: { binding: { key: 'ArrowLeft' }, label: 'Nudge Left' },
+    nudgeRight: { binding: { key: 'ArrowRight' }, label: 'Nudge Right' },
+    nudgeUp: { binding: { key: 'ArrowUp' }, label: 'Nudge Up' },
+    nudgeDown: { binding: { key: 'ArrowDown' }, label: 'Nudge Down' },
   },
 }));
 
@@ -186,5 +296,174 @@ describe('Menubar dropdown portal', () => {
     const menuPanel = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
     expect(menuPanel).toBeTruthy();
     expect(menuPanel.style.position).toBe('fixed');
+  });
+});
+
+describe('Menubar menu structure', () => {
+  it('renders all top-level menus', () => {
+    render(<Menubar />);
+    const menubar = screen.getByRole('menubar');
+    for (const name of ['File', 'Edit', 'View', 'Object', 'Arrange', 'Page', 'Help']) {
+      expect(within(menubar).getByRole('menuitem', { name })).toBeTruthy();
+    }
+  });
+
+  it('File menu contains New, Open, Save, Import, Export, Settings', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'File' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const items = within(menu).getAllByRole('menuitem');
+    const labels = items.map((el) => el.textContent ?? '');
+    expect(labels.some((t) => t.startsWith('New'))).toBe(true);
+    expect(labels.some((t) => t.startsWith('Open'))).toBe(true);
+    expect(labels.some((t) => t === 'Save' || t.startsWith('Save'))).toBe(true);
+    expect(labels.some((t) => t.startsWith('Import'))).toBe(true);
+    expect(labels.some((t) => t.startsWith('Export'))).toBe(true);
+    expect(labels.some((t) => t.startsWith('Settings'))).toBe(true);
+  });
+
+  it('Edit menu contains Undo, Redo, Cut, Copy, Paste, Duplicate, Delete', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Cut/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Copy/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Paste/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /^Duplicate/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Delete/ })).toBeTruthy();
+  });
+
+  it('Object menu contains Group, Ungroup, Boolean ops, Masks, Adjustments', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    expect(within(menu).getByRole('menuitem', { name: /Group/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Ungroup/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Union/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Subtract/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Intersect/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Exclude/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Add Alpha Mask/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /New Adjustment Layer/ })).toBeTruthy();
+  });
+
+  it('Help menu contains Contextual Help, Help Center, About', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Help' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    expect(within(menu).getByRole('menuitem', { name: /Contextual Help/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /Help Center/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /About Strata/ })).toBeTruthy();
+  });
+});
+
+describe('Menubar shortcut display', () => {
+  it('no hardcoded Mac symbols on non-Mac platforms', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    // Open File menu
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'File' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    // Import should use formatShortcut, not hardcoded '⌘I'
+    const importItem = within(menu).getByRole('menuitem', { name: /Import/ });
+    const shortcut = importItem.querySelector('.editor-menubar__menu-shortcut');
+    expect(shortcut?.textContent).not.toContain('\u2318'); // No Cmd symbol
+    expect(shortcut?.textContent).not.toContain('\u21E7'); // No Shift symbol
+  });
+
+  it('all menu items show shortcut text from formatShortcut', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    // All our shortcuts render as 'Ctrl+S' since formatShortcut mock returns that
+    const shortcutElements = menu.querySelectorAll('.editor-menubar__menu-shortcut');
+    expect(shortcutElements.length).toBeGreaterThan(0);
+  });
+});
+
+describe('Menubar disabled states', () => {
+  it('disables selection-dependent items when no selection', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Object' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    // Group requires 2+ selected
+    const groupItem = within(menu).getByRole('menuitem', { name: /Group/ });
+    expect(groupItem).toBeDisabled();
+  });
+
+  it('disables arrange items when no selection', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(
+      within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Arrange' }),
+    );
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const bringFront = within(menu).getByRole('menuitem', { name: /Bring to Front/ });
+    expect(bringFront).toBeDisabled();
+  });
+});
+
+describe('Menubar ARIA attributes', () => {
+  it('workspace items have menuitemradio role', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const designItem = within(menu).getByRole('menuitemradio', { name: /Workspace: Design/ });
+    expect(designItem).toBeTruthy();
+  });
+
+  it('theme items have menuitemradio role', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const lightItem = within(menu).getByRole('menuitemradio', { name: 'Light' });
+    expect(lightItem).toBeTruthy();
+  });
+
+  it('canvas mode items have menuitemcheckbox role', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const outlineItem = within(menu).getByRole('menuitemcheckbox', { name: /Outline Mode/ });
+    expect(outlineItem).toBeTruthy();
+  });
+
+  it('menu items have aria-keyshortcuts', async () => {
+    const user = userEvent.setup();
+    render(<Menubar />);
+    await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' }));
+    const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+    const undoItem = within(menu).getByRole('menuitem', { name: /Undo/ });
+    expect(undoItem).toHaveAttribute('aria-keyshortcuts');
+  });
+});
+
+describe('Menubar workspace switcher', () => {
+  it('renders workspace radio buttons', () => {
+    render(<Menubar />);
+    const workspaceGroup = screen.getByRole('radiogroup', { name: 'Workspace' });
+    expect(workspaceGroup).toBeTruthy();
+    expect(within(workspaceGroup).getByRole('radio', { name: /Design/ })).toBeTruthy();
+    expect(within(workspaceGroup).getByRole('radio', { name: /Print/ })).toBeTruthy();
+    expect(within(workspaceGroup).getByRole('radio', { name: /Draw/ })).toBeTruthy();
+    expect(within(workspaceGroup).getByRole('radio', { name: /Photo/ })).toBeTruthy();
+    expect(within(workspaceGroup).getByRole('radio', { name: /Motion/ })).toBeTruthy();
+  });
+
+  it('marks default workspace as checked', () => {
+    render(<Menubar />);
+    const designRadio = screen.getByRole('radio', { name: /Design/ });
+    expect(designRadio).toHaveAttribute('aria-checked', 'true');
   });
 });

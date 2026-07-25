@@ -10,6 +10,11 @@ export const SHORTCUT_DEFS = {
   cut: { binding: { key: 'x', ctrl: true }, label: 'Cut', category: 'Edit' },
   paste: { binding: { key: 'v', ctrl: true }, label: 'Paste', category: 'Edit' },
   duplicate: { binding: { key: 'd', ctrl: true }, label: 'Duplicate', category: 'Edit' },
+  repeatDuplicate: {
+    binding: { key: 'd', ctrl: true, shift: true },
+    label: 'Repeat Duplicate',
+    category: 'Edit',
+  },
   flipH: { binding: { key: 'h', shift: true }, label: 'Flip Horizontal', category: 'Object' },
   flipV: { binding: { key: 'v', shift: true }, label: 'Flip Vertical', category: 'Object' },
   newDocument: { binding: { key: 'n', ctrl: true }, label: 'New', category: 'File' },
@@ -112,6 +117,11 @@ export const SHORTCUT_DEFS = {
   },
   bringForward: { binding: { key: ']', ctrl: true }, label: 'Bring Forward', category: 'Arrange' },
   sendBackward: { binding: { key: '[', ctrl: true }, label: 'Send Backward', category: 'Arrange' },
+  flattenSelection: {
+    binding: { key: 'f', ctrl: true, shift: true },
+    label: 'Flatten Selection',
+    category: 'Object',
+  },
   alignLeft: {
     binding: { key: 'ArrowLeft', ctrl: true, shift: true },
     label: 'Align left',
@@ -182,8 +192,12 @@ export const SHORTCUT_DEFS = {
   toolPaint: { binding: { key: 'b' }, label: 'Paint brush', category: 'Tools' },
   toolEraser: { binding: { key: 'e' }, label: 'Eraser', category: 'Tools' },
   toolSmudge: { binding: { key: 'u' }, label: 'Smudge tool', category: 'Tools' },
+  toolScale: { binding: { key: 's' }, label: 'Scale tool', category: 'Tools' },
+  toolSlice: { binding: { key: 'k' }, label: 'Slice tool', category: 'Tools' },
+  toolCloneStamp: { binding: { key: 'j' }, label: 'Clone Stamp tool', category: 'Tools' },
   toolSam2Segment: { binding: { key: 'm' }, label: 'Select Subject tool', category: 'Tools' },
   settings: { binding: { key: ',', ctrl: true }, label: 'Settings\u2026', category: 'File' },
+  import: { binding: { key: 'i', ctrl: true }, label: 'Import\u2026', category: 'File' },
   toggleSnap: { binding: { key: ',' }, label: 'Toggle Snap', category: 'View' },
   toggleGuidesVisible: {
     binding: { key: ';', ctrl: true },
@@ -213,6 +227,11 @@ export const SHORTCUT_DEFS = {
   toggleGraphEditor: {
     binding: { key: 'g' },
     label: 'Toggle Graph Editor',
+    category: 'View',
+  },
+  toggleStateMachinePanel: {
+    binding: { key: 'k', ctrl: true, alt: true },
+    label: 'Toggle State Machine Panel',
     category: 'View',
   },
   motionWorkspace: {
@@ -271,7 +290,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   canvasModeFull: {
-    binding: { key: 'Escape' },
+    binding: { key: 'Escape', ctrl: true, shift: true },
     label: 'Full Render Mode',
     category: 'View',
   },
@@ -406,7 +425,7 @@ export const SHORTCUT_DEFS = {
     category: 'Motion',
   },
   addKeyframe: {
-    binding: { key: 'i' },
+    binding: { key: 'i', shift: true },
     label: 'Add Keyframe at Playhead',
     category: 'Motion',
   },
@@ -414,6 +433,42 @@ export const SHORTCUT_DEFS = {
     binding: { key: 'n', alt: true },
     label: 'New Adjustment Layer',
     category: 'Object',
+  },
+  archiveBackup: {
+    binding: { key: 'n', ctrl: true, shift: true },
+    label: 'Backup Archive\u2026',
+    category: 'File',
+  },
+  archiveRestore: {
+    binding: { key: 'l', ctrl: true, shift: true },
+    label: 'Restore Archive\u2026',
+    category: 'File',
+  },
+
+  // ── Nudge (canvas-context: dispatched by the tool layer, not globally) ──
+  nudgeUp: {
+    binding: { key: 'ArrowUp' },
+    label: 'Nudge Up',
+    category: 'Arrange',
+    context: 'canvas',
+  },
+  nudgeDown: {
+    binding: { key: 'ArrowDown' },
+    label: 'Nudge Down',
+    category: 'Arrange',
+    context: 'canvas',
+  },
+  nudgeLeft: {
+    binding: { key: 'ArrowLeft' },
+    label: 'Nudge Left',
+    category: 'Arrange',
+    context: 'canvas',
+  },
+  nudgeRight: {
+    binding: { key: 'ArrowRight' },
+    label: 'Nudge Right',
+    category: 'Arrange',
+    context: 'canvas',
   },
 } satisfies Record<string, ShortcutDef>;
 

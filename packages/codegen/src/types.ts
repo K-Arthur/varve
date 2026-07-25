@@ -12,8 +12,30 @@ export interface TargetGap {
   nodeId: string;
   nodeName: string;
   feature: string;
-  severity: 'warning' | 'error';
+  severity: 'warning' | 'error' | 'info';
   fallback?: string;
+}
+
+/**
+ * A pre-rasterized image asset for embedding in vector export formats
+ * (SVG, PDF) when the original node uses effects that cannot be
+ * represented natively.  Created by the export-flattening pipeline in
+ * `@strata/editor` and consumed by codegen.
+ *
+ * The dataUrl is a base64-encoded PNG that the codegen emitter embeds
+ * as an `<image>` element (SVG) or an Image XObject (PDF).  The
+ * `pixelWidth`/`pixelHeight` and `cssWidth`/`cssHeight` fields allow
+ * the emitter to set the correct output dimensions regardless of the
+ * export scale factor.
+ */
+export interface RasterAsset {
+  nodeId: string;
+  dataUrl: string;
+  pixelWidth: number;
+  pixelHeight: number;
+  cssWidth: number;
+  cssHeight: number;
+  dpi?: number;
 }
 
 /**
@@ -24,4 +46,13 @@ export interface CodeEmitter<O = unknown> {
   format: string;
   emit(node: SceneNode, doc: Document, opts?: O): string;
   targetGaps(node: SceneNode, doc: Document): TargetGap[];
+}
+
+/**
+ * Additional metadata that codegen emitters can use to decide how to
+ * render a node.  Passed alongside the document during export.
+ */
+export interface ExportMetadata {
+  /** Pre-rasterized image assets keyed by node ID. */
+  rasterAssets?: Record<string, RasterAsset>;
 }

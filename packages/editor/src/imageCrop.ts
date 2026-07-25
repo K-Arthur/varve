@@ -1,11 +1,26 @@
 /**
- * Non-destructive image crop — shrink the node frame and re-offset the image fill.
+ * Non-destructive image crop — stores crop window on the image fill in
+ * source-pixel coordinates instead of baking into node geometry.
+ *
+ * This makes the crop re-editable after save/reopen: the original source
+ * dimensions are preserved on the fill, and the crop rect defines the
+ * visible region. Resetting the crop simply removes the crop field.
+ *
+ * Works on any shape kind (rect, ellipse, circle, polygon, path, etc.),
+ * not just rect. The crop bounds use nodeLocalBounds to determine the
+ * effective area in node-local space, mapped to source-pixel coords.
  *
  * Research basis: Figma image crop (viewport crop keeps source + mask intact).
  */
 import type { Affine } from '@strata/engine';
-import type { Document, ImageFit, NodeId, ShapeNode } from '@strata/scene';
-import { getImageFill, getOwnRasterMaskAsset, isImageShape } from '@strata/scene';
+import type { Document, ImageCropRect, ImageFit, NodeId, ShapeNode } from '@strata/scene';
+import {
+  getImageFill,
+  getOwnRasterMaskAsset,
+  isImageShape,
+  nodeLocalBounds,
+  normalizeImageCropRect,
+} from '@strata/scene';
 import {
   computeVisibleContentBounds,
   type LocalBounds,
@@ -38,6 +53,34 @@ export interface CropState {
   fillFit?: ImageFit;
 }
 
+/**
+ * Compute the effective node-local bounds for an image shape.
+ * Uses nodeLocalBounds for any shape kind — not just rect shapes.
+ * Returns null for non-shape nodes or zero-dimension nodes.
+ */
+function getNodeBounds(
+  node: import('@strata/scene').SceneNode,
+  doc: import('@strata/scene').Document,
+): { w: number; h: number } | null {
+  if (node.kind !== 'shape') return null;
+  const shapeNode = node as ShapeNode;
+  // Fast path for rect shapes (avoids bounds recomputation)
+  if (shapeNode.shape.kind === 'rect') {
+    return { w: shapeNode.shape.w, h: shapeNode.shape.h };
+  }
+  const bounds = nodeLocalBounds(node, doc);
+  if (
+    bounds &&
+    bounds.w > 0 &&
+    bounds.h > 0 &&
+    Number.isFinite(bounds.w) &&
+    Number.isFinite(bounds.h)
+  ) {
+    return { w: bounds.w, h: bounds.h };
+  }
+  return null;
+}
+
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
@@ -50,14 +93,39 @@ export function translateAffine(t: Affine, dx: number, dy: number): Affine {
 
 /**
  * Commit a basic viewport crop on an image shape (backward-compatible).
- * Keeps src / backgroundRemoval / alpha masks; adjusts bounds + fill offsets.
+ * Keeps src / backgroundRemoval / alpha masks; stores crop on the fill.
  */
 export function commitImageCrop(doc: Document, nodeId: NodeId, crop: LocalCropRect): Document {
   return commitImageCropExtended(doc, nodeId, { viewport: crop });
 }
 
 /**
+ * Convert a node-local crop rect to source-pixel crop rect.
+ * The node-local rect is mapped proportionally to the source image dimensions.
+ */
+function nodeLocalToSourceCrop(
+  local: LocalCropRect,
+  nodeW: number,
+  nodeH: number,
+  sourceW: number,
+  sourceH: number,
+): ImageCropRect {
+  return {
+    x: (local.x / nodeW) * sourceW,
+    y: (local.y / nodeH) * sourceH,
+    w: (local.w / nodeW) * sourceW,
+    h: (local.h / nodeH) * sourceH,
+  };
+}
+
+/**
  * Commit an extended crop including fill zoom/pan and fit mode changes.
+ *
+ * The crop is stored on the image fill in source-pixel coordinates, NOT
+ * baked into node geometry. This means:
+ * - The node bounds are preserved (crop is a fill property, not a resize)
+ * - The crop can be re-entered and adjusted after save/reopen
+ * - Resetting the crop removes the fill.crop field
  */
 export function commitImageCropExtended(
   doc: Document,
@@ -67,11 +135,10 @@ export function commitImageCropExtended(
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
   const shapeNode = node as import('@strata/scene').ShapeNode;
-  if (shapeNode.shape.kind !== 'rect') return doc;
-
-  const W = shapeNode.shape.w;
-  const H = shapeNode.shape.h;
-  if (W <= 0 || H <= 0) return doc;
+  const bounds = getNodeBounds(node, doc);
+  if (!bounds) return doc;
+  const W = bounds.w;
+  const H = bounds.h;
 
   const { viewport, fillScale, fillOffsetX, fillOffsetY, fillFit } = cropState;
   const x = clamp(viewport.x, 0, Math.max(0, W - 1));
@@ -82,60 +149,42 @@ export function commitImageCropExtended(
   const noViewportChange =
     Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9 && Math.abs(w - W) < 1e-9 && Math.abs(h - H) < 1e-9;
 
-  // If only fill scale/offset/fit changed, apply those without viewport crop
   const fill = getImageFill(shapeNode);
-  const fills = (shapeNode.fills ?? []).map((f) => {
-    if (f.type !== 'image' || !f.image) return f;
-    const img = f.image;
-    return {
-      ...f,
-      image: {
-        ...img,
-        // Compensate viewport crop: origin shift + new centered fit box
-        x: noViewportChange
-          ? fillOffsetX !== undefined
-            ? fillOffsetX
-            : img.x
-          : fillOffsetX !== undefined
-            ? fillOffsetX
-            : img.x + (W - w) / 2 - x,
-        y: noViewportChange
-          ? fillOffsetY !== undefined
-            ? fillOffsetY
-            : img.y
-          : fillOffsetY !== undefined
-            ? fillOffsetY
-            : img.y + (H - h) / 2 - y,
-        scale: fillScale !== undefined ? fillScale : img.scale,
-        fit: fillFit !== undefined ? fillFit : img.fit,
-      },
-    };
-  });
+  if (!fill?.image) return doc;
 
-  if (noViewportChange) {
-    // Check if any fill properties actually changed; if not, return doc as-is
-    const img = shapeNode.fills?.find((f) => f.type === 'image')?.image;
-    const fillChanged =
-      (fillScale !== undefined && Math.abs(fillScale - (img?.scale ?? 1)) > 0.001) ||
-      (fillOffsetX !== undefined && Math.abs(fillOffsetX - (img?.x ?? 0)) > 0.001) ||
-      (fillOffsetY !== undefined && Math.abs(fillOffsetY - (img?.y ?? 0)) > 0.001) ||
-      (fillFit !== undefined && fillFit !== img?.fit);
-    if (!fillChanged) return doc;
-    // Only fill property changes — no viewport crop
-    const updated: ShapeNode = { ...shapeNode, fills };
-    if (!getImageFill(updated) && fill) {
-      updated.fills = [fill];
-    }
-    return { ...doc, nodes: { ...doc.nodes, [nodeId]: updated } };
+  const sourceWidth = fill.image.imageWidth ?? W;
+  const sourceHeight = fill.image.imageHeight ?? H;
+
+  // Build the new image fill with crop in source-pixel coordinates
+  const newImage: typeof fill.image = { ...fill.image };
+
+  if (!noViewportChange) {
+    // Convert node-local crop to source-pixel crop
+    const sourceCrop = nodeLocalToSourceCrop({ x, y, w, h }, W, H, sourceWidth, sourceHeight);
+    newImage.crop = normalizeImageCropRect(sourceCrop, sourceWidth, sourceHeight);
   }
 
-  const updated: ShapeNode = {
-    ...shapeNode,
-    shape: { kind: 'rect', x: 0, y: 0, w, h },
-    transform: translateAffine(shapeNode.transform, x, y),
-    fills,
-  };
+  // Apply optional overrides
+  if (fillScale !== undefined) newImage.scale = fillScale;
+  if (fillOffsetX !== undefined) newImage.x = fillOffsetX;
+  if (fillOffsetY !== undefined) newImage.y = fillOffsetY;
+  if (fillFit !== undefined) newImage.fit = fillFit;
 
+  // Check if anything actually changed
+  const imgChanged =
+    newImage.crop !== fill.image.crop ||
+    newImage.scale !== fill.image.scale ||
+    newImage.x !== fill.image.x ||
+    newImage.y !== fill.image.y ||
+    newImage.fit !== fill.image.fit;
+  if (!imgChanged) return doc;
+
+  const fills = (shapeNode.fills ?? []).map((f) => {
+    if (f.type !== 'image' || !f.image) return f;
+    return { ...f, image: newImage };
+  });
+
+  const updated: ShapeNode = { ...shapeNode, fills };
   if (!getImageFill(updated) && fill) {
     updated.fills = [fill];
   }
@@ -143,6 +192,110 @@ export function commitImageCropExtended(
   return {
     ...doc,
     nodes: { ...doc.nodes, [nodeId]: updated },
+  };
+}
+
+/**
+ * Reset the crop on an image shape — removes the crop field from the fill,
+ * restoring the full source image. Also resets fill offset/scale to defaults.
+ */
+export function resetImageCrop(doc: Document, nodeId: NodeId): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  const shapeNode = node as ShapeNode;
+
+  const fill = getImageFill(shapeNode);
+  if (!fill?.image) return doc;
+
+  // No crop to reset
+  if (!fill.image.crop && !fill.image.rotation && !fill.image.flipH && !fill.image.flipV) {
+    return doc;
+  }
+
+  const newImage = { ...fill.image };
+  delete newImage.crop;
+  newImage.x = 0;
+  newImage.y = 0;
+  newImage.scale = 1;
+  newImage.fit = 'fill';
+  delete newImage.rotation;
+  delete newImage.flipH;
+  delete newImage.flipV;
+
+  const fills = (shapeNode.fills ?? []).map((f) => {
+    if (f.type !== 'image' || !f.image) return f;
+    return { ...f, image: newImage };
+  });
+
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [nodeId]: { ...shapeNode, fills } },
+  };
+}
+
+/**
+ * Set image rotation (degrees clockwise). Applied to source pixels before
+ * fit/placement math. Stored on the fill so it is independent of the node's
+ * object-space transform.
+ */
+export function setImageRotation(doc: Document, nodeId: NodeId, degrees: number): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  const shapeNode = node as ShapeNode;
+
+  const fill = getImageFill(shapeNode);
+  if (!fill?.image) return doc;
+
+  const normalized = ((degrees % 360) + 360) % 360;
+  const newImage = { ...fill.image };
+  if (Math.abs(normalized) < 1e-6) {
+    delete newImage.rotation;
+  } else {
+    newImage.rotation = normalized;
+  }
+
+  const fills = (shapeNode.fills ?? []).map((f) => {
+    if (f.type !== 'image' || !f.image) return f;
+    return { ...f, image: newImage };
+  });
+
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [nodeId]: { ...shapeNode, fills } },
+  };
+}
+
+/**
+ * Set image flip. Stored on the fill so it is independent of the node's
+ * object-space transform.
+ */
+export function setImageFlip(
+  doc: Document,
+  nodeId: NodeId,
+  axis: 'horizontal' | 'vertical',
+): Document {
+  const node = doc.nodes[nodeId];
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
+  const shapeNode = node as ShapeNode;
+
+  const fill = getImageFill(shapeNode);
+  if (!fill?.image) return doc;
+
+  const newImage = { ...fill.image };
+  if (axis === 'horizontal') {
+    newImage.flipH = !newImage.flipH;
+  } else {
+    newImage.flipV = !newImage.flipV;
+  }
+
+  const fills = (shapeNode.fills ?? []).map((f) => {
+    if (f.type !== 'image' || !f.image) return f;
+    return { ...f, image: newImage };
+  });
+
+  return {
+    ...doc,
+    nodes: { ...doc.nodes, [nodeId]: { ...shapeNode, fills } },
   };
 }
 
@@ -164,13 +317,13 @@ export function expandBounds(
   },
 ): Document {
   const node = doc.nodes[nodeId];
-  if (node?.kind !== 'shape') return doc;
+  if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
   const shapeNode = node as import('@strata/scene').ShapeNode;
-  if (shapeNode.shape.kind !== 'rect') return doc;
+  const bounds = getNodeBounds(shapeNode, doc);
+  if (!bounds) return doc;
 
-  const shape = shapeNode.shape as { w: number; h: number };
   const padding: PaddingSpec = opts.paddingSides ?? opts.padding;
-  const expanded = paddingBounds({ x: 0, y: 0, w: shape.w, h: shape.h }, padding);
+  const expanded = paddingBounds({ x: 0, y: 0, w: bounds.w, h: bounds.h }, padding);
 
   if (expanded.x === 0 && expanded.y === 0 && expanded.w === shape.w && expanded.h === shape.h) {
     return doc;
@@ -193,19 +346,29 @@ export function resetToSourceBounds(doc: Document, nodeId: NodeId): Document {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
   const shapeNode = node as import('@strata/scene').ShapeNode;
-  if (shapeNode.shape.kind !== 'rect') return doc;
+  const bounds = getNodeBounds(node, doc);
+  if (!bounds) return doc;
 
   const fill = getImageFill(shapeNode);
   if (!fill?.image) return doc;
 
-  const sourceW = fill.image.imageWidth ?? shapeNode.shape.w;
-  const sourceH = fill.image.imageHeight ?? shapeNode.shape.h;
+  const sourceW = fill.image.imageWidth ?? bounds.w;
+  const sourceH = fill.image.imageHeight ?? bounds.h;
   if (sourceW <= 0 || sourceH <= 0) return doc;
+
+  // For rect shapes, reset geometry to source dimensions + identity transform.
+  // For non-rect shapes (ellipse, circle, etc.), preserve the shape kind and
+  // geometry — only reset the fill properties.
+  const shape = shapeNode.shape;
+  const resetShape =
+    shape.kind === 'rect' ? { kind: 'rect' as const, x: 0, y: 0, w: sourceW, h: sourceH } : shape;
 
   const updated: ShapeNode = {
     ...shapeNode,
-    shape: { kind: 'rect', x: 0, y: 0, w: sourceW, h: sourceH },
-    transform: [1, 0, 0, 1, 0, 0],
+    shape: resetShape as typeof shapeNode.shape,
+    ...(shape.kind === 'rect'
+      ? { transform: [1, 0, 0, 1, 0, 0] as import('@strata/shared').Affine }
+      : {}),
     fills: (shapeNode.fills ?? []).map((f) => {
       if (f.type !== 'image' || !f.image) return f;
       return {
@@ -249,10 +412,10 @@ export async function trimToSubject(
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'shape' || !isImageShape(node)) return doc;
   const shapeNode = node as ShapeNode;
-  if (shapeNode.shape.kind !== 'rect') return doc;
-
-  const W = shapeNode.shape.w;
-  const H = shapeNode.shape.h;
+  const bounds = getNodeBounds(shapeNode, doc);
+  if (!bounds) return doc;
+  const W = bounds.w;
+  const H = bounds.h;
   if (W <= 0 || H <= 0) return doc;
 
   let local: LocalBounds | null = options.explicitBounds ?? null;

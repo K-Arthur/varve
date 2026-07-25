@@ -35,6 +35,18 @@ async function renderNodeToCanvas(
 
   ctx.clearRect(0, 0, THUMB_W, THUMB_H);
 
+  // Rotation support: apply node rotation to thumbnail rendering
+  const rotation = 'rotation' in node ? (node as any).rotation : undefined;
+  const hasRotation = typeof rotation === 'number' && rotation !== 0;
+
+  // Stroke support: draw stroke outline if present
+  const strokes: unknown[] | undefined = 'strokes' in node ? (node as any).strokes : undefined;
+  const hasStroke = Array.isArray(strokes) && strokes.length > 0;
+
+  // Opacity support
+  const opacity = 'opacity' in node ? (node as any).opacity : undefined;
+  const hasOpacity = typeof opacity === 'number' && opacity < 1;
+
   const fill = node.fill
     ? (() => {
         const [r, g, b, a] = managedColorToRgba(node.fill!);
@@ -45,6 +57,16 @@ async function renderNodeToCanvas(
   const area = THUMB_W - PADDING * 2;
   const ox = PADDING;
   const oy = PADDING;
+
+  if (hasOpacity) {
+    ctx.globalAlpha = opacity;
+  }
+  if (hasRotation) {
+    ctx.save();
+    ctx.translate(THUMB_W / 2, THUMB_H / 2);
+    ctx.rotate((rotation * Math.PI) / 180);
+    ctx.translate(-THUMB_W / 2, -THUMB_H / 2);
+  }
 
   ctx.fillStyle = fill;
 
@@ -59,6 +81,7 @@ async function renderNodeToCanvas(
         ctx.fillStyle = 'rgba(200,200,200,0.5)';
         ctx.fillRect(ox, oy, area, area);
       }
+      if (hasRotation) ctx.restore();
       return canvas;
     }
   }
@@ -66,9 +89,18 @@ async function renderNodeToCanvas(
   if (node.kind === 'shape') {
     const s = (node as ShapeNode).shape;
     switch (s.kind) {
-      case 'rect':
-        ctx.fillRect(ox, oy, area, area);
+      case 'rect': {
+        const cr = s.cornerRadius;
+        if (cr && (typeof cr === 'number' || Array.isArray(cr))) {
+          ctx.beginPath();
+          const r = typeof cr === 'number' ? cr : (cr[0] ?? 0);
+          ctx.roundRect(ox, oy, area, area, Math.min(r, area / 2));
+          ctx.fill();
+        } else {
+          ctx.fillRect(ox, oy, area, area);
+        }
         break;
+      }
       case 'ellipse': {
         const scaleE = area / 2 / Math.min(s.rx, s.ry);
         ctx.beginPath();
@@ -92,6 +124,12 @@ async function renderNodeToCanvas(
         ctx.stroke();
         break;
       }
+      case 'polygon':
+      case 'star': {
+        // Render a simplified preview: fill the thumbnail area
+        ctx.fillRect(ox + 2, oy + 2, area - 4, area - 4);
+        break;
+      }
       case 'path': {
         const pts = s.points;
         if (pts.length > 0 && pts[0]) {
@@ -107,11 +145,29 @@ async function renderNodeToCanvas(
           } else {
             ctx.stroke();
           }
+        } else {
+          // Path with no points: show placeholder
+          ctx.fillStyle = 'rgba(200,200,200,0.3)';
+          ctx.fillRect(ox, oy, area, area);
         }
         break;
       }
       default:
         ctx.fillRect(ox, oy, area, area);
+    }
+
+    // Stroke pass: render strokes on top of fill
+    if (hasStroke) {
+      for (const stroke of strokes) {
+        if (!stroke || typeof stroke !== 'object') continue;
+        const st = stroke as Record<string, unknown>;
+        if (st.type === 'solid' && st.color) {
+          const [r, g, b, a] = managedColorToRgba(st.color as any);
+          ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
+          ctx.lineWidth = typeof st.weight === 'number' ? Math.max(1, st.weight * 2) : 1;
+          ctx.strokeRect(ox, oy, area, area);
+        }
+      }
     }
   } else if (node.kind === 'text') {
     ctx.fillStyle = fill;
@@ -124,9 +180,18 @@ async function renderNodeToCanvas(
   ) {
     ctx.fillStyle = 'rgba(200,200,255,0.3)';
     ctx.fillRect(ox, oy, area, area);
+  } else if (node.kind === 'frame' || node.kind === 'group') {
+    // Frame/group: render as outlined box to distinguish from shapes
+    ctx.fillStyle = 'rgba(200,200,200,0.15)';
+    ctx.fillRect(ox, oy, area, area);
+    ctx.strokeStyle = 'rgba(150,150,150,0.4)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(ox, oy, area, area);
   } else {
     ctx.fillRect(ox, oy, area, area);
   }
+
+  if (hasRotation) ctx.restore();
 
   // Apply raster mask: mask image's alpha channel clips the rendered content.
   const rasterMaskRef = node.mask?.rasterMask?.assetId;
@@ -141,6 +206,9 @@ async function renderNodeToCanvas(
       // Mask unavailable: thumbnail shows unmasked content
     }
   }
+
+  // Reset globalAlpha for subsequent renders
+  ctx.globalAlpha = 1;
 
   return canvas;
 }

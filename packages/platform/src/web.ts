@@ -318,6 +318,10 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       await db.put(STORE_FILES, { ...rec, entry: { ...rec.entry, trashedAt: null } });
     },
     async purgeFile(id) {
+      const rec = await db.get(STORE_FILES, id);
+      if (rec?.entry?.contentHash) {
+        await this.deleteThumbnail(rec.entry.contentHash);
+      }
       await db.delete(STORE_FILES, id);
     },
 
@@ -722,6 +726,13 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
         await db.put(STORE_VERSIONS, version);
       }
     },
+    async updateVersionThumbnail(versionId: string, thumbnail: string | undefined): Promise<void> {
+      const version = (await db.get(STORE_VERSIONS, versionId)) as VersionEntry | undefined;
+      if (version) {
+        version.thumbnail = thumbnail;
+        await db.put(STORE_VERSIONS, version);
+      }
+    },
     async pinVersion(versionId: string, pinned: boolean): Promise<void> {
       const version = (await db.get(STORE_VERSIONS, versionId)) as VersionEntry | undefined;
       if (version) {
@@ -945,6 +956,9 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     },
     async putThumbnail(record) {
       await db.put(STORE_THUMBS, record);
+    },
+    async deleteThumbnail(hash) {
+      await db.delete(STORE_THUMBS, hash);
     },
     async evictThumbnails(keepCount) {
       const indexed = await db.getAllFromIndex(STORE_THUMBS, 'createdAt');

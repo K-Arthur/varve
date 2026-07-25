@@ -94,6 +94,14 @@ pub static AVAILABLE_MODELS: LazyLock<Vec<ModelInfo>> = LazyLock::new(|| {
             "1c7cf60de2afd728d512f4190cf37455092b45f06175365c6fc58d8cd7e2a68b".into(),
         ),
     },
+    ModelInfo {
+        id: "lama-inpainting".to_owned(),
+        name: "LaMa Inpainting".to_owned(),
+        description: "208 MB — mask-guided inpainting for content-aware fill. Large Mask Inpainting (LaMa, Samsung AI / saic-mdal)".to_owned(),
+        size_bytes: 208_000_000,
+        remote_url: "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx".to_owned(),
+        checksum_sha256: None,
+    },
     ]
 });
 

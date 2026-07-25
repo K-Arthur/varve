@@ -16,15 +16,33 @@ import type { TargetGap } from './types';
 
 /**
  * Report a nondestructive adjustment stack (curves, levels, halftone, etc.)
- * on an adjustment-layer node. No codegen target renders this stack today —
- * it is CPU-rasterized by the live canvas renderer only — so every target
- * must surface it as an explicit gap rather than silently dropping it.
+ * on an adjustment-layer node.
+ *
+ * When `flattened` is true (caller supplies a pre-rasterized asset for this
+ * node), the gap is reported with `severity: 'info'` — the export will be
+ * correct via raster embedding.  When false (the default), the gap is a
+ * `'warning'` because the node would be silently dropped.
  */
-export function adjustmentStackTargetGaps(node: SceneNode): TargetGap[] {
+export function adjustmentStackTargetGaps(
+  node: SceneNode,
+  _doc?: import('@strata/scene').Document,
+  flattened?: boolean,
+): TargetGap[] {
   if (node.kind !== 'adjustment') return [];
   const visible = (node.adjustments ?? []).filter((a) => a.visible && a.opacity > 0);
   if (visible.length === 0) return [];
   const kinds = [...new Set(visible.map((a) => a.kind))].join(', ');
+  if (flattened) {
+    return [
+      {
+        nodeId: node.id,
+        nodeName: node.name,
+        feature: `nondestructive adjustment stack (${kinds})`,
+        severity: 'info',
+        fallback: 'Rasterized at export resolution — output is pixel-accurate',
+      },
+    ];
+  }
   return [
     {
       nodeId: node.id,
@@ -171,6 +189,9 @@ export function escapeXml(s: string): string {
 export function computeNodePos(node: SceneNode): { x: number; y: number; w: number; h: number } {
   const tx = node.transform[4] ?? 0;
   const ty = node.transform[5] ?? 0;
+  if (node.kind === 'adjustment') {
+    return { x: tx, y: ty, w: 200, h: 160 };
+  }
   if (node.kind === 'shape') {
     const s = node.shape;
     switch (s.kind) {

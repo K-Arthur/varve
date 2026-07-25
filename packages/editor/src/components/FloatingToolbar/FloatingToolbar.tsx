@@ -4,6 +4,7 @@ import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { WORKSPACE_CONFIGS } from '../../workspace/workspaceTypes';
+import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
 
 const BOOLEAN_OP_MAP: Record<string, BooleanOpKind> = {
@@ -67,7 +68,7 @@ const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
   text: 'T',
   scale: 'S',
   slice: 'K',
-  eyedropper: 'I',
+  eyedropper: '',
   inspect: 'Ctrl',
   paint: 'B',
   eraser: 'E',
@@ -398,6 +399,7 @@ export function FloatingToolbar() {
               </button>
             </>
           )}
+          <ToolOptionsPopover />
         </Toolbar>
         {isDrawingMode && <DrawingToolbarControls />}
       </div>

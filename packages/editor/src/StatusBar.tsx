@@ -1,5 +1,6 @@
 import { Icon, NumberInput, Select } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
+import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
 import { LayoutScoreIndicator } from './components/StatusBar/LayoutScoreIndicator';
@@ -57,6 +58,7 @@ export function StatusBar() {
       <span>{state.tool}</span>
       {showPreflight && <PreflightWarnings />}
       {showDebtBadge && <DebtBadge />}
+      <AuditBadge />
       {compositorDiag?.deviceLost && (
         <span
           className="editor-status__info editor-status__info--warning"

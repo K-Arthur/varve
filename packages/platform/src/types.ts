@@ -44,6 +44,8 @@ export interface FileEntry {
   isMissing?: boolean;
   /** Epoch ms when the file was favorited/bookmarked; 0 or undefined when not favorited. */
   favoritedAt?: number;
+  /** User preference for thumbnail source (undefined = automatic document overview). */
+  thumbnailPreference?: ThumbnailSourcePreference;
 }
 
 /** A user-created collection that groups files. */
@@ -65,6 +67,13 @@ export interface Project {
   pinned: boolean;
   trashedAt: number | null;
 }
+
+/** Source selection for automatic thumbnail generation. */
+export type ThumbnailSourcePreference =
+  | { type: 'automatic' }
+  | { type: 'page'; pageId: string }
+  | { type: 'frame'; nodeId: string }
+  | { type: 'selection'; nodeIds: string[] };
 
 /** A cached thumbnail keyed by content hash. */
 export interface ThumbnailRecord {

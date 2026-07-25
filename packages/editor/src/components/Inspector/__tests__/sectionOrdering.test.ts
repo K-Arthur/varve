@@ -3,6 +3,7 @@
  * Tests for section ordering operations.
  */
 import { describe, expect, it } from 'vitest';
+import { getSectionDefinition } from '../sectionRegistry';
 import {
   createDefaultSectionState,
   getOrderedSectionIds,
@@ -16,6 +17,14 @@ import {
 } from '../sectionState';
 
 describe('Section ordering', () => {
+  it('stores registry order in the default state used by the renderer', () => {
+    const state = createDefaultSectionState();
+
+    for (const [id, sectionState] of Object.entries(state)) {
+      expect(sectionState.order).toBe(getSectionDefinition(id)?.order);
+    }
+  });
+
   it('getOrderedSectionIds returns all IDs sorted by order', () => {
     const state = createDefaultSectionState();
     const ordered = getOrderedSectionIds(state);
@@ -122,6 +131,18 @@ describe('Section ordering', () => {
     const ordered = getOrderedSectionIds(reset);
     // position-size (order 100) should be before effects (order 250)
     expect(ordered.indexOf('position-size')).toBeLessThan(ordered.indexOf('effects'));
+  });
+
+  it('preserves a persisted custom order during migration', async () => {
+    const { migrateSectionState } = await import('../sectionState');
+    const state = migrateSectionState({
+      version: 1,
+      sections: {
+        effects: { collapsed: false, hidden: false, order: 17 },
+      },
+    });
+
+    expect(state.effects.order).toBe(17);
   });
 
   it('assignStableOrders produces integer orders', () => {

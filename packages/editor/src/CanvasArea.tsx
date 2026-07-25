@@ -27,6 +27,7 @@ import {
   type EngineColor,
   type SceneNode as EngineNode,
   fitRasterDimensions,
+  gaussianBlurSeparable,
   getFontRegistry,
   getImageCache,
   mapBlendMode,
@@ -96,7 +97,7 @@ import {
 import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
-import { nodeWorldBoundsFn, useEditor } from './context';
+import { nodeWorldBoundsFn, setStartTextEditingHandler, useEditor } from './context';
 import { collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { type CropState, commitImageCropExtended } from './imageCrop';
@@ -317,7 +318,6 @@ function renderGroupInsetEffect(
     // Blur the solid silhouette
     const blurData = insetCtx.getImageData(0, 0, w, h);
     if (blur > 0) {
-      const { gaussianBlurSeparable } = require('@strata/engine');
       const blurred = gaussianBlurSeparable(blurData, Math.max(1, blur));
       insetCtx.putImageData(blurred, 0, 0);
     }
@@ -369,7 +369,6 @@ function renderGroupInsetEffect(
     // Blur
     const gData = insetCtx.getImageData(0, 0, w, h);
     if (blur > 0) {
-      const { gaussianBlurSeparable } = require('@strata/engine');
       const blurred = gaussianBlurSeparable(gData, Math.max(1, blur));
       insetCtx.putImageData(blurred, 0, 0);
     }
@@ -708,6 +707,11 @@ export function CanvasArea({
     new Set(),
   );
   const [textEditTargetId, setTextEditTargetId] = useState<string | null>(null);
+  // Register module-level bridge so createActionHandlers.editText works
+  useEffect(() => {
+    setStartTextEditingHandler((nodeId: string) => setTextEditTargetId(nodeId));
+    return () => setStartTextEditingHandler(null);
+  }, []);
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const [warpMesh, setWarpMesh] = useState<import('@strata/engine').MeshWarp | null>(null);
@@ -3883,6 +3887,7 @@ export function CanvasArea({
         }}
         onBlur={() => {
           stopAutoPan();
+          editor.commitTransaction();
           tm.current?.activeTool.onPointerCancel?.(
             new PointerEvent('pointercancel'),
             buildToolCtx(new PointerEvent('pointercancel')),

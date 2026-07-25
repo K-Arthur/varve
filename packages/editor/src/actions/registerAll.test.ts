@@ -49,6 +49,27 @@ describe('registerEditorActions — intelligence commands', () => {
     );
   });
 
+  it('registers searchable commands for every durable inspector workflow', () => {
+    registerEditorActions(makeEditorMock());
+    const registry = getActionRegistry();
+
+    for (const id of [
+      'openInspectorProperties',
+      'openAppearancePanel',
+      'openAdjustmentsPanel',
+      'openPrototypePanel',
+      'openDocumentPanel',
+      'openExportPanel',
+      'openInspectPanel',
+      'openAuditPanel',
+    ]) {
+      expect(registry.has(id), id).toBe(true);
+    }
+    expect(registry.search('retouch')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: 'openAdjustmentsPanel' })]),
+    );
+  });
+
   it('registers real clipping-mask handlers before shortcut stubs', () => {
     const editor = makeEditorMock({
       createClippingMaskFromSelected: vi.fn(),

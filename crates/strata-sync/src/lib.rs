@@ -536,6 +536,15 @@ impl DocumentStore {
         Ok(())
     }
 
+    pub fn delete_thumbnail(&self, hash: &str) -> Result<(), rusqlite::Error> {
+        let conn = self.conn.lock().unwrap();
+        conn.execute(
+            "DELETE FROM thumbnails WHERE hash = ?1",
+            rusqlite::params![hash],
+        )?;
+        Ok(())
+    }
+
     pub fn evict_thumbnails(&self, keep_count: i64) -> Result<i64, rusqlite::Error> {
         let conn = self.conn.lock().unwrap();
         let total: i64 = conn.query_row("SELECT COUNT(*) FROM thumbnails", [], |r| r.get(0))?;
