@@ -58,35 +58,80 @@ export function App() {
     [],
   );
 
+  /** Guard against duplicate open requests for the same file. */
+  const lastOpenIdRef = useRef<string | null>(null);
+
   const handleOpenFile = useCallback(
-    (entry: FileEntry) => {
-      platform
-        .readFile(entry.id)
-        .catch(() => null)
-        .then((json) => {
-          void platform.touchFile(entry.id).catch(() => undefined);
-          void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
-          setOpenRequest((prev) => ({
-            id: entry.id,
-            name: entry.name,
-            json: json ?? null,
-            seq: (prev?.seq ?? 0) + 1,
-          }));
-          markEditorStateInitialized();
-          setEditorMounted(true);
-          setView('editor');
-          pendingEditorMilestone.current?.();
-          pendingEditorMilestone.current = afterFirstVisiblePaint(
-            '.editor-canvas__content-layer',
-            () => {
-              onEditorReady();
-              measure('strata-editor-first-visible-canvas', 'editor_state_initialized');
-              window.dispatchEvent(new CustomEvent('strata:ready', { detail: { mode: 'editor' } }));
-            },
-          );
-        });
+    async (entry: FileEntry) => {
+      // Dedup: reject rapid duplicate requests for the same file.
+      if (lastOpenIdRef.current === entry.id) return;
+      lastOpenIdRef.current = entry.id;
+
+      // Validate file existence on desktop before attempting open.
+      if (entry.filePath && platform.kind !== 'web') {
+        const exists = await platform.fileExists(entry.filePath).catch(() => true);
+        if (!exists) {
+          // File was moved or deleted. Attempt to read from storage anyway
+          // (the document JSON may still be cached).
+          const json = await platform.readFile(entry.id).catch(() => null);
+          if (!json) {
+            // File is truly gone — mark recent entry as missing and abort.
+            void platform.patchRecentFile(entry.id, { name: entry.name }).catch(() => undefined);
+            return;
+          }
+          // We have cached content but the file is missing on disk.
+          // Still allow opening so the user can Save As.
+          void platform.readFile(entry.id)
+            .then((json) => {
+              if (!json) return;
+              void platform.touchFile(entry.id).catch(() => undefined);
+              void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
+              setOpenRequest((prev) => ({
+                id: entry.id,
+                name: entry.name,
+                json,
+                seq: (prev?.seq ?? 0) + 1,
+              }));
+              markEditorStateInitialized();
+              setEditorMounted(true);
+              setView('editor');
+            });
+          return;
+        }
+      }
+
+      // Normal open: read from storage.
+      const json = await platform.readFile(entry.id).catch(() => null);
+      if (!json) {
+        // Content not found — mark recent entry for cleanup.
+        void platform.patchRecentFile(entry.id, { name: entry.name }).catch(() => undefined);
+        return;
+      }
+
+      // Update timestamps only after successful read.
+      void platform.touchFile(entry.id).catch(() => undefined);
+      void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
+
+      setOpenRequest((prev) => ({
+        id: entry.id,
+        name: entry.name,
+        json,
+        seq: (prev?.seq ?? 0) + 1,
+      }));
+      markEditorStateInitialized();
+      setEditorMounted(true);
+      setView('editor');
+      pendingEditorMilestone.current?.();
+      pendingEditorMilestone.current = afterFirstVisiblePaint(
+        '.editor-canvas__content-layer',
+        () => {
+          onEditorReady();
+          measure('strata-editor-first-visible-canvas', 'editor_state_initialized');
+          window.dispatchEvent(new CustomEvent('strata:ready', { detail: { mode: 'editor' } }));
+        },
+      );
     },
-    [markEditorStateInitialized, measure, onEditorReady],
+    [markEditorStateInitialized, measure, onEditorReady, platform],
   );
 
   const handleBackToHome = useCallback(() => {
