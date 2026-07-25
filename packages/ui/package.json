@@ -54,5 +54,5 @@
     "storybook": "^10.4.6",
     "tsx": "^4.19.0"
   },
-  "license": "BSL-1.1"
+  "license": "FSL-1.1-MIT"
 }

@@ -3,6 +3,7 @@ name = "strata-desktop"
 version = "0.0.0"
 description = "Strata desktop app (Tauri 2) — native engine backend."
 edition = "2021"
+license = "FSL-1.1-MIT"
 
 # Standalone workspace so the Tauri app is isolated from the engine workspace
 # (it has OS-specific build needs and tauri::generate_context! macro concerns).

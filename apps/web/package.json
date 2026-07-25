@@ -9,5 +9,5 @@
     "typecheck": "echo '[apps/web] typecheck deferred to task 0.9'",
     "test": "echo '[apps/web] no tests yet'"
   },
-  "license": "BSL-1.1"
+  "license": "FSL-1.1-MIT"
 }
