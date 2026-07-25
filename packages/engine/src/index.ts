@@ -130,7 +130,6 @@ export type {
   ColorizationProgress,
   ColorizationResult,
   ColorizationWorkflow,
-  ImageStats,
   QualityMode,
   RuntimeResolution,
   TaskClassification,
@@ -325,27 +324,8 @@ export type {
   WorkerInferResult,
   WorkerModelType,
 } from './inference/inferenceWorker';
-export {
-  estimateModelMemory,
-  getModelById,
-  getModelRegistry,
-  getRecommendedProvider,
-  initializeModelCatalog,
-  isModelAvailable as isModelCatalogEntryAvailable,
-  isModelReady,
-  listAllModels,
-  listModelsByCategory,
-  resetModelCatalog,
-  resolveBestModel,
-  setModelState,
-  subscribeToModel,
-} from './inference/modelCatalog';
 export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
-export type { DetrDetection } from './inference/models/detr';
-export { COCO_CLASSES, DETR_INPUT_SIZE, decodeDetrOutput } from './inference/models/detr';
-export type { ClassificationResult } from './inference/models/efficientnet';
-export { decodeEfficientNetOutput, EFFICIENTNET_INPUT_SIZE } from './inference/models/efficientnet';
 export type {
   FontCandidate,
   FontDetectInput,
@@ -358,7 +338,6 @@ export {
   preprocessFontDetect,
   validateFontDetectInput,
 } from './inference/models/fontDetect';
-export { decodeLamaOutput, LAMA_INPUT_SIZE } from './inference/models/lama';
 export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
 export type { TextRegion } from './inference/models/paddleocr';
 export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
@@ -389,13 +368,6 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './inference/models/scunet';
-export type { SimilarityMatch } from './inference/models/siglip';
-export {
-  cosineSimilarity,
-  normalizeEmbedding,
-  rankBySimilarity,
-  SIGLIP_IMAGE_SIZE,
-} from './inference/models/siglip';
 export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
 export {
   postprocessTrOcr,
@@ -420,7 +392,7 @@ export {
   simplifyPathRDP,
   simplifyToBezier,
 } from './intelligence/pathSimplifier';
-export { applyLensBlur, depthToHeatmapImageData } from './lensBlur';
+export { applyLensBlur, depthToBlurWeight, depthToHeatmapImageData } from './lensBlur';
 export type {
   Lut1D,
   Lut3D,
@@ -610,6 +582,17 @@ export {
 } from './upscaleProviders/traceDispatch';
 export type { TraceProvider, UpscaleProvider } from './upscaleProviders/types';
 export { wasmTraceProvider } from './upscaleProviders/wasmTraceProvider';
+export type {
+  VideoEncodeCapabilities,
+  VideoEncodeOptions,
+  VideoEncodeResult,
+  VideoEncoderProvider,
+  VideoFrameSource,
+} from './videoEncoder';
+export {
+  detectVideoCapabilities,
+  encodeVideo,
+} from './videoEncoder';
 export type {
   VideoExportOptions,
   VideoExportResult,
