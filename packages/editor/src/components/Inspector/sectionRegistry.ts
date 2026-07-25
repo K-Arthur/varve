@@ -53,7 +53,8 @@ export type SectionId =
   | 'adaptive-contrast'
   | 'colorize'
   | 'ocr'
-  | 'palette';
+  | 'palette'
+  | 'ai-tools-hint';
 
 // ---------------------------------------------------------------------------
 // Section categories for management UI grouping
@@ -355,6 +356,20 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
   },
   {
+    id: 'ai-tools-hint',
+    title: 'AI Tools',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 279,
+    category: 'advanced',
+    // The mirror image of the 11 sections below: shown only *outside* Photo
+    // mode, so an image selection always has either the tools themselves or
+    // a one-click way to reach them — never neither.
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode !== 'image',
+  },
+  {
     id: 'image-enhancement',
     title: 'Image & Vector',
     defaultExpanded: true,
@@ -362,7 +377,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 280,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'background-removal',
@@ -372,7 +388,10 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 290,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isBackgroundRemovalEligible(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) &&
+      isBackgroundRemovalEligible(ctx.selectedNodes) &&
+      ctx.workspaceMode === 'image',
   },
   {
     id: 'colorize',
@@ -382,7 +401,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 291,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'ai-denoise',
@@ -392,7 +412,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 293,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
 
   {
@@ -403,7 +424,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 295,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'line-art',
@@ -413,7 +435,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 296,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'content-aware-fill',
@@ -423,7 +446,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 297,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'detect-text',
@@ -433,7 +457,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 299,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'ocr',
@@ -443,7 +468,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 299.5,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'blend-images',
@@ -453,7 +479,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 300,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'palette',
@@ -463,7 +490,8 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     essential: false,
     order: 301,
     category: 'advanced',
-    isAvailable: (ctx) => isSingleSelection(ctx) && isImageNode(ctx.selectedNodes),
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
   },
   {
     id: 'adaptive-contrast',
