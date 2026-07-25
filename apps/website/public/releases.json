@@ -4,26 +4,26 @@
     "releaseDate": "2026-07-08",
     "description": "Beta build. Features include: canvas rendering, vector tools with pen/pencil, typography with OpenType features, motion and prototyping, code generation, color management with CMYK, adjustment layers, effects, and background removal.",
     "isPrerelease": true,
-    "githubUrl": "https://github.com/strata/strata",
-    "releasesUrl": "https://github.com/strata/strata/releases",
-    "discussionsUrl": "https://github.com/strata/strata/discussions"
+    "githubUrl": "https://github.com/K-Arthur/Strata",
+    "releasesUrl": "https://github.com/K-Arthur/Strata/releases",
+    "discussionsUrl": "https://github.com/K-Arthur/Strata/discussions"
   },
   "platforms": {
     "linux": {
       "x86_64": {
         "appimage": {
-          "url": "https://github.com/strata/strata/releases",
+          "url": "https://github.com/K-Arthur/Strata/releases",
           "size": "~200 MB",
           "format": "AppImage",
           "recommended": true
         },
         "deb": {
-          "url": "https://github.com/strata/strata/releases",
+          "url": "https://github.com/K-Arthur/Strata/releases",
           "size": "~180 MB",
           "format": "deb"
         },
         "rpm": {
-          "url": "https://github.com/strata/strata/releases",
+          "url": "https://github.com/K-Arthur/Strata/releases",
           "size": "~180 MB",
           "format": "rpm"
         },
@@ -36,7 +36,7 @@
     "macos": {
       "universal": {
         "dmg": {
-          "url": "https://github.com/strata/strata/releases",
+          "url": "https://github.com/K-Arthur/Strata/releases",
           "size": "~250 MB",
           "format": "dmg",
           "recommended": true
@@ -46,13 +46,13 @@
     "windows": {
       "x86_64": {
         "msi": {
-          "url": "https://github.com/strata/strata/releases",
+          "url": "https://github.com/K-Arthur/Strata/releases",
           "size": "~220 MB",
           "format": "msi",
           "recommended": true
         },
         "nsis": {
-          "url": "https://github.com/strata/strata/releases",
+          "url": "https://github.com/K-Arthur/Strata/releases",
           "size": "~220 MB",
           "format": "exe"
         }
