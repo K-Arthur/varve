@@ -111,7 +111,7 @@ arch=('x86_64')
 url="https://strata.app"
 license=('MIT')
 depends=('gtk3' 'webkit2gtk' 'librsvg' 'libappindicator-gtk3')
-source=("${pkgname}-${pkgver}-x86_64.AppImage::https://github.com/strata-app/strata/releases/download/v${pkgver}/strata-x86_64.AppImage")
+source=("${pkgname}-${pkgver}-x86_64.AppImage::https://github.com/K-Arthur/Strata/releases/download/v${pkgver}/strata-x86_64.AppImage")
 sha256sums=('SKIP')
 
 package() {

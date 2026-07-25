@@ -10,8 +10,10 @@ purposes. It receives ongoing bug fixes, compatibility updates, security
 patches, and performance improvements.
 
 The Community Edition's source code is publicly available under the
-Business Source License 1.1 (BSL 1.1). After four years, each release
-converts to the MIT license.
+Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT).
+Free use is permitted for any Permitted Purpose — everything other than a
+Competing Use (offering a substitute product or service). After two years,
+each release converts to the MIT license.
 
 ## Strata Pro (future paid edition)
 

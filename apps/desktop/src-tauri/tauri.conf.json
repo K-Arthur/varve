@@ -96,10 +96,10 @@
     "resources": ["onnxruntime-libs/**/*"],
     "publisher": "K-Arthur (Strata Founder)",
     "homepage": "https://github.com/K-Arthur/Strata",
-    "copyright": "Copyright 2024-2026 K-Arthur — BSL-1.1",
+    "copyright": "Copyright 2024-2026 K-Arthur — FSL-1.1-MIT",
     "category": "GraphicsAndDesign",
     "shortDescription": "Local-first design suite",
-    "longDescription": "Strata is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Runs natively on Linux, macOS, and Windows. Your designs stay on your machine. Source-available under BSL 1.1.",
+    "longDescription": "Strata is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Runs natively on Linux, macOS, and Windows. Your designs stay on your machine. Source-available under FSL-1.1-MIT.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
