@@ -17,13 +17,37 @@ import {
 import type { ShortcutDef } from './types';
 import './ShortcutPalette.css';
 
+/** Entries are items whose shortcut ID corresponds to a menu item with workspace
+ *  filtering. The value is the set of workspace modes where the item is visible. */
+const SHORTCUT_WORKSPACE_TAGS: Record<string, string[]> = {
+  textBold: ['design', 'print', 'drawing', 'image', 'motion'],
+  textItalic: ['design', 'print', 'drawing', 'image', 'motion'],
+  textUnderline: ['design', 'print', 'drawing', 'image', 'motion'],
+  textIncreaseSize: ['design', 'print', 'drawing', 'image', 'motion'],
+  textDecreaseSize: ['design', 'print', 'drawing', 'image', 'motion'],
+  textToOutlines: ['design', 'print', 'drawing'],
+  toggleTimelinePanel: ['design', 'motion'],
+  toggleGraphEditor: ['design', 'motion'],
+  toggleStateMachinePanel: ['design', 'motion'],
+};
+
 interface ShortcutPaletteProps {
   open: boolean;
   onClose: () => void;
   onSelect: (id: string) => void;
+  /** Current workspace mode for tag display. */
+  workspaceMode?: string;
+  /** When set, auto-filters to this shortcut on open. */
+  focusShortcutId?: string;
 }
 
-export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProps) {
+export function ShortcutPalette({
+  open,
+  onClose,
+  onSelect,
+  workspaceMode,
+  focusShortcutId,
+}: ShortcutPaletteProps) {
   const [query, setQuery] = useState('');
   const [remappingId, setRemappingId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
@@ -80,12 +104,17 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
 
   useEffect(() => {
     if (open) {
-      setQuery('');
       setRemappingId(null);
       setReloadKey((k) => k + 1);
+      if (focusShortcutId) {
+        const def = SHORTCUT_DEFS[focusShortcutId as keyof typeof SHORTCUT_DEFS];
+        setQuery(def?.label ?? focusShortcutId);
+      } else {
+        setQuery('');
+      }
       setTimeout(() => inputRef.current?.focus(), 0);
     }
-  }, [open]);
+  }, [open, focusShortcutId]);
 
   const handleKey = useCallback(
     (e: React.KeyboardEvent) => {
@@ -284,7 +313,18 @@ export function ShortcutPalette({ open, onClose, onSelect }: ShortcutPaletteProp
                       }
                     }}
                   >
-                    <span className="shortcut-palette__row-label">{def.label}</span>
+                    <span className="shortcut-palette__row-label">
+                      {def.label}
+                      {workspaceMode &&
+                        SHORTCUT_WORKSPACE_TAGS[id] &&
+                        !SHORTCUT_WORKSPACE_TAGS[id].includes(workspaceMode) && (
+                          <span className="shortcut-palette__workspace-tag">
+                            {SHORTCUT_WORKSPACE_TAGS[id]
+                              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                              .join(', ')}
+                          </span>
+                        )}
+                    </span>
                     {isRemapping ? (
                       <span className="shortcut-palette__combo shortcut-palette__combo--active">
                         Press key\u2026

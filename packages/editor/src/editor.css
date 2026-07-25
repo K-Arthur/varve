@@ -317,6 +317,30 @@
   opacity: 0.85;
 }
 
+.editor-menubar__menu-item-wrapper {
+  position: relative;
+}
+
+.editor-menubar__menu-submenu-arrow {
+  font-size: 8px;
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.editor-menubar__submenu {
+  position: absolute;
+  left: 100%;
+  top: -4px;
+  min-width: 12rem;
+  padding: var(--space-1);
+  background: var(--elevation-surface-overlay);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  box-shadow: var(--elevation-shadow-overlay);
+  font-family: var(--font-body);
+  z-index: 100;
+}
+
 .editor-menubar__doc-name-text {
   cursor: pointer;
   font-size: var(--font-size-sm);
@@ -484,6 +508,12 @@
   /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
    * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
   z-index: 10;
+}
+
+.editor-shell__canvas-area {
+  grid-area: canvas;
+  position: relative;
+  overflow: hidden;
 }
 
 .editor-canvas {
@@ -840,6 +870,81 @@
 .editor-status__score-badge--bad {
   background: var(--color-feedback-danger, #d32f2f);
   color: var(--color-on-primary, #fff);
+}
+
+/* ── Shortcut tip chip (StatusBar) ──────────────────── */
+.editor-status__tip-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: min(360px, 40vw);
+  animation: tip-chip-enter 250ms var(--ease-standard);
+}
+
+@keyframes tip-chip-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .editor-status__tip-chip {
+    animation: none;
+  }
+}
+
+.editor-status__tip-chip-body {
+  background: none;
+  border: none;
+  color: var(--color-accent-primary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.4;
+}
+
+.editor-status__tip-chip-body:hover {
+  text-decoration: underline;
+}
+
+.editor-status__tip-chip-body:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+  border-radius: var(--radius-sm);
+}
+
+.editor-status__tip-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+
+.editor-status__tip-dismiss:hover {
+  background: color-mix(in oklch, var(--color-text-primary) 12%, transparent);
+  color: var(--color-text-primary);
+}
+
+.editor-status__tip-dismiss:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
 }
 
 /* ── Contrast indicator dot ─────────────────────────── */

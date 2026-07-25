@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** @vitest-environment jsdom */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionTracker } from './actionTracker';
@@ -144,6 +143,21 @@ describe('shortcutRecommender', () => {
     const result1 = recommendShortcuts(tracker);
     const result2 = recommendShortcuts(tracker);
     expect(result1).toEqual(result2);
+    vi.restoreAllMocks();
+  });
+
+  it('skips shortcuts disabled in the current workspace', () => {
+    const now = Date.now();
+    let counter = 0;
+    vi.spyOn(Date, 'now').mockImplementation(() => now + counter++ * 200);
+
+    for (let i = 0; i < 12; i++) {
+      tracker.record('menu:group');
+    }
+
+    const result = recommendShortcuts(tracker, 3, ['group']);
+    const groupRec = result.find((r) => r.shortcutId === 'group');
+    expect(groupRec).toBeUndefined();
     vi.restoreAllMocks();
   });
 });

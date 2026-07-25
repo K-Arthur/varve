@@ -40,6 +40,10 @@ export interface PanelSettingsStore {
 export interface AppearanceSettingsStore {
   theme: 'light' | 'dark' | 'high-contrast';
   reduceMotion: boolean;
+  /** When true, bypasses all workspace-based menu filtering. */
+  showAllMenuItems: boolean;
+  /** Show shortcut-tip chip in the status bar. */
+  showShortcutTips: boolean;
 }
 
 export interface RenderSettingsStore {
@@ -87,6 +91,9 @@ export interface EditorSettings {
   viewport: ViewportSettingsStore;
   sections: SectionSettingsStore;
   performance: PerformanceSettingsStore;
+  features: {
+    findingsNavigation: boolean;
+  };
 }
 
 const STORAGE_KEY = 'strata-editor-settings';
@@ -107,6 +114,8 @@ export const DEFAULT_EXPORT_SETTINGS: ExportSettingsStore = {
 export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsStore = {
   theme: 'light',
   reduceMotion: false,
+  showAllMenuItems: false,
+  showShortcutTips: true,
 };
 
 export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
@@ -156,6 +165,10 @@ export const STARTUP_PERFORMANCE_BUDGET = {
   maxStartupMs: 1200,
 } as const;
 
+export const DEFAULT_FEATURES = {
+  findingsNavigation: false,
+};
+
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   export: { ...DEFAULT_EXPORT_SETTINGS },
   appearance: { ...DEFAULT_APPEARANCE_SETTINGS },
@@ -165,6 +178,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
   sections: { ...DEFAULT_SECTION_SETTINGS },
   performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+  features: { ...DEFAULT_FEATURES },
 };
 
 function mergePartial<T extends object>(defaults: T, partial: Partial<T> | undefined): T {
@@ -190,6 +204,7 @@ export function loadSettings(): EditorSettings {
         viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
         sections: { ...DEFAULT_SECTION_SETTINGS },
         performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+        features: { ...DEFAULT_FEATURES },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
     const exportSettings = mergePartial(
@@ -227,6 +242,10 @@ export function loadSettings(): EditorSettings {
         DEFAULT_PERFORMANCE_SETTINGS,
         parsed.performance as Partial<PerformanceSettingsStore>,
       ),
+      features: {
+        ...DEFAULT_FEATURES,
+        ...(parsed.features as Partial<typeof DEFAULT_FEATURES> | undefined),
+      },
     };
   } catch {
     return {
@@ -238,6 +257,7 @@ export function loadSettings(): EditorSettings {
       viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
       sections: { ...DEFAULT_SECTION_SETTINGS },
       performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+      features: { ...DEFAULT_FEATURES },
     };
   }
 }

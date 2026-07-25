@@ -5,13 +5,19 @@ import { DebtBadge } from './components/DebtBadge';
 import { PreflightWarnings } from './components/PreflightWarnings';
 import { LayoutScoreIndicator } from './components/StatusBar/LayoutScoreIndicator';
 import { useEditor } from './context';
+import { ShortcutTipChip } from './intelligence/ShortcutTipChip';
+import { useShortcutTips } from './intelligence/useShortcutTips';
 import {
   getCompositorDiagnosticsSnapshot,
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
 import { getVisibleStatusSections } from './workspace/workspaceTypes';
 
-export function StatusBar() {
+interface StatusBarProps {
+  onOpenPalette?: (shortcutId?: string) => void;
+}
+
+export function StatusBar({ onOpenPalette }: StatusBarProps) {
   const {
     state,
     setZoom,
@@ -52,6 +58,8 @@ export function StatusBar() {
   const statusSectionIds = getVisibleStatusSections(state.workspaceMode);
   const showPreflight = statusSectionIds.includes('preflight');
   const showDebtBadge = statusSectionIds.includes('debt');
+  const showTipChip = statusSectionIds.includes('shortcutTip');
+  const { currentTip, dismiss } = useShortcutTips(state.workspaceMode, showTipChip);
 
   return (
     <div className="editor-status">
@@ -84,6 +92,13 @@ export function StatusBar() {
       <LayoutScoreIndicator />
       {state.cameraRotation !== 0 && (
         <span title="View rotation">{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
+      )}
+      {currentTip && (
+        <ShortcutTipChip
+          tip={currentTip}
+          onDismiss={dismiss}
+          onOpenPalette={(id) => onOpenPalette?.(id)}
+        />
       )}
       <span aria-hidden>—</span>
       <Select
