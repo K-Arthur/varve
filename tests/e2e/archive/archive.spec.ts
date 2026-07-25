@@ -3,6 +3,11 @@ import { dragOnCanvas, navigateToEditor } from '../shared';
 
 test.describe('Archive / Backup system', () => {
   test.describe.configure({ mode: 'serial' });
+  // Archive create/restore involves ZIP packaging + AES-GCM key derivation
+  // (600k PBKDF2 iterations) on top of normal editor load time — give it
+  // more headroom than the suite default, especially under concurrent
+  // dev-server load.
+  test.setTimeout(60000);
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
   });
@@ -23,6 +28,25 @@ test.describe('Archive / Backup system', () => {
 
     // Wait for the dialog to open
     await page.locator('dialog[open]').waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  /**
+   * The dialog's own footer "Close" button, scoped to the open <dialog>.
+   * The app also has a window title-bar close, a generic dialog X, editor
+   * tab closes, and a help-panel close — an unscoped `getByRole('button',
+   * { name: /close/i })` matches all of them (strict-mode violation).
+   */
+  function dialogCloseButton(page: import('@playwright/test').Page) {
+    return page.locator('dialog[open]').getByRole('button', { name: 'Close', exact: true });
+  }
+
+  /**
+   * The dialog's "Archive created successfully" progress text has a
+   * visually-hidden aria-live duplicate elsewhere on the page for screen
+   * readers — target the visible progress element specifically.
+   */
+  function creationSuccessText(page: import('@playwright/test').Page) {
+    return page.locator('.archive-dialog__progress-phase');
   }
 
   test('Create and restore unencrypted archive', async ({ page }) => {
@@ -46,7 +70,7 @@ test.describe('Archive / Backup system', () => {
     await page.getByRole('button', { name: /create archive$/i }).click();
 
     // Wait for completion
-    await expect(page.getByRole('dialog').getByText(/archive created successfully/i)).toBeVisible({
+    await expect(creationSuccessText(page)).toHaveText(/archive created successfully/i, {
       timeout: 15000,
     });
 
@@ -58,7 +82,7 @@ test.describe('Archive / Backup system', () => {
     expect(fileName).toContain('.zip');
 
     // Close the dialog
-    await page.getByRole('button', { name: /close/i }).click();
+    await dialogCloseButton(page).click();
     await page.locator('dialog[open]').waitFor({ state: 'hidden', timeout: 5000 });
   });
 
@@ -86,14 +110,14 @@ test.describe('Archive / Backup system', () => {
 
     // Create archive
     await page.getByRole('button', { name: /create archive$/i }).click();
-    await expect(page.getByRole('dialog').getByText(/archive created successfully/i)).toBeVisible({
+    await expect(creationSuccessText(page)).toHaveText(/archive created successfully/i, {
       timeout: 15000,
     });
 
     // Encryption info should be shown
     await expect(page.getByText(/encryption/i)).toBeVisible();
 
-    await page.getByRole('button', { name: /close/i }).click();
+    await dialogCloseButton(page).click();
   });
 
   test('Reject incorrect password on restore', async ({ page }) => {
@@ -110,7 +134,7 @@ test.describe('Archive / Backup system', () => {
     await page.getByLabel('Confirm').fill('CorrectPassword1!');
 
     await page.getByRole('button', { name: /create archive$/i }).click();
-    await expect(page.getByRole('dialog').getByText(/archive created successfully/i)).toBeVisible({
+    await expect(creationSuccessText(page)).toHaveText(/archive created successfully/i, {
       timeout: 15000,
     });
 
@@ -121,7 +145,7 @@ test.describe('Archive / Backup system', () => {
     const path = await download.path();
 
     // Close the dialog
-    await page.getByRole('button', { name: /close/i }).click();
+    await dialogCloseButton(page).click();
 
     // Now switch to restore tab and try to restore with wrong password
     await openArchiveDialog(page, 'restore');
@@ -162,7 +186,7 @@ test.describe('Archive / Backup system', () => {
 
     // Create settings archive
     await page.getByRole('button', { name: /create archive$/i }).click();
-    await expect(page.getByRole('dialog').getByText(/archive created successfully/i)).toBeVisible({
+    await expect(creationSuccessText(page)).toHaveText(/archive created successfully/i, {
       timeout: 15000,
     });
 
@@ -176,7 +200,7 @@ test.describe('Archive / Backup system', () => {
     const fileName = download.suggestedFilename();
     expect(fileName).toContain('settings');
 
-    await page.getByRole('button', { name: /close/i }).click();
+    await dialogCloseButton(page).click();
   });
 
   test('Cancel backup safely leaves no partial file', async ({ page }) => {
@@ -202,6 +226,6 @@ test.describe('Archive / Backup system', () => {
     }
 
     // Close the dialog
-    await page.getByRole('button', { name: /close/i }).click();
+    await dialogCloseButton(page).click();
   });
 });
