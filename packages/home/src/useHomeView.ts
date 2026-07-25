@@ -161,10 +161,16 @@ export function useHomeView(platform: Platform): HomeView & {
     state.filter.recentWorkspaceFilter ?? DEFAULT_RECENT_WORKSPACE_FILTER;
   const editorMode: EditorWorkspaceMode | undefined =
     state.filter.recentWorkspaceFilter?.editorMode;
-  const recentFilteredRecords = useMemo(
-    () => filterRecentByWorkspace(recentRecords, recentWorkspaceFilter, editorMode),
-    [recentRecords, recentWorkspaceFilter, editorMode],
-  );
+  const recentFilteredRecords = useMemo(() => {
+    const relevant = filterRecentByWorkspace(recentRecords, recentWorkspaceFilter, editorMode);
+    // Encrypted projects excluded from relevance inference
+    if (recentWorkspaceFilter.mode !== 'all') {
+      return relevant.filter(
+        (r) => !r.encrypted || r.userWorkspaceTag != null,
+      );
+    }
+    return relevant;
+  }, [recentRecords, recentWorkspaceFilter, editorMode]);
 
   return {
     state,
