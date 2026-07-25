@@ -132,6 +132,18 @@
   text-overflow: ellipsis;
 }
 
+.shortcut-palette__workspace-tag {
+  display: inline-block;
+  margin-left: var(--space-1);
+  padding: 1px var(--space-1);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  background: var(--elevation-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
 .shortcut-palette__combo {
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
