@@ -66,7 +66,7 @@ test('open CAF dialog by rendering it directly', async ({ page }) => {
     const r = document.querySelector('#root') as any;
     const containerKey = Object.keys(r).find((k) => k.startsWith('__reactContainer$'));
     const fiberKey = Object.keys(r).find((k) => k.startsWith('__reactFiber$'));
-    const key = containerKey || fiberKey;
+    const key: string = containerKey ?? fiberKey ?? '';
     if (!key) return { error: 'no key' };
 
     const fiber = r[key];

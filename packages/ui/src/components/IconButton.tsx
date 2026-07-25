@@ -16,7 +16,6 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   { icon, label, variant = 'ghost', size = 'md', pressed, solid = false, ...rest },
   ref,
 ) {
-  const IconComponent = solid ? SolidIcon : Icon;
   return (
     <button
       ref={ref}
@@ -25,7 +24,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       {...rest}
     >
-      <IconComponent name={icon as any} size="1.15em" />
+      {solid ? (
+        <SolidIcon name={icon as SolidIconName} size="1.15em" />
+      ) : (
+        <Icon name={icon as IconName} size="1.15em" />
+      )}
     </button>
   );
 });

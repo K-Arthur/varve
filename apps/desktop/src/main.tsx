@@ -10,6 +10,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { dismissBootFallback } from './startup/revealMainWindow';
+import { initCspDiagnostics } from './security/cspDiagnostics';
+
+if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
+  initCspDiagnostics();
+}
 
 // requestIdleCallback is not available in WebKitGTK (Linux Tauri).
 // Polyfill so code using `requestIdleCallback?.()` doesn't throw in strict mode.

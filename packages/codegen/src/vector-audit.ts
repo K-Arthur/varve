@@ -112,8 +112,10 @@ function polygonArea(pts: { x: number; y: number }[]): number {
   let area = 0;
   for (let i = 0; i < pts.length; i++) {
     const j = (i + 1) % pts.length;
-    area += pts[i].x * pts[j].y;
-    area -= pts[j].x * pts[i].y;
+    const pi = pts[i]!;
+    const pj = pts[j]!;
+    area += pi.x * pj.y;
+    area -= pj.x * pi.y;
   }
   return Math.abs(area) / 2;
 }
@@ -262,7 +264,8 @@ export function runVectorAudit(doc: Document, rootIds?: string[]): VectorAuditFi
         autoFixAvailable: false,
       });
     } else if (children.length === 1) {
-      const child = doc.nodes[children[0]];
+      const childId = children[0]!;
+      const child = doc.nodes[childId];
       if (
         child &&
         !child.transform.some((v: number) => Math.abs(v - (child.kind === 'shape' ? 1 : 0)) > 0.01)

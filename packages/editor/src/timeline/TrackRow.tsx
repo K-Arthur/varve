@@ -182,7 +182,7 @@ export const TrackRow: FC<TrackRowProps> = ({
       onClick={handleRowClick}
       onKeyDown={handleKeyDown}
       ref={trackRef}
-      role="button"
+      role="treeitem"
       tabIndex={0}
       aria-label={`Track: ${nodeName} ${track.property}${isMuted ? ' (muted)' : ''}`}
     >
@@ -224,7 +224,7 @@ export const TrackRow: FC<TrackRowProps> = ({
           {track.nestedTimelineId ? 'nested' : track.property}
         </span>
         {selected && onSetNestedTimeline && (
-          <label className="timeline-track-row__nested">
+          <div className="timeline-track-row__nested">
             <span className="timeline-track-row__nested-label">Nested</span>
             <Select
               label="Nested timeline"
@@ -246,7 +246,7 @@ export const TrackRow: FC<TrackRowProps> = ({
                 );
               }}
             />
-          </label>
+          </div>
         )}
       </div>
       <div className="timeline-track-row__track">
@@ -256,7 +256,7 @@ export const TrackRow: FC<TrackRowProps> = ({
           const isDragging = draggingKf === i;
           return (
             <button
-              key={i}
+              key={kf.progress}
               type="button"
               className={`timeline-track-row__keyframe ${isSelected ? 'timeline-track-row__keyframe--selected' : ''} ${isDragging ? 'timeline-track-row__keyframe--dragging' : ''}`}
               style={{ left: x, position: 'absolute' }}

@@ -581,32 +581,40 @@ export function ArchiveDialog({
       <section className="archive-dialog__section" aria-label="Archive type">
         <h3 className="archive-dialog__section-title">Archive type</h3>
         <div className="archive-dialog__type-group" role="radiogroup" aria-label="Archive type">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={archiveKind === 'full'}
+          <label
             className={`archive-dialog__type-btn${archiveKind === 'full' ? ' archive-dialog__type-btn--active' : ''}`}
-            onClick={() => setArchiveKind('full')}
           >
+            <input
+              type="radio"
+              name="archive-kind"
+              value="full"
+              checked={archiveKind === 'full'}
+              onChange={() => setArchiveKind('full')}
+              className="sr-only"
+            />
             <span className="archive-dialog__type-icon" aria-hidden="true">
               &#128194;
             </span>
             <span className="archive-dialog__type-label">Full Project</span>
             <span className="archive-dialog__type-desc">Document, assets, and settings</span>
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={archiveKind === 'settings-only'}
+          </label>
+          <label
             className={`archive-dialog__type-btn${archiveKind === 'settings-only' ? ' archive-dialog__type-btn--active' : ''}`}
-            onClick={() => setArchiveKind('settings-only')}
           >
+            <input
+              type="radio"
+              name="archive-kind"
+              value="settings-only"
+              checked={archiveKind === 'settings-only'}
+              onChange={() => setArchiveKind('settings-only')}
+              className="sr-only"
+            />
             <span className="archive-dialog__type-icon" aria-hidden="true">
               &#9881;
             </span>
             <span className="archive-dialog__type-label">Settings Only</span>
             <span className="archive-dialog__type-desc">Preferences and configuration</span>
-          </button>
+          </label>
         </div>
       </section>
 

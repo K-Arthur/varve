@@ -147,19 +147,292 @@ export function drainPendingActions(runtime: SMRuntime): {
 }
 
 export function evaluateCondition(condition: string, runtime: SMRuntime): boolean {
-  // Safe expression evaluator: only allows input.* comparisons and basic math.
-  const sanitized = condition
-    .replace(/[^a-zA-Z0-9_.\s\-+*/<>=!&|()]/g, '')
-    .replace(/\binputs\./g, 'inputs.');
-
   try {
     const inputs = buildInputValues(runtime);
-    // eslint-disable-next-line no-new-func
-    const result = new Function('inputs', `return ${sanitized};`)(inputs);
-    return Boolean(result);
+    return evaluateSafeExpression(condition, inputs);
   } catch {
     return false;
   }
+}
+
+type ExprToken =
+  | { kind: 'num'; value: number }
+  | { kind: 'bool'; value: boolean }
+  | { kind: 'ident'; value: string }
+  | { kind: 'op'; value: string }
+  | { kind: 'lparen' }
+  | { kind: 'rparen' };
+
+function charAt(s: string, i: number): string {
+  return s.charAt(i);
+}
+
+function tokenizeExpression(expr: string): ExprToken[] {
+  const tokens: ExprToken[] = [];
+  const len = expr.length;
+  let i = 0;
+  while (i < len) {
+    const ch = charAt(expr, i);
+    if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+      i++;
+      continue;
+    }
+    if (ch === '(') {
+      tokens.push({ kind: 'lparen' });
+      i++;
+      continue;
+    }
+    if (ch === ')') {
+      tokens.push({ kind: 'rparen' });
+      i++;
+      continue;
+    }
+    if (ch === '=' && charAt(expr, i + 1) === '=' && charAt(expr, i + 2) === '=') {
+      tokens.push({ kind: 'op', value: '===' });
+      i += 3;
+      continue;
+    }
+    if (ch === '!' && charAt(expr, i + 1) === '=' && charAt(expr, i + 2) === '=') {
+      tokens.push({ kind: 'op', value: '!==' });
+      i += 3;
+      continue;
+    }
+    if (ch === '>' && charAt(expr, i + 1) === '=') {
+      tokens.push({ kind: 'op', value: '>=' });
+      i += 2;
+      continue;
+    }
+    if (ch === '<' && charAt(expr, i + 1) === '=') {
+      tokens.push({ kind: 'op', value: '<=' });
+      i += 2;
+      continue;
+    }
+    if (ch === '!' && charAt(expr, i + 1) === '=') {
+      tokens.push({ kind: 'op', value: '!=' });
+      i += 2;
+      continue;
+    }
+    if (ch === '=' && charAt(expr, i + 1) === '=') {
+      tokens.push({ kind: 'op', value: '==' });
+      i += 2;
+      continue;
+    }
+    if (ch === '&' && charAt(expr, i + 1) === '&') {
+      tokens.push({ kind: 'op', value: '&&' });
+      i += 2;
+      continue;
+    }
+    if (ch === '|' && charAt(expr, i + 1) === '|') {
+      tokens.push({ kind: 'op', value: '||' });
+      i += 2;
+      continue;
+    }
+    if (ch === '>') {
+      tokens.push({ kind: 'op', value: '>' });
+      i++;
+      continue;
+    }
+    if (ch === '<') {
+      tokens.push({ kind: 'op', value: '<' });
+      i++;
+      continue;
+    }
+    if (ch === '!') {
+      tokens.push({ kind: 'op', value: '!' });
+      i++;
+      continue;
+    }
+    if (ch === '+' || ch === '-' || ch === '*' || ch === '/' || ch === '%') {
+      tokens.push({ kind: 'op', value: ch });
+      i++;
+      continue;
+    }
+    if ((ch >= '0' && ch <= '9') || (ch === '.' && i + 1 < len && charAt(expr, i + 1) >= '0' && charAt(expr, i + 1) <= '9')) {
+      let num = '';
+      while (i < len) {
+        const d = charAt(expr, i);
+        if ((d < '0' || d > '9') && d !== '.') break;
+        num += d;
+        i++;
+      }
+      tokens.push({ kind: 'num', value: parseFloat(num) });
+      continue;
+    }
+    if ((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch === '_') {
+      let id = '';
+      while (i < len) {
+        const c = charAt(expr, i);
+        if (
+          (c < 'a' || c > 'z') &&
+          (c < 'A' || c > 'Z') &&
+          (c < '0' || c > '9') &&
+          c !== '_' &&
+          c !== '.'
+        ) {
+          break;
+        }
+        id += c;
+        i++;
+      }
+      if (id === 'true') tokens.push({ kind: 'bool', value: true });
+      else if (id === 'false') tokens.push({ kind: 'bool', value: false });
+      else tokens.push({ kind: 'ident', value: id });
+      continue;
+    }
+    i++;
+  }
+  return tokens;
+}
+
+class ExprParser {
+  private pos = 0;
+  constructor(
+    private tokens: ExprToken[],
+    private scope: Record<string, unknown>,
+  ) {}
+
+  parse(): boolean {
+    if (this.tokens.length === 0) return false;
+    return Boolean(this.parseOr());
+  }
+
+  private peek(): ExprToken | undefined {
+    return this.tokens[this.pos];
+  }
+
+  private consume(): ExprToken {
+    return this.tokens[this.pos++]!;
+  }
+
+  private parseOr(): unknown {
+    let left = this.parseAnd();
+    for (;;) {
+      const tok = this.peek();
+      if (!tok || tok.kind !== 'op' || tok.value !== '||') break;
+      this.consume();
+      left = Boolean(left) || Boolean(this.parseAnd());
+    }
+    return left;
+  }
+
+  private parseAnd(): unknown {
+    let left = this.parseNot();
+    for (;;) {
+      const tok = this.peek();
+      if (!tok || tok.kind !== 'op' || tok.value !== '&&') break;
+      this.consume();
+      left = Boolean(left) && Boolean(this.parseNot());
+    }
+    return left;
+  }
+
+  private parseNot(): unknown {
+    const tok = this.peek();
+    if (tok && tok.kind === 'op' && tok.value === '!') {
+      this.consume();
+      return !this.parseNot();
+    }
+    return this.parseComparison();
+  }
+
+  private parseComparison(): unknown {
+    const left = this.parseArithmetic();
+    const op = this.peek();
+    if (op && op.kind === 'op' && ['==', '!=', '===', '!==', '>', '<', '>=', '<='].includes(op.value)) {
+      this.consume();
+      const right = this.parseArithmetic();
+      switch (op.value) {
+        case '==':
+          return left == right;
+        case '!=':
+          return left != right;
+        case '===':
+          return left === right;
+        case '!==':
+          return left !== right;
+        case '>':
+          return Number(left) > Number(right);
+        case '<':
+          return Number(left) < Number(right);
+        case '>=':
+          return Number(left) >= Number(right);
+        case '<=':
+          return Number(left) <= Number(right);
+      }
+    }
+    return left;
+  }
+
+  private parseArithmetic(): unknown {
+    let left = this.parseTerm();
+    for (;;) {
+      const tok = this.peek();
+      if (!tok || tok.kind !== 'op' || (tok.value !== '+' && tok.value !== '-')) break;
+      this.consume();
+      const right = this.parseTerm();
+      left = tok.value === '+' ? Number(left) + Number(right) : Number(left) - Number(right);
+    }
+    return left;
+  }
+
+  private parseTerm(): unknown {
+    let left = this.parseFactor();
+    for (;;) {
+      const tok = this.peek();
+      if (!tok || tok.kind !== 'op' || (tok.value !== '*' && tok.value !== '/' && tok.value !== '%')) break;
+      this.consume();
+      const right = this.parseFactor();
+      if (tok.value === '*') left = Number(left) * Number(right);
+      else if (tok.value === '/') left = Number(left) / Number(right);
+      else left = Number(left) % Number(right);
+    }
+    return left;
+  }
+
+  private parseFactor(): unknown {
+    const token = this.peek();
+    if (!token) return false;
+
+    if (token.kind === 'num') {
+      this.consume();
+      return token.value;
+    }
+    if (token.kind === 'bool') {
+      this.consume();
+      return token.value;
+    }
+    if (token.kind === 'lparen') {
+      this.consume();
+      const val = this.parseComparison();
+      if (this.peek()?.kind === 'rparen') this.consume();
+      return val;
+    }
+    if (token.kind === 'ident') {
+      this.consume();
+      return this.resolvePath(token.value);
+    }
+    return false;
+  }
+
+  private resolvePath(path: string): unknown {
+    const parts = path.split('.');
+    let value: unknown = this.scope;
+    for (const part of parts) {
+      if (value != null && typeof value === 'object' && part in value) {
+        value = (value as Record<string, unknown>)[part];
+      } else {
+        return undefined;
+      }
+    }
+    return value;
+  }
+}
+
+function evaluateSafeExpression(expr: string, scope: Record<string, unknown>): boolean {
+  const sanitized = expr.replace(/[^a-zA-Z0-9_.\s\-+*/<>=!&|()]/g, '');
+  const tokens = tokenizeExpression(sanitized);
+  const parser = new ExprParser(tokens, scope);
+  return parser.parse();
 }
 
 function buildInputValues(runtime: SMRuntime): Record<string, boolean | number> {

@@ -1360,7 +1360,7 @@ export function swapInstance(doc: Document, id: NodeId, newComponentId: NodeId):
 
   for (const childId of masterFrame.children) {
     const slotDef = newComponent.slots.find((s) => s.defaultContentId === childId);
-    const cloneResult = deepCloneSubtree(workingDoc, childId);
+    const cloneResult = deepCloneSubtree(workingDoc.nodes, workingDoc.nextId, childId);
     workingDoc = { ...workingDoc, nextId: cloneResult.nextId };
     Object.assign(newNodes, cloneResult.nodes);
     newChildren.push(cloneResult.rootId);
@@ -2401,7 +2401,7 @@ export function duplicateMaster(doc: Document, masterId: NodeId): Document {
   if (!master) return doc;
 
   const newId = cryptoId();
-  const cloneResult = deepCloneSubtree(doc, master.contentRoot);
+  const cloneResult = deepCloneSubtree(doc.nodes, doc.nextId, master.contentRoot);
 
   // Merge cloned nodes into doc
   const d: Document = {

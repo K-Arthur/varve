@@ -38,6 +38,7 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  RecentFileRecord,
   SavedSearch,
   Tag,
   TemplateLibrary,
@@ -659,6 +660,33 @@ export function createTauriPlatform(): Platform {
       if (typeof navigator !== 'undefined' && /win/i.test(navigator.platform))
         return 'Reveal in Explorer';
       return 'Reveal in Files';
+    },
+
+    // ─── Recent Files ──────────────────────────────────────────────────────────
+    async listRecentFiles() {
+      const c = core();
+      return (await c.invoke('home_list_recent_files')) as RecentFileRecord[];
+    },
+    async touchRecentFile(id, name, sourceWorkspaceId, contentHash) {
+      const c = core();
+      return (await c.invoke('home_touch_recent_file', {
+        id,
+        name,
+        sourceWorkspaceId: sourceWorkspaceId ?? null,
+        contentHash: contentHash ?? null,
+      })) as RecentFileRecord;
+    },
+    async patchRecentFile(id, patch) {
+      const c = core();
+      await c.invoke('home_patch_recent_file', { id, patch });
+    },
+    async removeRecentFile(id) {
+      const c = core();
+      await c.invoke('home_remove_recent_file', { id });
+    },
+    async clearRecentHistory() {
+      const c = core();
+      await c.invoke('home_clear_recent_history');
     },
   };
 

@@ -5,11 +5,12 @@
  * uses the DesignIR for semantic output, produces readable code.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode, VariableStore } from '@strata/scene';
 import { analyzeNodeFlattening } from './flattening';
 import type { IRDocument, SemanticNode } from './ir-types';
 import { resolveTokenName } from './tokens';
 import type { RasterAsset, TargetGap } from './types';
+import { managedColorToRgba } from '@strata/shared';
 
 export interface TailwindExportOptions {
   /** Pre-rasterized image assets keyed by sourceNodeId. */
@@ -20,6 +21,8 @@ export interface TailwindExportOptions {
   baseFontSize?: number;
   /** Extract repeated patterns into shared components. Default true. */
   extractComponents?: boolean;
+  /** Variable store for token resolution. */
+  variableStore?: VariableStore;
 }
 
 function escapeXml(s: string): string {
@@ -42,10 +45,6 @@ function sizeValue(px: number, base: number): string {
   return base > 0 ? `${(px / base).toFixed(3)}rem` : `${px}px`;
 }
 
-function _componentName(name: string): string {
-  return name.replace(/[^a-zA-Z0-9]/g, '').replace(/^[0-9]+/, '') || 'Component';
-}
-
 // ── Tailwind utility class builders ──────────────────────────────────────────
 
 interface ClassBuilder {
@@ -56,7 +55,6 @@ interface ClassBuilder {
 
 function layoutClasses(node: SemanticNode, b: ClassBuilder) {
   const layout = node.layout;
-  const _pIsFlex = false; // Context-aware in recursive builder
 
   if (layout.mode === 'flex') {
     b.classes.push('flex');
@@ -102,7 +100,7 @@ function layoutClasses(node: SemanticNode, b: ClassBuilder) {
 
   const pad = layout.padding;
   if (pad.top || pad.left || pad.bottom || pad.right) {
-    const p = [pad.top, pad.right, pad.bottom, pad.left];
+    const p = [pad.top, pad.right, pad.bottom, pad.left] as const;
     if (p.every((v) => v === p[0]) && p[0] > 0) {
       b.classes.push(sizeTw(p[0], b.av, 'p'));
     }
@@ -136,14 +134,12 @@ function appearanceClasses(node: SemanticNode, b: ClassBuilder) {
   }
 
   if (app.background.length > 0) {
-    const top = app.background[app.background.length - 1];
+    const top = app.background[app.background.length - 1]!;
     if (top.type === 'solid') {
       b.classes.push(`bg-[${top.value}]`);
     } else if (top.type === 'gradient') {
       const g = top.gradient;
       if (g.type === 'linear') {
-        const _dir = g.rotation ? `[${g.rotation}deg]` : 'r';
-        const _stops = g.stops.map((s) => `${s.color}_${s.position * 100}%`).join(', ');
         b.classes.push(
           `bg-gradient-to-r from-[${g.stops[0]?.color || '#000'}] to-[${g.stops[g.stops.length - 1]?.color || '#fff'}]`,
         );

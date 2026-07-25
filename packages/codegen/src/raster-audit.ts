@@ -40,16 +40,6 @@ export interface RasterAuditFinding extends AuditFinding {
 // Common print-size thresholds
 const PRINT_DPI_MIN = 200;
 const WEB_DPI_MIN = 72;
-const _ASSET_SIZE_MAX_BYTES = 10 * 1024 * 1024; // 10MB
-
-/**
- * Estimate the data URL size in bytes.
- */
-function _estimateDataUrlSize(dataUrl: string): number {
-  const base64 = dataUrl.split(',')[1];
-  if (!base64) return 0;
-  return Math.round(base64.length * 0.75);
-}
 
 /**
  * Estimate effective DPI given image dimensions and display size.
@@ -59,31 +49,6 @@ function estimateDPI(imageW: number, imageH: number, displayW: number, displayH:
   const dpiW = imageW / (displayW / 96);
   const dpiH = imageH / (displayH / 96);
   return Math.min(dpiW, dpiH);
-}
-
-/** Check alpha fringe by looking for pixels with low alpha near fully opaque ones. */
-function _checkAlphaFringe(data: Uint8ClampedArray, w: number, h: number): boolean {
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const idx = (y * w + x) * 4;
-      const alpha = data[idx + 3];
-      // Look for transparent pixels adjacent to opaque ones
-      if (alpha > 0 && alpha < 128) {
-        // Check neighbors
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            if (dx === 0 && dy === 0) continue;
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
-            const nIdx = (ny * w + nx) * 4;
-            if (data[nIdx + 3] > 200) return true;
-          }
-        }
-      }
-    }
-  }
-  return false;
 }
 
 /** Run raster audit on a document. */

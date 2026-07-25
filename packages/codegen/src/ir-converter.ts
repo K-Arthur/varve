@@ -49,6 +49,7 @@ import {
   type InferenceRule,
   type InteractionStateSpec,
   type IRDocument,
+  type LayoutMode,
   type LayoutSpec,
   type ResponsiveBreakpointInference,
   type SceneAnalysisResult,
@@ -76,86 +77,107 @@ const INFERENCE_RULES: InferenceRule[] = [
   {
     pattern: { namePattern: /button|btn|cta/i, kindPattern: ['frame', 'shape'] },
     role: { primary: 'button', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { kindPattern: ['frame', 'shape'], propertyPattern: { hasClickInteraction: true } },
     role: { primary: 'button', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
   {
     pattern: { namePattern: /nav|navigation|menu/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'navigation', inferred: true, confidence: 0.9 },
+    confidence: 0.9,
   },
   {
     pattern: { namePattern: /link|anchor/i, kindPattern: ['frame', 'shape', 'text'] },
     role: { primary: 'link', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
   {
     pattern: { namePattern: /header|head/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'header', inferred: true, confidence: 0.85 },
+    confidence: 0.85,
   },
   {
     pattern: { namePattern: /footer|foot/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'footer', inferred: true, confidence: 0.85 },
+    confidence: 0.85,
   },
   {
     pattern: { namePattern: /card/i, kindPattern: ['frame'] },
     role: { primary: 'card', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { namePattern: /icon|ic_/i, kindPattern: ['shape', 'group'] },
     role: { primary: 'icon', inferred: true, confidence: 0.9 },
+    confidence: 0.9,
   },
   {
     pattern: { namePattern: /avatar|profile/i, kindPattern: ['frame', 'shape'] },
     role: { primary: 'avatar', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { namePattern: /badge|tag|label/i, kindPattern: ['frame', 'shape'] },
     role: { primary: 'badge', inferred: true, confidence: 0.75 },
+    confidence: 0.75,
   },
   {
     pattern: { namePattern: /input|field|textfield|search/i, kindPattern: ['frame', 'shape'] },
     role: { primary: 'input', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { namePattern: /list|ul|ol/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'list', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
   {
     pattern: { namePattern: /section/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'section', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
   {
     pattern: { namePattern: /dialog|modal|overlay/i, kindPattern: ['frame'] },
     role: { primary: 'dialog', inferred: true, confidence: 0.85 },
+    confidence: 0.85,
   },
   {
     pattern: { namePattern: /tooltip|hint|popover/i, kindPattern: ['frame'] },
     role: { primary: 'tooltip', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { namePattern: /progress|loading|spinner/i, kindPattern: ['frame', 'shape'] },
     role: { primary: 'progress', inferred: true, confidence: 0.75 },
+    confidence: 0.75,
   },
   {
     pattern: { namePattern: /skeleton|placeholder/i, kindPattern: ['frame', 'shape'] },
     role: { primary: 'skeleton', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { namePattern: /form/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'form', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
   {
     pattern: { namePattern: /search/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'search', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
   {
     pattern: { namePattern: /banner|hero/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'banner', inferred: true, confidence: 0.8 },
+    confidence: 0.8,
   },
   {
     pattern: { namePattern: /table|grid/i, kindPattern: ['frame', 'group'] },
     role: { primary: 'table', inferred: true, confidence: 0.7 },
+    confidence: 0.7,
   },
 ];
 

@@ -35,7 +35,7 @@ export function AIPerformancePanel() {
     <section className="ai-perf" aria-label="AI inference performance">
       <div className="ai-perf__header">
         <h3 className="ai-perf__title">AI Performance</h3>
-        <span className="ai-perf__badge" aria-label={`${totalInferences} inferences`}>
+        <span className="ai-perf__badge" role="status" aria-label={`${totalInferences} inferences`}>
           {totalInferences}
         </span>
       </div>

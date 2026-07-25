@@ -365,7 +365,10 @@ export class FontResolver {
    * Optionally preserves the original font reference for metadata/debugging.
    */
   applyReplacement(doc: ResolverDocument, replacement: FontReplacement): ResolverDocument {
-    const updatedNodes = { ...doc.nodes } as Record<string, any>;
+    const updatedNodes = { ...doc.nodes } as Record<
+      string,
+      ResolverTextNode | { id: string; kind: string }
+    >;
     const lowerOriginal = replacement.original.toLowerCase();
 
     for (const [id, node] of Object.entries(updatedNodes)) {

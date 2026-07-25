@@ -16,7 +16,7 @@
  */
 
 import type { IconName } from '@strata/ui';
-import type { ToolId } from '../context/types';
+import type { ToolId } from '../tools/types';
 
 // ---------------------------------------------------------------------------
 // Workspace mode identity

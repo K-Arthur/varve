@@ -20,8 +20,10 @@ import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/sha
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
-import type { DraftShape } from '../tools/types';
+import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
+
+export type { ToolId };
 
 export type InspectorTab =
   | 'properties'
@@ -42,51 +44,6 @@ export type IntelligenceTab =
   | 'components'
   | 'similar'
   | 'linter';
-
-export type MaskPreviewMode =
-  | 'checkerboard'
-  | 'overlay'
-  | 'black'
-  | 'white'
-  | 'mask-only'
-  | 'edge'
-  | 'none';
-
-export type ToolId =
-  | 'select'
-  | 'frame'
-  | 'rect'
-  | 'ellipse'
-  | 'polygon'
-  | 'star'
-  | 'line'
-  | 'arrow'
-  | 'pen'
-  | 'pencil'
-  | 'nodeEdit'
-  | 'text'
-  | 'hand'
-  | 'zoom'
-  | 'scale'
-  | 'image'
-  | 'slice'
-  | 'eyedropper'
-  | 'inspect'
-  | 'booleanUnion'
-  | 'booleanSubtract'
-  | 'booleanIntersect'
-  | 'booleanExclude'
-  | 'cloneStamp'
-  | 'healBrush'
-  | 'spotHeal'
-  | 'patch'
-  | 'refineMask'
-  | 'trimapEdit'
-  | 'crop'
-  | 'paint'
-  | 'eraser'
-  | 'smudge'
-  | 'sam2Segment';
 
 export type TrimapPenMode = 'foreground' | 'unknown' | 'background';
 

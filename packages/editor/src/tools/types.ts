@@ -17,9 +17,6 @@ import type { NormalizedInputEvent } from './inputNormalizer';
 
 export type ToolId =
   | 'select'
-  | 'hand'
-  | 'zoom'
-  | 'scale'
   | 'frame'
   | 'rect'
   | 'ellipse'
@@ -31,14 +28,17 @@ export type ToolId =
   | 'pencil'
   | 'nodeEdit'
   | 'text'
+  | 'hand'
+  | 'zoom'
+  | 'scale'
   | 'image'
   | 'slice'
   | 'eyedropper'
+  | 'inspect'
   | 'booleanUnion'
   | 'booleanSubtract'
   | 'booleanIntersect'
   | 'booleanExclude'
-  | 'inspect'
   | 'cloneStamp'
   | 'healBrush'
   | 'spotHeal'
@@ -49,7 +49,22 @@ export type ToolId =
   | 'paint'
   | 'eraser'
   | 'smudge'
-  | 'sam2Segment';
+  | 'sam2Segment'
+  | 'shape'
+  | 'connector'
+  | 'comment'
+  | 'backgroundRemoval'
+  | 'clone'
+  | 'contentAwareFill';
+
+export type MaskPreviewMode =
+  | 'checkerboard'
+  | 'overlay'
+  | 'black'
+  | 'white'
+  | 'mask-only'
+  | 'edge'
+  | 'none';
 
 export const DRAW_TOOL_IDS: readonly ToolId[] = [
   'frame',
@@ -130,8 +145,8 @@ export interface ToolContext {
   /** Normalized source events from coalesced/predicted input. */
   sourceEvents: NormalizedInputEvent[];
   /** Overlay preview mode for mask refinement visualization. */
-  maskPreviewMode: import('../context/types').MaskPreviewMode;
-  setMaskPreviewMode: (mode: import('../context/types').MaskPreviewMode) => void;
+  maskPreviewMode: MaskPreviewMode;
+  setMaskPreviewMode: (mode: MaskPreviewMode) => void;
   /** Foreground color for painting as RGBA [r, g, b, a] in 0-255 range. */
   foregroundColor: [number, number, number, number];
   snapEnabled: boolean;

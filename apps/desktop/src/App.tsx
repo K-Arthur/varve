@@ -81,21 +81,20 @@ export function App() {
           }
           // We have cached content but the file is missing on disk.
           // Still allow opening so the user can Save As.
-          void platform.readFile(entry.id)
-            .then((json) => {
-              if (!json) return;
-              void platform.touchFile(entry.id).catch(() => undefined);
-              void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
-              setOpenRequest((prev) => ({
-                id: entry.id,
-                name: entry.name,
-                json,
-                seq: (prev?.seq ?? 0) + 1,
-              }));
-              markEditorStateInitialized();
-              setEditorMounted(true);
-              setView('editor');
-            });
+          void platform.readFile(entry.id).then((json) => {
+            if (!json) return;
+            void platform.touchFile(entry.id).catch(() => undefined);
+            void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
+            setOpenRequest((prev) => ({
+              id: entry.id,
+              name: entry.name,
+              json,
+              seq: (prev?.seq ?? 0) + 1,
+            }));
+            markEditorStateInitialized();
+            setEditorMounted(true);
+            setView('editor');
+          });
           return;
         }
       }

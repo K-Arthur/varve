@@ -14,23 +14,19 @@
       ]
     },
     "scene": {
-      "count": 10,
+      "count": 6,
       "cycles": [
         "adjustmentScope.ts → bindings.ts → document.ts → types.ts",
         "bindings.ts → component-sync.ts → document.ts → types.ts",
         "component-sync.ts → types.ts",
         "bindings.ts → document.ts → types.ts → typography.ts",
         "types.ts → typography.ts",
-        "brush.ts → document.ts",
-        "clone.ts → document.ts",
-        "document.ts → intelligence/linterTypes.ts",
-        "document.ts → library.ts",
-        "assets.ts → document.ts → version.ts"
+        "brush.ts → document.ts"
       ]
     },
     "ui": {
-      "count": 1,
-      "cycles": ["components/Button.tsx → components/IconButton.tsx"]
+      "count": 0,
+      "cycles": []
     },
     "compositor": {
       "count": 0,
@@ -77,14 +73,8 @@
       "cycles": []
     },
     "editor": {
-      "count": 5,
-      "cycles": [
-        "components/Inspector/sectionRegistry.ts → context/types.ts → workspace/workspaceTypes.ts",
-        "components/Inspector/sectionRegistry.ts → components/Inspector/sectionState.ts → context/types.ts → workspace/workspaceTypes.ts",
-        "context/types.ts → tools/types.ts",
-        "context/types.ts → workspace/workspaceTypes.ts",
-        "context.tsx → context/index.ts"
-      ]
+      "count": 0,
+      "cycles": []
     }
   },
   "layerViolations": [],
@@ -110,95 +100,14 @@
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 7707,
-      "imports": 57,
+      "lines": 7689,
+      "imports": 58,
       "overBudget": false
     }
   },
-  "complexity": {
-    "shared": {
-      "average": 24.466666666666665,
-      "max": 74,
-      "files": 30
-    },
-    "engine": {
-      "average": 27.07949790794979,
-      "max": 650,
-      "files": 239
-    },
-    "scene": {
-      "average": 44.70886075949367,
-      "max": 404,
-      "files": 79
-    },
-    "ui": {
-      "average": 10.984615384615385,
-      "max": 80,
-      "files": 65
-    },
-    "compositor": {
-      "average": 14.25,
-      "max": 83,
-      "files": 8
-    },
-    "import": {
-      "average": 40.53333333333333,
-      "max": 239,
-      "files": 15
-    },
-    "prototype": {
-      "average": 23,
-      "max": 63,
-      "files": 16
-    },
-    "codegen": {
-      "average": 52.06060606060606,
-      "max": 302,
-      "files": 33
-    },
-    "layout": {
-      "average": 1,
-      "max": 1,
-      "files": 1
-    },
-    "platform": {
-      "average": 37.8,
-      "max": 118,
-      "files": 10
-    },
-    "help": {
-      "average": 4.166666666666667,
-      "max": 36,
-      "files": 12
-    },
-    "ai": {
-      "average": 9.333333333333334,
-      "max": 20,
-      "files": 3
-    },
-    "collab": {
-      "average": 2,
-      "max": 2,
-      "files": 1
-    },
-    "print": {
-      "average": 3,
-      "max": 6,
-      "files": 5
-    },
-    "home": {
-      "average": 20.17142857142857,
-      "max": 102,
-      "files": 35
-    },
-    "editor": {
-      "average": 26.87966804979253,
-      "max": 810,
-      "files": 482
-    }
-  },
+  "complexity": {},
   "global": {
-    "max_cycles": 21,
+    "max_cycles": 11,
     "max_unstable": 37,
     "max_layer_violations": 0,
     "max_unused_exports": 10
