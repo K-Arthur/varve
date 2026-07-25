@@ -25,6 +25,8 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  RecentFilePatch,
+  RecentFileRecord,
   SavedSearch,
   Tag,
   TemplateLibrary,
@@ -52,6 +54,30 @@ export interface Platform {
   trashFile(id: string): Promise<void>;
   restoreFile(id: string): Promise<void>;
   purgeFile(id: string): Promise<void>;
+
+  // ─── Recent Files ───────────────────────────────────────────────────────
+  /** List all recent-file records (ordered by lastOpenedAt DESC). */
+  listRecentFiles(): Promise<RecentFileRecord[]>;
+  /**
+   * Create or update a recent-file record when a file is opened.
+   * If the record already exists, updates lastOpenedAt, opensCount, name,
+   * and optional workspaceMode. Returns the updated record.
+   */
+  touchRecentFile(
+    id: string,
+    name: string,
+    sourceWorkspaceId?: string,
+    contentHash?: string,
+  ): Promise<RecentFileRecord>;
+  /**
+   * Update editable fields on a recent-file record (pin, hide, tag, name).
+   * Silent no-op when the record doesn't exist.
+   */
+  patchRecentFile(id: string, patch: RecentFilePatch): Promise<void>;
+  /** Remove a single entry from recent-file records. */
+  removeRecentFile(id: string): Promise<void>;
+  /** Clear ALL recent-file records. */
+  clearRecentHistory(): Promise<void>;
 
   // ─── Projects ────────────────────────────────────────────────────────────
   listProjects(): Promise<Project[]>;

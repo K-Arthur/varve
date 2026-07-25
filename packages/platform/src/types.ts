@@ -12,6 +12,77 @@
 /** The kind of file, derived from its extension. Drives badges + filters. */
 export type FileKind = 'strata' | 'figma' | 'illustrator' | 'image' | 'unknown';
 
+// ─── Editor workspace modes (shared with the editor package for relevance) ──
+/**
+ * Canonical editor workspace modes. A project may be relevant to one or more.
+ * Mirrors `packages/editor/src/workspace/workspaceTypes.ts`.
+ */
+export type EditorWorkspaceMode = 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen';
+
+// ─── Recent-File Record (v1) ───────────────────────────────────────────────
+/** Maximum number of recent-file records kept. */
+export const MAX_RECENT_FILES = 100;
+
+/**
+ * Versioned metadata record for a recently opened project.
+ *
+ * Design rules:
+ *   - `id` is the canonical project identity (the FileEntry.id), NOT the file
+ *     path. File paths can change (rename / move); the ID is stable across
+ *     Save As, folder moves, and workspace reassignment.
+ *   - `name` is a snapshot taken at open time. It is never used as identity.
+ *   - `hidden` suppresses the entry from the Recent view without deleting it.
+ *   - `workspaceRelevance` is derived from document-feature analysis and
+ *     manual user tags. Never inferred from filename or extension alone.
+ *   - `encrypted` is set once and never cleared by the recent-files system.
+ *   - `missing` is set asynchronously by a bounded background check.
+ *   - `sourceWorkspaceId` records the platform workspace active when the
+ *     project was last opened, for workspace-scoped filtering.
+ */
+export interface RecentFileRecord {
+  /** Stable project/document UUID (matches FileEntry.id). */
+  id: string;
+  /** Display name snapshot at last-open time. */
+  name: string;
+  /** Epoch ms of the most recent open. Sorted descending. */
+  lastOpenedAt: number;
+  /** Cumulative open count (for "most opened" sorting). */
+  openedCount: number;
+  /** User-pinned to the top of the Recent list. */
+  pinned: boolean;
+  /** User-hidden from the Recent view. */
+  hidden: boolean;
+  /** Detected workspace affinities (editor mode, not platform workspace). */
+  workspaceRelevance: EditorWorkspaceMode[];
+  /** User-assigned workspace tag. Takes precedence over inferred relevance. */
+  userWorkspaceTag: EditorWorkspaceMode | null;
+  /** True when the file is encrypted/locked (no thumbnail or content shown). */
+  encrypted: boolean;
+  /** True when the file is no longer accessible on disk. */
+  missing: boolean;
+  /** Format version of this record for safe migration. */
+  version: number;
+  /** Platform workspace ID active when last opened (for workspace-scoped filtering). */
+  sourceWorkspaceId?: string;
+  /** Content hash at last open (for stale detection). */
+  contentHash?: string;
+}
+
+/** Editable fields on a RecentFileRecord (subset that users can override). */
+export interface RecentFilePatch {
+  pinned?: boolean;
+  hidden?: boolean;
+  userWorkspaceTag?: EditorWorkspaceMode | null;
+  name?: string;
+}
+
+/** Filter config for recent-file workspace filtering. */
+export interface RecentWorkspaceFilter {
+  mode: 'all' | 'relevant' | 'pinned' | 'workspace-tagged';
+  editorMode?: EditorWorkspaceMode;
+  projectCapability?: EditorWorkspaceMode;
+}
+
 /** A pointer to a design document in the local index. */
 export interface FileEntry {
   /** Stable unique id (uuid). */
@@ -127,6 +198,10 @@ export interface FilterState {
   dateTo: number | null;
   /** Restrict to files with any of these tag ids. Empty = no tag filter. */
   tagIds: string[];
+  /** Recent-files workspace filter. Only applies when section === 'recent'. */
+  recentWorkspaceFilter?: RecentWorkspaceFilter;
+  /** Show hidden recent entries (admin/debug). */
+  showHidden?: boolean;
 }
 
 /** Persisted Home view state — restored verbatim on launch. */
@@ -373,6 +448,14 @@ export interface FileTag {
   tagId: string;
   addedAt: number;
 }
+
+/** Default recent-files workspace filter (show all). */
+export const DEFAULT_RECENT_WORKSPACE_FILTER: RecentWorkspaceFilter = {
+  mode: 'all',
+};
+
+// ─── Recent-file persistence schema version ─────────────────────────────────
+export const RECENT_FILE_SCHEMA_VERSION = 1;
 
 /** A saved search that can be recalled from the sidebar. */
 export interface SavedSearch {

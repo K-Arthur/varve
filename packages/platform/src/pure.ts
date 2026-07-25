@@ -9,7 +9,15 @@
  *    proposal ("just now" / "5 min ago" / "yesterday"), chosen over a dep.
  *  - File-kind detection by extension mirrors OS file-association tables.
  */
-import type { FileKind, FilterState, HomeViewState, SortDirection } from './types';
+import type {
+  EditorWorkspaceMode,
+  FileKind,
+  FilterState,
+  HomeViewState,
+  RecentFileRecord,
+  RecentWorkspaceFilter,
+  SortDirection,
+} from './types';
 
 /** The canonical Strata document extension (no dot). */
 export const STRATA_EXT = 'strata';
@@ -291,6 +299,88 @@ export function fuzzySearch<T>(
 // ─── Smart Collection Evaluation ──────────────────────────────────────────────
 
 import type { Collection, FileEntry } from './types';
+
+// ─── Recent-file helpers ─────────────────────────────────────────────────────
+
+/** Comparator for RecentFileRecord by a sort key + direction. */
+export function compareRecentBy(
+  key: 'lastOpenedAt' | 'openedCount' | 'name',
+  direction: SortDirection,
+): (a: RecentFileRecord, b: RecentFileRecord) => number {
+  const mul = direction === 'asc' ? 1 : -1;
+  return (a, b) => {
+    switch (key) {
+      case 'name':
+        return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }) * mul;
+      case 'openedCount':
+        return (a.openedCount - b.openedCount) * mul;
+      default:
+        return (a.lastOpenedAt - b.lastOpenedAt) * mul;
+    }
+  };
+}
+
+/**
+ * Score a RecentFileRecord's relevance to a workspace mode (0-1).
+ * Manual tags take full precedence; inferred relevance counts proportionally.
+ */
+export function recentRelevanceScore(record: RecentFileRecord, mode: EditorWorkspaceMode): number {
+  if (record.userWorkspaceTag === mode) return 1;
+  if (record.userWorkspaceTag !== null) return 0;
+  return record.workspaceRelevance.includes(mode) ? 0.5 : 0;
+}
+
+/**
+ * Filter a RecentFileRecord list by a workspace filter config.
+ * Returns records matched for the given mode.
+ */
+export function filterRecentByWorkspace(
+  records: RecentFileRecord[],
+  filter: RecentWorkspaceFilter | undefined,
+  currentEditorMode?: EditorWorkspaceMode,
+): RecentFileRecord[] {
+  if (!filter || filter.mode === 'all') return records;
+
+  // 'pinned' mode doesn't need an editor mode
+  if (filter.mode === 'pinned') {
+    return records.filter((r) => r.pinned);
+  }
+
+  const mode = filter.editorMode ?? currentEditorMode;
+  if (!mode) return records;
+
+  switch (filter.mode) {
+    case 'workspace-tagged':
+      return records.filter(
+        (r) => r.userWorkspaceTag === mode || r.workspaceRelevance.includes(mode),
+      );
+    default:
+      return records.filter(
+        (r) =>
+          r.userWorkspaceTag === mode ||
+          r.workspaceRelevance.includes(mode) ||
+          r.workspaceRelevance.length === 0, // unclassified = shown everywhere
+      );
+  }
+}
+
+/** Compute the display sections for the recent-files sidebar count badge. */
+export function recentFileSections(records: RecentFileRecord[]): {
+  all: number;
+  pinned: number;
+  relevant: (mode: EditorWorkspaceMode) => number;
+  hidden: number;
+} {
+  return {
+    all: records.filter((r) => !r.hidden).length,
+    pinned: records.filter((r) => r.pinned && !r.hidden).length,
+    relevant: (mode) =>
+      records.filter(
+        (r) => !r.hidden && (r.userWorkspaceTag === mode || r.workspaceRelevance.includes(mode)),
+      ).length,
+    hidden: records.filter((r) => r.hidden).length,
+  };
+}
 
 /**
  * Evaluate a smart collection filter against a list of files.

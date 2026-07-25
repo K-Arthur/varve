@@ -30,6 +30,7 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  RecentFileRecord,
   SavedSearch,
   Tag,
   TemplateLibrary,
@@ -38,12 +39,14 @@ import type {
   VersionStats,
   Workspace,
 } from './types';
+import { MAX_RECENT_FILES, RECENT_FILE_SCHEMA_VERSION } from './types';
 
 interface MemoryState {
   files: Map<string, { entry: FileEntry; json: string }>;
   projects: Map<string, Project>;
   thumbnails: Map<string, ThumbnailRecord>;
   view: HomeViewState;
+  recentFiles: Map<string, RecentFileRecord>;
   folders: Map<string, Folder>;
   collections: Map<string, Collection>;
   collectionEntries: Map<string, CollectionEntry[]>;
@@ -77,6 +80,7 @@ function freshState(): MemoryState {
     projects: new Map(),
     thumbnails: new Map(),
     view: defaultViewState(),
+    recentFiles: new Map(),
     folders: new Map(),
     collections: new Map(),
     collectionEntries: new Map(),
@@ -225,6 +229,69 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
         state.thumbnails.delete(rec.entry.contentHash);
       }
       state.files.delete(id);
+    },
+
+    // ─── Recent Files ───────────────────────────────────────────────────────
+    async listRecentFiles() {
+      const records = [...state.recentFiles.values()].sort(
+        (a, b) => b.lastOpenedAt - a.lastOpenedAt,
+      );
+      return records;
+    },
+    async touchRecentFile(id, name, sourceWorkspaceId, contentHash) {
+      const existing = state.recentFiles.get(id);
+      const now = Date.now();
+      const record: RecentFileRecord = existing
+        ? {
+            ...existing,
+            name,
+            lastOpenedAt: now,
+            openedCount: existing.openedCount + 1,
+            sourceWorkspaceId: sourceWorkspaceId ?? existing.sourceWorkspaceId,
+            contentHash: contentHash ?? existing.contentHash,
+            version: RECENT_FILE_SCHEMA_VERSION,
+          }
+        : {
+            id,
+            name,
+            lastOpenedAt: now,
+            openedCount: 1,
+            pinned: false,
+            hidden: false,
+            workspaceRelevance: [],
+            userWorkspaceTag: null,
+            encrypted: false,
+            missing: false,
+            version: RECENT_FILE_SCHEMA_VERSION,
+            sourceWorkspaceId,
+            contentHash,
+          };
+      state.recentFiles.set(id, record);
+
+      // Enforce maximum
+      const ids = [...state.recentFiles.keys()];
+      if (ids.length > MAX_RECENT_FILES) {
+        const sorted = ids
+          .map((k) => ({ id: k, record: state.recentFiles.get(k)! }))
+          .sort((a, b) => a.record.lastOpenedAt - b.record.lastOpenedAt);
+        const toRemove = sorted.slice(0, sorted.length - MAX_RECENT_FILES);
+        for (const { id: rid } of toRemove) {
+          state.recentFiles.delete(rid);
+        }
+      }
+
+      return record;
+    },
+    async patchRecentFile(id, patch) {
+      const existing = state.recentFiles.get(id);
+      if (!existing) return;
+      state.recentFiles.set(id, { ...existing, ...patch });
+    },
+    async removeRecentFile(id) {
+      state.recentFiles.delete(id);
+    },
+    async clearRecentHistory() {
+      state.recentFiles.clear();
     },
 
     async listProjects() {
