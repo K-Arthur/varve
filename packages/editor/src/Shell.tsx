@@ -93,6 +93,7 @@ function ShellInner({
       onOpenContextualHelp: editorHelp.openContextualHelp,
       onOpenHelpCenter: () => editorHelp.setHelpCenterOpen(true),
     });
+  const [paletteFocusShortcutId, setPaletteFocusShortcutId] = useState<string | undefined>();
 
   const { presences: collabPresences, users: collabUsers } = useCollabPresence(
     editor.state.activeId,
@@ -423,7 +424,12 @@ function ShellInner({
         {!distractionFreeMode && (
           <>
             <SelectionInfoBar />
-            <StatusBar />
+            <StatusBar
+              onOpenPalette={(shortcutId) => {
+                setPaletteFocusShortcutId(shortcutId);
+                openPalette();
+              }}
+            />
             {/* FAB for layers (responsive) */}
             <button
               type="button"
@@ -466,7 +472,15 @@ function ShellInner({
             )}
           </>
         )}
-        <ShortcutPalette open={paletteOpen} onClose={closePalette} onSelect={handlePaletteSelect} />
+        <ShortcutPalette
+          open={paletteOpen}
+          onClose={() => {
+            closePalette();
+            setPaletteFocusShortcutId(undefined);
+          }}
+          onSelect={handlePaletteSelect}
+          focusShortcutId={paletteFocusShortcutId}
+        />
         <QuickActionsBar
           open={quickActionsOpen}
           onClose={() => setQuickActionsOpen(false)}

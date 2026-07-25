@@ -1,4 +1,4 @@
-import { formatShortcut, SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
+import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import type { ActionTracker } from './actionTracker';
 
 export interface ShortcutRecommendation {
@@ -27,6 +27,8 @@ function isMenuOrToolAction(actionId: string): boolean {
 export function recommendShortcuts(
   tracker: ActionTracker,
   maxResults: number = 3,
+  /** Shortcut IDs disabled in the current workspace mode. */
+  disabledShortcutIds?: string[],
 ): ShortcutRecommendation[] {
   const windowMs = 7 * 24 * 60 * 60 * 1000;
   const recentActions = tracker.getRecentActions(windowMs);
@@ -46,6 +48,8 @@ export function recommendShortcuts(
     if (!shortcutId) continue;
     if (!(shortcutId in SHORTCUT_DEFS)) continue;
 
+    if (disabledShortcutIds?.includes(shortcutId)) continue;
+
     const shortcutDef = SHORTCUT_DEFS[shortcutId as keyof typeof SHORTCUT_DEFS];
     if (!shortcutDef) continue;
 
@@ -53,7 +57,8 @@ export function recommendShortcuts(
     const shortcutCount = freqMap.get(shortcutActionId) ?? 0;
     if (shortcutCount >= 2) continue;
 
-    const bindingStr = formatShortcut(shortcutDef.binding);
+    const effectiveBinding = getEffectiveBinding(shortcutId) ?? shortcutDef.binding;
+    const bindingStr = formatShortcut(effectiveBinding);
     const actionName = shortcutDef.label;
 
     recommendations.push({
