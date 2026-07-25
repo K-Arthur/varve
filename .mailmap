@@ -4,7 +4,10 @@
 # Does not alter commit history — only affects `git log` display tools.
 #
 # Strata Founder <founder@strata.local> was the early project identity
-# used by Kevin Arthur before adopting the canonical email. See
-# docs/development/provenance.md for the full provenance report.
+# used by Kevin Arthur before adopting the canonical email.
+# Cascade Agent <agent@strata.dev> is an AI coding assistant that
+# commits on behalf of the maintainer. Both map to the canonical
+# project identity. See docs/development/provenance.md.
 
 Kevin Arthur <hello@kevinarthur.design> Strata Founder <founder@strata.local>
+Kevin Arthur <hello@kevinarthur.design> Cascade Agent <agent@strata.dev>
