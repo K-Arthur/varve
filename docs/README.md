@@ -85,4 +85,29 @@ Every doc the project touches or creates is listed here so future updates know w
 ## Development Guide
 | Doc | Purpose |
 |-----|---------|
-| `AGENTS.md` (repo root) | Main development guide with toolchain, commands, architecture |
+| `development/setup.md` | Setup, running, testing, and quality gates |
+| `development/provenance.md` | Git identity and contribution provenance |
+| `development/style-guide.md` (planned) | Code style and conventions |
+
+## AI-Assisted Development
+| Doc | Purpose |
+|-----|---------|
+| [AGENTS.md](../AGENTS.md) (root) | AI agent instructions — cross-project rules for automation |
+| `agents/README.md` | Why and how AI tooling is used in this project |
+| `agents/continuation.md` | Session-level continuation context for AI |
+
+## Implementation Memory
+| Doc | Purpose |
+|-----|---------|
+| `implementation-memory/BACKGROUND_REMOVAL_MEMORY.md` | Background removal pipeline execution memory |
+| `implementation-memory/BG_REMOVAL_QUEUE_MEMORY.md` | Background removal queue fix documentation |
+| `implementation-memory/WEBGPU_WASM_ENGINE_MEMORY.md` | WebGPU/WASM acceleration state log |
+| `implementation-memory/GITHUB_PIPELINE_MEMORY.md` | GitHub pipeline status and configuration |
+| `implementation-memory/system_memory.md` | System architecture memory |
+| `implementation-memory/alignment_memory.md` | Alignment system discovery |
+| `implementation-memory/color_system_memory.md` | Color system architecture |
+| `implementation-memory/effects_system_memory.md` | Effects system architecture |
+| `implementation-memory/select_scale_memory.md` | Selection & transform engine |
+| `implementation-memory/impeccable.md` | Design context and brand personality |
+| `implementation-memory/select-move-overhaul.md` | Selection and move overhaul |
+| `implementation-memory/typography-overhaul.md` | Typography system overhaul |
