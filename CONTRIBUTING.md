@@ -4,12 +4,12 @@ Thank you for your interest in contributing to Strata.
 
 ## Code of Conduct
 
-This project follows a standard Code of Conduct. See `CODE_OF_CONDUCT.md`.
+This project follows a standard Code of Conduct. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Licensing and DCO
 
 Strata is licensed under the **Business Source License 1.1 (BSL 1.1)**, with
-a change licence of **MIT** after four years. See `LICENSE` for full terms.
+a change licence of **MIT** after four years. See [LICENSE](LICENSE) for full terms.
 
 All contributions must include a **Developer Certificate of Origin** (DCO)
 sign-off. This certifies that you have the right to submit the work and
@@ -22,7 +22,7 @@ Signed-off-by: Your Name <your.email@example.com>
 ```
 
 Use `git commit -s` to add this automatically. By signing off, you certify
-the following (from https://developercertificate.org/):
+the following (from [developercertificate.org](https://developercertificate.org/)):
 
 ```
 Developer Certificate of Origin
@@ -72,8 +72,23 @@ This is a one-time process.
 2. Create a feature branch.
 3. Make your changes, following the project's code standards.
 4. Add or update tests for your changes.
-5. Ensure all quality gates pass (see AGENTS.md for details).
+5. Ensure all quality gates pass:
+   ```bash
+   just gate
+   ```
+   See [docs/development/setup.md](docs/development/setup.md) for tooling setup.
 6. Submit a pull request with a clear description of your changes.
+
+## Development setup
+
+See [docs/development/setup.md](docs/development/setup.md) for full setup
+instructions, running, testing, and quality gates.
+
+## Project governance
+
+For licensing questions, see the [licensing docs](docs/licensing/).
+Strata uses AI-assisted development tooling. AI-generated contributions
+are reviewed and committed by the project maintainer.
 
 ## Questions?
 

@@ -34,6 +34,19 @@ Thumbs.db
 # --- Agent brainstorm / visual companion ---
 .superpowers/
 
+# --- Transient agent memory files (tracked copies in docs/implementation-memory/) ---
+.system_memory.md
+.alignment_memory.md
+.color_system_memory.md
+.effects_system_memory.md
+.select_scale_memory.md
+.impeccable.md
+/*_MEMORY.md
+/CONTINUATION.md
+
+# --- Build caches / tmp ---
+.tmp/
+
 # --- Env / secrets ---
 .env
 .env.*
