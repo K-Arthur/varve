@@ -416,6 +416,12 @@ export function HomeShell({
           actions.purge(contextFile.id);
           break;
         }
+        case 'hide':
+          platform.patchRecentFile(contextFile.id, { hidden: true }).then(() => view.refresh());
+          break;
+        case 'unhide':
+          platform.patchRecentFile(contextFile.id, { hidden: false }).then(() => view.refresh());
+          break;
       }
       setContextPos(null);
       setContextFile(null);
@@ -922,6 +928,9 @@ export function HomeShell({
             projects={view.projects}
             isTrash={view.state.section === 'trash'}
             isMissing={missingFiles.has(contextFile.id)}
+            isHidden={view.recentRecords.some(
+              (r) => r.id === contextFile.id && r.hidden,
+            )}
           />
         )}
         <HomeSearchPalette

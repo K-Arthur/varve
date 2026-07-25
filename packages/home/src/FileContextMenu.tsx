@@ -14,7 +14,9 @@ export type FileMenuAction =
   | 'export'
   | 'locate'
   | 'remove'
-  | 'versions';
+  | 'versions'
+  | 'hide'
+  | 'unhide';
 
 export interface FileContextMenuProps {
   file: FileEntry;
@@ -25,6 +27,8 @@ export interface FileContextMenuProps {
   projects: Project[];
   isTrash?: boolean;
   isMissing?: boolean;
+  /** True when the file is hidden from the Recent view. */
+  isHidden?: boolean;
 }
 
 export function FileContextMenu({
@@ -36,6 +40,7 @@ export function FileContextMenu({
   projects,
   isTrash = false,
   isMissing = false,
+  isHidden = false,
 }: FileContextMenuProps) {
   const items: MenuEntry[] = [];
 
@@ -87,6 +92,11 @@ export function FileContextMenu({
       id: 'pin',
       label: file.pinned ? 'Unpin' : 'Pin',
       onAction: () => onAction('pin'),
+    });
+    items.push({
+      id: 'hide',
+      label: isHidden ? 'Show in Recent' : 'Hide from Recent',
+      onAction: () => onAction('hide'),
     });
     items.push({ id: 'sep4', separator: true });
     items.push({
