@@ -1,5 +1,9 @@
 # Website Research Findings — Phase B
 
+> **Note:** This document predates the project's licensing decisions and
+> describes the project as AGPL-3.0-or-later. See `LICENSE` for the current
+> license (FSL-1.1-MIT).
+
 **Date:** 2026-07-08  
 **Purpose:** Current online research of DaVinci Resolve, Figma, and relevant competitors to inform Strata's website strategy.
 

@@ -1,5 +1,9 @@
 # Website Hardening Report
 
+> **Note:** This document predates the project's licensing decisions and
+> describes the project as AGPL-3.0-or-later. See `LICENSE` for the current
+> license (FSL-1.1-MIT).
+
 **Date:** 2026-07-11
 **Phase:** H (Hardening) / I (Independent Review) / J (Documentation & Release)
 
