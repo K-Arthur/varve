@@ -141,31 +141,30 @@ export function ActivityFeed({
 
   if (loading) {
     return (
-      <div className="activity-feed" role="region" aria-label="Activity feed">
+      <section className="activity-feed" aria-label="Activity feed">
         <div className="activity-feed__loading" role="status">
           <InlineActivityIndicator label="Loading activity" />
         </div>
-      </div>
+      </section>
     );
   }
 
   if (error) {
     return (
-      <div className="activity-feed" role="region" aria-label="Activity feed">
+      <section className="activity-feed" aria-label="Activity feed">
         <div className="activity-feed__error" role="alert">
           <Icon name="CircleAlert" label={undefined} />
           <span>{error}</span>
         </div>
-      </div>
+      </section>
     );
   }
 
   const isEmpty = filteredEvents.length === 0;
 
   return (
-    <div
+    <section
       className={`activity-feed${isEmpty ? ' activity-feed--empty' : ''}`}
-      role="region"
       aria-label="Activity feed"
     >
       {isEmpty ? (
@@ -218,6 +217,6 @@ export function ActivityFeed({
           View all activity
         </button>
       )}
-    </div>
+    </section>
   );
 }

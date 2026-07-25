@@ -79,7 +79,7 @@ export function RestoreBrowser({ backupService, projectId, onClose }: RestoreBro
   }
 
   return (
-    <div className="restore-browser" role="region" aria-label="Restore browser">
+    <section className="restore-browser" aria-label="Restore browser">
       <h3 className="restore-browser__title">Version History & Backups</h3>
 
       {backups.length === 0 ? (
@@ -91,6 +91,7 @@ export function RestoreBrowser({ backupService, projectId, onClose }: RestoreBro
             return (
               <button
                 key={backup.id}
+                type="button"
                 role="option"
                 aria-selected={isSelected}
                 onClick={() => handleSelect(backup.id)}
@@ -197,6 +198,6 @@ export function RestoreBrowser({ backupService, projectId, onClose }: RestoreBro
           Close
         </button>
       )}
-    </div>
+    </section>
   );
 }

@@ -11,6 +11,7 @@
 
 import { createEngine } from '../engine';
 import { createRasterSurface, encodeRasterSurface } from '../rasterSurface';
+import type { ReplayTarget } from '../replay';
 import { replayIr } from '../replay';
 import type { Affine, RenderItem, SceneNode } from '../types';
 import { hasAnyCanvas, hasImageEncoding } from './capabilities';
@@ -256,7 +257,7 @@ export async function generateThumbnail(
 
   const engine = await createEngine('stub');
   const ir: RenderItem[] = await engine.buildIr({ nodes });
-  replayIr(ctx as any, ir);
+  replayIr(ctx as unknown as ReplayTarget, ir);
 
   ctx.restore();
 

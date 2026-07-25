@@ -50,7 +50,7 @@ describe('deepCloneSubtree', () => {
     doc = a.doc;
     doc = addNode(doc, a.node);
 
-    const result = deepCloneSubtree(doc, a.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, a.id);
 
     expect(result.rootId).not.toBe(a.id);
     expect(Object.keys(result.nodes)).toHaveLength(1);
@@ -75,7 +75,7 @@ describe('deepCloneSubtree', () => {
     doc = g.doc;
     doc = addNode(doc, g.node);
 
-    const result = deepCloneSubtree(doc, g.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g.id);
 
     expect(result.rootId).not.toBe(g.id);
     const clonedGroup = result.nodes[result.rootId] as GroupNode;
@@ -111,7 +111,7 @@ describe('deepCloneSubtree', () => {
     doc = g2.doc;
     doc = addNode(doc, g2.node);
 
-    const result = deepCloneSubtree(doc, g2.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g2.id);
 
     const clonedG2 = result.nodes[result.rootId] as GroupNode;
     expect(clonedG2.name).toBe('Level 1');
@@ -140,7 +140,7 @@ describe('deepCloneSubtree', () => {
     doc = g.doc;
     doc = addNode(doc, g.node);
 
-    const result = deepCloneSubtree(doc, g.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g.id);
 
     const clonedGroup = result.nodes[result.rootId] as GroupNode;
     expect(clonedGroup.children).toHaveLength(2);
@@ -166,7 +166,7 @@ describe('deepCloneSubtree', () => {
     doc = g.doc;
     doc = addNode(doc, g.node);
 
-    const result = deepCloneSubtree(doc, g.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g.id);
     const originalNodes = { ...doc.nodes };
 
     for (const newId of result.idMap.values()) {
@@ -186,7 +186,7 @@ describe('deepCloneSubtree', () => {
     doc = g.doc;
     doc = addNode(doc, g.node);
 
-    const result = deepCloneSubtree(doc, g.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g.id);
 
     expect(result.idMap.get(g.id)).toBe(result.rootId);
     expect(result.idMap.get(a.id)).toBe((result.nodes[result.rootId] as GroupNode).children[0]!);
@@ -204,7 +204,7 @@ describe('deepCloneSubtree', () => {
     doc = f.doc;
     doc = addNode(doc, f.node);
 
-    const result = deepCloneSubtree(doc, f.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, f.id);
 
     const clonedFrame = result.nodes[result.rootId] as FrameNode;
     expect(clonedFrame.slots).toBeDefined();
@@ -233,7 +233,7 @@ describe('deepCloneSubtree', () => {
       },
     };
 
-    const result = deepCloneSubtree(doc, g.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g.id);
 
     const clonedGroup = result.nodes[result.rootId] as GroupNode;
     expect(clonedGroup.mask).toBeDefined();
@@ -252,7 +252,7 @@ describe('deepCloneSubtree', () => {
     doc = a.doc;
     doc = addNode(doc, a.node);
 
-    const result = deepCloneSubtree(doc, a.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, a.id);
 
     const cloned = result.nodes[result.rootId] as ShapeNode;
     expect(cloned.name).toBe('Special Shape');
@@ -267,7 +267,7 @@ describe('deepCloneSubtree', () => {
     doc = g.doc;
     doc = addNode(doc, g.node);
 
-    const result = deepCloneSubtree(doc, g.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, g.id);
 
     expect(result.rootId).not.toBe(g.id);
     const clonedGroup = result.nodes[result.rootId] as GroupNode;
@@ -290,7 +290,7 @@ describe('deepCloneSubtree', () => {
     doc = f.doc;
     doc = addNode(doc, f.node);
 
-    const result = deepCloneSubtree(doc, f.id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, f.id);
 
     expect(result.rootId).not.toBe(f.id);
     const clonedFrame = result.nodes[result.rootId] as FrameNode;
@@ -337,7 +337,7 @@ describe('deepCloneSubtree', () => {
     };
     doc = addNode(doc, adjNode);
 
-    const result = deepCloneSubtree(doc, id);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, id);
 
     expect(result.rootId).not.toBe(id);
     const cloned = result.nodes[result.rootId] as import('../types').AdjustmentNode;
@@ -363,7 +363,7 @@ describe('deepCloneSubtree', () => {
     };
     doc = addNode(doc, textWithPath);
 
-    const result = deepCloneSubtree(doc, textId);
+    const result = deepCloneSubtree(doc.nodes, doc.nextId, textId);
 
     const cloned = result.nodes[result.rootId] as import('../types').TextNode;
     // pathId references a node outside the subtree, so it's preserved verbatim

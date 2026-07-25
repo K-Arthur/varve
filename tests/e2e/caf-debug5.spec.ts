@@ -65,7 +65,6 @@ test('find state via hook chain', async ({ page }) => {
 
     // Walk the fiber tree to find editor state
     const fiber = r[rootKey];
-    const _found = false;
     let depth = 0;
 
     function visitFiber(f: any): any {

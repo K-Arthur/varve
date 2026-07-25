@@ -126,6 +126,8 @@ function SidebarProjectRow({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      role="application"
+      tabIndex={-1}
     >
       <button
         type="button"

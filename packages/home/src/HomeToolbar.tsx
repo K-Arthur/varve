@@ -1,5 +1,12 @@
-import type { FileKind, RecentWorkspaceFilter, SidebarSection, SortDirection, SortKey, ViewMode } from '@strata/platform';
-import { Button, SOLID_CHROME_ICONS, SolidIcon, ViewModeSwitcher, Popover } from '@strata/ui';
+import type {
+  FileKind,
+  RecentWorkspaceFilter,
+  SidebarSection,
+  SortDirection,
+  SortKey,
+  ViewMode,
+} from '@strata/platform';
+import { Button, Popover, SOLID_CHROME_ICONS, SolidIcon, ViewModeSwitcher } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { FilterDropdown } from './FilterDropdown';
 
@@ -65,9 +72,8 @@ export function HomeToolbar({
   ];
 
   const currentWsFilterLabel =
-    WORKSPACE_FILTER_OPTIONS.find(
-      (o) => o.value === (recentWorkspaceFilter?.mode ?? 'all'),
-    )?.label ?? 'All Recent';
+    WORKSPACE_FILTER_OPTIONS.find((o) => o.value === (recentWorkspaceFilter?.mode ?? 'all'))
+      ?.label ?? 'All Recent';
 
   const handleWsFilterSelect = useCallback(
     (mode: RecentWorkspaceFilter['mode']) => {
@@ -106,15 +112,17 @@ export function HomeToolbar({
             open={wsFilterOpen}
             onOpenChange={setWsFilterOpen}
             popover={
-              <div className="strata-home__ws-filter-dropdown" role="listbox" aria-label="Workspace filter">
+              <div
+                className="strata-home__ws-filter-dropdown"
+                role="listbox"
+                aria-label="Workspace filter"
+              >
                 {WORKSPACE_FILTER_OPTIONS.map((opt) => (
                   <button
                     key={opt.value}
                     type="button"
                     role="option"
-                    aria-selected={
-                      (recentWorkspaceFilter?.mode ?? 'all') === opt.value
-                    }
+                    aria-selected={(recentWorkspaceFilter?.mode ?? 'all') === opt.value}
                     className={`strata-home__ws-filter-option ${
                       (recentWorkspaceFilter?.mode ?? 'all') === opt.value
                         ? 'strata-home__ws-filter-option--active'

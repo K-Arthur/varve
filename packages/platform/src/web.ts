@@ -43,6 +43,7 @@ import type {
   Permission,
   Project,
   ProjectTemplate,
+  RecentFileRecord,
   SavedSearch,
   Tag,
   TemplateLibrary,
@@ -54,7 +55,7 @@ import type {
 import { DRAFTS_ID } from './types';
 
 const DB_NAME = 'strata-home';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_FILES = 'files';
 const STORE_PROJECTS = 'projects';
 const STORE_THUMBS = 'thumbnails';
@@ -74,6 +75,7 @@ const STORE_TAGS = 'tags';
 const STORE_FILE_TAGS = 'fileTags';
 const STORE_ACTIVITY = 'activity';
 const STORE_SAVED_SEARCHES = 'savedSearches';
+const STORE_RECENT_FILES = 'recentFiles';
 const KV_VIEW_STATE = 'view-state';
 
 interface FileRecord {
@@ -108,6 +110,7 @@ interface DbSchema {
   fileTags: FileTagRecord;
   activity: ActivityEvent;
   savedSearches: SavedSearch;
+  recentFiles: RecentFileRecord;
 }
 
 async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
@@ -195,6 +198,13 @@ async function openHomeDb(): Promise<IDBPDatabase<DbSchema>> {
         }
         if (!db.objectStoreNames.contains(STORE_SAVED_SEARCHES)) {
           db.createObjectStore(STORE_SAVED_SEARCHES, { keyPath: 'id' });
+        }
+      }
+      // v3 stores (added in version 3)
+      if (oldVersion < 3) {
+        if (!db.objectStoreNames.contains(STORE_RECENT_FILES)) {
+          const store = db.createObjectStore(STORE_RECENT_FILES, { keyPath: 'id' });
+          store.createIndex('lastOpenedAt', 'lastOpenedAt');
         }
       }
     },
@@ -1146,6 +1156,59 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
     },
     fileManagerLabel() {
       return 'Reveal in Files';
+    },
+
+    // ─── Recent Files ──────────────────────────────────────────────────────────
+    async listRecentFiles() {
+      const db = await openHomeDb();
+      const records = await db.getAllFromIndex(STORE_RECENT_FILES, 'lastOpenedAt');
+      return records.reverse();
+    },
+    async touchRecentFile(id, name, sourceWorkspaceId, contentHash) {
+      const db = await openHomeDb();
+      const existing = await db.get(STORE_RECENT_FILES, id);
+      const now = Date.now();
+      const record: RecentFileRecord = existing
+        ? {
+            ...existing,
+            name,
+            lastOpenedAt: now,
+            openedCount: existing.openedCount + 1,
+            sourceWorkspaceId: sourceWorkspaceId ?? existing.sourceWorkspaceId,
+            contentHash: contentHash ?? existing.contentHash,
+          }
+        : {
+            id,
+            name,
+            lastOpenedAt: now,
+            openedCount: 1,
+            pinned: false,
+            hidden: false,
+            workspaceRelevance: [],
+            userWorkspaceTag: null,
+            encrypted: false,
+            missing: false,
+            version: 1,
+            sourceWorkspaceId,
+            contentHash,
+          };
+      await db.put(STORE_RECENT_FILES, record);
+      return record;
+    },
+    async patchRecentFile(id, patch) {
+      const db = await openHomeDb();
+      const existing = await db.get(STORE_RECENT_FILES, id);
+      if (!existing) return;
+      await db.put(STORE_RECENT_FILES, { ...existing, ...patch });
+    },
+    async removeRecentFile(id) {
+      const db = await openHomeDb();
+      await db.delete(STORE_RECENT_FILES, id);
+    },
+    async clearRecentHistory() {
+      const db = await openHomeDb();
+      const records = await db.getAll(STORE_RECENT_FILES);
+      await Promise.all(records.map((r) => db.delete(STORE_RECENT_FILES, r.id)));
     },
   };
 

@@ -26,14 +26,14 @@ export function HomeShortcutHelp({ open, onClose }: HomeShortcutHelpProps) {
     <Dialog open={open} onClose={onClose} title="Keyboard shortcuts">
       <div className="home-shortcut-help">
         <h2 className="home-shortcut-help__title">Keyboard shortcuts</h2>
-        <div className="home-shortcut-help__list" role="list">
+        <ul className="home-shortcut-help__list">
           {SHORTCUTS.map(({ label, combo }) => (
-            <div key={label} className="home-shortcut-help__row" role="listitem">
+            <li key={label} className="home-shortcut-help__row">
               <span className="home-shortcut-help__label">{label}</span>
               <kbd className="home-shortcut-help__combo">{combo}</kbd>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
         <button
           type="button"
           className="home-shortcut-help__close"

@@ -5,7 +5,6 @@
  * and other node-to-node references are remapped.
  */
 
-import type { Document } from './document';
 import { nextNodeId } from './node-id';
 import type {
   ContainerNode,
@@ -34,13 +33,17 @@ export interface CloneResult {
  * The caller is responsible for adding the cloned nodes to a document
  * and updating any external references.
  */
-export function deepCloneSubtree(doc: Document, rootId: NodeId): CloneResult {
+export function deepCloneSubtree(
+  nodes: Record<NodeId, SceneNode>,
+  nextIdCounter: number,
+  rootId: NodeId,
+): CloneResult {
   const idMap = new Map<NodeId, NodeId>();
   const newNodes: Record<NodeId, SceneNode> = {};
-  let currentDoc = doc;
+  let currentDoc = { nextId: nextIdCounter };
 
   function walkNode(nid: NodeId): NodeId | null {
-    const node = currentDoc.nodes[nid];
+    const node = nodes[nid];
     if (!node) return null;
     if (idMap.has(nid)) return idMap.get(nid)!;
 

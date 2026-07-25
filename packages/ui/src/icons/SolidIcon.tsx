@@ -351,7 +351,7 @@ export const SolidIcon = forwardRef<SVGSVGElement, SolidIconProps>(function Soli
     return (
       <span
         ref={ref as React.Ref<HTMLSpanElement>}
-        role={label ? 'img' : undefined}
+        role="img"
         aria-label={label}
         style={{
           display: 'inline-flex',

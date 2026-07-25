@@ -19,6 +19,7 @@ import type { DebtIssue } from './debtScanner';
 import type { GovernanceIssue } from './governanceRules';
 import type {
   LinterCategory as LinterCategoryType,
+  LinterFix,
   LinterIssue,
   LinterScope as LinterScopeType,
   LinterSeverity,
@@ -273,10 +274,9 @@ export const linterScannerAdapter: AuditAdapter<LinterIssue> = {
     );
 
     const fixCapability = legacy.fixes.length > 0 ? 'automatic' : 'none';
-    const fixes = legacy.fixes.map((fix: any) => ({
+    const fixes = legacy.fixes.map((fix: LinterFix) => ({
       id: fix.id,
       label: fix.label,
-      description: fix.description || '',
       apply: fix.apply as (doc: unknown) => unknown,
       changesSelection: false,
       previewable: true,

@@ -27,10 +27,6 @@ export interface VueExportOptions {
   useCompositionApi?: boolean;
 }
 
-function _sizeClass(px: number): string {
-  return px === 0 ? '0' : `${px}px`;
-}
-
 function cssColor(node: SceneNode, opts?: VueExportOptions): string {
   const tokenName = opts?.variableStore
     ? resolveTokenName(node.bindings, 'fill', opts.variableStore)
@@ -54,7 +50,6 @@ function buildVueTemplate(
   opts?: VueExportOptions,
 ): string {
   const indent = '  '.repeat(depth);
-  const _pos = computeNodePos(node);
 
   // Image node
   if (isImageShape(node)) {
@@ -78,7 +73,6 @@ function buildVueTemplate(
     (node as import('@strata/scene').FrameNode).layoutStyle
   ) {
     const fn = node as import('@strata/scene').FrameNode;
-    const _ls = fn.layoutStyle!;
     const classes = [`container-${node.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`];
     const children = getChildren(doc, node)
       .map((child) => buildVueTemplate(child, doc, depth + 1, opts))
@@ -198,14 +192,6 @@ function buildVueStyle(node: SceneNode, doc: SceneDocument, opts?: VueExportOpti
     }
   }
   lines.push(`}`);
-
-  // Recurse into children
-  if (node.kind === 'frame' || node.kind === 'group') {
-    const children = getChildren(doc, node);
-    for (const child of children) {
-      lines.push(...buildVueStyle(child, doc, opts));
-    }
-  }
 
   return lines;
 }

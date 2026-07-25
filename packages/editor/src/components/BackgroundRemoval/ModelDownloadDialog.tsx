@@ -81,6 +81,9 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
       onClick={(e) => {
         if (e.target === e.currentTarget) handleCancel();
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') handleCancel();
+      }}
     >
       <FocusTrap onClose={handleCancel}>
         <div className="model-download-dialog">

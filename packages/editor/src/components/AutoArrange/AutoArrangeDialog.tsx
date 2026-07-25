@@ -99,36 +99,36 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
     onClose,
   ]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        handleApply();
-      }
-    },
-    [handleApply],
-  );
-
   return (
     <Dialog open={open} onClose={onClose} title="Auto Arrange" dismissible>
-      <div className="auto-arrange" onKeyDown={handleKeyDown}>
+      <form
+        className="auto-arrange"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleApply();
+        }}
+      >
         <fieldset className="auto-arrange__fieldset">
           <legend className="auto-arrange__legend">Layout</legend>
           <div className="auto-arrange__layout-types" role="radiogroup" aria-label="Layout type">
             {LAYOUT_TYPES.map((lt) => (
-              <button
+              <label
                 key={lt.value}
-                type="button"
-                role="radio"
-                aria-checked={layoutType === lt.value}
                 className={`auto-arrange__layout-btn${layoutType === lt.value ? ' auto-arrange__layout-btn--active' : ''}`}
-                onClick={() => setLayoutType(lt.value)}
               >
+                <input
+                  type="radio"
+                  name="arrange-layout"
+                  value={lt.value}
+                  checked={layoutType === lt.value}
+                  onChange={() => setLayoutType(lt.value)}
+                  className="sr-only"
+                />
                 <span className="auto-arrange__layout-icon">
                   <Icon name={lt.icon} />
                 </span>
                 <span className="auto-arrange__layout-label">{lt.label}</span>
-              </button>
+              </label>
             ))}
           </div>
         </fieldset>
@@ -211,7 +211,7 @@ export function AutoArrangeDialog({ open, onClose, selectionBounds }: AutoArrang
             Apply
           </Button>
         </div>
-      </div>
+      </form>
     </Dialog>
   );
 }

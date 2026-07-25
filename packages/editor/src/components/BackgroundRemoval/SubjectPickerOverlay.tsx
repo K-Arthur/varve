@@ -145,6 +145,9 @@ export function SubjectPickerOverlay({
       aria-label="Select subjects to keep"
       onClose={onCancel}
       onClick={handleBackdropClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onCancel();
+      }}
     >
       <div className="subject-picker-panel">
         <div className="subject-picker-header">

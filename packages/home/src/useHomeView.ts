@@ -165,9 +165,7 @@ export function useHomeView(platform: Platform): HomeView & {
     const relevant = filterRecentByWorkspace(recentRecords, recentWorkspaceFilter, editorMode);
     // Encrypted projects excluded from relevance inference
     if (recentWorkspaceFilter.mode !== 'all') {
-      return relevant.filter(
-        (r) => !r.encrypted || r.userWorkspaceTag != null,
-      );
+      return relevant.filter((r) => !r.encrypted || r.userWorkspaceTag != null);
     }
     return relevant;
   }, [recentRecords, recentWorkspaceFilter, editorMode]);

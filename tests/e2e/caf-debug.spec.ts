@@ -150,13 +150,11 @@ test.describe('CAF debug', () => {
         if (!key) return { error: 'no fiber key' };
 
         let fiber = (root as any)[key];
-        const _openCafFn: any = null;
         let depth = 0;
         while (fiber && depth < 200) {
           if (fiber.memoizedState?.queue) {
             const queue = fiber.memoizedState.queue;
             if (queue.lastRenderedState && typeof queue.lastRenderedState === 'object') {
-              const _state = queue.lastRenderedState;
               // Check if this fiber has a return that provides openCafDialog
             }
           }

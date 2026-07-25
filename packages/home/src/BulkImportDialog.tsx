@@ -173,6 +173,8 @@ export function BulkImportDialog({
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
+              role="application"
+              tabIndex={-1}
             >
               <Icon name="Upload" label={undefined} className="bulk-import__dropzone-icon" />
               <p className="bulk-import__dropzone-text">Drag files here or click to browse</p>
