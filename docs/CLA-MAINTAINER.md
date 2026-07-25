@@ -1,5 +1,12 @@
 # CLA Administration Guide — Maintainer Reference
 
+> **Status note (2026-07-25):** This guide describes the *intended* CLA
+> operations once the infrastructure below is actually built. As of this
+> writing, `.github/workflows/cla.yml`, `.github/pull_request_template.md`,
+> and `.github/ISSUE_TEMPLATE/` do not exist in the repository, and Strata
+> is not currently accepting external contributions. Treat this document as
+> a reference for future setup, not a description of an active system.
+
 This document covers the operational procedures for managing the Strata
 Contributor Licence Agreement system. It is intended for the project owner
 and any future maintainers.
