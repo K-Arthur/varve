@@ -21,9 +21,9 @@ members = [
 version = "0.0.0"
 edition = "2021"
 rust-version = "1.82"
-license = "BSL-1.1"
+license = "FSL-1.1-MIT"
 authors = ["Strata"]
-repository = "https://github.com/strata/strata"
+repository = "https://github.com/K-Arthur/Strata"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

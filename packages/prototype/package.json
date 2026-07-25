@@ -20,5 +20,5 @@
     "@strata/scene": "workspace:*",
     "@strata/shared": "workspace:*"
   },
-  "license": "BSL-1.1"
+  "license": "FSL-1.1-MIT"
 }
