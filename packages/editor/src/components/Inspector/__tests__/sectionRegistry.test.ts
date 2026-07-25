@@ -285,11 +285,14 @@ describe('Section availability predicates', () => {
 
   it('background-removal stays available for nodes with prior mask/removal state, not just live image fills', () => {
     const def = getSectionDefinition('background-removal')!;
-    expect(def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()] }))).toBe(true);
+    expect(
+      def.isAvailable(baseCtx({ selectedNodes: [makeImageNode()], workspaceMode: 'image' })),
+    ).toBe(true);
     expect(
       def.isAvailable(
         baseCtx({
           selectedNodes: [makeNode({ mask: { rasterMask: 'mask-1' } } as never)],
+          workspaceMode: 'image',
         }),
       ),
     ).toBe(true);
@@ -297,10 +300,13 @@ describe('Section availability predicates', () => {
       def.isAvailable(
         baseCtx({
           selectedNodes: [makeNode({ backgroundRemoval: { method: 'ai' } } as never)],
+          workspaceMode: 'image',
         }),
       ),
     ).toBe(true);
-    expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()] }))).toBe(false);
+    expect(def.isAvailable(baseCtx({ selectedNodes: [makeNode()], workspaceMode: 'image' }))).toBe(
+      false,
+    );
   });
 
   it('image-placement only available for single image nodes', () => {

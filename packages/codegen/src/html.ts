@@ -15,7 +15,6 @@ import type {
   FidelityWarning,
   FillSpec,
   FlattenInfo,
-  HtmlElementHint,
   IRDocument,
   LayoutSpec,
   SemanticNode,
@@ -350,7 +349,7 @@ export function exportIrToHtml(
   const unit = opts.unit ?? 'px';
   const base = opts.baseFontSize ?? 16;
   const indent = opts.indent ?? '  ';
-  const useCp = opts.useCustomProperties ?? true;
+  const _useCp = opts.useCustomProperties ?? true;
 
   const cssLines: string[] = [];
   const htmlParts: string[] = [];
@@ -527,7 +526,7 @@ ${htmlParts.join('\n')}
 </body>
 </html>`;
 
-  const css = cssLines.join('\n');
+  const _css = cssLines.join('\n');
 
   // ── Responsive Media Queries ───────────────────────────────────────────────
   if (opts.responsive !== false && ir.breakpoints.length > 0) {
@@ -535,7 +534,7 @@ ${htmlParts.join('\n')}
     for (const bp of ir.breakpoints) {
       if (bp.minWidth === 0) continue;
       mqLines.push(`\n@media (max-width: ${bp.minWidth - 0.5}px) {`);
-      for (const [nodeId, node] of Object.entries(ir.nodes)) {
+      for (const [_nodeId, node] of Object.entries(ir.nodes)) {
         const ri = node.responsiveInference;
         if (ri && ri.breakpoint >= bp.minWidth && ri.confidence > 0.5 && ri.layoutChanges) {
           const cls = makeClassName(node.name || node.kind);

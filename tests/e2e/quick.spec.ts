@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 test('quick check', async ({ page }) => {
   page.on('pageerror', (err) => console.log('PAGEERROR:', err.message));
   page.on('console', (msg) => {

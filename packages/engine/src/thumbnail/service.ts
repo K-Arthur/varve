@@ -13,6 +13,7 @@ import { createEngine } from '../engine';
 import { createRasterSurface, encodeRasterSurface } from '../rasterSurface';
 import { replayIr } from '../replay';
 import type { Affine, RenderItem, SceneNode } from '../types';
+import { hasAnyCanvas, hasImageEncoding } from './capabilities';
 import {
   DEFAULT_THUMBNAIL_HEIGHT,
   DEFAULT_THUMBNAIL_OPTIONS,
@@ -23,7 +24,6 @@ import {
   type ThumbnailOptions,
   type ThumbnailResult,
 } from './types';
-import { hasAnyCanvas, hasImageEncoding } from './capabilities';
 
 /** Maximum thumbnail dimension to prevent memory exhaustion. */
 const MAX_THUMBNAIL_DIMENSION = 4096;
@@ -126,7 +126,6 @@ function computeScale(
       return 1;
     case 'cover':
       return Math.max(scaleX, scaleY);
-    case 'contain':
     default:
       return Math.min(scaleX, scaleY, 1);
   }

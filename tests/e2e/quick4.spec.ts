@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 test('quick check with errors', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (err) => errors.push(err.message));

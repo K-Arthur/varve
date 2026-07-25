@@ -27,7 +27,7 @@ export interface VueExportOptions {
   useCompositionApi?: boolean;
 }
 
-function sizeClass(px: number): string {
+function _sizeClass(px: number): string {
   return px === 0 ? '0' : `${px}px`;
 }
 
@@ -54,7 +54,7 @@ function buildVueTemplate(
   opts?: VueExportOptions,
 ): string {
   const indent = '  '.repeat(depth);
-  const pos = computeNodePos(node);
+  const _pos = computeNodePos(node);
 
   // Image node
   if (isImageShape(node)) {
@@ -78,7 +78,7 @@ function buildVueTemplate(
     (node as import('@strata/scene').FrameNode).layoutStyle
   ) {
     const fn = node as import('@strata/scene').FrameNode;
-    const ls = fn.layoutStyle!;
+    const _ls = fn.layoutStyle!;
     const classes = [`container-${node.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`];
     const children = getChildren(doc, node)
       .map((child) => buildVueTemplate(child, doc, depth + 1, opts))

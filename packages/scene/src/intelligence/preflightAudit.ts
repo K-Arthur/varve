@@ -8,8 +8,8 @@
  */
 
 import type { AuditFinding, AuditSeverity } from '@strata/shared';
-import type { AuditPipeline, PipelineOptions } from './auditPipeline';
 import type { AuditCache } from './auditCache';
+import type { AuditPipeline, PipelineOptions } from './auditPipeline';
 
 // ============================================================================
 // Types

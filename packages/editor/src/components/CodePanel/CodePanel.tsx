@@ -10,24 +10,24 @@
  * patterns from the same codebase.
  */
 import {
-  runDesignAudit,
-  runCodegenReadiness,
+  type AuditCategory,
+  type AuditFinding,
   analyseDocument,
+  type DesignAuditReport,
   exportNodeToCss,
+  exportNodeToSvelte,
+  exportNodeToSvg,
   exportNodeToTailwind,
   exportNodeToVue,
-  exportNodeToSvelte,
   exportNodeToWebComponent,
-  exportNodeToSvg,
-  type DesignAuditReport,
-  type AuditFinding,
-  type AuditCategory,
+  runCodegenReadiness,
+  runDesignAudit,
   type TargetAnalysisResult,
 } from '@strata/codegen';
 import type { Document, SceneNode } from '@strata/scene';
 import { CopyButton, Icon, type Tab, Tabs } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
-import { downloadBlob, buildFilename } from '../SpecPanel/export';
+import { buildFilename, downloadBlob } from '../SpecPanel/export';
 import { highlight } from '../SpecPanel/syntax';
 
 import './CodePanel.css';
@@ -222,11 +222,7 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
         className="code-panel__preview-wrap"
         style={previewWidth ? { maxWidth: previewWidth } : undefined}
       >
-        <section
-          className="code-panel__pre"
-          aria-label={`${activeTarget} generated code`}
-          tabIndex={0}
-        >
+        <section className="code-panel__pre" aria-label={`${activeTarget} generated code`}>
           <pre>
             <code>
               {highlightedLines.map((html, i) => (

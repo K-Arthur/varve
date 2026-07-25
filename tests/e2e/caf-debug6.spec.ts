@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { navigateToEditor } from './shared';
 
 test('open CAF dialog via React dispatch', async ({ page }) => {

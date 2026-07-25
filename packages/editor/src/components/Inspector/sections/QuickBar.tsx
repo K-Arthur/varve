@@ -8,8 +8,9 @@
  *
  * Research basis: Figma's persistent transform handles; APG Spinbutton.
  */
-import { useCallback, useEffect, useState } from 'react';
+
 import type { ManagedColor, SceneNode } from '@strata/scene';
+import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
 import { nodeLocalBounds } from '../../../scene/nodeBounds';
 import { parseField } from '../controls/NumberField';

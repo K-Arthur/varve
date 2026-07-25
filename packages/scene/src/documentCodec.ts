@@ -249,7 +249,7 @@ function normalizeInlineImageFills(doc: Document, warnings: DocumentCodecWarning
     fillIndex: number,
   ): void {
     const src = imageFill.src;
-    if (!src || !src.startsWith('data:image/')) return;
+    if (!src?.startsWith('data:image/')) return;
     if (imageFill.assetId) return; // already registered
 
     // Check MIME type

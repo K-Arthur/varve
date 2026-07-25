@@ -16,8 +16,7 @@
  * font engineering guidelines for path quality.
  */
 
-import type { Document, ManagedColor, SceneNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import type { Document, SceneNode } from '@strata/scene';
 import type { AuditCategory, AuditFinding } from './ir-types';
 
 export type VectorIssueType =

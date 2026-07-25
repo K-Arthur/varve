@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { navigateToEditor } from './shared';
 
 test('select image and check tabs', async ({ page }) => {
@@ -92,7 +92,7 @@ test('select image and check tabs', async ({ page }) => {
   const allBtns = await page.getByRole('button').all();
   for (const btn of allBtns) {
     const text = await btn.textContent();
-    if (text && text.toLowerCase().includes('open')) {
+    if (text?.toLowerCase().includes('open')) {
       console.log('Found button with "open":', text.trim());
     }
   }
@@ -103,7 +103,7 @@ test('select image and check tabs', async ({ page }) => {
   console.log('Disclosure sections:', discCount);
   for (let i = 0; i < discCount; i++) {
     const text = await disclosures.nth(i).textContent();
-    if (text && text.includes('Content')) {
+    if (text?.includes('Content')) {
       console.log('Found CAF disclosure at', i);
     }
   }

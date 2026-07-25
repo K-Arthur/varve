@@ -43,6 +43,7 @@ describe('Inspector feature ownership', () => {
   it('keeps complex image processing on one workflow surface', () => {
     expect(getFeaturesForSurface('adjustments')).toEqual([
       'adjustment',
+      'ai-tools-hint',
       'image-enhancement',
       'background-removal',
       'colorize',

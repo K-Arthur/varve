@@ -99,7 +99,7 @@ describe('CropTool', () => {
       ...img,
       shape: { kind: 'ellipse' as const, cx: 100, cy: 50, rx: 100, ry: 50 },
     };
-    doc.nodes['e1'] = ellipseNode;
+    doc.nodes.e1 = ellipseNode;
     doc.rootChildren = ['e1'];
     const ctx = makeCtx({
       selection: ['e1'],

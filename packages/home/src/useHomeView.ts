@@ -1,9 +1,12 @@
 import type {
+  EditorWorkspaceMode,
   FileEntry,
   FilterState,
   HomeViewState,
   Platform,
   Project,
+  RecentFileRecord,
+  RecentWorkspaceFilter,
   SidebarSection,
   SortKey,
   ViewMode,
@@ -11,10 +14,13 @@ import type {
 } from '@strata/platform';
 import {
   compareBy,
+  DEFAULT_RECENT_WORKSPACE_FILTER,
   DRAFTS_ID,
   defaultViewState,
+  filterRecentByWorkspace,
   fuzzyScore,
   mergeViewState,
+  recentFileSections,
 } from '@strata/platform';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -27,7 +33,11 @@ export interface HomeView {
   /** Currently selected workspace id; null when no workspace exists. */
   activeWorkspaceId: string | null;
   pinnedFiles: FileEntry[];
-  recentFiles: FileEntry[];
+  recentFiles: RecentFileRecord[];
+  recentRecords: RecentFileRecord[];
+  recentFilteredRecords: RecentFileRecord[];
+  recentWorkspaceFilter: RecentWorkspaceFilter;
+  recentSectionCounts: ReturnType<typeof recentFileSections>;
   /** The 5 most recently updated files — shown as priority "Continue working" items. */
   continueWorkingFiles: FileEntry[];
   /** Files filtered by the current sidebar section + filters. */
@@ -45,6 +55,7 @@ export function useHomeView(platform: Platform): HomeView & {
   setSortKey: (k: SortKey) => void;
   toggleSortDir: () => void;
   setFilter: (f: Partial<FilterState>) => void;
+  setRecentWorkspaceFilter: (f: RecentWorkspaceFilter) => void;
   setActiveProject: (id: string | null) => void;
   setWorkspace: (id: string) => void;
   toggleSidebar: () => void;
@@ -55,6 +66,7 @@ export function useHomeView(platform: Platform): HomeView & {
   const [allTrashedFiles, setAllTrashedFiles] = useState<FileEntry[]>([]);
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [recentRecords, setRecentRecords] = useState<RecentFileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const viewStateRef = useRef<HomeViewState>(state);
 
@@ -68,6 +80,8 @@ export function useHomeView(platform: Platform): HomeView & {
         platform.listProjects().catch(() => [] as Project[]),
         platform.listWorkspaces().catch(() => [] as Workspace[]),
       ]);
+      const recentList: RecentFileRecord[] = await (platform.listRecentFiles?.().catch(() => []) ??
+        Promise.resolve([]));
       const merged = mergeViewState(vs);
       const workspaceIds = new Set(wsList.map((w) => w.id));
       const personal = wsList.find((w) => w.kind === 'personal') ?? wsList[0] ?? null;
@@ -83,6 +97,7 @@ export function useHomeView(platform: Platform): HomeView & {
       setAllTrashedFiles(trashList);
       setAllProjects(projList);
       setWorkspaces(wsList);
+      setRecentRecords(recentList);
     } finally {
       setLoading(false);
     }
@@ -124,9 +139,9 @@ export function useHomeView(platform: Platform): HomeView & {
   );
 
   const pinnedFiles = files.filter((f) => f.pinned && !f.trashedAt);
-  const recentFiles = [...files]
-    .filter((f) => f.openedAt > 0 && !f.trashedAt)
-    .sort((a, b) => b.openedAt - a.openedAt)
+  const recentFiles = recentRecords
+    .filter((r) => !r.hidden && !r.missing)
+    .sort((a, b) => b.lastOpenedAt - a.lastOpenedAt)
     .slice(0, 30);
 
   const draftFiles = files.filter((f) => f.projectId === DRAFTS_ID && !f.trashedAt);
@@ -141,6 +156,16 @@ export function useHomeView(platform: Platform): HomeView & {
 
   const visibleFiles = computeVisibleFiles(files, state);
 
+  const recentSectionCounts = useMemo(() => recentFileSections(recentRecords), [recentRecords]);
+  const recentWorkspaceFilter: RecentWorkspaceFilter =
+    state.filter.recentWorkspaceFilter ?? DEFAULT_RECENT_WORKSPACE_FILTER;
+  const editorMode: EditorWorkspaceMode | undefined =
+    state.filter.recentWorkspaceFilter?.editorMode;
+  const recentFilteredRecords = useMemo(
+    () => filterRecentByWorkspace(recentRecords, recentWorkspaceFilter, editorMode),
+    [recentRecords, recentWorkspaceFilter, editorMode],
+  );
+
   return {
     state,
     files,
@@ -150,6 +175,10 @@ export function useHomeView(platform: Platform): HomeView & {
     activeWorkspaceId: activeWorkspace?.id ?? null,
     pinnedFiles,
     recentFiles,
+    recentRecords,
+    recentFilteredRecords,
+    recentWorkspaceFilter,
+    recentSectionCounts,
     continueWorkingFiles,
     draftFiles,
     favoriteFiles,
@@ -185,6 +214,10 @@ export function useHomeView(platform: Platform): HomeView & {
     },
     setFilter: (f) => {
       const filter = { ...viewStateRef.current.filter, ...f } as FilterState;
+      persist({ ...viewStateRef.current, filter });
+    },
+    setRecentWorkspaceFilter: (f: RecentWorkspaceFilter) => {
+      const filter = { ...viewStateRef.current.filter, recentWorkspaceFilter: f } as FilterState;
       persist({ ...viewStateRef.current, filter });
     },
     setActiveProject: (id) => {

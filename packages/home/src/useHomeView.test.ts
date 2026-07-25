@@ -123,7 +123,7 @@ describe('useHomeView — fuzzy search', () => {
 });
 
 describe('useHomeView — recents and favorites', () => {
-  it('lists recent files by openedAt and favorites by favoritedAt', async () => {
+  it('lists recent files by lastOpenedAt and favorites by favoritedAt', async () => {
     const platform = createMemoryPlatform();
     await platform.upsertFile(
       makeFileEntry({ id: 'never', name: 'Never Opened', openedAt: 0 }),
@@ -152,10 +152,17 @@ describe('useHomeView — recents and favorites', () => {
       sampleJson('Only Fav'),
     );
 
+    // Populate the new recent-file system too (with increasing timestamps)
+    await platform.touchRecentFile('never', 'Never Opened');
+    await new Promise((r) => setTimeout(r, 10));
+    await platform.touchRecentFile('old', 'Old Open');
+    await new Promise((r) => setTimeout(r, 10));
+    await platform.touchRecentFile('new', 'New Open');
+
     const { result } = renderHook(() => useHomeView(platform));
     await waitFor(() => expect(result.current.loading).toBe(false));
 
-    expect(result.current.recentFiles.map((f) => f.id)).toEqual(['new', 'old']);
+    expect(result.current.recentFiles.map((f) => f.id)).toEqual(['new', 'old', 'never']);
     expect(result.current.favoriteFiles.map((f) => f.id)).toEqual(['fav', 'new']);
   });
 });

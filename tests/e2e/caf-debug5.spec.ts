@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { navigateToEditor } from './shared';
 
 test('find state via hook chain', async ({ page }) => {
@@ -64,8 +64,8 @@ test('find state via hook chain', async ({ page }) => {
       };
 
     // Walk the fiber tree to find editor state
-    let fiber = r[rootKey];
-    let found = false;
+    const fiber = r[rootKey];
+    const _found = false;
     let depth = 0;
 
     function visitFiber(f: any): any {
@@ -125,16 +125,16 @@ test('find state via hook chain', async ({ page }) => {
 
   console.log('State:', JSON.stringify(state, null, 2));
 
-  if (state && state.found) {
+  if (state?.found) {
     // Directly set cafDialogNodeId via React dispatch
     await page.evaluate(() => {
-      const r = document.querySelector('#root') as any;
-      if (!r) return;
+      const rootEl = document.querySelector('#root') as any;
+      if (!rootEl) return;
 
-      const rootKey = Object.keys(r).find((k) => k.startsWith('__reactContainer$'));
+      const rootKey = Object.keys(rootEl).find((k) => k.startsWith('__reactContainer$'));
       if (!rootKey) return;
 
-      let fiber = r[rootKey];
+      const fiber = rootEl[rootKey];
       let depth = 0;
 
       function visitFiber(f: any): { dispatch: any; nodeId: string } | null {
@@ -173,8 +173,8 @@ test('find state via hook chain', async ({ page }) => {
         return null;
       }
 
-      const r = visitFiber(fiber);
-      console.log('[page] dispatch result:', JSON.stringify(r));
+      const dispatchResult = visitFiber(fiber);
+      console.log('[page] dispatch result:', JSON.stringify(dispatchResult));
     });
 
     await page.waitForTimeout(1000);

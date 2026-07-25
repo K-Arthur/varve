@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 test('quick check 127', async ({ page }) => {
   page.on('pageerror', (err) => console.log('PAGEERROR:', err.message));
   await page.goto('http://127.0.0.1:1420/', { timeout: 60000, waitUntil: 'domcontentloaded' });

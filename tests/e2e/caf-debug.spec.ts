@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { expect, test } from '@playwright/test';
 import { navigateToEditor } from './shared';
 
 test.describe('CAF debug', () => {
@@ -72,7 +72,7 @@ test.describe('CAF debug', () => {
       let foundState: any = null;
       let depth = 0;
       while (fiber && depth < 100) {
-        if (fiber.memoizedState && fiber.memoizedState.queue) {
+        if (fiber.memoizedState?.queue) {
           const queue = fiber.memoizedState.queue;
           if (
             queue.lastRenderedState &&
@@ -150,20 +150,20 @@ test.describe('CAF debug', () => {
         if (!key) return { error: 'no fiber key' };
 
         let fiber = (root as any)[key];
-        let openCafFn: any = null;
+        const _openCafFn: any = null;
         let depth = 0;
         while (fiber && depth < 200) {
-          if (fiber.memoizedState && fiber.memoizedState.queue) {
+          if (fiber.memoizedState?.queue) {
             const queue = fiber.memoizedState.queue;
             if (queue.lastRenderedState && typeof queue.lastRenderedState === 'object') {
-              const state = queue.lastRenderedState;
+              const _state = queue.lastRenderedState;
               // Check if this fiber has a return that provides openCafDialog
             }
           }
           // Check hooks
           let hook = fiber.memoizedState;
           while (hook) {
-            if (hook.queue && hook.queue.lastRenderedState?.selectedNodeIds) {
+            if (hook.queue?.lastRenderedState?.selectedNodeIds) {
               // Found EditorState
               // Look for the openCafDialog function
               const fiberReturn = fiber.return;

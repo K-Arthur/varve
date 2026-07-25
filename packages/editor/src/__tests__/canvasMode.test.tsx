@@ -107,22 +107,22 @@ describe('canvasMode', () => {
     expect(bindingMatchesEvent(event, binding)).toBe(true);
   });
 
-  it('full mode shortcut binding matches Escape event', () => {
+  it('full mode shortcut binding matches Ctrl+Shift+Escape event', () => {
     const binding = SHORTCUT_DEFS.canvasModeFull.binding;
     const event = new KeyboardEvent('keydown', {
       key: 'Escape',
+      ctrlKey: true,
+      shiftKey: true,
     });
     expect(bindingMatchesEvent(event, binding)).toBe(true);
   });
 
-  it('Escape shortcut does NOT fire for full mode when in full already (no-op for full mode)', () => {
+  it('Escape shortcut does NOT fire for full mode (requires Ctrl+Shift)', () => {
     const binding = SHORTCUT_DEFS.canvasModeFull.binding;
     const event = new KeyboardEvent('keydown', {
       key: 'Escape',
-      ctrlKey: false,
-      shiftKey: false,
     });
-    expect(bindingMatchesEvent(event, binding)).toBe(true);
+    expect(bindingMatchesEvent(event, binding)).toBe(false);
   });
 
   it('supports all three CanvasMode values as union type', () => {

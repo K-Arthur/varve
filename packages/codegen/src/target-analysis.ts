@@ -11,13 +11,10 @@ import type { Document, SceneNode } from '@strata/scene';
 import { cssTargetGaps } from './css';
 import { cssModulesTargetGaps } from './css-modules';
 import { flutterTargetGaps } from './flutter';
-import { svelteTargetGaps } from './svelte';
 import { svgTargetGaps } from './svg';
 import { swiftuiTargetGaps } from './swiftui';
 import { tailwindTargetGaps } from './tailwind';
 import type { TargetGap } from './types';
-import { vueTargetGaps } from './vue';
-import { webComponentTargetGaps } from './web-component';
 
 /** Code-export format identifiers handled by this analyser. */
 export type CodeExportFormat =
