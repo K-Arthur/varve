@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { navigateToEditor } from './shared';
 
 test('open CAF dialog by rendering it directly', async ({ page }) => {
@@ -69,7 +69,7 @@ test('open CAF dialog by rendering it directly', async ({ page }) => {
     const key = containerKey || fiberKey;
     if (!key) return { error: 'no key' };
 
-    let fiber = r[key];
+    const fiber = r[key];
     const seen = new Set<any>();
     let depth = 0;
 
@@ -84,7 +84,7 @@ test('open CAF dialog by rendering it directly', async ({ page }) => {
       while (hook) {
         if (hook.queue) {
           const st = hook.queue.lastRenderedState;
-          if (st && typeof st === 'object' && st.document && st.document.nodes) {
+          if (st && typeof st === 'object' && st.document?.nodes) {
             // Found editor state. Try to call patch.
             // The patch function wraps setState. It's passed to sub-contexts.
             const nodeIds = Object.keys(st.document.nodes);

@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { navigateToEditor } from './shared';
 
 test('direct CAF dialog access via evaluate', async ({ page }) => {
@@ -92,9 +92,9 @@ test('direct CAF dialog access via evaluate', async ({ page }) => {
         let foundNodeId: string | null = null;
 
         walkHooks(fiber.memoizedState, (hook) => {
-          if (hook.queue && hook.queue.lastRenderedState) {
+          if (hook.queue?.lastRenderedState) {
             const st = hook.queue.lastRenderedState;
-            if (st && typeof st === 'object' && st.document && st.document.nodes) {
+            if (st && typeof st === 'object' && st.document?.nodes) {
               // Found the editor state!
               foundState = st;
 
@@ -138,7 +138,7 @@ test('direct CAF dialog access via evaluate', async ({ page }) => {
 
   console.log('State search result:', JSON.stringify(result));
 
-  if (result && result.success) {
+  if (result?.success) {
     // Try to set cafDialogNodeId via React state
     await page.evaluate((nodeId: string) => {
       const root = document.querySelector('#root');
@@ -168,15 +168,9 @@ test('direct CAF dialog access via evaluate', async ({ page }) => {
           let setState: any = null;
 
           walkHooks(fiber.memoizedState, (hook) => {
-            if (hook.queue && hook.queue.lastRenderedState) {
+            if (hook.queue?.lastRenderedState) {
               const st = hook.queue.lastRenderedState;
-              if (
-                st &&
-                typeof st === 'object' &&
-                st.document &&
-                st.document.nodes &&
-                st.document.nodes[nodeId]
-              ) {
+              if (st && typeof st === 'object' && st.document?.nodes?.[nodeId]) {
                 foundState = st;
                 // Get the dispatch function from the queue
                 setState = hook.queue.dispatch;

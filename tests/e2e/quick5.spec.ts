@@ -1,4 +1,5 @@
 import { test } from '@playwright/test';
+
 test.setTimeout(120000);
 test('quick check short', async ({ page }) => {
   const errors: string[] = [];

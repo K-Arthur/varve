@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import type { SceneNode } from '../../types';
 import { generateThumbnail } from '../service';
 
 const EMPTY_REVISION = 'empty';

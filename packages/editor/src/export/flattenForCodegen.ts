@@ -10,8 +10,7 @@
  * Non-rasterized nodes remain in the IR for native code output.
  */
 
-import type { RasterAsset } from '@strata/codegen';
-import { type IRDocument, type FlattenInfo } from '@strata/codegen';
+import type { FlattenInfo, IRDocument, RasterAsset } from '@strata/codegen';
 import type { Engine } from '@strata/engine';
 import { createRasterSurface, encodeRasterSurface } from '@strata/engine';
 import type { Document, SceneNode } from '@strata/scene';

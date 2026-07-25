@@ -21,7 +21,7 @@
  *  - regenerate after a failure
  */
 
-import { type ThumbnailSourcePreference, type Platform, type FileEntry } from '@strata/platform';
+import type { FileEntry, Platform, ThumbnailSourcePreference } from '@strata/platform';
 import { Button, Icon } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import './thumbnailsource.css';
@@ -66,7 +66,7 @@ export function ThumbnailSourcePicker({
     onPreferenceChange({ type: 'automatic' });
   }, [onPreferenceChange]);
 
-  const sources: Array<{
+  const _sources: Array<{
     pref: ThumbnailSourcePreference;
     label: string;
     icon: string;

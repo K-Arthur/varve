@@ -3,7 +3,7 @@
  * project's thumbnail source, with preview and refresh controls.
  */
 
-import { type FileEntry, type Platform, type ThumbnailSourcePreference } from '@strata/platform';
+import type { FileEntry, Platform, ThumbnailSourcePreference } from '@strata/platform';
 import { Button, Dialog, Icon } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { ThumbnailSourcePicker } from './ThumbnailSourcePicker';

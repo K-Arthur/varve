@@ -65,6 +65,7 @@ export function App() {
         .catch(() => null)
         .then((json) => {
           void platform.touchFile(entry.id).catch(() => undefined);
+          void platform.touchRecentFile(entry.id, entry.name).catch(() => undefined);
           setOpenRequest((prev) => ({
             id: entry.id,
             name: entry.name,

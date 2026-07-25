@@ -623,7 +623,9 @@ pub fn lama_inpaint_cancellable(
         return Err("LaMa: source image has zero dimensions".to_owned());
     }
 
-    let max_dim = request.preview_max_dimension.unwrap_or(DEFAULT_PREVIEW_MAX_DIMENSION);
+    let max_dim = request
+        .preview_max_dimension
+        .unwrap_or(DEFAULT_PREVIEW_MAX_DIMENSION);
 
     // Downscale if over preview limit
     let mut work_w = orig_w;
@@ -644,12 +646,9 @@ pub fn lama_inpaint_cancellable(
     }
 
     // ── Build letterboxed image (RGBA → RGB, resize, pad to 512²) ──────
-    let source_rgba = ImageBuffer::<Rgba<u8>, _>::from_raw(
-        orig_w,
-        orig_h,
-        request.image_rgba.clone(),
-    )
-    .ok_or("LaMa: failed to create source image buffer")?;
+    let source_rgba =
+        ImageBuffer::<Rgba<u8>, _>::from_raw(orig_w, orig_h, request.image_rgba.clone())
+            .ok_or("LaMa: failed to create source image buffer")?;
 
     // Resize to work dimensions
     let work_img = if work_w != orig_w || work_h != orig_h {
@@ -664,8 +663,8 @@ pub fn lama_inpaint_cancellable(
     };
 
     // Letterbox to 512×512 (pad with zeros since mean=[0,0,0])
-    let scale = (LAMA_INPUT_SIZE as f32 / work_w as f32)
-        .min(LAMA_INPUT_SIZE as f32 / work_h as f32);
+    let scale =
+        (LAMA_INPUT_SIZE as f32 / work_w as f32).min(LAMA_INPUT_SIZE as f32 / work_h as f32);
     let content_w = ((work_w as f32 * scale).round() as u32).max(1);
     let content_h = ((work_h as f32 * scale).round() as u32).max(1);
     let offset_x = (LAMA_INPUT_SIZE - content_w) / 2;
@@ -756,7 +755,12 @@ pub fn lama_inpaint_cancellable(
         (
             "mask",
             &mask_tensor,
-            &[1usize, 1, LAMA_INPUT_SIZE as usize, LAMA_INPUT_SIZE as usize],
+            &[
+                1usize,
+                1,
+                LAMA_INPUT_SIZE as usize,
+                LAMA_INPUT_SIZE as usize,
+            ],
         ),
     ])?;
 
@@ -857,8 +861,8 @@ pub fn stream_sha256(path: &std::path::Path) -> Result<String, String> {
     use sha2::{Digest, Sha256};
     use std::io::Read;
 
-    let file =
-        std::fs::File::open(path).map_err(|e| format!("Cannot open {} for hashing: {e}", path.display()))?;
+    let file = std::fs::File::open(path)
+        .map_err(|e| format!("Cannot open {} for hashing: {e}", path.display()))?;
     let mut reader = std::io::BufReader::with_capacity(64 * 1024, file);
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 64 * 1024];

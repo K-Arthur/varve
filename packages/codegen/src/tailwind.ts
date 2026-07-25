@@ -7,8 +7,7 @@
 
 import type { Document, SceneNode } from '@strata/scene';
 import { analyzeNodeFlattening } from './flattening';
-import { sceneToIR } from './ir-converter';
-import type { FlattenInfo, HtmlElementHint, IRDocument, SemanticNode } from './ir-types';
+import type { IRDocument, SemanticNode } from './ir-types';
 import { resolveTokenName } from './tokens';
 import type { RasterAsset, TargetGap } from './types';
 
@@ -43,7 +42,7 @@ function sizeValue(px: number, base: number): string {
   return base > 0 ? `${(px / base).toFixed(3)}rem` : `${px}px`;
 }
 
-function componentName(name: string): string {
+function _componentName(name: string): string {
   return name.replace(/[^a-zA-Z0-9]/g, '').replace(/^[0-9]+/, '') || 'Component';
 }
 
@@ -57,7 +56,7 @@ interface ClassBuilder {
 
 function layoutClasses(node: SemanticNode, b: ClassBuilder) {
   const layout = node.layout;
-  const pIsFlex = false; // Context-aware in recursive builder
+  const _pIsFlex = false; // Context-aware in recursive builder
 
   if (layout.mode === 'flex') {
     b.classes.push('flex');
@@ -143,8 +142,8 @@ function appearanceClasses(node: SemanticNode, b: ClassBuilder) {
     } else if (top.type === 'gradient') {
       const g = top.gradient;
       if (g.type === 'linear') {
-        const dir = g.rotation ? `[${g.rotation}deg]` : 'r';
-        const stops = g.stops.map((s) => `${s.color}_${s.position * 100}%`).join(', ');
+        const _dir = g.rotation ? `[${g.rotation}deg]` : 'r';
+        const _stops = g.stops.map((s) => `${s.color}_${s.position * 100}%`).join(', ');
         b.classes.push(
           `bg-gradient-to-r from-[${g.stops[0]?.color || '#000'}] to-[${g.stops[g.stops.length - 1]?.color || '#fff'}]`,
         );
@@ -480,7 +479,7 @@ export function tailwindTargetGaps(
 /** Backward-compatible wrapper: node + doc → Tailwind JSX. */
 export function exportNodeToTailwind(
   node: SceneNode,
-  doc: Document,
+  _doc: Document,
   opts?: TailwindExportOptions,
 ): string {
   const av = opts?.arbitraryValues ?? true;

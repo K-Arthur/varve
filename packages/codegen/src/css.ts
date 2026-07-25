@@ -11,7 +11,7 @@ import type {
   VariableStore,
 } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
-import { canEmitAsHtml, type FlattenReason } from './flattening';
+import { canEmitAsHtml } from './flattening';
 import { adjustmentStackTargetGaps, colorToHex, computeNodePos, rgba } from './shared';
 import { resolveTokenName } from './tokens';
 import type { TargetGap } from './types';

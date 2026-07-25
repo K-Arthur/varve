@@ -412,7 +412,7 @@ export function mapLegacySeverity(legacySeverity: string): AuditSeverity {
     case 'suggestion':
       return 'advisory';
     default:
-      return 'suggestion';
+      return 'advisory';
   }
 }
 

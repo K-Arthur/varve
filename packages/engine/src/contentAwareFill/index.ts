@@ -7,6 +7,7 @@ export {
 } from './coordinateMapping';
 export { patchMatchFill } from './patchMatch';
 export { runContentAwareFillPipeline, runLaMaInference } from './pipeline';
+export type { TileBlendWeights, TileConfig, TileRegion } from './tiling';
 export {
   blendTiles,
   computeFeatherWeights,
@@ -22,5 +23,4 @@ export type {
   ContentAwareFillResult,
   FillTransform,
 } from './types';
-export type { TileBlendWeights, TileConfig, TileRegion } from './tiling';
 export { QUALITY_DESCRIPTIONS, QUALITY_LABELS } from './types';

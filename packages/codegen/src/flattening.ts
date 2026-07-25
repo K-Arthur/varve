@@ -8,7 +8,6 @@
 import type { Document, Effect, SceneNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import type { FlattenInfo, FlattenReason } from './ir-types';
-import type { TargetGap } from './types';
 
 export type { FlattenInfo, FlattenReason };
 

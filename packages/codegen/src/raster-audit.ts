@@ -18,7 +18,7 @@
  * web performance guidelines.
  */
 
-import type { Document, ManagedColor, SceneNode } from '@strata/scene';
+import type { Document } from '@strata/scene';
 import type { AuditCategory, AuditFinding } from './ir-types';
 
 export type RasterIssueType =
@@ -40,12 +40,12 @@ export interface RasterAuditFinding extends AuditFinding {
 // Common print-size thresholds
 const PRINT_DPI_MIN = 200;
 const WEB_DPI_MIN = 72;
-const ASSET_SIZE_MAX_BYTES = 10 * 1024 * 1024; // 10MB
+const _ASSET_SIZE_MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 /**
  * Estimate the data URL size in bytes.
  */
-function estimateDataUrlSize(dataUrl: string): number {
+function _estimateDataUrlSize(dataUrl: string): number {
   const base64 = dataUrl.split(',')[1];
   if (!base64) return 0;
   return Math.round(base64.length * 0.75);
@@ -62,7 +62,7 @@ function estimateDPI(imageW: number, imageH: number, displayW: number, displayH:
 }
 
 /** Check alpha fringe by looking for pixels with low alpha near fully opaque ones. */
-function checkAlphaFringe(data: Uint8ClampedArray, w: number, h: number): boolean {
+function _checkAlphaFringe(data: Uint8ClampedArray, w: number, h: number): boolean {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;

@@ -185,7 +185,7 @@ export class AuditCache {
    * @param nodeId - Node ID
    * @param revision - Node revision to invalidate
    */
-  invalidateByNodeRevision(nodeId: NodeId, revision: number): void {
+  invalidateByNodeRevision(_nodeId: NodeId, revision: number): void {
     for (const [key, result] of this.nodeCache.entries()) {
       if (result.nodeRevision !== undefined && result.nodeRevision !== revision) {
         this.nodeCache.delete(key);

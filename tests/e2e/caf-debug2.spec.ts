@@ -1,6 +1,6 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
 import { navigateToEditor } from './shared';
 
 test('check image node state', async ({ page }) => {
@@ -61,12 +61,12 @@ test('check image node state', async ({ page }) => {
     let fiber = (root as any)[key];
     let depth = 0;
     while (fiber && depth < 500) {
-      if (fiber.memoizedState && fiber.memoizedState.queue) {
+      if (fiber.memoizedState?.queue) {
         let hook = fiber.memoizedState;
         while (hook) {
-          if (hook.queue && hook.queue.lastRenderedState) {
+          if (hook.queue?.lastRenderedState) {
             const st = hook.queue.lastRenderedState;
-            if (st && typeof st === 'object' && st.document && st.document.nodes) {
+            if (st && typeof st === 'object' && st.document?.nodes) {
               const nodeIds = Object.keys(st.document.nodes);
               const selIds = st.selectedNodeIds || [];
               const nodes = nodeIds

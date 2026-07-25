@@ -58,7 +58,7 @@ function buildTemplateHTML(
   opts?: WebComponentExportOptions,
 ): string {
   const indent = '  '.repeat(depth);
-  const pos = computeNodePos(node);
+  const _pos = computeNodePos(node);
   const cls = toAttrClass(node.name);
 
   if (isImageShape(node)) {

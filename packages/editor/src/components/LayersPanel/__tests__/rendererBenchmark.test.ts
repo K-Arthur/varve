@@ -9,11 +9,10 @@
  */
 
 import { generateThumbnail } from '@strata/engine';
+import type { SceneNode, ShapeNode, TextNode } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import type { Document, SceneNode, ShapeNode, TextNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { thumbnailCacheKey, ThumbnailCache } from '../thumbnailCache';
+import { ThumbnailCache, thumbnailCacheKey } from '../thumbnailCache';
 
 // ─── Simplified renderer (current implementation) ────────────────────
 

@@ -4,10 +4,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  generateFindingId,
-  serializeEvidence,
-  mapLegacySeverity,
   classifyConfidence,
+  generateFindingId,
+  mapLegacySeverity,
+  serializeEvidence,
 } from './auditTypes';
 
 describe('generateFindingId', () => {
@@ -64,23 +64,23 @@ describe('mapLegacySeverity', () => {
 });
 
 describe('classifyConfidence', () => {
-  it('should classify high confidence', () => {
-    expect(classifyConfidence(0.95)).toBe('high');
-    expect(classifyConfidence(1.0)).toBe('high');
+  it('should classify certain confidence', () => {
+    expect(classifyConfidence(0.95)).toBe('certain');
+    expect(classifyConfidence(1.0)).toBe('certain');
   });
 
-  it('should classify medium confidence', () => {
-    expect(classifyConfidence(0.7)).toBe('medium');
-    expect(classifyConfidence(0.8)).toBe('medium');
+  it('should classify probable confidence', () => {
+    expect(classifyConfidence(0.7)).toBe('probable');
+    expect(classifyConfidence(0.8)).toBe('probable');
   });
 
-  it('should classify low confidence', () => {
-    expect(classifyConfidence(0.3)).toBe('low');
-    expect(classifyConfidence(0.5)).toBe('low');
+  it('should classify uncertain confidence', () => {
+    expect(classifyConfidence(0.5)).toBe('uncertain');
+    expect(classifyConfidence(0.69)).toBe('uncertain');
   });
 
   it('should clamp values to valid range', () => {
-    expect(classifyConfidence(1.5)).toBe('high');
-    expect(classifyConfidence(-0.5)).toBe('low');
+    expect(classifyConfidence(1.5)).toBe('certain');
+    expect(classifyConfidence(-0.5)).toBe('speculative');
   });
 });

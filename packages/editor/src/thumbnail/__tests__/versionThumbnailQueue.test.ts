@@ -8,7 +8,6 @@ function makeDoc(id = 'doc-1') {
   return {
     id,
     name: 'Test',
-    formatVersion: '2.5',
     rootChildren: ['n1'],
     nodes: {
       n1: {

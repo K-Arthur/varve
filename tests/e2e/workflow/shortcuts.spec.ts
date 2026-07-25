@@ -119,7 +119,7 @@ test.describe('Workflow efficiency — keyboard shortcuts & command layer', () =
 
   test('QuickActionsBar opens via Ctrl+Shift+; and shows actions', async ({ page }) => {
     await page.keyboard.press('Control+Shift+;');
-    const qa = page.locator('[role="dialog"]').filter({ hasText: /quick actions/i });
+    const _qa = page.locator('[role="dialog"]').filter({ hasText: /quick actions/i });
     // The QuickActionsBar might appear as a different role/element
     // Let's check for the known container
     const qaContainer = page

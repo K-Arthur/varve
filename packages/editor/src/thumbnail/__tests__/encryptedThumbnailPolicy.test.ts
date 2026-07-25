@@ -1,7 +1,7 @@
 // @vitest-environment node
 
 import { createMemoryPlatform } from '@strata/platform';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   clearProjectPreviewData,
   createEncryptedThumbnailRecord,
