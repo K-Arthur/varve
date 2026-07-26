@@ -21,24 +21,8 @@
  *    Capture One styles (apply-to-selected-only), Lightroom virtual copies.
  */
 import type { Document } from './document';
-import type { NodeId } from './types';
+import type { AdjustmentScope, NodeId } from './types';
 import { isContainer } from './types';
-
-/**
- * Scope type for a single AdjustmentNode.
- * The absence of this field (undefined) is treated as
- * "legacy clipping mode" during migration, resolved to
- * image-local or container-descendant based on context.
- */
-export type AdjustmentScope =
-  | { mode: 'image-local'; targetNodeId: NodeId }
-  | { mode: 'explicit-targets'; targetNodeIds: NodeId[] }
-  | {
-      mode: 'container-descendant';
-      containerId: NodeId;
-      includeNested: boolean;
-    }
-  | { mode: 'document' };
 
 /**
  * Metadata for an impact summary shown before applying a broad scope.
