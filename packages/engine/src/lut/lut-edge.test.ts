@@ -32,6 +32,69 @@ describe('edge cases — malformed .cube files', () => {
     expect(() => parseCubeData('LUT_3D_SIZE 512\n')).toThrow(CubeParseError);
   });
 
+  it('rejects a 3D grid above the bounded-memory 65-cube limit', () => {
+    expect(() => parseCubeData('LUT_3D_SIZE 66\n')).toThrow(/2\.\.65/);
+  });
+
+  it('rejects duplicate size declarations', () => {
+    expect(() => parseCubeData('LUT_3D_SIZE 2\nLUT_3D_SIZE 2\n')).toThrow(/Duplicate LUT_3D_SIZE/);
+  });
+
+  it('rejects invalid and zero-width domains', () => {
+    const data = `DOMAIN_MIN 0 0 0
+DOMAIN_MAX 1 0 1
+LUT_3D_SIZE 2
+0 0 0
+1 0 0
+0 1 0
+1 1 0
+0 0 1
+1 0 1
+0 1 1
+1 1 1
+`;
+    expect(() => parseCubeData(data)).toThrow(/DOMAIN_MAX must be greater/);
+  });
+
+  it('rejects trailing data instead of silently truncating it', () => {
+    const data = `LUT_3D_SIZE 2
+0 0 0
+1 0 0
+0 1 0
+1 1 0
+0 0 1
+1 0 1
+0 1 1
+1 1 1
+0.5 0.5 0.5
+`;
+    expect(() => parseCubeData(data)).toThrow(/Expected exactly 8 RGB rows/);
+  });
+
+  it('parses standard 1D RGB rows as interleaved channels', () => {
+    const data = `LUT_1D_SIZE 3
+0.0 0.1 0.2
+0.5 0.6 0.7
+1.0 0.9 0.8
+`;
+    const result = parseCubeData(data);
+    expect(result.transform.kind).toBe('1d');
+    if (result.transform.kind === '1d') {
+      expect(Array.from(result.transform.r)).toEqual([0, 0.5, 1]);
+      expect(Array.from(result.transform.g)).toEqual([0.1, 0.6, 0.9]);
+      expect(Array.from(result.transform.b)).toEqual([0.2, 0.7, 0.8]);
+    }
+  });
+
+  it('accepts inline comments without accepting malformed numeric tokens', () => {
+    const data = `LUT_1D_SIZE 2 # small identity
+0 0 0 # black
+1 1 1 # white
+`;
+    expect(parseCubeData(data).transform.kind).toBe('1d');
+    expect(() => parseCubeData('LUT_1D_SIZE 2x\n0 0 0\n1 1 1\n')).toThrow(/LUT_1D_SIZE/);
+  });
+
   it('custom domain values are preserved', () => {
     const content = `DOMAIN_MIN -0.5 -0.5 -0.5
 DOMAIN_MAX 1.5 1.5 1.5
@@ -69,6 +132,10 @@ describe('edge cases — .3dl files', () => {
     ];
     const result = parse3dlData(lines.join('\n'));
     expect(result.transform.size).toBe(2);
+  });
+
+  it('rejects malformed data rows instead of dropping tokens', () => {
+    expect(() => parse3dlData('0 0 nope\n1 1 1\n')).toThrow(/line 1/i);
   });
 });
 
