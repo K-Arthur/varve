@@ -24,6 +24,7 @@ Every doc the project touches or creates is listed here so future updates know w
 ## Audits
 | Doc | Purpose | Last Updated |
 |-----|---------|-------------|
+| `audits/adjustment-effects-lut-hardening-2026-07-25.md` | Adjustment, effects, LUT, persistence, and export audit | 2026-07-25 |
 | `audits/background-removal-audit.md` | Background removal pipeline audit |
 | `audits/canvas-system-audit.md` | Canvas system architecture audit |
 | `audits/color-management-print-audit.md` | Color management & print audit |
