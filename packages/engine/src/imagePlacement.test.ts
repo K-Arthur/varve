@@ -68,7 +68,7 @@ describe('computeImagePlacement', () => {
     expect(portrait?.drawRect).toEqual({ x: 0, y: -9200, w: 800, h: 19200 });
   });
 
-  it('preserves replay offsets and fit scale semantics', () => {
+  it('applies replay offsets and user scale after fit sizing', () => {
     const placement = computeImagePlacement({
       fit: 'fit',
       sourceWidth: 4000,
@@ -78,7 +78,23 @@ describe('computeImagePlacement', () => {
       y: -7,
       scale: 2,
     });
-    expect(placement?.drawRect).toEqual({ x: 37, y: 133, w: 800, h: 600 });
+    expect(placement?.drawRect).toEqual({ x: -363, y: -167, w: 1600, h: 1200 });
+  });
+
+  it('applies user scale after fill sizing', () => {
+    const placement = computeImagePlacement({
+      fit: 'fill',
+      sourceWidth: 4000,
+      sourceHeight: 3000,
+      bounds: BOUNDS,
+      scale: 0.5,
+    });
+    expect(placement?.drawRect).toEqual({
+      x: 133.33333333333337,
+      y: 200,
+      w: 533.3333333333333,
+      h: 400,
+    });
   });
 
   it('includes non-zero bounds origins in both directions', () => {
@@ -266,6 +282,74 @@ describe('computeImagePlacement — crop mode', () => {
         fit: 'crop',
         sourceWidth: 10,
         sourceHeight: 0,
+        bounds: BOUNDS,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe('computeImagePlacement — source crop and content transform', () => {
+  it('round-trips cropped source pixels through rotation and flips', () => {
+    const placement = computeImagePlacement({
+      fit: 'stretch',
+      sourceWidth: 400,
+      sourceHeight: 200,
+      sourceCrop: { x: 100, y: 25, w: 200, h: 100 },
+      bounds: { x: 10, y: 20, w: 800, h: 400 },
+      rotation: 90,
+      flipH: true,
+      flipV: true,
+    });
+    expect(placement).not.toBeNull();
+
+    const source = { x: 150, y: 75 };
+    const local = sourcePixelToLocal(placement!, source);
+    expect(local).not.toBeNull();
+    expect(local?.x).toBeCloseTo(360, 9);
+    expect(local?.y).toBeCloseTo(320, 9);
+    expect(localToSourcePixel(placement!, local!)).toEqual(source);
+  });
+
+  it('rejects points outside the source crop in both directions', () => {
+    const placement = computeImagePlacement({
+      fit: 'stretch',
+      sourceWidth: 400,
+      sourceHeight: 200,
+      sourceCrop: { x: 100, y: 25, w: 200, h: 100 },
+      bounds: { x: 0, y: 0, w: 400, h: 200 },
+    });
+    expect(sourcePixelToLocal(placement!, { x: 99, y: 50 })).toBeNull();
+    expect(localToSourcePixel(placement!, { x: 50, y: 50 })).toBeNull();
+  });
+
+  it('exposes the crop sample destination without resizing it to the bounds', () => {
+    const placement = computeImagePlacement({
+      fit: 'stretch',
+      sourceWidth: 400,
+      sourceHeight: 200,
+      sourceCrop: { x: 100, y: 50, w: 200, h: 100 },
+      bounds: { x: 0, y: 0, w: 800, h: 400 },
+    });
+    expect(placement?.sourceRect).toEqual({ x: 100, y: 50, w: 200, h: 100 });
+    expect(placement?.sampleDrawRect).toEqual({ x: 200, y: 100, w: 400, h: 200 });
+  });
+
+  it('rejects non-finite crop and transform inputs', () => {
+    expect(
+      computeImagePlacement({
+        fit: 'fill',
+        sourceWidth: 100,
+        sourceHeight: 100,
+        sourceCrop: { x: 0, y: 0, w: Number.NaN, h: 10 },
+        bounds: BOUNDS,
+      }),
+    ).toBeNull();
+    expect(
+      computeImagePlacement({
+        fit: 'fill',
+        sourceWidth: 100,
+        sourceHeight: 100,
+        rotation: Number.POSITIVE_INFINITY,
         bounds: BOUNDS,
       }),
     ).toBeNull();
