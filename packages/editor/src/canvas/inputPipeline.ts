@@ -5,8 +5,7 @@
  * here instead of managing ~200 lines of inline state-machine logic.
  */
 
-import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
-import type { Camera, SceneNode } from '@strata/scene';
+import type { Camera, NodeId, SceneNode } from '@strata/scene';
 import {
   clampZoom,
   computeFloatingOrigin,
@@ -14,50 +13,30 @@ import {
   screenToWorld,
   zoomAboutPoint,
 } from '@strata/shared';
-import {
-  cancelCanvasFrame,
-  createCanvasFrameKey,
-  scheduleCanvasFrame,
-} from './perfRuntime';
+import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
+import type { EditorState } from '../context/types';
+import type { SnapGuide, ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
-import { collectSourceEvents } from '../tools/inputNormalizer';
-import {
-  createSnapSession,
-  filterSnapTargets,
-  type SnapGuide,
-  type SnapSession,
-  snapPosition,
-  snapTargetSearchRect,
-} from '../tools/snapping';
-import type { ToolContext, ToolManager, DraftShape } from '../tools';
-import type { SpatialIndex, FrameSpatialIndex } from '../scene/spatialIndex';
-import type { NodeId, Document } from '@strata/scene';
-import { buildParentIndexMap, getGuidesForPage } from '@strata/scene';
-import type { EditorContextValue } from '../context/types';
-import { getOrCreateSpatialIndex, queryRect } from '../scene/spatialIndex';
-import { nodeWorldBounds } from '../scene/world';
-import { nodeWorldBoundsFn } from '../context';
+import { createSnapSession } from '../tools/snapping';
+import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
-  editor: EditorContextValue;
-  stateRef: MutableRefObject<{
-    document: Document;
-    zoom: number;
-    pan: { x: number; y: number };
-    cameraRotation: number;
-    tool: string;
-    selection: readonly string[];
-    snapEnabled: boolean;
-    snapGrid: number;
-    isolatedNodeId: string | null;
-    cursorPos: { x: number; y: number } | null;
-    motion: { activeTimelineId: string | null; currentTime: number };
-    maskPreviewMode: string;
-    subjectHighlightId: string | null;
-    subjectPickerSession: unknown;
-    [key: string]: unknown;
-  }>;
+  editor: {
+    setCursorPos: (pos: { x: number; y: number } | null) => void;
+    setPan: (pan: { x: number; y: number }) => void;
+    setSelection: (id: NodeId | null) => void;
+    exitIsolation: () => void;
+    announceOperation: (op: string, detail: string) => void;
+    announceSelection: (nodes: SceneNode[]) => void;
+    announce: (msg: string) => void;
+    commitTransaction: () => void;
+    hitTestNode: (world: { x: number; y: number }) => { node: SceneNode } | null;
+    getWorldBounds: (id: NodeId) => { x: number; y: number; w: number; h: number } | null;
+    revealSelection: (opts: { fit: boolean; viewport?: { width: number; height: number } }) => void;
+    setCanvasMode?: (mode: string) => void;
+  };
+  stateRef: MutableRefObject<EditorState>;
   tmRef: MutableRefObject<ToolManager | null>;
   buildToolCtx: (ev: PointerEvent) => ToolContext;
   commitCamera: (cam: Camera) => void;
@@ -92,14 +71,13 @@ export function useCanvasInputs({
   setRenameDialog,
   rootNodes,
 }: UseCanvasInputsOptions): UseCanvasInputsResult {
-  // ─── Touch pinch state ───────────────────────────────────────────────────
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{
     lastDist: number;
     lastCentroid: { x: number; y: number };
   } | null>(null);
 
-  function pinchGeometry(): { dist: number; centroid: { x: number; y: number } } | null {
+  function pinchGeometry() {
     const pts = [...touchPointers.current.values()];
     if (pts.length < 2) return null;
     const [a, b] = pts as [{ x: number; y: number }, { x: number; y: number }];
@@ -109,7 +87,6 @@ export function useCanvasInputs({
     };
   }
 
-  // ─── Auto-pan state ───────────────────────────────────────────────────────
   const autoPanFrameKey = useRef<string | null>(null);
   autoPanFrameKey.current ??= createCanvasFrameKey('auto-pan');
   const autoPanActive = useRef(false);
@@ -122,18 +99,8 @@ export function useCanvasInputs({
     autoPanVelocity.current = { x: 0, y: 0 };
   }, []);
 
-  // ─── Snap state ───────────────────────────────────────────────────────────
-  const snapSessionRef = useRef<SnapSession>(createSnapSession());
-  const snapIndexRef = useRef<{
-    index: SpatialIndex;
-    parentIndex: Map<string, string>;
-    documentId: string;
-  } | null>(null);
-
-  // ─── Cursor tracking throttle ─────────────────────────────────────────────
+  const snapSessionRef = useRef(createSnapSession());
   const lastCursorUpdate = useRef(0);
-
-  // ─── Pointer handlers ─────────────────────────────────────────────────────
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -155,12 +122,9 @@ export function useCanvasInputs({
         if (touchPointers.current.size > 2) return;
       }
 
-      if (e.button === 1) {
-        e.preventDefault();
-      }
+      if (e.button === 1) e.preventDefault();
 
       snapSessionRef.current = createSnapSession();
-      snapIndexRef.current = null;
       tmInst.handlePointerDown(ne, ctx);
     },
     [tmRef, buildToolCtx],
@@ -253,14 +217,22 @@ export function useCanvasInputs({
         stopAutoPan();
       }
     },
-    [tmRef, stateRef, contentCanvasRef, editor, commitCamera, buildToolCtx, setHoveredNode, stopAutoPan],
+    [
+      tmRef,
+      stateRef,
+      contentCanvasRef,
+      editor,
+      commitCamera,
+      buildToolCtx,
+      setHoveredNode,
+      stopAutoPan,
+    ],
   );
 
   const handlePointerUp = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       stopAutoPan();
       setSnapGuides([]);
-      snapIndexRef.current = null;
       if (e.pointerType === 'touch') {
         const wasPinching = pinchRef.current !== null;
         touchPointers.current.delete(e.pointerId);
@@ -278,7 +250,6 @@ export function useCanvasInputs({
   const handlePointerCancel = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       stopAutoPan();
-      snapIndexRef.current = null;
       if (e.pointerType === 'touch') {
         touchPointers.current.delete(e.pointerId);
         if (touchPointers.current.size < 2) pinchRef.current = null;
@@ -289,8 +260,6 @@ export function useCanvasInputs({
     },
     [tmRef, stopAutoPan, setSnapGuides, buildToolCtx],
   );
-
-  // ─── Wheel & pinch (native, non-passive) ────────────────────────────────────
 
   useEffect(() => {
     const el = contentCanvasRef.current;
@@ -315,10 +284,10 @@ export function useCanvasInputs({
     const INERTIA_FRICTION = 0.9;
     const INERTIA_THRESHOLD = 0.5;
 
-    function startInertia(): void {
+    function startInertia() {
       if (inertiaRef.current.active) return;
       inertiaRef.current.active = true;
-      const tick = (): void => {
+      const tick = () => {
         const s = stateRef.current;
         const v = inertiaRef.current;
         if (Math.abs(v.vx) < INERTIA_THRESHOLD && Math.abs(v.vy) < INERTIA_THRESHOLD) {
@@ -335,14 +304,14 @@ export function useCanvasInputs({
       scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
     }
 
-    function cancelInertia(): void {
+    function cancelInertia() {
       cancelCanvasFrame(inertiaFrameKey);
       inertiaRef.current.active = false;
       inertiaRef.current.vx = 0;
       inertiaRef.current.vy = 0;
     }
 
-    const onWheel = (e: WheelEvent): void => {
+    const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const s = stateRef.current;
       const k = deltaScale(e);
@@ -373,16 +342,16 @@ export function useCanvasInputs({
       clientY: number;
     }
     let gestureBaseZoom = 1;
-    const onGestureStart = (e: Event): void => {
+    const onGestureStart = (e: Event) => {
       e.preventDefault();
       gestureBaseZoom = stateRef.current.zoom;
     };
-    const onGestureChange = (e: Event): void => {
+    const onGestureChange = (e: Event) => {
       e.preventDefault();
       const ge = e as WebKitGestureEvent;
       zoomAboutClientPoint(ge.clientX, ge.clientY, gestureBaseZoom * ge.scale);
     };
-    const onGestureEnd = (e: Event): void => e.preventDefault();
+    const onGestureEnd = (e: Event) => e.preventDefault();
 
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('gesturestart', onGestureStart);
@@ -395,8 +364,6 @@ export function useCanvasInputs({
       el.removeEventListener('gestureend', onGestureEnd);
     };
   }, [contentCanvasRef, stateRef, editor, commitCamera]);
-
-  // ─── Keyboard handlers ──────────────────────────────────────────────────────
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
@@ -425,23 +392,21 @@ export function useCanvasInputs({
 
       const s = stateRef.current;
       const eRef = editor;
-      // We use a simplified inline version of getAllSelectableNodes rather
-      // than importing it — it's a simple DFS walk.
-      let nodes: SceneNode[] = [];
-      {
-        const doc = s.document;
-        function walkIds(ids: readonly string[]) {
-          for (const id of ids) {
-            const n = doc.nodes[id];
-            if (!n) continue;
-            nodes.push(n);
-            if ('children' in n && n.children && n.children.length > 0) {
-              walkIds(n.children);
-            }
+
+      const nodes: SceneNode[] = [];
+      const doc = s.document;
+      function walkIds(ids: readonly string[]) {
+        for (const id of ids) {
+          const n = doc.nodes[id];
+          if (!n) continue;
+          nodes.push(n);
+          if ('children' in n && n.children && n.children.length > 0) {
+            walkIds(n.children);
           }
         }
-        walkIds(doc.rootChildren);
       }
+      walkIds(doc.rootChildren);
+
       const selArr = s.selection;
       const firstSel = selArr[0] ?? null;
       const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;
@@ -484,13 +449,13 @@ export function useCanvasInputs({
         setRenameDialog({ defaultValue: nodes[idx]?.name ?? '' });
       }
 
-      function zoomAboutCanvasCentre(newZoom: number): void {
-        const s = stateRef.current;
+      function zoomAboutCanvasCentre(newZoom: number) {
+        const s2 = stateRef.current;
         const parent = contentCanvasRef.current?.parentElement;
         const vpW = parent?.clientWidth ?? 800;
         const vpH = parent?.clientHeight ?? 600;
         const viewport = { width: vpW, height: vpH };
-        const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
+        const cam = { pan: s2.pan, zoom: s2.zoom, rotation: s2.cameraRotation };
         const origin = computeFloatingOrigin(cam, viewport);
         const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2, viewport, origin);
         const newCam = zoomAboutPoint(cam, centreWorld, newZoom, viewport);
@@ -539,19 +504,22 @@ export function useCanvasInputs({
         const vpW = parent?.clientWidth ?? 800;
         const vpH = parent?.clientHeight ?? 600;
         const canvasViewport = { width: vpW, height: vpH };
-        const allBounds = rootNodes().reduce<{ x: number; y: number; w: number; h: number } | null>(
-          (acc, n) => {
-            const b = editor.getWorldBounds(n.id);
-            if (!b) return acc;
-            if (!acc) return b;
-            const minX = Math.min(acc.x, b.x);
-            const minY = Math.min(acc.y, b.y);
-            const maxX = Math.max(acc.x + acc.w, b.x + b.w);
-            const maxY = Math.max(acc.y + acc.h, b.y + b.h);
-            return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-          },
-          null,
-        );
+        const allBounds = rootNodes().reduce<{
+          x: number;
+          y: number;
+          w: number;
+          h: number;
+        } | null>((acc, n) => {
+          const b = editor.getWorldBounds(n.id);
+          if (!b) return acc;
+          if (!acc) return b;
+          return {
+            x: Math.min(acc.x, b.x),
+            y: Math.min(acc.y, b.y),
+            w: Math.max(acc.x + acc.w, b.x + b.w) - Math.min(acc.x, b.x),
+            h: Math.max(acc.y + acc.h, b.y + b.h) - Math.min(acc.y, b.y),
+          };
+        }, null);
         if (allBounds) {
           const cam = fitBoundsCamera(allBounds, canvasViewport, 40);
           commitCamera(cam);
@@ -570,7 +538,16 @@ export function useCanvasInputs({
         }
       }
     },
-    [tmRef, buildToolCtx, stateRef, editor, commitCamera, contentCanvasRef, setRenameDialog, rootNodes],
+    [
+      tmRef,
+      buildToolCtx,
+      stateRef,
+      editor,
+      commitCamera,
+      contentCanvasRef,
+      setRenameDialog,
+      rootNodes,
+    ],
   );
 
   const handleKeyUp = useCallback(
@@ -598,8 +575,6 @@ export function useCanvasInputs({
     },
     [tmRef, buildToolCtx],
   );
-
-  // ─── Canvas focus-loss helpers ──────────────────────────────────────────────
 
   const onPointerLeave = useCallback(() => {
     editor.setCursorPos(null);

@@ -344,6 +344,7 @@ import type {
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
+import { useInteractionState } from './context/useInteractionState';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { ViewportProvider } from './context/ViewportContext';
@@ -2044,8 +2045,7 @@ export function EditorProvider({
   const inTransactionRef = useRef(false);
   const txSnapshotRef = useRef<Document | null>(null);
   const txSelRef = useRef<NodeId[] | null>(null);
-  const [bindingField, setBindingField] = useState<string | null>(null);
-  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const interactionState = useInteractionState();
   /** Auto-save service ref for lifecycle-triggered saves. */
   const autoSaveRef = useRef<AutoSaveService | null>(null);
   /** Recovery manager for crash-recovery sessions. */
@@ -6006,10 +6006,10 @@ export function EditorProvider({
         );
       },
 
-      bindingField,
-      setBindingField,
-      focusedField,
-      setFocusedField,
+      bindingField: interactionState.bindingField,
+      setBindingField: interactionState.setBindingField,
+      focusedField: interactionState.focusedField,
+      setFocusedField: interactionState.setFocusedField,
 
       setSelectedCornerSmoothing: (value) => {
         const sel = state.selection;
@@ -7342,10 +7342,10 @@ export function EditorProvider({
       deleteTextChain,
       appendFrameToChain,
       removeFrameFromChain,
-      bindingField,
-      setBindingField,
-      focusedField,
-      setFocusedField,
+      interactionState.bindingField,
+      interactionState.setBindingField,
+      interactionState.focusedField,
+      interactionState.setFocusedField,
       dialogState.showExportDialog,
       dialogState.showArchiveDialog,
       dialogState.archiveDialogMode,
