@@ -25,7 +25,7 @@ import {
   validateRasterMaskDocument,
 } from './masks';
 import { resolveNodePaints } from './paint';
-import type { NodeId, Page, SceneNode } from './types';
+import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
   migrateDocumentDetailed,
@@ -360,6 +360,51 @@ function sanitizeImageAssetState(doc: Document, warnings: DocumentCodecWarning[]
   };
 }
 
+function normalizeImageFillGeometry(doc: Document): Document {
+  const normalizeImage = (image: NonNullable<SceneNode['fills']>[number]['image']) => {
+    if (!image) return image;
+    const asset = image.assetId ? doc.assets?.[image.assetId] : undefined;
+    return normalizeImageFillData(
+      image,
+      asset ? { width: asset.naturalWidth, height: asset.naturalHeight } : undefined,
+    );
+  };
+  const nodes = Object.fromEntries(
+    Object.entries(doc.nodes).map(([nodeId, node]) => [
+      nodeId,
+      node.fills
+        ? {
+            ...node,
+            fills: node.fills.map((fill) =>
+              fill.type === 'image' && fill.image
+                ? { ...fill, image: normalizeImage(fill.image) }
+                : fill,
+            ),
+          }
+        : node,
+    ]),
+  ) as Record<NodeId, SceneNode>;
+  const paints = doc.paints
+    ? Object.fromEntries(
+        Object.entries(doc.paints).map(([paintId, paint]) => [
+          paintId,
+          paint.fill.type === 'image' && paint.fill.image
+            ? {
+                ...paint,
+                fill: { ...paint.fill, image: normalizeImage(paint.fill.image) },
+              }
+            : paint,
+        ]),
+      )
+    : undefined;
+
+  return {
+    ...doc,
+    nodes,
+    ...(paints ? { paints } : {}),
+  };
+}
+
 function isSupportedClipSource(node: SceneNode | undefined): boolean {
   if (!node) return false;
   if (node.kind === 'frame') return true;
@@ -564,6 +609,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
     pages,
     activePageId,
   };
+  document = normalizeImageFillGeometry(document);
   document = normalizeInlineImageFills(document, warnings);
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);

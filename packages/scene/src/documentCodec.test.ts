@@ -10,8 +10,14 @@ import {
 } from './document';
 import { DocumentCodec } from './documentCodec';
 import { imageFill } from './fills';
-import type { Page } from './types';
+import { addRasterMaskAsset } from './masks';
+import { makePaint, type Page, type RasterMaskAsset } from './types';
 import { CURRENT_DOCUMENT_VERSION } from './version';
+
+const PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+const PNG_2X2_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACAQAAAABazTCJAAAADElEQVQI12M4wHAAAAMEAYHFO6KpAAAAAElFTkSuQmCC';
 
 describe('DocumentCodec', () => {
   it('decodes, migrates, and validates serialized documents', () => {
@@ -205,6 +211,226 @@ describe('DocumentCodec', () => {
       const { doc, asset } = docWithAsset();
       const closure = DocumentCodec.collectNodeClosure(doc, ['s1']);
       expect(closure.assets?.[asset.id]).toEqual(asset);
+    });
+  });
+
+  describe('current-version image geometry normalization', () => {
+    it('normalizes malformed image usage values on node and shared-paint fills', () => {
+      const node = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+      node.fills = [
+        {
+          ...imageFill(PNG_DATA_URL),
+          image: {
+            src: PNG_DATA_URL,
+            fit: 'invalid',
+            x: Number.NaN,
+            y: Number.POSITIVE_INFINITY,
+            scale: 0,
+            imageWidth: -10,
+            imageHeight: Number.NaN,
+            crop: { x: -10, y: 0, w: 40, h: 20 },
+            rotation: -90,
+            flipH: 'yes',
+            flipV: 0,
+          },
+        } as unknown as NonNullable<typeof node.fills>[number],
+      ];
+      const offsetCropNode = makeShapeNode('s2', {
+        kind: 'rect',
+        x: 0,
+        y: 0,
+        w: 100,
+        h: 80,
+      });
+      offsetCropNode.fills = [
+        {
+          ...imageFill('https://example.test/image.png', { fit: 'crop' }),
+          image: {
+            ...imageFill('https://example.test/image.png', { fit: 'crop' }).image!,
+            crop: { x: 10, y: 5, w: 20, h: 15 },
+          },
+        },
+      ];
+      const asset = createEmbeddedAsset({
+        dataUrl: PNG_DATA_URL,
+        mimeType: 'image/png',
+        naturalWidth: 100,
+        naturalHeight: 80,
+      });
+      const paint = makePaint('paint-1', 'Image paint', imageFill(PNG_DATA_URL));
+      paint.fill.image = {
+        src: PNG_DATA_URL,
+        assetId: asset.id,
+        fit: 'crop',
+        x: Number.NEGATIVE_INFINITY,
+        y: 12,
+        scale: -2,
+        crop: { x: 90, y: 70, w: 50, h: 50 },
+        rotation: 450,
+        flipH: false,
+        flipV: true,
+      };
+      const doc = {
+        ...addNode(addNode(createDocument('Malformed images', true), node), offsetCropNode),
+        paints: { [paint.id]: paint },
+        assets: { [asset.id]: asset },
+      };
+
+      const normalized = DocumentCodec.normalize(doc).document;
+      const nodeImage =
+        normalized.nodes.s1?.kind === 'shape' ? normalized.nodes.s1.fills?.[0]?.image : undefined;
+      const paintImage = normalized.paints?.['paint-1']?.fill.image;
+
+      expect(nodeImage).toMatchObject({
+        fit: 'fill',
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 270,
+        flipH: false,
+        flipV: false,
+      });
+      expect(nodeImage?.imageWidth).toBeUndefined();
+      expect(nodeImage?.imageHeight).toBeUndefined();
+      expect(nodeImage?.crop).toBeUndefined();
+      expect(paintImage).toMatchObject({
+        x: 0,
+        y: 12,
+        scale: 1,
+        imageWidth: 100,
+        imageHeight: 80,
+        crop: { x: 90, y: 70, w: 10, h: 10 },
+        rotation: 90,
+        flipH: false,
+        flipV: true,
+      });
+      const offsetCropImage =
+        normalized.nodes.s2?.kind === 'shape' ? normalized.nodes.s2.fills?.[0]?.image : undefined;
+      expect(offsetCropImage?.crop).toEqual({ x: 10, y: 5, w: 20, h: 15 });
+    });
+
+    it('normalizes malformed fields when reopening a current-version save', () => {
+      const node = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+      node.fills = [
+        {
+          ...imageFill(PNG_DATA_URL),
+          image: {
+            src: PNG_DATA_URL,
+            fit: 'unknown',
+            x: null,
+            y: 'invalid',
+            scale: -1,
+            imageWidth: 0,
+            imageHeight: 'invalid',
+            crop: { x: 5, y: 6, w: 0, h: -1 },
+            rotation: 720,
+            flipH: 1,
+            flipV: '',
+          },
+        } as unknown as NonNullable<typeof node.fills>[number],
+      ];
+      const current = addNode(createDocument('Current malformed', true), node);
+
+      const reopened = DocumentCodec.decode(JSON.stringify(current));
+
+      expect(reopened.ok).toBe(true);
+      if (!reopened.ok) return;
+      const image =
+        reopened.document.nodes.s1?.kind === 'shape'
+          ? reopened.document.nodes.s1.fills?.[0]?.image
+          : undefined;
+      expect(image).toMatchObject({
+        fit: 'fill',
+        x: 0,
+        y: 0,
+        scale: 1,
+        rotation: 0,
+        flipH: false,
+        flipV: false,
+      });
+      expect(image?.imageWidth).toBeUndefined();
+      expect(image?.imageHeight).toBeUndefined();
+      expect(image?.crop).toBeUndefined();
+    });
+
+    it('preserves crop, embedded source, and background-removal mask through save and reopen', () => {
+      const asset = createEmbeddedAsset({
+        dataUrl: PNG_2X2_DATA_URL,
+        mimeType: 'image/png',
+        naturalWidth: 2,
+        naturalHeight: 2,
+      });
+      const node = makeShapeNode('s1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 });
+      node.fills = [
+        {
+          ...imageFill(PNG_2X2_DATA_URL, {
+            assetId: asset.id,
+            fit: 'crop',
+            imageWidth: 2,
+            imageHeight: 2,
+          }),
+          image: {
+            ...imageFill(PNG_2X2_DATA_URL, {
+              assetId: asset.id,
+              fit: 'crop',
+              imageWidth: 2,
+              imageHeight: 2,
+            }).image!,
+            x: 3.5,
+            y: -2.25,
+            scale: 1.75,
+            crop: { x: 1, y: 0, w: 1, h: 2 },
+            rotation: 15,
+            flipH: true,
+          },
+        },
+      ];
+      let doc = addNode(createDocument('Masked crop', true), node);
+      doc = { ...doc, assets: { [asset.id]: asset } };
+      const maskAsset: RasterMaskAsset = {
+        id: 'mask-1',
+        mimeType: 'image/png',
+        dataUrl: PNG_2X2_DATA_URL,
+        width: 2,
+        height: 2,
+        byteLength: 69,
+      };
+      doc = addRasterMaskAsset(doc, node.id, maskAsset, {
+        provenance: {
+          method: 'ai-balanced',
+          modelId: 'test-model',
+          runtime: 'wasm',
+          generatedAt: 1,
+          origin: 'native',
+        },
+      });
+
+      const reopened = DocumentCodec.decode(DocumentCodec.encode(doc));
+
+      expect(reopened.ok).toBe(true);
+      if (!reopened.ok) return;
+      const restored = reopened.document.nodes.s1;
+      const image = restored?.kind === 'shape' ? restored.fills?.[0]?.image : undefined;
+      expect(image).toMatchObject({
+        src: PNG_2X2_DATA_URL,
+        assetId: asset.id,
+        x: 3.5,
+        y: -2.25,
+        scale: 1.75,
+        crop: { x: 1, y: 0, w: 1, h: 2 },
+        rotation: 15,
+        flipH: true,
+      });
+      expect(reopened.document.assets?.[asset.id]).toEqual(asset);
+      expect(restored?.mask?.rasterMask).toMatchObject({
+        assetId: 'mask-1',
+        provenance: {
+          method: 'ai-balanced',
+          modelId: 'test-model',
+          origin: 'native',
+        },
+      });
+      expect(reopened.document.rasterMaskAssets?.['mask-1']).toEqual(maskAsset);
     });
   });
 });
