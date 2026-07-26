@@ -1,3 +1,5 @@
+export type { DialogState } from './useDialogState';
+export { useDialogState } from './useDialogState';
 export type { ToolId } from '../tools/types';
 export type { DocumentContextValue } from './DocumentContext';
 export { DocumentProvider, useDocument } from './DocumentContext';

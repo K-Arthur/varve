@@ -247,7 +247,10 @@ function tokenizeExpression(expr: string): ExprToken[] {
       i++;
       continue;
     }
-    if ((ch >= '0' && ch <= '9') || (ch === '.' && i + 1 < len && charAt(expr, i + 1) >= '0' && charAt(expr, i + 1) <= '9')) {
+    if (
+      (ch >= '0' && ch <= '9') ||
+      (ch === '.' && i + 1 < len && charAt(expr, i + 1) >= '0' && charAt(expr, i + 1) <= '9')
+    ) {
       let num = '';
       while (i < len) {
         const d = charAt(expr, i);
@@ -338,7 +341,11 @@ class ExprParser {
   private parseComparison(): unknown {
     const left = this.parseArithmetic();
     const op = this.peek();
-    if (op && op.kind === 'op' && ['==', '!=', '===', '!==', '>', '<', '>=', '<='].includes(op.value)) {
+    if (
+      op &&
+      op.kind === 'op' &&
+      ['==', '!=', '===', '!==', '>', '<', '>=', '<='].includes(op.value)
+    ) {
       this.consume();
       const right = this.parseArithmetic();
       switch (op.value) {
@@ -379,7 +386,12 @@ class ExprParser {
     let left = this.parseFactor();
     for (;;) {
       const tok = this.peek();
-      if (!tok || tok.kind !== 'op' || (tok.value !== '*' && tok.value !== '/' && tok.value !== '%')) break;
+      if (
+        !tok ||
+        tok.kind !== 'op' ||
+        (tok.value !== '*' && tok.value !== '/' && tok.value !== '%')
+      )
+        break;
       this.consume();
       const right = this.parseFactor();
       if (tok.value === '*') left = Number(left) * Number(right);

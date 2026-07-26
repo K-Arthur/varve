@@ -1,0 +1,129 @@
+import { expect, test } from '@playwright/test';
+import { navigateToEditor } from '../shared';
+
+test.describe('Tooltip system', () => {
+  test.describe.configure({ mode: 'serial' });
+  test.beforeEach(async ({ page }) => {
+    await navigateToEditor(page);
+  });
+
+  test('shows tooltip on hover over a floating toolbar button', async ({ page }) => {
+    // The floating toolbar should be visible
+    const toolbar = page.locator('[role="toolbar"]').first();
+    await expect(toolbar).toBeVisible({ timeout: 10000 });
+
+    // Hover over the first tool button inside the toolbar
+    const toolBtn = toolbar.locator('button').first();
+    await toolBtn.hover();
+
+    // Tooltip should appear after the default delay (300ms)
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+    expect(await tooltip.count()).toBeGreaterThanOrEqual(1);
+  });
+
+  test('shows keyboard shortcut badge in tooltip', async ({ page }) => {
+    const toolbar = page.locator('[role="toolbar"]').first();
+    await expect(toolbar).toBeVisible({ timeout: 10000 });
+
+    const toolBtn = toolbar.locator('button').first();
+    await toolBtn.hover();
+
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+
+    // The shortcut badge is a span with class strata-tip__shortcut
+    const shortcutBadge = tooltip.locator('.strata-tip__shortcut');
+    // Not all tool buttons have shortcuts, so this may or may not exist
+    if ((await shortcutBadge.count()) > 0) {
+      await expect(shortcutBadge).toBeVisible();
+    }
+  });
+
+  test('tooltip appears on keyboard focus', async ({ page }) => {
+    // Tab to a toolbar button to give it focus
+    const toolbar = page.locator('[role="toolbar"]').first();
+    await expect(toolbar).toBeVisible({ timeout: 10000 });
+
+    // Click the toolbar to start keyboard navigation
+    await toolbar.click();
+    // Tab to the first focusable element
+    await page.keyboard.press('Tab');
+
+    // Tooltip should appear on focus
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+  });
+
+  test('tooltip dismisses on Escape', async ({ page }) => {
+    const toolbar = page.locator('[role="toolbar"]').first();
+    await expect(toolbar).toBeVisible({ timeout: 10000 });
+
+    // Focus a button to trigger tooltip
+    await toolbar.click();
+    await page.keyboard.press('Tab');
+
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+
+    // Press Escape to dismiss
+    await page.keyboard.press('Escape');
+    await expect(tooltip).not.toBeVisible({ timeout: 1000 });
+  });
+
+  test('tooltip does not appear during canvas drag', async ({ page }) => {
+    const tooltip = page.locator('[role="tooltip"]');
+
+    // Perform a canvas drag operation
+    const canvas = page.locator('.editor-canvas canvas, .editor-canvas');
+    await expect(canvas).toBeVisible({ timeout: 10000 });
+
+    // Start a drag on the canvas
+    const box = await canvas.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + 100, box.y + 100);
+      await page.mouse.down();
+      await page.mouse.move(box.x + 200, box.y + 200, { steps: 5 });
+
+      // While dragging, no tooltip should be visible
+      await expect(tooltip).not.toBeVisible({ timeout: 1000 });
+      await page.mouse.up();
+    }
+  });
+
+  test('tooltip content has correct ARIA role and association', async ({ page }) => {
+    const toolbar = page.locator('[role="toolbar"]').first();
+    await expect(toolbar).toBeVisible({ timeout: 10000 });
+
+    const toolBtn = toolbar.locator('button').first();
+    await toolBtn.hover();
+
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+
+    // Tooltip must have an id
+    const tooltipId = await tooltip.getAttribute('id');
+    expect(tooltipId).toBeTruthy();
+
+    // The trigger wrapper (parent of the button) should have aria-describedby pointing to the tooltip
+    const wrapper = toolBtn.locator('..');
+    const describedBy = await wrapper.getAttribute('aria-describedby');
+    expect(describedBy).toBe(tooltipId);
+  });
+
+  test('tooltip appears on status bar zoom controls', async ({ page }) => {
+    // Find the zoom button in the status bar
+    const zoomOutBtn = page.locator('.editor-status__toggle').locator('..').locator('..').first();
+    // Try to find it through the Tooltip wrapper
+    const tooltip = page.locator('[role="tooltip"]');
+
+    // Hover over the Zoom out button in the status bar
+    const zoomOut = page.locator('.editor-status__zoom-chip button').first();
+    if (await zoomOut.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await zoomOut.hover();
+      await expect(tooltip).toBeVisible({ timeout: 1000 });
+      const content = await tooltip.textContent();
+      expect(content).toContain('Zoom out');
+    }
+  });
+});

@@ -343,6 +343,7 @@ import type {
   ToolId,
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
+import { useDialogState } from './context/useDialogState';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { ViewportProvider } from './context/ViewportContext';
@@ -1983,16 +1984,7 @@ export function EditorProvider({
       revision: 0,
     };
   });
-  const [showExportDialog, setShowExportDialog] = useState(false);
-  const [showArchiveDialog, setShowArchiveDialogState] = useState(false);
-  const [archiveDialogMode, setArchiveDialogMode] = useState<'backup' | 'restore'>('backup');
-  const setShowArchiveDialog = useCallback(
-    (show: boolean, mode: 'backup' | 'restore' = 'backup') => {
-      setArchiveDialogMode(mode);
-      setShowArchiveDialogState(show);
-    },
-    [],
-  );
+  const dialogState = useDialogState();
   /** Ref keeping the latest state for async callbacks (auto-save, recovery). */
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -6468,11 +6460,11 @@ export function EditorProvider({
         });
       },
 
-      showExportDialog,
-      setShowExportDialog,
-      showArchiveDialog,
-      archiveDialogMode,
-      setShowArchiveDialog,
+      showExportDialog: dialogState.showExportDialog,
+      setShowExportDialog: dialogState.setShowExportDialog,
+      showArchiveDialog: dialogState.showArchiveDialog,
+      archiveDialogMode: dialogState.archiveDialogMode,
+      setShowArchiveDialog: dialogState.setShowArchiveDialog,
 
       addPreset: (nodeId, preset) => {
         updateDoc((doc) => {
@@ -7354,10 +7346,10 @@ export function EditorProvider({
       setBindingField,
       focusedField,
       setFocusedField,
-      showExportDialog,
-      showArchiveDialog,
-      archiveDialogMode,
-      setShowArchiveDialog,
+      dialogState.showExportDialog,
+      dialogState.showArchiveDialog,
+      dialogState.archiveDialogMode,
+      dialogState.setShowArchiveDialog,
       protoValue,
       bgRemoval,
       platform,

@@ -12,7 +12,7 @@
 import type { Fill, Paint, SceneNode } from '@strata/scene';
 import { addPaintToDocument, removePaintFromDocument } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -264,37 +264,42 @@ export function PaintLibrarySection() {
                   <span className="insp-paint-library__badge">{paintTypeLabel(paint.fill)}</span>
                 </div>
                 <div className="insp-paint-library__actions">
-                  {isActive && (
-                    <button
-                      type="button"
-                      className="insp-paint-library__action-btn"
-                      onClick={detachPaint}
-                      aria-label="Detach paint"
-                      title="Detach"
-                    >
-                      <Icon name="Unlink" label={undefined} size="0.85em" />
-                    </button>
-                  )}
-                  {hasSelection && (
-                    <button
-                      type="button"
-                      className="insp-paint-library__action-btn"
-                      onClick={() => applyPaint(paint.id)}
-                      aria-label="Apply paint to selection"
-                      title="Apply"
-                    >
-                      <Icon name="Check" label={undefined} size="0.85em" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="insp-paint-library__action-btn insp-paint-library__action-btn--danger"
-                    onClick={() => deletePaint(paint.id)}
-                    aria-label="Delete paint"
-                    title="Delete"
-                  >
-                    <Icon name="Trash2" label={undefined} size="0.85em" />
-                  </button>
+                  <TooltipProvider>
+                    {isActive && (
+                      <Tooltip label="Detach">
+                        <button
+                          type="button"
+                          className="insp-paint-library__action-btn"
+                          onClick={detachPaint}
+                          aria-label="Detach paint"
+                        >
+                          <Icon name="Unlink" label={undefined} size="0.85em" />
+                        </button>
+                      </Tooltip>
+                    )}
+                    {hasSelection && (
+                      <Tooltip label="Apply">
+                        <button
+                          type="button"
+                          className="insp-paint-library__action-btn"
+                          onClick={() => applyPaint(paint.id)}
+                          aria-label="Apply paint to selection"
+                        >
+                          <Icon name="Check" label={undefined} size="0.85em" />
+                        </button>
+                      </Tooltip>
+                    )}
+                    <Tooltip label="Delete">
+                      <button
+                        type="button"
+                        className="insp-paint-library__action-btn insp-paint-library__action-btn--danger"
+                        onClick={() => deletePaint(paint.id)}
+                        aria-label="Delete paint"
+                      >
+                        <Icon name="Trash2" label={undefined} size="0.85em" />
+                      </button>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </li>
             );

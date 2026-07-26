@@ -54,9 +54,11 @@ function hasMultipleVisibleFills(node: SceneNode): boolean {
 }
 
 function hasMultipleStrokes(node: SceneNode): boolean {
-  return ((node as { strokes?: import('@strata/scene').Stroke[] }).strokes ?? []).filter(
-    (s: import('@strata/scene').Stroke) => s.visible !== false,
-  ).length > 1;
+  return (
+    ((node as { strokes?: import('@strata/scene').Stroke[] }).strokes ?? []).filter(
+      (s: import('@strata/scene').Stroke) => s.visible !== false,
+    ).length > 1
+  );
 }
 
 function hasInnerShadow(node: SceneNode): boolean {

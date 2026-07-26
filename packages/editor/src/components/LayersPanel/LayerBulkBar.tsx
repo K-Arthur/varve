@@ -1,5 +1,11 @@
 import type { LayerColor } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon } from '@strata/ui';
+import {
+  SOLID_CHROME_ICONS,
+  SOLID_TOOL_ICONS,
+  SolidIcon,
+  Tooltip,
+  TooltipProvider,
+} from '@strata/ui';
 
 export interface LayerBulkBarProps {
   selectedCount: number;
@@ -49,83 +55,92 @@ export function LayerBulkBar({
   return (
     <div className="layers-bulk-bar" role="toolbar" aria-label="Bulk layer actions">
       <span className="layers-bulk-bar__count">{selectedCount} selected</span>
-      <div className="layers-bulk-bar__actions">
-        <button
-          type="button"
-          className="layers-bulk-bar__btn"
-          onClick={onGroup}
-          aria-label="Group"
-          title="Group layers"
-        >
-          <SolidIcon name={SOLID_TOOL_ICONS.group} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="layers-bulk-bar__btn"
-          onClick={onLockAll}
-          aria-label="Lock all"
-          title="Lock all"
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.lock} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="layers-bulk-bar__btn"
-          onClick={onUnlockAll}
-          aria-label="Unlock all"
-          title="Unlock all"
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.unlock} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="layers-bulk-bar__btn"
-          onClick={onHideAll}
-          aria-label="Hide all"
-          title="Hide all"
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.visibilityOff} size="0.85em" />
-        </button>
-        <button
-          type="button"
-          className="layers-bulk-bar__btn"
-          onClick={onShowAll}
-          aria-label="Show all"
-          title="Show all"
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
-        </button>
-        <div className="layers-bulk-bar__color-group">
-          {LAYER_COLORS.map((c) => (
+      <TooltipProvider>
+        <div className="layers-bulk-bar__actions">
+          <Tooltip label="Group layers">
             <button
-              key={c}
               type="button"
-              className={`layers-bulk-bar__color-btn layers-bulk-bar__color-btn--${c}`}
-              onClick={() => onColorTag(c)}
-              aria-label={COLOR_LABELS[c]}
-              title={COLOR_LABELS[c]}
-            />
-          ))}
-          <button
-            type="button"
-            className="layers-bulk-bar__color-btn layers-bulk-bar__color-btn--clear"
-            onClick={onClearColorTag}
-            aria-label="Clear layer colour"
-            title="Clear layer colour"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
-          </button>
+              className="layers-bulk-bar__btn"
+              onClick={onGroup}
+              aria-label="Group"
+            >
+              <SolidIcon name={SOLID_TOOL_ICONS.group} size="0.85em" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Lock all">
+            <button
+              type="button"
+              className="layers-bulk-bar__btn"
+              onClick={onLockAll}
+              aria-label="Lock all"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.lock} size="0.85em" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Unlock all">
+            <button
+              type="button"
+              className="layers-bulk-bar__btn"
+              onClick={onUnlockAll}
+              aria-label="Unlock all"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.unlock} size="0.85em" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Hide all">
+            <button
+              type="button"
+              className="layers-bulk-bar__btn"
+              onClick={onHideAll}
+              aria-label="Hide all"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.visibilityOff} size="0.85em" />
+            </button>
+          </Tooltip>
+          <Tooltip label="Show all">
+            <button
+              type="button"
+              className="layers-bulk-bar__btn"
+              onClick={onShowAll}
+              aria-label="Show all"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
+            </button>
+          </Tooltip>
+          <div className="layers-bulk-bar__color-group">
+            {LAYER_COLORS.map((c) => (
+              <Tooltip key={c} label={COLOR_LABELS[c]}>
+                <button
+                  type="button"
+                  className={`layers-bulk-bar__color-btn layers-bulk-bar__color-btn--${c}`}
+                  onClick={() => onColorTag(c)}
+                  aria-label={COLOR_LABELS[c]}
+                />
+              </Tooltip>
+            ))}
+            <Tooltip label="Clear layer colour">
+              <button
+                type="button"
+                className="layers-bulk-bar__color-btn layers-bulk-bar__color-btn--clear"
+                onClick={onClearColorTag}
+                aria-label="Clear layer colour"
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.close} size="0.65em" />
+              </button>
+            </Tooltip>
+          </div>
+          <Tooltip label="Delete all selected">
+            <button
+              type="button"
+              className="layers-bulk-bar__btn layers-bulk-bar__btn--delete"
+              onClick={onDeleteAll}
+              aria-label="Delete all"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.85em" />
+            </button>
+          </Tooltip>
         </div>
-        <button
-          type="button"
-          className="layers-bulk-bar__btn layers-bulk-bar__btn--delete"
-          onClick={onDeleteAll}
-          aria-label="Delete all"
-          title="Delete all selected"
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.85em" />
-        </button>
-      </div>
+      </TooltipProvider>
     </div>
   );
 }

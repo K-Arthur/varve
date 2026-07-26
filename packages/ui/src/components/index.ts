@@ -85,8 +85,8 @@ export { Toast } from './Toast';
 export { ToastProvider, useToast } from './ToastProvider';
 export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
-export type { TooltipProps } from './Tooltip';
-export { Tooltip } from './Tooltip';
+export type { TooltipProps, TooltipProviderProps } from './Tooltip';
+export { Tooltip, TooltipProvider } from './Tooltip';
 export type { ViewModeOption, ViewModeSwitcherProps } from './ViewModeSwitcher';
 export { ViewModeSwitcher } from './ViewModeSwitcher';
 // contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @strata/ui tokens

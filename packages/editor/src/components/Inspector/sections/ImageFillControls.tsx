@@ -7,7 +7,7 @@
  * Research basis: Figma image fill controls; APG file input patterns.
  */
 import type { EmbeddedAssetInput, ImageFillData, ImageFit } from '@strata/scene';
-import { Icon, Select } from '@strata/ui';
+import { Icon, Select, Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useId, useRef } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 
@@ -168,19 +168,20 @@ export function ImageFillControls({
           className="insp-num__input insp-image-fill__src"
           title={image.src}
         />
-        <button
-          type="button"
-          className="insp-inline-btn"
-          aria-label="Copy source URL"
-          title="Copy source URL"
-          onClick={() => {
-            if (navigator.clipboard) {
-              void navigator.clipboard.writeText(image.src);
-            }
-          }}
-        >
-          <Icon name="Copy" label={undefined} size="0.85em" />
-        </button>
+        <Tooltip label="Copy source URL">
+          <button
+            type="button"
+            className="insp-inline-btn"
+            aria-label="Copy source URL"
+            onClick={() => {
+              if (navigator.clipboard) {
+                void navigator.clipboard.writeText(image.src);
+              }
+            }}
+          >
+            <Icon name="Copy" label={undefined} size="0.85em" />
+          </button>
+        </Tooltip>
       </FieldRow>
       <FieldRow label="Fit">
         <Select
@@ -207,26 +208,30 @@ export function ImageFillControls({
       </FieldRow>
       <FieldRow label="Flip">
         <div className="insp-image-fill__flip-row">
-          <button
-            type="button"
-            className={`insp-image-fill__flip-btn${image.flipH ? ' insp-image-fill__flip-btn--active' : ''}`}
-            aria-pressed={!!image.flipH}
-            aria-label="Flip horizontal"
-            title="Flip horizontal"
-            onClick={() => onChange({ ...image, flipH: !image.flipH })}
-          >
-            <Icon name="FlipHorizontal" label={undefined} size="0.85em" />
-          </button>
-          <button
-            type="button"
-            className={`insp-image-fill__flip-btn${image.flipV ? ' insp-image-fill__flip-btn--active' : ''}`}
-            aria-pressed={!!image.flipV}
-            aria-label="Flip vertical"
-            title="Flip vertical"
-            onClick={() => onChange({ ...image, flipV: !image.flipV })}
-          >
-            <Icon name="FlipVertical" label={undefined} size="0.85em" />
-          </button>
+          <TooltipProvider>
+            <Tooltip label="Flip horizontal">
+              <button
+                type="button"
+                className={`insp-image-fill__flip-btn${image.flipH ? ' insp-image-fill__flip-btn--active' : ''}`}
+                aria-pressed={!!image.flipH}
+                aria-label="Flip horizontal"
+                onClick={() => onChange({ ...image, flipH: !image.flipH })}
+              >
+                <Icon name="FlipHorizontal" label={undefined} size="0.85em" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Flip vertical">
+              <button
+                type="button"
+                className={`insp-image-fill__flip-btn${image.flipV ? ' insp-image-fill__flip-btn--active' : ''}`}
+                aria-pressed={!!image.flipV}
+                aria-label="Flip vertical"
+                onClick={() => onChange({ ...image, flipV: !image.flipV })}
+              >
+                <Icon name="FlipVertical" label={undefined} size="0.85em" />
+              </button>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </FieldRow>
       {image.crop && (
@@ -235,23 +240,24 @@ export function ImageFillControls({
             <span className="insp-image-fill__crop-dims">
               {Math.round(image.crop.w)}x{Math.round(image.crop.h)} px
             </span>
-            <button
-              type="button"
-              className="insp-inline-btn insp-image-fill__crop-reset"
-              aria-label="Reset crop"
-              title="Reset crop to full image"
-              onClick={() => {
-                const next = { ...image };
-                delete next.crop;
-                next.x = 0;
-                next.y = 0;
-                next.scale = 1;
-                onChange(next);
-              }}
-            >
-              <Icon name="RotateCcw" label={undefined} size="0.85em" />
-              <span>Reset</span>
-            </button>
+            <Tooltip label="Reset crop to full image">
+              <button
+                type="button"
+                className="insp-inline-btn insp-image-fill__crop-reset"
+                aria-label="Reset crop"
+                onClick={() => {
+                  const next = { ...image };
+                  delete next.crop;
+                  next.x = 0;
+                  next.y = 0;
+                  next.scale = 1;
+                  onChange(next);
+                }}
+              >
+                <Icon name="RotateCcw" label={undefined} size="0.85em" />
+                <span>Reset</span>
+              </button>
+            </Tooltip>
           </div>
         </FieldRow>
       )}
