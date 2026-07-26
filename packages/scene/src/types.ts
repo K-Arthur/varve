@@ -585,6 +585,221 @@ export interface PropertyBinding {
   expression?: string;
 }
 
+// ── Typography types (shared with typography.ts via re-export) ───────────────
+
+export type OpenTypeFeatureTag =
+  | 'liga'
+  | 'dlig'
+  | 'sups'
+  | 'subs'
+  | 'numr'
+  | 'dnom'
+  | 'frac'
+  | 'afrc'
+  | 'zero'
+  | 'tnum'
+  | 'pnum'
+  | 'onum'
+  | 'lnum'
+  | 'smcp'
+  | 'c2sc'
+  | 'pcap'
+  | 'c2pc'
+  | 'unic'
+  | 'titl'
+  | 'nalt'
+  | 'expt'
+  | 'fina'
+  | 'medi'
+  | 'init'
+  | 'isol'
+  | 'rlig'
+  | 'clig'
+  | 'calt'
+  | 'hlig'
+  | 'liga'
+  | 'dlig'
+  | 'curs'
+  | 'mark'
+  | 'mkmk'
+  | 'locl'
+  | 'rclt'
+  | 'rvrn'
+  | 'kern'
+  | 'cpsp'
+  | 'case'
+  | 'salt'
+  | 'ss01'
+  | 'ss02'
+  | 'ss03'
+  | 'ss04'
+  | 'ss05'
+  | 'ss06'
+  | 'ss07'
+  | 'ss08'
+  | 'ss09'
+  | 'ss10'
+  | 'ss11'
+  | 'ss12'
+  | 'ss13'
+  | 'ss14'
+  | 'ss15'
+  | 'ss16'
+  | 'ss17'
+  | 'ss18'
+  | 'ss19'
+  | 'ss20'
+  | 'cv01'
+  | 'cv02'
+  | 'cv03'
+  | 'cv04'
+  | 'cv05'
+  | 'cv06'
+  | 'cv07'
+  | 'cv08'
+  | 'cv09'
+  | 'cv10'
+  | 'cv11'
+  | 'cv12'
+  | 'cv13'
+  | 'cv14'
+  | 'cv15'
+  | 'aalt'
+  | 'abvm'
+  | 'blwm'
+  | 'ccmp'
+  | 'dist';
+
+export type OpenTypeFeatureMap = Partial<Record<OpenTypeFeatureTag, boolean>> & {
+  custom?: Record<string, boolean>;
+};
+
+export type RegisteredAxisTag = 'wght' | 'wdth' | 'slnt' | 'opsz' | 'ital';
+
+export interface VariableFontAxis {
+  tag: string;
+  name: string;
+  min: number;
+  default: number;
+  max: number;
+  precision?: number;
+  isRegistered: boolean;
+}
+
+export interface VariableFontInstance {
+  name: string;
+  coordinates: Record<string, number>;
+}
+
+export type VariableFontSettings = Record<string, number>;
+
+export interface CharacterFormat {
+  fontFamily?: string;
+  fontWeight?: number;
+  fontStyle?: 'normal' | 'italic';
+  fontSize?: number;
+  lineHeight?: number;
+  letterSpacing?: number;
+  textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+  textDecoration?: 'none' | 'underline' | 'line-through';
+  color?: readonly [number, number, number, number];
+  openTypeFeatures?: OpenTypeFeatureMap;
+  variableFontSettings?: VariableFontSettings;
+  fontVariant?: 'normal' | 'small-caps' | 'all-small-caps';
+  baselineShift?: number;
+  superscript?: boolean;
+  subscript?: boolean;
+  kerning?: 'auto' | 'manual' | 'none';
+  tracking?: number;
+  language?: string;
+}
+
+export type TabStopAlignment = 'left' | 'center' | 'right' | 'decimal';
+
+export interface TabStop {
+  position: number;
+  alignment: TabStopAlignment;
+  alignmentChar?: string;
+  leader?: string;
+}
+
+export interface ParagraphFormat {
+  textAlign?: 'left' | 'center' | 'right' | 'justify';
+  textAlignVertical?: 'top' | 'middle' | 'bottom';
+  lineHeight?: number;
+  paragraphSpacing?: number;
+  paragraphIndent?: number;
+  firstLineIndent?: number;
+  listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
+  listIndent?: number;
+  hangingIndent?: boolean;
+  hangingQuotes?: boolean;
+  hangingLists?: boolean;
+  maxLines?: number;
+  textOverflow?: 'clip' | 'ellipsis' | 'visible';
+  hyphenation?: boolean;
+  keepWithNext?: boolean;
+  keepTogether?: boolean;
+  widowControl?: boolean;
+  orphanControl?: boolean;
+  dropCapLines?: number;
+  dropCapChars?: number;
+  direction?: 'ltr' | 'rtl';
+  writingMode?: 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
+  columnCount?: number;
+  columnGap?: number;
+  columnRuleWidth?: number;
+  columnRuleColor?: readonly [number, number, number, number];
+  tabStops?: TabStop[];
+  tabSize?: number;
+}
+
+export interface TextRun {
+  text: string;
+  format?: CharacterFormat;
+  characterStyleId?: NodeId;
+}
+
+export interface Paragraph {
+  runs: TextRun[];
+  format?: ParagraphFormat;
+  paragraphStyleId?: NodeId;
+}
+
+export interface RichText {
+  paragraphs: Paragraph[];
+}
+
+export type TextMode = 'point' | 'area' | 'path' | 'auto';
+
+export interface PathTextSettings {
+  pathNodeId: NodeId;
+  startOffset?: number;
+  endOffset?: number;
+  side?: 'top' | 'bottom';
+  flip?: boolean;
+  baselineShift?: number;
+}
+
+export type AdaptiveContrastPolicy = 'wcag-aa' | 'wcag-aaa' | 'custom';
+
+export interface AdaptiveContrastState {
+  enabled: boolean;
+  policy: AdaptiveContrastPolicy;
+  lightColor?: ManagedColor;
+  darkColor?: ManagedColor;
+  customRatio?: number;
+  hysteresis?: number;
+  lastResolved?: number;
+  resolvedColor?: ManagedColor;
+}
+
+export type AdjustmentScope =
+  | { mode: 'image-local'; targetNodeId: NodeId }
+  | { mode: 'explicit-targets'; targetNodeIds: NodeId[] }
+  | { mode: 'container-descendant'; containerId: NodeId; includeNested: boolean }
+  | { mode: 'document' };
+
 // ── Base node ───────────────────────────────────────────────────────────────
 
 export interface NodeBase {
@@ -726,11 +941,11 @@ export interface TextNode extends NodeBase {
   /** Variable font axis values (e.g. { wght: 500, wdth: 75 }). */
   variableAxes?: Record<string, number>;
   /** Rich text content (paragraphs with runs). When set, overrides `text`. */
-  richText?: import('./typography').RichText;
+  richText?: RichText;
   /** Text mode: point, area, path, or auto. */
-  textMode?: import('./typography').TextMode;
+  textMode?: TextMode;
   /** Path text settings (when textMode === 'path'). */
-  pathTextSettings?: import('./typography').PathTextSettings;
+  pathTextSettings?: PathTextSettings;
   /** Text direction: 'ltr', 'rtl', or 'auto' (auto-detect from content). */
   direction?: 'ltr' | 'rtl' | 'auto';
   /** ISO language tag for language-specific shaping (e.g. 'ar', 'hi', 'th'). */
@@ -751,7 +966,7 @@ export interface TextNode extends NodeBase {
    * targets against the composited backdrop, while the stored fill remains
    * the author's original choice.
    */
-  adaptiveContrast?: import('./typography').AdaptiveContrastState;
+  adaptiveContrast?: AdaptiveContrastState;
 }
 
 export interface GroupNode extends NodeBase {
@@ -832,7 +1047,7 @@ export interface FrameNode extends NodeBase {
   /** Per-property overrides on top of the variant/base component. */
   propertyOverrides?: Record<string, string | boolean | NodeId>;
   /** Last-synced property snapshot for override detection (component instances). */
-  syncBaseline?: import('./component-sync').SyncBaseline;
+  syncBaseline?: Record<string, unknown>;
   /** F6: strokes on frame. */
   strokes: Stroke[];
   /** F6: effects on frame. */
@@ -995,7 +1210,7 @@ export interface AdjustmentNode extends NodeBase {
    *
    * See `AdjustmentScope` in `./adjustmentScope` for mode definitions.
    */
-  scope?: import('./adjustmentScope').AdjustmentScope;
+  scope?: AdjustmentScope;
 }
 
 // ── Vector Path Node ─────────────────────────────────────────────────────────
