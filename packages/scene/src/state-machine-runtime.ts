@@ -311,7 +311,7 @@ class ExprParser {
     let left = this.parseAnd();
     for (;;) {
       const tok = this.peek();
-      if (!tok || tok.kind !== 'op' || tok.value !== '||') break;
+      if (tok?.kind !== 'op' || tok.value !== '||') break;
       this.consume();
       left = Boolean(left) || Boolean(this.parseAnd());
     }
@@ -322,7 +322,7 @@ class ExprParser {
     let left = this.parseNot();
     for (;;) {
       const tok = this.peek();
-      if (!tok || tok.kind !== 'op' || tok.value !== '&&') break;
+      if (tok?.kind !== 'op' || tok.value !== '&&') break;
       this.consume();
       left = Boolean(left) && Boolean(this.parseNot());
     }
@@ -350,9 +350,9 @@ class ExprParser {
       const right = this.parseArithmetic();
       switch (op.value) {
         case '==':
-          return left == right;
+          return left === right;
         case '!=':
-          return left != right;
+          return left !== right;
         case '===':
           return left === right;
         case '!==':
@@ -374,7 +374,7 @@ class ExprParser {
     let left = this.parseTerm();
     for (;;) {
       const tok = this.peek();
-      if (!tok || tok.kind !== 'op' || (tok.value !== '+' && tok.value !== '-')) break;
+      if (tok?.kind !== 'op' || (tok.value !== '+' && tok.value !== '-')) break;
       this.consume();
       const right = this.parseTerm();
       left = tok.value === '+' ? Number(left) + Number(right) : Number(left) - Number(right);
@@ -386,11 +386,7 @@ class ExprParser {
     let left = this.parseFactor();
     for (;;) {
       const tok = this.peek();
-      if (
-        !tok ||
-        tok.kind !== 'op' ||
-        (tok.value !== '*' && tok.value !== '/' && tok.value !== '%')
-      )
+      if (tok?.kind !== 'op' || (tok.value !== '*' && tok.value !== '/' && tok.value !== '%'))
         break;
       this.consume();
       const right = this.parseFactor();
@@ -447,7 +443,7 @@ function evaluateSafeExpression(expr: string, scope: Record<string, unknown>): b
   return parser.parse();
 }
 
-function buildInputValues(runtime: SMRuntime): Record<string, boolean | number> {
+function buildInputValues(runtime: SMRuntime): Record<string, unknown> {
   const sm = getStateMachineFromRuntime(runtime);
   if (!sm) return {};
   const values: Record<string, boolean | number> = {};
@@ -455,5 +451,5 @@ function buildInputValues(runtime: SMRuntime): Record<string, boolean | number> 
     const val = runtime.inputs[input.id];
     values[input.name] = val ?? input.defaultValue ?? (input.type === 'boolean' ? false : 0);
   }
-  return values;
+  return { inputs: values };
 }
