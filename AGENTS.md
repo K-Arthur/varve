@@ -134,6 +134,29 @@ from `EditorProvider`:
 
 See `context/usePersistence.ts` and `context/useBackgroundRemoval.ts` for the pattern.
 
+### The clean version is not always the fast version (render/replay hot path)
+
+Strata is a design app — frame time beats complexity score. `CanvasArea.tsx`'s
+`replaySubtreeToCtx` (and any function like it: a big `switch` over node/primitive
+kind, called once per node per frame) is a classic case where the "obvious"
+refactor — replacing the switch with a dispatch table or visitor pattern keyed by
+`node.kind` — can make the hot path **slower**, not faster. A monomorphic
+`switch` on a small closed set of string/enum kinds gets good branch prediction
+and is a strong inlining candidate for the JIT; a table of closures
+(`{ rect: fn, ellipse: fn, ... }[kind]()`) produces a megamorphic call site the
+JIT can't specialize, which can cost more than the readability win is worth in a
+loop that runs per-node-per-frame.
+
+**Rule:** any structural change to `replaySubtreeToCtx`, `replayIr`, or an
+equivalent per-node/per-frame dispatch function must be benchmarked before merge
+(see the performance harness under `docs/quality/` — benchmark at 100 / 1k / 10k
+/ 50k nodes, full-frame and incremental-frame). If a change regresses frame time,
+**the readability improvement does not justify it in this specific function** —
+revert or find a version that's both faster and clearer, don't ship the
+regression on the strength of the diff looking nicer. This applies whether the
+change comes from a manual refactor or an automated one (e.g. Stryker-adjacent
+cleanup tooling, codemods).
+
 ## Commands (run from repo root)
 - `pnpm install` — install JS deps
 - `just check-env` — verify toolchain on PATH

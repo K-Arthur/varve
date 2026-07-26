@@ -1,0 +1,166 @@
+{
+  "version": "2026-07-26",
+  "note": "Ratios of render-path metric p50 to a fixed-cost control-loop p50, measured in the same process. Absolute ms in .render-perf-results.json is informational only — this file is what --ci actually gates on.",
+  "controlMs": 11.837273000000096,
+  "ratios": {
+    "100": {
+      "fullFrameRatio": 0.0382087158081144,
+      "incrementalFrameRatio": 0.0007965517057625656,
+      "panZoomFrameRatio": 0.021322816496696064,
+      "timeToFirstPaintRatio": 0.14193750536967234
+    },
+    "1000": {
+      "fullFrameRatio": 0.22486876833879674,
+      "incrementalFrameRatio": 0.041884477953656934,
+      "panZoomFrameRatio": 0.15443388016815765,
+      "timeToFirstPaintRatio": 0.41048440802200337
+    },
+    "10000": {
+      "fullFrameRatio": 1.6723050993248136,
+      "incrementalFrameRatio": 0.32551771003339247,
+      "panZoomFrameRatio": 2.099651837040481,
+      "timeToFirstPaintRatio": 2.9666410498431186
+    },
+    "50000": {
+      "fullFrameRatio": 11.024992496160134,
+      "incrementalFrameRatio": 1.5170806654539368,
+      "panZoomFrameRatio": 11.610442962665328,
+      "timeToFirstPaintRatio": 15.042881413649804
+    }
+  },
+  "rawResultsSnapshot": {
+    "measuredAt": "2026-07-26T05:54:30.471Z",
+    "tiers": {
+      "100": {
+        "fixtureConstructionMs": 0.1858460000003106,
+        "fullFrame": {
+          "p50": 0.4522870000000694,
+          "p95": 0.7422649999998612,
+          "min": 0.39054799999985335,
+          "max": 0.7422649999998612
+        },
+        "incrementalFrame": {
+          "p50": 0.009428999999727239,
+          "p95": 0.10385300000007192,
+          "min": 0.007613000000219472,
+          "max": 0.10385300000007192,
+          "dirtyNodeCount": 1,
+          "dirtyFraction": 0.01
+        },
+        "panZoomFrame": {
+          "p50": 0.25240400000029695,
+          "p95": 0.356604999999945,
+          "min": 0.23501299999998082,
+          "max": 0.356604999999945
+        },
+        "timeToFirstPaint": {
+          "p50": 1.680152999999791,
+          "p95": 1.7900130000002719,
+          "min": 1.4491910000001553,
+          "max": 1.7900130000002719
+        },
+        "heapGrowthOver20FramesBytes": -8091008,
+        "heapGrowthPerFrameBytesApprox": -404550.4
+      },
+      "1000": {
+        "fixtureConstructionMs": 0.33097399999996924,
+        "fullFrame": {
+          "p50": 2.661833000000115,
+          "p95": 10.450728000000254,
+          "min": 2.0690959999997176,
+          "max": 10.450728000000254
+        },
+        "incrementalFrame": {
+          "p50": 0.49579799999992247,
+          "p95": 1.0385289999999259,
+          "min": 0.2973109999998087,
+          "max": 1.0385289999999259,
+          "dirtyNodeCount": 10,
+          "dirtyFraction": 0.01
+        },
+        "panZoomFrame": {
+          "p50": 1.8280759999997827,
+          "p95": 3.999207999999726,
+          "min": 1.6633229999997639,
+          "max": 3.999207999999726
+        },
+        "timeToFirstPaint": {
+          "p50": 4.859015999999883,
+          "p95": 6.61180400000012,
+          "min": 3.478128999999626,
+          "max": 6.61180400000012
+        },
+        "heapGrowthOver20FramesBytes": 36112416,
+        "heapGrowthPerFrameBytesApprox": 1805620.8
+      },
+      "10000": {
+        "fixtureConstructionMs": 0.4835760000000846,
+        "fullFrame": {
+          "p50": 19.795532000000094,
+          "p95": 25.56163699999979,
+          "min": 18.975324999999884,
+          "max": 25.56163699999979
+        },
+        "incrementalFrame": {
+          "p50": 3.8532420000001366,
+          "p95": 4.499336999999741,
+          "min": 3.7660820000000967,
+          "max": 4.499336999999741,
+          "dirtyNodeCount": 100,
+          "dirtyFraction": 0.01
+        },
+        "panZoomFrame": {
+          "p50": 24.854151999999885,
+          "p95": 29.94594700000016,
+          "min": 20.231268,
+          "max": 29.94594700000016
+        },
+        "timeToFirstPaint": {
+          "p50": 35.116939999999886,
+          "p95": 40.9456909999999,
+          "min": 33.512772999999925,
+          "max": 40.9456909999999
+        },
+        "heapGrowthOver20FramesBytes": 234161064,
+        "heapGrowthPerFrameBytesApprox": 11708053.2
+      },
+      "50000": {
+        "fixtureConstructionMs": 15.484065999999984,
+        "fullFrame": {
+          "p50": 130.50584600000002,
+          "p95": 145.20748899999944,
+          "min": 114.83502599999974,
+          "max": 145.20748899999944
+        },
+        "incrementalFrame": {
+          "p50": 17.958098000000064,
+          "p95": 18.85114800000065,
+          "min": 17.56559399999969,
+          "max": 18.85114800000065,
+          "dirtyNodeCount": 500,
+          "dirtyFraction": 0.01
+        },
+        "panZoomFrame": {
+          "p50": 137.4359829999994,
+          "p95": 168.56607600000007,
+          "min": 102.32637599999998,
+          "max": 168.56607600000007
+        },
+        "timeToFirstPaint": {
+          "p50": 178.0666940000001,
+          "p95": 180.9666130000005,
+          "min": 176.92361400000027,
+          "max": 180.9666130000005
+        },
+        "heapGrowthOver20FramesBytes": 706540440,
+        "heapGrowthPerFrameBytesApprox": 35327022
+      }
+    },
+    "control": {
+      "p50": 11.837273000000096,
+      "p95": 12.554814999999962,
+      "min": 11.817227999999886,
+      "max": 12.554814999999962
+    }
+  }
+}

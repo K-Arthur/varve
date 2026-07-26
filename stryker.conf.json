@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "pnpm",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "testRunner": "vitest",
+  "vitest": {
+    "configFile": "vitest.config.ts"
+  },
+  "reporters": ["clear-text", "progress", "json"],
+  "coverageAnalysis": "perTest",
+  "concurrency": 4,
+  "timeoutMS": 30000,
+  "ignorePatterns": [
+    "**/target/**",
+    "apps/desktop/src-tauri/**",
+    "crates/**",
+    "apps/desktop/public/**",
+    "apps/website/**",
+    "coverage/**",
+    ".stryker-tmp/**",
+    "**/*.md",
+    "docs/**",
+    "tests/e2e/**",
+    "**/dist/**"
+  ]
+}
