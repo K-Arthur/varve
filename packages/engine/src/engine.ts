@@ -13,7 +13,7 @@
 import type { MeasureTextFn } from '@strata/shared';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
 import { hitTest } from './geometry';
-import type { Backend, Engine, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
+import type { Backend, Engine, EngineFill, FillIR, RenderItem, SceneNode } from './types';
 import type { WasmEngineModule } from './wasmLoader';
 import { loadWasmEngineModule } from './wasmLoader';
 

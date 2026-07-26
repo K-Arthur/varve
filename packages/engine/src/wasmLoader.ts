@@ -9,7 +9,7 @@
  * fails, are the caller's job (see engine.ts's `tryWasmEngine`).
  */
 import { hitTest as stubHitTest } from './geometry';
-import type { Engine, RenderItem, SceneNode } from './types';
+import type { SceneNode } from './types';
 
 export interface WasmEngineModule {
   build_ir_json(nodesJson: string): string;
