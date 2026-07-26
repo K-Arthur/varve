@@ -1,4 +1,3 @@
-// COMPLEXITY: 176 — React component body, menu composition (extracted sub-menus to components/Menubar/)
 import {
   AlertDialog,
   FloatingPortal,
@@ -6,9 +5,8 @@ import {
   SOLID_CHROME_ICONS,
   SolidIcon,
   StrataLogo,
-  Tooltip,
-  TooltipProvider,
 } from '@strata/ui';
+import type { Theme } from '@strata/ui/tokens';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import {
   getTypeAheadResetMs,
@@ -20,21 +18,32 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { ArchiveDialog } from './components/Archive/ArchiveDialog';
-import { buildArrangeMenu } from './components/Menubar/ArrangeMenu';
-import { buildEditMenu } from './components/Menubar/EditMenu';
-import { buildFileMenu } from './components/Menubar/FileMenu';
-import { buildHelpMenu } from './components/Menubar/HelpMenu';
-import { buildObjectMenu } from './components/Menubar/ObjectMenu';
-import { buildPageMenu } from './components/Menubar/PageMenu';
-import { buildTextMenu } from './components/Menubar/TextMenu';
-import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './components/Menubar/types';
-import { buildViewMenu } from './components/Menubar/ViewMenu';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
+
+type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
+
+interface MenuItem {
+  label: string;
+  shortcut?: string;
+  action?: string;
+  /** Dynamic disabled state — computed per render from editor state. */
+  disabled?: boolean;
+  /** ARIA keyshortcut string for screen readers (e.g. "Ctrl+G"). */
+  ariaKeyshortcut?: string;
+  /** Nested submenu items (2 levels max). */
+  items?: MenuItem[];
+}
+
+const THEMES: { id: Theme; label: string }[] = [
+  { id: 'light', label: 'Light' },
+  { id: 'dark', label: 'Dark' },
+  { id: 'high-contrast', label: 'High Contrast' },
+];
 
 /** Build a shortcut key string for aria-keyshortcuts (platform-independent, e.g. "Ctrl+G"). */
 function ariaShortcut(binding: {
@@ -131,16 +140,6 @@ function buildMenus(
     beforeAfterCompare: boolean;
     rulerMode: string;
     snapEnabled: boolean;
-    documentGrid: {
-      visible: boolean;
-      spacingX: number;
-      spacingY: number;
-      subdivisions: number;
-      offsetX: number;
-      offsetY: number;
-      color: string;
-      opacity: number;
-    };
   },
   recentEntries: RecentEntry[],
   caps: ReadonlySet<string>,
@@ -241,32 +240,17 @@ function buildMenus(
     }
   };
 
+  /** Helper: build an aria-keyshortcut string from SHORTCUT_DEFS. */
   const ks = (id: string): string => ariaShortcut(getEffectiveBinding(id));
-  const fmt = (id: string): string => formatShortcut(SHORTCUT_DEFS[id].binding);
-  const fmtBinding = (binding: {
-    key: string;
-    ctrl?: boolean;
-    shift?: boolean;
-    alt?: boolean;
-  }): string => formatShortcut(binding);
-  const ariaShortcutBinding = (binding: {
-    key: string;
-    ctrl?: boolean;
-    shift?: boolean;
-    alt?: boolean;
-  }): string => ariaShortcut(binding);
-
-  const helpers: MenuBuildHelpers = { dis, ks, fmt, fmtBinding, ariaShortcutBinding };
 
   return [
-    { id: 'File' as MenuId, items: buildFileMenu(state, recentEntries, helpers) },
-    { id: 'Edit' as MenuId, items: buildEditMenu(state, helpers) },
-    { id: 'Text' as MenuId, items: buildTextMenu(state, helpers) },
-    { id: 'View' as MenuId, items: buildViewMenu(state, helpers) },
-    { id: 'Object' as MenuId, items: buildObjectMenu(state, helpers) },
-    { id: 'Arrange' as MenuId, items: buildArrangeMenu(state, helpers) },
-    { id: 'Page' as MenuId, items: buildPageMenu(state, helpers) },
-    { id: 'Help' as MenuId, items: buildHelpMenu(state, helpers) },
+    {
+      id: 'File',
+      items: [
+        {
+          label: 'New',
+          shortcut: formatShortcut(SHORTCUT_DEFS.newDocument.binding),
+          ariaKeyshortcut: ks('newDocument'),
           action: 'new',
         },
         {
@@ -1295,12 +1279,29 @@ export function Menubar({
 }) {
   const {
     state,
+    newDocument,
+    serializeDocument,
+    loadDocument,
+    undo,
+    redo,
+    setZoom,
     setShowExportDialog,
+    clearAllGuides,
+    startPresentation,
+    addMaskToSelected,
+    removeMaskFromSelected,
+    toggleMask,
+    invertMask,
     flattenSelected,
+    rasterizeSelected,
+    mergeSelected,
     assignMasterToPage,
     createMaster,
+    toggleFacingPages,
     requestWorkspaceSwitch,
+    toggleDistractionFreeMode,
     recordAction,
+    createAdjustmentLayer,
     showArchiveDialog,
     setShowArchiveDialog,
     platform,
@@ -1348,7 +1349,6 @@ export function Menubar({
       state.beforeAfterCompare,
       state.rulerMode,
       state.snapEnabled,
-      state.documentGrid?.visible,
       recentEntries,
       caps,
     ],
@@ -1572,6 +1572,9 @@ export function Menubar({
         case 'new':
           setConfirmNewDoc(true);
           return;
+        case 'settings':
+          onOpenSettings?.();
+          return;
         case 'clearRecent':
           clearRecent();
           return;
@@ -1580,6 +1583,24 @@ export function Menubar({
             const mostRecent = recentEntries[0];
             if (mostRecent) void openRecentFile(mostRecent);
           }
+          return;
+        case 'startTour':
+          onStartTour?.();
+          return;
+        case 'shortcutPalette':
+          onOpenPalette?.();
+          return;
+        case 'whatIsThis':
+          onWhatIsThis?.();
+          return;
+        case 'about':
+          onOpenAbout?.();
+          return;
+        case 'batchBgRemove':
+          onBatchBgRemove?.();
+          return;
+        case 'export':
+          setShowExportDialog(true);
           return;
         case 'archiveBackup':
           setShowArchiveDialog(true, 'backup');
@@ -1617,9 +1638,46 @@ export function Menubar({
         case 'flattenSelection':
           flattenSelected('flatten', 1);
           return;
+        case 'rasterizeSelection':
+          rasterizeSelected(1);
+          return;
+        case 'mergeSelected':
+          mergeSelected();
+          return;
+        case 'clearGuides':
+          clearAllGuides();
+          return;
+        case 'present':
+          startPresentation();
+          return;
+        case 'toggleFacingPages':
+          toggleFacingPages();
+          return;
+        case 'toggleDistractionFree':
+          toggleDistractionFreeMode();
+          return;
+        case 'newAdjustmentLayer':
+          createAdjustmentLayer();
+          return;
         case 'createMaster':
           createMaster('Master', 1920, 1080);
           return;
+        case 'applyMaster': {
+          const activeId = state.document.activePageId;
+          if (activeId) {
+            const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
+            const first = masterEntries.find((id) => id !== activeId);
+            if (first) assignMasterToPage(activeId, first);
+          }
+          return;
+        }
+        case 'detachMaster': {
+          const activeId = state.document.activePageId;
+          if (activeId) {
+            assignMasterToPage(activeId, null);
+          }
+          return;
+        }
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -1677,11 +1735,19 @@ export function Menubar({
       onBatchBgRemove,
       setShowExportDialog,
       setShowArchiveDialog,
-      flattenSelected,
+      addMaskToSelected,
+      removeMaskFromSelected,
+      toggleMask,
+      invertMask,
+      clearAllGuides,
+      startPresentation,
       assignMasterToPage,
       createMaster,
+      toggleFacingPages,
       requestWorkspaceSwitch,
+      toggleDistractionFreeMode,
       recordAction,
+      createAdjustmentLayer,
       openRecentFile,
       clearRecent,
     ],
@@ -2190,26 +2256,8 @@ export function Menubar({
         <span aria-hidden className="editor-menubar__zoom-divider">
           |
         </span>
-        <TooltipProvider>
-          <Tooltip label="Undo" shortcut="Ctrl+Z">
-            <IconButton
-              icon={SOLID_CHROME_ICONS.undo}
-              label="Undo"
-              size="sm"
-              solid
-              onClick={undo}
-            />
-          </Tooltip>
-          <Tooltip label="Redo" shortcut="Ctrl+Shift+Z">
-            <IconButton
-              icon={SOLID_CHROME_ICONS.redo}
-              label="Redo"
-              size="sm"
-              solid
-              onClick={redo}
-            />
-          </Tooltip>
-        </TooltipProvider>
+        <IconButton icon={SOLID_CHROME_ICONS.undo} label="Undo" size="sm" solid onClick={undo} />
+        <IconButton icon={SOLID_CHROME_ICONS.redo} label="Redo" size="sm" solid onClick={redo} />
         <div className="editor-menubar__zoom">
           <span aria-hidden className="editor-menubar__zoom-divider">
             |
