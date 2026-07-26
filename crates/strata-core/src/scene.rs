@@ -578,6 +578,148 @@ mod tests {
     fn walk_nodes_empty_yields_empty() {
         assert!(walk_nodes(&[]).is_empty());
     }
+
+    // ── Property tests (Tier 1) ─────────────────────────────────────────────
+    //
+    // No historical hit-test bug/regression commits were found in
+    // `git log -- crates/strata-core/src/scene.rs` or under docs/ — these are
+    // invariant-driven properties, not encoded regressions, since none exist
+    // to encode yet.
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        /// A local-space rect from (0,0) to (w,h), w/h kept comfortably away
+        /// from zero so "strictly inside" / "strictly outside" are unambiguous.
+        fn arb_rect_wh() -> impl Strategy<Value = (f64, f64)> {
+            (1.0f64..500.0, 1.0f64..500.0)
+        }
+
+        /// translate-only transform: composition must be a pure offset.
+        fn arb_translate() -> impl Strategy<Value = (f64, f64)> {
+            (-1000.0f64..1000.0, -1000.0f64..1000.0)
+        }
+
+        /// scale+translate transform: exercises real composition (order:
+        /// scale first in local space, then translate into world space —
+        /// matches `Affine::translate(t) * Affine::scale(s)` semantics).
+        fn arb_scale() -> impl Strategy<Value = f64> {
+            0.1f64..5.0
+        }
+
+        fn rect_node(id: u64, w: f64, h: f64, transform: Affine) -> SceneNode {
+            SceneNode {
+                id: NodeId(id),
+                name: format!("node-{id}"),
+                transform,
+                shape: Shape::Rect(Rect::new(0.0, 0.0, w, h)),
+                fill: EngineColor::Rgb {
+                    r: 0.0,
+                    g: 0.0,
+                    b: 0.0,
+                    a: 255.0,
+                    bit_depth: None,
+                    profile: None,
+                },
+                children: Vec::new(),
+                component_id: None,
+                slots: None,
+                opacity: 1.0,
+                blend_mode: BlendMode::Normal,
+                rotation: 0.0,
+                strokes: Vec::new(),
+                effects: Vec::new(),
+                fills: None,
+                corner_radius: None,
+                filters: None,
+            }
+        }
+
+        proptest! {
+            /// A point strictly inside a rect's local bounds, mapped through the
+            /// node's transform into world space, must hit that node — for any
+            /// translate+scale transform, not just identity.
+            #[test]
+            fn point_strictly_inside_hits(
+                (w, h) in arb_rect_wh(),
+                (tx, ty) in arb_translate(),
+                s in arb_scale(),
+                // Fractions strictly between 0 and 1 keep the local point away
+                // from the (inclusive) boundary regardless of w/h/scale.
+                fx in 0.05f64..0.95,
+                fy in 0.05f64..0.95,
+            ) {
+                let transform = Affine::translate((tx, ty)) * Affine::scale(s);
+                let local = Point::new(w * fx, h * fy);
+                let world = transform * local;
+                let node = rect_node(1, w, h, transform);
+                prop_assert_eq!(hit_test(&[node], world), Some(0));
+            }
+
+            /// A point strictly outside a rect's local bounds (well beyond any
+            /// edge, in local units before the transform is applied) must never
+            /// hit that node, for any translate+scale transform.
+            #[test]
+            fn point_strictly_outside_misses(
+                (w, h) in arb_rect_wh(),
+                (tx, ty) in arb_translate(),
+                s in arb_scale(),
+                margin in 1.0f64..1000.0,
+            ) {
+                let transform = Affine::translate((tx, ty)) * Affine::scale(s);
+                // Comfortably past the right edge on both axes.
+                let local = Point::new(w + margin, h + margin);
+                let world = transform * local;
+                let node = rect_node(1, w, h, transform);
+                prop_assert_eq!(hit_test(&[node], world), None);
+            }
+
+            /// When N rects all contain the same world point (nested/overlapping
+            /// at the origin), hit_test must return the HIGHEST index — paint
+            /// order is index 0 = bottom, so the last node in the slice wins.
+            /// This holds regardless of how many nodes are stacked.
+            #[test]
+            fn z_order_picks_highest_index_among_hits(
+                count in 2usize..8,
+                (w, h) in arb_rect_wh(),
+            ) {
+                let world = Point::new(w / 2.0, h / 2.0); // inside every stacked copy
+                let nodes: Vec<SceneNode> = (0..count as u64)
+                    .map(|i| rect_node(i, w, h, Affine::IDENTITY))
+                    .collect();
+                prop_assert_eq!(hit_test(&nodes, world), Some(count - 1));
+            }
+
+            /// Mixed scene: some nodes contain the point, some don't, in
+            /// arbitrary order — the topmost (highest-index) containing node
+            /// must always win, never a lower-index containing node, even
+            /// when non-containing nodes are interspersed above/below it.
+            #[test]
+            fn z_order_ignores_non_containing_interlopers(
+                (w, h) in arb_rect_wh(),
+                extra_below in 0usize..4,
+                extra_above in 0usize..4,
+            ) {
+                let world = Point::new(w / 2.0, h / 2.0);
+                let mut nodes = Vec::new();
+                let mut next_id = 0u64;
+                // Non-containing nodes far away, below the real hit.
+                for _ in 0..extra_below {
+                    nodes.push(rect_node(next_id, 1.0, 1.0, Affine::translate((1e6, 1e6))));
+                    next_id += 1;
+                }
+                let winner_index = nodes.len();
+                nodes.push(rect_node(next_id, w, h, Affine::IDENTITY));
+                next_id += 1;
+                // Non-containing nodes far away, above the real hit.
+                for _ in 0..extra_above {
+                    nodes.push(rect_node(next_id, 1.0, 1.0, Affine::translate((1e6, 1e6))));
+                    next_id += 1;
+                }
+                prop_assert_eq!(hit_test(&nodes, world), Some(winner_index));
+            }
+        }
+    }
 }
 #[test]
 fn blend_modes_round_trip_with_typescript_camel_case_ids() {
