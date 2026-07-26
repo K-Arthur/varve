@@ -15,7 +15,6 @@ function WithSelection({ id, children }: { id: string; children: React.ReactNode
   const { setSelection } = useEditor();
   // Mount-only: setSelection/patch return a new context value each render,
   // so depending on setSelection here would re-fire every render and loop.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional one-time selection on mount
   useEffect(() => {
     setSelection(id);
   }, [id]);

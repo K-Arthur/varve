@@ -147,6 +147,7 @@ import type { RefineMaskTool } from './tools/RefineMaskTool';
 import {
   createSnapSession,
   filterSnapTargets,
+  type SnapGuide,
   type SnapSession,
   snapPosition,
   snapTargetSearchRect,
