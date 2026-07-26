@@ -7,84 +7,45 @@
  */
 
 import type { Document } from './document';
-import type { NodeId } from './types';
+import type {
+  AdaptiveContrastPolicy,
+  AdaptiveContrastState,
+  CharacterFormat,
+  NodeId,
+  OpenTypeFeatureMap,
+  OpenTypeFeatureTag,
+  Paragraph,
+  ParagraphFormat,
+  PathTextSettings,
+  RegisteredAxisTag,
+  RichText,
+  TabStop,
+  TabStopAlignment,
+  TextMode,
+  TextRun,
+  VariableFontAxis,
+  VariableFontInstance,
+  VariableFontSettings,
+} from './types';
 
-// ── OpenType Features ───────────────────────────────────────────────────────
-
-export type OpenTypeFeatureTag =
-  | 'liga'
-  | 'dlig'
-  | 'sups'
-  | 'subs'
-  | 'numr'
-  | 'dnom'
-  | 'frac'
-  | 'ordn'
-  | 'tnum'
-  | 'pnum'
-  | 'lnum'
-  | 'onum'
-  | 'zero'
-  | 'ss01'
-  | 'ss02'
-  | 'ss03'
-  | 'ss04'
-  | 'ss05'
-  | 'ss06'
-  | 'ss07'
-  | 'ss08'
-  | 'ss09'
-  | 'ss10'
-  | 'ss11'
-  | 'ss12'
-  | 'ss13'
-  | 'ss14'
-  | 'ss15'
-  | 'ss16'
-  | 'ss17'
-  | 'ss18'
-  | 'ss19'
-  | 'ss20'
-  | 'cv01'
-  | 'cv02'
-  | 'cv03'
-  | 'cv04'
-  | 'cv05'
-  | 'cv06'
-  | 'cv07'
-  | 'cv08'
-  | 'cv09'
-  | 'cv10'
-  | 'cv11'
-  | 'cv12'
-  | 'cv13'
-  | 'cv14'
-  | 'cv15'
-  | 'kern'
-  | 'cpsp'
-  | 'case'
-  | 'aalt'
-  | 'salt'
-  | 'nalt'
-  | 'calt'
-  | 'rclt'
-  | 'rvrn'
-  | 'locl'
-  | 'rlig'
-  | 'curs'
-  | 'mark'
-  | 'mkmk'
-  | 'dist'
-  | 'abvm'
-  | 'blwm'
-  | 'ccmp'
-  | 'init'
-  | 'medi'
-  | 'fina'
-  | 'isol';
-
-export type OpenTypeFeatureMap = Partial<Record<OpenTypeFeatureTag, boolean>> & {
-  custom?: Record<string, boolean>;
+export type {
+  AdaptiveContrastPolicy,
+  AdaptiveContrastState,
+  CharacterFormat,
+  OpenTypeFeatureMap,
+  OpenTypeFeatureTag,
+  Paragraph,
+  ParagraphFormat,
+  PathTextSettings,
+  RegisteredAxisTag,
+  RichText,
+  TabStop,
+  TabStopAlignment,
+  TextMode,
+  TextRun,
+  VariableFontAxis,
+  VariableFontInstance,
+  VariableFontSettings,
 };
 
 export const OPEN_TYPE_PRESETS: Record<string, OpenTypeFeatureMap> = {
@@ -94,112 +55,6 @@ export const OPEN_TYPE_PRESETS: Record<string, OpenTypeFeatureMap> = {
   display: { liga: true, dlig: true, kern: true, calt: true },
   code: { liga: false, kern: true, tnum: true, zero: true },
 };
-
-// ── Variable Font Axes ──────────────────────────────────────────────────────
-
-export type RegisteredAxisTag = 'wght' | 'wdth' | 'slnt' | 'opsz' | 'ital';
-
-export interface VariableFontAxis {
-  tag: string;
-  name: string;
-  min: number;
-  default: number;
-  max: number;
-  precision?: number;
-  isRegistered: boolean;
-}
-
-export interface VariableFontInstance {
-  name: string;
-  coordinates: Record<string, number>;
-}
-
-export type VariableFontSettings = Record<string, number>;
-
-// ── Character Formatting ────────────────────────────────────────────────────
-
-export interface CharacterFormat {
-  fontFamily?: string;
-  fontWeight?: number;
-  fontStyle?: 'normal' | 'italic';
-  fontSize?: number;
-  lineHeight?: number;
-  letterSpacing?: number;
-  textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
-  textDecoration?: 'none' | 'underline' | 'line-through';
-  color?: readonly [number, number, number, number];
-  openTypeFeatures?: OpenTypeFeatureMap;
-  variableFontSettings?: VariableFontSettings;
-  fontVariant?: 'normal' | 'small-caps' | 'all-small-caps';
-  baselineShift?: number;
-  superscript?: boolean;
-  subscript?: boolean;
-  kerning?: 'auto' | 'manual' | 'none';
-  tracking?: number;
-  language?: string;
-}
-
-// ── Tab Stops ────────────────────────────────────────────────────────────────
-
-export type TabStopAlignment = 'left' | 'center' | 'right' | 'decimal';
-
-export interface TabStop {
-  position: number;
-  alignment: TabStopAlignment;
-  alignmentChar?: string;
-  leader?: string;
-}
-
-// ── Paragraph Formatting ────────────────────────────────────────────────────
-
-export interface ParagraphFormat {
-  textAlign?: 'left' | 'center' | 'right' | 'justify';
-  textAlignVertical?: 'top' | 'middle' | 'bottom';
-  lineHeight?: number;
-  paragraphSpacing?: number;
-  paragraphIndent?: number;
-  firstLineIndent?: number;
-  listStyle?: 'none' | 'disc' | 'decimal' | 'circle' | 'square';
-  listIndent?: number;
-  hangingIndent?: boolean;
-  hangingQuotes?: boolean;
-  hangingLists?: boolean;
-  maxLines?: number;
-  textOverflow?: 'clip' | 'ellipsis' | 'visible';
-  hyphenation?: boolean;
-  keepWithNext?: boolean;
-  keepTogether?: boolean;
-  widowControl?: boolean;
-  orphanControl?: boolean;
-  dropCapLines?: number;
-  dropCapChars?: number;
-  direction?: 'ltr' | 'rtl';
-  writingMode?: 'horizontal-tb' | 'vertical-rl' | 'vertical-lr';
-  columnCount?: number;
-  columnGap?: number;
-  columnRuleWidth?: number;
-  columnRuleColor?: readonly [number, number, number, number];
-  tabStops?: TabStop[];
-  tabSize?: number;
-}
-
-// ── Rich Text Runs ──────────────────────────────────────────────────────────
-
-export interface TextRun {
-  text: string;
-  format?: CharacterFormat;
-  characterStyleId?: NodeId;
-}
-
-export interface Paragraph {
-  runs: TextRun[];
-  format?: ParagraphFormat;
-  paragraphStyleId?: NodeId;
-}
-
-export interface RichText {
-  paragraphs: Paragraph[];
-}
 
 // ── Character & Paragraph Styles ────────────────────────────────────────────
 
@@ -242,17 +97,67 @@ export interface OversetInfo {
   isLastFrame: boolean;
 }
 
-// ── Text Node Type ──────────────────────────────────────────────────────────
+export function createTextChain(
+  doc: Document,
+  name: string,
+  frameIds: NodeId[],
+  richText?: RichText,
+): { chain: TextChain; doc: Document } {
+  const chainId = `chain-${doc.nextId}`;
+  const chain: TextChain = {
+    id: chainId,
+    name,
+    frameIds,
+    richText,
+  };
+  return {
+    chain,
+    doc: {
+      ...doc,
+      nextId: doc.nextId + 1,
+      textChains: { ...doc.textChains, [chainId]: chain },
+    },
+  };
+}
 
-export type TextMode = 'point' | 'area' | 'path' | 'auto';
+export function deleteTextChain(doc: Document, chainId: string): Document {
+  const chains = doc.textChains;
+  if (!chains || !(chains[chainId] as TextChain | undefined)) return doc;
+  const { [chainId]: _, ...remaining } = chains;
+  return { ...doc, textChains: remaining };
+}
 
-export interface PathTextSettings {
-  pathNodeId: NodeId;
-  startOffset?: number;
-  endOffset?: number;
-  side?: 'top' | 'bottom';
-  flip?: boolean;
-  baselineShift?: number;
+export function appendFrameToChain(doc: Document, chainId: string, frameId: NodeId): Document {
+  const existing = doc.textChains?.[chainId] as TextChain | undefined;
+  if (!existing) return doc;
+  if (existing.frameIds.includes(frameId)) return doc;
+  return {
+    ...doc,
+    textChains: {
+      ...doc.textChains,
+      [chainId]: {
+        ...existing,
+        frameIds: [...existing.frameIds, frameId],
+      },
+    },
+  };
+}
+
+export function removeFrameFromChain(doc: Document, chainId: string, frameId: NodeId): Document {
+  const existing = doc.textChains?.[chainId] as TextChain | undefined;
+  if (!existing) return doc;
+  const newFrameIds = existing.frameIds.filter((id) => id !== frameId);
+  if (newFrameIds.length === existing.frameIds.length) return doc;
+  return {
+    ...doc,
+    textChains: {
+      ...doc.textChains,
+      [chainId]: {
+        ...existing,
+        frameIds: newFrameIds,
+      },
+    },
+  };
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -298,15 +203,6 @@ export function mergeParagraphFormat(
 
 const STYLE_CHAIN_MAX_DEPTH = 50;
 
-/**
- * Resolve a style chain by following `parentId`/`basedOn` references.
- * Returns the ordered chain from root (most ancestral) to leaf (the requested style).
- * Detects cycles by tracking visited IDs.
- */
-/**
- * Result of walking a style chain. `chain` is the ordered list of styles
- * (root → leaf). When `cyclical` is true, the chain should be discarded.
- */
 interface ChainResult<T> {
   chain: T[];
   cyclical: boolean;
@@ -341,10 +237,6 @@ function resolveStyleChainInternal<T extends { id: NodeId; parentId?: NodeId }>(
   return { chain: [style], cyclical: false };
 }
 
-/**
- * Resolve a character format by walking the style inheritance chain.
- * Merges from the most ancestral style through intermediates to local overrides.
- */
 export function resolveCharacterFormat(
   run: TextRun,
   characterStyles: Record<NodeId, CharacterStyle>,
@@ -363,35 +255,6 @@ export function resolveCharacterFormat(
 
 // ── Adaptive Contrast State ─────────────────────────────────────────────────
 
-export type AdaptiveContrastPolicy = 'wcag-aa' | 'wcag-aaa' | 'custom';
-
-/**
- * Persistent adaptive contrast state stored on a TextNode.
- * The `resolvedColor` is computed at render time by the adaptive contrast
- * engine; the stored `fill` on the TextNode remains the author's original
- * choice so switching adaptive contrast on/off is non-destructive.
- */
-export interface AdaptiveContrastState {
-  enabled: boolean;
-  policy: AdaptiveContrastPolicy;
-  /** Light candidate color shown on dark backdrops. */
-  lightColor?: import('./types').ManagedColor;
-  /** Dark candidate color shown on light backdrops. */
-  darkColor?: import('./types').ManagedColor;
-  /** Custom target ratio when policy is 'custom' (4.5 - 21). */
-  customRatio?: number;
-  /** Hysteresis threshold to prevent flickering (0-1, default 0.5). */
-  hysteresis?: number;
-  /** Last keyboard focus/active visible start time for re-evaluation. */
-  lastResolved?: number;
-  /**
-   * The resolved text colour from the last adaptive contrast evaluation.
-   * This overrides the stored fill during rendering and export.
-   * Reset to undefined when adaptive contrast is disabled.
-   */
-  resolvedColor?: import('./types').ManagedColor;
-}
-
 /**
  * Set or update adaptive contrast state on a text node.
  * Returns a new document with the updated node.
@@ -406,7 +269,6 @@ export function setTextAdaptiveContrast(
 
   const existing = (node as import('./types').TextNode).adaptiveContrast;
   if (ac.enabled === false) {
-    // Disabling: clear resolvedColor so rendering falls back to stored fill
     const updatedNode = {
       ...node,
       adaptiveContrast: {
@@ -429,11 +291,6 @@ export function setTextAdaptiveContrast(
   return { ...doc, nodes: { ...doc.nodes, [nodeId]: updatedNode as import('./types').SceneNode } };
 }
 
-/**
- * Resolve the effective text colour for a text node, accounting for adaptive
- * contrast. Returns the resolved colour if adaptive contrast is enabled and a
- * `resolvedColor` exists, otherwise returns the node's stored fill.
- */
 export function resolveTextColor(node: import('./types').TextNode): import('./types').ManagedColor {
   const ac = node.adaptiveContrast;
   if (ac?.enabled && ac.resolvedColor) {
@@ -442,11 +299,6 @@ export function resolveTextColor(node: import('./types').TextNode): import('./ty
   return node.fill;
 }
 
-/**
- * Resolve the effective text colour for a text node, given an explicit
- * resolved colour override. Used by the render pipeline to temporarily
- * override the stored fill without mutating the document.
- */
 export function resolveTextColorWithOverride(
   node: import('./types').TextNode,
   overrideColor?: import('./types').ManagedColor,
@@ -455,12 +307,6 @@ export function resolveTextColorWithOverride(
   return resolveTextColor(node);
 }
 
-/**
- * Resolve a paragraph format by walking the style inheritance chain.
- * Merges from the most ancestral style through intermediates, then applies
- * character-level format overrides from the paragraph style's characterFormat,
- * then local overrides.
- */
 export function resolveParagraphFormat(
   para: Paragraph,
   paragraphStyles: Record<NodeId, ParagraphStyle>,
@@ -472,7 +318,6 @@ export function resolveParagraphFormat(
     for (const link of chain) {
       resolved = mergeParagraphFormat(resolved, link.format);
       if (link.characterFormat) {
-        // Apply paragraph style's character-level overrides
         resolved = mergeParagraphFormat(
           resolved,
           link.characterFormat as unknown as ParagraphFormat,
