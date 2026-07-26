@@ -1,6 +1,6 @@
 import type { MaskType, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
-import { Select, Tooltip, TooltipProvider } from '@strata/ui';
+import { Select, Tooltip } from '@strata/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

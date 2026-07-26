@@ -1,7 +1,7 @@
 import type { MenuBuildHelpers, MenuBuildState, MenuItem, RecentEntry } from './types';
 
 export function buildFileMenu(
-  state: MenuBuildState,
+  _state: MenuBuildState,
   recentEntries: RecentEntry[],
   helpers: MenuBuildHelpers,
 ): MenuItem[] {

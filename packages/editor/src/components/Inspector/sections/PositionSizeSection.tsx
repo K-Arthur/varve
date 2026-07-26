@@ -17,11 +17,11 @@
 
 import type { SceneNode } from '@strata/scene';
 import { formatCoordForRuler } from '@strata/shared';
+import { Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { nodeLocalBounds } from '../../../scene/nodeBounds';
-import { Tooltip, TooltipProvider } from '@strata/ui';
 import { BindingMenu } from '../controls/BindingMenu';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { NumberField } from '../controls/NumberField';

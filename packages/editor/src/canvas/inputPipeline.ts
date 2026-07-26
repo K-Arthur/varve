@@ -5,7 +5,8 @@
  * here instead of managing ~200 lines of inline state-machine logic.
  */
 
-import type { Camera, NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@strata/scene';
+import type { Camera } from '@strata/shared';
 import {
   clampZoom,
   computeFloatingOrigin,
@@ -14,9 +15,10 @@ import {
   zoomAboutPoint,
 } from '@strata/shared';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
-import type { EditorState } from '../context/types';
-import type { SnapGuide, ToolContext, ToolManager } from '../tools';
+import type { CanvasMode, EditorState } from '../context/types';
+import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
+import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 
@@ -34,7 +36,7 @@ export interface UseCanvasInputsOptions {
     hitTestNode: (world: { x: number; y: number }) => { node: SceneNode } | null;
     getWorldBounds: (id: NodeId) => { x: number; y: number; w: number; h: number } | null;
     revealSelection: (opts: { fit: boolean; viewport?: { width: number; height: number } }) => void;
-    setCanvasMode?: (mode: string) => void;
+    setCanvasMode?: (mode: CanvasMode) => void;
   };
   stateRef: MutableRefObject<EditorState>;
   tmRef: MutableRefObject<ToolManager | null>;
@@ -457,7 +459,7 @@ export function useCanvasInputs({
         eRef.setSelection(null);
         eRef.announceSelection([]);
         if ((s as { canvasMode?: string }).canvasMode !== 'full') {
-          (eRef as unknown as { setCanvasMode: (m: string) => void }).setCanvasMode('full');
+          (eRef as { setCanvasMode: (m: CanvasMode) => void }).setCanvasMode('full');
         }
         return;
       }

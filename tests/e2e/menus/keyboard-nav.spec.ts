@@ -1,6 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { navigateToEditor } from '../shared';
 import {
   assertActiveElementRole,
   assertFocusNotOnBody,
@@ -11,6 +10,7 @@ import {
   resetTypeAheadTimeout,
   setTypeAheadTimeout,
 } from '../helpers/menu-helpers';
+import { navigateToEditor } from '../shared';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -95,6 +95,7 @@ test.describe('Menu keyboard navigation', () => {
 
     await page.keyboard.press('ArrowDown');
     const secondLabel = await items.nth(1).textContent();
+    void secondLabel;
 
     await page.keyboard.press('ArrowUp');
     const backToFirst = await page.evaluate(() => document.activeElement?.textContent ?? '');
@@ -197,7 +198,8 @@ test.describe('Menu keyboard navigation', () => {
     expect(activeFirst).toBe(firstSubLabel);
 
     await page.keyboard.press('ArrowDown');
-    const secondLabel = await subItems.nth(1).textContent();
+    const secondLabel2 = await subItems.nth(1).textContent();
+    void secondLabel2;
 
     await page.keyboard.press('ArrowUp');
     const backToFirst = await page.evaluate(() => document.activeElement?.textContent ?? '');
@@ -243,7 +245,7 @@ test.describe('Menu keyboard navigation', () => {
     expect(focused).toBe(firstLabel);
   });
 
-  test('type-ahead: buffer timeout resets after configured delay', async ({ page, browser }) => {
+  test('type-ahead: buffer timeout resets after configured delay', async ({ page }) => {
     await openMenu(page, 'File');
 
     await page.keyboard.press('s');

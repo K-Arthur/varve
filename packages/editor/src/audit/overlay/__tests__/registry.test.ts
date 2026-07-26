@@ -128,7 +128,7 @@ describe('OverlayRegistry', () => {
     const badges: OverlayPrimitive[] = [
       {
         kind: 'badge',
-        anchor: { x: 0, y: 0 },
+        anchor: [0, 0],
         text: 'A',
         severity: 'error',
         findingId: 'badge-1',
@@ -136,7 +136,7 @@ describe('OverlayRegistry', () => {
       },
       {
         kind: 'badge',
-        anchor: { x: 5, y: 0 },
+        anchor: [5, 0],
         text: 'B',
         severity: 'warning',
         findingId: 'badge-2',
@@ -144,7 +144,7 @@ describe('OverlayRegistry', () => {
       },
       {
         kind: 'badge',
-        anchor: { x: 200, y: 0 },
+        anchor: [200, 0],
         text: 'C',
         severity: 'suggestion',
         findingId: 'badge-3',
@@ -159,8 +159,8 @@ describe('OverlayRegistry', () => {
 
     // badges at 0 and 5 should cluster, badge at 200 is separate
     expect(result.clusters).toHaveLength(1);
-    expect(result.clusters[0].count).toBe(2);
-    expect(result.clusters[0].findingIds).toEqual(['badge-1', 'badge-2']);
+    expect(result.clusters[0]!.count).toBe(2);
+    expect(result.clusters[0]!.findingIds).toEqual(['badge-1', 'badge-2']);
   });
 
   it('filters by severity', () => {
@@ -169,7 +169,7 @@ describe('OverlayRegistry', () => {
       mockProvider('test', [
         {
           kind: 'badge',
-          anchor: { x: 0, y: 0 },
+          anchor: [0, 0],
           text: 'Error',
           severity: 'error',
           findingId: 'err-1',
@@ -177,7 +177,7 @@ describe('OverlayRegistry', () => {
         },
         {
           kind: 'badge',
-          anchor: { x: 10, y: 0 },
+          anchor: [10, 0],
           text: 'Warning',
           severity: 'warning',
           findingId: 'warn-1',
@@ -189,7 +189,7 @@ describe('OverlayRegistry', () => {
 
     const result = r.scan(mockContext(), { x: -1000, y: -1000, w: 2000, h: 2000 }, 2000, 30, 1);
     expect(result.primitives).toHaveLength(1);
-    expect(result.primitives[0].findingId).toBe('err-1');
+    expect(result.primitives[0]!.findingId).toBe('err-1');
     expect(result.totalAvailable).toBe(1);
   });
 
@@ -223,6 +223,6 @@ describe('OverlayRegistry', () => {
 
     const result = r.scan(mockContext(), { x: -1000, y: -1000, w: 2000, h: 2000 }, 2000, 30, 1);
     expect(result.primitives).toHaveLength(1);
-    expect(result.primitives[0].findingId).toBe('b-1');
+    expect(result.primitives[0]!.findingId).toBe('b-1');
   });
 });

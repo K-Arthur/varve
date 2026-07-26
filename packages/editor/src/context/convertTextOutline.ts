@@ -134,6 +134,7 @@ function isWoff2(data: ArrayBuffer): boolean {
 async function decompressWoff2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
   // Try wawoff2 (available in test environment)
   try {
+    // @ts-expect-error - wawoff2 has no published type declarations; used only in test environments
     const { decompress } = await import('wawoff2');
     const result = await decompress(new Uint8Array(data));
     const copy = new Uint8Array(result.length);

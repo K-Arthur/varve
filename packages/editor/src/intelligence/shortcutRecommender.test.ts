@@ -22,10 +22,10 @@ describe('shortcutRecommender', () => {
 
     const result = recommendShortcuts(tracker);
     expect(result.length).toBeGreaterThanOrEqual(1);
-    expect(result[0].actionId).toBe('menu:alignLeft');
-    expect(result[0].usageCount).toBe(12);
-    expect(result[0].message).toContain('Align left');
-    expect(result[0].message).toContain('12');
+    expect(result[0]!.actionId).toBe('menu:alignLeft');
+    expect(result[0]!.usageCount).toBe(12);
+    expect(result[0]!.message).toContain('Align left');
+    expect(result[0]!.message).toContain('12');
     vi.restoreAllMocks();
   });
 

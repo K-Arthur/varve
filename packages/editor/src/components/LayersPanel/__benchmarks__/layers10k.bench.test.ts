@@ -267,7 +267,7 @@ describe('Subtree Clone Performance', () => {
       const { doc: subtreeDoc, rootId } = build1kSubtreeDoc();
 
       const start = performance.now();
-      const result = deepCloneSubtree(subtreeDoc, rootId);
+      const result = deepCloneSubtree(subtreeDoc.nodes, subtreeDoc.nextId, rootId);
       const elapsed = performance.now() - start;
 
       expect(Object.keys(result.nodes).length).toBe(1001);

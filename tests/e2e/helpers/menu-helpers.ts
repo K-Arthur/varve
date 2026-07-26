@@ -1,6 +1,4 @@
-import { type Page, expect } from '@playwright/test';
-
-const MOD_KEY = process.platform === 'darwin' ? 'Meta' : 'Control';
+import { expect, type Page } from '@playwright/test';
 
 export function mod(key: string): string {
   return process.platform === 'darwin' ? `Meta+${key}` : `Control+${key}`;

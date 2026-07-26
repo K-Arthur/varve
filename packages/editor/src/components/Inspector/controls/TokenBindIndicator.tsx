@@ -8,7 +8,7 @@
  *
  * Research basis: Figma variable binding chips; APG badge pattern.
  */
-import { Tooltip, TooltipProvider } from '@strata/ui';
+import { Tooltip } from '@strata/ui';
 import { useCallback, useRef } from 'react';
 
 export interface TokenBindIndicatorProps {

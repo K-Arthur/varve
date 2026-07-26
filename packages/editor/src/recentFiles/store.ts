@@ -243,7 +243,7 @@ export function togglePinEntry(entries: RecentEntry[], id: string): RecentEntry[
   const idx = entries.findIndex((e) => e.id === id);
   if (idx < 0) return entries;
   const updated = [...entries];
-  updated[idx] = { ...updated[idx], pinned: !updated[idx].pinned };
+  updated[idx] = { ...updated[idx]!, pinned: !updated[idx]!.pinned };
   return saveEntries(updated);
 }
 
@@ -255,6 +255,6 @@ export function updateEntryLocator(
   const idx = entries.findIndex((e) => e.id === id);
   if (idx < 0) return entries;
   const updated = [...entries];
-  updated[idx] = { ...updated[idx], locator };
+  updated[idx] = { ...updated[idx]!, locator };
   return saveEntries(updated);
 }

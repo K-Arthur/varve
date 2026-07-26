@@ -112,8 +112,6 @@ test.describe('Tooltip system', () => {
   });
 
   test('tooltip appears on status bar zoom controls', async ({ page }) => {
-    // Find the zoom button in the status bar
-    const zoomOutBtn = page.locator('.editor-status__toggle').locator('..').locator('..').first();
     // Try to find it through the Tooltip wrapper
     const tooltip = page.locator('[role="tooltip"]');
 

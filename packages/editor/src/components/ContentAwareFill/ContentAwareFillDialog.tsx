@@ -275,14 +275,14 @@ export function ContentAwareFillDialog({
       const maskImageData = fullMaskCtx.getImageData(0, 0, fullData.width, fullData.height);
       const mask = new Uint8Array(fullData.width * fullData.height);
       for (let i = 0; i < mask.length; i++) {
-        mask[i] = maskImageData.data[i * 4];
+        mask[i] = maskImageData.data[i * 4]!;
       }
 
       let modelPath: string | undefined;
       let modelId: string | undefined;
       if (quality === 'ai') {
         const loader = getModelLoader();
-        modelPath = await loader.getModelPath(MODEL_ID, controller.signal);
+        modelPath = (await loader.getModelPath(MODEL_ID, controller.signal)) ?? undefined;
         modelId = MODEL_ID;
         if (!modelPath) throw new Error('AI model not found. Download it first.');
       }

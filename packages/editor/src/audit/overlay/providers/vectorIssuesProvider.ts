@@ -29,7 +29,7 @@ export function createVectorIssuesProvider(): OverlayProvider {
 
         primitives.push({
           kind: 'badge',
-          anchor: { x: bounds.x + bounds.w + 12, y: bounds.y },
+          anchor: [bounds.x + bounds.w + 12, bounds.y],
           text: `${total} issue${total === 1 ? '' : 's'}`,
           severity: total > 5 ? 'error' : 'warning',
           findingId: `vector-${nodeId}-badge`,
@@ -53,7 +53,7 @@ export function createVectorIssuesProvider(): OverlayProvider {
           if (issue.position) {
             primitives.push({
               kind: 'point',
-              at: issue.position,
+              at: [issue.position.x, issue.position.y],
               style: {
                 strokeColor:
                   issue.type === 'self-intersection'
@@ -87,7 +87,7 @@ function scanVectorIssues(ctx: OverlayContext): Map<string, VectorIssue[]> {
     const shape = node.shape;
 
     if (shape.kind === 'path' || shape.kind === 'line') {
-      const points = shape.points ?? [];
+      const points = shape.kind === 'path' ? (shape.points ?? []) : [];
       if (points.length >= 2) {
         const lastPt = points[points.length - 1];
 
@@ -96,8 +96,8 @@ function scanVectorIssues(ctx: OverlayContext): Map<string, VectorIssue[]> {
         }
 
         for (let i = 0; i < points.length; i++) {
-          const p = points[i];
-          const prev = points[(i - 1 + points.length) % points.length];
+          const p = points[i]!;
+          const prev = points[(i - 1 + points.length) % points.length]!;
           const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
           if (dist < 1 && points.length > 2) {
             issues.push({ type: 'tiny-segment', nodeId, position: p });
@@ -105,21 +105,18 @@ function scanVectorIssues(ctx: OverlayContext): Map<string, VectorIssue[]> {
         }
 
         for (let i = 0; i < points.length; i++) {
+          const pi = points[i]!;
+          const pi1 = points[(i + 1) % points.length]!;
           for (let j = i + 2; j < points.length; j++) {
-            if (
-              segmentsIntersect(
-                points[i],
-                points[(i + 1) % points.length],
-                points[j],
-                points[(j + 1) % points.length],
-              )
-            ) {
+            const pj = points[j]!;
+            const pj1 = points[(j + 1) % points.length]!;
+            if (segmentsIntersect(pi, pi1, pj, pj1)) {
               issues.push({
                 type: 'self-intersection',
                 nodeId,
                 position: {
-                  x: (points[i].x + points[j].x) / 2,
-                  y: (points[i].y + points[j].y) / 2,
+                  x: (pi.x + pj.x) / 2,
+                  y: (pi.y + pj.y) / 2,
                 },
               });
               break;

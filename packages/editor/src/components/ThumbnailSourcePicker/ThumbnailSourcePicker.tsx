@@ -38,7 +38,7 @@ export interface ThumbnailSourcePickerProps {
 
 export function ThumbnailSourcePicker({
   file,
-  platform,
+  platform: _platform,
   onPreferenceChange,
   onRegenerate,
   compact,
@@ -65,20 +65,6 @@ export function ThumbnailSourcePicker({
   const handleReset = useCallback(() => {
     onPreferenceChange({ type: 'automatic' });
   }, [onPreferenceChange]);
-
-  const _sources: Array<{
-    pref: ThumbnailSourcePreference;
-    label: string;
-    icon: string;
-    description: string;
-  }> = [
-    {
-      pref: { type: 'automatic' },
-      label: 'Automatic',
-      icon: 'Image',
-      description: 'Document overview',
-    },
-  ];
 
   // Page sources — only include if the file's document has pages
   // (detection requires loading the document, so we only show the

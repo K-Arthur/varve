@@ -303,6 +303,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
       sections: patch.sections?.sections ?? current.sections.sections,
     },
     performance: { ...current.performance, ...patch.performance },
+    features: { ...current.features },
   };
   saveSettings(next);
   return next;
@@ -318,6 +319,7 @@ export function resetSettings(): EditorSettings {
     viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
     sections: { ...DEFAULT_SECTION_SETTINGS },
     performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+    features: { ...DEFAULT_FEATURES },
   };
   saveSettings(defaults);
   return defaults;

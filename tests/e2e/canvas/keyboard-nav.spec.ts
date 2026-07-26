@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { navigateToEditor, seedLayers } from '../shared';
 import { assertFocusNotOnBody, mod } from '../helpers/menu-helpers';
+import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe.configure({ mode: 'serial' });
 

@@ -23,7 +23,7 @@ export function createContrastProvider(): OverlayProvider {
 
         primitives.push({
           kind: 'badge',
-          anchor: { x: bounds.x, y: bounds.y - 8 },
+          anchor: [bounds.x, bounds.y - 8],
           text: bgResolved === null ? 'Contrast: bg ambiguous' : `Contrast: ${bgResolved}`,
           severity: 'warning',
           findingId: `contrast-${nodeId}`,

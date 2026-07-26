@@ -11,9 +11,10 @@
  * - Truncation-only mode for text overflow detection
  */
 
+import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
@@ -24,7 +25,6 @@ import {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 
 export interface TooltipProps {
   children: ReactNode;

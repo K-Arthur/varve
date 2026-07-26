@@ -375,7 +375,7 @@ export function expandBounds(
   const padding: PaddingSpec = opts.paddingSides ?? opts.padding;
   const expanded = paddingBounds({ x: 0, y: 0, w: bounds.w, h: bounds.h }, padding);
 
-  if (expanded.x === 0 && expanded.y === 0 && expanded.w === shape.w && expanded.h === shape.h) {
+  if (expanded.x === 0 && expanded.y === 0 && expanded.w === bounds.w && expanded.h === bounds.h) {
     return doc;
   }
 

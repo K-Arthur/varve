@@ -15,8 +15,7 @@ type SceneNode = {
   fill: number[];
   strokes: unknown[];
   effects: unknown[];
-  // biome-ignore lint/suspicious/noExplicitAny: test-helper type for all shape variants
-  shape?: any;
+  shape?: never;
   w?: number;
   h?: number;
   children?: string[];

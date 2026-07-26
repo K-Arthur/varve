@@ -108,8 +108,8 @@ describe('archiveBuilder', () => {
       });
 
       expect(progressCalls.length).toBeGreaterThan(0);
-      expect(progressCalls[progressCalls.length - 1].phase).toBe('complete');
-      expect(progressCalls[progressCalls.length - 1].progress).toBe(1);
+      expect(progressCalls[progressCalls.length - 1]!.phase).toBe('complete');
+      expect(progressCalls[progressCalls.length - 1]!.progress).toBe(1);
     });
 
     it('supports AbortSignal', async () => {
@@ -206,7 +206,7 @@ describe('archiveBuilder', () => {
 
       const assets = collectArchiveAssets(doc);
       expect(assets.length).toBe(1);
-      expect(assets[0].path).toMatch(/^assets\/\d{4}\.png$/);
+      expect(assets[0]!.path).toMatch(/^assets\/\d{4}\.png$/);
     });
 
     it('collects raster mask assets', () => {
@@ -227,7 +227,7 @@ describe('archiveBuilder', () => {
 
       const assets = collectArchiveAssets(doc);
       expect(assets.length).toBe(1);
-      expect(assets[0].path).toMatch(/^masks\/mask-1\.png$/);
+      expect(assets[0]!.path).toMatch(/^masks\/mask-1\.png$/);
     });
 
     it('deduplicates identical assets', () => {
