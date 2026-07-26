@@ -1,22 +1,4 @@
 {
-  "errors": [
-    "packages/codegen typecheck: src/__tests__/flattening-enhanced.test.ts",
-    "packages/codegen typecheck: src/__tests__/flattening.test.ts",
-    "packages/codegen typecheck: src/__tests__/html-emitter.test.ts",
-    "packages/codegen typecheck: src/__tests__/ir-converter-v2.test.ts",
-    "packages/codegen typecheck: src/__tests__/tailwind-enhanced.test.ts",
-    "packages/codegen typecheck: src/__tests__/web-component.test.ts",
-    "packages/codegen typecheck: src/codegen.test.ts",
-    "packages/codegen typecheck: src/flattening.ts",
-    "packages/codegen typecheck: src/html.ts",
-    "packages/codegen typecheck: src/ir-converter.test.ts",
-    "packages/codegen typecheck: src/ir-converter.ts",
-    "packages/codegen typecheck: src/raster-audit.ts",
-    "packages/codegen typecheck: src/tailwind.ts",
-    "packages/codegen typecheck: src/target-analysis.ts",
-    "packages/codegen typecheck: src/vector-audit.ts",
-    "packages/codegen typecheck: src/vue.ts",
-    "packages/codegen typecheck: src/web-component.ts"
-  ],
-  "updatedAt": "2026-07-25T08:12:13.926Z"
+  "errors": [],
+  "updatedAt": "2026-07-26T23:19:00.418Z"
 }
