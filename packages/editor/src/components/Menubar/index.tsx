@@ -134,6 +134,16 @@ function buildMenus(
     beforeAfterCompare: boolean;
     rulerMode: string;
     snapEnabled: boolean;
+    documentGrid: {
+      visible: boolean;
+      spacingX: number;
+      spacingY: number;
+      subdivisions: number;
+      offsetX: number;
+      offsetY: number;
+      color: string;
+      opacity: number;
+    };
   },
   recentEntries: RecentEntry[],
 ): { id: MenuId; items: MenuItem[] }[] {
@@ -477,6 +487,7 @@ export function Menubar({
       state.beforeAfterCompare,
       state.rulerMode,
       state.snapEnabled,
+      state.documentGrid?.visible,
       recentEntries,
     ],
   );

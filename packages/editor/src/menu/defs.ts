@@ -546,6 +546,14 @@ export function getViewMenu(
       run: () => runAction('rulerModeGlobal'),
     },
     {
+      id: 'toggleGrid',
+      labelKey: 'menu.view.toggleGrid',
+      accelerator: a('g', true, true),
+      kind: 'command',
+      group: 'grid',
+      run: () => runAction('toggleGrid'),
+    },
+    {
       id: 'gridOverlayBaseline',
       labelKey: 'menu.view.gridOverlayBaseline',
       accelerator: a("'", true),

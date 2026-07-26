@@ -19,6 +19,8 @@ import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { renderDrawDiagnostics } from './drawDiagnostics';
 import { parseGridTemplate } from './gridTemplate';
+import { computeGridLines, renderGridOnCtx } from './gridRenderer';
+import type { DocumentGridSettings } from '../context/types';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 
 export interface UseOverlayDrawOptions {
@@ -39,6 +41,9 @@ export interface UseOverlayDrawOptions {
     } | null;
     tool: string;
     selection: readonly string[];
+    pixelGridEnabled: boolean;
+    dotGridEnabled: boolean;
+    documentGrid: DocumentGridSettings;
     [key: string]: unknown;
   }>;
   transformCacheRef: MutableRefObject<TransformCache>;
@@ -87,6 +92,33 @@ export function useOverlayDraw({
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // ── Document grid overlay ────────────────────────────────────────────
+    const dg = s.documentGrid;
+    if (dg?.visible && dg.spacingX > 0 && dg.spacingY > 0) {
+      const lines = computeGridLines(
+        {
+          visible: true,
+          spacingX: dg.spacingX,
+          spacingY: dg.spacingY,
+          subdivisions: dg.subdivisions,
+          offsetX: dg.offsetX,
+          offsetY: dg.offsetY,
+          color: dg.color,
+          opacity: dg.opacity,
+          snapEnabled: true,
+        },
+        s.zoom,
+        s.pan.x,
+        s.pan.y,
+        cssW,
+        cssH,
+      );
+      const minorOpacity = Math.min(dg.opacity, 0.25);
+      renderGridOnCtx(ctx, lines, dpr, dg.color, dg.color, dg.opacity, minorOpacity);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
     applyEditorCameraToCtx(ctx, camState, dpr, vp);
 
     // ── Mask preview overlay ─────────────────────────────────────────────

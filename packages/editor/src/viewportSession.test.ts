@@ -13,6 +13,7 @@ describe('viewportSession', () => {
     unitType: 'mm' as const,
     guidesVisible: false,
     snapGrid: 16,
+    gridVisible: false,
   };
 
   it('captureViewport copies all fields', () => {

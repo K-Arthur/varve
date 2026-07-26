@@ -126,6 +126,10 @@ export function registerEditorActions(
   reg('togglePixelGrid', 'Toggle Pixel Grid', 'canvas', () =>
     ctx.setPixelGridEnabled(!ctx.state.pixelGridEnabled),
   );
+  reg('toggleGrid', 'Toggle Grid', 'canvas', () => {
+    const dg = ctx.state.documentGrid;
+    ctx.setDocumentGrid({ ...dg, visible: !dg.visible });
+  });
   reg('enterFrame', 'Enter Frame', 'canvas', handlers.enterFrame ?? (() => {}));
   reg('editText', 'Edit Text', 'text', handlers.editText ?? (() => {}));
   if (!r.has('upscaleImage')) {

@@ -106,6 +106,30 @@ export type RulerMode = 'global' | 'artboard';
 
 export type GridOverlayMode = 'none' | 'baseline' | 'isometric';
 
+export interface DocumentGridSettings {
+  visible: boolean;
+  spacingX: number;
+  spacingY: number;
+  subdivisions: number;
+  offsetX: number;
+  offsetY: number;
+  color: string;
+  opacity: number;
+}
+
+export function createDefaultDocumentGridSettings(): DocumentGridSettings {
+  return {
+    visible: false,
+    spacingX: 8,
+    spacingY: 8,
+    subdivisions: 4,
+    offsetX: 0,
+    offsetY: 0,
+    color: 'var(--color-border-subtle)',
+    opacity: 0.4,
+  };
+}
+
 export interface SessionMeta {
   id: string;
   name: string;
@@ -126,8 +150,10 @@ export interface EditorState {
   cursorPos: { x: number; y: number } | null;
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   pixelGridEnabled: boolean;
+  dotGridEnabled: boolean;
   snapEnabled: boolean;
   snapGrid: number;
+  documentGrid: DocumentGridSettings;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   prototypeMode: boolean;
@@ -634,8 +660,10 @@ export interface EditorContextValue {
   setDocumentUnit: (unit: DocumentUnit) => void;
   setSoftProofEnabled: (v: boolean) => void;
   setPixelGridEnabled: (v: boolean) => void;
+  setDotGridEnabled: (v: boolean) => void;
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
+  setDocumentGrid: (settings: DocumentGridSettings) => void;
   isSnapExcluded?: (id: string) => boolean;
 
   // Export

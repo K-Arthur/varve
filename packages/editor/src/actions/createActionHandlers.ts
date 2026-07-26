@@ -119,6 +119,10 @@ export function createActionHandlers(
       if (e.state.canvasMode !== 'full') e.setCanvasMode('full');
     },
     inspectMode: () => e.setTool(e.state.tool === 'inspect' ? 'select' : ('inspect' as ToolId)),
+    toggleGrid: () => {
+      const dg = e.state.documentGrid;
+      e.setDocumentGrid({ ...dg, visible: !dg.visible });
+    },
     togglePixelGrid: () => e.setPixelGridEnabled(!e.state.pixelGridEnabled),
     colorBlindnessNone: () => e.setColorBlindnessView('none'),
     colorBlindnessProtanopia: () => e.setColorBlindnessView('protanopia'),
