@@ -1554,6 +1554,13 @@
   width: min(94vw, 920px);
   max-width: min(94vw, 920px);
   max-height: min(88vh, 760px);
+}
+/* The native <dialog> UA stylesheet hides closed dialogs via
+   `dialog:not([open]) { display: none }` — a UA-origin rule that any
+   author `display` declaration overrides regardless of specificity. Scope
+   `display: flex` to [open] so a closed (but always-mounted) Settings
+   dialog stays correctly hidden instead of showing an empty header shell. */
+.strata-dialog--settings[open] {
   display: flex;
   flex-direction: column;
 }
