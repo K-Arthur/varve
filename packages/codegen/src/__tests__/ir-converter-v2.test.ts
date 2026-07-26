@@ -57,9 +57,10 @@ describe('IR v2.1 — flattening info', () => {
       'adj1',
       'curves',
       {
+        channel: 'rgb',
         points: [
-          [0, 0],
-          [1, 1],
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
         ],
       },
       { name: 'Curves' },
@@ -68,13 +69,16 @@ describe('IR v2.1 — flattening info', () => {
       ...adj,
       adjustments: [
         {
-          type: 'curves' as const,
+          kind: 'curves' as const,
+          id: 'a1',
+          channel: 'rgb' as const,
           points: [
-            [0, 0],
-            [1, 1],
+            { input: 0, output: 0 },
+            { input: 1, output: 1 },
           ],
           visible: true,
           opacity: 1,
+          blendMode: 'normal' as const,
         },
       ],
     };
@@ -96,7 +100,7 @@ describe('IR v2.1 — flattening info', () => {
     const frame = makeFrameNode('f1', { name: 'Shadow Frame' });
     const frameWithEffects = {
       ...frame,
-      fills: [],
+      fills: [] as import('@strata/scene').Fill[],
       effects: [
         {
           type: 'innerShadow' as const,
@@ -104,7 +108,7 @@ describe('IR v2.1 — flattening info', () => {
           offsetY: 2,
           radius: 4,
           color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 128 },
-        },
+        } as unknown as import('@strata/scene').Effect,
       ],
     };
 
@@ -184,7 +188,7 @@ describe('IR v2.1 — fidelity warnings', () => {
     const frame = makeFrameNode('f1', { name: 'Glass' });
     const frameWithEffects = {
       ...frame,
-      fills: [],
+      fills: [] as import('@strata/scene').Fill[],
       effects: [
         {
           type: 'glassMaterial' as const,
@@ -193,7 +197,7 @@ describe('IR v2.1 — fidelity warnings', () => {
           saturation: 1.0,
           brightness: 1.0,
           noise: 0.02,
-        },
+        } as unknown as import('@strata/scene').Effect,
       ],
     };
 
@@ -229,7 +233,19 @@ describe('IR v2.1 — responsive inference', () => {
 describe('IR v2.1 — adjustment scope', () => {
   it('detects adjustment scope', () => {
     const doc = createDocument('Test');
-    const adj = makeAdjustmentNode('adj1', 'brightness', { value: 1.2 }, { name: 'Brightness' });
+    const adj = makeAdjustmentNode(
+      'adj1',
+      'levels',
+      {
+        channel: 'rgb',
+        inputBlack: 0,
+        inputWhite: 255,
+        gamma: 1,
+        outputBlack: 0,
+        outputWhite: 255,
+      },
+      { name: 'Levels' },
+    );
 
     const docWithNodes = {
       ...doc,

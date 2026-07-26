@@ -44,7 +44,7 @@ describe('webComponentTargetGaps', () => {
   it('reports gaps for gradient fills', () => {
     const doc = createDocument('Test');
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, { name: 'Box' });
-    (node as Record<string, unknown>).fills = [
+    (node as unknown as Record<string, unknown>).fills = [
       {
         type: 'gradient',
         gradient: { type: 'angular', stops: [] },

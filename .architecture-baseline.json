@@ -4,18 +4,18 @@
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 872,
+      "lines": 939,
       "imports": 46,
       "overBudget": false
     },
     "packages/editor/src/CanvasArea.tsx": {
-      "lines": 3948,
-      "imports": 64,
+      "lines": 2780,
+      "imports": 39,
       "overBudget": false
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 2281,
-      "imports": 22,
+      "lines": 2347,
+      "imports": 14,
       "overBudget": true
     },
     "packages/home/src/HomeShell.tsx": {
@@ -24,8 +24,8 @@
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 7685,
-      "imports": 62,
+      "lines": 7901,
+      "imports": 64,
       "overBudget": true
     }
   },

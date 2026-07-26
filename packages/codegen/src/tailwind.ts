@@ -10,7 +10,6 @@ import { analyzeNodeFlattening } from './flattening';
 import type { IRDocument, SemanticNode } from './ir-types';
 import { resolveTokenName } from './tokens';
 import type { RasterAsset, TargetGap } from './types';
-import { managedColorToRgba } from '@strata/shared';
 
 export interface TailwindExportOptions {
   /** Pre-rasterized image assets keyed by sourceNodeId. */
@@ -302,9 +301,13 @@ export function sceneToTailwind(
 ): string {
   // Try IR-based conversion if node is in document
   try {
-    const { sceneToIR } = require('./ir-converter');
+    const { sceneToIR } = require('./ir-converter') as {
+      sceneToIR: (doc: import('@strata/scene').Document) => IRDocument;
+    };
     const ir = sceneToIR(doc);
-    const irNode = Object.values(ir.nodes).find((n) => n.metadata.sourceNodeId === node.id);
+    const irNode = Object.values(ir.nodes).find(
+      (n): n is SemanticNode => n.metadata.sourceNodeId === node.id,
+    );
     if (irNode) return exportIrNodeToTailwind(irNode, ir, opts ?? {});
   } catch {
     // Fall through
@@ -390,7 +393,7 @@ export function exportIrToTailwind(ir: IRDocument, opts: TailwindExportOptions =
   const imports = `import React from 'react';\n\n`;
   const roots = ir.rootIds
     .map((id) => ir.nodes[id])
-    .filter(Boolean)
+    .filter((n): n is SemanticNode => n != null)
     .filter((n) => n.visible !== false);
 
   const mainComponent = `function Design() {\n  return (\n    <div className="min-h-screen bg-white">\n${roots.map((n) => `      ${exportIrNodeToTailwind(n, ir, opts)}`).join('\n')}\n    </div>\n  );\n}\n\nexport default Design;`;
@@ -412,7 +415,13 @@ export function tailwindTargetGaps(
       (a) => a.visible && a.opacity > 0,
     );
     if (visible.length > 0) {
-      const kinds = [...new Set(visible.map((a) => a.type))].join(', ');
+      const kinds = [
+        ...new Set(
+          visible.map((a) => (a as { type?: string }).type ?? (a as { kind?: string }).kind ?? ''),
+        ),
+      ]
+        .filter(Boolean)
+        .join(', ');
       gaps.push({
         nodeId: node.id,
         nodeName: node.name,
@@ -516,9 +525,10 @@ export function exportNodeToTailwind(
   } else {
     const fill = node.fills?.[0]?.color ?? node.fill;
     if (fill) {
-      const r = Math.round(fill.r ?? 0);
-      const gCol = Math.round(fill.g ?? 0);
-      const bCol = Math.round(fill.b ?? 0);
+      const fc = fill as { r?: number; g?: number; b?: number };
+      const r = Math.round(fc.r ?? 0);
+      const gCol = Math.round(fc.g ?? 0);
+      const bCol = Math.round(fc.b ?? 0);
       const hex = `#${r.toString(16).padStart(2, '0')}${gCol.toString(16).padStart(2, '0')}${bCol.toString(16).padStart(2, '0')}`;
       b.classes.push(`bg-[${hex}]`);
     }

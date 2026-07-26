@@ -72,7 +72,6 @@ function buildVueTemplate(
     (node.kind === 'frame' || node.kind === 'group') &&
     (node as import('@strata/scene').FrameNode).layoutStyle
   ) {
-    const fn = node as import('@strata/scene').FrameNode;
     const classes = [`container-${node.name.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`];
     const children = getChildren(doc, node)
       .map((child) => buildVueTemplate(child, doc, depth + 1, opts))
@@ -97,7 +96,7 @@ function buildVueTemplate(
   return `${indent}<div class="${classes.join(' ')}"></div>`;
 }
 
-function buildVueStyle(node: SceneNode, doc: SceneDocument, opts?: VueExportOptions): string[] {
+function buildVueStyle(node: SceneNode, _doc: SceneDocument, opts?: VueExportOptions): string[] {
   const lines: string[] = [];
   const pos = computeNodePos(node);
   const bg = cssBg(node, opts);

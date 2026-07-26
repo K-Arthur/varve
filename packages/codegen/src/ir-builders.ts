@@ -115,19 +115,30 @@ function buildFillSpec(node: SceneNode): FillSpec[] {
 // ── Stroke Spec Builder ────────────────────────────────────────────────────────
 
 function buildStrokeSpec(node: SceneNode): StrokeSpec[] {
-  if (!node.strokes || node.strokes.length === 0) return [];
+  const strokes = (node as unknown as Record<string, unknown>).strokes as
+    | Array<Record<string, unknown>>
+    | undefined;
+  if (!strokes || strokes.length === 0) return [];
 
-  return node.strokes
+  return strokes
     .filter((s) => s.visible !== false)
     .map((s) => ({
-      fills: s.color ? [{ type: 'solid', value: managedColorToCss(s.color), opacity: 1 }] : [],
-      weight: s.weight ?? 1,
-      cap: s.cap ?? 'round',
-      join: s.join ?? 'miter',
-      miterLimit: s.miterLimit ?? 4,
-      dashArray: s.dashArray ?? [],
-      dashOffset: s.dashOffset ?? 0,
-      align: s.align ?? 'center',
+      fills: s.color
+        ? [
+            {
+              type: 'solid',
+              value: managedColorToCss(s.color as import('@strata/scene').ManagedColor),
+              opacity: 1,
+            },
+          ]
+        : [],
+      weight: (s.weight as number) ?? 1,
+      cap: (s.cap as 'round' | 'butt' | 'square') ?? 'round',
+      join: (s.join as 'miter' | 'round' | 'bevel') ?? 'miter',
+      miterLimit: (s.miterLimit as number) ?? 4,
+      dashArray: (s.dashArray as number[]) ?? [],
+      dashOffset: (s.dashOffset as number) ?? 0,
+      align: (s.align as 'center' | 'inside' | 'outside') ?? 'center',
     }));
 }
 
@@ -164,14 +175,20 @@ function buildTypographySpec(node: SceneNode): TypographySpec {
     if (tn.textAlign) base.textAlign = tn.textAlign;
     if (tn.textCase) base.textTransform = tn.textCase;
     if (tn.textDecoration) base.decoration = tn.textDecoration;
-    if (tn.direction) base.direction = tn.direction;
+    if (tn.direction && tn.direction !== 'auto') base.direction = tn.direction;
     if (tn.variableAxes && Object.keys(tn.variableAxes).length > 0) {
       base.variableAxes = tn.variableAxes;
     }
     if (tn.openTypeFeatures && Object.keys(tn.openTypeFeatures).length > 0) {
       base.openTypeFeatures = tn.openTypeFeatures;
     }
-    if (tn.whiteSpace) base.whiteSpace = tn.whiteSpace;
+    if ('whiteSpace' in tn && (tn as Record<string, unknown>).whiteSpace)
+      base.whiteSpace = (tn as Record<string, unknown>).whiteSpace as
+        | 'normal'
+        | 'nowrap'
+        | 'pre'
+        | 'pre-wrap'
+        | 'pre-line';
   }
 
   return base;
@@ -324,22 +341,13 @@ function buildAutoLayoutSpec(node: FrameNode): LayoutSpec {
       bottom: node.layoutStyle.padding[2],
       left: node.layoutStyle.padding[3],
     };
-    layout.alignItems =
-      node.layoutStyle.primaryAxisAlignItems === 'MIN'
-        ? 'start'
-        : node.layoutStyle.primaryAxisAlignItems === 'MAX'
-          ? 'end'
-          : node.layoutStyle.primaryAxisAlignItems === 'CENTER'
-            ? 'center'
-            : 'stretch';
+    layout.alignItems = node.layoutStyle.alignItems ?? 'stretch';
     layout.justifyContent =
-      node.layoutStyle.counterAxisAlignItems === 'MIN'
-        ? 'start'
-        : node.layoutStyle.counterAxisAlignItems === 'MAX'
-          ? 'end'
-          : node.layoutStyle.counterAxisAlignItems === 'CENTER'
-            ? 'center'
-            : 'stretch';
+      node.layoutStyle.justifyContent === 'spaceBetween'
+        ? 'space-between'
+        : node.layoutStyle.justifyContent === 'spaceAround'
+          ? 'space-around'
+          : (node.layoutStyle.justifyContent ?? 'stretch');
     layout.width = { mode: 'hug', value: 0 };
     layout.height = { mode: 'hug', value: 0 };
   }
@@ -426,12 +434,12 @@ function computeNodePosition(node: SceneNode): { x: number; y: number; w: number
 function guessLayoutMode(node: SceneNode, children: string[], doc: Document): LayoutMode {
   if (node.kind === 'frame') {
     const fn = node as FrameNode;
+    if (fn.layoutStyle?.gridTemplateColumns || fn.layoutStyle?.gridTemplateRows) return 'grid';
     if (fn.layoutStyle) return 'flex';
-    if (fn.gridStyle) return 'grid';
     if (children.length <= 1) return 'absolute';
     const positions = children
       .map((id) => doc.nodes[id])
-      .filter(Boolean)
+      .filter((n): n is import('@strata/scene').SceneNode => n != null)
       .map((n) => ({
         x: n.transform[4] ?? 0,
       }));
@@ -509,7 +517,9 @@ function buildContentSpec(node: SceneNode): ContentSpec {
                 : 'none',
           position: { x: 0, y: 0 },
           crop: imgFill.image.crop,
-          focalPoint: imgFill.image.focalPoint,
+          focalPoint: (imgFill.image as unknown as Record<string, unknown>).focalPoint as
+            | { x: number; y: number }
+            | undefined,
         },
       };
     }
@@ -558,6 +568,7 @@ function buildAccessibilityMetadata(node: SceneNode, role: SemanticRole): Access
     card: 'group',
     code: 'code',
     quote: 'blockquote',
+    figure: 'figure',
     divider: 'separator',
     skeleton: 'presentation',
     unknown: 'generic',

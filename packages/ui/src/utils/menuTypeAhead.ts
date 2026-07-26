@@ -42,24 +42,25 @@ export function matchMenuTypeAhead(
   const allSameChar = buffer.length > 0 && buffer.split('').every((c) => c === buffer[0]);
 
   if (allSameChar) {
-    const searchChar = buffer[0];
-    const matchingIndices = searchableIndices.filter(
-      ({ item }) => collator.compare(item.label.slice(0, 1), searchChar) === 0,
-    );
+    const searchChar = buffer[0]!;
+    const matchingIndices = searchableIndices.filter((entry) => {
+      const label = entry.item.label;
+      return label != null && collator.compare(label.slice(0, 1), searchChar) === 0;
+    });
 
     if (matchingIndices.length === 0) return null;
 
     const currentPos = matchingIndices.findIndex((m) => m.idx === currentIndex);
     const nextPos = (currentPos + 1) % matchingIndices.length;
-    return matchingIndices[nextPos].idx;
+    return matchingIndices[nextPos]!.idx;
   }
 
   for (let offset = 0; offset < items.length; offset++) {
     const checkIdx = (currentIndex + 1 + offset) % items.length;
     const item = items[checkIdx];
-    if (item.disabled) continue;
+    if (!item || item.disabled) continue;
 
-    const prefix = item.label.slice(0, buffer.length);
+    const prefix = item.label?.slice(0, buffer.length) ?? '';
     if (collator.compare(prefix, buffer) === 0) {
       return checkIdx;
     }
@@ -72,7 +73,7 @@ export function shouldTypeAhead(
   e: KeyboardEvent | React.KeyboardEvent,
   currentBuffer: string,
 ): boolean {
-  if (e.isComposing) return false;
+  if ('isComposing' in e && e.isComposing) return false;
   if ((e as unknown as { keyCode?: number }).keyCode === 229) return false;
   if (e.repeat) return false;
   if (e.ctrlKey || e.metaKey || e.altKey) return false;

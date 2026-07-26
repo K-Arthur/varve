@@ -99,8 +99,8 @@ describe('sceneToIR', () => {
     const parentNode = Object.values(ir.nodes).find((n) => n.metadata.sourceNodeId === 'parent1');
 
     expect(parentNode?.children).toHaveLength(2);
-    expect(parentNode?.children[0].metadata.sourceNodeId).toBe('child1');
-    expect(parentNode?.children[1].metadata.sourceNodeId).toBe('child2');
+    expect(parentNode?.children[0]?.metadata.sourceNodeId).toBe('child1');
+    expect(parentNode?.children[1]?.metadata.sourceNodeId).toBe('child2');
   });
 
   it('converts text nodes with typography', () => {
