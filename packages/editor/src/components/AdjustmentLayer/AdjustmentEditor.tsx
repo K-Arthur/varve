@@ -2,8 +2,8 @@ import type { Color, CurvePoint } from '@strata/engine';
 import {
   COLOR_HALFTONE_PRESETS,
   LUT_INPUT_SPACE_LABELS,
-  parse3dlData,
-  parseCubeData,
+  parseLutFile,
+  serializeLutForDocument,
   TRITONE_PRESETS,
 } from '@strata/engine';
 import type { Adjustment, ManagedColor } from '@strata/scene';
@@ -471,9 +471,9 @@ export function AdjustmentEditor({
           }
           try {
             const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
-            if (ext === 'cube') {
-              const result = parseCubeData(text);
-              const json = JSON.stringify(result.transform);
+            if (ext === 'cube' || ext === '3dl') {
+              const result = parseLutFile(file.name, text);
+              const json = serializeLutForDocument(result.transform);
               onChange({
                 lutJson: json,
                 originalFilename: file.name,
@@ -484,28 +484,16 @@ export function AdjustmentEditor({
               } as unknown as Partial<Adjustment>);
               const kind = result.transform.kind;
               const size =
-                result.transform.kind === '3d'
-                  ? result.transform.size
-                  : result.transform.kind === '1d'
-                    ? result.transform.size
-                    : 0;
-              setLutMeta({ name: result.title ?? file.name, format: ext, size });
+                kind === 'shaper3d' ? result.transform.lut3d.size : result.transform.size;
+              setLutMeta({
+                name: result.title ?? file.name,
+                format: result.format,
+                size,
+              });
+              const warning = result.warnings?.[0] ? `; ${result.warnings[0]}` : '';
               setStatus(
-                `Imported ${ext.toUpperCase()} (${kind === '1d' ? '1D' : '3D'} ${size}^${kind === '3d' ? '3' : '1'})`,
+                `Imported ${result.format.toUpperCase()} (${kind === '1d' ? '1D' : '3D'} ${size}^${kind === '3d' ? '3' : '1'}${warning})`,
               );
-            } else if (ext === '3dl') {
-              const result = parse3dlData(text);
-              const json = JSON.stringify(result.transform);
-              onChange({
-                lutJson: json,
-                originalFilename: file.name,
-                inputSpace: 'sRGB',
-                interpolation: 'tetrahedral',
-                intensity: 1,
-                linearize: false,
-              } as unknown as Partial<Adjustment>);
-              setLutMeta({ name: file.name, format: '3dl', size: result.transform.size });
-              setStatus(`Imported 3DL (${result.transform.size}^3)`);
             } else {
               setStatus(`Unsupported format: .${ext}`);
             }

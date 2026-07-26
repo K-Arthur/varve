@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
+import { serializeLutForDocument } from './lut/lutService';
+import { makeIdentityLut1D } from './lut/types';
 import type { FilterIR } from './types';
 
 // Helper to create a small RGBA ImageData for testing premultiplied alpha
@@ -158,6 +160,39 @@ describe('filter compositing', () => {
     );
 
     expect(Array.from(output?.data ?? [])).toEqual([191, 127, 0, 255]);
+  });
+
+  it('applies a versioned embedded LUT after document deserialization', () => {
+    const input = makeTestImageData([[0, 128, 255, 96]], 1, 1);
+    const inverse = makeIdentityLut1D(2);
+    inverse.r.set([1, 0]);
+    inverse.g.set([1, 0]);
+    inverse.b.set([1, 0]);
+    let output: ImageData | undefined;
+    const context = {
+      getImageData: () => input,
+      putImageData: (data: ImageData) => {
+        output = data;
+      },
+    };
+
+    applySoftwareFilter(
+      context as unknown as OffscreenCanvasRenderingContext2D,
+      {
+        kind: 'lut',
+        lutJson: serializeLutForDocument(inverse),
+        inputSpace: 'sRGB',
+        interpolation: 'tetrahedral',
+        intensity: 1,
+        linearize: false,
+        opacity: 1,
+        blendMode: 'normal',
+      },
+      1,
+      1,
+    );
+
+    expect(Array.from(output?.data ?? [])).toEqual([255, 127, 0, 96]);
   });
 
   it('applies a CSS-compatible filter to pixels that were already rendered', () => {
