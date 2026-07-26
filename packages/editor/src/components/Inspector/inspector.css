@@ -42,76 +42,20 @@
 /* Visually-hidden utility lives in components.css; import that instead. */
 .insp-panel__tabs {
   display: flex;
-  flex-direction: column;
+  align-items: stretch;
   flex-shrink: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
   border-bottom: 1px solid var(--color-border-subtle);
 }
-.insp-panel__tabs-primary {
-  display: flex;
-  align-items: stretch;
-  border-bottom: 1px solid var(--color-border-subtle);
-  overflow: hidden;
-}
-.insp-panel__tabs-secondary {
-  display: flex;
-  align-items: stretch;
-  overflow: hidden;
-  background: var(--color-surface-sunken);
-}
-.insp-panel__tab-group {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  flex: 1;
-  min-width: 0;
-}
-.insp-panel__tabs-secondary .insp-panel__tab-group {
-  flex: initial;
-}
-.insp-panel__tabs-primary .insp-panel__tab {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-sm);
-}
-.insp-panel__tabs-secondary .insp-panel__tab {
-  padding: var(--space-1) var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.insp-panel__tabs-secondary .insp-panel__tab[aria-selected="true"] {
-  color: var(--color-text-primary);
-  background: var(--color-surface-app);
-  border-bottom-color: var(--color-interactive-default);
-}
-.insp-panel__tier-sep {
-  display: block;
-  height: 0;
-}
-
-/* Legacy single-tab-strip mode (when no secondary tabs configured) */
-.insp-panel__tabs--single {
-  display: flex;
-  align-items: stretch;
-  border-bottom: 1px solid var(--color-border-subtle);
-  flex-shrink: 0;
-  overflow: hidden;
-}
-.insp-panel__tabs--single .insp-panel__tab-group {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  flex: 1;
-  min-width: 0;
-}
-.insp-panel__tab-group {
-  display: flex;
-  align-items: stretch;
-  gap: 0;
-  flex: 1;
-  min-width: 0;
+.insp-panel__tabs::-webkit-scrollbar {
+  display: none;
 }
 .insp-panel__tab {
-  flex: 1;
-  padding: var(--space-1) 0;
+  flex: 1 0 auto;
+  min-block-size: var(--space-8);
+  padding: var(--space-1) var(--space-2);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -120,8 +64,8 @@
   font-size: var(--font-size-xs);
   text-transform: capitalize;
   cursor: pointer;
-  min-width: 0;
   white-space: nowrap;
+  scroll-margin-inline: var(--space-2);
 }
 .insp-panel__tab[aria-selected="true"] {
   color: var(--color-text-primary);
@@ -131,64 +75,6 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
-.insp-panel__tab--overflow {
-  flex: 0 0 auto;
-  padding: var(--space-1) var(--space-2);
-}
-.insp-panel__tab-sep {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 0.75rem;
-  color: var(--color-text-muted);
-  opacity: 0.4;
-  align-self: center;
-  pointer-events: none;
-}
-
-/* Overflow menu */
-.insp-panel__overflow-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 999;
-}
-.insp-panel__overflow-menu {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 1000;
-  min-width: 10rem;
-  background: var(--color-surface-overlay);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.15);
-  padding: var(--space-1);
-  display: flex;
-  flex-direction: column;
-}
-.insp-panel__overflow-item {
-  display: block;
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  background: none;
-  border: none;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  text-align: left;
-  cursor: pointer;
-}
-.insp-panel__overflow-item:hover,
-.insp-panel__overflow-item:focus-visible {
-  background: var(--color-surface-hover);
-}
-.insp-panel__overflow-item:focus-visible {
-  outline: 2px solid var(--color-interactive-focus-ring);
-  outline-offset: -2px;
-}
-
 /* Export sub-tabs */
 .insp-panel__sub-tabs {
   display: flex;
@@ -227,71 +113,6 @@
   padding: var(--space-1) var(--space-3);
 }
 
-/* ---------- Quick bar (persistent single-selection frequent properties) ---------- */
-.insp-quick-bar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-app);
-  flex-shrink: 0;
-}
-.insp-quick-bar__field {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-.insp-quick-bar__label {
-  font-size: var(--font-size-2xs);
-  color: var(--color-text-muted);
-  width: 1rem;
-  flex-shrink: 0;
-  text-align: center;
-}
-.insp-quick-bar__input {
-  width: 0;
-  min-width: 2.5rem;
-  flex: 1;
-  height: var(--space-6);
-  padding: 0 var(--space-1);
-  background: var(--color-surface-sunken);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  font-feature-settings: "tnum";
-  outline: none;
-}
-.insp-quick-bar__input:hover {
-  border-color: var(--color-border-subtle);
-}
-.insp-quick-bar__input:focus-visible {
-  border-color: var(--color-border-focus);
-}
-.insp-quick-bar__swatch {
-  width: var(--space-6);
-  height: var(--space-6);
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-subtle);
-  flex-shrink: 0;
-  cursor: pointer;
-}
-.insp-quick-bar__opacity {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex: 1;
-  min-width: 0;
-}
-.insp-quick-bar__opacity input[type="range"] {
-  flex: 1;
-  min-width: 0;
-}
-
 /* ---------- Selection header (single node) ---------- */
 .insp-panel__node-header {
   padding: var(--space-2) var(--space-3) var(--space-1);
@@ -307,21 +128,6 @@
   color: var(--color-text-muted);
   font-weight: var(--font-weight-regular);
   margin-left: var(--space-1);
-}
-
-/* ---------- Empty selection canvas info ---------- */
-.insp-panel__canvas-info {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-}
-.insp-panel__canvas-name {
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-primary);
-  margin: 0 0 var(--space-1);
-}
-.insp-panel__canvas-count {
-  margin: 0;
 }
 
 /* ---------- Export empty state ---------- */
@@ -815,10 +621,11 @@
 .insp-field__label {
   display: inline-flex;
   align-items: center;
-  width: 3.75rem;
+  width: var(--space-10);
   flex-shrink: 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
+  white-space: nowrap;
   /* Scrub handle — drag on the label to change the value. */
   cursor: ew-resize;
   user-select: none;
@@ -1539,9 +1346,9 @@
   background: var(--color-surface-hover);
 }
 .insp-panel__color-mode-btn--active {
-  background: var(--color-accent-primary);
+  background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  border-color: var(--color-accent-primary);
+  border-color: var(--color-interactive-default);
 }
 
 /* ---------- Paint Library ---------- */
@@ -1762,17 +1569,26 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  flex: 1;
-  min-height: 12rem;
   padding-bottom: var(--space-3);
 }
-.insp-panel__empty-doc {
-  padding: 0 var(--space-3);
-}
-.insp-panel__empty-doc-buttons {
-  display: flex;
+.insp-panel__empty > .strata-empty {
   gap: var(--space-2);
-  padding: 0 var(--space-3) var(--space-2);
+  padding: var(--space-5) var(--space-3);
+}
+.insp-panel__empty > .strata-empty .strata-empty__illustration {
+  width: var(--space-8);
+  height: var(--space-8);
+  margin-bottom: 0;
+}
+.insp-panel__empty > .strata-empty .strata-empty__illustration > svg {
+  width: 100%;
+  height: 100%;
+}
+.insp-panel__empty > .strata-empty .strata-empty__headline {
+  font-size: var(--font-size-sm);
+}
+.insp-panel__empty > .strata-empty .strata-empty__desc {
+  font-size: var(--font-size-xs);
 }
 .insp-canvas-props {
   display: flex;

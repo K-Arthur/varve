@@ -6,9 +6,22 @@ test.describe('Inspector feature ownership', () => {
     await navigateToEditor(page);
   });
 
-  test('tabs use roving focus and document settings have one canonical home', async ({ page }) => {
+  test('tabs use one compact row with roving focus and no duplicate overflow items', async ({
+    page,
+  }) => {
     const properties = page.getByRole('tab', { name: 'Properties' });
     const appearance = page.getByRole('tab', { name: 'Appearance' });
+
+    const tabs = page.getByRole('tablist', { name: 'Inspector tabs' });
+    const tabCount = await tabs.getByRole('tab').count();
+    expect(tabCount).toBeGreaterThan(1);
+    await expect(page.getByRole('button', { name: /more tabs/i })).toHaveCount(0);
+    const tabTopEdges = await tabs
+      .getByRole('tab')
+      .evaluateAll((elements) =>
+        elements.map((element) => Math.round(element.getBoundingClientRect().top)),
+      );
+    expect(new Set(tabTopEdges).size).toBe(1);
 
     await properties.focus();
     await page.keyboard.press('ArrowRight');
@@ -16,10 +29,10 @@ test.describe('Inspector feature ownership', () => {
     await expect(appearance).toHaveAttribute('aria-selected', 'true');
 
     await properties.click();
-    await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toHaveCount(0);
-    await page.getByRole('tab', { name: 'Document' }).click();
+    await expect(page.getByRole('tab', { name: 'Document' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Canvas', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Document Color' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Canvas background' })).toBeVisible();
     await expect(page.locator('.editor-inspector')).toHaveScreenshot('document-settings.png', {
       animations: 'disabled',
     });
@@ -54,6 +67,28 @@ test.describe('Inspector feature ownership', () => {
     await page.mouse.up();
     await page.getByRole('tab', { name: 'Properties' }).click();
 
+    await expect(page.locator('.editor-inspector')).toHaveCount(1);
+    const inspector = page.locator('.editor-inspector');
+    for (const label of [
+      /^X(?: \(AB\))? \(px\)$/,
+      /^Y(?: \(AB\))? \(px\)$/,
+      /^W \(px\)$/,
+      /^H \(px\)$/,
+    ]) {
+      await expect(inspector.getByRole('spinbutton', { name: label })).toHaveCount(1);
+    }
+    await expect(inspector.getByRole('spinbutton', { name: 'Opacity', exact: true })).toHaveCount(
+      1,
+    );
+    for (const label of ['Min W (px)', 'Max W (px)', 'Min H (px)', 'Max H (px)']) {
+      await expect(inspector.getByRole('spinbutton', { name: label })).toHaveCount(0);
+    }
+    await expect(inspector.getByRole('button', { name: 'Corner Radius' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    await expect(inspector.getByRole('slider', { name: 'Corner smoothing' })).toHaveCount(0);
+
     const metrics = await page.locator('.editor-inspector').evaluate((element) => ({
       descendants: element.querySelectorAll('*').length,
       scrollHeight: element.scrollHeight,
@@ -70,7 +105,11 @@ test.describe('Inspector feature ownership', () => {
   });
 
   test('brush behavior opens from Tool Options instead of Properties', async ({ page }) => {
-    await page.getByRole('radio', { name: 'Draw', exact: true }).click();
+    await page
+      .locator('.editor-menubar__workspace-btn')
+      .filter({ hasText: /^Draw$/ })
+      .click();
+    await page.locator('canvas.editor-canvas__content-layer').focus();
     await page.keyboard.press('b');
     await page.getByRole('button', { name: 'Tool options' }).click();
 

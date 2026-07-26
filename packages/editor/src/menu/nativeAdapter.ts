@@ -205,17 +205,14 @@ export function buildNativeMenuSpec(
   }
 
   if (platform === 'mac') {
-    submenus.unshift(buildAppMenuSpec(ctx, formatLabel));
+    submenus.unshift(buildAppMenuSpec(formatLabel));
     submenus.push(buildWindowMenuSpec());
   }
 
   return { submenus };
 }
 
-function buildAppMenuSpec(
-  ctx: MenuContext,
-  formatLabel?: (key: string) => string,
-): NativeSubmenuSpec {
+function buildAppMenuSpec(formatLabel?: (key: string) => string): NativeSubmenuSpec {
   const items: NativeMenuItemSpec[] = [
     {
       kind: 'predefined',
@@ -391,7 +388,11 @@ let _sendTimeout: ReturnType<typeof requestAnimationFrame> | null = null;
 
 export function isNativeMenuAvailable(): boolean {
   if (typeof window === 'undefined') return false;
-  return '__TAURI__' in window;
+  const runtimeWindow = window as Window & {
+    __TAURI__?: unknown;
+    __TAURI_INTERNALS__?: unknown;
+  };
+  return runtimeWindow.__TAURI__ !== undefined && runtimeWindow.__TAURI_INTERNALS__ !== undefined;
 }
 
 export function detectPlatform(): 'mac' | 'windows' | 'linux' {

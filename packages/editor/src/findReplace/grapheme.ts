@@ -18,11 +18,13 @@ export function snapToGraphemeBoundary(
 
   if (side === 'start') {
     for (let i = offsets.length - 1; i >= 0; i--) {
-      if (offsets[i] <= charOffset) return offsets[i];
+      const offset = offsets[i];
+      if (offset !== undefined && offset <= charOffset) return offset;
     }
   } else {
     for (let i = 0; i < offsets.length; i++) {
-      if (offsets[i] >= charOffset) return offsets[i];
+      const offset = offsets[i];
+      if (offset !== undefined && offset >= charOffset) return offset;
     }
   }
   return charOffset;
@@ -36,10 +38,8 @@ export function normalizeAndSegment(text: string): {
   const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' });
   const segments = segmenter.segment(nf);
   const mapping: number[] = [];
-  let _idx = 0;
   for (const seg of segments) {
     mapping.push(seg.index);
-    _idx = seg.index + seg.segment.length;
   }
   return { normalized: nf, graphemeToUtf16: mapping };
 }

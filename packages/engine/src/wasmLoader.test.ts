@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { createWasmEngineFromModule, wasmHitTestFallback } from './wasmLoader';
+import { createWasmEngineFromModule } from './engine';
+import { wasmHitTestFallback } from './wasmLoader';
 
 const WASM_ARTIFACT = resolve(process.cwd(), 'apps/desktop/public/wasm/strata_wasm_bg.wasm');
 

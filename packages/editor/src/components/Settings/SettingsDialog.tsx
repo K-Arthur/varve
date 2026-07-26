@@ -1,5 +1,5 @@
 import { managedColorToCss } from '@strata/shared';
-import { Button, Dialog, NumberInput, Select, Tooltip, TooltipProvider } from '@strata/ui';
+import { Button, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bumpThemeRevision, getBackupService, useEditor } from '../../context';

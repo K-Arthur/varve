@@ -1,6 +1,6 @@
 import type { Document } from '@strata/scene';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { replaceSingle } from './replace';
+import { replaceAll as replaceAllInDocument, replaceSingle } from './replace';
 import { searchInDocument, validateRegex } from './search';
 import type { FindReplaceState, MatchResult, SearchOptions, SearchScope } from './types';
 import { DEFAULT_FIND_REPLACE_STATE } from './types';
@@ -18,6 +18,7 @@ export interface FindReplaceAPI {
   replace: (match: MatchResult) => void;
   replaceAll: () => void;
   replaceInSelection: () => void;
+  selectResult: (index: number) => void;
   goToNext: () => void;
   goToPrev: () => void;
   open: (initialSearch?: string) => void;
@@ -137,7 +138,8 @@ export function useFindReplace(
       setState((prev) => ({
         ...prev,
         results: newResults,
-        currentIndex: Math.min(prev.currentIndex, newResults.length - 1),
+        currentIndex:
+          newResults.length > 0 ? Math.min(prev.currentIndex, newResults.length - 1) : 0,
         status: newResults.length === 0 ? 'idle' : 'ready',
       }));
     },
@@ -149,7 +151,7 @@ export function useFindReplace(
     if (s.results.length === 0) return;
     onBeginTransaction();
     onUpdateDoc((doc) => {
-      const result = replaceAll(
+      const result = replaceAllInDocument(
         doc,
         s.searchText,
         s.replaceText,
@@ -196,7 +198,9 @@ export function useFindReplace(
     setState((prev) => {
       if (prev.results.length === 0) return prev;
       const nextIdx = (prev.currentIndex + 1) % prev.results.length;
-      onSetSelection(prev.results[nextIdx].nodeId);
+      const nextMatch = prev.results[nextIdx];
+      if (!nextMatch) return prev;
+      onSetSelection(nextMatch.nodeId);
       return { ...prev, currentIndex: nextIdx };
     });
   }, [onSetSelection]);
@@ -205,10 +209,24 @@ export function useFindReplace(
     setState((prev) => {
       if (prev.results.length === 0) return prev;
       const prevIdx = (prev.currentIndex - 1 + prev.results.length) % prev.results.length;
-      onSetSelection(prev.results[prevIdx].nodeId);
+      const previousMatch = prev.results[prevIdx];
+      if (!previousMatch) return prev;
+      onSetSelection(previousMatch.nodeId);
       return { ...prev, currentIndex: prevIdx };
     });
   }, [onSetSelection]);
+
+  const selectResult = useCallback(
+    (index: number) => {
+      setState((prev) => {
+        const match = prev.results[index];
+        if (!match) return prev;
+        onSetSelection(match.nodeId);
+        return { ...prev, currentIndex: index };
+      });
+    },
+    [onSetSelection],
+  );
 
   const open = useCallback((initialSearch?: string) => {
     setState((prev) => ({
@@ -243,6 +261,7 @@ export function useFindReplace(
     replace,
     replaceAll,
     replaceInSelection,
+    selectResult,
     goToNext,
     goToPrev,
     open,

@@ -82,7 +82,7 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   const placementLocked = img.fit === 'stretch';
 
   return (
-    <DisclosureSection title="Image Placement" defaultExpanded>
+    <DisclosureSection title="Image Placement" sectionId="image-placement">
       <div className="insp-field-group">
         <FieldRow label="Fit">
           <SegmentedControl

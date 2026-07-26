@@ -293,18 +293,24 @@
 }
 
 .editor-menubar__menu-item--active,
-.editor-menubar__menu-item--active:hover {
+.editor-menubar__menu-item--active:hover,
+.editor-menubar__menu-item--active:focus-visible {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
 .editor-menubar__menu-item:disabled {
-  color: var(--color-text-muted);
+  color: var(--color-text-disabled);
   cursor: default;
 }
 
 .editor-menubar__menu-label {
   flex: 1;
+}
+
+.editor-menubar__menu-item--active > .editor-menubar__menu-label,
+.editor-menubar__menu-item--active > .editor-menubar__menu-submenu-arrow {
+  color: var(--color-text-on-accent);
 }
 
 .editor-menubar__menu-shortcut {
@@ -1104,7 +1110,7 @@
   font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -1578,6 +1584,7 @@ dialog.strata-dialog--settings[open] {
   flex-direction: column;
   height: min(88vh, 760px);
   max-height: min(88vh, 760px);
+
 }
 .strata-dialog--settings .strata-dialog__body {
   flex: 1;

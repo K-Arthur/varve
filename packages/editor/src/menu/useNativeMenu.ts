@@ -1,3 +1,4 @@
+import type { Document } from '@strata/scene';
 import { useEffect, useMemo, useRef } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
@@ -13,16 +14,20 @@ import {
 
 export interface UseNativeMenuOptions {
   selection: string[];
-  document: {
-    nodes: Record<string, unknown>;
-    pages?: unknown[];
-    masters?: Record<string, unknown>;
-    name?: string;
-  };
+  document: Document;
   workspaceMode: WorkspaceMode;
   platformKind?: string;
   runAction: (id: string) => void;
   getTheme?: () => string;
+}
+
+export function dispatchNativeMenuAction(action: string, runAction: (id: string) => void): void {
+  const registered = getActionRegistry().get(action);
+  if (registered) {
+    registered.handler(undefined);
+    return;
+  }
+  runAction(action);
 }
 
 export function useNativeMenu(opts: UseNativeMenuOptions): void {
@@ -40,7 +45,7 @@ export function useNativeMenu(opts: UseNativeMenuOptions): void {
 
   const ctx = useMemo(() => {
     const intel = buildIntelFacts(undefined, null, false);
-    return buildMenuContext(opts.selection, opts.document as any, opts.workspaceMode, pf, intel);
+    return buildMenuContext(opts.selection, opts.document, opts.workspaceMode, pf, intel);
   }, [opts.selection, opts.document, opts.workspaceMode, pf]);
 
   const spec = useMemo(() => buildNativeMenuSpec(allDefs, ctx, os, undefined), [allDefs, ctx, os]);
@@ -65,18 +70,7 @@ export function useNativeMenu(opts: UseNativeMenuOptions): void {
     import('@tauri-apps/api/event')
       .then(({ listen }) => {
         listen<{ action: string }>('menu://action', (event) => {
-          const { action } = event.payload;
-
-          const registry = getActionRegistry();
-          const registered = registry.get(action);
-          if (registered) {
-            (registered.handler as () => void)();
-            return;
-          }
-
-          if (action === 'settings') {
-            opts.runAction('settings');
-          }
+          dispatchNativeMenuAction(event.payload.action, opts.runAction);
         }).then((fn) => {
           unlisten = fn;
         });

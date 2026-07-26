@@ -52,33 +52,45 @@ export function replaceAll(
   let result = doc;
   let count = 0;
 
-  if (replacement.includes('$') && options.useRegex) {
-    for (const match of results) {
-      const node = result.nodes[match.nodeId];
-      if (node?.kind !== 'text') continue;
+  // Work backwards within each text node so replacements that change string
+  // length cannot invalidate the offsets of matches that are still pending.
+  const matchesInReverseDocumentOrder = [...results].sort(
+    (left, right) => right.nodeId.localeCompare(left.nodeId) || right.flatStart - left.flatStart,
+  );
+
+  for (const match of matchesInReverseDocumentOrder) {
+    const node = result.nodes[match.nodeId];
+    if (node?.kind !== 'text') continue;
+
+    let expandedReplacement = replacement;
+    if (options.useRegex && replacement.includes('$')) {
       const textNode = node as import('@strata/scene').TextNode;
-      const fullText = textNode.text;
-      const matchedText = fullText.slice(match.flatStart, match.flatEnd);
-      const _expandedReplace = expandRegexReplacement(matchedText, replacement);
-      result = replaceSingle(result, match, expandReplace);
-      count++;
+      const matchedText = textNode.text.slice(match.flatStart, match.flatEnd);
+      expandedReplacement = expandRegexReplacement(
+        matchedText,
+        needle,
+        replacement,
+        options.caseSensitive,
+      );
     }
-  } else {
-    for (const match of results) {
-      result = replaceSingle(result, match, replacement);
-      count++;
-    }
+
+    result = replaceSingle(result, match, expandedReplacement);
+    count++;
   }
 
   return { doc: result, count };
 }
 
-function expandRegexReplacement(matchText: string, replacement: string): string {
-  return replacement.replace(/\$(\d+|\$|&|`|')/g, (_, ref) => {
-    if (ref === '$') return '$';
-    if (ref === '&') return matchText;
-    if (ref === '`') return '';
-    if (ref === "'") return '';
-    return matchText;
-  });
+function expandRegexReplacement(
+  matchText: string,
+  pattern: string,
+  replacement: string,
+  caseSensitive: boolean,
+): string {
+  try {
+    const regex = new RegExp(pattern, caseSensitive ? '' : 'i');
+    return matchText.replace(regex, replacement);
+  } catch {
+    return replacement;
+  }
 }

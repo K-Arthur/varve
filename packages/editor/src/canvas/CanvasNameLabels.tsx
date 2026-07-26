@@ -24,7 +24,7 @@ function collectCandidates(doc: Document): NameLabelCandidate[] {
   const out: NameLabelCandidate[] = [];
   const visit = (id: NodeId, depth: number) => {
     const node = doc.nodes[id];
-    if (!node || ((node as unknown as { hidden?: boolean }).hidden as any as any)) return;
+    if (!node || node.visible === false) return;
     const bounds = nodeWorldBounds(doc, id);
     if (!bounds) return;
     const parent = getParent(doc, id);
@@ -43,7 +43,17 @@ function collectCandidates(doc: Document): NameLabelCandidate[] {
       for (const childId of node.children) visit(childId, depth + 1);
     }
   };
-  for (const id of doc.rootChildren) visit(id, 0);
+
+  const activePage = doc.pages?.find((page) => page.id === doc.activePageId);
+  const contentRoot = activePage ? doc.nodes[activePage.contentRoot] : undefined;
+  const pageChildren = contentRoot && isContainer(contentRoot) ? contentRoot.children : [];
+  const roots = activePage ? [...pageChildren, ...(doc.globalChildren ?? [])] : doc.rootChildren;
+
+  // Page content roots are storage-only grouping nodes. Starting at their
+  // children keeps structural names such as "Page 1 content" out of the
+  // artwork label layer and prevents labels from inactive pages leaking into
+  // the active canvas.
+  for (const id of new Set(roots)) visit(id, 0);
   return out;
 }
 
