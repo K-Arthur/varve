@@ -1,3 +1,7 @@
+// COMPLEXITY: ~780 — Extracted inputPipeline (~200 paths), overlayManager
+// (~200 paths), toolDispatcher (~50 paths). Remaining complexity is in
+// drawContent (~400 paths) and buildToolCtx (~120 paths). Next step: extract
+// drawContent into renderPipeline.ts and buildToolCtx into toolContext.ts.
 /**
  * Canvas area — the main drawing surface.
  *
