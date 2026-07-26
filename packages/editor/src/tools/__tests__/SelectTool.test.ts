@@ -837,3 +837,122 @@ describe('SelectTool — drop target frame highlighting', () => {
     expect(snapPosition).toHaveBeenCalledWith({ x: 20, y: 20, w: 50, h: 50 }, []);
   });
 });
+
+describe('SelectTool Alt-drag duplication', () => {
+  /** Drag gesture primed to move `ids` from world origin (0,0) by (dx,dy). */
+  function primeDrag(tool: SelectTool, ids: string[], dx: number, dy: number) {
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: dx, y: dy } };
+    (tool as any).initialPositions = new Map(ids.map((id) => [id, { x: 0, y: 0 }]));
+    (tool as any).isMoveGesture = true;
+  }
+
+  function movingCtx(overrides?: Record<string, unknown>) {
+    return makeCtx({
+      getNode: vi.fn((id: string) => ({ id, transform: [1, 0, 0, 1, 0, 0] })),
+      nodeWorldBounds: vi.fn().mockReturnValue({ x: 0, y: 0, w: 40, h: 40 }),
+      ...overrides,
+    });
+  }
+
+  it('duplicates exactly once no matter how many pointer moves the drag emits', () => {
+    const tool = new SelectTool();
+    const duplicateSelected = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, duplicateSelected });
+    primeDrag(tool, ['n1'], 10, 10);
+
+    for (let i = 0; i < 25; i++) (tool as any).onDragMove?.(ctx);
+
+    expect(duplicateSelected).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves the originals in place on the frame that fires the duplicate', () => {
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    primeDrag(tool, ['n1'], 30, 15);
+
+    (tool as any).onDragMove?.(ctx);
+
+    // The clones' ids are not observable yet; moving the still-selected
+    // originals here would drag them out from under the copy.
+    expect(setNodePosition).not.toHaveBeenCalled();
+  });
+
+  it('does not move anything while the clones have not become the selection', () => {
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    primeDrag(tool, ['n1'], 30, 15);
+
+    (tool as any).onDragMove?.(ctx); // fires duplicate
+    (tool as any).onDragMove?.(ctx); // selection still the source ids
+
+    expect(setNodePosition).not.toHaveBeenCalled();
+  });
+
+  it('hands the gesture to the clone, which tracks the pointer from the drag origin', () => {
+    // Regression guard: the clone used to have no initialPositions entry, so
+    // every move hit `continue` and the copy never followed the pointer --
+    // it just sat at duplicateSelected's fixed offset.
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    primeDrag(tool, ['n1'], 120, 60);
+
+    (tool as any).onDragMove?.(ctx); // fires duplicate
+    ctx.selection = ['n1-copy']; // duplicateSelected re-selects the clone
+    (tool as any).onDragMove?.(ctx);
+
+    expect(setNodePosition).toHaveBeenCalledWith('n1-copy', 120, 60);
+  });
+
+  it('maps each clone onto the origin of the node it was cloned from', () => {
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = movingCtx({ selection: ['a', 'b'], altKey: true, setNodePosition });
+    (tool as any).drag = { startCanvas: { x: 0, y: 0 }, currentCanvas: { x: 10, y: 0 } };
+    (tool as any).initialPositions = new Map([
+      ['a', { x: 0, y: 0 }],
+      ['b', { x: 200, y: 0 }],
+    ]);
+    (tool as any).isMoveGesture = true;
+
+    (tool as any).onDragMove?.(ctx);
+    ctx.selection = ['a-copy', 'b-copy']; // duplicateSelected preserves order
+    (tool as any).onDragMove?.(ctx);
+
+    expect(setNodePosition).toHaveBeenCalledWith('a-copy', 10, 0);
+    expect(setNodePosition).toHaveBeenCalledWith('b-copy', 210, 0);
+  });
+
+  it('falls back to a plain move when duplication yields no usable selection', () => {
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    primeDrag(tool, ['n1'], 40, 40);
+
+    (tool as any).onDragMove?.(ctx); // fires duplicate
+    ctx.selection = []; // duplication produced nothing
+    (tool as any).onDragMove?.(ctx);
+    ctx.selection = ['n1'];
+    (tool as any).onDragMove?.(ctx);
+
+    // The gesture must not stay wedged waiting for clone ids forever.
+    expect(setNodePosition).toHaveBeenCalledWith('n1', 40, 40);
+  });
+
+  it('starts each gesture with a clean handoff so an interrupted Alt-drag cannot wedge the next', () => {
+    const tool = new SelectTool();
+    const setNodePosition = vi.fn();
+    const ctx = movingCtx({ selection: ['n1'], altKey: true, setNodePosition });
+    primeDrag(tool, ['n1'], 10, 10);
+    (tool as any).onDragMove?.(ctx); // Alt-drag begins, then is abandoned
+
+    // A fresh pointer down must clear the pending handoff.
+    const down = { pointerId: 1, clientX: 0, clientY: 0 } as unknown as PointerEvent;
+    (tool as any).onPointerDown?.(down, movingCtx({ selection: ['n1'] }));
+
+    expect((tool as any).awaitingDuplicateHandoff).toBe(false);
+    expect((tool as any).duplicateSourceIds).toEqual([]);
+  });
+});
