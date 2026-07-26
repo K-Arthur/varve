@@ -30,7 +30,7 @@ import {
   solidFill,
 } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { Icon, Select } from '@strata/ui';
+import { Icon, Select, Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
@@ -366,23 +366,24 @@ function FillRow({
           />
         )}
         {fill.type === 'solid' && fill.color && fill.color.space === 'rgb' && (
-          <button
-            type="button"
-            className="insp-inline-btn"
-            aria-label="Generate harmony colors"
-            title="Generate harmony colors"
-            onClick={() => {
-              const pal = complementaryHarmony(fill.color!);
-              if (pal.colors.length > 0) {
-                const harmonyColor = pal.colors[0];
-                if (harmonyColor && 'space' in harmonyColor) {
-                  patch({ color: harmonyColor });
+          <Tooltip label="Generate harmony colors">
+            <button
+              type="button"
+              className="insp-inline-btn"
+              aria-label="Generate harmony colors"
+              onClick={() => {
+                const pal = complementaryHarmony(fill.color!);
+                if (pal.colors.length > 0) {
+                  const harmonyColor = pal.colors[0];
+                  if (harmonyColor && 'space' in harmonyColor) {
+                    patch({ color: harmonyColor });
+                  }
                 }
-              }
-            }}
-          >
-            <Icon name="Palette" label={undefined} size="0.85em" />
-          </button>
+              }}
+            >
+              <Icon name="Palette" label={undefined} size="0.85em" />
+            </button>
+          </Tooltip>
         )}
         <div className="insp-field__control">
           <Select

@@ -11,7 +11,7 @@
  */
 import type { ImageFillData, ImageFit, SceneNode, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -131,24 +131,20 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
         </div>
 
         <div className="insp-image-placement__actions">
-          <button
-            type="button"
-            className="insp-btn-sm"
-            onClick={() => setTool('crop')}
-            title="Edit crop (C)"
-          >
-            <Icon name="Crop" size="0.85em" />
-            <span>Edit crop</span>
-          </button>
-          <button
-            type="button"
-            className="insp-btn-sm"
-            onClick={resetPlacement}
-            title="Reset image placement"
-          >
-            <Icon name="RotateCcw" size="0.85em" />
-            <span>Reset placement</span>
-          </button>
+          <TooltipProvider>
+            <Tooltip label="Edit crop (C)">
+              <button type="button" className="insp-btn-sm" onClick={() => setTool('crop')}>
+                <Icon name="Crop" size="0.85em" />
+                <span>Edit crop</span>
+              </button>
+            </Tooltip>
+            <Tooltip label="Reset image placement">
+              <button type="button" className="insp-btn-sm" onClick={resetPlacement}>
+                <Icon name="RotateCcw" size="0.85em" />
+                <span>Reset placement</span>
+              </button>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </DisclosureSection>

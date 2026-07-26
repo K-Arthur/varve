@@ -8,10 +8,34 @@ if [ -n "$CI" ]; then
   exit 0
 fi
 
-echo "Running pre-commit checks..."
+echo "=== Strata pre-commit checks ==="
 
+# 1. Format + lint (staged only)
 pnpm exec biome check --staged --no-errors-on-unmatched
+
+# 2. Emoji audit
 pnpm audit:emoji
+
+# 3. Health check: hub file budgets, complexity comments, over-ceiling guards
 node scripts/audit-health.mjs --staged
 
-echo "Pre-commit checks passed."
+# 4. Quick cycle check on changed packages (madge, runs only on JS/TS changes)
+STAGED_TS=$(git diff --cached --name-only --diff-filter=ACMR | grep -c '\.\(ts\|tsx\)$' || true)
+if [ "$STAGED_TS" -gt 0 ]; then
+  echo "  → Checking dependency cycles..."
+  # Only check editor and scene (the two packages with recent cycle debt)
+  for pkg in editor scene engine; do
+    RESULT=$(npx --yes madge --circular --extensions ts,tsx \
+      --ts-config tsconfig.base.json "packages/$pkg/src/index.ts" 2>/dev/null | tail -1)
+    if echo "$RESULT" | grep -q "Found"; then
+      CYCLE_COUNT=$(echo "$RESULT" | grep -o '[0-9]\+' || echo "0")
+      if [ "$CYCLE_COUNT" -gt 1 ]; then
+        echo "  ❌ packages/$pkg: $CYCLE_COUNT cycles (ceiling: 1)"
+        echo "  Run: npx madge --circular ... packages/$pkg/src/index.ts"
+        exit 1
+      fi
+    fi
+  done
+fi
+
+echo "=== Pre-commit checks passed ==="

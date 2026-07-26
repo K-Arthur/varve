@@ -1,0 +1,12 @@
+  },
+  {
+    from: '2.7',
+    to: '2.8',
+    migrate: (raw) => {
+      const suppressions = raw.suppressions;
+      if (suppressions !== undefined && Array.isArray(suppressions)) {
+        return { ...raw, formatVersion: '2.8', suppressions };
+      }
+      return { ...raw, formatVersion: '2.8', suppressions: [] };
+    },
+  },

@@ -10,7 +10,7 @@
 import { decodeDetrOutput, getInferenceWorkerHost, getModelLoader } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
-import { Button, Icon } from '@strata/ui';
+import { Button, Icon, Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
 import type { TrimToSubjectOptions } from '../../../imageCrop';
@@ -69,15 +69,12 @@ export function ImageCropSection({ nodes, sectionId }: ImageCropSectionProps) {
 
         {/* Reset */}
         <div className="insp-crop-section__reset-group">
-          <button
-            type="button"
-            className="insp-btn-sm"
-            onClick={() => resetImageBounds()}
-            title="Reset to source image dimensions"
-          >
-            <Icon name="RotateCcw" size="0.85em" />
-            <span>Reset Bounds</span>
-          </button>
+          <Tooltip label="Reset to source image dimensions">
+            <button type="button" className="insp-btn-sm" onClick={() => resetImageBounds()}>
+              <Icon name="RotateCcw" size="0.85em" />
+              <span>Reset Bounds</span>
+            </button>
+          </Tooltip>
         </div>
       </div>
     </DisclosureSection>
@@ -273,16 +270,17 @@ function TrimControls({
           </div>
         )}
         <div className="insp-crop-section__trim-actions">
-          <button
-            type="button"
-            className="insp-btn-sm"
-            onClick={handleTrim}
-            disabled={trimming || !hasMask}
-            title="Trim to subject"
-          >
-            <Icon name="Scissors" size="0.85em" />
-            <span>{trimming ? 'Trimming...' : 'Trim to Subject'}</span>
-          </button>
+          <Tooltip label="Trim to subject">
+            <button
+              type="button"
+              className="insp-btn-sm"
+              onClick={handleTrim}
+              disabled={trimming || !hasMask}
+            >
+              <Icon name="Scissors" size="0.85em" />
+              <span>{trimming ? 'Trimming...' : 'Trim to Subject'}</span>
+            </button>
+          </Tooltip>
         </div>
       </div>
     </DisclosureSection>
@@ -343,25 +341,19 @@ function ExpandControls({
         </FieldRow>
         <div className="insp-crop-section__expand-actions">
           {isCropMode ? (
-            <button
-              type="button"
-              className="insp-btn-sm"
-              onClick={handleExpand}
-              title="Expand bounds with transparent padding"
-            >
-              <Icon name="Maximize2" size="0.85em" />
-              <span>Expand Bounds</span>
-            </button>
+            <Tooltip label="Expand bounds with transparent padding">
+              <button type="button" className="insp-btn-sm" onClick={handleExpand}>
+                <Icon name="Maximize2" size="0.85em" />
+                <span>Expand Bounds</span>
+              </button>
+            </Tooltip>
           ) : (
-            <button
-              type="button"
-              className="insp-btn-sm"
-              onClick={handleConvertAndExpand}
-              title="Convert to Crop mode and expand bounds"
-            >
-              <Icon name="Maximize2" size="0.85em" />
-              <span>Convert to Crop &amp; Expand</span>
-            </button>
+            <Tooltip label="Convert to Crop mode and expand bounds">
+              <button type="button" className="insp-btn-sm" onClick={handleConvertAndExpand}>
+                <Icon name="Maximize2" size="0.85em" />
+                <span>Convert to Crop &amp; Expand</span>
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>

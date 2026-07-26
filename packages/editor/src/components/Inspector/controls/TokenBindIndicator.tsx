@@ -8,6 +8,7 @@
  *
  * Research basis: Figma variable binding chips; APG badge pattern.
  */
+import { Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useRef } from 'react';
 
 export interface TokenBindIndicatorProps {
@@ -91,31 +92,32 @@ export function TokenBindIndicator({ variableName, onUnbind }: TokenBindIndicato
         <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
       </svg>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{variableName}</span>
-      <button
-        type="button"
-        style={BTN_STYLE}
-        aria-label={`Unbind variable ${variableName}`}
-        title="Unbind variable"
-        onClick={(e) => {
-          e.stopPropagation();
-          onUnbind();
-        }}
-      >
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      <Tooltip label="Unbind variable">
+        <button
+          type="button"
+          style={BTN_STYLE}
+          aria-label={`Unbind variable ${variableName}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onUnbind();
+          }}
         >
-          <path d="M18 6 6 18" />
-          <path d="m6 6 12 12" />
-        </svg>
-      </button>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </Tooltip>
     </span>
   );
 }

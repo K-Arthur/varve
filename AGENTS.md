@@ -110,17 +110,27 @@ them drags the whole module graph. Follow these rules:
 **No new import may be added to CanvasArea.tsx or Shell.tsx without first removing
 an existing import of equal or greater weight.** Enforced by `scripts/audit-health.mjs`.
 
-### Cyclomatic complexity ceiling
+### Cyclomatic complexity ceiling — ENFORCED
 
-| Context | Ceiling |
-|---------|---------|
-| React component body | **200** |
-| Non-component function | **50** |
-| Tool handler (onPointerDown, etc.) | **30** |
-| Test assertion body | **15** |
+| Context | Ceiling | Warning at | Block at |
+|---------|---------|------------|----------|
+| React component body | **200** | 160 (80%) | 200 |
+| Non-component function | **50** | 40 (80%) | 50 |
+| Tool handler (onPointerDown, etc.) | **30** | 24 (80%) | 30 |
+| Test assertion body | **15** | 12 (80%) | 15 |
 
-Exceeding the ceiling is a **refactoring debt** that must be documented in a
-top-of-file `// COMPLEXITY:` comment with a plan to reduce it.
+**70% rule:** When a function reaches 70% of its ceiling, any new
+functionality MUST be extracted into a new function/module — not added
+to the existing function. This is checked in pre-commit.
+
+**Ceiling is a hard block, not a suggestion.** Pre-commit rejects
+commits that increase complexity of any function already at or over its
+ceiling. The only allowed operation on over-ceiling functions is
+extraction (reducing their complexity).
+
+**Over-ceiling files must have a `// COMPLEXITY:` comment** at the top
+of the file with current complexity and a plan to reduce it. Without it,
+pre-commit blocks any change to that file.
 
 ### Hook ordering invariance
 

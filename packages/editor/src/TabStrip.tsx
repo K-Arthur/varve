@@ -11,7 +11,7 @@
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tabs/
  */
 
-import { AlertDialog } from '@strata/ui';
+import { AlertDialog, Tooltip } from '@strata/ui';
 import { useRef, useState } from 'react';
 import { useEditor } from './context';
 
@@ -118,15 +118,16 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
           </div>
         );
       })}
-      <button
-        type="button"
-        className="editor-tabs__new"
-        onClick={newTab}
-        aria-label="New document (Ctrl+T)"
-        title="New document (Ctrl+T)"
-      >
-        <PlusIcon />
-      </button>
+      <Tooltip label="New document" shortcut="Ctrl+T">
+        <button
+          type="button"
+          className="editor-tabs__new"
+          onClick={newTab}
+          aria-label="New document (Ctrl+T)"
+        >
+          <PlusIcon />
+        </button>
+      </Tooltip>
 
       {(() => {
         if (!confirmCloseId) return null;

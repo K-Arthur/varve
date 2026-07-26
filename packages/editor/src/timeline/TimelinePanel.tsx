@@ -1,6 +1,6 @@
 import type { Timeline } from '@strata/scene';
 import type { EasingDefinition } from '@strata/shared';
-import { Select } from '@strata/ui';
+import { Select, Tooltip, TooltipProvider } from '@strata/ui';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
 import { GraphEditor } from './GraphEditor';
 import { PlaybackControls } from './PlaybackControls';
@@ -182,51 +182,56 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
           </button>
         )}
 
-        <div className="timeline-panel__zoom-controls">
-          <button
-            type="button"
-            className="timeline-panel__zoom-btn"
-            onClick={handleZoomOut}
-            disabled={zoom <= ZOOM_LEVELS[0]!}
-            aria-label="Zoom out"
-            title="Zoom out"
-          >
-            −
-          </button>
-          <span className="timeline-panel__zoom-label">{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            className="timeline-panel__zoom-btn"
-            onClick={handleZoomIn}
-            disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!}
-            aria-label="Zoom in"
-            title="Zoom in"
-          >
-            +
-          </button>
-        </div>
+        <TooltipProvider>
+          <div className="timeline-panel__zoom-controls">
+            <Tooltip label="Zoom out">
+              <button
+                type="button"
+                className="timeline-panel__zoom-btn"
+                onClick={handleZoomOut}
+                disabled={zoom <= ZOOM_LEVELS[0]!}
+                aria-label="Zoom out"
+              >
+                −
+              </button>
+            </Tooltip>
+            <span className="timeline-panel__zoom-label">{Math.round(zoom * 100)}%</span>
+            <Tooltip label="Zoom in">
+              <button
+                type="button"
+                className="timeline-panel__zoom-btn"
+                onClick={handleZoomIn}
+                disabled={zoom >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!}
+                aria-label="Zoom in"
+              >
+                +
+              </button>
+            </Tooltip>
+          </div>
 
-        {onToggleGraphEditor && (
-          <button
-            type="button"
-            className={`timeline-panel__toggle-btn ${graphEditorVisible ? 'timeline-panel__toggle-btn--active' : ''}`}
-            onClick={onToggleGraphEditor}
-            aria-label="Toggle graph editor"
-            aria-pressed={graphEditorVisible}
-            title="Graph editor (G)"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <path d="M1 13 C4 4, 10 10, 13 1" />
-            </svg>
-          </button>
-        )}
+          {onToggleGraphEditor && (
+            <Tooltip label="Graph editor" shortcut="G">
+              <button
+                type="button"
+                className={`timeline-panel__toggle-btn ${graphEditorVisible ? 'timeline-panel__toggle-btn--active' : ''}`}
+                onClick={onToggleGraphEditor}
+                aria-label="Toggle graph editor"
+                aria-pressed={graphEditorVisible}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                >
+                  <path d="M1 13 C4 4, 10 10, 13 1" />
+                </svg>
+              </button>
+            </Tooltip>
+          )}
+        </TooltipProvider>
       </div>
 
       {!activeTimeline ? (

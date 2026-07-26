@@ -1,4 +1,4 @@
-import { Icon, NumberInput, Select } from '@strata/ui';
+import { Icon, NumberInput, Select, Tooltip, TooltipProvider } from '@strata/ui';
 import { useSyncExternalStore } from 'react';
 import { AuditBadge } from './components/AuditBadge';
 import { DebtBadge } from './components/DebtBadge';
@@ -142,114 +142,125 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
           label="Snap grid"
         />
       </span>
-      <button
-        type="button"
-        aria-pressed={state.rulerMode === 'artboard'}
-        onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
-        aria-label="Toggle artboard ruler origin"
-        className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
-        title="Artboard ruler (Alt+;)"
-      >
-        AB
-      </button>
-      <button
-        type="button"
-        aria-pressed={state.gridOverlayMode === 'baseline'}
-        onClick={() =>
-          setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
-        }
-        aria-label="Toggle baseline grid overlay"
-        className={`editor-status__toggle${state.gridOverlayMode === 'baseline' ? ' editor-status__toggle--active' : ''}`}
-        title="Baseline grid"
-      >
-        <Icon name="AlignVerticalSpaceAround" size={12} />
-      </button>
-      {state.cameraRotation !== 0 && (
+      <Tooltip label="Artboard ruler" shortcut="Alt+;">
         <button
           type="button"
-          onClick={() => resetViewRotation()}
-          aria-label="Reset view rotation"
-          className="editor-status__fit-btn"
-          title="Reset view rotation (Shift+R)"
+          aria-pressed={state.rulerMode === 'artboard'}
+          onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
+          aria-label="Toggle artboard ruler origin"
+          className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
         >
-          Reset rot
+          AB
         </button>
+      </Tooltip>
+      <Tooltip label="Baseline grid">
+        <button
+          type="button"
+          aria-pressed={state.gridOverlayMode === 'baseline'}
+          onClick={() =>
+            setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
+          }
+          aria-label="Toggle baseline grid overlay"
+          className={`editor-status__toggle${state.gridOverlayMode === 'baseline' ? ' editor-status__toggle--active' : ''}`}
+        >
+          <Icon name="AlignVerticalSpaceAround" size={12} />
+        </button>
+      </Tooltip>
+      {state.cameraRotation !== 0 && (
+        <Tooltip label="Reset view rotation" shortcut="Shift+R">
+          <button
+            type="button"
+            onClick={() => resetViewRotation()}
+            aria-label="Reset view rotation"
+            className="editor-status__fit-btn"
+          >
+            Reset rot
+          </button>
+        </Tooltip>
       )}
       {state.document.guides && state.document.guides.length > 0 && (
-        <button
-          type="button"
-          onClick={() => clearAllGuides()}
-          aria-label="Clear all guides"
-          className="editor-status__toggle"
-          title="Clear all guides"
-        >
-          <Icon name="RemoveFormatting" size={12} />
-        </button>
+        <Tooltip label="Clear all guides">
+          <button
+            type="button"
+            onClick={() => clearAllGuides()}
+            aria-label="Clear all guides"
+            className="editor-status__toggle"
+          >
+            <Icon name="RemoveFormatting" size={12} />
+          </button>
+        </Tooltip>
       )}
       <span aria-hidden>—</span>
-      <div className="editor-status__zoom-chip">
-        <button
-          type="button"
-          onClick={zoomOut}
-          aria-label="Zoom out"
-          className="editor-status__toggle"
-          title="Zoom out (−)"
-        >
-          <Icon name="Minus" size={10} />
-        </button>
-        <label htmlFor="status-zoom" className="sr-only">
-          Zoom
-        </label>
-        <input
-          id="status-zoom"
-          type="number"
-          min={1}
-          max={1000}
-          step={1}
-          value={Math.round(state.zoom * 100)}
-          onChange={handleZoomInput}
-          onKeyDown={handleZoomKey}
-          aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
-          className="editor-status__zoom-value"
-        />
-        <span aria-hidden>%</span>
-        <button
-          type="button"
-          onClick={zoomIn}
-          aria-label="Zoom in"
-          className="editor-status__toggle"
-          title="Zoom in (+)"
-        >
-          <Icon name="Plus" size={10} />
-        </button>
-      </div>
-      <button
-        type="button"
-        onClick={fitActivePage}
-        aria-label="Fit active page"
-        className="editor-status__fit-btn"
-        title="Fit page (Shift+3)"
-      >
-        Fit page
-      </button>
-      <button
-        type="button"
-        onClick={fitAll}
-        aria-label="Fit all to viewport"
-        className="editor-status__fit-btn"
-        title="Fit all (Shift+1)"
-      >
-        Fit all
-      </button>
-      <button
-        type="button"
-        onClick={() => revealSelection({ fit: true })}
-        aria-label="Fit selection to viewport"
-        className="editor-status__fit-btn"
-        title="Fit selection (Shift+2)"
-      >
-        Fit sel
-      </button>
+      <TooltipProvider>
+        <div className="editor-status__zoom-chip">
+          <Tooltip label="Zoom out" shortcut="−">
+            <button
+              type="button"
+              onClick={zoomOut}
+              aria-label="Zoom out"
+              className="editor-status__toggle"
+            >
+              <Icon name="Minus" size={10} />
+            </button>
+          </Tooltip>
+          <label htmlFor="status-zoom" className="sr-only">
+            Zoom
+          </label>
+          <input
+            id="status-zoom"
+            type="number"
+            min={1}
+            max={1000}
+            step={1}
+            value={Math.round(state.zoom * 100)}
+            onChange={handleZoomInput}
+            onKeyDown={handleZoomKey}
+            aria-label={`Zoom ${Math.round(state.zoom * 100)}%`}
+            className="editor-status__zoom-value"
+          />
+          <span aria-hidden>%</span>
+          <Tooltip label="Zoom in" shortcut="+">
+            <button
+              type="button"
+              onClick={zoomIn}
+              aria-label="Zoom in"
+              className="editor-status__toggle"
+            >
+              <Icon name="Plus" size={10} />
+            </button>
+          </Tooltip>
+        </div>
+        <Tooltip label="Fit page" shortcut="Shift+3">
+          <button
+            type="button"
+            onClick={fitActivePage}
+            aria-label="Fit active page"
+            className="editor-status__fit-btn"
+          >
+            Fit page
+          </button>
+        </Tooltip>
+        <Tooltip label="Fit all" shortcut="Shift+1">
+          <button
+            type="button"
+            onClick={fitAll}
+            aria-label="Fit all to viewport"
+            className="editor-status__fit-btn"
+          >
+            Fit all
+          </button>
+        </Tooltip>
+        <Tooltip label="Fit selection" shortcut="Shift+2">
+          <button
+            type="button"
+            onClick={() => revealSelection({ fit: true })}
+            aria-label="Fit selection to viewport"
+            className="editor-status__fit-btn"
+          >
+            Fit sel
+          </button>
+        </Tooltip>
+      </TooltipProvider>
       <span className="editor-status__info">
         {singleSel ? (
           <span>{sel[0]?.name ?? 'unknown'}</span>
