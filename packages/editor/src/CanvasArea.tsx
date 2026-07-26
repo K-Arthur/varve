@@ -61,14 +61,11 @@ import {
 } from '@strata/scene';
 import {
   type Camera,
-  clampZoom,
   computeFloatingOrigin,
-  fitBoundsCamera,
   isWorldRectInViewport,
   managedColorToCss,
   screenToWorld,
   worldToScreen,
-  zoomAboutPoint,
 } from '@strata/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeProfile, resetProfile } from './canvas/adaptiveProfile';
@@ -80,9 +77,11 @@ import {
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import { parseGridTemplate } from './canvas/gridTemplate';
+import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
+import { useOverlayDraw } from './canvas/overlayManager';
 import {
-  cancelCanvasFrame,
   createCanvasFrameKey,
   enableDrawDiagnostics,
   endFrameTiming,
@@ -90,11 +89,11 @@ import {
   getMemoryBudgets,
   getOverBudgetCount,
   recordFrame,
-  renderDrawDiagnostics,
   scheduleCanvasFrame,
   startFrameTiming,
 } from './canvas/perfRuntime';
 import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
+import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
 import { nodeWorldBoundsFn, setStartTextEditingHandler, useEditor } from './context';
@@ -132,7 +131,7 @@ import {
 import { nodeWorldBounds } from './scene/world';
 import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
-import { type DraftShape, type ToolContext, ToolManager } from './tools';
+import type { DraftShape, ToolContext } from './tools';
 
 /**
  * Quick reference-equality check: returns true when the only top-level field
@@ -158,43 +157,7 @@ function isOnlyVariableStoreChange(oldDoc: Document, newDoc: Document): boolean 
   return true;
 }
 
-import { ArrowTool } from './tools/ArrowTool';
-import { computeEdgeVelocity } from './tools/autoPan';
-import { CloneStampTool } from './tools/CloneStampTool';
-import { CropTool } from './tools/CropTool';
-import { EllipseTool } from './tools/EllipseTool';
-import { EyedropperTool } from './tools/EyedropperTool';
-import { FrameTool } from './tools/FrameTool';
-import { HandTool } from './tools/HandTool';
-import { HealingBrushTool } from './tools/HealingBrushTool';
-import { collectSourceEvents } from './tools/inputNormalizer';
-import { LineTool } from './tools/LineTool';
-import { NodeEditTool } from './tools/NodeEditTool';
-import { PaintTool } from './tools/PaintTool';
-import { PatchTool } from './tools/PatchTool';
-import { PencilTool } from './tools/PencilTool';
-import { PenTool } from './tools/PenTool';
-import { PolygonTool } from './tools/PolygonTool';
-import { RectangleTool } from './tools/RectangleTool';
-import { RefineMaskTool } from './tools/RefineMaskTool';
-import { Sam2SegmentationTool } from './tools/Sam2SegmentationTool';
-import { ScaleTool } from './tools/ScaleTool';
-import { SelectTool } from './tools/SelectTool';
-import { SliceTool } from './tools/SliceTool';
-import { SmudgeTool } from './tools/SmudgeTool';
-import { SpotHealTool } from './tools/SpotHealTool';
-import { StarTool } from './tools/StarTool';
-import {
-  createSnapSession,
-  filterSnapTargets,
-  type SnapGuide,
-  type SnapSession,
-  snapPosition,
-  snapTargetSearchRect,
-} from './tools/snapping';
-import { TextTool } from './tools/TextTool';
-import { TrimapEditTool } from './tools/TrimapEditTool';
-import { ZoomTool } from './tools/ZoomTool';
+import type { SnapGuide } from './tools/snapping';
 
 let _showOriginalBgNodeId: string | null = null;
 
@@ -454,94 +417,6 @@ export function applyPropertyPath(
   target[head] = setAtPath(target[head], tail, value);
 }
 
-/** Global ToolManager singleton for the editor lifetime. */
-let toolManager: ToolManager | null = null;
-function getToolManager(): ToolManager {
-  if (!toolManager) {
-    toolManager = new ToolManager('select');
-    toolManager.register('select', () => new SelectTool());
-    toolManager.register('inspect', () => new SelectTool());
-    toolManager.register('hand', () => new HandTool());
-    toolManager.register('zoom', () => new ZoomTool());
-    toolManager.register('scale', () => new ScaleTool());
-    toolManager.register('frame', () => new FrameTool());
-    toolManager.register('rect', () => new RectangleTool());
-    toolManager.register('ellipse', () => new EllipseTool());
-    toolManager.register('line', () => new LineTool());
-    toolManager.register('arrow', () => new ArrowTool());
-    toolManager.register('polygon', () => new PolygonTool());
-    toolManager.register('star', () => new StarTool());
-    toolManager.register('pen', () => new PenTool());
-    toolManager.register('pencil', () => new PencilTool());
-    toolManager.register('text', () => new TextTool());
-    toolManager.register('slice', () => new SliceTool());
-    toolManager.register('eyedropper', () => new EyedropperTool());
-    toolManager.register('nodeEdit', () => new NodeEditTool());
-    toolManager.register('cloneStamp', () => new CloneStampTool());
-    toolManager.register('healBrush', () => new HealingBrushTool());
-    toolManager.register('spotHeal', () => new SpotHealTool());
-    toolManager.register('patch', () => new PatchTool());
-    toolManager.register('refineMask', () => new RefineMaskTool());
-    toolManager.register('trimapEdit', () => new TrimapEditTool());
-    toolManager.register('crop', () => new CropTool());
-    toolManager.register('paint', () => new PaintTool(false));
-    toolManager.register('eraser', () => new PaintTool(true));
-    toolManager.register('smudge', () => new SmudgeTool());
-    toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
-  }
-  toolManager.setTool('select');
-  return toolManager;
-}
-
-/** Parse a simple grid-template string like "1fr 200px 1fr" into pixel sizes.
- *  Only handles px and fr units. fr units divide remaining space equally. */
-function parseGridTemplate(template: string, totalSize: number): number[] {
-  const parts = template.split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return [];
-  // First pass: compute total fr and used px space.
-  let frCount = 0;
-  let pxUsed = 0;
-  const sizes: (number | 'fr')[] = [];
-  for (const p of parts) {
-    if (p.endsWith('fr')) {
-      const n = Number.parseFloat(p);
-      frCount += n;
-      sizes.push('fr');
-      pxUsed += 0;
-    } else if (p.endsWith('px')) {
-      const n = Number.parseFloat(p);
-      pxUsed += n;
-      sizes.push(n);
-    } else {
-      // Treat as px
-      const n = Number.parseFloat(p);
-      if (!Number.isNaN(n)) {
-        pxUsed += n;
-        sizes.push(n);
-      }
-    }
-  }
-  const frPx = frCount > 0 ? Math.max(0, (totalSize - pxUsed) / frCount) : 0;
-  return sizes.map((s) => (s === 'fr' ? frPx : s));
-}
-
-/** Build a flat list of all selectable nodes in DFS paint order. */
-function getAllSelectableNodes(doc: Document): SceneNode[] {
-  const result: SceneNode[] = [];
-  function walk(ids: NodeId[]) {
-    for (const id of ids) {
-      const n = doc.nodes[id];
-      if (!n) continue;
-      result.push(n);
-      if (isContainer(n) && n.children.length > 0) {
-        walk(n.children);
-      }
-    }
-  }
-  walk(doc.rootChildren);
-  return result;
-}
-
 export function CanvasArea({
   canvasContainerRef,
   onContextMenu,
@@ -663,8 +538,7 @@ export function CanvasArea({
   const [redrawCount, setRedrawCount] = useState(0);
   const contentDrawFrameKey = useRef<string | null>(null);
   contentDrawFrameKey.current ??= createCanvasFrameKey('content');
-  const overlayDrawFrameKey = useRef<string | null>(null);
-  overlayDrawFrameKey.current ??= createCanvasFrameKey('overlay');
+
   // Concurrency guard for drawContent's async body: `drawContent`'s identity
   // (and thus the RAF-scheduling effect below) changes on every document
   // mutation, camera move, etc., but cancelling a *scheduled* animation frame
@@ -680,17 +554,11 @@ export function CanvasArea({
   const drawInFlightRef = useRef(false);
   const drawPendingRef = useRef(false);
 
-  // E1: Auto-pan when dragging near canvas edge.
-  const autoPanFrameKey = useRef<string | null>(null);
-  autoPanFrameKey.current ??= createCanvasFrameKey('auto-pan');
-  const autoPanActive = useRef(false);
-  const autoPanVelocity = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
   // B-04: Dirty-rect tracking for partial redraw. Populated by draw()
   // diffing old vs current node world bounds.
   const dirtyRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
 
-  // Cache CSS custom-property colors so drawContent/drawOverlay don't call
+  // Cache CSS custom-property colors so drawContent doesn't call
   // getComputedStyle() every frame (forces style recalc). Updated only on
   // theme change via the effect below.
   const sunkenColorRef = useRef('');
@@ -719,7 +587,6 @@ export function CanvasArea({
   const pendingAutoTextEditRef = useRef(false);
   const [hoveredNode, setHoveredNode] = useState<SceneNode | null>(null);
   const [warpMesh, setWarpMesh] = useState<import('@strata/engine').MeshWarp | null>(null);
-  const lastCursorUpdate = useRef(0);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const [displayDpr, setDisplayDpr] = useState(() =>
     typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1,
@@ -2470,7 +2337,6 @@ export function CanvasArea({
 
   // Scheduler key for the draw-content job
   const contentFrameKey = useMemo(() => createCanvasFrameKey('draw-content'), []);
-  const overlayFrameKey = useMemo(() => createCanvasFrameKey('draw-overlay'), []);
 
   useEffect(() => {
     const key = contentFrameKey;
@@ -2487,1059 +2353,34 @@ export function CanvasArea({
     };
   }, [drawContent, requestRedraw, contentFrameKey]);
 
-  // ── Overlay canvas draw: layout grid overlay, draft shapes ──────────────
-
-  const drawOverlay = useCallback(() => {
-    const canvas = overlayCanvasRef.current;
-    if (!canvas) return;
-    const parent = canvas.parentElement;
-    if (!parent) return;
-
-    const dpr = displayDpr;
-    const cssW = parent.clientWidth;
-    const cssH = parent.clientHeight;
-    resizeCanvasBackingStore(canvas, cssW, cssH, dpr);
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const s = stateRef.current;
-    const doc = s.document;
-    const cache = transformCacheRef.current;
-    const entries = walkNodes(doc, activePageNodes(doc));
-    const vp = { width: cssW, height: cssH };
-    const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
-
-    const accentColor = accentColorRef.current;
-
-    // Clear overlay canvas (it's transparent otherwise)
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    applyEditorCameraToCtx(ctx, camState, dpr, vp);
-
-    // ── Mask preview overlay ──────────────────────────────────────────────
-    const previewMode: import('./context/types').MaskPreviewMode = s.maskPreviewMode;
-    const previewNodeId = s.selection[0];
-    const previewNode = previewNodeId ? doc.nodes[previewNodeId] : undefined;
-    const maskEditing = s.tool === 'refineMask' || s.tool === 'trimapEdit';
-    if (
-      previewMode !== 'none' &&
-      maskEditing &&
-      previewNode?.kind === 'shape' &&
-      previewNode.mask?.rasterMask
-    ) {
-      const worldBounds = previewNodeId ? getCachedWorldBounds(cache, doc, previewNodeId) : null;
-      if (worldBounds && previewNodeId) {
-        ctx.save();
-        const worldMat = getCachedWorldTransform(cache, doc, previewNodeId);
-        const [a, b, c2, d2, e2, f2] = worldMat;
-        ctx.transform(a, b, c2, d2, e2, f2);
-        const w = worldBounds.w;
-        const h = worldBounds.h;
-        if (previewMode === 'checkerboard') {
-          const sz = 8 / s.zoom;
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(0, 0, w, h);
-          ctx.clip();
-          for (let py = 0; py < h; py += sz) {
-            for (let px = 0; px < w; px += sz) {
-              ctx.fillStyle =
-                (Math.floor(px / sz) + Math.floor(py / sz)) % 2 === 0
-                  ? 'rgba(0,0,0,0.15)'
-                  : 'rgba(255,255,255,0.15)';
-              ctx.fillRect(px, py, sz, sz);
-            }
-          }
-          ctx.restore();
-        } else if (previewMode === 'overlay') {
-          ctx.fillStyle = 'rgba(0,120,255,0.2)';
-          ctx.fillRect(0, 0, w, h);
-          ctx.strokeStyle = 'rgba(0,120,255,0.5)';
-          ctx.lineWidth = 2 / s.zoom;
-          ctx.strokeRect(0, 0, w, h);
-        } else if (previewMode === 'black') {
-          ctx.fillStyle = 'rgba(0,0,0,0.5)';
-          ctx.fillRect(0, 0, w, h);
-        } else if (previewMode === 'white') {
-          ctx.fillStyle = 'rgba(255,255,255,0.5)';
-          ctx.fillRect(0, 0, w, h);
-        } else if (previewMode === 'mask-only') {
-          ctx.fillStyle = 'rgba(128,128,128,0.4)';
-          ctx.fillRect(0, 0, w, h);
-        } else if (previewMode === 'edge') {
-          ctx.strokeStyle = 'rgba(255,50,50,0.8)';
-          ctx.lineWidth = 2 / s.zoom;
-          ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
-          ctx.strokeRect(0, 0, w, h);
-          ctx.setLineDash([]);
-        }
-        ctx.restore();
-      }
-    }
-
-    // ── Subject picker highlight overlay ────────────────────────────────────
-    const subjectPickerSession = s.subjectPickerSession;
-    if (subjectPickerSession) {
-      const highlightId = s.subjectHighlightId;
-      const imageNodeId = subjectPickerSession.nodeId;
-      const imageNode = doc.nodes[imageNodeId];
-      if (imageNode && imageNode.kind === 'shape') {
-        const worldBounds = getCachedWorldBounds(cache, doc, imageNodeId);
-        const worldMat = getCachedWorldTransform(cache, doc, imageNodeId);
-        if (worldBounds && worldMat) {
-          const imgW = worldBounds.w;
-          const imgH = worldBounds.h;
-          const srcW = subjectPickerSession.sourceWidth;
-          const srcH = subjectPickerSession.sourceHeight;
-          const scaleX = srcW > 0 ? imgW / srcW : 1;
-          const scaleY = srcH > 0 ? imgH / srcH : 1;
-          const [a, b, c2, d2, e2, f2] = worldMat;
-
-          ctx.save();
-
-          // Dim non-highlighted regions: semi-transparent overlay over full image
-          if (highlightId !== null) {
-            ctx.fillStyle = 'rgba(0,0,0,0.35)';
-            ctx.beginPath();
-            ctx.rect(e2, f2, imgW, imgH);
-            ctx.fill();
-          }
-
-          // Draw outlines for each component
-          for (const comp of subjectPickerSession.components) {
-            const isSelected = subjectPickerSession.keepIds.includes(comp.id);
-            const isHighlighted = comp.id === highlightId;
-
-            // Map component bbox from mask pixels to world space
-            const bx = comp.bbox.x * scaleX;
-            const by = comp.bbox.y * scaleY;
-            const bw = comp.bbox.w * scaleX;
-            const bh = comp.bbox.h * scaleY;
-
-            // Transform bbox corners through world matrix
-            const corners = [
-              [bx, by],
-              [bx + bw, by],
-              [bx + bw, by + bh],
-              [bx, by + bh],
-            ] as const;
-
-            if (highlightId !== null && isHighlighted) {
-              // Highlighted: cut out from dim overlay by drawing bright fill
-              ctx.save();
-              ctx.globalCompositeOperation = 'destination-out';
-              ctx.fillStyle = 'rgba(0,0,0,1)';
-              ctx.beginPath();
-              for (let i = 0; i < corners.length; i++) {
-                const [lx, ly] = corners[i]!;
-                const wx = a * lx + c2 * ly + e2;
-                const wy = b * lx + d2 * ly + f2;
-                if (i === 0) ctx.moveTo(wx, wy);
-                else ctx.lineTo(wx, wy);
-              }
-              ctx.closePath();
-              ctx.fill();
-              ctx.restore();
-            }
-
-            // Draw component outline
-            ctx.beginPath();
-            for (let i = 0; i < corners.length; i++) {
-              const [lx, ly] = corners[i]!;
-              const wx = a * lx + c2 * ly + e2;
-              const wy = b * lx + d2 * ly + f2;
-              if (i === 0) ctx.moveTo(wx, wy);
-              else ctx.lineTo(wx, wy);
-            }
-            ctx.closePath();
-
-            if (isHighlighted) {
-              ctx.strokeStyle = accentColor;
-              ctx.lineWidth = 3 / s.zoom;
-              ctx.setLineDash([]);
-            } else if (isSelected) {
-              ctx.strokeStyle = 'rgba(34,197,94,0.8)';
-              ctx.lineWidth = 2 / s.zoom;
-              ctx.setLineDash([]);
-            } else {
-              ctx.strokeStyle = 'rgba(128,128,128,0.5)';
-              ctx.lineWidth = 1.5 / s.zoom;
-              ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
-            }
-            ctx.stroke();
-
-            // Draw component number label
-            const labelX = a * bx + c2 * by + e2;
-            const labelY = b * bx + d2 * by + f2 - 8 / s.zoom;
-            const labelFontSize = Math.max(10, 12) / s.zoom;
-            ctx.font = `bold ${labelFontSize}px sans-serif`;
-            ctx.textAlign = 'left';
-            ctx.textBaseline = 'bottom';
-            ctx.fillStyle = isHighlighted
-              ? accentColor
-              : isSelected
-                ? 'rgba(34,197,94,0.9)'
-                : 'rgba(128,128,128,0.8)';
-            ctx.fillText(`${subjectPickerSession.components.indexOf(comp) + 1}`, labelX, labelY);
-          }
-
-          ctx.setLineDash([]);
-          ctx.restore();
-        }
-      }
-    }
-
-    // ── Drop target container highlight for drag operations ───────────────
-    if (dropTargetFrameId) {
-      const containerNode = doc.nodes[dropTargetFrameId];
-      if (containerNode && (containerNode.kind === 'frame' || containerNode.kind === 'group')) {
-        const containerWorld = getCachedWorldTransform(cache, doc, dropTargetFrameId);
-        const cw = containerNode.kind === 'frame' ? containerNode.w : 0;
-        const ch = containerNode.kind === 'frame' ? containerNode.h : 0;
-        if (containerWorld && containerNode.kind === 'frame') {
-          const [a, b, c, d, e2, f2] = containerWorld;
-          ctx.save();
-          ctx.strokeStyle = accentColor;
-          ctx.lineWidth = 2 / s.zoom;
-          ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
-          ctx.beginPath();
-          const corners = [
-            [0, 0],
-            [cw, 0],
-            [cw, ch],
-            [0, ch],
-          ] as const;
-          for (let i = 0; i < corners.length; i++) {
-            const [lx, ly] = corners[i]!;
-            const wx = a * lx + c * ly + e2;
-            const wy = b * lx + d * ly + f2;
-            if (i === 0) ctx.moveTo(wx, wy);
-            else ctx.lineTo(wx, wy);
-          }
-          ctx.closePath();
-          ctx.stroke();
-          ctx.restore();
-        } else if (containerNode.kind === 'group') {
-          // Groups don't have explicit w/h; draw a dashed outline around
-          // the union of their children's world bounds.
-          const groupBounds = getCachedWorldBounds(cache, doc, dropTargetFrameId);
-          if (groupBounds) {
-            const { x, y, w, h } = groupBounds;
-            ctx.save();
-            ctx.strokeStyle = accentColor;
-            ctx.lineWidth = 2 / s.zoom;
-            ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
-            ctx.strokeRect(x, y, w, h);
-            ctx.restore();
-          }
-        }
-      }
-    }
-
-    // File drops onto a compatible closed vector use an explicit solid
-    // outline, distinct from the dashed frame-reparent affordance above.
-    if (maskDropTargetId) {
-      const target = doc.nodes[maskDropTargetId];
-      if (target && canBeClipMaskSource(target)) {
-        const world = getCachedWorldTransform(cache, doc, maskDropTargetId);
-        ctx.save();
-        ctx.transform(...world);
-        ctx.beginPath();
-        traceSceneNodeOutline(
-          ctx,
-          target as unknown as Parameters<typeof traceSceneNodeOutline>[1],
-        );
-        ctx.closePath();
-        ctx.strokeStyle = accentColor;
-        ctx.lineWidth = 3 / s.zoom;
-        ctx.setLineDash([]);
-        ctx.stroke();
-        ctx.restore();
-      }
-    }
-
-    // ── Layout grid overlay for frames with gridTemplate ────────────────
-    ctx.strokeStyle = accentColor.replace(')', ' / 0.25)');
-    ctx.lineWidth = 1 / s.zoom;
-    ctx.setLineDash([0]);
-    for (const [nid] of entries) {
-      const n = doc.nodes[nid];
-      if (n?.kind !== 'frame' || !n.layoutStyle) continue;
-      const frame = n as import('@strata/scene').FrameNode & {
-        layoutStyle: NonNullable<import('@strata/scene').FrameNode['layoutStyle']>;
-      };
-      const ls = frame.layoutStyle;
-      if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
-      const world = getCachedWorldTransform(cache, doc, nid);
-      const [a, b, c, d, e, f] = world;
-      const fw = frame.w;
-      const fh = frame.h;
-      const colSizes = parseGridTemplate(ls.gridTemplateColumns ?? '', fw);
-      const rowSizes = parseGridTemplate(ls.gridTemplateRows ?? '', fh);
-      const gapX = ls.columnGap ?? ls.gap ?? 0;
-      const gapY = ls.rowGap ?? ls.gap ?? 0;
-      let xPos = 0;
-      for (const cs of colSizes) {
-        xPos += cs;
-        const wx = a * xPos + c * 0 + e;
-        const wy = b * xPos + d * 0 + f;
-        const wx2 = a * xPos + c * fh + e;
-        const wy2 = b * xPos + d * fh + f;
-        ctx.beginPath();
-        ctx.moveTo(wx, wy);
-        ctx.lineTo(wx2, wy2);
-        ctx.stroke();
-        xPos += gapX;
-      }
-      let yPos = 0;
-      for (const rs of rowSizes) {
-        yPos += rs;
-        const wx = a * 0 + c * yPos + e;
-        const wy = b * 0 + d * yPos + f;
-        const wx2 = a * fw + c * yPos + e;
-        const wy2 = b * fw + d * yPos + f;
-        ctx.beginPath();
-        ctx.moveTo(wx, wy);
-        ctx.lineTo(wx2, wy2);
-        ctx.stroke();
-        yPos += gapY;
-      }
-    }
-
-    // ── Frame drag-over highlight ──────────────────────────────────────
-    // Highlight the frame under the draft shape's center during drag.
-    if (draft) {
-      const cx =
-        'x1' in draft ? (draft.x1 + draft.x2) / 2 : 'x' in draft ? draft.x + (draft.w ?? 0) / 2 : 0;
-      const cy =
-        'y1' in draft ? (draft.y1 + draft.y2) / 2 : 'y' in draft ? draft.y + (draft.h ?? 0) / 2 : 0;
-      const highlightFrameId = editorRef.current.findContainingFrame({ x: cx, y: cy });
-      if (highlightFrameId) {
-        const frameNode = doc.nodes[highlightFrameId];
-        if (frameNode && frameNode.kind === 'frame') {
-          const frameWorld = getCachedWorldTransform(cache, doc, highlightFrameId);
-          const fw = frameNode.w;
-          const fh = frameNode.h;
-          if (frameWorld) {
-            const [a, b, c, d, e2, f2] = frameWorld;
-            ctx.save();
-            ctx.strokeStyle = accentColor;
-            ctx.lineWidth = 2 / s.zoom;
-            ctx.setLineDash([6 / s.zoom, 4 / s.zoom]);
-            ctx.beginPath();
-            const corners = [
-              [0, 0],
-              [fw, 0],
-              [fw, fh],
-              [0, fh],
-            ] as const;
-            for (let i = 0; i < corners.length; i++) {
-              const [lx, ly] = corners[i]!;
-              const wx = a * lx + c * ly + e2;
-              const wy = b * lx + d * ly + f2;
-              if (i === 0) ctx.moveTo(wx, wy);
-              else ctx.lineTo(wx, wy);
-            }
-            ctx.closePath();
-            ctx.stroke();
-            ctx.restore();
-          }
-        }
-      }
-    }
-
-    // ── Draft shape preview ─────────────────────────────────────────────
-    if (draft) {
-      ctx.strokeStyle = accentColor;
-      ctx.lineWidth = 1 / s.zoom;
-      ctx.setLineDash([4 / s.zoom, 4 / s.zoom]);
-
-      switch (draft.kind) {
-        case 'rect':
-        case 'frame':
-          ctx.strokeRect(draft.x, draft.y, draft.w, draft.h);
-          break;
-        case 'ellipse': {
-          const ecx = draft.x + draft.w / 2;
-          const ecy = draft.y + draft.h / 2;
-          ctx.beginPath();
-          ctx.ellipse(ecx, ecy, draft.w / 2, draft.h / 2, 0, 0, Math.PI * 2);
-          ctx.stroke();
-          break;
-        }
-        case 'polygon': {
-          const pcx = draft.x + draft.w / 2;
-          const pcy = draft.y + draft.h / 2;
-          const pr = Math.min(draft.w, draft.h) / 2;
-          ctx.beginPath();
-          for (let i = 0; i < draft.sides; i++) {
-            const a = (2 * Math.PI * i) / draft.sides - Math.PI / 2;
-            const px = pcx + pr * Math.cos(a);
-            const py = pcy + pr * Math.sin(a);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.closePath();
-          ctx.stroke();
-          break;
-        }
-        case 'star': {
-          const scx = draft.x + draft.w / 2;
-          const scy = draft.y + draft.h / 2;
-          const outerR = Math.min(draft.w, draft.h) / 2;
-          const innerR = outerR * 0.4;
-          ctx.beginPath();
-          for (let i = 0; i < draft.points * 2; i++) {
-            const a = (Math.PI * i) / draft.points - Math.PI / 2;
-            const r = i % 2 === 0 ? outerR : innerR;
-            const px = scx + r * Math.cos(a);
-            const py = scy + r * Math.sin(a);
-            if (i === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          }
-          ctx.closePath();
-          ctx.stroke();
-          break;
-        }
-        case 'line':
-          ctx.beginPath();
-          ctx.moveTo(draft.x1, draft.y1);
-          ctx.lineTo(draft.x2, draft.y2);
-          ctx.stroke();
-          break;
-        case 'arrow':
-          ctx.beginPath();
-          ctx.moveTo(draft.x1, draft.y1);
-          ctx.lineTo(draft.x2, draft.y2);
-          ctx.stroke();
-          {
-            const angle = Math.atan2(draft.y2 - draft.y1, draft.x2 - draft.x1);
-            const spread = Math.PI / 7;
-            const headLen = 10 / s.zoom;
-            ctx.fillStyle = accentColor;
-            ctx.beginPath();
-            ctx.moveTo(draft.x2, draft.y2);
-            ctx.lineTo(
-              draft.x2 - headLen * Math.cos(angle - spread),
-              draft.y2 - headLen * Math.sin(angle - spread),
-            );
-            ctx.lineTo(
-              draft.x2 - headLen * Math.cos(angle + spread),
-              draft.y2 - headLen * Math.sin(angle + spread),
-            );
-            ctx.closePath();
-            ctx.fill();
-          }
-          break;
-        case 'freehand':
-          if (draft.points.length >= 2) {
-            ctx.beginPath();
-            ctx.moveTo(draft.points[0]!.x, draft.points[0]!.y);
-            for (let i = 1; i < draft.points.length; i++) {
-              ctx.lineTo(draft.points[i]!.x, draft.points[i]!.y);
-            }
-            ctx.stroke();
-          }
-          break;
-      }
-
-      ctx.setLineDash([]);
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // The label is drawn after resetting to a plain DPR transform, so use
-      // the canonical camera affine (including view rotation) explicitly.
-      const draftCamera = { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation };
-      if (draft.kind === 'freehand') {
-        const pt = draft.points[0];
-        if (pt) {
-          const [sx, sy] = worldToScreen(draftCamera, pt.x, pt.y, vp);
-          ctx.font = '11px system-ui';
-          ctx.fillStyle = accentColor;
-          ctx.fillText(draft.label ?? `${draft.points.length} pts`, sx + 4, sy + 14);
-        }
-      } else {
-        const worldX =
-          draft.kind === 'line' || draft.kind === 'arrow' ? Math.min(draft.x1, draft.x2) : draft.x;
-        const worldY =
-          draft.kind === 'line' || draft.kind === 'arrow' ? Math.min(draft.y1, draft.y2) : draft.y;
-        const [sx, sy] = worldToScreen(draftCamera, worldX, worldY, vp);
-        const sw = 'w' in draft ? draft.w * s.zoom : Math.abs(draft.x2 - draft.x1) * s.zoom;
-        ctx.font = '11px system-ui';
-        ctx.fillStyle = accentColor;
-        const label =
-          draft.label ??
-          `${Math.round(sw / s.zoom)} x ${Math.round('h' in draft ? draft.h * s.zoom : (Math.abs(draft.y2 - draft.y1) * s.zoom) / s.zoom)}`;
-        ctx.fillText(label, sx + sw + 4, sy + 14);
-      }
-    }
-
-    // Dev-only diagnostics overlay (frame timing, cache stats, render path)
-    renderDrawDiagnostics(ctx, canvas.width);
-  }, [
+  // ── Overlay draw pipeline ──────────────────────────────────────────────
+  useOverlayDraw({
+    overlayCanvasRef,
+    stateRef,
+    transformCacheRef,
+    displayDpr,
+    accentColorRef,
+    sunkenColorRef,
     draft,
     dropTargetFrameId,
     maskDropTargetId,
-    state.zoom,
-    state.pan.x,
-    state.pan.y,
-    state.cameraRotation,
-    state.maskPreviewMode,
-    state.subjectHighlightId,
-    state.subjectPickerSession,
-    displayDpr,
-  ]);
+  });
 
-  // Schedule the overlay draw on the ui lane (lower priority than canvas content)
-  useEffect(() => {
-    scheduleCanvasFrame(overlayFrameKey, 'ui', () => {
-      drawOverlay();
-    });
-  }, [drawOverlay, overlayFrameKey]);
-
-  // ── Theme-change redraw guard ────────────────────────────────────────────
-  // Theme changes (data-theme on <html>) do not change any EditorState field,
-  // so drawContent's identity stays the same and the RAF-scheduling effect
-  // below never re-fires.  A MutationObserver on the attribute guarantees that
-  // the canvas background, ruler, minimap, and overlay colours update
-  // immediately without requiring pointer movement or zoom interaction.
-  useEffect(() => {
-    const el = document.documentElement;
-    const cb: MutationCallback = () => {
-      requestRedrawRef.current?.();
-    };
-    const obs = new MutationObserver(cb);
-    obs.observe(el, { attributes: true, attributeFilter: ['data-theme'] });
-    return () => obs.disconnect();
-  }, []);
-
-  // ── RAF scheduling ──────────────────────────────────────────────────────
-
-  useEffect(() => {
-    const frameKey = contentDrawFrameKey.current;
-    if (!frameKey) return;
-    scheduleCanvasFrame(frameKey, 'canvas', () => {
-      drawContent();
-    });
-    return () => {
-      cancelCanvasFrame(frameKey);
-    };
-  }, [drawContent]);
-
-  useEffect(() => {
-    const frameKey = overlayDrawFrameKey.current;
-    if (!frameKey) return;
-    scheduleCanvasFrame(frameKey, 'ui', () => {
-      drawOverlay();
-    });
-    return () => {
-      cancelCanvasFrame(frameKey);
-    };
-  }, [drawOverlay]);
-
-  // ─── Touch pinch (two-pointer zoom/pan, bypasses ToolManager) ───────────
-
-  const touchPointers = useRef(new Map<number, { x: number; y: number }>());
-  const pinchRef = useRef<{ lastDist: number; lastCentroid: { x: number; y: number } } | null>(
-    null,
-  );
-
-  function pinchGeometry(): { dist: number; centroid: { x: number; y: number } } | null {
-    const pts = [...touchPointers.current.values()];
-    if (pts.length < 2) return null;
-    const [a, b] = pts as [{ x: number; y: number }, { x: number; y: number }];
-    return {
-      dist: Math.hypot(b.x - a.x, b.y - a.y),
-      centroid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-    };
-  }
-
-  // ─── Auto-pan (edge scroll during drag) ────────────────────────────────
-
-  function stopAutoPan() {
-    const frameKey = autoPanFrameKey.current;
-    if (frameKey) cancelCanvasFrame(frameKey);
-    autoPanActive.current = false;
-    autoPanVelocity.current = { x: 0, y: 0 };
-  }
-
-  // ─── Pointer Events ──────────────────────────────────────────────────────
-
-  function handlePointerDown(e: React.PointerEvent<HTMLCanvasElement>) {
-    const ne = e.nativeEvent as PointerEvent;
-    const tmInst = tm.current;
-    if (!tmInst) return;
-    const ctx = buildToolCtx(ne);
-
-    // Canvas-scoped shortcuts (zoom presets, tool hotkeys, delete/nudge,
-    // Space-pan) are handled by this element's own onKeyDown, so they only
-    // fire while it holds DOM focus. Nothing else re-focuses it after focus
-    // moves away (a panel input, a dialog, the properties panel) — relying
-    // on the browser's default click-to-focus for a tabIndex element is
-    // fragile, so grab focus explicitly on every pointer interaction.
-    e.currentTarget.focus({ preventScroll: true });
-
-    // Two-finger touch → pinch zoom/pan. Cancel any in-progress tool gesture
-    // from the first finger so it doesn't draw/move while pinching.
-    if (e.pointerType === 'touch') {
-      touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (touchPointers.current.size === 2) {
-        tmInst.handlePointerCancel(ne, ctx);
-        const geo = pinchGeometry();
-        if (geo) pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
-        return;
-      }
-      if (touchPointers.current.size > 2) return;
-    }
-
-    // Prevent browser default middle-click auto-scroll; route to active tool
-    if (e.button === 1) {
-      e.preventDefault();
-    }
-
-    snapSessionRef.current = createSnapSession();
-    snapIndexRef.current = null;
-    tmInst.handlePointerDown(ne, ctx);
-  }
-
-  function handlePointerMove(e: React.PointerEvent<HTMLCanvasElement>) {
-    const ne = e.nativeEvent as PointerEvent;
-    const ctx = buildToolCtx(ne);
-    // Active pinch: update this finger, re-derive distance + centroid.
-    if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
-      touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      const pinch = pinchRef.current;
-      const geo = pinchGeometry();
-      if (pinch && geo) {
-        const s = stateRef.current;
-        const rect = contentCanvasRef.current?.getBoundingClientRect();
-        // Pan by centroid movement…
-        const panned = {
-          x: s.pan.x + (geo.centroid.x - pinch.lastCentroid.x),
-          y: s.pan.y + (geo.centroid.y - pinch.lastCentroid.y),
-        };
-        // …then zoom about the current centroid by the distance ratio.
-        const cam = { pan: panned, zoom: s.zoom, rotation: s.cameraRotation };
-        const viewport = {
-          width: rect?.width ?? contentCanvasRef.current?.clientWidth ?? 1920,
-          height: rect?.height ?? contentCanvasRef.current?.clientHeight ?? 1080,
-        };
-        const origin = computeFloatingOrigin(cam, viewport);
-        const anchor = screenToWorld(
-          cam,
-          geo.centroid.x - (rect?.left ?? 0),
-          geo.centroid.y - (rect?.top ?? 0),
-          viewport,
-          origin,
-        );
-        const factor = pinch.lastDist > 0 ? geo.dist / pinch.lastDist : 1;
-        const newCam = zoomAboutPoint(cam, anchor, clampZoom(s.zoom * factor), viewport);
-        commitCamera(newCam);
-        pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
-        return;
-      }
-    }
-
-    // Track cursor position (throttled to ~30fps)
-    const now = performance.now();
-    if (now - lastCursorUpdate.current > 32) {
-      lastCursorUpdate.current = now;
-      const world = ctx.canvasToWorld(e.clientX, e.clientY);
-      editor.setCursorPos(world);
-    }
-
-    const tmInst = tm.current;
-    if (!tmInst) return;
-
-    if (state.tool === 'inspect') {
-      // canvasToWorld now includes rect subtraction; pass raw clientX/Y.
-      const world = ctx.canvasToWorld(ne.clientX, ne.clientY);
-      const hit = editor.hitTestNode(world);
-      setHoveredNode(hit?.node ?? null);
-    }
-
-    tmInst.handlePointerMove(ne, ctx);
-
-    // E1: Auto-pan when dragging near canvas edge.
-    if (e.buttons !== 0) {
-      const rect = contentCanvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const vx = computeEdgeVelocity(e.clientX, rect.left, rect.right);
-        const vy = computeEdgeVelocity(e.clientY, rect.top, rect.bottom);
-        autoPanVelocity.current = { x: vx, y: vy };
-        if (vx !== 0 || vy !== 0) {
-          if (!autoPanActive.current) {
-            const frameKey = autoPanFrameKey.current;
-            if (!frameKey) return;
-            autoPanActive.current = true;
-            const tick = () => {
-              const v = autoPanVelocity.current;
-              if (v.x === 0 && v.y === 0) {
-                stopAutoPan();
-                return;
-              }
-              const s = stateRef.current;
-              editor.setPan({ x: s.pan.x + v.x, y: s.pan.y + v.y });
-              scheduleCanvasFrame(frameKey, 'input', tick);
-            };
-            scheduleCanvasFrame(frameKey, 'input', tick);
-          }
-        } else {
-          stopAutoPan();
-        }
-      }
-    } else {
-      stopAutoPan();
-    }
-  }
-
-  function handlePointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
-    stopAutoPan();
-    setSnapGuides([]);
-    snapIndexRef.current = null;
-    if (e.pointerType === 'touch') {
-      const wasPinching = pinchRef.current !== null;
-      touchPointers.current.delete(e.pointerId);
-      if (touchPointers.current.size < 2) pinchRef.current = null;
-      // A finger lifted from a pinch shouldn't fire the tool's pointer-up.
-      if (wasPinching) return;
-    }
-    const ne = e.nativeEvent as PointerEvent;
-    const tmInst = tm.current;
-    if (!tmInst) return;
-
-    tmInst.handlePointerUp(ne, buildToolCtx(ne));
-  }
-
-  function handlePointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
-    stopAutoPan();
-    snapIndexRef.current = null;
-    if (e.pointerType === 'touch') {
-      touchPointers.current.delete(e.pointerId);
-      if (touchPointers.current.size < 2) pinchRef.current = null;
-    }
-    const ne = e.nativeEvent as PointerEvent;
-    tm.current?.handlePointerCancel(ne, buildToolCtx(ne));
-    setSnapGuides([]);
-  }
-
-  // ─── Wheel & pinch (native, non-passive) ─────────────────────────────────
-  // React attaches `onWheel` passively (React 17+), so preventDefault() is
-  // silently ignored there — trackpad pinch (delivered as ctrl+wheel) would
-  // trigger browser page-zoom instead of canvas zoom. Attach natively with
-  // { passive: false } instead.
-  //   wheel + ctrl/cmd → pinch / precision-zoom, anchored at cursor
-  //   wheel + shift    → horizontal pan (mouse-wheel convention)
-  //   plain wheel      → two-finger scroll pan
-  // WebKit (WKWebView / WebKitGTK — the Tauri runtimes) can deliver trackpad
-  // pinch as proprietary gesturestart/change/end events carrying a `scale`;
-  // those are handled below and no-op on engines that never fire them.
-  useEffect(() => {
-    const el = contentCanvasRef.current;
-    if (!el) return;
-
-    // Normalize deltaMode: Firefox mouse wheels report DOM_DELTA_LINE (1).
-    const deltaScale = (e: WheelEvent): number =>
-      e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
-
-    const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
-      const s = stateRef.current;
-      const rect = el.getBoundingClientRect();
-      const viewport = { width: rect.width, height: rect.height };
-      const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
-      const origin = computeFloatingOrigin(cam, viewport);
-      const anchor = screenToWorld(cam, clientX - rect.left, clientY - rect.top, viewport, origin);
-      const newCam = zoomAboutPoint(cam, anchor, clampZoom(newZoom), viewport);
-      commitCamera(newCam);
-    };
-
-    // ── Inertial scroll state (A-06) ──────────────────────────────────
-    const inertiaRef = { current: { vx: 0, vy: 0, active: false } };
-    const inertiaFrameKey = createCanvasFrameKey('wheel-inertia');
-    const INERTIA_FRICTION = 0.9;
-    const INERTIA_THRESHOLD = 0.5;
-
-    function startInertia(): void {
-      if (inertiaRef.current.active) return;
-      inertiaRef.current.active = true;
-      const tick = (): void => {
-        const s = stateRef.current;
-        const v = inertiaRef.current;
-        if (Math.abs(v.vx) < INERTIA_THRESHOLD && Math.abs(v.vy) < INERTIA_THRESHOLD) {
-          v.active = false;
-          v.vx = 0;
-          v.vy = 0;
-          return;
-        }
-        editorRef.current.setPan({ x: s.pan.x + v.vx, y: s.pan.y + v.vy });
-        v.vx *= INERTIA_FRICTION;
-        v.vy *= INERTIA_FRICTION;
-        scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
-      };
-      scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
-    }
-
-    function cancelInertia(): void {
-      cancelCanvasFrame(inertiaFrameKey);
-      inertiaRef.current.active = false;
-      inertiaRef.current.vx = 0;
-      inertiaRef.current.vy = 0;
-    }
-
-    const onWheel = (e: WheelEvent): void => {
-      e.preventDefault();
-      const s = stateRef.current;
-      const k = deltaScale(e);
-      if (e.ctrlKey || e.metaKey) {
-        const d = Math.max(-24, Math.min(24, e.deltaY * k));
-        zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * Math.exp(-d * 0.01));
-        cancelInertia();
-      } else if (e.shiftKey && e.deltaX === 0) {
-        editorRef.current.setPan({ x: s.pan.x - e.deltaY * k, y: s.pan.y });
-        cancelInertia();
-      } else {
-        const dx = -e.deltaX * k;
-        const dy = -e.deltaY * k;
-        editorRef.current.setPan({ x: s.pan.x + dx, y: s.pan.y + dy });
-        // Accumulate velocity for inertia; weight recent deltas higher
-        inertiaRef.current.vx = inertiaRef.current.vx * 0.4 + dx * 0.6;
-        inertiaRef.current.vy = inertiaRef.current.vy * 0.4 + dy * 0.6;
-        // Cap velocity to prevent runaway
-        const maxV = 80;
-        inertiaRef.current.vx = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vx));
-        inertiaRef.current.vy = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vy));
-        // Start/restart inertia deceleration
-        cancelInertia();
-        startInertia();
-      }
-    };
-
-    // Safari-family pinch: GestureEvent is WebKit-proprietary (scale is the
-    // cumulative pinch ratio since gesturestart).
-    interface WebKitGestureEvent extends Event {
-      scale: number;
-      clientX: number;
-      clientY: number;
-    }
-    let gestureBaseZoom = 1;
-    const onGestureStart = (e: Event): void => {
-      e.preventDefault();
-      gestureBaseZoom = stateRef.current.zoom;
-    };
-    const onGestureChange = (e: Event): void => {
-      e.preventDefault();
-      const ge = e as WebKitGestureEvent;
-      zoomAboutClientPoint(ge.clientX, ge.clientY, gestureBaseZoom * ge.scale);
-    };
-    const onGestureEnd = (e: Event): void => e.preventDefault();
-
-    el.addEventListener('wheel', onWheel, { passive: false });
-    el.addEventListener('gesturestart', onGestureStart);
-    el.addEventListener('gesturechange', onGestureChange);
-    el.addEventListener('gestureend', onGestureEnd);
-    return () => {
-      el.removeEventListener('wheel', onWheel);
-      el.removeEventListener('gesturestart', onGestureStart);
-      el.removeEventListener('gesturechange', onGestureChange);
-      el.removeEventListener('gestureend', onGestureEnd);
-    };
-  }, []);
-
-  // ─── Keyboard ─────────────────────────────────────────────────────────────
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      const ne = e.nativeEvent as KeyboardEvent;
-      const tmInst = tm.current;
-
-      // Space (held) → spring-loaded Hand tool (Figma convention); reverts
-      // to the previous tool on keyup.
-      if (e.key === ' ') {
-        e.preventDefault();
-        if (!e.repeat && tmInst) {
-          tmInst.springLoadTool(
-            'hand',
-            ne,
-            buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent),
-          );
-        }
-        return;
-      }
-
-      // Let the active tool try to consume the key first
-      if (tmInst) {
-        const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
-        if (tmInst.handleKeyDown(ne, ctx)) {
-          e.preventDefault();
-          return;
-        }
-      }
-
-      // Global keyboard handlers that are NOT tool-specific
-      const s = stateRef.current;
-      const eRef = editorRef.current;
-      const nodes = getAllSelectableNodes(s.document);
-      const selArr = s.selection;
-      const firstSel = selArr[0] ?? null;
-      const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;
-
-      if (e.key === 'Tab') {
-        if (nodes.length === 0) return;
-        e.preventDefault();
-        if (e.shiftKey) {
-          const prev = nodes[(idx <= 0 ? nodes.length : idx) - 1];
-          if (prev) {
-            eRef.setSelection(prev.id);
-            eRef.announceSelection([prev]);
-          }
-        } else {
-          const next = nodes[(idx + 1) % nodes.length];
-          if (next) {
-            eRef.setSelection(next.id);
-            eRef.announceSelection([next]);
-          }
-        }
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        if (s.isolatedNodeId) {
-          eRef.exitIsolation();
-          eRef.setSelection(s.isolatedNodeId);
-          eRef.announceOperation('Exit isolation', 'Clipping group');
-          return;
-        }
-        eRef.setSelection(null);
-        eRef.announceSelection([]);
-        // If in a non-full canvas mode, return to full render mode.
-        if (s.canvasMode !== 'full') {
-          eRef.setCanvasMode('full');
-        }
-        return;
-      }
-
-      if ((e.key === 'Enter' || e.key === 'F2') && firstSel) {
-        setRenameDialog({ defaultValue: nodes[idx]?.name ?? '' });
-      }
-
-      // ── Helper: zoom about the canvas centre ─────────────────────────
-      function zoomAboutCanvasCentre(newZoom: number): void {
-        const s = stateRef.current;
-        const parent = contentCanvasRef.current?.parentElement;
-        const vpW = parent?.clientWidth ?? 800;
-        const vpH = parent?.clientHeight ?? 600;
-        const viewport = { width: vpW, height: vpH };
-        const cam = { pan: s.pan, zoom: s.zoom, rotation: s.cameraRotation };
-        const origin = computeFloatingOrigin(cam, viewport);
-        const centreWorld = screenToWorld(cam, vpW / 2, vpH / 2, viewport, origin);
-        const newCam = zoomAboutPoint(cam, centreWorld, newZoom, viewport);
-        commitCamera(newCam);
-      }
-
-      // ── Zoom presets (unmodified 1-6) ────────────────────────────────
-      const ZOOM_PRESETS: Record<string, number> = {
-        '1': 0.5,
-        '2': 0.75,
-        '3': 1,
-        '4': 1.5,
-        '5': 2,
-        '6': 4,
-      };
-      const zoomLevel = ZOOM_PRESETS[e.key];
-      if (zoomLevel !== undefined && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        e.preventDefault();
-        zoomAboutCanvasCentre(zoomLevel);
-        eRef.announceOperation('Zoom', `${Math.round(zoomLevel * 100)}%`);
-        return;
-      }
-
-      // ── Ctrl/Cmd + 0 → 100% ───────────────────────────────────────────
-      if (e.key === '0' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
-        e.preventDefault();
-        zoomAboutCanvasCentre(1);
-        eRef.announceOperation('Zoom', '100%');
-        return;
-      }
-
-      // ── + / = → zoom in (1.25×); - → zoom out (0.8×) ─────────────────
-      if ((e.key === '=' || e.key === '+') && !e.shiftKey && !e.altKey) {
-        e.preventDefault();
-        zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 1.25));
-        eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
-        return;
-      }
-      if (e.key === '-' && !e.shiftKey && !e.altKey) {
-        e.preventDefault();
-        zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 0.8));
-        eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
-        return;
-      }
-
-      // ── Reveal shortcuts ──────────────────────────────────────────────
-      if (e.key === '1' && e.shiftKey) {
-        e.preventDefault();
-        // Shift+1: fit all nodes — use actual canvas element bounds
-        const parent = contentCanvasRef.current?.parentElement;
-        const vpW = parent?.clientWidth ?? 800;
-        const vpH = parent?.clientHeight ?? 600;
-        const canvasViewport = { width: vpW, height: vpH };
-        const allBounds = rootNodes().reduce<{ x: number; y: number; w: number; h: number } | null>(
-          (acc, n) => {
-            const b = editor.getWorldBounds(n.id);
-            if (!b) return acc;
-            if (!acc) return b;
-            const minX = Math.min(acc.x, b.x);
-            const minY = Math.min(acc.y, b.y);
-            const maxX = Math.max(acc.x + acc.w, b.x + b.w);
-            const maxY = Math.max(acc.y + acc.h, b.y + b.h);
-            return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-          },
-          null,
-        );
-        if (allBounds) {
-          const cam = fitBoundsCamera(allBounds, canvasViewport, 40);
-          commitCamera(cam);
-          eRef.announceOperation('Zoom', 'fit all');
-        }
-      }
-      if (e.key === '2' && e.shiftKey) {
-        e.preventDefault();
-        if (selArr.length > 0) {
-          const parent = contentCanvasRef.current?.parentElement;
-          const viewport = parent
-            ? { width: parent.clientWidth, height: parent.clientHeight }
-            : undefined;
-          eRef.revealSelection({ fit: true, viewport });
-          eRef.announceOperation('Zoom', 'to selection');
-        }
-      }
-    },
-    [rootNodes],
-  );
-
-  const handleKeyUp = useCallback((e: React.KeyboardEvent) => {
-    const ne = e.nativeEvent as KeyboardEvent;
-    const tmInst = tm.current;
-    if (!tmInst) return;
-    const ctx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
-    // Release spring-loaded Hand tool when Space is let go.
-    if (e.key === ' ' && tmInst.springKey === ' ') {
-      e.preventDefault();
-      tmInst.releaseSpring(ctx);
-      return;
-    }
-    tmInst.handleKeyUp(ne, ctx);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function handleDoubleClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    const tmInst = tm.current;
-    if (!tmInst) return;
-    // Tools' onDoubleClick only reads clientX/Y + modifiers, all present on
-    // MouseEvent; buildToolCtx defaults pointerType/pressure when absent.
-    const ne = e.nativeEvent as unknown as PointerEvent;
-    tmInst.handleDoubleClick(ne, buildToolCtx(ne));
-  }
+  // ─── Input pipeline (pointer, wheel, keyboard handlers) ──────────────────
+  const input = useCanvasInputs({
+    contentCanvasRef,
+    editor,
+    stateRef,
+    tmRef: tm,
+    buildToolCtx,
+    commitCamera,
+    setSnapGuides,
+    setHoveredNode,
+    setRenameDialog,
+    snapSessionRef: snapSessionRef,
+    snapIndexRef: snapIndexRef,
+    rootNodes,
+  });
 
   // ─── Cursor ───────────────────────────────────────────────────────────────
 
@@ -3878,28 +2719,15 @@ export function CanvasArea({
         data-testid="editor-canvas"
         className="editor-canvas__content-layer"
         style={{ cursor }}
-        onKeyDown={handleKeyDown}
-        onKeyUp={handleKeyUp}
-        onDoubleClick={handleDoubleClick}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
-        onPointerLeave={() => {
-          editor.setCursorPos(null);
-          stopAutoPan();
-        }}
-        onBlur={() => {
-          stopAutoPan();
-          editor.commitTransaction();
-          tm.current?.activeTool.onPointerCancel?.(
-            new PointerEvent('pointercancel'),
-            buildToolCtx(new PointerEvent('pointercancel')),
-          );
-          if (tm.current?.springActive) {
-            tm.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
-          }
-        }}
+        onKeyDown={input.handleKeyDown}
+        onKeyUp={input.handleKeyUp}
+        onDoubleClick={input.handleDoubleClick}
+        onPointerDown={input.handlePointerDown}
+        onPointerMove={input.handlePointerMove}
+        onPointerUp={input.handlePointerUp}
+        onPointerCancel={input.handlePointerCancel}
+        onPointerLeave={input.onPointerLeave}
+        onBlur={input.onBlur}
       />
       <canvas
         ref={overlayCanvasRef}
