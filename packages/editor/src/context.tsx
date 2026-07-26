@@ -459,12 +459,15 @@ function insertImportedSubtree(
 
   const nodes = { ...cloned.nodes, [cloned.rootId]: adjustRoot(root) };
 
-  // Merge raster mask assets from the source document into the target.
-  // Cloned nodes reference the same assetIds; the assets must exist in
-  // the target document for the masks to render.
+  // Merge both asset tables from the source document into the target.
+  // Cloned nodes retain their assetIds, so the referenced image bytes and
+  // raster masks must travel with imported or clipboard-cloned subtrees.
   const mergedRasterAssets = sourceDoc.rasterMaskAssets
     ? { ...(targetDoc.rasterMaskAssets ?? {}), ...sourceDoc.rasterMaskAssets }
     : targetDoc.rasterMaskAssets;
+  const mergedImageAssets = sourceDoc.assets
+    ? { ...(targetDoc.assets ?? {}), ...sourceDoc.assets }
+    : targetDoc.assets;
 
   // For paged documents, add to the active page's contentRoot so the node
   // is visible to the page-scoped renderer (activePageNodes). Adding to
@@ -492,6 +495,7 @@ function insertImportedSubtree(
         ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
           ? { rasterMaskAssets: mergedRasterAssets }
           : {}),
+        ...(mergedImageAssets !== targetDoc.assets ? { assets: mergedImageAssets } : {}),
       },
     };
   }
@@ -506,6 +510,7 @@ function insertImportedSubtree(
       ...(mergedRasterAssets !== targetDoc.rasterMaskAssets
         ? { rasterMaskAssets: mergedRasterAssets }
         : {}),
+      ...(mergedImageAssets !== targetDoc.assets ? { assets: mergedImageAssets } : {}),
     },
   };
 }
@@ -5697,7 +5702,7 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets);
+        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets);
         announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
@@ -5706,7 +5711,9 @@ export function EditorProvider({
         if (sel.length === 0) return;
         const nodes = gatherSubtreeNodes(state.document, sel);
         if (nodes.length === 0) return;
-        writeToClipboard(nodes);
+        const nodeIds = nodes.map((n) => n.id);
+        const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
+        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets);
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
@@ -5798,6 +5805,7 @@ export function EditorProvider({
               ...(strataData.rasterMaskAssets
                 ? { rasterMaskAssets: strataData.rasterMaskAssets }
                 : {}),
+              ...(strataData.assets ? { assets: strataData.assets } : {}),
             };
             // copySelected()/cutSelected() serialize each selected node plus
             // its full descendant subtree (gatherSubtreeNodes), so a node

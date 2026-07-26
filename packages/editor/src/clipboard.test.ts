@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { readFromClipboardEvent } from './clipboard';
+import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@strata/scene';
+import { describe, expect, it, vi } from 'vitest';
+import { readFromClipboardEvent, writeClipboard } from './clipboard';
 
 // jsdom doesn't implement ClipboardEvent, DataTransfer, or Blob.arrayBuffer.
 // Polyfill what we need for testing.
@@ -182,5 +183,166 @@ describe('readFromClipboardEvent', () => {
     expect(result.strataData?.rasterMaskAssets).toBeDefined();
     expect(result.strataData?.rasterMaskAssets?.['mask-img-1']).toBeDefined();
     expect(result.strataData?.rasterMaskAssets?.['mask-img-1']?.mimeType).toBe('image/png');
+  });
+
+  it('round-trips cropped image geometry with image and raster-mask asset closure', async () => {
+    const imageAsset: DocumentAsset = {
+      id: 'asset-image-1',
+      storage: 'embedded',
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      naturalWidth: 200,
+      naturalHeight: 100,
+      byteLength: 5,
+      hash: 'image-hash',
+    };
+    const maskAsset: RasterMaskAsset = {
+      id: 'mask-image-1',
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,bWFzaw==',
+      width: 200,
+      height: 100,
+      byteLength: 4,
+    };
+    const node = {
+      id: 'image-1',
+      kind: 'shape',
+      name: 'Cropped image',
+      transform: [1, 0, 0, 1, 0, 0],
+      shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 50 },
+      fills: [
+        {
+          type: 'image',
+          image: {
+            src: imageAsset.dataUrl,
+            assetId: imageAsset.id,
+            fit: 'crop',
+            x: -12,
+            y: 8,
+            scale: 1.5,
+            imageWidth: 200,
+            imageHeight: 100,
+            crop: { x: 20, y: 10, w: 120, h: 70 },
+            rotation: 15,
+            flipH: true,
+          },
+          opacity: 1,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      strokes: [],
+      effects: [],
+      filters: [],
+      opacity: 1,
+      blendMode: 'normal',
+      visible: true,
+      locked: false,
+      rotation: 0,
+      mask: {
+        type: 'alpha',
+        visible: true,
+        rasterMask: {
+          assetId: maskAsset.id,
+          coordinateSpace: 'source-image-pixels',
+          sourceIdentity: {
+            kind: 'source-metadata',
+            locator: imageAsset.id,
+            pixelWidth: 200,
+            pixelHeight: 100,
+            revision: 1,
+          },
+        },
+      },
+    } as unknown as SceneNode;
+    const strataJson = JSON.stringify({
+      nodes: [node],
+      assets: { [imageAsset.id]: imageAsset },
+      rasterMaskAssets: { [maskAsset.id]: maskAsset },
+    });
+    const dt = createDataTransferWithFiles([]);
+    dt.getData = (format: string) => (format === 'application/vnd.strata+json' ? strataJson : '');
+    const event = { type: 'paste', clipboardData: dt } as unknown as ClipboardEvent;
+
+    const result = await readFromClipboardEvent(event);
+
+    expect(result.strataData).toEqual(JSON.parse(strataJson));
+    const image = result.strataData?.nodes[0]?.fills?.[0]?.image;
+    expect(image?.crop).toEqual({ x: 20, y: 10, w: 120, h: 70 });
+    expect(result.strataData?.assets?.[imageAsset.id]).toEqual(imageAsset);
+    expect(result.strataData?.rasterMaskAssets?.[maskAsset.id]).toEqual(maskAsset);
+  });
+
+  it('writes image and raster-mask assets into the Strata clipboard payload', async () => {
+    const node = {
+      id: 'image-1',
+      name: 'Image',
+      kind: 'shape',
+    } as unknown as SceneNode;
+    const imageAsset = {
+      id: 'asset-image-1',
+      storage: 'embedded',
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,aW1hZ2U=',
+      naturalWidth: 1,
+      naturalHeight: 1,
+      byteLength: 5,
+      hash: 'hash',
+    } satisfies DocumentAsset;
+    const maskAsset = {
+      id: 'mask-image-1',
+      mimeType: 'image/png',
+      dataUrl: 'data:image/png;base64,bWFzaw==',
+      width: 1,
+      height: 1,
+      byteLength: 4,
+    } satisfies RasterMaskAsset;
+    let written:
+      | Array<{ getType: (type: string) => Promise<Blob>; types: readonly string[] }>
+      | undefined;
+    class TestClipboardItem {
+      readonly types: string[];
+      constructor(private readonly entries: Record<string, Blob>) {
+        this.types = Object.keys(entries);
+      }
+      async getType(type: string): Promise<Blob> {
+        return this.entries[type]!;
+      }
+    }
+    const originalClipboardItem = globalThis.ClipboardItem;
+    const originalClipboard = navigator.clipboard;
+    Object.defineProperty(globalThis, 'ClipboardItem', {
+      configurable: true,
+      value: TestClipboardItem,
+    });
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        write: vi.fn(async (items) => {
+          written = items;
+        }),
+        writeText: vi.fn(),
+      },
+    });
+
+    try {
+      await expect(
+        writeClipboard([node], { [maskAsset.id]: maskAsset }, { [imageAsset.id]: imageAsset }),
+      ).resolves.toBe(true);
+      const strataBlob = await written?.[0]?.getType('application/vnd.strata+json');
+      expect(strataBlob).toBeDefined();
+      const payload = JSON.parse(await strataBlob!.text());
+      expect(payload.assets).toEqual({ [imageAsset.id]: imageAsset });
+      expect(payload.rasterMaskAssets).toEqual({ [maskAsset.id]: maskAsset });
+    } finally {
+      Object.defineProperty(globalThis, 'ClipboardItem', {
+        configurable: true,
+        value: originalClipboardItem,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: originalClipboard,
+      });
+    }
   });
 });
