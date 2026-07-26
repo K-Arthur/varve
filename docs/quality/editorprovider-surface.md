@@ -85,6 +85,55 @@ and the divergence is much worse than first thought.**
   divergence before touching anything) or a thin pass-through (safe to extract directly, as Tool
   was, since the divergence risk is structural, not per-file luck).**
 
+- **Panels/UI, checked next: it isn't a cluster at all, it's a mislabeled grab-bag — deferred,
+  no extraction attempted.** The plan's own guessed boundary ("Panels/UI:
+  `sectionVisibility`, `rulerMode`, `leftPanelVisible`, `rightPanelVisible`, `graphEditorVisible`,
+  `timelinePanelVisible`, `stateMachinePanelVisible`, `distractionFreeMode`, `setInspectorTab`")
+  does not survive contact with the actual method ownership:
+
+  - **`toggleTimelinePanel` and `toggleGraphEditor` are Motion-owned, not Panels-owned.** Both
+    live in the same no-op-fallback block as every other pre-`MotionProvider`-ready method
+    (`context.tsx:1838`/`:1845`, alongside `setActiveTimeline`, `toggleLoop`,
+    `createMotionPresetFromTimeline`, etc.) — they're timeline-panel-shaped in name only; their
+    real implementation is part of the already-extracted Motion sub-context, sourced through the
+    same `onReady`/`motionValue` path as everything else Motion owns. Treating them as a Panels
+    field would either duplicate Motion's logic a second time or require reaching into Motion's
+    internals from a new context — neither is a clean extraction.
+  - **`toggleStateMachinePanel`** lives at `context.tsx:7139`, deep in prototype/state-machine
+    code, for the same reason — likely Prototype-owned in substance even though its name says
+    "panel."
+  - **`toggleSectionCollapse`** (`sectionVisibility`) is a *different mechanism entirely* — one
+    method taking a `SectionId` parameter, with 13+ call sites each patching a different section's
+    visibility (`context.tsx:2687`–`2756`). It's not a set of independent boolean toggles like the
+    rest of this list; it's a single keyed-collection updater. Bundling it into a generic "Panels"
+    context would need its own design, not a copy of the boolean-toggle pattern.
+  - **The genuinely simple subset — `toggleLeftPanel`, `toggleRightPanel`,
+    `toggleDistractionFreeMode`** — are real, independent, `patch()` + `updateSettings()` pairs
+    with no cross-context entanglement... except that `leftPanelVisible`/`rightPanelVisible` are
+    *also* written directly (as plain state, not through these methods) by the workspace-mode-switching
+    code in `__setWorkspaceModeUnsafe` — the same pre-existing, uncommitted, currently-broken WIP
+    function that contains the live `ReferenceError: setTool is not defined` bug found during the
+    Tool extraction (`context.tsx` around line 2640, see `test-reality.md`/the Tool extraction
+    commit message). Extracting even just this "safe" subset means the new context would sit next
+    to, and be indirectly affected by, code that is already known-broken and not mine to fix here.
+
+  Given the plan's own "Panels" boundary turned out to bundle two other sub-contexts' real
+  ownership, one structurally different mechanism, and a dependency on already-broken unrelated
+  code — for a cluster the plan itself already rated "low per-field value" — the risk/value
+  trade-off doesn't support attempting it in this pass. **No context file created, no changes made
+  to `context.tsx`.** If this is revisited, scope it to *only* `toggleLeftPanel`/`toggleRightPanel`/
+  `toggleDistractionFreeMode` explicitly (not "Panels" as a whole), and do it after (or alongside)
+  a fix for the `__setWorkspaceModeUnsafe` bug, not before.
+
+**Remaining Phase B surface, honestly assessed**: of the plan's original guessed boundaries
+(document/scene, selection, tools, viewport/camera, history/undo, panels/UI, async
+lifecycle/onReady), **only Tool extracted cleanly this pass.** Document needed no work. History is
+already correctly bundled into Document. Async lifecycle/onReady is already the established,
+working pattern for Motion/Prototype. Viewport, Selection, and Panels all turned out to need
+dedicated, smaller-scoped efforts of their own rather than a single Phase-B-per-plan-guess pass —
+this is itself the main deliverable of this audit pass: knowing which ones are actually safe to
+touch, not guessing.
+
 ## Headline finding: the split is already partially done
 
 **Five sub-context hooks already exist and are exported from `context.tsx`**: `useDocument`,
