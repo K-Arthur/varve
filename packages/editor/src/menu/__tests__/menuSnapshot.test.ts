@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { getAllMenuDefs, getCanvasContextMenuDefs } from '../defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from '../facts';
 import { renderMenubarItems, renderMenuItems } from '../renderer';
-import type { MenuContext } from '../types';
+import type { MenuContext, MenuItemDef } from '../types';
 
 function createTestDoc() {
   const base = createDocument('snapshot-test');
@@ -125,12 +125,12 @@ describe('menu definition — structure invariants', () => {
     it(`no duplicate IDs in workspace: ${workspace}`, () => {
       const defs = getAllMenuDefs({ runAction: () => {} });
       const ids = new Set<string>();
-      function walk(items: Array<{ id: string; items?: unknown[] | ((ctx: unknown) => unknown) }>) {
+      function walk(items: MenuItemDef[]) {
         for (const item of items) {
           expect(ids.has(item.id)).toBe(false);
           ids.add(item.id);
           if (item.items && typeof item.items !== 'function') {
-            walk(item.items as Array<{ id: string; items?: unknown[] }>);
+            walk(item.items as MenuItemDef[]);
           }
         }
       }
@@ -139,13 +139,11 @@ describe('menu definition — structure invariants', () => {
 
     it('no manual separator items exist', () => {
       const defs = getAllMenuDefs({ runAction: () => {} });
-      function walk(
-        items: Array<{ id: string; kind: string; items?: unknown[] | ((ctx: unknown) => unknown) }>,
-      ) {
+      function walk(items: MenuItemDef[]) {
         for (const item of items) {
           expect(item.kind).not.toBe('separator');
           if (item.items && typeof item.items !== 'function') {
-            walk(item.items as Array<{ id: string; kind: string; items?: unknown[] }>);
+            walk(item.items as MenuItemDef[]);
           }
         }
       }
@@ -155,14 +153,11 @@ describe('menu definition — structure invariants', () => {
 
   it('submenu depth does not exceed 2', () => {
     const defs = getAllMenuDefs({ runAction: () => {} });
-    function checkDepth(
-      items: Array<{ kind: string; items?: unknown[] | ((ctx: unknown) => unknown) }>,
-      depth: number,
-    ) {
+    function checkDepth(items: MenuItemDef[], depth: number) {
       for (const item of items) {
         if (item.kind === 'submenu' && item.items && typeof item.items !== 'function') {
           expect(depth).toBeLessThanOrEqual(2);
-          checkDepth(item.items as Array<{ kind: string; items?: unknown[] }>, depth + 1);
+          checkDepth(item.items as MenuItemDef[], depth + 1);
         }
       }
     }

@@ -25,7 +25,7 @@ import {
   type TargetAnalysisResult,
 } from '@strata/codegen';
 import type { Document, SceneNode } from '@strata/scene';
-import { CopyButton, Icon, type Tab, Tabs } from '@strata/ui';
+import { CopyButton, Icon, type IconName, type Tab, Tabs } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { buildFilename, downloadBlob } from '../SpecPanel/export';
 import { highlight } from '../SpecPanel/syntax';
@@ -306,7 +306,7 @@ function AuditTab({ doc }: { doc: Document }) {
                       <span className="code-panel__finding-category">
                         {CATEGORY_ICONS[finding.category] && (
                           <Icon
-                            name={CATEGORY_ICONS[finding.category]!}
+                            name={CATEGORY_ICONS[finding.category] as IconName}
                             label={undefined}
                             size="0.8em"
                           />

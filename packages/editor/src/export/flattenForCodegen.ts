@@ -39,12 +39,12 @@ export interface CodegenFlattenOptions {
  * Only nodes with `mustFlatten: true` and `emitAs !== 'native'` are
  * rendered — native-emittable nodes pass through unchanged.
  */
-export function flattenIrForCodegen(
+export async function flattenIrForCodegen(
   ir: IRDocument,
   doc: Document,
   sceneNodes: Map<string, SceneNode>,
   opts: CodegenFlattenOptions,
-): RasterAsset[] {
+): Promise<RasterAsset[]> {
   const assets: RasterAsset[] = [];
   const nodesToFlatten: Array<{
     nodeId: string;
@@ -90,7 +90,7 @@ export function flattenIrForCodegen(
   for (let i = 0; i < nodesToFlatten.length; i++) {
     if (signal?.aborted) break;
 
-    const target = nodesToFlatten[i];
+    const target = nodesToFlatten[i]!;
     opts.onProgress?.('flattening', i + 1, total);
 
     // Compute world bounds
@@ -104,7 +104,7 @@ export function flattenIrForCodegen(
     if (pixelWidth > 16384 || pixelHeight > 16384) continue;
 
     // Create raster surface at export resolution
-    const surface = createRasterSurface({ width: pixelWidth, height: pixelHeight, dpi });
+    const surface = createRasterSurface(pixelWidth, pixelHeight);
     if (!surface) continue;
 
     const ctx = surface.context;
@@ -119,7 +119,7 @@ export function flattenIrForCodegen(
     // Build IR for just this node and its subtree
     try {
       const scene = { nodes: [target.sceneNode] };
-      const irResult = engine.buildIr(scene);
+      const irResult = await engine.buildIr(scene);
 
       // Replay IR to surface
       if (irResult && irResult.length > 0) {
@@ -146,7 +146,7 @@ export function flattenIrForCodegen(
     }
 
     // Encode to PNG
-    const blob = encodeRasterSurface(surface);
+    const blob = await encodeRasterSurface(surface, 'image/png');
     if (!blob) continue;
 
     const dataUrl = URL.createObjectURL(blob);
@@ -168,8 +168,6 @@ export function flattenIrForCodegen(
       cssHeight: bounds.h,
       dpi,
     });
-
-    surface.cleanup?.();
   }
 
   return assets;

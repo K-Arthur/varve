@@ -156,7 +156,7 @@ export function useShortcuts(
       }
 
       for (const [id, def] of Object.entries(SHORTCUT_DEFS)) {
-        if (def.context === 'canvas') continue;
+        if ('context' in def && def.context === 'canvas') continue;
         const binding = getEffectiveBinding(id);
         if (!binding?.key || !bindingMatchesEvent(e, binding)) continue;
         if (id === 'paste') {

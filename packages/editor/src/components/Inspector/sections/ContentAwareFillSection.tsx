@@ -9,7 +9,7 @@ interface ContentAwareFillSectionProps {
 }
 
 export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFillSectionProps) {
-  const { state } = useEditor();
+  useEditor();
   const node = nodes[0];
   const isImage = Boolean(node && isImageShape(node));
   const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
@@ -48,7 +48,7 @@ export function ContentAwareFillSection({ nodes, onOpenDialog }: ContentAwareFil
           <button
             type="button"
             className="caf-entry-button"
-            onClick={() => onOpenDialog?.(node.id)}
+            onClick={() => onOpenDialog?.(node!.id)}
             aria-label="Open Content-Aware Fill dialog"
           >
             Open Content-Aware Fill

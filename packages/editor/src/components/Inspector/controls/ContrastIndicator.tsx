@@ -1,5 +1,5 @@
 import { contrastRatio, relativeLuminance, WCAG_AA_LARGE, WCAG_AA_NORMAL } from '@strata/shared';
-import { Icon, Tooltip, TooltipProvider } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 
 export interface ContrastIndicatorProps {
   fgColor?: { r: number; g: number; b: number } | null;

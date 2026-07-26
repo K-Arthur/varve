@@ -26,8 +26,7 @@ test.describe('Recent Files', () => {
     // Simulate opening a file by calling the recent files API directly
     // (since the file input can't be driven in E2E without a real file)
     await page.evaluate(() => {
-      const { addEntry, loadEntries } = (window as any).__strataRecentFiles?.();
-      // Import via dynamic import — this works in the Vite dev server context
+      (window as any).__strataRecentFiles?.();
     });
 
     // Use page.evaluate to add a fake recent entry via localStorage

@@ -6,7 +6,7 @@ describe('overlay export safety', () => {
     const overlayPrimitives: OverlayPrimitive[] = [
       {
         kind: 'badge',
-        anchor: { x: 0, y: 0 },
+        anchor: [0, 0],
         text: 'Test',
         severity: 'error',
         findingId: 'test-1',
@@ -21,7 +21,7 @@ describe('overlay export safety', () => {
     ];
 
     // Export serialization MUST strip all overlay primitives
-    const _exported = JSON.parse(
+    JSON.parse(
       JSON.stringify({
         type: 'strata-export',
         overlays: overlayPrimitives,

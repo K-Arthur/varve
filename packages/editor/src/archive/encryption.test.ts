@@ -70,7 +70,7 @@ describe('encryption', () => {
       const data = new TextEncoder().encode('Tamper test');
       const encrypted = await encryptBytes(data, password);
       const tampered = new Uint8Array(encrypted);
-      tampered[30] ^= 0xff;
+      tampered[30] = tampered[30]! ^ 0xff;
       await expect(decryptBytes(tampered, password)).rejects.toThrow();
     });
 
@@ -124,7 +124,7 @@ describe('encryption', () => {
       // Byte 29 is inside the chunk-size field (offset 28..32), not the
       // GCM-protected ciphertext — a design that only authenticates the
       // ciphertext body would let this slip through.
-      tampered[29] ^= 0xff;
+      tampered[29] = tampered[29]! ^ 0xff;
       await expect(decryptBytes(tampered, password)).rejects.toThrow();
     });
   });

@@ -9,8 +9,8 @@ import { ErrorBoundary } from '@strata/editor';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-import { dismissBootFallback } from './startup/revealMainWindow';
 import { initCspDiagnostics } from './security/cspDiagnostics';
+import { dismissBootFallback } from './startup/revealMainWindow';
 
 if ((import.meta as ImportMeta & { env?: { DEV?: boolean } }).env?.DEV) {
   initCspDiagnostics();

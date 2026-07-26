@@ -4,7 +4,7 @@
  * Crop is stored on the image fill in source-pixel coordinates, NOT baked
  * into node geometry. Node bounds are preserved.
  */
-import { createDocument, makeImageShapeNode, makeShapeNode } from '@strata/scene';
+import { createDocument, makeImageShapeNode, makeShapeNode, type ShapeNode } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
   commitImageCrop,
@@ -122,7 +122,9 @@ describe('commitImageCrop', () => {
     expect(image?.crop?.w).toBeCloseTo(50);
     expect(image?.scale).toBe(2);
     expect(image?.x).toBe(10);
-    expect(node?.backgroundRemoval?.maskDataUrl).toBe('data:image/png;base64,MASK');
+    expect((node as ShapeNode | undefined)?.backgroundRemoval?.maskDataUrl).toBe(
+      'data:image/png;base64,MASK',
+    );
   });
 
   it('preserves image src and backgroundRemoval', () => {
@@ -509,7 +511,7 @@ describe('non-rect shape cropping', () => {
     };
     doc = { ...doc, nodes: { ...doc.nodes, i1: withBgRemoval }, rootChildren: ['i1'] };
     const next = commitImageCrop(doc, 'i1', { x: 10, y: 10, w: 50, h: 50 });
-    const n = next.nodes.i1!;
+    const n = next.nodes.i1! as ShapeNode;
     expect(n.backgroundRemoval).toBeDefined();
     expect(n.backgroundRemoval!.method).toBe('quick');
     expect(n.backgroundRemoval!.maskDataUrl).toBe('data:image/png;base64,MASK');

@@ -114,9 +114,8 @@ function effectsKey(node: SceneNode): string {
   if (visible.length === 0) return 'none';
   return visible
     .map((e: Effect) => {
-      if (e.type === 'dropShadow') return `ds:${e.offsetX ?? 0},${e.offsetY ?? 0},${e.radius ?? 0}`;
-      if (e.type === 'innerShadow')
-        return `is:${e.offsetX ?? 0},${e.offsetY ?? 0},${e.radius ?? 0}`;
+      if (e.type === 'dropShadow') return `ds:${e.x ?? 0},${e.y ?? 0},${e.blur ?? 0}`;
+      if (e.type === 'innerShadow') return `is:${e.x ?? 0},${e.y ?? 0},${e.blur ?? 0}`;
       if (e.type === 'layerBlur') return `lb:${e.radius ?? 0}`;
       if (e.type === 'backgroundBlur') return `bb:${e.radius ?? 0}`;
       return e.type;
@@ -171,8 +170,8 @@ function compareProperties(
       'cornerRadius' in a ? (a as { cornerRadius?: number | number[] }).cornerRadius : undefined;
     const bCr =
       'cornerRadius' in b ? (b as { cornerRadius?: number | number[] }).cornerRadius : undefined;
-    const aCrVal = Array.isArray(aCr) ? aCr[0] : (aCr ?? 0);
-    const bCrVal = Array.isArray(bCr) ? bCr[0] : (bCr ?? 0);
+    const aCrVal = Array.isArray(aCr) ? (aCr[0] ?? 0) : (aCr ?? 0);
+    const bCrVal = Array.isArray(bCr) ? (bCr[0] ?? 0) : (bCr ?? 0);
     if (Math.abs(aCrVal - bCrVal) > 1) {
       diffs.push({ property: 'cornerRadius', aValue: String(aCrVal), bValue: String(bCrVal) });
     }

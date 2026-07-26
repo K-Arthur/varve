@@ -307,7 +307,7 @@ describe('archiveRestorer', () => {
 
       const conflicts = detectConflicts(archiveSettings, existingSettings);
       expect(conflicts).toHaveLength(1);
-      expect(conflicts[0].category).toBe('export');
+      expect(conflicts[0]!.category).toBe('export');
     });
 
     it('returns empty when no conflicts', () => {

@@ -1,4 +1,11 @@
-import { createDocument, type Document, makeShapeNode } from '@strata/scene';
+import {
+  createDocument,
+  type Document,
+  type MasterPage,
+  makeShapeNode,
+  type Page,
+  type PageOrder,
+} from '@strata/scene';
 
 export interface SyntheticDocOptions {
   nodeCount: number;
@@ -45,17 +52,49 @@ export function buildSyntheticDoc(opts: SyntheticDocOptions): {
   }
 
   if (opts.pageCount && opts.pageCount > 1) {
-    const pages = [];
+    const pages: Page[] = [];
     for (let i = 0; i < opts.pageCount; i++) {
-      pages.push({ id: `page-${i}`, name: `Page ${i + 1}` });
+      const id = `page-${i}`;
+      const rootId = `${id}-root`;
+      doc = {
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          [rootId]: makeShapeNode(rootId, { kind: 'rect', x: 0, y: 0, w: 800, h: 600 }),
+        },
+      };
+      pages.push({
+        id,
+        name: `Page ${i + 1}`,
+        width: 800,
+        height: 600,
+        order: String(i) as PageOrder,
+        backgrounds: [],
+        contentRoot: rootId,
+      });
     }
     doc = { ...doc, pages };
   }
 
   if (opts.masterCount && opts.masterCount > 0) {
-    const masters: Record<string, { name: string }> = {};
+    const masters: Record<string, MasterPage> = {};
     for (let i = 0; i < opts.masterCount; i++) {
-      masters[`master-${i}`] = { name: `Master ${i + 1}` };
+      const rootId = `master-${i}-root`;
+      doc = {
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          [rootId]: makeShapeNode(rootId, { kind: 'rect', x: 0, y: 0, w: 800, h: 600 }),
+        },
+      };
+      masters[`master-${i}`] = {
+        id: `master-${i}`,
+        name: `Master ${i + 1}`,
+        width: 800,
+        height: 600,
+        contentRoot: rootId,
+        appliesTo: 'all',
+      };
     }
     doc = { ...doc, masters };
   }

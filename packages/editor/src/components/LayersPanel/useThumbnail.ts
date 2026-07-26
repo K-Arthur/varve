@@ -90,7 +90,7 @@ async function renderNodeToCanvas(
     const s = (node as ShapeNode).shape;
     switch (s.kind) {
       case 'rect': {
-        const cr = s.cornerRadius;
+        const cr = (node as ShapeNode).cornerRadius;
         if (cr && (typeof cr === 'number' || Array.isArray(cr))) {
           ctx.beginPath();
           const r = typeof cr === 'number' ? cr : (cr[0] ?? 0);

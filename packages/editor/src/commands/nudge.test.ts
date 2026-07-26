@@ -1,3 +1,4 @@
+import type { SceneNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import type { NudgeContext } from './nudge';
 import { canNudge, executeNudge, getNudgeDisabledReason, getNudgeStep } from './nudge';
@@ -93,8 +94,10 @@ describe('executeNudge', () => {
   it('moves multiple selected nodes', () => {
     const setNodePosition = vi.fn();
     const getNode = vi.fn((id: string) => {
-      if (id === 'n1') return { id: 'n1', transform: [1, 0, 0, 1, 100, 100] };
-      if (id === 'n2') return { id: 'n2', transform: [1, 0, 0, 1, 200, 200] };
+      if (id === 'n1')
+        return { id: 'n1', transform: [1, 0, 0, 1, 100, 100] } as unknown as SceneNode;
+      if (id === 'n2')
+        return { id: 'n2', transform: [1, 0, 0, 1, 200, 200] } as unknown as SceneNode;
       return undefined;
     });
     const ctx = makeCtx({

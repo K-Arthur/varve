@@ -16,7 +16,7 @@
 import type { AuditFinding } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useMemo } from 'react';
-import { setInspectorTabHandler, useEditor } from '../context';
+import { useEditor } from '../context';
 
 export interface ContextualAuditSummaryProps {
   /** Node ID to show findings for. */
@@ -37,7 +37,7 @@ export function ContextualAuditSummary({
   categories,
   maxVisible = 3,
 }: ContextualAuditSummaryProps) {
-  const { state } = useEditor();
+  const { state, setInspectorTab } = useEditor();
 
   // Read pre-computed findings from the audit engine cache
   // This avoids re-running expensive audits just for contextual display
@@ -45,7 +45,7 @@ export function ContextualAuditSummary({
     if (!nodeId) return [];
 
     // Access the document-level findings cache if available
-    const findingsCache = (state as Record<string, unknown>).__auditFindings as
+    const findingsCache = (state as unknown as Record<string, unknown>).__auditFindings as
       | AuditFinding[]
       | undefined;
 
@@ -77,7 +77,7 @@ export function ContextualAuditSummary({
   const remaining = relevantFindings.length - visibleFindings.length;
 
   const handleOpenAudit = () => {
-    setInspectorTabHandler?.({ tab: 'audit', subTab: 'review' });
+    setInspectorTab('audit', 'audit');
   };
 
   return (

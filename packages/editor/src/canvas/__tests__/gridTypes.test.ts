@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultDocumentGrid, computeMajorStep } from '../gridTypes';
+import { computeMajorStep, createDefaultDocumentGrid } from '../gridTypes';
 
 describe('createDefaultDocumentGrid', () => {
   it('returns a grid with sensible defaults', () => {

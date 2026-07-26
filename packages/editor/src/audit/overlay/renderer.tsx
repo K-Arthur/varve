@@ -1,9 +1,9 @@
-import type { Rect } from '@strata/scene';
+import type { Point, Rect } from '@strata/shared';
 import { computeFloatingOrigin, worldToScreen } from '@strata/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../../canvas/overlayZIndex';
 import type { LODCluster, OverlayRegistry } from './registry';
-import type { OverlayPrimitive } from './types';
+import type { OverlayContext, OverlayPrimitive } from './types';
 
 interface AuditOverlayRendererProps {
   registry: OverlayRegistry;
@@ -141,7 +141,7 @@ export function AuditOverlayRenderer({
         {/* Badges */}
         {result.primitives.map((p) => {
           if (p.kind !== 'badge') return null;
-          const [sx, sy] = toScreen(p.anchor.x, p.anchor.y);
+          const [sx, sy] = toScreen(p.anchor[0], p.anchor[1]);
           const isHovered = hoveredId === p.findingId;
           return (
             // biome-ignore lint/a11y/useSemanticElements: SVG interactive group, not replaceable with HTML button
@@ -253,7 +253,7 @@ export function AuditOverlayRenderer({
 
 interface PrimitiveShapeProps {
   primitive: OverlayPrimitive & { kind: 'rect' | 'path' | 'point' };
-  toScreen: (wx: number, wy: number) => [number, number];
+  toScreen: (wx: number, wy: number) => Point;
 }
 
 function PrimitiveShape({ primitive, toScreen }: PrimitiveShapeProps) {
@@ -280,7 +280,7 @@ function PrimitiveShape({ primitive, toScreen }: PrimitiveShapeProps) {
     }
     case 'path': {
       if (primitive.data.length < 2) return null;
-      const pts = primitive.data.map((p) => toScreen(p.x, p.y));
+      const pts = primitive.data.map((p) => toScreen(p[0], p[1]));
       const d =
         pts.map((pt, i) => `${i === 0 ? 'M' : 'L'}${pt[0]},${pt[1]}`).join(' ') +
         (primitive.closed ? ' Z' : '');
@@ -297,7 +297,7 @@ function PrimitiveShape({ primitive, toScreen }: PrimitiveShapeProps) {
       );
     }
     case 'point': {
-      const [sx, sy] = toScreen(primitive.at.x, primitive.at.y);
+      const [sx, sy] = toScreen(primitive.at[0], primitive.at[1]);
       return (
         <circle
           cx={sx}

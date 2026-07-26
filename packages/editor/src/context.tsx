@@ -336,6 +336,7 @@ import { type MotionContextValue, MotionProvider } from './context/MotionContext
 import { PrototypeProvider } from './context/PrototypeContext';
 import { isReducedMotion } from './context/reducedMotionManager';
 import { SelectionProvider } from './context/SelectionContext';
+import { applyToolChange, ToolProvider } from './context/ToolContext';
 import type {
   CanvasMode,
   EditorState,
@@ -347,7 +348,6 @@ import type {
   ToolId,
 } from './context/types';
 import { createDefaultDocumentGridSettings } from './context/types';
-import { applyToolChange, ToolProvider } from './context/ToolContext';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useInteractionState } from './context/useInteractionState';
@@ -462,7 +462,7 @@ function insertImportedSubtree(
   rootId: NodeId,
   adjustRoot: (node: SceneNode) => SceneNode,
 ): { doc: Document; rootId: NodeId } | null {
-  const cloned = deepCloneSubtree({ ...sourceDoc, nextId: targetDoc.nextId }, rootId);
+  const cloned = deepCloneSubtree(sourceDoc.nodes, targetDoc.nextId, rootId);
   const root = cloned.nodes[cloned.rootId];
   if (!root || Object.keys(cloned.nodes).length === 0) return null;
 
@@ -961,6 +961,8 @@ export interface EditorContextValue {
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
+  /** Set document grid settings (visible, subdivisions, color). */
+  setDocumentGrid: (settings: import('./context/types').DocumentGridSettings) => void;
   /** Set canvas rendering mode (full / outline / preview). */
   setCanvasMode: (mode: CanvasMode) => void;
   setCameraRotation: (radians: number) => void;
@@ -1415,6 +1417,10 @@ export interface EditorContextValue {
   restoreFromBackup: (backupId: string, asCopy: boolean) => Promise<boolean>;
   /** Create a named snapshot of the current document (manual restore point). */
   createSnapshot: (notes: string) => Promise<string | null>;
+
+  // Content-Aware Fill dialog
+  openCafDialog: (nodeId: NodeId) => void;
+  closeCafDialog: () => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -1596,6 +1602,12 @@ function shapeForTool(tool: ToolId): Shape {
     case 'eraser':
     case 'smudge':
     case 'sam2Segment':
+    case 'shape':
+    case 'connector':
+    case 'comment':
+    case 'backgroundRemoval':
+    case 'clone':
+    case 'contentAwareFill':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -1928,6 +1940,7 @@ export function EditorProvider({
       unitType: vpDefaults.unitType,
       pixelGridEnabled: vpDefaults.pixelGridEnabled,
       dotGridEnabled: false,
+      findingsOverlayVisible: false,
       snapEnabled: vpDefaults.snapEnabled,
       snapGrid: vpDefaults.snapGrid,
       documentGrid: {
@@ -2652,7 +2665,7 @@ export function EditorProvider({
               state.tool === 'crop' ||
               state.maskPreviewMode !== 'none'
             ) {
-              setTool('select');
+              applyToolChange('select', toolRef, patch);
             }
           }
           const config = getWorkspaceConfig(mode);
@@ -4879,7 +4892,7 @@ export function EditorProvider({
         updateDoc((doc) => {
           const result = installLibraryDoc(doc, library);
           announcerRef.current?.announce(`Installed library "${library.name}"`);
-          return result.doc;
+          return result.doc as Document;
         });
       },
 
@@ -5592,9 +5605,9 @@ export function EditorProvider({
         }
         const nodeId = sel[0]!;
         const node = state.document.nodes[nodeId];
-        if (!node || node.kind !== 'text') {
+        if (node?.kind !== 'text') {
           announcerRef.current?.announce('Selected node is not a text node');
-          showToast({ message: 'Select a text node first.', type: 'warning' });
+          toastHandler?.({ message: 'Select a text node first.', type: 'warning' });
           return;
         }
 
@@ -5628,15 +5641,15 @@ export function EditorProvider({
           convertTextOutline(state.document, nodeId, fontFamily, {
             onWarn: (msg) => {
               announcerRef.current?.announce(msg);
-              showToast({ message: msg, type: 'warning', duration: 5000 });
+              toastHandler?.({ message: msg, type: 'warning', duration: 5000 });
             },
             onResult: (newDoc) => {
               updateDoc(() => newDoc);
               announcerRef.current?.announce('Text converted to outlines');
-              showToast({ message: 'Text converted to vector paths.', type: 'success' });
+              toastHandler?.({ message: 'Text converted to vector paths.', type: 'success' });
             },
             onError: (err) => {
-              showToast({ message: err, type: 'error' });
+              toastHandler?.({ message: err, type: 'error' });
             },
           }),
         );
@@ -6247,7 +6260,7 @@ export function EditorProvider({
         patch({ snapGrid: clamped });
         persistViewportPrefs({ ...stateRef.current, snapGrid: clamped });
       },
-      setDotGridEnabled: (v) => {
+      setDotGridEnabled: (v: boolean) => {
         patch({ dotGridEnabled: v });
       },
       setDocumentGrid: (settings) => {
@@ -7766,13 +7779,13 @@ export { useDocument } from './context/DocumentContext';
 export { useMotion } from './context/MotionContext';
 export { usePrototype } from './context/PrototypeContext';
 export { useSelection } from './context/SelectionContext';
-export { useTool } from './context/ToolContext';
-export { useViewport } from './context/ViewportContext';
 export {
   bumpThemeRevision,
   setStartTextEditingHandler,
   startTextEditing,
 } from './context/sessionGlobals';
+export { useTool } from './context/ToolContext';
+export { useViewport } from './context/ViewportContext';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);

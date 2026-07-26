@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getActionRegistry, resetActionRegistryForTesting } from '../../actions/ActionRegistry';
 import { detectCollisions, SHORTCUT_DEFS } from '../../shortcuts/ShortcutManager';
 import { getAllMenuDefs } from '../defs';
-import { dispatchNativeMenuAction } from '../useNativeMenu';
 import type { Accelerator, MenuContext, MenuItemDef } from '../types';
+import { dispatchNativeMenuAction } from '../useNativeMenu';
 
 function normalizeAccelerator(accelerator: Accelerator): Accelerator {
   return {

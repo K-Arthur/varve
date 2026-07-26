@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { FindReplaceAPI } from '../../findReplace/useFindReplace';
 import { DEFAULT_FIND_REPLACE_STATE } from '../../findReplace/types';
+import type { FindReplaceAPI } from '../../findReplace/useFindReplace';
 import { FindReplaceBar } from './FindReplaceBar';
 
 afterEach(cleanup);

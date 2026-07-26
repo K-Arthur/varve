@@ -7,9 +7,10 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { NodeId, SceneNode } from '@strata/scene';
 import { activePageNodes, canBeClipMaskSource, walkNodes } from '@strata/scene';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
+import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
 import {
   getWorldBounds as getCachedWorldBounds,
@@ -18,34 +19,13 @@ import {
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { renderDrawDiagnostics } from './drawDiagnostics';
-import { parseGridTemplate } from './gridTemplate';
 import { computeGridLines, renderGridOnCtx } from './gridRenderer';
-import type { DocumentGridSettings } from '../context/types';
+import { parseGridTemplate } from './gridTemplate';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 
 export interface UseOverlayDrawOptions {
   overlayCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
-  stateRef: MutableRefObject<{
-    zoom: number;
-    pan: { x: number; y: number };
-    cameraRotation: number;
-    document: Document;
-    maskPreviewMode: string;
-    subjectHighlightId: string | null;
-    subjectPickerSession: {
-      nodeId: string;
-      sourceWidth: number;
-      sourceHeight: number;
-      components: Array<{ id: string; bbox: { x: number; y: number; w: number; h: number } }>;
-      keepIds: string[];
-    } | null;
-    tool: string;
-    selection: readonly string[];
-    pixelGridEnabled: boolean;
-    dotGridEnabled: boolean;
-    documentGrid: DocumentGridSettings;
-    [key: string]: unknown;
-  }>;
+  stateRef: MutableRefObject<EditorState>;
   transformCacheRef: MutableRefObject<TransformCache>;
   displayDpr: number;
   accentColorRef: MutableRefObject<string>;
@@ -540,12 +520,10 @@ export function useOverlayDraw({
         const worldY = d.kind === 'line' || d.kind === 'arrow' ? Math.min(d.y1, d.y2) : d.y;
         const sx2 = (worldX - s.pan.x) * s.zoom + cssW / 2;
         const sy2 = (worldY - s.pan.y) * s.zoom + cssH / 2;
-        const sw = 'w' in d ? d.w * s.zoom : Math.abs(d.x2 - d.x1) * s.zoom;
+        const sw = d.w * s.zoom;
         ctx.font = '11px system-ui';
         ctx.fillStyle = accentColor;
-        const label =
-          d.label ??
-          `${Math.round(sw / s.zoom)} x ${Math.round('h' in d ? d.h * s.zoom : (Math.abs(d.y2 - d.y1) * s.zoom) / s.zoom)}`;
+        const label = d.label ?? `${Math.round(sw / s.zoom)} x ${Math.round(d.h * s.zoom)}`;
         ctx.fillText(label, sx2 + sw + 4, sy2 + 14);
       }
     }

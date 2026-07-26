@@ -389,7 +389,6 @@ export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
 export type { PaddleRecInput, PaddleRecResult } from './inference/models/paddlerec';
 export { ctcDecode, packRecTensor } from './inference/models/paddlerec';
 export { decodeRifeOutput, RIFE_INPUT_SIZE } from './inference/models/rife';
-export { normalizeEmbedding, rankBySimilarity } from './inference/models/siglip';
 export type {
   Sam2DecoderInput,
   Sam2DecoderOutput,
@@ -414,6 +413,7 @@ export {
   SCUNET_TENSOR_SPEC,
   validateScunetInput,
 } from './inference/models/scunet';
+export { normalizeEmbedding, rankBySimilarity } from './inference/models/siglip';
 export type { TrOcrInput, TrOcrOutput } from './inference/models/trocr';
 export {
   postprocessTrOcr,

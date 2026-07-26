@@ -1,4 +1,4 @@
-import type { Rect } from '@strata/scene';
+import type { Point, Rect } from '@strata/shared';
 import type {
   AuditSeverity,
   OverlayContext,
@@ -164,17 +164,17 @@ export class OverlayRegistry {
         let maxX = -Infinity;
         let maxY = -Infinity;
         for (const pt of p.data) {
-          if (pt.x < minX) minX = pt.x;
-          if (pt.y < minY) minY = pt.y;
-          if (pt.x > maxX) maxX = pt.x;
-          if (pt.y > maxY) maxY = pt.y;
+          if (pt[0] < minX) minX = pt[0];
+          if (pt[1] < minY) minY = pt[1];
+          if (pt[0] > maxX) maxX = pt[0];
+          if (pt[1] > maxY) maxY = pt[1];
         }
         return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
       }
       case 'point':
-        return { x: p.at.x, y: p.at.y, w: 0, h: 0 };
+        return { x: p.at[0], y: p.at[1], w: 0, h: 0 };
       case 'badge':
-        return { x: p.anchor.x, y: p.anchor.y, w: 0, h: 0 };
+        return { x: p.anchor[0], y: p.anchor[1], w: 0, h: 0 };
     }
   }
 
@@ -250,22 +250,26 @@ export class OverlayRegistry {
     const visible: { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[] = [];
 
     for (let i = 0; i < badges.length; i++) {
-      if (assigned.has(badges[i].primitive.findingId)) continue;
+      const entry = badges[i];
+      if (!entry) continue;
+      if (assigned.has(entry.primitive.findingId)) continue;
 
-      const anchor =
-        badges[i].primitive.kind === 'badge' ? badges[i].primitive.anchor : { x: 0, y: 0 };
+      const pi = entry.primitive;
+      const anchor: Point = pi.kind === 'badge' ? pi.anchor : [0, 0];
       const cluster: LODCluster = {
-        center: { x: anchor.x, y: anchor.y },
+        center: { x: anchor[0], y: anchor[1] },
         count: 0,
         severities: new Map(),
         findingIds: [],
       };
 
       for (let j = i; j < badges.length; j++) {
-        if (assigned.has(badges[j].primitive.findingId)) continue;
-        const bj = badges[j].primitive;
+        const innerEntry = badges[j];
+        if (!innerEntry) continue;
+        if (assigned.has(innerEntry.primitive.findingId)) continue;
+        const bj = innerEntry.primitive;
         if (bj.kind !== 'badge') continue;
-        const dist = Math.hypot(bj.anchor.x - anchor.x, bj.anchor.y - anchor.y);
+        const dist = Math.hypot(bj.anchor[0] - anchor[0], bj.anchor[1] - anchor[1]);
         if (dist <= thresholdWorld) {
           assigned.add(bj.findingId);
           cluster.count++;
@@ -276,7 +280,7 @@ export class OverlayRegistry {
       }
 
       if (cluster.count === 1) {
-        visible.push(badges[i]);
+        visible.push(entry!);
       } else {
         clusters.push(cluster);
       }
