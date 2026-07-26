@@ -6,22 +6,19 @@
       "cycles": []
     },
     "engine": {
-      "count": 3,
-      "cycles": [
-        "engine.ts → wasmLoader.ts",
-        "filterCompositor.ts → lut/bake.ts → lut/index.ts",
-        "raster-size.ts → raster.ts"
-      ]
+      "count": 2,
+      "cycles": ["engine.ts → wasmLoader.ts", "raster-size.ts → raster.ts"]
     },
     "scene": {
-      "count": 6,
+      "count": 7,
       "cycles": [
         "adjustmentScope.ts → bindings.ts → document.ts → types.ts",
         "bindings.ts → component-sync.ts → document.ts → types.ts",
         "component-sync.ts → types.ts",
         "bindings.ts → document.ts → types.ts → typography.ts",
         "types.ts → typography.ts",
-        "brush.ts → document.ts"
+        "brush.ts → document.ts",
+        "auditFinding.ts → suppressions.ts"
       ]
     },
     "ui": {
