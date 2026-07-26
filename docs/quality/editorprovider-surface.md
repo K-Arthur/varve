@@ -4,20 +4,57 @@ Input to the Prompt 11 strangler-fig refactor plan. Method: static analysis of `
 return shape (`EditorContextValue`, `packages/editor/src/context.tsx:518`) against every consumer,
 not a guess at boundaries.
 
-**Update, from the Prompt 4 characterization pass**: `useViewport()`'s memoization is **already
-broken today, pre-refactor**. `ViewportContext.tsx`'s `ViewportProvider` does
-`const animRef = panAnimationRef ?? { current: null };` — `EditorProvider` never passes
-`panAnimationRef` (`context.tsx:7706`), so `animRef` is a new object on every render.
-`smoothZoomTo`/`smoothPanTo` list it in their `useCallback` deps, which cascades through
-`revealSelection` → `fitAll` → the top-level `value` `useMemo`, busting the Viewport context value
-on any `EditorProvider` render, not just viewport-relevant ones. This is the exact failure mode
-the strangler-fig plan warns about under "CONTEXT VALUE IDENTITY" — except it's already live in
-the one sub-context that's furthest along, which means the plan's Ce/identity concerns aren't
-hypothetical future risk, they're a currently-shipping bug. One-line fix (pass a real
-`panAnimationRef`, or drop `animRef` from the affected deps) — not applied here per this repo's
-rule that characterization work reports bugs rather than silently fixing them; see the paired
-`[BUG]`-tagged tests in `packages/editor/src/context/__tests__/editorProviderCharacterization.test.tsx`
-and `editorProviderRenderCounts.test.tsx`.
+**Update 1 (fixed)**: `useViewport()`'s memoization was defeated on every `EditorProvider` render
+— `ViewportContext.tsx`'s `panAnimationRef ?? { current: null }` fallback allocated a fresh object
+each render. Fixed with a stable `useRef` default (commit `d163bb76`). Regression tests updated
+accordingly.
+
+**Update 2 (Phase B progress) — Tool extracted cleanly; Viewport is NOT ready for unification,
+and the divergence is much worse than first thought.**
+
+- **`ToolContext.tsx` extracted** (commit `dad22741`): `state.tool`/`setTool`, Ce=1, single
+  shared `applyToolChange()` implementation used by both `useTool()` and the `useEditor()` facade
+  so they cannot diverge. Zero regressions across 20 characterization/render-count/integration
+  tests plus the full 53-file gate-test set.
+
+- **`DocumentContext.tsx` requires no extraction work** — it's already structurally correct.
+  `DocumentProvider` takes `value: DocumentContextValue` as a plain prop; `EditorProvider` computes
+  the value once (inside its own `value` `useMemo`) and forwards it. There is only ever one
+  implementation. What's left for Document is pure Phase C (migrating the 50 files still reading
+  `state.document` through `useEditor()` to `useDocument()` instead) — not Phase B.
+
+- **`ViewportContext.tsx` is a dead, unfinished, never-reconciled reimplementation — do not
+  unify it without a dedicated effort.** What looked like one divergent method (`setZoom`, found
+  during the memoization-bug investigation) turned out to be **at least 9 of ~15 methods** with
+  substantive behavioral differences from `context.tsx`'s real implementation, found via a full
+  method-by-method audit:
+
+  | Method | Divergence |
+  |---|---|
+  | `setCamera` | `context.tsx` clamps against `computeDocumentUnionBounds` (document-aware bounds clamping); `ViewportContext.tsx` does no bounds clamping at all |
+  | `setZoom` | `context.tsx` centers via `computeZoomTo` against the live canvas element; `ViewportContext.tsx` is a bare `clampZoom` |
+  | `setPan` | `context.tsx` clamps against document bounds via `clampCamera`; `ViewportContext.tsx` does no clamping |
+  | `smoothZoomTo` | `context.tsx` zooms about the viewport center (`zoomAboutPoint` + `editorScreenToWorld`); `ViewportContext.tsx` animates zoom with pan held fixed — a materially different feel |
+  | `smoothPanTo` | default duration 150ms (`context.tsx`) vs 200ms (`ViewportContext.tsx`) |
+  | `fitAll` | `context.tsx`: instant, via a dedicated `computeFitAllCamera` helper. `ViewportContext.tsx`: animated, via `revealSelection({fit:true})`, a different code path entirely |
+  | `revealSelection` | `context.tsx` reveals one node (`opts.nodeId ?? state.selection[0]`), instantly. `ViewportContext.tsx` reveals the union bounds of the *entire* selection array, always animated — different target, different transition |
+  | `canvasDeltaToWorld` | `context.tsx` accounts for `cameraRotation` via `screenDeltaToWorld`/`toCamera`; `ViewportContext.tsx` is a naive `dx/zoom` — wrong whenever the canvas is rotated |
+  | `canvasToWorld`/`worldToCanvas` | different viewport-fallback values — likely equivalent in the common case, not verified equivalent in the fallback case |
+
+  This reads as an earlier, independent implementation that was superseded by richer logic added
+  directly to `context.tsx` later and never reconciled — not a handful of small drifts. It has
+  effectively zero real consumers today (confirmed above), so nothing currently depends on its
+  behavior, but "port the richer behavior over" means rewriting most of the file's real logic
+  (document-bounds clamping, rotation-aware math, center-anchored zoom, instant-vs-animated
+  semantics), and this repo currently has **no way to verify camera/pan/zoom interaction feel**
+  — the visual-regression harness built alongside this work (`docs/quality/render-path-verification.md`)
+  covers static rendering, not interactive pan/zoom. Attempting a single-pass fix here risks
+  shipping a subtly broken camera system in a design app's core interaction — exactly the failure
+  mode this whole audit chain exists to catch, not create. **Recommendation: treat Viewport as its
+  own dedicated effort, one divergent method at a time, each backed by a real interaction test —
+  not a Phase B sub-task to knock out alongside Tool/Selection/Document/Panels.** No commits were
+  made against `ViewportContext.tsx` or `context.tsx` for this; the file is unchanged since the
+  memoization fix.
 
 ## Headline finding: the split is already partially done
 
