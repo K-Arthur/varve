@@ -1,0 +1,666 @@
+// COMPLEXITY: 152 — convertElement (70), clip/mask helpers (35), element
+// handlers (30), applyStylesToNode (17). Plan: extract each handler to
+// svg/handlers/rect.ts etc.
+
+import type { Affine, PathPoint, Shape } from '@strata/engine';
+import type { Document, FrameNode, ManagedColor, SceneNode } from '@strata/scene';
+import {
+  addMask,
+  addNode,
+  makeFrameNode,
+  makeShapeNode,
+  makeTextNode,
+  nextNodeId,
+} from '@strata/scene';
+import type { ImportOptions } from '../types';
+import {
+  adjustNodePosition,
+  composeTransforms,
+  composeWithOffset,
+  computeGroupBounds,
+  fitPolygon,
+  maskTypeFromElement,
+  nodeBounds,
+  type ParsedElement,
+  parseCssStyle,
+  parsePathData,
+  parsePoints,
+  parseSvgColor,
+  parseUrlReference,
+} from './shared';
+
+function convertRect(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
+  const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
+  const w = parseFloat(el.attrs.width ?? '0') * opts.scale;
+  const h = parseFloat(el.attrs.height ?? '0') * opts.scale;
+  const rx = parseFloat(el.attrs.rx ?? '0') * opts.scale;
+  const ry = parseFloat(el.attrs.ry ?? '0') * opts.scale;
+
+  const shape: Shape = { kind: 'rect', x: 0, y: 0, w, h };
+  const transform = composeTransforms(transforms);
+  const cornerRadius = rx > 0 || ry > 0 ? (Math.max(rx, ry) as number) : undefined;
+
+  const node = makeShapeNode('', shape, {
+    name: 'Rectangle',
+    transform: composeWithOffset(transform, x, y),
+    fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+    cornerRadius: cornerRadius
+      ? [cornerRadius, cornerRadius, cornerRadius, cornerRadius]
+      : undefined,
+  });
+  return { node, warnings: [] };
+}
+
+function convertCircle(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const cx = parseFloat(el.attrs.cx ?? '0') * opts.scale;
+  const cy = parseFloat(el.attrs.cy ?? '0') * opts.scale;
+  const r = parseFloat(el.attrs.r ?? '0') * opts.scale;
+
+  const shape: Shape = { kind: 'circle', cx: 0, cy: 0, r };
+  const transform = composeTransforms(transforms);
+
+  const node = makeShapeNode('', shape, {
+    name: 'Circle',
+    transform: composeWithOffset(transform, cx, cy),
+  });
+  return { node, warnings: [] };
+}
+
+function convertEllipse(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const cx = parseFloat(el.attrs.cx ?? '0') * opts.scale;
+  const cy = parseFloat(el.attrs.cy ?? '0') * opts.scale;
+  const rx = parseFloat(el.attrs.rx ?? '0') * opts.scale;
+  const ry = parseFloat(el.attrs.ry ?? '0') * opts.scale;
+
+  const shape: Shape = { kind: 'ellipse', cx: 0, cy: 0, rx, ry };
+  const transform = composeTransforms(transforms);
+
+  const node = makeShapeNode('', shape, {
+    name: 'Ellipse',
+    transform: composeWithOffset(transform, cx, cy),
+  });
+  return { node, warnings: [] };
+}
+
+function convertLine(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const x1 = parseFloat(el.attrs.x1 ?? '0') * opts.scale;
+  const y1 = parseFloat(el.attrs.y1 ?? '0') * opts.scale;
+  const x2 = parseFloat(el.attrs.x2 ?? '0') * opts.scale;
+  const y2 = parseFloat(el.attrs.y2 ?? '0') * opts.scale;
+
+  const shape: Shape = { kind: 'line', from: [0, 0], to: [x2 - x1, y2 - y1], tolerance: 3 };
+  const transform = composeTransforms(transforms);
+
+  const node = makeShapeNode('', shape, {
+    name: 'Line',
+    transform: composeWithOffset(transform, x1, y1),
+  });
+  return { node, warnings: [] };
+}
+
+function convertPolygon(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const pointsStr = el.attrs.points ?? '';
+  const points = parsePoints(pointsStr, opts.scale);
+
+  if (points.length === 0) {
+    const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Polygon' });
+    return { node, warnings: ['Empty polygon'] };
+  }
+
+  const { cx, cy, radius, sides } = fitPolygon(points);
+  const shape: Shape = {
+    kind: 'polygon',
+    cx: 0,
+    cy: 0,
+    radius,
+    sides: Math.max(3, sides),
+    rotation: 0,
+  };
+  const transform = composeTransforms(transforms);
+
+  const node = makeShapeNode('', shape, {
+    name: 'Polygon',
+    transform: composeWithOffset(transform, cx, cy),
+  });
+  return { node, warnings: [] };
+}
+
+function convertPolyline(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const pointsStr = el.attrs.points ?? '';
+  const pts = parsePoints(pointsStr, opts.scale);
+
+  if (pts.length === 0) {
+    const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Path' });
+    return { node, warnings: ['Empty polyline'] };
+  }
+
+  const pathPoints: PathPoint[] = pts.map((p) => ({
+    x: p.x,
+    y: p.y,
+    handleIn: null,
+    handleOut: null,
+  }));
+
+  const minX = Math.min(...pts.map((p) => p.x));
+  const minY = Math.min(...pts.map((p) => p.y));
+  const localPoints = pathPoints.map((p) => ({
+    ...p,
+    x: p.x - minX,
+    y: p.y - minY,
+  }));
+
+  const shape: Shape = { kind: 'path', points: localPoints, closed: false, tolerance: 3 };
+  const transform = composeTransforms(transforms);
+
+  const node = makeShapeNode('', shape, {
+    name: 'Path',
+    transform: composeWithOffset(transform, minX, minY),
+  });
+  return { node, warnings: [] };
+}
+
+function convertPath(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const d = el.attrs.d ?? '';
+  const parsed = parsePathData(d, opts.scale);
+
+  if (parsed.points.length < 2) {
+    const node = makeShapeNode('', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, { name: 'Path' });
+    return { node, warnings: ['Path too short'] };
+  }
+
+  const shape: Shape = { kind: 'path', points: parsed.points, closed: parsed.closed, tolerance: 3 };
+  const transform = composeTransforms(transforms);
+
+  const node = makeShapeNode('', shape, {
+    name: 'Path',
+    transform,
+  });
+  return { node, warnings: [] };
+}
+
+function convertText(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
+  const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
+  const fontSize = parseFloat(el.attrs['font-size'] ?? '16') * opts.scale;
+  const fontFamily = el.attrs['font-family'] ?? 'sans-serif';
+  const fontWeight = parseInt(el.attrs['font-weight'] ?? '400', 10);
+  const textAlign =
+    el.attrs['text-anchor'] === 'middle'
+      ? 'center'
+      : el.attrs['text-anchor'] === 'end'
+        ? 'right'
+        : 'left';
+  const text = el.textContent || '';
+
+  const transform = composeTransforms(transforms);
+
+  const node = makeTextNode('', text, {
+    name: 'Text',
+    transform: composeWithOffset(transform, x, y),
+    fontSize,
+    fontFamily,
+    fontWeight,
+    textAlign: textAlign as 'left' | 'center' | 'right',
+  });
+  return { node, warnings: [] };
+}
+
+function convertImage(
+  el: ParsedElement,
+  transforms: string[],
+  opts: ImportOptions,
+): { node: SceneNode; warnings: string[] } {
+  const x = parseFloat(el.attrs.x ?? '0') * opts.scale;
+  const y = parseFloat(el.attrs.y ?? '0') * opts.scale;
+  const w = parseFloat(el.attrs.width ?? '100') * opts.scale;
+  const h = parseFloat(el.attrs.height ?? '100') * opts.scale;
+  const href = el.attrs.href ?? el.attrs['xlink:href'] ?? '';
+  const transform = composeTransforms(transforms);
+
+  const node: SceneNode = {
+    ...makeShapeNode(
+      '',
+      { kind: 'rect', x: 0, y: 0, w, h },
+      {
+        name: 'Image',
+        transform: composeWithOffset(transform, x, y),
+        fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
+      },
+    ),
+    fills: [
+      {
+        type: 'image',
+        image: { src: href, fit: 'fill', x: 0, y: 0, scale: 1 },
+        opacity: 1,
+        blendMode: 'normal',
+        visible: true,
+      },
+    ],
+  };
+  return { node, warnings: [] };
+}
+
+function applyStylesToNode(node: SceneNode, el: ParsedElement): SceneNode {
+  let fill = el.attrs.fill ?? el.attrs.style;
+  let stroke = el.attrs.stroke;
+  let strokeWidth = el.attrs['stroke-width'];
+  let opacity = el.attrs.opacity;
+  let fillOpacity = el.attrs['fill-opacity'];
+  let strokeOpacity = el.attrs['stroke-opacity'];
+
+  if (el.attrs.style) {
+    const styles = parseCssStyle(el.attrs.style);
+    fill = styles.fill ?? fill;
+    stroke = styles.stroke ?? stroke;
+    strokeWidth = styles['stroke-width'] ?? strokeWidth;
+    opacity = styles.opacity ?? opacity;
+    fillOpacity = styles['fill-opacity'] ?? fillOpacity;
+    strokeOpacity = styles['stroke-opacity'] ?? strokeOpacity;
+  }
+
+  let result = { ...node };
+
+  if (fill && fill !== 'none') {
+    const parsedColor = parseSvgColor(fill);
+    if (parsedColor) {
+      result = { ...result, fill: parsedColor };
+    }
+  } else if (fill === 'none') {
+    result = { ...result, fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 } };
+  }
+
+  if (opacity) {
+    const op = parseFloat(opacity);
+    if (!Number.isNaN(op)) {
+      result = { ...result, opacity: op };
+    }
+  }
+
+  if (fillOpacity) {
+    const fop = parseFloat(fillOpacity);
+    if (!Number.isNaN(fop) && 'fills' in result && result.fills && result.fills.length > 0) {
+      const fills = [...result.fills];
+      fills[0] = { ...fills[0]!, opacity: fop };
+      result = { ...result, fills } as SceneNode;
+    }
+  }
+
+  if (stroke && stroke !== 'none') {
+    const parsedStrokeColor = parseSvgColor(stroke);
+    const sw = strokeWidth ? parseFloat(strokeWidth) : 1;
+    const strokeOpacityVal = strokeOpacity ? parseFloat(strokeOpacity) : 1;
+    if (parsedStrokeColor && parsedStrokeColor.space === 'rgb') {
+      const strokeColor: ManagedColor = {
+        space: 'rgb' as const,
+        r: parsedStrokeColor.r,
+        g: parsedStrokeColor.g,
+        b: parsedStrokeColor.b,
+        a: Math.round((parsedStrokeColor.a ?? 255) * strokeOpacityVal),
+      };
+      result = {
+        ...result,
+        strokes: [
+          {
+            color: strokeColor,
+            weight: sw,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'miter',
+            miterLimit: 4,
+            visible: true,
+          },
+        ],
+      } as SceneNode;
+    }
+  }
+
+  return result;
+}
+
+function buildMaskSourceNode(
+  defEl: ParsedElement,
+  doc: Document,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  opts: ImportOptions,
+  warnings: string[],
+): { doc: Document; sourceId: string | null } {
+  const childNodes: string[] = [];
+  let d = doc;
+
+  for (const child of defEl.children) {
+    const r = convertElement(child, d, defs, transforms, opts, warnings);
+    d = r.doc;
+    childNodes.push(...r.ids);
+  }
+
+  if (childNodes.length === 0) {
+    return { doc: d, sourceId: null };
+  }
+
+  d = {
+    ...d,
+    rootChildren: d.rootChildren.filter((nid) => !childNodes.includes(nid)),
+  };
+
+  if (childNodes.length === 1) {
+    return { doc: d, sourceId: childNodes[0]! };
+  }
+
+  const { id, doc: d2 } = nextNodeId(d);
+  d = d2;
+  const { x, y, w, h } = computeGroupBounds(d, childNodes);
+  const groupNode: FrameNode = {
+    ...makeFrameNode(id, {
+      name: 'Mask Source',
+      children: childNodes,
+      w,
+      h,
+    }),
+    transform: [1, 0, 0, 1, x, y] as Affine,
+  };
+  for (const childId of childNodes) {
+    adjustNodePosition(d, childId, -x, -y);
+  }
+  d = { ...d, nodes: { ...d.nodes, [id]: groupNode as SceneNode } };
+  return { doc: d, sourceId: id };
+}
+
+function applySvgClipOrMask(
+  doc: Document,
+  containerId: string,
+  defEl: ParsedElement,
+  maskType: 'clip' | 'alpha' | 'luminance',
+  opts: ImportOptions,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  warnings: string[],
+): Document {
+  const { doc: d2, sourceId } = buildMaskSourceNode(defEl, doc, defs, transforms, opts, warnings);
+  if (!sourceId) {
+    warnings.push('clipPath/mask definition is empty — skipping');
+    return d2;
+  }
+
+  const container = d2.nodes[containerId];
+  if (!container) return d2;
+  const children = 'children' in container ? container.children : undefined;
+  let d = d2;
+  if (children && !children.includes(sourceId)) {
+    d = {
+      ...d,
+      nodes: {
+        ...d.nodes,
+        [containerId]: { ...container, children: [sourceId, ...children] } as SceneNode,
+      },
+    };
+  }
+
+  d = addMask(d, containerId, sourceId, maskType, {
+    fillRule: defEl.attrs['clip-rule'] === 'evenodd' ? 'evenodd' : 'nonzero',
+  });
+
+  return d;
+}
+
+function applyGroupClipOrMask(
+  doc: Document,
+  groupId: string,
+  el: ParsedElement,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  opts: ImportOptions,
+  warnings: string[],
+): Document {
+  let d = doc;
+
+  const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
+  if (clipRef) {
+    const clipDef = defs.get(clipRef);
+    if (clipDef) {
+      d = applySvgClipOrMask(d, groupId, clipDef, 'clip', opts, defs, transforms, warnings);
+    } else {
+      warnings.push(`clip-path references unknown id: #${clipRef}`);
+    }
+  }
+
+  const maskRef = parseUrlReference(el.attrs.mask ?? '');
+  if (maskRef) {
+    const maskDef = defs.get(maskRef);
+    if (maskDef) {
+      const maskType = maskTypeFromElement(maskDef);
+      d = applySvgClipOrMask(d, groupId, maskDef, maskType, opts, defs, transforms, warnings);
+    } else {
+      warnings.push(`mask references unknown id: #${maskRef}`);
+    }
+  }
+
+  return d;
+}
+
+function wrapNodeInMaskedGroup(
+  doc: Document,
+  nodeId: string,
+  el: ParsedElement,
+  defs: Map<string, ParsedElement>,
+  transforms: string[],
+  opts: ImportOptions,
+  warnings: string[],
+): { doc: Document; groupId: string } | null {
+  const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
+  const maskRef = parseUrlReference(el.attrs.mask ?? '');
+  if (!clipRef && !maskRef) return null;
+
+  const { id: groupId, doc: d0 } = nextNodeId(doc);
+  let d = d0;
+  const node = d.nodes[nodeId];
+  if (!node) return null;
+  const bounds = nodeBounds(node);
+  const groupNode: FrameNode = {
+    ...makeFrameNode(groupId, {
+      name: 'Masked Group',
+      children: [nodeId],
+      w: bounds.w,
+      h: bounds.h,
+    }),
+    transform: [1, 0, 0, 1, bounds.x, bounds.y] as Affine,
+  };
+  d = { ...d, nodes: { ...d.nodes, [groupId]: groupNode as SceneNode } };
+  d = {
+    ...d,
+    rootChildren: [...d.rootChildren.filter((nid) => nid !== nodeId), groupId],
+  };
+  d = applyGroupClipOrMask(d, groupId, el, defs, transforms, opts, warnings);
+  return { doc: d, groupId };
+}
+
+export function convertElement(
+  el: ParsedElement,
+  doc: Document,
+  defs: Map<string, ParsedElement>,
+  inheritedTransform: string[],
+  opts: ImportOptions,
+  warnings: string[],
+  visitedIds = new Set<string>(),
+): { doc: Document; ids: string[] } {
+  const ids: string[] = [];
+
+  if (el.tag === 'defs') return { doc, ids };
+
+  if (el.tag === 'svg') {
+    for (const child of el.children) {
+      const r = convertElement(child, doc, defs, inheritedTransform, opts, warnings, visitedIds);
+      doc = r.doc;
+      ids.push(...r.ids);
+    }
+    return { doc, ids };
+  }
+
+  const transformAttr = el.attrs.transform;
+  const transforms = transformAttr ? [...inheritedTransform, transformAttr] : inheritedTransform;
+
+  if (el.tag === 'g') {
+    let gDoc = doc;
+    const gIds: string[] = [];
+    for (const child of el.children) {
+      const r = convertElement(child, gDoc, defs, transforms, opts, warnings, visitedIds);
+      gDoc = r.doc;
+      gIds.push(...r.ids);
+    }
+    if (gIds.length > 0) {
+      const { id, doc: gDocWithId } = nextNodeId(gDoc);
+      gDoc = gDocWithId;
+      const groupTransformAffine = composeTransforms(transforms);
+      const { x, y, w, h } = computeGroupBounds(gDoc, gIds);
+      const groupNode: FrameNode = {
+        ...makeFrameNode(id, {
+          name: 'Group',
+          children: gIds,
+          w,
+          h,
+        }),
+        transform: [
+          groupTransformAffine[0],
+          groupTransformAffine[1],
+          groupTransformAffine[2],
+          groupTransformAffine[3],
+          groupTransformAffine[4] + x,
+          groupTransformAffine[5] + y,
+        ] as Affine,
+      };
+      for (const childId of gIds) {
+        adjustNodePosition(gDoc, childId, -x, -y);
+      }
+      gDoc = { ...gDoc, nodes: { ...gDoc.nodes, [id]: groupNode as SceneNode } };
+      gDoc = {
+        ...gDoc,
+        rootChildren: [...gDoc.rootChildren.filter((nid) => !gIds.includes(nid)), id],
+      };
+      gDoc = applyGroupClipOrMask(gDoc, id, el, defs, transforms, opts, warnings);
+      ids.push(id);
+      return { doc: gDoc, ids };
+    }
+    return { doc: gDoc, ids: gIds };
+  }
+
+  if (el.tag === 'use') {
+    const href = el.attrs.href ?? el.attrs['xlink:href'];
+    if (href?.startsWith('#')) {
+      const refId = href.slice(1);
+      const ref = defs.get(refId);
+      if (ref) {
+        if (visitedIds.has(refId)) {
+          warnings.push(`Circular <use> reference detected for #${refId} — skipping`);
+          return { doc, ids };
+        }
+        visitedIds.add(refId);
+        const x = parseFloat(el.attrs.x ?? '0');
+        const y = parseFloat(el.attrs.y ?? '0');
+        const useTransform = `translate(${x},${y})`;
+        const r = convertElement(
+          ref,
+          doc,
+          defs,
+          [...transforms, useTransform],
+          opts,
+          warnings,
+          visitedIds,
+        );
+        visitedIds.delete(refId);
+        return { doc: r.doc, ids: r.ids };
+      }
+    }
+    warnings.push(`<use> references unknown id: ${href}`);
+    return { doc, ids };
+  }
+
+  let result: { node: SceneNode; warnings: string[] } | null = null;
+
+  switch (el.tag) {
+    case 'rect':
+      result = convertRect(el, transforms, opts);
+      break;
+    case 'circle':
+      result = convertCircle(el, transforms, opts);
+      break;
+    case 'ellipse':
+      result = convertEllipse(el, transforms, opts);
+      break;
+    case 'line':
+      result = convertLine(el, transforms, opts);
+      break;
+    case 'polygon':
+      result = convertPolygon(el, transforms, opts);
+      break;
+    case 'polyline':
+      result = convertPolyline(el, transforms, opts);
+      break;
+    case 'path':
+      result = convertPath(el, transforms, opts);
+      break;
+    case 'text':
+      result = convertText(el, transforms, opts);
+      break;
+    case 'image':
+      result = convertImage(el, transforms, opts);
+      break;
+    default:
+      break;
+  }
+
+  if (result) {
+    const { id, doc: d2 } = nextNodeId(doc);
+    const styled = applyStylesToNode(result.node, el);
+    const node = { ...styled, id } as SceneNode;
+    doc = addNode(d2, node);
+    ids.push(id);
+
+    const clipRef = parseUrlReference(el.attrs['clip-path'] ?? '');
+    const maskRef = parseUrlReference(el.attrs.mask ?? '');
+    if (clipRef || maskRef) {
+      const wrapped = wrapNodeInMaskedGroup(doc, id, el, defs, transforms, opts, warnings);
+      if (wrapped) {
+        doc = wrapped.doc;
+        ids.length = 0;
+        ids.push(wrapped.groupId);
+      }
+    }
+  }
+
+  return { doc, ids };
+}
