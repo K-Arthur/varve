@@ -9,15 +9,15 @@
  * feature test.
  */
 
-import { estimateFileSize } from './raster-size';
+import type { RasterFormat } from './rasterMath';
+import { estimateFileSize } from './rasterMath';
 import { createRasterSurface, encodeRasterSurface } from './rasterSurface';
 import type { ReplayTarget } from './replay';
 import { replayIr } from './replay';
 import type { Color, RenderItem } from './types';
 
-export { estimateFileSize } from './raster-size';
-
-export type RasterFormat = 'png' | 'jpeg' | 'webp' | 'avif';
+export type { RasterFormat } from './rasterMath';
+export { computeOutputDimensions, estimateFileSize } from './rasterMath';
 
 export interface RasterOptions {
   format: RasterFormat;
@@ -56,19 +56,6 @@ export function supportsFormat(format: RasterFormat): boolean {
   // For WebP/AVIF, skip detection in test/SSR environments
   if (typeof document === 'undefined') return false;
   return true; // runtime detection at test time
-}
-
-/**
- * Compute output dimensions from scene bounds and export scale.
- */
-export function computeOutputDimensions(
-  bounds: { x: number; y: number; w: number; h: number },
-  scale: number,
-): { width: number; height: number } {
-  return {
-    width: Math.round(bounds.w * scale),
-    height: Math.round(bounds.h * scale),
-  };
 }
 
 function mimeForFormat(format: RasterFormat): string {

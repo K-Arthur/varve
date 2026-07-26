@@ -1,8 +1,11 @@
 /**
- * File-size estimation for export previews.
+ * Pure raster size math: format types, file-size estimation, and output-dimension
+ * scaling. A leaf module — no imports from raster.ts or raster-size.ts — so it can be
+ * shared by both without creating a cycle (raster.ts needs the calculations here;
+ * this module needs none of raster.ts's rendering machinery).
  *
- * These are rough heuristics for the live preview dimension/size display,
- * not exact file sizes. Real sizes depend on image content and compression.
+ * File-size estimates are rough heuristics for the live preview dimension/size
+ * display, not exact file sizes. Real sizes depend on image content and compression.
  *
  * Research basis: typical compression ratios for common raster formats:
  *   PNG (lossless):      ~0.5 bytes per channel per pixel (varies with content)
@@ -10,7 +13,8 @@
  *   WebP:                ~20-30% smaller than JPEG at same quality
  *   AVIF:                ~30-40% smaller than JPEG at same quality
  */
-import type { RasterFormat } from './raster';
+
+export type RasterFormat = 'png' | 'jpeg' | 'webp' | 'avif';
 
 function clampQuality(q: number | undefined): number {
   if (q === undefined) return 90;
@@ -47,4 +51,17 @@ export function estimateFileSize(
       return Math.round(jpegSize * 0.65);
     }
   }
+}
+
+/**
+ * Compute output dimensions from scene bounds and export scale.
+ */
+export function computeOutputDimensions(
+  bounds: { x: number; y: number; w: number; h: number },
+  scale: number,
+): { width: number; height: number } {
+  return {
+    width: Math.round(bounds.w * scale),
+    height: Math.round(bounds.h * scale),
+  };
 }
