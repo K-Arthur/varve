@@ -45,6 +45,26 @@ The engine image-placement module is the geometry owner. Canvas replay, crop
 interaction, raster masks, source-coordinate tools, SVG, and PDF must consume
 its forward/inverse mapping instead of recreating proportional math.
 
+## Document fields
+
+The persisted `ImageFillData` usage record has these responsibilities:
+
+| Field | Coordinate space | Meaning |
+| --- | --- | --- |
+| `assetId` / `src` | Asset identity | Immutable source pixels |
+| `imageWidth`, `imageHeight` | Source pixels | Orientation-normalized natural size |
+| `fit` | Policy | Fit, Fill, Crop, Stretch, or Tile base placement |
+| `x`, `y` | Object-local units | Content offset after policy placement |
+| `scale` | Unitless | User scale multiplying the policy scale |
+| `crop` | Source pixels | Non-destructive axis-aligned source sample |
+| `rotation` | Degrees | Clockwise content rotation |
+| `flipH`, `flipV` | Boolean | Content reflection without negative dimensions |
+
+The shape supplies object bounds and the node affine supplies object transform.
+Raster alpha masks use source-image-pixel coordinates and retain an explicit
+source identity. Background-removal provenance stays on the node; its mask is
+rendered with the same placement, crop, rotation, and flips as the source.
+
 ## Fit-policy semantics
 
 - **Fit** derives a uniform contain scale. The whole source is visible and
@@ -81,6 +101,19 @@ Dragging inside the crop window moves image content. A frame resize changes the
 frame, not its image pixels. Destructive crop is a separately named,
 undoable asset-producing operation and must never mutate a shared source asset.
 
+Crop-mode input follows the editor command system:
+
+- `C` enters crop for one selected image-bearing shape.
+- `Enter` confirms the draft as one history operation; `Escape` discards it.
+- Arrow keys move the crop window by one object-local unit; `Shift` uses ten.
+- `Alt`/`Option` plus arrows pans image content; `Shift` again uses ten.
+- During handle drag, `Shift` preserves the captured aspect ratio and
+  `Alt`/`Option` resizes from the centre.
+- `F` cycles the implemented placement policies while crop mode is active.
+
+The controls remain keyboard-operable and expose button names through the
+accessibility tree. Crop mode rejects multi-selection and non-image shapes.
+
 ## Persistence and migration
 
 Every load boundary normalizes image-fill usage data, including both node-local
@@ -103,6 +136,10 @@ Save/reopen, autosave recovery, version history, duplication, and clipboard
 transfer must preserve the complete per-usage transform and every referenced
 immutable image/mask asset.
 
+Clipboard payloads therefore carry the complete node closure plus both
+`Document.assets` and `rasterMaskAssets`; paste merges both tables before
+inserting the cloned subtree.
+
 ## Export contract
 
 Raster export reuses document-space engine replay at the requested output
@@ -120,3 +157,9 @@ crops also require a polygonal or local clip representation for exact
 round-tripping. These cases must fail safely and remain documented until their
 representation and migrations ship; they must not silently stretch or blank an
 image.
+
+The PDF path supports rectangular image objects and embedded RGBA soft masks.
+Non-rectangular PDF image clipping still uses the legacy shape path, and an
+explicit external raster-mask asset is not yet emitted as a PDF soft mask.
+Destructive crop is not currently exposed, so no UI action removes source
+pixels or rewrites a shared asset.
