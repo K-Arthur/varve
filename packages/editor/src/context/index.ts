@@ -1,5 +1,3 @@
-export type { DialogState } from './useDialogState';
-export { useDialogState } from './useDialogState';
 export type { ToolId } from '../tools/types';
 export type { DocumentContextValue } from './DocumentContext';
 export { DocumentProvider, useDocument } from './DocumentContext';
@@ -29,5 +27,9 @@ export type {
   EditorState,
   SessionMeta,
 } from './types';
+export type { DialogState } from './useDialogState';
+export { useDialogState } from './useDialogState';
+export type { InteractionState } from './useInteractionState';
+export { useInteractionState } from './useInteractionState';
 export type { ViewportContextValue } from './ViewportContext';
 export { useViewport, ViewportProvider } from './ViewportContext';
