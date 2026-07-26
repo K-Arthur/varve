@@ -5,7 +5,7 @@ import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 
-function whiteForMode(mode: ColorMode): ManagedColor {
+export function whiteForMode(mode: ColorMode): ManagedColor {
   switch (mode) {
     case 'cmyk':
       return { space: 'cmyk', c: 0, m: 0, y: 0, k: 0, a: 255 };

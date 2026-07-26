@@ -1,14 +1,24 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { enableDrawDiagnostics, isDiagnosticsEnabled } from '../../canvas/drawDiagnostics';
+import { EditorProvider } from '../../context';
 import { SettingsProvider } from './SettingsContext';
 import { SettingsDialog } from './SettingsDialog';
 
 function renderWithProvider(ui: React.ReactElement) {
-  return render(<SettingsProvider>{ui}</SettingsProvider>);
+  return render(
+    <EditorProvider>
+      <SettingsProvider>{ui}</SettingsProvider>
+    </EditorProvider>,
+  );
 }
 
+beforeEach(() => {
+  localStorage.clear();
+  enableDrawDiagnostics(false);
+});
 afterEach(cleanup);
 
 describe('SettingsDialog', () => {
@@ -34,6 +44,25 @@ describe('SettingsDialog', () => {
     const closeBtn = screen.getByLabelText('Close dialog');
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('GeneralSection canvas background', () => {
+  it('renders a compact swatch trigger rather than an inline picker', () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    const swatch = screen.getByRole('button', { name: 'Canvas background' });
+    expect(swatch.getAttribute('aria-haspopup')).toBe('dialog');
+    expect(swatch.getAttribute('aria-expanded')).toBe('false');
+    // The outer Settings <dialog> itself has an implicit role=dialog, so scope
+    // by accessible name to confirm the *picker's* dialog isn't in the DOM yet.
+    expect(screen.queryByRole('dialog', { name: /pick canvas background/i })).toBeNull();
+  });
+
+  it('opens the picker dialog on click', async () => {
+    renderWithProvider(<SettingsDialog open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Canvas background' }));
+    const dialog = await screen.findByRole('dialog', { name: /pick canvas background/i });
+    expect(dialog).toBeTruthy();
   });
 });
 
@@ -68,6 +97,19 @@ describe('PerformanceSettingsTab', () => {
     openPerformanceTab();
     expect(screen.getByLabelText('Memory / cache budget')).toBeTruthy();
     expect(screen.getByLabelText('Reduce motion')).toBeTruthy();
+  });
+
+  it('performance overlay toggle is off by default and enabling it flips the live overlay immediately', () => {
+    expect(isDiagnosticsEnabled()).toBe(false);
+    openPerformanceTab();
+    const toggle = screen.getByLabelText('Show performance overlay') as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    expect(toggle.checked).toBe(true);
+    // No reload/remount needed — the module-level HUD flag flips synchronously.
+    expect(isDiagnosticsEnabled()).toBe(true);
+    fireEvent.click(toggle);
+    expect(isDiagnosticsEnabled()).toBe(false);
   });
 
   it('shows read-only diagnostics stats', () => {
