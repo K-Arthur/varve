@@ -51,17 +51,41 @@ let currentTier: ProfileTier = 'balanced';
 let framesInTier = 0;
 let totalFrames = 0;
 
-/** Detect platform capabilities. */
+/**
+ * Probe for WebGL support.
+ *
+ * Acquiring a WebGL context allocates a real GPU context. Browsers cap how
+ * many may be live at once (Chromium ~16) and force-lose the oldest when the
+ * cap is exceeded, logging "Too many active WebGL contexts". The probe context
+ * is therefore released explicitly rather than left to GC.
+ */
+function probeWebGL(): boolean {
+  if (typeof document === 'undefined') return false;
+  const gl = document.createElement('canvas').getContext('webgl');
+  if (!gl) return false;
+  gl.getExtension('WEBGL_lose_context')?.loseContext();
+  return true;
+}
+
+/**
+ * Cached capability detection. Capabilities are fixed for the lifetime of the
+ * page, and `detectPlatformCapabilities` is reached from `computeProfile`,
+ * which runs once per rendered frame — detecting on every call created (and
+ * leaked) a canvas plus a WebGL context per frame. Mirrors the cache-once
+ * pattern already used by `tools/inputNormalizer.ts`.
+ */
+let cachedCapabilities: PlatformCapabilities | null = null;
+
+/** Detect platform capabilities. Computed once, then cached for the session. */
 export function detectPlatformCapabilities(): PlatformCapabilities {
+  if (cachedCapabilities) return cachedCapabilities;
+
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const isWebKitGTK = ua.includes('WebKit') && !ua.includes('Chrome') && !ua.includes('Mac');
-  return {
+  cachedCapabilities = {
     hasWorker: typeof OffscreenCanvas !== 'undefined',
     isWebKitGTK,
-    hasWebGL:
-      typeof document !== 'undefined'
-        ? !!document.createElement('canvas').getContext('webgl')
-        : false,
+    hasWebGL: probeWebGL(),
     hasWebGPU: typeof navigator !== 'undefined' && 'gpu' in navigator,
     deviceMemory:
       typeof navigator !== 'undefined'
@@ -70,6 +94,12 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
     hardwareConcurrency:
       typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined,
   };
+  return cachedCapabilities;
+}
+
+/** Clear cached capability detection. Test seam for environment changes. */
+export function _resetPlatformCapabilities(): void {
+  cachedCapabilities = null;
 }
 
 function selectTier(
