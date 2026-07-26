@@ -218,9 +218,9 @@ export function runPrintPreflight(
   }
 
   // ── Text chain checks ─────────────────────────────────────────────────
-  const chains = doc.textChains;
-  if (opts.checkFonts && chains) {
-    for (const entry of Object.entries(chains)) {
+  const textChains = doc.textChains as Record<string, import('./typography').TextChain> | undefined;
+  if (opts.checkFonts && textChains) {
+    for (const entry of Object.entries(textChains)) {
       const chain = entry[1];
       if (!chain) continue;
       for (const frameId of chain.frameIds) {
