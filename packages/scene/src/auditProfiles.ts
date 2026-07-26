@@ -136,6 +136,22 @@ export const WORKSPACE_AUDIT_PROFILES: Record<WorkspaceMode, WorkspaceAuditProfi
     statusBadgeCategories: ['prototype', 'accessibility'],
     overlayCategories: ['prototype'],
   },
+
+  codegen: {
+    workspace: 'codegen',
+    primaryCategories: ['codegen', 'structure', 'governance', 'accessibility'],
+    secondaryCategories: ['export', 'typography', 'color', 'layout', 'spacing'],
+    hiddenCategories: ['print', 'raster', 'vector', 'prototype', 'performance', 'layer-hygiene'],
+    defaultStage: 'debounced',
+    maxFindings: 50,
+    // Like every other profile's rule IDs (e.g. 'prototype/dead-end'), these are
+    // planned identifiers, not yet-registered rules -- see
+    // docs/quality/scene-cycle-report.md's registerBuiltinRules() finding: no
+    // rules are wired into the registry yet for any workspace.
+    contextualSummaryRules: ['codegen/unsupported-node-type', 'codegen/missing-semantic-tag'],
+    statusBadgeCategories: ['codegen', 'structure'],
+    overlayCategories: ['codegen'],
+  },
 };
 
 // ---------------------------------------------------------------------------
