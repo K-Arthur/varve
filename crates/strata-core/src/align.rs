@@ -923,7 +923,12 @@ mod tests {
         const EPS: f64 = 1e-9;
 
         fn arb_bbox() -> impl Strategy<Value = BBox> {
-            (-10_000.0f64..10_000.0, -10_000.0f64..10_000.0, 0.0f64..1_000.0, 0.0f64..1_000.0)
+            (
+                -10_000.0f64..10_000.0,
+                -10_000.0f64..10_000.0,
+                0.0f64..1_000.0,
+                0.0f64..1_000.0,
+            )
                 .prop_map(|(x, y, w, h)| BBox { x, y, w, h })
         }
 
@@ -952,7 +957,12 @@ mod tests {
                 .iter()
                 .map(|b| {
                     let (x, y) = align_bbox(b, axis, &target1);
-                    BBox { x, y, w: b.w, h: b.h }
+                    BBox {
+                        x,
+                        y,
+                        w: b.w,
+                        h: b.h,
+                    }
                 })
                 .collect();
 
