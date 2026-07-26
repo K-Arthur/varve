@@ -326,16 +326,11 @@ import {
 import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
 import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
-import type { DocumentContextValue } from './context/DocumentContext';
-import {
-  DocumentProvider,
-  MotionProvider,
-  PrototypeProvider,
-  SelectionProvider,
-  ViewportProvider,
-} from './context/index';
-import type { MotionContextValue } from './context/MotionContext';
+import { type DocumentContextValue, DocumentProvider } from './context/DocumentContext';
+import { type MotionContextValue, MotionProvider } from './context/MotionContext';
+import { PrototypeProvider } from './context/PrototypeContext';
 import { isReducedMotion } from './context/reducedMotionManager';
+import { SelectionProvider } from './context/SelectionContext';
 import type {
   CanvasMode,
   EditorState,
@@ -349,6 +344,7 @@ import type {
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
+import { ViewportProvider } from './context/ViewportContext';
 import {
   computeFitAllCamera,
   computeZoomStep,
@@ -7555,7 +7551,11 @@ export function useEditor(): EditorContextValue {
   return ctx;
 }
 
-export { useDocument, useMotion, usePrototype, useSelection, useViewport } from './context/index';
+export { useDocument } from './context/DocumentContext';
+export { useMotion } from './context/MotionContext';
+export { usePrototype } from './context/PrototypeContext';
+export { useSelection } from './context/SelectionContext';
+export { useViewport } from './context/ViewportContext';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);
