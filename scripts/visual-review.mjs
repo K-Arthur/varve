@@ -1,6 +1,6 @@
 /**
  * Visual review script — captures Neo-Bento redesign screenshots.
- * Run: node review_design.mjs
+ * Run: node scripts/visual-review.mjs
  * Requires: dev server on http://localhost:1420
  */
 

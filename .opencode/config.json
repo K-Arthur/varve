@@ -11,5 +11,6 @@
   "deferred_plan": "docs/plans/home-surface-deferred.md",
   "agent_files": {
     "AGENTS.md": "Main agent instructions with recovery info"
-  }
+  },
+  "plans_directory": "docs/plans/"
 }
