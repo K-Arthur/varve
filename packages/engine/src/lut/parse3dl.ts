@@ -18,6 +18,7 @@
  *   OpenColorIO FileFormat3dl.cpp.
  */
 
+import { MAX_LUT_3D_SIZE, MAX_LUT_TEXT_LENGTH } from './parseCube';
 import type { Lut3D } from './types';
 
 export interface Parse3dlResult {
@@ -37,27 +38,29 @@ function isPerfectCube(n: number): { root: number; isCube: boolean } {
 }
 
 export function parse3dlData(content: string): Parse3dlResult {
+  if (content.length > MAX_LUT_TEXT_LENGTH) {
+    throw new Parse3dlError(`LUT file exceeds the 32 MiB limit (${content.length} characters)`);
+  }
   const values: number[] = [];
   let lineCount = 0;
 
   const lines = content.split(/\r?\n/);
 
-  for (const raw of lines) {
-    const line = raw.trim();
+  for (let index = 0; index < lines.length; index++) {
+    const line = (lines[index] ?? '').split('#', 1)[0]!.trim();
     if (line.length === 0) continue;
-    if (line.startsWith('#')) continue;
     if (line.toUpperCase().startsWith('3DMESH')) continue;
 
     const parts = line.split(/\s+/);
-    let count = 0;
-    for (const p of parts) {
-      const v = Number.parseFloat(p);
-      if (Number.isFinite(v)) {
-        values.push(v);
-        count++;
-      }
+    if (parts.length !== 3) {
+      throw new Parse3dlError(`Invalid data row at line ${index + 1}: expected exactly 3 values`);
     }
-    if (count >= 3) lineCount++;
+    const row = parts.map(Number);
+    if (!row.every(Number.isFinite)) {
+      throw new Parse3dlError(`Invalid data row at line ${index + 1}: values must be finite`);
+    }
+    values.push(row[0]!, row[1]!, row[2]!);
+    lineCount++;
   }
 
   if (lineCount === 0) {
@@ -71,13 +74,15 @@ export function parse3dlData(content: string): Parse3dlResult {
     );
   }
 
-  if (root < 2 || root > 256) {
-    throw new Parse3dlError(`Grid size ${root} is outside the supported range (2..256)`);
+  if (root < 2 || root > MAX_LUT_3D_SIZE) {
+    throw new Parse3dlError(
+      `Grid size ${root} is outside the supported range (2..${MAX_LUT_3D_SIZE})`,
+    );
   }
 
   const size = root;
   const expected = size * size * size * 3;
-  if (values.length < expected) {
+  if (values.length !== expected) {
     throw new Parse3dlError(
       `Expected ${expected} float values for ${size}^3 grid, got ${values.length}`,
     );
