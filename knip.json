@@ -1,0 +1,53 @@
+{
+  "workspaces": {
+    "packages/shared": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/engine": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/scene": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/ui": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/compositor": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/import": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/prototype": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/codegen": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/layout": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/platform": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/help": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/ai": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/collab": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/print": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/home": {
+      "entry": ["src/index.ts"]
+    },
+    "packages/editor": {
+      "entry": ["src/index.ts"]
+    }
+  },
+  "ignoreDependencies": ["@tauri-apps/cli"]
+}
