@@ -1879,6 +1879,11 @@ dialog.strata-dialog--settings[open] {
 .settings-about__link:hover {
   text-decoration: underline;
 }
+.settings-about__link:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  text-decoration: none;
+}
 
 /* ── Settings high-contrast overrides ──────────────────── */
 [data-theme="high-contrast"] .settings-dialog__nav {
