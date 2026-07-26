@@ -34,7 +34,8 @@ import {
   type HalftoneMethod,
   type HalftonePattern,
 } from './halftone';
-import { applyLutToImageData, type LutTransform } from './lut';
+import { applyLutToImageData } from './lut/apply';
+import type { LutTransform } from './lut/types';
 import { applyPosterize } from './posterize';
 import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
 import { applyThreshold } from './threshold';
