@@ -1,4 +1,5 @@
 import { labelWithFallback, loadEntries } from '../recentFiles/store';
+import { SHORTCUT_DEFS } from '../shortcuts/ShortcutManager';
 import type { Accelerator, Capability, MenuContext, MenuItemDef } from './types';
 
 function hasCapability(ctx: MenuContext, cap: Capability): boolean {
@@ -989,15 +990,6 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
       run: () => runAction('booleanExclude'),
     },
     {
-      id: 'intel-scanInProgress',
-      labelKey: 'A scan is already running',
-      kind: 'command',
-      group: 'intelligence',
-      visible: (ctx) => ctx.intelligence.scanInProgress,
-      enabled: () => ({ reason: 'A scan is already running' }),
-      run: () => {},
-    },
-    {
       id: 'audit',
       labelKey: 'menu.object.audit',
       kind: 'submenu',
@@ -1441,8 +1433,26 @@ export interface MenuDefsOptions {
   getTheme?: () => string;
 }
 
+function withCanonicalAccelerators(items: MenuItemDef[]): MenuItemDef[] {
+  return items.map((item) => {
+    const shortcut = SHORTCUT_DEFS[item.id as keyof typeof SHORTCUT_DEFS];
+    const itemChildren = item.items;
+    const nestedItems = Array.isArray(itemChildren)
+      ? withCanonicalAccelerators(itemChildren)
+      : typeof itemChildren === 'function'
+        ? (ctx: MenuContext) => withCanonicalAccelerators(itemChildren(ctx))
+        : undefined;
+
+    return {
+      ...item,
+      ...(shortcut ? { accelerator: { ...shortcut.binding } } : {}),
+      ...(nestedItems ? { items: nestedItems } : {}),
+    };
+  });
+}
+
 export function getAllMenuDefs(opts: MenuDefsOptions): MenuItemDef[] {
-  return [
+  return withCanonicalAccelerators([
     {
       id: 'file',
       labelKey: 'menu.file',
@@ -1507,7 +1517,7 @@ export function getAllMenuDefs(opts: MenuDefsOptions): MenuItemDef[] {
       items: getHelpMenu(opts.runAction),
       run: () => {},
     },
-  ];
+  ]);
 }
 
 export function getCanvasContextMenuDefs(runAction: (id: string) => void): MenuItemDef[] {

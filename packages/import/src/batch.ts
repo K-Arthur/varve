@@ -94,8 +94,7 @@ export function batchImport(
       const idMap = new Map<string, string>();
       for (const nid of importResult.nodeIds) {
         if (!importResult.document.nodes[nid]) continue;
-        const cloneSource = { ...importResult.document, nextId: doc.nextId };
-        const cloned = deepCloneSubtree(cloneSource, nid);
+        const cloned = deepCloneSubtree(importResult.document.nodes, doc.nextId, nid);
         if (Object.keys(cloned.nodes).length === 0) continue;
         // For paged documents, add to the active page's contentRoot so the
         // node is visible to the page-scoped renderer. Adding to rootChildren

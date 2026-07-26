@@ -5,16 +5,29 @@
  * for real glyph path extraction when font binary data is provided; falls back
  * to bounding-box placeholder outlines when it is not.
  *
+ * SHAPING NOTE:
+ *   This module extracts glyph OUTLINES from font binary data using opentype.js.
+ *   It does NOT perform text shaping (ligatures, GSUB/GPOS, complex-script
+ *   reordering). The caller is responsible for providing CORRECT positions via
+ *   the shaping pipeline (Canvas2D measureText or HarfBuzz). Positions from the
+ *   shaping pipeline are correct because the browser's native text engine
+ *   applies GSUB/GPOS; this module provides the glyph shapes at those positions.
+ *
+ *   Limitation: without glyph IDs from the shaper, we look up glyphs by
+ *   character code (font.charToGlyph). For ligatures and complex scripts, the
+ *   glyph shape may differ from what the shaper substituted. This is a known
+ *   ceiling on correctness for the browser-only path — the native Rust backend
+ *   (rustybuzz + ab_glyph) will provide true glyph-ID-based outlining.
+ *
  * Known limitations:
- *   - Simple glyph-lookup only (no complex-script shaping). Ligatures,
- *     combining marks, RTL scripts, and Indic/Arabic shaping are NOT supported.
- *     The extracted outlines match the raw glyph advances from the font, which
- *     is correct for Latin/Cyrillic scripts but will produce incorrect results
- *     for complex scripts.
- *   - Variable font instances: the outlines reflect the font's default glyph
- *     shapes. Variable-axis-dependent outline changes (e.g., weight-dependent
- *     stroke contours) are not reflected unless the font data at the specific
- *     axis values is provided.
+ *   - Ligatures, combining marks, RTL scripts, and Indic/Arabic shaping are
+ *     NOT supported at the glyph-lookup level. Positions from the shaper are
+ *     correct, but the extracted glyph shapes match the raw character-to-glyph
+ *     mapping, which may differ from the shaped glyphs.
+ *   - Variable fonts: outlines reflect the glyph shapes at the requested axis
+ *     coordinates (via opentype.js font.variation.set()).
+ *   - Color fonts (COLR/CPAL, CBDT, SVG-in-OpenType): detected and reported;
+ *     outlining is refused with an appropriate message.
  *
  * Research basis: Figma "Outline text", Illustrator "Create Outlines",
  * opentype.js glyph path extraction, ab_glyph Rust crate.
@@ -26,8 +39,12 @@ import type { PathPoint } from './types';
 /** A single glyph outline represented as a series of path points. */
 export interface GlyphOutline {
   char: string;
-  /** Path points describing the glyph outline (bezier-compatible). */
+  /** Path points describing the glyph outline (bezier-compatible).
+   *  Contains all subpaths (outer contour + holes) concatenated. */
   points: PathPoint[];
+  /** Individual path rings (subpaths) for compound path construction.
+   *  ring[0] = outer contour, ring[1..n] = holes (counters). */
+  rings: PathPoint[][];
   /** Bounding box of the glyph. */
   bounds: { x: number; y: number; w: number; h: number };
   /** Advance width to the next glyph. */
@@ -42,6 +59,12 @@ export interface TextOutlineResult {
   bounds: { x: number; y: number; w: number; h: number };
   /** Whether the outlines are real glyph paths (true) or bounding-box placeholders (false). */
   isPlaceholder: boolean;
+  /** Warnings generated during outlining (e.g., licensing issues). */
+  warnings: string[];
+  /** Whether the font has color glyphs that were not outlined. */
+  hasColorGlyphs: boolean;
+  /** Whether the font has restricted embedding rights. */
+  restrictedEmbedding: boolean;
 }
 
 export interface TextOutlineOptions {
@@ -56,6 +79,8 @@ export interface TextOutlineOptions {
   y?: number;
   /** Font binary data (TTF/OTF/WOFF) for real glyph extraction via opentype.js. */
   fontData?: ArrayBuffer;
+  /** Variable font axis coordinates (e.g. { wght: 700, wdth: 75 }). */
+  variableAxes?: Record<string, number>;
 }
 
 /** Cubic bezier command from opentype.js. */
@@ -113,11 +138,25 @@ export function textToOutlines(text: string, options: TextOutlineOptions): TextO
   const y0 = options.y ?? 0;
 
   if (options.fontData) {
-    return extractWithOpentype(text, options.fontData, fs, ls, x0, y0);
+    return extractWithOpentype(text, options.fontData, fs, ls, x0, y0, options.variableAxes);
   }
 
-  return placeholderOutlines(text, fs, ls, x0, y0);
+  return {
+    ...placeholderOutlines(text, fs, ls, x0, y0),
+    warnings: [],
+    hasColorGlyphs: false,
+    restrictedEmbedding: false,
+  };
 }
+
+/** Classification of font embedding rights from OS/2 fsType. */
+export type EmbeddingRestriction =
+  | 'installable'
+  | 'preview-and-print'
+  | 'editable'
+  | 'restricted'
+  | 'no-subsetting'
+  | 'unknown';
 
 function placeholderOutlines(
   text: string,
@@ -151,6 +190,7 @@ function placeholderOutlines(
     glyphs.push({
       char,
       points,
+      rings: [points],
       bounds: { x: cursorX, y: glyphY, w: glyphW, h: glyphH },
       advance,
     });
@@ -161,6 +201,9 @@ function placeholderOutlines(
     glyphs,
     bounds: { x: x0, y: y0 - fontSize, w: cursorX - x0, h: fontSize * 1.2 },
     isPlaceholder: true,
+    warnings: [],
+    hasColorGlyphs: false,
+    restrictedEmbedding: false,
   };
 }
 
@@ -171,8 +214,46 @@ function extractWithOpentype(
   letterSpacing: number,
   x0: number,
   y0: number,
+  variableAxes?: Record<string, number>,
 ): TextOutlineResult {
   const font = parseOpentypeFont(fontData);
+  const warnings: string[] = [];
+
+  // Check for color glyphs (COLR/CPAL, SVG-in-OpenType, CBDT, sbix)
+  if (hasColorGlyphs(font)) {
+    return {
+      glyphs: [],
+      bounds: { x: 0, y: 0, w: 0, h: 0 },
+      isPlaceholder: true,
+      warnings: [
+        'This font contains color glyphs (COLR/CPAL, SVG-in-OpenType, or bitmap). ' +
+          'Color font outlining is not supported. Use a monochrome font instead.',
+      ],
+      hasColorGlyphs: true,
+      restrictedEmbedding: false,
+    };
+  }
+
+  // Check embedding rights
+  const embeddingRights = getEmbeddingRights(font);
+  const restrictedEmbedding =
+    embeddingRights === 'restricted' || embeddingRights === 'preview-and-print';
+  if (restrictedEmbedding) {
+    warnings.push(
+      `Font embedding rights (fsType=${embeddingRights}) may restrict outlining. ` +
+        'Proceed with caution; redistribution may require a license.',
+    );
+  }
+
+  // Apply variable font axis coordinates if provided
+  if (variableAxes && Object.keys(variableAxes).length > 0 && isVariableFont(font)) {
+    try {
+      font.variation.set(variableAxes);
+    } catch {
+      warnings.push('Failed to set variable font axes; using default instance.');
+    }
+  }
+
   const scale = fontSize / font.unitsPerEm;
   const glyphs: GlyphOutline[] = [];
   let cursorX = x0;
@@ -184,18 +265,26 @@ function extractWithOpentype(
       continue;
     }
 
+    // Get the opentype.js glyph
     const glyph = font.charToGlyph(char);
     const advance = glyph.advanceWidth * scale;
+
+    // Extract path commands and split into rings (subpaths)
     const path = glyph.getPath(0, 0, fontSize);
     const commands = (path as unknown as { commands: OTCommand[] }).commands;
 
-    const points = commandsToPathPoints(commands);
-    const bounds = computeBounds(points);
-    const translated = translatePoints(points, cursorX, y0);
+    const rings = commandsToRings(commands);
+    const allPoints = rings.flat();
+    const bounds = computeBounds(allPoints);
+
+    // Translate all points by cursor position
+    const translatedRings = rings.map((ring) => translatePoints(ring, cursorX, y0));
+    const translatedPoints = translatedRings.flat();
 
     glyphs.push({
       char,
-      points: translated,
+      points: translatedPoints,
+      rings: translatedRings,
       bounds: {
         x: cursorX + bounds.x,
         y: y0 + bounds.y,
@@ -217,30 +306,91 @@ function extractWithOpentype(
       h: fontSize * 1.5,
     },
     isPlaceholder: false,
+    warnings,
+    hasColorGlyphs: false,
+    restrictedEmbedding,
   };
 }
 
 function parseOpentypeFont(data: ArrayBuffer) {
-  return parseOpentypeBuffer(data) as {
+  return parseOpentypeBuffer(data) as unknown as {
     unitsPerEm: number;
     charToGlyph: (char: string) => {
       advanceWidth: number;
-      getPath: (x: number, y: number, size: number) => { commands: OTCommand[] };
+      getPath: (
+        x: number,
+        y: number,
+        size: number,
+        options?: { variation?: Record<string, number> },
+      ) => { commands: OTCommand[] };
+      path: { unitsPerEm: number };
     };
     glyphs: { length: number };
+    variation: {
+      set: (coords: Record<string, number>) => void;
+      get: () => Record<string, number>;
+    };
+    tables: {
+      OS2?: { fsType?: number };
+      COLR?: unknown;
+      CPAL?: unknown;
+      SVG?: unknown;
+      CBDT?: unknown;
+      sbix?: unknown;
+    };
+    defaultRenderOptions: { variation: Record<string, number> };
   };
 }
 
-function commandsToPathPoints(commands: OTCommand[]): PathPoint[] {
-  const points: PathPoint[] = [];
-  let startX = 0,
-    startY = 0;
-  let lastX = 0,
-    lastY = 0;
+/** Check if a font contains color glyphs. */
+function hasColorGlyphs(font: ReturnType<typeof parseOpentypeFont>): boolean {
+  return !!(font.tables.COLR || font.tables.SVG || font.tables.CBDT || font.tables.sbix);
+}
+
+/** Check if a font is variable (has fvar table). */
+function isVariableFont(font: ReturnType<typeof parseOpentypeFont>): boolean {
+  return typeof font.variation?.set === 'function';
+}
+
+/** Extract fsType embedding rights from the OS/2 table. */
+function getEmbeddingRights(font: ReturnType<typeof parseOpentypeFont>): EmbeddingRestriction {
+  const fsType = font.tables.OS2?.fsType;
+  if (fsType === undefined) return 'unknown';
+  const embeddingBits = fsType & 0x000c;
+  const noSubsetting = (fsType & 0x0100) !== 0;
+  if (noSubsetting) return 'no-subsetting';
+  if (embeddingBits === 0) return 'installable';
+  if (embeddingBits === 0x0004) return 'preview-and-print';
+  if (embeddingBits === 0x0008) return 'editable';
+  return 'restricted';
+}
+
+/**
+ * Split OpenType path commands into separate path rings (subpaths).
+ * Each M command starts a new subpath. ring[0] is the outer contour;
+ * subsequent rings are holes (counters).
+ */
+function commandsToRings(commands: OTCommand[]): PathPoint[][] {
+  const rings: PathPoint[][] = [];
+  let currentRing: PathPoint[] = [];
+  let startX = 0;
+  let startY = 0;
+  let lastX = 0;
+  let lastY = 0;
+
+  function pushPoint(pt: PathPoint): void {
+    currentRing.push(pt);
+    lastX = pt.x;
+    lastY = pt.y;
+  }
 
   for (const cmd of commands) {
     switch (cmd.type) {
       case 'M': {
+        if (currentRing.length > 0) {
+          rings.push(currentRing);
+          currentRing = [];
+        }
         startX = cmd.x;
         startY = cmd.y;
         lastX = cmd.x;
@@ -248,21 +398,24 @@ function commandsToPathPoints(commands: OTCommand[]): PathPoint[] {
         break;
       }
       case 'L': {
-        points.push({ x: cmd.x, y: cmd.y, handleIn: null, handleOut: null });
-        lastX = cmd.x;
-        lastY = cmd.y;
+        pushPoint({ x: cmd.x, y: cmd.y, handleIn: null, handleOut: null });
         break;
       }
       case 'C': {
         const prev =
-          points.length > 0
-            ? points[points.length - 1]!
-            : { x: lastX, y: lastY, handleIn: null, handleOut: null };
-        if (points.length > 0 && points[points.length - 1] === prev) {
-          points[points.length - 1] = {
+          currentRing.length > 0
+            ? currentRing[currentRing.length - 1]!
+            : {
+                x: lastX,
+                y: lastY,
+                handleIn: null as [number, number] | null,
+                handleOut: null as [number, number] | null,
+              };
+        if (currentRing.length > 0) {
+          currentRing[currentRing.length - 1] = {
             ...prev,
             handleOut: [cmd.x1 - prev.x, cmd.y1 - prev.y] as [number, number],
-          };
+          } as PathPoint;
         }
         const newPt: PathPoint = {
           x: cmd.x,
@@ -270,25 +423,28 @@ function commandsToPathPoints(commands: OTCommand[]): PathPoint[] {
           handleIn: [cmd.x2 - cmd.x, cmd.y2 - cmd.y] as [number, number],
           handleOut: null,
         };
-        points.push(newPt);
-        lastX = cmd.x;
-        lastY = cmd.y;
+        pushPoint(newPt);
         break;
       }
       case 'Q': {
         const prev =
-          points.length > 0
-            ? points[points.length - 1]!
-            : { x: lastX, y: lastY, handleIn: null, handleOut: null };
+          currentRing.length > 0
+            ? currentRing[currentRing.length - 1]!
+            : {
+                x: lastX,
+                y: lastY,
+                handleIn: null as [number, number] | null,
+                handleOut: null as [number, number] | null,
+              };
         const c1x = lastX + (2 / 3) * (cmd.x1 - lastX);
         const c1y = lastY + (2 / 3) * (cmd.y1 - lastY);
         const c2x = cmd.x + (2 / 3) * (cmd.x1 - cmd.x);
         const c2y = cmd.y + (2 / 3) * (cmd.y1 - cmd.y);
-        if (points.length > 0 && points[points.length - 1] === prev) {
-          points[points.length - 1] = {
+        if (currentRing.length > 0) {
+          currentRing[currentRing.length - 1] = {
             ...prev,
             handleOut: [c1x - prev.x, c1y - prev.y] as [number, number],
-          };
+          } as PathPoint;
         }
         const newPt: PathPoint = {
           x: cmd.x,
@@ -296,21 +452,21 @@ function commandsToPathPoints(commands: OTCommand[]): PathPoint[] {
           handleIn: [c2x - cmd.x, c2y - cmd.y] as [number, number],
           handleOut: null,
         };
-        points.push(newPt);
-        lastX = cmd.x;
-        lastY = cmd.y;
+        pushPoint(newPt);
         break;
       }
       case 'Z': {
-        points.push({ x: startX, y: startY, handleIn: null, handleOut: null });
-        lastX = startX;
-        lastY = startY;
+        pushPoint({ x: startX, y: startY, handleIn: null, handleOut: null });
         break;
       }
     }
   }
 
-  return points;
+  if (currentRing.length > 0) {
+    rings.push(currentRing);
+  }
+
+  return rings;
 }
 
 function computeBounds(points: PathPoint[]): { x: number; y: number; w: number; h: number } {

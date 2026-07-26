@@ -42,7 +42,7 @@ export function AppearanceSection({ nodes }: { nodes: SceneNode[] }) {
   const blendRaw = commonValue(nodes, (n) => n.blendMode ?? 'normal');
 
   return (
-    <DisclosureSection title="Appearance">
+    <DisclosureSection title="Appearance" sectionId="appearance">
       <NumberField
         label="Opacity"
         value={isMixed(opacityRaw) ? 1 : opacityRaw}

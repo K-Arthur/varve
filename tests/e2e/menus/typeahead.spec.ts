@@ -80,9 +80,6 @@ test.describe('Menu type-ahead', () => {
     const dropdown = page.locator('[role="menu"]').first();
     await expect(dropdown).toBeVisible();
 
-    const items = await dropdown.locator('[role="menuitem"]').count();
-    const firstItem = dropdown.locator('[role="menuitem"]').first();
-
     await page.keyboard.press('z');
     await page.waitForTimeout(100);
 

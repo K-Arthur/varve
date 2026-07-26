@@ -19,6 +19,7 @@ describe('loadSettings', () => {
     expect(s.viewport.snapGrid).toBe(8);
     expect(s.render.memoryBudget).toBe('medium');
     expect(s.performance.reducedMotionOverride).toBe('system');
+    expect(s.performance.showPerformanceDiagnostics).toBe(false);
   });
 
   it('merges a partial performance/render patch without dropping unrelated fields', () => {
@@ -33,6 +34,41 @@ describe('loadSettings', () => {
     expect(s.render.memoryBudget).toBe('low');
     expect(s.render.preferWebGpu).toBe(false);
     expect(s.performance.reducedMotionOverride).toBe('always');
+    expect(s.performance.showPerformanceDiagnostics).toBe(false);
+  });
+
+  it('performance diagnostics default to false for new installs, missing values, and malformed persisted data', () => {
+    // Nothing persisted at all.
+    expect(loadSettings().performance.showPerformanceDiagnostics).toBe(false);
+
+    // Persisted performance block without the field (pre-migration installs).
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ performance: { reducedMotionOverride: 'always' } }),
+    );
+    expect(loadSettings().performance.showPerformanceDiagnostics).toBe(false);
+
+    // An explicit, intentionally-saved true value is preserved.
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ performance: { showPerformanceDiagnostics: true } }),
+    );
+    expect(loadSettings().performance.showPerformanceDiagnostics).toBe(true);
+
+    // Corrupt top-level JSON falls back to defaults entirely.
+    localStorage.setItem('strata-editor-settings', '{not valid json');
+    expect(loadSettings().performance.showPerformanceDiagnostics).toBe(false);
+  });
+
+  it('resetSettings turns performance diagnostics back off', () => {
+    localStorage.setItem(
+      'strata-editor-settings',
+      JSON.stringify({ performance: { showPerformanceDiagnostics: true } }),
+    );
+    expect(loadSettings().performance.showPerformanceDiagnostics).toBe(true);
+    const reset = resetSettings();
+    expect(reset.performance.showPerformanceDiagnostics).toBe(false);
+    expect(loadSettings().performance.showPerformanceDiagnostics).toBe(false);
   });
 
   it('persists and loads startup settings', () => {

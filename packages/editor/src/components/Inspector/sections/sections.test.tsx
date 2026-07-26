@@ -67,6 +67,15 @@ describe('PositionSizeSection', () => {
     expect(screen.getByLabelText('H (px)')).toBeTruthy();
   });
 
+  it('keeps responsive clamp sizing out of core geometry', () => {
+    const node = createRectNode('n1');
+    renderWithProvider(<PositionSizeSection nodes={[node]} />);
+    expect(screen.queryByLabelText('Min W (px)')).toBeNull();
+    expect(screen.queryByLabelText('Max W (px)')).toBeNull();
+    expect(screen.queryByLabelText('Min H (px)')).toBeNull();
+    expect(screen.queryByLabelText('Max H (px)')).toBeNull();
+  });
+
   it('shows Mixed for X axis when values differ', () => {
     const nodeA = createRectNode('n1', { transform: [1, 0, 0, 1, 10, 20] as const });
     const nodeB = createRectNode('n2', { transform: [1, 0, 0, 1, 30, 20] as const });

@@ -225,7 +225,7 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
   );
 
   return (
-    <DisclosureSection title="Position & Size">
+    <DisclosureSection title="Position & Size" sectionId="position-size">
       {useArtboardCoords && (
         <p className="insp-panel__empty-hint">Coordinates shown relative to active artboard</p>
       )}
@@ -412,63 +412,6 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
           </svg>
         </button>
       </div>
-      {/* P3: Clamp sizing controls */}
-      {allSizable && (
-        <div style={{ marginTop: 'var(--space-1)' }}>
-          {(() => {
-            const minWRaw = commonValue(nodes, (n) => n.minWidth);
-            return (
-              <NumberField
-                label="Min W"
-                unit="px"
-                value={isMixed(minWRaw) ? 0 : (minWRaw ?? 0)}
-                mixed={isMixed(minWRaw)}
-                min={0}
-                onChange={editor.setSelectedMinWidth}
-              />
-            );
-          })()}
-          {(() => {
-            const maxWRaw = commonValue(nodes, (n) => n.maxWidth);
-            return (
-              <NumberField
-                label="Max W"
-                unit="px"
-                value={isMixed(maxWRaw) ? 0 : (maxWRaw ?? 0)}
-                mixed={isMixed(maxWRaw)}
-                min={0}
-                onChange={editor.setSelectedMaxWidth}
-              />
-            );
-          })()}
-          {(() => {
-            const minHRaw = commonValue(nodes, (n) => n.minHeight);
-            return (
-              <NumberField
-                label="Min H"
-                unit="px"
-                value={isMixed(minHRaw) ? 0 : (minHRaw ?? 0)}
-                mixed={isMixed(minHRaw)}
-                min={0}
-                onChange={editor.setSelectedMinHeight}
-              />
-            );
-          })()}
-          {(() => {
-            const maxHRaw = commonValue(nodes, (n) => n.maxHeight);
-            return (
-              <NumberField
-                label="Max H"
-                unit="px"
-                value={isMixed(maxHRaw) ? 0 : (maxHRaw ?? 0)}
-                mixed={isMixed(maxHRaw)}
-                min={0}
-                onChange={editor.setSelectedMaxHeight}
-              />
-            );
-          })()}
-        </div>
-      )}
     </DisclosureSection>
   );
 }

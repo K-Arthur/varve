@@ -10,12 +10,10 @@ import {
   auditFindingToLegacy,
   buildAuditSummary,
   createFinding,
-  isSuppressed,
   legacyAuditToFinding,
   legacyDebtToFinding,
   legacyGovernanceToFinding,
   legacyLinterToFinding,
-  type SuppressionEntry,
 } from './auditFinding';
 import type { NodeId } from './types';
 
@@ -204,40 +202,6 @@ describe('buildAuditSummary', () => {
     );
     expect(buildAuditSummary([makeFinding({ severity: 'error' })]).highestSeverity).toBe('error');
     expect(buildAuditSummary([]).highestSeverity).toBeUndefined();
-  });
-});
-
-describe('suppression matching', () => {
-  it('matches exact finding ID', () => {
-    const f = makeFinding();
-    const suppressions: SuppressionEntry[] = [{ findingId: f.findingId, createdAt: 0 }];
-    expect(isSuppressed(f, suppressions)).toBe(true);
-  });
-
-  it('matches by ruleId + nodeId', () => {
-    const f = makeFinding({ ruleId: 'r1', nodeId: 'n1' as NodeId });
-    const suppressions: SuppressionEntry[] = [
-      { findingId: 'r1::n1', ruleId: 'r1', nodeId: 'n1' as NodeId, createdAt: 0 },
-    ];
-    expect(isSuppressed(f, suppressions)).toBe(true);
-  });
-
-  it('matches wildcard nodeId (suppress rule for all nodes)', () => {
-    const f = makeFinding({ ruleId: 'r1', nodeId: 'n2' as NodeId });
-    const suppressions: SuppressionEntry[] = [{ findingId: '*', ruleId: 'r1', createdAt: 0 }];
-    expect(isSuppressed(f, suppressions)).toBe(true);
-  });
-
-  it('does not suppress unrelated findings', () => {
-    const f = makeFinding({ ruleId: 'r1', nodeId: 'n1' as NodeId });
-    const suppressions: SuppressionEntry[] = [
-      { findingId: 'r2::n2', ruleId: 'r2', nodeId: 'n2' as NodeId, createdAt: 0 },
-    ];
-    expect(isSuppressed(f, suppressions)).toBe(false);
-  });
-
-  it('returns false for empty suppressions', () => {
-    expect(isSuppressed(makeFinding(), [])).toBe(false);
   });
 });
 

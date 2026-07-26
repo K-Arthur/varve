@@ -64,6 +64,10 @@ describe('ImageEnhancementSection — live trace', () => {
     clearSelectedLiveTrace.mockClear();
     cancelImageProcessing.mockClear();
     mockedUseEditor.mockReturnValue({
+      state: { sectionVisibility: {} },
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
       upscaleSelectedImage,
       traceSelectedImage,
       setSelectedLiveTraceParams,
@@ -290,6 +294,10 @@ describe('ImageEnhancementSection — original one-shot', () => {
     upscaleSelectedImage.mockClear();
     traceSelectedImage.mockClear();
     mockedUseEditor.mockReturnValue({
+      state: { sectionVisibility: {} },
+      toggleSectionCollapse: vi.fn(),
+      toggleSubSectionCollapse: vi.fn(),
+      hideInspectorSection: vi.fn(),
       upscaleSelectedImage,
       traceSelectedImage,
       setSelectedLiveTraceParams: vi.fn(),

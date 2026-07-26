@@ -84,4 +84,18 @@ describe('registerEditorActions — intelligence commands', () => {
     expect(editor.createClippingMaskFromSelected).toHaveBeenCalledOnce();
     expect(editor.releaseClippingMaskFromSelected).toHaveBeenCalledOnce();
   });
+
+  it('registers visible non-shortcut menu commands with real handlers', () => {
+    const onFindReplace = vi.fn();
+    const editor = makeEditorMock();
+    registerEditorActions(editor, { onFindReplace });
+
+    const registry = getActionRegistry();
+    for (const id of ['findReplace', 'textBold', 'inspectMode', 'resetWorkspace', 'about']) {
+      expect(registry.has(id), id).toBe(true);
+    }
+
+    registry.get('findReplace')?.handler(undefined);
+    expect(onFindReplace).toHaveBeenCalledOnce();
+  });
 });

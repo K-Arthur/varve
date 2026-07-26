@@ -11,7 +11,6 @@
 import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../context';
-import { useWorkspaceSwitcher } from '../workspace/useWorkspace';
 import {
   ALL_WORKSPACE_MODES,
   WORKSPACE_LABELS,
@@ -68,21 +67,13 @@ function ModeButton({
 }
 
 export function WorkspaceSwitcher({ className }: WorkspaceSwitcherProps) {
-  const { state, setWorkspaceMode } = useEditor();
-  const { switchMode } = useWorkspaceSwitcher();
+  const { state, requestWorkspaceSwitch } = useEditor();
 
   const handleSwitch = useCallback(
     (mode: WorkspaceMode) => {
-      switchMode(
-        // We need to pass the full context value, but we only need a subset.
-        // useWorkspaceSwitcher expects EditorContextValue-shaped object.
-        // Since we're calling from within the editor context, we can use
-        // the context value directly.
-        { state, setWorkspaceMode } as Parameters<typeof switchMode>[0],
-        mode,
-      );
+      requestWorkspaceSwitch(mode);
     },
-    [state, setWorkspaceMode, switchMode],
+    [requestWorkspaceSwitch],
   );
 
   return (

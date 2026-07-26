@@ -9,26 +9,15 @@
 import { Button } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
-import { useWorkspaceSwitcher } from '../../../workspace/useWorkspace';
 import { WORKSPACE_LABELS, WORKSPACE_SHORTCUTS } from '../../../workspace/workspaceTypes';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function AiToolsHintSection() {
-  const { state, setWorkspaceMode, setTool } = useEditor();
-  const { switchMode } = useWorkspaceSwitcher();
+  const { requestWorkspaceSwitch } = useEditor();
 
   const handleSwitch = useCallback(() => {
-    // useWorkspaceSwitcher expects context/types.ts's EditorContextValue shape;
-    // useEditor() resolves a structurally-different same-named type, so pass
-    // only the fields switchMode actually needs. setTool is required, not
-    // optional: state.maskPreviewMode defaults to 'checkerboard' and is never
-    // set to 'none' anywhere in context.tsx, so detectInteractionState's
-    // `maskPreviewMode !== 'none'` check always reports 'mask-editing' and
-    // resolveInteraction always calls ctx.setTool('select') before switching
-    // — omitting it throws (see the flagged finding on the same bug affecting
-    // WorkspaceSwitcher.tsx's identical minimal-context pattern).
-    switchMode({ state, setWorkspaceMode, setTool } as Parameters<typeof switchMode>[0], 'image');
-  }, [state, setWorkspaceMode, setTool, switchMode]);
+    requestWorkspaceSwitch('image');
+  }, [requestWorkspaceSwitch]);
 
   const label = WORKSPACE_LABELS.image;
   const shortcut = WORKSPACE_SHORTCUTS.image;
