@@ -8,7 +8,7 @@
  * @module AuditProfileSwitcher
  */
 
-import type { WorkspaceMode } from '@strata/shared';
+import type { EditorMode, WorkspaceMode } from '@strata/shared';
 import { Icon } from '@strata/ui';
 import { useState } from 'react';
 
@@ -25,8 +25,13 @@ export interface AuditProfile {
   /** Profile description */
   description: string;
 
-  /** Applicable workspace modes */
-  applicableModes: WorkspaceMode[];
+  /**
+   * Contexts this profile applies to — either a workspace mode (e.g.
+   * 'design', 'motion') or a transient editor mode (e.g. 'prototype-linking',
+   * 'export-preflight'). The two are intentionally mixed here: a profile can
+   * be scoped to a whole workspace or to a specific in-editor activity.
+   */
+  applicableModes: Array<WorkspaceMode | EditorMode>;
 
   /** Enabled rule IDs (empty = all rules enabled) */
   enabledRules?: string[];

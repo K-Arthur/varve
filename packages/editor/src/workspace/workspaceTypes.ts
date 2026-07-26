@@ -15,6 +15,7 @@
  * - Make useful tools permanently inaccessible
  */
 
+import type { WorkspaceMode } from '@strata/shared';
 import type { IconName } from '@strata/ui';
 import type { ToolId } from '../tools/types';
 
@@ -22,7 +23,15 @@ import type { ToolId } from '../tools/types';
 // Workspace mode identity
 // ---------------------------------------------------------------------------
 
-export type WorkspaceMode = 'design' | 'print' | 'drawing' | 'image' | 'motion' | 'codegen';
+/**
+ * Canonical definition lives in @strata/shared (the lowest layer both scene
+ * and editor depend on) — re-exported here so existing
+ * `from '../workspace/workspaceTypes'` imports keep working. Do not
+ * redeclare this locally; it drifted out of sync with scene's copy once
+ * before ('codegen' missing there) and caused real cross-package typecheck
+ * failures.
+ */
+export type { WorkspaceMode };
 
 // ---------------------------------------------------------------------------
 // Panel configuration

@@ -112,3 +112,60 @@ check didn't move that number — editor was already at 0 and stays there. No ra
 the existing identity-based cycle ratchet (`docs/quality/cycles.md` §5) already protects editor's
 zero-cycle baseline — if this exact cycle were reintroduced, `checkCycles()` would catch it as a
 brand-new cycle in a package with an empty allowlist, no additional check required.
+
+## Update — the `WorkspaceMode` triplication is now fixed
+
+Resolved as a follow-up. Canonical `WorkspaceMode` now lives in `packages/shared/src/auditTypes.ts`
+(L1 — the lowest layer both `scene` (L3) and `editor` (L5) already depend on in their
+`package.json`, so no new dependency was introduced). Its own header comment already described it
+as "the unified finding model used across all audit systems... Codegen Audits" — it was designed to
+be this canonical source, it had just drifted. Added `'codegen'` there (matching editor's value,
+which was the more complete/current one), then:
+
+- `packages/scene/src/auditFinding.ts`: replaced the local `WorkspaceMode` declaration with
+  `import type { WorkspaceMode } from '@strata/shared'; ... export type { WorkspaceMode };` (needed
+  both — a bare `export type { X } from 'y'` re-export does **not** also bring `X` into local scope
+  for the file's own internal use, which broke two of `auditFinding.ts`'s own interface fields on
+  the first attempt; caught by `pnpm --filter @strata/scene typecheck`, fixed immediately).
+- `packages/editor/src/workspace/workspaceTypes.ts`: same pattern, re-exporting from
+  `@strata/shared` instead of declaring locally.
+- `packages/scene/src/auditProfiles.ts`: `WORKSPACE_AUDIT_PROFILES` is a
+  `Record<WorkspaceMode, WorkspaceAuditProfile>` — adding `'codegen'` to the type immediately
+  surfaced (via typecheck) that this record was missing the sixth entry. Added one, designed to
+  match the file's own stated categories (`primaryCategories: ['codegen', 'structure',
+  'governance', 'accessibility']`, hiding print/raster/vector/prototype/performance/layer-hygiene
+  as irrelevant to code generation). Its `contextualSummaryRules` follows the same convention every
+  other profile already uses — planned/aspirational rule-ID strings, not yet-registered rules
+  (confirmed above: `registerBuiltinRules()` is dead code, so *no* profile's rule IDs correspond to
+  real registered rules today).
+- `packages/editor/src/components/WorkspaceSwitcher.tsx`: its local `WORKSPACE_SOLID_ICONS` map was
+  missing a `codegen` entry (a `Record<WorkspaceMode, ...>` in the same file as everything else,
+  independently incomplete). Added `codegen: 'code'`, matching the identical map in `Menubar.tsx`,
+  which already had it.
+- `packages/editor/src/panels/AuditProfileSwitcher.tsx`: a **separate, unrelated** bug surfaced by
+  the same typecheck sweep and mis-attributed to the triplication in the original report above —
+  its `applicableModes: WorkspaceMode[]` field is populated with values like `'prototype-linking'`
+  and `'export-preflight'`, which are `EditorMode` values (a different type in
+  `@strata/shared/auditTypes.ts`), not `WorkspaceMode` values, in any of the three declarations that
+  ever existed. Confirmed this component is dead code (`grep` finds zero importers anywhere in the
+  repo). Widened the field to `Array<WorkspaceMode | EditorMode>`, matching what the data already
+  intentionally mixes, rather than redesigning or wiring up an unused component.
+
+**Verified:** `pnpm --filter @strata/shared|@strata/scene|@strata/editor typecheck` — zero
+`WorkspaceMode`/`EditorMode`-related errors remain (was 14 error lines across `AuditBadge.tsx`,
+`IntelligencePanel.tsx` ×4, `AuditProfileSwitcher.tsx` ×8, `WorkspaceSwitcher.tsx` ×1). Full
+`auditFinding.test.ts` (21), `auditProfiles.test.ts` (22, added a `codegen`-profile test + widened
+the "has profiles for all N modes" test from 5→6), full scene suite (2266/2270 passing — the 3
+pre-existing `state-machine-runtime.test.ts` failures, confirmed via `git stash` unrelated), full
+shared suite (686/686).
+
+**Not fixed, confirmed pre-existing and unrelated (via `git stash` isolation):**
+- `workspaceTypes.ts` has 6 `PanelLayout`-shaped object literals (across different named configs)
+  still missing a `codegen` key each — a genuinely different bug (incomplete config data, not a
+  type-source-of-truth problem) that requires real UI design decisions (what should the layers/
+  inspector/timeline/pagenav/library panel visibility be in codegen mode?) this task shouldn't
+  make unilaterally.
+- `workspaceTypes.test.ts`'s `useWorkerRenderer` test ("codegen... is intentionally lightweight")
+  already failed before this fix — the actual `WORKSPACE_CONFIGS.codegen.performance
+  .useWorkerRenderer` value is `true`, contradicting the test's stated intent. Pre-existing,
+  unrelated to the type triplication.

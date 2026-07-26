@@ -20,8 +20,8 @@ import {
 } from './auditProfiles';
 
 describe('workspace audit profiles', () => {
-  it('has profiles for all 5 workspace modes', () => {
-    const modes: WorkspaceMode[] = ['design', 'print', 'drawing', 'image', 'motion'];
+  it('has profiles for all 6 workspace modes', () => {
+    const modes: WorkspaceMode[] = ['design', 'print', 'drawing', 'image', 'motion', 'codegen'];
     for (const mode of modes) {
       expect(WORKSPACE_AUDIT_PROFILES[mode]).toBeDefined();
       expect(WORKSPACE_AUDIT_PROFILES[mode].workspace).toBe(mode);
@@ -69,6 +69,16 @@ describe('workspace audit profiles', () => {
     expect(profile.primaryCategories).toContain('performance');
     expect(profile.hiddenCategories).toContain('print');
     expect(profile.hiddenCategories).toContain('raster');
+  });
+
+  it('codegen profile prioritizes codegen, structure, governance, accessibility', () => {
+    const profile = getAuditProfile('codegen');
+    expect(profile.primaryCategories).toContain('codegen');
+    expect(profile.primaryCategories).toContain('structure');
+    expect(profile.primaryCategories).toContain('governance');
+    expect(profile.primaryCategories).toContain('accessibility');
+    expect(profile.hiddenCategories).toContain('print');
+    expect(profile.hiddenCategories).toContain('prototype');
   });
 
   it('every profile has contextualSummaryRules', () => {

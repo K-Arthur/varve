@@ -47,6 +47,7 @@ function ModeButton({
     drawing: 'paintBrush',
     image: 'image',
     motion: 'play',
+    codegen: 'code',
   };
   const solidIcon = WORKSPACE_SOLID_ICONS[mode];
 
