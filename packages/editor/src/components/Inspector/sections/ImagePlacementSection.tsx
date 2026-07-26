@@ -34,17 +34,13 @@ interface ImagePlacementSectionProps {
 export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   const { updateDoc, setTool } = useEditor();
   const node = nodes[0];
-
-  if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
-  const shapeNode = node as ShapeNode;
-  const imageFill = getImageFill(shapeNode);
-  if (!imageFill?.image) return null;
-  const img = imageFill.image;
+  const nodeId = node?.id;
 
   const updateImage = useCallback(
     (patch: Partial<ImageFillData>) => {
+      if (!nodeId) return;
       updateDoc((doc) => {
-        const n = doc.nodes[node.id];
+        const n = doc.nodes[nodeId];
         if (n?.kind !== 'shape') return doc;
         const fills = (n.fills ?? []).map((f) => {
           if (f.type !== 'image' || !f.image) return f;
@@ -52,11 +48,11 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
         });
         return {
           ...doc,
-          nodes: { ...doc.nodes, [node.id]: { ...n, fills } },
+          nodes: { ...doc.nodes, [nodeId]: { ...n, fills } },
         };
       });
     },
-    [node.id, updateDoc],
+    [nodeId, updateDoc],
   );
 
   const handleFitChange = useCallback(
@@ -76,6 +72,12 @@ export function ImagePlacementSection({ nodes }: ImagePlacementSectionProps) {
   const resetPlacement = useCallback(() => {
     updateImage({ x: 0, y: 0, scale: 1, fit: 'fill' });
   }, [updateImage]);
+
+  if (!node || nodes.length !== 1 || !isImageShape(node)) return null;
+  const shapeNode = node as ShapeNode;
+  const imageFill = getImageFill(shapeNode);
+  if (!imageFill?.image) return null;
+  const img = imageFill.image;
 
   const placementLocked = img.fit === 'stretch';
 

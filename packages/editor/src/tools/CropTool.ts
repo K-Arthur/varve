@@ -11,13 +11,57 @@
  * Research basis: Figma image crop, Canva crop handle pattern.
  */
 
-import type { ImageFit } from '@strata/scene';
-import { nodeLocalBounds } from '@strata/scene';
+import { computeImagePlacement, sourcePixelToLocal } from '@strata/engine';
+import type { ImageFillData, ImageFit } from '@strata/scene';
+import { isImageShape, nodeLocalBounds } from '@strata/scene';
 import type { CropState, LocalCropRect } from '../imageCrop';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 const FIT_CYCLE: ImageFit[] = ['crop', 'fit', 'fill', 'stretch', 'tile'];
+
+function cropViewportFromPlacement(
+  image: ImageFillData,
+  nodeW: number,
+  nodeH: number,
+): LocalCropRect | null {
+  const sourceWidth = image.imageWidth ?? nodeW;
+  const sourceHeight = image.imageHeight ?? nodeH;
+  const crop = image.crop;
+  if (!crop) return null;
+  const placement = computeImagePlacement({
+    fit: image.fit ?? 'fill',
+    sourceWidth,
+    sourceHeight,
+    bounds: { x: 0, y: 0, w: nodeW, h: nodeH },
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    rotation: image.rotation,
+    flipH: image.flipH,
+    flipV: image.flipV,
+  });
+  if (!placement) return null;
+  const insetX = Math.max(1e-9, sourceWidth * Number.EPSILON * 4);
+  const insetY = Math.max(1e-9, sourceHeight * Number.EPSILON * 4);
+  const right = crop.x + crop.w - insetX;
+  const bottom = crop.y + crop.h - insetY;
+  const points = [
+    { x: crop.x, y: crop.y },
+    { x: right, y: crop.y },
+    { x: right, y: bottom },
+    { x: crop.x, y: bottom },
+  ]
+    .map((point) => sourcePixelToLocal(placement, point))
+    .filter((point): point is { x: number; y: number } => point !== null);
+  if (points.length === 0) return null;
+  const minX = Math.max(0, Math.min(...points.map((point) => point.x)));
+  const minY = Math.max(0, Math.min(...points.map((point) => point.y)));
+  const maxX = Math.min(nodeW, Math.max(...points.map((point) => point.x)));
+  const maxY = Math.min(nodeH, Math.max(...points.map((point) => point.y)));
+  if (maxX <= minX || maxY <= minY) return null;
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
 
 export class CropTool extends BaseTool {
   id = 'crop' as const;
@@ -85,9 +129,16 @@ export class CropTool extends BaseTool {
   /** Pan the image fill offset by a delta in node-local space. */
   panFill(dx: number, dy: number): void {
     if (!this.cropState) return;
-    const offX = (this.cropState.fillOffsetX ?? 0) + dx;
-    const offY = (this.cropState.fillOffsetY ?? 0) + dy;
-    this.cropState = { ...this.cropState, fillOffsetX: offX, fillOffsetY: offY };
+    this.setFillOffset(
+      (this.cropState.fillOffsetX ?? 0) + dx,
+      (this.cropState.fillOffsetY ?? 0) + dy,
+    );
+  }
+
+  /** Set image-content offset absolutely for drift-free pointer dragging. */
+  setFillOffset(x: number, y: number): void {
+    if (!this.cropState || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    this.cropState = { ...this.cropState, fillOffsetX: x, fillOffsetY: y };
     this.notify();
   }
 
@@ -102,8 +153,15 @@ export class CropTool extends BaseTool {
   }
 
   override onActivate(ctx: ToolContext): void {
+    this.cropState = null;
+    this.nodeId = null;
+    this.nodeSize = null;
+    if (ctx.selection.length !== 1) {
+      ctx.announce('Select one image to crop');
+      ctx.setTool('select');
+      return;
+    }
     const id = ctx.selection[0] ?? null;
-    this.nodeId = id;
     if (!id) {
       ctx.announce('Select an image to crop');
       ctx.setTool('select');
@@ -111,7 +169,7 @@ export class CropTool extends BaseTool {
     }
     const doc = ctx.document;
     const node = ctx.getNode(id);
-    if (node?.kind !== 'shape') {
+    if (node?.kind !== 'shape' || !isImageShape(node)) {
       ctx.announce('Crop requires a shape with an image fill');
       ctx.setTool('select');
       return;
@@ -123,6 +181,7 @@ export class CropTool extends BaseTool {
       ctx.setTool('select');
       return;
     }
+    this.nodeId = id;
     this.nodeSize = { w: bounds.w, h: bounds.h };
     // Store shape kind and params for canvas preview clipping
     if ('shape' in node) {
@@ -141,16 +200,12 @@ export class CropTool extends BaseTool {
     // If the image already has a crop, convert from source-pixel space to
     // node-local space so the overlay shows the current crop boundary.
     let viewport: LocalCropRect;
-    if (imageFill?.crop && imageFill.imageWidth && imageFill.imageHeight) {
-      const nodeW = bounds.w;
-      const nodeH = bounds.h;
-      const srcW = imageFill.imageWidth;
-      const srcH = imageFill.imageHeight;
-      viewport = {
-        x: (imageFill.crop.x / srcW) * nodeW,
-        y: (imageFill.crop.y / srcH) * nodeH,
-        w: (imageFill.crop.w / srcW) * nodeW,
-        h: (imageFill.crop.h / srcH) * nodeH,
+    if (imageFill?.crop) {
+      viewport = cropViewportFromPlacement(imageFill, bounds.w, bounds.h) ?? {
+        x: 0,
+        y: 0,
+        w: bounds.w,
+        h: bounds.h,
       };
     } else {
       viewport = { x: 0, y: 0, w: bounds.w, h: bounds.h };
@@ -198,16 +253,22 @@ export class CropTool extends BaseTool {
       ctx.announce(`Crop fit: ${this.cropState?.fillFit ?? 'crop'}`);
       return true;
     }
-    // Alt+arrows for nudge pan
-    if (e.altKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
-      const step = 5;
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      const step = e.shiftKey ? 10 : 1;
       const d = {
         ArrowUp: [0, -step] as const,
         ArrowDown: [0, step] as const,
         ArrowLeft: [-step, 0] as const,
         ArrowRight: [step, 0] as const,
       }[e.key]!;
-      this.panFill(d[0], d[1]);
+      if (e.altKey) {
+        this.panFill(d[0], d[1]);
+      } else if (this.cropState && this.nodeSize) {
+        const { viewport } = this.cropState;
+        const x = Math.max(0, Math.min(viewport.x + d[0], this.nodeSize.w - viewport.w));
+        const y = Math.max(0, Math.min(viewport.y + d[1], this.nodeSize.h - viewport.h));
+        this.setCropRect({ ...viewport, x, y });
+      }
       return true;
     }
     return false;

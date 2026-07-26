@@ -1,7 +1,7 @@
 /**
  * CropTool tests — activation, Esc cancel, Enter commit.
  */
-import { createDocument, makeImageShapeNode } from '@strata/scene';
+import { createDocument, makeImageShapeNode, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { CropTool } from '../CropTool';
 
@@ -41,6 +41,37 @@ describe('CropTool', () => {
     expect(tool.getNodeId()).toBe('i1');
   });
 
+  it('re-enters an existing crop using the rendered fill placement', () => {
+    const ctx = makeCtx();
+    const node = ctx.document.nodes.i1;
+    if (node?.kind !== 'shape') throw new Error('expected shape');
+    const image = node.fills?.[0]?.image;
+    if (!image) throw new Error('expected image fill');
+    ctx.document.nodes.i1 = {
+      ...node,
+      shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      fills: [
+        {
+          ...node.fills![0]!,
+          image: {
+            ...image,
+            fit: 'fill',
+            imageWidth: 400,
+            imageHeight: 200,
+            crop: { x: 100, y: 0, w: 100, h: 200 },
+          },
+        },
+      ],
+    };
+
+    const tool = new CropTool();
+    tool.onActivate(ctx as never);
+    expect(tool.getCropRect()?.x).toBeCloseTo(0);
+    expect(tool.getCropRect()?.y).toBeCloseTo(0);
+    expect(tool.getCropRect()?.w).toBeCloseTo(50);
+    expect(tool.getCropRect()?.h).toBeCloseTo(100);
+  });
+
   it('Esc returns to select without commit', () => {
     const tool = new CropTool();
     const commit = vi.fn();
@@ -73,6 +104,30 @@ describe('CropTool', () => {
     expect(ctx.setTool).toHaveBeenCalledWith('select');
   });
 
+  it('rejects multi-selection', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx({ selection: ['i1', 'i2'] });
+    tool.onActivate(ctx as never);
+    expect(ctx.setTool).toHaveBeenCalledWith('select');
+    expect(tool.getCropState()).toBeNull();
+  });
+
+  it('rejects a shape without an image fill', () => {
+    const tool = new CropTool();
+    const doc = createDocument('t', true);
+    const rect = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 });
+    doc.nodes.r1 = rect;
+    doc.rootChildren = ['r1'];
+    const ctx = makeCtx({
+      document: doc,
+      selection: ['r1'],
+      getNode: (id: string) => doc.nodes[id],
+    });
+    tool.onActivate(ctx as never);
+    expect(ctx.setTool).toHaveBeenCalledWith('select');
+    expect(tool.getCropState()).toBeNull();
+  });
+
   it('wheel zoom adjusts fill scale', () => {
     const tool = new CropTool();
     const ctx = makeCtx();
@@ -89,6 +144,51 @@ describe('CropTool', () => {
     const f0 = tool.getCropState()!.fillFit;
     tool.cycleFitMode();
     expect(tool.getCropState()!.fillFit).not.toBe(f0);
+  });
+
+  it('nudges the crop window by one pixel with plain arrows and ten with Shift', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    tool.onActivate(ctx as never);
+    tool.setCropRect({ x: 20, y: 20, w: 100, h: 50 });
+
+    expect(tool.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowRight' }), ctx as never)).toBe(
+      true,
+    );
+    expect(tool.getCropRect()).toEqual({ x: 21, y: 20, w: 100, h: 50 });
+
+    tool.onKeyDown(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true }),
+      ctx as never,
+    );
+    expect(tool.getCropRect()).toEqual({ x: 21, y: 30, w: 100, h: 50 });
+  });
+
+  it('pans image content with Alt+arrows using fine and Shift-modified increments', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    tool.onActivate(ctx as never);
+
+    tool.onKeyDown(new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true }), ctx as never);
+    expect(tool.getCropState()?.fillOffsetX).toBe(-1);
+
+    tool.onKeyDown(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', altKey: true, shiftKey: true }),
+      ctx as never,
+    );
+    expect(tool.getCropState()?.fillOffsetY).toBe(-10);
+  });
+
+  it('sets absolute content offsets and rejects non-finite values', () => {
+    const tool = new CropTool();
+    const ctx = makeCtx();
+    tool.onActivate(ctx as never);
+    tool.setFillOffset(12, -8);
+    expect(tool.getCropState()?.fillOffsetX).toBe(12);
+    expect(tool.getCropState()?.fillOffsetY).toBe(-8);
+    tool.setFillOffset(Number.NaN, 4);
+    expect(tool.getCropState()?.fillOffsetX).toBe(12);
+    expect(tool.getCropState()?.fillOffsetY).toBe(-8);
   });
 
   it('activates on ellipse shape with image fill', () => {

@@ -298,6 +298,7 @@ export function sourcePixelToLocal(
 export function localToSourcePixel(
   placement: ImagePlacement,
   local: ImagePlacementPoint,
+  options?: { unclipped?: boolean },
 ): ImagePlacementPoint | null {
   if (
     !Number.isFinite(local.x) ||
@@ -313,14 +314,14 @@ export function localToSourcePixel(
   if (placement.fit === 'tile') {
     relativeX = positiveModulo(relativeX, drawRect.w);
     relativeY = positiveModulo(relativeY, drawRect.h);
-  } else if (!containsHalfOpen(drawRect, untransformed)) {
+  } else if (!options?.unclipped && !containsHalfOpen(drawRect, untransformed)) {
     return null;
   }
   const source = {
     x: (relativeX / drawRect.w) * placement.sourceWidth,
     y: (relativeY / drawRect.h) * placement.sourceHeight,
   };
-  return containsHalfOpen(placement.sourceRect, source) ? source : null;
+  return options?.unclipped || containsHalfOpen(placement.sourceRect, source) ? source : null;
 }
 
 function drawRectForPoint(
