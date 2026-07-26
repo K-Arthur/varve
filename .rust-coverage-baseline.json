@@ -1,0 +1,8 @@
+{
+  "version": "2026-07-25",
+  "note": "Measured via cargo-llvm-cov. Do not compare to tarpaulin numbers from elsewhere in this repo — different instrumentation, not the same metric.",
+  "floors": {
+    "workspace": { "lines": 79.57 },
+    "desktop": { "lines": 39.97 }
+  }
+}
