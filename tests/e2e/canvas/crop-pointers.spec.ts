@@ -135,13 +135,13 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
   });
 
-  test('drag move handle repositions crop window', async ({ page }) => {
+  test('dragging inside the crop window repositions image content', async ({ page }) => {
     test.setTimeout(60000);
     await importFixture(page, 'test-image.png');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
 
-    // The crop window itself is the move handle
+    // The crop window surface is the image-content pan handle.
     const cropWindow = page.locator('.crop-overlay__window');
     await expect(cropWindow).toBeVisible();
     const box = await cropWindow.boundingBox();
@@ -150,7 +150,7 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     const startX = box.x + box.width / 2;
     const startY = box.y + box.height / 2;
 
-    // Drag the entire crop window 20px right
+    // Drag the image content 20px right and down inside the fixed crop window.
     await page.mouse.move(startX, startY);
     await page.mouse.down();
     await page.mouse.move(startX + 20, startY + 20);

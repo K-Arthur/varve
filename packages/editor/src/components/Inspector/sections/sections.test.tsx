@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../../context';
 import { AppearanceSection } from './AppearanceSection';
 import { FillSection } from './FillSection';
+import { ImagePlacementSection } from './ImagePlacementSection';
 import { PositionSizeSection } from './PositionSizeSection';
 
 afterEach(cleanup);
@@ -133,5 +134,35 @@ describe('FillSection', () => {
     const dots = container.querySelectorAll('.insp-contrast-dot');
     expect(dots).toHaveLength(1);
     expect(dots[0]?.className).toContain('insp-contrast-dot--warn');
+  });
+});
+
+describe('ImagePlacementSection', () => {
+  it('can transition from an incompatible node to an image without changing hook order', () => {
+    const rect = createRectNode('n1');
+    const image = createRectNode('i1', {
+      fills: [
+        {
+          type: 'image' as const,
+          image: {
+            src: 'data:image/png;base64,AA',
+            fit: 'fill' as const,
+            x: 0,
+            y: 0,
+            scale: 1,
+          },
+        },
+      ],
+    });
+    const view = renderWithProvider(<ImagePlacementSection nodes={[rect]} />);
+    expect(screen.queryByText('Image Placement')).toBeNull();
+    expect(() =>
+      view.rerender(
+        <EditorProvider>
+          <ImagePlacementSection nodes={[image]} />
+        </EditorProvider>,
+      ),
+    ).not.toThrow();
+    expect(screen.getAllByText('Image Placement')).toHaveLength(2);
   });
 });
