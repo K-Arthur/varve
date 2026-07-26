@@ -205,7 +205,12 @@ export {
   computeScreenBounds,
 } from './effectPipeline';
 export type { Engine } from './engine';
-export { applyStyleOverrides, createEngine } from './engine';
+export {
+  applyStyleOverrides,
+  createEngine,
+  createWasmEngineFromModule,
+  tryWasmEngine,
+} from './engine';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
@@ -352,6 +357,7 @@ export {
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
   InferenceWorkerHost,
+  listAllModels,
   ModelRegistry,
   runProviderChain,
   SessionManager,
@@ -363,6 +369,8 @@ export type {
 } from './inference/inferenceWorker';
 export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddcolor';
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
+export { decodeDetrOutput } from './inference/models/detr';
+export { decodeEfficientNetOutput } from './inference/models/efficientnet';
 export type {
   FontCandidate,
   FontDetectInput,
@@ -381,6 +389,7 @@ export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
 export type { PaddleRecInput, PaddleRecResult } from './inference/models/paddlerec';
 export { ctcDecode, packRecTensor } from './inference/models/paddlerec';
 export { decodeRifeOutput, RIFE_INPUT_SIZE } from './inference/models/rife';
+export { normalizeEmbedding, rankBySimilarity } from './inference/models/siglip';
 export type {
   Sam2DecoderInput,
   Sam2DecoderOutput,
@@ -563,7 +572,12 @@ export {
 export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 // ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
 export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
-export type { GlyphOutline, TextOutlineOptions, TextOutlineResult } from './textOutlines';
+export type {
+  EmbeddingRestriction,
+  GlyphOutline,
+  TextOutlineOptions,
+  TextOutlineResult,
+} from './textOutlines';
 export { glyphOutlineToSvgPath, textOutlinesToSvg, textToOutlines } from './textOutlines';
 export type { WarpedGlyphResult, WarpTextOptions, WarpTextResult } from './textWarpPipeline';
 export { warpTextToMesh } from './textWarpPipeline';
@@ -679,10 +693,4 @@ export {
   exportTimelineToVideo,
 } from './videoExport';
 export type { WasmTraceModule } from './wasmLoader';
-export {
-  createWasmEngineFromModule,
-  loadWasmEngineModule,
-  prewarmWasmEngine,
-  tryLoadTraceWasm,
-  tryWasmEngine,
-} from './wasmLoader';
+export { loadWasmEngineModule, prewarmWasmEngine, tryLoadTraceWasm } from './wasmLoader';

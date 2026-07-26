@@ -336,7 +336,6 @@ import { type MotionContextValue, MotionProvider } from './context/MotionContext
 import { PrototypeProvider } from './context/PrototypeContext';
 import { isReducedMotion } from './context/reducedMotionManager';
 import { SelectionProvider } from './context/SelectionContext';
-import { applyToolChange, ToolProvider } from './context/ToolContext';
 import type {
   CanvasMode,
   EditorState,
@@ -348,6 +347,7 @@ import type {
   ToolId,
 } from './context/types';
 import { createDefaultDocumentGridSettings } from './context/types';
+import { applyToolChange, ToolProvider } from './context/ToolContext';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useInteractionState } from './context/useInteractionState';
@@ -558,8 +558,13 @@ export interface EditorContextValue {
   toggleBeforeAfterCompare: () => void;
   /** Active workspace mode (design/print/drawing). */
   workspaceMode: import('./workspace/workspaceTypes').WorkspaceMode;
-  /** Switch to a different workspace mode. */
-  setWorkspaceMode: (mode: import('./workspace/workspaceTypes').WorkspaceMode) => void;
+  /** @internal — use requestWorkspaceSwitch instead. Direct call bypasses guards. */
+  __setWorkspaceModeUnsafe: (mode: import('./workspace/workspaceTypes').WorkspaceMode) => void;
+  /** Switch workspace mode with safety guards (interaction resolution, confirmation). */
+  requestWorkspaceSwitch: (
+    mode: import('./workspace/workspaceTypes').WorkspaceMode,
+    options?: { force?: boolean },
+  ) => Promise<boolean>;
   /** Reset current workspace to its default panel/tool configuration. */
   resetWorkspaceToDefault: () => void;
   /** Fit all nodes in the document to the viewport. */
@@ -976,6 +981,8 @@ export interface EditorContextValue {
   flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (scale?: number) => void;
   mergeSelected: () => void;
+  /** Convert the selected text node to vector path outlines. */
+  convertTextToOutlines: () => void;
   /** Add an export preset to a node. */
   addPreset: (nodeId: NodeId, preset: ExportPreset) => void;
   /** Update an export preset on a node. */
@@ -1312,6 +1319,18 @@ export interface EditorContextValue {
    *  the first node becomes the master definition, the rest are replaced in
    *  place with instances. Non-frame nodes in the group are left untouched. */
   createComponentFromGroup: (nodeIds: NodeId[]) => void;
+  /** Promotes variant candidates into a component set with properties and variants.
+   *  Wraps the entire mutation in a single undo transaction. */
+  promoteVariantCandidates: (
+    componentName: string,
+    masterNodeId: NodeId,
+    properties: Array<{
+      name: string;
+      type: import('@strata/scene').ComponentPropertyType;
+      memberValues: Record<NodeId, string>;
+    }>,
+    variantAssignments: Array<{ nodeId: NodeId; variantName: string }>,
+  ) => { componentId?: NodeId; error?: string };
   // Section visibility
   toggleSectionCollapse: (
     sectionId: import('./components/Inspector/sectionRegistry').SectionId,
@@ -2026,6 +2045,8 @@ export function EditorProvider({
   if (!announcerRef.current) {
     announcerRef.current = new CanvasAnnouncer();
   }
+  /** Re-entrancy guard for workspace mode switching. */
+  const workspaceSwitchInProgressRef = useRef(false);
   /** RAF ID for smoothZoomTo/smoothPanTo animation cancellation. */
   const panAnimRef = useRef<number | null>(null);
   /** Selection history for back/forward navigation. */
@@ -2302,19 +2323,25 @@ export function EditorProvider({
   }, [state.document, state.selection]);
 
   const commitTransaction = useCallback(() => {
-    if (inTransactionRef.current) {
-      inTransactionRef.current = false;
-      // Push the snapshot as undo entry (current state is already live)
-      if (txSnapshotRef.current !== null) {
-        undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current];
-        undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
-        redoStackRef.current = [];
-        redoSelStackRef.current = [];
+    // Queue finalization behind any document updater scheduled by the same
+    // pointer event. Ending the transaction synchronously lets that updater
+    // observe `inTransaction=false` and push the already-transformed document
+    // on top of the real snapshot, making the first Undo appear to do nothing.
+    setState((current) => {
+      if (inTransactionRef.current) {
+        inTransactionRef.current = false;
+        if (txSnapshotRef.current !== null) {
+          undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current];
+          undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
+          redoStackRef.current = [];
+          redoSelStackRef.current = [];
+        }
+        txSnapshotRef.current = null;
+        txSelRef.current = null;
+        getTransactionHooks().onCommitTransaction();
       }
-      txSnapshotRef.current = null;
-      txSelRef.current = null;
-      getTransactionHooks().onCommitTransaction();
-    }
+      return current;
+    });
   }, []);
 
   const abortTransaction = useCallback(() => {
@@ -2594,7 +2621,7 @@ export function EditorProvider({
         announcerRef.current?.announce(next ? 'Showing original image' : 'Showing current edit');
       },
       workspaceMode: state.workspaceMode,
-      setWorkspaceMode: (mode: WorkspaceMode) => {
+      __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => {
         const config = getWorkspaceConfig(mode);
         const patchObj: Partial<EditorState> & Record<string, unknown> = {
           workspaceMode: mode,
@@ -2613,6 +2640,43 @@ export function EditorProvider({
           },
         });
         announcerRef.current?.announce(`Switched to ${mode} workspace`);
+      },
+      requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => {
+        if (workspaceSwitchInProgressRef.current) return Promise.resolve(false);
+        if (mode === state.workspaceMode) return Promise.resolve(false);
+        workspaceSwitchInProgressRef.current = true;
+        try {
+          if (!options?.force) {
+            if (
+              state.tool === 'nodeEdit' ||
+              state.tool === 'crop' ||
+              state.maskPreviewMode !== 'none'
+            ) {
+              setTool('select');
+            }
+          }
+          const config = getWorkspaceConfig(mode);
+          const patchObj: Partial<EditorState> & Record<string, unknown> = {
+            workspaceMode: mode,
+            leftPanelVisible: config.panels.layers.visible,
+            rightPanelVisible: config.panels.inspector.visible,
+            timelinePanelVisible: config.panels.timeline.visible,
+          };
+          if (config.defaultTool && config.defaultTool !== state.tool) {
+            patchObj.tool = config.defaultTool as ToolId;
+          }
+          patch(patchObj as Partial<EditorState>);
+          updateSettings({
+            panel: {
+              leftPanelVisible: config.panels.layers.visible,
+              rightPanelVisible: config.panels.inspector.visible,
+            },
+          });
+          announcerRef.current?.announce(`Switched to ${mode} workspace`);
+          return Promise.resolve(true);
+        } finally {
+          workspaceSwitchInProgressRef.current = false;
+        }
       },
       resetWorkspaceToDefault: () => {
         const mode = state.workspaceMode;
@@ -4665,6 +4729,71 @@ export function EditorProvider({
         });
       },
 
+      promoteVariantCandidates: (componentName, masterNodeId, properties, variantAssignments) => {
+        const master = state.document.nodes[masterNodeId];
+        if (master?.kind !== 'frame') {
+          toastHandler?.({ message: 'Master node must be a frame.', type: 'warning' });
+          return { error: 'Master node must be a frame' };
+        }
+        let resultComponentId: NodeId | undefined;
+        let resultError: string | undefined;
+        beginTransaction();
+        updateDoc((doc) => {
+          const { component, doc: withDef } = createComponent(doc, componentName, masterNodeId, []);
+          let next: Document = withDef;
+
+          for (const propDef of properties) {
+            const defaultVal = propDef.memberValues[masterNodeId] ?? '';
+            const result = addComponentPropertyDoc(next, component.id, {
+              name: propDef.name,
+              type: propDef.type,
+              defaultValue: defaultVal,
+            });
+            next = result.doc;
+          }
+
+          for (const assignment of variantAssignments) {
+            if (assignment.nodeId === masterNodeId) continue;
+            const propValues: Record<string, string | boolean | NodeId> = {};
+            for (const propDef of properties) {
+              const value = propDef.memberValues[assignment.nodeId];
+              if (value !== undefined) propValues[propDef.name] = value;
+            }
+            const result = createVariantDoc(next, component.id, assignment.variantName, propValues);
+            next = result.doc;
+          }
+
+          for (const assignment of variantAssignments) {
+            if (assignment.nodeId === masterNodeId) continue;
+            const original = next.nodes[assignment.nodeId];
+            if (original?.kind !== 'frame') continue;
+
+            const parentId = getParent(next, assignment.nodeId);
+            const { node: instanceNode, doc: withInstance } = instantiateComponent(next, component);
+            next = withInstance;
+
+            const placed: SceneNode = {
+              ...instanceNode,
+              transform: original.transform,
+              opacity: original.opacity,
+              rotation: original.rotation,
+              visible: original.visible,
+              locked: original.locked,
+              variant: assignment.variantName,
+            };
+
+            next = removeNode(next, assignment.nodeId);
+            next = parentId ? addChild(next, parentId, placed) : addNode(next, placed);
+          }
+
+          resultComponentId = component.id;
+          return next;
+        });
+        commitTransaction();
+        if (resultError) toastHandler?.({ message: resultError, type: 'error' });
+        return { componentId: resultComponentId, error: resultError };
+      },
+
       createComponentInstance: (componentId) => {
         updateDoc((doc) => {
           const def = doc.components[componentId];
@@ -5453,6 +5582,64 @@ export function EditorProvider({
 
       mergeSelected: () => {
         value.flattenSelected('merge', 1);
+      },
+
+      convertTextToOutlines: () => {
+        const sel = state.selection;
+        if (sel.length !== 1) {
+          announcerRef.current?.announce('Select a single text node to convert to outlines');
+          return;
+        }
+        const nodeId = sel[0]!;
+        const node = state.document.nodes[nodeId];
+        if (!node || node.kind !== 'text') {
+          announcerRef.current?.announce('Selected node is not a text node');
+          showToast({ message: 'Select a text node first.', type: 'warning' });
+          return;
+        }
+
+        const textNode = node as unknown as { text?: string; name?: string; fontFamily?: string };
+        const fontFamily = textNode.fontFamily ?? 'sans-serif';
+        const text = textNode.text ?? '';
+        const charCount = text.length;
+
+        // Warn for large text
+        if (
+          charCount > 5000 &&
+          !window.confirm(
+            `This text has ${charCount} characters and will produce ${charCount} vector paths. Proceed?`,
+          )
+        )
+          return;
+
+        // Confirmation copy: lossy operation
+        if (
+          !window.confirm(
+            'Convert this text to vector outlines?\n\n' +
+              'Outlined text can no longer be edited as text.\n' +
+              'Undo is available within this session, but the change is permanent after save and reopen.\n\n' +
+              'Proceed?',
+          )
+        )
+          return;
+
+        // Dynamic import to avoid circular deps
+        void import('./context/convertTextOutline').then(({ convertTextOutline }) =>
+          convertTextOutline(state.document, nodeId, fontFamily, {
+            onWarn: (msg) => {
+              announcerRef.current?.announce(msg);
+              showToast({ message: msg, type: 'warning', duration: 5000 });
+            },
+            onResult: (newDoc) => {
+              updateDoc(() => newDoc);
+              announcerRef.current?.announce('Text converted to outlines');
+              showToast({ message: 'Text converted to vector paths.', type: 'success' });
+            },
+            onError: (err) => {
+              showToast({ message: err, type: 'error' });
+            },
+          }),
+        );
       },
 
       createAdjustmentLayer: (initialAdjustments) => {
@@ -7581,6 +7768,11 @@ export { usePrototype } from './context/PrototypeContext';
 export { useSelection } from './context/SelectionContext';
 export { useTool } from './context/ToolContext';
 export { useViewport } from './context/ViewportContext';
+export {
+  bumpThemeRevision,
+  setStartTextEditingHandler,
+  startTextEditing,
+} from './context/sessionGlobals';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {
   const ctx = useContext(EditorCtx);

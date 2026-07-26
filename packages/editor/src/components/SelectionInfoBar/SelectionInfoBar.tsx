@@ -8,15 +8,15 @@
  * Research basis: Figma selection info bar, Illustrator properties panel.
  */
 
-import { getParent, type NodeId, type SceneNode } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { type Document, getParent, isContainer, type NodeId, type SceneNode } from '@strata/scene';
+import { Icon, type IconName } from '@strata/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../context';
 import { useViewport } from '../../context/ViewportContext';
 import { nodeWorldBounds } from '../../scene/world';
 import './SelectionInfoBar.css';
 
-function getNodeTypeIcon(node: SceneNode): string {
+function getNodeTypeIcon(node: SceneNode): IconName {
   if (node.kind === 'shape') {
     const s = node.shape;
     switch (s.kind) {
@@ -74,16 +74,42 @@ function getNodeTypeLabel(node: SceneNode): string {
   return node.kind.charAt(0).toUpperCase() + node.kind.slice(1);
 }
 
-function getAncestorChain(doc: import('@strata/scene').Document, nodeId: NodeId): SceneNode[] {
+export function getDisplayAncestorChain(doc: Document, nodeId: NodeId): SceneNode[] {
+  const structuralRootIds = new Set([
+    ...(doc.pages?.map((page) => page.contentRoot) ?? []),
+    ...Object.values(doc.masters ?? {}).map((master) => master.contentRoot),
+  ]);
   const chain: SceneNode[] = [];
   let currentId: NodeId | null = nodeId;
   while (currentId) {
     const node = doc.nodes[currentId];
     if (!node) break;
-    chain.unshift(node);
+    if (!structuralRootIds.has(currentId)) chain.unshift(node);
     currentId = getParent(doc, currentId);
   }
   return chain;
+}
+
+export function countActivePageLayers(doc: Document): number {
+  const visited = new Set<NodeId>();
+  const visit = (id: NodeId) => {
+    if (visited.has(id)) return;
+    const node = doc.nodes[id];
+    if (!node) return;
+    visited.add(id);
+    if (isContainer(node)) {
+      for (const childId of node.children) visit(childId);
+    }
+  };
+
+  const activePage = doc.pages?.find((page) => page.id === doc.activePageId);
+  const contentRoot = activePage ? doc.nodes[activePage.contentRoot] : undefined;
+  const roots =
+    contentRoot && isContainer(contentRoot)
+      ? [...contentRoot.children, ...(doc.globalChildren ?? [])]
+      : doc.rootChildren;
+  for (const rootId of roots) visit(rootId);
+  return visited.size;
 }
 
 function countByType(nodes: SceneNode[]): Record<string, number> {
@@ -111,7 +137,7 @@ export function SelectionInfoBar() {
   const content = useMemo(() => {
     if (sel.length === 0) {
       const page = state.document.pages?.find((p) => p.id === state.document.activePageId);
-      const totalLayers = Object.keys(state.document.nodes).length;
+      const totalLayers = countActivePageLayers(state.document);
       return (
         <div className="selection-info-bar__empty">
           <span className="selection-info-bar__page-name">{page?.name || 'Untitled'}</span>
@@ -127,11 +153,11 @@ export function SelectionInfoBar() {
 
       const bounds = nodeWorldBounds(state.document, node.id);
       const rotation = node.rotation ?? 0;
-      const ancestors = getAncestorChain(state.document, node.id);
+      const ancestors = getDisplayAncestorChain(state.document, node.id);
 
       return (
         <div className="selection-info-bar__single">
-          <Icon name={getNodeTypeIcon(node) as any} size={14} />
+          <Icon name={getNodeTypeIcon(node)} size={14} />
           <span className="selection-info-bar__name">{node.name}</span>
           <span className="selection-info-bar__type">{getNodeTypeLabel(node)}</span>
           {bounds && (
@@ -154,6 +180,7 @@ export function SelectionInfoBar() {
               <div className="selection-info-bar__breadcrumbs">
                 {ancestors.map((ancestor, idx) => (
                   <button
+                    type="button"
                     key={ancestor.id}
                     className="selection-info-bar__breadcrumb"
                     onClick={() => handleBreadcrumbClick(ancestor.id)}

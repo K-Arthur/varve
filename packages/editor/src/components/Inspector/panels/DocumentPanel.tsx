@@ -20,7 +20,6 @@ export function whiteForMode(mode: ColorMode): ManagedColor {
 export function DocumentPanel() {
   const { state, setCanvasBackground, switchColorMode, documentColorMode } = useEditor();
   const doc = state.document;
-  const count = Object.keys(doc.nodes).length;
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
   const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
@@ -61,12 +60,6 @@ export function DocumentPanel() {
           </div>
         </div>
       </DisclosureSection>
-      <div className="insp-panel__canvas-info">
-        <p className="insp-panel__canvas-name">{doc.name}</p>
-        <p className="insp-panel__canvas-count">
-          {count} {count === 1 ? 'node' : 'nodes'}
-        </p>
-      </div>
     </>
   );
 }

@@ -351,7 +351,8 @@ export interface EditorContextValue {
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
   toggleDistractionFreeMode: () => void;
-  setWorkspaceMode: (mode: WorkspaceMode) => void;
+  __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => void;
+  requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => Promise<boolean>;
   resetWorkspaceToDefault: () => void;
   // Section visibility
   toggleSectionCollapse: (
@@ -532,6 +533,16 @@ export interface EditorContextValue {
    *  kinds in the group are left untouched. No-op (with a toast) if the
    *  first node is not a frame. */
   createComponentFromGroup: (nodeIds: NodeId[]) => void;
+  promoteVariantCandidates: (
+    componentName: string,
+    masterNodeId: NodeId,
+    properties: Array<{
+      name: string;
+      type: import('@strata/scene').ComponentPropertyType;
+      memberValues: Record<NodeId, string>;
+    }>,
+    variantAssignments: Array<{ nodeId: NodeId; variantName: string }>,
+  ) => { componentId?: NodeId; error?: string };
   createComponentInstance: (componentId: NodeId) => void;
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
@@ -545,6 +556,10 @@ export interface EditorContextValue {
   flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (scale?: number) => void;
   mergeSelected: () => void;
+
+  // Text to outlines
+  /** Convert the selected text node to vector path outlines. Shows confirmation dialog if lossy. */
+  convertTextToOutlines: () => void;
 
   // Visibility
   setNodeLocked: (id: NodeId, locked: boolean) => void;

@@ -27,6 +27,26 @@ function makeRasterShape(id: string, src: string, w: number, h: number) {
   };
 }
 
+function makeBackgroundRemovedRaster(id: string, w: number, h: number) {
+  return {
+    ...makeRasterShape(id, `${id}.png`, w, h),
+    backgroundRemoval: {
+      method: 'quick' as const,
+      maskDataUrl: 'data:image/png;base64,MASK',
+      confidence: 1,
+      appliedAt: 1,
+    },
+    mask: {
+      type: 'alpha' as const,
+      rasterMask: {
+        assetId: `${id}-mask`,
+        width: w,
+        height: h,
+      },
+    },
+  };
+}
+
 function makeVectorShape(id: string, w: number, h: number) {
   return {
     id,
@@ -182,6 +202,28 @@ describe('TransformEngine.resize — image aspect ratio', () => {
 });
 
 describe('TransformEngine.bakeNode — image-node commit', () => {
+  it('shrinks a background-removed image from its centre without dropping mask metadata', () => {
+    const img = makeBackgroundRemovedRaster('cutout', 200, 120);
+    const doc = makeDoc({ cutout: img });
+    const engine = new TransformEngine(doc, ['cutout'], { bakeOnCommit: true });
+
+    const resized = engine.resize(
+      [150, 60],
+      'e',
+      { centered: true, proportional: false, bypassSnap: true },
+      doc,
+    );
+    const committed = engine.commit(resized);
+    const node = committed.nodes.cutout as unknown as typeof img;
+
+    expect(node.shape.w).toBeCloseTo(100);
+    expect(node.shape.h).toBeCloseTo(120);
+    expect(node.transform[4]).toBeCloseTo(50);
+    expect(node.transform[5]).toBeCloseTo(0);
+    expect(node.backgroundRemoval).toEqual(img.backgroundRemoval);
+    expect(node.mask).toEqual(img.mask);
+  });
+
   it('bakes scale into shape dimensions, not transform, for an image-filled rect', () => {
     // Image node: 1920x1080 rect, identity transform, image fill
     const img = makeRasterShape('img1', 'a.png', 1920, 1080);

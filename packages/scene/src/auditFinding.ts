@@ -19,6 +19,9 @@
  * severity mapping).
  */
 
+import type { WorkspaceMode } from '@strata/shared';
+import type { FindingFingerprint } from './fingerprint';
+import { hash128 } from './fingerprint';
 import type { NodeId } from './types';
 
 // ---------------------------------------------------------------------------
@@ -50,8 +53,15 @@ export type FindingCategory =
   | 'spacing'
   | 'structure';
 
-/** Which workspace modes this finding applies to. Empty = all workspaces. */
-export type WorkspaceMode = 'design' | 'print' | 'drawing' | 'image' | 'motion';
+/**
+ * Which workspace modes this finding applies to. Empty = all workspaces.
+ * Canonical definition lives in @strata/shared (the lowest layer both scene
+ * and editor depend on) — re-exported here so existing `from './auditFinding'`
+ * imports keep working. Do not redeclare this locally; it drifted out of sync
+ * with editor's copy once before (missing 'codegen') and caused real
+ * cross-package typecheck failures.
+ */
+export type { WorkspaceMode };
 
 /** Performance cost hint for the scan scheduler. */
 export type FindingCost = 'cheap' | 'moderate' | 'expensive';
@@ -83,26 +93,6 @@ export interface FindingFix {
 }
 
 /**
- * Suppression entry — persisted per-document to hide intentional exceptions.
- * Suppressions match by findingId (exact), or by ruleId + optional nodeId
- * (pattern), or by ruleId alone (wildcard nodeId='*').
- */
-export interface SuppressionEntry {
-  /** Finding ID or pattern to suppress. */
-  findingId: string;
-  /** Optional rule-level pattern (suppresses all findings for this rule). */
-  ruleId?: string;
-  /** Optional node-level pattern. '*' means all nodes. */
-  nodeId?: NodeId | '*';
-  /** User-provided reason (optional). */
-  reason?: string;
-  /** Timestamp when suppression was created. */
-  createdAt: number;
-  /** Optional expiry timestamp. */
-  expiresAt?: number;
-}
-
-/**
  * Canonical audit finding — the single type consumed by all UI surfaces.
  *
  * Every field is optional except ruleId, severity, category, message, and source.
@@ -112,6 +102,13 @@ export interface SuppressionEntry {
 export interface AuditFinding {
   /** Stable rule identifier (e.g. 'contrast/aa-fail', 'print/missing-bleed'). */
   ruleId: string;
+  /** Rule schema version — bump when rule semantics change. */
+  ruleVersion: number;
+  /**
+   * Stable fingerprint that survives re-scans, sessions, and doc reloads.
+   * See fingerprint.ts for computation details.
+   */
+  fingerprint: FindingFingerprint;
   /** Deterministic finding ID (hash of ruleId + nodeId). */
   findingId: string;
   /** High-level category for panel grouping and filtering. */
@@ -146,6 +143,8 @@ export interface AuditFinding {
   workspaceApplicable: WorkspaceMode[];
   /** Whether this finding blocks export/publishing. */
   blocking: boolean;
+  /** Inspector section to open when navigating to this finding (e.g. 'fills', 'typography', 'layout'). */
+  inspectorSection?: string;
   /** The document revision when this finding was generated. */
   revision?: number;
   /** Timestamp when this finding was generated. */
@@ -187,6 +186,11 @@ function findingHash(ruleId: string, nodeId?: NodeId): string {
   return hash.toString(36);
 }
 
+/** Compute a basic fallback fingerprint from ruleId + nodeId. */
+function fallbackFingerprint(ruleId: string, nodeId?: NodeId): FindingFingerprint {
+  return hash128(`${ruleId}\0${nodeId ?? ''}`) as FindingFingerprint;
+}
+
 /** Create a canonical AuditFinding with sensible defaults. */
 export function createFinding(params: {
   ruleId: string;
@@ -205,11 +209,16 @@ export function createFinding(params: {
   contextDependent?: boolean;
   workspaceApplicable?: WorkspaceMode[];
   blocking?: boolean;
+  inspectorSection?: string;
   confidence?: number;
   revision?: number;
+  ruleVersion?: number;
+  fingerprint?: FindingFingerprint;
 }): AuditFinding {
   return {
     ruleId: params.ruleId,
+    ruleVersion: params.ruleVersion ?? 1,
+    fingerprint: params.fingerprint ?? fallbackFingerprint(params.ruleId, params.nodeId),
     findingId: findingHash(params.ruleId, params.nodeId),
     category: params.category,
     severity: params.severity,
@@ -227,6 +236,7 @@ export function createFinding(params: {
     contextDependent: params.contextDependent ?? false,
     workspaceApplicable: params.workspaceApplicable ?? [],
     blocking: params.blocking ?? false,
+    inspectorSection: params.inspectorSection,
     revision: params.revision,
     generatedAt: Date.now(),
   };
@@ -290,36 +300,6 @@ export function buildAuditSummary(findings: AuditFinding[]): AuditSummary {
     hasBlocking: findings.some((f) => f.blocking && f.severity === 'error'),
     highestSeverity: highestIdx >= 0 ? severityOrder[highestIdx] : undefined,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Suppression matching
-// ---------------------------------------------------------------------------
-
-/**
- * Check whether a finding is suppressed by any of the given suppression entries.
- * Matching rules:
- *   1. Exact findingId match
- *   2. ruleId + nodeId match (nodeId='*' matches all)
- *   3. ruleId-only match (no nodeId in suppression entry)
- */
-export function isSuppressed(
-  finding: AuditFinding,
-  suppressions: SuppressionEntry[],
-  now: number = Date.now(),
-): boolean {
-  for (const s of suppressions) {
-    if (s.expiresAt && s.expiresAt < now) continue;
-
-    if (s.findingId === finding.findingId) return true;
-
-    if (s.ruleId === finding.ruleId) {
-      if (!s.nodeId) return true;
-      if (s.nodeId === '*') return true;
-      if (finding.nodeId && s.nodeId === finding.nodeId) return true;
-    }
-  }
-  return false;
 }
 
 // ---------------------------------------------------------------------------

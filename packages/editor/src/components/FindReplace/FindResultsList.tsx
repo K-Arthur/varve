@@ -21,10 +21,12 @@ export function FindResultsList({ results, currentIndex, onSelect }: FindResults
   const groups = Object.entries(grouped);
 
   return (
-    <div className="find-results-list">
+    <div className="find-results-list" role="list" aria-label="Find results">
       {groups.map(([nodeId, group]) => (
-        <div key={nodeId} className="find-results-group">
-          <div className="find-results-group__header">{group.nodeName}</div>
+        <div key={nodeId} className="find-results-group" role="group" aria-label={group.nodeName}>
+          <div className="find-results-group__header" aria-hidden>
+            {group.nodeName}
+          </div>
           {group.matches.map((match, _mi) => {
             const globalIdx = results.indexOf(match);
             const isActive = globalIdx === currentIndex;
@@ -35,6 +37,8 @@ export function FindResultsList({ results, currentIndex, onSelect }: FindResults
                 className={`find-results-item ${isActive ? 'find-results-item--active' : ''}`}
                 onClick={() => onSelect(match, globalIdx)}
                 data-match-index={globalIdx}
+                aria-current={isActive ? 'true' : undefined}
+                aria-label={`${group.nodeName}: ${match.contextSnippet}`}
               >
                 <span className="find-results-item__snippet">{match.contextSnippet}</span>
               </button>

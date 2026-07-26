@@ -492,6 +492,7 @@ describe('Section state', () => {
     expect(state['position-size'].collapsed).toBe(false);
     expect(state.fills.collapsed).toBe(false);
     // Sections with defaultExpanded=false should have collapsed=true
+    expect(state['corner-radius'].collapsed).toBe(true);
     expect(state['cognitive-load'].collapsed).toBe(true);
   });
 
