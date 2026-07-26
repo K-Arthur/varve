@@ -66,7 +66,14 @@ export function ViewportProvider({
   stateRef,
   panAnimationRef,
 }: ViewportProviderProps) {
-  const animRef = panAnimationRef ?? { current: null };
+  // `useRef` always returns the same object across renders, unlike a
+  // `?? { current: null }` fallback literal, which allocates a fresh object
+  // every render whenever the caller doesn't pass `panAnimationRef` — that
+  // was silently defeating every `useCallback` (and, transitively, this
+  // provider's own context value memo) that depended on `animRef`. See
+  // docs/quality/editorprovider-surface.md for how this was found.
+  const internalAnimRef = useRef<number | null>(null);
+  const animRef = panAnimationRef ?? internalAnimRef;
   const rmRef = useRef(isReducedMotion());
 
   useEffect(() => {
