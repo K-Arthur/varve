@@ -6,19 +6,18 @@
       "cycles": []
     },
     "engine": {
-      "count": 1,
-      "cycles": ["engine.ts → wasmLoader.ts"]
+      "count": 0,
+      "cycles": []
     },
     "scene": {
-      "count": 7,
+      "count": 6,
       "cycles": [
         "adjustmentScope.ts → bindings.ts → document.ts → types.ts",
         "bindings.ts → component-sync.ts → document.ts → types.ts",
         "component-sync.ts → types.ts",
         "bindings.ts → document.ts → types.ts → typography.ts",
         "types.ts → typography.ts",
-        "brush.ts → document.ts",
-        "auditFinding.ts → suppressions.ts"
+        "brush.ts → document.ts"
       ]
     },
     "ui": {
