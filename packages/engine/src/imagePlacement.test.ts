@@ -173,6 +173,23 @@ describe('computeImagePlacement', () => {
   });
 });
 
+describe('localToSourcePixel unclipped crop mapping', () => {
+  it('maps fit-mode letterboxing through the canonical placement', () => {
+    const placement = computeImagePlacement({
+      fit: 'fit',
+      sourceWidth: 400,
+      sourceHeight: 200,
+      bounds: { x: 0, y: 0, w: 100, h: 100 },
+    });
+    expect(placement).not.toBeNull();
+    expect(localToSourcePixel(placement!, { x: 50, y: 0 })).toBeNull();
+    expect(localToSourcePixel(placement!, { x: 50, y: 0 }, { unclipped: true })).toEqual({
+      x: 200,
+      y: -100,
+    });
+  });
+});
+
 describe('computeImagePlacement — crop mode', () => {
   const SOURCE = { width: 4000, height: 3000 };
   const BOUNDS = { x: 0, y: 0, w: 800, h: 800 };

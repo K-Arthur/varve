@@ -12,8 +12,15 @@
  *
  * Research basis: Figma image crop (viewport crop keeps source + mask intact).
  */
-import type { Affine } from '@strata/engine';
-import type { Document, ImageCropRect, ImageFit, NodeId, ShapeNode } from '@strata/scene';
+import { type Affine, computeImagePlacement, localToSourcePixel } from '@strata/engine';
+import type {
+  Document,
+  ImageCropRect,
+  ImageFillData,
+  ImageFit,
+  NodeId,
+  ShapeNode,
+} from '@strata/scene';
 import {
   getImageFill,
   getOwnRasterMaskAsset,
@@ -99,22 +106,50 @@ export function commitImageCrop(doc: Document, nodeId: NodeId, crop: LocalCropRe
   return commitImageCropExtended(doc, nodeId, { viewport: crop });
 }
 
-/**
- * Convert a node-local crop rect to source-pixel crop rect.
- * The node-local rect is mapped proportionally to the source image dimensions.
- */
+/** Convert a local viewport through the same placement used by replay/export. */
 function nodeLocalToSourceCrop(
   local: LocalCropRect,
   nodeW: number,
   nodeH: number,
   sourceW: number,
   sourceH: number,
-): ImageCropRect {
+  image: ImageFillData,
+): ImageCropRect | null {
+  const placement = computeImagePlacement({
+    fit: image.fit ?? 'fill',
+    sourceWidth: sourceW,
+    sourceHeight: sourceH,
+    bounds: { x: 0, y: 0, w: nodeW, h: nodeH },
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    rotation: image.rotation,
+    flipH: image.flipH,
+    flipV: image.flipV,
+  });
+  if (!placement) return null;
+
+  // Keep right/bottom samples inside the half-open node bounds.
+  const right = Math.min(local.x + local.w, nodeW) - Math.max(1e-9, nodeW * Number.EPSILON * 4);
+  const bottom = Math.min(local.y + local.h, nodeH) - Math.max(1e-9, nodeH * Number.EPSILON * 4);
+  const points = [
+    { x: local.x, y: local.y },
+    { x: right, y: local.y },
+    { x: right, y: bottom },
+    { x: local.x, y: bottom },
+  ]
+    .map((point) => localToSourcePixel(placement, point, { unclipped: true }))
+    .filter((point): point is { x: number; y: number } => point !== null);
+  if (points.length === 0) return null;
+  const minX = Math.min(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const maxY = Math.max(...points.map((point) => point.y));
   return {
-    x: (local.x / nodeW) * sourceW,
-    y: (local.y / nodeH) * sourceH,
-    w: (local.w / nodeW) * sourceW,
-    h: (local.h / nodeH) * sourceH,
+    x: minX,
+    y: minY,
+    w: maxX - minX,
+    h: maxY - minY,
   };
 }
 
@@ -155,24 +190,39 @@ export function commitImageCropExtended(
   const sourceWidth = fill.image.imageWidth ?? W;
   const sourceHeight = fill.image.imageHeight ?? H;
 
-  // Build the new image fill with crop in source-pixel coordinates
+  // Apply transform overrides before mapping the viewport. Crop coordinates
+  // must describe the previewed placement, not the previous committed one.
   const newImage: typeof fill.image = { ...fill.image };
-
-  if (!noViewportChange) {
-    // Convert node-local crop to source-pixel crop
-    const sourceCrop = nodeLocalToSourceCrop({ x, y, w, h }, W, H, sourceWidth, sourceHeight);
-    newImage.crop = normalizeImageCropRect(sourceCrop, sourceWidth, sourceHeight);
-  }
-
-  // Apply optional overrides
   if (fillScale !== undefined) newImage.scale = fillScale;
   if (fillOffsetX !== undefined) newImage.x = fillOffsetX;
   if (fillOffsetY !== undefined) newImage.y = fillOffsetY;
   if (fillFit !== undefined) newImage.fit = fillFit;
 
+  if (!noViewportChange) {
+    const sourceCrop = nodeLocalToSourceCrop(
+      { x, y, w, h },
+      W,
+      H,
+      sourceWidth,
+      sourceHeight,
+      newImage,
+    );
+    if (!sourceCrop) return doc;
+    newImage.crop = normalizeImageCropRect(sourceCrop, sourceWidth, sourceHeight);
+  } else {
+    delete newImage.crop;
+  }
+
   // Check if anything actually changed
+  const oldCrop = fill.image.crop;
+  const newCrop = newImage.crop;
+  const cropChanged =
+    oldCrop?.x !== newCrop?.x ||
+    oldCrop?.y !== newCrop?.y ||
+    oldCrop?.w !== newCrop?.w ||
+    oldCrop?.h !== newCrop?.h;
   const imgChanged =
-    newImage.crop !== fill.image.crop ||
+    cropChanged ||
     newImage.scale !== fill.image.scale ||
     newImage.x !== fill.image.x ||
     newImage.y !== fill.image.y ||

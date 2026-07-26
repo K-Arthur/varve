@@ -8,6 +8,7 @@ import { createDocument, makeImageShapeNode, makeShapeNode } from '@strata/scene
 import { describe, expect, it } from 'vitest';
 import {
   commitImageCrop,
+  commitImageCropExtended,
   resetImageCrop,
   setImageFlip,
   setImageRotation,
@@ -62,6 +63,68 @@ describe('commitImageCrop', () => {
     expect(crop!.h).toBeCloseTo((50 / 100) * 200);
   });
 
+  it('maps the crop through fill cover placement instead of node proportions', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 100,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+
+    const next = commitImageCrop(doc, 'i1', { x: 0, y: 0, w: 50, h: 100 });
+    const crop = next.nodes.i1?.fills?.[0]?.image?.crop;
+    expect(crop).toBeDefined();
+    // Fill cover draws 200×100 at x=-50. The left half of the object
+    // therefore corresponds to source pixels 100..200, not 0..200.
+    expect(crop?.x).toBeCloseTo(100);
+    expect(crop?.y).toBeCloseTo(0);
+    expect(crop?.w).toBeCloseTo(100);
+    expect(crop?.h).toBeCloseTo(200);
+  });
+
+  it('uses pending content pan and scale when committing a removed-background crop', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,SRC',
+      w: 100,
+      h: 100,
+      imageWidth: 400,
+      imageHeight: 200,
+    });
+    const withBackgroundRemoved = {
+      ...img,
+      backgroundRemoval: {
+        method: 'quick' as const,
+        maskDataUrl: 'data:image/png;base64,MASK',
+        confidence: 1,
+        appliedAt: 1,
+      },
+    };
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, i1: withBackgroundRemoved },
+      rootChildren: ['i1'],
+    };
+
+    const next = commitImageCropExtended(doc, 'i1', {
+      viewport: { x: 0, y: 0, w: 50, h: 100 },
+      fillScale: 2,
+      fillOffsetX: 10,
+      fillOffsetY: 0,
+      fillFit: 'fill',
+    });
+    const node = next.nodes.i1;
+    const image = node?.fills?.[0]?.image;
+    expect(image?.crop?.x).toBeCloseTo(140);
+    expect(image?.crop?.w).toBeCloseTo(50);
+    expect(image?.scale).toBe(2);
+    expect(image?.x).toBe(10);
+    expect(node?.backgroundRemoval?.maskDataUrl).toBe('data:image/png;base64,MASK');
+  });
+
   it('preserves image src and backgroundRemoval', () => {
     let doc = createDocument('t', true);
     const img = makeImageShapeNode('i1', { src: 'data:image/png;base64,SRC', w: 100, h: 100 });
@@ -97,6 +160,23 @@ describe('commitImageCrop', () => {
     // Full-frame crop is normalized to undefined → no change
     const n = next.nodes.i1!;
     expect(n.fills?.[0]?.image?.crop).toBeUndefined();
+  });
+
+  it('removes an existing crop when re-edited back to the full frame', () => {
+    let doc = createDocument('t', true);
+    const img = makeImageShapeNode('i1', {
+      src: 'data:image/png;base64,AA',
+      w: 80,
+      h: 60,
+      imageWidth: 160,
+      imageHeight: 120,
+    });
+    doc = { ...doc, nodes: { ...doc.nodes, i1: img }, rootChildren: ['i1'] };
+    const cropped = commitImageCrop(doc, 'i1', { x: 10, y: 10, w: 40, h: 30 });
+    expect(cropped.nodes.i1?.fills?.[0]?.image?.crop).toBeDefined();
+
+    const uncropped = commitImageCrop(cropped, 'i1', { x: 0, y: 0, w: 80, h: 60 });
+    expect(uncropped.nodes.i1?.fills?.[0]?.image?.crop).toBeUndefined();
   });
 
   it('preserves raster mask through crop', () => {
