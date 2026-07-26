@@ -1342,6 +1342,10 @@ export interface MasterPage {
   description?: string;
 }
 
+// ── Arrange operations ─────────────────────────────────────────────────────────
+
+export type ArrangeOp = 'front' | 'back' | 'forward' | 'backward';
+
 /** How a node is overridden on a derived page. */
 export type MasterOverrideType = 'modified' | 'hidden' | 'deleted';
 
