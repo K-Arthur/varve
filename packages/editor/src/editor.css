@@ -1584,7 +1584,6 @@ dialog.strata-dialog--settings[open] {
   flex-direction: column;
   height: min(88vh, 760px);
   max-height: min(88vh, 760px);
-
 }
 .strata-dialog--settings .strata-dialog__body {
   flex: 1;
