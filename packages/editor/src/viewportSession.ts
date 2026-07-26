@@ -20,6 +20,7 @@ export interface SavedViewport {
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   guidesVisible: boolean;
   snapGrid: number;
+  gridVisible: boolean;
 }
 
 export const DEFAULT_SAVED_VIEWPORT: SavedViewport = {
@@ -33,6 +34,7 @@ export const DEFAULT_SAVED_VIEWPORT: SavedViewport = {
   unitType: 'px',
   guidesVisible: true,
   snapGrid: 8,
+  gridVisible: false,
 };
 
 export interface ViewportCaptureSource {
@@ -46,6 +48,7 @@ export interface ViewportCaptureSource {
   unitType: SavedViewport['unitType'];
   guidesVisible: boolean;
   snapGrid: number;
+  gridVisible: boolean;
 }
 
 export function captureViewport(s: ViewportCaptureSource): SavedViewport {
@@ -60,6 +63,7 @@ export function captureViewport(s: ViewportCaptureSource): SavedViewport {
     unitType: s.unitType,
     guidesVisible: s.guidesVisible,
     snapGrid: s.snapGrid,
+    gridVisible: s.gridVisible,
   };
 }
 
@@ -77,5 +81,6 @@ export function normalizeSavedViewport(raw: Partial<SavedViewport> | undefined):
     unitType: raw.unitType ?? DEFAULT_SAVED_VIEWPORT.unitType,
     guidesVisible: raw.guidesVisible ?? DEFAULT_SAVED_VIEWPORT.guidesVisible,
     snapGrid: raw.snapGrid ?? DEFAULT_SAVED_VIEWPORT.snapGrid,
+    gridVisible: raw.gridVisible ?? DEFAULT_SAVED_VIEWPORT.gridVisible,
   };
 }

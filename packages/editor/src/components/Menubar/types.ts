@@ -30,6 +30,16 @@ export interface MenuBuildState {
   beforeAfterCompare: boolean;
   rulerMode: string;
   snapEnabled: boolean;
+  documentGrid: {
+    visible: boolean;
+    spacingX: number;
+    spacingY: number;
+    subdivisions: number;
+    offsetX: number;
+    offsetY: number;
+    color: string;
+    opacity: number;
+  };
 }
 
 export interface MenuBuildHelpers {
