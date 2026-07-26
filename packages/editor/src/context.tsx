@@ -1,3 +1,6 @@
+// COMPLEXITY: 847 — EditorProvider is the central state hub; sub-contexts
+// (MotionProvider, PrototypeProvider, ViewportProvider) are the planned
+// extraction path per ADR-0006. Each provider removed reduces ~50-80 paths.
 /**
  * Editor state context — shared across all shell surfaces.
  *
