@@ -619,12 +619,18 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           e.ctrlKey,
           e.metaKey,
           g.engine.isAllRaster(),
+          typeof navigator !== 'undefined' &&
+            (navigator.platform?.toLowerCase().includes('mac') ?? false),
         );
         updateDoc((doc) =>
           g.engine.resize(
             pointerWorld,
             g.handle,
-            { centered: mods.centered, proportional: mods.proportional },
+            {
+              centered: mods.centered,
+              proportional: mods.proportional,
+              bypassSnap: mods.bypassSnap,
+            },
             doc,
           ),
         );
