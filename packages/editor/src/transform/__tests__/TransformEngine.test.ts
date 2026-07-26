@@ -1,6 +1,6 @@
 // @ts-nocheck
 import type { Affine } from '@strata/shared';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { TransformEngine } from '../TransformEngine';
 
 function makeDoc(nodes: Record<string, any>) {
@@ -117,6 +117,24 @@ describe('TransformEngine.isAllRaster', () => {
 });
 
 describe('TransformEngine.resize — image aspect ratio', () => {
+  it('bypasses selection-box snapping when the alternate transform modifier is active', () => {
+    const img = makeRasterShape('img1', 'a.png', 100, 100);
+    const doc = makeDoc({ img1: img });
+    const snapBox = vi.fn((box: import('@strata/shared').SelectionBox) => ({
+      ...box,
+      w: 500,
+      h: 500,
+    }));
+    const engine = new TransformEngine(doc, ['img1'], { snapBox });
+
+    const resized = engine.resize([150, 50], 'e', { proportional: false, bypassSnap: true }, doc);
+
+    expect(snapBox).not.toHaveBeenCalled();
+    const node = resized.nodes.img1 as unknown as typeof img;
+    expect(node.transform[0]).toBeCloseTo(1.5);
+    expect(node.transform[3]).toBeCloseTo(1);
+  });
+
   it('applies proportional resize to a raster node', () => {
     const img = makeRasterShape('img1', 'a.png', 1920, 1080);
     const doc = makeDoc({ img1: img });
