@@ -15,7 +15,7 @@ type SceneNode = {
   fill: number[];
   strokes: unknown[];
   effects: unknown[];
-  shape?: never;
+  shape?: any;
   w?: number;
   h?: number;
   children?: string[];
