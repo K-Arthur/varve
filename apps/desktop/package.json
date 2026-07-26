@@ -29,6 +29,7 @@
     "@fontsource-variable/geist": "^5.2.0",
     "@fontsource-variable/ibm-plex-sans": "^5.2.0",
     "@strata/editor": "workspace:*",
+    "@strata/engine": "workspace:*",
     "@strata/home": "workspace:*",
     "@strata/platform": "workspace:*",
     "@strata/ui": "workspace:*",

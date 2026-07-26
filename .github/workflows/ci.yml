@@ -41,6 +41,16 @@ jobs:
         run: cargo test --workspace --all-targets
       - name: cargo test (desktop)
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
+      - name: Install cargo-llvm-cov
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - uses: actions/setup-node@v4
+        if: runner.os == 'Linux'
+        with:
+          node-version: 26
+      - name: Rust coverage (ratchet floor)
+        if: runner.os == 'Linux'
+        run: node scripts/audit-rust-coverage.mjs --ci
       - name: wasm check
         if: runner.os == 'Linux'
         run: just wasm-check
@@ -96,6 +106,8 @@ jobs:
         run: pnpm audit:emoji
       - name: test
         run: pnpm test
+      - name: render-path perf gate (ratio-based, not absolute wall-clock)
+        run: node scripts/audit-render-perf.mjs --ci
       - name: Automated failure debug
         if: failure()
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
@@ -133,6 +145,18 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: E2E (chromium)
         run: pnpm exec playwright test --project=chromium
+      - name: Visual regression (canvas replay)
+        run: pnpm exec playwright test --project=chromium-visual-1x --project=chromium-visual-2x
+      - name: Build visual diff report
+        if: failure()
+        run: node scripts/build-visual-diff-manifest.mjs
+      - name: Upload visual diff report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: strata-visual-diff-${{ github.run_id }}
+          path: visual-diff-report/
+          if-no-files-found: ignore
       - name: Automated failure debug
         if: failure()
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
