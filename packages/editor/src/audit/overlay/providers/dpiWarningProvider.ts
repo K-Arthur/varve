@@ -37,7 +37,7 @@ export function createDpiWarningProvider(): OverlayProvider {
 
         primitives.push({
           kind: 'badge',
-          anchor: { x: bounds.x + bounds.w / 2, y: bounds.y + bounds.h + 12 },
+          anchor: [bounds.x + bounds.w / 2, bounds.y + bounds.h + 12],
           text: `${Math.round(effectiveDpi)} DPI${scalesText}`,
           severity,
           findingId: `dpi-${w.nodeId}`,
@@ -77,7 +77,7 @@ function scanDpiWarnings(ctx: OverlayContext): DpiWarning[] {
     if (node.kind !== 'shape') continue;
 
     const shape = node.shape;
-    if (shape.kind !== 'rect' && shape.kind !== 'ellipse' && shape.kind !== 'image') continue;
+    if (shape.kind !== 'rect' && shape.kind !== 'ellipse') continue;
 
     const fills =
       (

@@ -207,7 +207,7 @@ describe('ArchiveDialog', () => {
         .querySelector('input[type="file"]');
       expect(fileInput).toBeInTheDocument();
       const file = new File(['test'], 'test.zip', { type: 'application/zip' });
-      await user.upload(fileInput!, file);
+      await user.upload(fileInput! as HTMLElement, file);
 
       // Wait for async validation
       await waitFor(() => {
@@ -227,7 +227,7 @@ describe('ArchiveDialog', () => {
         .getByLabelText(/drop an archive/i)
         .querySelector('input[type="file"]');
       const file = new File(['test'], 'test.zip', { type: 'application/zip' });
-      await user.upload(fileInput!, file);
+      await user.upload(fileInput! as HTMLElement, file);
 
       await waitFor(() => {
         expect(screen.getByText('Archive contents')).toBeInTheDocument();
@@ -265,7 +265,7 @@ describe('ArchiveDialog', () => {
         .getByLabelText(/drop an archive/i)
         .querySelector('input[type="file"]');
       const file = new File(['bad'], 'bad.zip', { type: 'application/zip' });
-      await user.upload(fileInput!, file);
+      await user.upload(fileInput! as HTMLElement, file);
 
       await waitFor(() => {
         expect(screen.getByRole('alert')).toHaveTextContent('Invalid ZIP archive');
@@ -278,7 +278,7 @@ describe('ArchiveDialog', () => {
       renderDialog({ onClose });
       const closeButtons = screen.getAllByRole('button', { name: /close/i });
       // The Dialog close button or the footer Close button
-      await user.click(closeButtons[closeButtons.length - 1]);
+      await user.click(closeButtons[closeButtons.length - 1]!);
       expect(onClose).toHaveBeenCalled();
     });
   });

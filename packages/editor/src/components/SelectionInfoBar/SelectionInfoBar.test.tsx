@@ -2,8 +2,8 @@
  * SelectionInfoBar tests — selection feedback strip rendering.
  */
 
-import { render, screen } from '@testing-library/react';
 import { addChild, createDocument, makeShapeNode } from '@strata/scene';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider } from '../../context';
 import {

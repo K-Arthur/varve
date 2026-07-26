@@ -17,32 +17,32 @@ import {
 } from '@strata/ui/utils/menuTypeAhead';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from '../../actions/ActionRegistry';
-import type { ArchiveDialogProps } from '../Archive/ArchiveDialog';
-import { ArchiveDialog } from '../Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from '../../context';
 import { useRecentFiles } from '../../recentFiles';
 import { loadSettings } from '../../settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from '../../shortcuts';
 import { WORKSPACE_LABELS, type WorkspaceMode } from '../../workspace/workspaceTypes';
-import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './types';
-import { buildFileMenu } from './FileMenu';
-import { buildEditMenu } from './EditMenu';
-import { buildTextMenu } from './TextMenu';
-import { buildViewMenu } from './ViewMenu';
-import { buildObjectMenu } from './ObjectMenu';
+import type { ArchiveDialogProps } from '../Archive/ArchiveDialog';
+import { ArchiveDialog } from '../Archive/ArchiveDialog';
 import { buildArrangeMenu } from './ArrangeMenu';
-import { buildPageMenu } from './PageMenu';
+import { buildEditMenu } from './EditMenu';
+import { buildFileMenu } from './FileMenu';
 import { buildHelpMenu } from './HelpMenu';
+import { buildObjectMenu } from './ObjectMenu';
+import { buildPageMenu } from './PageMenu';
+import { buildTextMenu } from './TextMenu';
+import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './types';
+import { buildViewMenu } from './ViewMenu';
 
-export { buildFileMenu } from './FileMenu';
-export { buildEditMenu } from './EditMenu';
-export { buildTextMenu } from './TextMenu';
-export { buildViewMenu } from './ViewMenu';
-export { buildObjectMenu } from './ObjectMenu';
 export { buildArrangeMenu } from './ArrangeMenu';
-export { buildPageMenu } from './PageMenu';
+export { buildEditMenu } from './EditMenu';
+export { buildFileMenu } from './FileMenu';
 export { buildHelpMenu } from './HelpMenu';
-export type { MenuBuildHelpers, MenuId, MenuItem, MenuBuildState, RecentEntry } from './types';
+export { buildObjectMenu } from './ObjectMenu';
+export { buildPageMenu } from './PageMenu';
+export { buildTextMenu } from './TextMenu';
+export type { MenuBuildHelpers, MenuBuildState, MenuId, MenuItem, RecentEntry } from './types';
+export { buildViewMenu } from './ViewMenu';
 
 function ariaShortcut(binding: {
   key: string;
@@ -80,7 +80,7 @@ function isInstallDesktopDismissed(): boolean {
   return safeLocalStorageGet(INSTALL_DISMISS_KEY) === 'true';
 }
 
-function isInIframe(): boolean {
+function _isInIframe(): boolean {
   try {
     return typeof window !== 'undefined' && window.self !== window.top;
   } catch {
@@ -88,7 +88,7 @@ function isInIframe(): boolean {
   }
 }
 
-function safeOpenInstallPage(): void {
+function _safeOpenInstallPage(): void {
   if (isInstallDesktopDismissed()) return;
   safeLocalStorageSet(INSTALL_DISMISS_KEY, 'true');
   const os = detectOS();

@@ -10,7 +10,7 @@
 import { decodeDetrOutput, getInferenceWorkerHost, getModelLoader } from '@strata/engine';
 import type { SceneNode, ShapeNode } from '@strata/scene';
 import { getImageFill, isImageShape } from '@strata/scene';
-import { Button, Icon, Tooltip, TooltipProvider } from '@strata/ui';
+import { Button, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../../../context';
 import type { TrimToSubjectOptions } from '../../../imageCrop';

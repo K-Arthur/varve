@@ -111,7 +111,7 @@ describe('settingsBackup', () => {
 
       const result = applySettingsBackup(entries, { onConflict: 'overwrite' });
       expect(result.conflicts).toHaveLength(1);
-      expect(result.conflicts[0].category).toBe('export');
+      expect(result.conflicts[0]!.category).toBe('export');
     });
 
     it('skips conflicting entries when onConflict is skip', () => {

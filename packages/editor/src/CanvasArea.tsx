@@ -100,7 +100,12 @@ import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
-import { nodeWorldBoundsFn, setStartTextEditingHandler, useEditor } from './context';
+import {
+  type EditorState,
+  nodeWorldBoundsFn,
+  setStartTextEditingHandler,
+  useEditor,
+} from './context';
 import { collectFilesFromDataTransfer } from './dropUtils';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { type CropState, commitImageCropExtended } from './imageCrop';
@@ -136,6 +141,16 @@ import { nodeWorldBounds } from './scene/world';
 import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import type { DraftShape, ToolContext } from './tools';
+import type { CropTool } from './tools/CropTool';
+import { collectSourceEvents } from './tools/inputNormalizer';
+import type { RefineMaskTool } from './tools/RefineMaskTool';
+import {
+  createSnapSession,
+  filterSnapTargets,
+  type SnapSession,
+  snapPosition,
+  snapTargetSearchRect,
+} from './tools/snapping';
 
 /**
  * Quick reference-equality check: returns true when the only top-level field
@@ -160,8 +175,6 @@ function isOnlyVariableStoreChange(oldDoc: Document, newDoc: Document): boolean 
   }
   return true;
 }
-
-import type { SnapGuide } from './tools/snapping';
 
 let _showOriginalBgNodeId: string | null = null;
 
@@ -450,7 +463,7 @@ export function CanvasArea({
   } | null>(null);
   const requestContentDrawRef = useRef<(() => void) | null>(null);
   const docVersionRef = useRef(0);
-  const stateRef = useRef(state);
+  const stateRef = useRef<EditorState>(state);
   stateRef.current = state;
   const editorRef = useRef(editor);
   editorRef.current = editor;

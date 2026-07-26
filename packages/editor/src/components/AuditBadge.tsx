@@ -16,18 +16,15 @@ import type { AuditContext } from '@strata/scene';
 import { runQuickStatus } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
-import { setInspectorTabHandler, useEditor } from '../context';
+import { useEditor } from '../context';
 
 /**
  * Trigger the audit tab in the inspector panel.
  * Uses the module-level bridge pattern (same as setToastHandler).
  */
-function openReviewTab(subTab?: string) {
-  setInspectorTabHandler({ tab: 'audit', subTab: subTab ?? 'review' });
-}
 
 export function AuditBadge() {
-  const { state } = useEditor();
+  const { state, setInspectorTab } = useEditor();
   const [status, setStatus] = useState<{
     errorCount: number;
     warningCount: number;
@@ -88,8 +85,8 @@ export function AuditBadge() {
   if (status.errorCount === 0 && status.warningCount === 0) return null;
 
   const handleClick = useCallback(() => {
-    openReviewTab('review');
-  }, []);
+    setInspectorTab('audit', 'audit');
+  }, [setInspectorTab]);
 
   const hasErrors = status.errorCount > 0;
 

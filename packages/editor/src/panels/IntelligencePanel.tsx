@@ -17,7 +17,7 @@ import {
   rankBySimilarity,
 } from '@strata/engine';
 import { validatePrototype } from '@strata/prototype';
-import type { NodeId, ShapeNode } from '@strata/scene';
+import type { Document, NodeId, ShapeNode } from '@strata/scene';
 import {
   type AuditContext,
   type AuditFinding,
@@ -49,17 +49,17 @@ import {
   renameSelected,
   suggestName,
 } from '../intelligence/autoNamer';
+import { findDuplicateStructures } from '../intelligence/componentDetector';
 import {
   detectVariantCandidates,
   type VariantCandidate,
 } from '../intelligence/componentVariantDetector';
-import { findDuplicateStructures } from '../intelligence/componentDetector';
-import { buildPromotionPlan, type VariantPromotionPlan } from '../intelligence/variantPromotion';
 import {
   analyzeSpacing,
   harmonizeSpacing,
   type SpacingAnalysis,
 } from '../intelligence/spacingHarmonizer';
+import { buildPromotionPlan, type VariantPromotionPlan } from '../intelligence/variantPromotion';
 
 import '../components/Inspector/inspector.css';
 
@@ -70,8 +70,6 @@ import '../components/Inspector/inspector.css';
  * - Tab order is workspace-aware (primary categories shown first in review tab)
  */
 type ExtendedTab = IntelligenceTab | 'review';
-
-const _SPECIALIZED_TABS: ExtendedTab[] = ['spacing', 'naming', 'layout', 'components', 'similar'];
 
 interface IntelligenceTabGroup {
   label: string;
@@ -406,7 +404,7 @@ function LinterTab() {
                         className="intelligence-action-btn"
                         onClick={() => {
                           const result = fix.apply(state.document);
-                          if (result) updateDoc(() => result);
+                          if (result) updateDoc(() => result as Document);
                         }}
                       >
                         <Icon name="Wand" label={undefined} size="0.85em" /> {fix.label}
@@ -620,7 +618,9 @@ function ReviewTab() {
         selection: state.selection,
         pageId: state.currentPageId ?? undefined,
         availableFonts: loadedFonts,
-        colorMode: (state.document as Record<string, unknown>).colorMode as string | undefined,
+        colorMode: (state.document as unknown as Record<string, unknown>).colorMode as
+          | string
+          | undefined,
         isPresenting: state.isPresenting,
       };
 
@@ -695,11 +695,12 @@ function ReviewTab() {
     setSuppressions((prev) => [
       ...prev,
       {
-        findingId: finding.findingId,
+        fingerprint: finding.fingerprint,
         ruleId: finding.ruleId,
-        nodeId: finding.nodeId,
-        createdAt: Date.now(),
-      },
+        ruleVersion: finding.ruleVersion,
+        scope: 'finding',
+        suppressedAt: Date.now(),
+      } as SuppressionEntry,
     ]);
     announce(`Suppressed: ${finding.message}`);
   };
@@ -1759,7 +1760,7 @@ function PromoteDialog({
         componentName,
         properties: candidate.differingProperties.map((dp) => ({
           name: propertyNames[dp.property] ?? dp.property,
-          type: (dp.property === 'textContent' ? 'text' : 'variant') as const,
+          type: dp.property === 'textContent' ? 'text' : 'variant',
         })),
         variantNames,
       }),
@@ -2136,7 +2137,7 @@ function VariantCandidatesSection({
 }
 
 function ComponentsTab() {
-  const { state, setSelection, createComponentFromGroup, promoteVariantCandidates } = useEditor();
+  const { state, setSelection, createComponentFromGroup } = useEditor();
   const [suppressedSignatures, setSuppressedSignatures] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => findDuplicateStructures(state.document), [state.document]);

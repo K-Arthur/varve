@@ -30,7 +30,7 @@ import {
   solidFill,
 } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
-import { Icon, Select, Tooltip, TooltipProvider } from '@strata/ui';
+import { Icon, Select, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';

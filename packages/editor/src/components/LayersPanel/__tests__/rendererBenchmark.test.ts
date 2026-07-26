@@ -134,7 +134,7 @@ function simpleRect(): SceneNode {
     fill: { space: 'rgb', r: 255, g: 0, b: 0, a: 255 },
     shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
     transform: [1, 0, 0, 1, 0, 0],
-  } as SceneNode;
+  } as unknown as SceneNode;
 }
 
 function complexNode(): SceneNode {
@@ -150,7 +150,7 @@ function complexNode(): SceneNode {
     fill: { space: 'rgb', r: 0, g: 128, b: 255, a: 255 },
     shape: { kind: 'star', cx: 50, cy: 50, innerRadius: 20, outerRadius: 50, points: 5 },
     transform: [1, 0, 0, 1, 0, 0],
-  } as SceneNode;
+  } as unknown as SceneNode;
 }
 
 function textNode(): SceneNode {
@@ -166,7 +166,7 @@ function textNode(): SceneNode {
     fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
     text: 'Hello',
     transform: [1, 0, 0, 1, 0, 0],
-  } as SceneNode;
+  } as unknown as SceneNode;
 }
 
 // ─── Benchmarks ───────────────────────────────────────────────────────
