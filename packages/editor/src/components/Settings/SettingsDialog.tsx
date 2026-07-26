@@ -1,5 +1,5 @@
 import { managedColorToCss } from '@strata/shared';
-import { Button, Dialog, NumberInput, Select } from '@strata/ui';
+import { Button, Dialog, NumberInput, Select, Tooltip, TooltipProvider } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bumpThemeRevision, getBackupService, useEditor } from '../../context';
@@ -489,22 +489,24 @@ function AboutSection() {
         </div>
         <Divider />
         <div className="settings-about__links">
-          <button
-            type="button"
-            className="settings-about__link"
-            disabled
-            title="Not yet available in this build"
-          >
-            View changelog
-          </button>
-          <button
-            type="button"
-            className="settings-about__link"
-            disabled
-            title="Not yet available in this build"
-          >
-            Software bill of materials (SBOM)
-          </button>
+          <TooltipProvider>
+            <Tooltip
+              label="Not yet available in this build"
+              disabledReason="Not yet available in this build"
+            >
+              <button type="button" className="settings-about__link" disabled>
+                View changelog
+              </button>
+            </Tooltip>
+            <Tooltip
+              label="Not yet available in this build"
+              disabledReason="Not yet available in this build"
+            >
+              <button type="button" className="settings-about__link" disabled>
+                Software bill of materials (SBOM)
+              </button>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
     </div>

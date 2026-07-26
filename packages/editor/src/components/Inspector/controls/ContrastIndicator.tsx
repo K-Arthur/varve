@@ -1,5 +1,5 @@
 import { contrastRatio, relativeLuminance, WCAG_AA_LARGE, WCAG_AA_NORMAL } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip, TooltipProvider } from '@strata/ui';
 
 export interface ContrastIndicatorProps {
   fgColor?: { r: number; g: number; b: number } | null;
@@ -52,13 +52,14 @@ export function ContrastIndicator({
 
   if (!fg) {
     return (
-      <span
-        className="contrast-indicator"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
-        title="No foreground color to check"
-      >
-        <Icon name="CircleHelp" size={10} label={undefined} />
-      </span>
+      <Tooltip label="No foreground color to check">
+        <span
+          className="contrast-indicator"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
+        >
+          <Icon name="CircleHelp" size={10} label={undefined} />
+        </span>
+      </Tooltip>
     );
   }
 

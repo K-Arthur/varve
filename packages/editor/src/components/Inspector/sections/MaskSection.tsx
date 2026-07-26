@@ -1,6 +1,6 @@
 import type { MaskType, SceneNode } from '@strata/scene';
 import { walkNodes } from '@strata/scene';
-import { Select } from '@strata/ui';
+import { Select, Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -259,16 +259,17 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                   Link
                 </button>
               )}
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={handleRemove}
-                aria-label="Remove mask"
-                title="Remove mask (source node is preserved)"
-                style={{ color: 'var(--color-feedback-danger, #e74c3c)' }}
-              >
-                Remove
-              </button>
+              <Tooltip label="Remove mask (source node is preserved)">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={handleRemove}
+                  aria-label="Remove mask"
+                  style={{ color: 'var(--color-feedback-danger, #e74c3c)' }}
+                >
+                  Remove
+                </button>
+              </Tooltip>
             </div>
           </div>
 
@@ -351,15 +352,16 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 {mask.vectorMask.points.length !== 1 ? 's' : ''}
                 {mask.vectorMask.closed ? ' (closed)' : ' (open)'}
               </span>
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={handleEditVectorPath}
-                aria-label="Edit vector mask path"
-                title="Edit the vector mask path points"
-              >
-                Edit path
-              </button>
+              <Tooltip label="Edit the vector mask path points">
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={handleEditVectorPath}
+                  aria-label="Edit vector mask path"
+                >
+                  Edit path
+                </button>
+              </Tooltip>
             </div>
           )}
 

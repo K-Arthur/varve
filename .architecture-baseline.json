@@ -1,94 +1,22 @@
 {
-  "version": "2026-07-25",
-  "cycles": {
-    "shared": {
-      "count": 0,
-      "cycles": []
-    },
-    "engine": {
-      "count": 0,
-      "cycles": []
-    },
-    "scene": {
-      "count": 6,
-      "cycles": [
-        "adjustmentScope.ts → bindings.ts → document.ts → types.ts",
-        "bindings.ts → component-sync.ts → document.ts → types.ts",
-        "component-sync.ts → types.ts",
-        "bindings.ts → document.ts → types.ts → typography.ts",
-        "types.ts → typography.ts",
-        "brush.ts → document.ts"
-      ]
-    },
-    "ui": {
-      "count": 0,
-      "cycles": []
-    },
-    "compositor": {
-      "count": 0,
-      "cycles": []
-    },
-    "import": {
-      "count": 0,
-      "cycles": []
-    },
-    "prototype": {
-      "count": 0,
-      "cycles": []
-    },
-    "codegen": {
-      "count": 0,
-      "cycles": []
-    },
-    "layout": {
-      "count": 0,
-      "cycles": []
-    },
-    "platform": {
-      "count": 0,
-      "cycles": []
-    },
-    "help": {
-      "count": 0,
-      "cycles": []
-    },
-    "ai": {
-      "count": 0,
-      "cycles": []
-    },
-    "collab": {
-      "count": 0,
-      "cycles": []
-    },
-    "print": {
-      "count": 0,
-      "cycles": []
-    },
-    "home": {
-      "count": 0,
-      "cycles": []
-    },
-    "editor": {
-      "count": 0,
-      "cycles": []
-    }
-  },
+  "version": "2026-07-26",
+  "cycles": {},
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 840,
-      "imports": 45,
+      "lines": 872,
+      "imports": 46,
       "overBudget": false
     },
     "packages/editor/src/CanvasArea.tsx": {
-      "lines": 3944,
+      "lines": 3948,
       "imports": 64,
       "overBudget": false
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 1633,
-      "imports": 10,
-      "overBudget": false
+      "lines": 2281,
+      "imports": 22,
+      "overBudget": true
     },
     "packages/home/src/HomeShell.tsx": {
       "lines": 1104,
@@ -96,15 +24,15 @@
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 7689,
-      "imports": 58,
-      "overBudget": false
+      "lines": 7685,
+      "imports": 62,
+      "overBudget": true
     }
   },
   "complexity": {},
   "global": {
-    "max_cycles": 11,
-    "max_unstable": 37,
+    "max_cycles": 2,
+    "max_unstable": 5,
     "max_layer_violations": 0,
     "max_unused_exports": 10
   }

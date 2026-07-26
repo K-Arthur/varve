@@ -3,7 +3,7 @@ import type { Platform } from '@strata/platform';
 import type { Document, SceneNode } from '@strata/scene';
 import { registerBuiltinRules } from '@strata/scene';
 import type { MenuEntry } from '@strata/ui';
-import { ContextMenu, Icon, ToastProvider, useToast } from '@strata/ui';
+import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
@@ -252,16 +252,17 @@ function ShellInner({
         <FloatingToolbar />
         {!distractionFreeMode && <TabStrip onBackToHome={onBackToHome} />}
         {distractionFreeMode && (
-          <button
-            type="button"
-            className="editor-shell__exit-focus"
-            onClick={editor.toggleDistractionFreeMode}
-            aria-label="Exit distraction-free mode (Ctrl+Shift+F)"
-            title="Exit distraction-free mode (Ctrl+Shift+F)"
-          >
-            <Icon name="Minimize2" size={14} />
-            Exit Focus
-          </button>
+          <Tooltip label="Exit distraction-free mode" shortcut="Ctrl+Shift+F">
+            <button
+              type="button"
+              className="editor-shell__exit-focus"
+              onClick={editor.toggleDistractionFreeMode}
+              aria-label="Exit distraction-free mode (Ctrl+Shift+F)"
+            >
+              <Icon name="Minimize2" size={14} />
+              Exit Focus
+            </button>
+          </Tooltip>
         )}
         <ErrorBoundary>
           <CanvasArea
