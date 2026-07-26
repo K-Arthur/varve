@@ -1,3 +1,7 @@
+// COMPLEXITY: 100 — node ops, page ops, and component ops extracted to
+// separate files (document-nodes.ts, document-pages.ts, document-components.ts).
+// Remaining: factory functions, walk/validation, variable/paint/guide operations.
+
 /**
  * Immutable scene Document + operations (Strata plan §3.1, §9).
  *
@@ -16,7 +20,6 @@ import type { Affine, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween, physicalToPx } from '@strata/shared';
 import { stripBindingForVariable } from './bindings';
-import { deepCloneSubtree } from './clone';
 import type {
   BitDepth,
   BleedConfig,
@@ -29,31 +32,19 @@ import type {
   SpotColorDef,
 } from './colorManagement';
 import { defaultColorConfig } from './colorManagement';
-import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { ExportSettings } from './export-types';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import { nextNodeId } from './node-id';
 import type {
-  ComponentDefinition,
   ContainerNode,
-  FacingPagesConfig,
   FrameNode,
-  GroupNode,
-  LayerColor,
-  MasterAppliesTo,
-  MasterOverride,
-  MasterOverrideType,
-  MasterPage,
+  Guide,
   NodeId,
   Page,
-  PageNumberStyle,
-  PageSection,
-  PageSide,
   Paint,
   PathNode,
   SceneNode,
   ShapeNode,
-  Spread,
   Style,
   TextNode,
 } from './types';
@@ -61,6 +52,68 @@ import { isContainer } from './types';
 import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
+
+export type { CreateMasterOptions } from './document-components';
+export {
+  activePageNodesWithMaster,
+  addMasterOverride,
+  assignMasterToPage,
+  createMaster,
+  deleteMaster,
+  detachMasterOverride,
+  duplicateMaster,
+  pageHasOverrides,
+  removeMasterOverride,
+  renameMaster,
+  reorderMasters,
+  resetMasterOverrides,
+  resolveNodeOrigin,
+  setMasterAppliesTo,
+} from './document-components';
+// Re-export from new extracted files — keeps backward-compatible public API.
+export {
+  addChild,
+  addNode,
+  arrangeNode,
+  detachInstance,
+  getById,
+  groupNodes,
+  insertNode,
+  instanceOverrides,
+  moveChild,
+  moveNode,
+  removeNode,
+  renameNode,
+  reparentNode,
+  resetInstanceOverrides,
+  rootNodes,
+  setBackgroundRemoval,
+  setLayerColor,
+  setSnapExcluded,
+  swapInstance,
+  ungroupNode,
+} from './document-nodes';
+export {
+  activePageNodes,
+  addGlobalChild,
+  addPage,
+  duplicatePage,
+  getFormattedPageNumber,
+  getPageNumber,
+  getPageSide,
+  getSpreadForPage,
+  isPageOnLeftSide,
+  migrateToPages,
+  rebuildSpreads,
+  removeGlobalChild,
+  removePage,
+  reorderPages,
+  setActivePage,
+  setFacingPagesEnabled,
+  setPageSize,
+  setPageSizeWithContentScale,
+  toggleFacingPages,
+} from './document-pages';
 
 export { nextNodeId } from './node-id';
 // Re-exported for existing same-package consumers that import these from
@@ -77,7 +130,7 @@ export interface Document {
   rootChildren: NodeId[];
   nodes: Record<NodeId, SceneNode>;
   /** Registered component definitions keyed by component id (task 1.1). */
-  components: Record<NodeId, ComponentDefinition>;
+  components: Record<NodeId, import('./types').ComponentDefinition>;
   /** Monotonic counter for id generation. */
   nextId: number;
   /** Canvas width in px (artboard/frame size). */
@@ -94,7 +147,7 @@ export interface Document {
    * the same visual content via paintRefs. Paints are the mechanism for
    * paint reuse: changing one Paint updates all nodes that reference it.
    */
-  paints?: Record<string, import('./types').Paint>;
+  paints?: Record<string, Paint>;
   /** Reusable styles keyed by style id (color, text, effect, layout). */
   styles?: Record<string, Style>;
   /** Persisted variable store with collections and modes. */
@@ -102,7 +155,7 @@ export interface Document {
   /** References to installed libraries. */
   installedLibraries?: import('./library').InstalledLibraryRef[];
   /** Layout guides for aligning nodes on the canvas. */
-  guides?: import('./types').Guide[];
+  guides?: Guide[];
   /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */
   pages?: Page[];
   /** State machines for prototype interactions (v1.3). */
@@ -306,7 +359,7 @@ export function createDocument(
   };
 }
 
-function cryptoId(): string {
+export function cryptoId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `doc-${Math.random().toString(36).slice(2)}`;
 }
@@ -487,7 +540,7 @@ export function makeGroupNode(
   id: NodeId,
   opts: Partial<
     Pick<
-      GroupNode,
+      import('./types').GroupNode,
       | 'name'
       | 'layerColor'
       | 'transform'
@@ -503,7 +556,7 @@ export function makeGroupNode(
       | 'effects'
     >
   > = {},
-): GroupNode {
+): import('./types').GroupNode {
   return {
     id,
     kind: 'group',
@@ -801,973 +854,6 @@ export function getChildren(doc: Document, id: NodeId): NodeId[] | null {
   return node.children;
 }
 
-/** Append a node to the root paint order. */
-export function addNode(doc: Document, node: SceneNode): Document {
-  const index = doc.rootChildren.length;
-  const prev = index > 0 ? doc.nodes[doc.rootChildren[index - 1]!] : null;
-  const order = generateKeyBetween(prev?.order ?? null, null);
-  const indexed = { ...node, index, order };
-  return {
-    ...doc,
-    rootChildren: [...doc.rootChildren, node.id],
-    nodes: { ...doc.nodes, [node.id]: indexed },
-  };
-}
-
-/** Insert a node at a specific paint-order index in the root. */
-export function insertNode(doc: Document, node: SceneNode, atIndex: number): Document {
-  const next = [...doc.rootChildren];
-  const clamped = Math.max(0, Math.min(atIndex, next.length));
-  next.splice(clamped, 0, node.id);
-  const prev = clamped > 0 ? doc.nodes[next[clamped - 1]!] : null;
-  const succ = clamped < next.length - 1 ? doc.nodes[next[clamped + 1]!] : null;
-  const order = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
-  const nodes = { ...doc.nodes, [node.id]: { ...node, order } };
-  return { ...doc, rootChildren: next, nodes };
-}
-
-/** Add a child to a container (FrameNode or GroupNode). Optionally fills a slot (frame only). */
-export function addChild(
-  doc: Document,
-  parentId: NodeId,
-  child: SceneNode,
-  slotId?: string,
-): Document {
-  const parent = doc.nodes[parentId];
-  if (!parent || !isContainer(parent)) return doc;
-  const children = parent.children;
-  const lastChildId = children.length > 0 ? children[children.length - 1]! : null;
-  const lastChild = lastChildId ? doc.nodes[lastChildId] : null;
-  const order = generateKeyBetween(lastChild?.order ?? null, null);
-  const indexed = { ...child, order };
-  const newChildren = [...children, child.id];
-  const updated = { ...parent, children: newChildren } as SceneNode;
-  if ('slots' in parent && slotId) {
-    (updated as FrameNode).slots = { ...(parent.slots ?? {}), [slotId]: child.id };
-  } else if ('slots' in parent && slotId === undefined) {
-    (updated as FrameNode).slots = parent.slots;
-  }
-  const result = {
-    ...doc,
-    nodes: {
-      ...doc.nodes,
-      [parentId]: updated,
-      [child.id]: indexed,
-    },
-  };
-  devValidate(result);
-  return result;
-}
-
-/** Remove a node from the document (nested-aware). Recursively removes descendants. */
-export function removeNode(doc: Document, id: NodeId): Document {
-  if (!doc.nodes[id]) return doc;
-
-  let nodes = { ...doc.nodes };
-
-  // Collect all descendants to remove
-  const toRemove = new Set<NodeId>();
-  function collect(nid: NodeId) {
-    if (toRemove.has(nid)) return;
-    toRemove.add(nid);
-    const n = nodes[nid];
-    if (n && isContainer(n)) {
-      for (const cId of n.children) collect(cId);
-    }
-  }
-  collect(id);
-  const removedRasterAssetIds = new Set(
-    [...toRemove]
-      .map((nodeId) => nodes[nodeId]?.mask?.rasterMask?.assetId)
-      .filter((assetId): assetId is string => Boolean(assetId)),
-  );
-  // Doc-level image assets (v2.6+, see ./assets.ts): collect ids referenced
-  // only by nodes being removed so they can be garbage-collected below.
-  // Duplicated inline (rather than importing ./assets) to avoid a
-  // document.ts <-> assets.ts import cycle — same tradeoff already made for
-  // rasterMaskAssets above.
-  const removedImageAssetIds = new Set(
-    [...toRemove].flatMap((nodeId) =>
-      (nodes[nodeId]?.fills ?? [])
-        .filter((f) => f.type === 'image' && f.image?.assetId)
-        .map((f) => f.image!.assetId as string),
-    ),
-  );
-
-  // Remove from parent's children list
-  const parentId = getParent(doc, id);
-  let rootChildren = doc.rootChildren;
-  if (parentId) {
-    const parent = nodes[parentId] as SceneNode | undefined;
-    if (parent && isContainer(parent)) {
-      const newParentChildren = parent.children.filter((c) => !toRemove.has(c));
-      const updated = { ...parent, children: newParentChildren } as SceneNode;
-      if ('slots' in parent && parent.slots) {
-        const filteredSlots = Object.fromEntries(
-          Object.entries(parent.slots).filter(([_, v]) => !toRemove.has(v)),
-        );
-        (updated as FrameNode).slots =
-          Object.keys(filteredSlots).length > 0 ? filteredSlots : undefined;
-      }
-      nodes[parentId] = updated;
-    }
-  } else {
-    rootChildren = doc.rootChildren.filter((x) => !toRemove.has(x));
-  }
-
-  // Clear mask references that point to any removed node
-  for (const removedId of toRemove) {
-    for (const [id, nodeEntry] of Object.entries(nodes)) {
-      const n = nodeEntry as SceneNode & { mask?: import('./types').Mask };
-      if (n.mask?.sourceNodeId === removedId) {
-        const { mask: _unused, ...rest } = n;
-        nodes = { ...nodes, [id]: rest as SceneNode };
-      }
-    }
-  }
-
-  // Delete all collected nodes
-  for (const nid of toRemove) {
-    delete nodes[nid];
-  }
-
-  const rasterMaskAssets = { ...doc.rasterMaskAssets };
-  for (const assetId of removedRasterAssetIds) {
-    const stillReferenced = Object.values(nodes).some(
-      (node) => node.mask?.rasterMask?.assetId === assetId,
-    );
-    if (!stillReferenced) delete rasterMaskAssets[assetId];
-  }
-  const assets = { ...doc.assets };
-  for (const assetId of removedImageAssetIds) {
-    const stillReferenced =
-      Object.values(nodes).some((node) =>
-        node.fills?.some((f) => f.type === 'image' && f.image?.assetId === assetId),
-      ) ||
-      Object.values(doc.paints ?? {}).some(
-        (paint) => paint.fill.type === 'image' && paint.fill.image?.assetId === assetId,
-      );
-    if (!stillReferenced) delete assets[assetId];
-  }
-  const result = {
-    ...doc,
-    rootChildren,
-    nodes,
-    rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
-    assets: Object.keys(assets).length > 0 ? assets : undefined,
-  };
-  devValidate(result);
-  return result;
-}
-
-/** Move a root-level node to a new paint-order index. Also updates `order` field. */
-export function moveNode(doc: Document, id: NodeId, toIndex: number): Document {
-  const from = doc.rootChildren.indexOf(id);
-  if (from < 0) return doc;
-  const next = [...doc.rootChildren];
-  next.splice(from, 1);
-  const clamped = Math.max(0, Math.min(toIndex, next.length));
-  next.splice(clamped, 0, id);
-  const node = doc.nodes[id];
-  if (!node) return doc;
-  const nodes = { ...doc.nodes };
-  const prev = clamped > 0 ? doc.nodes[next[clamped - 1]!] : null;
-  const succ = clamped < next.length - 1 ? doc.nodes[next[clamped + 1]!] : null;
-  const newOrder = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
-  nodes[id] = { ...node, order: newOrder } as SceneNode;
-  return { ...doc, rootChildren: next, nodes };
-}
-
-export type ArrangeOp = 'front' | 'back' | 'forward' | 'backward';
-
-/**
- * Arrange a node within its current parent's sibling list.
- * 'front'/'back' move to the end/start (highest/lowest paint order).
- * 'forward'/'backward' step one position toward the end/start.
- * No-op when the node is already at the boundary or not found.
- */
-export function arrangeNode(doc: Document, id: NodeId, op: ArrangeOp): Document {
-  const parentId = getParent(doc, id);
-  if (parentId) {
-    const parent = doc.nodes[parentId];
-    if (!parent || !isContainer(parent)) return doc;
-    const siblings = parent.children;
-    const from = siblings.indexOf(id);
-    if (from < 0) return doc;
-    let to: number;
-    switch (op) {
-      case 'front':
-        to = siblings.length - 1;
-        break;
-      case 'back':
-        to = 0;
-        break;
-      case 'forward':
-        to = from + 1;
-        break;
-      case 'backward':
-        to = from - 1;
-        break;
-    }
-    if (to === from || to < 0 || to >= siblings.length) return doc;
-    return moveChild(doc, parentId, id, to);
-  } else {
-    const siblings = doc.rootChildren;
-    const from = siblings.indexOf(id);
-    if (from < 0) return doc;
-    let to: number;
-    switch (op) {
-      case 'front':
-        to = siblings.length - 1;
-        break;
-      case 'back':
-        to = 0;
-        break;
-      case 'forward':
-        to = from + 1;
-        break;
-      case 'backward':
-        to = from - 1;
-        break;
-    }
-    if (to === from || to < 0 || to >= siblings.length) return doc;
-    return moveNode(doc, id, to);
-  }
-}
-
-/** Move a nested child within its parent's children array. Also updates `order` field. */
-export function moveChild(doc: Document, parentId: NodeId, id: NodeId, toIndex: number): Document {
-  const parent = doc.nodes[parentId];
-  if (!parent || !isContainer(parent)) return doc;
-  const from = parent.children.indexOf(id);
-  if (from < 0) return doc;
-  const newChildren = [...parent.children];
-  newChildren.splice(from, 1);
-  const clamped = Math.max(0, Math.min(toIndex, newChildren.length));
-  newChildren.splice(clamped, 0, id);
-  const node = doc.nodes[id];
-  if (!node) return doc;
-  const nodes = { ...doc.nodes };
-  const prev = clamped > 0 ? doc.nodes[newChildren[clamped - 1]!] : null;
-  const succ = clamped < newChildren.length - 1 ? doc.nodes[newChildren[clamped + 1]!] : null;
-  const newOrder = generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
-  nodes[id] = { ...node, order: newOrder } as SceneNode;
-  nodes[parentId] = { ...parent, children: newChildren } as SceneNode;
-  return { ...doc, nodes };
-}
-
-export function setSnapExcluded(doc: Document, id: NodeId, excluded: boolean): Document {
-  const n = doc.nodes[id];
-  if (!n) return doc;
-  return { ...doc, nodes: { ...doc.nodes, [id]: { ...n, snapExcluded: excluded } } };
-}
-
-export function setLayerColor(doc: Document, id: NodeId, color: LayerColor | null): Document {
-  const node = doc.nodes[id];
-  if (!node) return doc;
-  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, layerColor: color } } };
-}
-
-export function setBackgroundRemoval(
-  doc: Document,
-  id: NodeId,
-  state: import('./types').BackgroundRemovalState | undefined,
-): Document {
-  const node = doc.nodes[id];
-  if (!node) return doc;
-  // Supported on ShapeNode (shape with image fill) only
-  if (node.kind !== 'shape') return doc;
-  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, backgroundRemoval: state } } };
-}
-
-export function renameNode(doc: Document, id: NodeId, name: string): Document {
-  const node = doc.nodes[id];
-  if (!node) return doc;
-  return { ...doc, nodes: { ...doc.nodes, [id]: { ...node, name } } };
-}
-
-export function getById(doc: Document, id: NodeId): SceneNode | undefined {
-  return doc.nodes[id];
-}
-
-/** Convenience: list root nodes in paint order. */
-export function rootNodes(doc: Document): SceneNode[] {
-  return doc.rootChildren.map((id) => doc.nodes[id]).filter((n): n is SceneNode => Boolean(n));
-}
-
-/**
- * Reparent a node from its current parent to a new parent (or root).
- * Validates: newParent is a container, node is not its own ancestor.
- * Removes from old parent, inserts into new parent — all in one atomic op.
- *
- * If `localTransform` is provided, it replaces the node's transform in the
- * new position (used by the editor to preserve world position when the old
- * and new parents have different transforms). Otherwise the node's current
- * transform is kept verbatim (legacy behaviour that causes a world-position
- * jump when parents differ).
- */
-export function reparentNode(
-  doc: Document,
-  id: NodeId,
-  newParentId: NodeId | null,
-  toIndex: number,
-  localTransform?: Affine,
-): Document {
-  const node = doc.nodes[id];
-  if (!node) return doc;
-
-  // Validate new parent
-  if (newParentId) {
-    const newParent = doc.nodes[newParentId];
-    if (!newParent || !isContainer(newParent)) return doc;
-    // Reject only if newParentId is id's own descendant (would create a
-    // cycle). isAncestor(doc, parent, child) walks down from `child`
-    // looking for `parent`, so "is newParentId inside id's subtree" is
-    // isAncestor(doc, newParentId, id) — NOT isAncestor(doc, id,
-    // newParentId), which walks down from newParentId and trivially finds
-    // id whenever newParentId is simply id's current parent, rejecting
-    // every same-parent reorder (drag/keyboard) as a false cycle.
-    if (isAncestor(doc, newParentId, id)) return doc;
-  }
-
-  const nodes = { ...doc.nodes };
-
-  // Remove from old parent
-  const oldParentId = getParent(doc, id);
-  let rootChildren = [...doc.rootChildren];
-  if (oldParentId) {
-    const oldParent = nodes[oldParentId] as SceneNode | undefined;
-    if (oldParent && isContainer(oldParent)) {
-      const updated = {
-        ...oldParent,
-        children: oldParent.children.filter((c) => c !== id),
-      } as SceneNode;
-      if ('slots' in oldParent && oldParent.slots) {
-        const filteredSlots = Object.fromEntries(
-          Object.entries(oldParent.slots).filter(([_, v]) => v !== id),
-        );
-        (updated as FrameNode).slots =
-          Object.keys(filteredSlots).length > 0 ? filteredSlots : undefined;
-      }
-      nodes[oldParentId] = updated;
-    }
-  } else {
-    rootChildren = rootChildren.filter((x) => x !== id);
-  }
-
-  // Generate order key at the insertion position.
-  const generateOrder = (siblings: NodeId[], pos: number): string => {
-    const prev = pos > 0 ? doc.nodes[siblings[pos - 1]!] : null;
-    const succ = pos < siblings.length - 1 ? doc.nodes[siblings[pos + 1]!] : null;
-    return generateKeyBetween(prev?.order ?? null, succ?.order ?? null);
-  };
-
-  if (newParentId) {
-    const newParent = nodes[newParentId];
-    if (!newParent || !isContainer(newParent)) return { ...doc, rootChildren, nodes };
-    const children = [...newParent.children];
-    const clamped = Math.max(0, Math.min(toIndex, children.length));
-    children.splice(clamped, 0, id);
-    const newOrder = generateOrder(children, clamped);
-    nodes[newParentId] = { ...newParent, children } as SceneNode;
-    nodes[id] = {
-      ...node,
-      order: newOrder,
-      transform: (localTransform ?? node.transform) as Affine,
-    } as SceneNode;
-  } else {
-    const clamped = Math.max(0, Math.min(toIndex, rootChildren.length));
-    rootChildren.splice(clamped, 0, id);
-    const newOrder = generateOrder(rootChildren, clamped);
-    nodes[id] = {
-      ...node,
-      order: newOrder,
-      transform: (localTransform ?? node.transform) as Affine,
-    } as SceneNode;
-  }
-
-  const result = { ...doc, rootChildren, nodes };
-  devValidate(result);
-  return result;
-}
-
-function isAncestor(doc: Document, parent: NodeId, child: NodeId): boolean {
-  if (parent === child) return true;
-  const node = doc.nodes[child];
-  if (!node || !isContainer(node)) return false;
-  for (const c of node.children) {
-    if (isAncestor(doc, parent, c)) return true;
-  }
-  return false;
-}
-
-/**
- * Group a set of sibling nodes into a new GroupNode.
- * All nodes must share the same parent (or be root-level).
- */
-export function groupNodes(doc: Document, ids: NodeId[], groupNode: GroupNode): Document {
-  if (ids.length < 2) return doc;
-
-  const firstId = ids[0];
-  if (!firstId) return doc;
-  const first = doc.nodes[firstId];
-  if (!first) return doc;
-  const parentId: NodeId | null = getParent(doc, firstId);
-
-  for (let i = 1; i < ids.length; i++) {
-    const nid = ids[i];
-    if (!nid) return doc;
-    const n = doc.nodes[nid];
-    if (!n) return doc;
-    if (getParent(doc, nid) !== parentId) return doc;
-  }
-
-  const children = [...groupNode.children];
-  let d = addNode(doc, groupNode);
-
-  const parentIdNonNull = parentId as NodeId;
-  const sorted = [...ids].sort((a, b) => {
-    const idxA = parentId
-      ? d.nodes[parentIdNonNull] && isContainer(d.nodes[parentIdNonNull])
-        ? (d.nodes[parentIdNonNull] as ContainerNode).children.indexOf(a)
-        : -1
-      : d.rootChildren.indexOf(a);
-    const idxB = parentId
-      ? d.nodes[parentIdNonNull] && isContainer(d.nodes[parentIdNonNull])
-        ? (d.nodes[parentIdNonNull] as ContainerNode).children.indexOf(b)
-        : -1
-      : d.rootChildren.indexOf(b);
-    return idxA - idxB;
-  });
-
-  // Capture where the group should land in its real parent's children
-  // before the reparenting loop below moves the original members out of
-  // that array (after which their old position there is no longer
-  // determinable).
-  let groupInsertIdx = -1;
-  if (parentId) {
-    const parentNode = d.nodes[parentIdNonNull];
-    const firstSorted = sorted[0];
-    if (firstSorted && parentNode && isContainer(parentNode)) {
-      groupInsertIdx = parentNode.children.indexOf(firstSorted);
-    }
-  }
-
-  for (const sid of sorted) {
-    d = reparentNode(d, sid, groupNode.id, children.length);
-    children.push(sid);
-  }
-
-  if (parentId === null) {
-    const firstSorted = sorted[0];
-    if (!firstSorted) return d;
-    const firstIdxInRoot = d.rootChildren.indexOf(firstSorted);
-    if (firstIdxInRoot >= 0) {
-      d = moveNode(d, groupNode.id, Math.min(firstIdxInRoot, d.rootChildren.length - 1));
-    }
-  } else {
-    // addNode() always appends new nodes to doc.rootChildren, regardless
-    // of where the grouped members actually lived — the group must be
-    // reparented into its real parent, or it's left orphaned in
-    // rootChildren (invisible in the page it was created on).
-    d = reparentNode(d, groupNode.id, parentId, groupInsertIdx >= 0 ? groupInsertIdx : 0);
-  }
-
-  const groupInDoc = d.nodes[groupNode.id];
-  if (!groupInDoc) {
-    devValidate(d);
-    return d;
-  }
-  d = {
-    ...d,
-    nodes: { ...d.nodes, [groupNode.id]: { ...groupInDoc, children } as GroupNode },
-  };
-
-  devValidate(d);
-  return d;
-}
-
-/**
- * Ungroup a GroupNode: move all children to the group's parent and remove the group.
- */
-export function ungroupNode(doc: Document, id: NodeId): Document {
-  const node = doc.nodes[id];
-  if (node?.kind !== 'group') return doc;
-  const group = node as GroupNode;
-  const parentId: NodeId | null = getParent(doc, id);
-  const children = [...group.children];
-
-  let d = doc;
-  for (let i = 0; i < children.length; i++) {
-    const childId = children[i];
-    if (!childId) continue;
-    const toIndex = parentId
-      ? (d.nodes[parentId] && isContainer(d.nodes[parentId])
-          ? (d.nodes[parentId] as ContainerNode).children.indexOf(id)
-          : -1) + i
-      : d.rootChildren.indexOf(id) + i;
-    d = reparentNode(d, childId, parentId, toIndex);
-  }
-
-  d = removeNode(d, id);
-  devValidate(d);
-  return d;
-}
-
-/**
- * Detach a component instance: clear its componentId so it becomes a plain frame.
- */
-export function detachInstance(doc: Document, id: NodeId): Document {
-  const node = doc.nodes[id];
-  if (node?.kind !== 'frame') return doc;
-  const frame = node as FrameNode;
-  if (!frame.componentId) return doc;
-  return {
-    ...doc,
-    nodes: {
-      ...doc.nodes,
-      [id]: { ...frame, componentId: undefined } as FrameNode,
-    },
-  };
-}
-
-/**
- * Swap a component instance to a different component definition.
- * Preserves the instance's transform/position but resets slot fills and
- * inherited properties to the new master's defaults.
- */
-export function swapInstance(doc: Document, id: NodeId, newComponentId: NodeId): Document {
-  const node = doc.nodes[id];
-  if (node?.kind !== 'frame') return doc;
-  const frame = node as FrameNode;
-  const newComponent = doc.components[newComponentId];
-  if (!newComponent) return doc;
-  const master = doc.nodes[newComponent.masterRootId];
-  if (master?.kind !== 'frame') return doc;
-  const masterFrame = master as FrameNode;
-
-  // Remove old instance children from document
-  let workingDoc = doc;
-  const oldChildIds = [...frame.children];
-  for (const childId of oldChildIds) {
-    workingDoc = removeNode(workingDoc, childId);
-  }
-
-  // Clone new master children into instance
-  const newChildren: NodeId[] = [];
-  const newNodes: Record<NodeId, SceneNode> = {};
-  const slots: Record<string, NodeId> = {};
-
-  for (const childId of masterFrame.children) {
-    const slotDef = newComponent.slots.find((s) => s.defaultContentId === childId);
-    const cloneResult = deepCloneSubtree(workingDoc.nodes, workingDoc.nextId, childId);
-    workingDoc = { ...workingDoc, nextId: cloneResult.nextId };
-    Object.assign(newNodes, cloneResult.nodes);
-    newChildren.push(cloneResult.rootId);
-    if (slotDef) {
-      slots[slotDef.id] = cloneResult.rootId;
-    }
-  }
-
-  return {
-    ...workingDoc,
-    nodes: {
-      ...workingDoc.nodes,
-      ...newNodes,
-      [id]: {
-        ...frame,
-        componentId: newComponentId,
-        children: newChildren,
-        fill: masterFrame.fill,
-        fills: masterFrame.fills,
-        strokes: masterFrame.strokes,
-        effects: masterFrame.effects,
-        opacity: masterFrame.opacity,
-        blendMode: masterFrame.blendMode,
-        rotation: masterFrame.rotation,
-        layoutStyle: masterFrame.layoutStyle,
-        w: masterFrame.w,
-        h: masterFrame.h,
-        clipContent: masterFrame.clipContent,
-        slots: Object.keys(slots).length > 0 ? slots : undefined,
-        syncBaseline: captureSyncBaseline(masterFrame),
-        variant: undefined,
-        propertyOverrides: undefined,
-      } as FrameNode,
-    },
-  };
-}
-
-/**
- * Reset overrides on a component instance: restore inherited properties from
- * the master definition. Preserves the instance's transform, name, and slot
- * fills (those are intentional local content, not overrides).
- */
-export function resetInstanceOverrides(doc: Document, id: NodeId): Document {
-  const node = doc.nodes[id];
-  if (node?.kind !== 'frame') return doc;
-  const frame = node as FrameNode;
-  if (!frame.componentId) return doc;
-  const component = doc.components[frame.componentId];
-  if (!component) return doc;
-  const master = doc.nodes[component.masterRootId];
-  if (master?.kind !== 'frame') return doc;
-  const masterFrame = master as FrameNode;
-  return {
-    ...doc,
-    nodes: {
-      ...doc.nodes,
-      [id]: {
-        ...frame,
-        fill: masterFrame.fill,
-        fills: masterFrame.fills,
-        strokes: masterFrame.strokes,
-        effects: masterFrame.effects,
-        opacity: masterFrame.opacity,
-        blendMode: masterFrame.blendMode,
-        layoutStyle: masterFrame.layoutStyle,
-      } as FrameNode,
-    },
-  };
-}
-
-/**
- * Detect which properties of an instance differ from its master (overrides).
- * Returns a list of property names that have been locally overridden.
- */
-export function instanceOverrides(doc: Document, id: NodeId): string[] {
-  return detectOverrides(doc, id);
-}
-
-// ── Page operations ──────────────────────────────────────────────────────────
-
-/** Count existing pages to generate the next page name. */
-function nextPageName(doc: Document): string {
-  const count = doc.pages?.length ?? 0;
-  return `Page ${count + 1}`;
-}
-
-/**
- * Add a new page to the document.
- * Creates a contentRoot group node for page content.
- */
-export function addPage(
-  doc: Document,
-  opts?: { width?: number; height?: number; name?: string },
-): Document {
-  const { id: contentRootId, doc: d1 } = nextNodeId(doc);
-  const contentRoot = makeGroupNode(contentRootId, {
-    name: `${opts?.name ?? nextPageName(doc)} content`,
-    children: [],
-  });
-
-  const existingPages = doc.pages ?? [];
-  const lastOrder =
-    existingPages.length > 0 ? existingPages[existingPages.length - 1]!.order : null;
-
-  const page: Page = {
-    id: cryptoId(),
-    name: opts?.name ?? nextPageName(doc),
-    order: generateKeyBetween(lastOrder, null),
-    width: opts?.width ?? 1920,
-    height: opts?.height ?? 1080,
-    backgrounds: [],
-    contentRoot: contentRootId,
-  };
-
-  // Inherit print config from document if page-level not set
-  if (doc.bleed) page.bleed = doc.bleed;
-  if (doc.safeArea) page.safeArea = doc.safeArea;
-  if (doc.slug) page.slug = doc.slug;
-
-  return {
-    ...d1,
-    pages: [...(d1.pages ?? []), page],
-    rootChildren: [...d1.rootChildren, contentRootId],
-    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
-  };
-}
-
-/**
- * Remove a page from the document.
- * Removes the contentRoot node (and all descendants) and any background nodes.
- * Guards against removing the last page.
- */
-export function removePage(doc: Document, pageId: NodeId): Document {
-  if (!doc.pages || doc.pages.length <= 1) return doc;
-  const idx = doc.pages.findIndex((p) => p.id === pageId);
-  if (idx < 0) return doc;
-
-  const page = doc.pages[idx]!;
-  const nextPages = doc.pages.filter((p) => p.id !== pageId);
-  const activePageStillExists =
-    doc.activePageId !== undefined && nextPages.some((p) => p.id === doc.activePageId);
-  const fallbackPage = nextPages[Math.min(idx, nextPages.length - 1)] ?? nextPages[0];
-  let d: Document = {
-    ...doc,
-    pages: nextPages,
-    activePageId: activePageStillExists ? doc.activePageId : fallbackPage?.id,
-  };
-
-  // Remove background nodes
-  for (const bgId of page.backgrounds) {
-    d = removeNode(d, bgId);
-  }
-
-  // Remove contentRoot and all its descendants
-  d = removeNode(d, page.contentRoot);
-  devValidate(d);
-  return d;
-}
-
-/**
- * Reorder pages to match the given array of page IDs.
- * Validates that all page IDs exist and the input length matches.
- */
-export function reorderPages(doc: Document, pageIds: NodeId[]): Document {
-  if (!doc.pages) return doc;
-  if (pageIds.length !== doc.pages.length) return doc;
-
-  // Validate all IDs exist
-  const existingIds = new Set(doc.pages.map((p) => p.id));
-  for (const pid of pageIds) {
-    if (!existingIds.has(pid)) return doc;
-  }
-
-  // Build reordered pages
-  const idToPage = new Map(doc.pages.map((p) => [p.id, p]));
-  const reordered = pageIds.map((pid) => idToPage.get(pid)!);
-
-  return { ...doc, pages: reordered };
-}
-
-/**
- * Deep-copy a page and all its content nodes.
- * Assigns new IDs to all duplicated nodes.
- * Auto-names the copy ("Page X Copy").
- */
-export function duplicatePage(doc: Document, pageId: NodeId): Document {
-  if (!doc.pages) return doc;
-  const sourcePage = doc.pages.find((p) => p.id === pageId);
-  if (!sourcePage) return doc;
-
-  // Clone the contentRoot subtree with new IDs
-  let d = doc;
-  const idMap = new Map<NodeId, NodeId>();
-
-  function cloneNode(nid: NodeId): NodeId | null {
-    const node = d.nodes[nid];
-    if (!node) return null;
-    if (idMap.has(nid)) return idMap.get(nid)!;
-
-    const { id: newId, doc: d2 } = nextNodeId(d);
-    d = d2;
-    idMap.set(nid, newId);
-
-    // Recursively clone children if this is a container
-    let cloned: SceneNode;
-    if (isContainer(node)) {
-      const clonedChildren = node.children
-        .map((c) => cloneNode(c))
-        .filter((c): c is NodeId => c !== null);
-      cloned = { ...node, id: newId, children: clonedChildren } as SceneNode;
-    } else {
-      cloned = { ...node, id: newId } as SceneNode;
-    }
-
-    d = { ...d, nodes: { ...d.nodes, [newId]: cloned } };
-    return newId;
-  }
-
-  const newContentRootId = cloneNode(sourcePage.contentRoot);
-  if (!newContentRootId) return doc;
-
-  // Clone background nodes
-  const newBackgrounds: NodeId[] = [];
-  for (const bgId of sourcePage.backgrounds) {
-    const newBgId = cloneNode(bgId);
-    if (newBgId) newBackgrounds.push(newBgId);
-  }
-
-  // Recursion cannot safely remap a container reference until all of its
-  // descendants have IDs. Repair internal references in one deterministic
-  // pass once the complete old→new map is available.
-  for (const [oldId, newId] of idMap) {
-    const oldNode = doc.nodes[oldId];
-    const clonedNode = d.nodes[newId];
-    if (!oldNode || !clonedNode || !isContainer(oldNode) || !isContainer(clonedNode)) continue;
-
-    let updated: SceneNode = clonedNode;
-    if (oldNode.mask?.sourceNodeId) {
-      updated = {
-        ...updated,
-        mask: {
-          ...oldNode.mask,
-          sourceNodeId: idMap.get(oldNode.mask.sourceNodeId) ?? oldNode.mask.sourceNodeId,
-        },
-      } as SceneNode;
-    }
-    if ('slots' in oldNode && oldNode.slots && 'slots' in updated) {
-      const slots = Object.fromEntries(
-        Object.entries(oldNode.slots)
-          .map(([slotId, childId]) => [slotId, idMap.get(childId)] as const)
-          .filter((entry): entry is readonly [string, NodeId] => Boolean(entry[1])),
-      );
-      updated = { ...updated, slots: Object.keys(slots).length > 0 ? slots : undefined };
-    }
-    d = { ...d, nodes: { ...d.nodes, [newId]: updated } };
-  }
-
-  const copyName = `${sourcePage.name} Copy`;
-
-  const existingPages = d.pages ?? [];
-  const lastOrder =
-    existingPages.length > 0 ? existingPages[existingPages.length - 1]!.order : null;
-
-  const newPage: Page = {
-    id: cryptoId(),
-    name: copyName,
-    order: generateKeyBetween(lastOrder, null),
-    width: sourcePage.width,
-    height: sourcePage.height,
-    bleed: sourcePage.bleed,
-    safeArea: sourcePage.safeArea,
-    slug: sourcePage.slug,
-    backgrounds: newBackgrounds,
-    contentRoot: newContentRootId,
-  };
-
-  return {
-    ...d,
-    pages: [...(d.pages ?? []), newPage],
-    rootChildren: [...d.rootChildren, newContentRootId],
-  };
-}
-
-/**
- * Update page dimensions without scaling content.
- */
-export function setPageSize(
-  doc: Document,
-  pageId: NodeId,
-  width: number,
-  height: number,
-): Document {
-  if (!doc.pages) return doc;
-  const idx = doc.pages.findIndex((p) => p.id === pageId);
-  if (idx < 0) return doc;
-
-  const updatedPages = doc.pages.map((p, i) => (i === idx ? { ...p, width, height } : p));
-
-  return { ...doc, pages: updatedPages };
-}
-
-/**
- * Update page dimensions and scale all content node transforms proportionally.
- * Computes the scale factor from old to new dimensions and multiplies each
- * node's affine transform in the page's content tree by that factor.
- */
-export function setPageSizeWithContentScale(
-  doc: Document,
-  pageId: NodeId,
-  width: number,
-  height: number,
-): Document {
-  if (!doc.pages) return doc;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex < 0) return doc;
-
-  const page = doc.pages[pageIndex]!;
-  if (page.width === width && page.height === height) return doc;
-
-  const scaleX = width / page.width;
-  const scaleY = height / page.height;
-
-  // Walk all descendant nodes of the page's contentRoot and scale their transforms
-  const contentRoot = doc.nodes[page.contentRoot] as GroupNode | undefined;
-  if (!contentRoot)
-    return {
-      ...doc,
-      pages: doc.pages.map((p, i) => (i === pageIndex ? { ...p, width, height } : p)),
-    };
-
-  const nodes = { ...doc.nodes };
-  const walk = (nodeId: NodeId) => {
-    const node = nodes[nodeId];
-    if (!node) return;
-    const t = (node as SceneNode & { transform?: number[] }).transform;
-    if (t && t.length >= 6) {
-      nodes[nodeId] = {
-        ...node,
-        transform: [
-          t[0]! * scaleX,
-          t[1]! * scaleX,
-          t[2]! * scaleY,
-          t[3]! * scaleY,
-          t[4]! * scaleX,
-          t[5]! * scaleY,
-        ] as unknown as Affine,
-      } as SceneNode;
-    }
-    if (isContainer(node)) {
-      for (const childId of node.children) {
-        walk(childId);
-      }
-    }
-  };
-
-  walk(page.contentRoot);
-
-  const pages = doc.pages.map((p, i) => (i === pageIndex ? { ...p, width, height } : p));
-
-  return { ...doc, nodes, pages };
-}
-
-/**
- * Migrate a flat (pre-page) document to the page model.
- * Wraps existing rootChildren into a single default page's contentRoot.
- * If the document already has pages, returns as-is.
- * Uses A4 dimensions (210×297mm) if the document is print-oriented (dpi > 0),
- * or 1920×1080px for screen documents.
- */
-export function migrateToPages(doc: Document): Document {
-  if (doc.pages && doc.pages.length > 0) return doc;
-
-  const isPrint = (doc.dpi ?? 0) > 0;
-  const pageWidth = isPrint && doc.physicalWidth ? doc.physicalWidth : 1920;
-  const pageHeight = isPrint && doc.physicalHeight ? doc.physicalHeight : 1080;
-
-  const { id: contentRootId, doc: d1 } = nextNodeId(doc);
-  const contentRoot = makeGroupNode(contentRootId, {
-    name: 'Page 1 content',
-    children: [...doc.rootChildren],
-  });
-
-  const page: Page = {
-    id: cryptoId(),
-    name: 'Page 1',
-    order: generateKeyBetween(null, null),
-    width: pageWidth,
-    height: pageHeight,
-    backgrounds: [],
-    contentRoot: contentRootId,
-  };
-
-  // Inherit print config
-  if (d1.bleed) page.bleed = d1.bleed;
-  if (d1.safeArea) page.safeArea = d1.safeArea;
-  if (d1.slug) page.slug = d1.slug;
-
-  return {
-    ...d1,
-    activePageId: page.id,
-    pages: [page],
-    rootChildren: [contentRootId],
-    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
-  };
-}
-
 // ── Variable operations ──────────────────────────────────────────────────────
 
 /**
@@ -1903,16 +989,13 @@ export function resolveGuidePageId(doc: Document): string | undefined {
 }
 
 /** Guides visible on the given page (legacy guides without pageId match any page). */
-export function getGuidesForPage(
-  doc: Document,
-  pageId: string | null | undefined,
-): import('./types').Guide[] {
+export function getGuidesForPage(doc: Document, pageId: string | null | undefined): Guide[] {
   const all = doc.guides ?? [];
   if (!pageId) return all.filter((g) => !g.pageId);
   return all.filter((g) => !g.pageId || g.pageId === pageId);
 }
 
-function guideOnPage(guide: import('./types').Guide, pageId: string | undefined): boolean {
+function guideOnPage(guide: Guide, pageId: string | undefined): boolean {
   if (!pageId) return !guide.pageId;
   return !guide.pageId || guide.pageId === pageId;
 }
@@ -1928,7 +1011,7 @@ export function addGuide(
   position: number,
   options: AddGuideOptions = {},
 ): Document {
-  const guide: import('./types').Guide = {
+  const guide: Guide = {
     id: options.id ?? createGuideId(),
     axis,
     position,
@@ -2003,7 +1086,7 @@ export function clearGuides(doc: Document, pageId?: string): Document {
 /** Paste guides onto a page with new ids and an optional position offset. */
 export function pasteGuides(
   doc: Document,
-  guides: import('./types').Guide[],
+  guides: Guide[],
   pageId: string | undefined,
   newId: () => string,
   offset = 10,
@@ -2018,27 +1101,6 @@ export function pasteGuides(
     });
   }
   return result;
-}
-
-// ── Active page & global children operations ───────────────────────────────
-
-/** Set the active page. */
-export function setActivePage(doc: Document, pageId: NodeId): Document {
-  if (!doc.pages?.some((p) => p.id === pageId)) return doc;
-  return { ...doc, activePageId: pageId };
-}
-
-/** Add a node to global children (visible on all pages). */
-export function addGlobalChild(doc: Document, nodeId: NodeId): Document {
-  const current = doc.globalChildren ?? [];
-  if (current.includes(nodeId)) return doc;
-  return { ...doc, globalChildren: [...current, nodeId] };
-}
-
-/** Remove a node from global children. */
-export function removeGlobalChild(doc: Document, nodeId: NodeId): Document {
-  const current = doc.globalChildren ?? [];
-  return { ...doc, globalChildren: current.filter((id) => id !== nodeId) };
 }
 
 // ── Document validation ──────────────────────────────────────────────────────
@@ -2193,7 +1255,7 @@ export function validateDocument(doc: Document): DocValidationResult {
 }
 
 /** Development-mode validation guard. No-op in production builds. */
-function devValidate(doc: Document): void {
+export function devValidate(doc: Document): void {
   if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
     const result = validateDocument(doc);
     if (!result.valid) {
@@ -2201,667 +1263,4 @@ function devValidate(doc: Document): void {
       console.warn('[Strata] Document validation failed:', result.errors);
     }
   }
-}
-
-/** Get all nodes visible on the active page (page content + global children). */
-export function activePageNodes(doc: Document): NodeId[] {
-  const globals = doc.globalChildren ?? [];
-  if (!doc.activePageId || !doc.pages || doc.pages.length === 0) {
-    return [...globals, ...doc.rootChildren];
-  }
-  const page = doc.pages?.find((p) => p.id === doc.activePageId);
-  if (!page) return [...globals, ...doc.rootChildren];
-  const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
-  const pageChildren = contentRootNode?.children ?? [];
-  return [...globals, ...pageChildren];
-}
-
-// ── Master page CRUD ───────────────────────────────────────────────────────
-
-export interface CreateMasterOptions {
-  name: string;
-  width: number;
-  height: number;
-  appliesTo?: MasterAppliesTo;
-  description?: string;
-}
-
-/**
- * Create a new master page. A master is a reusable template that can be
- * applied to one or more pages. Masters are stored in `doc.masters` keyed
- * by their ID and their contentRoot is added to `rootChildren` so it
- * participates in the scene render walk.
- */
-export function createMaster(doc: Document, opts: CreateMasterOptions): Document {
-  const masterId = cryptoId();
-  const { id: contentRootId, doc: d1 } = nextNodeId(doc);
-  const contentRoot = makeGroupNode(contentRootId, {
-    name: `${opts.name} content`,
-    children: [],
-  });
-
-  const master: MasterPage = {
-    id: masterId,
-    name: opts.name,
-    width: opts.width,
-    height: opts.height,
-    contentRoot: contentRootId,
-    appliesTo: opts.appliesTo ?? 'all',
-    description: opts.description,
-  };
-
-  return {
-    ...d1,
-    masters: {
-      ...(d1.masters ?? {}),
-      [masterId]: master,
-    },
-    rootChildren: [...d1.rootChildren, contentRootId],
-    nodes: { ...d1.nodes, [contentRootId]: contentRoot },
-  };
-}
-
-/**
- * Delete a master page. Removes the master's contentRoot and all descendants,
- * clears assignments from any page using this master, and removes overrides.
- */
-export function deleteMaster(doc: Document, masterId: NodeId): Document {
-  const masters = doc.masters ?? {};
-  const master = masters[masterId];
-  if (!master) return doc;
-
-  const updatedMasters = { ...masters };
-  delete updatedMasters[masterId];
-  const remainingKeys = Object.keys(updatedMasters);
-
-  let d: Document = {
-    ...doc,
-    masters: remainingKeys.length > 0 ? updatedMasters : undefined,
-  };
-
-  // Remove contentRoot and all descendants
-  d = removeNode(d, master.contentRoot);
-
-  // Clear assignments from pages
-  if (d.pages) {
-    d = {
-      ...d,
-      pages: d.pages.map((p) =>
-        p.masterPageId === masterId
-          ? { ...p, masterPageId: undefined, masterOverrides: undefined }
-          : p,
-      ),
-    };
-  }
-
-  return d;
-}
-
-/**
- * Rename a master page. No-ops on empty or whitespace-only names.
- */
-export function renameMaster(doc: Document, masterId: NodeId, name: string): Document {
-  if (!name.trim()) return doc;
-  const masters = doc.masters ?? {};
-  const master = masters[masterId];
-  if (!master) return doc;
-
-  return {
-    ...doc,
-    masters: {
-      ...masters,
-      [masterId]: { ...master, name },
-    },
-  };
-}
-
-/**
- * Duplicate a master page with a deep copy of its contentRoot subtree.
- * The duplicate gets new IDs for itself and all content nodes.
- */
-export function duplicateMaster(doc: Document, masterId: NodeId): Document {
-  const masters = doc.masters ?? {};
-  const master = masters[masterId];
-  if (!master) return doc;
-
-  const newId = cryptoId();
-  const cloneResult = deepCloneSubtree(doc.nodes, doc.nextId, master.contentRoot);
-
-  // Merge cloned nodes into doc
-  const d: Document = {
-    ...doc,
-    nodes: { ...doc.nodes, ...cloneResult.nodes },
-    rootChildren: [...doc.rootChildren, cloneResult.rootId],
-  };
-
-  const duplicate: MasterPage = {
-    ...master,
-    id: newId,
-    name: `${master.name} Copy`,
-    contentRoot: cloneResult.rootId,
-  };
-
-  return {
-    ...d,
-    masters: {
-      ...(d.masters ?? {}),
-      [newId]: duplicate,
-    },
-  };
-}
-
-/**
- * Reorder masters by the given array of master IDs. No-ops if the array
- * length doesn't match or any ID is not a master.
- */
-export function reorderMasters(doc: Document, masterIds: NodeId[]): Document {
-  const masters = doc.masters ?? {};
-  const entries = Object.entries(masters);
-  if (masterIds.length !== entries.length) return doc;
-  if (masterIds.some((id) => !masters[id])) return doc;
-
-  const reordered: Record<NodeId, MasterPage> = {};
-  for (const id of masterIds) {
-    reordered[id] = masters[id]!;
-  }
-
-  return {
-    ...doc,
-    masters: reordered,
-  };
-}
-
-// ── Master assignment ─────────────────────────────────────────────────────
-
-/**
- * Assign a master page to a page. When masterId is null, clears any existing
- * assignment and overrides. No-ops for unknown master or page IDs.
- */
-export function assignMasterToPage(
-  doc: Document,
-  pageId: NodeId,
-  masterId: NodeId | null,
-): Document {
-  if (!doc.pages) return doc;
-  if (masterId !== null) {
-    const masters = doc.masters ?? {};
-    if (!masters[masterId]) return doc;
-  }
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return doc;
-
-  const pages = [...doc.pages];
-  const page = pages[pageIndex]!;
-
-  if (masterId === null) {
-    pages[pageIndex] = { ...page, masterPageId: undefined, masterOverrides: undefined };
-  } else {
-    pages[pageIndex] = { ...page, masterPageId: masterId };
-  }
-
-  return { ...doc, pages };
-}
-
-/**
- * Set the appliesTo field of a master page. No-ops for unknown master ID.
- */
-export function setMasterAppliesTo(
-  doc: Document,
-  masterId: NodeId,
-  appliesTo: MasterAppliesTo,
-): Document {
-  const masters = doc.masters ?? {};
-  const master = masters[masterId];
-  if (!master) return doc;
-
-  return {
-    ...doc,
-    masters: {
-      ...masters,
-      [masterId]: { ...master, appliesTo },
-    },
-  };
-}
-
-// ── Master overrides ──────────────────────────────────────────────────────
-
-/**
- * Add an override for a master node on a page. When type is 'modified',
- * a localNodeId must be provided. No-ops when the page doesn't exist or
- * when modified is used without a localNodeId.
- */
-export function addMasterOverride(
-  doc: Document,
-  pageId: NodeId,
-  masterNodeId: NodeId,
-  type: MasterOverrideType,
-  localNodeId?: NodeId,
-): Document {
-  if (!doc.pages) return doc;
-  if (type === 'modified' && !localNodeId) return doc;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return doc;
-
-  const pages = [...doc.pages];
-  const page = pages[pageIndex]!;
-  const override: MasterOverride = {
-    masterNodeId,
-    type,
-    ...(localNodeId ? { localNodeId } : {}),
-  };
-
-  pages[pageIndex] = {
-    ...page,
-    masterOverrides: {
-      ...(page.masterOverrides ?? {}),
-      [masterNodeId]: override,
-    },
-  };
-
-  return { ...doc, pages };
-}
-
-/**
- * Remove a specific master override from a page. Cleans up the masterOverrides
- * map to undefined when empty.
- */
-export function removeMasterOverride(
-  doc: Document,
-  pageId: NodeId,
-  masterNodeId: NodeId,
-): Document {
-  if (!doc.pages) return doc;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return doc;
-
-  const page = doc.pages[pageIndex]!;
-  const overrides = page.masterOverrides ?? {};
-  if (!overrides[masterNodeId]) {
-    // No override to remove — return doc unchanged only if overrides was already empty
-    if (Object.keys(overrides).length === 0 && !page.masterOverrides) return doc;
-    return { ...doc, pages: doc.pages };
-  }
-
-  const pages = [...doc.pages];
-  const remaining = { ...overrides };
-  delete remaining[masterNodeId];
-
-  pages[pageIndex] = {
-    ...page,
-    masterOverrides: Object.keys(remaining).length > 0 ? remaining : undefined,
-  };
-
-  return { ...doc, pages };
-}
-
-/**
- * Clear all master overrides for a page.
- */
-export function resetMasterOverrides(doc: Document, pageId: NodeId): Document {
-  if (!doc.pages) return doc;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return doc;
-
-  const pages = [...doc.pages];
-  pages[pageIndex] = { ...pages[pageIndex]!, masterOverrides: undefined };
-
-  return { ...doc, pages };
-}
-
-/**
- * Detach a single override, restoring the master version. Removes the
- * override entry. If a localNodeId was used for a 'modified' override,
- * the local copy node is not removed (caller must remove it separately).
- */
-export function detachMasterOverride(
-  doc: Document,
-  pageId: NodeId,
-  masterNodeId: NodeId,
-): Document {
-  return removeMasterOverride(doc, pageId, masterNodeId);
-}
-
-// ── Editorial spreads ─────────────────────────────────────────────────────
-
-/**
- * Rebuild spread assignments based on facing pages configuration.
- * Assigns each page to a spread: single-page spreads when facing pages
- * are disabled, or two-page spreads with proper left/right ordering
- * when enabled.
- */
-export function rebuildSpreads(doc: Document, facingPages?: FacingPagesConfig): Document {
-  if (!doc.pages) return doc;
-
-  const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
-  const spreads: Spread[] = [];
-
-  if (!config.enabled) {
-    // Single-page spreads
-    for (const page of doc.pages) {
-      spreads.push({
-        id: cryptoId(),
-        pageIds: [page.id],
-      });
-    }
-  } else {
-    // Facing-page spreads
-    let i = 0;
-    const startOnRight = config.startOnRight ?? true;
-
-    // If first page should be on the right, put it alone
-    if (startOnRight && doc.pages.length > 0) {
-      spreads.push({
-        id: cryptoId(),
-        pageIds: [doc.pages[0]!.id],
-      });
-      i = 1;
-    }
-
-    // Process remaining pages in pairs
-    while (i < doc.pages.length) {
-      if (i + 1 < doc.pages.length) {
-        spreads.push({
-          id: cryptoId(),
-          pageIds: [doc.pages[i]!.id, doc.pages[i + 1]!.id],
-        });
-        i += 2;
-      } else {
-        // Single page at end
-        spreads.push({
-          id: cryptoId(),
-          pageIds: [doc.pages[i]!.id],
-        });
-        i += 1;
-      }
-    }
-  }
-
-  return { ...doc, spreads, facingPages: config };
-}
-
-/**
- * Get the spread containing a given page.
- */
-export function getSpreadForPage(doc: Document, pageId: NodeId): Spread | undefined {
-  if (!doc.spreads) return undefined;
-  return doc.spreads.find((s) => s.pageIds.includes(pageId));
-}
-
-/**
- * Determine whether a page is left, right, or neither within facing-page spreads.
- * When facing pages are disabled, always returns 'none'.
- */
-export function getPageSide(
-  doc: Document,
-  pageId: NodeId,
-  facingPages?: FacingPagesConfig,
-): PageSide {
-  const config = facingPages ?? doc.facingPages ?? { enabled: false, startOnRight: true };
-  if (!config.enabled) return 'none';
-
-  const spreads = doc.spreads;
-  if (!spreads) return 'none';
-
-  for (const spread of spreads) {
-    const idx = spread.pageIds.indexOf(pageId);
-    if (idx === -1) continue;
-    if (spread.pageIds.length === 1) {
-      // Single-page spread: side depends on whether first page should be right
-      return config.startOnRight ? 'right' : 'left';
-    }
-    if (idx === 0) return 'left';
-    if (idx === 1) return 'right';
-  }
-
-  return 'none';
-}
-
-/**
- * Check whether a page is on the left side (helper for UI).
- */
-export function isPageOnLeftSide(
-  doc: Document,
-  pageId: NodeId,
-  facingPages?: FacingPagesConfig,
-): boolean {
-  return getPageSide(doc, pageId, facingPages) === 'left';
-}
-
-// ── Page numbering ────────────────────────────────────────────────────────
-
-/**
- * Get the 1-indexed page number for a page, respecting section numbering.
- */
-export function getPageNumber(doc: Document, pageId: NodeId): number {
-  if (!doc.pages) return 0;
-
-  const pageIndex = doc.pages.findIndex((p) => p.id === pageId);
-  if (pageIndex === -1) return 0;
-
-  // Check for section-based numbering
-  const sections = doc.sections ?? [];
-  if (sections.length === 0) return pageIndex + 1;
-
-  // Find which section this page belongs to
-  let owningSection: PageSection | undefined;
-  let sectionStartIndex = 0;
-
-  for (const section of sections) {
-    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
-    if (sectionStartPageIdx !== -1 && sectionStartPageIdx <= pageIndex) {
-      owningSection = section;
-      sectionStartIndex = sectionStartPageIdx;
-    }
-  }
-
-  if (owningSection) {
-    const offset = pageIndex - sectionStartIndex;
-    return owningSection.startNumber + offset;
-  }
-
-  return pageIndex + 1;
-}
-
-/** Roman numeral mapping tables. */
-const ROMAN_NUMERALS: Array<[number, string]> = [
-  [1000, 'M'],
-  [900, 'CM'],
-  [500, 'D'],
-  [400, 'CD'],
-  [100, 'C'],
-  [90, 'XC'],
-  [50, 'L'],
-  [40, 'XL'],
-  [10, 'X'],
-  [9, 'IX'],
-  [5, 'V'],
-  [4, 'IV'],
-  [1, 'I'],
-];
-
-function toRoman(num: number): string {
-  if (num <= 0) return '';
-  let result = '';
-  let n = num;
-  for (const [value, numeral] of ROMAN_NUMERALS) {
-    while (n >= value) {
-      result += numeral;
-      n -= value;
-    }
-  }
-  return result;
-}
-
-/**
- * Get the formatted page number string (e.g. "1", "iii", "A-5") for a page.
- */
-export function getFormattedPageNumber(doc: Document, pageId: NodeId): string {
-  const num = getPageNumber(doc, pageId);
-
-  if (num === 0) return '';
-
-  if (!doc.pages) return String(num);
-
-  const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return '';
-
-  // Find the section for this page's numbering style
-  const sections = doc.sections ?? [];
-  let style: PageNumberStyle = 'decimal';
-  let prefix = '';
-
-  for (const section of sections) {
-    const sectionStartPageIdx = doc.pages.findIndex((p) => p.order === section.startPageOrder);
-    if (sectionStartPageIdx !== -1) {
-      const pageIdx = doc.pages.indexOf(page);
-      if (pageIdx >= sectionStartPageIdx) {
-        if (!section.showPageNumber) return '';
-        style = section.numberStyle;
-        prefix = section.prefix ?? '';
-      }
-    }
-  }
-
-  let formatted: string;
-  switch (style) {
-    case 'upperRoman':
-      formatted = toRoman(num);
-      break;
-    case 'lowerRoman':
-      formatted = toRoman(num).toLowerCase();
-      break;
-    case 'upperAlpha':
-      formatted = numToAlpha(num).toUpperCase();
-      break;
-    case 'lowerAlpha':
-      formatted = numToAlpha(num);
-      break;
-    default:
-      formatted = String(num);
-  }
-
-  return prefix ? `${prefix}${formatted}` : formatted;
-}
-
-/** Convert a number to an alphabetic string (1=a, 2=b, ..., 27=aa). */
-function numToAlpha(num: number): string {
-  let result = '';
-  let n = num;
-  while (n > 0) {
-    n -= 1;
-    result = String.fromCharCode(97 + (n % 26)) + result;
-    n = Math.floor(n / 26);
-  }
-  return result;
-}
-
-// ── Toggle facing pages ───────────────────────────────────────────────────
-
-/**
- * Enable or disable facing pages. When toggling on, rebuilds spreads.
- */
-export function toggleFacingPages(doc: Document): Document {
-  const current = doc.facingPages ?? { enabled: false, startOnRight: true };
-  return rebuildSpreads(doc, { ...current, enabled: !current.enabled });
-}
-
-/**
- * Set facing pages enabled state.
- */
-export function setFacingPagesEnabled(doc: Document, enabled: boolean): Document {
-  const current = doc.facingPages ?? { enabled: false, startOnRight: true };
-  return rebuildSpreads(doc, { ...current, enabled });
-}
-
-// ── Master content propagation ────────────────────────────────────────────
-
-/**
- * Get all visible nodes for a page, including propagated master content.
- * Returns the flat list of node IDs in paint order:
- * 1. Global shared nodes
- * 2. Master content nodes (if a master is applied, filtering overridden/hidden ones)
- * 3. Page-local content nodes
- * 4. Override replacement nodes (for 'modified' overrides)
- */
-export function activePageNodesWithMaster(doc: Document, pageId: NodeId): NodeId[] {
-  const globals = doc.globalChildren ?? [];
-
-  if (!doc.pages) return globals;
-  const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return globals;
-
-  const contentRootNode = doc.nodes[page.contentRoot] as GroupNode | undefined;
-  const pageChildren = contentRootNode?.children ?? [];
-
-  if (!page.masterPageId) {
-    return [...globals, ...pageChildren];
-  }
-
-  const master = doc.masters?.[page.masterPageId];
-  if (!master) return [...globals, ...pageChildren];
-
-  const masterRoot = doc.nodes[master.contentRoot] as GroupNode | undefined;
-  const masterChildren = masterRoot?.children ?? [];
-
-  const overrides = page.masterOverrides ?? {};
-  const result: NodeId[] = [...globals];
-
-  for (const mChildId of masterChildren) {
-    const override = overrides[mChildId];
-    if (override && (override.type === 'hidden' || override.type === 'deleted')) {
-      result.push(mChildId);
-      continue;
-    }
-    if (override && override.type === 'modified' && override.localNodeId) {
-      result.push(override.localNodeId);
-      continue;
-    }
-    result.push(mChildId);
-  }
-
-  result.push(...pageChildren);
-
-  return result;
-}
-
-/**
- * Check whether a page has any active master overrides.
- */
-export function pageHasOverrides(doc: Document, pageId: NodeId): boolean {
-  if (!doc.pages) return false;
-  const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return false;
-  return !!page.masterOverrides && Object.keys(page.masterOverrides).length > 0;
-}
-
-/**
- * Resolve whether a specific node is inherited from a master or page-local.
- * Returns 'master', 'override', or 'local'.
- */
-export function resolveNodeOrigin(
-  doc: Document,
-  pageId: NodeId,
-  nodeId: NodeId,
-): 'master' | 'override' | 'local' {
-  if (!doc.pages) return 'local';
-  const page = doc.pages.find((p) => p.id === pageId);
-  if (!page) return 'local';
-  if (!page.masterPageId) return 'local';
-
-  const overrides = page.masterOverrides ?? {};
-  for (const override of Object.values(overrides)) {
-    if (override.localNodeId === nodeId) return 'override';
-  }
-
-  const master = doc.masters?.[page.masterPageId];
-  if (master) {
-    const masterRoot = doc.nodes[master.contentRoot] as GroupNode | undefined;
-    if (masterRoot?.children.includes(nodeId)) return 'master';
-  }
-
-  return 'local';
 }
