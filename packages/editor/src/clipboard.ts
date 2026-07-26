@@ -5,19 +5,20 @@
  * in-app paste) and `text/plain` (fallback for paste-into-text-editor).
  * Reads clipboard in a single pass for Strata JSON, SVG text, and images.
  *
- * When copying nodes with raster masks, the closure includes the mask assets
- * so cross-document paste preserves mask data.
+ * The payload includes both image assets and raster-mask assets referenced by
+ * the copied node closure so cross-document paste remains self-contained.
  *
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
 import type { Platform } from '@strata/platform';
-import type { RasterMaskAsset, SceneNode } from '@strata/scene';
+import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@strata/scene';
 
 const STRATA_MIME = 'application/vnd.strata+json';
 
 export interface ClipboardData {
   nodes: SceneNode[];
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
+  assets?: Record<string, DocumentAsset>;
 }
 
 export interface ClipboardImportItem {
@@ -34,11 +35,13 @@ export interface UnifiedClipboardResult {
 export async function writeClipboard(
   nodes: SceneNode[],
   rasterMaskAssets?: Record<string, RasterMaskAsset>,
+  assets?: Record<string, DocumentAsset>,
 ): Promise<boolean> {
   try {
     const data: ClipboardData = {
       nodes,
       ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
+      ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
     };
     const json = JSON.stringify(data);
     const blob = new Blob([json], { type: STRATA_MIME });
