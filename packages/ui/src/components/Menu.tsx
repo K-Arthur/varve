@@ -9,8 +9,8 @@ import {
   useState,
 } from 'react';
 import { Icon } from '../icons/Icon';
-import { FloatingPortal } from './FloatingPortal';
 import { getTypeAheadResetMs, matchMenuTypeAhead, shouldTypeAhead } from '../utils/menuTypeAhead';
+import { FloatingPortal } from './FloatingPortal';
 
 // ============================================================
 // Types
@@ -23,6 +23,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** When true, shows a trailing "…" indicating a dialog follows. */
   dialog?: boolean;
+  /** Optional badge count/text shown after the label. */
+  badge?: string;
 }
 
 export interface MenuSeparator {
@@ -37,6 +39,7 @@ export interface MenuItemCheckbox {
   onToggle: () => void;
   disabled?: boolean;
   type: 'checkbox';
+  badge?: string;
 }
 
 export interface MenuItemRadio {
@@ -47,6 +50,7 @@ export interface MenuItemRadio {
   disabled?: boolean;
   type: 'radio';
   group: string;
+  badge?: string;
 }
 
 export interface SubmenuItem {
@@ -55,6 +59,7 @@ export interface SubmenuItem {
   submenu: readonly MenuEntry[];
   disabled?: boolean;
   type: 'submenu';
+  badge?: string;
 }
 
 export type MenuEntry = MenuItem | MenuSeparator | MenuItemCheckbox | MenuItemRadio | SubmenuItem;
@@ -149,6 +154,21 @@ interface MenuInternalProps {
   menuClassName: string;
   menuStyle?: React.CSSProperties;
   containerRef?: React.RefObject<HTMLDivElement | null>;
+  maxVisibleItems?: number;
+}
+
+const MENU_PERF_ENABLED = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+
+function capturePostPaint(markName: string): void {
+  if (!MENU_PERF_ENABLED || typeof performance === 'undefined' || !performance.mark) return;
+  requestAnimationFrame(() => {
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      performance.mark(markName);
+      channel.port1.close();
+    };
+    channel.port2.postMessage(null);
+  });
 }
 
 function MenuInternal({
@@ -162,6 +182,7 @@ function MenuInternal({
   menuClassName,
   menuStyle,
   containerRef: externalRef,
+  maxVisibleItems = 30,
 }: MenuInternalProps) {
   const internalRef = useRef<HTMLDivElement>(null);
   const menuRef = externalRef ?? internalRef;
@@ -178,6 +199,10 @@ function MenuInternal({
 
   useEffect(() => {
     if (open && !prevOpenRef.current) {
+      if (MENU_PERF_ENABLED && typeof performance !== 'undefined' && performance.mark) {
+        performance.mark(`menu:open:${label}`);
+        performance.mark(`menu:open:${label}:state-updated`);
+      }
       setFocusIdx(0);
       setOpenSubmenu(null);
       const timer = setTimeout(() => {
@@ -185,16 +210,22 @@ function MenuInternal({
         el?.focus();
       }, 0);
       prevOpenRef.current = true;
-      return () => window.clearTimeout(timer);
+      capturePostPaint(`menu:open:${label}:painted`);
+      return () => {
+        window.clearTimeout(timer);
+      };
     }
     if (!open && prevOpenRef.current) {
+      if (MENU_PERF_ENABLED && typeof performance !== 'undefined' && performance.mark) {
+        performance.mark(`menu:close:${label}`);
+      }
       setOpenSubmenu(null);
       if (triggerRef && level === 0) {
         triggerRef.current?.focus();
       }
     }
     prevOpenRef.current = open;
-  }, [open, triggerRef, level, menuRef]);
+  }, [open, triggerRef, level, menuRef, label]);
 
   useEffect(() => {
     if (!open) return;
@@ -330,7 +361,13 @@ function MenuInternal({
 
   let focusableCounter = -1;
 
-  const renderedItems = items.map((entry) => {
+  const shouldLimitItems = items.length > maxVisibleItems;
+  const displayItems = shouldLimitItems ? items.slice(0, maxVisibleItems) : items;
+  const scrollStyle: React.CSSProperties = shouldLimitItems
+    ? { maxHeight: `${maxVisibleItems * 32}px`, overflowY: 'auto' }
+    : {};
+
+  const renderedItems = displayItems.map((entry) => {
     if (isSeparator(entry)) {
       return <hr key={entry.id} role="presentation" className="strata-menu__sep" />;
     }
@@ -362,6 +399,7 @@ function MenuInternal({
             {entry.checked ? <Icon name="Check" size="0.85em" /> : ''}
           </span>
           <span>{entry.label}</span>
+          {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
         </button>
       );
     }
@@ -411,6 +449,7 @@ function MenuInternal({
             )}
           </span>
           <span>{entry.label}</span>
+          {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
         </button>
       );
     }
@@ -442,6 +481,7 @@ function MenuInternal({
             }}
           >
             <span>{entry.label}</span>
+            {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
             <span className="strata-menu__submenu-arrow">▸</span>
           </button>
           {submenuOpen && open && (
@@ -489,9 +529,12 @@ function MenuInternal({
       >
         <span>{entry.label}</span>
         {entry.dialog && <span className="strata-menu__ellipsis">&hellip;</span>}
+        {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
       </button>
     );
   });
+
+  const containerStyle = shouldLimitItems ? { ...menuStyle, ...scrollStyle } : menuStyle;
 
   return (
     <div
@@ -499,10 +542,22 @@ function MenuInternal({
       role="menu"
       aria-label={label}
       className={menuClassName}
-      style={menuStyle}
+      style={containerStyle}
       onKeyDown={handleKey}
     >
       {renderedItems}
+      {shouldLimitItems && (
+        <button
+          type="button"
+          role="menuitem"
+          className="strata-menu__item strata-menu__show-more"
+          tabIndex={renderedItems.length === 0 ? 0 : -1}
+          data-focusable-idx={renderedItems.length}
+          onClick={() => closeAll()}
+        >
+          <span>Show all ({items.length} items)&hellip;</span>
+        </button>
+      )}
     </div>
   );
 }

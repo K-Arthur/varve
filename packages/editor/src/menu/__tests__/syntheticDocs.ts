@@ -1,9 +1,4 @@
-import {
-  type Document,
-  createDocument,
-  makeFrameNode,
-  makeShapeNode,
-} from '@strata/scene';
+import { createDocument, type Document, makeShapeNode } from '@strata/scene';
 
 export interface SyntheticDocOptions {
   nodeCount: number;
