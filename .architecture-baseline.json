@@ -6,8 +6,8 @@
       "cycles": []
     },
     "engine": {
-      "count": 2,
-      "cycles": ["engine.ts → wasmLoader.ts", "raster-size.ts → raster.ts"]
+      "count": 1,
+      "cycles": ["engine.ts → wasmLoader.ts"]
     },
     "scene": {
       "count": 7,
