@@ -1,17 +1,12 @@
 import type { MenuBuildHelpers, MenuBuildState, MenuItem } from './types';
 
-export function buildPageMenu(
-  _state: MenuBuildState,
-  helpers: MenuBuildHelpers,
-): MenuItem[] {
+export function buildPageMenu(_state: MenuBuildState, helpers: MenuBuildHelpers): MenuItem[] {
   const doc = _state.document;
   const activePageId = doc?.activePageId ?? null;
   const activePage = activePageId ? doc?.pages?.find((p) => p.id === activePageId) : null;
   const currentPageMasterId = activePage?.masterPageId ?? null;
   const masterNames = doc?.masters
-    ? Object.fromEntries(
-        Object.entries(doc.masters).map(([id, m]) => [id, m?.name ?? 'Unknown']),
-      )
+    ? Object.fromEntries(Object.entries(doc.masters).map(([id, m]) => [id, m?.name ?? 'Unknown']))
     : {};
   const currentPageIsMaster = activePageId != null && masterNames[activePageId] != null;
 
@@ -39,9 +34,7 @@ export function buildPageMenu(
         label: name,
         action: `applyMaster:${id}`,
       })),
-    ...(Object.keys(masterNames).length > 0
-      ? ([{ label: '---' }] as MenuItem[])
-      : []),
+    ...(Object.keys(masterNames).length > 0 ? ([{ label: '---' }] as MenuItem[]) : []),
     {
       label: 'None',
       action: 'applyMaster:',

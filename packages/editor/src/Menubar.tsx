@@ -1,3 +1,4 @@
+// COMPLEXITY: 176 — React component body, menu composition (extracted sub-menus to components/Menubar/)
 import {
   AlertDialog,
   FloatingPortal,
@@ -19,20 +20,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { ArchiveDialog } from './components/Archive/ArchiveDialog';
+import { buildArrangeMenu } from './components/Menubar/ArrangeMenu';
+import { buildEditMenu } from './components/Menubar/EditMenu';
+import { buildFileMenu } from './components/Menubar/FileMenu';
+import { buildHelpMenu } from './components/Menubar/HelpMenu';
+import { buildObjectMenu } from './components/Menubar/ObjectMenu';
+import { buildPageMenu } from './components/Menubar/PageMenu';
+import { buildTextMenu } from './components/Menubar/TextMenu';
+import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './components/Menubar/types';
+import { buildViewMenu } from './components/Menubar/ViewMenu';
 import { bumpThemeRevision, useEditor } from './context';
 import { useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
-import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './components/Menubar/types';
-import { buildFileMenu } from './components/Menubar/FileMenu';
-import { buildEditMenu } from './components/Menubar/EditMenu';
-import { buildTextMenu } from './components/Menubar/TextMenu';
-import { buildViewMenu } from './components/Menubar/ViewMenu';
-import { buildObjectMenu } from './components/Menubar/ObjectMenu';
-import { buildArrangeMenu } from './components/Menubar/ArrangeMenu';
-import { buildPageMenu } from './components/Menubar/PageMenu';
-import { buildHelpMenu } from './components/Menubar/HelpMenu';
 
 /** Build a shortcut key string for aria-keyshortcuts (platform-independent, e.g. "Ctrl+G"). */
 function ariaShortcut(binding: {
@@ -427,29 +428,12 @@ export function Menubar({
 }) {
   const {
     state,
-    newDocument,
-    serializeDocument,
-    loadDocument,
-    undo,
-    redo,
-    setZoom,
     setShowExportDialog,
-    clearAllGuides,
-    startPresentation,
-    addMaskToSelected,
-    removeMaskFromSelected,
-    toggleMask,
-    invertMask,
     flattenSelected,
-    rasterizeSelected,
-    mergeSelected,
     assignMasterToPage,
     createMaster,
-    toggleFacingPages,
     requestWorkspaceSwitch,
-    toggleDistractionFreeMode,
     recordAction,
-    createAdjustmentLayer,
     showArchiveDialog,
     setShowArchiveDialog,
     platform,
@@ -716,9 +700,6 @@ export function Menubar({
         case 'new':
           setConfirmNewDoc(true);
           return;
-        case 'settings':
-          onOpenSettings?.();
-          return;
         case 'clearRecent':
           clearRecent();
           return;
@@ -727,91 +708,18 @@ export function Menubar({
             void openRecentFile(recentEntries[0]);
           }
           return;
-        case 'startTour':
-          onStartTour?.();
-          return;
-        case 'shortcutPalette':
-          onOpenPalette?.();
-          return;
-        case 'whatIsThis':
-          onWhatIsThis?.();
-          return;
-        case 'about':
-          onOpenAbout?.();
-          return;
-        case 'batchBgRemove':
-          onBatchBgRemove?.();
-          return;
-        case 'export':
-          setShowExportDialog(true);
-          return;
         case 'archiveBackup':
           setShowArchiveDialog(true, 'backup');
           return;
         case 'archiveRestore':
           setShowArchiveDialog(true, 'restore');
           return;
-        case 'addAlphaMask':
-          addMaskToSelected('alpha');
-          return;
-        case 'addClipMask':
-          addMaskToSelected('clip');
-          return;
-        case 'addLuminanceMask':
-          addMaskToSelected('luminance');
-          return;
-        case 'removeMask':
-          removeMaskFromSelected();
-          return;
-        case 'toggleMask':
-          toggleMask();
-          return;
-        case 'invertMask':
-          invertMask();
-          return;
         case 'flattenSelection':
           flattenSelected('flatten', 1);
-          return;
-        case 'rasterizeSelection':
-          rasterizeSelected(1);
-          return;
-        case 'mergeSelected':
-          mergeSelected();
-          return;
-        case 'clearGuides':
-          clearAllGuides();
-          return;
-        case 'present':
-          startPresentation();
-          return;
-        case 'toggleFacingPages':
-          toggleFacingPages();
-          return;
-        case 'toggleDistractionFree':
-          toggleDistractionFreeMode();
-          return;
-        case 'newAdjustmentLayer':
-          createAdjustmentLayer();
           return;
         case 'createMaster':
           createMaster('Master', 1920, 1080);
           return;
-        case 'applyMaster': {
-          const activeId = state.document.activePageId;
-          if (activeId) {
-            const masterEntries = state.document.masters ? Object.keys(state.document.masters) : [];
-            const first = masterEntries.find((id) => id !== activeId);
-            if (first) assignMasterToPage(activeId, first);
-          }
-          return;
-        }
-        case 'detachMaster': {
-          const activeId = state.document.activePageId;
-          if (activeId) {
-            assignMasterToPage(activeId, null);
-          }
-          return;
-        }
         default:
           if (action.startsWith('theme:')) {
             const theme = action.slice(6) as Theme;
@@ -869,19 +777,11 @@ export function Menubar({
       onBatchBgRemove,
       setShowExportDialog,
       setShowArchiveDialog,
-      addMaskToSelected,
-      removeMaskFromSelected,
-      toggleMask,
-      invertMask,
-      clearAllGuides,
-      startPresentation,
+      flattenSelected,
       assignMasterToPage,
       createMaster,
-      toggleFacingPages,
       requestWorkspaceSwitch,
-      toggleDistractionFreeMode,
       recordAction,
-      createAdjustmentLayer,
       openRecentFile,
       clearRecent,
     ],
