@@ -35,7 +35,7 @@ import {
   type HalftonePattern,
 } from './halftone';
 import { applyLutToImageData } from './lut/apply';
-import type { LutTransform } from './lut/types';
+import { deserializeLutTransform } from './lut/codec';
 import { applyPosterize } from './posterize';
 import { createRasterSurface, type RasterCanvasContext } from './rasterSurface';
 import { applyThreshold } from './threshold';
@@ -548,7 +548,7 @@ export function applySoftwareFilter(
       };
       if (lf.lutJson) {
         try {
-          const transform = JSON.parse(lf.lutJson) as LutTransform;
+          const transform = deserializeLutTransform(lf.lutJson);
           const interpolation =
             (lf.interpolation as 'nearest' | 'trilinear' | 'tetrahedral') ?? 'tetrahedral';
           const intensity = lf.intensity ?? 1;

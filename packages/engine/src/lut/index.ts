@@ -21,6 +21,8 @@ export {
   deserializeLutFromDocument,
   detectLutFormat,
   estimateLutMemoryUsage,
+  fingerprintLut,
+  MAX_LUT_TEXT_LENGTH,
   parseLutFile,
   serializeLutForDocument,
 } from './lutService';
