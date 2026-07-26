@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  _resetPlatformCapabilities,
   _setCooldownFrames,
   computeProfile,
+  detectPlatformCapabilities,
   getCurrentTier,
   resetProfile,
 } from '../adaptiveProfile';
@@ -82,5 +84,56 @@ describe('adaptiveProfile', () => {
     }
     // Should have at most 2 transitions (not rapid oscillation)
     expect(transitions.length).toBeLessThanOrEqual(2);
+  });
+});
+
+describe('platform capability detection', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    _resetPlatformCapabilities();
+  });
+
+  it('probes the DOM only once across repeated calls', () => {
+    _resetPlatformCapabilities();
+    const createElement = vi.spyOn(document, 'createElement');
+
+    const first = detectPlatformCapabilities();
+    for (let i = 0; i < 50; i++) detectPlatformCapabilities();
+
+    // The probe canvas must be created at most once, not once per call.
+    expect(createElement.mock.calls.filter(([tag]) => tag === 'canvas').length).toBeLessThanOrEqual(
+      1,
+    );
+    expect(detectPlatformCapabilities()).toBe(first);
+  });
+
+  it('does not acquire a WebGL context per rendered frame', () => {
+    // Regression guard: computeProfile runs once per frame and reaches
+    // detectPlatformCapabilities. Detecting per call leaked a canvas and a
+    // live WebGL context every frame, and the browser force-lost the oldest
+    // context once its cap was hit ("Too many active WebGL contexts").
+    _resetPlatformCapabilities();
+    resetProfile();
+    _setCooldownFrames(5);
+    const createElement = vi.spyOn(document, 'createElement');
+
+    for (let i = 0; i < 120; i++) computeProfile(10, 0, 100);
+
+    expect(createElement.mock.calls.filter(([tag]) => tag === 'canvas').length).toBeLessThanOrEqual(
+      1,
+    );
+  });
+
+  it('releases the probe context instead of holding it live', () => {
+    _resetPlatformCapabilities();
+    const loseContext = vi.fn();
+    const gl = { getExtension: vi.fn(() => ({ loseContext })) };
+    vi.spyOn(document, 'createElement').mockReturnValue({
+      getContext: () => gl,
+    } as unknown as HTMLCanvasElement);
+
+    expect(detectPlatformCapabilities().hasWebGL).toBe(true);
+    expect(gl.getExtension).toHaveBeenCalledWith('WEBGL_lose_context');
+    expect(loseContext).toHaveBeenCalledTimes(1);
   });
 });
