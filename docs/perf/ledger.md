@@ -128,3 +128,26 @@ changes). 138/138 canvas tests pass. Biome clean on modified file.
 | 1000 rects replay | p50 42.56 ms, p95 57.76 ms | p50 3.32 ms, p95 3.37 ms | jsdom microbenchmark; second run benefits from warm caches |
 
 **Files changed:** `packages/editor/src/CanvasArea.tsx` (single file, +24/-18 lines).
+
+## Console flood + Alt-drag duplication (2026-07-26)
+
+Full write-up: [`2026-07-26-input-latency-console-flood.md`](2026-07-26-input-latency-console-flood.md).
+
+Two defects put unbounded work on the interaction hot path; a third made
+Alt-drag duplication non-functional rather than merely slow.
+
+| Workload | Before | After | Environment | Confidence | Notes |
+|---|---|---|---|---|---|
+| Console messages, one 40-step drag | 2339 | 0 | Chromium/Vite dev, CachyOS Wayland | high | exact counts, not timing |
+| Console messages, one 40-step Alt-drag | 1194 | 0 | Same | high | |
+| Console messages, whole scripted session | 4249 | 11 | Same | high | remainder is one-time boot diagnostics |
+| Audit-rule re-registrations per pointer move | ~28 | 0 | Same | high | `Shell.tsx` effect keyed on the editor context value |
+| WebGL contexts acquired per rendered frame | 1 (leaked) | 0 after first | Same | high | `detectPlatformCapabilities` reached from `computeProfile` |
+| Alt-drag copy tracks the pointer | no (sat at fixed +20/+20) | yes | Same | high | verified by screenshot; original now stays put |
+| Drag wall-clock, 40 synthetic moves | 12345 ms | 7016 ms | Same | low | includes CDP overhead and concurrent build load — directional only |
+
+**Not addressed (documented, owned elsewhere):** one drag still produces 3
+history entries and one Alt-drag 5, with no-op first/middle undos. That is the
+`context.tsx` transaction path, which a concurrent session is actively
+refactoring (`context/useHistory.ts`); measurements are recorded in the write-up
+as an acceptance check for that work.
