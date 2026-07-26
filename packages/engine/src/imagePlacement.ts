@@ -28,6 +28,12 @@ export interface ComputeImagePlacementOptions {
   x?: number;
   y?: number;
   scale?: number;
+  /** Visible source sample in orientation-normalized source pixels. */
+  sourceCrop?: ImagePlacementRect;
+  /** Clockwise content rotation around the full image destination centre. */
+  rotation?: number;
+  flipH?: boolean;
+  flipV?: boolean;
 }
 
 export interface ImagePlacement {
@@ -35,8 +41,15 @@ export interface ImagePlacement {
   sourceWidth: number;
   sourceHeight: number;
   bounds: ImagePlacementRect;
-  /** Canvas drawImage destination rectangle; for tile this is the anchor tile. */
+  /** Full-source destination rectangle; for tile this is the anchor tile. */
   drawRect: ImagePlacementRect;
+  /** Validated source sample. The full source when no crop is active. */
+  sourceRect: ImagePlacementRect;
+  /** Destination occupied by sourceRect before rotation/flips. */
+  sampleDrawRect: ImagePlacementRect;
+  rotation: number;
+  flipH: boolean;
+  flipV: boolean;
 }
 
 function finitePositive(value: number): boolean {
@@ -62,6 +75,42 @@ function positiveModulo(value: number, modulus: number): number {
   return ((value % modulus) + modulus) % modulus;
 }
 
+function normalizeSourceRect(
+  crop: ImagePlacementRect | undefined,
+  sourceWidth: number,
+  sourceHeight: number,
+): ImagePlacementRect | null {
+  if (!crop) return { x: 0, y: 0, w: sourceWidth, h: sourceHeight };
+  if (
+    !Number.isFinite(crop.x) ||
+    !Number.isFinite(crop.y) ||
+    !finitePositive(crop.w) ||
+    !finitePositive(crop.h)
+  ) {
+    return null;
+  }
+  const x = Math.max(0, Math.min(crop.x, sourceWidth));
+  const y = Math.max(0, Math.min(crop.y, sourceHeight));
+  const right = Math.max(x, Math.min(crop.x + crop.w, sourceWidth));
+  const bottom = Math.max(y, Math.min(crop.y + crop.h, sourceHeight));
+  if (!finitePositive(right - x) || !finitePositive(bottom - y)) return null;
+  return { x, y, w: right - x, h: bottom - y };
+}
+
+function sourceRectDestination(
+  drawRect: ImagePlacementRect,
+  sourceRect: ImagePlacementRect,
+  sourceWidth: number,
+  sourceHeight: number,
+): ImagePlacementRect {
+  return {
+    x: drawRect.x + (sourceRect.x / sourceWidth) * drawRect.w,
+    y: drawRect.y + (sourceRect.y / sourceHeight) * drawRect.h,
+    w: (sourceRect.w / sourceWidth) * drawRect.w,
+    h: (sourceRect.h / sourceHeight) * drawRect.h,
+  };
+}
+
 /** Compute the exact destination geometry used by image-fill replay. */
 export function computeImagePlacement(
   options: ComputeImagePlacementOptions,
@@ -70,16 +119,38 @@ export function computeImagePlacement(
   const offsetX = options.x ?? 0;
   const offsetY = options.y ?? 0;
   const scale = options.scale ?? 1;
+  const rotation = options.rotation ?? 0;
   if (
     !finitePositive(sourceWidth) ||
     !finitePositive(sourceHeight) ||
     !finiteRect(bounds) ||
     !Number.isFinite(offsetX) ||
     !Number.isFinite(offsetY) ||
-    !Number.isFinite(scale)
+    !finitePositive(scale) ||
+    !Number.isFinite(rotation)
   ) {
     return null;
   }
+  const sourceRect = normalizeSourceRect(options.sourceCrop, sourceWidth, sourceHeight);
+  if (!sourceRect) return null;
+
+  const finish = (drawRect: ImagePlacementRect): ImagePlacement | null => {
+    if (!finiteRect(drawRect)) return null;
+    const sampleDrawRect = sourceRectDestination(drawRect, sourceRect, sourceWidth, sourceHeight);
+    if (!finiteRect(sampleDrawRect)) return null;
+    return {
+      fit,
+      sourceWidth,
+      sourceHeight,
+      bounds: { ...bounds },
+      drawRect,
+      sourceRect,
+      sampleDrawRect,
+      rotation: ((rotation % 360) + 360) % 360,
+      flipH: options.flipH === true,
+      flipV: options.flipV === true,
+    };
+  };
 
   if (fit === 'tile') {
     const tileWidth = sourceWidth * scale;
@@ -97,14 +168,7 @@ export function computeImagePlacement(
       w: tileWidth,
       h: tileHeight,
     };
-    if (!finiteRect(drawRect)) return null;
-    return {
-      fit,
-      sourceWidth,
-      sourceHeight,
-      bounds: { ...bounds },
-      drawRect,
-    };
+    return finish(drawRect);
   }
 
   if (fit === 'crop') {
@@ -120,14 +184,7 @@ export function computeImagePlacement(
       w: drawWidth,
       h: drawHeight,
     };
-    if (!finiteRect(drawRect)) return null;
-    return {
-      fit,
-      sourceWidth,
-      sourceHeight,
-      bounds: { ...bounds },
-      drawRect,
-    };
+    return finish(drawRect);
   }
 
   let drawWidth: number;
@@ -136,12 +193,7 @@ export function computeImagePlacement(
     drawWidth = bounds.w;
     drawHeight = bounds.h;
   } else {
-    // Replay's historical convention applies uniform image scale before
-    // calculating aspect ratio. It therefore intentionally cancels for fit
-    // and fill while remaining meaningful for tile.
-    const referenceWidth = sourceWidth * scale;
-    const referenceHeight = sourceHeight * scale;
-    const aspect = referenceWidth / referenceHeight;
+    const aspect = sourceWidth / sourceHeight;
     const boundsAspect = bounds.w / bounds.h;
     if (!finitePositive(aspect)) return null;
     if (fit === 'fit') {
@@ -159,6 +211,8 @@ export function computeImagePlacement(
       drawWidth = bounds.w;
       drawHeight = bounds.w / aspect;
     }
+    drawWidth *= scale;
+    drawHeight *= scale;
   }
 
   if (!finitePositive(drawWidth) || !finitePositive(drawHeight)) return null;
@@ -168,14 +222,47 @@ export function computeImagePlacement(
     w: drawWidth,
     h: drawHeight,
   };
-  if (!finiteRect(drawRect)) return null;
-  return {
-    fit,
-    sourceWidth,
-    sourceHeight,
-    bounds: { ...bounds },
-    drawRect,
-  };
+  return finish(drawRect);
+}
+
+function transformAroundDrawCenter(
+  placement: ImagePlacement,
+  point: ImagePlacementPoint,
+  drawRect: ImagePlacementRect,
+): ImagePlacementPoint {
+  const cx = drawRect.x + drawRect.w / 2;
+  const cy = drawRect.y + drawRect.h / 2;
+  let x = point.x - cx;
+  let y = point.y - cy;
+  if (placement.flipH) x = -x;
+  if (placement.flipV) y = -y;
+  if (placement.rotation !== 0) {
+    const radians = (placement.rotation * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    [x, y] = [x * cos - y * sin, x * sin + y * cos];
+  }
+  return { x: cx + x, y: cy + y };
+}
+
+function inverseTransformAroundDrawCenter(
+  placement: ImagePlacement,
+  point: ImagePlacementPoint,
+  drawRect: ImagePlacementRect,
+): ImagePlacementPoint {
+  const cx = drawRect.x + drawRect.w / 2;
+  const cy = drawRect.y + drawRect.h / 2;
+  let x = point.x - cx;
+  let y = point.y - cy;
+  if (placement.rotation !== 0) {
+    const radians = (-placement.rotation * Math.PI) / 180;
+    const cos = Math.cos(radians);
+    const sin = Math.sin(radians);
+    [x, y] = [x * cos - y * sin, x * sin + y * cos];
+  }
+  if (placement.flipH) x = -x;
+  if (placement.flipV) y = -y;
+  return { x: cx + x, y: cy + y };
 }
 
 /** Map a visible source pixel to a deterministic node-local coordinate. */
@@ -189,7 +276,8 @@ export function sourcePixelToLocal(
     source.x < 0 ||
     source.y < 0 ||
     source.x >= placement.sourceWidth ||
-    source.y >= placement.sourceHeight
+    source.y >= placement.sourceHeight ||
+    !containsHalfOpen(placement.sourceRect, source)
   ) {
     return null;
   }
@@ -201,11 +289,9 @@ export function sourcePixelToLocal(
     x += Math.ceil((bounds.x - x) / drawRect.w) * drawRect.w;
     y += Math.ceil((bounds.y - y) / drawRect.h) * drawRect.h;
   }
-  const local = { x, y };
-  return containsHalfOpen(bounds, local) &&
-    containsHalfOpen(drawRectForPoint(placement, local), local)
-    ? local
-    : null;
+  const tileRect = drawRectForPoint(placement, { x, y });
+  const local = transformAroundDrawCenter(placement, { x, y }, tileRect);
+  return containsHalfOpen(bounds, local) ? local : null;
 }
 
 /** Map a painted node-local coordinate to source image pixels. */
@@ -220,19 +306,21 @@ export function localToSourcePixel(
   ) {
     return null;
   }
-  const { drawRect } = placement;
-  let relativeX = local.x - drawRect.x;
-  let relativeY = local.y - drawRect.y;
+  const drawRect = drawRectForPoint(placement, local);
+  const untransformed = inverseTransformAroundDrawCenter(placement, local, drawRect);
+  let relativeX = untransformed.x - drawRect.x;
+  let relativeY = untransformed.y - drawRect.y;
   if (placement.fit === 'tile') {
     relativeX = positiveModulo(relativeX, drawRect.w);
     relativeY = positiveModulo(relativeY, drawRect.h);
-  } else if (!containsHalfOpen(drawRect, local)) {
+  } else if (!containsHalfOpen(drawRect, untransformed)) {
     return null;
   }
-  return {
+  const source = {
     x: (relativeX / drawRect.w) * placement.sourceWidth,
     y: (relativeY / drawRect.h) * placement.sourceHeight,
   };
+  return containsHalfOpen(placement.sourceRect, source) ? source : null;
 }
 
 function drawRectForPoint(

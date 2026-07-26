@@ -23,7 +23,11 @@ import { applyFilterWithCompositing } from './filterCompositor';
 import { applyFilterChain, filterChainToCss, filterToCss, supportsCanvasFilter } from './filters';
 import { FrameCache } from './frameCache';
 import { getImageCache } from './imageCache';
-import { computeImagePlacement } from './imagePlacement';
+import {
+  computeImagePlacement,
+  type ImagePlacement,
+  type ImagePlacementRect,
+} from './imagePlacement';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
 import { createRasterSurface } from './rasterSurface';
@@ -1323,55 +1327,28 @@ function paintImageFill(
   const fullSourceWidth = sizedImage.naturalWidth || sizedImage.width || fill.imageWidth || bw;
   const fullSourceHeight = sizedImage.naturalHeight || sizedImage.height || fill.imageHeight || bh;
 
-  // When a crop rect is set, the effective source is the crop region.
-  // The placement math operates on the crop dimensions so fit modes
-  // (fill/fit/stretch/tile) map the crop region onto the node bounds.
-  const hasCrop = fill.crop && fill.crop.w > 0 && fill.crop.h > 0;
-  const sourceWidth = hasCrop ? fill.crop!.w : fullSourceWidth;
-  const sourceHeight = hasCrop ? fill.crop!.h : fullSourceHeight;
-
   const placement = computeImagePlacement({
     fit: fill.fit ?? 'fill',
-    sourceWidth,
-    sourceHeight,
+    sourceWidth: fullSourceWidth,
+    sourceHeight: fullSourceHeight,
     bounds,
     x: fill.x ?? 0,
     y: fill.y ?? 0,
     scale: fill.scale ?? 1,
+    sourceCrop: fill.crop,
+    rotation: fill.rotation,
+    flipH: fill.flipH,
+    flipV: fill.flipV,
   });
   if (!placement) return;
   const { x: dx, y: dy, w: dw, h: dh } = placement.drawRect;
 
-  // Source rectangle for 9-arg drawImage: when cropped, draw only the crop region.
-  const sx = hasCrop ? fill.crop!.x : 0;
-  const sy = hasCrop ? fill.crop!.y : 0;
-  const sw = hasCrop ? fill.crop!.w : fullSourceWidth;
-  const sh = hasCrop ? fill.crop!.h : fullSourceHeight;
-
-  // Determine if rotation/flip transforms are needed.
-  const rotationDeg = fill.rotation ?? 0;
-  const hasRotation = Math.abs(((rotationDeg % 360) + 360) % 360) > 0.001;
-  const hasFlip = fill.flipH || fill.flipV;
-  const hasTransform = hasRotation || hasFlip;
-
   if (placement.fit === 'tile') {
     for (let ty = dy; ty < bounds.y + bh; ty += dh) {
       for (let tx = dx; tx < bounds.x + bw; tx += dw) {
-        if (hasTransform) {
-          target.save();
-          applyImageTransform(
-            target,
-            tx + dw / 2,
-            ty + dh / 2,
-            rotationDeg,
-            fill.flipH,
-            fill.flipV,
-          );
-          target.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
-          target.restore();
-        } else {
-          target.drawImage(image, sx, sy, sw, sh, tx, ty, dw, dh);
-        }
+        const tileRect = { x: tx, y: ty, w: dw, h: dh };
+        const sampleRect = offsetSampleRect(placement, tileRect);
+        drawPlacedImageSample(target, image, placement, tileRect, sampleRect);
       }
     }
     return;
@@ -1394,46 +1371,193 @@ function paintImageFill(
     }
     if (maskImg) {
       try {
-        const oc = document.createElement('canvas');
-        oc.width = dw;
-        oc.height = dh;
-        const octx = oc.getContext('2d');
-        if (octx) {
-          if (hasTransform) {
-            octx.save();
-            applyImageTransform(octx, dw / 2, dh / 2, rotationDeg, fill.flipH, fill.flipV);
-            octx.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
-            octx.restore();
-          } else {
-            octx.drawImage(image, sx, sy, sw, sh, 0, 0, dw, dh);
-          }
-          octx.globalCompositeOperation = 'destination-in';
-          octx.drawImage(maskImg, 0, 0, dw, dh);
-          target.drawImage(oc, dx, dy, dw, dh);
+        const masked = renderMaskedImageSample(
+          image,
+          maskImg,
+          placement,
+          bounds,
+          fill.src,
+          fill.alphaMask,
+        );
+        if (masked) {
+          target.drawImage(masked, bounds.x, bounds.y, bounds.w, bounds.h);
         } else {
-          target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+          drawPlacedImageSample(
+            target,
+            image,
+            placement,
+            placement.drawRect,
+            placement.sampleDrawRect,
+          );
         }
       } catch {
-        target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+        drawPlacedImageSample(
+          target,
+          image,
+          placement,
+          placement.drawRect,
+          placement.sampleDrawRect,
+        );
       }
     } else {
-      if (hasTransform) {
-        target.save();
-        applyImageTransform(target, dx + dw / 2, dy + dh / 2, rotationDeg, fill.flipH, fill.flipV);
-        target.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
-        target.restore();
-      } else {
-        target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
-      }
+      drawPlacedImageSample(target, image, placement, placement.drawRect, placement.sampleDrawRect);
     }
-  } else if (hasTransform) {
-    target.save();
-    applyImageTransform(target, dx + dw / 2, dy + dh / 2, rotationDeg, fill.flipH, fill.flipV);
-    target.drawImage(image, sx, sy, sw, sh, -dw / 2, -dh / 2, dw, dh);
-    target.restore();
   } else {
-    target.drawImage(image, sx, sy, sw, sh, dx, dy, dw, dh);
+    drawPlacedImageSample(target, image, placement, placement.drawRect, placement.sampleDrawRect);
   }
+}
+
+function offsetSampleRect(
+  placement: ImagePlacement,
+  drawRect: ImagePlacementRect,
+): ImagePlacementRect {
+  return {
+    x: placement.sampleDrawRect.x + drawRect.x - placement.drawRect.x,
+    y: placement.sampleDrawRect.y + drawRect.y - placement.drawRect.y,
+    w: placement.sampleDrawRect.w,
+    h: placement.sampleDrawRect.h,
+  };
+}
+
+function drawPlacedImageSample(
+  target: ReplayTarget,
+  image: CanvasImageSource,
+  placement: ImagePlacement,
+  drawRect: ImagePlacementRect,
+  sampleDrawRect: ImagePlacementRect,
+): void {
+  const { x: sx, y: sy, w: sw, h: sh } = placement.sourceRect;
+  const hasTransform = placement.rotation !== 0 || placement.flipH || placement.flipV;
+  if (!hasTransform) {
+    target.drawImage?.(
+      image,
+      sx,
+      sy,
+      sw,
+      sh,
+      sampleDrawRect.x,
+      sampleDrawRect.y,
+      sampleDrawRect.w,
+      sampleDrawRect.h,
+    );
+    return;
+  }
+  const cx = drawRect.x + drawRect.w / 2;
+  const cy = drawRect.y + drawRect.h / 2;
+  target.save();
+  applyImageTransform(target, cx, cy, placement.rotation, placement.flipH, placement.flipV);
+  target.drawImage?.(
+    image,
+    sx,
+    sy,
+    sw,
+    sh,
+    sampleDrawRect.x - cx,
+    sampleDrawRect.y - cy,
+    sampleDrawRect.w,
+    sampleDrawRect.h,
+  );
+  target.restore();
+}
+
+const MASK_CACHE_MAX_ENTRIES = 24;
+const MASK_CACHE_MAX_PIXELS = 16_777_216;
+const maskedImageCache = new Map<string, HTMLCanvasElement>();
+const maskedImageSourceIds = new WeakMap<object, number>();
+let maskedImageCachePixels = 0;
+let nextMaskedImageSourceId = 1;
+
+function maskedImageSourceId(source: CanvasImageSource): number {
+  const object = source as unknown as object;
+  const existing = maskedImageSourceIds.get(object);
+  if (existing !== undefined) return existing;
+  const id = nextMaskedImageSourceId++;
+  maskedImageSourceIds.set(object, id);
+  return id;
+}
+
+function renderMaskedImageSample(
+  image: CanvasImageSource,
+  mask: CanvasImageSource,
+  placement: ImagePlacement,
+  bounds: ImagePlacementRect,
+  imageKey: string,
+  maskKey: string,
+): HTMLCanvasElement | null {
+  if (typeof document === 'undefined' || typeof document.createElement !== 'function') return null;
+  const width = Math.max(1, Math.ceil(bounds.w));
+  const height = Math.max(1, Math.ceil(bounds.h));
+  const pixels = width * height;
+  if (
+    !Number.isSafeInteger(pixels) ||
+    pixels > MASK_CACHE_MAX_PIXELS ||
+    width > 8192 ||
+    height > 8192
+  ) {
+    return null;
+  }
+  const key = [
+    imageKey,
+    maskKey,
+    maskedImageSourceId(image),
+    maskedImageSourceId(mask),
+    width,
+    height,
+    placement.drawRect.x - bounds.x,
+    placement.drawRect.y - bounds.y,
+    placement.drawRect.w,
+    placement.drawRect.h,
+    placement.sourceRect.x,
+    placement.sourceRect.y,
+    placement.sourceRect.w,
+    placement.sourceRect.h,
+    placement.rotation,
+    placement.flipH,
+    placement.flipV,
+  ].join('|');
+  const cached = maskedImageCache.get(key);
+  if (cached) {
+    maskedImageCache.delete(key);
+    maskedImageCache.set(key, cached);
+    return cached;
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
+  context.translate(-bounds.x, -bounds.y);
+  drawPlacedImageSample(
+    context as unknown as ReplayTarget,
+    image,
+    placement,
+    placement.drawRect,
+    placement.sampleDrawRect,
+  );
+  context.globalCompositeOperation = 'destination-in';
+  drawPlacedImageSample(
+    context as unknown as ReplayTarget,
+    mask,
+    placement,
+    placement.drawRect,
+    placement.sampleDrawRect,
+  );
+
+  maskedImageCache.set(key, canvas);
+  maskedImageCachePixels += pixels;
+  while (
+    maskedImageCache.size > MASK_CACHE_MAX_ENTRIES ||
+    maskedImageCachePixels > MASK_CACHE_MAX_PIXELS
+  ) {
+    const oldest = maskedImageCache.entries().next().value as
+      | [string, HTMLCanvasElement]
+      | undefined;
+    if (!oldest) break;
+    maskedImageCache.delete(oldest[0]);
+    maskedImageCachePixels -= oldest[1].width * oldest[1].height;
+  }
+  return canvas;
 }
 
 /**
