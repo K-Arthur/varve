@@ -42,7 +42,7 @@ import { StateMachinePanel } from './components/StateMachinePanel';
 import { EditorProvider, setToastHandler, useEditor } from './context';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { LayersPanel } from './LayersPanel';
-import { Menubar } from './Menubar';
+import { Menubar } from './components/Menubar';
 import { ContextualHelpPanel, resetOnboarding, useEditorHelp, WhatIsThis } from './onboard';
 import { StatusBar } from './StatusBar';
 import { nodeLocalBounds } from './scene/world';

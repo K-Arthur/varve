@@ -8,7 +8,7 @@ import {
   Tooltip,
   TooltipProvider,
 } from '@strata/ui';
-import { getTheme, setTheme } from '@strata/ui/tokens';
+import { getTheme, setTheme, type Theme } from '@strata/ui/tokens';
 import {
   getTypeAheadResetMs,
   isResetKey,
@@ -16,26 +16,34 @@ import {
   shouldTypeAhead,
 } from '@strata/ui/utils/menuTypeAhead';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { getActionRegistry } from './actions/ActionRegistry';
-import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
-import { ArchiveDialog } from './components/Archive/ArchiveDialog';
-import { bumpThemeRevision, useEditor } from './context';
-import { useRecentFiles } from './recentFiles';
-import { loadSettings } from './settings';
-import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
-import { computeCapabilities } from './menu/capabilities';
-import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
-import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './components/Menubar/types';
-import { buildFileMenu } from './components/Menubar/FileMenu';
-import { buildEditMenu } from './components/Menubar/EditMenu';
-import { buildTextMenu } from './components/Menubar/TextMenu';
-import { buildViewMenu } from './components/Menubar/ViewMenu';
-import { buildObjectMenu } from './components/Menubar/ObjectMenu';
-import { buildArrangeMenu } from './components/Menubar/ArrangeMenu';
-import { buildPageMenu } from './components/Menubar/PageMenu';
-import { buildHelpMenu } from './components/Menubar/HelpMenu';
+import { getActionRegistry } from '../../actions/ActionRegistry';
+import type { ArchiveDialogProps } from '../Archive/ArchiveDialog';
+import { ArchiveDialog } from '../Archive/ArchiveDialog';
+import { bumpThemeRevision, useEditor } from '../../context';
+import { useRecentFiles } from '../../recentFiles';
+import { loadSettings } from '../../settings';
+import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from '../../shortcuts';
+import { WORKSPACE_LABELS, type WorkspaceMode } from '../../workspace/workspaceTypes';
+import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './types';
+import { buildFileMenu } from './FileMenu';
+import { buildEditMenu } from './EditMenu';
+import { buildTextMenu } from './TextMenu';
+import { buildViewMenu } from './ViewMenu';
+import { buildObjectMenu } from './ObjectMenu';
+import { buildArrangeMenu } from './ArrangeMenu';
+import { buildPageMenu } from './PageMenu';
+import { buildHelpMenu } from './HelpMenu';
 
-/** Build a shortcut key string for aria-keyshortcuts (platform-independent, e.g. "Ctrl+G"). */
+export { buildFileMenu } from './FileMenu';
+export { buildEditMenu } from './EditMenu';
+export { buildTextMenu } from './TextMenu';
+export { buildViewMenu } from './ViewMenu';
+export { buildObjectMenu } from './ObjectMenu';
+export { buildArrangeMenu } from './ArrangeMenu';
+export { buildPageMenu } from './PageMenu';
+export { buildHelpMenu } from './HelpMenu';
+export type { MenuBuildHelpers, MenuId, MenuItem, MenuBuildState, RecentEntry } from './types';
+
 function ariaShortcut(binding: {
   key: string;
   ctrl?: boolean;
@@ -53,11 +61,19 @@ function ariaShortcut(binding: {
 const INSTALL_DISMISS_KEY = 'strata-install-desktop-dismissed';
 
 function safeLocalStorageGet(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 function safeLocalStorageSet(key: string, value: string): void {
-  try { localStorage.setItem(key, value); } catch { /* private browsing */ }
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private browsing */
+  }
 }
 
 function isInstallDesktopDismissed(): boolean {
@@ -65,8 +81,11 @@ function isInstallDesktopDismissed(): boolean {
 }
 
 function isInIframe(): boolean {
-  try { return typeof window !== 'undefined' && window.self !== window.top; }
-  catch { return true; }
+  try {
+    return typeof window !== 'undefined' && window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 function safeOpenInstallPage(): void {
@@ -75,10 +94,15 @@ function safeOpenInstallPage(): void {
   const os = detectOS();
   const base = 'https://strata.app/download';
   const urls: Record<string, string> = {
-    mac: `${base}/mac`, windows: `${base}/windows`, linux: `${base}/linux`,
+    mac: `${base}/mac`,
+    windows: `${base}/windows`,
+    linux: `${base}/linux`,
   };
-  try { window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer'); }
-  catch { /* blocked popup */ }
+  try {
+    window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer');
+  } catch {
+    /* blocked popup */
+  }
 }
 
 function detectOS(): 'mac' | 'windows' | 'linux' | 'unknown' {
@@ -90,9 +114,6 @@ function detectOS(): 'mac' | 'windows' | 'linux' | 'unknown' {
   return 'unknown';
 }
 
-/**
- * Compute menu structure dynamically based on current editor state.
- */
 function buildMenus(
   state: {
     selection: string[];
@@ -133,10 +154,8 @@ function buildMenus(
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
 
-  /** Disabled helper: returns true when action cannot run in current context. */
   const dis = (action: string): boolean | undefined => {
     switch (action) {
-      // Selection-dependent actions
       case 'cut':
       case 'copy':
       case 'duplicate':
@@ -254,7 +273,6 @@ function itemRole(item: MenuItem): string {
   return 'menuitem';
 }
 
-/** Compute aria-checked for a menu item based on current state. */
 function itemAriaChecked(
   item: MenuItem,
   state: {
@@ -294,13 +312,7 @@ function itemAriaChecked(
   return undefined;
 }
 
-/**
- * Workspace visibility filter map — mirrors the workspaces annotations in
- * menu/defs.ts. Maps action IDs to allowed workspace modes.
- * Absent from this map = shown in all workspaces.
- */
 const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
-  // Text menu — hidden in codegen
   textBold: ['design', 'print', 'drawing', 'image', 'motion'],
   textItalic: ['design', 'print', 'drawing', 'image', 'motion'],
   textUnderline: ['design', 'print', 'drawing', 'image', 'motion'],
@@ -311,15 +323,11 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   textAlignRight: ['design', 'print', 'drawing', 'image', 'motion'],
   textAlignJustify: ['design', 'print', 'drawing', 'image', 'motion'],
   textToOutlines: ['design', 'print', 'drawing'],
-
-  // View menu — mode-specific panels
   inspectMode: ['design', 'print', 'drawing', 'image', 'motion'],
   toggleTimelinePanel: ['design', 'motion'],
   toggleGraphEditor: ['design', 'motion'],
   toggleStateMachinePanel: ['design', 'motion'],
   toggleBeforeAfterCompare: ['design', 'print', 'drawing', 'image'],
-
-  // Object menu — mode-specific
   newAdjustmentLayer: ['design', 'print', 'image'],
   createClippingMask: ['design', 'print', 'drawing', 'image'],
   releaseClippingMask: ['design', 'print', 'drawing', 'image'],
@@ -339,8 +347,6 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   booleanSubtract: ['design', 'print', 'drawing'],
   booleanIntersect: ['design', 'print', 'drawing'],
   booleanExclude: ['design', 'print', 'drawing'],
-
-  // Page menu — multi-page only
   createMaster: ['design', 'print'],
   applyMaster: ['design', 'print'],
   detachMaster: ['design', 'print'],
@@ -622,7 +628,7 @@ export function Menubar({
 
       if (entry.locator.kind === 'fsHandle') {
         try {
-          const { loadHandle } = await import('./recentFiles/store');
+          const { loadHandle } = await import('../../recentFiles/store');
           const handle = await loadHandle(entry.locator.handleKey);
           if (!handle) {
             setMissingFileDialog({
@@ -685,7 +691,6 @@ export function Menubar({
         return;
       }
 
-      // Menubar-specific actions (not in the registry or with different behavior)
       switch (action) {
         case 'new':
           setConfirmNewDoc(true);
@@ -806,7 +811,6 @@ export function Menubar({
           break;
       }
 
-      // Fallback to shared action registry
       const registry = getActionRegistry();
       const registered = registry.get(action);
       if (registered) {
@@ -814,7 +818,6 @@ export function Menubar({
         return;
       }
 
-      // Legacy fallbacks for actions not yet in the registry
       switch (action) {
         case 'open':
           document.querySelector<HTMLInputElement>('#file-open-input')?.click();
@@ -873,8 +876,6 @@ export function Menubar({
     if (e.key === 'Enter' || e.key === 'Escape') (e.target as HTMLInputElement).blur();
   }, []);
 
-  // ─── keyboard navigation ──────────────────────────────────────────────
-
   const currentSubmenuItems = useMemo(() => {
     if (openSubmenu === null || openMenuIndex < 0) return [];
     const item = menus[openMenuIndex]?.items[openSubmenu];
@@ -887,7 +888,6 @@ export function Menubar({
       const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
 
       if (openSubmenu !== null) {
-        // Submenu is open
         const subItems = currentSubmenuItems.filter((i) => i.label !== '---');
 
         switch (e.key) {
@@ -922,7 +922,6 @@ export function Menubar({
       }
 
       if (openIdx >= 0 && openMenu) {
-        // Dropdown is open — navigate items
         const menu = menus[openIdx];
         if (!menu) return;
         const items = menu.items.filter((i) => i.label !== '---');
@@ -1039,7 +1038,6 @@ export function Menubar({
           }
         }
       } else {
-        // Top-level navigation
         switch (e.key) {
           case 'ArrowRight':
           case 'ArrowDown': {
@@ -1226,25 +1224,23 @@ export function Menubar({
                               currentTheme === subItem.action.slice(6)) ||
                             subChecked;
                           return (
-                            <>
-                              <button
-                                key={subItem.label}
-                                role={subRole}
-                                type="button"
-                                aria-checked={subChecked}
-                                aria-keyshortcuts={subItem.ariaKeyshortcut}
-                                disabled={subItem.disabled}
-                                className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
-                                onClick={() => handleAction(subItem.action ?? '')}
-                              >
-                                <span className="editor-menubar__menu-label">{subItem.label}</span>
-                                {subItem.shortcut && (
-                                  <span className="editor-menubar__menu-shortcut">
-                                    {subItem.shortcut}
-                                  </span>
-                                )}
-                              </button>
-                            </>
+                            <button
+                              key={subItem.label}
+                              role={subRole}
+                              type="button"
+                              aria-checked={subChecked}
+                              aria-keyshortcuts={subItem.ariaKeyshortcut}
+                              disabled={subItem.disabled}
+                              className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
+                              onClick={() => handleAction(subItem.action ?? '')}
+                            >
+                              <span className="editor-menubar__menu-label">{subItem.label}</span>
+                              {subItem.shortcut && (
+                                <span className="editor-menubar__menu-shortcut">
+                                  {subItem.shortcut}
+                                </span>
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -1257,7 +1253,6 @@ export function Menubar({
         </FloatingPortal>
       )}
 
-      {/* ── Center: Document name ── */}
       <div className="editor-menubar__center">
         <div className="editor-menubar__doc-name">
           {editingName ? (
@@ -1274,7 +1269,6 @@ export function Menubar({
               aria-label="Document name"
             />
           ) : (
-            // biome-ignore lint/a11y/useSemanticElements: span with role="button" is intentional for inline clickable text; keyboard + click handlers present
             <span
               role="button"
               tabIndex={0}
@@ -1294,12 +1288,10 @@ export function Menubar({
         </div>
       </div>
 
-      {/* ── Right: Workspace switcher + Zoom + Undo/Redo ── */}
       <div className="editor-menubar__controls">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
           {(['design', 'print', 'drawing', 'image', 'motion'] as WorkspaceMode[]).map(
             (mode, idx) => {
-              // Direct mapping from workspace mode to SolidIcon name
               const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> =
                 {
                   design: 'penTool',
@@ -1338,10 +1330,22 @@ export function Menubar({
         </span>
         <TooltipProvider>
           <Tooltip label="Undo" shortcut="Ctrl+Z">
-            <IconButton icon={SOLID_CHROME_ICONS.undo} label="Undo" size="sm" solid onClick={undo} />
+            <IconButton
+              icon={SOLID_CHROME_ICONS.undo}
+              label="Undo"
+              size="sm"
+              solid
+              onClick={undo}
+            />
           </Tooltip>
           <Tooltip label="Redo" shortcut="Ctrl+Shift+Z">
-            <IconButton icon={SOLID_CHROME_ICONS.redo} label="Redo" size="sm" solid onClick={redo} />
+            <IconButton
+              icon={SOLID_CHROME_ICONS.redo}
+              label="Redo"
+              size="sm"
+              solid
+              onClick={redo}
+            />
           </Tooltip>
         </TooltipProvider>
         <div className="editor-menubar__zoom">
@@ -1402,9 +1406,6 @@ export function Menubar({
         document={state.document as ArchiveDialogProps['document']}
         platform={platform}
         onCreateArchive={(result) => {
-          // Desktop: native Save dialog + the atomic write_binary_file
-          // command. Browser: no filesystem access, so a plain download is
-          // the only option and the browser itself handles it atomically.
           if (platform?.kind === 'tauri') {
             void platform.saveBinaryFile(
               result.fileName.replace(/\.zip$/, ''),

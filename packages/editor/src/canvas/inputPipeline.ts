@@ -44,6 +44,13 @@ export interface UseCanvasInputsOptions {
   setHoveredNode: (node: SceneNode | null) => void;
   setRenameDialog: (v: { defaultValue: string } | null) => void;
   rootNodes: () => readonly SceneNode[];
+  /** Shared snap session ref (from CanvasArea's buildToolCtx). If omitted, uses internal default. */
+  snapSessionRef?: MutableRefObject<import('../tools/snapping').SnapSession>;
+  snapIndexRef?: MutableRefObject<{
+    index: unknown;
+    parentIndex: Map<string, string>;
+    documentId: string;
+  } | null>;
 }
 
 export interface UseCanvasInputsResult {
@@ -70,6 +77,8 @@ export function useCanvasInputs({
   setHoveredNode,
   setRenameDialog,
   rootNodes,
+  snapSessionRef: externalSnapSessionRef,
+  snapIndexRef: externalSnapIndexRef,
 }: UseCanvasInputsOptions): UseCanvasInputsResult {
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{
@@ -99,7 +108,14 @@ export function useCanvasInputs({
     autoPanVelocity.current = { x: 0, y: 0 };
   }, []);
 
-  const snapSessionRef = useRef(createSnapSession());
+  const internalSnapSessionRef = useRef(createSnapSession());
+  const internalSnapIndexRef = useRef<{
+    index: unknown;
+    parentIndex: Map<string, string>;
+    documentId: string;
+  } | null>(null);
+  const snapSessionForPointer = externalSnapSessionRef ?? internalSnapSessionRef;
+  const snapIndexForPointer = externalSnapIndexRef ?? internalSnapIndexRef;
   const lastCursorUpdate = useRef(0);
 
   const handlePointerDown = useCallback(
@@ -124,10 +140,11 @@ export function useCanvasInputs({
 
       if (e.button === 1) e.preventDefault();
 
-      snapSessionRef.current = createSnapSession();
+      snapSessionForPointer.current = createSnapSession();
+      snapIndexForPointer.current = null;
       tmInst.handlePointerDown(ne, ctx);
     },
-    [tmRef, buildToolCtx],
+    [tmRef, buildToolCtx, snapSessionForPointer, snapIndexForPointer],
   );
 
   const handlePointerMove = useCallback(

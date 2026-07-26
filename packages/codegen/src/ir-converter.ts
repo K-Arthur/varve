@@ -4,6 +4,13 @@
 
 import type { Document, Effect, SceneNode, TextNode } from '@strata/scene';
 import { activePageNodes, getParent, isImageShape } from '@strata/scene';
+import { convertToSemanticNode } from './ir-builders';
+import {
+  analyzeSceneForDesignIR,
+  buildDocumentStructure,
+  inferResponsiveBreakpoints,
+  inferTokenLibrary,
+} from './ir-inference';
 import type {
   AdjustmentScopeInfo,
   DocumentMetadata,
@@ -15,13 +22,6 @@ import type {
   SemanticNode,
 } from './ir-types';
 import { DEFAULT_BREAKPOINTS } from './ir-types';
-import {
-  analyzeSceneForDesignIR,
-  buildDocumentStructure,
-  inferResponsiveBreakpoints,
-  inferTokenLibrary,
-} from './ir-inference';
-import { convertToSemanticNode } from './ir-builders';
 
 // ── Flattening Analysis (v2.1) ─────────────────────────────────────────────────
 
