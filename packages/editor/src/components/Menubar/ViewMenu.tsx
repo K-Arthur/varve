@@ -7,10 +7,7 @@ const THEMES: { id: Theme; label: string }[] = [
   { id: 'high-contrast', label: 'High Contrast' },
 ];
 
-export function buildViewMenu(
-  _state: MenuBuildState,
-  helpers: MenuBuildHelpers,
-): MenuItem[] {
+export function buildViewMenu(_state: MenuBuildState, helpers: MenuBuildHelpers): MenuItem[] {
   return [
     ...THEMES.map((t) => ({
       label: t.label,
@@ -101,6 +98,12 @@ export function buildViewMenu(
       label: 'Global Ruler Origin',
       action: 'rulerModeGlobal',
       disabled: _state.rulerMode === 'global',
+    },
+    {
+      label: _state.documentGrid.visible ? 'Hide Grid' : 'Show Grid',
+      shortcut: helpers.fmt('toggleGrid'),
+      ariaKeyshortcut: helpers.ks('toggleGrid'),
+      action: 'toggleGrid',
     },
     {
       label: 'Baseline Grid Overlay',

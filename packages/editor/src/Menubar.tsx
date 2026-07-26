@@ -23,7 +23,6 @@ import { bumpThemeRevision, useEditor } from './context';
 import { useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
-import { computeCapabilities } from './menu/capabilities';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 import type { MenuBuildHelpers, MenuId, MenuItem, RecentEntry } from './components/Menubar/types';
 import { buildFileMenu } from './components/Menubar/FileMenu';
@@ -53,11 +52,19 @@ function ariaShortcut(binding: {
 const INSTALL_DISMISS_KEY = 'strata-install-desktop-dismissed';
 
 function safeLocalStorageGet(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 function safeLocalStorageSet(key: string, value: string): void {
-  try { localStorage.setItem(key, value); } catch { /* private browsing */ }
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private browsing */
+  }
 }
 
 function isInstallDesktopDismissed(): boolean {
@@ -65,8 +72,11 @@ function isInstallDesktopDismissed(): boolean {
 }
 
 function isInIframe(): boolean {
-  try { return typeof window !== 'undefined' && window.self !== window.top; }
-  catch { return true; }
+  try {
+    return typeof window !== 'undefined' && window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 function safeOpenInstallPage(): void {
@@ -75,10 +85,15 @@ function safeOpenInstallPage(): void {
   const os = detectOS();
   const base = 'https://strata.app/download';
   const urls: Record<string, string> = {
-    mac: `${base}/mac`, windows: `${base}/windows`, linux: `${base}/linux`,
+    mac: `${base}/mac`,
+    windows: `${base}/windows`,
+    linux: `${base}/linux`,
   };
-  try { window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer'); }
-  catch { /* blocked popup */ }
+  try {
+    window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer');
+  } catch {
+    /* blocked popup */
+  }
 }
 
 function detectOS(): 'mac' | 'windows' | 'linux' | 'unknown' {
@@ -113,6 +128,16 @@ function buildMenus(
     beforeAfterCompare: boolean;
     rulerMode: string;
     snapEnabled: boolean;
+    documentGrid: {
+      visible: boolean;
+      spacingX: number;
+      spacingY: number;
+      subdivisions: number;
+      offsetX: number;
+      offsetY: number;
+      color: string;
+      opacity: number;
+    };
   },
   recentEntries: RecentEntry[],
 ): { id: MenuId; items: MenuItem[] }[] {
@@ -471,6 +496,7 @@ export function Menubar({
       state.beforeAfterCompare,
       state.rulerMode,
       state.snapEnabled,
+      state.documentGrid?.visible,
       recentEntries,
     ],
   );
@@ -1226,25 +1252,23 @@ export function Menubar({
                               currentTheme === subItem.action.slice(6)) ||
                             subChecked;
                           return (
-                            <>
-                              <button
-                                key={subItem.label}
-                                role={subRole}
-                                type="button"
-                                aria-checked={subChecked}
-                                aria-keyshortcuts={subItem.ariaKeyshortcut}
-                                disabled={subItem.disabled}
-                                className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
-                                onClick={() => handleAction(subItem.action ?? '')}
-                              >
-                                <span className="editor-menubar__menu-label">{subItem.label}</span>
-                                {subItem.shortcut && (
-                                  <span className="editor-menubar__menu-shortcut">
-                                    {subItem.shortcut}
-                                  </span>
-                                )}
-                              </button>
-                            </>
+                            <button
+                              key={subItem.label}
+                              role={subRole}
+                              type="button"
+                              aria-checked={subChecked}
+                              aria-keyshortcuts={subItem.ariaKeyshortcut}
+                              disabled={subItem.disabled}
+                              className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
+                              onClick={() => handleAction(subItem.action ?? '')}
+                            >
+                              <span className="editor-menubar__menu-label">{subItem.label}</span>
+                              {subItem.shortcut && (
+                                <span className="editor-menubar__menu-shortcut">
+                                  {subItem.shortcut}
+                                </span>
+                              )}
+                            </button>
                           );
                         })}
                       </div>
@@ -1338,10 +1362,22 @@ export function Menubar({
         </span>
         <TooltipProvider>
           <Tooltip label="Undo" shortcut="Ctrl+Z">
-            <IconButton icon={SOLID_CHROME_ICONS.undo} label="Undo" size="sm" solid onClick={undo} />
+            <IconButton
+              icon={SOLID_CHROME_ICONS.undo}
+              label="Undo"
+              size="sm"
+              solid
+              onClick={undo}
+            />
           </Tooltip>
           <Tooltip label="Redo" shortcut="Ctrl+Shift+Z">
-            <IconButton icon={SOLID_CHROME_ICONS.redo} label="Redo" size="sm" solid onClick={redo} />
+            <IconButton
+              icon={SOLID_CHROME_ICONS.redo}
+              label="Redo"
+              size="sm"
+              solid
+              onClick={redo}
+            />
           </Tooltip>
         </TooltipProvider>
         <div className="editor-menubar__zoom">

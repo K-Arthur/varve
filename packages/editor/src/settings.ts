@@ -78,6 +78,8 @@ export interface ViewportSettingsStore {
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   guidesVisible: boolean;
   snapGrid: number;
+  gridVisible: boolean;
+  gridSubdivisions: number;
 }
 
 /** Per-section collapse/hidden preferences for the Inspector panel. */
@@ -153,6 +155,8 @@ export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   unitType: 'px',
   guidesVisible: true,
   snapGrid: 8,
+  gridVisible: false,
+  gridSubdivisions: 4,
 };
 
 export const DEFAULT_SECTION_SETTINGS: SectionSettingsStore = {

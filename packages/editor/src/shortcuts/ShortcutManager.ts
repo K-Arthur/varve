@@ -66,6 +66,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Ruler Mode',
     category: 'View',
   },
+  toggleGrid: {
+    binding: { key: 'g', alt: true, shift: true },
+    label: 'Toggle Grid',
+    category: 'View',
+  },
   gridOverlayBaseline: {
     binding: { key: 'b', alt: true, shift: true },
     label: 'Baseline Grid Overlay',

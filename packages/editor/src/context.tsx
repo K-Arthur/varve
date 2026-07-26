@@ -347,6 +347,7 @@ import type {
   SessionMeta,
   ToolId,
 } from './context/types';
+import { createDefaultDocumentGridSettings } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useInteractionState } from './context/useInteractionState';
@@ -1420,7 +1421,7 @@ function snapshotEditorSession(
   return {
     document: s.document,
     selection: s.selection,
-    viewport: captureViewport(s),
+    viewport: captureViewport({ ...s, gridVisible: s.documentGrid.visible }),
     undo: [...undo],
     redo: [...redo],
     undoSel: [...undoSel],
@@ -1442,6 +1443,7 @@ function restoreViewportFields(
   | 'unitType'
   | 'guidesVisible'
   | 'snapGrid'
+  | 'documentGrid'
 > {
   const v = normalizeSavedViewport(raw);
   return {
@@ -1455,6 +1457,7 @@ function restoreViewportFields(
     unitType: v.unitType,
     guidesVisible: v.guidesVisible,
     snapGrid: v.snapGrid,
+    documentGrid: { ...createDefaultDocumentGridSettings(), visible: v.gridVisible ?? false },
   };
 }
 
@@ -1468,6 +1471,8 @@ function persistViewportPrefs(s: EditorState): void {
       unitType: s.unitType,
       guidesVisible: s.guidesVisible,
       snapGrid: s.snapGrid,
+      gridVisible: s.documentGrid.visible,
+      gridSubdivisions: s.documentGrid.subdivisions,
     },
   });
 }
@@ -1903,8 +1908,13 @@ export function EditorProvider({
       cursorPos: null,
       unitType: vpDefaults.unitType,
       pixelGridEnabled: vpDefaults.pixelGridEnabled,
+      dotGridEnabled: false,
       snapEnabled: vpDefaults.snapEnabled,
       snapGrid: vpDefaults.snapGrid,
+      documentGrid: {
+        ...createDefaultDocumentGridSettings(),
+        visible: vpDefaults.gridVisible ?? false,
+      },
       saveState: 'idle' as const,
       lastSavedAt: null,
       prototypeMode: false,
@@ -6050,6 +6060,13 @@ export function EditorProvider({
         patch({ snapGrid: clamped });
         persistViewportPrefs({ ...stateRef.current, snapGrid: clamped });
       },
+      setDotGridEnabled: (v) => {
+        patch({ dotGridEnabled: v });
+      },
+      setDocumentGrid: (settings) => {
+        patch({ documentGrid: settings });
+        persistViewportPrefs({ ...stateRef.current, documentGrid: settings });
+      },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
       rotateViewBy: (radians, screenAnchor) => {
@@ -6291,11 +6308,13 @@ export function EditorProvider({
             cameraRotation: 0,
             snapEnabled: vpDefaults.snapEnabled,
             pixelGridEnabled: vpDefaults.pixelGridEnabled,
+            dotGridEnabled: s.dotGridEnabled,
+            snapGrid: vpDefaults.snapGrid,
             rulerMode: vpDefaults.rulerMode,
             gridOverlayMode: vpDefaults.gridOverlayMode,
             unitType: vpDefaults.unitType,
             guidesVisible: vpDefaults.guidesVisible,
-            snapGrid: vpDefaults.snapGrid,
+            documentGrid: { ...s.documentGrid, visible: vpDefaults.gridVisible ?? false },
             dirty: false,
             sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
             activeId: newId,
