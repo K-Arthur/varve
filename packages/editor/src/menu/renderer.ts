@@ -5,20 +5,8 @@ import type {
   SubmenuItem,
   MenuItem as UiMenuItem,
 } from '@strata/ui';
-import type { MenuContext, MenuContextId, MenuItemDef } from './types';
 import { timeMenuOperation } from './perfFlags';
-
-const _defCache = new WeakMap<MenuItemDef, { enabled: true | { reason: string }; badge: string | undefined }>();
-
-function getCachedPredicates(def: MenuItemDef, ctx: MenuContext): { enabled: true | { reason: string }; badge: string | undefined } {
-  if (def.enabled || def.badge) {
-    return {
-      enabled: def.enabled ? def.enabled(ctx) : true,
-      badge: def.badge ? def.badge(ctx) : undefined,
-    };
-  }
-  return { enabled: true, badge: undefined };
-}
+import type { MenuContext, MenuContextId, MenuItemDef } from './types';
 
 export interface RenderOptions {
   ctx: MenuContext;
@@ -149,7 +137,8 @@ function resolveBadge(def: MenuItemDef, ctx: MenuContext): string | undefined {
 
 function resolveLabel(def: MenuItemDef, ctx: MenuContext, opts: RenderOptions): string {
   if (def.label) return def.label(ctx);
-  return opts.formatLabel ? opts.formatLabel(def.labelKey) : def.labelKey;
+  if (opts.formatLabel && def.labelKey) return opts.formatLabel(def.labelKey);
+  return def.labelKey ?? '';
 }
 
 export function renderMenubarItems(

@@ -60,10 +60,21 @@ export function computeSelectionFacts(
   return fact;
 }
 
-let _lastDocKey = '';
+let _lastDocRef: Document | null = null;
+let _lastDocActivePageId: string | null = null;
 let _lastDocFacts: DocumentFacts | null = null;
 
+function getNodeCount(nodes: Record<string, unknown>): number {
+  return Object.keys(nodes).length;
+}
+
 export function computeDocumentFacts(doc: Document, activePageId: string | null): DocumentFacts {
+  if (doc === _lastDocRef && activePageId === _lastDocActivePageId && _lastDocFacts) {
+    return _lastDocFacts;
+  }
+  _lastDocRef = doc;
+  _lastDocActivePageId = activePageId;
+
   const masterIds = doc.masters ? Object.keys(doc.masters) : [];
   const activePage = activePageId ? doc.pages?.find((p) => p.id === activePageId) : null;
   const currentPageMasterId = activePage?.masterPageId ?? null;
@@ -76,14 +87,8 @@ export function computeDocumentFacts(doc: Document, activePageId: string | null)
       : null;
   const currentPageIsMaster = activePageId != null && masterIds.includes(activePageId);
 
-  const key = `${Object.keys(doc.nodes).length}:${doc.pages?.length ?? 0}:${activePageId ?? ''}:${currentPageMasterId ?? ''}:${currentPageIsMaster}:${masterIds.length}`;
-  if (key === _lastDocKey && _lastDocFacts) {
-    return _lastDocFacts;
-  }
-  _lastDocKey = key;
-
   const fact: DocumentFacts = {
-    nodeCount: Object.keys(doc.nodes).length,
+    nodeCount: getNodeCount(doc.nodes),
     pageCount: doc.pages?.length ?? 1,
     hasMasterPages: masterIds.length > 0,
     currentPageHasMaster: currentPageMaster != null,

@@ -1,4 +1,5 @@
-export const MENU_PERF_INSTRUMENTATION = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+export const MENU_PERF_INSTRUMENTATION =
+  typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
 
 let _menuPerfEnabled = MENU_PERF_INSTRUMENTATION;
 
@@ -10,7 +11,8 @@ export function isMenuPerfInstrumentationEnabled(): boolean {
   return _menuPerfEnabled;
 }
 
-const isPerfAvailable = typeof performance !== 'undefined' && typeof performance.mark === 'function';
+const isPerfAvailable =
+  typeof performance !== 'undefined' && typeof performance.mark === 'function';
 
 export function menuPerfMark(name: string): void {
   if (!_menuPerfEnabled || !isPerfAvailable) return;
