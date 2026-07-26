@@ -43,7 +43,10 @@ const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'develo
 let _staticDefsCache: ReturnType<typeof getAllMenuDefs> | null = null;
 let _staticDefsKey: object | null = null;
 
-function getCachedDefs(opts: { runAction: (id: string) => void; getTheme?: () => string }): ReturnType<typeof getAllMenuDefs> {
+function getCachedDefs(opts: {
+  runAction: (id: string) => void;
+  getTheme?: () => string;
+}): ReturnType<typeof getAllMenuDefs> {
   const key = opts.runAction;
   if (_staticDefsCache && _staticDefsKey === key) {
     return _staticDefsCache;
@@ -111,7 +114,8 @@ export function useMenu(opts: UseMenuOptions): UseMenuReturn {
   );
 
   const menubarGroups = useMemo(
-    () => timeMenuOperation('renderMenubarItems', () => renderMenubarItems(allDefs, ctx, renderOpts)),
+    () =>
+      timeMenuOperation('renderMenubarItems', () => renderMenubarItems(allDefs, ctx, renderOpts)),
     [allDefs, ctx, renderOpts],
   );
 

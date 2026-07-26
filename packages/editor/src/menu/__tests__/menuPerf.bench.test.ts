@@ -1,6 +1,5 @@
 import { createDocument } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { getAllMenuDefs, getCanvasContextMenuDefs } from '../defs';
 import {
   buildIntelFacts,
   computeDocumentFacts,
@@ -10,6 +9,7 @@ import {
   renderMenubarItems,
   renderMenuItems,
 } from '..';
+import { getAllMenuDefs, getCanvasContextMenuDefs } from '../defs';
 import type { MenuContext, MenuItemDef } from '../types';
 import { buildSyntheticDoc } from './syntheticDocs';
 
@@ -37,7 +37,10 @@ function percentile(sorted: number[], p: number): number {
   return sorted[idx] ?? 0;
 }
 
-function measure(times: number, fn: () => void): { p50: number; p95: number; min: number; max: number; samples: number[] } {
+function measure(
+  times: number,
+  fn: () => void,
+): { p50: number; p95: number; min: number; max: number; samples: number[] } {
   const samples: number[] = [];
   for (let i = 0; i < times; i++) {
     const t0 = performance.now();
@@ -143,8 +146,9 @@ describe('menu perf — rendering', () => {
     const applyMaster = (pageMenu?.items as MenuItemDef[])?.find((d) => d.id === 'applyMaster');
     const renderOpts = { ctx, run: (_id: string) => {} };
 
-    if (applyMaster && applyMaster.items) {
-      const items = typeof applyMaster.items === 'function' ? applyMaster.items(ctx) : applyMaster.items;
+    if (applyMaster?.items) {
+      const items =
+        typeof applyMaster.items === 'function' ? applyMaster.items(ctx) : applyMaster.items;
       warmUp(() => renderMenuItems(items, ctx, renderOpts));
       const result = measure(100, () => renderMenuItems(items, ctx, renderOpts));
       expect(result.p95).toBeLessThan(30);
@@ -170,7 +174,7 @@ describe('menu perf — submenu lazy loading', () => {
     };
 
     expect(evaluated).toBe(false);
-    const items = lazyDef.items(ctx);
+    const items = typeof lazyDef.items === 'function' ? lazyDef.items(ctx) : (lazyDef.items ?? []);
     expect(evaluated).toBe(true);
     expect(items).toEqual([]);
   });
@@ -199,7 +203,11 @@ describe('menu perf — selection change cost', () => {
 
 describe('menu perf — multi-page / multi-master docs', () => {
   it('document with 100 pages and 20 masters computes facts under 4ms p95', () => {
-    const { doc, selection } = buildSyntheticDoc({ nodeCount: 1000, pageCount: 100, masterCount: 20 });
+    const { doc, selection } = buildSyntheticDoc({
+      nodeCount: 1000,
+      pageCount: 100,
+      masterCount: 20,
+    });
     warmUp(() => computeDocumentFacts(doc, selection[0] ?? null));
     const result = measure(100, () => computeDocumentFacts(doc, selection[0] ?? null));
     expect(result.p95).toBeLessThan(4);

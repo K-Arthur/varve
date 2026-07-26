@@ -13,6 +13,17 @@ export {
   computeSelectionFacts,
   detectPlatformFacts,
 } from './facts';
+export {
+  clearMenuPerfMeasurements,
+  getMenuPerfMeasurements,
+  isMenuPerfInstrumentationEnabled,
+  menuPerfClear,
+  menuPerfMark,
+  menuPerfMeasure,
+  setMenuPerfInstrumentation,
+  timeMenuOperation,
+  timeMenuOperationAsync,
+} from './perfFlags';
 export type { RenderOptions } from './renderer';
 export { renderMenubarItems, renderMenuItems } from './renderer';
 export type {
@@ -27,14 +38,3 @@ export type {
   PlatformFacts,
   SelectionFacts,
 } from './types';
-export {
-  clearMenuPerfMeasurements,
-  getMenuPerfMeasurements,
-  isMenuPerfInstrumentationEnabled,
-  menuPerfClear,
-  menuPerfMark,
-  menuPerfMeasure,
-  setMenuPerfInstrumentation,
-  timeMenuOperation,
-  timeMenuOperationAsync,
-} from './perfFlags';
