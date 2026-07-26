@@ -18,6 +18,7 @@ import type {
 import { activePageNodes, isImageShape, resolveMask } from '@strata/scene';
 import { applyAffine, managedColorToRgba, multiplyAffine } from '@strata/shared';
 import { svgCompositing } from './shared';
+import { imageContentTransform, imagePlacementForShape, svgRect } from './svg';
 
 export { timelineToCSSKeyframes } from './animation-css';
 export type { InteractiveExportOptions, InteractiveExportResult } from './animation-interactive';
@@ -401,9 +402,44 @@ function docBuildMaskDef(doc: Document, containerId: string, mask: Mask): string
         ? doc.rasterMaskAssets[assetId]
         : undefined;
     if (asset?.dataUrl) {
-      lines.push(`    <mask id="${maskId}">`);
+      const container = doc.nodes[containerId];
+      const imageFill =
+        container?.kind === 'shape'
+          ? container.fills?.find((fill) => fill.type === 'image' && fill.image)?.image
+          : undefined;
+      const placement =
+        container?.kind === 'shape' && imageFill
+          ? imagePlacementForShape(container, imageFill, {
+              width: asset.width,
+              height: asset.height,
+            })
+          : null;
+      if (placement && imageFill) {
+        const bounds = placement.bounds;
+        const contentTransform = imageContentTransform(placement);
+        const transformAttr = contentTransform ? ` transform="${contentTransform}"` : '';
+        const cropClipId = `${maskId}-crop`;
+        lines.push(
+          `    <mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="${bounds.x}" y="${bounds.y}" width="${bounds.w}" height="${bounds.h}" style="mask-type: alpha">`,
+        );
+        if (imageFill.crop) {
+          lines.push(
+            `      <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>`,
+          );
+        }
+        lines.push(
+          `      <g${transformAttr}${imageFill.crop ? ` clip-path="url(#${cropClipId})"` : ''}>`,
+        );
+        lines.push(
+          `        <image href="${escapeXml(asset.dataUrl)}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`,
+        );
+        lines.push(`      </g>`);
+        lines.push(`    </mask>`);
+        return lines.join('\n');
+      }
+      lines.push(`    <mask id="${maskId}" style="mask-type: alpha">`);
       lines.push(
-        `      <image href="${asset.dataUrl}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />`,
+        `      <image href="${escapeXml(asset.dataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />`,
       );
       lines.push(`    </mask>`);
       return lines.join('\n');
@@ -586,20 +622,33 @@ function nodeToSvg(
         const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
         if (imgFill?.image) {
           const img = imgFill.image;
-          const par =
-            img.fit === 'fill'
-              ? 'xMidYMid slice'
-              : img.fit === 'stretch'
-                ? 'none'
-                : 'xMidYMid meet';
           const href = escapeXml(img.src);
-          const w = fmtNum(s.kind === 'rect' ? s.w : 200, precision);
-          const h = fmtNum(s.kind === 'rect' ? s.h : 160, precision);
-          let tag = `${indent}<image href="${href}" x="0" y="0" width="${w}" height="${h}" preserveAspectRatio="${par}" transform="${transform}"${compositingSuffix} />`;
-          if (maskUri) {
-            tag = `${indent}<g ${maskAttr}="${maskUri}" transform="${transform}">\n${tag}\n${indent}</g>`;
-          }
-          return tag;
+          const placement = imagePlacementForShape(node, img);
+          if (!placement) return '';
+          const clipId = `clip-${node.id}`;
+          const cropClipId = `crop-${node.id}`;
+          const contentTransform = imageContentTransform(placement);
+          const contentTransformAttr = contentTransform ? ` transform="${contentTransform}"` : '';
+          const cropDef = img.crop
+            ? `${indent}  <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>${options.minify ? '' : '\n'}`
+            : '';
+          const cropAttr = img.crop ? ` clip-path="url(#${cropClipId})"` : '';
+          const imageTag = `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
+          const outerMaskAttr = maskUri ? ` ${maskAttr}="${maskUri}"` : '';
+          const nl = options.minify ? '' : '\n';
+          return [
+            `${indent}<g transform="${transform}"${outerMaskAttr}${compositingSuffix}>`,
+            `${indent}  <clipPath id="${clipId}" clipPathUnits="userSpaceOnUse"><${svgElementForShape(s)} /></clipPath>`,
+            cropDef.trimEnd(),
+            `${indent}  <g clip-path="url(#${clipId})">`,
+            `${indent}    <g${contentTransformAttr}${cropAttr}>`,
+            imageTag,
+            `${indent}    </g>`,
+            `${indent}  </g>`,
+            `${indent}</g>`,
+          ]
+            .filter(Boolean)
+            .join(nl);
         }
       }
       let tag: string;
