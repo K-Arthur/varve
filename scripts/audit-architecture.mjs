@@ -417,6 +417,71 @@ async function checkLayers() {
   return violations;
 }
 
+// ── 5b. Scene Type-Only Edge Ratchet ────────────────────────────────────
+// A handful of packages/scene files (and one in editor) have an import that's
+// only harmless because it's type-only (erased at compile time under
+// verbatimModuleSyntax) -- full classification in docs/quality/cycles.md and
+// docs/quality/scene-cycle-report.md. madge (checkCycles above) can't tell
+// type-only from value edges at all, so the general cycle ratchet can't catch
+// "an already-allowlisted cycle's type-only edge quietly became a real value
+// edge." This is that narrower, sharper check: these specific edges must stay
+// type-only, full stop, or an allowlisted harmless cycle becomes a real one.
+const TYPE_ONLY_EDGES = [
+  { file: 'packages/scene/src/adjustmentScope.ts', from: './document' },
+  { file: 'packages/scene/src/bindings.ts', from: './types' },
+  { file: 'packages/scene/src/component-sync.ts', from: './document' },
+  { file: 'packages/scene/src/component-sync.ts', from: './types' },
+  { file: 'packages/scene/src/typography.ts', from: './document' },
+  { file: 'packages/scene/src/typography.ts', from: './types' },
+  { file: 'packages/scene/src/suppressions.ts', from: './auditFinding' },
+];
+
+function checkTypeOnlyEdges() {
+  console.log('\n═══ 5b. Scene Type-Only Edge Ratchet ═══');
+  const violations = [];
+  for (const { file, from } of TYPE_ONLY_EDGES) {
+    const absPath = `${ROOT}${file}`;
+    if (!existsSync(absPath)) continue;
+    const src = readFileSync(absPath, 'utf-8');
+    const escaped = from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Matches both `import type { X } from '...'` and `import { X, type Y } from '...'`.
+    const importRe = new RegExp(
+      `import\\s+(type\\s+)?\\{([^}]*)\\}\\s+from\\s+['"]${escaped}['"]`,
+      'g',
+    );
+    let found = false;
+    for (const match of src.matchAll(importRe)) {
+      found = true;
+      if (match[1]) continue; // whole `import type {...}` statement -- fine
+      const specifiers = match[2]
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const valueSpecifiers = specifiers.filter((s) => !/^type\s/.test(s));
+      if (valueSpecifiers.length > 0) {
+        violations.push(
+          `${file}: import from '${from}' has a real value specifier ` +
+            `(${valueSpecifiers.join(', ')}) — this edge must stay type-only or it turns an ` +
+            `allowlisted cycle into a real one (see docs/quality/cycles.md)`,
+        );
+      }
+    }
+    if (!found) {
+      console.log(
+        `  ⚠ ${file}: no import from '${from}' found — the edge may have been removed; ` +
+          `update TYPE_ONLY_EDGES in this script`,
+      );
+    }
+  }
+  if (violations.length > 0) {
+    console.log(`  ✖ ${violations.length} violation(s):`);
+    for (const v of violations) console.log(`    ${v}`);
+  } else {
+    console.log('  ✓ all known type-only edges are still type-only');
+  }
+  return violations;
+}
+
 // ── 6. Hub File Budget Check ──────────────────────────────────────────
 async function checkHubFiles() {
   console.log('\n═══ 6. Hub File Budget ═══');
@@ -493,6 +558,8 @@ async function main() {
   const complexity = RUN_COMPLEXITY ? await checkComplexity() : {};
   const deadCode = RUN_DEAD_CODE ? await checkDeadCode() : {};
   const violations = RUN_LAYERS ? await checkLayers() : [];
+  const typeOnlyEdgeViolations = checkTypeOnlyEdges();
+  errors.push(...typeOnlyEdgeViolations);
   const hubFiles = await checkHubFiles();
   const size = await checkSize();
 
@@ -596,14 +663,32 @@ async function main() {
   if (CI_MODE && existsSync(BASELINE_PATH)) {
     const baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf-8'));
 
-    // Check cycles haven't increased
+    // Check cycles by identity, not count. A count-only ratchet lets you fix
+    // N allowlisted cycles and introduce N different (possibly worse, e.g.
+    // value-only) cycles in the same package with no signal — see
+    // docs/quality/cycles.md. Every cycle not already in the baseline's
+    // per-package allowlist fails the build; cycles that disappear are
+    // reported so the allowlist can be shrunk with --update.
     if (baseline.cycles) {
       for (const [name, bData] of Object.entries(baseline.cycles)) {
         const cData = cycles[name];
-        if (cData && cData.count > (bData.count || 0)) {
+        if (!cData) continue;
+        const allowed = new Set(bData.cycles || []);
+        const current = new Set(cData.cycles || []);
+        const newCycles = [...current].filter((c) => !allowed.has(c));
+        const fixedCycles = [...allowed].filter((c) => !current.has(c));
+        if (newCycles.length > 0) {
           errors.push(
-            `CYCLE REGRESSION: ${name} — ${cData.count} cycles (baseline ${bData.count})`,
+            `CYCLE REGRESSION: ${name} — ${newCycles.length} new cycle(s) not in allowlist:\n` +
+              newCycles.map((c) => `        + ${c}`).join('\n'),
           );
+        }
+        if (fixedCycles.length > 0) {
+          console.log(
+            `  ℹ ${name}: ${fixedCycles.length} allowlisted cycle(s) no longer present — ` +
+              `run --update to shrink the allowlist:`,
+          );
+          for (const c of fixedCycles) console.log(`        - ${c}`);
         }
       }
     }
