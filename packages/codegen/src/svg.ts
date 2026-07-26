@@ -4,8 +4,14 @@
  * Research basis: SVG 1.1 (W3C Recommendation).
  */
 
-import type { Affine } from '@strata/engine';
+import {
+  type Affine,
+  computeImagePlacement,
+  type ImagePlacement,
+  type ImagePlacementRect,
+} from '@strata/engine';
 import type {
+  ImageFillData,
   Mask,
   Document as SceneDocument,
   SceneNode,
@@ -25,19 +31,6 @@ import {
   svgCompositing,
 } from './shared';
 import type { TargetGap } from './types';
-
-function fitToPreserveAspectRatio(fit: string): string {
-  switch (fit) {
-    case 'fill':
-      return 'xMidYMid slice';
-    case 'fit':
-      return 'xMidYMid meet';
-    case 'stretch':
-      return 'none';
-    default:
-      return 'xMidYMid meet';
-  }
-}
 
 function shapeBounds(shape: import('@strata/engine').Shape): {
   x: number;
@@ -109,7 +102,7 @@ function shapeClipPath(node: SceneNode): string {
   const s = node.shape;
   switch (s.kind) {
     case 'rect':
-      return `<rect x="0" y="0" width="${s.w}" height="${s.h}" />`;
+      return `<rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" />`;
     case 'ellipse':
       return `<ellipse cx="${s.cx}" cy="${s.cy}" rx="${s.rx}" ry="${s.ry}" />`;
     case 'circle':
@@ -131,6 +124,48 @@ function shapeClipPath(node: SceneNode): string {
     default:
       return '';
   }
+}
+
+export function imagePlacementForShape(
+  node: Extract<SceneNode, { kind: 'shape' }>,
+  image: ImageFillData,
+  sourceFallback?: { width: number; height: number },
+): ImagePlacement | null {
+  const bounds = shapeBounds(node.shape);
+  const sourceWidth = image.imageWidth ?? sourceFallback?.width ?? bounds.width;
+  const sourceHeight = image.imageHeight ?? sourceFallback?.height ?? bounds.height;
+  return computeImagePlacement({
+    fit: image.fit,
+    sourceWidth,
+    sourceHeight,
+    bounds: { x: bounds.x, y: bounds.y, w: bounds.width, h: bounds.height },
+    x: image.x,
+    y: image.y,
+    scale: image.scale,
+    sourceCrop: image.crop,
+    rotation: image.rotation,
+    flipH: image.flipH,
+    flipV: image.flipV,
+  });
+}
+
+export function imageContentTransform(placement: ImagePlacement): string {
+  if (placement.rotation === 0 && !placement.flipH && !placement.flipV) return '';
+  const { drawRect } = placement;
+  const cx = drawRect.x + drawRect.w / 2;
+  const cy = drawRect.y + drawRect.h / 2;
+  const scaleX = placement.flipH ? -1 : 1;
+  const scaleY = placement.flipV ? -1 : 1;
+  return [
+    `translate(${cx.toFixed(4)} ${cy.toFixed(4)})`,
+    `rotate(${placement.rotation.toFixed(4)})`,
+    `scale(${scaleX} ${scaleY})`,
+    `translate(${(-cx).toFixed(4)} ${(-cy).toFixed(4)})`,
+  ].join(' ');
+}
+
+export function svgRect(rect: ImagePlacementRect): string {
+  return `x="${rect.x.toFixed(4)}" y="${rect.y.toFixed(4)}" width="${rect.w.toFixed(4)}" height="${rect.h.toFixed(4)}"`;
 }
 
 function pathToData(shape: Extract<import('@strata/engine').Shape, { kind: 'path' }>): string {
@@ -499,9 +534,44 @@ function buildMaskDef(doc: SceneDocument, containerId: string, mask: Mask): stri
         ? doc.rasterMaskAssets[assetId]
         : undefined;
     if (asset?.dataUrl) {
-      lines.push(`    <mask id="${maskId}">`);
+      const container = doc.nodes[containerId];
+      const imageFill =
+        container?.kind === 'shape'
+          ? container.fills?.find((fill) => fill.type === 'image' && fill.image)?.image
+          : undefined;
+      const placement =
+        container?.kind === 'shape' && imageFill
+          ? imagePlacementForShape(container, imageFill, {
+              width: asset.width,
+              height: asset.height,
+            })
+          : null;
+      if (container?.kind === 'shape' && placement) {
+        const bounds = shapeBounds(container.shape);
+        const transform = imageContentTransform(placement);
+        const transformAttr = transform ? ` transform="${transform}"` : '';
+        const cropClipId = `${maskId}-crop`;
+        lines.push(
+          `    <mask id="${maskId}" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" style="mask-type: alpha">`,
+        );
+        if (imageFill?.crop) {
+          lines.push(
+            `      <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>`,
+          );
+        }
+        lines.push(
+          `      <g${transformAttr}${imageFill?.crop ? ` clip-path="url(#${cropClipId})"` : ''}>`,
+        );
+        lines.push(
+          `        <image href="${escapeXml(asset.dataUrl)}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`,
+        );
+        lines.push(`      </g>`);
+        lines.push(`    </mask>`);
+        return lines.join('\n');
+      }
+      lines.push(`    <mask id="${maskId}" style="mask-type: alpha">`);
       lines.push(
-        `      <image href="${asset.dataUrl}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />`,
+        `      <image href="${escapeXml(asset.dataUrl)}" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" />`,
       );
       lines.push(`    </mask>`);
       return lines.join('\n');
@@ -836,66 +906,41 @@ function nodeToSvgTag(
       const imgFill = node.fills?.find((f) => f.type === 'image' && f.image?.src);
       if (imgFill?.image) {
         const img = imgFill.image;
-        const par = fitToPreserveAspectRatio(img.fit);
         const href = escapeXml(img.src);
-
-        // Build image transform for rotation/flip (applied in node-local space).
-        const transforms: string[] = [];
-        if (img.rotation) {
-          // Rotate around the center of the image bounds
-          const cx = s.kind === 'rect' ? s.w / 2 : shapeBounds(s).x + shapeBounds(s).width / 2;
-          const cy = s.kind === 'rect' ? s.h / 2 : shapeBounds(s).y + shapeBounds(s).height / 2;
-          transforms.push(`rotate(${img.rotation.toFixed(2)} ${cx.toFixed(2)} ${cy.toFixed(2)})`);
-        }
-        if (img.flipH) {
-          const cx = s.kind === 'rect' ? s.w / 2 : shapeBounds(s).x + shapeBounds(s).width / 2;
-          transforms.push(
-            `translate(${cx.toFixed(2)} 0) scale(-1 1) translate(${-cx.toFixed(2)} 0)`,
-          );
-        }
-        if (img.flipV) {
-          const cy = s.kind === 'rect' ? s.h / 2 : shapeBounds(s).y + shapeBounds(s).height / 2;
-          transforms.push(
-            `translate(0 ${cy.toFixed(2)}) scale(1 -1) translate(0 ${-cy.toFixed(2)})`,
-          );
-        }
-        const imgTransform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
-
-        // Build crop clip path if crop is set
-        let cropClipAttr = '';
-        let cropClipDef = '';
-        if (img.crop && img.imageWidth && img.imageHeight) {
-          const cropClipId = `crop-${node.id}`;
-          // Map source-pixel crop to node-local coordinates
-          const scaleX =
-            s.kind === 'rect' ? s.w / img.imageWidth : shapeBounds(s).width / img.imageWidth;
-          const scaleY =
-            s.kind === 'rect' ? s.h / img.imageHeight : shapeBounds(s).height / img.imageHeight;
-          const cx = img.crop.x * scaleX;
-          const cy = img.crop.y * scaleY;
-          const cw = img.crop.w * scaleX;
-          const ch = img.crop.h * scaleY;
-          cropClipDef = `${indent}  <clipPath id="${cropClipId}"><rect x="${cx.toFixed(2)}" y="${cy.toFixed(2)}" width="${cw.toFixed(2)}" height="${ch.toFixed(2)}" /></clipPath>\n`;
-          cropClipAttr = ` clip-path="url(#${cropClipId})"`;
-        }
-
-        let shapeInner: string;
-        if (s.kind === 'rect') {
-          shapeInner = `${indent}<image href="${href}" x="0" y="0" width="${s.w}" height="${s.h}" preserveAspectRatio="${par}"${cropClipAttr}${imgTransform}${compositingSuffix} />`;
-        } else {
-          const clipId = `clip-${node.id}`;
-          const bounds = shapeBounds(s);
-          shapeInner = `${indent}<g${withTransform}${compositingSuffix}>\n${cropClipDef}${indent}  <clipPath id="${clipId}">${shapeClipPath(node)}</clipPath>\n${indent}  <image href="${href}" x="${bounds.x}" y="${bounds.y}" width="${bounds.width}" height="${bounds.height}" preserveAspectRatio="${par}" clip-path="url(#${clipId})"${cropClipAttr}${imgTransform} />\n${indent}</g>`;
-        }
-        return buildMaskedNode(
-          comment
-            ? `${indent}<!-- ${comment} -->
+        const placement = imagePlacementForShape(node, img);
+        if (!placement) return '';
+        const clipId = `clip-${node.id}`;
+        const cropClipId = `crop-${node.id}`;
+        const contentTransform = imageContentTransform(placement);
+        const contentTransformAttr = contentTransform ? ` transform="${contentTransform}"` : '';
+        const cropDef = img.crop
+          ? `${indent}  <clipPath id="${cropClipId}" clipPathUnits="userSpaceOnUse"><rect ${svgRect(placement.sampleDrawRect)} /></clipPath>\n`
+          : '';
+        const cropAttr = img.crop ? ` clip-path="url(#${cropClipId})"` : '';
+        const nodeMask = resolveMask(node, doc);
+        const maskAttr = nodeMask
+          ? nodeMask.type === 'clip' && !nodeMask.inverted
+            ? ` clip-path="url(#mask-${node.id})"`
+            : ` mask="url(#mask-${node.id})"`
+          : '';
+        const imageTag = `${indent}    <image href="${href}" ${svgRect(placement.drawRect)} preserveAspectRatio="none" />`;
+        const shapeInner = [
+          `${indent}<g${withTransform}${maskAttr}${compositingSuffix}>`,
+          `${indent}  <clipPath id="${clipId}" clipPathUnits="userSpaceOnUse">${shapeClipPath(node)}</clipPath>`,
+          cropDef.trimEnd(),
+          `${indent}  <g clip-path="url(#${clipId})">`,
+          `${indent}    <g${contentTransformAttr}${cropAttr}>`,
+          imageTag,
+          `${indent}    </g>`,
+          `${indent}  </g>`,
+          `${indent}</g>`,
+        ]
+          .filter(Boolean)
+          .join('\n');
+        return comment
+          ? `${indent}<!-- ${comment} -->
 ${shapeInner}`
-            : shapeInner,
-          node,
-          doc,
-          indent,
-        );
+          : shapeInner;
       }
       let shapeInner: string;
       switch (s.kind) {

@@ -91,7 +91,48 @@ describe('exportDocumentToSvg', () => {
     const svg = exportDocumentToSvg(doc);
     expect(svg).toContain('<image');
     expect(svg).toContain('href="data:image/png;base64,FAKE"');
-    expect(svg).toContain('preserveAspectRatio="xMidYMid slice"');
+    expect(svg).toContain('preserveAspectRatio="none"');
+  });
+
+  it('exports crop, placement, rotation, flip, and object transform from canonical geometry', () => {
+    let doc = createDocument('TransformedImageSVG');
+    const { id, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const node = makeShapeNode(
+      id,
+      { kind: 'rect', x: 0, y: 0, w: 100, h: 100 },
+      { name: 'Photo', transform: [1, 0, 0, 1, 20, 30] },
+    );
+    const fill = imageFill('data:image/png;base64,FAKE', {
+      fit: 'fill',
+      imageWidth: 200,
+      imageHeight: 100,
+    });
+    doc = addNode(doc, {
+      ...node,
+      fills: [
+        {
+          ...fill,
+          image: {
+            ...fill.image!,
+            x: 10,
+            y: 5,
+            crop: { x: 50, y: 0, w: 100, h: 100 },
+            rotation: 90,
+            flipH: true,
+          },
+        },
+      ],
+    });
+
+    const svg = exportDocumentToSvg(doc);
+
+    expect(svg).toContain('transform="matrix(1,0,0,1,20,30)"');
+    expect(svg).toContain('x="-40.0000" y="5.0000" width="200.0000" height="100.0000"');
+    expect(svg).toContain('<rect x="10.0000" y="5.0000" width="100.0000" height="100.0000" />');
+    expect(svg).toContain(
+      'transform="translate(60.0000 55.0000) rotate(90.0000) scale(-1 1) translate(-60.0000 -55.0000)"',
+    );
   });
 
   it('exports a shape with a raster mask as an SVG <mask> element', () => {
@@ -139,6 +180,12 @@ describe('exportDocumentToSvg', () => {
     expect(svg).toContain(`id="mask-${id}"`);
     expect(svg).toContain(maskDataUrl);
     expect(svg).toContain(`mask="url(#mask-${id})"`);
+    expect(svg).toContain(
+      `maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" x="0" y="0" width="64" height="64"`,
+    );
+    expect(svg).toContain(
+      `<image href="${maskDataUrl}" x="0.0000" y="0.0000" width="64.0000" height="64.0000" preserveAspectRatio="none" />`,
+    );
   });
 
   it('exports active-page clipping groups as editable SVG clip paths', () => {
