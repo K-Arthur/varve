@@ -489,10 +489,20 @@ function AboutSection() {
         </div>
         <Divider />
         <div className="settings-about__links">
-          <button type="button" className="settings-about__link" onClick={() => {}}>
+          <button
+            type="button"
+            className="settings-about__link"
+            disabled
+            title="Not yet available in this build"
+          >
             View changelog
           </button>
-          <button type="button" className="settings-about__link" onClick={() => {}}>
+          <button
+            type="button"
+            className="settings-about__link"
+            disabled
+            title="Not yet available in this build"
+          >
             Software bill of materials (SBOM)
           </button>
         </div>
