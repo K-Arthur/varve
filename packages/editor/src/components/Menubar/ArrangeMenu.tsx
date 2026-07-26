@@ -1,9 +1,6 @@
 import type { MenuBuildHelpers, MenuBuildState, MenuItem } from './types';
 
-export function buildArrangeMenu(
-  _state: MenuBuildState,
-  helpers: MenuBuildHelpers,
-): MenuItem[] {
+export function buildArrangeMenu(_state: MenuBuildState, helpers: MenuBuildHelpers): MenuItem[] {
   return [
     {
       label: 'Bring to Front',

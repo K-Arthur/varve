@@ -1,9 +1,6 @@
 import type { MenuBuildHelpers, MenuBuildState, MenuItem } from './types';
 
-export function buildTextMenu(
-  _state: MenuBuildState,
-  helpers: MenuBuildHelpers,
-): MenuItem[] {
+export function buildTextMenu(_state: MenuBuildState, helpers: MenuBuildHelpers): MenuItem[] {
   const hasSelection = _state.selection.length > 0;
 
   return [

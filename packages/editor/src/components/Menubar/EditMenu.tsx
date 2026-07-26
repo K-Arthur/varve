@@ -1,9 +1,6 @@
 import type { MenuBuildHelpers, MenuBuildState, MenuItem } from './types';
 
-export function buildEditMenu(
-  _state: MenuBuildState,
-  helpers: MenuBuildHelpers,
-): MenuItem[] {
+export function buildEditMenu(_state: MenuBuildState, helpers: MenuBuildHelpers): MenuItem[] {
   return [
     {
       label: 'Undo',
