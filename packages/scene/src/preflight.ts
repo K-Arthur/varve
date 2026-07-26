@@ -67,8 +67,9 @@ export function runCombinedPreflight(
   const requiredColorMode = doc.colorConfig?.mode === 'cmyk' ? 'cmyk' : undefined;
   const fontsAvailable = !!options.availableFonts && options.availableFonts.size > 0;
 
-  const chains = doc.textChains
-    ? new Map(Object.entries(doc.textChains).filter((entry) => !!entry[1]))
+  const textChains = doc.textChains as Record<string, import('./typography').TextChain> | undefined;
+  const chains = textChains
+    ? new Map(Object.entries(textChains).filter((entry) => !!entry[1]))
     : undefined;
 
   const printResult = runPrintPreflight(doc, { requiredColorMode });

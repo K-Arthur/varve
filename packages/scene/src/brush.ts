@@ -641,7 +641,7 @@ export function getActivePreset(
   fallbackId?: string,
 ): BrushPreset {
   const id = presetId ?? fallbackId ?? 'built-in-round';
-  const docPreset = doc.brushPresets?.[id];
+  const docPreset = doc.brushPresets?.[id] as BrushPreset | undefined;
   if (docPreset) {
     return clampBrushPreset(docPreset);
   }
