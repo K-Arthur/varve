@@ -15,6 +15,16 @@ describe('computeResizeModifiers', () => {
       expect(m.proportional).toBe(false);
     });
 
+    it('uses an edge handle to resize the image container without scaling both axes', () => {
+      const m = computeResizeModifiers(false, false, false, false, true, false, true);
+      expect(m.proportional).toBe(false);
+    });
+
+    it('Shift constrains a raster edge resize proportionally', () => {
+      const m = computeResizeModifiers(true, false, false, false, true, false, true);
+      expect(m.proportional).toBe(true);
+    });
+
     it('Alt sets centered=true', () => {
       const m = computeResizeModifiers(false, true, false, false, true);
       expect(m.centered).toBe(true);

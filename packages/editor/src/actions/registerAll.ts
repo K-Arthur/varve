@@ -59,6 +59,40 @@ export function registerEditorActions(
     }
   }
 
+  const menuActions = [
+    ['new', 'New Document', 'file'],
+    ['findReplace', 'Find and Replace', 'edit'],
+    ['textBold', 'Bold', 'text'],
+    ['textItalic', 'Italic', 'text'],
+    ['textUnderline', 'Underline', 'text'],
+    ['textIncreaseSize', 'Increase Text Size', 'text'],
+    ['textDecreaseSize', 'Decrease Text Size', 'text'],
+    ['textAlignLeft', 'Align Text Left', 'text'],
+    ['textAlignCenter', 'Align Text Center', 'text'],
+    ['textAlignRight', 'Align Text Right', 'text'],
+    ['textAlignJustify', 'Justify Text', 'text'],
+    ['textToOutlines', 'Convert Text to Outlines', 'text'],
+    ['inspectMode', 'Toggle Inspect Mode', 'view'],
+    ['rulerModeArtboard', 'Use Artboard Rulers', 'view'],
+    ['rulerModeGlobal', 'Use Global Rulers', 'view'],
+    ['toggleGuides', 'Toggle Guides', 'view'],
+    ['lockGuides', 'Lock Guides', 'view'],
+    ['clearGuides', 'Clear Guides', 'view'],
+    ['resetWorkspace', 'Reset Workspace', 'view'],
+    ['batchBgRemove', 'Batch Background Removal', 'object'],
+    ['extractPalette', 'Extract Color Palette', 'object'],
+    ['auditSelection', 'Audit Selection', 'object'],
+    ['auditPage', 'Audit Page', 'object'],
+    ['auditDocument', 'Audit Document', 'object'],
+    ['whatIsThis', 'What Is This?', 'help'],
+    ['startTour', 'Start Tour', 'help'],
+    ['about', 'About Strata', 'help'],
+  ] as const satisfies ReadonlyArray<readonly [string, string, ActionCategory]>;
+  for (const [id, label, category] of menuActions) {
+    const handler = handlers[id];
+    if (handler) reg(id, label, category, handler);
+  }
+
   if (!r.has('runAudit')) {
     r.register(
       {
@@ -122,7 +156,7 @@ export function registerEditorActions(
 
   reg('toggleLeftPanel', 'Toggle Layers Panel', 'panel', () => ctx.toggleLeftPanel());
   reg('toggleRightPanel', 'Toggle Inspector Panel', 'panel', () => ctx.toggleRightPanel());
-  reg('home', 'Go to Home', 'file', () => {});
+  if (handlers.home) reg('home', 'Go to Home', 'file', handlers.home);
   reg('togglePixelGrid', 'Toggle Pixel Grid', 'canvas', () =>
     ctx.setPixelGridEnabled(!ctx.state.pixelGridEnabled),
   );
@@ -175,4 +209,5 @@ export function registerEditorActions(
   reg('nudgeDown', 'Nudge Down', 'object', handlers.nudgeDown ?? (() => {}));
   reg('nudgeLeft', 'Nudge Left', 'object', handlers.nudgeLeft ?? (() => {}));
   reg('nudgeRight', 'Nudge Right', 'object', handlers.nudgeRight ?? (() => {}));
+  reg('tidySelected', 'Tidy Up', 'arrange', handlers.tidySelected ?? (() => {}));
 }

@@ -219,7 +219,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
       : 0;
 
   return (
-    <DisclosureSection title="Image & Vector">
+    <DisclosureSection title="Image & Vector" sectionId="image-enhancement">
       <div className="insp-field-group">
         <p className="insp-subsection__label">Upscale</p>
         <FieldRow label="Scale">

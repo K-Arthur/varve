@@ -1,0 +1,2801 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > workspace: design > native-menu-linux-design 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > workspace: drawing > native-menu-linux-drawing 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > workspace: image > native-menu-linux-image 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > workspace: motion > native-menu-linux-motion 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: linux > workspace: print > native-menu-linux-print 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > workspace: design > native-menu-mac-design 1`] = `
+{
+  "submenus": [
+    {
+      "id": "app",
+      "items": [
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+        {
+          "id": "sep-app-1",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+,",
+          "id": "settings",
+          "kind": "item",
+          "label": "Settings…",
+        },
+        {
+          "id": "sep-app-2",
+          "kind": "separator",
+        },
+        {
+          "id": "services",
+          "itemType": "services",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-3",
+          "kind": "separator",
+        },
+        {
+          "id": "hide",
+          "itemType": "hide",
+          "kind": "predefined",
+        },
+        {
+          "id": "hide_others",
+          "itemType": "hide_others",
+          "kind": "predefined",
+        },
+        {
+          "id": "show_all",
+          "itemType": "show_all",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-4",
+          "kind": "separator",
+        },
+        {
+          "id": "quit",
+          "itemType": "quit",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Strata",
+    },
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+      ],
+      "label": "menu.help",
+    },
+    {
+      "id": "window",
+      "items": [
+        {
+          "id": "minimize",
+          "itemType": "minimize",
+          "kind": "predefined",
+        },
+        {
+          "id": "zoom",
+          "itemType": "zoom",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-window",
+          "kind": "separator",
+        },
+        {
+          "id": "close_window",
+          "itemType": "close_window",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Window",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > workspace: drawing > native-menu-mac-drawing 1`] = `
+{
+  "submenus": [
+    {
+      "id": "app",
+      "items": [
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+        {
+          "id": "sep-app-1",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+,",
+          "id": "settings",
+          "kind": "item",
+          "label": "Settings…",
+        },
+        {
+          "id": "sep-app-2",
+          "kind": "separator",
+        },
+        {
+          "id": "services",
+          "itemType": "services",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-3",
+          "kind": "separator",
+        },
+        {
+          "id": "hide",
+          "itemType": "hide",
+          "kind": "predefined",
+        },
+        {
+          "id": "hide_others",
+          "itemType": "hide_others",
+          "kind": "predefined",
+        },
+        {
+          "id": "show_all",
+          "itemType": "show_all",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-4",
+          "kind": "separator",
+        },
+        {
+          "id": "quit",
+          "itemType": "quit",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Strata",
+    },
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+      ],
+      "label": "menu.help",
+    },
+    {
+      "id": "window",
+      "items": [
+        {
+          "id": "minimize",
+          "itemType": "minimize",
+          "kind": "predefined",
+        },
+        {
+          "id": "zoom",
+          "itemType": "zoom",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-window",
+          "kind": "separator",
+        },
+        {
+          "id": "close_window",
+          "itemType": "close_window",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Window",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > workspace: image > native-menu-mac-image 1`] = `
+{
+  "submenus": [
+    {
+      "id": "app",
+      "items": [
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+        {
+          "id": "sep-app-1",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+,",
+          "id": "settings",
+          "kind": "item",
+          "label": "Settings…",
+        },
+        {
+          "id": "sep-app-2",
+          "kind": "separator",
+        },
+        {
+          "id": "services",
+          "itemType": "services",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-3",
+          "kind": "separator",
+        },
+        {
+          "id": "hide",
+          "itemType": "hide",
+          "kind": "predefined",
+        },
+        {
+          "id": "hide_others",
+          "itemType": "hide_others",
+          "kind": "predefined",
+        },
+        {
+          "id": "show_all",
+          "itemType": "show_all",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-4",
+          "kind": "separator",
+        },
+        {
+          "id": "quit",
+          "itemType": "quit",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Strata",
+    },
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+      ],
+      "label": "menu.help",
+    },
+    {
+      "id": "window",
+      "items": [
+        {
+          "id": "minimize",
+          "itemType": "minimize",
+          "kind": "predefined",
+        },
+        {
+          "id": "zoom",
+          "itemType": "zoom",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-window",
+          "kind": "separator",
+        },
+        {
+          "id": "close_window",
+          "itemType": "close_window",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Window",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > workspace: motion > native-menu-mac-motion 1`] = `
+{
+  "submenus": [
+    {
+      "id": "app",
+      "items": [
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+        {
+          "id": "sep-app-1",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+,",
+          "id": "settings",
+          "kind": "item",
+          "label": "Settings…",
+        },
+        {
+          "id": "sep-app-2",
+          "kind": "separator",
+        },
+        {
+          "id": "services",
+          "itemType": "services",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-3",
+          "kind": "separator",
+        },
+        {
+          "id": "hide",
+          "itemType": "hide",
+          "kind": "predefined",
+        },
+        {
+          "id": "hide_others",
+          "itemType": "hide_others",
+          "kind": "predefined",
+        },
+        {
+          "id": "show_all",
+          "itemType": "show_all",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-4",
+          "kind": "separator",
+        },
+        {
+          "id": "quit",
+          "itemType": "quit",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Strata",
+    },
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+      ],
+      "label": "menu.help",
+    },
+    {
+      "id": "window",
+      "items": [
+        {
+          "id": "minimize",
+          "itemType": "minimize",
+          "kind": "predefined",
+        },
+        {
+          "id": "zoom",
+          "itemType": "zoom",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-window",
+          "kind": "separator",
+        },
+        {
+          "id": "close_window",
+          "itemType": "close_window",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Window",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: mac > workspace: print > native-menu-mac-print 1`] = `
+{
+  "submenus": [
+    {
+      "id": "app",
+      "items": [
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+        {
+          "id": "sep-app-1",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+,",
+          "id": "settings",
+          "kind": "item",
+          "label": "Settings…",
+        },
+        {
+          "id": "sep-app-2",
+          "kind": "separator",
+        },
+        {
+          "id": "services",
+          "itemType": "services",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-3",
+          "kind": "separator",
+        },
+        {
+          "id": "hide",
+          "itemType": "hide",
+          "kind": "predefined",
+        },
+        {
+          "id": "hide_others",
+          "itemType": "hide_others",
+          "kind": "predefined",
+        },
+        {
+          "id": "show_all",
+          "itemType": "show_all",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-app-4",
+          "kind": "separator",
+        },
+        {
+          "id": "quit",
+          "itemType": "quit",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Strata",
+    },
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+      ],
+      "label": "menu.help",
+    },
+    {
+      "id": "window",
+      "items": [
+        {
+          "id": "minimize",
+          "itemType": "minimize",
+          "kind": "predefined",
+        },
+        {
+          "id": "zoom",
+          "itemType": "zoom",
+          "kind": "predefined",
+        },
+        {
+          "id": "sep-window",
+          "kind": "separator",
+        },
+        {
+          "id": "close_window",
+          "itemType": "close_window",
+          "kind": "predefined",
+        },
+      ],
+      "label": "Window",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > workspace: design > native-menu-windows-design 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > workspace: drawing > native-menu-windows-drawing 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > workspace: image > native-menu-windows-image 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > workspace: motion > native-menu-windows-motion 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;
+
+exports[`buildNativeMenuSpec — snapshot (all platforms) > platform: windows > workspace: print > native-menu-windows-print 1`] = `
+{
+  "submenus": [
+    {
+      "id": "edit",
+      "items": [
+        {
+          "accelerator": "CmdOrCtrl+Z",
+          "enabled": true,
+          "id": "undo",
+          "kind": "item",
+          "label": "menu.edit.undo",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+Z",
+          "enabled": true,
+          "id": "redo",
+          "kind": "item",
+          "label": "menu.edit.redo",
+        },
+        {
+          "id": "sep-cut",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+X",
+          "enabled": true,
+          "id": "cut",
+          "kind": "item",
+          "label": "menu.edit.cut",
+        },
+        {
+          "accelerator": "CmdOrCtrl+C",
+          "enabled": true,
+          "id": "copy",
+          "kind": "item",
+          "label": "menu.edit.copy",
+        },
+        {
+          "accelerator": "CmdOrCtrl+V",
+          "enabled": true,
+          "id": "paste",
+          "kind": "item",
+          "label": "menu.edit.paste",
+        },
+        {
+          "accelerator": "CmdOrCtrl+D",
+          "enabled": true,
+          "id": "duplicate",
+          "kind": "item",
+          "label": "menu.edit.duplicate",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+D",
+          "enabled": true,
+          "id": "repeatDuplicate",
+          "kind": "item",
+          "label": "menu.edit.repeatDuplicate",
+        },
+        {
+          "id": "sep-selectAll",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+A",
+          "enabled": true,
+          "id": "selectAll",
+          "kind": "item",
+          "label": "menu.edit.selectAll",
+        },
+        {
+          "enabled": true,
+          "id": "delete",
+          "kind": "item",
+          "label": "menu.edit.delete",
+        },
+        {
+          "id": "sep-findReplace",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "CmdOrCtrl+F",
+          "enabled": true,
+          "id": "findReplace",
+          "kind": "item",
+          "label": "menu.edit.findReplace",
+        },
+        {
+          "id": "sep-selectionHistoryBack",
+          "kind": "separator",
+        },
+        {
+          "accelerator": "Alt+ArrowLeft",
+          "enabled": true,
+          "id": "selectionHistoryBack",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryBack",
+        },
+        {
+          "accelerator": "Alt+ArrowRight",
+          "enabled": true,
+          "id": "selectionHistoryForward",
+          "kind": "item",
+          "label": "menu.edit.selectionHistoryForward",
+        },
+      ],
+      "label": "menu.edit",
+    },
+    {
+      "id": "help",
+      "items": [
+        {
+          "enabled": true,
+          "id": "openHelp",
+          "kind": "item",
+          "label": "menu.help.contextualHelp",
+        },
+        {
+          "accelerator": "CmdOrCtrl+Shift+F1",
+          "enabled": true,
+          "id": "openHelpCenter",
+          "kind": "item",
+          "label": "menu.help.helpCenter",
+        },
+        {
+          "accelerator": "Alt+F1",
+          "enabled": true,
+          "id": "whatIsThis",
+          "kind": "item",
+          "label": "menu.help.whatIsThis",
+        },
+        {
+          "id": "sep-startTour",
+          "kind": "separator",
+        },
+        {
+          "enabled": true,
+          "id": "startTour",
+          "kind": "item",
+          "label": "menu.help.startTour",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "menu.help.about",
+        },
+        {
+          "id": "sep-about",
+          "kind": "separator",
+        },
+        {
+          "id": "about",
+          "itemType": "about",
+          "kind": "predefined",
+          "label": "About Strata",
+        },
+      ],
+      "label": "menu.help",
+    },
+  ],
+}
+`;

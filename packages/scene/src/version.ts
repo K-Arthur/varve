@@ -1,6 +1,6 @@
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 
-export const CURRENT_DOCUMENT_VERSION = '2.7';
+export const CURRENT_DOCUMENT_VERSION = '2.8';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -22,6 +22,7 @@ export const SUPPORTED_VERSIONS = [
   '2.5',
   '2.6',
   '2.7',
+  '2.8',
 ];
 
 export interface DocumentMigration {
@@ -603,6 +604,17 @@ const migrations: DocumentMigration[] = [
         nodes: migratedNodes,
         formatVersion: '2.7',
       };
+    },
+  },
+  {
+    from: '2.7',
+    to: '2.8',
+    migrate: (raw) => {
+      const suppressions = raw.suppressions;
+      if (suppressions !== undefined && Array.isArray(suppressions)) {
+        return { ...raw, formatVersion: '2.8', suppressions };
+      }
+      return { ...raw, formatVersion: '2.8', suppressions: [] };
     },
   },
 ];

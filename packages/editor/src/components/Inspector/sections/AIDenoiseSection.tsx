@@ -326,7 +326,7 @@ export function AIDenoiseSection({ nodes }: { nodes: SceneNode[] }) {
   const needsDownload = !denoise.modelAvailable && !denoise.modelDownloading;
 
   return (
-    <DisclosureSection title="AI Denoise">
+    <DisclosureSection title="AI Denoise" sectionId="ai-denoise">
       <div className="insp-field-group">
         <p className="insp-hint">
           SCUNet neural denoising removes real-world noise, JPEG artifacts, and sensor grain while

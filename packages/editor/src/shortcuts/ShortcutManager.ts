@@ -168,6 +168,11 @@ export const SHORTCUT_DEFS = {
     label: 'Command Palette',
     category: 'View',
   },
+  reopenLast: {
+    binding: { key: 't', ctrl: true, shift: true },
+    label: 'Reopen Last Closed File',
+    category: 'File',
+  },
   tabNew: { binding: { key: 't', ctrl: true }, label: 'New tab', category: 'File' },
   tabClose: { binding: { key: 'w', ctrl: true }, label: 'Close tab', category: 'File' },
   tabNext: { binding: { key: 'Tab', ctrl: true }, label: 'Next tab', category: 'View' },
@@ -331,7 +336,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   toggleDistractionFree: {
-    binding: { key: 'f', ctrl: true, shift: true },
+    binding: { key: '.', ctrl: true, shift: true },
     label: 'Toggle Distraction-Free Mode',
     category: 'View',
   },

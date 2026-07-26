@@ -1,8 +1,11 @@
 /**
- * Dev-only diagnostics overlay for canvas draw timing and correctness.
+ * Diagnostics overlay for canvas draw timing and correctness.
  *
  * Collects per-frame metrics in a ring buffer and exposes them for a
- * <canvas> overlay or console inspection. Guarded by (import.meta as any).env.DEV.
+ * <canvas> overlay or console inspection. Off by default everywhere
+ * (including dev builds) — callers opt in explicitly, normally driven by
+ * the persisted `performance.showPerformanceDiagnostics` setting (see
+ * Settings > Performance > Diagnostics).
  */
 
 export interface FrameDiagnostics {
@@ -28,7 +31,7 @@ const diagRing: FrameDiagnostics[] = [];
 let diagEnabled = false;
 
 export function enableDrawDiagnostics(force?: boolean): void {
-  diagEnabled = force !== undefined ? force : (import.meta as any).env.DEV;
+  diagEnabled = force === true;
 }
 
 export function isDiagnosticsEnabled(): boolean {

@@ -19,10 +19,10 @@ import { getActionRegistry } from './actions/ActionRegistry';
 import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { ArchiveDialog } from './components/Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from './context';
+import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
-import { computeCapabilities } from './menu/capabilities';
 import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
@@ -63,11 +63,19 @@ function ariaShortcut(binding: {
 const INSTALL_DISMISS_KEY = 'strata-install-desktop-dismissed';
 
 function safeLocalStorageGet(key: string): string | null {
-  try { return localStorage.getItem(key); } catch { return null; }
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
 }
 
 function safeLocalStorageSet(key: string, value: string): void {
-  try { localStorage.setItem(key, value); } catch { /* private browsing */ }
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private browsing */
+  }
 }
 
 function isInstallDesktopDismissed(): boolean {
@@ -75,8 +83,11 @@ function isInstallDesktopDismissed(): boolean {
 }
 
 function isInIframe(): boolean {
-  try { return typeof window !== 'undefined' && window.self !== window.top; }
-  catch { return true; }
+  try {
+    return typeof window !== 'undefined' && window.self !== window.top;
+  } catch {
+    return true;
+  }
 }
 
 function safeOpenInstallPage(): void {
@@ -85,10 +96,15 @@ function safeOpenInstallPage(): void {
   const os = detectOS();
   const base = 'https://strata.app/download';
   const urls: Record<string, string> = {
-    mac: `${base}/mac`, windows: `${base}/windows`, linux: `${base}/linux`,
+    mac: `${base}/mac`,
+    windows: `${base}/windows`,
+    linux: `${base}/linux`,
   };
-  try { window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer'); }
-  catch { /* blocked popup */ }
+  try {
+    window.open(urls[os] ?? base, '_blank', 'noopener,noreferrer');
+  } catch {
+    /* blocked popup */
+  }
 }
 
 function detectOS(): 'mac' | 'windows' | 'linux' | 'unknown' {
@@ -110,6 +126,7 @@ function buildMenus(
       activePageId?: string;
       pages?: Array<{ id: string; masterPageId?: string }>;
       masters?: Record<string, { name?: string }>;
+      nodes?: Record<string, unknown>;
     };
     canvasMode: string;
     workspaceMode: string;
@@ -125,6 +142,7 @@ function buildMenus(
     snapEnabled: boolean;
   },
   recentEntries: RecentEntry[],
+  caps: ReadonlySet<string>,
 ): { id: MenuId; items: MenuItem[] }[] {
   const doc = state.document;
   const activePageId = doc?.activePageId ?? null;
@@ -138,8 +156,11 @@ function buildMenus(
   const hasSelection = state.selection.length > 0;
   const hasMultipleSelection = state.selection.length >= 2;
   const hasDocument = !!state.document;
+  const documentNodes = state.document?.nodes;
   const nodeCount =
-    hasDocument && 'nodes' in state.document ? Object.keys(state.document.nodes).length : 0;
+    hasDocument && documentNodes && typeof documentNodes === 'object'
+      ? Object.keys(documentNodes).length
+      : 0;
   const hasNodes = nodeCount >= 1;
   const hasMultipleNodes = nodeCount >= 2;
 
@@ -291,18 +312,28 @@ function buildMenus(
           action: 'export',
         },
         { label: '---' },
-        {
-          label: 'Backup Archive\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.archiveBackup.binding),
-          ariaKeyshortcut: ks('archiveBackup'),
-          action: 'archiveBackup',
-        },
-        {
-          label: 'Restore Archive\u2026',
-          shortcut: formatShortcut(SHORTCUT_DEFS.archiveRestore.binding),
-          ariaKeyshortcut: ks('archiveRestore'),
-          action: 'archiveRestore',
-        },
+        ...(caps.has('archive')
+          ? [
+              {
+                label: 'Backup Archive\u2026' as const,
+                shortcut: formatShortcut(SHORTCUT_DEFS.archiveBackup.binding),
+                ariaKeyshortcut: ks('archiveBackup'),
+                action: 'archiveBackup' as const,
+              },
+              {
+                label: 'Restore Archive\u2026' as const,
+                shortcut: formatShortcut(SHORTCUT_DEFS.archiveRestore.binding),
+                ariaKeyshortcut: ks('archiveRestore'),
+                action: 'archiveRestore' as const,
+              },
+            ]
+          : [
+              { label: 'Download Snapshot\u2026' as const, action: 'downloadSnapshot' as const },
+              {
+                label: 'Restore from Snapshot\u2026' as const,
+                action: 'restoreFromSnapshot' as const,
+              },
+            ]),
         { label: '---' },
         {
           label: 'Present\u2026',
@@ -644,27 +675,22 @@ function buildMenus(
         {
           label: 'Workspace: Design',
           action: 'workspaceDesign',
-          disabled: state.workspaceMode === 'design',
         },
         {
           label: 'Workspace: Print',
           action: 'workspacePrint',
-          disabled: state.workspaceMode === 'print',
         },
         {
           label: 'Workspace: Draw',
           action: 'workspaceDrawing',
-          disabled: state.workspaceMode === 'drawing',
         },
         {
           label: 'Workspace: Photo',
           action: 'workspaceImage',
-          disabled: state.workspaceMode === 'image',
         },
         {
           label: 'Workspace: Motion',
           action: 'workspaceMotion',
-          disabled: state.workspaceMode === 'motion',
         },
         {
           label: 'Reset Workspace to Default',
@@ -1069,6 +1095,12 @@ function buildMenus(
         { label: 'Take a Tour', action: 'startTour' },
         { label: '---' },
         { label: 'About Strata', action: 'about' },
+        ...(!caps.has('nativeMenu') && !isInstallDesktopDismissed() && !isInIframe()
+          ? [
+              { label: '---' as const },
+              { label: 'Install Desktop App\u2026' as const, action: 'installDesktopApp' as const },
+            ]
+          : []),
       ],
     },
   ];
@@ -1088,6 +1120,15 @@ function itemRole(item: MenuItem): string {
     return 'menuitemradio';
   if (item.action?.startsWith('applyMaster')) return 'menuitemradio';
   return 'menuitem';
+}
+
+function separatorKey(items: MenuItem[], current: MenuItem, parentLabel: string): string {
+  let ordinal = 0;
+  for (const item of items) {
+    if (item === current) break;
+    if (item.label === '---') ordinal += 1;
+  }
+  return `${parentLabel}-separator-${ordinal}`;
 }
 
 /** Compute aria-checked for a menu item based on current state. */
@@ -1290,8 +1331,9 @@ export function Menubar({
     }
   }, []);
 
+  const caps = useMemo(() => computeCapabilities(), []);
   const rawMenus = useMemo(
-    () => buildMenus(state, recentEntries),
+    () => buildMenus(state, recentEntries, caps),
     [
       state.selection,
       state.document.activePageId,
@@ -1308,6 +1350,7 @@ export function Menubar({
       state.rulerMode,
       state.snapEnabled,
       recentEntries,
+      caps,
     ],
   );
 
@@ -1317,21 +1360,20 @@ export function Menubar({
       state.workspaceMode as WorkspaceMode,
       showAllMenuItems,
     );
-    if (nativeMenuAvailable) {
+    // Windows and Linux Tauri windows use Strata's in-window menubar. Merely
+    // detecting the Tauri bridge does not mean those commands are reachable
+    // through a platform menu (and hiding Edit also hides Undo/Redo).
+    if (nativeMenuAvailable && isMac) {
       filtered = filtered.filter((m) => m.id !== 'Edit' && m.id !== 'Help');
-      if (isMac) {
-        filtered = filtered.map((m) => {
-          if (m.id === 'File') {
-            return {
-              ...m,
-              items: m.items.filter(
-                (item) => item.action !== 'settings' && item.action !== 'about',
-              ),
-            };
-          }
-          return m;
-        });
-      }
+      filtered = filtered.map((m) => {
+        if (m.id === 'File') {
+          return {
+            ...m,
+            items: m.items.filter((item) => item.action !== 'settings' && item.action !== 'about'),
+          };
+        }
+        return m;
+      });
     }
     return filtered;
   }, [rawMenus, state.workspaceMode, showAllMenuItems, nativeMenuAvailable, isMac]);
@@ -1467,7 +1509,11 @@ export function Menubar({
             });
             return;
           }
-          const state = await handle.queryPermission({ mode: 'read' });
+          const permissionedHandle = handle as FileSystemFileHandle & {
+            queryPermission: (options: { mode: 'read' }) => Promise<PermissionState>;
+            requestPermission: (options: { mode: 'read' }) => Promise<PermissionState>;
+          };
+          const state = await permissionedHandle.queryPermission({ mode: 'read' });
           if (state === 'denied') {
             setMissingFileDialog({
               message: `Permission denied for ${entry.label}. Try opening it from the file dialog.`,
@@ -1476,7 +1522,7 @@ export function Menubar({
             return;
           }
           if (state === 'prompt') {
-            const result = await handle.requestPermission({ mode: 'read' });
+            const result = await permissionedHandle.requestPermission({ mode: 'read' });
             if (result !== 'granted') {
               setMissingFileDialog({
                 message: `Permission denied for ${entry.label}.`,
@@ -1533,8 +1579,9 @@ export function Menubar({
           clearRecent();
           return;
         case 'reopenLast':
-          if (recentEntries.length > 0) {
-            void openRecentFile(recentEntries[0]);
+          {
+            const mostRecent = recentEntries[0];
+            if (mostRecent) void openRecentFile(mostRecent);
           }
           return;
         case 'startTour':
@@ -1560,6 +1607,15 @@ export function Menubar({
           return;
         case 'archiveRestore':
           setShowArchiveDialog(true, 'restore');
+          return;
+        case 'downloadSnapshot':
+          setShowArchiveDialog(true, 'backup');
+          return;
+        case 'restoreFromSnapshot':
+          setShowArchiveDialog(true, 'restore');
+          return;
+        case 'installDesktopApp':
+          safeOpenInstallPage();
           return;
         case 'addAlphaMask':
           addMaskToSelected('alpha');
@@ -1696,6 +1752,15 @@ export function Menubar({
       clearRecent,
     ],
   );
+
+  useNativeMenu({
+    selection: state.selection,
+    document: state.document,
+    workspaceMode: state.workspaceMode,
+    platformKind: platform?.kind,
+    runAction: handleAction,
+    getTheme: () => getTheme() ?? 'light',
+  });
 
   const handleZoomInput = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1962,7 +2027,14 @@ export function Menubar({
               setFocusedIndex(i);
               setActiveItemIndex(0);
             }}
-            onMouseEnter={() => openMenu && setOpenMenu(menu.id)}
+            onMouseEnter={() => {
+              if (openMenu && openMenu !== menu.id) {
+                setOpenMenu(menu.id);
+                setOpenSubmenu(null);
+                setActiveItemIndex(0);
+                setActiveSubmenuIndex(0);
+              }
+            }}
           >
             {menu.id}
           </button>
@@ -1985,7 +2057,11 @@ export function Menubar({
             {menus[openMenuIndex]?.items.map((item, itemIdx) => {
               if (item.label === '---') {
                 return (
-                  <hr key={`sep-${itemIdx}`} className="editor-menubar__menu-sep" tabIndex={-1} />
+                  <hr
+                    key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
+                    className="editor-menubar__menu-sep"
+                    tabIndex={-1}
+                  />
                 );
               }
               const role = itemRole(item);
@@ -2007,13 +2083,17 @@ export function Menubar({
                     }
                   }}
                 >
-                  {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec */}
+                  {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
                   <button
                     role={hasSubmenu ? 'menuitem' : role}
                     type="button"
                     aria-haspopup={hasSubmenu ? true : undefined}
                     aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
-                    aria-checked={hasSubmenu ? undefined : isChecked}
+                    aria-checked={
+                      !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
+                        ? isChecked
+                        : undefined
+                    }
                     aria-keyshortcuts={item.ariaKeyshortcut}
                     disabled={item.disabled && !hasSubmenu}
                     className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
@@ -2045,11 +2125,11 @@ export function Menubar({
                       className="editor-menubar__submenu"
                     >
                       <div ref={submenuRef} role="menu" aria-label={item.label}>
-                        {item.items.map((subItem, subIdx) => {
+                        {item.items.map((subItem) => {
                           if (subItem.label === '---') {
                             return (
                               <hr
-                                key={`subsep-${subIdx}`}
+                                key={separatorKey(item.items ?? [], subItem, item.label)}
                                 className="editor-menubar__menu-sep"
                                 tabIndex={-1}
                               />
@@ -2062,12 +2142,16 @@ export function Menubar({
                               currentTheme === subItem.action.slice(6)) ||
                             subChecked;
                           return (
-                            {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is valid for menuitemradio/menuitemcheckbox per ARIA spec */}
+                            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox
                             <button
                               key={subItem.label}
                               role={subRole}
                               type="button"
-                              aria-checked={subChecked}
+                              aria-checked={
+                                subRole === 'menuitemradio' || subRole === 'menuitemcheckbox'
+                                  ? subChecked
+                                  : undefined
+                              }
                               aria-keyshortcuts={subItem.ariaKeyshortcut}
                               disabled={subItem.disabled}
                               className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
@@ -2156,6 +2240,7 @@ export function Menubar({
                     name="workspace-mode"
                     value={mode}
                     checked={state.workspaceMode === mode}
+                    aria-checked={state.workspaceMode === mode}
                     onChange={() => requestWorkspaceSwitch(mode)}
                     className="sr-only"
                   />
@@ -2217,7 +2302,6 @@ export function Menubar({
           setMissingFileDialog(null);
           if (entryId) removeRecent(entryId);
         }}
-        onCancel={() => setMissingFileDialog(null)}
         title="File Not Found"
         description={missingFileDialog?.message ?? ''}
         confirmLabel="Remove from List"

@@ -73,7 +73,7 @@ export function CornerRadiusSection({ nodes }: { nodes: SceneNode[] }) {
   }, [perCorner, setSelectedCornerRadius, tl]);
 
   return (
-    <DisclosureSection title="Corner Radius">
+    <DisclosureSection title="Corner Radius" sectionId="corner-radius">
       <div ref={bindingTriggerRef} className="insp-field" style={{ position: 'relative' }}>
         {!perCorner && !mixed && (
           <NumberField

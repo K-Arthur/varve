@@ -9,9 +9,9 @@ import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import { FloatingToolbar } from './FloatingToolbar';
 
 function SetWorkspaceMode({ mode }: { mode: WorkspaceMode }) {
-  const { setWorkspaceMode } = useEditor();
+  const { requestWorkspaceSwitch } = useEditor();
   useEffect(() => {
-    setWorkspaceMode(mode);
+    requestWorkspaceSwitch(mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
   return null;

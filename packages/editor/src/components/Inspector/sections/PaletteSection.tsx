@@ -123,7 +123,7 @@ export function PaletteSection() {
   };
 
   return (
-    <DisclosureSection title="Extract Palette" defaultExpanded={false}>
+    <DisclosureSection title="Extract Palette" sectionId="palette">
       <div
         style={{
           padding: 'var(--space-1) var(--space-2)',

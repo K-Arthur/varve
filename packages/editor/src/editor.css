@@ -293,18 +293,24 @@
 }
 
 .editor-menubar__menu-item--active,
-.editor-menubar__menu-item--active:hover {
+.editor-menubar__menu-item--active:hover,
+.editor-menubar__menu-item--active:focus-visible {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
 }
 
 .editor-menubar__menu-item:disabled {
-  color: var(--color-text-muted);
+  color: var(--color-text-disabled);
   cursor: default;
 }
 
 .editor-menubar__menu-label {
   flex: 1;
+}
+
+.editor-menubar__menu-item--active > .editor-menubar__menu-label,
+.editor-menubar__menu-item--active > .editor-menubar__menu-submenu-arrow {
+  color: var(--color-text-on-accent);
 }
 
 .editor-menubar__menu-shortcut {
@@ -1104,7 +1110,7 @@
   font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-2);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
@@ -1544,17 +1550,39 @@
 
 /* ════════════════════════════════════════════════════════════
    Settings Dialog
-   ════════════════════════════════════════════════════════════ */
+   ════════════════════════════════════════════════════════════
+   Sizing/scroll contract: the dialog itself is a bounded flex column
+   (header from the Dialog primitive, then this layout). Only
+   .settings-dialog__content scrolls — nav and footer stay put. Width and
+   height are viewport-relative with fixed caps so the dialog never exceeds
+   the usable window on small screens or grows unbounded on large ones. */
+.strata-dialog--settings {
+  width: min(94vw, 920px);
+  max-width: min(94vw, 920px);
+  max-height: min(88vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+.strata-dialog--settings .strata-dialog__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
 .settings-dialog__layout {
   display: flex;
+  flex: 1;
+  min-height: 0;
   gap: var(--space-4);
-  min-height: 320px;
 }
 .settings-dialog__nav {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 160px;
+  flex-shrink: 0;
+  overflow-y: auto;
   background: var(--elevation-surface-sunken);
   border-radius: var(--radius-lg);
   padding: var(--space-2);
@@ -1593,14 +1621,50 @@
 .settings-dialog__content {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  /* Reserve gutter space so the scrollbar doesn't overlap content or cause
+     reflow when it appears/disappears. */
+  scrollbar-gutter: stable;
+  padding-right: var(--space-1);
 }
 .settings-dialog__footer {
   display: flex;
+  flex-shrink: 0;
   justify-content: flex-end;
   padding-top: var(--space-3);
   border-top: var(--border-micro);
   margin-top: var(--space-3);
+}
+
+/* ── Narrow-viewport responsive behaviour ──────────────────── */
+@media (max-width: 640px) {
+  .settings-dialog__layout {
+    flex-direction: column;
+  }
+  .settings-dialog__nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    min-width: 0;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .settings-dialog__tab {
+    flex-shrink: 0;
+  }
+  .settings-field-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-1);
+  }
+  .settings-field-row__label {
+    min-width: 0;
+  }
+  .settings-hint {
+    margin-left: 0;
+  }
 }
 .settings-section {
   display: flex;
@@ -1738,6 +1802,21 @@
   cursor: pointer;
   color: var(--color-text-primary);
 }
+.settings-color-swatch {
+  width: var(--space-5);
+  height: var(--space-5);
+  min-width: var(--space-5);
+  min-height: var(--space-5);
+  border-radius: var(--radius-md);
+  border: var(--border-micro);
+  border-color: var(--color-border-strong);
+  cursor: pointer;
+  padding: 0;
+}
+.settings-color-swatch:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 .settings-divider {
   height: 1px;
   background: var(--color-border-subtle);
@@ -1796,6 +1875,9 @@
   border: 1px solid var(--color-border-strong);
 }
 [data-theme="high-contrast"] .settings-text-input {
+  border: 1px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .settings-color-swatch {
   border: 1px solid var(--color-border-strong);
 }
 [data-theme="high-contrast"] .settings-dialog__footer {

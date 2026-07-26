@@ -14,7 +14,9 @@
  * | Space    | Pan canvas  | Pan canvas   | Pan canvas  | Pan canvas | Hand tool spring |
  *
  * † Default aspect-lock state differs per object type:
- *   - Raster images: locked by default (Shift unlocks)
+ *   - Raster image corners: locked by default (Shift unlocks)
+ *   - Raster image edges: unlocked by default so the container/crop window
+ *     changes on one axis without distorting source pixels (Shift locks)
  *   - Vector shapes/text/frames: unlocked by default (Shift locks)
  *   - Multi-selection: follows the majority type
  */
@@ -40,6 +42,7 @@ export interface ResizeModifiers {
  * @param metaKey - `e.metaKey` from the pointer event
  * @param isRaster - true when all selected nodes are raster/image fills
  * @param isMac - true when running on macOS (affects Ctrl vs Meta mapping)
+ * @param isEdgeHandle - true for a single-axis north/south/east/west handle
  */
 export function computeResizeModifiers(
   shiftKey: boolean,
@@ -48,15 +51,18 @@ export function computeResizeModifiers(
   metaKey: boolean,
   isRaster: boolean,
   isMac: boolean = false,
+  isEdgeHandle: boolean = false,
 ): ResizeModifiers {
   // On macOS, Ctrl+click is right-click; Cmd is the primary modifier.
   const cmdKey = isMac ? metaKey : ctrlKey;
 
   return {
     centered: altKey,
-    // For raster/images: default ON (Shift toggles OFF)
+    // Raster corners scale the image proportionally. Raster edges resize the
+    // object container on one axis while the image fill keeps source-pixel
+    // proportions; Shift toggles either default.
     // For non-raster: default OFF (Shift toggles ON)
-    proportional: isRaster ? !shiftKey : shiftKey,
+    proportional: isRaster ? (isEdgeHandle ? shiftKey : !shiftKey) : shiftKey,
     bypassSnap: cmdKey,
   };
 }

@@ -37,7 +37,7 @@ export function ComponentSection({ node }: { node: FrameNode }) {
   const overrides = instanceOverrides(doc, node.id);
 
   return (
-    <DisclosureSection title="Component">
+    <DisclosureSection title="Component" sectionId="component">
       <div className="insp-empty-message">
         <span
           style={{

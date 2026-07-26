@@ -109,7 +109,7 @@ export function ConstraintSection({ nodes }: ConstraintSectionProps) {
   if (!hasFrameParent) return null;
 
   return (
-    <DisclosureSection title="Constraints" defaultExpanded>
+    <DisclosureSection title="Constraints" sectionId="constraints">
       <div className="insp-field-group">
         <div className="insp-field">
           <span className="insp-field__label">Horizontal</span>
