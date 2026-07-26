@@ -174,9 +174,20 @@ function ShellInner({
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
-  // Register all actions into the ActionRegistry once on mount
+  // Register all actions into the ActionRegistry.
   // NOTE: registerEditorActions MUST run first so its handlers take
   // priority over the no-op stubs from registerAllShortcuts.
+  //
+  // This effect re-runs on every editor state change, because the context
+  // value is a new object on each state update. registerEditorActions needs
+  // that fresh context (its handlers close over it), but the other two
+  // registrations are context-independent and must run exactly once:
+  // re-running registerBuiltinRules on every state update re-registered every
+  // audit rule, and each re-registration logs "[audit] Overwriting rule: <id>".
+  // During a drag that produced ~28 warnings per pointer move (thousands per
+  // gesture), which both flooded the console and burned main-thread time
+  // formatting messages inside the interaction path.
+  const staticActionsRegistered = useRef(false);
   useEffect(() => {
     registerEditorActions(editor, {
       onOpenHelp: () => editorHelp.openContextualHelp(),
@@ -187,10 +198,11 @@ function ShellInner({
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: () => fileRef.current?.click(),
     });
+    if (staticActionsRegistered.current) return;
+    staticActionsRegistered.current = true;
     registerAllShortcuts(() => null);
     // Populate the audit rule registry. Without this, runAudit() (the
-    // IntelligencePanel's Audit tab) silently scans against zero rules —
-    // idempotent to call more than once (registerRule overwrites by id).
+    // IntelligencePanel's Audit tab) silently scans against zero rules.
     registerBuiltinRules();
   }, [editor, editorHelp]);
 
