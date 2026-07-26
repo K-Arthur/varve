@@ -1,9 +1,6 @@
 import type { MenuBuildHelpers, MenuBuildState, MenuItem } from './types';
 
-export function buildObjectMenu(
-  _state: MenuBuildState,
-  helpers: MenuBuildHelpers,
-): MenuItem[] {
+export function buildObjectMenu(_state: MenuBuildState, helpers: MenuBuildHelpers): MenuItem[] {
   return [
     {
       label: 'Group',
