@@ -25,4 +25,47 @@ test.describe('Settings dialog', () => {
     const box = await settingsDialog.boundingBox();
     expect(box).toBeNull();
   });
+
+  test('renders full nav and content when opened, at the intended width', async ({ page }) => {
+    await navigateToEditor(page);
+
+    // The web Menubar's DOM structure churns under concurrent development,
+    // so click by text content directly rather than relying on a specific
+    // ARIA role/name that may not match this build.
+    await page.evaluate(() => {
+      const el = [...document.querySelectorAll('button, [role="menuitem"], div, span')].find(
+        (e) => e.textContent?.trim() === 'File' && e.children.length === 0,
+      );
+      (el as HTMLElement | undefined)?.click();
+    });
+    await page.evaluate(() => {
+      const el = [...document.querySelectorAll('button, [role="menuitem"], div, span')].find(
+        (e) =>
+          e.textContent?.trim().toLowerCase().startsWith('settings') && e.children.length === 0,
+      );
+      (el as HTMLElement | undefined)?.click();
+    });
+
+    const settingsDialog = page.locator('dialog.strata-dialog--settings');
+    await expect(settingsDialog).toHaveAttribute('open', '', { timeout: 10000 });
+
+    // Two real regressions this guards against: (1) width stuck at the base
+    // .strata-dialog's 32rem because a same-specificity cascade tie with
+    // components.css was decided by load order, not intent; (2) an
+    // auto-height flex column inside <dialog> collapsing to near-zero
+    // height on WebKitGTK (this app's actual Linux renderer) even though
+    // Chromium sized it fine from content — a definite `height` removes
+    // that cross-engine ambiguity.
+    const box = await settingsDialog.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.width).toBeGreaterThan(600);
+    expect(box!.height).toBeGreaterThan(300);
+
+    const nav = settingsDialog.locator('.settings-dialog__nav');
+    const tabCount = await nav.locator('.settings-dialog__tab').count();
+    expect(tabCount).toBeGreaterThanOrEqual(6);
+
+    const content = settingsDialog.locator('.settings-dialog__content');
+    await expect(content.locator('.settings-section')).toBeVisible();
+  });
 });
