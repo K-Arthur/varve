@@ -53,8 +53,9 @@ via `target.filter`.
 
 ## Verified invariants
 
-1. **Array-order, no sort.** Every pass iterates `item.effects` in its
-   original array order. The only filtering is by effect type.
+1. **Array-order within each pass, no sort.** Every pass iterates
+   `item.effects` in its original array order. Type filtering means this is
+   not a globally ordered stack across pass categories.
 2. **Cross-pass ordering is correct.** Backdrop → fills → content →
    main effects → edge highlight → post-render filters.
 3. **Per-effect save/restore.** Each main effect renders independently;
@@ -66,10 +67,12 @@ via `target.filter`.
 
 ## Per-node effect array order
 
-Users reorder effects within a node (via drag in the Effects inspector
-section). The engine renders them in whatever order the array specifies.
-There is no implicit sort by effect type or any other property. This
-matches Figma's behavior.
+Users reorder effects within a node through the Effects inspector. Reordering is
+honoured among effects handled by the same pass. Cross-pass ordering remains
+fixed: for example, `layerBlur` always runs before `dropShadow`, regardless of
+their relative array positions. The model and UI currently present one list even
+though the renderer executes type categories. This is tracked as an architecture
+gap in `docs/audits/adjustment-effects-lut-hardening-2026-07-25.md`.
 
 ## Summary
 
@@ -86,7 +89,7 @@ Pass 4: glassMaterial.edgeHighlight
 Pass 5: post-render filters (complex)
 ```
 
-Each pass iterates `item.effects` in array order. Type dispatch
-determines which pass handles each effect. Cross-pass order is
-determined by the pass structure, which is hardcoded and verified
-correct.
+Each pass iterates `item.effects` in array order. Type dispatch determines which
+pass handles each effect. Cross-pass order is hardcoded by the pass structure; it
+is deterministic, but it is not equivalent to a globally reorderable effect
+stack.
