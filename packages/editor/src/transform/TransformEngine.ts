@@ -52,6 +52,11 @@ export interface TransformOptions {
   bakeOnCommit?: boolean;
 }
 
+type TransformResizeOptions = ResizeOptions & {
+  /** Skip the injected snap policy for this pointer sample (Ctrl/Cmd). */
+  bypassSnap?: boolean;
+};
+
 export class TransformEngine {
   private readonly doc: Document;
   private readonly selectedIds: NodeId[];
@@ -90,12 +95,13 @@ export class TransformEngine {
   resize(
     pointerWorld: Point,
     handle: ResizeHandle,
-    opts: ResizeOptions = {},
+    opts: TransformResizeOptions = {},
     doc: Document = this.doc,
   ): Document {
     const box = this.initialBox;
     const pointerDelta = this.pointerDeltaToBoxLocal(pointerWorld, box, handle);
-    const newBox = this.snapBox(resizeSelectionBox(box, handle, pointerDelta, opts));
+    const resizedBox = resizeSelectionBox(box, handle, pointerDelta, opts);
+    const newBox = opts.bypassSnap ? resizedBox : this.snapBox(resizedBox);
     const delta = boxDeltaMatrix(box, newBox);
     this.lastDelta = delta;
     return this.applyDelta(doc, delta);
