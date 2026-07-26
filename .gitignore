@@ -89,3 +89,4 @@ apps/desktop/src-tauri/onnxruntime-libs/
 # --- Render-perf raw run output (regenerated every run; .render-perf-baseline.json is the
 # committed, deliberately-updated artifact — see scripts/audit-render-perf.mjs) ---
 .render-perf-results.json
+scripts/diagnostics/
