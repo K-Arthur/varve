@@ -15,6 +15,7 @@ import { StrictMode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorProvider, getBackupService, useEditor } from '../../context';
 import { useSelection } from '../SelectionContext';
+import { useTool } from '../ToolContext';
 import { useViewport } from '../ViewportContext';
 
 function mountEditor() {
@@ -134,6 +135,75 @@ describe('EditorProvider characterization — context value identity', () => {
     // as bug #3 in test-reality.md, just verified on a sub-context that already exists
     // rather than the pre-extraction bgRemoval field).
     expect(selectionCtx).toBe(beforeRef);
+  });
+
+  it('useTool() and useEditor().setTool are the same underlying implementation (Phase B extraction)', async () => {
+    // ToolContext.tsx's applyToolChange() is shared by both `useTool().setTool` and
+    // `useEditor().setTool` — this is the specific thing that guarantees they can't
+    // diverge the way `useEditor().setZoom` and `useViewport().setZoom` already have
+    // (see docs/quality/editorprovider-surface.md). Asserted here via observable
+    // behavior: calling either one updates both views identically.
+    let toolCtx: ReturnType<typeof useTool> | undefined;
+    let editorCtx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      editorCtx = useEditor();
+      toolCtx = useTool();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(editorCtx).toBeDefined());
+    expect(toolCtx?.tool).toBe(editorCtx?.state.tool);
+
+    const target = editorCtx?.state.tool === 'select' ? 'pen' : 'select';
+    editorCtx?.setTool(target);
+
+    await waitFor(() => {
+      expect(editorCtx?.state.tool).toBe(target);
+    });
+    expect(toolCtx?.tool).toBe(target);
+
+    const target2 = target === 'select' ? 'pen' : 'select';
+    toolCtx?.setTool(target2);
+
+    await waitFor(() => {
+      expect(toolCtx?.tool).toBe(target2);
+    });
+    expect(editorCtx?.state.tool).toBe(target2);
+  });
+
+  it('useTool() reference does NOT change when an unrelated field (selection) changes', async () => {
+    let toolCtx: ReturnType<typeof useTool> | undefined;
+    let editorCtx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      editorCtx = useEditor();
+      toolCtx = useTool();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(editorCtx).toBeDefined());
+    const beforeRef = toolCtx;
+    const firstNodeId = Object.keys(editorCtx?.state.document.nodes ?? {})[0];
+    if (firstNodeId) {
+      editorCtx?.setSelection(firstNodeId);
+      await waitFor(() => {
+        expect(editorCtx?.state.selection).toEqual([firstNodeId]);
+      });
+    }
+    expect(toolCtx).toBe(beforeRef);
   });
 
   it('useViewport() returns a new reference when zoom changes', async () => {
