@@ -1,9 +1,8 @@
 /**
  * WASM module loader with feature detection and stub fallback.
  */
-import type { Engine } from './engine';
 import { hitTest as stubHitTest } from './geometry';
-import type { RenderItem, SceneNode } from './types';
+import type { Engine, RenderItem, SceneNode } from './types';
 
 export interface WasmEngineModule {
   build_ir_json(nodesJson: string): string;
