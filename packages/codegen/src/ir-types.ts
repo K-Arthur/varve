@@ -70,6 +70,8 @@ export type LayoutMode = 'flex' | 'grid' | 'absolute' | 'flow' | 'none';
 
 export type Alignment = 'start' | 'center' | 'end' | 'stretch' | 'baseline';
 
+export type JustifyContent = Alignment | 'space-between' | 'space-around' | 'space-evenly';
+
 export type ConstraintAxis = 'min' | 'max' | 'center' | 'stretch' | 'scale' | 'fixed';
 
 export type BlendMode =
@@ -147,7 +149,7 @@ export interface LayoutSpec {
   padding: Spacing;
   gap: Spacing;
   alignItems: Alignment;
-  justifyContent: Alignment;
+  justifyContent: JustifyContent;
   width: SizingSpec;
   height: SizingSpec;
   responsive: ResponsiveSpec;
@@ -569,6 +571,8 @@ export type HtmlElementHint =
   | 'td'
   | 'th'
   | 'code'
+  | 'strong'
+  | 'search'
   | 'blockquote'
   | 'hr'
   | 'svg'

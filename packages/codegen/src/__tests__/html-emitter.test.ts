@@ -35,6 +35,10 @@ describe('exportIrToHtml', () => {
     const frameWithLayout = {
       ...frame,
       layoutStyle: {
+        mode: 'flex' as const,
+        wrap: false,
+        grow: 0,
+        shrink: 0,
         direction: 'row' as const,
         gap: 8,
         padding: [4, 4, 4, 4] as [number, number, number, number],

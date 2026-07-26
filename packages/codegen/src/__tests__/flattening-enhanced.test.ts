@@ -10,7 +10,6 @@ describe('flattening v2.1 — getRenderCapability', () => {
   it('returns full for simple rect', () => {
     const doc = createDocument('Test');
     const rect = makeShapeNode('r1', { kind: 'rect', x: 0, y: 0, w: 100, h: 100 });
-    // Ensure no fills/strokes that trigger flattening
     const cleanRect = { ...rect, fills: [], strokes: [], effects: [] };
 
     const result = getRenderCapability(cleanRect, doc);
@@ -25,21 +24,28 @@ describe('flattening v2.1 — getRenderCapability', () => {
       kind: 'adjustment' as const,
       name: 'Curves',
       adjustmentType: 'curves' as const,
+      order: 'a0',
+      rotation: 0,
+      clipping: false,
       params: {
+        channel: 'rgb' as const,
         points: [
-          [0, 0],
-          [1, 1],
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
         ],
       },
       adjustments: [
         {
-          type: 'curves' as const,
+          kind: 'curves' as const,
+          id: 'a1',
+          channel: 'rgb' as const,
           points: [
-            [0, 0],
-            [1, 1],
+            { input: 0, output: 0 },
+            { input: 1, output: 1 },
           ],
           visible: true,
           opacity: 1,
+          blendMode: 'normal' as const,
         },
       ],
       visible: true,
@@ -63,7 +69,6 @@ describe('flattening v2.1 — getRenderCapability', () => {
     const frame = makeFrameNode('f1', { name: 'Frame', w: 200, h: 200 });
 
     const result = getRenderCapability(frame, doc);
-    // Frames are containers, so they should be 'full' by default
     expect(result.capability).toBe('full');
   });
 });
@@ -85,21 +90,28 @@ describe('flattening v2.1 — canEmitAsHtml', () => {
       kind: 'adjustment' as const,
       name: 'Curves',
       adjustmentType: 'curves' as const,
+      order: 'a0',
+      rotation: 0,
+      clipping: false,
       params: {
+        channel: 'rgb' as const,
         points: [
-          [0, 0],
-          [1, 1],
+          { x: 0, y: 0 },
+          { x: 1, y: 1 },
         ],
       },
       adjustments: [
         {
-          type: 'curves' as const,
+          kind: 'curves' as const,
+          id: 'a1',
+          channel: 'rgb' as const,
           points: [
-            [0, 0],
-            [1, 1],
+            { input: 0, output: 0 },
+            { input: 1, output: 1 },
           ],
           visible: true,
           opacity: 1,
+          blendMode: 'normal' as const,
         },
       ],
       visible: true,

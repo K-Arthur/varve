@@ -323,7 +323,7 @@ function inferResponsiveBreakpoints(
   const sortedXs = [...xs].sort((a, b) => a - b);
   const gaps: number[] = [];
   for (let i = 1; i < sortedXs.length; i++) {
-    gaps.push(sortedXs[i] - sortedXs[i - 1]);
+    gaps.push(sortedXs[i]! - sortedXs[i - 1]!);
   }
 
   if (gaps.length > 0) {

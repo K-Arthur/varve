@@ -1,4 +1,4 @@
-// COMPLEXITY: 302 → 98 (buildIR=42, computeFlattenInfo=32, computeAdjustmentScope=28,
+// COMPLEXITY: 302 → 106 (buildIR=42, computeFlattenInfo=32, computeAdjustmentScope=36,
 // suggestHtmlElement=18, collectFidelityWarnings=20, validateIR=14)
 // Plan: extract flatten/adjustment/fidelity into ir-flatten.ts and ir-warnings.ts
 
@@ -49,7 +49,10 @@ function hasMultipleVisibleFills(node: SceneNode): boolean {
 }
 
 function hasMultipleVisibleStrokes(node: SceneNode): boolean {
-  return (node.strokes ?? []).filter((s) => s.visible !== false).length > 1;
+  const strokes = (node as unknown as Record<string, unknown>).strokes as
+    | Array<Record<string, unknown>>
+    | undefined;
+  return (strokes ?? []).filter((s) => s.visible !== false).length > 1;
 }
 
 function computeFlattenInfo(node: SceneNode, _doc: Document): FlattenInfo {
@@ -96,9 +99,10 @@ function computeFlattenInfo(node: SceneNode, _doc: Document): FlattenInfo {
   if (node.kind === 'adjustment') {
     const adj = node as import('@strata/scene').AdjustmentNode;
     for (const a of adj.adjustments ?? []) {
-      if (a.type === 'halftone') reasons.push('halftone');
-      if (a.type === 'lut') reasons.push('lut');
-      if (a.type === 'gradientMap') reasons.push('gradient-map');
+      const ak = (a as { kind?: string }).kind ?? (a as { type?: string }).type ?? '';
+      if (ak === 'halftone') reasons.push('halftone');
+      if (ak === 'lut') reasons.push('lut');
+      if (ak === 'gradientMap') reasons.push('gradient-map');
     }
   }
 
@@ -126,10 +130,11 @@ function computeAdjustmentScope(node: SceneNode, doc: Document): AdjustmentScope
   const targetNodeIds: string[] = [];
 
   if (!scope) {
-    const parent = getParent(doc, node.id);
-    if (parent && parent.kind === 'frame') {
-      const idx = parent.children.indexOf(node.id);
-      if (idx > 0) targetNodeIds.push(parent.children[idx - 1]);
+    const parentId = getParent(doc, node.id);
+    const pn = parentId ? doc.nodes[parentId] : undefined;
+    if (pn && pn.kind === 'frame') {
+      const idx = pn.children.indexOf(node.id);
+      if (idx > 0) targetNodeIds.push(pn.children[idx - 1]!);
     }
     return { mode: 'legacy', targetNodeIds, cssFilterEquivalent: false };
   }
@@ -158,12 +163,12 @@ function computeAdjustmentScope(node: SceneNode, doc: Document): AdjustmentScope
       'sepia',
       'grayscale',
       'invert',
-    ].includes(a.type),
+    ].includes(a.kind),
   );
   const cssFilterValue = cssCompatible
     ? adjustments
         .map((a) => {
-          switch (a.type) {
+          switch (a.kind) {
             case 'brightness':
               return `brightness(${a.value})`;
             case 'contrast':
@@ -173,7 +178,7 @@ function computeAdjustmentScope(node: SceneNode, doc: Document): AdjustmentScope
             case 'hueRotate':
               return `hue-rotate(${a.value}deg)`;
             case 'blur':
-              return `blur(${a.value}px)`;
+              return `blur(${(a as import('@strata/engine').BlurAdjustment).radius}px)`;
             case 'opacity':
               return `opacity(${a.value})`;
             case 'sepia':
@@ -334,7 +339,7 @@ function collectFidelityWarnings(node: SceneNode, _doc: Document): FidelityWarni
         'gradientMap',
         'tritone',
         'duotone',
-      ].includes(a.type),
+      ].includes((a as { kind?: string }).kind ?? (a as { type?: string }).type ?? ''),
     );
     if (hasComplex) {
       warnings.push({
@@ -425,7 +430,8 @@ function buildIR(doc: Document): IRDocument {
 
       const sourceChildren = (srcNode && (srcNode as { children?: string[] }).children) ?? [];
       for (let i = 0; i < semNode.children.length && i < sourceChildren.length; i++) {
-        enrichNode(semNode.children[i], sourceChildren[i]);
+        const child = semNode.children[i]!;
+        enrichNode(child, sourceChildren[i]!);
       }
     }
 
