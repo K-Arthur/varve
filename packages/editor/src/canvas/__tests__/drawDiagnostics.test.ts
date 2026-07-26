@@ -40,6 +40,11 @@ describe('drawDiagnostics', () => {
     expect(getFrameCount()).toBe(0);
   });
 
+  it('does not enable the overlay when called without an explicit opt-in', () => {
+    enableDrawDiagnostics();
+    expect(isDiagnosticsEnabled()).toBe(false);
+  });
+
   it('can be force-enabled and records frames', () => {
     enableDrawDiagnostics(true);
     expect(isDiagnosticsEnabled()).toBe(true);
@@ -48,13 +53,20 @@ describe('drawDiagnostics', () => {
     expect(getFrameCount()).toBe(2);
   });
 
-  it('can be force-disabled even when DEV auto-detection would otherwise enable it', () => {
+  it('can be force-disabled after being enabled', () => {
     enableDrawDiagnostics(true);
     expect(isDiagnosticsEnabled()).toBe(true);
     enableDrawDiagnostics(false);
     expect(isDiagnosticsEnabled()).toBe(false);
     recordFrame(makeFrame({ frameIndex: 1 }));
     expect(getFrameCount()).toBe(0);
+  });
+
+  it('omitting the argument resolves to disabled, never an environment auto-detect', () => {
+    enableDrawDiagnostics(true);
+    expect(isDiagnosticsEnabled()).toBe(true);
+    enableDrawDiagnostics();
+    expect(isDiagnosticsEnabled()).toBe(false);
   });
 
   it('getLastFrame returns null when empty', () => {

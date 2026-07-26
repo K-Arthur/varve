@@ -580,10 +580,14 @@ export function CanvasArea({
   const budgets = getMemoryBudgets(settings.render.memoryBudget);
   const subtreeIrCacheRef = useRef(new SubtreeIrCache(500, budgets.subtreeIrCacheBytes));
 
-  // Enable frame diagnostics in dev mode once
+  // Diagnostics HUD is off by default; driven by the persisted Settings >
+  // Performance > Diagnostics toggle. The toggle also calls
+  // enableDrawDiagnostics directly for an immediate response — this effect
+  // re-syncs on mount and whenever this component happens to re-render with
+  // a changed persisted value (e.g. after Reset settings).
   useEffect(() => {
-    enableDrawDiagnostics();
-  }, []);
+    enableDrawDiagnostics(settings.performance.showPerformanceDiagnostics);
+  }, [settings.performance.showPerformanceDiagnostics]);
   // Frame/group spatial index, cached by fingerprint for fast drag containment.
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const snapIndexRef = useRef<{
