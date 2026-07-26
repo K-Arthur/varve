@@ -19,6 +19,8 @@ export {
   setStartTextEditingHandler,
   startTextEditing,
 } from './sessionGlobals';
+export type { ToolContextValue } from './ToolContext';
+export { ToolProvider, useTool } from './ToolContext';
 export type {
   CanvasMode,
   EditorContextValue,

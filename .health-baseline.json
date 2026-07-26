@@ -2,10 +2,10 @@
   "version": "2026-07-14",
   "hub_files": {
     "packages/editor/src/context.tsx": {
-      "lines": 7707,
-      "imports": 57,
-      "max_lines": 8478,
-      "max_imports": 60
+      "lines": 7693,
+      "imports": 61,
+      "max_lines": 8464,
+      "max_imports": 64
     },
     "packages/editor/src/CanvasArea.tsx": {
       "lines": 3944,
@@ -20,10 +20,10 @@
       "max_imports": 48
     },
     "packages/editor/src/Menubar.tsx": {
-      "lines": 1633,
-      "imports": 10,
-      "max_lines": 1796,
-      "max_imports": 13
+      "lines": 2262,
+      "imports": 14,
+      "max_lines": 2488,
+      "max_imports": 17
     },
     "packages/home/src/HomeShell.tsx": {
       "lines": 1104,

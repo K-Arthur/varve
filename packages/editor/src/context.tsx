@@ -331,6 +331,7 @@ import { type MotionContextValue, MotionProvider } from './context/MotionContext
 import { PrototypeProvider } from './context/PrototypeContext';
 import { isReducedMotion } from './context/reducedMotionManager';
 import { SelectionProvider } from './context/SelectionContext';
+import { applyToolChange, ToolProvider } from './context/ToolContext';
 import type {
   CanvasMode,
   EditorState,
@@ -2402,10 +2403,7 @@ export function EditorProvider({
       platform,
       updateDoc,
       patch,
-      setTool: (t) => {
-        toolRef.current = t;
-        patch({ tool: t });
-      },
+      setTool: (t) => applyToolChange(t, toolRef, patch),
       setCamera,
       setZoom: (z) => {
         setState((current) => {
@@ -7524,30 +7522,32 @@ export function EditorProvider({
   return (
     <EditorCtx.Provider value={value}>
       <DocumentProvider value={documentValue}>
-        <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
-          <SelectionProvider state={state} setState={setState}>
-            <MotionProvider
-              state={state}
-              setState={setState}
-              stateRef={stateRef}
-              updateDoc={updateDoc}
-              invalidateSamplerCache={invalidateSamplerCache}
-              onReady={setMotionValue}
-            >
-              <PrototypeProvider
+        <ToolProvider state={state} toolRef={toolRef} patch={patch}>
+          <ViewportProvider state={state} setState={setState} stateRef={stateRef}>
+            <SelectionProvider state={state} setState={setState}>
+              <MotionProvider
                 state={state}
                 setState={setState}
                 stateRef={stateRef}
                 updateDoc={updateDoc}
-                prototypeRuntimeRef={prototypeRuntimeRef}
-                smRuntimeRef={smRuntimeRef}
-                onReady={setProtoValue}
+                invalidateSamplerCache={invalidateSamplerCache}
+                onReady={setMotionValue}
               >
-                {children}
-              </PrototypeProvider>
-            </MotionProvider>
-          </SelectionProvider>
-        </ViewportProvider>
+                <PrototypeProvider
+                  state={state}
+                  setState={setState}
+                  stateRef={stateRef}
+                  updateDoc={updateDoc}
+                  prototypeRuntimeRef={prototypeRuntimeRef}
+                  smRuntimeRef={smRuntimeRef}
+                  onReady={setProtoValue}
+                >
+                  {children}
+                </PrototypeProvider>
+              </MotionProvider>
+            </SelectionProvider>
+          </ViewportProvider>
+        </ToolProvider>
       </DocumentProvider>
     </EditorCtx.Provider>
   );
@@ -7563,6 +7563,7 @@ export { useDocument } from './context/DocumentContext';
 export { useMotion } from './context/MotionContext';
 export { usePrototype } from './context/PrototypeContext';
 export { useSelection } from './context/SelectionContext';
+export { useTool } from './context/ToolContext';
 export { useViewport } from './context/ViewportContext';
 
 export function useBindingField(): [string | null, (field: string | null) => void] {

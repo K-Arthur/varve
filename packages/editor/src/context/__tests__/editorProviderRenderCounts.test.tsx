@@ -18,6 +18,7 @@ import { useRef } from 'react';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 import { useSelection } from '../SelectionContext';
+import { useTool } from '../ToolContext';
 import { useViewport } from '../ViewportContext';
 
 /** Minimal reusable render-count tracker: increments on every render of the wrapped body. */
@@ -63,6 +64,80 @@ describe('EditorProvider render counts — representative consumers', () => {
       expect(selectionRenderCount?.current).toBeGreaterThanOrEqual(before);
     });
     expect(selectionRenderCount?.current).toBe(before);
+  });
+
+  it('a tool-only consumer re-renders exactly once for one tool switch', async () => {
+    let editorCtx: ReturnType<typeof useEditor> | undefined;
+    let toolRenderCount: { current: number } | undefined;
+
+    function ToolConsumer() {
+      toolRenderCount = useRenderCount();
+      useTool();
+      return null;
+    }
+    function EditorHandle() {
+      editorCtx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <EditorHandle />
+        <ToolConsumer />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(editorCtx).toBeDefined());
+    const before = toolRenderCount?.current ?? 0;
+    const beforeTool = editorCtx?.state.tool;
+
+    editorCtx?.setTool(beforeTool === 'select' ? 'pen' : 'select');
+
+    await waitFor(() => {
+      expect(editorCtx?.state.tool).not.toBe(beforeTool);
+    });
+    await waitFor(() => {
+      expect(toolRenderCount?.current).toBeGreaterThan(before);
+    });
+    expect(toolRenderCount?.current).toBe(before + 1);
+  });
+
+  it('a tool-only consumer does not re-render on an unrelated selection change', async () => {
+    let editorCtx: ReturnType<typeof useEditor> | undefined;
+    let toolRenderCount: { current: number } | undefined;
+
+    function ToolConsumer() {
+      toolRenderCount = useRenderCount();
+      useTool();
+      return null;
+    }
+    function EditorHandle() {
+      editorCtx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <EditorHandle />
+        <ToolConsumer />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(editorCtx).toBeDefined());
+    const before = toolRenderCount?.current ?? 0;
+    const firstNodeId = Object.keys(editorCtx?.state.document.nodes ?? {})[0];
+
+    if (firstNodeId) {
+      editorCtx?.setSelection(firstNodeId);
+      await waitFor(() => {
+        expect(editorCtx?.state.selection).toEqual([firstNodeId]);
+      });
+    }
+    // Give React a tick to settle any extra renders before reading the final count.
+    await waitFor(() => {
+      expect(toolRenderCount?.current).toBeGreaterThanOrEqual(before);
+    });
+    expect(toolRenderCount?.current).toBe(before);
   });
 
   it('a viewport-only consumer does not re-render on a tool switch (fixed — was a live memoization bug)', async () => {
