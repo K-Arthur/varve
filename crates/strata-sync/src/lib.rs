@@ -70,7 +70,9 @@ impl DocumentStore {
     /// losing persistence for an open editing session. Recovering the guard
     /// here is the standard, safe idiom for that failure mode.
     fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+        self.conn
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
 
     fn migrate(conn: &mut Connection) -> Result<(), rusqlite::Error> {
@@ -1000,7 +1002,9 @@ mod tests {
                 None,
             )
             .expect("store must remain usable after a poisoned lock is recovered");
-        let files = store.list_files().expect("list_files must not panic post-poison");
+        let files = store
+            .list_files()
+            .expect("list_files must not panic post-poison");
         assert!(files.iter().any(|f| f.id == "post-poison"));
     }
 }
