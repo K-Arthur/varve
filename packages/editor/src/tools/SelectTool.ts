@@ -55,6 +55,10 @@ export class SelectTool extends BaseTool {
   private initialPositions = new Map<string, { x: number; y: number }>();
   private hasDuplicated = false;
   private nudgeGestureActive = false;
+  /** Nodes that were selected when an Alt-duplicate fired, in selection order. */
+  private duplicateSourceIds: string[] = [];
+  /** True between firing an Alt-duplicate and the clones becoming the selection. */
+  private awaitingDuplicateHandoff = false;
 
   override onDeactivate(ctx: ToolContext): void {
     // Commit any active nudge transaction when switching tools
@@ -94,6 +98,11 @@ export class SelectTool extends BaseTool {
       currentCanvas: canvas,
       currentWorld: world,
     };
+    // Every gesture starts with a clean duplicate handoff, so an interrupted
+    // Alt-drag (pointer loss, tool switch, cancel) cannot strand the next one
+    // waiting on clone ids that will never arrive.
+    this.duplicateSourceIds = [];
+    this.awaitingDuplicateHandoff = false;
 
     const hit = this.resolveHit(world, ctx);
 
@@ -174,8 +183,41 @@ export class SelectTool extends BaseTool {
     } else {
       // Alt-duplicate: clone selected nodes once per gesture
       if (ctx.altKey && !this.hasDuplicated) {
+        this.duplicateSourceIds = [...ctx.selection];
         ctx.duplicateSelected();
         this.hasDuplicated = true;
+        this.awaitingDuplicateHandoff = true;
+        // duplicateSelected() re-selects the clones via setState, so their ids
+        // are not observable until a later event. Moving the still-selected
+        // originals on this frame would drag them out from under the copy.
+        return;
+      }
+
+      // Hand the gesture over to the clones once they become the selection.
+      // They inherit the drag origin recorded for the node each was cloned
+      // from (duplicateSelected builds the new selection in source order), so
+      // they track the pointer from the gesture's start and the originals stay
+      // put. Without this the clones have no initialPositions entry, every
+      // iteration below hits `continue`, and the copy never follows the
+      // pointer at all -- it just sits at duplicateSelected's fixed offset.
+      if (this.awaitingDuplicateHandoff) {
+        const cloneIds = ctx.selection;
+        const sourceIds = this.duplicateSourceIds;
+        if (cloneIds.length === 0 || cloneIds.length !== sourceIds.length) {
+          // Duplication produced nothing usable — fall back to a plain move.
+          this.awaitingDuplicateHandoff = false;
+        } else if (cloneIds.every((id, i) => id === sourceIds[i])) {
+          return; // clones not committed to state yet
+        } else {
+          for (let i = 0; i < cloneIds.length; i++) {
+            const cloneId = cloneIds[i];
+            const sourceId = sourceIds[i];
+            if (!cloneId || !sourceId) continue;
+            const origin = this.initialPositions.get(sourceId);
+            if (origin) this.initialPositions.set(cloneId, origin);
+          }
+          this.awaitingDuplicateHandoff = false;
+        }
       }
 
       const sel = ctx.selection;
