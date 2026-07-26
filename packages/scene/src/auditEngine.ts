@@ -23,11 +23,12 @@ import type {
   FindingCategory,
   FindingCost,
   FindingSource,
-  SuppressionEntry,
   WorkspaceMode,
 } from './auditFinding';
-import { buildAuditSummary, isSuppressed } from './auditFinding';
+import { buildAuditSummary } from './auditFinding';
 import type { Document } from './document';
+import type { SuppressionEntry } from './suppressions';
+import { isSuppressed } from './suppressions';
 import type { NodeId } from './types';
 
 // ---------------------------------------------------------------------------
