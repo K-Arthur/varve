@@ -911,6 +911,170 @@ mod tests {
         assert_eq!(result[4].1, 1); // cx=25
     }
 
+    // ── Property tests (Tier 1) ─────────────────────────────────────────────
+    //
+    // These encode the invariants alignment/distribution must hold for ANY
+    // input, not just the fixed examples above. `proptest` shrinks failures
+    // to a minimal repro automatically.
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        const EPS: f64 = 1e-9;
+
+        fn arb_bbox() -> impl Strategy<Value = BBox> {
+            (-10_000.0f64..10_000.0, -10_000.0f64..10_000.0, 0.0f64..1_000.0, 0.0f64..1_000.0)
+                .prop_map(|(x, y, w, h)| BBox { x, y, w, h })
+        }
+
+        fn arb_align_op() -> impl Strategy<Value = AlignOp> {
+            prop_oneof![
+                Just(AlignOp::Left),
+                Just(AlignOp::CenterH),
+                Just(AlignOp::Right),
+                Just(AlignOp::Top),
+                Just(AlignOp::CenterV),
+                Just(AlignOp::Bottom),
+            ]
+        }
+
+        fn arb_distribute_op() -> impl Strategy<Value = DistributeOp> {
+            prop_oneof![Just(DistributeOp::Horizontal), Just(DistributeOp::Vertical)]
+        }
+
+        /// Applying `axis` to a set of bounds, then recomputing the target and
+        /// applying `axis` again, must not move anything further: alignment is
+        /// idempotent. This covers all 6 axes, including the "align-left twice"
+        /// case called out explicitly in the test plan.
+        fn assert_alignment_idempotent(axis: AlignOp, bounds: &[BBox]) {
+            let target1 = compute_alignment_target(axis, bounds).expect(">=2 items");
+            let once: Vec<BBox> = bounds
+                .iter()
+                .map(|b| {
+                    let (x, y) = align_bbox(b, axis, &target1);
+                    BBox { x, y, w: b.w, h: b.h }
+                })
+                .collect();
+
+            let target2 = compute_alignment_target(axis, &once).expect(">=2 items");
+            for b in &once {
+                let (x2, y2) = align_bbox(b, axis, &target2);
+                prop_assert_eq_eps(x2, b.x);
+                prop_assert_eq_eps(y2, b.y);
+            }
+        }
+
+        fn prop_assert_eq_eps(a: f64, b: f64) {
+            assert!(
+                (a - b).abs() < EPS,
+                "expected second alignment pass to be a no-op: {a} != {b} (diff {})",
+                (a - b).abs()
+            );
+        }
+
+        proptest! {
+            #[test]
+            fn alignment_is_idempotent(
+                axis in arb_align_op(),
+                bounds in prop::collection::vec(arb_bbox(), 2..12),
+            ) {
+                assert_alignment_idempotent(axis, &bounds);
+            }
+
+            /// A single item has no alignment target at all (nothing to align
+            /// *to*) — `compute_alignment_target` must report that as `None`,
+            /// i.e. a structural no-op rather than silently picking a target.
+            #[test]
+            fn alignment_of_single_item_is_a_no_op(axis in arb_align_op(), bbox in arb_bbox()) {
+                prop_assert!(compute_alignment_target(axis, &[bbox]).is_none());
+            }
+
+            /// Fewer than 3 items: nothing to distribute *between*, so
+            /// `compute_distribution` must report `None` rather than guessing.
+            #[test]
+            fn distributing_fewer_than_three_is_a_no_op(
+                op in arb_distribute_op(),
+                bounds in prop::collection::vec(arb_bbox(), 0..3),
+            ) {
+                prop_assert!(compute_distribution(op, &bounds, None).is_none());
+            }
+
+            /// For N >= 3 items, auto-gap distribution produces equal gaps
+            /// between consecutive items' trailing/leading edges, within float
+            /// epsilon — not just equal start positions.
+            #[test]
+            fn distribution_produces_equal_gaps(
+                op in arb_distribute_op(),
+                mut bounds in prop::collection::vec(arb_bbox(), 3..10),
+            ) {
+                // Positions come back sorted by leading edge; sort our own copy
+                // the same way so we can pair each position with its item size.
+                match op {
+                    DistributeOp::Horizontal => {
+                        bounds.sort_by(|a, b| a.left().partial_cmp(&b.left()).unwrap())
+                    }
+                    DistributeOp::Vertical => {
+                        bounds.sort_by(|a, b| a.top().partial_cmp(&b.top()).unwrap())
+                    }
+                }
+                let positions = compute_distribution(op, &bounds, None).expect(">=3 items");
+                prop_assert_eq!(positions.len(), bounds.len());
+
+                let sizes: Vec<f64> = bounds
+                    .iter()
+                    .map(|b| match op {
+                        DistributeOp::Horizontal => b.w,
+                        DistributeOp::Vertical => b.h,
+                    })
+                    .collect();
+
+                let gaps: Vec<f64> = (0..positions.len() - 1)
+                    .map(|i| positions[i + 1] - (positions[i] + sizes[i]))
+                    .collect();
+                for w in gaps.windows(2) {
+                    prop_assert!(
+                        (w[0] - w[1]).abs() < 1e-6,
+                        "gaps not equal within epsilon: {:?}",
+                        gaps
+                    );
+                }
+            }
+
+            /// An explicit fixed gap is honored exactly (not just "equal"),
+            /// for any N >= 3 and any finite, non-negative gap.
+            #[test]
+            fn distribution_honors_fixed_gap(
+                op in arb_distribute_op(),
+                mut bounds in prop::collection::vec(arb_bbox(), 3..8),
+                gap in 0.0f64..500.0,
+            ) {
+                match op {
+                    DistributeOp::Horizontal => {
+                        bounds.sort_by(|a, b| a.left().partial_cmp(&b.left()).unwrap())
+                    }
+                    DistributeOp::Vertical => {
+                        bounds.sort_by(|a, b| a.top().partial_cmp(&b.top()).unwrap())
+                    }
+                }
+                let positions = compute_distribution(op, &bounds, Some(gap)).expect(">=3 items");
+                let sizes: Vec<f64> = bounds
+                    .iter()
+                    .map(|b| match op {
+                        DistributeOp::Horizontal => b.w,
+                        DistributeOp::Vertical => b.h,
+                    })
+                    .collect();
+                for i in 0..positions.len() - 1 {
+                    let actual_gap = positions[i + 1] - (positions[i] + sizes[i]);
+                    prop_assert!(
+                        (actual_gap - gap).abs() < 1e-6,
+                        "fixed gap not honored: expected {gap}, got {actual_gap}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn tidy_layout_respects_max_cols() {
         let items: Vec<(BBox, f64, f64)> = (0..5)
