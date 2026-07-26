@@ -276,6 +276,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       timeline: { visible: false, collapsed: false, order: 2 },
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
+      codegen: { visible: false, collapsed: false, order: 5 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -366,6 +367,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       timeline: { visible: false, collapsed: false, order: 2 },
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
+      codegen: { visible: false, collapsed: false, order: 5 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -463,6 +465,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       timeline: { visible: false, collapsed: false, order: 2 },
       pagenav: { visible: false, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
+      codegen: { visible: false, collapsed: false, order: 5 },
     },
     defaultTool: 'paint',
     floatingToolbar: true,
@@ -557,6 +560,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       timeline: { visible: false, collapsed: false, order: 2 },
       pagenav: { visible: false, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
+      codegen: { visible: false, collapsed: false, order: 5 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -733,7 +737,9 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       baselineGrid: false,
     },
     shortcuts: { extra: {}, disabled: [] },
-    performance: { ...COMMON_PERFORMANCE },
+    // Codegen mode is text/spec output, not heavy canvas rendering -- no worker
+    // renderer needed (see workspaceTypes.test.ts).
+    performance: { ...COMMON_PERFORMANCE, useWorkerRenderer: false },
     onboarding: {
       description:
         'Design-to-code export, design audit, accessibility checks, and specification output.',
@@ -756,6 +762,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       timeline: { visible: true, collapsed: false, order: 2, preferredWidth: '100%' },
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
+      codegen: { visible: false, collapsed: false, order: 5 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -1080,6 +1087,9 @@ export function migrateWorkspaceConfig(
       timeline: { visible: old.visiblePanels?.timeline ?? false, collapsed: false, order: 2 },
       pagenav: { visible: old.visiblePanels?.pagenav ?? true, collapsed: false, order: 3 },
       library: { visible: old.visiblePanels?.library ?? false, collapsed: false, order: 4 },
+      // Didn't exist in the pre-v1 format (like bleedGuides/layoutGrid/baselineGrid below) --
+      // fall back to the target mode's own default rather than inventing a literal.
+      codegen: base.panels.codegen,
     };
 
     return {
