@@ -1400,3 +1400,81 @@ export function normalizeImageRotation(rotation: number | undefined): number | u
   if (Math.abs(normalized) < 1e-6 || Math.abs(normalized - 360) < 1e-6) return 0;
   return normalized;
 }
+
+function isImageFit(value: unknown): value is ImageFit {
+  return (
+    value === 'fill' ||
+    value === 'fit' ||
+    value === 'stretch' ||
+    value === 'tile' ||
+    value === 'crop'
+  );
+}
+
+/**
+ * Normalize persisted per-usage image geometry.
+ *
+ * This is intentionally independent from document-version migrations: malformed
+ * values can also enter a current-version document through plugins, clipboard
+ * data, or hand-edited JSON. Optional source dimensions remain optional for
+ * legacy fills, but when present they must be positive finite values.
+ */
+export function normalizeImageFillData(
+  image: ImageFillData,
+  source?: { width?: number; height?: number },
+): ImageFillData {
+  const sourceWidth =
+    Number.isFinite(source?.width) && (source?.width as number) > 0 ? source?.width : undefined;
+  const sourceHeight =
+    Number.isFinite(source?.height) && (source?.height as number) > 0 ? source?.height : undefined;
+  const imageWidth =
+    sourceWidth ??
+    (Number.isFinite(image.imageWidth) && (image.imageWidth as number) > 0
+      ? image.imageWidth
+      : undefined);
+  const imageHeight =
+    sourceHeight ??
+    (Number.isFinite(image.imageHeight) && (image.imageHeight as number) > 0
+      ? image.imageHeight
+      : undefined);
+  const cropWidth =
+    image.crop && Number.isFinite(image.crop.w) && image.crop.w > 0
+      ? Math.max(
+          image.crop.w,
+          Number.isFinite(image.crop.x) ? image.crop.x + image.crop.w : image.crop.w,
+        )
+      : 1;
+  const cropHeight =
+    image.crop && Number.isFinite(image.crop.h) && image.crop.h > 0
+      ? Math.max(
+          image.crop.h,
+          Number.isFinite(image.crop.y) ? image.crop.y + image.crop.h : image.crop.h,
+        )
+      : 1;
+  const crop = normalizeImageCropRect(
+    image.crop,
+    imageWidth ?? cropWidth,
+    imageHeight ?? cropHeight,
+  );
+  const rotation = normalizeImageRotation(image.rotation);
+
+  const normalized: ImageFillData = {
+    ...image,
+    fit: isImageFit(image.fit) ? image.fit : 'fill',
+    x: Number.isFinite(image.x) ? image.x : 0,
+    y: Number.isFinite(image.y) ? image.y : 0,
+    scale: Number.isFinite(image.scale) && image.scale > 0 ? image.scale : 1,
+    ...(imageWidth !== undefined ? { imageWidth } : {}),
+    ...(imageHeight !== undefined ? { imageHeight } : {}),
+    ...(crop !== undefined ? { crop } : {}),
+    ...(rotation !== undefined ? { rotation } : {}),
+    ...(image.flipH !== undefined ? { flipH: image.flipH === true } : {}),
+    ...(image.flipV !== undefined ? { flipV: image.flipV === true } : {}),
+  };
+
+  if (imageWidth === undefined) delete normalized.imageWidth;
+  if (imageHeight === undefined) delete normalized.imageHeight;
+  if (crop === undefined) delete normalized.crop;
+  if (rotation === undefined) delete normalized.rotation;
+  return normalized;
+}
