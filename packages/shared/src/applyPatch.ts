@@ -12,7 +12,7 @@
  * responsible for wrapping apply in beginTransaction/commitTransaction.
  */
 
-import type { FixDescriptor, FixKind, FixResult, Patch } from './auditTypes';
+import type { FixDescriptor, FixKind, FixResult, Patch, PatchChange } from './auditTypes';
 
 /**
  * Compute a fix without applying it.
@@ -60,10 +60,10 @@ export function findFixConflict(
       for (const prop of entryA.properties) {
         if (entryB.properties.includes(prop)) {
           const changeA = a.summary.changes.find(
-            (c) => c.nodeId === entryA.nodeId && c.property === prop,
+            (c: PatchChange) => c.nodeId === entryA.nodeId && c.property === prop,
           );
           const changeB = b.summary.changes.find(
-            (c) => c.nodeId === entryB.nodeId && c.property === prop,
+            (c: PatchChange) => c.nodeId === entryB.nodeId && c.property === prop,
           );
           return {
             nodeId: entryA.nodeId,
@@ -170,6 +170,9 @@ export function auditFixToDescriptor(
             ok: false,
             reason: 'precondition-failed',
             detail: 'Fix would have no effect — issue already resolved.',
+            patch: { apply: () => null, affects: [], summary: { changes: [] } },
+            affects: [],
+            summary: { changes: [] },
           };
         }
         return {
@@ -187,6 +190,9 @@ export function auditFixToDescriptor(
           ok: false,
           reason: 'unsupported',
           detail: e instanceof Error ? e.message : String(e),
+          patch: { apply: () => null, affects: [], summary: { changes: [] } },
+          affects: [],
+          summary: { changes: [] },
         };
       }
     },

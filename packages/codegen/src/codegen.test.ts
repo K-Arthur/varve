@@ -462,7 +462,7 @@ describe('legacy exports', () => {
         blendMode: 'normal',
         visible: true,
       };
-      (node as Record<string, unknown>).fills = [fill];
+      (node as unknown as Record<string, unknown>).fills = [fill];
       const svg = exportNodeToSvg(node, createDocument('Test'));
       expect(svg).toContain('<linearGradient');
       expect(svg).not.toContain('<radialGradient');
@@ -488,7 +488,7 @@ describe('legacy exports', () => {
         blendMode: 'normal',
         visible: true,
       };
-      (node as Record<string, unknown>).fills = [fill];
+      (node as unknown as Record<string, unknown>).fills = [fill];
       const svg = exportNodeToSvg(node, createDocument('Test'));
       expect(svg).toContain('<radialGradient');
       expect(svg).toContain('cx="50%"');
@@ -516,7 +516,7 @@ describe('legacy exports', () => {
         blendMode: 'normal',
         visible: true,
       };
-      (node as Record<string, unknown>).fills = [fill];
+      (node as unknown as Record<string, unknown>).fills = [fill];
       const gaps = svgTargetGaps(node, createDocument('Test'));
       const gradGap = gaps.find((g) => g.feature?.includes('angular gradient'));
       expect(gradGap).toBeDefined();
@@ -542,7 +542,7 @@ describe('legacy exports', () => {
         blendMode: 'normal',
         visible: true,
       };
-      (node as Record<string, unknown>).fills = [fill];
+      (node as unknown as Record<string, unknown>).fills = [fill];
       const rasterAssets = {
         n1: {
           nodeId: 'n1',

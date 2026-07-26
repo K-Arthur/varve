@@ -88,6 +88,71 @@ export type WorkspaceMode = 'design' | 'drawing' | 'image' | 'print' | 'motion' 
 export type NodeKind = 'frame' | 'group' | 'shape' | 'text' | 'image' | 'component' | 'instance';
 
 // ============================================================================
+// Fix Descriptor and Patch Types
+// ============================================================================
+
+/**
+ * A description of what kind of fix this is.
+ */
+export type FixKind = 'safe' | 'destructive' | 'assisted';
+
+/**
+ * A single change entry in a patch summary.
+ */
+export interface PatchChange {
+  nodeId: string;
+  property: string;
+  before: unknown;
+  after: unknown;
+}
+
+/**
+ * Summary of all changes in a patch.
+ */
+export interface PatchSummary {
+  changes: PatchChange[];
+}
+
+/**
+ * An affected-node entry in a patch.
+ */
+export interface PatchAffects {
+  nodeId: string;
+  properties: string[];
+}
+
+/**
+ * A Patch describes how to transform a document to apply a fix.
+ */
+export interface Patch {
+  apply: (doc: unknown) => unknown;
+  affects: PatchAffects[];
+  summary: PatchSummary;
+}
+
+/**
+ * Result of computing a fix.
+ */
+export interface FixResult {
+  ok: boolean;
+  reason?: string;
+  detail?: string;
+  patch: Patch;
+  affects: string[];
+  summary: PatchSummary;
+}
+
+/**
+ * A named, previewable fix descriptor.
+ */
+export interface FixDescriptor {
+  id: string;
+  labelKey: string;
+  kind: FixKind;
+  compute: (doc: unknown) => FixResult;
+}
+
+// ============================================================================
 // Fix Types
 // ============================================================================
 
@@ -111,6 +176,9 @@ export interface AuditFix {
 
   /** Whether the fix has a side effect beyond the document (e.g., selection). */
   changesSelection?: boolean;
+
+  /** Whether this fix is safe, destructive, or assisted. */
+  kind?: FixKind;
 
   /** Whether this fix can be previewed before applying. */
   previewable: boolean;

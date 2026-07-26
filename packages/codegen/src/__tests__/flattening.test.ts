@@ -47,7 +47,7 @@ describe('analyzeNodeFlattening', () => {
   it('flags inner shadow effects', () => {
     const doc = createDocument('Test');
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, { name: 'Box' });
-    (node as Record<string, unknown>).effects = [
+    (node as unknown as Record<string, unknown>).effects = [
       { type: 'innerShadow', offsetX: 2, offsetY: 2, radius: 4 },
     ];
     const spec = analyzeNodeFlattening(node, doc);
@@ -57,7 +57,7 @@ describe('analyzeNodeFlattening', () => {
   it('flags background blur', () => {
     const doc = createDocument('Test');
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 50 }, { name: 'Box' });
-    (node as Record<string, unknown>).effects = [{ type: 'backgroundBlur', radius: 8 }];
+    (node as unknown as Record<string, unknown>).effects = [{ type: 'backgroundBlur', radius: 8 }];
     const spec = analyzeNodeFlattening(node, doc);
     expect(spec.mustFlatten).toBe(true);
     expect(spec.flattensChildren).toBe(true);

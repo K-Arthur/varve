@@ -1,3 +1,5 @@
+// COMPLEXITY: ~52 — fillToCss (12), appearanceToCss (28), exportIrToHtml (18)
+// Plan: extract fill/effect CSS builders into html-css.ts
 /**
  * Semantic HTML + modern CSS emitter.
  *
@@ -70,13 +72,13 @@ function fillToCss(fills: FillSpec[]): string | undefined {
   const visible = fills.filter((f) => f.opacity > 0);
   if (visible.length === 0) return undefined;
   if (visible.length === 1) {
-    const f = visible[0];
+    const f = visible[0]!;
     return f.opacity < 1
       ? `color-mix(in srgb, ${colorValue(f)} ${f.opacity * 100}%, transparent)`
       : colorValue(f);
   }
   // Stacked fills: only the topmost renders as background
-  const top = visible[visible.length - 1];
+  const top = visible[visible.length - 1]!;
   return top.opacity < 1
     ? `color-mix(in srgb, ${colorValue(top)} ${top.opacity * 100}%, transparent)`
     : colorValue(top);
@@ -242,7 +244,7 @@ function appearanceToCss(
 
   for (const stroke of appearance.strokes) {
     if (stroke.weight > 0 && stroke.fills.length > 0) {
-      const c = colorValue(stroke.fills[0]);
+      const c = colorValue(stroke.fills[0]!);
       props.outline = `${sizeValue(stroke.weight, unit, base)} solid ${c}`;
       if (stroke.align === 'inside')
         props['outline-offset'] = `-${sizeValue(stroke.weight, unit, base)}`;
@@ -350,6 +352,7 @@ export function exportIrToHtml(
   const base = opts.baseFontSize ?? 16;
   const indent = opts.indent ?? '  ';
   const _useCp = opts.useCustomProperties ?? true;
+  void _useCp;
 
   const cssLines: string[] = [];
   const htmlParts: string[] = [];
@@ -527,6 +530,7 @@ ${htmlParts.join('\n')}
 </html>`;
 
   const _css = cssLines.join('\n');
+  void _css;
 
   // ── Responsive Media Queries ───────────────────────────────────────────────
   if (opts.responsive !== false && ir.breakpoints.length > 0) {
