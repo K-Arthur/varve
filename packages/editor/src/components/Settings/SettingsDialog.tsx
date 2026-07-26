@@ -1,13 +1,14 @@
-import type { ManagedColor } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
-import { Button, ColorPicker, Dialog, NumberInput, Select } from '@strata/ui';
+import { managedColorToCss } from '@strata/shared';
+import { Button, Dialog, NumberInput, Select } from '@strata/ui';
 import { getTheme, setTheme } from '@strata/ui/tokens';
-import { useCallback, useEffect, useState } from 'react';
-import { bumpThemeRevision, getBackupService } from '../../context';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { bumpThemeRevision, getBackupService, useEditor } from '../../context';
 import { loadSettings, updateSettings } from '../../settings';
 import { ShortcutPalette } from '../../shortcuts';
 import { getReservedShortcutsForTarget } from '../../shortcuts/reservedShortcuts';
 import { BackupSettingsPanel } from '../Backup/BackupSettingsPanel';
+import { InspectorColorPopover } from '../Inspector/controls/InspectorColorPopover';
+import { whiteForMode } from '../Inspector/panels/DocumentPanel';
 import { BgRemovalModelsTab } from './BgRemovalModelsTab';
 import { ColorizationModelsTab } from './ColorizationModelsTab';
 import { ExportSettingsTab } from './ExportSettingsTab';
@@ -56,19 +57,6 @@ const AI_MODEL_OPTIONS = [
   { value: 'claude-3.5', label: 'Claude 3.5 Sonnet' },
 ];
 
-function hexToColor(hex: string): ManagedColor {
-  const h = hex.replace('#', '');
-  const r = Number.parseInt(h.substring(0, 2), 16) || 0;
-  const g = Number.parseInt(h.substring(2, 4), 16) || 0;
-  const b = Number.parseInt(h.substring(4, 6), 16) || 0;
-  return { space: 'rgb', r, g, b, a: 255 };
-}
-
-function colorToHex(c: ManagedColor): string {
-  const [r, g, b] = managedColorToRgba(c);
-  return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-}
-
 export interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
@@ -115,7 +103,13 @@ export function SettingsDialog({
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} title="Settings" dismissible>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        title="Settings"
+        dismissible
+        className="strata-dialog--settings"
+      >
         <div className="settings-dialog__layout">
           <nav className="settings-dialog__nav" aria-label="Settings sections">
             {SECTIONS.map((sec) => (
@@ -200,6 +194,10 @@ function Divider() {
 function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void }) {
   const { settings, updateSection } = useSettings();
   const [preferWebGpu, setPreferWebGpu] = useState(() => loadSettings().render.preferWebGpu);
+  const { state, setCanvasBackground, documentColorMode } = useEditor();
+  const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
+  const canvasBgColor = state.document.canvasBackground ?? fallbackColor;
+  const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
 
   return (
     <div className="settings-section">
@@ -221,11 +219,18 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
         />
       </FieldRow>
       <FieldRow label="Canvas background">
-        <ColorPicker
-          value={hexToColor(settings.general.canvasBackground)}
-          onChange={(c) => updateSection('general', { canvasBackground: colorToHex(c) })}
+        <InspectorColorPopover
+          label="Canvas background"
+          value={canvasBgColor}
+          onChange={setCanvasBackground}
+          swatchStyle={{ background: swatchBackground }}
+          documentColorMode={documentColorMode}
+          className="settings-color-swatch"
         />
       </FieldRow>
+      <p className="settings-hint">
+        Background of the currently open document. Changes apply immediately.
+      </p>
       <FieldRow label="Autosave interval (min)">
         <NumberInput
           value={settings.general.autosaveInterval}

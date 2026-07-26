@@ -127,7 +127,9 @@ test.describe('Inspector section management', () => {
     await expect(restoreBtn).toBeVisible({ timeout: 5000 });
   });
 
-  test('inspector panel has properties, export, spec, score, audit tabs', async ({ page }) => {
+  test('inspector exposes canonical workflow tabs without deprecated duplicates', async ({
+    page,
+  }) => {
     const tablist = page.getByRole('tablist', { name: /inspector tabs/i });
     await expect(tablist).toBeVisible({ timeout: 5000 });
 
@@ -137,7 +139,8 @@ test.describe('Inspector section management', () => {
     const exportTab = tablist.getByRole('tab').filter({ hasText: /export/i });
     await expect(exportTab).toBeVisible();
 
-    const specTab = tablist.getByRole('tab').filter({ hasText: /spec/i });
-    await expect(specTab).toBeVisible();
+    await expect(tablist.getByRole('tab', { name: /appearance/i })).toBeVisible();
+    await expect(tablist.getByRole('tab', { name: /audit/i })).toBeVisible();
+    await expect(tablist.getByRole('tab', { name: /spec|document/i })).toHaveCount(0);
   });
 });

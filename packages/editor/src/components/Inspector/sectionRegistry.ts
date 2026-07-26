@@ -215,7 +215,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'corner-radius',
     title: 'Corner Radius',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 110,
@@ -404,7 +404,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'background-removal',
     title: 'Background Removal',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 290,
@@ -417,7 +417,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'colorize',
     title: 'Colorize',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 291,
@@ -428,7 +428,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'ai-denoise',
     title: 'AI Denoise',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 293,
@@ -440,7 +440,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
   {
     id: 'lens-blur',
     title: 'Lens Blur',
-    defaultExpanded: true,
+    defaultExpanded: false,
     canHide: true,
     essential: false,
     order: 295,

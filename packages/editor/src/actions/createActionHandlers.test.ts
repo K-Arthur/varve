@@ -164,13 +164,58 @@ describe('createActionHandlers — intelligence menu actions', () => {
     ['openAppearancePanel', 'appearance'],
     ['openAdjustmentsPanel', 'adjustments'],
     ['openPrototypePanel', 'prototype'],
-    ['openDocumentPanel', 'document'],
     ['openExportPanel', 'export'],
-    ['openInspectPanel', 'spec'],
     ['openAuditPanel', 'audit'],
   ] as const)('%s deep-links to its inspector workflow', (action, tab) => {
     const editor = makeEditorMock();
     createActionHandlers(editor)[action]?.();
     expect(editor.setInspectorTab).toHaveBeenCalledWith(tab);
+  });
+
+  it('opens document settings at the canonical empty-selection Properties surface', () => {
+    const editor = makeEditorMock({ setSelection: vi.fn() });
+    createActionHandlers(editor).openDocumentPanel?.();
+    expect(editor.setSelection).toHaveBeenCalledWith(null);
+    expect(editor.setInspectorTab).toHaveBeenCalledWith('properties');
+  });
+
+  it('opens inspection through the real inspect tool and Export surface', () => {
+    const editor = makeEditorMock();
+    createActionHandlers(editor).openInspectPanel?.();
+    expect(editor.setTool).toHaveBeenCalledWith('inspect');
+    expect(editor.setInspectorTab).toHaveBeenCalledWith('export');
+  });
+});
+
+describe('createActionHandlers — text formatting', () => {
+  it('updates text immutably and toggles numeric font weight', () => {
+    const originalNode = {
+      id: 't1',
+      kind: 'text',
+      text: 'Hello',
+      fontSize: 16,
+      fontWeight: 400,
+    };
+    const document = {
+      nodes: { t1: originalNode },
+    };
+    let updatedDocument: typeof document | undefined;
+    const editor = makeEditorMock({
+      state: {
+        selection: ['t1'],
+        document,
+      } as unknown as EditorContextValue['state'],
+      updateDoc: vi.fn((update) => {
+        updatedDocument = update(document as never) as unknown as typeof document;
+      }),
+    });
+
+    createActionHandlers(editor).textBold?.();
+
+    expect(updatedDocument).not.toBe(document);
+    expect(updatedDocument?.nodes).not.toBe(document.nodes);
+    expect(updatedDocument?.nodes.t1).not.toBe(originalNode);
+    expect(updatedDocument?.nodes.t1.fontWeight).toBe(700);
+    expect(originalNode.fontWeight).toBe(400);
   });
 });

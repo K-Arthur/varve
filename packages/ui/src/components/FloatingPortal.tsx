@@ -34,7 +34,7 @@ export interface FloatingPortalProps {
   className?: string;
   /** Floating UI placement relative to anchor. */
   placement?: Placement;
-  /** Max height before scroll (px). Defaults to 480. */
+  /** Optional max height before scroll. The viewport is the default constraint. */
   maxHeight?: number;
   /** Match floating layer width to the anchor element. */
   matchAnchorWidth?: boolean;
@@ -50,7 +50,7 @@ export function FloatingPortal({
   children,
   className,
   placement = 'bottom-start',
-  maxHeight = 480,
+  maxHeight,
   matchAnchorWidth = false,
   onClose,
   id,
@@ -87,9 +87,11 @@ export function FloatingPortal({
           size({
             padding: 8,
             apply({ availableHeight, rects, elements }) {
+              const constrainedHeight =
+                maxHeight === undefined ? availableHeight : Math.min(availableHeight, maxHeight);
               Object.assign(elements.floating.style, {
                 ...(matchAnchorWidth ? { width: `${rects.reference.width}px` } : {}),
-                maxHeight: `${Math.min(availableHeight, maxHeight)}px`,
+                maxHeight: `${constrainedHeight}px`,
                 overflowY: 'auto',
               });
             },

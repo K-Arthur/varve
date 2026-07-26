@@ -314,7 +314,7 @@ export function LensBlurSection({ nodes }: { nodes: SceneNode[] }) {
   const showBlurControls = depthState === 'ready' && depthMap !== null;
 
   return (
-    <DisclosureSection title="Lens Blur" sectionId="lens-blur" defaultExpanded={true}>
+    <DisclosureSection title="Lens Blur" sectionId="lens-blur">
       <div className="insp-field-group">
         {modelState === 'idle' && (
           <div className="insp-actions">

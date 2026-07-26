@@ -49,7 +49,12 @@ import {
   renameSelected,
   suggestName,
 } from '../intelligence/autoNamer';
+import {
+  detectVariantCandidates,
+  type VariantCandidate,
+} from '../intelligence/componentVariantDetector';
 import { findDuplicateStructures } from '../intelligence/componentDetector';
+import { buildPromotionPlan, type VariantPromotionPlan } from '../intelligence/variantPromotion';
 import {
   analyzeSpacing,
   harmonizeSpacing,
@@ -1612,65 +1617,607 @@ function LayoutTab() {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Tab 8: Components — Duplicate Detection                            */
+/*  Tab 8: Components — Duplicate Detection + Variant Candidates       */
 /* ------------------------------------------------------------------ */
 
+function candidateSignature(candidate: VariantCandidate): string {
+  const sorted = [...candidate.nodeIds].sort().join(',');
+  return [
+    candidate.suggestedVariantName,
+    candidate.differingProperties.map((dp) => dp.property).join(','),
+    sorted,
+  ].join('|');
+}
+
+function scoreBadgeClass(score: number): string {
+  if (score >= 85) return 'intelligence-badge--high';
+  if (score >= 65) return 'intelligence-badge--medium';
+  return 'intelligence-badge--low';
+}
+
+function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
+  const nodeIds = candidate.nodeIds;
+  const displayNodes = nodeIds.slice(0, 10);
+
+  return (
+    <div className="intelligence-issue" style={{ overflowX: 'auto' }}>
+      <div
+        style={{
+          fontSize: 'var(--font-size-2xs)',
+          color: 'var(--color-text-muted)',
+          marginBottom: 'var(--space-1)',
+        }}
+      >
+        Identical: {candidate.identicalProperties.join(', ') || 'none'}
+      </div>
+      <table
+        style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--font-size-2xs)' }}
+      >
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left', padding: '2px 4px', color: 'var(--color-text-muted)' }}>
+              Property
+            </th>
+            {displayNodes.map((nid) => (
+              <th
+                key={nid}
+                style={{
+                  textAlign: 'left',
+                  padding: '2px 4px',
+                  color: 'var(--color-text-muted)',
+                  maxWidth: 80,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={nid}
+              >
+                {nid.slice(0, 6)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {candidate.differingProperties.map((dp) => (
+            <tr key={dp.property}>
+              <td
+                style={{
+                  padding: '2px 4px',
+                  fontWeight: 'var(--font-weight-semibold)',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {dp.property}
+                {dp.confidence !== undefined && (
+                  <span style={{ marginLeft: 'var(--space-1)', opacity: 0.6 }}>
+                    {Math.round(dp.confidence * 100)}%
+                  </span>
+                )}
+              </td>
+              {displayNodes.map((nid, idx) => (
+                <td
+                  key={nid}
+                  style={{
+                    padding: '2px 4px',
+                    maxWidth: 80,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {dp.values[idx % dp.values.length] ?? ''}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {nodeIds.length > 10 && (
+        <div
+          style={{
+            fontSize: 'var(--font-size-2xs)',
+            color: 'var(--color-text-muted)',
+            marginTop: 'var(--space-1)',
+          }}
+        >
+          +{nodeIds.length - 10} more members
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PromoteDialog({
+  candidate,
+  onClose,
+  onPromote,
+}: {
+  candidate: VariantCandidate;
+  onClose: () => void;
+  onPromote: (plan: VariantPromotionPlan) => void;
+}) {
+  const { state } = useEditor();
+  const [componentName, setComponentName] = useState(candidate.groupName);
+  const [variantNames, setVariantNames] = useState<Record<string, string>>(() => {
+    const names: Record<string, string> = {};
+    candidate.memberDetails.forEach((m, i) => {
+      names[m.nodeId] =
+        i === 0 ? 'Default' : m.name.replace(/\s*\d*$/, '').trim() || `Variant ${i}`;
+    });
+    return names;
+  });
+  const [propertyNames, setPropertyNames] = useState<Record<string, string>>(() => {
+    const names: Record<string, string> = {};
+    candidate.differingProperties.forEach((dp) => {
+      names[dp.property] = dp.property;
+    });
+    return names;
+  });
+
+  const plan = useMemo(
+    () =>
+      buildPromotionPlan(candidate, state.document, {
+        componentName,
+        properties: candidate.differingProperties.map((dp) => ({
+          name: propertyNames[dp.property] ?? dp.property,
+          type: (dp.property === 'textContent' ? 'text' : 'variant') as const,
+        })),
+        variantNames,
+      }),
+    [candidate, state.document, componentName, propertyNames, variantNames],
+  );
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.4)',
+      }}
+      onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') onClose();
+      }}
+    >
+      <div
+        role="document"
+        className="intelligence-issue"
+        style={{ width: '90%', maxWidth: 420, maxHeight: '80vh', overflowY: 'auto' }}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        <div
+          style={{
+            fontWeight: 'var(--font-weight-bold)',
+            marginBottom: 'var(--space-2)',
+            fontSize: 'var(--font-size-sm)',
+          }}
+        >
+          Promote to component set
+        </div>
+
+        <label
+          style={{
+            display: 'block',
+            marginBottom: 'var(--space-2)',
+            fontSize: 'var(--font-size-xs)',
+          }}
+        >
+          Component name
+          <input
+            type="text"
+            value={componentName}
+            onChange={(e) => setComponentName(e.target.value)}
+            style={{
+              width: '100%',
+              marginTop: 'var(--space-1)',
+              padding: 'var(--space-1) var(--space-2)',
+              background: 'var(--color-surface-raised)',
+              border: 'var(--border-micro)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--color-text-primary)',
+            }}
+          />
+        </label>
+
+        <div style={{ marginBottom: 'var(--space-2)' }}>
+          <div
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              fontWeight: 'var(--font-weight-semibold)',
+              marginBottom: 'var(--space-1)',
+            }}
+          >
+            Members
+          </div>
+          {candidate.memberDetails.map((m) => (
+            <div
+              key={m.nodeId}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-1)',
+                marginBottom: 'var(--space-1)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
+              <span style={{ minWidth: 60, color: 'var(--color-text-muted)' }}>{m.name}</span>
+              <input
+                type="text"
+                value={variantNames[m.nodeId] ?? ''}
+                onChange={(e) =>
+                  setVariantNames((prev) => ({ ...prev, [m.nodeId]: e.target.value }))
+                }
+                style={{
+                  flex: 1,
+                  padding: '2px var(--space-1)',
+                  background: 'var(--color-surface-raised)',
+                  border: 'var(--border-micro)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-xs)',
+                }}
+                placeholder="Variant name"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginBottom: 'var(--space-2)' }}>
+          <div
+            style={{
+              fontSize: 'var(--font-size-xs)',
+              fontWeight: 'var(--font-weight-semibold)',
+              marginBottom: 'var(--space-1)',
+            }}
+          >
+            Properties
+          </div>
+          {candidate.differingProperties.map((dp) => (
+            <div
+              key={dp.property}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'var(--space-1)',
+                marginBottom: 'var(--space-1)',
+                fontSize: 'var(--font-size-xs)',
+              }}
+            >
+              <span style={{ minWidth: 60, color: 'var(--color-text-muted)' }}>{dp.property}</span>
+              <input
+                type="text"
+                value={propertyNames[dp.property] ?? ''}
+                onChange={(e) =>
+                  setPropertyNames((prev) => ({ ...prev, [dp.property]: e.target.value }))
+                }
+                style={{
+                  flex: 1,
+                  padding: '2px var(--space-1)',
+                  background: 'var(--color-surface-raised)',
+                  border: 'var(--border-micro)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'var(--color-text-primary)',
+                  fontSize: 'var(--font-size-xs)',
+                }}
+                placeholder="Property name"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: 'flex', gap: 'var(--space-1)', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="intelligence-action-btn"
+            style={{
+              background: 'var(--color-surface-raised)',
+              color: 'var(--color-text-primary)',
+            }}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button type="button" className="intelligence-action-btn" onClick={() => onPromote(plan)}>
+            <Icon name="Wand" label={undefined} size="0.85em" />
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VariantCandidateCard({
+  candidate,
+  onPromote,
+  onDismiss,
+}: {
+  candidate: VariantCandidate;
+  onPromote: () => void;
+  onDismiss: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const { setSelection } = useEditor();
+  const badgeClass = scoreBadgeClass(candidate.score);
+
+  return (
+    <div className="intelligence-issue intelligence-issue--info">
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--space-1)',
+          marginBottom: 'var(--space-1)',
+        }}
+      >
+        <span
+          style={{
+            fontWeight: 'var(--font-weight-semibold)',
+            fontSize: 'var(--font-size-xs)',
+            flex: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {candidate.groupName}
+        </span>
+        <span className={`intelligence-badge ${badgeClass}`}>{candidate.score}%</span>
+        <span className="intelligence-section__count">{candidate.nodeIds.length}</span>
+      </div>
+
+      <div
+        style={{
+          display: 'flex',
+          gap: 'var(--space-1)',
+          flexWrap: 'wrap',
+          marginBottom: 'var(--space-1)',
+        }}
+      >
+        {candidate.memberDetails.slice(0, 6).map((m) => (
+          <button
+            key={m.nodeId}
+            type="button"
+            className="intelligence-issue__target"
+            onClick={() => setSelection(m.nodeId)}
+            title={m.name}
+            style={{
+              fontSize: 'var(--font-size-2xs)',
+              padding: '2px var(--space-1)',
+              background: 'var(--color-surface-raised)',
+              border: 'var(--border-micro)',
+              borderRadius: 'var(--radius-sm)',
+            }}
+          >
+            {m.name || m.nodeId.slice(0, 6)}
+          </button>
+        ))}
+        {candidate.memberDetails.length > 6 && (
+          <span
+            style={{
+              fontSize: 'var(--font-size-2xs)',
+              color: 'var(--color-text-muted)',
+              alignSelf: 'center',
+            }}
+          >
+            +{candidate.memberDetails.length - 6}
+          </span>
+        )}
+      </div>
+
+      <div
+        style={{
+          fontSize: 'var(--font-size-2xs)',
+          color: 'var(--color-text-muted)',
+          marginBottom: 'var(--space-1)',
+        }}
+      >
+        Varies: {candidate.differingProperties.map((dp) => dp.property).join(', ')}
+      </div>
+
+      {expanded && <VariantDiffTable candidate={candidate} />}
+
+      <div style={{ display: 'flex', gap: 'var(--space-1)', marginTop: 'var(--space-1)' }}>
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          style={{
+            background: 'none',
+            color: 'var(--color-text-secondary)',
+            padding: '0 var(--space-1)',
+            height: 'var(--space-4)',
+          }}
+          onClick={() => setExpanded(!expanded)}
+        >
+          {expanded ? 'Hide diff' : 'Show diff'}
+        </button>
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          style={{ height: 'var(--space-4)', padding: '0 var(--space-2)' }}
+          onClick={onPromote}
+        >
+          <Icon name="Wand" label={undefined} size="0.75em" />
+          Promote
+        </button>
+        <button
+          type="button"
+          className="intelligence-action-btn"
+          style={{
+            background: 'none',
+            color: 'var(--color-text-muted)',
+            height: 'var(--space-4)',
+            padding: '0 var(--space-1)',
+            marginLeft: 'auto',
+          }}
+          onClick={onDismiss}
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function VariantCandidatesSection({
+  candidates,
+  suppressedSignatures,
+  onDismiss,
+}: {
+  candidates: VariantCandidate[];
+  suppressedSignatures: Set<string>;
+  onDismiss: (signature: string) => void;
+}) {
+  const [promotingCandidate, setPromotingCandidate] = useState<VariantCandidate | null>(null);
+  const { promoteVariantCandidates } = useEditor();
+
+  const visible = candidates.filter((c) => !suppressedSignatures.has(candidateSignature(c)));
+
+  if (visible.length === 0) return null;
+
+  const handlePromote = (plan: VariantPromotionPlan) => {
+    promoteVariantCandidates(
+      plan.componentName,
+      plan.masterNodeId,
+      plan.properties,
+      plan.variantAssignments.map((va) => ({ nodeId: va.nodeId, variantName: va.variantName })),
+    );
+    setPromotingCandidate(null);
+  };
+
+  return (
+    <div style={{ marginTop: 'var(--space-3)' }}>
+      <div
+        className="intelligence-section__header"
+        style={{ padding: 'var(--space-1) 0', marginBottom: 'var(--space-2)' }}
+      >
+        <span
+          className="intelligence-section__title"
+          style={{
+            fontSize: 'var(--font-size-xs)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.04em',
+          }}
+        >
+          Variant Candidates
+        </span>
+        <span
+          className="intelligence-badge intelligence-badge--high"
+          style={{ fontSize: 'var(--font-size-2xs)' }}
+        >
+          {visible.length}
+        </span>
+      </div>
+      <div className="intelligence-issue-list">
+        {visible.map((candidate) => (
+          <VariantCandidateCard
+            key={candidateSignature(candidate)}
+            candidate={candidate}
+            onPromote={() => setPromotingCandidate(candidate)}
+            onDismiss={() => onDismiss(candidateSignature(candidate))}
+          />
+        ))}
+      </div>
+      {promotingCandidate && (
+        <PromoteDialog
+          candidate={promotingCandidate}
+          onClose={() => setPromotingCandidate(null)}
+          onPromote={handlePromote}
+        />
+      )}
+    </div>
+  );
+}
+
 function ComponentsTab() {
-  const { state, setSelection, createComponentFromGroup } = useEditor();
+  const { state, setSelection, createComponentFromGroup, promoteVariantCandidates } = useEditor();
+  const [suppressedSignatures, setSuppressedSignatures] = useState<Set<string>>(new Set());
 
   const groups = useMemo(() => findDuplicateStructures(state.document), [state.document]);
+  const variantCandidates = useMemo(
+    () => detectVariantCandidates(state.document),
+    [state.document],
+  );
 
-  if (groups.length === 0) {
+  const handleDismiss = useCallback((signature: string) => {
+    setSuppressedSignatures((prev) => {
+      const next = new Set(prev);
+      next.add(signature);
+      return next;
+    });
+  }, []);
+
+  if (groups.length === 0 && variantCandidates.length === 0) {
     return (
       <div className="intelligence-empty">
         <Icon name="Component" label={undefined} size="1.2em" />
-        <p>No duplicate structures found</p>
+        <p>No duplicate structures or variant candidates found</p>
       </div>
     );
   }
 
   return (
     <div className="intelligence-tab-content">
-      {groups.map((group, i) => (
-        <details key={i} className="intelligence-section" open>
-          <summary className="intelligence-section__header">
-            <span className="intelligence-section__title">{group.reason}</span>
-            <span className="intelligence-section__count">{group.nodeIds.length}</span>
-            <span
-              className="intelligence-badge intelligence-badge--high"
-              style={{ marginLeft: 'auto' }}
-            >
-              {Math.round(group.score * 100)}%
-            </span>
-          </summary>
-          <div className="intelligence-issue-list">
-            {group.nodeIds.map((nid) => (
-              <div key={nid} className="intelligence-issue intelligence-issue--info">
-                <button
-                  type="button"
-                  className="intelligence-issue__target"
-                  onClick={() => setSelection(nid)}
-                  title="Select this node"
-                >
-                  <span className="intelligence-severity-dot" />
-                  <span className="intelligence-issue__type">{nid}</span>
-                </button>
-              </div>
-            ))}
-            {group.suggestComponent && (
-              <button
-                type="button"
-                className="intelligence-action-btn"
-                style={{ marginTop: 'var(--space-1)' }}
-                onClick={() => createComponentFromGroup(group.nodeIds)}
-              >
-                <Icon name="Wand" label={undefined} size="0.85em" />
-                Create component
-              </button>
-            )}
+      {groups.length > 0 && (
+        <div>
+          <div className="intelligence-section__header" style={{ marginBottom: 'var(--space-2)' }}>
+            <span className="intelligence-section__title">Duplicates</span>
+            <span className="intelligence-section__count">{groups.length}</span>
           </div>
-        </details>
-      ))}
+          {groups.map((group, i) => (
+            <details key={i} className="intelligence-section" open>
+              <summary className="intelligence-section__header">
+                <span className="intelligence-section__title">{group.reason}</span>
+                <span className="intelligence-section__count">{group.nodeIds.length}</span>
+                <span
+                  className="intelligence-badge intelligence-badge--high"
+                  style={{ marginLeft: 'auto' }}
+                >
+                  {Math.round(group.score * 100)}%
+                </span>
+              </summary>
+              <div className="intelligence-issue-list">
+                {group.nodeIds.map((nid) => (
+                  <div key={nid} className="intelligence-issue intelligence-issue--info">
+                    <button
+                      type="button"
+                      className="intelligence-issue__target"
+                      onClick={() => setSelection(nid)}
+                      title="Select this node"
+                    >
+                      <span className="intelligence-severity-dot" />
+                      <span className="intelligence-issue__type">{nid}</span>
+                    </button>
+                  </div>
+                ))}
+                {group.suggestComponent && (
+                  <button
+                    type="button"
+                    className="intelligence-action-btn"
+                    style={{ marginTop: 'var(--space-1)' }}
+                    onClick={() => createComponentFromGroup(group.nodeIds)}
+                  >
+                    <Icon name="Wand" label={undefined} size="0.85em" />
+                    Create component
+                  </button>
+                )}
+              </div>
+            </details>
+          ))}
+        </div>
+      )}
+
+      <VariantCandidatesSection
+        candidates={variantCandidates}
+        suppressedSignatures={suppressedSignatures}
+        onDismiss={handleDismiss}
+      />
     </div>
   );
 }

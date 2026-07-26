@@ -24,7 +24,6 @@ export interface Settings {
   general: {
     language: string;
     units: UnitType;
-    canvasBackground: string;
     autosaveInterval: number;
   };
   appearance: {
@@ -50,7 +49,6 @@ export const DEFAULT_SETTINGS: Settings = {
   general: {
     language: 'en',
     units: 'px',
-    canvasBackground: '#ffffff',
     autosaveInterval: 5,
   },
   appearance: {

@@ -1,5 +1,6 @@
 import { exportDocumentToSvg } from '@strata/codegen';
 import { extractPalette as engineExtractPalette } from '@strata/engine';
+import type { TextNode } from '@strata/scene';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';
@@ -17,6 +18,8 @@ export interface ActionHandlerCallbacks {
   onWhatIsThis?: () => void;
   onOpenAbout?: () => void;
   onBatchBgRemove?: () => void;
+  onReopenLast?: () => void;
+  onFindReplace?: () => void;
 }
 
 export function createActionHandlers(
@@ -27,6 +30,21 @@ export function createActionHandlers(
   const cb = callbacks ?? {};
 
   const setTool = (tool: ToolId) => () => e.setTool(tool);
+  const updateSelectedText = (update: (node: TextNode) => TextNode): void => {
+    const selectedId = e.state.selection.length === 1 ? e.state.selection[0] : undefined;
+    if (!selectedId) return;
+    e.updateDoc((doc) => {
+      const node = doc.nodes[selectedId];
+      if (node?.kind !== 'text') return doc;
+      return {
+        ...doc,
+        nodes: {
+          ...doc.nodes,
+          [selectedId]: update(node),
+        },
+      };
+    });
+  };
 
   return {
     // ── Edit ──
@@ -72,6 +90,7 @@ export function createActionHandlers(
     export: () => e.setShowExportDialog(true),
     home: () => cb.onBackToHome?.(),
     settings: () => cb.onOpenSettings?.(),
+    reopenLast: () => cb.onReopenLast?.(),
 
     // ── View / Zoom ──
     zoomReset: () => e.zoomTo(1),
@@ -91,14 +110,19 @@ export function createActionHandlers(
     rotateViewCW: () => e.rotateViewBy(Math.PI / 12),
     rotateViewCCW: () => e.rotateViewBy(-Math.PI / 12),
     toggleRulerMode: () => e.setRulerMode(e.state.rulerMode === 'artboard' ? 'global' : 'artboard'),
+    rulerModeArtboard: () => e.setRulerMode('artboard'),
+    rulerModeGlobal: () => e.setRulerMode('global'),
     gridOverlayBaseline: () =>
       e.setGridOverlayMode(e.state.gridOverlayMode === 'baseline' ? 'none' : 'baseline'),
     gridOverlayIsometric: () =>
       e.setGridOverlayMode(e.state.gridOverlayMode === 'isometric' ? 'none' : 'isometric'),
     toggleSnap: () => e.setSnapEnabled(!e.state.snapEnabled),
     toggleGuidesVisible: () => e.toggleGuidesVisible(),
+    toggleGuides: () => e.toggleGuidesVisible(),
     lockAllGuides: () => e.toggleLockAllGuides(),
+    lockGuides: () => e.toggleLockAllGuides(),
     clearAllGuides: () => e.clearAllGuides(),
+    clearGuides: () => e.clearAllGuides(),
     softProof: () => e.setSoftProofEnabled(!e.state.softProofEnabled),
     toggleLeftPanel: () => e.toggleLeftPanel(),
     toggleRightPanel: () => e.toggleRightPanel(),
@@ -107,11 +131,11 @@ export function createActionHandlers(
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),
     toggleDistractionFree: () => e.toggleDistractionFreeMode(),
     toggleBeforeAfterCompare: () => e.toggleBeforeAfterCompare(),
-    workspaceDesign: () => e.setWorkspaceMode('design'),
-    workspacePrint: () => e.setWorkspaceMode('print'),
-    workspaceDrawing: () => e.setWorkspaceMode('drawing'),
-    workspaceImage: () => e.setWorkspaceMode('image'),
-    workspaceMotion: () => e.setWorkspaceMode('motion'),
+    workspaceDesign: () => e.requestWorkspaceSwitch('design'),
+    workspacePrint: () => e.requestWorkspaceSwitch('print'),
+    workspaceDrawing: () => e.requestWorkspaceSwitch('drawing'),
+    workspaceImage: () => e.requestWorkspaceSwitch('image'),
+    workspaceMotion: () => e.requestWorkspaceSwitch('motion'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
@@ -170,16 +194,26 @@ export function createActionHandlers(
       e.updateDoc((doc) => applyHarmonize(doc, sel));
       e.announce?.('Spacing harmonized');
     },
+    tidySelected: () => e.tidySelected?.(4),
     newAdjustmentLayer: () => e.createAdjustmentLayer(),
     openInspectorProperties: () => e.setInspectorTab('properties'),
     openAppearancePanel: () => e.setInspectorTab('appearance'),
     openAdjustmentsPanel: () => e.setInspectorTab('adjustments'),
     openPrototypePanel: () => e.setInspectorTab('prototype'),
-    openDocumentPanel: () => e.setInspectorTab('document'),
+    openDocumentPanel: () => {
+      e.setSelection(null);
+      e.setInspectorTab('properties');
+    },
     openExportPanel: () => e.setInspectorTab('export'),
-    openInspectPanel: () => e.setInspectorTab('spec'),
+    openInspectPanel: () => {
+      e.setTool('inspect');
+      e.setInspectorTab('export');
+    },
     openAuditPanel: () => e.setInspectorTab('audit'),
     runAudit: () => e.setInspectorTab('audit', 'audit'),
+    auditSelection: () => e.setInspectorTab('audit', 'audit'),
+    auditPage: () => e.setInspectorTab('audit', 'audit'),
+    auditDocument: () => e.setInspectorTab('audit', 'audit'),
     scanDebt: () => e.setInspectorTab('audit', 'debt'),
     suggestNames: () => e.setInspectorTab('audit', 'naming'),
     detectDuplicates: () => e.setInspectorTab('audit', 'components'),
@@ -208,14 +242,17 @@ export function createActionHandlers(
     rasterizeSelection: () => e.rasterizeSelected?.(1),
     mergeSelected: () => e.mergeSelected?.(),
     createMaster: () => {
-      const page = e.state.document.pages?.[e.state.currentPageId ?? ''];
-      e.createMaster?.('Master', page?.w ?? 1920, page?.h ?? 1080);
+      const page = e.state.document.pages?.find(
+        (candidate) => candidate.id === e.state.currentPageId,
+      );
+      e.createMaster?.('Master', page?.width ?? 1920, page?.height ?? 1080);
     },
     applyMaster: () => {
       const activeId = e.state.currentPageId;
       const masterEntries = e.state.document.masters ? Object.keys(e.state.document.masters) : [];
-      if (activeId && masterEntries.length > 0) {
-        e.assignMasterToPage?.(activeId, masterEntries[0]);
+      const firstMasterId = masterEntries[0];
+      if (activeId && firstMasterId) {
+        e.assignMasterToPage?.(activeId, firstMasterId);
       }
     },
     detachMaster: () => {
@@ -374,121 +411,48 @@ export function createActionHandlers(
 
     // ── Text Formatting ──
     textBold: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          // Toggle bold on the text node
-          const textNode = node as unknown as { fontWeight?: string | number };
-          textNode.fontWeight = textNode.fontWeight === 'bold' ? 'normal' : 'bold';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({
+        ...node,
+        fontWeight: (node.fontWeight ?? 400) >= 700 ? 400 : 700,
+      }));
     },
     textItalic: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { fontStyle?: string };
-          textNode.fontStyle = textNode.fontStyle === 'italic' ? 'normal' : 'italic';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({
+        ...node,
+        fontStyle: node.fontStyle === 'italic' ? 'normal' : 'italic',
+      }));
     },
     textUnderline: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { textDecoration?: string };
-          textNode.textDecoration = textNode.textDecoration === 'underline' ? 'none' : 'underline';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({
+        ...node,
+        textDecoration: node.textDecoration === 'underline' ? 'none' : 'underline',
+      }));
     },
     textIncreaseSize: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { fontSize?: number };
-          textNode.fontSize = (textNode.fontSize || 16) * 1.2;
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({ ...node, fontSize: node.fontSize * 1.2 }));
     },
     textDecreaseSize: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { fontSize?: number };
-          textNode.fontSize = Math.max(8, (textNode.fontSize || 16) / 1.2);
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({ ...node, fontSize: Math.max(8, node.fontSize / 1.2) }));
     },
     textAlignLeft: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { textAlign?: string };
-          textNode.textAlign = 'left';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({ ...node, textAlign: 'left' }));
     },
     textAlignCenter: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { textAlign?: string };
-          textNode.textAlign = 'center';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({ ...node, textAlign: 'center' }));
     },
     textAlignRight: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { textAlign?: string };
-          textNode.textAlign = 'right';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({ ...node, textAlign: 'right' }));
     },
     textAlignJustify: () => {
-      const sel = e.state.selection;
-      if (sel.length !== 1 || !sel[0]) return;
-      e.updateDoc((doc) => {
-        const node = doc.nodes[sel[0]!];
-        if (node?.kind === 'text') {
-          const textNode = node as unknown as { textAlign?: string };
-          textNode.textAlign = 'justify';
-        }
-        return doc;
-      });
+      updateSelectedText((node) => ({ ...node, textAlign: 'justify' }));
     },
     textToOutlines: () => {
       const sel = e.state.selection;
       if (sel.length !== 1) return;
-      e.announce?.('Convert to outlines - not yet implemented');
+      e.convertTextToOutlines();
     },
     findReplace: () => {
-      e.announce?.('Find & Replace - not yet implemented');
+      cb.onFindReplace?.();
     },
 
     // ── Other ──

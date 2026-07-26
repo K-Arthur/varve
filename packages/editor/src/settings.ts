@@ -56,6 +56,12 @@ export interface RenderSettingsStore {
 export interface PerformanceSettingsStore {
   /** Reduced-motion preference override. 'system' defers to prefers-reduced-motion. */
   reducedMotionOverride: 'system' | 'always' | 'never';
+  /**
+   * Show the on-canvas performance diagnostics HUD (frame timing, cache
+   * stats, render path). Off by default for every install, including dev
+   * builds — enable explicitly via Settings > Performance > Diagnostics.
+   */
+  showPerformanceDiagnostics: boolean;
 }
 
 export interface StartupSettingsStore {
@@ -132,6 +138,7 @@ export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {
 
 export const DEFAULT_PERFORMANCE_SETTINGS: PerformanceSettingsStore = {
   reducedMotionOverride: 'system',
+  showPerformanceDiagnostics: false,
 };
 
 export const DEFAULT_STARTUP_SETTINGS: StartupSettingsStore = {

@@ -58,21 +58,16 @@ describe('PropertiesPanel canvas settings', () => {
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
     const tabLabels = tabs.filter(Boolean);
-    expect(tabLabels).toEqual([
-      'Properties',
-      'Appearance & Effects',
-      'Prototype',
-      'Export',
-      'Audit',
-    ]);
+    expect(tabLabels).toEqual(['Properties', 'Appearance', 'Prototype', 'Export', 'Audit']);
     expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Inspect' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Score' })).toBeNull();
   });
 
-  it('implements APG roving focus for arrow, Home, and End keys within each tier', () => {
+  it('implements APG roving focus for arrow, Home, and End keys across the canonical tab row', () => {
     renderPanel();
-    const appearance = screen.getByRole('tab', { name: 'Appearance & Effects' });
+    const properties = screen.getByRole('tab', { name: 'Properties' });
+    const appearance = screen.getByRole('tab', { name: 'Appearance' });
     const audit = screen.getByRole('tab', { name: 'Audit' });
 
     appearance.focus();
@@ -84,21 +79,27 @@ describe('PropertiesPanel canvas settings', () => {
     expect(audit).toHaveFocus();
 
     fireEvent.keyDown(audit, { key: 'Home' });
-    expect(appearance).toHaveFocus();
+    expect(properties).toHaveFocus();
 
-    fireEvent.keyDown(appearance, { key: 'ArrowLeft' });
+    fireEvent.keyDown(properties, { key: 'ArrowLeft' });
     expect(audit).toHaveFocus();
   });
 
   it('renders canvas settings inline in the Properties empty state', async () => {
     renderPanel();
-    expect(screen.getByText(/Canvas background/i)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'Canvas' })).toBeTruthy();
+    expect(await screen.findByText(/^Background$/)).toBeTruthy();
   });
 
-  it('renders the document name and node count in the Properties empty state', async () => {
+  it('renders real document colour settings without exposing storage-root node counts', async () => {
     renderPanel();
-    expect(screen.getByText(/^Untitled$/)).toBeTruthy();
-    expect(screen.getByText(/nodes?/)).toBeTruthy();
+    expect(await screen.findByRole('button', { name: 'RGB' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: 'CMYK' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Grayscale' })).toBeTruthy();
+    expect(screen.queryByText(/nodes?/i)).toBeNull();
   });
 });
 

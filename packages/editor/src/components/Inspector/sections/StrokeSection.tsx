@@ -172,7 +172,7 @@ export function StrokeSection({ nodes }: StrokeSectionProps) {
   const countMixed = !allEqual;
 
   return (
-    <DisclosureSection title="Stroke">
+    <DisclosureSection title="Stroke" sectionId="stroke">
       {strokeNodes.every((n) => n.strokes.length === 0) ? (
         <div className="insp-empty-message">No stroke</div>
       ) : (

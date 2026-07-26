@@ -60,7 +60,7 @@ export function useShortcuts(
       case 'toggleGraphEditor':
         return () => ref.current.toggleGraphEditor();
       case 'motionWorkspace':
-        return () => ref.current.setWorkspaceMode('motion');
+        return () => ref.current.requestWorkspaceSwitch('motion');
       case 'playPause':
         return () => {
           if (ref.current.state.motion.isPlaying) ref.current.pauseTimeline();

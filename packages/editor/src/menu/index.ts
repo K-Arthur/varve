@@ -3,6 +3,7 @@ export {
   resetCapabilitiesCache,
   setCapabilitiesForTest,
 } from './capabilities';
+export { useNativeMenu } from './useNativeMenu';
 export type { MenuDefsOptions } from './defs';
 export { getAllMenuDefs, getCanvasContextMenuDefs } from './defs';
 export { assertNoDuplicateAccelerators, createTimingGuard, lintSubmenuDepth } from './devGuard';

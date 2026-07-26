@@ -184,7 +184,7 @@ export function FillSection({ nodes }: FillSectionProps) {
   }, [fills, newFillType]);
 
   return (
-    <DisclosureSection title="Fill">
+    <DisclosureSection title="Fill" sectionId="fills">
       {fills.length === 0 && <div className="insp-empty-message">No fill</div>}
       <div ref={bindingTriggerRef} className="insp-field-group">
         {fills.map((fill, i) => (

@@ -6,6 +6,7 @@
 import { Button, Select } from '@strata/ui';
 import { useState } from 'react';
 import { detectPlatformCapabilities, getCurrentTier } from '../../canvas/adaptiveProfile';
+import { enableDrawDiagnostics } from '../../canvas/drawDiagnostics';
 import { getAverageFrameTime, getPercentileFrameTime } from '../../canvas/frameBudget';
 import { setReducedMotionOverride } from '../../context/reducedMotionManager';
 import {
@@ -59,10 +60,16 @@ export function PerformanceSettingsTab() {
     setSettings(
       updateSettings({
         render: { memoryBudget: 'medium' },
-        performance: { reducedMotionOverride: 'system' },
+        performance: { reducedMotionOverride: 'system', showPerformanceDiagnostics: false },
       }),
     );
     setReducedMotionOverride(null);
+    enableDrawDiagnostics(false);
+  }
+
+  function updateShowDiagnostics(next: boolean) {
+    setSettings(updateSettings({ performance: { showPerformanceDiagnostics: next } }));
+    enableDrawDiagnostics(next);
   }
 
   async function handleCopyDiagnostics() {
@@ -118,6 +125,20 @@ export function PerformanceSettingsTab() {
       <div className="settings-divider" />
 
       <h3 className="settings-section__title">Diagnostics</h3>
+      <FieldRow label="Performance overlay">
+        <label className="settings-checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.performance.showPerformanceDiagnostics}
+            onChange={(e) => updateShowDiagnostics(e.target.checked)}
+          />
+          <span>Show performance overlay</span>
+        </label>
+      </FieldRow>
+      <p className="settings-hint">
+        Displays live renderer timing, cache, and render-path information over the canvas. Off by
+        default; intended for diagnosing rendering or performance problems.
+      </p>
       <div className="performance-settings__stats">
         <div className="performance-settings__stat">
           <span className="performance-settings__stat-label">Adaptive quality tier</span>

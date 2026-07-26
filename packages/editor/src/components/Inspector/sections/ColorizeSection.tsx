@@ -350,7 +350,7 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
   const showPreview = colorize.previewDataUrl != null;
 
   return (
-    <DisclosureSection title="Colorize">
+    <DisclosureSection title="Colorize" sectionId="colorize">
       <div className="insp-field-group">
         <p className="insp-hint">
           Selective recolor, palette-based colorization, and reference color transfer. Runs locally

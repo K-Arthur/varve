@@ -26,5 +26,6 @@ export * from './spacingHarmonizer';
 export * from './styleDeduplicator';
 export * from './tokenAnalytics';
 export * from './transitionAdvisor';
+export * from './variantPromotion';
 export * from './wcagFix';
 export * from './workflowAnalyzer';
