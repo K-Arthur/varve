@@ -42,6 +42,12 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.waitForTimeout(300);
   }
 
+  async function cropWindowBox(page: import('@playwright/test').Page) {
+    const box = await page.locator('.crop-overlay__window').boundingBox();
+    if (!box) throw new Error('crop window has no rendered bounds');
+    return box;
+  }
+
   test('import image file and verify it appears in layers', async ({ page }) => {
     test.setTimeout(60000);
     await importFixture(page, 'test-image.png');
@@ -66,6 +72,7 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await importFixture(page, 'test-image.png');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const before = await cropWindowBox(page);
 
     // Find the east handle
     const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
@@ -83,8 +90,9 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.mouse.up();
     await page.waitForTimeout(200);
 
-    // The crop window should have changed — check that the overlay still exists
-    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    const after = await cropWindowBox(page);
+    expect(after.width).toBeLessThan(before.width - 20);
+    expect(after.height).toBeCloseTo(before.height, 0);
   });
 
   test('drag north handle inward reduces crop height', async ({ page }) => {
@@ -92,6 +100,7 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await importFixture(page, 'test-image.png');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const before = await cropWindowBox(page);
 
     const northHandle = page.getByRole('button', { name: 'Resize crop n', exact: true });
     await expect(northHandle).toBeVisible();
@@ -108,7 +117,9 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.mouse.up();
     await page.waitForTimeout(200);
 
-    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    const after = await cropWindowBox(page);
+    expect(after.height).toBeLessThan(before.height - 15);
+    expect(after.width).toBeCloseTo(before.width, 0);
   });
 
   test('drag corner handle (se) changes both dimensions', async ({ page }) => {
@@ -116,6 +127,7 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await importFixture(page, 'test-image.png');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const before = await cropWindowBox(page);
 
     const seHandle = page.getByRole('button', { name: 'Resize crop se', exact: true });
     await expect(seHandle).toBeVisible();
@@ -132,7 +144,9 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.mouse.up();
     await page.waitForTimeout(200);
 
-    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    const after = await cropWindowBox(page);
+    expect(after.width).toBeLessThan(before.width - 15);
+    expect(after.height).toBeLessThan(before.height - 15);
   });
 
   test('dragging inside the crop window repositions image content', async ({ page }) => {
@@ -144,8 +158,7 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     // The crop window surface is the image-content pan handle.
     const cropWindow = page.locator('.crop-overlay__window');
     await expect(cropWindow).toBeVisible();
-    const box = await cropWindow.boundingBox();
-    if (!box) throw new Error('crop window not found');
+    const box = await cropWindowBox(page);
 
     const startX = box.x + box.width / 2;
     const startY = box.y + box.height / 2;
@@ -157,7 +170,8 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.mouse.up();
     await page.waitForTimeout(200);
 
-    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    const after = await cropWindowBox(page);
+    expect(after).toEqual(box);
   });
 
   test('commit crop via Enter and verify node still exists', async ({ page }) => {
@@ -189,6 +203,7 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await importFixture(page, 'test-image.png');
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const initial = await cropWindowBox(page);
 
     // Drag a handle
     const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
@@ -204,17 +219,26 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     // Cancel
     await page.keyboard.press('Escape');
     await expect(page.locator('[data-testid="crop-overlay"]')).not.toBeVisible({ timeout: 3000 });
-    // Node should still exist unchanged
-    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await page.keyboard.press('c');
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    expect(await cropWindowBox(page)).toEqual(initial);
   });
 
   test('undo after crop reverts the crop', async ({ page }) => {
     test.setTimeout(60000);
     await importFixture(page, 'test-image.png');
 
-    // Commit a crop
+    // Commit a real crop and record its viewport width.
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const initial = await cropWindowBox(page);
+    const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
+    const box = await eastHandle.boundingBox();
+    if (!box) throw new Error('east handle not found');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 30, box.y + box.height / 2);
+    await page.mouse.up();
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-testid="crop-overlay"]')).not.toBeVisible({ timeout: 3000 });
 
@@ -222,17 +246,26 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.keyboard.press('Control+z');
     await page.waitForTimeout(300);
 
-    // Node should still exist (undo reverts the shape dimensions)
-    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await page.keyboard.press('c');
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    expect((await cropWindowBox(page)).width).toBeCloseTo(initial.width, 0);
   });
 
   test('redo after undo restores the crop', async ({ page }) => {
     test.setTimeout(60000);
     await importFixture(page, 'test-image.png');
 
-    // Commit a crop
+    // Commit a real crop.
     await page.keyboard.press('c');
     await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible({ timeout: 5000 });
+    const eastHandle = page.getByRole('button', { name: 'Resize crop e', exact: true });
+    const box = await eastHandle.boundingBox();
+    if (!box) throw new Error('east handle not found');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 - 30, box.y + box.height / 2);
+    await page.mouse.up();
+    const croppedWidth = (await cropWindowBox(page)).width;
     await page.keyboard.press('Enter');
     await expect(page.locator('[data-testid="crop-overlay"]')).not.toBeVisible({ timeout: 3000 });
 
@@ -242,8 +275,9 @@ test.describe('Image crop — pointer-driven with real fixtures', () => {
     await page.keyboard.press('Control+Shift+z');
     await page.waitForTimeout(300);
 
-    // Node should still exist
-    await expect(page.getByRole('treeitem')).toHaveCount(1);
+    await page.keyboard.press('c');
+    await expect(page.locator('[data-testid="crop-overlay"]')).toBeVisible();
+    expect((await cropWindowBox(page)).width).toBeCloseTo(croppedWidth, 0);
   });
 
   test('Done button commits crop on imported image', async ({ page }) => {
