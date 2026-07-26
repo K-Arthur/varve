@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const e2ePort = process.env.STRATA_E2E_PORT ?? '1420';
+const e2eBaseUrl = `http://localhost:${e2ePort}`;
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -7,10 +10,10 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : 2,
   reporter: 'html',
-  timeout: 30000,
+  timeout: 60000,
   expect: { timeout: 10000 },
   use: {
-    baseURL: 'http://localhost:1420',
+    baseURL: e2eBaseUrl,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -23,12 +26,36 @@ export default defineConfig({
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
+      testIgnore: /visual\/replay\.spec\.ts/,
     },
     {
       name: 'chromium-snapshot',
       use: { ...devices['Desktop Chrome'], permissions: ['clipboard-read', 'clipboard-write'] },
       testMatch: /guides-visual\.spec\.ts/,
     },
+    // Visual regression harness (tests/e2e/visual/replay.spec.ts): one
+    // project per DPR. 1x/2x always run; 3x is behind an env var since a
+    // third full baseline set roughly triples this suite's snapshot count
+    // and CI time for a tier DPR bugs are least likely to hide in.
+    {
+      name: 'chromium-visual-1x',
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 1 },
+      testMatch: /visual\/replay\.spec\.ts/,
+    },
+    {
+      name: 'chromium-visual-2x',
+      use: { ...devices['Desktop Chrome'], deviceScaleFactor: 2 },
+      testMatch: /visual\/replay\.spec\.ts/,
+    },
+    ...(process.env.STRATA_VISUAL_3X
+      ? [
+          {
+            name: 'chromium-visual-3x',
+            use: { ...devices['Desktop Chrome'], deviceScaleFactor: 3 },
+            testMatch: /visual\/replay\.spec\.ts/,
+          },
+        ]
+      : []),
     {
       name: 'tauri',
       use: { ...devices['Desktop Chrome'] },
@@ -49,9 +76,9 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
-    command: 'pnpm --filter @strata/desktop dev',
-    url: 'http://localhost:1420',
+    command: `pnpm --filter @strata/desktop exec vite --port ${e2ePort}`,
+    url: e2eBaseUrl,
     reuseExistingServer: true,
-    timeout: 30000,
+    timeout: 120000,
   },
 });

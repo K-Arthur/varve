@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Strata Visual Diff Review</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 0; background: #f4f4f5; color: #18181b; }
+  header { padding: 16px 24px; background: #fff; border-bottom: 1px solid #e4e4e7; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 16px; margin: 0 0 4px; }
+  header p { font-size: 13px; color: #71717a; margin: 0; }
+  #status { font-size: 13px; margin-top: 8px; }
+  .config-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .config-row input { flex: 1; padding: 6px 8px; font-size: 13px; border: 1px solid #d4d4d8; border-radius: 4px; }
+  .config-row button { padding: 6px 12px; font-size: 13px; border-radius: 4px; border: 1px solid #d4d4d8; background: #fff; cursor: pointer; }
+  main { padding: 24px; display: flex; flex-direction: column; gap: 24px; }
+  .fixture { background: #fff; border: 1px solid #e4e4e7; border-radius: 8px; overflow: hidden; }
+  .fixture__head { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; background: #fafafa; border-bottom: 1px solid #e4e4e7; }
+  .fixture__head h2 { font-size: 14px; margin: 0; font-family: ui-monospace, monospace; }
+  .fixture__actions button { font-size: 12px; padding: 5px 10px; border-radius: 4px; border: 1px solid #d4d4d8; cursor: pointer; margin-left: 6px; }
+  .fixture__actions button.accept { background: #16a34a; color: #fff; border-color: #16a34a; }
+  .fixture__actions button.reject { background: #fff; }
+  .fixture__body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1px; background: #e4e4e7; }
+  .pane { background: #fff; padding: 8px; }
+  .pane__label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #71717a; margin-bottom: 6px; }
+  .imgwrap { overflow: hidden; border: 1px solid #e4e4e7; cursor: grab; background: repeating-conic-gradient(#f4f4f5 0% 25%, #fff 0% 50%) 50% / 16px 16px; }
+  .imgwrap img { display: block; transform-origin: 0 0; }
+  .imgwrap.dragging { cursor: grabbing; }
+  .cmd { margin-top: 8px; font-size: 11px; background: #18181b; color: #d4d4d8; padding: 6px 8px; border-radius: 4px; font-family: ui-monospace, monospace; display: none; word-break: break-all; }
+  .fixture.accepted .cmd { display: block; }
+  .fixture.accepted .fixture__head { background: #f0fdf4; }
+  .empty { padding: 48px; text-align: center; color: #71717a; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #18181b; color: #f4f4f5; }
+    header, .fixture, .pane { background: #27272a; border-color: #3f3f46; }
+    .fixture__head { background: #1f1f22; border-color: #3f3f46; }
+    .fixture__body { background: #3f3f46; }
+    .config-row input, .fixture__actions button.reject { background: #27272a; border-color: #3f3f46; color: #f4f4f5; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Strata Visual Diff Review</h1>
+  <p>Static page — reads a manifest.json written by scripts/build-visual-diff-manifest.mjs. No server, no build step.</p>
+  <div class="config-row">
+    <input id="manifestUrl" type="text" value="../../../visual-diff-report/manifest.json" />
+    <button id="load">Load</button>
+  </div>
+  <div id="status"></div>
+</header>
+<main id="main"></main>
+
+<script>
+// Zoom-and-pan: drag to pan, wheel to zoom, per image pane.
+function wireZoomPan(wrap, img) {
+  let scale = 1, tx = 0, ty = 0, dragging = false, lastX = 0, lastY = 0;
+  function apply() { img.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`; }
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    scale = Math.min(20, Math.max(0.2, scale * delta));
+    apply();
+  }, { passive: false });
+  wrap.addEventListener('mousedown', (e) => { dragging = true; lastX = e.clientX; lastY = e.clientY; wrap.classList.add('dragging'); });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    tx += e.clientX - lastX; ty += e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+    apply();
+  });
+  window.addEventListener('mouseup', () => { dragging = false; wrap.classList.remove('dragging'); });
+  wrap.addEventListener('dblclick', () => { scale = 1; tx = 0; ty = 0; apply(); });
+}
+
+function pane(label, src) {
+  const div = document.createElement('div');
+  div.className = 'pane';
+  const lab = document.createElement('div');
+  lab.className = 'pane__label';
+  lab.textContent = label;
+  div.appendChild(lab);
+  if (!src) {
+    div.appendChild(Object.assign(document.createElement('div'), { textContent: '(none)', style: 'font-size:12px;color:#a1a1aa;' }));
+    return div;
+  }
+  const wrap = document.createElement('div');
+  wrap.className = 'imgwrap';
+  const img = document.createElement('img');
+  img.src = src;
+  wrap.appendChild(img);
+  div.appendChild(wrap);
+  wireZoomPan(wrap, img);
+  return div;
+}
+
+function renderFixture(baseDir, entry) {
+  const card = document.createElement('div');
+  card.className = 'fixture';
+
+  const head = document.createElement('div');
+  head.className = 'fixture__head';
+  const h2 = document.createElement('h2');
+  h2.textContent = entry.name;
+  head.appendChild(h2);
+
+  const actions = document.createElement('div');
+  actions.className = 'fixture__actions';
+  const acceptBtn = document.createElement('button');
+  acceptBtn.className = 'accept';
+  acceptBtn.textContent = 'Accept (show update command)';
+  const rejectBtn = document.createElement('button');
+  rejectBtn.className = 'reject';
+  rejectBtn.textContent = 'Reject';
+  actions.append(acceptBtn, rejectBtn);
+  head.appendChild(actions);
+  card.appendChild(head);
+
+  const body = document.createElement('div');
+  body.className = 'fixture__body';
+  body.appendChild(pane('Baseline', entry.baseline ? baseDir + entry.baseline : null));
+  body.appendChild(pane('Current', entry.current ? baseDir + entry.current : null));
+  body.appendChild(pane('Diff', entry.diff ? baseDir + entry.diff : null));
+  card.appendChild(body);
+
+  // This is a static page with no server — "accept" can't write a file for
+  // you. It generates the exact local command that copies current -> the
+  // real baseline path (readable from testDir/name) and shows it to copy
+  // into a terminal. Simplest honest implementation for "static, no service".
+  const cmd = document.createElement('div');
+  cmd.className = 'cmd';
+  cmd.textContent =
+    `npx playwright test tests/e2e/visual/replay.spec.ts -g "${entry.name.replace(/-1x$|-2x$|-3x$/, '')}" --update-snapshots`;
+  card.appendChild(cmd);
+
+  acceptBtn.addEventListener('click', () => card.classList.toggle('accepted'));
+  rejectBtn.addEventListener('click', () => { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; });
+
+  return card;
+}
+
+async function load() {
+  const url = document.getElementById('manifestUrl').value;
+  const status = document.getElementById('status');
+  const main = document.getElementById('main');
+  main.innerHTML = '';
+  status.textContent = 'Loading ' + url + ' ...';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const baseDir = url.slice(0, url.lastIndexOf('/') + 1);
+    status.textContent = `Loaded — generated ${data.generatedAt}, ${data.entries.length} fixture(s) with differences.`;
+    if (data.entries.length === 0) {
+      main.innerHTML = '<div class="empty">No differences — every fixture matched its baseline.</div>';
+      return;
+    }
+    for (const entry of data.entries) main.appendChild(renderFixture(baseDir, entry));
+  } catch (err) {
+    status.textContent = 'Failed to load manifest: ' + err.message +
+      ' — run `node scripts/build-visual-diff-manifest.mjs` after a Playwright visual-regression run, then Load again.';
+  }
+}
+
+document.getElementById('load').addEventListener('click', load);
+window.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>
