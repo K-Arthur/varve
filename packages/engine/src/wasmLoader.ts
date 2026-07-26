@@ -1,5 +1,12 @@
 /**
- * WASM module loader with feature detection and stub fallback.
+ * WASM module loader with feature detection.
+ *
+ * This module knows nothing about the `Engine` interface or the render pipeline —
+ * it only loads the raw WASM exports (or returns null on failure) and caches the
+ * in-flight load so concurrent callers (e.g. an idle-time prewarm racing an
+ * explicit engine creation) share one fetch/instantiate attempt instead of two.
+ * Shaping a loaded module into an `Engine`, and deciding what to do when loading
+ * fails, are the caller's job (see engine.ts's `tryWasmEngine`).
  */
 import { hitTest as stubHitTest } from './geometry';
 import type { Engine, RenderItem, SceneNode } from './types';
@@ -10,7 +17,7 @@ export interface WasmEngineModule {
   wasm_engine_version(): string;
 }
 
-let cachedModule: WasmEngineModule | null = null;
+let wasmModulePromise: Promise<WasmEngineModule | null> | null = null;
 let prewarmStarted = false;
 
 /** Warm the WASM engine during idle time so it's ready when first needed. */
@@ -29,8 +36,25 @@ export function prewarmWasmEngine(): void {
   }
 }
 
-export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
-  if (cachedModule) return cachedModule;
+/**
+ * Load (or join an in-flight load of) the WASM engine module. Safe to call
+ * concurrently from multiple call sites — everyone awaits the same promise
+ * while a load is in flight, so there's exactly one fetch/instantiate attempt
+ * running at a time. A successful load is cached forever; a failed one clears
+ * the cache so the next call retries (matches prior behavior, which re-fetched
+ * on every call after a failure — only the "two callers racing" case changes).
+ */
+export function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
+  if (!wasmModulePromise) {
+    wasmModulePromise = loadWasmEngineModuleUncached().then((mod) => {
+      if (!mod) wasmModulePromise = null;
+      return mod;
+    });
+  }
+  return wasmModulePromise;
+}
+
+async function loadWasmEngineModuleUncached(): Promise<WasmEngineModule | null> {
   try {
     const base = '/wasm';
     const candidates = [`${base}/strata_wasm_simd_bg.wasm`, `${base}/strata_wasm_bg.wasm`];
@@ -60,7 +84,6 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
         // The generated glue's positional-argument form is deprecated (logs a
         // console warning on every call) in favor of a single options object.
         await mod.default({ module_or_path: fetch(wasmUrl).then((r) => r.arrayBuffer()) });
-        cachedModule = mod;
         return mod;
       } catch {
         // try the next candidate
@@ -72,27 +95,6 @@ export async function loadWasmEngineModule(): Promise<WasmEngineModule | null> {
   } catch {
     return null;
   }
-}
-
-export function createWasmEngineFromModule(mod: WasmEngineModule): Engine {
-  return {
-    backend: 'wasm',
-    async buildIr(scene) {
-      const json = mod.build_ir_json(JSON.stringify(scene.nodes));
-      return JSON.parse(json) as RenderItem[];
-    },
-    async hitTest(scene, world) {
-      const idx = mod.hit_test_json(JSON.stringify(scene.nodes), world[0], world[1]);
-      return idx >= 0 ? idx : null;
-    },
-  };
-}
-
-/** Test helper: wasm engine with stub fallback on load failure. */
-export async function tryWasmEngine(stubEngine: () => Engine): Promise<Engine> {
-  const mod = await loadWasmEngineModule();
-  if (!mod) return stubEngine();
-  return createWasmEngineFromModule(mod);
 }
 
 export function wasmHitTestFallback(

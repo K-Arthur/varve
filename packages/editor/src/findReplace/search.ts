@@ -1,7 +1,6 @@
 import type { Document } from '@strata/scene';
 import {
   activePageNodes,
-  flatTextFromRichText,
   flatToRichSelection,
   plainTextToRichText,
   richTextToPlainText,
@@ -101,13 +100,14 @@ function flatSearch(
     if (!spec) return [];
     try {
       const re = new RegExp(spec.pattern, spec.flags);
-      let match: RegExpExecArray | null;
-      while ((match = re.exec(normalizedText)) !== null) {
+      let match = re.exec(normalizedText);
+      while (match !== null) {
         const wholeWordOffset = options.wholeWord ? 1 : 0;
         const mstart = match.index + wholeWordOffset;
         const mend = mstart + (match[0].length - wholeWordOffset * 2);
         results.push({ start: mstart, end: mend });
         if (match.index === re.lastIndex) re.lastIndex++;
+        match = re.exec(normalizedText);
       }
     } catch {
       return [];
@@ -121,8 +121,9 @@ function flatSearch(
         const candidate = normalizedText.slice(i, i + matchLen);
         if (collator.compare(candidate, normalizedNeedle) === 0) {
           if (options.wholeWord) {
-            const before = i > 0 ? normalizedText[i - 1] : ' ';
-            const after = i + matchLen < normalizedText.length ? normalizedText[i + matchLen] : ' ';
+            const before = i > 0 ? (normalizedText[i - 1] ?? ' ') : ' ';
+            const after =
+              i + matchLen < normalizedText.length ? (normalizedText[i + matchLen] ?? ' ') : ' ';
             const isWordBoundary = !/\p{L}/u.test(before) && !/\p{L}/u.test(after);
             if (isWordBoundary) {
               results.push({ start: i, end: i + matchLen });
@@ -143,9 +144,9 @@ function flatSearch(
         const idx = normalizedText.indexOf(normalizedNeedle, pos);
         if (idx < 0) break;
         if (options.wholeWord) {
-          const before = idx > 0 ? normalizedText[idx - 1] : ' ';
+          const before = idx > 0 ? (normalizedText[idx - 1] ?? ' ') : ' ';
           const after =
-            idx + matchLen < normalizedText.length ? normalizedText[idx + matchLen] : ' ';
+            idx + matchLen < normalizedText.length ? (normalizedText[idx + matchLen] ?? ' ') : ' ';
           const isWordBoundary = !/\p{L}/u.test(before) && !/\p{L}/u.test(after);
           if (isWordBoundary) {
             results.push({ start: idx, end: idx + matchLen });
@@ -257,14 +258,13 @@ export function searchInDocument(
     const matches = flatSearch(text, needle, options);
 
     for (const m of matches) {
-      const _flatInfo = flatTextFromRichText(content.richText);
       const segments = flatToRichSelection(content.richText, m.start, m.end).paraSegments;
       const snippetStart = Math.max(0, m.start - 20);
-      const _snippetEnd = Math.min(text.length, m.end + 20);
+      const snippetEnd = Math.min(text.length, m.end + 20);
       const snippet =
         (snippetStart > 0 ? '…' : '') +
-        text.slice(snippetStart, m.end) +
-        (m.end < text.length ? '…' : '');
+        text.slice(snippetStart, snippetEnd) +
+        (snippetEnd < text.length ? '…' : '');
 
       results.push({
         nodeId: id,

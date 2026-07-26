@@ -53,7 +53,6 @@ self.onmessage = (e: MessageEvent<WorkerRequest>) => {
       return;
     }
 
-    const _deadline = Date.now() + 5000;
     try {
       const { results, skippedCount } = searchInDocument(
         payload.doc,

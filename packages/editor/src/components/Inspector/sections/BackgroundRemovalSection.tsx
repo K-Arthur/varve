@@ -307,7 +307,7 @@ export function BackgroundRemovalSection({ nodes }: { nodes: SceneNode[] }) {
   };
 
   return (
-    <DisclosureSection title="Background Removal">
+    <DisclosureSection title="Background Removal" sectionId="background-removal">
       <div className="insp-field-group">
         <FieldRow label="Method">
           <Select

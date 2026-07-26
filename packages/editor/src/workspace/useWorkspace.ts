@@ -112,16 +112,16 @@ export function useWorkspaceSwitcher() {
         resolveInteraction(ctx, interaction);
       }
 
-      // 2. Apply the new mode — setWorkspaceMode already:
+      // 2. Apply the new mode — __setWorkspaceModeUnsafe already:
       //    - Updates state.workspaceMode
       //    - Updates panel visibility (leftPanelVisible, rightPanelVisible, timelinePanelVisible)
       //    - Sets default tool (if configured)
       //    - Persists to settings
       //    - Announces for screen readers
-      ctx.setWorkspaceMode(nextMode);
+      ctx.__setWorkspaceModeUnsafe(nextMode);
 
       // 4. Document, selection, viewport, undo/redo, dirty state are all
-      //    preserved because setWorkspaceMode only patches workspace-related
+      //    preserved because __setWorkspaceModeUnsafe only patches workspace-related
       //    state fields — it does not touch document, selection, zoom, pan,
       //    undoStack, redoStack, or dirty.
     } finally {

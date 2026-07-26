@@ -621,6 +621,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           g.engine.isAllRaster(),
           typeof navigator !== 'undefined' &&
             (navigator.platform?.toLowerCase().includes('mac') ?? false),
+          g.handle.length === 1,
         );
         updateDoc((doc) =>
           g.engine.resize(
@@ -799,6 +800,9 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
                   cursor: hasInteractiveHandles ? HANDLE_CURSORS[i] : 'default',
                 }}
                 onPointerDown={hasInteractiveHandles ? (e) => handlePointerDown(e, i) : undefined}
+                onPointerUp={hasInteractiveHandles ? handlePointerUp : undefined}
+                onPointerCancel={hasInteractiveHandles ? handlePointerUp : undefined}
+                onLostPointerCapture={hasInteractiveHandles ? handlePointerUp : undefined}
               />
               <rect
                 x={sx - HANDLE_HALF}

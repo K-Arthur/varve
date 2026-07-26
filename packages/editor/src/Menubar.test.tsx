@@ -8,7 +8,7 @@ import { Menubar } from './components/Menubar';
 vi.mock('./context', () => ({
   useEditor: () => ({
     state: {
-      document: { name: 'Test Doc', activePageId: null },
+      document: { name: 'Test Doc', activePageId: null, nodes: {}, rootChildren: [] },
       zoom: 1,
       canvasMode: 'full',
       snapEnabled: true,
@@ -96,7 +96,7 @@ vi.mock('./context', () => ({
     assignMasterToPage: vi.fn(),
     createMaster: vi.fn(),
     toggleFacingPages: vi.fn(),
-    setWorkspaceMode: vi.fn(),
+    requestWorkspaceSwitch: vi.fn(),
     toggleDistractionFreeMode: vi.fn(),
   }),
 }));
@@ -312,6 +312,24 @@ describe('Menubar dropdown portal', () => {
 });
 
 describe('Menubar menu structure', () => {
+  it('keeps Edit with Undo and Redo reachable in non-macOS Tauri windows', async () => {
+    Object.defineProperty(window, '__TAURI__', {
+      configurable: true,
+      value: {},
+    });
+    try {
+      const user = userEvent.setup();
+      render(<Menubar />);
+      const edit = within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'Edit' });
+      await user.click(edit);
+      const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
+      expect(within(menu).getByRole('menuitem', { name: /Undo/ })).toBeTruthy();
+      expect(within(menu).getByRole('menuitem', { name: /Redo/ })).toBeTruthy();
+    } finally {
+      Reflect.deleteProperty(window, '__TAURI__');
+    }
+  });
+
   it('renders all top-level menus', () => {
     render(<Menubar />);
     const menubar = screen.getByRole('menubar');
@@ -431,6 +449,8 @@ describe('Menubar ARIA attributes', () => {
     const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
     const designItem = within(menu).getByRole('menuitemradio', { name: /Workspace: Design/ });
     expect(designItem).toBeTruthy();
+    expect(designItem).toHaveAttribute('aria-checked', 'true');
+    expect(designItem).not.toBeDisabled();
   });
 
   it('theme items have menuitemradio role', async () => {

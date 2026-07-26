@@ -32,6 +32,8 @@ import {
   DnDShell,
   ExportLayer,
   type ExportLayerHandle,
+  FindReplaceLayer,
+  type FindReplaceLayerHandle,
   OnboardingLayer,
   type OnboardingLayerHandle,
   RecoveryManager,
@@ -171,6 +173,7 @@ function ShellInner({
     'general' | 'appearance' | 'shortcuts' | 'export' | 'models' | 'collab' | 'ai' | 'about'
   >('general');
   const exportLayerRef = useRef<ExportLayerHandle | null>(null);
+  const findReplaceLayerRef = useRef<FindReplaceLayerHandle | null>(null);
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
   const { shellStyle, widths, setWidth } = usePanelWidths();
 
@@ -190,11 +193,21 @@ function ShellInner({
   const staticActionsRegistered = useRef(false);
   useEffect(() => {
     registerEditorActions(editor, {
+      onBackToHome,
       onOpenHelp: () => editorHelp.openContextualHelp(),
       onOpenHelpCenter: () => editorHelp.setHelpCenterOpen(true),
-      onWhatIsThis: () => {},
-      onOpenAbout: () => {},
-      onStartTour: () => {},
+      onWhatIsThis: editorHelp.toggleWhatIsThis,
+      onOpenAbout: () => {
+        setSettingsSection('about');
+        setSettingsOpen(true);
+      },
+      onStartTour: () => onboardingLayerRef.current?.reopen(),
+      onOpenSettings: () => {
+        setSettingsSection('general');
+        setSettingsOpen(true);
+      },
+      onBatchBgRemove: () => exportLayerRef.current?.openBatchBgRemove(),
+      onFindReplace: () => findReplaceLayerRef.current?.open(),
       onOpenFile: () => fileRef.current?.click(),
       onImportFile: () => fileRef.current?.click(),
     });
@@ -204,7 +217,7 @@ function ShellInner({
     // Populate the audit rule registry. Without this, runAudit() (the
     // IntelligencePanel's Audit tab) silently scans against zero rules.
     registerBuiltinRules();
-  }, [editor, editorHelp]);
+  }, [editor, editorHelp, onBackToHome]);
 
   const handlePaletteSelect = useCallback((id: string) => {
     const input = fileRef.current;
@@ -649,6 +662,7 @@ function ShellInner({
 
         {/* Export dialog + batch BG removal (self-contained) */}
         <ExportLayer ref={exportLayerRef} platform={platform} />
+        <FindReplaceLayer ref={findReplaceLayerRef} />
 
         {editor.state.subjectPickerSession && (
           <SubjectPickerOverlay
@@ -722,6 +736,9 @@ function ShellInner({
               editor.state.selection.length === 1 &&
               selectedId !== undefined &&
               editor.state.document.nodes[selectedId]?.kind === 'group';
+            const nodeCount = Object.keys(editor.state.document.nodes).length;
+            const hasNodes = nodeCount >= 1;
+            const hasMultipleNodes = nodeCount >= 2;
             const items: MenuEntry[] = [
               ...(hasSelection
                 ? [
@@ -816,6 +833,56 @@ function ShellInner({
                   closeMenu();
                 },
               } satisfies MenuEntry,
+              ...(hasNodes
+                ? [
+                    { id: 'ctx-sep5', separator: true as const } satisfies MenuEntry,
+                    {
+                      id: 'ctx-intel',
+                      label: 'Intelligence',
+                      type: 'submenu',
+                      submenu: [
+                        {
+                          id: 'ctx-intel-audit',
+                          label: 'Audit',
+                          onAction: () => {
+                            editor.setInspectorTab?.('audit', 'audit');
+                            closeMenu();
+                          },
+                          disabled: !hasNodes,
+                        },
+                        {
+                          id: 'ctx-intel-scan',
+                          label: 'Scan for Debt',
+                          onAction: () => {
+                            editor.setInspectorTab?.('audit', 'debt');
+                            closeMenu();
+                          },
+                          disabled: !hasNodes,
+                        },
+                        {
+                          id: 'ctx-intel-names',
+                          label: 'Suggest Names',
+                          onAction: () => {
+                            editor.setInspectorTab?.('audit', 'naming');
+                            closeMenu();
+                          },
+                          disabled: !hasSelection,
+                        },
+                        {
+                          id: 'ctx-intel-dupes',
+                          label: hasSelection
+                            ? 'Detect Duplicates in Selection'
+                            : 'Detect Duplicates on Page',
+                          onAction: () => {
+                            editor.setInspectorTab?.('audit', 'components');
+                            closeMenu();
+                          },
+                          disabled: !hasMultipleNodes,
+                        },
+                      ],
+                    } satisfies MenuEntry,
+                  ]
+                : []),
             ];
             return (
               <ContextMenu

@@ -277,7 +277,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   );
 
   return (
-    <DisclosureSection title="Typography">
+    <DisclosureSection title="Typography" sectionId="typography">
       <div ref={bindingTriggerRef} className="insp-field-group">
         {textContent !== null && (
           <>

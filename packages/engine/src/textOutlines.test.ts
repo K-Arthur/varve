@@ -181,6 +181,80 @@ describe('textToOutlines — opentype.js path (with fontData)', () => {
   });
 });
 
+describe('textToOutlines — compound paths (rings)', () => {
+  it('produces rings for glyphs with counters', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('O', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    const glyph = result.glyphs[0]!;
+    expect(glyph.rings.length).toBeGreaterThan(0);
+    // 'O' has an outer contour and at least one hole (counter)
+    expect(glyph.rings.length).toBeGreaterThanOrEqual(2);
+    // Outer ring is always first
+    const outer = glyph.rings[0]!;
+    expect(outer.length).toBeGreaterThan(0);
+    // points should equal flattened rings
+    expect(glyph.points.length).toBe(glyph.rings.reduce((s, r) => s + r.length, 0));
+  });
+
+  it('produces a single ring for glyphs without counters', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('I', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    const glyph = result.glyphs[0]!;
+    expect(glyph.rings.length).toBeGreaterThanOrEqual(1);
+    expect(glyph.rings.length).toBeLessThanOrEqual(2);
+  });
+
+  it('returns empty rings for space glyphs', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines(' ', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+      x: 0,
+      y: 0,
+    });
+    const glyph = result.glyphs[0]!;
+    expect(glyph.rings.length).toBe(0);
+    expect(glyph.points.length).toBe(0);
+  });
+});
+
+describe('textToOutlines — warnings and metadata', () => {
+  it('returns warnings array for placeholder outlines', () => {
+    const result = textToOutlines('A', {
+      fontSize: 16,
+      fontFamily: 'Inter',
+    });
+    expect(Array.isArray(result.warnings)).toBe(true);
+    expect(result.warnings).toHaveLength(0);
+    expect(result.hasColorGlyphs).toBe(false);
+    expect(result.restrictedEmbedding).toBe(false);
+  });
+
+  it('returns warnings array for real outlines', async () => {
+    const fontData = await loadFontData();
+    const result = textToOutlines('A', {
+      fontSize: 100,
+      fontFamily: 'Geist',
+      fontData,
+    });
+    expect(Array.isArray(result.warnings)).toBe(true);
+    expect(result.isPlaceholder).toBe(false);
+  });
+});
+
 describe('glyphOutlineToSvgPath', () => {
   it('produces a valid SVG path string', () => {
     const result = textToOutlines('A', {

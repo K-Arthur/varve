@@ -51,13 +51,9 @@ describe('richTextReplace style preservation', () => {
     const result = richTextReplace(rich, 3, 8, 'XYZ');
     const chars = richTextToFlatWithStyles(result).chars;
     // First 3 chars (Hel) are bold
-    expect(chars[0].bold).toBe(true);
-    expect(chars[1].bold).toBe(true);
-    expect(chars[2].bold).toBe(true);
+    expect(chars.slice(0, 3).every((char) => char.bold)).toBe(true);
     // Replacement (XYZ) inherits bold from first char of match
-    expect(chars[3].bold).toBe(true);
-    expect(chars[4].bold).toBe(true);
-    expect(chars[5].bold).toBe(true);
+    expect(chars.slice(3, 6).every((char) => char.bold)).toBe(true);
     // Remaining chars bold first, then italic... actually the split logic means
     // both runs get consumed. The replacement replaces "lo " + "Wo" = 5 chars with 3.
     // Hel(3) + XYZ(3) + rld(3) = 9
@@ -65,7 +61,10 @@ describe('richTextReplace style preservation', () => {
   });
 
   it('preserves all style invariants', () => {
-    const invariants = [
+    const invariants: Array<{
+      text: string;
+      segments: Array<{ text: string; bold?: boolean; italic?: boolean }>;
+    }> = [
       { text: 'Hello World', segments: [{ text: 'Hello World' }] },
       {
         text: 'AB',
@@ -95,20 +94,11 @@ describe('richTextReplace style preservation', () => {
     const result = richTextReplace(rich, 2, 4, 'XXXX');
     const chars = richTextToFlatWithStyles(result).chars;
     expect(chars.length).toBe(8);
-    expect(chars[0].bold).toBe(true);
-    expect(chars[1].bold).toBe(true);
+    expect(chars.slice(0, 2).every((char) => char.bold)).toBe(true);
     // Replacement inherits italic from 'c' (first char of match)
-    expect(chars[2].bold).toBe(false);
-    expect(chars[2].italic).toBe(true);
-    expect(chars[3].bold).toBe(false);
-    expect(chars[3].italic).toBe(true);
-    expect(chars[4].bold).toBe(false);
-    expect(chars[4].italic).toBe(true);
-    expect(chars[5].bold).toBe(false);
-    expect(chars[5].italic).toBe(true);
+    expect(chars.slice(2, 6).every((char) => !char.bold && char.italic)).toBe(true);
     // After the replacement, the remaining 'ef' should still be bold
-    expect(chars[6].bold).toBe(true);
-    expect(chars[7].bold).toBe(true);
+    expect(chars.slice(6, 8).every((char) => char.bold)).toBe(true);
   });
 
   it('handles replacement shorter than match', () => {
@@ -127,12 +117,7 @@ describe('richTextReplace style preservation', () => {
     const result = richTextReplace(rich, 6, 11, '');
     const chars = richTextToFlatWithStyles(result).chars;
     expect(chars.length).toBe(6);
-    expect(chars[0].bold).toBe(true);
-    expect(chars[1].bold).toBe(true);
-    expect(chars[2].bold).toBe(true);
-    expect(chars[3].bold).toBe(true);
-    expect(chars[4].bold).toBe(true);
-    expect(chars[5].bold).toBe(true);
+    expect(chars.every((char) => char.bold)).toBe(true);
   });
 
   it('property test: random replaces preserve style invariants', () => {
@@ -165,6 +150,8 @@ describe('richTextReplace style preservation', () => {
       expect(mapping.length).toBe(text.length);
       for (let i = 0; i < mapping.length; i++) {
         const m = mapping[i];
+        expect(m).toBeDefined();
+        if (!m) continue;
         if (m.paragraphIndex >= 0) {
           const para = rich.paragraphs[m.paragraphIndex];
           expect(para).toBeDefined();
@@ -223,7 +210,6 @@ describe('richTextReplace style preservation', () => {
     ]);
     // Insert 'XY' at position 2 (between the two runs)
     const result = richTextReplace(rich, 2, 2, 'XY');
-    const _chars = richTextToFlatWithStyles(result).chars;
     const { text } = flatTextFromRichText(result);
     expect(text).toBe('abXYcd');
   });

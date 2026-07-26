@@ -278,6 +278,9 @@ importers:
       prismjs:
         specifier: ^1.30.0
         version: 1.30.0
+      wawoff2:
+        specifier: ^2.0.1
+        version: 2.0.1
     devDependencies:
       '@dnd-kit/core':
         specifier: ^6.3.1
@@ -288,6 +291,9 @@ importers:
       '@dnd-kit/utilities':
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.7)
+      '@tauri-apps/api':
+        specifier: ^2.11.1
+        version: 2.11.1
       '@types/prismjs':
         specifier: ^1.26.6
         version: 1.26.6

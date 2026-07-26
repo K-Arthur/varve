@@ -13,7 +13,9 @@
 import type { MeasureTextFn } from '@strata/shared';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
 import { hitTest } from './geometry';
-import type { Backend, Engine, EngineFill, FillIR, RenderItem, SceneNode } from './types';
+import type { Backend, Engine, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
+import type { WasmEngineModule } from './wasmLoader';
+import { loadWasmEngineModule } from './wasmLoader';
 
 /**
  * Derive a rect primitive from paint fills for shapeless nodes.
@@ -373,6 +375,50 @@ export function withStubFallback(primary: Engine): Engine {
 }
 
 /**
+ * Shape a loaded WASM module's raw exports into the `Engine` interface.
+ * wasmLoader.ts only knows how to load raw exports (or fail); it has no
+ * knowledge of `Engine` at all. This is the one place that connects the two.
+ */
+export function createWasmEngineFromModule(mod: WasmEngineModule): Engine {
+  return {
+    backend: 'wasm',
+    async buildIr(scene) {
+      const json = mod.build_ir_json(JSON.stringify(scene.nodes));
+      return JSON.parse(json) as RenderItem[];
+    },
+    async hitTest(scene, world) {
+      const idx = mod.hit_test_json(JSON.stringify(scene.nodes), world[0], world[1]);
+      return idx >= 0 ? idx : null;
+    },
+  };
+}
+
+/**
+ * Attempt to load and shape the WASM engine, falling back to `stubEngine` if
+ * loading fails. This is the one place that decides what a WASM load failure
+ * means (unsupported browser, CSP blocking the binary, network failure, a
+ * corrupt build artifact, out-of-memory during instantiation) — surfaced as a
+ * single console warning rather than failing silently.
+ */
+let wasmLoadFailureWarned = false;
+
+export async function tryWasmEngine(stubEngineFactory: () => Engine): Promise<Engine> {
+  const mod = await loadWasmEngineModule();
+  if (!mod) {
+    if (!wasmLoadFailureWarned) {
+      wasmLoadFailureWarned = true;
+      console.warn(
+        '[strata-engine] WASM engine failed to load (unsupported browser, CSP blocking the ' +
+          'WASM binary, network failure, or a corrupt build artifact); falling back to the ' +
+          'pure-TS stub renderer for this session.',
+      );
+    }
+    return stubEngineFactory();
+  }
+  return createWasmEngineFromModule(mod);
+}
+
+/**
  * Create an engine. `auto` (default) prefers native (Tauri), then wasm, then
  * stub. Desktop callers should pass `'native'` and assert it resolved.
  *
@@ -387,11 +433,9 @@ export async function createEngine(preferred: Backend | 'auto' = 'auto'): Promis
     return withStubFallback(await nativeEngine());
   }
   if (preferred === 'wasm') {
-    const { tryWasmEngine } = await import('./wasmLoader');
     return withStubFallback(await tryWasmEngine(stubEngine));
   }
   if (preferred === 'auto' && !(globalThis as TauriGlobal).__TAURI__) {
-    const { tryWasmEngine } = await import('./wasmLoader');
     const eng = await tryWasmEngine(stubEngine);
     if (eng.backend === 'wasm') return withStubFallback(eng);
   }
