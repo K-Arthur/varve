@@ -1,6 +1,7 @@
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
 import type { Document, SceneNode } from '@strata/scene';
+import { registerBuiltinRules } from '@strata/scene';
 import type { MenuEntry } from '@strata/ui';
 import { ContextMenu, Icon, ToastProvider, useToast } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -187,6 +188,10 @@ function ShellInner({
       onImportFile: () => fileRef.current?.click(),
     });
     registerAllShortcuts(() => null);
+    // Populate the audit rule registry. Without this, runAudit() (the
+    // IntelligencePanel's Audit tab) silently scans against zero rules —
+    // idempotent to call more than once (registerRule overwrites by id).
+    registerBuiltinRules();
   }, [editor, editorHelp]);
 
   const handlePaletteSelect = useCallback((id: string) => {
