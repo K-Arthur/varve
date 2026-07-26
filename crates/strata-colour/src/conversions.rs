@@ -705,4 +705,147 @@ mod tests {
         let (r, g, b, a) = engine_color_rgba(&spot);
         assert_eq!((r, g, b, a), (0, 0, 0, 255));
     }
+
+    // ── Golden values ────────────────────────────────────────────────────
+    //
+    // Captured from this file's own srgb_to_linear -> linear_rgb_to_xyz ->
+    // xyz_to_lab pipeline, which implements Bruce Lindbloom's published D50
+    // sRGB->XYZ matrix (cited in this module's doc comment) — the
+    // `linear_rgb_to_xyz` coefficients here match Lindbloom's published
+    // constants digit-for-digit. White/black are self-evident from the D50
+    // reference-white definition; red/green/blue are regression baselines
+    // that lock in the current, matrix-justified pipeline output rather than
+    // an independently-typed external table (documented here as such — no
+    // second, independently-written implementation was available to
+    // cross-check against in this environment).
+    #[test]
+    fn golden_srgb_primaries_to_lab_d50() {
+        const EPS: f32 = 1e-2;
+        let cases: [(&str, f32, f32, f32, f32, f32, f32); 6] = [
+            ("black", 0.0, 0.0, 0.0, 0.0, 0.0, 0.0),
+            ("white", 1.0, 1.0, 1.0, 100.0, 0.0035, -0.0251),
+            ("red", 1.0, 0.0, 0.0, 54.2917, 80.8151, 69.8786),
+            ("green", 0.0, 1.0, 0.0, 87.8181, -79.2848, 80.9780),
+            ("blue", 0.0, 0.0, 1.0, 29.5676, 68.3005, -112.0533),
+            ("mid-gray", 0.5, 0.5, 0.5, 53.3890, 0.0021, -0.0150),
+        ];
+        for (name, r, g, b, l_exp, a_exp, b_exp) in cases {
+            let (rl, gl, bl) = (srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
+            let (x, y, z) = linear_rgb_to_xyz(rl, gl, bl);
+            let (l, a, bb) = xyz_to_lab(x, y, z);
+            assert!((l - l_exp).abs() < EPS, "{name}: L* {l} != {l_exp}");
+            assert!((a - a_exp).abs() < EPS, "{name}: a* {a} != {a_exp}");
+            assert!((bb - b_exp).abs() < EPS, "{name}: b* {bb} != {b_exp}");
+        }
+    }
+
+    // ── Property tests (Tier 1) ─────────────────────────────────────────────
+    mod proptests {
+        use super::*;
+        use proptest::prelude::*;
+
+        // Naive RGB<->CMYK round-trips within +/-2/255 for any input — the
+        // same tolerance the fixed-case test above already documents as the
+        // naive formula's expected information loss.
+        proptest! {
+            #[test]
+            fn rgb_cmyk_roundtrip_any_input(r in 0u8..=255, g in 0u8..=255, b in 0u8..=255) {
+                let (c, m, y, k) = rgb_to_cmyk(r, g, b);
+                let (r2, g2, b2, _a) = cmyk_to_rgb(c, m, y, k);
+                let dr = (r as i16 - r2 as i16).abs();
+                let dg = (g as i16 - g2 as i16).abs();
+                let db = (b as i16 - b2 as i16).abs();
+                prop_assert!(dr <= 2 && dg <= 2 && db <= 2,
+                    "roundtrip ({r},{g},{b}) -> ({c},{m},{y},{k}) -> ({r2},{g2},{b2})");
+            }
+
+            /// sRGB<->linear round-trips within 1e-3 for the full valid 0..=1
+            /// domain (not just the six fixed samples in the example test).
+            #[test]
+            fn srgb_linear_roundtrip_any_input(v in 0.0f32..=1.0) {
+                let back = linear_to_srgb(srgb_to_linear(v));
+                prop_assert!((v - back).abs() < 1e-3, "roundtrip {v} -> {back}");
+            }
+
+            /// XYZ<->Lab round-trips within 1e-2 across a broad, physically
+            /// plausible XYZ range (not just three fixed samples).
+            #[test]
+            fn xyz_lab_roundtrip_any_input(
+                x in 0.0f32..1.5,
+                y in 0.0f32..1.5,
+                z in 0.0f32..1.5,
+            ) {
+                let (l, a, b) = xyz_to_lab(x, y, z);
+                let (x2, y2, z2) = lab_to_xyz(l, a, b);
+                prop_assert!((x - x2).abs() < 1e-2, "x roundtrip {x} -> {x2}");
+                prop_assert!((y - y2).abs() < 1e-2, "y roundtrip {y} -> {y2}");
+                prop_assert!((z - z2).abs() < 1e-2, "z roundtrip {z} -> {z2}");
+            }
+
+            /// `engine_color_rgba` must never alter the alpha channel except
+            /// via the documented Spot+tint scaling — for Rgb/Cmyk/Gray, alpha
+            /// passes straight through for any input.
+            #[test]
+            fn alpha_passes_through_unchanged_rgb(r in 0.0f64..=255.0, g in 0.0f64..=255.0, b in 0.0f64..=255.0, a in 0.0f64..=255.0) {
+                let color = strata_core::EngineColor::Rgb { r, g, b, a, bit_depth: None, profile: None };
+                let (_, _, _, out_a) = engine_color_rgba(&color);
+                prop_assert_eq!(out_a, a as u8);
+            }
+
+            #[test]
+            fn alpha_passes_through_unchanged_gray(v in 0.0f64..=255.0, a in 0.0f64..=255.0) {
+                let color = strata_core::EngineColor::Gray { v, a, bit_depth: None, profile: None };
+                let (_, _, _, out_a) = engine_color_rgba(&color);
+                prop_assert_eq!(out_a, a as u8);
+            }
+
+            #[test]
+            fn alpha_passes_through_unchanged_cmyk(
+                c in 0.0f64..=255.0, m in 0.0f64..=255.0, y in 0.0f64..=255.0, k in 0.0f64..=255.0, a in 0.0f64..=255.0,
+            ) {
+                let color = strata_core::EngineColor::Cmyk { c, m, y, k, a, bit_depth: None, profile: None };
+                let (_, _, _, out_a) = engine_color_rgba(&color);
+                prop_assert_eq!(out_a, a as u8);
+            }
+
+            /// None of the pure f32 arithmetic functions may panic for NaN or
+            /// +/-infinity input — Rust float arithmetic is total (no traps),
+            /// so this documents/locks that guarantee rather than testing for
+            /// a crash that structurally cannot happen here.
+            #[test]
+            fn nan_and_infinity_never_panic(
+                which in 0usize..3,
+            ) {
+                let samples = [f32::NAN, f32::INFINITY, f32::NEG_INFINITY];
+                let v = samples[which];
+                // Must return *some* f32 (NaN propagation is acceptable) and
+                // must not panic — reaching this line already proves that.
+                let _ = srgb_to_linear(v);
+                let _ = linear_to_srgb(v);
+                let (_l, _a, _b) = xyz_to_lab(v, v, v);
+                let (_x, _y, _z) = lab_to_xyz(v, v, v);
+                let mut cmyk = [v, v, v, v];
+                apply_tac(&mut cmyk, 300.0);
+            }
+
+            /// Out-of-gamut / out-of-range inputs (negative, or > 1.0 for the
+            /// normalized functions) must not panic, and `as u8` casts must
+            /// saturate cleanly (Rust's float->int `as` cast saturates since
+            /// 1.45 — this locks that behavior for this crate's call sites).
+            #[test]
+            fn out_of_gamut_inputs_saturate_without_panic(
+                r in -10.0f32..10.0, g in -10.0f32..10.0, b in -10.0f32..10.0,
+            ) {
+                let (rl, gl, bl) = (srgb_to_linear(r), srgb_to_linear(g), srgb_to_linear(b));
+                prop_assert!(rl.is_finite() || r.is_nan());
+                let (x, y, z) = linear_rgb_to_xyz(rl, gl, bl);
+                let (_l, _a, _b) = xyz_to_lab(x, y, z);
+                // `as u8` on an out-of-range/negative f32 saturates to 0..=255
+                // rather than wrapping or panicking (Rust float->int cast
+                // semantics since 1.45) — reaching this line without a panic
+                // is the assertion; the type system guarantees the range.
+                let _byte = (r.clamp(-1e9, 1e9) * 255.0) as u8;
+            }
+        }
+    }
 }
