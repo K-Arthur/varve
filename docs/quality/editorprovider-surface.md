@@ -56,6 +56,35 @@ and the divergence is much worse than first thought.**
   made against `ViewportContext.tsx` or `context.tsx` for this; the file is unchanged since the
   memoization fix.
 
+- **`SelectionContext.tsx` has the identical problem — audited directly, same conclusion, same
+  discipline: stop, don't force it.** Of its 8 methods, only the two purely-derived read-only ones
+  (`isSelected`, `selectedNodes`) are behaviorally identical to `context.tsx`'s inline versions.
+  Every method with a side effect diverges:
+
+  | Method | Divergence |
+  |---|---|
+  | `setSelection` | `context.tsx` pushes to `selectionHistory` (back/forward selection navigation — see `selectPreviousSelection`, `context.tsx:5108`); `SelectionContext.tsx` never touches `selectionHistory` at all |
+  | `toggleSelection` | `context.tsx` reads/writes `stateRef.current` directly (so a `setSelection` + `toggleSelection` batched in the same synchronous tick see each other's effect) and also pushes to `selectionHistory`; `SelectionContext.tsx` only uses `setState`'s updater closure and never touches `selectionHistory` |
+  | `selectAllWithSameType` | `context.tsx` uses the shared `findSameKindIds()` helper and announces the result via `announcerRef` (screen-reader accessibility); `SelectionContext.tsx` reimplements the candidate search manually and has no announcement |
+  | `selectAllWithSameFill` | `context.tsx` uses `colorsEqual()` for comparison and checks `visible`/`locked`, plus announces; `SelectionContext.tsx` compares fills via `JSON.stringify(...) === JSON.stringify(...)` — a fragile comparison that can report unequal for equivalent colors with different key order/representation — and has no announcement |
+  | `selectAllWithSameLayerColor` | `context.tsx` uses the shared `findSameLayerColorIds()` helper + announces; `SelectionContext.tsx` reimplements manually, no announcement |
+  | `selectAllOfType` | `context.tsx` uses the shared `findAllOfKindIds()` helper + announces; `SelectionContext.tsx` reimplements manually, no announcement |
+
+  Same root cause as Viewport: an earlier, independent implementation that was superseded by
+  richer logic (shared helper functions, accessibility announcements, selection-history
+  integration) added directly to `context.tsx`, never reconciled back into the sub-context. Same
+  recommendation: **do not unify in this pass.** No commits made against `SelectionContext.tsx` or
+  `context.tsx` for this.
+
+  **This is now a pattern, not a one-off** — both of the two sub-contexts built as genuinely
+  independent wrapping providers (Viewport, Selection) have diverged from `context.tsx`'s real
+  logic; the two built as thin pass-throughs of value computed inside `EditorProvider` itself
+  (Document, and by the same reasoning Motion/Prototype via `onReady`) have not, because there was
+  only ever one implementation to begin with. **Before attempting Panels or any other Phase B
+  extraction, check first whether it would be a new independent-provider pattern (audit for
+  divergence before touching anything) or a thin pass-through (safe to extract directly, as Tool
+  was, since the divergence risk is structural, not per-file luck).**
+
 ## Headline finding: the split is already partially done
 
 **Five sub-context hooks already exist and are exported from `context.tsx`**: `useDocument`,
