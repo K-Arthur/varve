@@ -452,7 +452,17 @@ fn compute_pdf_image_placement(
     dst_h: f64,
     user_scale: f64,
 ) -> (f64, f64, f64, f64) {
-    if src_w <= 0.0 || src_h <= 0.0 || dst_w <= 0.0 || dst_h <= 0.0 {
+    if !src_w.is_finite()
+        || !src_h.is_finite()
+        || !dst_w.is_finite()
+        || !dst_h.is_finite()
+        || !user_scale.is_finite()
+        || src_w <= 0.0
+        || src_h <= 0.0
+        || dst_w <= 0.0
+        || dst_h <= 0.0
+        || user_scale <= 0.0
+    {
         return (dst_w, dst_h, 0.0, 0.0);
     }
     match fit {
@@ -464,10 +474,14 @@ fn compute_pdf_image_placement(
             if aspect > dst_aspect {
                 // Source is wider: width matches bounds
                 let h = dst_w / aspect;
-                (dst_w, h, 0.0, (dst_h - h) / 2.0)
+                let w = dst_w * user_scale;
+                let h = h * user_scale;
+                (w, h, (dst_w - w) / 2.0, (dst_h - h) / 2.0)
             } else {
                 let w = dst_h * aspect;
-                (w, dst_h, (dst_w - w) / 2.0, 0.0)
+                let w = w * user_scale;
+                let h = dst_h * user_scale;
+                (w, h, (dst_w - w) / 2.0, (dst_h - h) / 2.0)
             }
         }
         "tile" => {
@@ -475,110 +489,184 @@ fn compute_pdf_image_placement(
             (src_w * user_scale, src_h * user_scale, 0.0, 0.0)
         }
         "crop" => {
-            // CSS cover: cover the bounds while maintaining aspect ratio
-            let aspect = src_w / src_h;
-            let dst_aspect = dst_w / dst_h;
-            if aspect > dst_aspect {
-                // Source is wider: height matches bounds
-                let w = dst_h * aspect;
-                (w, dst_h, (dst_w - w) / 2.0, 0.0)
-            } else {
-                let h = dst_w / aspect;
-                (dst_w, h, 0.0, (dst_h - h) / 2.0)
-            }
+            // Manual crop mode: natural source size × user scale, anchored at
+            // the node bounds origin. Fill x/y supplies the user pan.
+            (src_w * user_scale, src_h * user_scale, 0.0, 0.0)
         }
         _ => {
-            // Default "fill": source fills bounds
-            let sw = src_w * user_scale;
-            let sh = src_h * user_scale;
-            if sw > dst_w || sh > dst_h {
-                // Scale down to fit, center
-                let scale = (dst_w / sw).min(dst_h / sh);
-                (
-                    sw * scale,
-                    sh * scale,
-                    (dst_w - sw * scale) / 2.0,
-                    (dst_h - sh * scale) / 2.0,
-                )
+            // Default "fill": CSS cover, then multiply the policy result by
+            // user scale around the destination centre.
+            let aspect = src_w / src_h;
+            let dst_aspect = dst_w / dst_h;
+            let (base_w, base_h) = if aspect > dst_aspect {
+                (dst_h * aspect, dst_h)
             } else {
-                (sw, sh, (dst_w - sw) / 2.0, (dst_h - sh) / 2.0)
-            }
+                (dst_w, dst_w / aspect)
+            };
+            let w = base_w * user_scale;
+            let h = base_h * user_scale;
+            (w, h, (dst_w - w) / 2.0, (dst_h - h) / 2.0)
         }
     }
 }
 
-fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) {
-    let tx = node.transform.as_coeffs();
-    let x_off = tx[4];
-    let y_off = tx[5];
-
+fn shape_local_bounds(node: &SceneNode) -> (f64, f64, f64, f64) {
     match &node.shape {
-        Shape::Rect(r) => {
-            let x = r.min_x() + x_off;
-            let y = page_height - r.max_y() - y_off;
-            (x, y, r.width(), r.height())
-        }
-        Shape::Circle(c) => {
-            let cx = c.center.x + x_off;
-            let cy = page_height - c.center.y - y_off;
-            (cx - c.radius, cy - c.radius, 2.0 * c.radius, 2.0 * c.radius)
-        }
-        Shape::Ellipse { center, rx, ry } => {
-            let cx = center.x + x_off;
-            let cy = page_height - center.y - y_off;
-            (cx - rx, cy - ry, 2.0 * rx, 2.0 * ry)
-        }
-        Shape::Line { line, .. } => {
-            let x = line.p0.x.min(line.p1.x) + x_off;
-            let y = page_height - line.p0.y.max(line.p1.y) - y_off;
-            let w = (line.p0.x - line.p1.x).abs();
-            let h = (line.p0.y - line.p1.y).abs();
-            (x, y, w, h)
-        }
+        Shape::Rect(r) => (r.min_x(), r.min_y(), r.width(), r.height()),
+        Shape::Circle(c) => (
+            c.center.x - c.radius,
+            c.center.y - c.radius,
+            2.0 * c.radius,
+            2.0 * c.radius,
+        ),
+        Shape::Ellipse { center, rx, ry } => (center.x - rx, center.y - ry, 2.0 * rx, 2.0 * ry),
+        Shape::Line { line, .. } => (
+            line.p0.x.min(line.p1.x),
+            line.p0.y.min(line.p1.y),
+            (line.p0.x - line.p1.x).abs(),
+            (line.p0.y - line.p1.y).abs(),
+        ),
         Shape::Polygon { cx, cy, radius, .. } => {
-            let scx = cx + x_off;
-            let scy = page_height - cy - y_off;
-            (scx - radius, scy - radius, 2.0 * radius, 2.0 * radius)
+            (cx - radius, cy - radius, 2.0 * radius, 2.0 * radius)
         }
         Shape::Star {
             cx,
             cy,
             outer_radius,
             ..
-        } => {
-            let scx = cx + x_off;
-            let scy = page_height - cy - y_off;
-            (
-                scx - outer_radius,
-                scy - outer_radius,
-                2.0 * outer_radius,
-                2.0 * outer_radius,
-            )
-        }
-        Shape::Arrow { from, to, .. } => {
-            let x = from[0].min(to[0]) + x_off;
-            let y = page_height - from[1].max(to[1]) - y_off;
-            let w = (from[0] - to[0]).abs();
-            let h = (from[1] - to[1]).abs();
-            (x, y, w, h)
-        }
+        } => (
+            cx - outer_radius,
+            cy - outer_radius,
+            2.0 * outer_radius,
+            2.0 * outer_radius,
+        ),
+        Shape::Arrow { from, to, .. } => (
+            from[0].min(to[0]),
+            from[1].min(to[1]),
+            (from[0] - to[0]).abs(),
+            (from[1] - to[1]).abs(),
+        ),
         Shape::Path { points, .. } => {
             if points.is_empty() {
-                return (x_off, page_height - y_off, 0.0, 0.0);
+                return (0.0, 0.0, 0.0, 0.0);
             }
             let min_x = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
             let max_x = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
             let min_y = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
             let max_y = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
-            (
-                min_x + x_off,
-                page_height - max_y - y_off,
-                max_x - min_x,
-                max_y - min_y,
-            )
+            (min_x, min_y, max_x - min_x, max_y - min_y)
         }
-        Shape::Text { x, y, w, h, .. } => (x + x_off, page_height - y - h - y_off, *w, *h),
+        Shape::Text { x, y, w, h, .. } => (*x, *y, *w, *h),
     }
+}
+
+fn multiply_pdf_affine(lhs: [f64; 6], rhs: [f64; 6]) -> [f64; 6] {
+    [
+        lhs[0] * rhs[0] + lhs[2] * rhs[1],
+        lhs[1] * rhs[0] + lhs[3] * rhs[1],
+        lhs[0] * rhs[2] + lhs[2] * rhs[3],
+        lhs[1] * rhs[2] + lhs[3] * rhs[3],
+        lhs[0] * rhs[4] + lhs[2] * rhs[5] + lhs[4],
+        lhs[1] * rhs[4] + lhs[3] * rhs[5] + lhs[5],
+    ]
+}
+
+fn apply_pdf_affine(matrix: [f64; 6], x: f64, y: f64) -> (f64, f64) {
+    (
+        matrix[0] * x + matrix[2] * y + matrix[4],
+        matrix[1] * x + matrix[3] * y + matrix[5],
+    )
+}
+
+fn node_affine(node: &SceneNode) -> [f64; 6] {
+    node.transform.as_coeffs()
+}
+
+fn image_content_affine(
+    node: &SceneNode,
+    draw_x: f64,
+    draw_y: f64,
+    draw_w: f64,
+    draw_h: f64,
+    rotation: f64,
+    flip_h: bool,
+    flip_v: bool,
+) -> [f64; 6] {
+    let radians = rotation.to_radians();
+    let (sin, cos) = radians.sin_cos();
+    let sx = if flip_h { -1.0 } else { 1.0 };
+    let sy = if flip_v { -1.0 } else { 1.0 };
+    let linear = [cos * sx, sin * sx, -sin * sy, cos * sy, 0.0, 0.0];
+    let cx = draw_x + draw_w / 2.0;
+    let cy = draw_y + draw_h / 2.0;
+    let around_center = [
+        linear[0],
+        linear[1],
+        linear[2],
+        linear[3],
+        cx - linear[0] * cx - linear[2] * cy,
+        cy - linear[1] * cx - linear[3] * cy,
+    ];
+    multiply_pdf_affine(node_affine(node), around_center)
+}
+
+fn transformed_rect_clip(
+    matrix: [f64; 6],
+    page_height: f64,
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+) -> String {
+    let corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)];
+    let points = corners.map(|(px, py)| {
+        let (world_x, world_y) = apply_pdf_affine(matrix, px, py);
+        (world_x, page_height - world_y)
+    });
+    let first = points[0];
+    let mut result = format!("{:.4} {:.4} m\n", first.0, first.1);
+    for point in &points[1..] {
+        result.push_str(&format!("{:.4} {:.4} l\n", point.0, point.1));
+    }
+    result.push_str("h W n\n");
+    result
+}
+
+fn pdf_image_matrix(
+    matrix: [f64; 6],
+    page_height: f64,
+    draw_x: f64,
+    draw_y: f64,
+    draw_w: f64,
+    draw_h: f64,
+) -> [f64; 6] {
+    // Image XObjects occupy a unit square whose sample rows run top-to-bottom.
+    // Map that square into y-down node-local coordinates, then through the
+    // complete local→world affine and finally into PDF's y-up page space.
+    let (origin_x, origin_y) = apply_pdf_affine(matrix, draw_x, draw_y + draw_h);
+    [
+        matrix[0] * draw_w,
+        -matrix[1] * draw_w,
+        -matrix[2] * draw_h,
+        matrix[3] * draw_h,
+        origin_x,
+        page_height - origin_y,
+    ]
+}
+
+fn shape_pdf_bounds(node: &SceneNode, page_height: f64) -> (f64, f64, f64, f64) {
+    let (x, y, w, h) = shape_local_bounds(node);
+    let matrix = node_affine(node);
+    let corners = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)];
+    let points = corners.map(|(px, py)| {
+        let (world_x, world_y) = apply_pdf_affine(matrix, px, py);
+        (world_x, page_height - world_y)
+    });
+    let min_x = points.iter().map(|p| p.0).fold(f64::INFINITY, f64::min);
+    let max_x = points.iter().map(|p| p.0).fold(f64::NEG_INFINITY, f64::max);
+    let min_y = points.iter().map(|p| p.1).fold(f64::INFINITY, f64::min);
+    let max_y = points.iter().map(|p| p.1).fold(f64::NEG_INFINITY, f64::max);
+    (min_x, min_y, max_x - min_x, max_y - min_y)
 }
 
 /// Render stacked fills from `node.fills` (bottom-to-top, last = topmost).
@@ -874,8 +962,25 @@ fn render_fills(
                             Some(state) => {
                                 buf.extend_from_slice(b"q\n");
 
-                                // Non-rectangular shapes: clip to the shape path first
-                                if !matches!(node.shape, Shape::Rect(_)) {
+                                // Every image fill is clipped to its object.
+                                // Rectangles use the complete object affine;
+                                // complex shapes retain their existing path
+                                // representation until the shared path writer
+                                // is migrated to local-space geometry.
+                                if matches!(node.shape, Shape::Rect(_)) {
+                                    let (x, y, w, h) = shape_local_bounds(node);
+                                    buf.extend_from_slice(
+                                        transformed_rect_clip(
+                                            node_affine(node),
+                                            page_height,
+                                            x,
+                                            y,
+                                            w,
+                                            h,
+                                        )
+                                        .as_bytes(),
+                                    );
+                                } else {
                                     buf.extend(&path_ops);
                                     buf.extend_from_slice(b"W n\n");
                                 }
@@ -913,21 +1018,29 @@ fn render_fills(
                                             }
                                         };
 
-                                        // Compute effective source dimensions respecting crop rect
-                                        let (src_x, src_y, src_w, src_h) = if let Some(c) = crop {
-                                            (c.x, c.y, c.w, c.h)
-                                        } else {
-                                            (0.0, 0.0, img.width as f64, img.height as f64)
-                                        };
                                         let img_w = img.width as f64;
                                         let img_h = img.height as f64;
-
-                                        // When cropped, clip the page context to the desired
-                                        // destination region then map source pixels into it.
-                                        let has_crop = src_x > 0.0
-                                            || src_y > 0.0
-                                            || src_w < img_w
-                                            || src_h < img_h;
+                                        let normalized_crop = crop.as_ref().and_then(|c| {
+                                            if !c.x.is_finite()
+                                                || !c.y.is_finite()
+                                                || !c.w.is_finite()
+                                                || !c.h.is_finite()
+                                                || c.w <= 0.0
+                                                || c.h <= 0.0
+                                            {
+                                                return None;
+                                            }
+                                            let x = c.x.clamp(0.0, img_w);
+                                            let y = c.y.clamp(0.0, img_h);
+                                            let right = (c.x + c.w).clamp(x, img_w);
+                                            let bottom = (c.y + c.h).clamp(y, img_h);
+                                            (right > x && bottom > y).then_some((
+                                                x,
+                                                y,
+                                                right - x,
+                                                bottom - y,
+                                            ))
+                                        });
 
                                         match embed_image_with_colorspace(
                                             state.doc,
@@ -943,89 +1056,56 @@ fn render_fills(
                                                 state.counter += 1;
                                                 state.refs.push((name.clone(), obj_ref));
 
-                                                let (bx, by, bw, bh) =
-                                                    shape_pdf_bounds(node, page_height);
+                                                let (bounds_x, bounds_y, bw, bh) =
+                                                    shape_local_bounds(node);
 
-                                                // Apply fill offset
-                                                let tx = bx + fill_x;
-                                                let ty = by + fill_y;
-
-                                                // Compute placement based on fit mode and source dimensions
+                                                // Compute the full-source placement. A crop
+                                                // remains a sample within this destination; it
+                                                // never changes fit aspect or stretches itself
+                                                // back over the object bounds.
                                                 let (draw_w, draw_h, draw_ox, draw_oy) =
                                                     compute_pdf_image_placement(
                                                         fill_fit,
-                                                        src_w,
-                                                        src_h,
+                                                        img_w,
+                                                        img_h,
                                                         bw,
                                                         bh,
                                                         *fill_scale,
                                                     );
+                                                let draw_x = bounds_x + fill_x + draw_ox;
+                                                let draw_y = bounds_y + fill_y + draw_oy;
 
-                                                // Clip to the shape bounds when cropped
-                                                if has_crop {
-                                                    buf.extend(
-                                                        format!("1 0 0 1 {tx:.4} {ty:.4} cm\n")
-                                                            .as_bytes(),
-                                                    );
-                                                    buf.extend(
-                                                        format!("0 0 {bw:.4} {bh:.4} re W n\n")
-                                                            .as_bytes(),
-                                                    );
-                                                }
-
-                                                // Apply flips via PDF transform (around draw rect center)
                                                 let flip_h_val = *flip_h == Some(true);
                                                 let flip_v_val = *flip_v == Some(true);
-                                                let flip_sx = if flip_h_val { -1.0 } else { 1.0 };
-                                                let flip_sy = if flip_v_val { -1.0 } else { 1.0 };
-                                                if flip_sx < 0.0 || flip_sy < 0.0 {
-                                                    let cx = tx + draw_w / 2.0;
-                                                    let cy = ty + draw_h / 2.0;
-                                                    buf.extend(
-                                                        format!(
-                                                            "1 0 0 1 {cx:.4} {cy:.4} cm\n{flip_sx:.4} 0 0 {flip_sy:.4} 0 0 cm\n1 0 0 1 {ncx:.4} {ncy:.4} cm\n",
-                                                            ncx = -cx,
-                                                            ncy = -cy,
-                                                        )
-                                                            .as_bytes(),
-                                                    );
-                                                }
-
-                                                // Apply rotation (around draw rect center)
                                                 let rot = fill_rotation.unwrap_or(0.0);
-                                                if rot.abs() > 0.01 {
-                                                    let rad = rot.to_radians();
-                                                    let (cos, sin) = (rad.cos(), rad.sin());
-                                                    let cx = tx + draw_w / 2.0;
-                                                    let cy = ty + draw_h / 2.0;
-                                                    buf.extend(
-                                                        format!(
-                                                            "1 0 0 1 {cx:.4} {cy:.4} cm\n{cos:.4} {sin:.4} {nsin:.4} {cos:.4} 0 0 cm\n1 0 0 1 {ncx:.4} {ncy:.4} cm\n",
-                                                            nsin = -sin,
-                                                            ncx = -cx,
-                                                            ncy = -cy,
+                                                let content_matrix = image_content_affine(
+                                                    node, draw_x, draw_y, draw_w, draw_h, rot,
+                                                    flip_h_val, flip_v_val,
+                                                );
+
+                                                // Crop clipping uses the same transformed
+                                                // proportional destination as the full image
+                                                // and its embedded SMask.
+                                                if let Some((src_x, src_y, src_w, src_h)) =
+                                                    normalized_crop
+                                                {
+                                                    let sample_x = draw_x + src_x / img_w * draw_w;
+                                                    let sample_y = draw_y + src_y / img_h * draw_h;
+                                                    let sample_w = src_w / img_w * draw_w;
+                                                    let sample_h = src_h / img_h * draw_h;
+                                                    buf.extend_from_slice(
+                                                        transformed_rect_clip(
+                                                            content_matrix,
+                                                            page_height,
+                                                            sample_x,
+                                                            sample_y,
+                                                            sample_w,
+                                                            sample_h,
                                                         )
-                                                            .as_bytes(),
+                                                        .as_bytes(),
                                                     );
                                                 }
 
-                                                // Map the source rect to the draw rect
-                                                // If cropped: image[sx:sy:sw:sh] → drawRect
-                                                // If not cropped: full image → drawRect
-                                                let scale_x =
-                                                    draw_w / (if has_crop { src_w } else { img_w });
-                                                let scale_y =
-                                                    draw_h / (if has_crop { src_h } else { img_h });
-                                                let img_ox = if has_crop {
-                                                    tx + draw_ox - src_x * scale_x
-                                                } else {
-                                                    tx + draw_ox
-                                                };
-                                                let img_oy = if has_crop {
-                                                    ty + draw_oy - src_y * scale_y
-                                                } else {
-                                                    ty + draw_oy
-                                                };
                                                 // Apply per-fill opacity via ExtGState
                                                 if *opacity < 1.0 {
                                                     let gs_name =
@@ -1034,9 +1114,23 @@ fn render_fills(
                                                         format!("/{gs_name} gs\n").as_bytes(),
                                                     );
                                                 }
+                                                let image_matrix = pdf_image_matrix(
+                                                    content_matrix,
+                                                    page_height,
+                                                    draw_x,
+                                                    draw_y,
+                                                    draw_w,
+                                                    draw_h,
+                                                );
                                                 buf.extend(
                                                     format!(
-                                                        "{scale_x:.4} 0 0 {scale_y:.4} {img_ox:.4} {img_oy:.4} cm\n"
+                                                        "{:.4} {:.4} {:.4} {:.4} {:.4} {:.4} cm\n",
+                                                        image_matrix[0],
+                                                        image_matrix[1],
+                                                        image_matrix[2],
+                                                        image_matrix[3],
+                                                        image_matrix[4],
+                                                        image_matrix[5],
                                                     )
                                                     .as_bytes(),
                                                 );
@@ -3386,6 +3480,30 @@ mod tests {
 
     // ── render_fills image fill tests ──────────────────────────────────
 
+    #[test]
+    fn pdf_image_placement_matches_canvas_fit_policies() {
+        assert_eq!(
+            compute_pdf_image_placement("fill", 200.0, 100.0, 100.0, 100.0, 1.0),
+            (200.0, 100.0, -50.0, 0.0),
+            "fill is cover"
+        );
+        assert_eq!(
+            compute_pdf_image_placement("fit", 200.0, 100.0, 100.0, 100.0, 2.0),
+            (200.0, 100.0, -50.0, 0.0),
+            "fit policy result is multiplied by user scale"
+        );
+        assert_eq!(
+            compute_pdf_image_placement("crop", 200.0, 100.0, 100.0, 100.0, 0.5),
+            (100.0, 50.0, 0.0, 0.0),
+            "crop is natural size times scale at the bounds origin"
+        );
+        assert_eq!(
+            compute_pdf_image_placement("stretch", 200.0, 100.0, 80.0, 60.0, 3.0),
+            (80.0, 60.0, 0.0, 0.0),
+            "stretch intentionally ignores uniform content scale"
+        );
+    }
+
     fn image_fill_node(id: u64, x: f64, y: f64, w: f64, h: f64) -> SceneNode {
         let mut node = rect_node(id, x, y, w, h);
         node.fills = Some(vec![FillIR::Image {
@@ -3406,6 +3524,21 @@ mod tests {
             flip_v: None,
         }]);
         node
+    }
+
+    fn image_manifest(src: &str, width: u32, height: u32) -> resources::ExportManifest {
+        resources::ExportManifest {
+            images: vec![resources::ImageResource {
+                id: "image".into(),
+                src: Some(src.into()),
+                mime_type: "image/png".into(),
+                width,
+                height,
+                data: vec![180; (width * height * 4) as usize],
+                color_space: resources::ColorSpace::Rgb,
+            }],
+            patterns: Vec::new(),
+        }
     }
 
     #[test]
@@ -3435,6 +3568,128 @@ mod tests {
         // Check that the image XObject was embedded
         assert_eq!(state.refs.len(), 1, "should have 1 image reference");
         assert_eq!(state.counter, 1, "counter should be 1");
+    }
+
+    #[test]
+    fn render_fills_image_crop_transform_uses_full_source_geometry() {
+        let mut node = image_fill_node(1, 0.0, 0.0, 100.0, 100.0);
+        node.fills = Some(vec![FillIR::Image {
+            src: "image-src".into(),
+            fit: "fill".into(),
+            x: 10.0,
+            y: -5.0,
+            scale: 1.25,
+            image_width: Some(200.0),
+            image_height: Some(100.0),
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+            crop: Some(strata_core::scene::CropRect {
+                x: 50.0,
+                y: 25.0,
+                w: 100.0,
+                h: 50.0,
+            }),
+            rotation: Some(90.0),
+            flip_h: Some(true),
+            flip_v: None,
+        }]);
+        let manifest = image_manifest("image-src", 200, 100);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(
+            &node,
+            200.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
+        let content = String::from_utf8_lossy(&result);
+
+        assert!(
+            content.contains("0.0000 250.0000 125.0000 0.0000 -2.5000 30.0000 cm"),
+            "image matrix must include fill offset, post-policy scale, rotation, and flip around the full draw rect: {content}"
+        );
+        assert_eq!(
+            content.matches("h W n").count(),
+            2,
+            "object clip and proportional transformed source-crop clip must both be present: {content}"
+        );
+        assert!(
+            !content.contains("250.0000 0 0 125.0000"),
+            "crop must not be stretched/refit as a standalone image: {content}"
+        );
+
+        let image_ref = match &state.refs[0].1 {
+            Object::Reference(object_id) => *object_id,
+            other => panic!("expected image reference, got {other:?}"),
+        };
+        let image = state.doc.get_object(image_ref).expect("embedded image");
+        let Object::Stream(stream) = image else {
+            panic!("image XObject should be a stream");
+        };
+        assert!(
+            stream.dict.get(b"SMask").is_ok(),
+            "RGBA alpha must remain attached to the same transformed full-source XObject"
+        );
+    }
+
+    #[test]
+    fn render_fills_image_uses_complete_object_affine() {
+        let mut node = image_fill_node(1, 0.0, 0.0, 100.0, 80.0);
+        node.transform = Affine::new([2.0, 0.5, 0.25, 1.5, 30.0, 40.0]);
+        node.fills = Some(vec![FillIR::Image {
+            src: "affine-src".into(),
+            fit: "stretch".into(),
+            x: 0.0,
+            y: 0.0,
+            scale: 1.0,
+            image_width: Some(100.0),
+            image_height: Some(80.0),
+            opacity: 1.0,
+            blend_mode: BlendMode::Normal,
+            visible: true,
+            alpha_mask: None,
+            crop: None,
+            rotation: None,
+            flip_h: None,
+            flip_v: None,
+        }]);
+        let manifest = image_manifest("affine-src", 100, 80);
+        let mut doc = Document::new();
+        let mut state = ImageRenderState::new(&mut doc);
+        let result = render_fills(
+            &node,
+            200.0,
+            false,
+            Some(&mut state),
+            Some(&manifest),
+            None,
+            None,
+            false,
+        );
+        let content = String::from_utf8_lossy(&result);
+
+        assert!(
+            content.contains("200.0000 -50.0000 -20.0000 120.0000 50.0000 40.0000 cm"),
+            "image XObject matrix must retain object scale and skew: {content}"
+        );
+        assert!(
+            content.contains("30.0000 160.0000 m")
+                && content.contains("230.0000 110.0000 l")
+                && content.contains("250.0000 -10.0000 l")
+                && content.contains("50.0000 40.0000 l"),
+            "object clip must use all four transformed bounds corners: {content}"
+        );
+        assert_eq!(
+            shape_pdf_bounds(&node, 200.0),
+            (30.0, -10.0, 220.0, 170.0),
+            "transformed export bounds must include the full affine"
+        );
     }
 
     #[test]
