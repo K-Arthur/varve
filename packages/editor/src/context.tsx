@@ -1,6 +1,8 @@
-// COMPLEXITY: 847 — EditorProvider is the central state hub; sub-contexts
-// (MotionProvider, PrototypeProvider, ViewportProvider) are the planned
-// extraction path per ADR-0006. Each provider removed reduces ~50-80 paths.
+// COMPLEXITY: 814 (ceiling 847) — EditorProvider is the central state hub;
+// sub-contexts (MotionProvider, PrototypeProvider, ViewportProvider) are the
+// planned extraction path. Dialog state (useDialogState) and interaction state
+// (useInteractionState) already extracted. Next: extract tool state into
+// useToolState (blocked: tightly coupled to createShapeAt).
 /**
  * Editor state context — shared across all shell surfaces.
  *
