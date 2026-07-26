@@ -946,4 +946,10 @@ export type FillIR =
       visible: boolean;
     };
 
+export interface Engine {
+  readonly backend: Backend;
+  buildIr(scene: Scene): Promise<RenderItem[]>;
+  hitTest(scene: Scene, world: Point): Promise<number | null>;
+}
+
 export type Backend = 'native' | 'wasm' | 'stub';
