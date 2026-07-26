@@ -13,7 +13,7 @@
 import type { MeasureTextFn } from '@strata/shared';
 import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
 import { hitTest } from './geometry';
-import type { Backend, EngineFill, FillIR, Point, RenderItem, Scene, SceneNode } from './types';
+import type { Backend, Engine, EngineFill, FillIR, RenderItem, SceneNode } from './types';
 
 /**
  * Derive a rect primitive from paint fills for shapeless nodes.
@@ -36,14 +36,7 @@ function derivePrimitiveFromPaints(node: SceneNode): import('./types').Primitive
   return { kind: 'rect', x: 0, y: 0, w: 100, h: 100 };
 }
 
-export interface Engine {
-  readonly backend: Backend;
-  /** Build the render IR for a scene (crosses the IPC boundary on native/wasm). */
-  buildIr(scene: Scene): Promise<RenderItem[]>;
-  /** Hit-test a world-space point; returns the topmost node index or null.
-   * Done locally (no round-trip) — the webview owns picking. */
-  hitTest(scene: Scene, world: Point): Promise<number | null>;
-}
+export type { Engine };
 
 /** Resolve the path shape for a text node in path text mode. */
 function resolvePathShape(
