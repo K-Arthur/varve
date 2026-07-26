@@ -155,12 +155,12 @@ export interface Document {
   // ── Typography: Linked text frames (v1.7) ───────────────────────────────────
 
   /** Text flow chains for linked text frames. */
-  textChains?: Record<string, import('./typography').TextChain>;
+  textChains?: Record<string, unknown>;
 
   // ── Brush presets (v1.10+) ──────────────────────────────────────────────────
 
   /** Brush presets keyed by preset id (v1.10+). */
-  brushPresets?: Record<string, import('./brush').BrushPreset>;
+  brushPresets?: Record<string, unknown>;
 
   // ── Master pages (v2.0+) ────────────────────────────────────────────────────
 
@@ -2201,82 +2201,6 @@ function devValidate(doc: Document): void {
       console.warn('[Strata] Document validation failed:', result.errors);
     }
   }
-}
-
-// ── Text chain operations ────────────────────────────────────────────────────
-
-/**
- * Create a new text chain for linked text frames.
- */
-export function createTextChain(
-  doc: Document,
-  name: string,
-  frameIds: NodeId[],
-  richText?: import('./typography').RichText,
-): { chain: import('./typography').TextChain; doc: Document } {
-  const chainId = `chain-${doc.nextId}`;
-  const chain: import('./typography').TextChain = {
-    id: chainId,
-    name,
-    frameIds,
-    richText,
-  };
-  return {
-    chain,
-    doc: {
-      ...doc,
-      nextId: doc.nextId + 1,
-      textChains: { ...doc.textChains, [chainId]: chain },
-    },
-  };
-}
-
-/**
- * Delete a text chain and its references.
- */
-export function deleteTextChain(doc: Document, chainId: string): Document {
-  if (!doc.textChains?.[chainId]) return doc;
-  const { [chainId]: _, ...remaining } = doc.textChains;
-  return { ...doc, textChains: remaining };
-}
-
-/**
- * Append a frame to an existing text chain.
- */
-export function appendFrameToChain(doc: Document, chainId: string, frameId: NodeId): Document {
-  const existing = doc.textChains?.[chainId];
-  if (!existing) return doc;
-  if (existing.frameIds.includes(frameId)) return doc;
-  return {
-    ...doc,
-    textChains: {
-      ...doc.textChains,
-      [chainId]: {
-        ...existing,
-        frameIds: [...existing.frameIds, frameId],
-      },
-    },
-  };
-}
-
-/**
- * Remove a frame from a text chain.
- */
-export function removeFrameFromChain(doc: Document, chainId: string, frameId: NodeId): Document {
-  const existing = doc.textChains?.[chainId];
-  if (!existing) return doc;
-  const newFrameIds = existing.frameIds.filter((id) => id !== frameId);
-  if (newFrameIds.length === existing.frameIds.length) return doc;
-  return {
-    ...doc,
-    textChains: {
-      ...doc.textChains,
-      [chainId]: {
-        ...existing,
-        frameIds: newFrameIds,
-      },
-    },
-  };
 }
 
 /** Get all nodes visible on the active page (page content + global children). */

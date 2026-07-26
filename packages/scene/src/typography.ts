@@ -97,6 +97,69 @@ export interface OversetInfo {
   isLastFrame: boolean;
 }
 
+export function createTextChain(
+  doc: Document,
+  name: string,
+  frameIds: NodeId[],
+  richText?: RichText,
+): { chain: TextChain; doc: Document } {
+  const chainId = `chain-${doc.nextId}`;
+  const chain: TextChain = {
+    id: chainId,
+    name,
+    frameIds,
+    richText,
+  };
+  return {
+    chain,
+    doc: {
+      ...doc,
+      nextId: doc.nextId + 1,
+      textChains: { ...doc.textChains, [chainId]: chain },
+    },
+  };
+}
+
+export function deleteTextChain(doc: Document, chainId: string): Document {
+  const chains = doc.textChains;
+  if (!chains || !(chains[chainId] as TextChain | undefined)) return doc;
+  const { [chainId]: _, ...remaining } = chains;
+  return { ...doc, textChains: remaining };
+}
+
+export function appendFrameToChain(doc: Document, chainId: string, frameId: NodeId): Document {
+  const existing = doc.textChains?.[chainId] as TextChain | undefined;
+  if (!existing) return doc;
+  if (existing.frameIds.includes(frameId)) return doc;
+  return {
+    ...doc,
+    textChains: {
+      ...doc.textChains,
+      [chainId]: {
+        ...existing,
+        frameIds: [...existing.frameIds, frameId],
+      },
+    },
+  };
+}
+
+export function removeFrameFromChain(doc: Document, chainId: string, frameId: NodeId): Document {
+  const existing = doc.textChains?.[chainId] as TextChain | undefined;
+  if (!existing) return doc;
+  const newFrameIds = existing.frameIds.filter((id) => id !== frameId);
+  if (newFrameIds.length === existing.frameIds.length) return doc;
+  return {
+    ...doc,
+    textChains: {
+      ...doc.textChains,
+      [chainId]: {
+        ...existing,
+        frameIds: newFrameIds,
+      },
+    },
+  };
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 export function plainTextToRichText(text: string): RichText {
