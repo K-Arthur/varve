@@ -1,3 +1,4 @@
+mod menu;
 mod print;
 mod renderer;
 
@@ -18,20 +19,41 @@ use strata_bridge::{convert_engine_nodes, IpcSceneNode};
 
 use crate::renderer::{generate_ir, generate_pixels, ShapeIr};
 
+/// Ceiling on the number of scene nodes accepted from the frontend in a
+/// single IPC call. Without this, a `Vec<IpcSceneNode>` of unbounded size
+/// flows straight into IR generation, hit-testing, and PDF export. This is
+/// a floor against the worst-case "attacker/bug-controlled size" version of
+/// that, not a considered product maximum for how large a real document's
+/// flattened node list may legitimately get — see
+/// docs/quality/tauri-command-audit.md §5.
+const MAX_SCENE_NODES: usize = 50_000;
+
+fn check_scene_node_bounds(nodes: &[IpcSceneNode]) -> Result<(), String> {
+    if nodes.len() > MAX_SCENE_NODES {
+        return Err(format!(
+            "Scene has {} nodes; the limit is {MAX_SCENE_NODES}",
+            nodes.len()
+        ));
+    }
+    Ok(())
+}
+
 fn convert_scene(nodes: Vec<IpcSceneNode>) -> Vec<strata_core::SceneNode> {
     convert_engine_nodes(nodes)
 }
 
 #[tauri::command]
-fn build_render_ir(nodes: Vec<IpcSceneNode>) -> Vec<strata_engine::RenderItem> {
+fn build_render_ir(nodes: Vec<IpcSceneNode>) -> Result<Vec<strata_engine::RenderItem>, String> {
+    check_scene_node_bounds(&nodes)?;
     let scene = convert_scene(nodes);
-    strata_engine::build_render_ir(&scene)
+    Ok(strata_engine::build_render_ir(&scene))
 }
 
 #[tauri::command]
-fn hit_test(nodes: Vec<IpcSceneNode>, x: f64, y: f64) -> Option<usize> {
+fn hit_test(nodes: Vec<IpcSceneNode>, x: f64, y: f64) -> Result<Option<usize>, String> {
+    check_scene_node_bounds(&nodes)?;
     let scene = convert_scene(nodes);
-    strata_core::hit_test(&scene, Point::new(x, y))
+    Ok(strata_core::hit_test(&scene, Point::new(x, y)))
 }
 
 #[derive(Debug, Serialize)]
@@ -53,10 +75,25 @@ fn render_frame_ir(width: u32, height: u32, frame: u32) -> SceneIr {
     }
 }
 
+/// Ceiling on the pixel count `render_frame_pixels` will allocate for.
+/// Matches the order of magnitude `MAX_UPSCALE_OUTPUT_PIXELS` already uses
+/// for the same reason: a caller-supplied `width * height` with no bound
+/// is a one-call OOM/DoS (100,000 x 100,000 requests a buffer sized for
+/// ~40 GB, and the naive `u32` multiplication that used to compute this
+/// buffer's capacity can also wrap in a release build before the bound
+/// check would even run).
+const MAX_RENDER_FRAME_PIXELS: u64 = 64 * 1024 * 1024;
+
 #[tauri::command]
-fn render_frame_pixels(width: u32, height: u32, frame: u32) -> Response {
+fn render_frame_pixels(width: u32, height: u32, frame: u32) -> Result<Response, String> {
+    let pixel_count = u64::from(width) * u64::from(height);
+    if pixel_count > MAX_RENDER_FRAME_PIXELS {
+        return Err(format!(
+            "Requested {width}x{height} ({pixel_count} pixels); the limit is {MAX_RENDER_FRAME_PIXELS} pixels"
+        ));
+    }
     let bytes = generate_pixels(width, height, frame);
-    Response::new(bytes)
+    Ok(Response::new(bytes))
 }
 
 #[derive(Debug, Deserialize)]
@@ -78,6 +115,97 @@ fn report(report: Report) {
 fn done(app: tauri::AppHandle) {
     println!("[spike] all modes measured, exiting.");
     app.exit(0);
+}
+
+/// Resolve the user's home directory without pulling in a new dependency
+/// for it. `dirs`-crate-equivalent behavior for the two platforms this app
+/// ships on.
+fn user_home_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from)
+}
+
+/// Canonicalize an untrusted, frontend-supplied path and verify it resolves
+/// under an allowed scope (the user's home directory or the OS temp
+/// directory) before any read/write happens.
+///
+/// This exists because Tauri's fs-plugin capability scope
+/// (`capabilities/default.json`'s `fs:allow-read`/`fs:allow-write`) only
+/// governs the `@tauri-apps/plugin-fs` JS API — it does NOT apply to custom
+/// `#[tauri::command]` functions that call `std::fs` directly, which is
+/// what every file-touching command in this file does. Without this check,
+/// any JS running in the webview — not only code that went through a native
+/// open/save dialog — could invoke a command like `write_binary_file` with
+/// an arbitrary path (e.g. `~/.ssh/authorized_keys`) and overwrite it
+/// directly. Handles both directions of the symlink/traversal problem:
+/// - If the path already exists, canonicalizing it directly resolves any
+///   symlink in the chain.
+/// - If it doesn't exist yet (a "Save As" to a new file, possibly in a new
+///   subfolder), walks up to the nearest existing ancestor, canonicalizes
+///   *that* (so a symlinked parent still can't escape scope), and rejects
+///   `..`/`.` components in the not-yet-existing suffix rather than
+///   naively re-joining them (which would otherwise let
+///   `existing_dir/../../etc/passwd` slip through as an "existing ancestor"
+///   plus a traversal suffix).
+fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
+    if raw.is_empty() {
+        return Err("Path must not be empty".into());
+    }
+    if raw.contains('\0') {
+        return Err("Path must not contain NUL bytes".into());
+    }
+    let path = std::path::Path::new(raw);
+
+    let canonical = if path.exists() {
+        std::fs::canonicalize(path).map_err(|e| format!("Failed to resolve path: {e}"))?
+    } else {
+        let mut ancestor = path;
+        let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
+        loop {
+            if suffix
+                .last()
+                .is_some_and(|c| *c == "." || *c == "..")
+            {
+                return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
+            }
+            if ancestor.exists() {
+                break;
+            }
+            let Some(name) = ancestor.file_name() else {
+                return Err("Path does not resolve to any existing ancestor directory".into());
+            };
+            suffix.push(name);
+            let Some(parent) = ancestor.parent() else {
+                return Err("Path does not resolve to any existing ancestor directory".into());
+            };
+            ancestor = parent;
+        }
+        let mut resolved = std::fs::canonicalize(ancestor)
+            .map_err(|e| format!("Failed to resolve existing ancestor {}: {e}", ancestor.display()))?;
+        for component in suffix.into_iter().rev() {
+            resolved.push(component);
+        }
+        resolved
+    };
+
+    let allowed_roots: Vec<std::path::PathBuf> = [user_home_dir(), Some(std::env::temp_dir())]
+        .into_iter()
+        .flatten()
+        .filter_map(|p| std::fs::canonicalize(&p).ok())
+        .collect();
+
+    if allowed_roots.is_empty() {
+        return Err("Unable to determine an allowed path scope on this system".into());
+    }
+    if allowed_roots.iter().any(|root| canonical.starts_with(root)) {
+        Ok(canonical)
+    } else {
+        Err(format!(
+            "Path '{}' is outside the allowed scope (must be under the user's home or temp directory)",
+            canonical.display()
+        ))
+    }
 }
 
 /// Write bytes to `path` atomically: write to a temporary sibling file,
@@ -113,7 +241,8 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
 
 #[tauri::command]
 fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
-    write_file_atomic(std::path::Path::new(&path), &data)
+    let resolved = resolve_user_path(&path)?;
+    write_file_atomic(&resolved, &data)
 }
 
 // ── Native clipboard ────────────────────────────────────────────────────
@@ -137,7 +266,8 @@ fn write_binary_file(path: String, data: Vec<u8>) -> Result<(), String> {
 
 #[tauri::command]
 fn read_dropped_file(path: String) -> Result<Vec<u8>, String> {
-    std::fs::read(&path).map_err(|e| e.to_string())
+    let resolved = resolve_user_path(&path)?;
+    std::fs::read(&resolved).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -1135,6 +1265,7 @@ fn export_node_pdf(
     opts: Option<ExportPdfOptions>,
     manifest_json: Option<String>,
 ) -> Result<Vec<u8>, String> {
+    check_scene_node_bounds(&nodes)?;
     let scene = convert_scene(nodes);
     let pdf_opts = opts.unwrap_or_default();
     let mut print_opts = strata_print::PdfOptions {
@@ -1213,6 +1344,7 @@ impl PdfXOptions {
 fn parse_nodes_from_json(nodes_json: &str) -> Result<Vec<strata_core::SceneNode>, String> {
     let nodes: Vec<IpcSceneNode> =
         serde_json::from_str(nodes_json).map_err(|e| format!("Nodes JSON parse error: {e}"))?;
+    check_scene_node_bounds(&nodes)?;
     Ok(convert_scene(nodes))
 }
 
@@ -1744,12 +1876,14 @@ fn home_reorder_file(
 
 #[tauri::command]
 fn home_read_text_file(path: String) -> Result<String, String> {
-    std::fs::read_to_string(&path).map_err(|e| e.to_string())
+    let resolved = resolve_user_path(&path)?;
+    std::fs::read_to_string(&resolved).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
 fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
-    write_file_atomic(std::path::Path::new(&path), contents.as_bytes())
+    let resolved = resolve_user_path(&path)?;
+    write_file_atomic(&resolved, contents.as_bytes())
 }
 
 fn uuid() -> String {
@@ -1910,6 +2044,14 @@ pub fn run() {
             app.manage(store);
             app.manage(UpscaleCancelState::new());
 
+            // Listen for native menu item clicks and forward to webview
+            app.on_menu_event(|app_handle, event| {
+                let id = event.id();
+                if !id.0.starts_with("__tauri_") {
+                    let _ = app_handle.emit("menu://action", serde_json::json!({ "action": id.0 }));
+                }
+            });
+
             // Start file-system watcher for home directory
             let watch_handle = app.handle().clone();
             let watch_path = data_dir.clone();
@@ -1945,6 +2087,8 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            menu::build_native_menu,
+            menu::update_native_menu_state,
             build_render_ir,
             hit_test,
             sync_save,
@@ -2163,6 +2307,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -2186,6 +2331,7 @@ mod tests {
                 g: 0.0,
                 b: 0.0,
                 a: 255.0,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -2230,6 +2376,7 @@ mod tests {
                 g: 21.0,
                 b: 31.0,
                 a: 255.0,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -2285,6 +2432,7 @@ mod tests {
                 g: 208.0,
                 b: 198.0,
                 a: 255.0,
+                bit_depth: None,
                 profile: None
             }
         );
@@ -2864,5 +3012,165 @@ mod tests {
             err.contains("decode"),
             "should report a decode error: {err}"
         );
+    }
+
+    // ── resolve_user_path ──────────────────────────────────────────────
+
+    #[test]
+    fn resolve_user_path_rejects_empty_path() {
+        assert!(resolve_user_path("").is_err());
+    }
+
+    #[test]
+    fn resolve_user_path_rejects_nul_byte() {
+        assert!(resolve_user_path("/tmp/foo\0bar").is_err());
+    }
+
+    #[test]
+    fn resolve_user_path_accepts_existing_file_under_temp() {
+        let dir = std::env::temp_dir().join(format!("strata_path_test_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let file = dir.join("existing.txt");
+        std::fs::write(&file, b"hi").expect("write test file");
+
+        let resolved = resolve_user_path(file.to_str().expect("utf8 path"))
+            .expect("path under temp dir should resolve");
+        assert_eq!(
+            std::fs::canonicalize(&resolved).expect("canonicalize resolved"),
+            std::fs::canonicalize(&file).expect("canonicalize expected")
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_user_path_accepts_not_yet_existing_file_under_temp() {
+        let dir = std::env::temp_dir().join(format!("strata_path_test_new_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let target = dir.join("subdir").join("brand-new.txt");
+
+        let resolved = resolve_user_path(target.to_str().expect("utf8 path"))
+            .expect("not-yet-existing path under an existing temp ancestor should resolve");
+        assert!(resolved.ends_with("subdir/brand-new.txt") || resolved.ends_with("subdir\\brand-new.txt"));
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn resolve_user_path_rejects_traversal_outside_scope() {
+        // A path that resolves to a system file outside both the home and
+        // temp directories must be rejected regardless of the '..' trick
+        // used to construct it.
+        let err = resolve_user_path("/etc/passwd");
+        // /etc/passwd exists on Linux CI runners and dev machines; if it
+        // doesn't (e.g. some minimal containers), the "does not exist"
+        // path is exercised instead — both are acceptable rejections here,
+        // the point is that it must never resolve successfully.
+        assert!(err.is_err(), "/etc/passwd must never resolve as an allowed path");
+    }
+
+    #[test]
+    fn resolve_user_path_rejects_dotdot_in_not_yet_existing_suffix() {
+        let dir = std::env::temp_dir().join(format!("strata_path_test_dotdot_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let escaping = dir.join("..").join("..").join("etc").join("passwd");
+
+        let result = resolve_user_path(escaping.to_str().expect("utf8 path"));
+        assert!(
+            result.is_err(),
+            "'..' segments in a not-yet-existing suffix must be rejected, not silently joined"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn resolve_user_path_rejects_symlink_escape() {
+        let dir = std::env::temp_dir().join(format!("strata_path_test_symlink_{}", uuid()));
+        std::fs::create_dir_all(&dir).expect("create test dir");
+        let link = dir.join("escape");
+        // Point a symlink at a real out-of-scope directory (a fresh temp
+        // dir it also happens to be under /tmp is fine here — the actual
+        // security-relevant case is the home/temp scope check itself,
+        // already covered above; this test specifically proves symlinks
+        // are resolved rather than trusted at face value).
+        std::os::unix::fs::symlink("/etc", &link).expect("create symlink");
+        let target = link.join("passwd");
+
+        let result = resolve_user_path(target.to_str().expect("utf8 path"));
+        assert!(
+            result.is_err(),
+            "a symlink pointing outside the allowed scope must not be trusted at face value"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ── allocation bounds ────────────────────────────────────────────
+
+    #[test]
+    fn render_frame_pixels_rejects_oversized_request() {
+        // `Response` isn't `Debug`, so match instead of `.unwrap_err()`.
+        match render_frame_pixels(100_000, 100_000, 0) {
+            Err(err) => assert!(
+                err.contains("limit"),
+                "expected a clear limit-exceeded error, got: {err}"
+            ),
+            Ok(_) => panic!("expected an oversized-request error"),
+        }
+    }
+
+    #[test]
+    fn render_frame_pixels_accepts_reasonable_request() {
+        assert!(render_frame_pixels(64, 48, 0).is_ok());
+    }
+
+    fn oversized_node_list() -> Vec<IpcSceneNode> {
+        let one = serde_json::json!({
+            "id": "n",
+            "name": "N",
+            "transform": [1, 0, 0, 1, 0, 0],
+            "shape": { "kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1 },
+            "fill": [0, 0, 0, 255]
+        });
+        let many = serde_json::Value::Array(vec![one; MAX_SCENE_NODES + 1]);
+        serde_json::from_value(many).expect("deserialize oversized node list")
+    }
+
+    #[test]
+    fn build_render_ir_command_rejects_oversized_scene() {
+        let err = build_render_ir(oversized_node_list()).unwrap_err();
+        assert!(err.contains("limit"), "expected a limit error, got: {err}");
+    }
+
+    #[test]
+    fn hit_test_command_rejects_oversized_scene() {
+        let err = hit_test(oversized_node_list(), 0.0, 0.0).unwrap_err();
+        assert!(err.contains("limit"), "expected a limit error, got: {err}");
+    }
+
+    #[test]
+    fn export_node_pdf_rejects_oversized_scene() {
+        let err = export_node_pdf(oversized_node_list(), None, None).unwrap_err();
+        assert!(err.contains("limit"), "expected a limit error, got: {err}");
+    }
+
+    #[test]
+    fn parse_nodes_from_json_rejects_oversized_scene() {
+        let nodes_json = serde_json::to_string(&oversized_node_list_json()).expect("serialize");
+        let err = parse_nodes_from_json(&nodes_json).unwrap_err();
+        assert!(err.contains("limit"), "expected a limit error, got: {err}");
+    }
+
+    fn oversized_node_list_json() -> serde_json::Value {
+        let one = serde_json::json!({
+            "id": "n",
+            "name": "N",
+            "transform": [1, 0, 0, 1, 0, 0],
+            "shape": { "kind": "rect", "x": 0, "y": 0, "w": 1, "h": 1 },
+            "fill": [0, 0, 0, 255]
+        });
+        serde_json::Value::Array(vec![one; MAX_SCENE_NODES + 1])
     }
 }

@@ -56,6 +56,23 @@ impl DocumentStore {
         })
     }
 
+    /// Lock the shared connection, recovering from poisoning rather than
+    /// propagating it.
+    ///
+    /// A panic in unrelated calling code that happens to occur while this
+    /// lock is held (e.g. a type-conversion panic mapping a row) does not
+    /// leave the `rusqlite::Connection` itself in an unsound Rust-level
+    /// state — no method here does partial, uncommitted mutation of `conn`
+    /// across a panic boundary. Every accessor in this file used to call
+    /// `self.conn.lock().unwrap()` directly, which meant the *first* panic
+    /// anywhere poisoned the mutex and every subsequent save/load/list/etc.
+    /// call — for the remainder of the process — panicked too, permanently
+    /// losing persistence for an open editing session. Recovering the guard
+    /// here is the standard, safe idiom for that failure mode.
+    fn conn(&self) -> std::sync::MutexGuard<'_, Connection> {
+        self.conn.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
     fn migrate(conn: &mut Connection) -> Result<(), rusqlite::Error> {
         let version: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
         if version >= SCHEMA_VERSION {
@@ -147,7 +164,7 @@ impl DocumentStore {
 
     pub fn save_document(&self, id: &str, data: &str) -> Result<(), rusqlite::Error> {
         let now = chrono::Utc::now().to_rfc3339();
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO documents (id, data, updated_at)
              VALUES (?1, ?2, ?3)
@@ -166,7 +183,7 @@ impl DocumentStore {
         data: &str,
         file: &FileRow,
     ) -> Result<(), rusqlite::Error> {
-        let mut conn = self.conn.lock().unwrap();
+        let mut conn = self.conn();
         let transaction = conn.transaction()?;
         transaction.execute(
             "INSERT INTO documents (id, data, updated_at)
@@ -179,7 +196,7 @@ impl DocumentStore {
     }
 
     pub fn load_document(&self, id: &str) -> Result<Option<String>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT data FROM documents WHERE id = ?1")?;
         let mut rows = stmt.query(rusqlite::params![id])?;
         match rows.next()? {
@@ -189,7 +206,7 @@ impl DocumentStore {
     }
 
     pub fn list_documents(&self) -> Result<Vec<String>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT id FROM documents ORDER BY id")?;
         let ids = stmt
             .query_map([], |row| row.get(0))?
@@ -219,7 +236,7 @@ impl DocumentStore {
     }
 
     pub fn list_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at
              FROM files WHERE trashed_at IS NULL ORDER BY ordering ASC, updated_at DESC",
@@ -229,7 +246,7 @@ impl DocumentStore {
     }
 
     pub fn list_trashed_files(&self) -> Result<Vec<FileRow>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at
              FROM files WHERE trashed_at IS NOT NULL ORDER BY trashed_at DESC",
@@ -239,7 +256,7 @@ impl DocumentStore {
     }
 
     pub fn get_file(&self, id: &str) -> Result<Option<FileRow>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at
              FROM files WHERE id = ?1",
@@ -269,7 +286,7 @@ impl DocumentStore {
         content_hash: &str,
         favorited_at: Option<i64>,
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO files (id, name, kind, project_id, created_at, updated_at, opened_at, size, pinned, trashed_at, file_path, ordering, content_hash, favorited_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
@@ -335,7 +352,7 @@ impl DocumentStore {
     }
 
     pub fn touch_file(&self, id: &str, opened_at: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET opened_at = ?2 WHERE id = ?1",
             rusqlite::params![id, opened_at],
@@ -344,7 +361,7 @@ impl DocumentStore {
     }
 
     pub fn rename_file(&self, id: &str, name: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET name = ?2 WHERE id = ?1",
             rusqlite::params![id, name],
@@ -353,7 +370,7 @@ impl DocumentStore {
     }
 
     pub fn set_file_pinned(&self, id: &str, pinned: bool) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET pinned = ?2 WHERE id = ?1",
             rusqlite::params![id, pinned as i64],
@@ -366,7 +383,7 @@ impl DocumentStore {
         id: &str,
         favorited_at: Option<i64>,
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET favorited_at = ?2 WHERE id = ?1",
             rusqlite::params![id, favorited_at],
@@ -379,7 +396,7 @@ impl DocumentStore {
         id: &str,
         project_id: Option<&str>,
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET project_id = ?2 WHERE id = ?1",
             rusqlite::params![id, project_id],
@@ -388,7 +405,7 @@ impl DocumentStore {
     }
 
     pub fn trash_file(&self, id: &str, trashed_at: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET trashed_at = ?2 WHERE id = ?1",
             rusqlite::params![id, trashed_at],
@@ -397,7 +414,7 @@ impl DocumentStore {
     }
 
     pub fn restore_file(&self, id: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET trashed_at = NULL WHERE id = ?1",
             rusqlite::params![id],
@@ -406,7 +423,7 @@ impl DocumentStore {
     }
 
     pub fn purge_file(&self, id: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute("DELETE FROM documents WHERE id = ?1", rusqlite::params![id])?;
         conn.execute("DELETE FROM files WHERE id = ?1", rusqlite::params![id])?;
         Ok(())
@@ -416,7 +433,7 @@ impl DocumentStore {
         if query.trim().is_empty() {
             return Ok(Vec::new());
         }
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT f.id, f.name, f.kind, f.project_id, f.created_at, f.updated_at, f.opened_at, f.size, f.pinned, f.trashed_at, f.file_path, f.ordering, f.content_hash, f.favorited_at
              FROM files f
@@ -430,7 +447,7 @@ impl DocumentStore {
     }
 
     pub fn reorder_file(&self, id: &str, order: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET ordering = ?2 WHERE id = ?1",
             rusqlite::params![id, order],
@@ -453,7 +470,7 @@ impl DocumentStore {
     }
 
     pub fn list_projects(&self) -> Result<Vec<ProjectRow>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare(
             "SELECT id, name, color, created_at, updated_at, pinned, trashed_at
              FROM projects WHERE trashed_at IS NULL ORDER BY pinned DESC, name ASC",
@@ -469,7 +486,7 @@ impl DocumentStore {
         color: Option<&str>,
         now: &str,
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO projects (id, name, color, created_at, updated_at, pinned, trashed_at)
              VALUES (?1, ?2, ?3, ?4, ?5, 0, NULL)",
@@ -479,7 +496,7 @@ impl DocumentStore {
     }
 
     pub fn rename_project(&self, id: &str, name: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE projects SET name = ?2, updated_at = datetime('now') WHERE id = ?1",
             rusqlite::params![id, name],
@@ -488,7 +505,7 @@ impl DocumentStore {
     }
 
     pub fn delete_project(&self, id: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE files SET project_id = NULL WHERE project_id = ?1",
             rusqlite::params![id],
@@ -498,7 +515,7 @@ impl DocumentStore {
     }
 
     pub fn set_project_pinned(&self, id: &str, pinned: bool) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "UPDATE projects SET pinned = ?2 WHERE id = ?1",
             rusqlite::params![id, pinned as i64],
@@ -509,7 +526,7 @@ impl DocumentStore {
     // ── Thumbnails ────────────────────────────────────────────────────────
 
     pub fn get_thumbnail(&self, hash: &str) -> Result<Option<String>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT data_url FROM thumbnails WHERE hash = ?1")?;
         let mut rows = stmt.query(rusqlite::params![hash])?;
         match rows.next()? {
@@ -526,7 +543,7 @@ impl DocumentStore {
         height: i64,
         now: &str,
     ) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO thumbnails (hash, data_url, width, height, created_at)
              VALUES (?1, ?2, ?3, ?4, ?5)
@@ -537,7 +554,7 @@ impl DocumentStore {
     }
 
     pub fn delete_thumbnail(&self, hash: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "DELETE FROM thumbnails WHERE hash = ?1",
             rusqlite::params![hash],
@@ -546,7 +563,7 @@ impl DocumentStore {
     }
 
     pub fn evict_thumbnails(&self, keep_count: i64) -> Result<i64, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let total: i64 = conn.query_row("SELECT COUNT(*) FROM thumbnails", [], |r| r.get(0))?;
         if total <= keep_count {
             return Ok(0);
@@ -564,7 +581,7 @@ impl DocumentStore {
     // ── View State ────────────────────────────────────────────────────────
 
     pub fn get_view_state(&self, key: &str) -> Result<Option<String>, rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         let mut stmt = conn.prepare("SELECT value FROM view_state WHERE key = ?1")?;
         let mut rows = stmt.query(rusqlite::params![key])?;
         match rows.next()? {
@@ -574,7 +591,7 @@ impl DocumentStore {
     }
 
     pub fn set_view_state(&self, key: &str, value: &str) -> Result<(), rusqlite::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn();
         conn.execute(
             "INSERT INTO view_state (key, value) VALUES (?1, ?2)
              ON CONFLICT(key) DO UPDATE SET value = excluded.value",
@@ -663,7 +680,7 @@ mod tests {
     fn save_document_with_file_rolls_back_both_rows_on_failure() {
         let store = temp_store();
         {
-            let conn = store.conn.lock().unwrap();
+            let conn = store.conn();
             conn.execute_batch(
                 "CREATE TRIGGER reject_file BEFORE INSERT ON files
                  WHEN new.id = 'rejected'
@@ -944,5 +961,46 @@ mod tests {
         let files = store.list_files().expect("list");
         let f = files.iter().find(|f| f.id == "f1").expect("find");
         assert_eq!(f.ordering, "z0");
+    }
+
+    /// Regression test for the Mutex-poisoning defect fixed alongside this
+    /// test: previously, every accessor called `self.conn.lock().unwrap()`,
+    /// so a single panic anywhere while the lock was held permanently broke
+    /// every subsequent DocumentStore call for the process's lifetime. This
+    /// deliberately poisons the mutex the same way a real panic would, then
+    /// asserts a normal call still succeeds afterward instead of panicking.
+    #[test]
+    fn survives_a_poisoned_connection_mutex() {
+        let store = std::sync::Arc::new(temp_store());
+        let poison_store = store.clone();
+        let _ = std::thread::spawn(move || {
+            let _conn = poison_store.conn();
+            panic!("deliberately poisoning the connection mutex for the test above");
+        })
+        .join();
+
+        // The mutex is now poisoned. Before the fix, this next call would
+        // itself panic via `.lock().unwrap()`.
+        let t = now();
+        store
+            .upsert_file(
+                "post-poison",
+                "Survives Poisoning",
+                "strata",
+                None,
+                &t,
+                &t,
+                &t,
+                0,
+                false,
+                None,
+                None,
+                "a0",
+                "hash1",
+                None,
+            )
+            .expect("store must remain usable after a poisoned lock is recovered");
+        let files = store.list_files().expect("list_files must not panic post-poison");
+        assert!(files.iter().any(|f| f.id == "post-poison"));
     }
 }
