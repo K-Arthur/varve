@@ -351,8 +351,9 @@ describe('image fill modes', () => {
       ),
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
-    // 50x50 * scale 2 = 100x100, fits exactly in 100x100
-    expect(draw[0]).toBe('drawImage img6 0.0 0.0 100.0 100.0');
+    // Fit first produces 100x100, then the explicit 2x content scale is
+    // applied around the frame centre.
+    expect(draw[0]).toBe('drawImage img6 -50.0 -50.0 200.0 200.0');
   });
 
   it('triggers load for alpha mask when not cached', async () => {
@@ -424,6 +425,57 @@ describe('image fill modes', () => {
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBeGreaterThan(0);
   });
+
+  it('uses the identical crop and content transform for image and alpha mask', () => {
+    const maskUrl = 'mask-aligned';
+    getImageCache().setLoaded(maskUrl, mockImage(maskUrl, 200, 100));
+    const internalDraws: Array<{ source: string; args: number[] }> = [];
+    const context = {
+      translate: () => undefined,
+      save: () => undefined,
+      restore: () => undefined,
+      rotate: () => undefined,
+      scale: () => undefined,
+      drawImage: (source: CanvasImageSource, ...args: number[]) => {
+        internalDraws.push({ source: String(source), args });
+      },
+      globalCompositeOperation: 'source-over',
+    };
+    const canvas = {
+      width: 0,
+      height: 0,
+      getContext: () => context,
+    } as unknown as HTMLCanvasElement;
+    global.document = {
+      createElement: () => canvas,
+    } as unknown as Document;
+
+    const fill = imageFill({
+      type: 'image',
+      src: 'img2',
+      fit: 'fill',
+      x: 4,
+      y: -3,
+      scale: 1.25,
+      crop: { x: 50, y: 20, w: 100, h: 50 },
+      rotation: 90,
+      flipH: true,
+      alphaMask: maskUrl,
+    });
+    const { target } = makeRecorder();
+    replayIr(target, [rectItem(100, 100, fill)]);
+
+    expect(internalDraws).toHaveLength(2);
+    expect(internalDraws[0]?.source).toBe('img2');
+    expect(internalDraws[1]?.source).toBe(maskUrl);
+    expect(internalDraws[1]?.args).toEqual(internalDraws[0]?.args);
+
+    // A settled masked result is reused rather than allocating and compositing
+    // another bounds-sized canvas during the next replay.
+    replayIr(target, [rectItem(100, 100, fill)]);
+    expect(internalDraws).toHaveLength(2);
+    delete (global as unknown as { document?: Document }).document;
+  });
 });
 
 describe('worker image lookup parity', () => {
@@ -440,12 +492,12 @@ describe('worker image lookup parity', () => {
     {
       name: 'fit with offsets and scale',
       fill: imageFill({ type: 'image', src: 'worker', fit: 'fit', x: 7, y: 9, scale: 2 }),
-      expected: ['drawImage worker 7.0 34.0 100.0 50.0'],
+      expected: ['drawImage worker -43.0 9.0 200.0 100.0'],
     },
     {
       name: 'fill with offsets and scale',
       fill: imageFill({ type: 'image', src: 'worker', fit: 'fill', x: 7, y: 9, scale: 2 }),
-      expected: ['drawImage worker -43.0 9.0 200.0 100.0'],
+      expected: ['drawImage worker -143.0 -41.0 400.0 200.0'],
     },
     {
       name: 'tile with offsets and scale',
@@ -493,7 +545,7 @@ describe('image crop rect', () => {
         50,
         imageFill({
           type: 'image',
-          src: 'img1',
+          src: 'img2',
           fit: 'fill',
           x: 0,
           y: 0,
@@ -506,11 +558,12 @@ describe('image crop rect', () => {
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBe(1);
-    // Crop region 100x50 maps to full bounds 100x50 (fill of crop into bounds)
-    expect(draw[0]).toBe('drawImage img1 0.0 0.0 100.0 50.0');
+    // The crop remains at its corresponding destination within the full-image
+    // placement instead of being stretched back over the complete bounds.
+    expect(draw[0]).toBe('drawImage img2 25.0 12.5 50.0 25.0');
   });
 
-  it('crop changes effective source dimensions for fit mode', () => {
+  it('crop preserves full-source fit placement', () => {
     const { target, calls } = makeRecorder();
     // Source is 200x100, crop is 100x100 (square). Fit into 100x100 bounds.
     replayIr(target, [
@@ -532,8 +585,9 @@ describe('image crop rect', () => {
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBe(1);
-    // Square crop fits in 100x100 => exactly 100x100, centered
-    expect(draw[0]).toBe('drawImage img2 0.0 0.0 100.0 100.0');
+    // The full 2:1 source fits at 100x50, then its center crop occupies the
+    // corresponding 50x50 destination without being reinterpreted as square.
+    expect(draw[0]).toBe('drawImage img2 25.0 25.0 50.0 50.0');
   });
 
   it('crop with stretch fills bounds ignoring original aspect', () => {
@@ -557,7 +611,7 @@ describe('image crop rect', () => {
     ]);
     const draw = calls.filter((c) => c.startsWith('drawImage'));
     expect(draw.length).toBe(1);
-    expect(draw[0]).toBe('drawImage img1 0.0 0.0 80.0 40.0');
+    expect(draw[0]).toBe('drawImage img1 8.0 4.0 40.0 20.0');
   });
 });
 
