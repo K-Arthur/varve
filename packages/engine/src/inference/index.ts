@@ -40,18 +40,12 @@ export {
 } from './inferenceWorkerHost';
 export { ModelRegistry } from './ModelRegistry';
 export { listAllModels } from './modelCatalog';
-export type {
-  FontCandidate,
-  FontDetectInput,
-  FontDetectOutput,
-} from './models/fontDetect';
 export {
-  FONT_DETECT_INPUT_SIZE,
-  FONT_DETECT_TENSOR_SPEC,
-  heuristicFontMatch,
-  preprocessFontDetect,
-  validateFontDetectInput,
-} from './models/fontDetect';
+  decodeFontClassifyOutput,
+  FONT_CLASSIFY_INPUT_SIZE,
+  FONT_CLASSIFY_NUM_CLASSES,
+  FONT_CLASSIFY_TENSOR_SPEC,
+} from './models/fontClassify';
 export { decodeLamaOutput, LAMA_INPUT_SIZE } from './models/lama';
 export type {
   Sam2DecoderInput,
@@ -100,14 +94,18 @@ export type {
   InferenceProvider,
   InferenceRequest,
   InferenceResult,
+  ModelAcquisition,
   ModelInputSpec,
   ModelInstallInfo,
   ModelInstallSource,
   ModelManifestEntry,
   ModelPrecision,
+  ModelSource,
   ModelState,
   ModelTensorContract,
+  ModelUnavailableReason,
   ModelValidation,
   ModelValidationStatus,
   QualityValidation,
 } from './types';
+export { deriveAcquisition, resolveAcquisition } from './core/types';

@@ -13,6 +13,7 @@ import {
 import { menuPerfMark, timeMenuOperation } from './perfFlags';
 import { renderMenubarItems, renderMenuItems } from './renderer';
 import type { MenuContext, MenuContextId, MenuItemDef } from './types';
+import { formatLabel } from './localization';
 
 export type MenuActionHandler = (actionId: string) => void;
 
@@ -109,6 +110,7 @@ export function useMenu(opts: UseMenuOptions): UseMenuReturn {
       run: opts.runAction,
       contexts: ['menubar'] as MenuContextId[],
       showAllMenuItems: opts.showAllMenuItems,
+      formatLabel,
     }),
     [ctx, opts.runAction, opts.showAllMenuItems],
   );

@@ -375,16 +375,20 @@ export type {
   InferenceRequest,
   InferenceResult,
   ManagedSession,
+  ModelAcquisition,
   ModelInputSpec,
   ModelInstallInfo,
   ModelInstallSource,
   ModelManifestEntry,
+  ModelSource,
   ModelState as InferenceModelState,
+  ModelUnavailableReason,
   ProviderChainOptions,
   RuntimeCapabilities,
 } from './inference';
 export {
   createDiagnosticsLabel,
+  deriveAcquisition,
   DownloadManager,
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
@@ -395,6 +399,7 @@ export {
   listAllModels,
   ModelRegistry,
   resetRuntimeCapabilities,
+  resolveAcquisition,
   runProviderChain,
   SessionManager,
 } from './inference';
@@ -407,18 +412,12 @@ export { DD_COLOR_INPUT_SIZE, decodeDdColorOutput } from './inference/models/ddc
 export { decodeDepthOutput, depthToMask } from './inference/models/depth';
 export { decodeDetrOutput } from './inference/models/detr';
 export { decodeEfficientNetOutput } from './inference/models/efficientnet';
-export type {
-  FontCandidate,
-  FontDetectInput,
-  FontDetectOutput,
-} from './inference/models/fontDetect';
 export {
-  FONT_DETECT_INPUT_SIZE,
-  FONT_DETECT_TENSOR_SPEC,
-  heuristicFontMatch,
-  preprocessFontDetect,
-  validateFontDetectInput,
-} from './inference/models/fontDetect';
+  decodeFontClassifyOutput,
+  FONT_CLASSIFY_INPUT_SIZE,
+  FONT_CLASSIFY_NUM_CLASSES,
+  FONT_CLASSIFY_TENSOR_SPEC,
+} from './inference/models/fontClassify';
 export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
 export type { TextRegion } from './inference/models/paddleocr';
 export { decodeTextRegions, padToStride } from './inference/models/paddleocr';
