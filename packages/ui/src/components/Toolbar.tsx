@@ -20,9 +20,11 @@ import {
 export interface ToolbarProps {
   label: string;
   children: ReactNode;
+  /** Whether arrow navigation wraps from last to first. Defaults to true. */
+  wrap?: boolean;
 }
 
-export function Toolbar({ label, children }: ToolbarProps) {
+export function Toolbar({ label, children, wrap = true }: ToolbarProps) {
   const [focusIdx, setFocusIdx] = useState(0);
   const toolbarRef = useRef<HTMLDivElement>(null);
   const count = Children.count(children);
@@ -37,28 +39,37 @@ export function Toolbar({ label, children }: ToolbarProps) {
 
   const navigate = useCallback(
     (dir: number) => {
-      setFocusIdx((i) => (((i + dir + count) % count) + count) % count);
+      if (count <= 0) return;
+      setFocusIdx((i) => {
+        const next = i + dir;
+        if (wrap) return ((next % count) + count) % count;
+        return Math.max(0, Math.min(next, count - 1));
+      });
     },
-    [count],
+    [count, wrap],
   );
 
   const handleKey = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        navigate(1);
-      }
-      if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        navigate(-1);
-      }
-      if (e.key === 'Home') {
-        e.preventDefault();
-        setFocusIdx(0);
-      }
-      if (e.key === 'End') {
-        e.preventDefault();
-        setFocusIdx(count - 1);
+      switch (e.key) {
+        case 'ArrowRight':
+        case 'ArrowDown':
+          e.preventDefault();
+          navigate(1);
+          break;
+        case 'ArrowLeft':
+        case 'ArrowUp':
+          e.preventDefault();
+          navigate(-1);
+          break;
+        case 'Home':
+          e.preventDefault();
+          setFocusIdx(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          setFocusIdx(Math.max(0, count - 1));
+          break;
       }
     },
     [navigate, count],
