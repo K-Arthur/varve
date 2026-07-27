@@ -1,3 +1,37 @@
+export { DownloadManager } from './core/DownloadManager';
+export type { InferenceErrorCode, InferenceErrorDetails } from './core/InferenceError';
+export { InferenceError, isInferenceError, toUserMessage } from './core/InferenceError';
+export type { ModelSelectorOptions } from './core/ModelSelector';
+export { ModelSelector } from './core/ModelSelector';
+export {
+  createDiagnosticsLabel,
+  getBestOnnxProviders,
+  getRuntimeCapabilities,
+  getRuntimeCapabilitiesSync,
+  isQuantizationBeneficial,
+  isWasmModelSafe,
+  resetRuntimeCapabilities,
+} from './core/RuntimeCapabilities';
+export { BaseTaskAdapter } from './core/TaskAdapter';
+export type {
+  DownloadProgress,
+  DownloadState,
+  ExecutionProvider,
+  ManifestEntry,
+  ModelAvailability,
+  ModelComponent,
+  ModelComponentEntry,
+  ModelInstallInfo as CoreModelInstallInfo,
+  ModelManifest,
+  QualityValidationResult,
+  RuntimeCapabilities,
+  SelectionContext,
+  SelectionDecision,
+  TaskAdapter,
+  TaskCategory,
+  TensorContract,
+  UserQualityMode,
+} from './core/types';
 export type { WorkerInferRequest, WorkerInferResult, WorkerModelType } from './inferenceWorker';
 export {
   disposeInferenceWorkerHost,

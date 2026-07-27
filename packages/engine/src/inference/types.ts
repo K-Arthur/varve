@@ -7,7 +7,7 @@
  * caching, provider fallback, or memory-safety gating.
  */
 
-export type ModelPrecision = 'fp32' | 'int8';
+export type ModelPrecision = 'fp32' | 'fp16' | 'int8' | 'bf16';
 
 /** Specification for a model's input preprocessing. */
 export interface ModelInputSpec {

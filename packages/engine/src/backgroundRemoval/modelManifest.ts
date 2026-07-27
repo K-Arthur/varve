@@ -47,7 +47,7 @@ function toLegacyEntry(e: InfModelManifestEntry): ModelManifestEntry {
     sha256: e.checksum || null,
     bundled: e.bundled,
     remoteUrl: e.remoteUrl,
-    precision: e.precision,
+    precision: e.precision as 'fp32' | 'int8' | undefined,
     sourceModelId: e.sourceModelId,
     sourceSha256: e.sourceSha256,
     notes: e.description || undefined,
