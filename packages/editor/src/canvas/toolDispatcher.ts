@@ -12,6 +12,7 @@ import { EyedropperTool } from '../tools/EyedropperTool';
 import { FrameTool } from '../tools/FrameTool';
 import { HandTool } from '../tools/HandTool';
 import { HealingBrushTool } from '../tools/HealingBrushTool';
+import { LassoTool } from '../tools/LassoTool';
 import { LineTool } from '../tools/LineTool';
 import { NodeEditTool } from '../tools/NodeEditTool';
 import { PaintTool } from '../tools/PaintTool';
@@ -31,7 +32,6 @@ import { StarTool } from '../tools/StarTool';
 import { TextTool } from '../tools/TextTool';
 import { TrimapEditTool } from '../tools/TrimapEditTool';
 import { ZoomTool } from '../tools/ZoomTool';
-import { LassoTool } from '../tools/LassoTool';
 
 let toolManager: ToolManager | null = null;
 
