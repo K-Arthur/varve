@@ -108,7 +108,16 @@ export interface EditorSettings {
   performance: PerformanceSettingsStore;
   layers: LayersSettingsStore;
   features: {
+    /** Enable finding navigation (deep-link + inspector section jump). */
     findingsNavigation: boolean;
+    /** Show audit findings overlay on canvas by default. */
+    findingsOverlay: boolean;
+    /** Enable experimental codegen workspace. */
+    codegenWorkspace: boolean;
+    /** Enable experimental AI features (background removal, upscaling, etc.). */
+    aiFeatures: boolean;
+    /** Enable reduced motion mode for animations. */
+    reducedMotion: boolean;
   };
 }
 
@@ -193,6 +202,10 @@ export const DEFAULT_LAYERS_SETTINGS: LayersSettingsStore = {
 
 export const DEFAULT_FEATURES = {
   findingsNavigation: false,
+  findingsOverlay: false,
+  codegenWorkspace: true,
+  aiFeatures: true,
+  reducedMotion: false,
 };
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
