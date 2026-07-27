@@ -93,6 +93,32 @@ export const SHORTCUT_DEFS = {
   zoom200: { binding: { key: '5' }, label: 'Zoom to 200%', category: 'View' },
   zoom400: { binding: { key: '6' }, label: 'Zoom to 400%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
+  selectNone: { binding: { key: 'd', ctrl: true }, label: 'Select None', category: 'Edit' },
+  invertSelection: {
+    binding: { key: 'i', ctrl: true, shift: true },
+    label: 'Invert Selection',
+    category: 'Edit',
+  },
+  selectParent: {
+    binding: { key: 'ArrowUp', alt: true },
+    label: 'Select Parent',
+    category: 'Edit',
+  },
+  selectChildren: {
+    binding: { key: 'ArrowDown', alt: true },
+    label: 'Select Children',
+    category: 'Edit',
+  },
+  selectNextSibling: {
+    binding: { key: 'ArrowRight', shift: true },
+    label: 'Select Next Sibling',
+    category: 'Edit',
+  },
+  selectPreviousSibling: {
+    binding: { key: 'ArrowLeft', shift: true },
+    label: 'Select Previous Sibling',
+    category: 'Edit',
+  },
   selectionHistoryBack: {
     binding: { key: 'ArrowLeft', alt: true },
     label: 'Selection History Back',
