@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useEditor } from '../../context';
+import { isFeatureEnabled } from '../../features';
 import { AuditOverlayRenderer } from './renderer';
 import { useFindingsOverlay } from './useFindingsOverlay';
 
@@ -43,6 +44,7 @@ export function AuditOverlayHost({ viewport }: AuditOverlayHostProps) {
     [overlayContext.document],
   );
 
+  if (!isFeatureEnabled('findingsOverlay')) return null;
   if (!editor.state.findingsOverlayVisible) return null;
 
   return (
