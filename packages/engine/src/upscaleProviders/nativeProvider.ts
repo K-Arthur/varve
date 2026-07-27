@@ -1,11 +1,8 @@
+import { isTauriRuntime as isTauri } from '@strata/platform';
 import type { UpscaleOptions } from '../imageEnhancement';
 import { DEFAULT_AI_UPSCALE_MODEL_ID } from '../imageEnhancement';
 import { decodeImageBytesToImageData, encodeImageDataToPngBytes } from './pngDecode';
 import type { UpscaleProvider } from './types';
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
 
 const MAX_NATIVE_UPSCALE_OUTPUT_PIXELS = 64 * 1024 * 1024;
 

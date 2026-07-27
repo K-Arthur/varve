@@ -102,9 +102,7 @@ pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
         Some(s) => {
             let bytes = s.as_bytes();
             if bytes.len() >= 4 {
-                let tag = ttf_parser::Tag::from_bytes(&[
-                    bytes[0], bytes[1], bytes[2], bytes[3],
-                ]);
+                let tag = ttf_parser::Tag::from_bytes(&[bytes[0], bytes[1], bytes[2], bytes[3]]);
                 rustybuzz::Script::from_iso15924_tag(tag)
                     .unwrap_or(rustybuzz::Script::from_iso15924_tag(dflt_tag).unwrap())
             } else {
@@ -154,7 +152,10 @@ pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
                 t[i] = b;
             }
             let tag_u32 = u32::from_be_bytes(t);
-            rustybuzz::Variation { tag: ttf_parser::Tag(tag_u32), value: *val }
+            rustybuzz::Variation {
+                tag: ttf_parser::Tag(tag_u32),
+                value: *val,
+            }
         })
         .collect();
     if !coords.is_empty() {
@@ -207,10 +208,7 @@ pub fn shape_text(request: &ShapeRequest) -> Result<ShapedRun, String> {
             rustybuzz::Direction::BottomToTop => "btt".into(),
             rustybuzz::Direction::Invalid => "ltr".into(),
         },
-        script: request
-            .script
-            .clone()
-            .unwrap_or_else(|| "DFLT".to_string()),
+        script: request.script.clone().unwrap_or_else(|| "DFLT".to_string()),
         language: request.language.clone(),
         has_color_glyphs,
         missing_glyph_indices,
@@ -245,24 +243,39 @@ fn check_color_tables(data: &[u8], face_index: u32) -> bool {
         if tag == 0x74746366 {
             // 'ttcf' - TrueType Collection
             // Skip TTC header: tag(4) + version(4) + numFonts(4) + offsetTable[numFonts*4]
-            if data.len() < 16 { return false; }
+            if data.len() < 16 {
+                return false;
+            }
             let num_fonts = u32::from_be_bytes([data[8], data[9], data[10], data[11]]) as usize;
-            if data.len() < 12 + num_fonts * 4 { return false; }
+            if data.len() < 12 + num_fonts * 4 {
+                return false;
+            }
             let font_offset_bytes = &data[12 + face_index as usize * 4..][..4];
-            offset = u32::from_be_bytes([font_offset_bytes[0], font_offset_bytes[1], font_offset_bytes[2], font_offset_bytes[3]]) as usize;
+            offset = u32::from_be_bytes([
+                font_offset_bytes[0],
+                font_offset_bytes[1],
+                font_offset_bytes[2],
+                font_offset_bytes[3],
+            ]) as usize;
         }
     }
 
-    if offset + 12 > data.len() { return false; }
+    if offset + 12 > data.len() {
+        return false;
+    }
 
     let num_tables = u16::from_be_bytes([data[offset + 4], data[offset + 5]]) as usize;
     let records_start = offset + 12;
 
-    if records_start + num_tables * 16 > data.len() { return false; }
+    if records_start + num_tables * 16 > data.len() {
+        return false;
+    }
 
     for i in 0..num_tables {
         let rec_start = records_start + i * 16;
-        if rec_start + 4 > data.len() { continue; }
+        if rec_start + 4 > data.len() {
+            continue;
+        }
         let tag = u32::from_be_bytes([
             data[rec_start],
             data[rec_start + 1],
@@ -289,13 +302,19 @@ fn parse_feature_tag(tag: &str, enable: bool) -> Result<rustybuzz::Feature, Stri
     let tag_bytes = tag_str.as_bytes();
     let tag_u32 = u32::from_be_bytes([tag_bytes[0], tag_bytes[1], tag_bytes[2], tag_bytes[3]]);
     let value = if parts.len() > 1 {
-        parts[1].parse::<u32>().map_err(|_| format!("Invalid feature value: {tag}"))?
+        parts[1]
+            .parse::<u32>()
+            .map_err(|_| format!("Invalid feature value: {tag}"))?
     } else if enable {
         1
     } else {
         0
     };
-    Ok(rustybuzz::Feature::new(ttf_parser::Tag(tag_u32), value, 0..usize::MAX))
+    Ok(rustybuzz::Feature::new(
+        ttf_parser::Tag(tag_u32),
+        value,
+        0..usize::MAX,
+    ))
 }
 
 #[cfg(test)]
@@ -449,7 +468,10 @@ mod tests {
         };
 
         let result = shape_text(&request).expect("Empty text should not error");
-        assert!(result.glyphs.is_empty(), "Empty text should produce no glyphs");
+        assert!(
+            result.glyphs.is_empty(),
+            "Empty text should produce no glyphs"
+        );
     }
 
     #[test]

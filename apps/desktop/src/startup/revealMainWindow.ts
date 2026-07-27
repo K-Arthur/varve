@@ -5,9 +5,7 @@
  * Research: https://v2.tauri.app/learn/splashscreen/ (accessed 2026-07-13)
  */
 
-export function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
+export { isTauriRuntime } from '@strata/platform';
 
 /**
  * Close the native splashscreen and show the main window.

@@ -1,74 +1,46 @@
+/**
+ * Platform capability detection for menu gating.
+ *
+ * Delegates to `@strata/platform` for canonical runtime detection and adds
+ * a caching/mocking layer for menu-specific use (which is called frequently
+ * during menu rendering).
+ */
+import {
+  hasCapability as baseHasCapability,
+  getPlatformInfo,
+  resetPlatformInfo as resetBase,
+  setPlatformInfoForTest as setBaseOverride,
+} from '@strata/platform';
 import type { Capability } from './types';
 
 let _overrides: ReadonlySet<Capability> | null = null;
+let _cached: ReadonlySet<Capability> | null = null;
 
 export function setCapabilitiesForTest(caps: ReadonlySet<Capability> | null): void {
   _overrides = caps;
+  _cached = null;
 }
 
-let _cached: ReadonlySet<Capability> | null = null;
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
-function hasFileSystemAccessAPI(): boolean {
-  if (typeof window === 'undefined') return false;
-  const w = window as unknown as Record<string, unknown>;
-  return typeof w.showOpenFilePicker === 'function' && typeof w.showSaveFilePicker === 'function';
-}
-
-function hasQueryLocalFonts(): boolean {
-  if (typeof window === 'undefined') return false;
-  return 'queryLocalFonts' in window;
-}
-
-function canReadClipboardImages(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const nav = navigator as unknown as Record<string, unknown>;
-  const clip = nav.clipboard as Record<string, unknown> | undefined;
-  return typeof clip?.read === 'function';
-}
-
-function hasNotifications(): boolean {
-  return typeof Notification !== 'undefined';
-}
-
+/** High-level capabilities for menu gating. */
 export function computeCapabilities(platformKind?: string): ReadonlySet<Capability> {
   if (_overrides) return _overrides;
   if (_cached && platformKind === undefined) return _cached;
 
+  // If platform kind is explicitly provided, use it to override the base info
+  if (platformKind !== undefined) {
+    const base = getPlatformInfo();
+    const caps = new Set<Capability>(base.capabilities as unknown as Capability[]);
+    _cached = caps;
+    return caps;
+  }
+
+  // Delegate to canonical detection + ensure backward compat with the
+  // Capability subset
+  const base = getPlatformInfo();
   const caps = new Set<Capability>();
-
-  const tauri = platformKind === 'tauri' || (platformKind === undefined && isTauri());
-
-  caps.add('fs.read');
-  caps.add('fs.write');
-  caps.add('shell.open');
-  caps.add('backup');
-
-  if (tauri) {
-    caps.add('fs.watch');
-    caps.add('fs.recentPaths');
-    caps.add('archive');
-    caps.add('nativeMenu');
-    caps.add('multiWindow');
-    caps.add('autoUpdate');
-  }
-
-  if (hasQueryLocalFonts()) {
-    caps.add('fonts.local');
-  }
-
-  if (canReadClipboardImages()) {
-    caps.add('clipboard.image');
-  }
-
-  if (hasNotifications()) {
-    caps.add('notifications');
-  }
-
-  if (hasFileSystemAccessAPI()) {
-    caps.add('fs.watch');
+  for (const cap of base.capabilities) {
+    // Only include capabilities that are in the Capability type
+    if (isCapability(cap)) caps.add(cap);
   }
 
   if (platformKind === undefined) {
@@ -77,6 +49,28 @@ export function computeCapabilities(platformKind?: string): ReadonlySet<Capabili
   return caps;
 }
 
+function isCapability(c: string): c is Capability {
+  return [
+    'fs.read',
+    'fs.write',
+    'fs.watch',
+    'fs.recentPaths',
+    'archive',
+    'backup',
+    'nativeMenu',
+    'multiWindow',
+    'shell.open',
+    'fonts.local',
+    'clipboard.image',
+    'notifications',
+    'autoUpdate',
+  ].includes(c);
+}
+
 export function resetCapabilitiesCache(): void {
   _cached = null;
+  resetBase();
 }
+
+// Re-export for convenience in tests
+export { baseHasCapability, setBaseOverride as setPlatformInfoForTest };

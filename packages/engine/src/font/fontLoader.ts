@@ -9,6 +9,7 @@
  * Google Fonts API self-hosting docs.
  */
 
+import { isTauriRuntime as isTauri } from '@strata/platform';
 import { type FontRegistry, getFontRegistry } from '../fontRegistry';
 import type { ParsedFontMetadata } from './fontIdentity';
 import { parseFontData } from './fontParser';
@@ -67,9 +68,6 @@ const SYSTEM_FONTS: string[] = [
 ];
 
 /** True when running inside the Tauri desktop shell. */
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
 
 /** Result shape returned by the `enumerate_system_fonts` Tauri command. */
 export interface SystemFontFace {
