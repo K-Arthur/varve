@@ -8,6 +8,7 @@ describe('viewportSession', () => {
     cameraRotation: 0.5,
     snapEnabled: false,
     pixelGridEnabled: true,
+    pixelGridSnapEnabled: false,
     rulerMode: 'global' as const,
     gridOverlayMode: 'baseline' as const,
     unitType: 'mm' as const,
