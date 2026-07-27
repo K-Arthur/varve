@@ -580,6 +580,7 @@ export class SelectTool extends BaseTool {
           parentId: string | null;
           index: number;
         }> = [];
+        const insertIndexByParent = new Map<string | null, number>();
         for (const selId of sel) {
           if (!selId) continue;
           const node = ctx.getNode(selId);
@@ -604,20 +605,26 @@ export class SelectTool extends BaseTool {
                 if (nodeArea > frameArea * 1.1) continue;
               }
             }
+            const baseIndex = childrenCount(ctx.document, frameId);
+            const localIndex = insertIndexByParent.get(frameId) ?? 0;
             reparentOps.push({
               id: selId,
               parentId: frameId,
-              index: childrenCount(ctx.document, frameId),
+              index: baseIndex + localIndex,
             });
+            insertIndexByParent.set(frameId, localIndex + 1);
           } else if (!frameId && !this.isAtTopLevel(selId, ctx)) {
             // Same top-level equivalence as onDragEnd: a node already directly
             // under the page contentRoot must not be reparented to "null"
             // (which resolves back to that same contentRoot).
+            const baseIndex = ctx.rootNodes().length;
+            const localIndex = insertIndexByParent.get(null) ?? 0;
             reparentOps.push({
               id: selId,
               parentId: null,
-              index: ctx.rootNodes().length,
+              index: baseIndex + localIndex,
             });
+            insertIndexByParent.set(null, localIndex + 1);
           }
         }
         if (reparentOps.length > 0) {

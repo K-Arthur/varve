@@ -346,6 +346,7 @@ export interface LayersDnDHandle {
   collapseAll: () => void;
   collapseOthers: (containerId: NodeId) => void;
   startRename: (id: NodeId) => void;
+  expandAncestors: (nodeId: NodeId) => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
@@ -1154,6 +1155,27 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       collapseAll: handleCollapseAll,
       collapseOthers: handleCollapseOthers,
       startRename: setRenamingId,
+      expandAncestors: (nodeId: NodeId) => {
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          let changed = false;
+          let parent = getParentFast(state.document, nodeId, parentCacheRef.current);
+          while (parent) {
+            if (!next.has(parent)) {
+              next.add(parent);
+              changed = true;
+            }
+            parent = getParentFast(state.document, parent, parentCacheRef.current);
+          }
+          if (changed) {
+            const idx = entries.findIndex((e) => e.node.id === nodeId);
+            if (idx >= 0) {
+              setTimeout(() => virtualizer.scrollToIndex(idx, { align: 'auto' }), 0);
+            }
+          }
+          return changed ? next : prev;
+        });
+      },
     }),
     [
       handleDragStart,
@@ -1165,6 +1187,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       handleCollapseAll,
       handleCollapseOthers,
       setRenamingId,
+      state.document,
+      entries,
+      virtualizer,
     ],
   );
 
