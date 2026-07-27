@@ -15,6 +15,7 @@ import {
   setOverride,
 } from './ShortcutManager';
 import type { ShortcutDef } from './types';
+import { useShortcutUsage } from './useShortcutUsage';
 import './ShortcutPalette.css';
 
 /** Entries are items whose shortcut ID corresponds to a menu item with workspace
@@ -216,6 +217,9 @@ export function ShortcutPalette({
     [onClose, onSelect, remappingId],
   );
 
+  const allActionIds = useMemo(() => Object.keys(SHORTCUT_DEFS), []);
+  const usage = useShortcutUsage(allActionIds);
+
   if (!open) return null;
 
   const hasOverrides = Object.keys(getOverrides()).length > 0;
@@ -297,6 +301,8 @@ export function ShortcutPalette({
               {items.map(({ id, def }) => {
                 const isRemapping = remappingId === id;
                 const binding = getEffectiveBinding(id);
+                const usageInfo = usage.usages.get(id);
+                const useCount = usageInfo?.count ?? 0;
 
                 return (
                   <div
@@ -325,13 +331,16 @@ export function ShortcutPalette({
                           </span>
                         )}
                     </span>
+                    <span className="shortcut-palette__usage" title={`Used ${useCount} times`}>
+                      {useCount > 0 ? `${useCount}×` : 'Not used'}
+                    </span>
                     {isRemapping ? (
                       <span className="shortcut-palette__combo shortcut-palette__combo--active">
-                        Press key\u2026
+                        Press key…
                       </span>
                     ) : (
                       <span className="shortcut-palette__combo">
-                        {binding?.key ? formatShortcut(binding) : '\u2014'}
+                        {binding?.key ? formatShortcut(binding) : '—'}
                       </span>
                     )}
                     <button
@@ -360,6 +369,41 @@ export function ShortcutPalette({
               })}
             </div>
           ))}
+
+          {query === '' && usage.neverUsed.length > 0 && (
+            <div className="shortcut-palette__not-used">
+              <details>
+                <summary className="shortcut-palette__group-header">
+                  Not used ({usage.neverUsed.length})
+                </summary>
+                {usage.neverUsed.slice(0, 20).map((id) => {
+                  const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
+                  const binding = getEffectiveBinding(id);
+                  return (
+                    <div
+                      key={id}
+                      role="option"
+                      aria-selected={false}
+                      tabIndex={0}
+                      className="shortcut-palette__row shortcut-palette__row--unused"
+                      onClick={() => handleRowClick(id)}
+                    >
+                      <span className="shortcut-palette__row-label">{def?.label ?? id}</span>
+                      <span className="shortcut-palette__usage">Not used</span>
+                      <span className="shortcut-palette__combo">
+                        {binding?.key ? formatShortcut(binding) : '—'}
+                      </span>
+                    </div>
+                  );
+                })}
+                {usage.neverUsed.length > 20 && (
+                  <div className="shortcut-palette__more">
+                    +{usage.neverUsed.length - 20} more
+                  </div>
+                )}
+              </details>
+            </div>
+          )}
         </div>
       </div>
     </div>,
