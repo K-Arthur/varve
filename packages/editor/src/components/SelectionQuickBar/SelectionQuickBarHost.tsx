@@ -105,7 +105,7 @@ export function SelectionQuickBarHost({
           setSelectedFlipV: editor.setSelectedFlipV,
           removeBackgroundWithOptions: editor.removeBackgroundWithOptions,
           cancelBackgroundRemoval: editor.cancelBackgroundRemoval,
-          upscaleSelectedImage: editor.upscaleSelectedImage,
+          openUpscaleDialog: editor.openUpscaleDialog,
           traceSelectedImage: editor.traceSelectedImage,
           setShowOriginalBg: editor.setShowOriginalBg,
           setRefineMaskOptions: editor.setRefineMaskOptions,

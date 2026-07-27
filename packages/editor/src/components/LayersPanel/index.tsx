@@ -58,7 +58,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     removeMaskFromSelected,
     toggleMask,
     invertMask,
-    upscaleSelectedImage,
+    openUpscaleDialog,
   } = useEditor();
   const [filterSpec, setFilterSpec] = useState<LayerFilterSpec>(DEFAULT_FILTER);
   const [contextMenu, setContextMenu] = useState<{
@@ -443,7 +443,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                     label="Upscale Image"
                     onAction={() => {
                       setSelection(contextMenu.id);
-                      void upscaleSelectedImage({ scale: 4, method: 'ai' });
+                      openUpscaleDialog();
                       closeMenu();
                     }}
                   />
