@@ -60,6 +60,20 @@ export class SelectTool extends BaseTool {
   /** True between firing an Alt-duplicate and the clones becoming the selection. */
   private awaitingDuplicateHandoff = false;
 
+  /**
+   * True when a node already sits at the active page's top level, i.e. its
+   * parent is either `null` (raw root) or the active page's contentRoot group.
+   * `reparentNode(id, null, ...)` resolves `null` back to that contentRoot, so
+   * without this equivalence the drag-end/nudge auto-reparent would reparent a
+   * top-level node to the parent it already has — a redundant document write.
+   */
+  private isAtTopLevel(id: string, ctx: ToolContext): boolean {
+    const parent = getParent(ctx.document, id);
+    if (parent === null) return true;
+    const activePage = ctx.document.pages?.find((p) => p.id === ctx.document.activePageId);
+    return parent === activePage?.contentRoot;
+  }
+
   override onDeactivate(ctx: ToolContext): void {
     // Commit any active nudge transaction when switching tools
     if (this.nudgeGestureActive) {
@@ -390,14 +404,18 @@ export class SelectTool extends BaseTool {
                 ctx.reparentNode(selId, frameId, baseIndex + localIndex);
                 insertIndexByParent.set(frameId, localIndex + 1);
               }
-            } else {
-              const currentParent = getParent(ctx.document, selId);
-              if (currentParent !== null) {
-                const baseIndex = ctx.rootNodes().length;
-                const localIndex = insertIndexByParent.get(null) ?? 0;
-                ctx.reparentNode(selId, null, baseIndex + localIndex);
-                insertIndexByParent.set(null, localIndex + 1);
-              }
+            } else if (!this.isAtTopLevel(selId, ctx)) {
+              // No containing frame: pop the node out to the page top level,
+              // but only if it is not already there. A top-level node's parent
+              // is the active page's contentRoot, not null, so a bare
+              // `parent !== null` check reparented every dragged node to the
+              // same contentRoot it already lived in — a redundant reparent
+              // that produced a new document and thus a no-op undo entry on
+              // top of the real move (one gesture then took two undos).
+              const baseIndex = ctx.rootNodes().length;
+              const localIndex = insertIndexByParent.get(null) ?? 0;
+              ctx.reparentNode(selId, null, baseIndex + localIndex);
+              insertIndexByParent.set(null, localIndex + 1);
             }
           }
           ctx.commitTransaction();
@@ -495,7 +513,10 @@ export class SelectTool extends BaseTool {
               parentId: frameId,
               index: childrenCount(ctx.document, frameId),
             });
-          } else if (!frameId && currentParent !== null) {
+          } else if (!frameId && !this.isAtTopLevel(selId, ctx)) {
+            // Same top-level equivalence as onDragEnd: a node already directly
+            // under the page contentRoot must not be reparented to "null"
+            // (which resolves back to that same contentRoot).
             reparentOps.push({
               id: selId,
               parentId: null,

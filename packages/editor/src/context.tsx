@@ -2344,8 +2344,20 @@ export function EditorProvider({
     setState((current) => {
       if (inTransactionRef.current) {
         inTransactionRef.current = false;
-        if (txSnapshotRef.current !== null) {
-          undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current];
+        // Only record an undo entry if the transaction actually changed the
+        // document. The document is updated immutably (structural sharing), so
+        // a transaction that mutated nothing leaves the reference identical to
+        // the begin-time snapshot. Empty transactions are common — a plain
+        // click that only selects a node still begins+commits one, and the
+        // drag-end reparent pass opens one even when no node is reparented.
+        // Pushing those produced spurious "undo does nothing" steps, so one
+        // gesture took several undos to reverse. Comparing by reference here
+        // fixes every empty-transaction source at once and can never skip a
+        // real edit, which always yields a fresh document reference.
+        const changed =
+          txSnapshotRef.current !== null && txSnapshotRef.current !== current.document;
+        if (changed) {
+          undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current!];
           undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
           redoStackRef.current = [];
           redoSelStackRef.current = [];
