@@ -75,7 +75,7 @@ export interface ViewportSettingsStore {
   pixelGridEnabled: boolean;
   pixelGridSnapEnabled: boolean;
   rulerMode: 'global' | 'artboard';
-  gridOverlayMode: 'none' | 'baseline' | 'isometric';
+  gridOverlayMode: 'none' | 'document' | 'baseline' | 'isometric';
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   guidesVisible: boolean;
   snapGrid: number;
