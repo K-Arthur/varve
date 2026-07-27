@@ -956,3 +956,87 @@ describe('SelectTool Alt-drag duplication', () => {
     expect((tool as any).duplicateSourceIds).toEqual([]);
   });
 });
+
+describe('SelectTool drag-end auto-reparent', () => {
+  /** Paged doc whose contentRoot directly holds shape `n0`. */
+  function docWithTopLevelNode() {
+    const doc = createDocument('test', {});
+    const page = doc.pages![0]!;
+    const contentRootId = page.contentRoot!;
+    const contentRoot = doc.nodes[contentRootId]!;
+    return {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [contentRootId]: { ...contentRoot, children: ['n0'] },
+        n0: makeShapeNode('n0', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+      },
+    } as typeof doc;
+  }
+
+  /** Paged doc whose contentRoot holds frame `f1`, which holds shape `n0`. */
+  function docWithFramedNode() {
+    const doc = createDocument('test', {});
+    const page = doc.pages![0]!;
+    const contentRootId = page.contentRoot!;
+    const contentRoot = doc.nodes[contentRootId]!;
+    return {
+      ...doc,
+      nodes: {
+        ...doc.nodes,
+        [contentRootId]: { ...contentRoot, children: ['f1'] },
+        f1: makeGroupNode('f1', { name: 'frame', children: ['n0'] }),
+        n0: makeShapeNode('n0', { kind: 'rect', x: 0, y: 0, w: 40, h: 40 }),
+      },
+    } as typeof doc;
+  }
+
+  function endDrag(tool: SelectTool, ctx: ReturnType<typeof makeCtx>) {
+    (tool as any).isMoveGesture = true;
+    (tool as any).marqueeActive = false;
+    (tool as any).onDragEnd(ctx);
+  }
+
+  it('does not reparent a top-level node that stayed at top level', () => {
+    // Regression guard: a top-level node's parent is the page contentRoot, not
+    // null, so the old `parent !== null` check reparented every dragged node to
+    // the contentRoot it already lived in — a redundant write that added a
+    // no-op undo entry on top of the move.
+    const tool = new SelectTool();
+    const doc = docWithTopLevelNode();
+    const reparentNode = vi.fn();
+    const ctx = makeCtx({
+      document: doc,
+      selection: ['n0'],
+      findContainingFrame: vi.fn().mockReturnValue(null),
+      reparentNode,
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      rootNodes: vi.fn().mockReturnValue([{ id: 'n0' }]),
+    });
+
+    endDrag(tool, ctx);
+
+    expect(reparentNode).not.toHaveBeenCalled();
+  });
+
+  it('still pops a framed node out to top level when dragged onto empty canvas', () => {
+    // The suppression must not swallow a real pop-out: a node whose parent is a
+    // frame, dragged where no frame contains it, must reparent to top level.
+    const tool = new SelectTool();
+    const doc = docWithFramedNode();
+    const reparentNode = vi.fn();
+    const ctx = makeCtx({
+      document: doc,
+      selection: ['n0'],
+      findContainingFrame: vi.fn().mockReturnValue(null),
+      reparentNode,
+      getNode: vi.fn((id: string) => doc.nodes[id]),
+      rootNodes: vi.fn().mockReturnValue([{ id: 'f1' }]),
+    });
+
+    endDrag(tool, ctx);
+
+    expect(reparentNode).toHaveBeenCalledTimes(1);
+    expect(reparentNode).toHaveBeenCalledWith('n0', null, expect.any(Number));
+  });
+});
