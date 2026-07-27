@@ -121,7 +121,10 @@ export class LassoTool extends BaseTool {
     this.state = { kind: 'idle' };
   }
 
-  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean; captured?: boolean } {
+  override onPointerDown(
+    e: PointerEvent,
+    ctx: ToolContext,
+  ): { consumed: boolean; captured?: boolean } {
     if (this.mode !== 'polygonal') return { consumed: false };
 
     const canvas = { x: e.clientX, y: e.clientY };
@@ -141,7 +144,7 @@ export class LassoTool extends BaseTool {
       const points = this.state.points;
 
       // Check closure (clicking near first point or on it)
-      if (points.length >= MIN_POINTS) {
+      if (points.length >= MIN_POINTS && points[0]) {
         const firstScreen = ctx.worldToCanvas(points[0].x, points[0].y);
         const dist = Math.hypot(canvas.x - firstScreen.x, canvas.y - firstScreen.y);
         if (dist <= CLOSE_TOLERANCE_PX) {
@@ -211,13 +214,10 @@ export class LassoTool extends BaseTool {
   }
 
   private emitDraft(ctx: ToolContext): void {
-    if (this.state.kind === 'idle') return;
+    if (this.state.kind !== 'freehand-drag' && this.state.kind !== 'polygonal-placing') return;
 
-    const pts = this.state.kind === 'freehand-drag' ? this.state.points : this.state.points;
-    const label =
-      this.state.kind === 'freehand-drag'
-        ? 'Lasso'
-        : `Poly lasso: ${pts.length} pts`;
+    const pts = this.state.points;
+    const label = this.state.kind === 'freehand-drag' ? 'Lasso' : `Poly lasso: ${pts.length} pts`;
 
     ctx.setDraft({
       kind: 'freehand',
@@ -238,7 +238,9 @@ export class LassoTool extends BaseTool {
     this.applySelectionOp(intersectingIds, op, ctx);
 
     ctx.announceSelection(
-      intersectingIds.map((id) => ctx.getNode(id)).filter((n): n is import('@strata/scene').SceneNode => n !== undefined),
+      intersectingIds
+        .map((id) => ctx.getNode(id))
+        .filter((n): n is import('@strata/scene').SceneNode => n !== undefined),
     );
   }
 

@@ -5348,27 +5348,32 @@ export function EditorProvider({
         patch({ debugOverlay: { ...current, enabled } });
       },
 
-      setDebugOverlayChannel: (channel, value) => {
+      setDebugOverlayChannel: (channel: string, val: boolean) => {
         const current = stateRef.current.debugOverlay;
         patch({
           debugOverlay: {
             ...current,
-            channels: { ...current.channels, [channel]: value },
+            channels: { ...current.channels, [channel as keyof typeof current.channels]: val },
           },
         });
       },
 
-      setDebugOverlayLabelDensity: (density) => {
+      setDebugOverlayLabelDensity: (density: string) => {
         const current = stateRef.current.debugOverlay;
-        patch({ debugOverlay: { ...current, labelDensity: density } });
+        patch({
+          debugOverlay: {
+            ...current,
+            labelDensity: density as 'none' | 'sparse' | 'normal' | 'full',
+          },
+        });
       },
 
-      setDebugOverlayFrozen: (frozen) => {
+      setDebugOverlayFrozen: (frozen: boolean) => {
         const current = stateRef.current.debugOverlay;
         patch({ debugOverlay: { ...current, frozen } });
       },
 
-      setTouchMultiSelect: (active) => {
+      setTouchMultiSelect: (active: boolean) => {
         const current = stateRef.current.touchMultiSelect;
         patch({ touchMultiSelect: { ...current, active } });
       },
@@ -8237,11 +8242,6 @@ export function EditorProvider({
       setActivePage: value.setActivePage,
       setCurrentPageId: value.setCurrentPageId,
       activePageNodes: value.activePageNodes,
-      setDebugOverlayEnabled: value.setDebugOverlayEnabled,
-      setDebugOverlayChannel: value.setDebugOverlayChannel,
-      setDebugOverlayLabelDensity: value.setDebugOverlayLabelDensity,
-      setDebugOverlayFrozen: value.setDebugOverlayFrozen,
-      setTouchMultiSelect: value.setTouchMultiSelect,
     }),
     [value],
   );
