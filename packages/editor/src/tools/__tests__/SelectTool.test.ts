@@ -220,12 +220,11 @@ describe('SelectTool', () => {
     expect(ctx.setNodePosition).toHaveBeenCalledWith('n1', 100 - -s, 100 - c);
   });
 
-  it('marquee with alt key selects only nodes fully contained within rect', () => {
+  it('marquee with ctrl key toggles containment mode, selects only nodes fully contained', () => {
     const tool = new SelectTool();
     const doc = makeDocWithNodes(3);
-    // Nodes: n0 (0,0,40,40), n1 (50,0,40,40), n2 (100,0,40,40)
     const ctx = makeCtx({
-      altKey: true,
+      ctrlKey: true,
       document: doc,
       nodeWorldBounds: vi.fn((n: any) => {
         if (n.id === 'n0') return { x: 0, y: 0, w: 40, h: 40 };
@@ -234,31 +233,25 @@ describe('SelectTool', () => {
         return { x: 0, y: 0, w: 100, h: 100 };
       }),
       rootNodes: vi.fn().mockReturnValue([{ id: 'n0' }, { id: 'n1' }, { id: 'n2' }]),
-      getNode: vi.fn((id: string) => {
-        return doc.nodes[id];
-      }),
+      getNode: vi.fn((id: string) => doc.nodes[id]),
     });
-    // Click empty space (no hit)
     tool.onPointerDown({ clientX: 0, clientY: 0, pointerId: 1, button: 0 } as any, ctx);
-
-    // Drag marquee from (0,0) to (90, 50) — contains n0 fully, n1 partially
     (tool as any).drag.currentCanvas = { x: 90, y: 50 };
     (tool as any).drag.currentWorld = { x: 90, y: 50 };
     (tool as any).onDragMove?.(ctx);
-
     tool.onPointerUp({ pointerId: 1 } as any, ctx);
-
-    // Alt+marquee: only n0 is fully contained (n1 extends past 90)
     expect(ctx.toggleSelection).toHaveBeenCalledWith('n0', true);
   });
 
-  it('marquee with shift+alt adds fully contained nodes to selection', () => {
+  it('marquee with shift+alt intersect mode keeps only nodes in both selection and marquee', () => {
     const tool = new SelectTool();
     const doc = makeDocWithNodes(2);
     const ctx = makeCtx({
       shiftKey: true,
       altKey: true,
       document: doc,
+      selection: ['n0'],
+      isSelected: vi.fn((id: string) => id === 'n0'),
       nodeWorldBounds: vi.fn((n: any) => {
         if (n.id === 'n0') return { x: 0, y: 0, w: 40, h: 40 };
         if (n.id === 'n1') return { x: 100, y: 0, w: 40, h: 40 };
@@ -267,21 +260,16 @@ describe('SelectTool', () => {
       rootNodes: vi.fn().mockReturnValue([{ id: 'n0' }, { id: 'n1' }]),
       getNode: vi.fn((id: string) => doc.nodes[id]),
     });
-
     tool.onPointerDown(
-      { clientX: 0, clientY: 0, pointerId: 1, button: 0, shiftKey: true } as any,
+      { clientX: 0, clientY: 0, pointerId: 1, button: 0, shiftKey: true, altKey: true } as any,
       ctx,
     );
-
     (tool as any).drag.currentCanvas = { x: 200, y: 50 };
     (tool as any).drag.currentWorld = { x: 200, y: 50 };
     (tool as any).onDragMove?.(ctx);
-
     tool.onPointerUp({ pointerId: 1 } as any, ctx);
-
-    // shift+alt marquee: add fully contained nodes to existing selection
-    expect(ctx.setSelection).not.toHaveBeenCalled();
-    expect(ctx.toggleSelection).toHaveBeenCalledWith('n0', true);
+    // Intersect: n0 is in both selection and marquee range
+    expect(ctx.setSelection).toHaveBeenCalledWith('n0');
   });
 
   it('double-click on path enters nodeEdit mode', () => {
