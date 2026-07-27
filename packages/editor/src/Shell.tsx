@@ -7,6 +7,7 @@ import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@strata/ui'
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
+import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
@@ -144,8 +145,8 @@ function ShellInner({
   // Test-only: allow direct LUT import via custom event (bypasses file input)
   useEffect(() => {
     // Expose a global function for E2E tests to call directly
-    const w = window as Record<string, unknown>;
-    w.__importLut = (adj: unknown) => {
+    const win = window as unknown as Record<string, (adj: import('@strata/engine').Adjustment) => void>;
+    win.__importLut = (adj) => {
       editor.addLutAdjustment(adj);
     };
     const handler = (e: Event) => {
@@ -155,7 +156,7 @@ function ShellInner({
     };
     window.addEventListener('strata:test-import-lut', handler);
     return () => {
-      delete w.__importLut;
+      delete (window as unknown as Record<string, unknown>).__importLut;
       window.removeEventListener('strata:test-import-lut', handler);
     };
   }, [editor]);
@@ -281,6 +282,7 @@ function ShellInner({
             </button>
           </Tooltip>
         )}
+        <SelectionBreadcrumb />
         <ErrorBoundary>
           <CanvasArea
             canvasContainerRef={canvasContainerRef}

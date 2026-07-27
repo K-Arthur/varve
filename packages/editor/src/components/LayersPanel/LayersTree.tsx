@@ -59,6 +59,10 @@ import {
   isDescendantFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
+import {
+  loadSettings,
+  updateSettings,
+} from '../../settings';
 import { LayersRow } from './LayersRow';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';
@@ -491,18 +495,38 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     overscan: 10,
   });
 
-  // Sync focus to selection when selection changes externally (e.g. canvas click)
+  // Sync focus to selection when selection changes externally (e.g. canvas click).
+  // Respects the auto-reveal preference: when enabled, scrolls the primary selection
+  // into view and expands ancestors; when disabled, only highlights if already visible.
+  // Selection changes originating from within the Layers panel (origin === 'layers')
+  // are skipped to avoid stealing the user's scroll position during multi-select.
   useEffect(() => {
+    if (!loadSettings().layers.autoReveal) return;
+    if (state.selectionOrigin === 'layers') return;
     if (state.selection.length > 0) {
       const firstSel = state.selection[0];
       if (!firstSel) return;
+      // Expand ancestors so the selected node is visible in the tree
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        let parent = getParentFast(state.document, firstSel, parentCacheRef.current);
+        while (parent) {
+          if (!next.has(parent)) {
+            next.add(parent);
+            changed = true;
+          }
+          parent = getParentFast(state.document, parent, parentCacheRef.current);
+        }
+        return changed ? next : prev;
+      });
       const idx = entries.findIndex((e) => e.node.id === firstSel);
       if (idx >= 0) {
         setFocusIdx(idx);
         virtualizer.scrollToIndex(idx, { align: 'auto' });
       }
     }
-  }, [state.selection, entries, setFocusIdx, virtualizer]);
+  }, [state.selection, state.selectionOrigin, entries, setFocusIdx, virtualizer, state.document]);
 
   // Keep containers auto-expanded when new nodes are added (e.g. after import or paste).
   useEffect(() => {
@@ -576,16 +600,16 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           const end = Math.max(anchorIdx, clickIdx);
           const startEntry = entries[start];
           if (!startEntry) throw new Error('start entry not found');
-          toggleSelection(startEntry.node.id, false);
+          toggleSelection(startEntry.node.id, false, 'layers');
           for (let i = start + 1; i <= end; i++) {
             const entry = entries[i];
             if (!entry) throw new Error('entry not found');
-            toggleSelection(entry.node.id, true);
+            toggleSelection(entry.node.id, true, 'layers');
           }
           return;
         }
       }
-      toggleSelection(id, ctrl);
+      toggleSelection(id, ctrl, 'layers');
       if (!ctrl) {
         setAnchorIdx(entries.findIndex((e) => e.node.id === id));
         // Center and fit the selected node in the canvas viewport.
@@ -634,11 +658,11 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     if (entries.length === 0) return;
     const firstEntry = entries[0];
     if (!firstEntry) throw new Error('first entry not found');
-    toggleSelection(firstEntry.node.id, false);
+    toggleSelection(firstEntry.node.id, false, 'layers');
     for (let i = 1; i < entries.length; i++) {
       const entry = entries[i];
       if (!entry) throw new Error('entry not found');
-      toggleSelection(entry.node.id, true);
+      toggleSelection(entry.node.id, true, 'layers');
     }
   }, [entries, toggleSelection]);
 
@@ -648,7 +672,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       setFocusIdx(next);
       const nextEntry = entries[next];
       if (!nextEntry) throw new Error('next entry not found');
-      toggleSelection(nextEntry.node.id);
+      toggleSelection(nextEntry.node.id, false, 'layers');
       setAnchorIdx(next);
       virtualizer.scrollToIndex(next, { align: 'auto' });
     },
@@ -695,7 +719,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         setFocusIdx(next);
         const nextEntry = entries[next];
         if (!nextEntry) throw new Error('next entry not found');
-        toggleSelection(nextEntry.node.id, true);
+        toggleSelection(nextEntry.node.id, true, 'layers');
         virtualizer.scrollToIndex(next, { align: 'auto' });
         return;
       }
@@ -711,7 +735,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               const childIdx = entries.findIndex((e) => e.node.id === childId);
               if (childIdx >= 0) {
                 setFocusIdx(childIdx);
-                toggleSelection(childId);
+                toggleSelection(childId, false, 'layers');
                 setAnchorIdx(childIdx);
                 virtualizer.scrollToIndex(childIdx, { align: 'auto' });
               }
@@ -734,7 +758,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
             const parentIdx = entries.findIndex((e) => e.node.id === parentId);
             if (parentIdx >= 0) {
               setFocusIdx(parentIdx);
-              toggleSelection(parentId);
+              toggleSelection(parentId, false, 'layers');
               setAnchorIdx(parentIdx);
               virtualizer.scrollToIndex(parentIdx, { align: 'auto' });
             }
@@ -749,7 +773,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         jumpToStart();
         const homeEntry = entries[0];
         if (!homeEntry) throw new Error('home entry not found');
-        toggleSelection(homeEntry.node.id);
+        toggleSelection(homeEntry.node.id, false, 'layers');
         setAnchorIdx(0);
         virtualizer.scrollToIndex(0, { align: 'start' });
         return;
@@ -759,7 +783,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
         jumpToEnd(entries.length);
         const endEntry = entries[entries.length - 1];
         if (!endEntry) throw new Error('end entry not found');
-        toggleSelection(endEntry.node.id);
+        toggleSelection(endEntry.node.id, false, 'layers');
         setAnchorIdx(entries.length - 1);
         virtualizer.scrollToIndex(entries.length - 1, { align: 'end' });
         return;
@@ -769,7 +793,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       if (e.key === 'Enter') {
         e.preventDefault();
         if (focusedNode) {
-          toggleSelection(focusedNode.id);
+          toggleSelection(focusedNode.id, false, 'layers');
           setAnchorIdx(focusIdx);
         }
         return;
@@ -779,7 +803,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       if (e.key === ' ') {
         e.preventDefault();
         if (focusedNode) {
-          toggleSelection(focusedNode.id, true);
+          toggleSelection(focusedNode.id, true, 'layers');
         }
         return;
       }
@@ -847,7 +871,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
           setFocusIdx(matchIdx);
           const matchEntry = entries[matchIdx];
           if (!matchEntry) throw new Error('match entry not found');
-          toggleSelection(matchEntry.node.id);
+          toggleSelection(matchEntry.node.id, false, 'layers');
           setAnchorIdx(matchIdx);
           virtualizer.scrollToIndex(matchIdx, { align: 'auto' });
         }

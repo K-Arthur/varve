@@ -25,6 +25,40 @@
   border-top: 3px solid var(--color-accent-primary);
 }
 
+.layers-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.layers-panel__auto-reveal-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.layers-panel__auto-reveal-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-hover);
+}
+
+.layers-panel__auto-reveal-btn--active {
+  color: var(--color-accent-primary);
+}
+
+.layers-panel__auto-reveal-btn--active:hover {
+  color: var(--color-accent-primary-hover);
+}
+
 .layers-panel__isolation-breadcrumb {
   display: flex;
   align-items: center;
