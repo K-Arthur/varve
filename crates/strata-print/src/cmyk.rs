@@ -10,7 +10,10 @@
 //! Bruce Lindbloom's colour equations.
 
 use crate::marks::{self, MarksGeometry};
-use crate::subset::{collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission, EmbeddingPermission};
+use crate::subset::{
+    collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
+    EmbeddingPermission,
+};
 use crate::{ImageRenderState, PdfOptions};
 use lopdf::{dictionary, Document, Object, Stream};
 pub use strata_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
@@ -196,11 +199,8 @@ fn build_pdfx_document(
     if !opts.fonts.is_empty() {
         for (font_idx, (family, font_data)) in opts.fonts.iter().enumerate() {
             // Validate embedding permission
-            if let Ok(perm) = validate_embedding_permission(font_data) {
-                match perm {
-                    EmbeddingPermission::Restricted => continue,
-                    _ => {}
-                }
+            if let Ok(EmbeddingPermission::Restricted) = validate_embedding_permission(font_data) {
+                continue;
             }
             // Subset font to used characters
             let used_text = crate::collect_text_per_family(nodes);
@@ -221,7 +221,8 @@ fn build_pdfx_document(
                 dictionary! { "Length1" => subset_data.len() as i64 },
                 subset_data,
             );
-            doc.objects.insert(font_stream_id, Object::Stream(font_stream));
+            doc.objects
+                .insert(font_stream_id, Object::Stream(font_stream));
 
             // Font descriptor
             let descriptor_id = doc.new_object_id();
@@ -238,7 +239,8 @@ fn build_pdfx_document(
                 "StemV" => 50,
                 "FontFile2" => Object::Reference(font_stream_id),
             };
-            doc.objects.insert(descriptor_id, Object::Dictionary(descriptor));
+            doc.objects
+                .insert(descriptor_id, Object::Dictionary(descriptor));
 
             // Font dictionary
             let res_name = format!("F{}", font_idx + 1);
