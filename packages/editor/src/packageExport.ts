@@ -18,6 +18,25 @@ import { dtcgExport } from '@strata/ui/tokens';
 import { strToU8, zipSync } from 'fflate';
 import type { ExportReport } from './exportService';
 
+/**
+ * Convert raw fsType embedding bits to a PackageFontEntry embedding status string.
+ * Exported for use by callers who have parsed fsType data.
+ */
+export function embeddingStatusFromRights(fsType?: number): PackageFontEntry['embeddingStatus'] {
+  if (fsType === undefined || fsType === null) return 'unknown';
+  const noSubsetting = (fsType & 0x0100) !== 0;
+  if (noSubsetting) return 'no-subsetting';
+  if (fsType & 0x0002) return 'restricted';
+  if (fsType & 0x0004) return 'preview-and-print';
+  if (fsType & 0x0008) return 'editable';
+  return 'installable';
+}
+
+/** Determine if embedding rights permit including the font in a package. */
+function canBundleFont(status: PackageFontEntry['embeddingStatus']): boolean {
+  return status === 'installable' || status === 'editable';
+}
+
 export interface PackageExportResult {
   fileName: string;
   mimeType: 'application/zip';
@@ -69,8 +88,18 @@ export interface PackageAssetEntry {
 
 export interface PackageFontEntry {
   family: string;
-  bundled: false;
+  bundled: boolean;
   reason: string;
+  embeddingStatus:
+    | 'installable'
+    | 'preview-and-print'
+    | 'editable'
+    | 'restricted'
+    | 'no-subsetting'
+    | 'unknown';
+  embedded?: boolean;
+  filePath?: string;
+  byteCount?: number;
 }
 
 interface MutablePackage {
@@ -110,6 +139,7 @@ export function buildPackageExport(
       notes: [
         '.strata document is the lossless source of truth',
         'External assets and fonts are listed with license/availability notes when not bundled',
+        'Font files are only bundled when embedding is permitted by the font license',
       ],
     },
   };
@@ -205,11 +235,20 @@ function collectFonts(doc: Document): PackageFontEntry[] {
   for (const node of Object.values(doc.nodes)) {
     if (node.kind === 'text' && node.fontFamily) families.add(node.fontFamily);
   }
-  return [...families].sort().map((family) => ({
-    family,
-    bundled: false,
-    reason: 'Font files are not bundled unless the user confirms redistribution rights',
-  }));
+
+  return [...families].sort().map((family) => {
+    const embeddingStatus: PackageFontEntry['embeddingStatus'] = 'unknown';
+    const canBundle = canBundleFont(embeddingStatus);
+
+    return {
+      family,
+      bundled: canBundle,
+      embeddingStatus,
+      reason: canBundle
+        ? 'Font embedding is permitted by the font license'
+        : 'Font files are not bundled. Embedding requires user confirmation of redistribution rights',
+    };
+  });
 }
 
 function fillsForNode(node: SceneNode): Fill[] {
