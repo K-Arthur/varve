@@ -9,6 +9,9 @@
  *   import { FontCatalog, FontResolver, FontLoader } from '@strata/engine/font';
  */
 
+export type { UnifiedFontInfo } from './fontBridge';
+// Bridge between FontRegistry and FontCatalog
+export { FontBridge } from './fontBridge';
 export type { FontCacheConfig, FontCacheEntry } from './fontCache';
 // Caching
 export { FontBinaryCache, FontMetadataCache } from './fontCache';
@@ -75,9 +78,17 @@ export { FontProviderRegistry, FontsourceProvider, GoogleFontsProvider } from '.
 export type { FontReplacement, FontSubstitute, MissingFontInfo } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
-// Bridge between FontRegistry and FontCatalog
-export { FontBridge } from './fontBridge';
-export type { UnifiedFontInfo } from './fontBridge';
+export type {
+  BuildManifestOptions,
+  FontManifest,
+  FontManifestEntry,
+  FontManifestStatus,
+} from './fontManifest';
+// Document font manifest
+export {
+  buildDocumentFontManifest,
+  resolveManifestAgainstCatalog,
+} from './fontManifest';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';

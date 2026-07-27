@@ -2,6 +2,11 @@ import type { NodeId, SceneNode } from '@strata/scene';
 import { resolveNodeFills } from '@strata/scene';
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
+import {
+  DEFAULT_SELECTION_ORIGIN,
+  nextSelectionPrimary,
+  type SelectionOrigin,
+} from './selectionState';
 import type { EditorState } from './types';
 
 export interface SelectionContextValue {
@@ -9,17 +14,10 @@ export interface SelectionContextValue {
   primaryId: NodeId | null;
   activeContainerId: NodeId | null;
   selectionMode: 'object' | 'direct' | 'path' | 'text' | 'pixel';
-  selectionOrigin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api';
+  selectionOrigin: SelectionOrigin;
   selectionRevision: number;
-  setSelection: (
-    id: NodeId | null,
-    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
-  ) => void;
-  toggleSelection: (
-    id: NodeId,
-    additive?: boolean,
-    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
-  ) => void;
+  setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
+  toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
   isSelected: (id: NodeId) => boolean;
   selectedNodes: () => SceneNode[];
   selectAllWithSameType: () => void;
@@ -44,21 +42,42 @@ interface SelectionProviderProps {
 
 export function SelectionProvider({ children, state, setState }: SelectionProviderProps) {
   const setSelection = useCallback(
-    (id: NodeId | null) => setState((s) => ({ ...s, selection: id ? [id] : [] })),
+    (id: NodeId | null, origin?: SelectionOrigin) => {
+      setState((s) => ({
+        ...s,
+        selection: id ? [id] : [],
+        primaryId: id,
+        selectionOrigin: origin ?? DEFAULT_SELECTION_ORIGIN,
+        selectionRevision: s.selectionRevision + 1,
+      }));
+    },
     [setState],
   );
 
   const toggleSelection = useCallback(
-    (id: NodeId, additive?: boolean) => {
+    (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => {
       setState((s) => {
-        if (additive) {
-          const exists = s.selection.includes(id);
-          return {
-            ...s,
-            selection: exists ? s.selection.filter((nid) => nid !== id) : [...s.selection, id],
-          };
-        }
-        return { ...s, selection: [id] };
+        const currentSelection = s.selection;
+        const nextSelection = additive
+          ? currentSelection.includes(id)
+            ? currentSelection.filter((nid) => nid !== id)
+            : [...currentSelection, id]
+          : [id];
+        if (JSON.stringify(currentSelection) === JSON.stringify(nextSelection)) return s;
+        const newPrimaryId = nextSelectionPrimary(
+          currentSelection,
+          nextSelection,
+          s.primaryId,
+          id,
+          !!additive,
+        );
+        return {
+          ...s,
+          selection: nextSelection,
+          primaryId: newPrimaryId,
+          selectionOrigin: origin ?? DEFAULT_SELECTION_ORIGIN,
+          selectionRevision: s.selectionRevision + 1,
+        };
       });
     },
     [setState],

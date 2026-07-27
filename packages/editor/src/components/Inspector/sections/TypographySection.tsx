@@ -18,9 +18,10 @@ import { getFontRegistry } from '@strata/engine';
 import type { SceneNode, TextNode } from '@strata/scene';
 import { resolveNodeFills } from '@strata/scene';
 import { Select } from '@strata/ui';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
+import { FontSelector } from '../../FontBrowser/FontSelector';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -34,20 +35,6 @@ import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionSta
 export interface TypographySectionProps {
   nodes: SceneNode[];
 }
-
-const SYSTEM_FONTS = [
-  'Inter',
-  'Arial',
-  'Helvetica',
-  'Georgia',
-  'Times New Roman',
-  'Courier New',
-  'Verdana',
-  'Trebuchet MS',
-  'sans-serif',
-  'serif',
-  'monospace',
-];
 
 const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
@@ -174,14 +161,6 @@ function getTextValue<T>(n: SceneNode, accessor: (t: TextNode) => T): T {
 
 export function TypographySection({ nodes }: TypographySectionProps) {
   const editor = useEditor();
-  const [registryFonts, setRegistryFonts] = useState<string[]>([]);
-
-  useEffect(() => {
-    const registry = getFontRegistry();
-    setRegistryFonts(registry.families());
-  }, []);
-
-  const fonts = registryFonts.length > 0 ? registryFonts : SYSTEM_FONTS;
   const {
     updateNode,
     beginTransaction,
@@ -321,11 +300,8 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           </>
         )}
         <FieldRow label="Font">
-          <Select
-            label="Font family"
+          <FontSelector
             value={isMixed(familyRaw) ? '' : familyRaw}
-            placeholder={isMixed(familyRaw) ? 'Mixed' : undefined}
-            options={fonts.map((f) => ({ value: f, label: f }))}
             onChange={(v) => batchUpdate((n) => ({ ...n, fontFamily: v || undefined }))}
           />
         </FieldRow>

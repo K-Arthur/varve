@@ -3,7 +3,7 @@
  * file fingerprints rather than family names alone.
  *
  * A font is identified by:
- *   1. A deterministic content hash (FNV-1a, truncated to 8 hex chars).
+ *   1. A deterministic SHA-256 content hash of the entire file.
  *   2. PostScript name (unique per face within a family).
  *   3. Family name + subfamily (e.g. "Inter" + "Bold Italic").
  *
@@ -24,7 +24,7 @@ export type FontSourceKind =
   | 'missing'; // Referenced but not available
 
 /** Font file format. */
-export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2' | 'unknown';
+export type FontFormat = 'ttf' | 'otf' | 'ttc' | 'otc' | 'woff' | 'woff2' | 'unknown';
 
 /** Font classification category. */
 export type FontCategory =
@@ -46,8 +46,12 @@ export type EmbeddingRights =
 
 /** Normalized font identity — the stable key for deduplication. */
 export interface FontIdentity {
-  /** Truncated FNV-1a hash of the font file bytes (8 hex chars). */
+  /** Full SHA-256 hash of the font file bytes (64 hex chars). */
   contentHash: string;
+  /** Short 8-character fingerprint derived from the content hash for compact UI labels. */
+  fingerprint?: string;
+  /** Hash algorithm used to produce contentHash. */
+  hashAlgorithm?: 'sha256' | 'fnv1a' | 'unknown';
   /** PostScript name from the name table (nameID 6). */
   postScriptName: string;
   /** Family name (nameID 1 or platform-specific). */
@@ -56,6 +60,16 @@ export interface FontIdentity {
   subfamilyName: string;
   /** Full font name (nameID 4). */
   fullName: string;
+  /** Preferred typographic family name (nameID 16), if present. */
+  typographicFamilyName?: string;
+  /** Preferred typographic subfamily name (nameID 17), if present. */
+  typographicSubfamilyName?: string;
+  /** Font vendor/manufacturer (nameID 8), if present. */
+  vendor?: string;
+  /** Version string (nameID 5), if present. */
+  version?: string;
+  /** Index within a TrueType/OpenType Collection (TTC/OTC). */
+  collectionIndex?: number;
 }
 
 /** Complete metadata parsed from a font file. */
@@ -65,7 +79,7 @@ export interface ParsedFontMetadata {
   format: FontFormat;
   /** Raw file size in bytes. */
   fileSize: number;
-  /** Font vendor string (nameID 5). */
+  /** Font vendor/manufacturer string (nameID 8). */
   vendor?: string;
   /** Version string (nameID 5). */
   version?: string;
@@ -153,7 +167,7 @@ export function detectFontFormat(data: ArrayBuffer): FontFormat {
   if (view[0] === 0x00 && view[1] === 0x01 && view[2] === 0x00 && view[3] === 0x00) return 'ttf';
   if (view[0] === 0x4f && view[1] === 0x54 && view[2] === 0x54 && view[3] === 0x4f) return 'otf';
   if (view[0] === 0x74 && view[1] === 0x72 && view[2] === 0x75 && view[3] === 0x65) return 'ttf';
-  if (view[0] === 0x74 && view[1] === 0x74 && view[2] === 0x63 && view[3] === 0x66) return 'ttf';
+  if (view[0] === 0x74 && view[1] === 0x74 && view[2] === 0x63 && view[3] === 0x66) return 'ttc';
 
   return 'unknown';
 }
@@ -168,10 +182,94 @@ export function fontIdentityKey(id: FontIdentity): string {
 
 /**
  * Check if two font identities refer to the same face.
- * Uses content hash (exact match) OR PostScript name match.
+ *
+ * Primary match: SHA-256 content hashes are identical. This is the only
+ * reliable way to distinguish files that share a family name but differ in
+ * version, subset, or source.
+ *
+ * Fallback: when a hash is unavailable or non-canonical, compare the
+ * PostScript name plus family/subfamily pair to avoid treating a single
+ * missing-font reference as different from its resolved replacement.
  */
 export function sameFontFace(a: FontIdentity, b: FontIdentity): boolean {
-  if (a.contentHash === b.contentHash) return true;
-  if (a.postScriptName === b.postScriptName && a.postScriptName !== 'Unknown') return true;
+  // Prefer exact SHA-256 match when both identities are canonical.
+  if (
+    a.contentHash &&
+    b.contentHash &&
+    a.hashAlgorithm === 'sha256' &&
+    b.hashAlgorithm === 'sha256'
+  ) {
+    return a.contentHash === b.contentHash;
+  }
+
+  // Legacy/non-canonical hash match.
+  if (a.contentHash && b.contentHash && a.contentHash === b.contentHash) {
+    return true;
+  }
+
+  // Metadata fallback: same PostScript name and same family/subfamily.
+  if (
+    a.postScriptName &&
+    a.postScriptName === b.postScriptName &&
+    a.postScriptName !== 'Unknown' &&
+    a.familyName === b.familyName &&
+    a.subfamilyName === b.subfamilyName
+  ) {
+    return true;
+  }
+
   return false;
+}
+
+/**
+ * Compute a short 8-hex-character fingerprint from a full content hash.
+ */
+export function shortFingerprint(contentHash: string): string {
+  return contentHash.slice(0, 8).toLowerCase();
+}
+
+/**
+ * Compute the canonical SHA-256 content hash for a font file.
+ *
+ * Returns the full 64-character hex digest and a short fingerprint. If the
+ * runtime does not expose `crypto.subtle`, a fallback FNV-1a hash is produced
+ * and marked with algorithm `fnv1a` so callers can decide whether to trust it
+ * for canonical identity.
+ */
+export async function computeFontHash(data: ArrayBuffer): Promise<{
+  contentHash: string;
+  fingerprint: string;
+  hashAlgorithm: 'sha256' | 'fnv1a';
+}> {
+  if (typeof crypto !== 'undefined' && crypto.subtle) {
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const bytes = new Uint8Array(digest);
+    const contentHash = Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    return { contentHash, fingerprint: shortFingerprint(contentHash), hashAlgorithm: 'sha256' };
+  }
+
+  const contentHash = simpleHash(data);
+  return { contentHash, fingerprint: shortFingerprint(contentHash), hashAlgorithm: 'fnv1a' };
+}
+
+// ── Simple hash (for legacy/fallback environments) ─────────────────────────
+
+function simpleHash(data: ArrayBuffer): string {
+  const bytes = new Uint8Array(data);
+  // FNV-1a hash
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < Math.min(bytes.length, 10000); i++) {
+    hash ^= bytes[i] ?? 0;
+    hash = (hash * 0x01000193) | 0;
+  }
+  // Also hash the last 1000 bytes if file is large
+  if (bytes.length > 10000) {
+    for (let i = bytes.length - 1000; i < bytes.length; i++) {
+      hash ^= bytes[i] ?? 0;
+      hash = (hash * 0x01000193) | 0;
+    }
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }

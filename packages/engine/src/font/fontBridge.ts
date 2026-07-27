@@ -13,9 +13,9 @@
  * avoiding a single massive migration while both systems are in active use.
  */
 
-import { type FontCatalog, type FontCatalogEntry } from './fontCatalog';
 import type { FontEntry, FontRegistry } from '../fontRegistry';
-import { type ParsedFontMetadata } from './fontIdentity';
+import type { FontCatalog, FontCatalogEntry } from './fontCatalog';
+import type { ParsedFontMetadata } from './fontIdentity';
 import type { FontLicensePolicy } from './fontLicensePolicy';
 
 // ---------------------------------------------------------------------------
@@ -220,11 +220,6 @@ function getEmbeddingRights(rights: string): boolean {
     case 'installable':
     case 'editable':
       return true;
-    case 'preview-and-print':
-    case 'no-subsetting':
-      return false;
-    case 'restricted':
-    case 'unknown':
     default:
       return false;
   }

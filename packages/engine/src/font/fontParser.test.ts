@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { parseFontData } from './fontParser';
+import { describe, expect, it } from 'vitest';
 import { detectFontFormat, fontIdentityKey } from './fontIdentity';
+import { parseFontData } from './fontParser';
 
 // ── Helper: build minimal OpenType font bytes ──────────────────────────
 
@@ -52,7 +52,7 @@ function buildMinimalSFNT(
   // sfVersion = 0x00010000 for TrueType, 0x4F54544F for OTF
   view.setUint32(0, 0x00010000);
   view.setUint16(4, numTables);
-  const maxPow2 = Math.pow(2, Math.floor(Math.log2(numTables)));
+  const maxPow2 = 2 ** Math.floor(Math.log2(numTables));
   view.setUint16(6, maxPow2 * 16);
   view.setUint16(8, Math.log2(maxPow2));
   view.setUint16(10, numTables - maxPow2);
@@ -90,7 +90,7 @@ function computeChecksum(data: ArrayBuffer): number {
 function makeNameTable(fields: Record<number, string>): ArrayBuffer {
   const entries: Array<{ platformID: number; nameID: number; text: string }> = [];
   for (const [nameID, text] of Object.entries(fields)) {
-    entries.push({ platformID: 3, nameID: parseInt(nameID), text });
+    entries.push({ platformID: 3, nameID: parseInt(nameID, 10), text });
   }
 
   const stringsSize = entries.reduce((sum, e) => sum + e.text.length * 2, 0);
@@ -573,15 +573,31 @@ describe('parseFontData', () => {
   });
 
   it('extracts vendor info from name table', async () => {
+    // nameID 8 = vendor/manufacturer per OpenType spec
     const data = buildTestFont({
       1: 'Test',
       2: 'Regular',
       4: 'Test Regular',
       6: 'Test-Regular',
-      5: 'TestFoundry',
+      8: 'TestFoundry',
     });
     const meta = await parseFontData(data);
     expect(meta.vendor).toBeDefined();
+    expect(meta.vendor).toBe('TestFoundry');
+  });
+
+  it('extracts version from name table', async () => {
+    // nameID 5 = version string per OpenType spec
+    const data = buildTestFont({
+      1: 'Test',
+      2: 'Regular',
+      4: 'Test Regular',
+      6: 'Test-Regular',
+      5: 'Version 1.0',
+    });
+    const meta = await parseFontData(data);
+    expect(meta.version).toBeDefined();
+    expect(meta.version).toBe('Version 1.0');
   });
 });
 

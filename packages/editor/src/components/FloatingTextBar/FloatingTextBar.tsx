@@ -1,9 +1,9 @@
-import { getFontRegistry } from '@strata/engine';
 import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
 import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@strata/shared';
 import { ColorPicker, Icon, Popover, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { FontSelector } from '../FontBrowser/FontSelector';
 import './FloatingTextBar.css';
 
 export interface FloatingTextBarProps {
@@ -15,37 +15,12 @@ export interface FloatingTextBarProps {
 
 const FONT_WEIGHTS = [100, 200, 300, 400, 500, 600, 700, 800, 900];
 
-const SYSTEM_FONTS = [
-  'IBM Plex Sans Variable',
-  'Geist Variable',
-  'Inter',
-  'Arial',
-  'Helvetica',
-  'Georgia',
-  'Times New Roman',
-  'Courier New',
-  'Verdana',
-  'Trebuchet MS',
-  'Noto Sans',
-  'sans-serif',
-  'serif',
-  'monospace',
-];
-
 const BAR_HEIGHT_EST = 42;
 const PADDING = 8;
 const MIN_BAR_WIDTH = 400;
 
 export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: FloatingTextBarProps) {
-  const [fonts, setFonts] = useState<string[]>([]);
   const [colorOpen, setColorOpen] = useState(false);
-
-  useEffect(() => {
-    const registry = getFontRegistry();
-    setFonts(registry.families());
-  }, []);
-
-  const availableFonts = fonts.length > 0 ? fonts : SYSTEM_FONTS;
 
   const { barLeft, barTop } = useMemo(() => {
     const vpH = window.innerHeight;
@@ -156,10 +131,8 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
       aria-label="Text formatting"
       onKeyDown={handleKeyDown}
     >
-      <Select
-        label="Font family"
+      <FontSelector
         value={node.fontFamily ?? DEFAULT_ARTWORK_FONT_FAMILY}
-        options={availableFonts.map((f) => ({ value: f, label: f }))}
         onChange={handleFontFamilyChange}
       />
 
