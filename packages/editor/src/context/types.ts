@@ -1010,8 +1010,13 @@ export interface EditorContextValue {
 
   // Debug overlays (Workstream A)
   setDebugOverlayEnabled: (enabled: boolean) => void;
-  setDebugOverlayChannel: (channel: import('../debug/DebugOverlayRegistry').DebugOverlayChannel, value: boolean) => void;
-  setDebugOverlayLabelDensity: (density: import('../debug/DebugOverlayRegistry').DebugLabelDensity) => void;
+  setDebugOverlayChannel: (
+    channel: import('../debug/DebugOverlayRegistry').DebugOverlayChannel,
+    value: boolean,
+  ) => void;
+  setDebugOverlayLabelDensity: (
+    density: import('../debug/DebugOverlayRegistry').DebugLabelDensity,
+  ) => void;
   setDebugOverlayFrozen: (frozen: boolean) => void;
 
   // Touch multi-select (Workstream D)

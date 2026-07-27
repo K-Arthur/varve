@@ -343,6 +343,23 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     remoteUrl:
       'https://huggingface.co/Xenova/detr-resnet-50/resolve/main/onnx/model_quantized.onnx',
     checksum: 'cae09a307ed9247da7e2ce8bcf81522a6817f1ea2e82b9c4dde59f5964b62b4f',
+    tensorContract: {
+      version: 1,
+      inputs: [
+        { name: 'pixel_values', dims: [1, 3, 800, 800], dtype: 'float32' },
+        { name: 'pixel_mask', dims: [1, 64, 64], dtype: 'int64' },
+      ],
+      outputs: [
+        { name: 'logits', dims: [1, 100, 92], dtype: 'float32' },
+        { name: 'pred_boxes', dims: [1, 100, 4], dtype: 'float32' },
+      ],
+      normalization: {
+        mean: [0.485, 0.456, 0.406],
+        std: [0.229, 0.224, 0.225],
+        channelOrder: 'rgb',
+      },
+      outputActivation: 'none',
+    },
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -364,8 +381,14 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     inputSpec: null,
     quality: 3.5,
     precision: 'fp32',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input', dims: [1, 224, 224, 3], dtype: 'float32' }],
+      outputs: [{ name: 'Softmax:0', dims: [1, 1000], dtype: 'float32' }],
+      normalization: { mean: [0, 0, 0], std: [1, 1, 1], channelOrder: 'rgb' },
+      outputActivation: 'softmax',
+    },
     category: 'classification',
-    peakMemoryBytes: 210_000_000,
     gpuRecommended: false,
   },
   {
@@ -380,8 +403,17 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     inputSpec: null,
     quality: 4,
     precision: 'fp32',
+    tensorContract: {
+      version: 1,
+      inputs: [
+        { name: 'image', dims: [1, 3, 512, 512], dtype: 'float32' },
+        { name: 'mask', dims: [1, 1, 512, 512], dtype: 'float32' },
+      ],
+      outputs: [{ name: 'output', dims: [1, 3, 512, 512], dtype: 'float32' }],
+      normalization: { mean: [0, 0, 0], std: [1, 1, 1], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
     category: 'inpainting',
-    peakMemoryBytes: 850_000_000,
     gpuRecommended: true,
   },
   {
@@ -396,6 +428,13 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     inputSpec: null,
     quality: 3,
     precision: 'fp32',
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'input', dims: [1, 6, -1, -1], dtype: 'float32' }],
+      outputs: [{ name: 'output', dims: [1, 3, -1, -1], dtype: 'float32' }],
+      normalization: { mean: [0, 0, 0], std: [1, 1, 1], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
     category: 'frame-interpolation',
     peakMemoryBytes: 90_000_000,
     gpuRecommended: false,
@@ -413,8 +452,15 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     inputSpec: null,
     quality: 4,
     precision: 'int8',
-    category: 'embedding',
     peakMemoryBytes: 750_000_000,
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'pixel_values', dims: [1, 3, 224, 224], dtype: 'float32' }],
+      outputs: [{ name: 'pooler_output', dims: [1, 768], dtype: 'float32' }],
+      normalization: { mean: [0.5, 0.5, 0.5], std: [0.5, 0.5, 0.5], channelOrder: 'rgb' },
+      outputActivation: 'none',
+    },
+    category: 'embedding',
     gpuRecommended: true,
   },
   {
@@ -430,8 +476,15 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     inputSpec: null,
     quality: 3.5,
     precision: 'fp32',
-    category: 'ocr',
     peakMemoryBytes: 40_000_000,
+    tensorContract: {
+      version: 1,
+      inputs: [{ name: 'x', dims: [1, 3, -1, -1], dtype: 'float32' }],
+      outputs: [{ name: 'sigmoid_0.tmp_0', dims: [1, 1, -1, -1], dtype: 'float32' }],
+      normalization: { mean: [0, 0, 0], std: [1, 1, 1], channelOrder: 'rgb' },
+      outputActivation: 'sigmoid',
+    },
+    category: 'ocr',
     gpuRecommended: false,
   },
 ];
