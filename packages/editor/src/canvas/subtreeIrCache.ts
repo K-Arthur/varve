@@ -308,11 +308,26 @@ export class SubtreeIrCache {
    * Conservative estimate based on JSON serialisation size (multiplied by 2
    * for UTF-16 overhead) plus fixed per-object overhead. Actual JS engine
    * memory may differ, but this provides a consistent relative measure.
+   *
+   * A RenderItem for an image fill embeds the full `src` data URL (see engine
+   * buildIr), which can be several megabytes. A naive JSON.stringify(item) is
+   * therefore O(image bytes) on every cache store — the same class of hidden
+   * cost as hashing the src verbatim. Collapse long strings to a marker in the
+   * serialized output while still counting their real length (String.length is
+   * O(1)); the byte estimate — and thus eviction behaviour — is unchanged, but
+   * the cost is bounded regardless of image size.
    */
   static estimateItemBytes(item: RenderItem): number {
     try {
-      const json = JSON.stringify(item);
-      return json.length * 2 + 64;
+      let longStringChars = 0;
+      const json = JSON.stringify(item, (_key, value) => {
+        if (typeof value === 'string' && value.length > MAX_INLINE_SRC) {
+          longStringChars += value.length;
+          return '';
+        }
+        return value;
+      });
+      return (json.length + longStringChars) * 2 + 64;
     } catch {
       return 1024;
     }
