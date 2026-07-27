@@ -257,16 +257,18 @@ export interface SuppressionRecord {
 // ============================================================================
 
 /**
- * Unified audit finding - the single finding type used across all audit systems.
+ * @deprecated Use AuditFinding from @strata/scene instead. This type remains
+ * for the intelligence subsystem migration. New code should import
+ * AuditFinding from '@strata/scene'.
  *
- * Designed for:
- * - Stable identification across re-runs (findingId)
- * - Navigation to affected content (nodeIds, regions)
- * - Suppression and exception management (suppressionEligible)
- * - Automatic and assisted fixes (fixCapability, previewFix)
- * - Workspace and mode filtering (applicableWorkspaces, applicableModes)
- * - Cache invalidation (documentRevision)
- * - Evidence and standards (evidence, standardReference)
+ * Conversion functions:
+ *   {@link sceneFindingToShared} — converts a scene AuditFinding to this shape.
+ *   {@link sharedFindingToSceneFinding} — converts this shape to scene AuditFinding
+ *   (in @strata/scene/src/auditFinding.ts).
+ *
+ * Migration tracking: packages/scene/src/intelligence/ files still import this
+ * type. Once they are updated to import from '../auditFinding', this type can
+ * be removed or reduced to a pure persistence schema.
  */
 export interface AuditFinding {
   // ── Identification ───────────────────────────────────────────────────────
@@ -395,6 +397,151 @@ export interface AuditFinding {
 
   /** Scan ID that produced this finding (for staleness detection). */
   scanId: number;
+}
+
+// ============================================================================
+// Cross-type bridge converters
+// ============================================================================
+
+/**
+ * Convert a scene AuditFinding (from @strata/scene) to the shared format.
+ * Accepts a plain object matching the scene shape so no import from
+ * @strata/scene is needed (avoids circular dependency).
+ *
+ * The shared AuditFinding is used by the intelligence subsystem (scheduler,
+ * overlay manager, cache, pipeline) which cannot depend on scene types.
+ */
+export function sceneFindingToShared(finding: {
+  ruleId: string;
+  ruleVersion: number;
+  findingId: string;
+  severity: AuditSeverity;
+  confidence: number;
+  message: string;
+  detail?: string;
+  nodeId?: string;
+  nodeIds?: string[];
+  pageId?: string;
+  region?: { x: number; y: number; w: number; h: number; pageId?: string };
+  interactionId?: string;
+  targetName?: string;
+  evidence?: Record<string, unknown>;
+  standardReference?: string;
+  documentationUrl?: string;
+  recommendation?: string;
+  autoFixAvailable?: boolean;
+  cost: string;
+  workspaceApplicable?: string[];
+  applicableModes?: string[];
+  blocking?: boolean;
+  revision?: number;
+  generatedAt?: number;
+  stale?: boolean;
+  resolved?: boolean;
+  scanId?: number;
+  suppressionEligible?: boolean;
+  suppressionScope?: string;
+  metadata?: Record<string, unknown>;
+}): AuditFinding {
+  return {
+    findingId: finding.findingId,
+    ruleId: finding.ruleId,
+    ruleVersion: String(finding.ruleVersion),
+    severity: finding.severity,
+    category: mapSceneCategory(finding),
+    confidence: finding.confidence,
+    nodeIds: finding.nodeIds ?? (finding.nodeId ? [finding.nodeId] : []),
+    region: finding.region,
+    interactionId: finding.interactionId,
+    targetName: finding.targetName,
+    message: finding.message,
+    detail: finding.detail,
+    evidence: finding.evidence,
+    standardReference: finding.standardReference,
+    documentationUrl: finding.documentationUrl,
+    fixCapability: finding.autoFixAvailable ? 'automatic' : 'none',
+    fixes: [],
+    applicableWorkspaces: (finding.workspaceApplicable ?? []) as WorkspaceMode[],
+    applicableModes: [],
+    applicableNodeKinds: [],
+    documentRevision: finding.revision ?? 0,
+    timestamp: finding.generatedAt ?? Date.now(),
+    stale: finding.stale ?? false,
+    resolved: finding.resolved ?? false,
+    suppressionEligible: finding.suppressionEligible ?? false,
+    suppressionScope: (finding.suppressionScope ?? 'finding') as
+      | 'finding'
+      | 'node'
+      | 'rule'
+      | 'document',
+    cost:
+      finding.cost === 'cheap' || finding.cost === 'moderate' || finding.cost === 'expensive'
+        ? (finding.cost as ExecutionCost)
+        : 'moderate',
+    scope: 'document',
+    scanId: finding.scanId ?? 0,
+  };
+}
+
+function mapSceneCategory(finding: {
+  category?: string;
+  evidence?: Record<string, unknown>;
+}): AuditCategory {
+  const cat = finding.category;
+  const valid: AuditCategory[] = [
+    'contrast',
+    'typography',
+    'layout',
+    'accessibility',
+    'vector',
+    'raster',
+    'color',
+    'performance',
+    'spacing',
+    'codegen',
+    'prototype',
+    'governance',
+    'layer-hygiene',
+    'touch-target',
+    'focus-order',
+  ];
+  if (cat && (valid as string[]).includes(cat)) return cat as AuditCategory;
+  return 'accessibility';
+}
+
+/**
+ * Convert a shared AuditFinding back to the canonical scene shape.
+ * Returns a plain object that matches AuditFinding from @strata/scene.
+ * Use after importing the scene type separately.
+ */
+export function sharedFindingToSceneShape(finding: AuditFinding): Record<string, unknown> {
+  return {
+    ruleId: finding.ruleId,
+    ruleVersion: parseInt(finding.ruleVersion, 10) || 1,
+    findingId: finding.findingId,
+    severity: finding.severity,
+    confidence: finding.confidence,
+    nodeIds: finding.nodeIds,
+    message: finding.message,
+    detail: finding.detail,
+    region: finding.region,
+    interactionId: finding.interactionId,
+    targetName: finding.targetName,
+    evidence: finding.evidence,
+    standardReference: finding.standardReference,
+    documentationUrl: finding.documentationUrl,
+    autoFixAvailable: finding.fixCapability === 'automatic' || finding.fixCapability === 'assisted',
+    cost: finding.cost === 'immediate' ? 'cheap' : finding.cost,
+    workspaceApplicable: finding.applicableWorkspaces,
+    blocking: finding.severity === 'error',
+    revision: finding.documentRevision,
+    generatedAt: finding.timestamp,
+    stale: finding.stale,
+    resolved: finding.resolved,
+    scanId: finding.scanId,
+    suppressionEligible: finding.suppressionEligible,
+    suppressionScope: finding.suppressionScope,
+  };
 }
 
 // ============================================================================
