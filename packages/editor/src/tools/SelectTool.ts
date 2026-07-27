@@ -196,6 +196,13 @@ export class SelectTool extends BaseTool {
         } else if (!ctx.isSelected(target.nodeId)) {
           ctx.setSelection(target.nodeId);
         }
+      } else if (ctx.touchMultiSelect.active) {
+        // Touch multi-select: tap toggles nodes in/out of selection
+        if (ctx.isSelected(hit.nodeId)) {
+          ctx.toggleSelection(hit.nodeId, false);
+        } else {
+          ctx.toggleSelection(hit.nodeId, true);
+        }
       } else if (e.shiftKey) {
         ctx.toggleSelection(hit.nodeId, true);
       } else if (!ctx.isSelected(hit.nodeId)) {
@@ -224,11 +231,11 @@ export class SelectTool extends BaseTool {
         this.initialPositions.set(id, { x: worldMat[4], y: worldMat[5] });
       }
     } else {
-      if (!e.shiftKey) {
+      if (!e.shiftKey && !ctx.touchMultiSelect.active) {
         ctx.setSelection(null);
         ctx.announceSelection([]);
       }
-      this.marqueeActive = true;
+      this.marqueeActive = !ctx.touchMultiSelect.active;
       this.isMoveGesture = false;
     }
 

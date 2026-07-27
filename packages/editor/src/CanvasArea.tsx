@@ -1141,6 +1141,7 @@ export function CanvasArea({
         return id;
       },
       lastPointerEvent: ev,
+      touchMultiSelect: s.touchMultiSelect,
       showDeepSelectionMenu: (world, screenX, screenY) => {
         // Gather all nodes beneath the touch point using touch policy
         const hitEngine = HitTestEngine.withPolicy(stateRef.current.document, 'touchDeepSelect', {
