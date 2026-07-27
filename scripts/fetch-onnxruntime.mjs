@@ -24,13 +24,15 @@
  * existing WASM/heuristic providers.
  */
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(__dirname, '..');
 const stageDir = join(repoRoot, 'apps', 'desktop', 'src-tauri', 'onnxruntime-libs');
+
+const FETCH_TIMEOUT_MS = 120_000;
 
 const ORT_VERSION = '1.27.1';
 
@@ -92,36 +94,82 @@ async function sha256OfFile(path) {
 }
 
 async function downloadToBuffer(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Download failed: ${res.status} ${res.statusText} (${url})`);
-  return Buffer.from(await res.arrayBuffer());
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(
+        `Download failed: HTTP ${res.status} ${res.statusText} (${url})\n${body ? `  Response body: ${body.slice(0, 500)}` : ''}`,
+      );
+    }
+    const contentLength = res.headers.get('content-length');
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length === 0) {
+      throw new Error(`Download produced zero-byte file: ${url}`);
+    }
+    if (contentLength && buffer.length !== parseInt(contentLength, 10)) {
+      throw new Error(
+        `Download size mismatch: expected ${contentLength} bytes, got ${buffer.length} (${url})`,
+      );
+    }
+    return buffer;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function extractFromTarGz(archiveBuffer, entryPath) {
   const { execFileSync } = await import('node:child_process');
-  const tmpArchive = join(stageDir, '.download.tgz');
-  writeFileSync(tmpArchive, archiveBuffer);
-  const tmpOut = join(stageDir, '.extract');
-  mkdirSync(tmpOut, { recursive: true });
-  execFileSync('tar', ['xzf', tmpArchive, '-C', tmpOut, entryPath], { stdio: 'inherit' });
-  const extracted = readFileSync(join(tmpOut, entryPath));
-  execFileSync('rm', ['-rf', tmpArchive, tmpOut]);
-  return extracted;
+  const tmpDir = join(stageDir, `.tmp-extract-${process.pid}`);
+  const tmpArchive = join(tmpDir, 'archive.tgz');
+  const tmpOut = join(tmpDir, 'out');
+  try {
+    mkdirSync(tmpOut, { recursive: true });
+    writeFileSync(tmpArchive, archiveBuffer);
+    execFileSync('tar', ['xzf', tmpArchive, '-C', tmpOut, entryPath], {
+      stdio: 'pipe',
+      timeout: 30_000,
+    });
+    const extractedPath = join(tmpOut, entryPath);
+    if (!existsSync(extractedPath)) {
+      throw new Error(`tar extraction succeeded but expected file not found: ${entryPath}`);
+    }
+    const extracted = readFileSync(extractedPath);
+    if (extracted.length === 0) {
+      throw new Error(`Extracted file is empty: ${entryPath}`);
+    }
+    return extracted;
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 async function extractFromZip(archiveBuffer, entryPath) {
-  // Avoid adding a zip-parsing dependency: shell out to `unzip`, which is
-  // near-universal on Linux/macOS CI and the only platform this script runs
-  // on for a Windows *target* (cross-staging, not cross-compiling).
   const { execFileSync } = await import('node:child_process');
-  const tmpArchive = join(stageDir, '.download.zip');
-  writeFileSync(tmpArchive, archiveBuffer);
-  const tmpOut = join(stageDir, '.extract');
-  mkdirSync(tmpOut, { recursive: true });
-  execFileSync('unzip', ['-o', '-q', tmpArchive, entryPath, '-d', tmpOut], { stdio: 'inherit' });
-  const extracted = readFileSync(join(tmpOut, entryPath));
-  execFileSync('rm', ['-rf', tmpArchive, tmpOut]);
-  return extracted;
+  const tmpDir = join(stageDir, `.tmp-extract-${process.pid}`);
+  const tmpArchive = join(tmpDir, 'archive.zip');
+  const tmpOut = join(tmpDir, 'out');
+  try {
+    mkdirSync(tmpOut, { recursive: true });
+    writeFileSync(tmpArchive, archiveBuffer);
+    execFileSync('unzip', ['-o', '-q', tmpArchive, entryPath, '-d', tmpOut], {
+      stdio: 'pipe',
+      timeout: 30_000,
+    });
+    const extractedPath = join(tmpOut, entryPath);
+    if (!existsSync(extractedPath)) {
+      throw new Error(`unzip succeeded but expected file not found: ${entryPath}`);
+    }
+    const extracted = readFileSync(extractedPath);
+    if (extracted.length === 0) {
+      throw new Error(`Extracted file is empty: ${entryPath}`);
+    }
+    return extracted;
+  } finally {
+    rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 async function main() {
@@ -142,8 +190,16 @@ async function main() {
     const destFile = join(destDir, platform.libName);
 
     if (existsSync(destFile)) {
-      console.log(`[fetch-onnxruntime] ${key}: already staged at ${destFile}, skipping download.`);
-      continue;
+      const existingSize = readFileSync(destFile).length;
+      if (existingSize === 0) {
+        console.error(`[fetch-onnxruntime] ${key}: existing staged file is empty, re-downloading.`);
+        rmSync(destFile);
+      } else {
+        console.log(
+          `[fetch-onnxruntime] ${key}: already staged at ${destFile}, skipping download.`,
+        );
+        continue;
+      }
     }
 
     console.log(
@@ -161,16 +217,14 @@ async function main() {
     writeFileSync(destFile, extracted);
 
     const actualSha256 = await sha256OfFile(destFile);
-    // Note: this checksums the *extracted library*, not the archive — pin
-    // values above were computed over the archive. Print both so a
-    // maintainer refreshing ORT_VERSION can re-pin correctly; verification
-    // below re-derives the archive checksum instead of trusting extraction.
     const archiveSha256 = createHash('sha256').update(archiveBuffer).digest('hex');
     if (archiveSha256 !== platform.sha256) {
+      rmSync(destFile);
       console.error(
         `[fetch-onnxruntime] CHECKSUM MISMATCH for ${key} archive.\n` +
           `  expected: ${platform.sha256}\n  actual:   ${archiveSha256}\n` +
-          `Refusing to stage a library that doesn't match the pinned checksum.`,
+          `Refusing to stage a library that doesn't match the pinned checksum. ` +
+          `Staged file deleted to prevent use of a corrupt library.`,
       );
       process.exit(1);
     }
@@ -182,9 +236,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('[fetch-onnxruntime] failed:', err);
-  // Non-fatal for the overall build: native ai is an optional acceleration
-  // path, not a hard dependency. Missing/failed fetch means the app still
-  // works via the existing WASM/heuristic fallback chain.
-  process.exit(0);
+  console.error('[fetch-onnxruntime] FATAL:', err);
+  process.exit(1);
 });

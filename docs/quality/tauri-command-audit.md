@@ -32,7 +32,7 @@ actual patches applied separately (§4), each scoped to one concern.
 | `denoise_image` | `app, image_data, options` | Compute (ONNX) | Same pattern as above; **no cancellation** |
 | `content_aware_fill` | `app, options (image+mask)` | Compute (ONNX) | Same pattern; **no cancellation**; no explicit dimension-mismatch bound between image/mask sizes checked before use |
 | `native_ai_status` | `app` | Runtime probe | Pure bool, safe |
-| `native_colorize_infer` | `app, model_type, model_path, tensors, ...` | Stub — always errors | Dead code path, not yet implemented |
+| `native_colorize_infer` | — | **Removed** 2026-07-27. Was a stub that always errored. Colorization uses browser-worker DDColor path exclusively. Native support tracked separately. |
 | `begin_upscale_job` / `cancel_upscale` | `app, job_id` | Shared `Mutex` state | Silent no-op if state missing — safe |
 | `upscale_image` / `upscale_image_binary` | `app, image_data, options` | Compute, bounded | **Best-in-file pattern**: input-byte cap (128MB), output-pixel cap (64M px), checked-mul overflow guards, cancellable, serialized via execution gate |
 | `trace_image` | `image_data, options` | Compute | No explicit size cap on `image_data`/output path count beyond `max_paths: 1000` internal constant |
