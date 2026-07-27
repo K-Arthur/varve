@@ -1,6 +1,6 @@
 import { createDefaultDocumentGrid } from '@strata/scene';
-import { describe, expect, it } from 'vitest';
-import { computeGridLines, type GridGeometry } from '../gridRenderer';
+import { describe, expect, it, vi } from 'vitest';
+import { computeGridLines, type GridGeometry, resolveCanvasColor } from '../gridRenderer';
 
 function makeGrid(overrides?: Partial<GridGeometry>): GridGeometry {
   const defaults = createDefaultDocumentGrid();
@@ -110,5 +110,61 @@ describe('computeGridLines', () => {
     const verticals = result.major.filter((l) => l.x1 === l.x2);
     expect(horizontals.length).toBeGreaterThan(0);
     expect(verticals.length).toBeGreaterThan(0);
+  });
+});
+
+describe('resolveCanvasColor', () => {
+  it('passes through resolved color strings untouched', () => {
+    expect(resolveCanvasColor('#ff0000')).toBe('#ff0000');
+    expect(resolveCanvasColor('oklch(0.5 0.2 250)')).toBe('oklch(0.5 0.2 250)');
+    expect(resolveCanvasColor('rgb(255, 0, 0)')).toBe('rgb(255, 0, 0)');
+  });
+
+  it('returns empty / non-var strings as-is', () => {
+    expect(resolveCanvasColor('')).toBe('');
+    expect(resolveCanvasColor('red')).toBe('red');
+  });
+
+  it('returns the original string outside the DOM', () => {
+    const desc = Object.getOwnPropertyDescriptor(globalThis, 'document');
+    Object.defineProperty(globalThis, 'document', { value: undefined, configurable: true });
+    try {
+      expect(resolveCanvasColor('var(--color-border-subtle)')).toBe('var(--color-border-subtle)');
+    } finally {
+      if (desc) Object.defineProperty(globalThis, 'document', desc);
+    }
+  });
+
+  it('resolves a CSS custom property to its computed value', () => {
+    const spy = vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      getPropertyValue: () => 'oklch(0.5 0.2 250)',
+    } as unknown as CSSStyleDeclaration);
+    try {
+      expect(resolveCanvasColor('var(--color-border-subtle)')).toBe('oklch(0.5 0.2 250)');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('falls back to the fallback when the custom property is unset', () => {
+    const spy = vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      getPropertyValue: () => '',
+    } as unknown as CSSStyleDeclaration);
+    try {
+      expect(resolveCanvasColor('var(--undefined-prop-xyz, #123456)')).toBe('#123456');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('resolves a custom-property fallback that is itself a token', () => {
+    const spy = vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      getPropertyValue: (p: string) => (p === '--backup-color' ? 'rgb(10, 20, 30)' : ''),
+    } as unknown as CSSStyleDeclaration);
+    try {
+      expect(resolveCanvasColor('var(--missing, --backup-color)')).toBe('rgb(10, 20, 30)');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
