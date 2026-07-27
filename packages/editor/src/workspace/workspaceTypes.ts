@@ -86,7 +86,8 @@ export type InspectorTabId =
   | 'prototype'
   | 'export'
   | 'audit'
-  | 'codegen';
+  | 'codegen'
+  | 'fonts';
 
 /** Legacy tab IDs that may appear in stored preferences — mapped on migration. */
 export type DeprecatedInspectorTabId = 'document' | 'spec';
@@ -294,6 +295,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'select', groupStart: true },
+        { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'slice' },
@@ -323,6 +325,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'prototype', label: 'Prototype', visible: true, group: 'workflow' },
       { id: 'export', label: 'Export', visible: true, group: 'output' },
       { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
+      { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -385,6 +388,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'text', groupStart: true },
         { toolId: 'frame' },
         { toolId: 'select', groupStart: true },
+        { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'slice' },
@@ -413,6 +417,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
       { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
       { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -481,6 +486,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'line' },
         { toolId: 'arrow' },
         { toolId: 'select', groupStart: true },
+        { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'text' },
@@ -506,6 +512,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       },
       { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
       { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -568,6 +575,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     toolbar: {
       tools: [
         { toolId: 'select', groupStart: true },
+        { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'crop', groupStart: true },
@@ -610,6 +618,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
       { id: 'export', label: 'Export', visible: true, group: 'output' },
       { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
+      { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -675,6 +684,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     toolbar: {
       tools: [
         { toolId: 'select', groupStart: true },
+        { toolId: 'lasso' },
         { toolId: 'hand' },
         { toolId: 'zoom' },
         { toolId: 'inspect', groupStart: true },
@@ -716,6 +726,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       },
       { id: 'audit', label: 'Audit', visible: true, group: 'output' },
       { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -800,6 +811,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'prototype', label: 'Prototype', visible: true, group: 'workflow' },
       { id: 'export', label: 'Export', visible: true, group: 'output' },
       { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
+      { id: 'fonts', label: 'Fonts', visible: false, group: 'workflow' },
     ],
     statusSections: [
       { id: 'toolName', visible: true, order: 0 },
@@ -1014,6 +1026,7 @@ export function getHiddenTools(mode: WorkspaceMode): Set<ToolId> {
     'paint',
     'eraser',
     'smudge',
+    'lasso',
   ];
   const hidden = new Set<ToolId>();
   for (const id of ALL_TOOLS) {

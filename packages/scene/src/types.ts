@@ -17,6 +17,16 @@ import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
+export type {
+  BaselineGrid,
+  DocumentGrid,
+  DocumentGridSettings,
+  GridDefinition,
+  GridScope,
+  LayoutGrid,
+  PixelGrid,
+} from './gridTypes';
+
 export type { ManagedColor };
 
 export type NodeId = string;
@@ -471,6 +481,24 @@ export interface DocumentAsset {
   hash: string;
 }
 
+/**
+ * Non-destructive upscale metadata stored on an image fill.
+ *
+ * When present, the fill's `assetId` references an upscaled asset while
+ * `upscale.sourceAssetId` retains the original source for re-upscale or reset.
+ */
+export interface ImageFillUpscale {
+  /** Source asset id before upscaling. */
+  sourceAssetId: string;
+  /** Upscaled output asset id currently displayed. */
+  upscaleAssetId: string;
+  /** User-facing mode and numeric scale. */
+  mode: string;
+  scale: number;
+  /** AI model id when mode === 'ai-enhance'. */
+  modelId?: string;
+}
+
 export interface ImageFillData {
   /**
    * Image source as a data URL.
@@ -521,6 +549,8 @@ export interface ImageFillData {
   flipH?: boolean;
   /** Vertical flip of the image content. Applied before fit/placement. */
   flipV?: boolean;
+  /** Non-destructive upscale metadata. */
+  upscale?: ImageFillUpscale;
 }
 
 export interface PatternFillData {

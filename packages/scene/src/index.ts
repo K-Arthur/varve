@@ -58,6 +58,7 @@ export * from './expr';
 export * from './fills';
 export * from './findReplace';
 export * from './flatten';
+export * from './gridTypes';
 export * from './fontDefaults';
 export * from './governance';
 export * from './intelligence';
