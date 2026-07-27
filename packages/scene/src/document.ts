@@ -32,6 +32,7 @@ import type {
   SpotColorDef,
 } from './colorManagement';
 import { defaultColorConfig } from './colorManagement';
+import { cryptoId, getParent, makeGroupNode } from './document-utils';
 import type { ExportSettings } from './export-types';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import { nextNodeId } from './node-id';
@@ -359,10 +360,13 @@ export function createDocument(
   };
 }
 
-export function cryptoId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return `doc-${Math.random().toString(36).slice(2)}`;
-}
+export {
+  cryptoId,
+  devValidate,
+  getParent,
+  makeGroupNode,
+  validateDocument,
+} from './document-utils';
 
 export function makeAdjustmentNode(
   id: NodeId,
@@ -532,46 +536,6 @@ export function makeTextNode(
     direction: opts.direction,
     language: opts.language,
     strokes: opts.strokes ?? [],
-    effects: opts.effects ?? [],
-  };
-}
-
-export function makeGroupNode(
-  id: NodeId,
-  opts: Partial<
-    Pick<
-      import('./types').GroupNode,
-      | 'name'
-      | 'layerColor'
-      | 'transform'
-      | 'fill'
-      | 'visible'
-      | 'locked'
-      | 'children'
-      | 'opacity'
-      | 'blendMode'
-      | 'rotation'
-      | 'order'
-      | 'isolated'
-      | 'effects'
-    >
-  > = {},
-): import('./types').GroupNode {
-  return {
-    id,
-    kind: 'group',
-    name: opts.name ?? 'Group',
-    layerColor: opts.layerColor ?? null,
-    order: opts.order ?? 'a0',
-    visible: opts.visible ?? true,
-    locked: opts.locked ?? false,
-    opacity: opts.opacity ?? 1,
-    blendMode: opts.blendMode ?? 'normal',
-    rotation: opts.rotation ?? 0,
-    transform: opts.transform ?? ([1, 0, 0, 1, 0, 0] as Affine),
-    fill: opts.fill ?? { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
-    children: opts.children ?? [],
-    isolated: opts.isolated,
     effects: opts.effects ?? [],
   };
 }
@@ -787,14 +751,6 @@ export function walkNodes(doc: Document, startIds?: NodeId[]): Map<NodeId, NodeE
 }
 
 /** Find the parent that contains the given node id. O(n) — fine for editor scale. */
-export function getParent(doc: Document, id: NodeId): NodeId | null {
-  if (doc.rootChildren.includes(id)) return null;
-  for (const [nid, node] of Object.entries(doc.nodes)) {
-    if (isContainer(node) && node.children.includes(id)) return nid as NodeId;
-  }
-  return null;
-}
-
 /**
  * Build a parent-index map for O(1) parent lookups.
  *
@@ -1108,159 +1064,4 @@ export function pasteGuides(
 export interface DocValidationResult {
   valid: boolean;
   errors: string[];
-}
-
-/**
- * Validate document tree integrity invariants.
- *
- * Checks:
- * 1. Every node in `nodes` is reachable from `rootChildren` / `globalChildren`
- * 2. Every child ID in a container's `children` exists in `nodes`
- * 3. No duplicate child IDs across containers / root / global
- * 4. No cycles (node is not its own ancestor)
- * 5. All mask references point to existing nodes
- * 6. All slot references point to existing nodes
- * 7. Page contentRoot / backgrounds are reachable
- */
-export function validateDocument(doc: Document): DocValidationResult {
-  const errors: string[] = [];
-
-  // ── 1. Reachability ─────────────────────────────────────────────────────
-  const reachable = new Set<NodeId>();
-  function markReachable(ids: NodeId[]) {
-    for (const nid of ids) {
-      if (reachable.has(nid)) continue;
-      const node = doc.nodes[nid];
-      if (!node) continue;
-      reachable.add(nid);
-      if (isContainer(node) && node.children.length > 0) {
-        markReachable(node.children);
-      }
-    }
-  }
-
-  const roots = [...doc.rootChildren, ...(doc.globalChildren ?? [])];
-  markReachable(roots);
-
-  for (const nid of Object.keys(doc.nodes)) {
-    if (!reachable.has(nid as NodeId)) {
-      errors.push(`Orphan node: ${nid} is not reachable from rootChildren or globalChildren`);
-    }
-  }
-
-  // ── 1b. Page integrity ──────────────────────────────────────────────────
-  if (doc.pages) {
-    if (doc.activePageId && !doc.pages.some((page) => page.id === doc.activePageId)) {
-      errors.push(`activePageId ${doc.activePageId} does not reference an existing page`);
-    }
-    for (const page of doc.pages) {
-      if (!reachable.has(page.contentRoot)) {
-        errors.push(`Page "${page.name}" contentRoot ${page.contentRoot} is not reachable`);
-      }
-      for (const bgId of page.backgrounds) {
-        if (!reachable.has(bgId)) {
-          errors.push(`Page "${page.name}" background ${bgId} is not reachable`);
-        }
-      }
-    }
-  }
-
-  // ── 2. Child references exist in nodes ──────────────────────────────────
-  for (const [nid, node] of Object.entries(doc.nodes)) {
-    if (isContainer(node)) {
-      for (const childId of node.children) {
-        if (!doc.nodes[childId]) {
-          errors.push(`Container ${nid} references non-existent child ${childId}`);
-        }
-      }
-    }
-  }
-
-  // ── 3. No duplicate child IDs ───────────────────────────────────────────
-  const childToParent = new Map<NodeId, NodeId[]>();
-  for (const [nid, node] of Object.entries(doc.nodes)) {
-    if (isContainer(node)) {
-      for (const childId of node.children) {
-        const existing = childToParent.get(childId) ?? [];
-        existing.push(nid as NodeId);
-        childToParent.set(childId, existing);
-      }
-    }
-  }
-  for (const [childId, parents] of childToParent) {
-    if (parents.length > 1) {
-      errors.push(`Node ${childId} is a child of multiple containers: ${parents.join(', ')}`);
-    }
-  }
-
-  // Check rootChildren / globalChildren overlap
-  const rootSet = new Set(doc.rootChildren);
-  for (const gid of doc.globalChildren ?? []) {
-    if (rootSet.has(gid)) {
-      errors.push(`Node ${gid} appears in both rootChildren and globalChildren`);
-    }
-  }
-
-  // ── 4. No cycles ────────────────────────────────────────────────────────
-  const visited = new Set<NodeId>();
-  const inStack = new Set<NodeId>();
-  function detectCycle(nodeId: NodeId): boolean {
-    if (inStack.has(nodeId)) return true;
-    if (visited.has(nodeId)) return false;
-    const node = doc.nodes[nodeId];
-    if (!node || !isContainer(node)) return false;
-    visited.add(nodeId);
-    inStack.add(nodeId);
-    for (const childId of node.children) {
-      if (detectCycle(childId)) {
-        inStack.delete(nodeId);
-        return true;
-      }
-    }
-    inStack.delete(nodeId);
-    return false;
-  }
-  for (const nid of Object.keys(doc.nodes)) {
-    if (detectCycle(nid as NodeId)) {
-      errors.push(`Cycle detected in subtree containing node ${nid}`);
-      break;
-    }
-  }
-
-  // ── 5. Mask references ──────────────────────────────────────────────────
-  for (const [nid, node] of Object.entries(doc.nodes)) {
-    const n = node as SceneNode & { mask?: { sourceNodeId?: NodeId } };
-    if (n.mask?.sourceNodeId && !doc.nodes[n.mask.sourceNodeId]) {
-      errors.push(`Node ${nid} has mask referencing non-existent node ${n.mask.sourceNodeId}`);
-    }
-  }
-
-  // ── 6. Slot references ──────────────────────────────────────────────────
-  for (const [nid, node] of Object.entries(doc.nodes)) {
-    if (node.kind === 'frame' || node.kind === 'group') {
-      const frame = node as FrameNode & { slots?: Record<string, NodeId> };
-      if (frame.slots) {
-        for (const [slotId, slotChildId] of Object.entries(frame.slots)) {
-          if (!doc.nodes[slotChildId as NodeId]) {
-            errors.push(
-              `Node ${nid} has slot "${slotId}" referencing non-existent node ${slotChildId}`,
-            );
-          }
-        }
-      }
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-}
-
-/** Development-mode validation guard. No-op in production builds. */
-export function devValidate(doc: Document): void {
-  if (typeof process !== 'undefined' && process.env.NODE_ENV !== 'production') {
-    const result = validateDocument(doc);
-    if (!result.valid) {
-      // eslint-disable-next-line no-console
-      console.warn('[Strata] Document validation failed:', result.errors);
-    }
-  }
 }
