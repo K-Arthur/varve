@@ -203,6 +203,12 @@ export interface ToolContext {
 
   engine: Engine | null;
   hitTest: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
+  /** Hit-test with an explicit interaction policy (hover, click, touch, pen, etc.).
+   *  Falls back to the default hitTest when policyName is omitted. */
+  hitTestWithPolicy?: (
+    world: { x: number; y: number },
+    policyName: import('../hitTest').HitTestPolicyName,
+  ) => { nodeId: NodeId; node: SceneNode } | null;
 
   canvasElement: HTMLCanvasElement | null;
 
@@ -244,6 +250,15 @@ export interface ToolContext {
     screenX: number,
     screenY: number,
   ) => void;
+
+  /** Focus a specific node for keyboard navigation without changing selection. */
+  setFocusedNode?: (id: NodeId | null) => void;
+  /** Clear keyboard focus. */
+  clearFocusedNode?: () => void;
+  /** Move focus to the next selected node in document/flattened order. */
+  focusNextSelectedNode?: () => void;
+  /** Move focus to the previous selected node. */
+  focusPreviousSelectedNode?: () => void;
 
   /** Ephemeral trimap session (not persisted on Document). */
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;

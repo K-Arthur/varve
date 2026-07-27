@@ -656,6 +656,19 @@ export interface EditorContextValue {
   canvasDeltaToWorld: (dx: number, dy: number) => { dx: number; dy: number };
   /** Efficient hit-test that returns the full node info. */
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
+  /** Hit-test with an explicit interaction policy (hover, click, touch, pen, etc.). */
+  hitTestNodeWithPolicy: (
+    world: { x: number; y: number },
+    policyName: import('./hitTest').HitTestPolicyName,
+  ) => { nodeId: NodeId; node: SceneNode } | null;
+  /** Set the keyboard focus to a node without changing selection. */
+  setFocusedNode: (id: NodeId | null) => void;
+  /** Clear keyboard focus. */
+  clearFocusedNode: () => void;
+  /** Move focus to the next selected node in document order. */
+  focusNextSelectedNode: () => void;
+  /** Move focus to the previous selected node in document order. */
+  focusPreviousSelectedNode: () => void;
   /** Pan (and optionally zoom) to reveal the selection or a specific node. */
   revealSelection: (opts?: {
     nodeId?: NodeId;
@@ -3368,6 +3381,19 @@ export function EditorProvider({
         return hit ? { nodeId: hit.nodeId, node: hit.node } : null;
       },
 
+      // Policy-aware hit-test for interactions needing different tolerance/behaviour
+      hitTestNodeWithPolicy: (
+        world: { x: number; y: number },
+        policyName: import('./hitTest').HitTestPolicyName,
+      ) => {
+        const engine = HitTestEngine.withPolicy(state.document, policyName, {
+          isolatedNodeId: state.isolatedNodeId,
+          zoom: state.zoom,
+        });
+        const hit = engine.hitTest(world);
+        return hit ? { nodeId: hit.nodeId, node: hit.node } : null;
+      },
+
       getNode: (id) => state.document.nodes[id],
 
       walkNodes: () => {
@@ -5371,6 +5397,41 @@ export function EditorProvider({
             selectionRevision: state.selectionRevision + 1,
           });
           announcerRef.current?.announce('Selection history forward');
+        }
+      },
+
+      setFocusedNode: (id) => {
+        patch({ focusedNodeId: id, selectionRevision: state.selectionRevision + 1 });
+      },
+
+      clearFocusedNode: () => {
+        patch({ focusedNodeId: null, selectionRevision: state.selectionRevision + 1 });
+      },
+
+      focusNextSelectedNode: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const currentFocus = state.focusedNodeId;
+        const idx = currentFocus ? sel.indexOf(currentFocus) : -1;
+        if (idx < 0 || idx >= sel.length - 1) {
+          patch({ focusedNodeId: sel[0]!, selectionRevision: state.selectionRevision + 1 });
+        } else {
+          patch({ focusedNodeId: sel[idx + 1]!, selectionRevision: state.selectionRevision + 1 });
+        }
+      },
+
+      focusPreviousSelectedNode: () => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const currentFocus = state.focusedNodeId;
+        const idx = currentFocus ? sel.indexOf(currentFocus) : -1;
+        if (idx <= 0) {
+          patch({
+            focusedNodeId: sel[sel.length - 1]!,
+            selectionRevision: state.selectionRevision + 1,
+          });
+        } else {
+          patch({ focusedNodeId: sel[idx - 1]!, selectionRevision: state.selectionRevision + 1 });
         }
       },
 
