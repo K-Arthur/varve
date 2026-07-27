@@ -97,3 +97,6 @@ export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';
+// Font data collector (binary retrieval for export)
+export type { FontDataRecord, FontCollectOptions } from './fontDataCollector';
+export { collectFontData, collectAllStoredFonts, getBinaryCache } from './fontDataCollector';

@@ -1205,11 +1205,17 @@ fn trace_image(
 // ── PDF export ─────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 struct ExportPdfOptions {
     page_width: f64,
     page_height: f64,
     title: String,
     author: String,
+    outline_text: bool,
+    subset_fonts: bool,
+    font_data: Option<Vec<u8>>,
+    #[serde(default)]
+    fonts: Vec<(String, Vec<u8>)>,
 }
 
 impl Default for ExportPdfOptions {
@@ -1219,6 +1225,10 @@ impl Default for ExportPdfOptions {
             page_height: 1080.0,
             title: "Strata Export".into(),
             author: "Strata".into(),
+            outline_text: false,
+            subset_fonts: false,
+            font_data: None,
+            fonts: Vec::new(),
         }
     }
 }
@@ -1237,6 +1247,10 @@ fn export_node_pdf(
         page_height: pdf_opts.page_height,
         title: pdf_opts.title,
         author: pdf_opts.author,
+        outline_text: pdf_opts.outline_text,
+        subset_fonts: pdf_opts.subset_fonts,
+        font_data: pdf_opts.font_data,
+        fonts: pdf_opts.fonts,
         ..Default::default()
     };
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
@@ -1262,6 +1276,10 @@ struct PdfXOptions {
     color_bars: bool,
     format: String,
     font_data: Option<Vec<u8>>,
+    #[serde(default)]
+    fonts: Vec<(String, Vec<u8>)>,
+    #[serde(default)]
+    subset_fonts: bool,
 }
 
 impl Default for PdfXOptions {
@@ -1280,6 +1298,8 @@ impl Default for PdfXOptions {
             color_bars: false,
             format: "screen".into(),
             font_data: None,
+            fonts: Vec::new(),
+            subset_fonts: false,
         }
     }
 }
@@ -1293,11 +1313,11 @@ impl PdfXOptions {
             author: self.author.clone(),
             outline_text: self.outline_text,
             font_data: self.font_data.clone(),
-            fonts: Vec::new(),
-            registration_marks: false,
-            color_bar: false,
+            fonts: self.fonts.clone(),
+            registration_marks: self.include_crop_marks,
+            color_bar: self.color_bars,
             print_profile: None,
-            subset_fonts: self.outline_text,
+            subset_fonts: self.subset_fonts || self.outline_text,
             embedding_restriction_handling: strata_print::subset::EmbeddingRestriction::Warn,
             manifest: None,
             lossy: false,
@@ -1850,6 +1870,53 @@ fn home_write_text_file(path: String, contents: String) -> Result<(), String> {
     write_file_atomic(&resolved, contents.as_bytes())
 }
 
+fn model_dir(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to resolve app data dir: {e}"))?
+        .join("models");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("Failed to create models dir: {e}"))?;
+    Ok(dir)
+}
+
+#[tauri::command]
+fn read_model_file(app: tauri::AppHandle, model_id: String) -> Result<Vec<u8>, String> {
+    let path = model_dir(&app)?.join(&model_id);
+    std::fs::read(&path).map_err(|e| format!("Failed to read model file {model_id}: {e}"))
+}
+
+#[tauri::command]
+fn write_model_file(app: tauri::AppHandle, model_id: String, data: Vec<u8>) -> Result<(), String> {
+    let path = model_dir(&app)?.join(&model_id);
+    write_file_atomic(&path, &data)
+}
+
+#[tauri::command]
+fn delete_model_file(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
+    let path = model_dir(&app)?.join(&model_id);
+    if path.exists() {
+        std::fs::remove_file(&path).map_err(|e| format!("Failed to delete model file {model_id}: {e}"))
+    } else {
+        Ok(())
+    }
+}
+
+#[tauri::command]
+fn list_model_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
+    let dir = model_dir(&app)?;
+    let mut ids = Vec::new();
+    if dir.exists() {
+        for entry in std::fs::read_dir(&dir).map_err(|e| format!("Failed to read models dir: {e}"))? {
+            let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
+            if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
+                ids.push(entry.file_name().to_string_lossy().to_string());
+            }
+        }
+    }
+    Ok(ids)
+}
+
 fn uuid() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let t = SystemTime::now()
@@ -2115,6 +2182,11 @@ pub fn run() {
             export_pdf_with_options,
             // Native font enumeration
             font::enumerate_system_fonts,
+            // Native model file storage
+            read_model_file,
+            write_model_file,
+            delete_model_file,
+            list_model_files,
             // Native OS print
             list_printers,
             print_pdf,

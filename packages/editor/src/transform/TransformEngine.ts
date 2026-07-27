@@ -21,6 +21,7 @@ import {
   applyAffine,
   boxDeltaMatrix,
   computeSelectionBox,
+  decomposeAffineFull,
   identity,
   multiplyAffine,
   type ResizeHandle,
@@ -274,7 +275,12 @@ export class TransformEngine {
     if (node.kind === 'text') {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
-        const { translateX, translateY, rotation, scaleX, scaleY } = decomposed;
+        const { translateX, translateY, rotation, scaleX, scaleY, skewX, skewY } = decomposed;
+        // When skew is present, preserve the full affine transform instead of baking.
+        if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
+          updates[node.id] = { ...node, transform: localTransform } as SceneNode;
+          return { nodeUpdates: updates };
+        }
         const avgScale = Math.max((scaleX + scaleY) / 2, 0.01);
         updates[node.id] = {
           ...node,
@@ -290,7 +296,12 @@ export class TransformEngine {
       const shapeNode = node as ShapeNode;
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
-        const { translateX, translateY, rotation, scaleX, scaleY } = decomposed;
+        const { translateX, translateY, rotation, scaleX, scaleY, skewX, skewY } = decomposed;
+        // When skew is present, preserve the full affine transform instead of baking.
+        if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
+          updates[node.id] = { ...shapeNode, transform: localTransform } as SceneNode;
+          return { nodeUpdates: updates };
+        }
         const baked = this.scaleShape(shapeNode.shape, scaleX, scaleY);
         if (baked) {
           updates[node.id] = {
@@ -307,7 +318,19 @@ export class TransformEngine {
     if (node.kind === 'frame') {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
-        const { translateX, translateY, scaleX, scaleY } = decomposed;
+        const { translateX, translateY, rotation, scaleX, scaleY, skewX, skewY } = decomposed;
+        // When skew is present, preserve the full affine transform instead of baking.
+        if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
+          updates[node.id] = { ...node, transform: localTransform } as SceneNode;
+          if (node.children) {
+            for (const childId of node.children) {
+              const child = currentDoc.nodes[childId];
+              if (!child) continue;
+              updates[childId] = { ...child, transform: child.transform } as SceneNode;
+            }
+          }
+          return { nodeUpdates: updates };
+        }
         const oldW = node.w ?? 0;
         const oldH = node.h ?? 0;
         const newW = oldW * scaleX;
@@ -400,17 +423,20 @@ export class TransformEngine {
     rotation: number;
     scaleX: number;
     scaleY: number;
+    skewX: number;
+    skewY: number;
   } | null {
-    const [a, b, c, d, e, f] = m;
-    const scaleX = Math.hypot(a, b);
-    const scaleY = Math.hypot(c, d);
-    if (scaleX === 0 || scaleY === 0) return null;
-    // Reject shear: x-axis and y-axis must be perpendicular.
-    if (Math.abs(a * c + b * d) > 1e-6 * scaleX * scaleY) return null;
-    // node.rotation is stored and consumed in degrees (see scene/world.ts's
-    // rotateDeg call) — atan2 returns radians, so convert before returning.
-    const rotation = (Math.atan2(b, a) * 180) / Math.PI;
-    return { translateX: e, translateY: f, rotation, scaleX, scaleY };
+    const decomposed = decomposeAffineFull(m);
+    if (!decomposed) return null;
+    return {
+      translateX: decomposed.translateX,
+      translateY: decomposed.translateY,
+      rotation: (decomposed.rotation * 180) / Math.PI,
+      scaleX: decomposed.scaleX,
+      scaleY: decomposed.scaleY,
+      skewX: decomposed.skewX,
+      skewY: decomposed.skewY,
+    };
   }
 
   private scaleShape(shape: Shape, sx: number, sy: number): Shape | null {

@@ -1,12 +1,14 @@
 /**
- * LassoTool — freehand polygon selection.
+ * LassoTool — freehand and polygonal polygon selection.
  *
- * Allows users to draw a freehand path around objects to select them.
- * Nodes whose transformed geometry intersects the lasso polygon are selected.
- * Supports Shift (add) and Alt (subtract) modifiers.
+ * Supports two interaction modes:
+ * - `freehand`: drag to draw a freeform polygon (existing behaviour).
+ * - `polygonal`: click to place vertices, closure via first-point click,
+ *   Enter/Enter to finish, Backspace/Delete to remove, Escape to cancel.
  *
- * Research basis: Figma lasso selection, ray casting for polygon intersection,
- *                 freehand point capture from PencilTool.
+ * Shift (add), Alt (subtract), Shift+Alt (intersect) modifiers.
+ *
+ * Research basis: Figma, Photoshop, GIMP lasso selection tools.
  */
 
 import { isInIsolatedSubtree, walkNodes } from '@strata/scene';
@@ -14,112 +16,270 @@ import { BaseTool } from './BaseTool';
 import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
-const LASSO_MIN_DISTANCE = 2; // Minimum distance between captured points (world units)
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const LASSO_MIN_DISTANCE = 2;
+const CLOSE_TOLERANCE_PX = 8;
+const MIN_POINTS = 3;
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+export type LassoToolMode = 'freehand' | 'polygonal';
+export type SelectionOp = 'replace' | 'add' | 'subtract' | 'intersect';
+
+type LassoState =
+  | { kind: 'idle' }
+  | { kind: 'freehand-drag'; points: Point2D[] }
+  | { kind: 'polygonal-placing'; points: Point2D[]; nextScreen: { x: number; y: number } | null };
+
+// ── Tool ─────────────────────────────────────────────────────────────────────
 
 export class LassoTool extends BaseTool {
   id = 'lasso' as const;
 
-  private points: Point2D[] = [];
+  private mode: LassoToolMode = 'freehand';
+  private state: LassoState = { kind: 'idle' };
+
+  setMode(mode: LassoToolMode): void {
+    this.mode = mode;
+  }
+
+  getMode(): LassoToolMode {
+    return this.mode;
+  }
 
   cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair', fallback: 'crosshair' };
   }
 
+  override onActivate(_ctx: ToolContext): void {
+    this.state = { kind: 'idle' };
+  }
+
+  override onDeactivate(ctx: ToolContext): void {
+    if (this.state.kind !== 'idle') {
+      ctx.setDraft(null);
+    }
+    this.state = { kind: 'idle' };
+  }
+
+  // ── Pointer events ────────────────────────────────────────────────────────
+
   override onDragStart(ctx: ToolContext): void {
-    this.points = [this.drag.startWorld];
-    ctx.setDraft({
-      kind: 'freehand',
-      points: this.points,
-      label: 'Lasso',
-    });
+    if (this.mode === 'polygonal') {
+      // Polygonal mode uses onPointerDown for point placement, not drag
+      return;
+    }
+    this.state = {
+      kind: 'freehand-drag',
+      points: [this.drag.startWorld],
+    };
+    this.emitDraft(ctx);
   }
 
   override onDragMove(ctx: ToolContext): void {
-    const current = this.drag.currentWorld;
-    const last = this.points[this.points.length - 1];
-    if (last) {
-      const dx = current.x - last.x;
-      const dy = current.y - last.y;
-      if (Math.hypot(dx, dy) >= LASSO_MIN_DISTANCE) {
-        this.points.push(current);
-        ctx.setDraft({
-          kind: 'freehand',
-          points: this.points,
-          label: `${this.points.length} pts`,
-        });
+    if (this.state.kind === 'freehand-drag') {
+      const current = this.drag.currentWorld;
+      const points = this.state.points;
+      const last = points[points.length - 1];
+      if (last) {
+        const dx = current.x - last.x;
+        const dy = current.y - last.y;
+        if (Math.hypot(dx, dy) >= LASSO_MIN_DISTANCE) {
+          this.state = { kind: 'freehand-drag', points: [...points, current] };
+          this.emitDraft(ctx);
+        }
+      }
+    } else if (this.state.kind === 'polygonal-placing') {
+      if (ctx.lastPointerEvent) {
+        this.state = {
+          ...this.state,
+          nextScreen: { x: ctx.lastPointerEvent.clientX, y: ctx.lastPointerEvent.clientY },
+        };
+        this.emitDraft(ctx);
       }
     }
   }
 
   override onDragEnd(ctx: ToolContext): void {
-    ctx.setDraft(null);
-    if (this.points.length < 3) {
-      // Not enough points to form a valid polygon
-      this.points = [];
-      return;
-    }
+    if (this.state.kind === 'freehand-drag') {
+      ctx.setDraft(null);
+      const points = this.state.points;
+      this.state = { kind: 'idle' };
 
-    // Simplify the polygon to reduce point count
-    const simplified = simplifyPolygon(this.points, LASSO_MIN_DISTANCE);
-    if (simplified.length < 3) {
-      this.points = [];
-      return;
-    }
+      if (points.length < MIN_POINTS) return;
 
-    // Find intersecting nodes
-    const intersectingIds = this.findIntersectingNodes(ctx, simplified);
-    if (intersectingIds.length === 0) {
-      this.points = [];
-      return;
-    }
+      const simplified = simplifyPolygon(points, LASSO_MIN_DISTANCE);
+      if (simplified.length < MIN_POINTS) return;
 
-    // Apply selection based on modifiers
-    if (ctx.altKey && ctx.shiftKey) {
-      // Shift+Alt: intersect (select only nodes that are both in current selection and lasso)
-      const currentSet = new Set(ctx.selection);
-      const result = intersectingIds.filter((id) => currentSet.has(id));
-      if (result.length > 0) {
-        ctx.setSelection(result[0] ?? null);
-        result.slice(1).forEach((id) => {
-          ctx.toggleSelection(id, true);
-        });
-      } else {
-        ctx.setSelection(null);
-      }
-    } else if (ctx.altKey) {
-      // Alt: subtract (remove lassoed nodes from selection)
-      const currentSet = new Set(ctx.selection);
-      intersectingIds.forEach((id) => {
-        if (currentSet.has(id)) {
-          ctx.toggleSelection(id, false);
-        }
-      });
-    } else if (ctx.shiftKey) {
-      // Shift: add (add lassoed nodes to selection)
-      if (ctx.selection.length === 0) {
-        ctx.setSelection(intersectingIds[0] ?? null);
-        intersectingIds.slice(1).forEach((id) => {
-          ctx.toggleSelection(id, true);
-        });
-      } else {
-        intersectingIds.forEach((id) => {
-          ctx.toggleSelection(id, true);
-        });
-      }
-    } else {
-      // Default: replace selection
-      ctx.setSelection(intersectingIds[0] ?? null);
-      intersectingIds.slice(1).forEach((id) => {
-        ctx.toggleSelection(id, true);
-      });
+      this.applySelection(simplified, ctx);
     }
-
-    this.points = [];
   }
 
   override onDragCancel(ctx: ToolContext): void {
     ctx.setDraft(null);
-    this.points = [];
+    this.state = { kind: 'idle' };
+  }
+
+  override onPointerDown(e: PointerEvent, ctx: ToolContext): { consumed: boolean; captured?: boolean } {
+    if (this.mode !== 'polygonal') return { consumed: false };
+
+    const canvas = { x: e.clientX, y: e.clientY };
+    const world = ctx.canvasToWorld(canvas.x, canvas.y);
+
+    if (this.state.kind === 'idle') {
+      this.state = {
+        kind: 'polygonal-placing',
+        points: [world],
+        nextScreen: null,
+      };
+      this.emitDraft(ctx);
+      return { consumed: true, captured: true };
+    }
+
+    if (this.state.kind === 'polygonal-placing') {
+      const points = this.state.points;
+
+      // Check closure (clicking near first point or on it)
+      if (points.length >= MIN_POINTS) {
+        const firstScreen = ctx.worldToCanvas(points[0].x, points[0].y);
+        const dist = Math.hypot(canvas.x - firstScreen.x, canvas.y - firstScreen.y);
+        if (dist <= CLOSE_TOLERANCE_PX) {
+          this.finishPolygonal(ctx, points);
+          return { consumed: true };
+        }
+      }
+
+      const newPoints = [...points, world];
+      this.state = {
+        kind: 'polygonal-placing',
+        points: newPoints,
+        nextScreen: { x: e.clientX, y: e.clientY },
+      };
+      this.emitDraft(ctx);
+      return { consumed: true, captured: false };
+    }
+
+    return { consumed: false };
+  }
+
+  override onKeyDown(e: KeyboardEvent, ctx: ToolContext): boolean {
+    if (this.mode !== 'polygonal') return false;
+
+    if (e.key === 'Escape') {
+      ctx.setDraft(null);
+      this.state = { kind: 'idle' };
+      return true;
+    }
+
+    if (e.key === 'Enter' && !e.repeat) {
+      if (this.state.kind === 'polygonal-placing' && this.state.points.length >= MIN_POINTS) {
+        this.finishPolygonal(ctx, this.state.points);
+        return true;
+      }
+    }
+
+    if ((e.key === 'Backspace' || e.key === 'Delete') && !e.repeat) {
+      if (this.state.kind === 'polygonal-placing' && this.state.points.length > 1) {
+        const newPoints = this.state.points.slice(0, -1);
+        if (newPoints.length === 0) {
+          this.state = { kind: 'idle' };
+          ctx.setDraft(null);
+        } else {
+          this.state = {
+            kind: 'polygonal-placing',
+            points: newPoints,
+            nextScreen: this.state.nextScreen,
+          };
+          this.emitDraft(ctx);
+        }
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  // ── Internal ──────────────────────────────────────────────────────────────
+
+  private finishPolygonal(ctx: ToolContext, points: Point2D[]): void {
+    ctx.setDraft(null);
+    this.state = { kind: 'idle' };
+
+    if (points.length < MIN_POINTS) return;
+    this.applySelection(points, ctx);
+  }
+
+  private emitDraft(ctx: ToolContext): void {
+    if (this.state.kind === 'idle') return;
+
+    const pts = this.state.kind === 'freehand-drag' ? this.state.points : this.state.points;
+    const label =
+      this.state.kind === 'freehand-drag'
+        ? 'Lasso'
+        : `Poly lasso: ${pts.length} pts`;
+
+    ctx.setDraft({
+      kind: 'freehand',
+      points: pts,
+      label,
+    });
+  }
+
+  private applySelection(polygon: Point2D[], ctx: ToolContext): void {
+    const intersectingIds = this.findIntersectingNodes(ctx, polygon);
+    if (intersectingIds.length === 0) {
+      const op = this.resolveOperation(ctx);
+      if (op === 'replace') ctx.setSelection(null);
+      return;
+    }
+
+    const op = this.resolveOperation(ctx);
+    this.applySelectionOp(intersectingIds, op, ctx);
+
+    ctx.announceSelection(
+      intersectingIds.map((id) => ctx.getNode(id)).filter((n): n is import('@strata/scene').SceneNode => n !== undefined),
+    );
+  }
+
+  private resolveOperation(ctx: ToolContext): SelectionOp {
+    if (ctx.shiftKey && ctx.altKey) return 'intersect';
+    if (ctx.altKey) return 'subtract';
+    if (ctx.shiftKey) return 'add';
+    return 'replace';
+  }
+
+  private applySelectionOp(ids: string[], op: SelectionOp, ctx: ToolContext): void {
+    switch (op) {
+      case 'replace': {
+        ctx.setSelection(ids[0] ?? null);
+        ids.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+        break;
+      }
+      case 'add': {
+        ids.forEach((id) => {
+          if (!ctx.isSelected(id)) ctx.toggleSelection(id, true);
+        });
+        break;
+      }
+      case 'subtract': {
+        ids.forEach((id) => {
+          if (ctx.isSelected(id)) ctx.toggleSelection(id, false);
+        });
+        break;
+      }
+      case 'intersect': {
+        const currentSet = new Set(ctx.selection);
+        const keep = ids.filter((id) => currentSet.has(id));
+        if (keep.length > 0) {
+          ctx.setSelection(keep[0] ?? null);
+          keep.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+        } else {
+          ctx.setSelection(null);
+        }
+        break;
+      }
+    }
   }
 
   private findIntersectingNodes(ctx: ToolContext, polygon: Point2D[]): string[] {
@@ -131,21 +291,14 @@ export class LassoTool extends BaseTool {
 
     const intersecting: string[] = [];
     const contentRoot = page.contentRoot;
-
-    // Use walkNodes to get all nodes in the document
     const entries = walkNodes(doc, [contentRoot]);
+
     for (const [nodeId, entry] of entries) {
       const node = entry.node;
 
-      // Skip locked and invisible nodes
       if (node.locked || node.visible === false) continue;
+      if (ctx.isolatedNodeId && !isInIsolatedSubtree(nodeId, ctx.isolatedNodeId, doc)) continue;
 
-      // Respect isolation mode
-      if (ctx.isolatedNodeId && !isInIsolatedSubtree(nodeId, ctx.isolatedNodeId, doc)) {
-        continue;
-      }
-
-      // Get node bounds using the context's efficient method
       const bounds = ctx.nodeWorldBounds(node);
       if (!bounds) continue;
 
