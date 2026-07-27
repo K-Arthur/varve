@@ -16,7 +16,7 @@
  */
 
 import type { SceneNode } from '@strata/scene';
-import { formatCoordForRuler } from '@strata/shared';
+import { decomposeAffineFull, formatCoordForRuler } from '@strata/shared';
 import { Tooltip, TooltipProvider } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
@@ -58,6 +58,20 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
     ? commonValue(nodes, (n) => nodeLocalBounds(n)?.h ?? 0)
     : null;
   const rotationRaw = commonValue(nodes, (n) => n.rotation ?? 0);
+
+  // Skew: decompose the affine transform to extract shear components.
+  const skewRaw = commonValue(nodes, (n) => {
+    const decomposed = decomposeAffineFull(n.transform);
+    if (!decomposed) return 0;
+    return (Math.atan(decomposed.skewX) * 180) / Math.PI;
+  });
+  const skewYRaw = commonValue(nodes, (n) => {
+    const [a, b, c, d] = n.transform;
+    const scaleY = Math.hypot(c, d);
+    if (scaleY < 1e-10) return 0;
+    const skewYFactor = -(a * c + b * d) / (scaleY * scaleY);
+    return (Math.atan(skewYFactor) * 180) / Math.PI;
+  });
 
   const activePage = editor.state.document.pages?.find(
     (p) => p.id === editor.state.document.activePageId,
@@ -412,6 +426,55 @@ export function PositionSizeSection({ nodes }: { nodes: SceneNode[] }) {
                 <path d="M10 12H8" />
                 <path d="M16 12h-2" />
                 <path d="M22 12h-2" />
+              </svg>
+            </button>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      {/* Skew row */}
+      <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
+        <NumberField
+          label="Skew X"
+          unit="°"
+          value={isMixed(skewRaw) ? 0 : skewRaw}
+          mixed={isMixed(skewRaw)}
+          min={-89}
+          max={89}
+          onChange={(v) => editor.setSelectedSkew(v, isMixed(skewYRaw) ? 0 : skewYRaw)}
+          fieldName="skewX"
+        />
+        <NumberField
+          label="Skew Y"
+          unit="°"
+          value={isMixed(skewYRaw) ? 0 : skewYRaw}
+          mixed={isMixed(skewYRaw)}
+          min={-89}
+          max={89}
+          onChange={(v) => editor.setSelectedSkew(isMixed(skewRaw) ? 0 : skewRaw, v)}
+          fieldName="skewY"
+        />
+        <TooltipProvider>
+          <Tooltip label="Reset skew to 0">
+            <button
+              type="button"
+              aria-label="Reset skew"
+              onClick={() => editor.setSelectedSkew(0, 0)}
+              className="insp-flip-btn"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <title>Reset skew</title>
+                <path d="M3 12a9 9 0 1 0 9-9" />
+                <path d="M3 4v5h5" />
               </svg>
             </button>
           </Tooltip>

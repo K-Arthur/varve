@@ -9,6 +9,7 @@ describe('viewportSession', () => {
     snapEnabled: false,
     pixelGridEnabled: true,
     pixelGridSnapEnabled: false,
+    dotGridEnabled: false,
     rulerMode: 'global' as const,
     gridOverlayMode: 'baseline' as const,
     unitType: 'mm' as const,
