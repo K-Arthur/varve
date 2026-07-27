@@ -32,6 +32,18 @@ export function shouldAutoKeyframe(ctx: AutoKeyframeContext): boolean {
 function getPropertyValueAt(node: SceneNode, property: string): unknown {
   if (property === 'opacity') return node.opacity;
   if (property === 'rotation') return node.rotation;
+  if (property === 'skewX') {
+    const [a, b, c, d] = node.transform ?? [1, 0, 0, 1, 0, 0];
+    const sx = Math.hypot(a, b);
+    if (sx < 1e-10) return 0;
+    return (a * c + b * d) / (sx * sx);
+  }
+  if (property === 'skewY') {
+    const [a, b, c, d] = node.transform ?? [1, 0, 0, 1, 0, 0];
+    const sy = Math.hypot(c, d);
+    if (sy < 1e-10) return 0;
+    return -(a * c + b * d) / (sy * sy);
+  }
   if (property === 'fill' || property.startsWith('fill[')) return node.fill;
   if (property === 'transform' || property.startsWith('transform[')) {
     return node.transform ?? [1, 0, 0, 1, 0, 0];
