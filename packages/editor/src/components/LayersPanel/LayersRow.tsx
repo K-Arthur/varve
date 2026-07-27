@@ -316,7 +316,9 @@ export const LayersRow = memo(function LayersRow({
             e.stopPropagation();
             onToggleSelectionCheckbox?.(node.id);
           }}
-          aria-label={selected ? `Remove ${node.name} from selection` : `Add ${node.name} to selection`}
+          aria-label={
+            selected ? `Remove ${node.name} from selection` : `Add ${node.name} to selection`
+          }
           aria-checked={selected}
           role="checkbox"
         >
