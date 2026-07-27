@@ -79,7 +79,7 @@ export function computeMultiScaleSsim(original: ImageData, processed: ImageData)
   if (original.width !== processed.width || original.height !== processed.height) {
     return null;
   }
-  let ssim = computeSsim(original, processed);
+  const ssim = computeSsim(original, processed);
   if (ssim === null) return null;
 
   let current = ssim;
@@ -202,7 +202,7 @@ export function computeTileBoundaryDifference(image: ImageData, tileSize: number
 export function hasNanPixels(image: ImageData): boolean {
   const imageData = image.data as unknown as FixedByteArray;
   for (let i = 0; i < image.data.length; i++) {
-    if (isNaN(imageData[i])) return true;
+    if (Number.isNaN(imageData[i])) return true;
   }
   return false;
 }

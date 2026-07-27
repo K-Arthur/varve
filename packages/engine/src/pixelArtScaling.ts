@@ -173,7 +173,7 @@ function hq2xCore(source: ImageData): ImageData {
 
   for (let y = 0; y < sh; y++) {
     for (let x = 0; x < sw; x++) {
-      const c4 = getLum(x, y);
+      const _c4 = getLum(x, y);
       const c0 = getLum(x - 1, y - 1);
       const c1 = getLum(x, y - 1);
       const c2 = getLum(x + 1, y - 1);
@@ -192,10 +192,10 @@ function hq2xCore(source: ImageData): ImageData {
       const isEdge = de > tr * 2 || dhv > tr;
 
       if (isEdge) {
-        const w1 = diff(c3, c5);
-        const w2 = diff(c1, c7);
-        const w3 = diff(c0, c8);
-        const w4 = diff(c2, c6);
+        const _w1 = diff(c3, c5);
+        const _w2 = diff(c1, c7);
+        const _w3 = diff(c0, c8);
+        const _w4 = diff(c2, c6);
 
         if (diff(c1, c3) < tr && diff(c1, c5) < tr && diff(c3, c1) < tr) {
           const [r1, g1, b1]: [number, number, number] = [
