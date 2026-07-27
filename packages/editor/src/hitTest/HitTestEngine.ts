@@ -59,6 +59,14 @@ export class HitTestEngine {
   private readonly doc: Document;
   private readonly options: HitTestOptions;
   private readonly toleranceWorld: number;
+  /**
+   * O(1) parent lookup, built once per instance. Every nodeWorldTransform/
+   * nodeWorldBounds call below MUST pass this — omitting it silently falls
+   * back to an O(n) linear scan per call (getParent), which made hitTest()/
+   * findNodesAtPoint() O(candidates * n) instead of O(candidates). This was
+   * built but left unused in several call sites until a 2026-07-27 audit
+   * found the O(n^2) pattern in a document-open hang and swept the codebase.
+   */
   private readonly parentIndex: Map<NodeId, NodeId>;
   private spatialIndex: ReturnType<typeof getOrCreateSpatialIndex>;
 
@@ -104,7 +112,7 @@ export class HitTestEngine {
       let isHit = false;
 
       if (n.kind === 'shape') {
-        const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
+        const worldMat = nodeWorldTransform(this.doc, entry.nodeId, this.parentIndex);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
         const shape = hitGeometry(n, this.doc);
@@ -114,7 +122,7 @@ export class HitTestEngine {
         // Zoom tolerance: for visually-small objects, test whether the
         // world point is within `toleranceWorld` of the shape's world AABB.
         if (!isHit && this.toleranceWorld > 0) {
-          const bbox = nodeWorldBounds(this.doc, entry.nodeId);
+          const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
           if (bbox) {
             const expanded = {
               x: bbox.x - this.toleranceWorld,
@@ -129,7 +137,7 @@ export class HitTestEngine {
         }
       }
       if (n.kind === 'text' || n.kind === 'frame') {
-        const bbox = nodeWorldBounds(this.doc, entry.nodeId);
+        const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
         if (bbox) {
           // Always apply tolerance for text/frame (AABB-only test).
           const expanded = {
@@ -152,7 +160,7 @@ export class HitTestEngine {
             const child = this.doc.nodes[childId];
             if (!child || child.locked || child.visible === false) continue;
             if (child.kind === 'shape') {
-              const childWorld = nodeWorldTransform(this.doc, childId);
+              const childWorld = nodeWorldTransform(this.doc, childId, this.parentIndex);
               const childInv = invertAffine(childWorld);
               const childLocal = applyAffine(childInv, [world.x, world.y]);
               const childShape = hitGeometry(child, this.doc);
@@ -162,7 +170,7 @@ export class HitTestEngine {
               }
               // Zoom tolerance for group children
               if (!isHit && this.toleranceWorld > 0) {
-                const childBounds = nodeWorldBounds(this.doc, childId);
+                const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
                 if (childBounds) {
                   const expanded = {
                     x: childBounds.x - this.toleranceWorld,
@@ -177,7 +185,7 @@ export class HitTestEngine {
                 }
               }
             } else {
-              const childBounds = nodeWorldBounds(this.doc, childId);
+              const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
               if (childBounds) {
                 const expanded = {
                   x: childBounds.x - this.toleranceWorld,
@@ -243,7 +251,7 @@ export class HitTestEngine {
       }
 
       if (n.kind === 'shape') {
-        const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
+        const worldMat = nodeWorldTransform(this.doc, entry.nodeId, this.parentIndex);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
         const shape = hitGeometry(n, this.doc);
@@ -253,7 +261,7 @@ export class HitTestEngine {
         }
         // Zoom tolerance fallback
         if (this.toleranceWorld > 0) {
-          const bbox = nodeWorldBounds(this.doc, entry.nodeId);
+          const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
           if (bbox) {
             const expanded = {
               x: bbox.x - this.toleranceWorld,
@@ -267,7 +275,7 @@ export class HitTestEngine {
           }
         }
       } else if (n.kind === 'text' || n.kind === 'frame') {
-        const bbox = nodeWorldBounds(this.doc, entry.nodeId);
+        const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
         if (bbox) {
           const expanded = {
             x: bbox.x - this.toleranceWorld,
@@ -286,7 +294,7 @@ export class HitTestEngine {
             const child = this.doc.nodes[childId];
             if (!child || child.locked || child.visible === false) continue;
             if (child.kind === 'shape') {
-              const childWorld = nodeWorldTransform(this.doc, childId);
+              const childWorld = nodeWorldTransform(this.doc, childId, this.parentIndex);
               const childInv = invertAffine(childWorld);
               const childLocal = applyAffine(childInv, [world.x, world.y]);
               const childShape = hitGeometry(child, this.doc);
@@ -295,7 +303,7 @@ export class HitTestEngine {
                 break;
               }
               if (this.toleranceWorld > 0) {
-                const childBounds = nodeWorldBounds(this.doc, childId);
+                const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
                 if (childBounds) {
                   const expanded = {
                     x: childBounds.x - this.toleranceWorld,
@@ -310,7 +318,7 @@ export class HitTestEngine {
                 }
               }
             } else {
-              const childBounds = nodeWorldBounds(this.doc, childId);
+              const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
               if (childBounds) {
                 const expanded = {
                   x: childBounds.x - this.toleranceWorld,

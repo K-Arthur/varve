@@ -1,4 +1,4 @@
-import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
+import { createDocument, makeShapeNode } from '@strata/scene';
 import type { Viewport } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import type { EditorCameraState } from '../canvas/cameraState';
