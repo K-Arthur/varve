@@ -111,21 +111,13 @@ submodules; they value-import helpers back (`cryptoId`, `makeGroupNode`, `devVal
 
 ## Phase 3 — EditorProvider continued extraction
 
-**Status:** ⏳ PENDING
+**Status:** Extraction 1 ✅ completed (workspace mode). More to do.
 
-**Problem:** context.tsx file-total 844 vs ceiling 847 (99.7% — effectively frozen). 39
-caller test files. 64 imports vs budget 60.
+**Problem:** context.tsx file-total 7853 vs ceiling 847 — over but reduced by 61
+lines. 65 imports vs budget 65 (at limit). 39 caller test files.
 
 **Approach:** Continue the established patterns (hook-ordering invariance for hook
 extractions; `onReady` pattern for sub-context extractions), one extraction per commit.
-Each extraction must reduce file-total or import count.
-
-**Candidates (verify at execution time — pick the largest cohesive cluster not yet
-extracted):**
-- Workspace-mode logic (activeMode, mode switching, workspace state)
-- Audit/Intelligence state (findings, action tracker, cognitive load)
-- AI/Actions state (AI panel, generative fill, action logging)
-- Export state (export format, quality, config)
 
 **Per-extraction protocol:**
 1. Identify all hook dependencies (must be called after all hooks it depends on,
@@ -133,18 +125,22 @@ extracted):**
 2. Create hook in `context/useX.ts` or sub-context in `context/XContext.tsx`
 3. Add to `context/index.ts` barrel
 4. Move return values into `value` useMemo deps
-5. Update COMPLEXITY header comment after each extraction
-6. Gate: `pnpm typecheck && pnpm test --filter @strata/editor` (39 caller files)
-7. If sub-context: follow the `onReady` pattern from MotionContext.tsx
+5. Gate: `pnpm typecheck && pnpm test --filter @strata/editor`
+6. If sub-context: follow the `onReady` pattern from MotionContext.tsx
 
-- [ ] Extraction 1: [workspace mode / intelligence / AI — verify largest cluster at runtime]
-- [ ] Update COMPLEXITY header
-- [ ] Gate passes
-- [ ] Extraction 2: [next largest]
-- [ ] Gate passes
+**Remaining candidates (next largest clusters):**
+- Shape creation (createShapeAt, createTextNodeAt, applyFramePreset — ~335 lines)
+- Duplicate/clone (duplicateSelected, repeatDuplicate — ~390 lines)
+- Clipboard paste (copySelected, cutSelected, paste — ~200 lines)
+- Adjustment layers (createAdjustmentLayer, addLutAdjustment — ~230 lines)
+- Component system (components, variants, instances — ~235 lines)
 
-**Target:** context.tsx file-total ≤700, imports ≤60. EditorProvider per-function
-(repo-count) under 200 component ceiling.
+- [x] Extraction 1: Workspace mode (`context/useWorkspaceMode.ts`) — committed
+- [ ] Extraction 2: [next largest — verify cluster at execution time]
+- [ ] [More extractions as capacity allows]
+
+**Target:** context.tsx file-total ≤700, imports ≤65 (at limit). EditorProvider
+per-function (repo-count) under 200 component ceiling.
 
 **Commit:** one per extraction — `refactor(editor): extract X from EditorProvider`
 

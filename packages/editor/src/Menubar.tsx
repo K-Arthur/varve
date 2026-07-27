@@ -7,8 +7,7 @@ import {
   SolidIcon,
   StrataLogo,
 } from '@strata/ui';
-import type { Theme } from '@strata/ui/tokens';
-import { getTheme, setTheme } from '@strata/ui/tokens';
+import { getTheme, setTheme, type Theme } from '@strata/ui/tokens';
 import {
   getTypeAheadResetMs,
   isResetKey,
@@ -17,8 +16,7 @@ import {
 } from '@strata/ui/utils/menuTypeAhead';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
-import type { ArchiveDialogProps } from './components/Archive/ArchiveDialog';
-import { ArchiveDialog } from './components/Archive/ArchiveDialog';
+import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
