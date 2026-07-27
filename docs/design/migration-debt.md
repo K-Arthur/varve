@@ -65,15 +65,37 @@ Toolbar, FocusTrap, FloatingPortal, AlertDialog (shares Dialog stories).
 
 ---
 
-## Priority migration order
+## CSS linting infrastructure
 
-1. ~~Token gap closure~~ ✅ Done 2026-07-27
-2. Storybook coverage for stable components
-3. Inspector field canonicalization (Input, Radio, Switch extraction)
-4. Z-index consolidation (raw numbers → tokens)
-5. Inline component extraction (Font browser, Batch rename, Timeline)
-6. Tree/VirtualList for Layers panel
-7. Hardcoded value cleanup (optical corrections documented or migrated)
+| Item | Status |
+|---|---|
+| stylelint 17 + stylelint-config-standard | ✅ Installed 2026-07-27 |
+| `lint:css` script | ✅ Added to root `package.json` |
+| Config: `stylelint.config.mjs` | ✅ At repo root |
+| Tokens file passes clean | ✅ Verified against `packages/ui/src/tokens/tokens.css` |
+
+### Rules enabled (custom over standard)
+- `color-no-hex` (error) — ban all hex colors; enforce OKLCH/token usage
+- `color-named` (never) — ban named colors; system color keywords in `forced-colors` handled by disabling
+- `selector-class-pattern` — BEM-style (`block__element--modifier`)
+- `declaration-property-value-disallowed-list` — flags hardcoded spacing on margin, padding, gap, width, height
+- `unit-allowed-list` — restricts to rem/em/px/%/s/ms/deg/etc.
+
+### Rules disabled from standard
+- `alpha-value-notation`, `lightness-notation`, `hue-degree-notation` — project uses number notation for OKLCH
+- `value-keyword-case` — font names (`Roboto`, etc.) require original casing
+- `comment-empty-line-before` — generated files have comments without leading blank line
+- `declaration-block-no-duplicate-custom-properties` — intentional theme aliases in tokens.css
+
+### Files with known issues (to fix incrementally)
+| File | Issues |
+|---|---|
+| `packages/editor/src/VariablePanel.css` | Hardcoded `4px`, `20px`, `64px` spacing |
+| `packages/editor/src/editor.css` | `rule-empty-line-before`, hardcoded `1px`, `declaration-block-no-redundant-longhand-properties` |
+
+Run `pnpm lint:css` to check all CSS files. Use `--` to target a specific file, e.g. `pnpm lint:css -- "packages/ui/src/tokens/tokens.css"`.
+
+---
 
 ---
 

@@ -13,8 +13,11 @@
   display: grid;
   place-items: center;
   /* Brand canvas — never var(--color-surface-app) */
+  /* stylelint-disable-next-line color-no-hex */
   background: #10151f;
+  /* stylelint-disable-next-line color-no-hex */
   color: #ffffff;
+  /* Splash screen loads before token system; hardcoded z-index is intentional */
   z-index: 9999;
   opacity: 1;
   transition: opacity var(--duration-base, 0.25s) var(--ease-out, ease-out);

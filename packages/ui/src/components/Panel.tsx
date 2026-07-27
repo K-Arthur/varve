@@ -22,9 +22,9 @@ function clamp(value: number, min: number, max: number): number {
 export function Panel({
   children,
   storageKey,
-  defaultWidth = 260,
-  minWidth = 180,
-  maxWidth = 600,
+  defaultWidth = 256,
+  minWidth = 192,
+  maxWidth = 576,
   side = 'left',
   collapsed = false,
   onCollapse,
