@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 
 import type { Timeline } from '@strata/scene';
-import {
-  addRasterMaskAsset,
-  createDocument,
-  makeFrameNode,
-  makeShapeNode,
-} from '@strata/scene';
+import { addRasterMaskAsset, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createVideoFrameRenderer,
@@ -128,7 +123,7 @@ describe('flattenVisibleNodesForVideo scaling', () => {
    * moderate node counts to hide the bug this test exists to catch.
    */
   function makeNestedDoc(count: number) {
-    const doc = createDocument();
+    const doc = createDocument('bench', true);
     const frameId = 'frame-root';
     const nodes: Record<string, ReturnType<typeof makeShapeNode>> = {};
     const childIds: string[] = [];
