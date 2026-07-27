@@ -5,6 +5,8 @@
  * can show honest information about which path will run.
  */
 
+import { isTauriRuntime as isTauriEnvironment } from '@strata/platform';
+
 export type UpscaleCapabilityStatus =
   | 'available'
   | 'unsupported'
@@ -30,10 +32,6 @@ export interface UpscaleCapabilities {
   maxOutputPixels: number;
   /** Human-readable description of the active path. */
   pathDescription: string;
-}
-
-function isTauriEnvironment(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
 function workersAvailable(): boolean {

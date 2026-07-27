@@ -1,3 +1,4 @@
+import { isTauriRuntime } from '@strata/platform';
 import type { AuditFinding } from '@strata/scene';
 import type { EditorContextValue } from '../context/types';
 
@@ -197,9 +198,7 @@ function setupTauriDeepLink(
   _getFindings: () => AuditFinding[],
   _navigateToFinding: (finding: AuditFinding) => void,
 ): void {
-  if (typeof window !== 'undefined') {
-    const w = window as unknown as Record<string, unknown>;
-    const hasTauri = typeof w.__TAURI__ !== 'undefined';
+  if (isTauriRuntime()) {
     if (hasTauri) {
       try {
         const tauri = w.__TAURI__ as {

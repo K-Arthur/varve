@@ -1,3 +1,4 @@
+import { isTauriRuntime } from '@strata/platform';
 import type { DenoiseProvider, DenoiseTileRequest, DenoiseTileResult } from './types';
 
 interface NativeDenoiseResponse {
@@ -5,10 +6,6 @@ interface NativeDenoiseResponse {
   width: number;
   height: number;
   processingTimeMs: number;
-}
-
-function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
 export const nativeDenoiseProvider: DenoiseProvider = {

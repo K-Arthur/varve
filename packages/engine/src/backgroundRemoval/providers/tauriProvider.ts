@@ -1,4 +1,8 @@
+import { isTauriRuntime } from '@strata/platform';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
+
+export { isTauriRuntime };
+
 import { preferredWorkerModelIdForMethod } from '../types';
 import type { RemovalProvider } from './types';
 
@@ -10,10 +14,6 @@ interface TauriBgRemoveResponse {
   processingTimeMs: number;
   width: number;
   height: number;
-}
-
-export function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
 interface NativeModelStatus {
