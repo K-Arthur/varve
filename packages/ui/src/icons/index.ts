@@ -61,6 +61,7 @@ export const TOOL_ICONS = {
   adjustment: 'SlidersHorizontal',
   smudge: 'Fingerprint',
   sam2Segment: 'Scan',
+  lasso: 'LassoSelect',
 } as const satisfies Record<string, IconName>;
 
 /** Filled-style tool icons (design system refresh — replaces outline TOOL_ICONS). */
@@ -104,6 +105,7 @@ export const SOLID_TOOL_ICONS = {
   adjustment: 'Faders',
   smudge: 'Fingerprint',
   sam2Segment: 'MagnifyingGlass',
+  lasso: 'SelectionForeground',
 } as const satisfies Record<string, SolidIconName>;
 
 /** General chrome icons. */

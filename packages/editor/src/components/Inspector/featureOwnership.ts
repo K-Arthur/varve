@@ -335,6 +335,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Color mode conversion is document-wide and potentially destructive. Shown inline in Properties empty state.',
   },
+  'document-grid': {
+    surface: 'properties',
+    scope: 'document',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale:
+      'Document grid provides visual alignment guides and snapping for precision work. Shown inline in Properties empty state.',
+  },
 };
 
 /** Features for a surface in the registry's stable default order. */

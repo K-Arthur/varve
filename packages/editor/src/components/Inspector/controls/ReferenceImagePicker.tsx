@@ -13,7 +13,7 @@
  * WCAG 2.2 AA compliant: keyboard accessible, focus visible,
  * screen reader labels, reduced motion support.
  */
-import { Button } from '@strata/ui';
+import { Button, Tooltip } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -207,9 +207,9 @@ export function ReferenceImagePicker({
             />
           </div>
           <div className="ref-image-picker__info">
-            <span className="ref-image-picker__name" title={reference.name}>
-              {reference.name}
-            </span>
+            <Tooltip label={reference.name} truncationOnly>
+              <span className="ref-image-picker__name">{reference.name}</span>
+            </Tooltip>
             <span className="ref-image-picker__dims">
               {reference.width} x {reference.height}
             </span>

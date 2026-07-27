@@ -14,6 +14,7 @@ import type {
   NodeId,
   SafeAreaConfig,
   SceneNode,
+  SelectionSet,
   Slot,
   SlugConfig,
   SyncResult,
@@ -59,6 +60,14 @@ export interface DocumentContextValue {
   setSelectedFlipH: () => void;
   setSelectedFlipV: () => void;
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
+  createSelectionSet: (name?: string) => SelectionSet | null;
+  updateSelectionSet: (setId: string) => void;
+  deleteSelectionSet: (setId: string) => void;
+  renameSelectionSet: (setId: string, name: string) => void;
+  duplicateSelectionSet: (setId: string) => void;
+  selectSelectionSet: (setId: string) => void;
+  addToSelectionSet: (setId: string) => void;
+  removeFromSelectionSet: (setId: string) => void;
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;

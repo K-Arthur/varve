@@ -1,8 +1,9 @@
 import type { BooleanOpKind } from '@strata/scene';
 import type { IconName, MenuEntry } from '@strata/ui';
-import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
+import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip, TooltipProvider } from '@strata/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
+import { toolShortcutLabel } from '../../shortcuts';
 import { WORKSPACE_CONFIGS } from '../../workspace/workspaceTypes';
 import { ToolOptionsPopover } from './ToolOptionsPopover';
 import './FloatingToolbar.css';
@@ -52,31 +53,7 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   patch: 'Patch Tool',
   smudge: 'Smudge',
   sam2Segment: 'Select Subject',
-};
-
-const TOOL_SHORTCUTS: Partial<Record<ToolId, string>> = {
-  select: 'V',
-  hand: 'H',
-  zoom: 'Z',
-  frame: 'F',
-  rect: 'R',
-  ellipse: 'O',
-  line: 'L',
-  arrow: 'A',
-  pen: 'P',
-  pencil: 'Shift+P',
-  text: 'T',
-  scale: 'S',
-  slice: 'K',
-  eyedropper: '',
-  inspect: 'Ctrl',
-  paint: 'B',
-  eraser: 'E',
-  cloneStamp: 'J',
-  healBrush: 'J 2x',
-  spotHeal: 'J 3x',
-  smudge: 'U',
-  sam2Segment: 'M',
+  lasso: 'Lasso',
 };
 
 /** Tools hidden in structured-layout modes (Print, Design): raster painting
@@ -107,6 +84,7 @@ const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'line' },
   { id: 'arrow' },
   { id: 'select', groupStart: true },
+  { id: 'lasso' },
   { id: 'hand' },
   { id: 'zoom' },
   { id: 'text' },
@@ -123,6 +101,7 @@ const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
   { id: 'pencil' },
   { id: 'frame' },
   { id: 'select', groupStart: true },
+  { id: 'lasso' },
   { id: 'hand' },
   { id: 'zoom' },
   { id: 'slice' },
@@ -151,7 +130,7 @@ function iconName(id: string): IconName {
 function ToolButton({ id, groupStart }: ToolButtonProps) {
   const { state, setTool } = useEditor();
   const label = TOOL_LABELS[id] ?? id;
-  const shortcut = TOOL_SHORTCUTS[id];
+  const shortcut = toolShortcutLabel(id);
   return (
     <Tooltip label={label} shortcut={shortcut}>
       <button
@@ -202,7 +181,7 @@ function DrawingToolbarControls() {
         value={state.brushSettings.radius}
         onChange={(e) => setBrushSetting('radius', Number(e.target.value))}
         aria-label="Brush size"
-        title={`${state.brushSettings.radius}px`}
+        aria-valuetext={`${state.brushSettings.radius}px`}
       />
       <span className="floating-toolbar__drawing-label">Op</span>
       <input
@@ -213,10 +192,10 @@ function DrawingToolbarControls() {
         value={Math.round(state.brushSettings.opacity * 100)}
         onChange={(e) => setBrushSetting('opacity', Number(e.target.value) / 100)}
         aria-label="Opacity"
-        title={`${Math.round(state.brushSettings.opacity * 100)}%`}
+        aria-valuetext={`${Math.round(state.brushSettings.opacity * 100)}%`}
       />
       <div className="floating-toolbar__colors">
-        <label className="floating-toolbar__color-swatch" title="Foreground color">
+        <label className="floating-toolbar__color-swatch">
           <input
             type="color"
             value={fgHex}
@@ -236,16 +215,17 @@ function DrawingToolbarControls() {
             }}
           />
         </label>
-        <button
-          type="button"
-          className="floating-toolbar__color-swap"
-          onClick={swapColors}
-          aria-label="Swap colors"
-          title="Swap colors (X)"
-        >
-          <Icon name="ArrowDownUp" size={12} />
-        </button>
-        <label className="floating-toolbar__color-swatch" title="Background color">
+        <Tooltip label="Swap colors">
+          <button
+            type="button"
+            className="floating-toolbar__color-swap"
+            onClick={swapColors}
+            aria-label="Swap colors"
+          >
+            <Icon name="ArrowDownUp" size={12} />
+          </button>
+        </Tooltip>
+        <label className="floating-toolbar__color-swatch">
           <input
             type="color"
             value={bgHex}
@@ -322,85 +302,95 @@ export function FloatingToolbar() {
   return (
     <>
       <div className="floating-toolbar" data-testid="toolbar">
-        <Toolbar label="Drawing tools">
-          <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
-            <button
-              type="button"
-              className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
-              aria-pressed={state.tool === currentShape}
-              aria-label={TOOL_LABELS[currentShape] ?? currentShape}
-              data-tool={currentShape}
-              onClick={() => setTool(currentShape)}
-            >
-              <Icon name={iconName(currentShape)} size={16} />
-            </button>
-          </Tooltip>
-          <button
-            type="button"
-            className="floating-toolbar__chevron"
-            aria-label="Shapes menu"
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              if (shapeMenuPos) {
-                setShapeMenuPos(null);
-                return;
-              }
-              setShapeMenuPos({ x: r.left, y: r.top });
-            }}
-          >
-            <Icon name="ChevronDown" size={12} />
-          </button>
-          {filteredTools.map((t) => (
-            <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
-          ))}
-          {!isDrawingMode && !isImageMode && (
-            <>
-              <Tooltip
-                label={
-                  canBoolean
-                    ? (TOOL_LABELS[currentBoolean] ?? currentBoolean)
-                    : 'Select 2+ shapes for boolean'
-                }
+        <TooltipProvider>
+          <Toolbar label="Drawing tools">
+            <Tooltip label={TOOL_LABELS[currentShape] ?? currentShape}>
+              <button
+                type="button"
+                className={`floating-toolbar__btn${state.tool === currentShape ? ' floating-toolbar__btn--active' : ''} floating-toolbar__btn--group-start`}
+                aria-pressed={state.tool === currentShape}
+                aria-label={TOOL_LABELS[currentShape] ?? currentShape}
+                data-tool={currentShape}
+                onClick={() => setTool(currentShape)}
               >
-                <button
-                  type="button"
-                  className="floating-toolbar__btn floating-toolbar__btn--group-start"
-                  aria-pressed={false}
-                  aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
-                  data-tool={currentBoolean}
-                  disabled={!canBoolean}
-                  onClick={() => {
-                    const op = BOOLEAN_OP_MAP[currentBoolean];
-                    if (op && canBoolean) {
-                      booleanOp(op);
-                      setTool('select');
-                    }
-                  }}
-                >
-                  <Icon name={iconName(currentBoolean)} size={16} />
-                </button>
-              </Tooltip>
+                <Icon name={iconName(currentShape)} size={16} />
+              </button>
+            </Tooltip>
+            <Tooltip label="Shapes menu">
               <button
                 type="button"
                 className="floating-toolbar__chevron"
-                aria-label="Boolean operations menu"
-                disabled={!canBoolean}
+                aria-label="Shapes menu"
                 onClick={(e) => {
-                  if (!canBoolean) return;
                   const r = e.currentTarget.getBoundingClientRect();
-                  if (booleanMenuPos) {
-                    setBooleanMenuPos(null);
+                  if (shapeMenuPos) {
+                    setShapeMenuPos(null);
                     return;
                   }
-                  setBooleanMenuPos({ x: r.left, y: r.top });
+                  setShapeMenuPos({ x: r.left, y: r.top });
                 }}
               >
                 <Icon name="ChevronDown" size={12} />
               </button>
-            </>
-          )}
-          <ToolOptionsPopover />
-        </Toolbar>
+            </Tooltip>
+            {filteredTools.map((t) => (
+              <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
+            ))}
+            {!isDrawingMode && !isImageMode && (
+              <>
+                <Tooltip
+                  label={
+                    canBoolean
+                      ? (TOOL_LABELS[currentBoolean] ?? currentBoolean)
+                      : 'Select 2+ shapes for boolean'
+                  }
+                  disabledReason={!canBoolean ? 'Select 2+ shapes for boolean' : undefined}
+                >
+                  <button
+                    type="button"
+                    className="floating-toolbar__btn floating-toolbar__btn--group-start"
+                    aria-pressed={false}
+                    aria-label={TOOL_LABELS[currentBoolean] ?? currentBoolean}
+                    data-tool={currentBoolean}
+                    aria-disabled={!canBoolean || undefined}
+                    onClick={() => {
+                      const op = BOOLEAN_OP_MAP[currentBoolean];
+                      if (op && canBoolean) {
+                        booleanOp(op);
+                        setTool('select');
+                      }
+                    }}
+                  >
+                    <Icon name={iconName(currentBoolean)} size={16} />
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  label="Boolean operations menu"
+                  disabledReason={!canBoolean ? 'Select 2+ shapes for boolean' : undefined}
+                >
+                  <button
+                    type="button"
+                    className="floating-toolbar__chevron"
+                    aria-label="Boolean operations menu"
+                    disabled={!canBoolean}
+                    onClick={(e) => {
+                      if (!canBoolean) return;
+                      const r = e.currentTarget.getBoundingClientRect();
+                      if (booleanMenuPos) {
+                        setBooleanMenuPos(null);
+                        return;
+                      }
+                      setBooleanMenuPos({ x: r.left, y: r.top });
+                    }}
+                  >
+                    <Icon name="ChevronDown" size={12} />
+                  </button>
+                </Tooltip>
+              </>
+            )}
+            <ToolOptionsPopover />
+          </Toolbar>
+        </TooltipProvider>
         {isDrawingMode && <DrawingToolbarControls />}
       </div>
       <ContextMenu

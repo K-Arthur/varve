@@ -27,6 +27,7 @@ function makeCtx(overrides?: Record<string, unknown>) {
     tangentialPressure: 0,
     pointerWidth: 1,
     pointerHeight: 1,
+    lastPointerEvent: { clientX: 0, clientY: 0 },
     altitudeAngle: Math.PI / 2,
     azimuthAngle: 0,
     hasCoalescedEvents: false,

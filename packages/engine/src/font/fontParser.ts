@@ -13,6 +13,7 @@
 import { decompress as decompressBrotli } from 'wawoff2';
 
 import {
+  type ColorFontFormat,
   computeFontHash,
   detectFontFormat,
   type EmbeddingRights,
@@ -42,7 +43,38 @@ export async function parseFontData(data: ArrayBuffer): Promise<ParsedFontMetada
     return parseWOFF1(data);
   }
 
-  return parseRawFont(data, format);
+  const members = await parseRawCollectionMembers(data, format);
+  return members[0] ?? (await parseRawFontAtOffset(data, format, 0, 0));
+}
+
+/**
+ * Parse a TrueType/OpenType Collection (TTC/OTC) into its individual faces.
+ * Non-collection files return a single-element array.
+ * Accepts raw TTF/OTF/TTC/OTC bytes and WOFF2 files that decompress to a collection.
+ */
+export async function parseFontCollection(data: ArrayBuffer): Promise<ParsedFontMetadata[]> {
+  const format = detectFontFormat(data);
+
+  if (format === 'woff2') {
+    const decompressed = await decompressWOFF2(data);
+    if (decompressed) {
+      return parseFontCollection(decompressed);
+    }
+    // Decompression failed — fall back to header-only metadata
+    return [await parseFontData(data)];
+  }
+
+  if (format === 'woff') {
+    // WOFF1 is not a collection container in practice; parse as a single font.
+    return [await parseWOFF1(data)];
+  }
+
+  const view = new DataView(data);
+  if (data.byteLength >= 4 && view.getUint32(0) !== TTC_SIGNATURE) {
+    return [await parseRawFontAtOffset(data, format, 0, 0)];
+  }
+
+  return await parseRawCollectionMembers(data, format);
 }
 
 const DEFAULT_IDENTITY = {
@@ -73,7 +105,8 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   // Try using the built-in decompression if available
   const decompressed = await decompressWOFF2(data);
   if (decompressed) {
-    return parseRawFont(decompressed, 'woff2');
+    const members = await parseRawCollectionMembers(decompressed, 'woff2');
+    return members[0] ?? (await parseRawFontAtOffset(decompressed, 'woff2', 0, 0));
   }
 
   // Fallback: parse what we can from the WOFF2 header
@@ -99,6 +132,7 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
     languages: [],
     embeddingRights: 'unknown',
     hasColorGlyphs: false,
+    colorFormats: [],
     category: 'unknown',
     source: 'system',
   };
@@ -173,7 +207,8 @@ async function parseWOFF1(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   // Reconstruct a minimal SFNT font from decompressed tables
   const sfnt = reconstructSFNT(tables);
   if (sfnt) {
-    return parseRawFont(sfnt, 'woff');
+    const members = await parseRawCollectionMembers(sfnt, 'woff');
+    return members[0] ?? (await parseRawFontAtOffset(sfnt, 'woff', 0, 0));
   }
 
   // Fallback
@@ -195,6 +230,7 @@ async function parseWOFF1(data: ArrayBuffer): Promise<ParsedFontMetadata> {
     languages: [],
     embeddingRights: 'unknown',
     hasColorGlyphs: false,
+    colorFormats: [],
     category: 'unknown',
     source: 'system',
   };
@@ -312,23 +348,44 @@ function computeTableChecksum(data: ArrayBuffer): number {
 
 // ── Raw TTF/OTF Parsing ────────────────────────────────────────────────────
 
-async function parseRawFont(
+const TTC_SIGNATURE = 0x74746366; // "ttcf"
+const MAX_COLLECTION_MEMBERS = 64;
+
+async function parseRawCollectionMembers(
   data: ArrayBuffer,
   format: FontFormat,
-  collectionIndex = 0,
+): Promise<ParsedFontMetadata[]> {
+  const view = new DataView(data);
+  if (data.byteLength < 8 || view.getUint32(0) !== TTC_SIGNATURE) {
+    return [];
+  }
+
+  const numFonts = view.getUint32(4);
+  if (numFonts === 0 || numFonts > MAX_COLLECTION_MEMBERS) {
+    return [];
+  }
+
+  const offsetStart = 8;
+  const members: ParsedFontMetadata[] = [];
+  for (let i = 0; i < numFonts; i++) {
+    const offsetOff = offsetStart + i * 4;
+    if (offsetOff + 4 > data.byteLength) break;
+    const sfntOffset = view.getUint32(offsetOff);
+    if (sfntOffset + 12 > data.byteLength) continue;
+    const meta = await parseRawFontAtOffset(data, format, i, sfntOffset);
+    members.push(meta);
+  }
+
+  return members;
+}
+
+async function parseRawFontAtOffset(
+  data: ArrayBuffer,
+  format: FontFormat,
+  collectionIndex: number,
+  sfntOffset: number,
 ): Promise<ParsedFontMetadata> {
   const view = new DataView(data);
-
-  // Detect TTC (TrueType Collection)
-  const isTTC = view.getUint32(0) === 0x74746366; // ttcf
-  let sfntOffset = 0;
-
-  if (isTTC) {
-    const numFonts = view.getUint32(4);
-    if (numFonts > 0) {
-      sfntOffset = view.getUint32(8);
-    }
-  }
 
   // Read offset table
   const numTables = view.getUint16(sfntOffset + 4);
@@ -345,7 +402,7 @@ async function parseRawFont(
   const cmapRanges = parseCmapTable(data, tableMap);
   const gsubFeatures = parseGSUBTable(data, tableMap);
   const gposFeatures = parseGPOSTable(data, tableMap);
-  const hasColor = detectColorGlyphs(data, tableMap);
+  const colorCapabilities = detectColorCapabilities(data, tableMap);
 
   // Extract name strings (OpenType name table)
   // nameID 1/2/4/6 are required; 16/17 are typographic preferred names;
@@ -364,7 +421,8 @@ async function parseRawFont(
   const description = nameRecords[10];
   const designer = nameRecords[9];
 
-  // Compute canonical SHA-256 content hash
+  // Compute canonical SHA-256 content hash of the whole collection file.
+  // Members are differentiated by collectionIndex + PostScript name in fontIdentityKey.
   const { contentHash, fingerprint, hashAlgorithm } = await computeFontHash(data);
 
   const unitsPerEm = headData.unitsPerEm || 1000;
@@ -426,7 +484,9 @@ async function parseRawFont(
     scripts: os2Data.scripts,
     languages: [],
     embeddingRights,
-    hasColorGlyphs: hasColor,
+    hasColorGlyphs: colorCapabilities.hasColor,
+    colorFormats: colorCapabilities.colorFormats,
+    paletteCount: colorCapabilities.paletteCount,
     category,
     source: 'system',
   };
@@ -827,8 +887,52 @@ function parseMaxpGlyphCount(data: ArrayBuffer, tables: Map<string, TableDirecto
   return view.getUint16(table.offset + 4);
 }
 
-function detectColorGlyphs(_data: ArrayBuffer, tables: Map<string, TableDirectory>): boolean {
-  return tables.has('COLR') || tables.has('sbix') || tables.has('SVG ');
+interface ColorCapabilities {
+  hasColor: boolean;
+  colorFormats: ColorFontFormat[];
+  paletteCount?: number;
+}
+
+function detectColorCapabilities(
+  data: ArrayBuffer,
+  tables: Map<string, TableDirectory>,
+): ColorCapabilities {
+  const view = new DataView(data);
+  const colorFormats: ColorFontFormat[] = [];
+  let paletteCount: number | undefined;
+
+  const colr = tables.get('COLR');
+  if (colr && colr.offset + 2 <= data.byteLength) {
+    const version = view.getUint16(colr.offset);
+    if (version === 0) {
+      colorFormats.push('colr0');
+    } else if (version === 1) {
+      colorFormats.push('colr1');
+    }
+  }
+
+  const cpal = tables.get('CPAL');
+  if (cpal && cpal.offset + 6 <= data.byteLength) {
+    colorFormats.push('cpal');
+    // CPAL v0: version(2), numPaletteEntries(2), numPalettes(2)
+    paletteCount = view.getUint16(cpal.offset + 4);
+  }
+
+  if (tables.has('SVG ')) colorFormats.push('svg');
+  if (tables.has('sbix')) colorFormats.push('sbix');
+  if (tables.has('CBDT')) colorFormats.push('cbdt');
+  if (tables.has('CBLC')) colorFormats.push('cblc');
+
+  // A font has colour glyphs if it has a rendering table (COLR, SVG, sbix, CBDT/CBLC).
+  // CPAL by itself only provides palettes.
+  const hasColor =
+    tables.has('COLR') ||
+    tables.has('SVG ') ||
+    tables.has('sbix') ||
+    tables.has('CBDT') ||
+    tables.has('CBLC');
+
+  return { hasColor, colorFormats, paletteCount };
 }
 
 const AXIS_NAMES: Record<string, string> = {

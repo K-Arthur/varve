@@ -53,8 +53,8 @@ export {
   getLicenseFromEmbeddingRights,
   KNOWN_LICENSES,
 } from './fontLicensePolicy';
-export type { FontLoaderConfig, LoadResult } from './fontLoader';
 // Loading and registration
+export type { FontLoaderConfig, LoadResult, SystemFontFace } from './fontLoader';
 export {
   detectSystemFonts,
   enumerateSystemFonts,
@@ -63,6 +63,17 @@ export {
   hasQueryLocalFonts,
   resetSystemFontCache,
 } from './fontLoader';
+export type {
+  BuildManifestOptions,
+  FontManifest,
+  FontManifestEntry,
+  FontManifestStatus,
+} from './fontManifest';
+// Document font manifest
+export {
+  buildDocumentFontManifest,
+  resolveManifestAgainstCatalog,
+} from './fontManifest';
 // Font file parsing
 export { parseFontData } from './fontParser';
 export type {
@@ -78,17 +89,6 @@ export { FontProviderRegistry, FontsourceProvider, GoogleFontsProvider } from '.
 export type { FontReplacement, FontSubstitute, MissingFontInfo } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
-export type {
-  BuildManifestOptions,
-  FontManifest,
-  FontManifestEntry,
-  FontManifestStatus,
-} from './fontManifest';
-// Document font manifest
-export {
-  buildDocumentFontManifest,
-  resolveManifestAgainstCatalog,
-} from './fontManifest';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';

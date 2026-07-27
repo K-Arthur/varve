@@ -669,6 +669,12 @@ function buildMenus(
           ariaKeyshortcut: ks('toggleStateMachinePanel'),
           action: 'toggleStateMachinePanel',
         },
+        {
+          label: 'Fonts Panel',
+          shortcut: formatShortcut(SHORTCUT_DEFS.openFontsPanel.binding),
+          ariaKeyshortcut: ks('openFontsPanel'),
+          action: 'openFontsPanel',
+        },
         { label: '---' },
         // Workspace
         {

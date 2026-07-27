@@ -153,6 +153,16 @@
   font-weight: var(--font-weight-bold);
 }
 
+.font-browser__badge--color {
+  color: var(--color-text-inverse);
+  background: var(--color-accent-secondary);
+}
+
+.font-browser__badge--license {
+  color: var(--color-text-inverse);
+  background: var(--color-warning);
+}
+
 /* ---------- Footer count ---------- */
 
 .font-browser__count {
@@ -160,6 +170,78 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ---------- TTC/OTC Collection UI ---------- */
+
+.font-browser__entry {
+  display: flex;
+  flex-direction: column;
+}
+
+.font-browser__expand-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  transition: transform 0.15s ease;
+}
+
+.font-browser__expand-btn:hover {
+  color: var(--color-text-primary);
+}
+
+.font-browser__badge--faces {
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+.font-browser__faces {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding-left: var(--space-4);
+  margin-top: var(--space-1);
+}
+
+.font-browser__face-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  font-size: var(--font-size-xs);
+}
+
+.font-browser__face-row:hover {
+  background: var(--color-surface-hover);
+}
+
+.font-browser__face-name {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.font-browser__face-meta {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-2xs);
+}
+
+/* ---------- Details panel ---------- */
+
+.font-browser__details {
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+  max-height: 160px;
+  overflow-y: auto;
   flex-shrink: 0;
 }
 

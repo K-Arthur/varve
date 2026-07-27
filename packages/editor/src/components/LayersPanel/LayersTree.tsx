@@ -59,7 +59,7 @@ import {
   isDescendantFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
-import { loadSettings, updateSettings } from '../../settings';
+import { loadSettings } from '../../settings';
 import { LayersRow } from './LayersRow';
 import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER } from './layerFilterTypes';

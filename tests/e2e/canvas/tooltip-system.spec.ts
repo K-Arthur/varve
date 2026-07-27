@@ -105,9 +105,8 @@ test.describe('Tooltip system', () => {
     const tooltipId = await tooltip.getAttribute('id');
     expect(tooltipId).toBeTruthy();
 
-    // The trigger wrapper (parent of the button) should have aria-describedby pointing to the tooltip
-    const wrapper = toolBtn.locator('..');
-    const describedBy = await wrapper.getAttribute('aria-describedby');
+    // The trigger button itself should have aria-describedby pointing to the tooltip
+    const describedBy = await toolBtn.getAttribute('aria-describedby');
     expect(describedBy).toBe(tooltipId);
   });
 

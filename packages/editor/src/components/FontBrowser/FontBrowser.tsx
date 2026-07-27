@@ -7,8 +7,11 @@
  *
  * Research basis: Figma font menu, FontBase/FontBook catalog UX patterns.
  */
-import { getFontRegistry } from '@strata/engine';
+
+import { type FontMetadata, getFontRegistry } from '@strata/engine';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';
 
 export interface FontBrowserProps {
@@ -26,6 +29,19 @@ interface FontDisplayEntry {
   isVariable: boolean;
   isFavorite: boolean;
   recentlyUsedAt?: number;
+  hasColorGlyphs: boolean;
+  colorFormats: string[];
+  paletteCount?: number;
+  embeddingRights?: FontMetadata['embeddingRights'];
+  license?: string;
+  faces?: FontFaceEntry[];
+}
+
+interface FontFaceEntry {
+  postScriptName: string;
+  weight: number;
+  style: string;
+  source: 'system' | 'bundled' | 'google';
 }
 
 const SOURCE_FILTERS: readonly { key: SourceFilter; label: string }[] = [
@@ -64,12 +80,14 @@ function familyMatchesFilter(entry: FontDisplayEntry, filter: SourceFilter): boo
 
 export function FontBrowser({
   onSelect,
-  selectedFamily,
+  selectedFamily: selectedFamilyProp,
   showDownloadable = false,
   maxHeight = 400,
 }: FontBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<SourceFilter>('all');
+  const [selectedFamily, setSelectedFamily] = useState<string | undefined>(selectedFamilyProp);
+  const [expandedFamilies, setExpandedFamilies] = useState<Set<string>>(new Set());
   const listRef = useRef<HTMLDivElement>(null);
 
   const registry = useMemo(() => getFontRegistry(), []);
@@ -86,11 +104,27 @@ export function FontBrowser({
       const firstEntry = entries[0];
       if (!firstEntry) continue;
       if (!showDownloadable && firstEntry.source === 'google') continue;
+      const meta = registry.getMetadata(family);
+
+      // Build face entries for TTC/OTC collections
+      const faces: FontFaceEntry[] = entries.map((entry) => ({
+        postScriptName: `${family}-${entry.weight}-${entry.style}`,
+        weight: entry.weight,
+        style: entry.style,
+        source: entry.source,
+      }));
+
       results.push({
         family,
         source: firstEntry.source,
         isVariable: registry.isVariable(family),
         isFavorite: false,
+        hasColorGlyphs: meta?.hasColorGlyphs ?? false,
+        colorFormats: meta?.colorFormats ?? [],
+        paletteCount: meta?.paletteCount,
+        embeddingRights: meta?.embeddingRights,
+        license: meta?.license,
+        faces: faces.length > 1 ? faces : undefined, // Only show faces if multiple
       });
     }
     return results;
@@ -115,10 +149,23 @@ export function FontBrowser({
 
   const handleSelect = useCallback(
     (family: string) => {
+      setSelectedFamily(family);
       onSelect?.(family);
     },
     [onSelect],
   );
+
+  const toggleExpand = useCallback((family: string) => {
+    setExpandedFamilies((prev) => {
+      const next = new Set(prev);
+      if (next.has(family)) {
+        next.delete(family);
+      } else {
+        next.add(family);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="font-browser" style={{ maxHeight }}>
@@ -154,34 +201,103 @@ export function FontBrowser({
         )}
         {filteredEntries.map((entry) => {
           const isSelected = selectedFamily === entry.family;
+          const isExpanded = expandedFamilies.has(entry.family);
+          const hasFaces = entry.faces && entry.faces.length > 1;
           const sourceBadge = SOURCE_BADGES[entry.source] ?? '';
 
+          const colorTitle = entry.paletteCount
+            ? `${entry.colorFormats.join(', ')} · ${entry.paletteCount} palettes`
+            : entry.colorFormats.join(', ');
+          const licenseTitle = entry.license
+            ? entry.license
+            : `Embedding: ${entry.embeddingRights ?? 'unknown'}`;
+
           return (
-            <button
-              key={entry.family}
-              type="button"
-              className={`font-browser__row${isSelected ? ' font-browser__row--selected' : ''}`}
-              onClick={() => handleSelect(entry.family)}
-              aria-pressed={isSelected}
-            >
-              <span
-                className="font-browser__preview"
-                style={{ fontFamily: `"${entry.family}", sans-serif` }}
+            <div key={entry.family} className="font-browser__entry">
+              <button
+                type="button"
+                className={`font-browser__row${isSelected ? ' font-browser__row--selected' : ''}`}
+                onClick={() => handleSelect(entry.family)}
+                aria-pressed={isSelected}
               >
-                {entry.family}
-              </span>
-              <span className="font-browser__meta">
-                {sourceBadge && <span className="font-browser__badge">{sourceBadge}</span>}
-                {entry.isVariable && (
-                  <span className="font-browser__badge font-browser__badge--var">w</span>
+                {hasFaces && (
+                  <button
+                    type="button"
+                    className="font-browser__expand-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleExpand(entry.family);
+                    }}
+                    aria-expanded={isExpanded}
+                    aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${entry.family} faces`}
+                  >
+                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                  </button>
                 )}
-              </span>
-            </button>
+                <span
+                  className="font-browser__preview"
+                  style={{ fontFamily: `"${entry.family}", sans-serif` }}
+                >
+                  {entry.family}
+                </span>
+                <span className="font-browser__meta">
+                  {sourceBadge && <span className="font-browser__badge">{sourceBadge}</span>}
+                  {entry.isVariable && (
+                    <span className="font-browser__badge font-browser__badge--var">w</span>
+                  )}
+                  {entry.hasColorGlyphs && (
+                    <span
+                      className="font-browser__badge font-browser__badge--color"
+                      title={colorTitle}
+                    >
+                      C
+                    </span>
+                  )}
+                  {entry.embeddingRights === 'restricted' && (
+                    <span
+                      className="font-browser__badge font-browser__badge--license"
+                      title={licenseTitle}
+                    >
+                      L
+                    </span>
+                  )}
+                  {hasFaces && (
+                    <span className="font-browser__badge font-browser__badge--faces">
+                      {entry.faces!.length}
+                    </span>
+                  )}
+                </span>
+              </button>
+              {isExpanded && hasFaces && (
+                <div className="font-browser__faces">
+                  {entry.faces!.map((face) => (
+                    <button
+                      key={face.postScriptName}
+                      type="button"
+                      className="font-browser__face-row"
+                      onClick={() => handleSelect(entry.family)}
+                      title={`${face.postScriptName} — ${face.weight} ${face.style}`}
+                    >
+                      <span className="font-browser__face-name">{face.postScriptName}</span>
+                      <span className="font-browser__face-meta">
+                        {face.weight} {face.style}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
 
       <div className="font-browser__count">{filteredEntries.length} fonts</div>
+
+      {selectedFamily && (
+        <div className="font-browser__details">
+          <FontLicenseDetails family={selectedFamily} />
+        </div>
+      )}
     </div>
   );
 }

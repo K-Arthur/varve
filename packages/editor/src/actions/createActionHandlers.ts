@@ -148,6 +148,11 @@ export function createActionHandlers(
       e.setDocumentGrid({ ...dg, visible: !dg.visible });
     },
     togglePixelGrid: () => e.setPixelGridEnabled(!e.state.pixelGridEnabled),
+    togglePixelGridSnap: () => e.setPixelGridSnapEnabled(!e.state.pixelGridSnapEnabled),
+    resetGridOrigin: () => {
+      const dg = e.state.documentGrid;
+      e.setDocumentGrid({ ...dg, offsetX: 0, offsetY: 0 });
+    },
     colorBlindnessNone: () => e.setColorBlindnessView('none'),
     colorBlindnessProtanopia: () => e.setColorBlindnessView('protanopia'),
     colorBlindnessDeuteranopia: () => e.setColorBlindnessView('deuteranopia'),
@@ -204,6 +209,7 @@ export function createActionHandlers(
     openAppearancePanel: () => e.setInspectorTab('appearance'),
     openAdjustmentsPanel: () => e.setInspectorTab('adjustments'),
     openPrototypePanel: () => e.setInspectorTab('prototype'),
+    openFontsPanel: () => e.setInspectorTab('fonts'),
     openDocumentPanel: () => {
       e.setSelection(null);
       e.setInspectorTab('properties');

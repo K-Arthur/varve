@@ -35,6 +35,9 @@ export type FontCategory =
   | 'handwriting'
   | 'unknown';
 
+/** Detected colour-font technology. */
+export type ColorFontFormat = 'colr0' | 'colr1' | 'svg' | 'sbix' | 'cbdt' | 'cblc' | 'cpal';
+
 /** Embedding permission from OS/2 fsType field. */
 export type EmbeddingRights =
   | 'installable' // fsType=0: unrestricted
@@ -125,6 +128,10 @@ export interface ParsedFontMetadata {
   embeddingRights: EmbeddingRights;
   /** Whether the font contains color glyphs (COLR/CPAL or sbix or SVG). */
   hasColorGlyphs: boolean;
+  /** Detected colour-font technologies present in the file. */
+  colorFormats?: ColorFontFormat[];
+  /** Number of colour palettes (CPAL), if present. */
+  paletteCount?: number;
   /** Font category (heuristic from metadata + metrics). */
   category: FontCategory;
   /** Source where this font was loaded from. */
@@ -192,18 +199,38 @@ export function fontIdentityKey(id: FontIdentity): string {
  * missing-font reference as different from its resolved replacement.
  */
 export function sameFontFace(a: FontIdentity, b: FontIdentity): boolean {
-  // Prefer exact SHA-256 match when both identities are canonical.
+  // Prefer exact SHA-256 match when both identities are canonical and, where
+  // available, the same PostScript name. A single collection file contains
+  // multiple faces with the same content hash but distinct PostScript names.
   if (
     a.contentHash &&
     b.contentHash &&
     a.hashAlgorithm === 'sha256' &&
     b.hashAlgorithm === 'sha256'
   ) {
-    return a.contentHash === b.contentHash;
+    if (a.contentHash !== b.contentHash) return false;
+    if (
+      a.postScriptName &&
+      b.postScriptName &&
+      a.postScriptName !== 'Unknown' &&
+      a.postScriptName !== b.postScriptName
+    ) {
+      return false;
+    }
+    return true;
   }
 
   // Legacy/non-canonical hash match.
   if (a.contentHash && b.contentHash && a.contentHash === b.contentHash) {
+    // Disambiguate collection members by PostScript name when both are known.
+    if (
+      a.postScriptName &&
+      b.postScriptName &&
+      a.postScriptName !== 'Unknown' &&
+      a.postScriptName !== b.postScriptName
+    ) {
+      return false;
+    }
     return true;
   }
 

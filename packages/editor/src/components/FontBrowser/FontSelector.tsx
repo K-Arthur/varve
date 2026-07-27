@@ -8,6 +8,8 @@
  * Research basis: WAI-ARIA APG "Listbox Combobox" pattern with
  * inline autocomplete. Arrow keys navigate, Enter selects, Escape closes.
  */
+
+import type { FontMetadata } from '@strata/engine';
 import { getFontRegistry } from '@strata/engine';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import './FontSelector.css';
@@ -178,6 +180,8 @@ export function FontSelector({
     setQuery(value);
   }, [value]);
 
+  const getMeta = (family: string): FontMetadata | undefined => registry.getMetadata(family);
+
   const getSourceBadge = (family: string): string => {
     const entries = registry.getEntries(family);
     const first = entries[0];
@@ -238,6 +242,10 @@ export function FontSelector({
                 const isSelected = normalize(family) === normalize(value);
                 const badge = getSourceBadge(family);
                 const isVar = registry.isVariable(family);
+                const meta = getMeta(family);
+                const colorTitle = meta?.paletteCount
+                  ? `${(meta.colorFormats ?? []).join(', ')} · ${meta.paletteCount} palettes`
+                  : (meta?.colorFormats ?? []).join(', ');
 
                 return (
                   <div
@@ -266,6 +274,22 @@ export function FontSelector({
                       {badge && <span className="font-selector__badge">{badge}</span>}
                       {isVar && (
                         <span className="font-selector__badge font-selector__badge--var">w</span>
+                      )}
+                      {meta?.hasColorGlyphs && (
+                        <span
+                          className="font-selector__badge font-selector__badge--color"
+                          title={colorTitle}
+                        >
+                          C
+                        </span>
+                      )}
+                      {meta?.embeddingRights === 'restricted' && (
+                        <span
+                          className="font-selector__badge font-selector__badge--license"
+                          title={meta.license || 'Embedding restricted'}
+                        >
+                          L
+                        </span>
                       )}
                     </span>
                   </div>

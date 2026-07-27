@@ -16,7 +16,7 @@
  * Ordering is array-index for the local-first editor (sufficient without sync).
  * CRDT-safe fractional ordering replaces it when sync lands (Phase 2, plan §1.1).
  */
-import type { Affine, Shape } from '@strata/engine';
+import type { Affine, FontManifest, Shape } from '@strata/engine';
 import type { DocumentUnit } from '@strata/shared';
 import { generateKeyBetween, physicalToPx } from '@strata/shared';
 import { stripBindingForVariable } from './bindings';
@@ -34,9 +34,17 @@ import type {
 import { defaultColorConfig } from './colorManagement';
 import { cryptoId, getParent, makeGroupNode } from './document-utils';
 import type { ExportSettings } from './export-types';
-import type { FontManifest } from '@strata/engine';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
+import {
+  type BaselineGrid,
+  createDefaultDocumentGrid,
+  createDefaultPixelGrid,
+  type PixelGrid,
+  sanitizeGrid,
+  validateGrid,
+} from './gridTypes';
 import { nextNodeId } from './node-id';
+import { createEmptySelectionSetsData } from './selectionSet';
 import type {
   ContainerNode,
   DocumentGrid,
@@ -57,14 +65,6 @@ import { isContainer } from './types';
 import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
-import {
-  createDefaultDocumentGrid,
-  createDefaultPixelGrid,
-  sanitizeGrid,
-  validateGrid,
-  type BaselineGrid,
-  type PixelGrid,
-} from './gridTypes';
 
 export type { CreateMasterOptions } from './document-components';
 export {
@@ -299,17 +299,18 @@ export function createDocument(
     nodes: {},
     components: {},
     nextId: 1,
+    selectionSets: createEmptySelectionSetsData(),
   };
 
   if (param2 === true) {
     // Flat document: no pages, just root-level nodes
-    return base;
+    return initializeDefaultGridSettings(base);
   }
 
   if (typeof param2 === 'object' && param2 !== null) {
     const opts = param2 as CreateDocumentOptions;
     if (opts.flat) {
-      return base;
+      return initializeDefaultGridSettings(base);
     }
 
     // Page/frame geometry stays a resolution-independent world unit (fixed
@@ -337,7 +338,7 @@ export function createDocument(
       contentRoot: contentRootId,
     };
 
-    return {
+    return initializeDefaultGridSettings({
       ...d1,
       activePageId: page.id,
       globalChildren: [],
@@ -350,7 +351,7 @@ export function createDocument(
       physicalHeight: opts.physicalHeight,
       bleed: opts.bleed,
       dpi: opts.dpi,
-    };
+    });
   }
 
   // Create a default page with a contentRoot group (legacy behavior)
@@ -370,14 +371,14 @@ export function createDocument(
     contentRoot: contentRootId,
   };
 
-  return {
+  return initializeDefaultGridSettings({
     ...d1,
     activePageId: page.id,
     globalChildren: [],
     pages: [page],
     rootChildren: [contentRootId],
     nodes: { ...d1.nodes, [contentRootId]: contentRoot },
-  };
+  });
 }
 
 export {
