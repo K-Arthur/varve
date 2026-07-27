@@ -332,7 +332,7 @@ export function ShortcutPalette({
                         )}
                     </span>
                     <span className="shortcut-palette__usage" title={`Used ${useCount} times`}>
-                      {useCount > 0 ? `${useCount}×` : 'Not used'}
+                      {useCount > 0 ? `${useCount}x` : 'Not used'}
                     </span>
                     {isRemapping ? (
                       <span className="shortcut-palette__combo shortcut-palette__combo--active">
@@ -397,9 +397,7 @@ export function ShortcutPalette({
                   );
                 })}
                 {usage.neverUsed.length > 20 && (
-                  <div className="shortcut-palette__more">
-                    +{usage.neverUsed.length - 20} more
-                  </div>
+                  <div className="shortcut-palette__more">+{usage.neverUsed.length - 20} more</div>
                 )}
               </details>
             </div>

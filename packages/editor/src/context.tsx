@@ -2226,7 +2226,12 @@ export function EditorProvider({
   // After each render, sync canUndo/canRedo/undoLabel/redoLabel if they
   // diverge from the derived values. Uses a ref to track what we last synced
   // to avoid infinite patch→render→patch loops.
-  const lastSyncedUndo = useRef({ canUndo: false, canRedo: false, undoLabel: 'Undo', redoLabel: 'Redo' });
+  const lastSyncedUndo = useRef({
+    canUndo: false,
+    canRedo: false,
+    undoLabel: 'Undo',
+    redoLabel: 'Redo',
+  });
   const undoLen = undoStackRef.current.length;
   const redoLen = redoStackRef.current.length;
   const derivedCanUndo = undoLen > 0;

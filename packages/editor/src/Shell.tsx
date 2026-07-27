@@ -774,8 +774,7 @@ function ShellInner({
             const nodeCount = Object.keys(editor.state.document.nodes).length;
             const hasNodes = nodeCount >= 1;
             const hasMultipleNodes = nodeCount >= 2;
-            const record = (actionId: string) =>
-              editor.recordAction(`menu:${actionId}`);
+            const record = (actionId: string) => editor.recordAction(`menu:${actionId}`);
             const items: MenuEntry[] = [
               ...(hasSelection
                 ? [

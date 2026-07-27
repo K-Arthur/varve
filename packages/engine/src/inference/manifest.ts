@@ -181,7 +181,10 @@ function deriveAcquisition(raw: RawManifestEntry): ModelAcquisition {
   if (!raw.remoteUrl) {
     const notes = raw.notes ?? '';
     let reasonCode: ModelUnavailableReason = 'source-unavailable';
-    if (notes.toLowerCase().includes('no public onnx') || notes.toLowerCase().includes('export pending')) {
+    if (
+      notes.toLowerCase().includes('no public onnx') ||
+      notes.toLowerCase().includes('export pending')
+    ) {
       reasonCode = 'no-public-onnx';
     }
     return {
