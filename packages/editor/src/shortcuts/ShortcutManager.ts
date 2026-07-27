@@ -356,6 +356,11 @@ export const SHORTCUT_DEFS = {
     label: 'Workspace: Motion',
     category: 'View',
   },
+  workspaceCodegen: {
+    binding: { key: '9', ctrl: true, shift: true },
+    label: 'Workspace: Codegen',
+    category: 'View',
+  },
   toggleDistractionFree: {
     binding: { key: '.', ctrl: true, shift: true },
     label: 'Toggle Distraction-Free Mode',
