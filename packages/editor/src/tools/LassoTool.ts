@@ -126,7 +126,7 @@ export class LassoTool extends BaseTool {
     const doc = ctx.document;
     const activePageId = doc.activePageId;
     if (!activePageId) return [];
-    const page = doc.pages?.[activePageId as string];
+    const page = doc.pages?.find((p) => p.id === activePageId);
     if (!page || !page.contentRoot) return [];
 
     const intersecting: string[] = [];

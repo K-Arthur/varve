@@ -69,7 +69,12 @@ export function DocumentPanel() {
         </div>
       </DisclosureSection>
       <DisclosureSection title="Document Grid" sectionId="document-grid" defaultExpanded={false}>
-        <div className="insp-canvas-props" role="region" aria-live="polite" aria-label="Document grid settings">
+        <div
+          className="insp-canvas-props"
+          role="region"
+          aria-live="polite"
+          aria-label="Document grid settings"
+        >
           <div className="insp-field">
             <span className="insp-field__label">Visible</span>
             <div className="insp-field__control insp-field__control--inline">
@@ -245,7 +250,7 @@ export function DocumentPanel() {
                   onChange={(e) => {
                     setPixelGridSnapEnabled(e.target.checked);
                   }}
-                  aria-label={`Snap to pixels ${e.target.checked ? 'enabled' : 'disabled'}`}
+                  aria-label={`Snap to pixels ${state.pixelGridSnapEnabled ? 'enabled' : 'disabled'}`}
                 />
                 Snap to integer pixels
               </label>
