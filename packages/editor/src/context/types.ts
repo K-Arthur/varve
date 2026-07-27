@@ -724,6 +724,7 @@ export interface EditorContextValue {
   setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
   setDocumentUnit: (unit: DocumentUnit) => void;
   setSoftProofEnabled: (v: boolean) => void;
+  setFindingsOverlayVisible: (v: boolean) => void;
   setPixelGridEnabled: (v: boolean) => void;
   setPixelGridSnapEnabled: (v: boolean) => void;
   resetGridOrigin: () => void;
