@@ -545,6 +545,7 @@ function ShellInner({
           open={quickActionsOpen}
           onClose={() => setQuickActionsOpen(false)}
           onExecute={(id) => {
+            editor.recordAction(`menu:${id}`);
             if (id === 'open') {
               const input = fileRef.current;
               if (input) input.click();
@@ -773,6 +774,8 @@ function ShellInner({
             const nodeCount = Object.keys(editor.state.document.nodes).length;
             const hasNodes = nodeCount >= 1;
             const hasMultipleNodes = nodeCount >= 2;
+            const record = (actionId: string) =>
+              editor.recordAction(`menu:${actionId}`);
             const items: MenuEntry[] = [
               ...(hasSelection
                 ? [
@@ -780,6 +783,7 @@ function ShellInner({
                       id: 'ctx-cut',
                       label: 'Cut',
                       onAction: () => {
+                        record('cut');
                         editor.cutSelected();
                         closeMenu();
                       },
@@ -788,6 +792,7 @@ function ShellInner({
                       id: 'ctx-copy',
                       label: 'Copy',
                       onAction: () => {
+                        record('copy');
                         editor.copySelected();
                         closeMenu();
                       },
@@ -798,6 +803,7 @@ function ShellInner({
                 id: 'ctx-paste',
                 label: 'Paste',
                 onAction: () => {
+                  record('paste');
                   editor.paste();
                   closeMenu();
                 },
@@ -809,6 +815,7 @@ function ShellInner({
                       id: 'ctx-dup',
                       label: 'Duplicate',
                       onAction: () => {
+                        record('duplicate');
                         editor.duplicateSelected();
                         closeMenu();
                       },
@@ -817,6 +824,7 @@ function ShellInner({
                       id: 'ctx-del',
                       label: 'Delete',
                       onAction: () => {
+                        record('delete');
                         editor.removeSelected();
                         closeMenu();
                       },
@@ -830,6 +838,7 @@ function ShellInner({
                       id: 'ctx-group',
                       label: 'Group Selection',
                       onAction: () => {
+                        record('group');
                         editor.groupSelected();
                         closeMenu();
                       },
@@ -843,6 +852,7 @@ function ShellInner({
                       id: 'ctx-ungroup',
                       label: 'Ungroup',
                       onAction: () => {
+                        record('ungroup');
                         editor.ungroupSelected();
                         closeMenu();
                       },
@@ -854,6 +864,7 @@ function ShellInner({
                 id: 'ctx-selectall',
                 label: 'Select All',
                 onAction: () => {
+                  record('selectAll');
                   const nodes = editor.rootNodes();
                   if (nodes.length === 0) {
                     closeMenu();
