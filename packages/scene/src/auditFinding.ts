@@ -99,6 +99,23 @@ export interface FindingFix {
  * The model is designed to be serializable (no functions) so findings can be
  * cached, compared, and stored.
  */
+/**
+ * Canonical audit finding — the single type consumed by all UI surfaces.
+ *
+ * Every field is optional except ruleId, severity, category, message, and source.
+ * The model is designed to be serializable (no functions) so findings can be
+ * cached, compared, and stored.
+ *
+ * Lifecycle notes:
+ * - `findingId` is deterministic (ruleId + nodeId hash) so findings survive rescans.
+ * - `stale` = true when document was modified after scan.
+ * - `resolved` = true when the issue no longer exists in current document.
+ * - `scanId` links findings to a particular scan run for staleness tracking.
+ *
+ * This type unifies what was previously two incompatible AuditFinding models
+ * (one in @strata/scene and one in @strata/shared). Convert between them with
+ * `sceneFindingToShared()` / `sharedFindingToScene()` from @strata/shared.
+ */
 export interface AuditFinding {
   /** Stable rule identifier (e.g. 'contrast/aa-fail', 'print/missing-bleed'). */
   ruleId: string;
@@ -121,12 +138,24 @@ export interface AuditFinding {
   message: string;
   /** Longer explanation for detail views. */
   detail?: string;
-  /** Affected node (undefined for document-level findings). */
+  /** Affected node(s) — primary node for single-node findings. */
   nodeId?: NodeId;
+  /** All affected nodes (may be empty for document-level findings). */
+  nodeIds?: NodeId[];
   /** Affected page. */
   pageId?: string;
+  /** Optional region on canvas (document-space coordinates). */
+  region?: { x: number; y: number; w: number; h: number; pageId?: string };
+  /** Optional interaction ID (prototype findings). */
+  interactionId?: string;
+  /** Optional component/style/variable name (governance findings). */
+  targetName?: string;
   /** Machine-readable evidence (contrast ratio, DPI, anchor count, etc.). */
   evidence?: Record<string, unknown>;
+  /** Reference to relevant standard (e.g. "WCAG 2.1 SC 1.4.3"). */
+  standardReference?: string;
+  /** URL to documentation about this issue. */
+  documentationUrl?: string;
   /** Recommended action text. */
   recommendation?: string;
   /** Whether an automatic fix is available. */
@@ -141,14 +170,42 @@ export interface AuditFinding {
   contextDependent: boolean;
   /** Which workspaces this finding applies to. Empty = all. */
   workspaceApplicable: WorkspaceMode[];
+  /** Editor sub-modes where this finding is relevant. Empty = all. */
+  applicableModes?: string[];
   /** Whether this finding blocks export/publishing. */
   blocking: boolean;
   /** Inspector section to open when navigating to this finding (e.g. 'fills', 'typography', 'layout'). */
   inspectorSection?: string;
+
+  // ── Lifecycle ────────────────────────────────────────────────────────────
   /** The document revision when this finding was generated. */
   revision?: number;
-  /** Timestamp when this finding was generated. */
+  /** Timestamp when this finding was generated (epoch ms). */
   generatedAt: number;
+  /** Whether this finding is stale (document has changed since generation). */
+  stale?: boolean;
+  /** Whether this finding is resolved (issue no longer exists). */
+  resolved?: boolean;
+  /** Scan ID that produced this finding (for staleness detection). */
+  scanId?: number;
+
+  // ── Suppression ──────────────────────────────────────────────────────────
+  /** Whether this finding can be suppressed by the user. */
+  suppressionEligible?: boolean;
+  /** Suppression scope. */
+  suppressionScope?: 'finding' | 'node' | 'rule' | 'document';
+  /** Suppression record if suppressed. */
+  suppression?: {
+    id: string;
+    reason?: string;
+    suppressedAt: number;
+    expiresAt?: number;
+    active: boolean;
+  };
+
+  // ── Forward-compat ───────────────────────────────────────────────────────
+  /** Extra metadata not covered by other fields. Must be serializable. */
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -198,9 +255,15 @@ export function createFinding(params: {
   severity: AuditSeverity;
   message: string;
   nodeId?: NodeId;
+  nodeIds?: NodeId[];
   pageId?: string;
+  region?: { x: number; y: number; w: number; h: number; pageId?: string };
+  interactionId?: string;
+  targetName?: string;
   detail?: string;
   evidence?: Record<string, unknown>;
+  standardReference?: string;
+  documentationUrl?: string;
   recommendation?: string;
   autoFixAvailable?: boolean;
   fixes?: FindingFix[];
@@ -208,12 +271,26 @@ export function createFinding(params: {
   cost?: FindingCost;
   contextDependent?: boolean;
   workspaceApplicable?: WorkspaceMode[];
+  applicableModes?: string[];
   blocking?: boolean;
   inspectorSection?: string;
   confidence?: number;
   revision?: number;
   ruleVersion?: number;
   fingerprint?: FindingFingerprint;
+  stale?: boolean;
+  resolved?: boolean;
+  scanId?: number;
+  suppressionEligible?: boolean;
+  suppressionScope?: 'finding' | 'node' | 'rule' | 'document';
+  suppression?: {
+    id: string;
+    reason?: string;
+    suppressedAt: number;
+    expiresAt?: number;
+    active: boolean;
+  };
+  metadata?: Record<string, unknown>;
 }): AuditFinding {
   return {
     ruleId: params.ruleId,
@@ -226,8 +303,14 @@ export function createFinding(params: {
     message: params.message,
     detail: params.detail,
     nodeId: params.nodeId,
+    nodeIds: params.nodeIds ?? (params.nodeId ? [params.nodeId] : undefined),
     pageId: params.pageId,
+    region: params.region,
+    interactionId: params.interactionId,
+    targetName: params.targetName,
     evidence: params.evidence,
+    standardReference: params.standardReference,
+    documentationUrl: params.documentationUrl,
     recommendation: params.recommendation,
     autoFixAvailable: params.autoFixAvailable ?? false,
     fixes: params.fixes,
@@ -235,10 +318,18 @@ export function createFinding(params: {
     cost: params.cost ?? 'cheap',
     contextDependent: params.contextDependent ?? false,
     workspaceApplicable: params.workspaceApplicable ?? [],
+    applicableModes: params.applicableModes,
     blocking: params.blocking ?? false,
     inspectorSection: params.inspectorSection,
     revision: params.revision,
     generatedAt: Date.now(),
+    stale: params.stale,
+    resolved: params.resolved,
+    scanId: params.scanId,
+    suppressionEligible: params.suppressionEligible,
+    suppressionScope: params.suppressionScope,
+    suppression: params.suppression,
+    metadata: params.metadata,
   };
 }
 
