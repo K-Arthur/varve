@@ -78,6 +78,7 @@
   --color-text-subtle-on-raised: oklch(0.38 0.03 261);
   --color-text-subtle-on-sunken: oklch(0.38 0.03 261);
   --color-text-subtle-on-overlay: oklch(0.38 0.03 261);
+  --color-text-on-warning: oklch(0.1956 0.0217 263.87);
 
   /* --- Typography --- */
   --font-display:
@@ -191,6 +192,7 @@
   --z-sticky: 100;
   --z-overlay: 1000;
   --z-dialog: 1100;
+  --z-modal: 1150;
   --z-toast: 1200;
   --z-tooltip: 1300;
 
@@ -200,6 +202,14 @@
   --bp-lg: 1024px;
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
+
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+  --elevation-scrim: oklch(0 0 0 / 0.55);
+
+  /* --- Compatibility aliases (canonical name -> alias) --- */
+  --color-surface-default: var(--color-surface-base);
+  --color-on-accent: var(--color-text-on-accent);
+  --color-accent-hover: var(--color-interactive-hover);
 
   /* Surface aliases — single elevation system (Neo-Bento redesign). */
   --color-surface-app: var(--elevation-surface-default);
@@ -283,6 +293,7 @@
   --color-text-subtle-on-raised: oklch(0.6798 0.0281 259.04);
   --color-text-subtle-on-sunken: oklch(0.6798 0.0281 259.04);
   --color-text-subtle-on-overlay: oklch(0.6798 0.0281 259.04);
+  --color-text-on-warning: oklch(0.1956 0.0217 263.87);
 
   /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
   --elevation-surface-sunken: oklch(0.12 0.008 260);
@@ -297,6 +308,9 @@
   /* Micro-borders (dark mode — more visible). */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
+
+  /* Scrim overlay (dark mode — slightly more opaque for contrast). */
+  --elevation-scrim: oklch(0 0 0 / 0.65);
 
   /* Surface aliases — single elevation system (Neo-Bento redesign). */
   --color-surface-app: var(--elevation-surface-default);
@@ -380,6 +394,7 @@
   --color-text-subtle-on-raised: oklch(0.78 0 0);
   --color-text-subtle-on-sunken: oklch(0.78 0 0);
   --color-text-subtle-on-overlay: oklch(0.78 0 0);
+  --color-text-on-warning: oklch(0 0 0);
 
   /* Elevation surfaces (high-contrast — maximum separation). */
   --elevation-surface-sunken: oklch(0 0 0);
@@ -394,6 +409,9 @@
   /* Micro-borders (HC — thicker, full-contrast edges). */
   --border-micro: 2px solid oklch(1 0 0);
   --border-micro-accent: 2px solid oklch(0.95 0.2 188);
+
+  /* Scrim overlay (HC — near-opaque for maximum separation). */
+  --elevation-scrim: oklch(0 0 0 / 0.7);
 
   /* Surface aliases — single elevation system (Neo-Bento redesign). */
   --color-surface-app: var(--elevation-surface-default);
@@ -553,6 +571,7 @@
     --color-text-subtle-on-raised: GrayText;
     --color-text-subtle-on-sunken: GrayText;
     --color-text-subtle-on-overlay: GrayText;
+    --color-text-on-warning: CanvasText;
     --color-hero-glow: transparent;
     --elevation-surface-sunken: Canvas;
     --elevation-surface-default: Canvas;

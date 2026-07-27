@@ -236,7 +236,8 @@ export type SemanticToken =
   | 'text-subtle-on-default'
   | 'text-subtle-on-raised'
   | 'text-subtle-on-sunken'
-  | 'text-subtle-on-overlay';
+  | 'text-subtle-on-overlay'
+  | 'text-on-warning';
 
 const N = (i: number): Oklch => NEUTRAL[i - 1] as Oklch;
 const T = (i: number): Oklch => TEAL[i - 1] as Oklch;
@@ -326,6 +327,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-subtle-on-raised': ok(0.38, 0.03, 261),
     'text-subtle-on-sunken': ok(0.38, 0.03, 261),
     'text-subtle-on-overlay': ok(0.38, 0.03, 261),
+    'text-on-warning': N(12),
   },
   dark: {
     'surface-app': N(12),
@@ -402,6 +404,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-subtle-on-raised': N(6),
     'text-subtle-on-sunken': N(6),
     'text-subtle-on-overlay': N(6),
+    'text-on-warning': N(12),
   },
   'high-contrast': {
     'surface-app': ok(0.0, 0.0, 0),
@@ -478,6 +481,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'text-subtle-on-raised': ok(0.78, 0.0, 0),
     'text-subtle-on-sunken': ok(0.78, 0.0, 0),
     'text-subtle-on-overlay': ok(0.78, 0.0, 0),
+    'text-on-warning': ok(0, 0, 0),
   },
 };
 
@@ -606,6 +610,12 @@ export const CONTRAST_PAIRS: readonly ContrastPair[] = [
     grade: 'AA',
   },
   /* Per-elevation muted/subtle text pairs (a11y fix — catch real DOM combinations). */
+  {
+    name: 'text-on-warning on feedback-warning',
+    fg: 'text-on-warning',
+    bg: 'feedback-warning',
+    grade: 'AA',
+  },
   {
     name: 'text-muted-on-default on surface-base',
     fg: 'text-muted-on-default',
