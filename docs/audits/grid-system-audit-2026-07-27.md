@@ -8,7 +8,10 @@
 
 Strata has multiple grid-related implementations scattered across the codebase. This audit maps all existing grid types, rendering paths, settings locations, snapping sources, persistence mechanisms, and known defects.
 
-**Status Update (2026-07-27):** Phase 1 foundation work has been completed. Document grid data model has been unified into the document structure, persistence is standardized, and migration path is implemented.
+**Status Update (2026-07-27):** Phase 1-2 work completed across three milestones:
+1. **State sync**: Fixed `updateDoc`/`undo`/`redo` to sync `documentGrid`/`snapGrid` from document model; `resetGridOrigin` now persists to document
+2. **Rendering**: Minor opacity cap removed (0.25->0.6x); pixel grid zoom threshold reads from document model; baseline/isometric overlay uses shared `editorWorldToScreen` and reads from document model
+3. **UX**: Pixel grid toggle shortcut (Alt+Shift+P); View menu integration; `dotGridEnabled` persisted as viewport preference; layout grid snap priority raised from 20 to 85; `GridOverlayMode` type includes `'document'`
 
 ## Current State Overview
 
