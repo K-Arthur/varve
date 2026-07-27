@@ -29,8 +29,14 @@ export function useGridSettings(
 
   const resetGridOrigin = useCallback(() => {
     const dg = stateRef.current.documentGrid;
-    patch({ documentGrid: { ...dg, offsetX: 0, offsetY: 0 } });
-  }, [patch, stateRef]);
+    updateDoc((doc) =>
+      sceneSetDocumentGrid(doc as Parameters<typeof sceneSetDocumentGrid>[0], {
+        ...dg,
+        offsetX: 0,
+        offsetY: 0,
+      }),
+    );
+  }, [updateDoc, stateRef]);
 
   const setSnapGrid = useCallback(
     (v: number) => {

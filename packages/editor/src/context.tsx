@@ -2321,6 +2321,12 @@ export function EditorProvider({
     computeFitAllCamera,
   );
 
+  function editorGridFromDoc(doc: Document) {
+    const initialized = sceneInitializeGridSettings(doc);
+    const dg = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
+    return dg;
+  }
+
   const updateDoc = useCallback((fn: (doc: Document) => Document) => {
     setState((s) => {
       if (!inTransactionRef.current) {
@@ -2330,9 +2336,12 @@ export function EditorProvider({
         redoSelStackRef.current = [];
       }
       const newDoc = fn(s.document);
+      const syncedGrid = editorGridFromDoc(newDoc);
       return {
         ...s,
         document: newDoc,
+        documentGrid: syncedGrid,
+        snapGrid: syncedGrid.spacingX,
         dirty: true,
         sessions: s.sessions.map((sess) =>
           sess.id === s.activeId ? { ...sess, dirty: true } : sess,
@@ -4800,7 +4809,13 @@ export function EditorProvider({
         if (!prev) return;
         redoStackRef.current = [...redoStackRef.current, state.document];
         redoSelStackRef.current = [...redoSelStackRef.current, state.selection];
-        patch({ document: prev, selection: prevSel ?? [] });
+        const syncedGrid = editorGridFromDoc(prev);
+        patch({
+          document: prev,
+          selection: prevSel ?? [],
+          documentGrid: syncedGrid,
+          snapGrid: syncedGrid.spacingX,
+        });
       },
 
       redo: () => {
@@ -4809,7 +4824,13 @@ export function EditorProvider({
         if (!next) return;
         undoStackRef.current = [...undoStackRef.current, state.document];
         undoSelStackRef.current = [...undoSelStackRef.current, state.selection];
-        patch({ document: next, selection: nextSel ?? [] });
+        const syncedGrid = editorGridFromDoc(next);
+        patch({
+          document: next,
+          selection: nextSel ?? [],
+          documentGrid: syncedGrid,
+          snapGrid: syncedGrid.spacingX,
+        });
       },
 
       newDocument,
@@ -6383,7 +6404,7 @@ export function EditorProvider({
       },
       resetGridOrigin: () => {
         const dg = stateRef.current.documentGrid;
-        patch({ documentGrid: { ...dg, offsetX: 0, offsetY: 0 } });
+        updateDoc((doc) => sceneSetDocumentGrid(doc, { ...dg, offsetX: 0, offsetY: 0 }));
       },
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });

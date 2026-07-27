@@ -2783,19 +2783,20 @@ export function CanvasArea({
         }}
       />
       {/* Pixel grid overlay (1px lines at 1:1 zoom) */}
-      {state.pixelGridEnabled && state.zoom >= 4 && (
-        <div
-          className="editor-canvas__pixel-grid"
-          style={{
-            backgroundImage: [
-              'linear-gradient(var(--color-border-subtle) 1px, transparent 1px)',
-              'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
-            ].join(', '),
-            backgroundSize: `${state.zoom}px ${state.zoom}px`,
-            opacity: 0.5,
-          }}
-        />
-      )}
+      {state.pixelGridEnabled &&
+        state.zoom >= (state.document.gridSettings?.pixelGrid?.zoomThreshold ?? 4) && (
+          <div
+            className="editor-canvas__pixel-grid"
+            style={{
+              backgroundImage: [
+                'linear-gradient(var(--color-border-subtle) 1px, transparent 1px)',
+                'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
+              ].join(', '),
+              backgroundSize: `${state.zoom}px ${state.zoom}px`,
+              opacity: 0.5,
+            }}
+          />
+        )}
       <canvas
         ref={contentCanvasRef}
         tabIndex={0}
