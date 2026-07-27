@@ -256,6 +256,7 @@ export interface SelectionDecision {
   downscale: boolean;
   approximate: boolean;
   reason: string;
+  warnings?: string[];
   rejections: Array<{ modelId: string; precision: ModelPrecision; reason: string }>;
 }
 

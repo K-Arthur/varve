@@ -86,6 +86,20 @@ export class ModelSelector {
       const installState = this.installStates.get(variant.id);
       const isAvailable = installState?.state === 'ready' || variant.bundled;
 
+      const memoryTier = this.caps.memoryTier ?? 'high';
+
+      if (memoryTier === 'low' && variant.peakMemoryBytes && !isAvailable) {
+        const lighterEntry = this.findLighterEntry(candidates, variant);
+        if (lighterEntry) {
+          rejections.push({
+            modelId: variant.id,
+            precision: variant.precision,
+            reason: `Skipping large model on low-memory system, preferring ${lighterEntry.id}`,
+          });
+          continue;
+        }
+      }
+
       const memorySafe = this.isMemorySafe(variant, ctx.inputWidth, ctx.inputHeight);
 
       if (!isAvailable && !memorySafe.safe) {
@@ -101,6 +115,8 @@ export class ModelSelector {
       const tiling = this.needsTiling(variant, ctx.inputWidth, ctx.inputHeight);
       const downscale = this.needsDownscale(variant, ctx.inputWidth, ctx.inputHeight);
       const approximate = tiling || downscale;
+      const warnings: string[] = [];
+      if (memorySafe.warning) warnings.push(memorySafe.warning);
 
       return {
         modelId: variant.id,
@@ -114,6 +130,7 @@ export class ModelSelector {
         tiling,
         downscale,
         approximate,
+        warnings: warnings.length > 0 ? warnings : undefined,
         reason: this.buildSelectionReason(variant, ctx, provider, tiling, downscale),
         rejections,
       };
@@ -208,16 +225,47 @@ export class ModelSelector {
     entry: ModelManifestEntry,
     _inputWidth: number,
     _inputHeight: number,
-  ): { safe: boolean; reason?: string } {
+  ): { safe: boolean; reason?: string; warning?: string } {
     if (entry.bundled) return { safe: true };
+
+    const peakMB = entry.peakMemoryBytes
+      ? Math.round(entry.peakMemoryBytes / 1_000_000)
+      : Math.round((entry.sizeBytes * 4) / 1_000_000);
+    const sysMemoryMB = this.caps.approximateMemoryMB ?? 4096;
+    const memoryTier =
+      this.caps.memoryTier ?? (sysMemoryMB < 4096 ? 'low' : sysMemoryMB < 8192 ? 'medium' : 'high');
+
     if (entry.peakMemoryBytes) {
       if (entry.peakMemoryBytes > this.caps.wasmSafeModelBytes && !this.caps.isTauri) {
         return {
           safe: false,
-          reason: `Estimated peak memory ${Math.round(entry.peakMemoryBytes / 1_000_000)}MB exceeds safe WASM budget ${Math.round(this.caps.wasmSafeModelBytes / 1_000_000)}MB`,
+          reason: `Estimated peak memory ${peakMB}MB exceeds safe WASM budget ${Math.round(this.caps.wasmSafeModelBytes / 1_000_000)}MB`,
         };
       }
     }
+
+    if (memoryTier === 'low') {
+      if (peakMB > 1000) {
+        return {
+          safe: false,
+          reason: `Model requires ~${peakMB}MB peak memory, not recommended on ${Math.round(sysMemoryMB / 1024)}GB systems (4GB minimum recommended)`,
+        };
+      }
+      if (peakMB > 500) {
+        return {
+          safe: true,
+          warning: `Model requires ~${peakMB}MB peak memory. Consider a lighter model on ${Math.round(sysMemoryMB / 1024)}GB systems.`,
+        };
+      }
+    }
+
+    if (memoryTier === 'medium' && peakMB > 2000) {
+      return {
+        safe: true,
+        warning: `Large model (~${peakMB}MB peak) may impact system responsiveness on ${Math.round(sysMemoryMB / 1024)}GB systems.`,
+      };
+    }
+
     return { safe: true };
   }
 
@@ -361,6 +409,27 @@ export class ModelSelector {
       }
     }
     return null;
+  }
+
+  private findLighterEntry(
+    candidates: ModelManifestEntry[],
+    current: ModelManifestEntry,
+  ): ModelManifestEntry | null {
+    let lightest: ModelManifestEntry | null = null;
+    for (const c of candidates) {
+      const cPeak = c.peakMemoryBytes ?? c.sizeBytes * 4;
+      const currPeak = current.peakMemoryBytes ?? current.sizeBytes * 4;
+      if (cPeak < currPeak) {
+        if (
+          !lightest ||
+          (c.peakMemoryBytes ?? c.sizeBytes * 4) <
+            (lightest.peakMemoryBytes ?? lightest.sizeBytes * 4)
+        ) {
+          lightest = c;
+        }
+      }
+    }
+    return lightest;
   }
 
   private selectCustom(_ctx: SelectionContext): SelectionDecision {
