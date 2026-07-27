@@ -56,6 +56,9 @@ const AuditPanel = lazy(() =>
 const DocumentPanel = lazy(() =>
   import('./panels/DocumentPanel').then((module) => ({ default: module.DocumentPanel })),
 );
+const FontBrowserPanel = lazy(() =>
+  import('../FontBrowser/FontBrowser').then((module) => ({ default: module.FontBrowser })),
+);
 
 type ExportSubTab = 'format' | 'code';
 
@@ -66,6 +69,7 @@ const FALLBACK_TAB_LABELS: Record<InspectorTab, string> = {
   prototype: 'Prototype',
   export: 'Export',
   audit: 'Audit',
+  fonts: 'Fonts',
 };
 
 const TAB_ORDER: InspectorTab[] = [
@@ -75,6 +79,7 @@ const TAB_ORDER: InspectorTab[] = [
   'prototype',
   'export',
   'audit',
+  'fonts',
 ];
 
 export function PropertiesPanel() {
@@ -270,6 +275,11 @@ export function PropertiesPanel() {
       {tab === 'audit' && (
         <LazyTabPanel tab={tab}>
           <AuditPanel request={intelRequest} />
+        </LazyTabPanel>
+      )}
+      {tab === 'fonts' && (
+        <LazyTabPanel tab={tab}>
+          <FontBrowserPanel onSelect={() => {}} />
         </LazyTabPanel>
       )}
     </section>

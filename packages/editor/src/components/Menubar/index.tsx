@@ -21,7 +21,11 @@ import { bumpThemeRevision, useEditor } from '../../context';
 import { useRecentFiles } from '../../recentFiles';
 import { loadSettings } from '../../settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from '../../shortcuts';
-import { WORKSPACE_LABELS, type WorkspaceMode } from '../../workspace/workspaceTypes';
+import {
+  WORKSPACE_LABELS,
+  WORKSPACE_SHORTCUTS,
+  type WorkspaceMode,
+} from '../../workspace/workspaceTypes';
 import type { ArchiveDialogProps } from '../Archive/ArchiveDialog';
 import { ArchiveDialog } from '../Archive/ArchiveDialog';
 import { buildArrangeMenu } from './ArrangeMenu';
@@ -43,6 +47,23 @@ export { buildPageMenu } from './PageMenu';
 export { buildTextMenu } from './TextMenu';
 export type { MenuBuildHelpers, MenuBuildState, MenuId, MenuItem, RecentEntry } from './types';
 export { buildViewMenu } from './ViewMenu';
+
+const WORKSPACE_SHORTCUT_IDS: Partial<Record<WorkspaceMode, string>> = {
+  design: 'workspaceDesign',
+  print: 'workspacePrint',
+  drawing: 'workspaceDrawing',
+  image: 'workspaceImage',
+  motion: 'workspaceMotion',
+};
+
+function workspaceShortcutLabel(mode: WorkspaceMode): string {
+  const id = WORKSPACE_SHORTCUT_IDS[mode];
+  if (id) {
+    const binding = getEffectiveBinding(id);
+    if (binding?.key) return formatShortcut(binding);
+  }
+  return WORKSPACE_SHORTCUTS[mode] ?? '';
+}
 
 function ariaShortcut(binding: {
   key: string;
@@ -1099,6 +1120,8 @@ export function Menubar({
     ],
   );
 
+  const sc = (id: string) => formatShortcut(getEffectiveBinding(id));
+
   return (
     <div
       className="editor-menubar"
@@ -1109,15 +1132,16 @@ export function Menubar({
       onKeyDown={handleMenuKeyDown}
     >
       <div className="editor-menubar__left">
-        <button
-          type="button"
-          className="editor-menubar__home"
-          aria-label="Home (Ctrl+Shift+H)"
-          title="Home (Ctrl+Shift+H)"
-          onClick={() => onBackToHome?.()}
-        >
-          <StrataLogo size={16} />
-        </button>
+        <Tooltip label="Home" shortcut={sc('home')}>
+          <button
+            type="button"
+            className="editor-menubar__home"
+            aria-label="Home"
+            onClick={() => onBackToHome?.()}
+          >
+            <StrataLogo size={16} />
+          </button>
+        </Tooltip>
         {menus.map((menu, i) => (
           <button
             key={menu.id}
@@ -1317,7 +1341,7 @@ export function Menubar({
                 <label
                   key={mode}
                   className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                  title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
+                  title={`${WORKSPACE_LABELS[mode]} workspace (${workspaceShortcutLabel(mode)})`}
                 >
                   <input
                     type="radio"
@@ -1340,7 +1364,7 @@ export function Menubar({
           |
         </span>
         <TooltipProvider>
-          <Tooltip label="Undo" shortcut="Ctrl+Z">
+          <Tooltip label="Undo" shortcut={sc('undo')}>
             <IconButton
               icon={SOLID_CHROME_ICONS.undo}
               label="Undo"
@@ -1349,7 +1373,7 @@ export function Menubar({
               onClick={undo}
             />
           </Tooltip>
-          <Tooltip label="Redo" shortcut="Ctrl+Shift+Z">
+          <Tooltip label="Redo" shortcut={sc('redo')}>
             <IconButton
               icon={SOLID_CHROME_ICONS.redo}
               label="Redo"
