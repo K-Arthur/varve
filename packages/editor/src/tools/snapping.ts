@@ -145,11 +145,11 @@ function tryStickyAxis(
 const SNAP_PRIORITY = {
   grid: 100,
   guide: 90,
+  layoutGrid: 85,
   edge: 80,
   center: 70,
   midpoint: 50,
   spacing: 30,
-  layoutGrid: 20,
 } as const;
 
 /** Compete a new snap candidate; returns true if it wins (higher priority or same priority + closer). */

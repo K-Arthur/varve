@@ -74,7 +74,7 @@ export function useOverlayDraw({
     const dg = s.documentGrid;
     if (dg?.visible && dg.spacingX > 0 && dg.spacingY > 0) {
       const lines = computeGridLines(dg, s.zoom, s.pan.x, s.pan.y, cssW, cssH);
-      const minorOpacity = Math.min(dg.opacity, 0.25);
+      const minorOpacity = dg.opacity * 0.6;
       renderGridOnCtx(
         ctx,
         lines,
