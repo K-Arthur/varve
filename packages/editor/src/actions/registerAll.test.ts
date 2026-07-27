@@ -58,6 +58,7 @@ describe('registerEditorActions — intelligence commands', () => {
       'openAppearancePanel',
       'openAdjustmentsPanel',
       'openPrototypePanel',
+      'openFontsPanel',
       'openDocumentPanel',
       'openExportPanel',
       'openInspectPanel',

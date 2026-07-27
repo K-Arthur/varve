@@ -1,3 +1,5 @@
+// COMPLEXITY: 50 imports (ceiling 49). Added SubjectPickerOverlay for upscaling integration.
+// Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
 import type { Document, SceneNode } from '@strata/scene';
@@ -7,9 +9,9 @@ import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@strata/ui'
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
-import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
+import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
