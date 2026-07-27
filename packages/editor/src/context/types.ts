@@ -163,6 +163,10 @@ export interface EditorState {
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
   findingsOverlayVisible: boolean;
+  canUndo: boolean;
+  canRedo: boolean;
+  undoLabel: string;
+  redoLabel: string;
   snapEnabled: boolean;
   snapGrid: number;
   documentGrid: DocumentGridSettings;
