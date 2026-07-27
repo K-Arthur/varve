@@ -12,6 +12,7 @@ import {
 export interface SelectionContextValue {
   selection: NodeId[];
   primaryId: NodeId | null;
+  focusedNodeId: NodeId | null;
   activeContainerId: NodeId | null;
   selectionMode: 'object' | 'direct' | 'path' | 'text' | 'pixel';
   selectionOrigin: SelectionOrigin;
@@ -181,6 +182,7 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
     () => ({
       selection: state.selection,
       primaryId: state.primaryId,
+      focusedNodeId: state.focusedNodeId,
       activeContainerId: state.activeContainerId,
       selectionMode: state.selectionMode,
       selectionOrigin: state.selectionOrigin,
@@ -197,6 +199,7 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
     [
       state.selection,
       state.primaryId,
+      state.focusedNodeId,
       state.activeContainerId,
       state.selectionMode,
       state.selectionOrigin,

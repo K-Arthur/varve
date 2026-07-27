@@ -43,6 +43,9 @@ export interface ResizeModifiers {
  * @param isRaster - true when all selected nodes are raster/image fills
  * @param isMac - true when running on macOS (affects Ctrl vs Meta mapping)
  * @param isEdgeHandle - true for a single-axis north/south/east/west handle
+ * @param defaultProportional - default proportional state for the selection
+ *   (derived from the dominant object type policy). When true, Shift toggles OFF;
+ *   when false (default), Shift toggles ON.
  */
 export function computeResizeModifiers(
   shiftKey: boolean,
@@ -52,17 +55,14 @@ export function computeResizeModifiers(
   isRaster: boolean,
   isMac: boolean = false,
   isEdgeHandle: boolean = false,
+  defaultProportional?: boolean,
 ): ResizeModifiers {
-  // On macOS, Ctrl+click is right-click; Cmd is the primary modifier.
   const cmdKey = isMac ? metaKey : ctrlKey;
+  const baseProportional = defaultProportional ?? (isRaster ? !isEdgeHandle : false);
 
   return {
     centered: altKey,
-    // Raster corners scale the image proportionally. Raster edges resize the
-    // object container on one axis while the image fill keeps source-pixel
-    // proportions; Shift toggles either default.
-    // For non-raster: default OFF (Shift toggles ON)
-    proportional: isRaster ? (isEdgeHandle ? shiftKey : !shiftKey) : shiftKey,
+    proportional: shiftKey ? !baseProportional : baseProportional,
     bypassSnap: cmdKey,
   };
 }

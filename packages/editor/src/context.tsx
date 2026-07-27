@@ -2004,6 +2004,7 @@ export function EditorProvider({
       pan: { x: 0, y: 0 },
       selection: [],
       primaryId: null,
+      focusedNodeId: null,
       activeContainerId: null,
       selectionMode: 'object' as const,
       selectionOrigin: 'api' as const,
@@ -2849,11 +2850,14 @@ export function EditorProvider({
       // F1: single-select replaces the whole set
       setSelection: (id: NodeId | null, origin?: SelectionOrigin) => {
         const newSelection = id ? [id] : [];
-        selectionHistory.push(newSelection);
         const resolvedOrigin = origin ?? DEFAULT_SELECTION_ORIGIN;
+        if (resolvedOrigin !== 'api') {
+          selectionHistory.push(newSelection);
+        }
         patch({
           selection: newSelection,
           primaryId: id,
+          focusedNodeId: id,
           selectionRevision: state.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
         });
@@ -2874,7 +2878,10 @@ export function EditorProvider({
         })();
         const hasChanges = JSON.stringify(currentSel) !== JSON.stringify(nextSelection);
         if (!hasChanges) return;
-        selectionHistory.push(nextSelection);
+        const resolvedOrigin = origin ?? DEFAULT_SELECTION_ORIGIN;
+        if (resolvedOrigin !== 'api') {
+          selectionHistory.push(nextSelection);
+        }
         const newPrimaryId = nextSelectionPrimary(
           currentSel,
           nextSelection,
@@ -2882,11 +2889,18 @@ export function EditorProvider({
           id,
           additive,
         );
-        const resolvedOrigin = origin ?? DEFAULT_SELECTION_ORIGIN;
+        const newFocusedNodeId = additive
+          ? currentSel.includes(id)
+            ? stateRef.current.focusedNodeId === id
+              ? null
+              : stateRef.current.focusedNodeId
+            : id
+          : id;
         stateRef.current = {
           ...stateRef.current,
           selection: nextSelection,
           primaryId: newPrimaryId,
+          focusedNodeId: newFocusedNodeId,
           selectionRevision: stateRef.current.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
         };
@@ -2894,6 +2908,7 @@ export function EditorProvider({
           ...s,
           selection: nextSelection,
           primaryId: newPrimaryId,
+          focusedNodeId: newFocusedNodeId,
           selectionRevision: s.selectionRevision + 1,
           selectionOrigin: resolvedOrigin,
         }));
@@ -2911,7 +2926,12 @@ export function EditorProvider({
         const ids = findSameKindIds(state.document, state.selection);
         if (ids.length > 0) {
           const kind = state.document.nodes[ids[0]!]?.kind;
-          patch({ selection: ids });
+          patch({
+            selection: ids,
+            primaryId: ids[0]!,
+            focusedNodeId: ids[0]!,
+            selectionRevision: state.selectionRevision + 1,
+          });
           announcerRef.current?.announce(`Selected ${ids.length} ${kind} nodes`);
         }
       },
@@ -2935,7 +2955,12 @@ export function EditorProvider({
           }
         }
         if (matchingIds.length > 0) {
-          patch({ selection: [firstNode.id, ...matchingIds] });
+          patch({
+            selection: [firstNode.id, ...matchingIds],
+            primaryId: firstNode.id,
+            focusedNodeId: firstNode.id,
+            selectionRevision: state.selectionRevision + 1,
+          });
           announcerRef.current?.announce(
             `Selected ${matchingIds.length + 1} nodes with matching fill`,
           );
@@ -5299,7 +5324,12 @@ export function EditorProvider({
       selectAllWithSameLayerColor: () => {
         const ids = findSameLayerColorIds(state.document, state.selection);
         if (ids.length > 0) {
-          patch({ selection: ids });
+          patch({
+            selection: ids,
+            primaryId: ids[0]!,
+            focusedNodeId: ids[0]!,
+            selectionRevision: state.selectionRevision + 1,
+          });
           announcerRef.current?.announce(`Selected ${ids.length} nodes with color tag`);
         }
       },
@@ -5308,23 +5338,38 @@ export function EditorProvider({
         const ids = findAllOfKindIds(state.document, state.selection);
         if (ids.length > 0) {
           const kind = state.document.nodes[ids[0]!]?.kind;
-          patch({ selection: ids });
+          patch({
+            selection: ids,
+            primaryId: ids[0]!,
+            focusedNodeId: ids[0]!,
+            selectionRevision: state.selectionRevision + 1,
+          });
           announcerRef.current?.announce(`Selected ${ids.length} ${kind} nodes`);
         }
       },
 
       selectPreviousSelection: () => {
         const prev = selectionHistory.selectPrevious();
-        if (prev) {
-          patch({ selection: prev });
+        if (prev && prev.length > 0) {
+          patch({
+            selection: prev,
+            primaryId: prev[0]!,
+            focusedNodeId: prev[0]!,
+            selectionRevision: state.selectionRevision + 1,
+          });
           announcerRef.current?.announce('Selection history back');
         }
       },
 
       selectNextSelection: () => {
         const next = selectionHistory.selectNext();
-        if (next) {
-          patch({ selection: next });
+        if (next && next.length > 0) {
+          patch({
+            selection: next,
+            primaryId: next[0]!,
+            focusedNodeId: next[0]!,
+            selectionRevision: state.selectionRevision + 1,
+          });
           announcerRef.current?.announce('Selection history forward');
         }
       },

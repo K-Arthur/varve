@@ -12,6 +12,7 @@
 import type { FontMetadata } from '@strata/engine';
 import { getFontRegistry } from '@strata/engine';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
+import { useOnlineFontSearch } from './useOnlineFontSearch';
 import './FontSelector.css';
 
 export interface FontSelectorProps {
@@ -49,6 +50,8 @@ export function FontSelector({
 
   const allFamilies = useMemo(() => registry.families(), [registry]);
 
+  const { googleFonts, fontsource } = useOnlineFontSearch(query);
+
   const recentFamilies = useMemo(() => {
     return allFamilies.filter((f) => registry.state(f) === 'loaded').slice(0, 5);
   }, [allFamilies, registry]);
@@ -65,7 +68,23 @@ export function FontSelector({
   );
 
   const sections = useMemo(() => {
-    const result: Array<{ title: string; families: string[] }> = [];
+    const result: Array<{ title: string; families: string[]; isOnline?: boolean }> = [];
+
+    if (query.trim().length >= 2) {
+      const online: string[] = [];
+      for (const r of googleFonts.results) {
+        if (!registry.isRegistered(r.familyName)) online.push(r.familyName);
+      }
+      for (const r of fontsource.results) {
+        if (!registry.isRegistered(r.familyName) && !online.includes(r.familyName)) {
+          online.push(r.familyName);
+        }
+      }
+      if (online.length > 0) {
+        result.push({ title: 'Online', families: online.sort(), isOnline: true });
+      }
+    }
+
     if (recentFamilies.length > 0) {
       result.push({ title: 'Recent', families: recentFamilies });
     }
@@ -89,7 +108,7 @@ export function FontSelector({
       result.push({ title: 'All', families: otherFamilies });
     }
     return result;
-  }, [filteredFamilies, recentFamilies, registry]);
+  }, [filteredFamilies, recentFamilies, registry, query, googleFonts.results, fontsource.results]);
 
   const flatList = useMemo(() => sections.flatMap((s) => s.families), [sections]);
 
@@ -234,12 +253,42 @@ export function FontSelector({
             <div key={section.title}>
               <div className="font-selector__section-header" role="presentation">
                 {section.title}
+                {section.isOnline && (
+                  <span className="font-selector__section-note">Click to download</span>
+                )}
               </div>
               {section.families.map((family) => {
                 flatIndex++;
                 const idx = flatIndex;
                 const isHighlighted = idx === highlightedIndex;
                 const isSelected = normalize(family) === normalize(value);
+
+                if (section.isOnline) {
+                  return (
+                    <div
+                      key={`online-${family}`}
+                      ref={(el) => {
+                        if (el) optionRefs.current.set(idx, el);
+                      }}
+                      id={`font-selector-option-${idx}`}
+                      className={`font-selector__option${isSelected ? ' font-selector__option--selected' : ''}${isHighlighted ? ' font-selector__option--highlighted' : ''}`}
+                      role="option"
+                      tabIndex={-1}
+                      aria-selected={isSelected}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        select(family);
+                      }}
+                      onMouseEnter={() => highlight(idx)}
+                    >
+                      <span className="font-selector__option-name">{family}</span>
+                      <span className="font-selector__option-meta">
+                        <span className="font-selector__badge font-selector__badge--online">W</span>
+                      </span>
+                    </div>
+                  );
+                }
+
                 const badge = getSourceBadge(family);
                 const isVar = registry.isVariable(family);
                 const meta = getMeta(family);
@@ -297,7 +346,27 @@ export function FontSelector({
               })}
             </div>
           ))}
-          {flatList.length === 0 && (
+          {googleFonts.loading && (
+            <div className="font-selector__option font-selector__option--loading">
+              Searching Google Fonts…
+            </div>
+          )}
+          {googleFonts.error && (
+            <div className="font-selector__option font-selector__option--error">
+              Google Fonts: {googleFonts.error}
+            </div>
+          )}
+          {fontsource.loading && (
+            <div className="font-selector__option font-selector__option--loading">
+              Searching Fontsource…
+            </div>
+          )}
+          {fontsource.error && (
+            <div className="font-selector__option font-selector__option--error">
+              Fontsource: {fontsource.error}
+            </div>
+          )}
+          {flatList.length === 0 && !googleFonts.loading && !fontsource.loading && (
             <div className="font-selector__option font-selector__option--empty">No fonts match</div>
           )}
         </div>

@@ -24,7 +24,7 @@ import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
-import type { SelectionOrigin } from './selectionState';
+import type { SelectionMode, SelectionOrigin } from './selectionState';
 
 export * from './selectionState';
 export type { MaskPreviewMode, ToolId };
@@ -135,13 +135,18 @@ export interface EditorState {
    *  as the authoritative "what is selected" for commands that expect a
    *  single object. Guaranteed to be in `selection` when selection is non-empty. */
   primaryId: NodeId | null;
+  /** The node that currently has keyboard focus (distinct from selection for
+   *  accessibility and keyboard navigation). When non-null, this is the node
+   *  that receives keyboard events. May differ from primaryId during keyboard
+   *  tree navigation. */
+  focusedNodeId: NodeId | null;
   /** Active container for nested/deep selection. When set, hit-testing and
    *  selection commands are scoped to this container's subtree. The container
    *  itself is also selectable. Null means document/artboard scope. */
   activeContainerId: NodeId | null;
   /** What kind of selection is active. Determines rendering and interaction
    *  behaviour for handles, hit testing, and overlay rendering. */
-  selectionMode: 'object' | 'direct' | 'path' | 'text' | 'pixel';
+  selectionMode: SelectionMode;
   /** Origin of the most recent selection change — used for synchronisation
    *  and undo-grouping decisions. */
   selectionOrigin: SelectionOrigin;
