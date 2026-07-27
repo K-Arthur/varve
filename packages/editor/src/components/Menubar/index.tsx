@@ -1328,7 +1328,7 @@ export function Menubar({
       <div className="editor-menubar__controls">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
           {(['design', 'print', 'drawing', 'image', 'motion'] as WorkspaceMode[]).map(
-            (mode, idx) => {
+            (mode, _idx) => {
               const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> =
                 {
                   design: 'penTool',

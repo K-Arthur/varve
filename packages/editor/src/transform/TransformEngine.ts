@@ -161,11 +161,7 @@ export class TransformEngine {
   }
 
   /** Skew by dragging a side handle. Composes a shear matrix onto the delta. */
-  skew(
-    pointerWorld: Point,
-    axis: SkewAxis,
-    doc: Document = this.doc,
-  ): Document {
+  skew(pointerWorld: Point, axis: SkewAxis, doc: Document = this.doc): Document {
     const box = this.initialBox;
     const local = this.pointerDeltaToBoxLocal(pointerWorld, box, 'e');
     const boxH = box.h || 1;
@@ -179,9 +175,10 @@ export class TransformEngine {
       shearFactor = local[0] / boxW;
     }
     if (axis === 'w' || axis === 'n') shearFactor = -shearFactor;
-    const shear: Affine = axis === 'e' || axis === 'w'
-      ? [1, shearFactor, 0, 1, 0, 0] as Affine  // skewY (b component)
-      : [1, 0, shearFactor, 1, 0, 0] as Affine; // skewX (c component)
+    const shear: Affine =
+      axis === 'e' || axis === 'w'
+        ? ([1, shearFactor, 0, 1, 0, 0] as Affine) // skewY (b component)
+        : ([1, 0, shearFactor, 1, 0, 0] as Affine); // skewX (c component)
     const delta = multiplyAffine(shear, this.lastDelta);
     this.lastDelta = delta;
     return this.applyDelta(doc, delta);

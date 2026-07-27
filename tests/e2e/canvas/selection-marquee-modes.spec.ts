@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor, seedLayers } from '../shared';
+import { navigateToEditor, seedLayers } from '../shared';
 
 test.describe('Marquee Selection Modes', () => {
   test.beforeEach(async ({ page }) => {

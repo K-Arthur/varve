@@ -1,9 +1,8 @@
-import type { PathPoint } from './types';
 import type {
+  OutlineWorkerError,
   OutlineWorkerProgress,
   OutlineWorkerRequest,
   OutlineWorkerResult,
-  OutlineWorkerError,
   WorkerGlyphOutline,
 } from './outlineWorker';
 
@@ -82,10 +81,9 @@ export class OutlineWorkerPool {
   private getWorker(): Worker | null {
     if (this.workers.length === 0) {
       try {
-        const worker = new Worker(
-          new URL('./outlineWorker.ts', import.meta.url),
-          { type: 'module' },
-        );
+        const worker = new Worker(new URL('./outlineWorker.ts', import.meta.url), {
+          type: 'module',
+        });
         this.workers.push(worker);
       } catch {
         return null;
@@ -203,15 +201,18 @@ export class OutlineWorkerPool {
         let hasColorGlyphs = false;
 
         const shouldContinue = (): boolean =>
-          (job.status as WorkerStatus) !== 'cancelling' &&
-          (job.status as WorkerStatus) !== 'error';
+          (job.status as WorkerStatus) !== 'cancelling' && (job.status as WorkerStatus) !== 'error';
 
         for (let chunkIdx = 0; chunkIdx < totalChunks && shouldContinue(); chunkIdx++) {
           const start = chunkIdx * chunkSize;
           const end = Math.min(start + chunkSize, text.length);
           const chunkText = text.slice(start, end);
 
-          const chunkResult = await this.processChunk(worker, { ...job, text: chunkText }, chunkText);
+          const chunkResult = await this.processChunk(
+            worker,
+            { ...job, text: chunkText },
+            chunkText,
+          );
 
           if (chunkResult) {
             allGlyphs.push(...chunkResult.glyphs);
@@ -223,8 +224,12 @@ export class OutlineWorkerPool {
               bounds = {
                 x: Math.min(bounds.x, chunkResult.bounds.x),
                 y: Math.min(bounds.y, chunkResult.bounds.y),
-                w: Math.max(bounds.x + bounds.w, chunkResult.bounds.x + chunkResult.bounds.w) - Math.min(bounds.x, chunkResult.bounds.x),
-                h: Math.max(bounds.y + bounds.h, chunkResult.bounds.y + chunkResult.bounds.h) - Math.min(bounds.y, chunkResult.bounds.y),
+                w:
+                  Math.max(bounds.x + bounds.w, chunkResult.bounds.x + chunkResult.bounds.w) -
+                  Math.min(bounds.x, chunkResult.bounds.x),
+                h:
+                  Math.max(bounds.y + bounds.h, chunkResult.bounds.y + chunkResult.bounds.h) -
+                  Math.min(bounds.y, chunkResult.bounds.y),
               };
             }
           }
