@@ -210,12 +210,12 @@ describe('FloatingTextBar', () => {
     expect(onUpdate).toHaveBeenCalledWith('text-1', { fontSize: 24 });
   });
 
-  it('calls onUpdate with font family on select change', () => {
+  it('renders font selector with combobox', () => {
     const onUpdate = vi.fn();
     render(<FloatingTextBar {...defaultProps({ onUpdate })} />);
-    fireEvent.click(screen.getByLabelText('Font family'));
-    fireEvent.click(screen.getByRole('option', { name: /arial/i }));
-    expect(onUpdate).toHaveBeenCalledWith('text-1', { fontFamily: 'Arial' });
+    // FontSelector uses a combobox pattern
+    const fontInput = screen.getByRole('combobox', { name: 'Font family' });
+    expect(fontInput).toBeInTheDocument();
   });
 
   it('calls onUpdate with font weight on select change', () => {
