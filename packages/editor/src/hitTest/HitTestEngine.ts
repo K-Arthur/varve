@@ -45,6 +45,9 @@ export interface HitTestOptions {
   isolatedNodeId?: NodeId | null;
   /** Current zoom level — used to compute screen-space hit tolerance. */
   zoom?: number;
+  /** When true, select the deepest matching child rather than topmost.
+   *  Used for Ctrl+click deep selection through containers. */
+  deepSelect?: boolean;
 }
 
 export interface HitResult {
@@ -71,6 +74,8 @@ export class HitTestEngine {
   /**
    * Topmost node (highest index) whose geometry contains `world`.
    * Returns null if no node is hit.
+   * When `deepSelect` is true, returns the deepest matching non-container child
+   * instead of the topmost parent.
    */
   hitTest(world: { x: number; y: number }): HitResult | null {
     const candidates = this.queryWithTolerance(world.x, world.y);
@@ -80,6 +85,8 @@ export class HitTestEngine {
     // earlier ones — the correct topmost-first hit order.
     const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
+    let bestHit: HitResult | null = null;
+    let bestDepth = -1;
 
     for (const entry of ordered) {
       const n = entry.node;
@@ -94,17 +101,19 @@ export class HitTestEngine {
         if (!isInIsolatedSubtree) continue;
       }
 
+      let isHit = false;
+
       if (n.kind === 'shape') {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId);
         const wInv = invertAffine(worldMat);
         const local = applyAffine(wInv, [world.x, world.y]);
         const shape = hitGeometry(n, this.doc);
         if (shapeContains(shape, local)) {
-          return { nodeId: entry.nodeId, node: n };
+          isHit = true;
         }
         // Zoom tolerance: for visually-small objects, test whether the
         // world point is within `toleranceWorld` of the shape's world AABB.
-        if (this.toleranceWorld > 0) {
+        if (!isHit && this.toleranceWorld > 0) {
           const bbox = nodeWorldBounds(this.doc, entry.nodeId);
           if (bbox) {
             const expanded = {
@@ -114,7 +123,7 @@ export class HitTestEngine {
               h: bbox.h + 2 * this.toleranceWorld,
             };
             if (rectContains(expanded, [world.x, world.y])) {
-              return { nodeId: entry.nodeId, node: n };
+              isHit = true;
             }
           }
         }
@@ -130,7 +139,7 @@ export class HitTestEngine {
             h: bbox.h + 2 * this.toleranceWorld,
           };
           if (rectContains(expanded, [world.x, world.y])) {
-            return { nodeId: entry.nodeId, node: n };
+            isHit = true;
           }
         }
       }
@@ -148,10 +157,11 @@ export class HitTestEngine {
               const childLocal = applyAffine(childInv, [world.x, world.y]);
               const childShape = hitGeometry(child, this.doc);
               if (shapeContains(childShape, childLocal)) {
-                return { nodeId: entry.nodeId, node: n };
+                isHit = true;
+                break;
               }
               // Zoom tolerance for group children
-              if (this.toleranceWorld > 0) {
+              if (!isHit && this.toleranceWorld > 0) {
                 const childBounds = nodeWorldBounds(this.doc, childId);
                 if (childBounds) {
                   const expanded = {
@@ -161,7 +171,8 @@ export class HitTestEngine {
                     h: childBounds.h + 2 * this.toleranceWorld,
                   };
                   if (rectContains(expanded, [world.x, world.y])) {
-                    return { nodeId: entry.nodeId, node: n };
+                    isHit = true;
+                    break;
                   }
                 }
               }
@@ -175,15 +186,38 @@ export class HitTestEngine {
                   h: childBounds.h + 2 * this.toleranceWorld,
                 };
                 if (rectContains(expanded, [world.x, world.y])) {
-                  return { nodeId: entry.nodeId, node: n };
+                  isHit = true;
+                  break;
                 }
               }
             }
           }
         }
       }
+
+      if (isHit) {
+        if (this.options.deepSelect) {
+          // In deep-select mode, prefer non-container children over containers.
+          // Track depth to find the deepest match.
+          if (n.kind !== 'frame' && n.kind !== 'group') {
+            // Prefer non-container nodes; deeper is better
+            const depth = entry.depth;
+            if (!bestHit || depth > bestDepth) {
+              bestHit = { nodeId: entry.nodeId, node: n };
+              bestDepth = depth;
+            }
+          } else if (!bestHit) {
+            // Only use a container if no non-container child was found
+            bestHit = { nodeId: entry.nodeId, node: n };
+            bestDepth = entry.depth;
+          }
+        } else {
+          // Normal mode: return the topmost hit immediately
+          return { nodeId: entry.nodeId, node: n };
+        }
+      }
     }
-    return null;
+    return bestHit;
   }
 
   /**

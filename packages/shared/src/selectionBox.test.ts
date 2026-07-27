@@ -253,6 +253,47 @@ describe('resizeSelectionBox — image aspect ratio', () => {
   });
 });
 
+describe('resizeSelectionBox — centered + combined modifiers', () => {
+  it('centered + proportional on edge handle correctly scales opposite axis', () => {
+    const box: SelectionBox = { cx: 0, cy: 0, w: 20, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 'e', [5, 0], { centered: true, proportional: true });
+    approx(next.w, 30);
+    approx(next.h, 15);
+    approx(next.cx, 0);
+    approx(next.cy, 0);
+  });
+
+  it('centered + free resize does not shift center when only one axis changes', () => {
+    const box: SelectionBox = { cx: 0, cy: 0, w: 20, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 'e', [5, 0], { centered: true });
+    approx(next.w, 30);
+    approx(next.h, 10);
+    approx(next.cx, 0);
+    approx(next.cy, 0);
+  });
+
+  it('centered + free resize on south handle does not shift center', () => {
+    const box: SelectionBox = { cx: 0, cy: 0, w: 20, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 's', [0, 5], { centered: true });
+    approx(next.w, 20);
+    approx(next.h, 20);
+    approx(next.cx, 0);
+    approx(next.cy, 0);
+  });
+
+  it('centered + proportional on corner handle preserves ratio and center', () => {
+    const box: SelectionBox = { cx: 100, cy: 50, w: 20, h: 10, rotation: 0 };
+    const next = resizeSelectionBox(box, 'se', [10, 5], {
+      centered: true,
+      proportional: true,
+    });
+    approx(next.w, 40);
+    approx(next.h, 20);
+    approx(next.cx, 100);
+    approx(next.cy, 50);
+  });
+});
+
 describe('rotateSelectionBox', () => {
   it('rotates around the box center by default', () => {
     const box: SelectionBox = { cx: 10, cy: 10, w: 10, h: 10, rotation: 0 };

@@ -980,6 +980,12 @@ export interface EditorContextValue {
   showArchiveDialog: boolean;
   archiveDialogMode: 'backup' | 'restore';
   setShowArchiveDialog: (show: boolean, mode?: 'backup' | 'restore') => void;
+  /** Whether the upscale dialog is open. */
+  upscaleDialogOpen: boolean;
+  /** Open the upscale dialog for the selected image. */
+  openUpscaleDialog: () => void;
+  /** Close the upscale dialog. */
+  closeUpscaleDialog: () => void;
   /** Flatten/rasterize/merge the current selection (unified flatten system). */
   flattenSelected: (mode: import('./flatten/types').FlattenMode, scale?: number) => void;
   rasterizeSelected: (scale?: number) => void;
@@ -1933,6 +1939,11 @@ export function EditorProvider({
       zoom: 1,
       pan: { x: 0, y: 0 },
       selection: [],
+      primaryId: null,
+      activeContainerId: null,
+      selectionMode: 'object' as const,
+      selectionOrigin: 'api' as const,
+      selectionRevision: 0,
       document: doc,
       sessions: [{ id: INITIAL_SESSION_ID, name, dirty: false }],
       activeId: INITIAL_SESSION_ID,
@@ -2031,6 +2042,7 @@ export function EditorProvider({
       },
       themeRevision: 0,
       revision: 0,
+      upscaleDialogOpen: false,
     };
   });
   const dialogState = useDialogState();
@@ -2764,17 +2776,29 @@ export function EditorProvider({
       },
 
       // F1: single-select replaces the whole set
-      setSelection: (id) => {
+      setSelection: (
+        id: NodeId | null,
+        origin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api' = 'canvas',
+      ) => {
         const newSelection = id ? [id] : [];
         selectionHistory.push(newSelection);
-        patch({ selection: newSelection });
+        patch({
+          selection: newSelection,
+          primaryId: id,
+          selectionRevision: state.selectionRevision + 1,
+          selectionOrigin: origin,
+        });
       },
 
       // F1: additive = shift+click behaviour.
       // Read from stateRef.current.selection (not the closed-over state.selection)
       // so callers that batch setSelection + toggleSelection (e.g. selectAll)
       // see the accumulation from prior calls in the same synchronous tick.
-      toggleSelection: (id, additive = false) => {
+      toggleSelection: (
+        id: NodeId,
+        additive: boolean = false,
+        origin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api' = 'canvas',
+      ) => {
         const currentSel = stateRef.current.selection;
         const nextSelection = (() => {
           if (additive) {
@@ -2783,9 +2807,29 @@ export function EditorProvider({
           }
           return [id];
         })();
+        const hasChanges = JSON.stringify(currentSel) !== JSON.stringify(nextSelection);
+        if (!hasChanges) return;
         selectionHistory.push(nextSelection);
-        stateRef.current = { ...stateRef.current, selection: nextSelection };
-        setState((s) => ({ ...s, selection: nextSelection }));
+        const newPrimaryId =
+          nextSelection.length > 0
+            ? additive
+              ? (stateRef.current.primaryId ?? nextSelection[0]!)
+              : id
+            : null;
+        stateRef.current = {
+          ...stateRef.current,
+          selection: nextSelection,
+          primaryId: newPrimaryId,
+          selectionRevision: stateRef.current.selectionRevision + 1,
+          selectionOrigin: origin,
+        };
+        setState((s) => ({
+          ...s,
+          selection: nextSelection,
+          primaryId: newPrimaryId,
+          selectionRevision: s.selectionRevision + 1,
+          selectionOrigin: origin,
+        }));
       },
 
       // F1: helpers that work for nested nodes
@@ -6640,6 +6684,14 @@ export function EditorProvider({
       showArchiveDialog: dialogState.showArchiveDialog,
       archiveDialogMode: dialogState.archiveDialogMode,
       setShowArchiveDialog: dialogState.setShowArchiveDialog,
+
+      upscaleDialogOpen: state.upscaleDialogOpen,
+      openUpscaleDialog: () => {
+        patch({ upscaleDialogOpen: true });
+      },
+      closeUpscaleDialog: () => {
+        patch({ upscaleDialogOpen: false });
+      },
 
       addPreset: (nodeId, preset) => {
         updateDoc((doc) => {
