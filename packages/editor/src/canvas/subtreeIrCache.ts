@@ -491,3 +491,99 @@ export class SubtreeIrCache {
     };
   }
 }
+
+export interface NodeHashResult {
+  hash: string;
+  /** Content parts, kept so the cache store-path can reuse them without a recompute. */
+  parts: string[];
+}
+
+/**
+ * Cross-frame memo for the per-node content hash (cacheContentParts + nodeHash).
+ *
+ * The hash is a pure function of a node's document-derived content and its
+ * world transform. Strata's Document is immutable with structural sharing, so
+ * an unchanged document keeps the SAME `doc` object reference, and
+ * getWorldTransform returns a stable Affine reference until a node's transform
+ * is invalidated (which only happens on a document edit). Therefore, when the
+ * `doc` reference AND a node's world-transform reference both match the previous
+ * frame, the node's hash is provably identical and need not be recomputed.
+ *
+ * Why this is safe (no stale renders / no false cache hits):
+ *  - The returned hash is byte-identical to what the un-memoized path computes,
+ *    so it can never produce a false SubtreeIrCache hit — the IR cache's own
+ *    get(nodeId, hash) still decides hits. This only avoids recomputing a value.
+ *  - Any document edit produces a new `doc` reference (verified: updateDoc
+ *    returns `{ ...doc, nodes: { ...doc.nodes, [id]: next } }`), which clears the
+ *    memo via beginFrame(). Shared-paint / mask-asset / variable / style edits
+ *    all mutate the document too, so they also produce a new `doc` reference —
+ *    that's why the key is the whole `doc`, not the per-node object.
+ *  - `extraKey` carries any per-frame input that feeds node content but is NOT
+ *    part of `doc` (e.g. the "show original background" compare toggle).
+ *
+ * Effect: pan / zoom / rotate / viewport-resize / DPR / theme changes — which
+ * touch neither `doc` nor world transforms — skip the entire hash loop.
+ */
+export class NodeHashMemo {
+  private entries = new Map<string, { world: readonly number[]; result: NodeHashResult }>();
+  private docRef: unknown = undefined;
+  private extraKey = ' uninit';
+  private computeCount = 0;
+  private hitCount = 0;
+
+  /**
+   * Call once per frame before hashing. Clears the memo when the frame's shared
+   * inputs (document reference, or the extra per-frame key) changed, so a stale
+   * hash can never survive a document edit.
+   */
+  beginFrame(doc: unknown, extraKey = ''): void {
+    if (doc !== this.docRef || extraKey !== this.extraKey) {
+      this.entries.clear();
+      this.docRef = doc;
+      this.extraKey = extraKey;
+    }
+  }
+
+  /**
+   * Return the memoized hash for `node` when its world transform matches the
+   * memoized one (the document is already known-unchanged via beginFrame);
+   * otherwise compute, memoize, and return it. `node.transform` must be the
+   * world transform (the same reference getWorldTransform returned).
+   */
+  hash(nodeId: string, node: EngineNode, styleKey: string): NodeHashResult {
+    const world = node.transform;
+    const existing = this.entries.get(nodeId);
+    // styleKey (doc.nodes[id].styleId) is document-derived, so an unchanged
+    // `doc` already implies an unchanged styleKey — the world-transform match is
+    // the only per-node check needed here.
+    if (existing && existing.world === world) {
+      this.hitCount++;
+      return existing.result;
+    }
+    const parts = cacheContentParts(node).parts;
+    const hash = SubtreeIrCache.nodeHash(nodeId, world, styleKey, parts);
+    const result: NodeHashResult = { hash, parts };
+    this.entries.set(nodeId, { world, result });
+    this.computeCount++;
+    return result;
+  }
+
+  /** Number of real hash computations since construction (perf guard: flat during pan). */
+  get computes(): number {
+    return this.computeCount;
+  }
+  /** Number of memo hits since construction. */
+  get hits(): number {
+    return this.hitCount;
+  }
+  /** Current memoized-node count. */
+  get size(): number {
+    return this.entries.size;
+  }
+  /** Drop all memoized state (used when the IR cache is fully invalidated). */
+  clear(): void {
+    this.entries.clear();
+    this.docRef = undefined;
+    this.extraKey = ' uninit';
+  }
+}
