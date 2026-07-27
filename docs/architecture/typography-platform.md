@@ -46,10 +46,12 @@ The typography system spans TypeScript (browser/web) and Rust (native/Tauri) lay
 | COLR/CPAL detection | ✓ | ✓ | ✓ (raw table check) |
 | COLR/CPAL rendering | ✗ (monochrome) | ✗ | ✗ |
 | PDF native text | ✗ (raster only) | — | ✓ (WinAnsi + subset) |
-| PDF native CJK | ✗ | — | Partial (outline fallback) |
+| PDF native CJK | ✗ | — | ✓ (CIDFont2 + Identity-H) |
 | PDF ToUnicode CMap | — | — | ✓ |
 | PDF font subsetting | — | — | ✓ (font-subset) |
 | PDF font metrics | — | — | ✓ (from font binary) |
+| PDF kerning (TJ arrays) | — | — | ✓ (hex-encoded glyphs) |
+| PDF/X font embedding | — | — | ✓ (TrueType + WinAnsi) |
 | Text outlining | ✓ (opentype.js) | ✓ | ✓ (ab_glyph) |
 | Rich-text outlining | ✓ (per-run) | ✓ | ✓ |
 | Decoration outlining | ✓ | ✓ | ✓ |
@@ -133,8 +135,6 @@ Rust export_pdf():
 |------------|--------|----------|
 | No rustybuzz WASM build | Browser glyph-ID shaping unavailable | P2 |
 | No COLR/CPAL rendering | Colour fonts render monochrome | P3 |
-| CIDFont/CJK native PDF text | Non-Latin forced to vector outlines | P4 |
 | No `Differences` array in font encoding | Some character mappings may be approximate | P4 |
-| PDF/X paths use Helvetica only | No font support in PDF/X export | P4 |
-| No per-glyph TJ arrays | Kerning pairs not reflected in PDF text | P4 |
-| No E2E tests for PDF output | Visual/text-extraction testing needed | P2 |
+| Full GPOS kerning in TJ arrays | Uses hex-glyph (no numeric kern) | P4 |
+| No E2E text-extraction validation | PDF text extraction not validated in CI | P2 |
