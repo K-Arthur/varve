@@ -430,6 +430,18 @@ export interface EditorContextValue {
   getWorldTransform: (id: NodeId) => import('@strata/shared').Affine;
   getWorldBounds: (id: NodeId) => import('@strata/shared').Rect | null;
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
+  hitTestNodeWithPolicy: (
+    world: { x: number; y: number },
+    policyName: import('../hitTest').HitTestPolicyName,
+  ) => { nodeId: NodeId; node: SceneNode } | null;
+  /** Set the keyboard focus to a node without changing selection. */
+  setFocusedNode: (id: NodeId | null) => void;
+  /** Clear keyboard focus. */
+  clearFocusedNode: () => void;
+  /** Move focus to the next selected node in document order. */
+  focusNextSelectedNode: () => void;
+  /** Move focus to the previous selected node in document order. */
+  focusPreviousSelectedNode: () => void;
   getNode: (id: NodeId) => SceneNode | undefined;
   walkNodes: () => Map<
     NodeId,

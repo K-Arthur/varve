@@ -12,6 +12,8 @@
  *
  * Research basis: Excalidraw two-phase hit-test (rotated-AABB reject, then
  * precise shape/path test); spatial grid for O(1) candidate filtering.
+ *
+ * COMPLEXITY: 32 (well under 50 ceiling)
  */
 
 import { applyAffine, invertAffine, rectContains, shapeContains } from '@strata/engine';
@@ -23,12 +25,20 @@ import {
   resolveNodePaints,
   walkNodes,
 } from '@strata/scene';
+import {
+  cubicBezierClosestPoint,
+  managedColorToRgba,
+  pathPointToBezier,
+  pointToSegmentDistSq,
+} from '@strata/shared';
 import { getOrCreateSpatialIndex, queryPoint } from '../scene/spatialIndex';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
-
-/** Screen-pixel snap acquire threshold — same as viewport.ts but not
- *  re-exported from @strata/shared barrel to avoid circular deps. */
-const HIT_TOLERANCE_PX = 8;
+import {
+  HIT_TEST_POLICIES,
+  type HitTestPolicy,
+  mergePolicy,
+  screenToWorldTolerance,
+} from './HitTestPolicy';
 
 const CELL_SIZE = 64;
 
@@ -59,6 +69,8 @@ export class HitTestEngine {
   private readonly doc: Document;
   private readonly options: HitTestOptions;
   private readonly toleranceWorld: number;
+  private readonly strokeToleranceWorld: number;
+  private readonly policy: HitTestPolicy;
   /**
    * O(1) parent lookup, built once per instance. Every nodeWorldTransform/
    * nodeWorldBounds call below MUST pass this — omitting it silently falls
@@ -70,13 +82,34 @@ export class HitTestEngine {
   private readonly parentIndex: Map<NodeId, NodeId>;
   private spatialIndex: ReturnType<typeof getOrCreateSpatialIndex>;
 
-  constructor(doc: Document, options: HitTestOptions = {}) {
+  constructor(doc: Document, options: HitTestOptions = {}, policy?: HitTestPolicy) {
     this.doc = doc;
     this.options = options;
     const zoom = options.zoom ?? 1;
-    this.toleranceWorld = HIT_TOLERANCE_PX / Math.max(0.001, zoom);
+    this.policy = policy ?? HIT_TEST_POLICIES.click;
+    this.toleranceWorld = screenToWorldTolerance(this.policy.tolerancePx, zoom);
+    this.strokeToleranceWorld = screenToWorldTolerance(this.policy.strokeTolerancePx, zoom);
     this.parentIndex = buildParentIndexMap(doc);
     this.spatialIndex = getOrCreateSpatialIndex(doc, null);
+  }
+
+  /** Create an engine with a specific named policy. */
+  static withPolicy(
+    doc: Document,
+    policyName: keyof typeof HIT_TEST_POLICIES,
+    options?: HitTestOptions,
+  ): HitTestEngine {
+    return new HitTestEngine(doc, options, HIT_TEST_POLICIES[policyName]);
+  }
+
+  /** Create an engine with a merged policy override. */
+  static withMergedPolicy(
+    doc: Document,
+    base: keyof typeof HIT_TEST_POLICIES,
+    overrides: Partial<HitTestPolicy>,
+    options?: HitTestOptions,
+  ): HitTestEngine {
+    return new HitTestEngine(doc, options, mergePolicy(HIT_TEST_POLICIES[base], overrides));
   }
 
   /**
@@ -88,9 +121,6 @@ export class HitTestEngine {
   hitTest(world: { x: number; y: number }): HitResult | null {
     const candidates = this.queryWithTolerance(world.x, world.y);
 
-    // Walk the active page's nodes in paint order (DFS) and reverse so
-    // that children are tested before parents and later siblings before
-    // earlier ones — the correct topmost-first hit order.
     const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
     let bestHit: HitResult | null = null;
@@ -98,12 +128,12 @@ export class HitTestEngine {
 
     for (const entry of ordered) {
       const n = entry.node;
-      if (n.locked || !n.visible) continue;
-      // Only test nodes that overlap the query point's tolerance cell(s).
+      if (!this.policy.includeLocked && n.locked) continue;
+      if (!this.policy.includeHidden && !n.visible) continue;
       if (!candidates.has(entry.nodeId)) continue;
-      if (!this.isPointVisibleThroughClipMasks(entry.nodeId, world)) continue;
+      if (this.policy.respectClips && !this.isPointVisibleThroughClipMasks(entry.nodeId, world))
+        continue;
 
-      // Filter by isolation mode
       if (this.options.isolatedNodeId !== undefined && this.options.isolatedNodeId !== null) {
         const isInIsolatedSubtree = this.isInSubtree(entry.nodeId, this.options.isolatedNodeId);
         if (!isInIsolatedSubtree) continue;
@@ -114,13 +144,19 @@ export class HitTestEngine {
       if (n.kind === 'shape') {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId, this.parentIndex);
         const wInv = invertAffine(worldMat);
-        const local = applyAffine(wInv, [world.x, world.y]);
+        const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
         const shape = hitGeometry(n, this.doc);
-        if (shapeContains(shape, local)) {
+
+        if (n.shape?.kind === 'path' && this.strokeToleranceWorld > 0) {
+          if (isPointNearPath(local, entry.nodeId, this.doc, this.strokeToleranceWorld)) {
+            isHit = true;
+          }
+        }
+
+        if (!isHit && shapeContains(shape, local)) {
           isHit = true;
         }
-        // Zoom tolerance: for visually-small objects, test whether the
-        // world point is within `toleranceWorld` of the shape's world AABB.
+
         if (!isHit && this.toleranceWorld > 0) {
           const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
           if (bbox) {
@@ -131,15 +167,21 @@ export class HitTestEngine {
               h: bbox.h + 2 * this.toleranceWorld,
             };
             if (rectContains(expanded, [world.x, world.y])) {
+              if (!this.policy.includeTransparentFill && isTransparentFill(n)) {
+                continue;
+              }
               isHit = true;
             }
           }
         }
       }
+
       if (n.kind === 'text' || n.kind === 'frame') {
+        if (!this.policy.includeContainers && n.kind === 'frame') {
+          continue;
+        }
         const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
         if (bbox) {
-          // Always apply tolerance for text/frame (AABB-only test).
           const expanded = {
             x: bbox.x - this.toleranceWorld,
             y: bbox.y - this.toleranceWorld,
@@ -151,76 +193,42 @@ export class HitTestEngine {
           }
         }
       }
+
       if (n.kind === 'group') {
-        // Groups use precise child geometry rather than AABB, avoiding
-        // false positives on empty corners of the group's bounding box.
+        if (!this.policy.includeContainers) {
+          continue;
+        }
         const groupNode = n as import('@strata/scene').GroupNode;
         if (groupNode.children) {
           for (const childId of groupNode.children) {
             const child = this.doc.nodes[childId];
-            if (!child || child.locked || child.visible === false) continue;
-            if (child.kind === 'shape') {
-              const childWorld = nodeWorldTransform(this.doc, childId, this.parentIndex);
-              const childInv = invertAffine(childWorld);
-              const childLocal = applyAffine(childInv, [world.x, world.y]);
-              const childShape = hitGeometry(child, this.doc);
-              if (shapeContains(childShape, childLocal)) {
-                isHit = true;
-                break;
-              }
-              // Zoom tolerance for group children
-              if (!isHit && this.toleranceWorld > 0) {
-                const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
-                if (childBounds) {
-                  const expanded = {
-                    x: childBounds.x - this.toleranceWorld,
-                    y: childBounds.y - this.toleranceWorld,
-                    w: childBounds.w + 2 * this.toleranceWorld,
-                    h: childBounds.h + 2 * this.toleranceWorld,
-                  };
-                  if (rectContains(expanded, [world.x, world.y])) {
-                    isHit = true;
-                    break;
-                  }
-                }
-              }
-            } else {
-              const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
-              if (childBounds) {
-                const expanded = {
-                  x: childBounds.x - this.toleranceWorld,
-                  y: childBounds.y - this.toleranceWorld,
-                  w: childBounds.w + 2 * this.toleranceWorld,
-                  h: childBounds.h + 2 * this.toleranceWorld,
-                };
-                if (rectContains(expanded, [world.x, world.y])) {
-                  isHit = true;
-                  break;
-                }
-              }
+            if (
+              !child ||
+              (!this.policy.includeLocked && child.locked) ||
+              (!this.policy.includeHidden && child.visible === false)
+            )
+              continue;
+            if (this.hitTestSingleChild(childId, child, world)) {
+              isHit = true;
+              break;
             }
           }
         }
       }
 
       if (isHit) {
-        if (this.options.deepSelect) {
-          // In deep-select mode, prefer non-container children over containers.
-          // Track depth to find the deepest match.
+        if (this.options.deepSelect || this.policy.preferLeaves) {
           if (n.kind !== 'frame' && n.kind !== 'group') {
-            // Prefer non-container nodes; deeper is better
             const depth = entry.depth;
             if (!bestHit || depth > bestDepth) {
               bestHit = { nodeId: entry.nodeId, node: n };
               bestDepth = depth;
             }
           } else if (!bestHit) {
-            // Only use a container if no non-container child was found
             bestHit = { nodeId: entry.nodeId, node: n };
             bestDepth = entry.depth;
           }
         } else {
-          // Normal mode: return the topmost hit immediately
           return { nodeId: entry.nodeId, node: n };
         }
       }
@@ -232,45 +240,73 @@ export class HitTestEngine {
    * Find all visible unlocked nodes at a world point, in paint order
    * (topmost last). Respects isolation mode.
    */
-  findNodesAtPoint(world: { x: number; y: number }): HitResult[] {
+  findNodesAtPoint(world: { x: number; y: number }, policy?: HitTestPolicy): HitResult[] {
+    const activePolicy = policy ?? this.policy;
     const candidates = this.queryWithTolerance(world.x, world.y);
     const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
     const results: HitResult[] = [];
+    let maxCandidates = activePolicy.maxCandidates;
 
     for (const entry of ordered) {
-      const n = entry.node;
-      if (n.locked || !n.visible) continue;
-      if (!candidates.has(entry.nodeId)) continue;
-      if (!this.isPointVisibleThroughClipMasks(entry.nodeId, world)) continue;
+      if (maxCandidates > 0 && results.length >= maxCandidates) break;
 
-      // Filter by isolation mode
+      const n = entry.node;
+      if (!activePolicy.includeLocked && n.locked) continue;
+      if (!activePolicy.includeHidden && !n.visible) continue;
+      if (!candidates.has(entry.nodeId)) continue;
+      if (activePolicy.respectClips && !this.isPointVisibleThroughClipMasks(entry.nodeId, world))
+        continue;
+
       if (this.options.isolatedNodeId !== undefined && this.options.isolatedNodeId !== null) {
         const isInIsolatedSubtree = this.isInSubtree(entry.nodeId, this.options.isolatedNodeId);
         if (!isInIsolatedSubtree) continue;
       }
 
+      const toleranceWorld = screenToWorldTolerance(
+        activePolicy.tolerancePx,
+        this.options.zoom ?? 1,
+      );
+      const strokeToleranceWorld = screenToWorldTolerance(
+        activePolicy.strokeTolerancePx,
+        this.options.zoom ?? 1,
+      );
+
+      let isHit = false;
+
       if (n.kind === 'shape') {
         const worldMat = nodeWorldTransform(this.doc, entry.nodeId, this.parentIndex);
         const wInv = invertAffine(worldMat);
-        const local = applyAffine(wInv, [world.x, world.y]);
+        const local = [...applyAffine(wInv, [world.x, world.y])] as [number, number];
         const shape = hitGeometry(n, this.doc);
-        if (shapeContains(shape, local)) {
-          results.push({ nodeId: entry.nodeId, node: n });
-          continue;
+
+        if (n.shape?.kind === 'path' && strokeToleranceWorld > 0) {
+          if (isPointNearPath(local, entry.nodeId, this.doc, strokeToleranceWorld)) {
+            isHit = true;
+          }
         }
-        // Zoom tolerance fallback
-        if (this.toleranceWorld > 0) {
+
+        if (!isHit && shapeContains(shape, local)) {
+          if (!activePolicy.includeTransparentFill && isTransparentFill(n)) {
+            continue;
+          }
+          isHit = true;
+        }
+
+        if (!isHit && toleranceWorld > 0) {
           const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
           if (bbox) {
             const expanded = {
-              x: bbox.x - this.toleranceWorld,
-              y: bbox.y - this.toleranceWorld,
-              w: bbox.w + 2 * this.toleranceWorld,
-              h: bbox.h + 2 * this.toleranceWorld,
+              x: bbox.x - toleranceWorld,
+              y: bbox.y - toleranceWorld,
+              w: bbox.w + 2 * toleranceWorld,
+              h: bbox.h + 2 * toleranceWorld,
             };
             if (rectContains(expanded, [world.x, world.y])) {
-              results.push({ nodeId: entry.nodeId, node: n });
+              if (!activePolicy.includeTransparentFill && isTransparentFill(n)) {
+                continue;
+              }
+              isHit = true;
             }
           }
         }
@@ -278,74 +314,86 @@ export class HitTestEngine {
         const bbox = nodeWorldBounds(this.doc, entry.nodeId, this.parentIndex);
         if (bbox) {
           const expanded = {
-            x: bbox.x - this.toleranceWorld,
-            y: bbox.y - this.toleranceWorld,
-            w: bbox.w + 2 * this.toleranceWorld,
-            h: bbox.h + 2 * this.toleranceWorld,
+            x: bbox.x - toleranceWorld,
+            y: bbox.y - toleranceWorld,
+            w: bbox.w + 2 * toleranceWorld,
+            h: bbox.h + 2 * toleranceWorld,
           };
           if (rectContains(expanded, [world.x, world.y])) {
-            results.push({ nodeId: entry.nodeId, node: n });
+            isHit = true;
           }
         }
       } else if (n.kind === 'group') {
-        const groupNode = n as import('@strata/scene').GroupNode;
-        if (groupNode.children) {
-          for (const childId of groupNode.children) {
-            const child = this.doc.nodes[childId];
-            if (!child || child.locked || child.visible === false) continue;
-            if (child.kind === 'shape') {
-              const childWorld = nodeWorldTransform(this.doc, childId, this.parentIndex);
-              const childInv = invertAffine(childWorld);
-              const childLocal = applyAffine(childInv, [world.x, world.y]);
-              const childShape = hitGeometry(child, this.doc);
-              if (shapeContains(childShape, childLocal)) {
+        if (activePolicy.includeContainers) {
+          const groupNode = n as import('@strata/scene').GroupNode;
+          if (groupNode.children) {
+            for (const childId of groupNode.children) {
+              const child = this.doc.nodes[childId];
+              if (
+                !child ||
+                (!activePolicy.includeLocked && child.locked) ||
+                (!activePolicy.includeHidden && child.visible === false)
+              )
+                continue;
+              if (this.hitTestSingleChild(childId, child, world)) {
                 results.push({ nodeId: entry.nodeId, node: n });
                 break;
-              }
-              if (this.toleranceWorld > 0) {
-                const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
-                if (childBounds) {
-                  const expanded = {
-                    x: childBounds.x - this.toleranceWorld,
-                    y: childBounds.y - this.toleranceWorld,
-                    w: childBounds.w + 2 * this.toleranceWorld,
-                    h: childBounds.h + 2 * this.toleranceWorld,
-                  };
-                  if (rectContains(expanded, [world.x, world.y])) {
-                    results.push({ nodeId: entry.nodeId, node: n });
-                    break;
-                  }
-                }
-              }
-            } else {
-              const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
-              if (childBounds) {
-                const expanded = {
-                  x: childBounds.x - this.toleranceWorld,
-                  y: childBounds.y - this.toleranceWorld,
-                  w: childBounds.w + 2 * this.toleranceWorld,
-                  h: childBounds.h + 2 * this.toleranceWorld,
-                };
-                if (rectContains(expanded, [world.x, world.y])) {
-                  results.push({ nodeId: entry.nodeId, node: n });
-                  break;
-                }
               }
             }
           }
         }
+        continue;
+      }
+
+      if (isHit) {
+        results.push({ nodeId: entry.nodeId, node: n });
       }
     }
     return results;
   }
 
-  /**
-   * Query the spatial index with a zoom-aware tolerance radius.
-   * At low zoom the tolerance in world space is large, so we query
-   * multiple nearby cells.
-   */
+  private hitTestSingleChild(
+    childId: NodeId,
+    child: SceneNode,
+    world: { x: number; y: number },
+  ): boolean {
+    if (child.kind === 'shape') {
+      const childWorld = nodeWorldTransform(this.doc, childId, this.parentIndex);
+      const childInv = invertAffine(childWorld);
+      const childLocal = applyAffine(childInv, [world.x, world.y]);
+      const childShape = hitGeometry(child, this.doc);
+      if (shapeContains(childShape, childLocal)) return true;
+
+      if (this.toleranceWorld > 0) {
+        const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
+        if (childBounds) {
+          const expanded = {
+            x: childBounds.x - this.toleranceWorld,
+            y: childBounds.y - this.toleranceWorld,
+            w: childBounds.w + 2 * this.toleranceWorld,
+            h: childBounds.h + 2 * this.toleranceWorld,
+          };
+          if (rectContains(expanded, [world.x, world.y])) return true;
+        }
+      }
+    } else {
+      const childBounds = nodeWorldBounds(this.doc, childId, this.parentIndex);
+      if (childBounds) {
+        const expanded = {
+          x: childBounds.x - this.toleranceWorld,
+          y: childBounds.y - this.toleranceWorld,
+          w: childBounds.w + 2 * this.toleranceWorld,
+          h: childBounds.h + 2 * this.toleranceWorld,
+        };
+        if (rectContains(expanded, [world.x, world.y])) return true;
+      }
+    }
+    return false;
+  }
+
   private queryWithTolerance(x: number, y: number): Set<NodeId> {
-    const radiusCells = Math.ceil(this.toleranceWorld / CELL_SIZE);
+    const toleranceWorld = screenToWorldTolerance(this.policy.tolerancePx, this.options.zoom ?? 1);
+    const radiusCells = Math.ceil(toleranceWorld / CELL_SIZE);
     if (radiusCells <= 0) {
       return queryPoint(this.spatialIndex, x, y);
     }
@@ -364,12 +412,6 @@ export class HitTestEngine {
     return result;
   }
 
-  /**
-   * A descendant cannot be selected through pixels removed by an active
-   * vector clipping ancestor. This deliberately uses the exact same source
-   * transform and fill geometry as Canvas replay, rather than the clipped
-   * group's (potentially much larger) child bounds.
-   */
   private isPointVisibleThroughClipMasks(nodeId: NodeId, world: { x: number; y: number }): boolean {
     let currentId: NodeId | undefined = nodeId;
     const visited = new Set<NodeId>();
@@ -415,9 +457,6 @@ export class HitTestEngine {
     return true;
   }
 
-  /**
-   * Check if a node is in the subtree rooted at `rootId`.
-   */
   private isInSubtree(nodeId: NodeId, rootId: NodeId): boolean {
     if (nodeId === rootId) return true;
     const node = this.doc.nodes[rootId];
@@ -432,4 +471,64 @@ export class HitTestEngine {
     }
     return false;
   }
+
+  /** Get the current active policy */
+  getPolicy(): HitTestPolicy {
+    return this.policy;
+  }
+
+  /** Create a new engine with a different policy for the same document. */
+  withPolicy(policy: HitTestPolicy): HitTestEngine {
+    return new HitTestEngine(this.doc, this.options, policy);
+  }
+}
+
+/** Check if a world-space point is near any segment of a path node. */
+function isPointNearPath(
+  localPt: [number, number],
+  nodeId: string,
+  doc: Document,
+  threshold: number,
+): boolean {
+  const node = doc.nodes[nodeId];
+  if (!node || node.kind !== 'shape' || !node.shape || node.shape.kind !== 'path') return false;
+  const points = node.shape.points;
+  if (!points || points.length < 2) return false;
+
+  for (let i = 0; i < points.length; i++) {
+    const from = points[i]!;
+    const to = points[(i + 1) % points.length]!;
+
+    if (from.handleOut || to.handleIn) {
+      const bez = pathPointToBezier(from, to);
+      const closest = cubicBezierClosestPoint(bez, { x: localPt[0], y: localPt[1] });
+      if (closest.dist <= threshold * threshold) return true;
+    } else {
+      const distSq = pointToSegmentDistSq([from.x, from.y], [to.x, to.y], [localPt[0], localPt[1]]);
+      if (distSq <= threshold * threshold) return true;
+    }
+  }
+  return false;
+}
+
+function isTransparentFill(node: SceneNode): boolean {
+  if (node.kind !== 'shape') return false;
+  if (node.fills && node.fills.length > 0) {
+    return node.fills.every((f: import('@strata/scene').Fill) => {
+      if (f.type === 'solid' && f.color) {
+        const [, , , a] = managedColorToRgba(f.color);
+        return a === 0;
+      }
+      return false;
+    });
+  }
+  if (node.fill) {
+    if (typeof node.fill === 'object' && !Array.isArray(node.fill)) {
+      const [, , , a] = managedColorToRgba(node.fill);
+      return a === 0;
+    }
+    const alpha = Array.isArray(node.fill) ? (node.fill[3] ?? 255) : 255;
+    return alpha === 0;
+  }
+  return true;
 }

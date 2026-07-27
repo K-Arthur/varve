@@ -980,12 +980,17 @@ export function CanvasArea({
       engine: eng,
       canvasElement: contentCanvasRef.current,
       hitTest: (world) => e.hitTestNode(world),
+      hitTestWithPolicy: (world, policyName) => e.hitTestNodeWithPolicy(world, policyName),
 
       beginTransaction: () => e.beginTransaction(),
       commitTransaction: () => e.commitTransaction(),
       abortTransaction: () => e.abortTransaction(),
 
       setTool: (id) => e.setTool(id),
+      setFocusedNode: (id) => e.setFocusedNode(id),
+      clearFocusedNode: () => e.clearFocusedNode(),
+      focusNextSelectedNode: () => e.focusNextSelectedNode(),
+      focusPreviousSelectedNode: () => e.focusPreviousSelectedNode(),
       nodeEditTargetId,
       setNodeEditTargetId,
       setNodeEditSelectedAnchors,
@@ -1137,8 +1142,8 @@ export function CanvasArea({
       },
       lastPointerEvent: ev,
       showDeepSelectionMenu: (world, screenX, screenY) => {
-        // Gather all nodes beneath the touch point and show the candidate menu
-        const hitEngine = new HitTestEngine(stateRef.current.document, {
+        // Gather all nodes beneath the touch point using touch policy
+        const hitEngine = HitTestEngine.withPolicy(stateRef.current.document, 'touchDeepSelect', {
           zoom: stateRef.current.zoom,
           isolatedNodeId: stateRef.current.isolatedNodeId,
         });
