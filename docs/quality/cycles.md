@@ -1,4 +1,4 @@
-# Dependency Cycle Classification — 2026-07-25
+# Dependency Cycle Classification — 2026-07-25 (updated 2026-07-27)
 
 **Status: §0-§6 are the as-of-first-writing snapshot (10 cycles). §7 fixed E2 (10→9). §8 fixed E3
 and confirmed Button/IconButton was already dead (9→8). E1 (`engine.ts ↔ wasmLoader.ts`) is now
@@ -8,10 +8,10 @@ order-dependent WASM load behind it made it worth treating separately from a mec
 redirect). S7 (`auditFinding.ts ↔ suppressions.ts`) is now fixed too, and the full scene "16-file
 mega-cycle" question is answered in `docs/quality/scene-cycle-report.md`: no real value cycle
 exists in scene, so no `core-types.ts`/layering restructure was done — just this one fix plus a
-new type-only-edge ratchet in `scripts/audit-architecture.mjs`. Current total: 6** — scene 6 (all
-type-erased or grandfathered, §2-§4), engine 0 (fully clean), ui 0, editor 0. Kept the history
+new type-only-edge ratchet in `scripts/audit-architecture.mjs`. Current total: 4** — scene 4 (all
+type-only, grandfathered §9), engine 0, ui 0, editor 0. Kept the history
 instead of rewriting it: §0-§6 is why each cycle was or wasn't worth fixing, §7-§8 are what
-actually happened next.
+actually happened next; §9 records the 2026-07-27 remediation.
 
 Scope: classify every edge in the currently-reported dependency cycles by whether it's erased at
 compile time, assess whether any cycle causes a real runtime problem today, and replace the
@@ -87,7 +87,8 @@ cycle since 2-node cycles have exactly two directed edges).
 | S6 | brush.ts → document.ts | document→brush: `import('./brush').BrushPreset` inline, line 163 **TYPE-ONLY** | brush→document: `import('./document').Document` inline, line 637 **TYPE-ONLY** | — | — | **No — never was** |
 | S7 | auditFinding.ts → suppressions.ts | auditFinding→suppressions: `export { applySuppressions, buildSuppression, isSuppressed } from './suppressions'` **VALUE** (barrel re-export of real functions) | suppressions→auditFinding: `import type { AuditFinding }` **TYPE-ONLY** | — | — | **No** |
 
-**Headline: none of the 7 scene cycles is a real runtime cycle.** Every one of them has at least
+**Headline (historical — see §9 for current state):** none of the 7 scene cycles is a real runtime
+cycle. Every one of them has at least
 one edge that's fully erased, and in every case that's enough to break the loop. S1/S2/S4 all
 share the *same single* real edge — `document.ts → bindings.ts` (for `stripBindingForVariable`) —
 fanning out through a shared type-only spine (`bindings.ts → types.ts`) to three different
@@ -421,3 +422,50 @@ ui/src/components/IconButton.tsx` and `engine/src/raster-size.ts ↔ engine/src/
 allowlist shrunk again (`.architecture-baseline.json`'s `engine.cycles` now lists only
 `engine.ts → wasmLoader.ts`), verified with the same identity-diff check as §5/§7
 (`new: [] fixed: []`).
+
+## 9. Update, 2026-07-27 — Scene value cycle broken via document-utils extraction
+
+A subsequent architecture health remediation (see `docs/plans/architecture-health-remediation-2026-07-26.md`)
+identified one genuine runtime cycle remaining in the scene package: `document.ts` ↔
+`document-components.ts` / `document-nodes.ts` / `document-pages.ts`. All other S1-S7 cycles
+were already type-only or had been fixed by prior work.
+
+### What was done
+
+Extracted 5 shared utility functions that were causing the value back-edge (`cryptoId`,
+`makeGroupNode`, `getParent`, `validateDocument`, `devValidate`) from `document.ts` into a new
+leaf module `packages/scene/src/document-utils.ts`. Key design decision: the new module defines
+a minimal `DocumentLike` interface (structural subtype of the full `Document` type) so it never
+needs to statically import from `document.ts` — keeping the madge-visible import graph acyclic
+for value edges.
+
+### Current cycles
+
+All 3 engine cycles (E1-E3) are now resolved. E3 (raster/rasterMath) was fixed in §8. E2
+(filterCompositor/lut) was fixed in §7. E1 (engine/wasmLoader) was resolved by dependency
+inversion (see `docs/quality/wasm-engine-cycle.md`).
+
+All 7 original scene cycles (S1-S7) are resolved. The only remaining cycles are type-only
+`import type { Document }` edges from the document submodules:
+
+| # | Cycle (madge) | Back-edge | Runtime cycle? |
+|---|---|---|---|
+| S9.1 | document-components.ts → document-nodes.ts → component-sync.ts → document.ts | `import type { Document }` — all type-only | **No** |
+| S9.2 | document-components.ts → document-nodes.ts → document.ts | `import type { Document }` — all type-only | **No** |
+| S9.3 | document-components.ts → document.ts | `import type { Document }` — all type-only | **No** |
+| S9.4 | document-pages.ts → document.ts | `import type { Document }` — all type-only | **No** |
+
+**Total: 4 cycles, all scene, all type-only, all grandfathered.** Engine/ui/editor: fully clean.
+
+### Ratchet
+
+`.architecture-baseline.json` was regenerated with `--all --update`. The identity-based allowlist
+now records only these 4 scene cycles. Any value cycle introduced in future work will be caught
+as an unallowlisted regression.
+
+### Verification
+
+- `npx madge --circular` on engine → `[]`
+- `npx madge --circular` on scene → 4 cycles (all documented above)
+- `npx madge --circular` on editor, ui → `[]`
+- `node scripts/audit-architecture.mjs --ci` → clean
