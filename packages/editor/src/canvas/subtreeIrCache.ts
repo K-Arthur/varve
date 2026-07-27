@@ -56,6 +56,41 @@ function rasterLayerVersionSummary(data: NonNullable<EngineNode['rasterLayerData
   return `raster:${width}x${height}:${pixelMode ? 'pixel' : 'image'}:t${tileKeys.length}:v${versionSum}`;
 }
 
+/**
+ * Image `src` values are data URLs that can be several megabytes. The content
+ * hash walks every character of every part (see {@link SubtreeIrCache.nodeHash})
+ * and JSON.stringify copies the whole string, so hashing a raw image fill costs
+ * O(image bytes) *per frame* — even on a cache hit, and even for a scene with a
+ * handful of nodes. That untimed cost (it sits outside buildIr timing) is what
+ * makes an image-bearing canvas feel sluggish on every pan/zoom/edit.
+ *
+ * Replace long src strings with a cheap, stable fingerprint. Image fills carry
+ * a short `assetId` (a content reference into Document.assets) which is kept in
+ * the hash and already discriminates image identity; real src swaps are also
+ * caught by explicit cache invalidation from document diffing. So the content
+ * hash only needs a cheap defence-in-depth signal here, not a full byte hash.
+ * Short srcs (file paths, remote URLs) are hashed verbatim.
+ */
+const MAX_INLINE_SRC = 256;
+export function imageSrcHashProxy(src: string): string {
+  const n = src.length;
+  if (n <= MAX_INLINE_SRC) return src;
+  // Sample ~32 chars spread across the payload so two different images of equal
+  // byte length still produce different fingerprints. Char indexing is O(1),
+  // so this is bounded regardless of image size.
+  let sample = '';
+  const step = Math.max(1, (n / 32) | 0);
+  for (let i = 0; i < n; i += step) sample += src[i];
+  return `${n}:${sample}`;
+}
+
+/** JSON.stringify replacer that shortens megabyte image src data URLs. */
+function fillHashReplacer(_key: string, value: unknown): unknown {
+  return _key === 'src' && typeof value === 'string' && value.length > MAX_INLINE_SRC
+    ? imageSrcHashProxy(value)
+    : value;
+}
+
 /** Extract all render-relevant fields from an EngineNode for hashing.
  *
  * Returns a SubHashReport with both the content parts array (for the primary
@@ -109,11 +144,11 @@ export function cacheContentParts(en: EngineNode): SubHashReport {
   }
 
   if (en.fill) {
-    parts.push(JSON.stringify(en.fill));
+    parts.push(JSON.stringify(en.fill, fillHashReplacer));
     sub.paint = true;
   }
   if (en.fills && en.fills.length > 0) {
-    parts.push(JSON.stringify(en.fills));
+    parts.push(JSON.stringify(en.fills, fillHashReplacer));
     sub.paint = true;
   }
   if (en.strokes && en.strokes.length > 0) {
@@ -220,7 +255,7 @@ export function cacheContentParts(en: EngineNode): SubHashReport {
   }
 
   if (en.src) {
-    parts.push(`src:${en.src}`);
+    parts.push(`src:${imageSrcHashProxy(en.src)}`);
     sub.image = true;
   }
   if (en.rasterLayerData) {

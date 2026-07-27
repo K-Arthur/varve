@@ -586,4 +586,75 @@ describe('SubtreeIrCache', () => {
       expect(cache.entryCount).toBe(1);
     });
   });
+
+  // Regression: image src data URLs (multiple MB) must not be hashed verbatim
+  // every frame. Doing so made cacheContentParts + nodeHash cost O(image bytes)
+  // per redraw — ~11ms/frame for a 2MB image — even on cache hits, making an
+  // image-bearing canvas sluggish on every pan/zoom/edit.
+  describe('image src is fingerprinted, not hashed verbatim', () => {
+    const bigSrc = (seed: string) => `data:image/png;base64,${seed.repeat(500000)}`;
+
+    it('does not embed the full src data URL in the content parts', () => {
+      const src = bigSrc('AB'); // ~1MB
+      const parts = report(makeNode({ kind: 'image', src }));
+      const joined = parts.join('|');
+      expect(joined).not.toContain(src);
+      // Fingerprint is bounded regardless of image size.
+      expect(joined.length).toBeLessThan(512);
+    });
+
+    it('does not embed a full image fill src data URL either', () => {
+      const src = bigSrc('CD');
+      const imageFill = {
+        kind: 'image',
+        src,
+        fit: 'fill',
+        assetId: 'asset_1',
+      } as unknown as EngineFill;
+      const parts = report(makeNode({ kind: 'shape', fills: [imageFill] }));
+      const joined = parts.join('|');
+      expect(joined).not.toContain(src);
+      expect(joined).toContain('asset_1'); // identity kept in the hash
+      expect(joined.length).toBeLessThan(512);
+    });
+
+    it('still distinguishes different images (no false cache hits)', () => {
+      const a = SubtreeIrCache.nodeHash(
+        'n',
+        [1, 0, 0, 1, 0, 0],
+        '',
+        report(makeNode({ kind: 'image', src: bigSrc('AB') })),
+      );
+      const b = SubtreeIrCache.nodeHash(
+        'n',
+        [1, 0, 0, 1, 0, 0],
+        '',
+        report(makeNode({ kind: 'image', src: bigSrc('CD') })),
+      );
+      expect(a).not.toBe(b);
+    });
+
+    it('is stable for the same image (cache hits keep working)', () => {
+      const src = bigSrc('AB');
+      const a = SubtreeIrCache.nodeHash(
+        'n',
+        [1, 0, 0, 1, 0, 0],
+        '',
+        report(makeNode({ kind: 'image', src })),
+      );
+      const b = SubtreeIrCache.nodeHash(
+        'n',
+        [1, 0, 0, 1, 0, 0],
+        '',
+        report(makeNode({ kind: 'image', src })),
+      );
+      expect(a).toBe(b);
+    });
+
+    it('hashes short srcs (paths/URLs) verbatim', () => {
+      const src = 'https://example.com/img.png';
+      const parts = report(makeNode({ kind: 'image', src }));
+      expect(parts.join('|')).toContain(src);
+    });
+  });
 });
