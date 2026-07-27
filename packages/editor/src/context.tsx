@@ -2049,6 +2049,7 @@ export function EditorProvider({
       pixelGridSnapEnabled: false,
       dotGridEnabled: false,
       findingsOverlayVisible: false,
+      findingsProviderOverrides: {},
       canUndo: false,
       canRedo: false,
       undoLabel: 'Undo',
@@ -6789,6 +6790,13 @@ export function EditorProvider({
       },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
       setFindingsOverlayVisible: (v) => patch({ findingsOverlayVisible: v }),
+      setFindingsProviderOverride: (providerId) =>
+        patch({
+          findingsProviderOverrides: {
+            ...state.findingsProviderOverrides,
+            [providerId]: !state.findingsProviderOverrides[providerId],
+          },
+        }),
       setColorBlindnessView: (type) => patch({ colorBlindnessView: type }),
       setForegroundColor: (color) => patch({ foregroundColor: color }),
       setBackgroundColor: (color) => patch({ backgroundColor: color }),
