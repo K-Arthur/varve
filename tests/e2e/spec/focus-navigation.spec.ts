@@ -345,4 +345,59 @@ test.describe('Focus Navigation', () => {
       expect(hiddenFocusable).toBe(0);
     });
   });
+
+  test.describe('Resolved limitation regressions', () => {
+    test('canvas focus ring appears on keyboard focus, not mouse click', async ({ page }) => {
+      await navigateToEditor(page);
+      await page.waitForTimeout(500);
+
+      const canvas = await getCanvas(page);
+
+      // Mouse click should NOT show the focus ring
+      await canvas.click({ position: { x: 100, y: 100 } });
+      await page.waitForTimeout(200);
+      const hasRingAfterClick = await page.evaluate(() => {
+        const section = document.querySelector('.editor-canvas') as HTMLElement | null;
+        return section?.getAttribute('data-canvas-focus-visible') === 'true';
+      });
+      expect(hasRingAfterClick).toBe(false);
+
+      // Keyboard focus (Tab to canvas) SHOULD show the focus ring
+      await page.keyboard.press('F6'); // or some shortcut that focuses canvas
+      // Alternative: Tab until we reach the canvas
+      for (let i = 0; i < 10; i++) {
+        await page.keyboard.press('Tab');
+        const isCanvas = await page.evaluate(() => {
+          const el = document.activeElement;
+          return el?.getAttribute('data-testid') === 'editor-canvas';
+        });
+        if (isCanvas) break;
+      }
+      await page.waitForTimeout(200);
+      const hasRingAfterKeyboard = await page.evaluate(() => {
+        const section = document.querySelector('.editor-canvas') as HTMLElement | null;
+        return section?.getAttribute('data-canvas-focus-visible') === 'true';
+      });
+      expect(hasRingAfterKeyboard).toBe(true);
+    });
+
+    test('canvas has aria-describedby pointing to announcer', async ({ page }) => {
+      await navigateToEditor(page);
+      await page.waitForTimeout(500);
+
+      const describedby = await page.evaluate(() => {
+        const canvas = document.querySelector(
+          '[data-testid="editor-canvas"]',
+        ) as HTMLElement | null;
+        return canvas?.getAttribute('aria-describedby') ?? null;
+      });
+      expect(describedby).toBe('strata-canvas-announcer-polite');
+
+      const announcerExists = await page.evaluate(() => {
+        const el = document.getElementById('strata-canvas-announcer-polite');
+        return el !== null && el.getAttribute('aria-live') === 'polite';
+      });
+      expect(announcerExists).toBe(true);
+    });
+  });
 });

@@ -86,6 +86,33 @@ function arrayBufferForBytes(data: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
+/**
+ * Wrap an async Tauri-dialog call with focus save/restore.
+ *
+ * When a native Tauri dialog opens, the webview loses OS-level focus.
+ * On close, the webview regains OS focus but no DOM element is focused.
+ * This wrapper saves the active element before the dialog opens and
+ * restores focus to it when the dialog closes. If the saved element is
+ * no longer in the DOM (e.g. a panel was closed during the dialog),
+ * focus falls back to document.body which is safe and predictable.
+ */
+async function withFocusRestore<T>(fn: () => Promise<T>): Promise<T> {
+  const saved = document.activeElement as HTMLElement | null;
+  try {
+    return await fn();
+  } finally {
+    requestAnimationFrame(() => {
+      if (saved && saved !== document.body && document.contains(saved)) {
+        saved.focus({ preventScroll: true });
+      } else if (saved) {
+        // Element was removed from DOM — nothing meaningful to restore to.
+        // Leaving focus on document.body is the correct fallback; the user
+        // can Tab back into the UI from there.
+      }
+    });
+  }
+}
+
 export function createTauriPlatform(): Platform {
   const platform: Platform = {
     kind: 'tauri',
@@ -500,71 +527,79 @@ export function createTauriPlatform(): Platform {
     },
 
     async openDocumentFromDisk() {
-      const c = core();
-      const picked = (await c.invoke('plugin:dialog|open', {
-        options: {
-          multiple: false,
-          filters: [{ name: 'Strata document', extensions: ['strata'] }],
-        },
-      })) as Array<{ path?: string; name?: string; content?: string }> | null;
-      const first = picked?.[0];
-      if (!first?.path) return null;
-      const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
-      return ingest(first.name ?? 'untitled.strata', text);
+      return withFocusRestore(async () => {
+        const c = core();
+        const picked = (await c.invoke('plugin:dialog|open', {
+          options: {
+            multiple: false,
+            filters: [{ name: 'Strata document', extensions: ['strata'] }],
+          },
+        })) as Array<{ path?: string; name?: string; content?: string }> | null;
+        const first = picked?.[0];
+        if (!first?.path) return null;
+        const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
+        return ingest(first.name ?? 'untitled.strata', text);
+      });
     },
 
     async importDocumentFromDisk(extensions) {
-      const c = core();
-      const picked = (await c.invoke('plugin:dialog|open', {
-        options: {
-          multiple: false,
-          filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
-        },
-      })) as Array<{ path?: string; name?: string }> | null;
-      const first = picked?.[0];
-      if (!first?.path || !first.name) return { result: null, unsupported: false };
-      const kind = detectFileKind(first.name);
-      if (kind === 'unknown') return { result: null, unsupported: true };
-      const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
-      if (kind !== 'strata') {
-        const entry = capture(first.name, text, kind);
-        return { result: { entry, documentJson: text }, unsupported: false };
-      }
-      return { result: ingest(first.name, text), unsupported: false };
+      return withFocusRestore(async () => {
+        const c = core();
+        const picked = (await c.invoke('plugin:dialog|open', {
+          options: {
+            multiple: false,
+            filters: [{ name: 'Import', extensions: extensions.map((e) => e.replace(/^\./, '')) }],
+          },
+        })) as Array<{ path?: string; name?: string }> | null;
+        const first = picked?.[0];
+        if (!first?.path || !first.name) return { result: null, unsupported: false };
+        const kind = detectFileKind(first.name);
+        if (kind === 'unknown') return { result: null, unsupported: true };
+        const text = (await c.invoke('home_read_text_file', { path: first.path })) as string;
+        if (kind !== 'strata') {
+          const entry = capture(first.name, text, kind);
+          return { result: { entry, documentJson: text }, unsupported: false };
+        }
+        return { result: ingest(first.name, text), unsupported: false };
+      });
     },
 
     async saveDocumentToDisk(name, documentJson) {
-      const c = core();
-      const suggested = name.endsWith('.strata') ? name : `${name}.strata`;
-      const path = (await c.invoke('plugin:dialog|save', {
-        options: {
-          defaultPath: suggested,
-          filters: [{ name: 'Strata document', extensions: ['strata'] }],
-        },
-      })) as string | null;
-      if (!path) return null;
-      await c.invoke('home_write_text_file', { path, contents: documentJson });
-      return path;
-    },
-    async saveBinaryFile(name, data, mimeType, extension) {
-      const c = core();
-      const ext = extension.replace(/^\./, '');
-      const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
-      try {
+      return withFocusRestore(async () => {
+        const c = core();
+        const suggested = name.endsWith('.strata') ? name : `${name}.strata`;
         const path = (await c.invoke('plugin:dialog|save', {
           options: {
             defaultPath: suggested,
-            filters: [{ name: mimeType, extensions: [ext] }],
+            filters: [{ name: 'Strata document', extensions: ['strata'] }],
           },
         })) as string | null;
         if (!path) return null;
-        await c.invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
+        await c.invoke('home_write_text_file', { path, contents: documentJson });
         return path;
-      } catch (e) {
-        // Tauri IPC rejects with the raw error payload (often a plain string,
-        // not an Error), which loses its message when callers assume `.message`.
-        throw e instanceof Error ? e : new Error(String(e));
-      }
+      });
+    },
+    async saveBinaryFile(name, data, mimeType, extension) {
+      return withFocusRestore(async () => {
+        const c = core();
+        const ext = extension.replace(/^\./, '');
+        const suggested = name.endsWith(`.${ext}`) ? name : `${name}.${ext}`;
+        try {
+          const path = (await c.invoke('plugin:dialog|save', {
+            options: {
+              defaultPath: suggested,
+              filters: [{ name: mimeType, extensions: [ext] }],
+            },
+          })) as string | null;
+          if (!path) return null;
+          await c.invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
+          return path;
+        } catch (e) {
+          // Tauri IPC rejects with the raw error payload (often a plain string,
+          // not an Error), which loses its message when callers assume `.message`.
+          throw e instanceof Error ? e : new Error(String(e));
+        }
+      });
     },
 
     async listPrinters() {

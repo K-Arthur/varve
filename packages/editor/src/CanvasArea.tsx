@@ -488,6 +488,27 @@ export function CanvasArea({
   useEffect(() => {
     enableDrawDiagnostics(settings.performance.showPerformanceDiagnostics);
   }, [settings.performance.showPerformanceDiagnostics]);
+
+  // Track keyboard focus on the inner canvas to drive the parent section's
+  // focus-visible ring. Mouse clicks fire focus but we suppress the ring
+  // for them — only :focus-visible (keyboard) shows it.
+  const handleCanvasFocus = useCallback(() => {
+    const canvas = contentCanvasRef.current;
+    if (!canvas) return;
+    const section = canvas.closest('.editor-canvas') as HTMLElement | null;
+    if (!section) return;
+    if (canvas.matches(':focus-visible')) {
+      section.setAttribute('data-canvas-focus-visible', 'true');
+    }
+  }, []);
+
+  const handleCanvasBlur = useCallback(() => {
+    const canvas = contentCanvasRef.current;
+    if (!canvas) return;
+    const section = canvas.closest('.editor-canvas') as HTMLElement | null;
+    if (!section) return;
+    section.removeAttribute('data-canvas-focus-visible');
+  }, []);
   // Frame/group spatial index, cached by fingerprint for fast drag containment.
   const frameIndexRef = useRef<FrameSpatialIndex | null>(null);
   const snapIndexRef = useRef<{
@@ -2808,9 +2829,12 @@ export function CanvasArea({
         tabIndex={0}
         aria-roledescription="Design canvas"
         aria-label="Design canvas"
+        aria-describedby="strata-canvas-announcer-polite"
         data-testid="editor-canvas"
         className="editor-canvas__content-layer"
         style={{ cursor }}
+        onFocus={handleCanvasFocus}
+        onBlur={handleCanvasBlur}
         onKeyDown={input.handleKeyDown}
         onKeyUp={input.handleKeyUp}
         onDoubleClick={input.handleDoubleClick}
@@ -2819,7 +2843,6 @@ export function CanvasArea({
         onPointerUp={input.handlePointerUp}
         onPointerCancel={input.handlePointerCancel}
         onPointerLeave={input.onPointerLeave}
-        onBlur={input.onBlur}
       />
       <canvas
         ref={overlayCanvasRef}
