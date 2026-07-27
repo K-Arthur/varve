@@ -2226,7 +2226,7 @@ export function Menubar({
       {/* ── Right: Workspace switcher + Zoom + Undo/Redo ── */}
       <div className="editor-menubar__controls">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
-          {(ALL_WORKSPACE_MODES as readonly WorkspaceMode[]).map((mode, idx) => {
+          {(ALL_WORKSPACE_MODES as readonly WorkspaceMode[]).map((mode, _idx) => {
             // Direct mapping from workspace mode to SolidIcon name
             const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> = {
               design: 'penTool',
