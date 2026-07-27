@@ -14,6 +14,27 @@ vi.mock('@floating-ui/dom', () => ({
   offset: vi.fn(),
 }));
 
+const pointerEnter = (el: Element, init?: PointerEventInit) => {
+  if (typeof window.PointerEvent !== 'undefined') {
+    return fireEvent.pointerEnter(el, init);
+  }
+  return fireEvent.mouseEnter(el);
+};
+
+const pointerLeave = (el: Element, init?: PointerEventInit) => {
+  if (typeof window.PointerEvent !== 'undefined') {
+    return fireEvent.pointerLeave(el, init);
+  }
+  return fireEvent.mouseLeave(el);
+};
+
+const pointerDown = (el: Element, init?: PointerEventInit) => {
+  if (typeof window.PointerEvent !== 'undefined') {
+    return fireEvent.pointerDown(el, init);
+  }
+  return fireEvent.mouseDown(el);
+};
+
 describe('Tooltip', () => {
   it('does not render tooltip initially', () => {
     render(
@@ -31,7 +52,7 @@ describe('Tooltip', () => {
       </Tooltip>,
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
-    fireEvent.mouseEnter(trigger);
+    pointerEnter(trigger);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
     const tooltip = await screen.findByRole('tooltip', {}, { timeout: 500 });
@@ -65,7 +86,7 @@ describe('Tooltip', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
-  it('has correct role and aria-describedby linkage', () => {
+  it('places aria-describedby on the trigger, not a wrapper', () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -75,8 +96,8 @@ describe('Tooltip', () => {
     fireEvent.focus(button);
     const tooltip = screen.getByRole('tooltip');
     expect(tooltip).toHaveAttribute('id');
-    const wrapper = button.parentElement;
-    expect(wrapper).toHaveAttribute('aria-describedby', tooltip.id);
+    expect(button).toHaveAttribute('aria-describedby', tooltip.id);
+    expect(button.parentElement).not.toHaveAttribute('aria-describedby');
   });
 
   it('does not render when label is empty', () => {
@@ -102,7 +123,7 @@ describe('Tooltip', () => {
     expect(shortcut).toHaveTextContent('V');
   });
 
-  it('hides on mouse leave', () => {
+  it('hides on pointer leave', () => {
     render(
       <Tooltip label="Helpful tip">
         <button type="button">Trigger</button>
@@ -112,7 +133,7 @@ describe('Tooltip', () => {
     fireEvent.focus(trigger);
     expect(screen.getByRole('tooltip')).toBeInTheDocument();
 
-    fireEvent.mouseLeave(trigger);
+    pointerLeave(trigger);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 
@@ -138,7 +159,7 @@ describe('Tooltip', () => {
       </Tooltip>,
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
-    fireEvent.mouseEnter(trigger);
+    pointerEnter(trigger);
     unmount();
     expect(clearTimeoutSpy).toHaveBeenCalled();
     clearTimeoutSpy.mockRestore();
@@ -152,11 +173,52 @@ describe('Tooltip', () => {
       </Tooltip>,
     );
     const trigger = screen.getByRole('button', { name: 'Trigger' });
-    fireEvent.mouseEnter(trigger);
+    pointerEnter(trigger);
     unmount();
     vi.advanceTimersByTime(200);
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it('does not open on hover while a pointer button is held', () => {
+    render(
+      <Tooltip label="Helpful tip" delay={0}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    pointerEnter(trigger, { buttons: 1 });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('closes and suppresses open on pointer down', () => {
+    render(
+      <Tooltip label="Helpful tip">
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.focus(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    pointerDown(trigger);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('can be controlled', () => {
+    const { rerender } = render(
+      <Tooltip label="Controlled" open={false} onOpenChange={() => {}}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+
+    rerender(
+      <Tooltip label="Controlled" open onOpenChange={() => {}}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
   });
 });
 
@@ -188,7 +250,7 @@ describe('TooltipProvider warm-up timing', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
 
     act(() => {
-      fireEvent.mouseEnter(buttonTwo);
+      pointerEnter(buttonTwo);
       vi.advanceTimersByTime(100);
     });
     expect(screen.getByRole('tooltip')).toHaveTextContent('Second');
@@ -206,6 +268,119 @@ describe('Tooltip truncation-only mode', () => {
     );
     const trigger = screen.getByRole('button', { name: 'Short' });
     fireEvent.focus(trigger);
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+  });
+
+  it('observes the trigger with ResizeObserver in truncation-only mode', () => {
+    const roSpy = vi.spyOn(global, 'ResizeObserver').mockImplementation(
+      () =>
+        ({
+          observe: vi.fn(),
+          disconnect: vi.fn(),
+          unobserve: vi.fn(),
+        }) as unknown as ResizeObserver,
+    );
+    const { container } = render(
+      <Tooltip label="Full text" truncationOnly>
+        <span
+          style={{
+            display: 'inline-block',
+            width: '20px',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Very long truncated text
+        </span>
+      </Tooltip>,
+    );
+    const trigger = container.querySelector('span') as HTMLElement;
+    fireEvent.focus(trigger);
+    expect(roSpy).toHaveBeenCalled();
+    roSpy.mockRestore();
+  });
+});
+
+describe('Tooltip close delay', () => {
+  it('waits for closeDelay before hiding', () => {
+    vi.useFakeTimers();
+    render(
+      <Tooltip label="Helpful tip" closeDelay={100}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.focus(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    pointerLeave(trigger);
+    expect(screen.getByRole('tooltip')).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(100);
+    });
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
+    vi.useRealTimers();
+  });
+});
+
+describe('Tooltip disabled wrapper', () => {
+  it('wraps a disabled trigger and shows disabledReason as tooltip content', () => {
+    render(
+      <Tooltip label="Default" disabledReason="Select 2+ shapes for boolean">
+        <button type="button" disabled>
+          Boolean
+        </button>
+      </Tooltip>,
+    );
+    const wrapper = screen.getByRole('button', { name: 'Boolean' }).parentElement;
+    expect(wrapper).toHaveAttribute('tabIndex', '0');
+    fireEvent.focus(wrapper!);
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Select 2+ shapes for boolean');
+  });
+});
+
+describe('Tooltip aria-describedby merging', () => {
+  it('merges with an existing aria-describedby on the trigger', () => {
+    render(
+      <Tooltip label="Extra description">
+        <button type="button" aria-describedby="existing-id">
+          Trigger
+        </button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.focus(trigger);
+    const tooltip = screen.getByRole('tooltip');
+    expect(trigger).toHaveAttribute('aria-describedby', expect.stringContaining('existing-id'));
+    expect(trigger).toHaveAttribute('aria-describedby', expect.stringContaining(tooltip.id));
+  });
+});
+
+describe('Tooltip controlled mode', () => {
+  it('calls onOpenChange when opened via focus', () => {
+    const onOpenChange = vi.fn();
+    render(
+      <Tooltip label="Controlled" open={false} onOpenChange={onOpenChange}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    fireEvent.focus(trigger);
+    expect(onOpenChange).toHaveBeenCalledWith(true);
+  });
+});
+
+describe('Tooltip touch suppression', () => {
+  it('does not open on touch pointer enter', () => {
+    render(
+      <Tooltip label="Helpful tip" delay={0}>
+        <button type="button">Trigger</button>
+      </Tooltip>,
+    );
+    const trigger = screen.getByRole('button', { name: 'Trigger' });
+    pointerEnter(trigger, { pointerType: 'touch' });
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument();
   });
 });

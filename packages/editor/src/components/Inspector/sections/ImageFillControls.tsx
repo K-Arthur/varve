@@ -44,6 +44,8 @@ export function ImageFillControls({
   image,
   onChange,
   registerAsset,
+  onResetUpscale,
+  onReUpscale,
 }: {
   image: ImageFillData;
   onChange: (img: ImageFillData) => void;
@@ -54,6 +56,10 @@ export function ImageFillControls({
    * to the previous inline-src behavior when omitted.
    */
   registerAsset?: (input: EmbeddedAssetInput) => string;
+  /** Callback to reset non-destructive upscale to original. */
+  onResetUpscale?: () => void;
+  /** Callback to re-upscale with new settings. */
+  onReUpscale?: () => void;
 }) {
   const fileInputId = useId();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -117,14 +123,14 @@ export function ImageFillControls({
   return (
     <div className="insp-image-fill">
       {hasSrc && (
-        <div
+        <button
+          type="button"
           className="insp-image-fill__preview"
-          aria-hidden
-          title="Click to replace image"
+          aria-label="Replace image"
           onClick={() => fileRef.current?.click()}
         >
           <img src={image.src} alt="" className="insp-image-fill__preview-img" />
-        </div>
+        </button>
       )}
 
       <div className="insp-image-fill__actions">
@@ -159,15 +165,16 @@ export function ImageFillControls({
       </div>
 
       <FieldRow label="Source">
-        <input
-          type="text"
-          value={image.src}
-          onChange={handleSrcChange}
-          aria-label="Image source URL"
-          placeholder="URL or choose a file"
-          className="insp-num__input insp-image-fill__src"
-          title={image.src}
-        />
+        <Tooltip label={image.src} truncationOnly>
+          <input
+            type="text"
+            value={image.src}
+            onChange={handleSrcChange}
+            aria-label="Image source URL"
+            placeholder="URL or choose a file"
+            className="insp-num__input insp-image-fill__src"
+          />
+        </Tooltip>
         <Tooltip label="Copy source URL">
           <button
             type="button"
@@ -258,6 +265,43 @@ export function ImageFillControls({
                 <span>Reset</span>
               </button>
             </Tooltip>
+          </div>
+        </FieldRow>
+      )}
+      {image.upscale && (
+        <FieldRow label="Upscale">
+          <div className="insp-image-fill__upscale-info">
+            <span className="insp-hint">
+              {image.upscale.mode} {image.upscale.scale}x
+            </span>
+            <div className="insp-image-fill__upscale-actions">
+              {onResetUpscale && (
+                <Tooltip label="Reset to original image">
+                  <button
+                    type="button"
+                    className="insp-inline-btn"
+                    aria-label="Reset upscale"
+                    onClick={onResetUpscale}
+                  >
+                    <Icon name="RotateCcw" label={undefined} size="0.85em" />
+                    <span>Reset</span>
+                  </button>
+                </Tooltip>
+              )}
+              {onReUpscale && (
+                <Tooltip label="Re-upscale with new settings">
+                  <button
+                    type="button"
+                    className="insp-inline-btn"
+                    aria-label="Re-upscale"
+                    onClick={onReUpscale}
+                  >
+                    <Icon name="Settings" label={undefined} size="0.85em" />
+                    <span>Re-upscale</span>
+                  </button>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </FieldRow>
       )}
