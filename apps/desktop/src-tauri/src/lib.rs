@@ -1,3 +1,4 @@
+mod font;
 mod menu;
 mod print;
 mod renderer;
@@ -2149,6 +2150,8 @@ pub fn run() {
             export_pdfx4,
             outline_text,
             export_pdf_with_options,
+            // Native font enumeration
+            font::enumerate_system_fonts,
             // Native OS print
             list_printers,
             print_pdf,
