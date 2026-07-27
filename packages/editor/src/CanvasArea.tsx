@@ -86,6 +86,7 @@ import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { useOverlayDraw } from './canvas/overlayManager';
 import {
+  cancelCanvasFrame,
   createCanvasFrameKey,
   enableDrawDiagnostics,
   endFrameTiming,
@@ -2313,8 +2314,11 @@ export function CanvasArea({
       if (drawPendingRef.current) {
         drawPendingRef.current = false;
         // A trigger arrived while this draw was in flight — schedule one more
-        // pass via the frame scheduler to reflect the latest state.
-        scheduleCanvasFrame(contentFrameKey, 'canvas', () => drawContent());
+        // pass via the frame scheduler to reflect the latest state. Uses the
+        // single shared content key so it coalesces with any reactive/imperative
+        // draw already queued for the same frame.
+        const pendingKey = contentDrawFrameKey.current;
+        if (pendingKey) scheduleCanvasFrame(pendingKey, 'canvas', () => drawContent());
       }
     });
   }, [
@@ -2353,23 +2357,37 @@ export function CanvasArea({
   const requestRedrawRef = useRef<() => void>(requestRedraw);
   requestRedrawRef.current = requestRedraw;
 
-  // Scheduler key for the draw-content job
-  const contentFrameKey = useMemo(() => createCanvasFrameKey('draw-content'), []);
-
+  // Imperative redraw trigger for non-React draw sources — engine/compositor
+  // init resolving in a microtask, worker frame replies, context-restore. It
+  // schedules a draw immediately (so those get onto the current frame without
+  // waiting for a React commit) AND bumps redrawCount so the reactive
+  // RAF-scheduling effect below re-fires for good measure. Both use the single
+  // `contentDrawFrameKey`, so the scheduler coalesces them into one RAF job.
   useEffect(() => {
-    const key = contentFrameKey;
     requestContentDrawRef.current = () => {
-      // Schedule the draw via the frame scheduler's canvas lane.
-      // Multiple triggers within the same frame coalesce — the scheduler
-      // replaces jobs with the same key, so only one RAF callback fires.
-      scheduleCanvasFrame(key, 'canvas', () => {
-        drawContent();
-      });
-      // Still bump the redraw counter so the React render cycle re-fires
-      // the effects that recreate drawContent on state change.
+      const key = contentDrawFrameKey.current;
+      if (key) scheduleCanvasFrame(key, 'canvas', () => drawContent());
       requestRedrawRef.current();
     };
-  }, [drawContent, requestRedraw, contentFrameKey]);
+  }, [drawContent]);
+
+  // ── RAF scheduling ──────────────────────────────────────────────────────
+  // drawContent's identity changes on every document edit, camera move, resize,
+  // and theme change (all reach its dependency array, themeRevision included).
+  // Schedule a canvas redraw whenever it does, so the painted content stays in
+  // sync with the reactive SVG overlays (name labels, selection box). Without
+  // this the canvas only repaints on the imperative triggers above, leaving the
+  // content stale while overlays move — labels appear to detach/stick.
+  useEffect(() => {
+    const frameKey = contentDrawFrameKey.current;
+    if (!frameKey) return;
+    scheduleCanvasFrame(frameKey, 'canvas', () => {
+      drawContent();
+    });
+    return () => {
+      cancelCanvasFrame(frameKey);
+    };
+  }, [drawContent]);
 
   // ── Overlay draw pipeline ──────────────────────────────────────────────
   useOverlayDraw({
