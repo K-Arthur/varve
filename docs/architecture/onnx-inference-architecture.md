@@ -190,7 +190,7 @@ INT8 models are NOT automatically selected. The policy engine considers:
 
 1. **9 of 17 manifest models have null SHA-256** — cannot be securely downloaded
 2. **`birefnet-general` (928 MB)** has no checksum and no download URL — effectively unusable
-3. **`native_colorize_infer` Tauri command** is a stub that always returns an error
+3. **`native_colorize_infer` Tauri command** was a stub that always returned an error and has been removed. Colorization routes exclusively through the browser-worker (WASM) DDColor path. See `docs/quality/tauri-command-audit.md` for the removal record.
 4. **SAM2 small, TrOCR, font-detection** models are listed but have no download URLs
 5. **`fetch-onnxruntime.mjs`** silently exits with code 0 on any error
 6. **Rust session pool** limits are hardcoded (max 2 sessions, 2 concurrent, 1.5 GB)
