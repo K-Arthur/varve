@@ -7,7 +7,7 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import { activePageNodes, canBeClipMaskSource, type NodeId, walkNodes } from '@strata/scene';
+import { canBeClipMaskSource, type NodeId } from '@strata/scene';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
