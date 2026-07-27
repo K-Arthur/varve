@@ -1363,11 +1363,13 @@ export function CanvasArea({
       const canUsePerNodeIrCache = s.canvasMode === 'full';
       let ir: Awaited<ReturnType<Engine['buildIr']>>;
       let buildIrMs = 0;
+      let hashMs = 0;
       let replayStartTime = 0;
       let replayMs = 0;
       let cacheHitsInFrame = 0;
 
       if (canUsePerNodeIrCache && nodeIds.length > 0) {
+        const hashStart = performance.now();
         const irSlots: Array<Awaited<ReturnType<Engine['buildIr']>>[number] | undefined> =
           new Array(nodeIds.length);
         const nodesToBuild: EngineNode[] = [];
@@ -1397,6 +1399,9 @@ export function CanvasArea({
           nodesToBuild.push(fn);
           buildSlotIndices.push(i);
         }
+        // Per-frame hash-loop cost: sits inside the frame but outside buildIrMs,
+        // so it is otherwise invisible in diagnostics (see FrameDiagnostics.hashMs).
+        hashMs = performance.now() - hashStart;
 
         if (buildSlotIndices.length === 0) {
           ir = irSlots as Awaited<ReturnType<Engine['buildIr']>>;
@@ -2282,6 +2287,7 @@ export function CanvasArea({
         culledCount: hiddenByContainer.size,
         cacheHitCount: cacheHitsInFrame,
         buildIrMs,
+        hashMs,
         replayMs,
         totalMs: budget.elapsedMs,
         renderPath: needsStructural
