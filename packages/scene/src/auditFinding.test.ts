@@ -408,7 +408,7 @@ describe('AuditFinding canonical type', () => {
     ];
     expect(categories.length).toBe(19);
     // All compile — this test verifies the type discriminant is exhaustive
-    const u: string = categories[0];
+    const u: string | undefined = categories[0];
     expect(u).toBeTruthy();
   });
 });
