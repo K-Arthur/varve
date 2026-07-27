@@ -1,4 +1,5 @@
 mod font;
+mod font_storage;
 mod menu;
 mod print;
 mod renderer;
@@ -2182,6 +2183,12 @@ pub fn run() {
             export_pdf_with_options,
             // Native font enumeration
             font::enumerate_system_fonts,
+            // Native font filesystem storage
+            font_storage::store_font_on_filesystem,
+            font_storage::load_font_from_filesystem,
+            font_storage::list_filesystem_fonts,
+            font_storage::remove_font_from_filesystem,
+            font_storage::get_filesystem_font_storage_usage,
             // Native model file storage
             read_model_file,
             write_model_file,

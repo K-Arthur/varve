@@ -253,7 +253,8 @@ function DrawingToolbarControls() {
 }
 
 export function FloatingToolbar() {
-  const { state, setTool, booleanOp, selectedNodes, workspaceMode, setTouchMultiSelect } = useEditor();
+  const { state, setTool, booleanOp, selectedNodes, workspaceMode, setTouchMultiSelect } =
+    useEditor();
   const [shapeMenuPos, setShapeMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [booleanMenuPos, setBooleanMenuPos] = useState<{ x: number; y: number } | null>(null);
   const canBoolean = selectedNodes().filter((n) => n.kind === 'shape').length >= 2;
@@ -391,16 +392,36 @@ export function FloatingToolbar() {
               </>
             )}
             <ToolOptionsPopover />
-            <Tooltip label={state.touchMultiSelect.active ? 'Multi-select active (tap to toggle)' : 'Touch multi-select'}>
+            <Tooltip
+              label={
+                state.touchMultiSelect.active
+                  ? 'Multi-select active (tap to toggle)'
+                  : 'Touch multi-select'
+              }
+            >
               <button
                 type="button"
                 className={`floating-toolbar__btn floating-toolbar__touch-multi${state.touchMultiSelect.active ? ` ${TOUCH_MULTISELECT_ACTIVE_CLASS}` : ''}`}
                 aria-pressed={state.touchMultiSelect.active}
-                aria-label={state.touchMultiSelect.active ? 'Disable touch multi-select' : 'Enable touch multi-select'}
+                aria-label={
+                  state.touchMultiSelect.active
+                    ? 'Disable touch multi-select'
+                    : 'Enable touch multi-select'
+                }
                 data-testid="touch-multiselect-toggle"
                 onClick={() => setTouchMultiSelect(!state.touchMultiSelect.active)}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
                   <path d="M9 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                   <path d="M21 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
                   <path d="M15 19a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />

@@ -7,10 +7,7 @@
 import type { Document } from '@strata/scene';
 import { getParent } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
-import {
-  applyAffine,
-  tryInvertAffine,
-} from '@strata/shared';
+import { applyAffine, tryInvertAffine } from '@strata/shared';
 import type { EditorState } from '../context/types';
 import type { HitTestEngine } from '../hitTest/HitTestEngine';
 import type { TransformCache } from '../scene/transformCache';
@@ -20,6 +17,7 @@ import {
   type DebugGeometryEntry,
   type DebugHitTestSnapshot,
   type DebugInteractionSnapshot,
+  type DebugSelectionSnapshot,
   type DebugSnapshot,
   type DebugSpatialIndexSnapshot,
 } from './DebugOverlayRegistry';
@@ -65,7 +63,7 @@ export function buildDebugSnapshot(
     snapshot.geometry = buildGeometrySnapshot(doc, cache, opts.maxItems);
   }
 
-  if (opts.includeHitTest && opts.hitTestPoint && hitTestEngine) {
+  if (opts.includeHitTest && opts.hitTestPoint !== undefined && opts.hitTestPoint !== null && hitTestEngine) {
     snapshot.hitTest = buildHitTestSnapshot(
       hitTestEngine,
       opts.hitTestPoint,
@@ -138,7 +136,7 @@ function buildGeometrySnapshot(
         transformOrigin: [worldTransform[4], worldTransform[5]],
         visible: node.visible !== false,
         locked: !!node.locked,
-        clipMask: !!(node as Record<string, unknown>).clipPath,
+        clipMask: 'clipPath' in node ? !!(node as Record<string, unknown>).clipPath : false,
       });
       count++;
 
@@ -182,9 +180,7 @@ function buildSpatialIndexSnapshot(
 
 function buildInteractionSnapshot(state: EditorState): DebugInteractionSnapshot {
   return {
-    pointerPosition: state.cursorPos
-      ? [state.cursorPos.x, state.cursorPos.y]
-      : null,
+    pointerPosition: state.cursorPos ? [state.cursorPos.x, state.cursorPos.y] : null,
     pointerType: 'unknown',
     pointerId: -1,
     capturedTarget: null,
@@ -220,10 +216,15 @@ function applyBounds(m: Affine, r: Rect): Rect {
     applyAffine(m, [r.x, r.y + r.h]),
     applyAffine(m, [r.x + r.w, r.y + r.h]),
   ];
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
   for (const [x, y] of corners) {
-    minX = Math.min(minX, x); minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
   }
   return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
 }

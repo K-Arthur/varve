@@ -1,80 +1,110 @@
-import { useEffect, useRef } from 'react';
+/**
+ * FocusTrap — wraps children in a focus-trapping container.
+ *
+ * Uses the editor hook under the hood; re-exported from @strata/ui for
+ * widgets that do not have access to the editor package.
+ *
+ * Supports:
+ * - Initial focus via query selector
+ * - Escape to close (via onClose)
+ * - Active/inactive toggle
+ * - Fallback to container when no focusable children
+ *
+ * Research basis: APG Dialog Modal pattern
+ */
+import { type ReactNode, useEffect, useRef } from 'react';
 
 export interface FocusTrapProps {
-  children: React.ReactNode;
+  children: ReactNode;
   active?: boolean;
   initialFocus?: string;
+  onClose?: () => void;
 }
 
 const FOCUSABLE_SELECTOR =
-  'a[href], button, input, textarea, select, [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
-export function FocusTrap({ children, active = true, initialFocus }: FocusTrapProps) {
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+  ).filter(
+    (el) => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden',
+  );
+}
+
+export function FocusTrap({
+  children,
+  active = true,
+  initialFocus,
+  onClose,
+}: FocusTrapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const onCloseRef = useRef(onClose);
+  const activeRef = useRef(active);
+  onCloseRef.current = onClose;
+  activeRef.current = active;
 
   useEffect(() => {
     if (!active) return;
-
     const container = containerRef.current;
     if (!container) return;
 
-    const root = container;
+    const savedActive = document.activeElement as HTMLElement | null;
 
-    function getFocusable(): HTMLElement[] {
-      return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-        (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
-      );
+    let initialTarget: HTMLElement | null = null;
+    if (initialFocus) {
+      initialTarget = container.querySelector<HTMLElement>(initialFocus);
+    }
+    if (!initialTarget) {
+      const focusable = getFocusable(container);
+      initialTarget = focusable[0] ?? null;
     }
 
-    function handleKeyDown(e: KeyboardEvent): void {
+    const focusTimer = requestAnimationFrame(() => {
+      if (initialTarget) {
+        initialTarget.focus({ preventScroll: true });
+      } else {
+        container.setAttribute('tabindex', '-1');
+        container.focus({ preventScroll: true });
+        container.removeAttribute('tabindex');
+      }
+    });
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && onCloseRef.current) {
+        e.stopPropagation();
+        onCloseRef.current();
+        return;
+      }
       if (e.key !== 'Tab') return;
-      const focusable = getFocusable();
+      const focusable = getFocusable(container);
       if (focusable.length === 0) return;
 
-      const first = focusable[0]!;
-      const last = focusable[focusable.length - 1]!;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
 
-      if (e.shiftKey) {
-        if (document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        }
-      } else {
-        if (document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
       }
-    }
+    };
 
     container.addEventListener('keydown', handleKeyDown);
-    return () => container.removeEventListener('keydown', handleKeyDown);
-  }, [active]);
 
-  useEffect(() => {
-    if (!active) return;
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    const timeoutId = setTimeout(() => {
-      if (initialFocus) {
-        const target = container.querySelector<HTMLElement>(initialFocus);
-        target?.focus();
-      } else {
-        const focusable = container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-        const firstFocusable = Array.from(focusable).find(
-          (el) => !el.hasAttribute('disabled') && el.getAttribute('aria-hidden') !== 'true',
-        );
-        firstFocusable?.focus();
+    return () => {
+      cancelAnimationFrame(focusTimer);
+      container.removeEventListener('keydown', handleKeyDown);
+      if (savedActive && document.contains(savedActive) && !activeRef.current) {
+        savedActive.focus({ preventScroll: true });
       }
-    }, 0);
-
-    return () => clearTimeout(timeoutId);
+    };
   }, [active, initialFocus]);
 
   return (
-    <div ref={containerRef} tabIndex={-1}>
+    <div ref={containerRef} tabIndex={-1} style={{ display: 'contents' }}>
       {children}
     </div>
   );

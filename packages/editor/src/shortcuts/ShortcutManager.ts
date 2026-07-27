@@ -648,14 +648,57 @@ export function shortcutFromEvent(e: KeyboardEvent): {
 const SHORTCUT_IGNORE_SELECTOR =
   '[role="combobox"],[role="listbox"],[role="spinbutton"],[role="textbox"],[role="slider"]';
 
-/** True when a keydown on `target` should be left for the widget to handle, not treated as a tool/app shortcut. */
+/**
+ * Returns true if a keydown event on `target` should be handled by the widget
+ * rather than treated as a global tool/app shortcut.
+ *
+ * The function walks up the DOM tree checking, in order:
+ * 1. Native form controls (input, textarea, select)
+ * 2. ContentEditable elements
+ * 3. ARIA roles that consume keyboard input (combobox, textbox, spinbutton, slider)
+ * 4. Elements opted out via `data-shortcut-ignore`
+ * 5. During IME composition
+ */
 export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
   if (!target) return false;
+
+  // Fast-path tag check
   const tag = target.tagName?.toLowerCase();
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
   if ((target as HTMLElement).isContentEditable) return true;
-  if (target.closest?.(SHORTCUT_IGNORE_SELECTOR)) return true;
-  if (target.closest?.('[data-shortcut-ignore]')) return true;
+
+  // IME composition: if the element has an active composition, ignore shortcuts
+  const activeEl = document.activeElement;
+  if (activeEl && isIMEComposing(activeEl)) return true;
+
+  // Walk up to nearest widget that signals keyboard-input ownership
+  const widget = target.closest?.(
+    `${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`,
+  );
+  if (widget) return true;
+
+  return false;
+}
+
+/**
+ * Check if the active element is in IME composition mode.
+ * On some platforms (especially Linux/IBus), the composition event fires
+ * but isComposing may not be set. We also check for a visible composition
+ * range as a fallback.
+ */
+function isIMEComposing(el: Element): boolean {
+  if ((el as HTMLInputElement).matches?.(':disabled')) return false;
+
+  // Standard check
+  if ((el as HTMLInputElement).isContentEditable) {
+    const sel = document.getSelection();
+    if (sel && sel.anchorNode?.nodeType === Node.TEXT_NODE) return true;
+  }
+
+  // Check for aria-activedescendant combobox with input
+  const role = el.getAttribute('role');
+  if (role === 'combobox' || role === 'textbox') return true;
+
   return false;
 }
 
