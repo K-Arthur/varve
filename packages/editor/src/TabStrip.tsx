@@ -57,20 +57,33 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
     const tabIds = getTabIds();
     const idx = tabIds.indexOf(id);
     if (idx < 0) return;
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      const next = tabIds[(idx + 1) % tabIds.length];
-      if (next) focusById(next);
-    } else if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      const prev = tabIds[(idx - 1 + tabIds.length) % tabIds.length];
-      if (prev) focusById(prev);
-    } else if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      switchTab(id);
-    } else if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      requestClose(id);
+    switch (e.key) {
+      case 'ArrowRight':
+        e.preventDefault();
+        focusById(tabIds[(idx + 1) % tabIds.length]!);
+        break;
+      case 'ArrowLeft':
+        e.preventDefault();
+        focusById(tabIds[(idx - 1 + tabIds.length) % tabIds.length]!);
+        break;
+      case 'Home':
+        e.preventDefault();
+        if (tabIds.length > 0) focusById(tabIds[0]!);
+        break;
+      case 'End':
+        e.preventDefault();
+        if (tabIds.length > 0) focusById(tabIds[tabIds.length - 1]!);
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        switchTab(id);
+        break;
+      case 'Delete':
+      case 'Backspace':
+        e.preventDefault();
+        requestClose(id);
+        break;
     }
   }
 
