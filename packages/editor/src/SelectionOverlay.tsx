@@ -28,7 +28,7 @@ import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from './canvas/overlayZIndex';
 import { useEditor } from './context';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from './scene/world';
 import { type SnapBoxOptions, snapSelectionBox } from './tools/snapping';
-import { TransformEngine } from './transform/TransformEngine';
+import { type SkewAxis, TransformEngine } from './transform/TransformEngine';
 
 const HANDLE_HALF = 4;
 const ROT_OFFSET = 20;
@@ -110,6 +110,14 @@ interface CornerRadiusDragState {
   initialPointer: Point;
   localBox: { x: number; y: number; w: number; h: number };
   invWorldTransform: Affine;
+  canvasOffsetX: number;
+  canvasOffsetY: number;
+}
+
+/** Drag state for skew handle interaction. */
+interface SkewDragState {
+  engine: TransformEngine;
+  axis: SkewAxis;
   canvasOffsetX: number;
   canvasOffsetY: number;
 }
@@ -319,6 +327,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const { state, selectedNodes, updateDoc, beginTransaction, commitTransaction } = useEditor();
   const sel = selectedNodes();
   const dragRef = useRef<DragState | null>(null);
+  const skewDragRef = useRef<SkewDragState | null>(null);
   const endpointDragRef = useRef<EndpointDragState | null>(null);
   const cornerRadiusDragRef = useRef<CornerRadiusDragState | null>(null);
 
@@ -462,6 +471,33 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     ],
   );
 
+  const handleSkewPointerDown = useCallback(
+    (e: React.PointerEvent, axis: SkewAxis) => {
+      if (!hasInteractiveHandles || !box) return;
+      e.stopPropagation();
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+      const canvasEl = canvasRef?.current;
+      const rect = canvasEl?.getBoundingClientRect();
+      const canvasOffsetX = rect?.left ?? 0;
+      const canvasOffsetY = rect?.top ?? 0;
+      const engine = new TransformEngine(state.document, state.selection, {
+        bakeOnCommit: true,
+        snapBox: (b) => snapSelectionBox(b, snapOptions),
+      });
+      beginTransaction();
+      skewDragRef.current = { engine, axis, canvasOffsetX, canvasOffsetY };
+    },
+    [
+      hasInteractiveHandles,
+      box,
+      canvasRef,
+      state.document,
+      state.selection,
+      beginTransaction,
+      snapOptions,
+    ],
+  );
+
   const handleEndpointPointerDown = useCallback(
     (e: React.PointerEvent, endpointIndex: 0 | 1) => {
       if (!isLineOrArrow || !node) return;
@@ -594,6 +630,14 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         });
         return;
       }
+      const sk = skewDragRef.current;
+      if (sk) {
+        const skScreenX = e.clientX - sk.canvasOffsetX;
+        const skScreenY = e.clientY - sk.canvasOffsetY;
+        const skWorld: Point = simpleScreenToWorld(skScreenX, skScreenY, state.zoom, state.pan);
+        updateDoc((doc) => sk.engine.skew(skWorld, sk.axis, doc));
+        return;
+      }
       const g = dragRef.current;
       if (!g) return;
       const pointerScreenX = e.clientX - g.canvasOffsetX;
@@ -695,6 +739,12 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     const crDrag = cornerRadiusDragRef.current;
     cornerRadiusDragRef.current = null;
     if (crDrag) {
+      commitTransaction();
+    }
+    const sk = skewDragRef.current;
+    skewDragRef.current = null;
+    if (sk) {
+      updateDoc((doc) => sk.engine.commit(doc));
       commitTransaction();
     }
   }, [updateDoc, commitTransaction]);
@@ -855,6 +905,81 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           />
         </>
       )}
+
+      {/* Skew handles — diamond shape at edge midpoints */}
+      {hasInteractiveHandles &&
+        (() => {
+          const edges: Array<{
+            axis: SkewAxis;
+            key: string;
+            pos: Point;
+            cursor: string;
+            label: string;
+          }> = [
+            {
+              axis: 'n',
+              key: 'skew-n',
+              pos: handles.n,
+              cursor: 'ns-resize',
+              label: 'Skew top edge',
+            },
+            {
+              axis: 's',
+              key: 'skew-s',
+              pos: handles.s,
+              cursor: 'ns-resize',
+              label: 'Skew bottom edge',
+            },
+            {
+              axis: 'e',
+              key: 'skew-e',
+              pos: handles.e,
+              cursor: 'ew-resize',
+              label: 'Skew right edge',
+            },
+            {
+              axis: 'w',
+              key: 'skew-w',
+              pos: handles.w,
+              cursor: 'ew-resize',
+              label: 'Skew left edge',
+            },
+          ];
+          return edges.map(({ axis, key, pos, cursor, label }) => {
+            const [sx, sy] = simpleWorldToScreen(pos[0], pos[1], state.zoom, state.pan);
+            return (
+              <Fragment key={key}>
+                {/* Invisible hit target */}
+                <rect
+                  x={sx - 10}
+                  y={sy - 10}
+                  width={20}
+                  height={20}
+                  fill="transparent"
+                  style={{ pointerEvents: 'auto', cursor }}
+                  onPointerDown={(e) => handleSkewPointerDown(e, axis)}
+                  onPointerUp={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  onLostPointerCapture={handlePointerUp}
+                />
+                {/* Diamond handle */}
+                <rect
+                  x={sx - HANDLE_HALF}
+                  y={sy - HANDLE_HALF}
+                  width={HANDLE_HALF * 2}
+                  height={HANDLE_HALF * 2}
+                  rx={0}
+                  fill="var(--color-accent-primary)"
+                  stroke="var(--color-surface-overlay)"
+                  strokeWidth={1.5}
+                  transform={`rotate(45, ${sx}, ${sy})`}
+                  aria-label={label}
+                  pointerEvents="none"
+                />
+              </Fragment>
+            );
+          });
+        })()}
 
       {cornerHandlePos &&
         (() => {
