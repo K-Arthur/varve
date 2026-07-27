@@ -1,7 +1,12 @@
 // @vitest-environment jsdom
 
 import type { Timeline } from '@strata/scene';
-import { addRasterMaskAsset, createDocument, makeShapeNode } from '@strata/scene';
+import {
+  addRasterMaskAsset,
+  createDocument,
+  makeFrameNode,
+  makeShapeNode,
+} from '@strata/scene';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createVideoFrameRenderer,
@@ -110,5 +115,53 @@ describe('createVideoFrameRenderer', () => {
 
     const rgba = await renderFrame(0, 0);
     expect(rgba.byteLength).toBe(32 * 32 * 4);
+  });
+});
+
+describe('flattenVisibleNodesForVideo scaling', () => {
+  /**
+   * N shapes nested one level inside a single frame (not direct
+   * rootChildren) — this is what actually exercises getParent's expensive
+   * `Object.entries(doc.nodes)` fallback scan. A flat rootChildren-only
+   * fixture doesn't: `getParent` checks `doc.rootChildren.includes(id)`
+   * first and returns immediately on a hit, which stays fast enough at
+   * moderate node counts to hide the bug this test exists to catch.
+   */
+  function makeNestedDoc(count: number) {
+    const doc = createDocument();
+    const frameId = 'frame-root';
+    const nodes: Record<string, ReturnType<typeof makeShapeNode>> = {};
+    const childIds: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const id = `n-${i}`;
+      nodes[id] = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, {});
+      childIds.push(id);
+    }
+    const frame = makeFrameNode(frameId, { w: 1000, h: 1000, children: childIds });
+    return {
+      ...doc,
+      nodes: { ...doc.nodes, [frameId]: frame, ...nodes },
+      rootChildren: [frameId],
+    };
+  }
+
+  it('scales near-linearly with node count, not quadratically', () => {
+    // Regression guard: flattenVisibleNodesForVideo called nodeWorldTransform
+    // once per node without a parentIndex, which falls back to an O(n)
+    // linear scan (getParent) per call -- making video export O(n^2) in
+    // node count, the same pattern found in computeFitAllCamera (a
+    // measured 10+ minute hang at 20,000 nodes) and HitTestEngine.
+    const small = makeNestedDoc(300);
+    const large = makeNestedDoc(2400); // 8x
+
+    const t0 = performance.now();
+    flattenVisibleNodesForVideo(small);
+    const smallMs = performance.now() - t0;
+
+    const t1 = performance.now();
+    flattenVisibleNodesForVideo(large);
+    const largeMs = performance.now() - t1;
+
+    expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 300));
   });
 });

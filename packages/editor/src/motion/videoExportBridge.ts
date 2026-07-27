@@ -19,6 +19,7 @@ import {
   activePageNodes,
   applyBindingsToNode,
   buildAllVariantCaches,
+  buildParentIndexMap,
   createVariableStore,
   getEffectiveNode,
   resolveAllStyles,
@@ -105,6 +106,10 @@ export function flattenVisibleNodesForVideo(doc: Document): { ids: string[]; nod
   const entries = walkNodes(doc, activePageNodes(doc));
   const ids: string[] = [];
   const nodes: EngineNode[] = [];
+  // nodeWorldTransform falls back to an O(n) linear scan (getParent) per
+  // call when no parentIndex is passed. Called once per node here, that
+  // made video export O(n^2) in node count.
+  const parentIndex = buildParentIndexMap(doc);
 
   for (const [id] of entries) {
     const raw = doc.nodes[id];
@@ -112,7 +117,7 @@ export function flattenVisibleNodesForVideo(doc: Document): { ids: string[]; nod
     if (raw.kind === 'group') continue;
     let n = getEffectiveNode(doc, id, variantCaches) ?? raw;
     n = applyBindingsToNode(n, variableStore);
-    const world = nodeWorldTransform(doc, id);
+    const world = nodeWorldTransform(doc, id, parentIndex);
     ids.push(id);
     nodes.push({ ...sceneNodeToEngineNode(n, {}, doc), transform: world });
   }
