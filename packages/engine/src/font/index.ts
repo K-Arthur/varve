@@ -22,6 +22,9 @@ export type {
 } from './fontCatalog';
 // Searchable catalog
 export { diffCatalogs, FontCatalog } from './fontCatalog';
+// Font data collector (binary retrieval for export)
+export type { FontCollectOptions, FontDataRecord } from './fontDataCollector';
+export { collectAllStoredFonts, collectFontData } from './fontDataCollector';
 export type {
   DownloadJob,
   DownloadManagerConfig,
@@ -97,6 +100,3 @@ export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';
-// Font data collector (binary retrieval for export)
-export type { FontDataRecord, FontCollectOptions } from './fontDataCollector';
-export { collectFontData, collectAllStoredFonts, getBinaryCache } from './fontDataCollector';
