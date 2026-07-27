@@ -613,6 +613,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
         }
         updateDoc((doc) => g.engine.rotate(angleDelta, g.center, doc));
       } else {
+        const defaultPolicy = g.engine.getResizePolicy({});
         const mods = computeResizeModifiers(
           e.shiftKey,
           e.altKey,
@@ -622,6 +623,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
           typeof navigator !== 'undefined' &&
             (navigator.platform?.toLowerCase().includes('mac') ?? false),
           g.handle.length === 1,
+          defaultPolicy.proportional,
         );
         // C4: Ctrl/Cmd + resize on a frame = scale frame and contents together.
         // Default frame resize preserves child positions unless they have constraints.

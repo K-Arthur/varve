@@ -1,26 +1,17 @@
 import type { NodeId } from '@strata/scene';
 
-/**
- * Canonical source of truth for the editor's selection-origin literals.
- *
- * Centralising this small union prevents string widening in reducer-style
- * update paths and gives both `EditorContext` and `SelectionContext` a
- * shared vocabulary for `selectionOrigin`.
- */
 export type SelectionOrigin = 'canvas' | 'layers' | 'keyboard' | 'command' | 'api';
 
-/** Default origin for selection changes triggered from the canvas. */
 export const DEFAULT_SELECTION_ORIGIN: SelectionOrigin = 'canvas';
 
-/**
- * Compute the primary selection id after a toggle operation.
- *
- * - Non-additive (normal click): primary becomes the clicked id.
- * - Additive deselect: if the deselected id was primary, fall back to the
- *   first remaining selected node; otherwise keep current primary.
- * - Additive select: keep current primary, or use the first selected node
- *   (which is the newly added one) when none was set.
- */
+export type SelectionMode = 'object' | 'direct' | 'path' | 'text' | 'pixel';
+
+export interface SelectionTarget {
+  nodeId: NodeId;
+  kind: 'text' | 'path' | 'mask' | 'crop' | 'component';
+  path?: NodeId[];
+}
+
 export function nextSelectionPrimary(
   currentSelection: NodeId[],
   nextSelection: NodeId[],
@@ -31,9 +22,68 @@ export function nextSelectionPrimary(
   if (nextSelection.length === 0) return null;
   if (!additive) return toggledId;
   if (currentSelection.includes(toggledId)) {
-    // toggledId was removed
     return currentPrimary === toggledId ? nextSelection[0]! : currentPrimary;
   }
-  // toggledId was added
   return currentPrimary ?? nextSelection[0]!;
 }
+
+export function normalizeSelection(
+  selection: NodeId[],
+  docNodes: Record<string, unknown>,
+): NodeId[] {
+  const seen = new Set<NodeId>();
+  const result: NodeId[] = [];
+  for (const id of selection) {
+    if (!docNodes[id]) continue;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push(id);
+  }
+  return result;
+}
+
+export interface ObjectResizePolicy {
+  defaultProportional: boolean;
+  defaultCentered: boolean;
+  scaleChildrenWithFrame: boolean;
+  preserveImageFill: boolean;
+  preserveTextFontSize: boolean;
+}
+
+export const OBJECT_RESIZE_POLICIES: Record<string, ObjectResizePolicy> = {
+  shape: {
+    defaultProportional: false,
+    defaultCentered: false,
+    scaleChildrenWithFrame: false,
+    preserveImageFill: true,
+    preserveTextFontSize: true,
+  },
+  text: {
+    defaultProportional: false,
+    defaultCentered: false,
+    scaleChildrenWithFrame: false,
+    preserveImageFill: true,
+    preserveTextFontSize: true,
+  },
+  frame: {
+    defaultProportional: false,
+    defaultCentered: false,
+    scaleChildrenWithFrame: false,
+    preserveImageFill: true,
+    preserveTextFontSize: true,
+  },
+  group: {
+    defaultProportional: true,
+    defaultCentered: false,
+    scaleChildrenWithFrame: true,
+    preserveImageFill: true,
+    preserveTextFontSize: false,
+  },
+  image: {
+    defaultProportional: true,
+    defaultCentered: false,
+    scaleChildrenWithFrame: false,
+    preserveImageFill: true,
+    preserveTextFontSize: true,
+  },
+};
