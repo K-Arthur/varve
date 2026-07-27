@@ -426,6 +426,14 @@ export interface FontMetadata {
   copyright?: string;
   /** License info. */
   license?: string;
+  /** Embedding permission from OS/2 fsType. */
+  embeddingRights?: import('./font/fontIdentity').EmbeddingRights;
+  /** Whether the font contains color glyphs (COLR/CPAL, SVG, sbix, CBDT/CBLC). */
+  hasColorGlyphs?: boolean;
+  /** Detected colour-font technologies present in the file. */
+  colorFormats?: import('./font/fontIdentity').ColorFontFormat[];
+  /** Number of colour palettes (CPAL), if present. */
+  paletteCount?: number;
   /** Supported OpenType feature tags. */
   openTypeFeatures?: string[];
   /** Supported variable font axes. */

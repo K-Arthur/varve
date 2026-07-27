@@ -169,6 +169,16 @@
   font-weight: var(--font-weight-bold);
 }
 
+.font-selector__badge--color {
+  color: var(--color-text-inverse);
+  background: var(--color-accent-secondary);
+}
+
+.font-selector__badge--license {
+  color: var(--color-text-inverse);
+  background: var(--color-warning);
+}
+
 /* ---------- High-contrast / forced-colors ---------- */
 
 [data-theme="high-contrast"] .font-selector__input {
