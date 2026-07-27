@@ -353,6 +353,7 @@ import { useDialogState } from './context/useDialogState';
 import { useInteractionState } from './context/useInteractionState';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
+import { useWorkspaceMode } from './context/useWorkspaceMode';
 import { ViewportProvider } from './context/ViewportContext';
 import {
   computeFitAllCamera,
@@ -405,7 +406,7 @@ import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
-import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
+import type { WorkspaceMode } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -2444,6 +2445,14 @@ export function EditorProvider({
 
   const sam2Seg = useSam2Segmentation(state, stateRef, setState, updateDoc, announcerRef);
 
+  const workspaceModeCtx = useWorkspaceMode(
+    state,
+    patch,
+    toolRef,
+    announcerRef,
+    workspaceSwitchInProgressRef,
+  );
+
   const value = useMemo<EditorContextValue>(
     () => ({
       state,
@@ -2634,77 +2643,7 @@ export function EditorProvider({
         announcerRef.current?.announce(next ? 'Showing original image' : 'Showing current edit');
       },
       workspaceMode: state.workspaceMode,
-      __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => {
-        const config = getWorkspaceConfig(mode);
-        const patchObj: Partial<EditorState> & Record<string, unknown> = {
-          workspaceMode: mode,
-          leftPanelVisible: config.panels.layers.visible,
-          rightPanelVisible: config.panels.inspector.visible,
-          timelinePanelVisible: config.panels.timeline.visible,
-        };
-        if (config.defaultTool && config.defaultTool !== state.tool) {
-          patchObj.tool = config.defaultTool as ToolId;
-        }
-        patch(patchObj as Partial<EditorState>);
-        updateSettings({
-          panel: {
-            leftPanelVisible: config.panels.layers.visible,
-            rightPanelVisible: config.panels.inspector.visible,
-          },
-        });
-        announcerRef.current?.announce(`Switched to ${mode} workspace`);
-      },
-      requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => {
-        if (workspaceSwitchInProgressRef.current) return Promise.resolve(false);
-        if (mode === state.workspaceMode) return Promise.resolve(false);
-        workspaceSwitchInProgressRef.current = true;
-        try {
-          if (!options?.force) {
-            if (
-              state.tool === 'nodeEdit' ||
-              state.tool === 'crop' ||
-              state.maskPreviewMode !== 'none'
-            ) {
-              applyToolChange('select', toolRef, patch);
-            }
-          }
-          const config = getWorkspaceConfig(mode);
-          const patchObj: Partial<EditorState> & Record<string, unknown> = {
-            workspaceMode: mode,
-            leftPanelVisible: config.panels.layers.visible,
-            rightPanelVisible: config.panels.inspector.visible,
-            timelinePanelVisible: config.panels.timeline.visible,
-          };
-          if (config.defaultTool && config.defaultTool !== state.tool) {
-            patchObj.tool = config.defaultTool as ToolId;
-          }
-          patch(patchObj as Partial<EditorState>);
-          updateSettings({
-            panel: {
-              leftPanelVisible: config.panels.layers.visible,
-              rightPanelVisible: config.panels.inspector.visible,
-            },
-          });
-          announcerRef.current?.announce(`Switched to ${mode} workspace`);
-          return Promise.resolve(true);
-        } finally {
-          workspaceSwitchInProgressRef.current = false;
-        }
-      },
-      resetWorkspaceToDefault: () => {
-        const mode = state.workspaceMode;
-        const config = getWorkspaceConfig(mode);
-        const patchObj: Partial<EditorState> & Record<string, unknown> = {
-          leftPanelVisible: config.panels.layers.visible,
-          rightPanelVisible: config.panels.inspector.visible,
-          timelinePanelVisible: config.panels.timeline.visible,
-        };
-        if (config.defaultTool) {
-          patchObj.tool = config.defaultTool as ToolId;
-        }
-        patch(patchObj as Partial<EditorState>);
-        announcerRef.current?.announce(`Reset ${mode} workspace to defaults`);
-      },
+      ...workspaceModeCtx,
       // Section visibility
       toggleSectionCollapse: (sectionId: SectionId) => {
         const next = toggleCollapsed(state.sectionVisibility, sectionId);
