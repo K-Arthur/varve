@@ -1497,6 +1497,10 @@ export const EditorCtx = createContext<EditorContextValue | null>(null);
 interface SavedSession {
   document: Document;
   selection: NodeId[];
+  primaryId: NodeId | null;
+  focusedNodeId: NodeId | null;
+  activeContainerId: NodeId | null;
+  selectionMode: import('./context/selectionState').SelectionMode;
   viewport: SavedViewport;
   undo: Document[];
   redo: Document[];
@@ -1514,6 +1518,10 @@ function snapshotEditorSession(
   return {
     document: s.document,
     selection: s.selection,
+    primaryId: s.primaryId,
+    focusedNodeId: s.focusedNodeId,
+    activeContainerId: s.activeContainerId,
+    selectionMode: s.selectionMode,
     viewport: captureViewport({
       ...s,
       gridVisible: s.documentGrid.visible,
@@ -6856,10 +6864,27 @@ export function EditorProvider({
           undoSelStackRef.current = saved ? [...saved.undoSel] : [];
           redoSelStackRef.current = saved ? [...saved.redoSel] : [];
           const restoredDoc = saved?.document ?? createDocument(targetMeta?.name ?? 'Untitled');
+          const restoredSelection = (saved?.selection ?? []).filter((id) => restoredDoc.nodes[id]);
+          const restoredPrimary =
+            saved?.primaryId && restoredDoc.nodes[saved.primaryId]
+              ? saved.primaryId
+              : (restoredSelection[0] ?? null);
+          const restoredFocused =
+            saved?.focusedNodeId && restoredDoc.nodes[saved.focusedNodeId]
+              ? saved.focusedNodeId
+              : restoredPrimary;
+          const restoredContainer =
+            saved?.activeContainerId && restoredDoc.nodes[saved.activeContainerId]
+              ? saved.activeContainerId
+              : null;
           return {
             ...s,
             document: restoredDoc,
-            selection: saved?.selection ?? [],
+            selection: restoredSelection,
+            primaryId: restoredPrimary,
+            focusedNodeId: restoredFocused,
+            activeContainerId: restoredContainer,
+            selectionMode: saved?.selectionMode ?? 'object',
             selectedGuideId: null,
             ...restoreViewportFields(saved?.viewport, restoredDoc),
             dirty: targetMeta?.dirty ?? false,
@@ -6924,10 +6949,25 @@ export function EditorProvider({
             undoSelStackRef.current = saved ? [...saved.undoSel] : [];
             redoSelStackRef.current = saved ? [...saved.redoSel] : [];
             const savedDoc = saved?.document ?? doc;
+            const restoredSel = (saved?.selection ?? []).filter((id) => savedDoc.nodes[id]);
+            const restoredPri =
+              saved?.primaryId && savedDoc.nodes[saved.primaryId]
+                ? saved.primaryId
+                : (restoredSel[0] ?? null);
             return {
               ...s,
               document: savedDoc,
-              selection: saved?.selection ?? [],
+              selection: restoredSel,
+              primaryId: restoredPri,
+              focusedNodeId:
+                saved?.focusedNodeId && savedDoc.nodes[saved.focusedNodeId]
+                  ? saved.focusedNodeId
+                  : restoredPri,
+              activeContainerId:
+                saved?.activeContainerId && savedDoc.nodes[saved.activeContainerId]
+                  ? saved.activeContainerId
+                  : null,
+              selectionMode: saved?.selectionMode ?? 'object',
               selectedGuideId: null,
               ...restoreViewportFields(saved?.viewport, savedDoc),
               dirty: existing.dirty,
@@ -7876,10 +7916,25 @@ export function EditorProvider({
           undoSelStackRef.current = saved ? [...saved.undoSel] : [];
           redoSelStackRef.current = saved ? [...saved.redoSel] : [];
           const nextDoc = saved?.document ?? createDocument(next.name);
+          const restoredSel = (saved?.selection ?? []).filter((id) => nextDoc.nodes[id]);
+          const restoredPri =
+            saved?.primaryId && nextDoc.nodes[saved.primaryId]
+              ? saved.primaryId
+              : (restoredSel[0] ?? null);
           return {
             ...s,
             document: nextDoc,
-            selection: saved?.selection ?? [],
+            selection: restoredSel,
+            primaryId: restoredPri,
+            focusedNodeId:
+              saved?.focusedNodeId && nextDoc.nodes[saved.focusedNodeId]
+                ? saved.focusedNodeId
+                : restoredPri,
+            activeContainerId:
+              saved?.activeContainerId && nextDoc.nodes[saved.activeContainerId]
+                ? saved.activeContainerId
+                : null,
+            selectionMode: saved?.selectionMode ?? 'object',
             selectedGuideId: null,
             ...restoreViewportFields(saved?.viewport, nextDoc),
             dirty: next.dirty,

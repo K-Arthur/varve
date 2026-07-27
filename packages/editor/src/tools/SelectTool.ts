@@ -366,33 +366,25 @@ export class SelectTool extends BaseTool {
     if (this.marqueeActive) {
       ctx.setDraft(null);
       const rect = this.computeDragRect(ctx);
-      // A3: Alt key inverts the default marquee mode.
-      // Default: preference-driven (marqueeContainment). Alt key temporarily
-      // switches to the opposite mode.
+      // Marquee modifier modes:
+      //   No modifier: replace selection based on containment preference
+      //   Shift: additive (add to selection)
+      //   Alt: subtract (remove from selection)
+      //   Shift+Alt: intersect (keep only nodes in both selection and marquee)
+      //   Ctrl/Alt also toggles containment mode via loadSettings
       const prefContainment = loadSettings().layers.marqueeContainment;
-      const useContainment = ctx.altKey ? !prefContainment : prefContainment;
-      // Iterate the active page's nodes (including nested) via walkNodes.
-      // Scoped so marquee-select can't pick up shapes from other pages that
-      // happen to occupy the same on-screen coordinates.
+      const useContainment = ctx.altKey && !ctx.shiftKey ? !prefContainment : prefContainment;
+      const isAdd = ctx.shiftKey && !ctx.altKey;
+      const isSubtract = ctx.altKey && !ctx.shiftKey;
+      const isIntersect = ctx.shiftKey && ctx.altKey;
       const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
-      // Sort by paint order (last sibling = topmost), not by depth.
-      // walkNodes returns DFS ancestors-first; reverse so later siblings win.
       const ordered = [...entries.values()].reverse();
-      const selectedIds: string[] = [];
-      // ctx.nodeWorldBounds(node) calls nodeWorldBounds(doc, id) with no
-      // parentIndex, which falls back to an O(n) linear scan (getParent) per
-      // call -- making marquee-select O(n^2) in active-page node count.
-      // Every entry here comes straight from walkNodes(ctx.document, ...),
-      // so it's guaranteed to already be a real node in ctx.document; call
-      // the direct, parentIndex-capable nodeWorldBounds instead of going
-      // through ctx.nodeWorldBounds's node-object indirection (which also
-      // has a not-yet-in-document fallback that's irrelevant here).
+      const marqueeIds: string[] = [];
       const parentIndex = buildParentIndexMap(ctx.document);
       for (const entry of ordered) {
         if (!entry) continue;
         const node = entry.node;
         if (node.locked || !node.visible) continue;
-        // Filter by isolation mode
         if (
           ctx.isolatedNodeId !== undefined &&
           !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
@@ -400,34 +392,37 @@ export class SelectTool extends BaseTool {
           continue;
         const bbox = nodeWorldBounds(ctx.document, entry.nodeId, parentIndex);
         if (bbox) {
-          if (useContainment) {
-            // Fully contained: the node's bbox must be completely inside the
-            // marquee (rectContains takes [x, y] tuples).
-            if (
-              rectContains(rect, [bbox.x, bbox.y]) &&
+          const hit = useContainment
+            ? rectContains(rect, [bbox.x, bbox.y]) &&
               rectContains(rect, [bbox.x + bbox.w, bbox.y + bbox.h])
-            ) {
-              selectedIds.push(entry.nodeId);
-            }
-          } else if (rectsIntersect(rect, bbox)) {
-            selectedIds.push(entry.nodeId);
-          }
+            : rectsIntersect(rect, bbox);
+          if (hit) marqueeIds.push(entry.nodeId);
         }
       }
-      if (selectedIds.length > 0) {
-        // Shift: additive only (never removes nodes from existing selection).
-        // Non-Shift: replace selection entirely.
-        if (!ctx.shiftKey) {
-          ctx.setSelection(null);
-        }
-        for (const id of selectedIds) {
-          // Only add new nodes; never remove existing ones during shift+marquee.
-          // Standard design tool convention (Figma, Illustrator, Sketch).
-          if (!ctx.isSelected(id)) {
-            ctx.toggleSelection(id, true);
+      if (marqueeIds.length > 0) {
+        if (isIntersect) {
+          const currentSet = new Set(ctx.selection);
+          const keep = marqueeIds.filter((id) => currentSet.has(id));
+          if (keep.length > 0) {
+            ctx.setSelection(keep[0] ?? null);
+            keep.slice(1).forEach((id) => {
+              ctx.toggleSelection(id, true);
+            });
+          } else {
+            ctx.setSelection(null);
+          }
+        } else if (isSubtract) {
+          const currentSet = new Set(ctx.selection);
+          marqueeIds.forEach((id) => {
+            if (currentSet.has(id)) ctx.toggleSelection(id, false);
+          });
+        } else {
+          if (!isAdd) ctx.setSelection(null);
+          for (const id of marqueeIds) {
+            if (!ctx.isSelected(id)) ctx.toggleSelection(id, true);
           }
         }
-        const marqueeSelectedNodes = selectedIds
+        const marqueeSelectedNodes = marqueeIds
           .map((id) => ctx.getNode(id))
           .filter((n): n is import('@strata/scene').SceneNode => Boolean(n));
         ctx.announceSelection(marqueeSelectedNodes);
