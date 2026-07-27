@@ -652,6 +652,118 @@ export interface TextShaping {
   direction: 'ltr' | 'rtl';
 }
 
+/**
+ * Capability flags that a shaping backend exposes to callers.
+ * Consumers use these to decide whether glyph-ID features
+ * (native PDF text, ligature-accurate outlining) are available.
+ */
+export interface ShapingCapabilities {
+  /** Backend produces real glyph IDs (not 0). */
+  supportsGlyphIds: boolean;
+  /** Backend handles GSUB/GPOS for complex scripts. */
+  supportsComplexScripts: boolean;
+  /** Backend exposes cluster boundaries. */
+  supportsClusters: boolean;
+  /** Backend applies ligature substitutions. */
+  supportsLigatures: boolean;
+  /** Backend provides font fallback within a run. */
+  supportsFontFallback: boolean;
+  /** Backend applies OpenType variation axes. */
+  supportsVariationAxes: boolean;
+  /** Backend resolves colour glyphs (COLR/CPAL). */
+  supportsColorGlyphs: boolean;
+  /** Backend can provide glyph outline paths. */
+  supportsOutlines: boolean;
+  /** Human-readable backend identifier. */
+  backend: 'canvas2d' | 'rustybuzz-native' | 'rustybuzz-wasm' | 'harfbuzz';
+}
+
+/**
+ * Input to a native (Rustybuzz / HarfBuzz) shaping call.
+ * This is the full shaping request contract that gets
+ * serialised over Tauri IPC.
+ */
+export interface NativeShapeRequest {
+  /** Text to shape. */
+  text: string;
+  /** Font identifier (family name, PostScript name, or content hash). */
+  fontId: string;
+  /** Font binary data (TTF/OTF) as a Uint8Array-compatible number array. */
+  fontData: number[];
+  /** Zero-based face index in a TTC/OTC collection. */
+  faceIndex?: number;
+  /** Font size in design-space units. */
+  fontSize: number;
+  /** ISO 639-1 language tag (e.g. "en", "ar"). */
+  language?: string;
+  /** ISO 15924 script code (e.g. "Latn", "Arab"). */
+  script?: string;
+  /** Text direction. */
+  direction?: 'ltr' | 'rtl';
+  /** OpenType feature tags to enable (e.g. ["liga", "kern", "dlig"]). */
+  features?: string[];
+  /** OpenType feature tags to disable. */
+  disableFeatures?: string[];
+  /** Variable font axis coordinates (tag -> value). */
+  variationAxes?: Record<string, number>;
+  /** Letter spacing in font units. */
+  letterSpacing?: number;
+  /** Word spacing in font units. */
+  wordSpacing?: number;
+}
+
+/**
+ * Response from a native shaping call — one per font+run.
+ */
+export interface NativeShapeResponse {
+  /** Glyph records in visual order. */
+  glyphs: ShapedGlyph[];
+  /** Total advance width. */
+  width: number;
+  /** Maximum ascent. */
+  ascent: number;
+  /** Maximum descent. */
+  descent: number;
+  /** Line gap from font metrics. */
+  lineGap: number;
+  /** Resolved script. */
+  script: string;
+  /** Resolved direction. */
+  direction: 'ltr' | 'rtl';
+  /** Whether the font has colour glyphs (COLR/CPAL/SVG). */
+  hasColorGlyphs: boolean;
+  /** Any glyph IDs that map to .notdef (missing glyphs). */
+  missingGlyphIndices: number[];
+  /** Errors per cluster (e.g. unsupported feature). */
+  warnings?: string[];
+}
+
+/** Default Canvas2D capabilities — always available, no glyph IDs. */
+export const CANVAS2D_SHAPING_CAPABILITIES: ShapingCapabilities = {
+  supportsGlyphIds: false,
+  supportsComplexScripts: true,
+  supportsClusters: true,
+  supportsLigatures: true,
+  supportsFontFallback: true,
+  supportsVariationAxes: true,
+  supportsColorGlyphs: false,
+  supportsOutlines: false,
+  backend: 'canvas2d',
+};
+
+/** Native rustybuzz capabilities — full feature set. */
+export const NATIVE_SHAPING_CAPABILITIES: ShapingCapabilities = {
+  supportsGlyphIds: true,
+  supportsComplexScripts: true,
+  supportsClusters: true,
+  supportsLigatures: true,
+  supportsFontFallback: true,
+  supportsVariationAxes: true,
+  supportsColorGlyphs: true,
+  supportsOutlines: true,
+  backend: 'rustybuzz-native',
+};
+
 /** Phase 5: portable filter IR for nondestructive image adjustments. */
 export type FilterIR =
   | { kind: 'brightness'; value: number; opacity: number; blendMode: string }
