@@ -8,8 +8,8 @@
  * Research basis: Figma font menu, FontBase/FontBook catalog UX patterns.
  */
 
-import type { FontMetadata } from '@strata/engine';
-import { getFontRegistry } from '@strata/engine';
+import { type FontMetadata, getFontRegistry } from '@strata/engine';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';
@@ -105,9 +105,9 @@ export function FontBrowser({
       if (!firstEntry) continue;
       if (!showDownloadable && firstEntry.source === 'google') continue;
       const meta = registry.getMetadata(family);
-      
+
       // Build face entries for TTC/OTC collections
-      const faces: FontFaceEntry[] = entries.map(entry => ({
+      const faces: FontFaceEntry[] = entries.map((entry) => ({
         postScriptName: `${family}-${entry.weight}-${entry.style}`,
         weight: entry.weight,
         style: entry.style,
@@ -155,20 +155,17 @@ export function FontBrowser({
     [onSelect],
   );
 
-  const toggleExpand = useCallback(
-    (family: string) => {
-      setExpandedFamilies(prev => {
-        const next = new Set(prev);
-        if (next.has(family)) {
-          next.delete(family);
-        } else {
-          next.add(family);
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const toggleExpand = useCallback((family: string) => {
+    setExpandedFamilies((prev) => {
+      const next = new Set(prev);
+      if (next.has(family)) {
+        next.delete(family);
+      } else {
+        next.add(family);
+      }
+      return next;
+    });
+  }, []);
 
   return (
     <div className="font-browser" style={{ maxHeight }}>
@@ -234,7 +231,7 @@ export function FontBrowser({
                     aria-expanded={isExpanded}
                     aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${entry.family} faces`}
                   >
-                    {isExpanded ? '▼' : '▶'}
+                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                   </button>
                 )}
                 <span
