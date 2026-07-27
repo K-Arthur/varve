@@ -148,6 +148,7 @@ export function createActionHandlers(
       e.setDocumentGrid({ ...dg, visible: !dg.visible });
     },
     togglePixelGrid: () => e.setPixelGridEnabled(!e.state.pixelGridEnabled),
+    togglePixelGridSnap: () => e.setPixelGridSnapEnabled(!e.state.pixelGridSnapEnabled),
     colorBlindnessNone: () => e.setColorBlindnessView('none'),
     colorBlindnessProtanopia: () => e.setColorBlindnessView('protanopia'),
     colorBlindnessDeuteranopia: () => e.setColorBlindnessView('deuteranopia'),

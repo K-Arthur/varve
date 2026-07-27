@@ -155,6 +155,7 @@ export interface EditorState {
   cursorPos: { x: number; y: number } | null;
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
   pixelGridEnabled: boolean;
+  pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
   findingsOverlayVisible: boolean;
   snapEnabled: boolean;
@@ -683,6 +684,7 @@ export interface EditorContextValue {
   setDocumentUnit: (unit: DocumentUnit) => void;
   setSoftProofEnabled: (v: boolean) => void;
   setPixelGridEnabled: (v: boolean) => void;
+  setPixelGridSnapEnabled: (v: boolean) => void;
   setDotGridEnabled: (v: boolean) => void;
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
