@@ -131,7 +131,7 @@ export class OverlayRegistry {
       }
     }
 
-    const visible = this.cullToViewport(allPrimitives, viewportRect);
+    const visible = this.cullSpatial(allPrimitives, viewportRect);
     const { result, clusters, displayed } = this.applyLODAndCap(
       visible,
       viewportRect,
@@ -178,6 +178,46 @@ export class OverlayRegistry {
     }
   }
 
+  private cullSpatial(
+    items: { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[],
+    viewportRect: Rect,
+  ): { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[] {
+    if (items.length === 0) return [];
+
+    const cellKeys = rectCells(viewportRect);
+    const seen = new Set<string>();
+
+    for (const key of cellKeys) {
+      const cellEntries = this.spatialIndex.get(key);
+      if (!cellEntries) continue;
+      for (const entry of cellEntries) {
+        if (seen.has(entry.primitive.findingId)) continue;
+        const b = entry.worldBounds;
+        const bounds = b;
+        if (bounds.w === 0 && bounds.h === 0) {
+          if (
+            bounds.x >= viewportRect.x &&
+            bounds.x <= viewportRect.x + viewportRect.w &&
+            bounds.y >= viewportRect.y &&
+            bounds.y <= viewportRect.y + viewportRect.h
+          ) {
+            seen.add(entry.primitive.findingId);
+          }
+        } else if (
+          bounds.x + bounds.w >= viewportRect.x &&
+          bounds.x <= viewportRect.x + viewportRect.w &&
+          bounds.y + bounds.h >= viewportRect.y &&
+          bounds.y <= viewportRect.y + viewportRect.h
+        ) {
+          seen.add(entry.primitive.findingId);
+        }
+      }
+    }
+
+    return items.filter(({ primitive }) => seen.has(primitive.findingId));
+  }
+
+  /** Legacy linear cull fallback. */
   private cullToViewport(
     items: { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[],
     viewportRect: Rect,
