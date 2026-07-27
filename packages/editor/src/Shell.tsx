@@ -28,6 +28,7 @@ import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandl
 import { PromptDialog, promptDialog } from './components/PromptDialog';
 import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
 import './components/Upscale/UpscaleDialog.css';
+import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { SelectionInfoBar } from './components/SelectionInfoBar';
@@ -43,7 +44,6 @@ import {
   type OnboardingLayerHandle,
   RecoveryManager,
 } from './components/Shell';
-import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { StateMachinePanel } from './components/StateMachinePanel';
@@ -233,8 +233,8 @@ function ShellInner({
       if (allRules.length === 0) {
         console.error(
           '[audit] FATAL: Audit engine started with zero registered rules. ' +
-          'registerBuiltinRules() did not populate the registry. ' +
-          'Check that auditAdapter.ts creates rules correctly.',
+            'registerBuiltinRules() did not populate the registry. ' +
+            'Check that auditAdapter.ts creates rules correctly.',
         );
       } else {
         console.info(

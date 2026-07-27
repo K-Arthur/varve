@@ -1,7 +1,7 @@
-import { useEffect, useRef, useCallback } from 'react';
-import { AuditScheduler } from '@strata/scene';
-import type { Document } from '@strata/scene';
 import { getPlatformInfo } from '@strata/platform';
+import type { Document } from '@strata/scene';
+import { AuditScheduler } from '@strata/scene';
+import { useCallback, useEffect, useRef } from 'react';
 
 export interface AuditDiagnostics {
   registeredRuleCount: number;
@@ -12,7 +12,7 @@ export interface AuditDiagnostics {
 
 export function useAudit(
   document: Document | null,
-  onToggleOverlay: (visible: boolean) => void,
+  _onToggleOverlay: (visible: boolean) => void,
 ): {
   scheduler: AuditScheduler | null;
   diagnostics: AuditDiagnostics;
@@ -36,12 +36,13 @@ export function useAudit(
   useEffect(() => {
     if (!document || !schedulerRef.current) return;
 
-    const isDev = getPlatformInfo().kind === 'memory' || 
+    const isDev =
+      getPlatformInfo().kind === 'memory' ||
       (typeof process !== 'undefined' && process.env.NODE_ENV === 'development');
 
     if (isDev && schedulerRef.current) {
       const start = performance.now();
-      const plan = schedulerRef.current.scheduleAudit([
+      const _plan = schedulerRef.current.scheduleAudit([
         { type: 'node-added', timestamp: Date.now() },
       ]);
       lastScanRef.current = performance.now() - start;
@@ -58,19 +59,19 @@ export function useAudit(
 
   const diagnostics: AuditDiagnostics = {
     registeredRuleCount: schedulerRef.current
-      ? schedulerRef.current['schedule']?.immediate.length +
-        schedulerRef.current['schedule']?.debounced.length +
-        schedulerRef.current['schedule']?.onDemand.length +
-        schedulerRef.current['schedule']?.preflight.length +
-        schedulerRef.current['schedule']?.scheduled.length
+      ? schedulerRef.current.schedule?.immediate.length +
+        schedulerRef.current.schedule?.debounced.length +
+        schedulerRef.current.schedule?.onDemand.length +
+        schedulerRef.current.schedule?.preflight.length +
+        schedulerRef.current.schedule?.scheduled.length
       : 0,
     ruleIds: schedulerRef.current
       ? [
-          ...(schedulerRef.current['schedule']?.immediate ?? []),
-          ...(schedulerRef.current['schedule']?.debounced ?? []),
-          ...(schedulerRef.current['schedule']?.onDemand ?? []),
-          ...(schedulerRef.current['schedule']?.preflight ?? []),
-          ...(schedulerRef.current['schedule']?.scheduled ?? []),
+          ...(schedulerRef.current.schedule?.immediate ?? []),
+          ...(schedulerRef.current.schedule?.debounced ?? []),
+          ...(schedulerRef.current.schedule?.onDemand ?? []),
+          ...(schedulerRef.current.schedule?.preflight ?? []),
+          ...(schedulerRef.current.schedule?.scheduled ?? []),
         ]
       : [],
     isSchedulerActive: schedulerRef.current !== null,

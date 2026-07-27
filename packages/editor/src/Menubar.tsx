@@ -22,7 +22,7 @@ import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
-import { WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
+import { ALL_WORKSPACE_MODES, WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
@@ -2221,42 +2221,39 @@ export function Menubar({
       {/* ── Right: Workspace switcher + Zoom + Undo/Redo ── */}
       <div className="editor-menubar__controls">
         <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
-          {(['design', 'print', 'drawing', 'image', 'motion'] as WorkspaceMode[]).map(
-            (mode, idx) => {
-              // Direct mapping from workspace mode to SolidIcon name
-              const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> =
-                {
-                  design: 'penTool',
-                  print: 'printer',
-                  drawing: 'paintBrush',
-                  image: 'image',
-                  motion: 'play',
-                  codegen: 'code',
-                };
-              const solidIcon = WORKSPACE_SOLID_ICONS[mode];
-              return (
-                <label
-                  key={mode}
-                  className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                  title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
-                >
-                  <input
-                    type="radio"
-                    name="workspace-mode"
-                    value={mode}
-                    checked={state.workspaceMode === mode}
-                    aria-checked={state.workspaceMode === mode}
-                    onChange={() => requestWorkspaceSwitch(mode)}
-                    className="sr-only"
-                  />
-                  <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
-                  <span className="editor-menubar__workspace-btn-label">
-                    {WORKSPACE_LABELS[mode]}
-                  </span>
-                </label>
-              );
-            },
-          )}
+          {(ALL_WORKSPACE_MODES as readonly WorkspaceMode[]).map((mode, idx) => {
+            // Direct mapping from workspace mode to SolidIcon name
+            const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> = {
+              design: 'penTool',
+              print: 'printer',
+              drawing: 'paintBrush',
+              image: 'image',
+              motion: 'play',
+              codegen: 'code',
+            };
+            const solidIcon = WORKSPACE_SOLID_ICONS[mode];
+            return (
+              <label
+                key={mode}
+                className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
+                title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
+              >
+                <input
+                  type="radio"
+                  name="workspace-mode"
+                  value={mode}
+                  checked={state.workspaceMode === mode}
+                  aria-checked={state.workspaceMode === mode}
+                  onChange={() => requestWorkspaceSwitch(mode)}
+                  className="sr-only"
+                />
+                <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
+                <span className="editor-menubar__workspace-btn-label">
+                  {WORKSPACE_LABELS[mode]}
+                </span>
+              </label>
+            );
+          })}
         </div>
         <span aria-hidden className="editor-menubar__zoom-divider">
           |

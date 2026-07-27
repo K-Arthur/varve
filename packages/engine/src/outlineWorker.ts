@@ -1,5 +1,3 @@
-import type { PathPoint } from './types';
-
 export interface OutlineWorkerRequest {
   id: string;
   text: string;

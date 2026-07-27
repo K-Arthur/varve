@@ -246,7 +246,7 @@ export class HitTestEngine {
     const entries = walkNodes(this.doc, activePageNodes(this.doc));
     const ordered = [...entries.values()].reverse();
     const results: HitResult[] = [];
-    let maxCandidates = activePolicy.maxCandidates;
+    const maxCandidates = activePolicy.maxCandidates;
 
     for (const entry of ordered) {
       if (maxCandidates > 0 && results.length >= maxCandidates) break;
@@ -491,7 +491,7 @@ function isPointNearPath(
   threshold: number,
 ): boolean {
   const node = doc.nodes[nodeId];
-  if (!node || node.kind !== 'shape' || !node.shape || node.shape.kind !== 'path') return false;
+  if (node?.kind !== 'shape' || !node.shape || node.shape.kind !== 'path') return false;
   const points = node.shape.points;
   if (!points || points.length < 2) return false;
 
