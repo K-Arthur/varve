@@ -6,6 +6,7 @@
  * APIs favor binary ZIP payloads over many loose writes for portability.
  */
 
+import { getFontRegistry } from '@strata/engine';
 import { dataUrlToBytes } from '@strata/import';
 import {
   type Document,
@@ -236,17 +237,43 @@ function collectFonts(doc: Document): PackageFontEntry[] {
     if (node.kind === 'text' && node.fontFamily) families.add(node.fontFamily);
   }
 
+  const registry = getFontRegistry();
+
   return [...families].sort().map((family) => {
-    const embeddingStatus: PackageFontEntry['embeddingStatus'] = 'unknown';
+    const meta = registry.getMetadata(family);
+    const isMissing = registry.isMissing(family);
+    const isRegistered = registry.isRegistered(family);
+
+    let embeddingStatus: PackageFontEntry['embeddingStatus'];
+    if (meta?.embeddingRights) {
+      const rights = meta.embeddingRights;
+      if (rights === 'installable') embeddingStatus = 'installable';
+      else if (rights === 'preview-and-print') embeddingStatus = 'preview-and-print';
+      else if (rights === 'editable') embeddingStatus = 'editable';
+      else if (rights === 'restricted') embeddingStatus = 'restricted';
+      else if (rights === 'no-subsetting') embeddingStatus = 'no-subsetting';
+      else embeddingStatus = 'unknown';
+    } else if (isMissing) {
+      embeddingStatus = 'unknown';
+    } else if (isRegistered) {
+      embeddingStatus = 'installable';
+    } else {
+      embeddingStatus = 'unknown';
+    }
+
     const canBundle = canBundleFont(embeddingStatus);
 
     return {
       family,
       bundled: canBundle,
       embeddingStatus,
-      reason: canBundle
-        ? 'Font embedding is permitted by the font license'
-        : 'Font files are not bundled. Embedding requires user confirmation of redistribution rights',
+      reason: isMissing
+        ? `Font "${family}" is not available on this device and cannot be bundled.`
+        : canBundle
+          ? 'Font embedding is permitted by the font license'
+          : embeddingStatus === 'restricted' || embeddingStatus === 'unknown'
+            ? 'Font files are not bundled. Embedding requires user confirmation of redistribution rights'
+            : `Font "${family}" may only be embedded for preview and print.`,
     };
   });
 }
