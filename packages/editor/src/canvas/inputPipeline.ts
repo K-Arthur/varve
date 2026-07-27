@@ -197,7 +197,11 @@ export function useCanvasInputs({
       const tmInst = tmRef.current;
       if (!tmInst) return;
 
-      if (stateRef.current.tool === 'inspect') {
+      // Show hover preview for both select and inspect tools.
+      // For other tools, keep the inspect-only behavior (or none at all).
+      const isHoverableTool =
+        stateRef.current.tool === 'select' || stateRef.current.tool === 'inspect';
+      if (isHoverableTool) {
         const world = ctx.canvasToWorld(ne.clientX, ne.clientY);
         const hit = editor.hitTestNode(world);
         setHoveredNode(hit?.node ?? null);

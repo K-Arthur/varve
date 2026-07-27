@@ -224,8 +224,9 @@ export function resizeSelectionBox(
 
   if (proportional && sx !== 0 && sy !== 0) {
     // Corner handle: uniform scale from the opposite corner.
-    const rawW = box.w + (centered ? 2 : 1) * sx * dx;
-    const rawH = box.h + (centered ? 2 : 1) * sy * dy;
+    const dragScale = centered ? 2 : 1;
+    const rawW = box.w + dragScale * sx * dx;
+    const rawH = box.h + dragScale * sy * dy;
     const s = clampScale(Math.max(rawW / box.w, rawH / box.h), minSize, box.w, box.h);
     newW = box.w * s;
     newH = box.h * s;
@@ -236,53 +237,64 @@ export function resizeSelectionBox(
   } else if (proportional) {
     // Edge handle: the dragged edge changes; the opposite dimension follows.
     if (sx !== 0) {
-      newW = box.w + (centered ? 2 : 1) * sx * dx;
-      if (!centered && newW < 0) {
-        // Flip on X: use the raw negative value for center, then take absolute width
-        const rawW = newW;
-        newW = Math.max(-newW, minSize);
+      const rawW = box.w + (centered ? 2 : 1) * sx * dx;
+      const willFlip = !centered && rawW < 0;
+      if (willFlip) {
+        const absW = Math.max(-rawW, minSize);
+        newW = absW;
         newH = box.h * (newW / box.w);
         newCx = box.cx + (sx * (rawW - box.w)) / 2;
       } else {
-        newW = clampDim(newW, minSize);
+        newW = clampDim(rawW, minSize);
         newH = box.h * (newW / box.w);
-        if (!centered) newCx = box.cx + (sx * (newW - box.w)) / 2;
+        if (!centered) {
+          newCx = box.cx + (sx * (newW - box.w)) / 2;
+        }
       }
     } else if (sy !== 0) {
-      newH = box.h + (centered ? 2 : 1) * sy * dy;
-      if (!centered && newH < 0) {
-        const rawH = newH;
-        newH = Math.max(-newH, minSize);
+      const rawH = box.h + (centered ? 2 : 1) * sy * dy;
+      const willFlip = !centered && rawH < 0;
+      if (willFlip) {
+        const absH = Math.max(-rawH, minSize);
+        newH = absH;
         newW = box.w * (newH / box.h);
         newCy = box.cy + (sy * (rawH - box.h)) / 2;
       } else {
-        newH = clampDim(newH, minSize);
+        newH = clampDim(rawH, minSize);
         newW = box.w * (newH / box.h);
-        if (!centered) newCy = box.cy + (sy * (newH - box.h)) / 2;
+        if (!centered) {
+          newCy = box.cy + (sy * (newH - box.h)) / 2;
+        }
       }
     }
   } else {
     // Free resize.
     if (sx !== 0) {
-      newW = box.w + (centered ? 2 : 1) * sx * dx;
-      if (!centered && newW < 0) {
-        const rawW = newW;
-        newW = Math.max(-newW, minSize);
+      const rawW = box.w + (centered ? 2 : 1) * sx * dx;
+      const willFlip = !centered && rawW < 0;
+      if (willFlip) {
+        newW = Math.max(-rawW, minSize);
         newCx = box.cx + (sx * (rawW - box.w)) / 2;
+      } else if (centered) {
+        newW = clampDim(rawW, minSize);
+        // Center stays fixed for centered resize
       } else {
-        newW = clampDim(newW, minSize);
-        if (!centered) newCx = box.cx + (sx * (newW - box.w)) / 2;
+        newW = clampDim(rawW, minSize);
+        newCx = box.cx + (sx * (newW - box.w)) / 2;
       }
     }
     if (sy !== 0) {
-      newH = box.h + (centered ? 2 : 1) * sy * dy;
-      if (!centered && newH < 0) {
-        const rawH = newH;
-        newH = Math.max(-newH, minSize);
+      const rawH = box.h + (centered ? 2 : 1) * sy * dy;
+      const willFlip = !centered && rawH < 0;
+      if (willFlip) {
+        newH = Math.max(-rawH, minSize);
         newCy = box.cy + (sy * (rawH - box.h)) / 2;
+      } else if (centered) {
+        newH = clampDim(rawH, minSize);
+        // Center stays fixed for centered resize
       } else {
-        newH = clampDim(newH, minSize);
-        if (!centered) newCy = box.cy + (sy * (newH - box.h)) / 2;
+        newH = clampDim(rawH, minSize);
+        newCy = box.cy + (sy * (newH - box.h)) / 2;
       }
     }
   }

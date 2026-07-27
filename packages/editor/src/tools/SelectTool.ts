@@ -151,7 +151,29 @@ export class SelectTool extends BaseTool {
         }
       }
 
-      if (e.shiftKey) {
+      // C3: Ctrl/Cmd+Click deep-selects through containers.
+      // When held, select the deepest non-container child at the hit point
+      // instead of the topmost container.
+      if (e.ctrlKey || e.metaKey) {
+        const allAtPoint = this.findNodesAtPoint(world, ctx);
+        // Find deepest non-container child
+        const hitIdx = allAtPoint.findIndex((n) => n.nodeId === hit.nodeId);
+        let deepTarget: { nodeId: string } | null = null;
+        for (let i = hitIdx; i < allAtPoint.length; i++) {
+          const candidate = allAtPoint[i]!;
+          const n = ctx.document.nodes[candidate.nodeId];
+          if (n && n.kind !== 'frame' && n.kind !== 'group') {
+            deepTarget = candidate;
+            break;
+          }
+        }
+        const target = deepTarget ?? hit;
+        if (e.shiftKey) {
+          ctx.toggleSelection(target.nodeId, true);
+        } else if (!ctx.isSelected(target.nodeId)) {
+          ctx.setSelection(target.nodeId);
+        }
+      } else if (e.shiftKey) {
         ctx.toggleSelection(hit.nodeId, true);
       } else if (!ctx.isSelected(hit.nodeId)) {
         ctx.setSelection(hit.nodeId);
@@ -535,6 +557,20 @@ export class SelectTool extends BaseTool {
       ctx.announceOperation('Nudge', `${step}px`);
       return true;
     }
+    if (e.key === 'Enter' && !e.repeat) {
+      // Enter descends into the selected container (frame/group).
+      const sel = ctx.selection;
+      if (sel.length === 1) {
+        const node = ctx.getNode(sel[0]!);
+        if (node && (node.kind === 'frame' || node.kind === 'group')) {
+          ctx.enterIsolation?.(sel[0]!);
+          ctx.setSelection(sel[0]!);
+          ctx.announceOperation('Enter', node.name);
+          return true;
+        }
+      }
+    }
+
     if (e.key === 'Escape') {
       // If mid-drag, abort transaction to revert
       if (this.drag.kind === 'dragging' && this.isMoveGesture) {
@@ -551,6 +587,7 @@ export class SelectTool extends BaseTool {
         this.isMoveGesture = false;
         this.initialPositions.clear();
         this.hasDuplicated = false;
+        return true;
       }
       if (ctx.isolatedNodeId) {
         const isolatedNodeId = ctx.isolatedNodeId;
