@@ -18,6 +18,7 @@
     "bench:canvas": "vitest run packages/engine/src/bench/replay.bench.ts",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit",
+    "lint:css": "stylelint \"**/*.css\" --ignore-path .gitignore",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",

@@ -6,8 +6,8 @@
  * EditorSettings, so user opt-in survives sessions.
  */
 
-import { DEFAULT_FEATURES, loadSettings, type EditorSettings } from './settings';
 import { getPlatformInfo, type PlatformCapability } from '@strata/platform';
+import { DEFAULT_FEATURES, type EditorSettings, loadSettings } from './settings';
 
 export type FeatureFlag =
   | 'findingsNavigation'
@@ -16,7 +16,16 @@ export type FeatureFlag =
   | 'aiFeatures'
   | 'reducedMotion';
 
-const FEATURE_DESCRIPTIONS: Record<FeatureFlag, { label: string; description: string; experimental?: boolean; devOnly?: boolean; requiresCapability?: PlatformCapability }> = {
+const FEATURE_DESCRIPTIONS: Record<
+  FeatureFlag,
+  {
+    label: string;
+    description: string;
+    experimental?: boolean;
+    devOnly?: boolean;
+    requiresCapability?: PlatformCapability;
+  }
+> = {
   findingsNavigation: {
     label: 'Finding Navigation',
     description: 'Navigate to findings via deep links and inspector sections.',
@@ -62,8 +71,21 @@ export function isFeatureEnabled(flag: FeatureFlag): boolean {
 }
 
 /** Get all feature flags with their current state. */
-export function getAllFeatures(): Array<{ flag: FeatureFlag; enabled: boolean; experimental: boolean; devOnly: boolean; label: string; description: string }> {
-  const flags: FeatureFlag[] = ['findingsNavigation', 'findingsOverlay', 'codegenWorkspace', 'aiFeatures', 'reducedMotion'];
+export function getAllFeatures(): Array<{
+  flag: FeatureFlag;
+  enabled: boolean;
+  experimental: boolean;
+  devOnly: boolean;
+  label: string;
+  description: string;
+}> {
+  const flags: FeatureFlag[] = [
+    'findingsNavigation',
+    'findingsOverlay',
+    'codegenWorkspace',
+    'aiFeatures',
+    'reducedMotion',
+  ];
   return flags.map((flag) => ({
     flag,
     enabled: isFeatureEnabled(flag),
