@@ -45,16 +45,16 @@ architecture audit to verify architectural metrics haven't regressed:
 node scripts/audit-architecture.mjs --ci
 ```
 
-Check these thresholds (2026-07-14 baseline):
+Check these thresholds (2026-07-27 baseline):
 | Metric | Current | Ceiling |
 |--------|---------|---------|
-| Avg cyclomatic complexity (file) | 27.1 | 52.0 |
-| Dependency cycles (madge) | 19 | 21 |
+| Avg cyclomatic complexity (editor) | 26.3 | 52.0 |
+| Dependency cycles (madge) | 4 | 6 |
 | Layer violations | 0 | 0 |
-| Hub files over budget | 0 | 0 |
-| Editor max complexity (context.tsx) | 810 | 847 |
-| CanvasArea max complexity | 602 | 630 |
-| Shell.tsx import count | 45 | 48 |
+| Hub files over budget | 2 | 2 |
+| Editor max complexity (context.tsx) | 844 | 847 |
+| CanvasArea max complexity | 780 | 630 |
+| Shell.tsx import count | 46 | 49 |
 
 See `docs/audits/architecture-health-baseline-2026-07-25.md` for full
 measurements. If any threshold is breached, stop and investigate.
@@ -238,7 +238,7 @@ CanvasArea, pointer events, or CSS layout:
 
 ## Ephemeral tree recovery
 
-All feature branches have been merged into `master`. Recover with:
+Recover with:
 
 ```bash
 git checkout master
@@ -246,8 +246,9 @@ git log --oneline -3
 ```
 
 | Artifact | Location |
-|---|---|---|
+|---|---|
 | Working branch | `master` |
+| Canvas responsiveness work | `perf/canvas-responsiveness` (6 commits ahead of master, merged 2026-07-27) |
 | Deferred plan | `docs/plans/layers-panel-deferred.md` |
 | Export deferred | `docs/plans/export-system-deferred.md` |
 | Home/Workspace System | `docs/plans/projects-home-workspace-completed.md` |

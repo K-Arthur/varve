@@ -1,3 +1,4 @@
+// COMPLEXITY: 650 cyclo — replayIr is a hot path; see AGENTS.md §"The clean version is not always the fast version"
 /**
  * Canvas2D replay of the render IR (the webview side of ADR-0001).
  *

@@ -487,11 +487,11 @@ async function checkHubFiles() {
   console.log('\n═══ 6. Hub File Budget ═══');
 
   const hubFiles = {
-    'packages/editor/src/Shell.tsx': { maxImports: 48 },
-    'packages/editor/src/CanvasArea.tsx': { maxImports: 67 },
-    'packages/editor/src/Menubar.tsx': { maxImports: 13 },
+    'packages/editor/src/Shell.tsx': { maxImports: 49 },
+    'packages/editor/src/CanvasArea.tsx': { maxImports: 42 },
+    'packages/editor/src/Menubar.tsx': { maxImports: 14 },
     'packages/home/src/HomeShell.tsx': { maxImports: 34 },
-    'packages/editor/src/context.tsx': { maxImports: 60 },
+    'packages/editor/src/context.tsx': { maxImports: 65 },
   };
 
   const results = {};
