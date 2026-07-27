@@ -58,6 +58,8 @@ export interface TransformOptions {
   scaleContents?: boolean;
 }
 
+export type SkewAxis = 'e' | 'w' | 'n' | 's';
+
 type TransformResizeOptions = ResizeOptions & {
   /** Skip the injected snap policy for this pointer sample (Ctrl/Cmd). */
   bypassSnap?: boolean;
@@ -154,6 +156,33 @@ export class TransformEngine {
   rotate(angleDelta: number, pivot?: Point, doc: Document = this.doc): Document {
     const newBox = this.snapBox(rotateSelectionBox(this.initialBox, angleDelta, pivot));
     const delta = boxDeltaMatrix(this.initialBox, newBox);
+    this.lastDelta = delta;
+    return this.applyDelta(doc, delta);
+  }
+
+  /** Skew by dragging a side handle. Composes a shear matrix onto the delta. */
+  skew(
+    pointerWorld: Point,
+    axis: SkewAxis,
+    doc: Document = this.doc,
+  ): Document {
+    const box = this.initialBox;
+    const local = this.pointerDeltaToBoxLocal(pointerWorld, box, 'e');
+    const boxH = box.h || 1;
+    const boxW = box.w || 1;
+    // E/W vertical edges: vertical drag skews Y axis (shearY → b component)
+    // N/S horizontal edges: horizontal drag skews X axis (shearX → c component)
+    let shearFactor = 0;
+    if (axis === 'e' || axis === 'w') {
+      shearFactor = local[1] / boxH;
+    } else {
+      shearFactor = local[0] / boxW;
+    }
+    if (axis === 'w' || axis === 'n') shearFactor = -shearFactor;
+    const shear: Affine = axis === 'e' || axis === 'w'
+      ? [1, shearFactor, 0, 1, 0, 0] as Affine  // skewY (b component)
+      : [1, 0, shearFactor, 1, 0, 0] as Affine; // skewX (c component)
+    const delta = multiplyAffine(shear, this.lastDelta);
     this.lastDelta = delta;
     return this.applyDelta(doc, delta);
   }
