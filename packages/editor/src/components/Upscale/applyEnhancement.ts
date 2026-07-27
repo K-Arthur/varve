@@ -41,7 +41,7 @@ export async function applyEnhancement(
   const width = Math.max(1, image.naturalWidth || image.width);
   const height = Math.max(1, image.naturalHeight || image.height);
 
-  const canvas = document.createElement('canvas');
+  const canvas = globalThis.document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext('2d');
@@ -86,7 +86,7 @@ export async function applyEnhancement(
     throw new Error('applyEnhancement called without enhancement needed');
   }
 
-  const outputCanvas = document.createElement('canvas');
+  const outputCanvas = globalThis.document.createElement('canvas');
   outputCanvas.width = outputImage.width;
   outputCanvas.height = outputImage.height;
   const outputCtx = outputCanvas.getContext('2d');
@@ -151,12 +151,13 @@ export async function applyEnhancement(
           },
         },
       };
-      return insertDerivedImageShape(updatedDoc, processingNodeId, {
+      const result = insertDerivedImageShape(updatedDoc, processingNodeId, {
         dataUrl,
         width: outputImage.width,
         height: outputImage.height,
         suffix: `-${scale}x`,
       });
+      return result.doc;
     });
   }
 }

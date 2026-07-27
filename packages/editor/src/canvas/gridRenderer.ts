@@ -176,3 +176,23 @@ export function renderGridOnCtx(
 
   ctx.restore();
 }
+
+export function resolveCanvasColor(color: string): string {
+  if (!color || !color.startsWith('var(')) return color;
+  if (typeof document === 'undefined') return color;
+
+  const match = color.match(/var\((--[^,)]+)(?:,\s*([^)]+))?\)/);
+  if (!match) return color;
+
+  const [, prop, fallback] = match;
+  if (!prop) return color;
+  const computed = window.getComputedStyle(document.documentElement).getPropertyValue(prop).trim();
+  if (computed) return computed;
+  if (fallback) {
+    const trimmed = fallback.trim();
+    if (trimmed.startsWith('var(')) return resolveCanvasColor(trimmed);
+    if (trimmed.startsWith('--')) return resolveCanvasColor('var(' + trimmed + ')');
+    return trimmed;
+  }
+  return color;
+}
