@@ -2049,6 +2049,10 @@ export function EditorProvider({
       pixelGridSnapEnabled: false,
       dotGridEnabled: false,
       findingsOverlayVisible: false,
+      canUndo: false,
+      canRedo: false,
+      undoLabel: 'Undo',
+      redoLabel: 'Redo',
       snapEnabled: vpDefaults.snapEnabled,
       snapGrid: vpDefaults.snapGrid,
       documentGrid: docGrid,
@@ -2176,6 +2180,8 @@ export function EditorProvider({
   const redoStackRef = useRef<Document[]>([]);
   const undoSelStackRef = useRef<NodeId[][]>([]);
   const redoSelStackRef = useRef<NodeId[][]>([]);
+  const undoLabelsRef = useRef<string[]>([]);
+  const redoLabelsRef = useRef<string[]>([]);
   /** F2: snapshots of all inactive sessions, keyed by session ID. */
   const sessionStoreRef = useRef<Map<string, SavedSession>>(new Map());
   /** Shared aria-live announcer for screen-reader messages. */
@@ -2213,7 +2219,37 @@ export function EditorProvider({
     redoStackRef.current = [];
     undoSelStackRef.current = [];
     redoSelStackRef.current = [];
+    undoLabelsRef.current = [];
+    redoLabelsRef.current = [];
   }, []);
+
+  // After each render, sync canUndo/canRedo/undoLabel/redoLabel if they
+  // diverge from the derived values. Uses a ref to track what we last synced
+  // to avoid infinite patch→render→patch loops.
+  const lastSyncedUndo = useRef({ canUndo: false, canRedo: false, undoLabel: 'Undo', redoLabel: 'Redo' });
+  const undoLen = undoStackRef.current.length;
+  const redoLen = redoStackRef.current.length;
+  const derivedCanUndo = undoLen > 0;
+  const derivedCanRedo = redoLen > 0;
+  const derivedUndoLabel = undoLabelsRef.current[undoLen - 1] ?? 'Undo';
+  const derivedRedoLabel = redoLabelsRef.current[redoLen - 1] ?? 'Redo';
+  useEffect(() => {
+    const last = lastSyncedUndo.current;
+    if (
+      last.canUndo !== derivedCanUndo ||
+      last.canRedo !== derivedCanRedo ||
+      last.undoLabel !== derivedUndoLabel ||
+      last.redoLabel !== derivedRedoLabel
+    ) {
+      lastSyncedUndo.current = {
+        canUndo: derivedCanUndo,
+        canRedo: derivedCanRedo,
+        undoLabel: derivedUndoLabel,
+        redoLabel: derivedRedoLabel,
+      };
+      patch(lastSyncedUndo.current);
+    }
+  });
 
   /** F6: transaction state for single-undo scrubbing. */
   const inTransactionRef = useRef(false);
@@ -2391,8 +2427,10 @@ export function EditorProvider({
       if (!inTransactionRef.current) {
         undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
         undoSelStackRef.current = [...undoSelStackRef.current.slice(-50), s.selection];
+        undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
         redoStackRef.current = [];
         redoSelStackRef.current = [];
+        redoLabelsRef.current = [];
       }
       const newDoc = fn(s.document);
       const syncedGrid = editorGridFromDoc(newDoc);
@@ -2402,6 +2440,10 @@ export function EditorProvider({
         documentGrid: syncedGrid,
         snapGrid: syncedGrid.spacingX,
         dirty: true,
+        canUndo: true,
+        canRedo: false,
+        undoLabel: 'Edit',
+        redoLabel: 'Redo',
         sessions: s.sessions.map((sess) =>
           sess.id === s.activeId ? { ...sess, dirty: true } : sess,
         ),
@@ -2492,8 +2534,10 @@ export function EditorProvider({
         if (changed) {
           undoStackRef.current = [...undoStackRef.current.slice(-49), txSnapshotRef.current!];
           undoSelStackRef.current = [...undoSelStackRef.current.slice(-49), txSelRef.current ?? []];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-49), 'Edit'];
           redoStackRef.current = [];
           redoSelStackRef.current = [];
+          redoLabelsRef.current = [];
         }
         txSnapshotRef.current = null;
         txSelRef.current = null;
@@ -3051,7 +3095,9 @@ export function EditorProvider({
           }
 
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
+          redoLabelsRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
@@ -3231,7 +3277,9 @@ export function EditorProvider({
       createTextNodeAt: (world, size, parentId, text = '') => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
+          redoLabelsRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
           const transform: Affine = [1, 0, 0, 1, world.x, world.y];
@@ -3307,7 +3355,9 @@ export function EditorProvider({
         // Create path: place a new frame centered in the current viewport.
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
+          redoLabelsRef.current = [];
 
           const { id, doc: d2 } = nextNodeId(s.document);
           const autoName = nextAutoName(d2, preset.name);
@@ -4932,30 +4982,42 @@ export function EditorProvider({
       undo: () => {
         const prev = undoStackRef.current.pop();
         const prevSel = undoSelStackRef.current.pop();
+        const prevLabel = undoLabelsRef.current.pop();
         if (!prev) return;
         redoStackRef.current = [...redoStackRef.current, state.document];
         redoSelStackRef.current = [...redoSelStackRef.current, state.selection];
+        redoLabelsRef.current = [...redoLabelsRef.current, prevLabel ?? 'Undo'];
         const syncedGrid = editorGridFromDoc(prev);
         patch({
           document: prev,
           selection: prevSel ?? [],
           documentGrid: syncedGrid,
           snapGrid: syncedGrid.spacingX,
+          canUndo: undoStackRef.current.length > 0,
+          canRedo: true,
+          undoLabel: undoLabelsRef.current[undoLabelsRef.current.length - 1] ?? 'Undo',
+          redoLabel: prevLabel ?? 'Undo',
         });
       },
 
       redo: () => {
         const next = redoStackRef.current.pop();
         const nextSel = redoSelStackRef.current.pop();
+        const nextLabel = redoLabelsRef.current.pop();
         if (!next) return;
         undoStackRef.current = [...undoStackRef.current, state.document];
         undoSelStackRef.current = [...undoSelStackRef.current, state.selection];
+        undoLabelsRef.current = [...undoLabelsRef.current, nextLabel ?? 'Redo'];
         const syncedGrid = editorGridFromDoc(next);
         patch({
           document: next,
           selection: nextSel ?? [],
           documentGrid: syncedGrid,
           snapGrid: syncedGrid.spacingX,
+          canUndo: true,
+          canRedo: redoStackRef.current.length > 0,
+          undoLabel: nextLabel ?? 'Redo',
+          redoLabel: redoLabelsRef.current[redoLabelsRef.current.length - 1] ?? 'Redo',
         });
       },
 
@@ -6020,7 +6082,9 @@ export function EditorProvider({
 
       createAdjustmentLayer: (initialAdjustments) => {
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
         redoStackRef.current = [];
+        redoLabelsRef.current = [];
         const { id, doc: newDoc } = nextNodeId(state.document);
         const adjs = initialAdjustments ?? [];
         const sel = state.selection;
@@ -6077,7 +6141,9 @@ export function EditorProvider({
 
       addLutAdjustment: (lutAdjustment: Adjustment) => {
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
         redoStackRef.current = [];
+        redoLabelsRef.current = [];
         const { id, doc: newDoc } = nextNodeId(state.document);
         const node = makeAdjustmentNode(
           id,
@@ -6153,7 +6219,9 @@ export function EditorProvider({
         initialAdjustments: import('@strata/scene').Adjustment[] | undefined,
       ) => {
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
         redoStackRef.current = [];
+        redoLabelsRef.current = [];
         const { id, doc: newDoc } = nextNodeId(state.document);
         const adjs = initialAdjustments ?? [];
         const node = makeAdjustmentNode(
@@ -6200,7 +6268,9 @@ export function EditorProvider({
         if (toCopy.length === 0) return;
 
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
+        undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
         redoStackRef.current = [];
+        redoLabelsRef.current = [];
         let doc = state.document;
         const newIds: string[] = [];
 
@@ -6358,7 +6428,9 @@ export function EditorProvider({
 
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
+          redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
 
@@ -6450,7 +6522,9 @@ export function EditorProvider({
       importNode: (node, sourceDoc, options) => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
+          redoLabelsRef.current = [];
           const inserted = insertImportedSubtree(s.document, sourceDoc, node.id, (clonedRoot) =>
             applyDropPosition(
               clonedRoot,
@@ -6467,7 +6541,9 @@ export function EditorProvider({
       batchImportNodes: (items, options) => {
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
+          undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
           redoStackRef.current = [];
+          redoLabelsRef.current = [];
           let doc = s.document;
           const newIds: NodeId[] = [];
           let batchIndex = 0;

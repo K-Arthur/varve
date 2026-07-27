@@ -1365,22 +1365,24 @@ export function Menubar({
           |
         </span>
         <TooltipProvider>
-          <Tooltip label="Undo" shortcut={sc('undo')}>
+          <Tooltip label={state.undoLabel} shortcut={sc('undo')}>
             <IconButton
               icon={SOLID_CHROME_ICONS.undo}
-              label="Undo"
+              label={state.undoLabel}
               size="sm"
               solid
               onClick={undo}
+              disabled={!state.canUndo}
             />
           </Tooltip>
-          <Tooltip label="Redo" shortcut={sc('redo')}>
+          <Tooltip label={state.redoLabel} shortcut={sc('redo')}>
             <IconButton
               icon={SOLID_CHROME_ICONS.redo}
-              label="Redo"
+              label={state.redoLabel}
               size="sm"
               solid
               onClick={redo}
+              disabled={!state.canRedo}
             />
           </Tooltip>
         </TooltipProvider>
