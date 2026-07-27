@@ -9,7 +9,7 @@
  */
 
 import { type FontMetadata, getFontRegistry } from '@strata/engine';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Icon } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';
@@ -231,7 +231,11 @@ export function FontBrowser({
                     aria-expanded={isExpanded}
                     aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${entry.family} faces`}
                   >
-                    {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                    {isExpanded ? (
+                      <Icon name="ChevronDown" size={12} />
+                    ) : (
+                      <Icon name="ChevronRight" size={12} />
+                    )}
                   </button>
                 )}
                 <span

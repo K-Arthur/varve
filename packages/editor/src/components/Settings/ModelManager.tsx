@@ -12,7 +12,7 @@ import {
   listAllModels,
   resetRuntimeCapabilities,
 } from '@strata/engine';
-import { Button, RegionLoader } from '@strata/ui';
+import { Button, Icon, RegionLoader } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ModelRow {
@@ -126,9 +126,16 @@ export function ModelManager() {
         if (!entry.bundled && !isReady) {
           if (entry.remoteUrl === '') {
             const notes = entry.sourceRevision || entry.description || '';
-            if (notes.toLowerCase().includes('source unavailable') || notes.toLowerCase().includes('no public onnx')) {
-              availabilityReason = 'No public ONNX export — requires manual export from source repo';
-            } else if (notes.toLowerCase().includes('no download url') || notes.toLowerCase().includes('requires onnx export')) {
+            if (
+              notes.toLowerCase().includes('source unavailable') ||
+              notes.toLowerCase().includes('no public onnx')
+            ) {
+              availabilityReason =
+                'No public ONNX export — requires manual export from source repo';
+            } else if (
+              notes.toLowerCase().includes('no download url') ||
+              notes.toLowerCase().includes('requires onnx export')
+            ) {
               availabilityReason = 'Requires ONNX export from source framework';
             } else {
               availabilityReason = 'No download source available';
@@ -304,8 +311,8 @@ export function ModelManager() {
         <p className="settings-section__hint">
           All AI models run locally on your device. Bundled models ship with the app. Optional
           models are downloaded on demand and stored in your browser's local storage or the desktop
-          app's data directory. Models marked as unavailable have no trusted public ONNX source
-          and require manual export from their original framework.
+          app's data directory. Models marked as unavailable have no trusted public ONNX source and
+          require manual export from their original framework.
         </p>
 
         {totalStorage > 0 && (
@@ -510,7 +517,7 @@ export function ModelManager() {
 
                     {row.memoryWarning && (
                       <span className="bg-models-list__meta bg-models-list__warning">
-                        ⚠ {row.memoryWarning}
+                        <Icon name="AlertTriangle" size={12} label="Warning" /> {row.memoryWarning}
                       </span>
                     )}
                   </div>

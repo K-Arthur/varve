@@ -264,17 +264,6 @@ export {
   makeAdjustment,
 } from './filters';
 export * from './font';
-export * from './icon';
-// Outline worker pool
-export type { OutlineJob, OutlineJobResult, OutlinePoolConfig, PoolEvent, WorkerStatus } from './outlineWorkerPool';
-export { destroyOutlineWorkerPool, getOutlineWorkerPool, OutlineWorkerPool } from './outlineWorkerPool';
-export type {
-  OutlineWorkerError,
-  OutlineWorkerProgress,
-  OutlineWorkerRequest,
-  OutlineWorkerResult,
-  WorkerGlyphOutline,
-} from './outlineWorker';
 export type {
   ExportFontRequest,
   FontEntry,
@@ -333,6 +322,7 @@ export {
   loadImagePixels,
   scaleDimensions,
 } from './iccImageConverter';
+export * from './icon';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
 export type {
@@ -566,6 +556,26 @@ export type {
   OcrWord,
   OrientationResult,
 } from './ocrPipeline/types';
+export type {
+  OutlineWorkerError,
+  OutlineWorkerProgress,
+  OutlineWorkerRequest,
+  OutlineWorkerResult,
+  WorkerGlyphOutline,
+} from './outlineWorker';
+// Outline worker pool
+export type {
+  OutlineJob,
+  OutlineJobResult,
+  OutlinePoolConfig,
+  PoolEvent,
+  WorkerStatus,
+} from './outlineWorkerPool';
+export {
+  destroyOutlineWorkerPool,
+  getOutlineWorkerPool,
+  OutlineWorkerPool,
+} from './outlineWorkerPool';
 export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
