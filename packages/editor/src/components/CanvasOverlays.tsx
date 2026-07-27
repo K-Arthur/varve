@@ -146,6 +146,13 @@ export function CanvasOverlays({
   const editor = useEditor();
   const showOverlays = canvasMode !== 'preview';
 
+  // ─── Baseline / isometric overlay settings ────────────────────────────
+  // Drive the overlay from the document's BaselineGrid settings when present
+  // so step and offset are configurable; fall back to the classic defaults.
+  const baselineGrid = doc.gridSettings?.baselineGrids
+    ? Object.values(doc.gridSettings.baselineGrids)[0]
+    : undefined;
+
   // ─── DocumentGridOverlay ──────────────────────────────────────────────
   const showGridOverlay = gridOverlayMode !== 'none';
 
@@ -337,6 +344,8 @@ export function CanvasOverlays({
           cameraRotation={cameraRotation}
           width={canvasSize.width}
           height={canvasSize.height}
+          baselineStep={baselineGrid?.baselineStep}
+          offset={baselineGrid?.offset}
         />
       )}
       {showColorBlindness && (

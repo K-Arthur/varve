@@ -3,6 +3,40 @@ import type { DocumentGrid, GridViewportLines } from './gridTypes';
 const MIN_SCREEN_PX_BETWEEN_LINES = 6;
 
 /**
+ * Resolve a CSS color string for use with Canvas2D.
+ *
+ * Canvas2D's strokeStyle/fillStyle parse `<color>` values but do NOT resolve
+ * CSS custom properties — a raw `var(--color-border-subtle)` string is a parse
+ * failure that is silently ignored (the context keeps its previous state),
+ * which is why grid lines rendered in a stale/wrong color and never updated on
+ * theme change. `var(--token)` references are resolved against `:root`'s
+ * computed value; fallbacks (`var(--a, --b)`, `var(--a, red)`) are followed
+ * recursively. Already-resolved colors are returned untouched.
+ */
+export function resolveCanvasColor(color: string): string {
+  if (typeof color !== 'string' || !color.startsWith('var(')) return color;
+  if (typeof document === 'undefined' || typeof getComputedStyle === 'undefined') {
+    return color;
+  }
+  const root = document.documentElement;
+  if (!root) return color;
+  const match = color.match(/var\((--[^,)]+)(?:,\s*([^)]+))?\)/);
+  if (!match?.[1]) return color;
+  const prop = match[1].trim();
+  const fallback = match[2]?.trim();
+  const value = getComputedStyle(root).getPropertyValue(prop).trim();
+  if (value) return value;
+  if (fallback) {
+    // Fallback may be a color string, a bare --token, or another var().
+    if (fallback.startsWith('--')) {
+      return resolveCanvasColor(`var(${fallback})`);
+    }
+    return resolveCanvasColor(fallback);
+  }
+  return color;
+}
+
+/**
  * Compute a zoom-adaptive step multiplier so the effective screen-space
  * density stays bounded. At very low zoom the step increases, keeping the
  * number of drawn lines reasonable.
@@ -151,7 +185,7 @@ export function renderGridOnCtx(
   }
 
   if (lines.minor.length > 0) {
-    ctx.strokeStyle = minorColor;
+    ctx.strokeStyle = resolveCanvasColor(minorColor);
     ctx.globalAlpha = minorOpacity;
     ctx.lineWidth = mw2;
     ctx.beginPath();
@@ -163,7 +197,7 @@ export function renderGridOnCtx(
   }
 
   if (lines.major.length > 0) {
-    ctx.strokeStyle = majorColor;
+    ctx.strokeStyle = resolveCanvasColor(majorColor);
     ctx.globalAlpha = majorOpacity;
     ctx.lineWidth = mw;
     ctx.beginPath();
