@@ -3,7 +3,7 @@
  * Enhancement worker: CPU upscale + monochrome trace off the UI thread.
  */
 
-import { type UpscaleOptions, upscaleImageData, computeUpscalePreview } from '../imageEnhancement';
+import { computeUpscalePreview, type UpscaleOptions, upscaleImageData } from '../imageEnhancement';
 import { type RasterTraceOptions, traceRasterToPaths } from '../rasterTrace';
 import { upscaleWithRealEsrgan } from './aiUpscale';
 import type { EnhancementWorkerRequest, EnhancementWorkerResponse } from './enhancementWorkerHost';
