@@ -123,6 +123,29 @@ export function buildViewMenu(_state: MenuBuildState, helpers: MenuBuildHelpers)
       ariaKeyshortcut: helpers.ks('togglePixelGrid'),
       action: 'togglePixelGrid',
     },
+    {
+      label: _state.findingsOverlayVisible ? 'Hide Findings Overlay' : 'Show Findings Overlay',
+      shortcut: helpers.fmt('toggleFindingsOverlay'),
+      ariaKeyshortcut: helpers.ks('toggleFindingsOverlay'),
+      action: 'toggleFindingsOverlay',
+      items: [
+        {
+          label: 'Contrast Issues',
+          action: 'toggleFindingsProviderContrast',
+          disabled: !_state.findingsOverlayVisible,
+        },
+        {
+          label: 'Vector Issues',
+          action: 'toggleFindingsProviderVectorIssues',
+          disabled: !_state.findingsOverlayVisible,
+        },
+        {
+          label: 'DPI Warnings',
+          action: 'toggleFindingsProviderDpiWarnings',
+          disabled: !_state.findingsOverlayVisible,
+        },
+      ],
+    },
     { label: '---' },
     {
       label: 'Toggle Snap',

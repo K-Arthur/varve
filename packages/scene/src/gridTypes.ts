@@ -107,10 +107,81 @@ export interface PixelGrid extends GridBase {
   zoomThreshold: number;
 }
 
+export type IsometricPreset = 'standard' | 'dimetric' | 'trimetric' | 'custom';
+
+export interface IsometricAxis {
+  angle: number;
+  visible: boolean;
+  color?: string;
+  opacity?: number;
+  spacing?: number;
+  label?: string;
+}
+
+export interface IsometricGrid extends GridBase {
+  type: 'isometric';
+  preset: IsometricPreset;
+  axes: IsometricAxis[];
+  originX: number;
+  originY: number;
+  rotation: number;
+  spacing: number;
+  version: number;
+}
+
+export function validateIsometricAxes(axes: IsometricAxis[]): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  if (axes.length < 2 || axes.length > 3) {
+    errors.push('Isometric grid requires 2-3 axes, got ' + axes.length);
+    return { valid: false, errors };
+  }
+  for (let i = 0; i < axes.length; i++) {
+    const a = axes[i];
+    for (let j = i + 1; j < axes.length; j++) {
+      const b = axes[j];
+      const diff = Math.abs((((a.angle % 360) + 360) % 360) - (((b.angle % 360) + 360) % 360));
+      if (diff < 0.1 || diff > 359.9) errors.push('Axis ' + i + ' and ' + j + ' are duplicates');
+    }
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function normaliseAngle(angle: number): number {
+  return ((angle % 360) + 360) % 360;
+}
+
+export function createStandardIsometricAxes(): IsometricAxis[] {
+  return [
+    { angle: 30, visible: true, label: 'Right' },
+    { angle: 150, visible: true, label: 'Left' },
+    { angle: 90, visible: true, label: 'Vertical' },
+  ];
+}
+
+export function createDefaultIsometricGrid(): IsometricGrid {
+  return {
+    id: 'grid-isometric-default',
+    type: 'isometric',
+    name: 'Isometric Grid',
+    visible: false,
+    snapEnabled: true,
+    color: 'var(--color-text-muted)',
+    opacity: 0.2,
+    scope: 'document',
+    preset: 'standard',
+    axes: createStandardIsometricAxes(),
+    originX: 0,
+    originY: 0,
+    rotation: 0,
+    spacing: 24,
+    version: 2,
+  };
+}
+
 /**
  * Discriminated union of all grid types.
  */
-export type GridDefinition = DocumentGrid | LayoutGrid | BaselineGrid | PixelGrid;
+export type GridDefinition = DocumentGrid | LayoutGrid | BaselineGrid | PixelGrid | IsometricGrid;
 
 /**
  * Grid settings container in the Document model.
@@ -124,6 +195,8 @@ export interface DocumentGridSettings {
   baselineGrids?: Record<string, BaselineGrid>;
   /** Pixel grid settings (singleton). */
   pixelGrid?: PixelGrid;
+  /** Isometric grids keyed by ID. */
+  isometricGrids?: Record<string, IsometricGrid>;
 }
 
 /**
@@ -270,6 +343,17 @@ export function validatePixelGrid(grid: PixelGrid): boolean {
   return grid.zoomThreshold >= 1 && grid.zoomThreshold <= 100 && validateGridOpacity(grid.opacity);
 }
 
+export function validateIsometricGrid(grid: IsometricGrid): boolean {
+  return (
+    validateGridSpacing(grid.spacing) &&
+    validateGridOpacity(grid.opacity) &&
+    Number.isFinite(grid.originX) &&
+    Number.isFinite(grid.originY) &&
+    Number.isFinite(grid.rotation) &&
+    validateIsometricAxes(grid.axes).valid
+  );
+}
+
 /**
  * Validate any grid definition based on its type.
  */
@@ -283,6 +367,8 @@ export function validateGrid(grid: GridDefinition): boolean {
       return validateBaselineGrid(grid);
     case 'pixel':
       return validatePixelGrid(grid);
+    case 'isometric':
+      return validateIsometricGrid(grid);
     default:
       return false;
   }
@@ -317,6 +403,14 @@ export function sanitizeGrid(grid: GridDefinition): GridDefinition {
     sanitized.offset = Math.max(-10000, Math.min(10000, sanitized.offset));
   } else if (sanitized.type === 'pixel') {
     sanitized.zoomThreshold = Math.max(1, Math.min(100, sanitized.zoomThreshold));
+  } else if (sanitized.type === 'isometric') {
+    sanitized.spacing = Math.max(1, Math.min(10000, sanitized.spacing));
+    sanitized.originX = Math.max(-100000, Math.min(100000, sanitized.originX));
+    sanitized.originY = Math.max(-100000, Math.min(100000, sanitized.originY));
+    sanitized.rotation = ((sanitized.rotation % 360) + 360) % 360;
+    sanitized.axes = sanitized.axes
+      .slice(0, 3)
+      .map((a) => ({ ...a, angle: ((a.angle % 360) + 360) % 360, visible: a.visible !== false }));
   }
 
   return sanitized;

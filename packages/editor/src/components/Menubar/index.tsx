@@ -158,6 +158,7 @@ function buildMenus(
     rulerMode: string;
     snapEnabled: boolean;
     pixelGridEnabled: boolean;
+    findingsOverlayVisible: boolean;
     documentGrid: {
       visible: boolean;
       spacingX: number;
@@ -512,6 +513,7 @@ export function Menubar({
       state.rulerMode,
       state.snapEnabled,
       state.pixelGridEnabled,
+      state.findingsOverlayVisible,
       state.documentGrid?.visible,
       recentEntries,
     ],
