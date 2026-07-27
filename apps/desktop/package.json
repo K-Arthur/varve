@@ -13,9 +13,9 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "pretauri:dev": "node scripts/pre-tauri-dev.mjs",
-    "tauri:dev": "tauri dev --features ai",
+    "tauri:dev": "tauri dev",
     "posttauri:dev": "echo '[info] Dev mode (build) — no icon steps needed'",
-    "tauri:build": "tauri build --features ai",
+    "tauri:build": "tauri build",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
