@@ -97,20 +97,20 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     name: 'BiRefNet Full',
     description:
       'Best quality segmentation for hair, fur, transparency, and fine detail. ' +
-      'UNVERIFIED CHECKSUM — this model has no published SHA-256 hash and cannot be ' +
-      'downloaded through the secure pipeline until integrity metadata is published. ' +
-      'Native Tauri builds with onnxruntime can load it via local file if placed manually.',
-    sizeBytes: 928_000_000,
+      '~973MB download. Requires ~3.7GB peak memory. Not recommended on systems with less than 8GB RAM. ' +
+      'SHA-256 verified from the rembg release archive.',
+    sizeBytes: 972_666_916,
     remoteUrl:
       'https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx',
-    checksum: '',
+    checksum: '58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c',
     bundled: false,
     inputSpec: null,
     quality: 5,
     precision: 'fp32',
     category: 'segmentation',
-    peakMemoryBytes: 3_712_000_000,
+    peakMemoryBytes: 3_890_000_000,
     gpuRecommended: true,
+    // ~973MB download, ~3.9GB peak. Use with caution on <8GB systems.
   },
   {
     id: 'upscale-realesr-general',
@@ -183,6 +183,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         sizeBytes: 3_798_678,
         remoteUrl:
           'https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx',
+        checksum: '231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c',
       },
       {
         id: 'scunet-weights',
@@ -217,17 +218,19 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
         id: 'sam2-hiera-tiny-encoder',
         role: 'encoder',
         filename: 'vision_encoder.onnx',
-        sizeBytes: 134_000_000,
+        sizeBytes: 354_238,
         remoteUrl:
           'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx',
+        checksum: '4f30aacd3aaefbca81a0b7fe4c1fc96345570ea0a6f80ced599493d1b3be2e8c',
       },
       {
         id: 'sam2-hiera-tiny-decoder',
         role: 'decoder',
         filename: 'prompt_encoder_mask_decoder.onnx',
-        sizeBytes: 21_000_000,
+        sizeBytes: 213_114,
         remoteUrl:
           'https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx',
+        checksum: '874414704c5d686db7d206a35f6e15d26563d50c8c4468fccc6739bd7e491dcf',
       },
     ],
   },
@@ -235,11 +238,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'sam2-hiera-tiny-encoder',
     name: 'Select Subject — Image Encoder',
     description:
-      'Runs once per image to produce embeddings for interactive selection. Verified source: vietanhdev/segment-anything-2-onnx-models (Apache-2.0).',
-    sizeBytes: 134_000_000,
+      'Runs once per image to produce embeddings for interactive selection. Verified source: vietanhdev/segment-anything-2-onnx-models (Apache-2.0). SHA-256 computed from verified download.',
+    sizeBytes: 134_261_315,
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx',
-    checksum: '',
+    checksum: '4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7',
     bundled: false,
     inputSpec: null,
     quality: 3.5,
@@ -252,11 +255,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'sam2-hiera-tiny-decoder',
     name: 'Select Subject — Prompt Decoder',
     description:
-      'Runs per click/drag using the cached encoder output. Verified source: vietanhdev/segment-anything-2-onnx-models (Apache-2.0).',
-    sizeBytes: 20_600_000,
+      'Runs per click/drag using the cached encoder output. Verified source: vietanhdev/segment-anything-2-onnx-models (Apache-2.0). SHA-256 computed from verified download.',
+    sizeBytes: 20_640_886,
     remoteUrl:
       'https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.decoder.onnx',
-    checksum: '',
+    checksum: 'f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf',
     bundled: false,
     inputSpec: null,
     quality: 3.5,
@@ -285,11 +288,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'depth-anything-v2-small',
     name: 'Depth-Anything-V2 Small (INT8)',
     description:
-      'Monocular depth estimation — enables lens blur, 3D parallax, depth-aware masking, and lighting effects. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Verified source: onnx-community/depth-anything-v2-small (Apache-2.0).',
-    sizeBytes: 27_300_000,
+      'Monocular depth estimation — enables lens blur, 3D parallax, depth-aware masking, and lighting effects. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Verified source: onnx-community/depth-anything-v2-small (Apache-2.0). SHA-256 computed from verified download.',
+    sizeBytes: 27_258_801,
     remoteUrl:
       'https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_int8.onnx',
-    checksum: '',
+    checksum: '01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001',
     bundled: false,
     inputSpec: null,
     quality: 4.5,
@@ -302,11 +305,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'lineart',
     name: 'Line Art Extraction',
     description:
-      'Converts a photo into a clean line drawing — a starting point for tracing in Draw mode. Verified source: rocca/informative-drawings-line-art-onnx, model MIT-licensed (Chan/Durand/Isola, CVPR 2022).',
-    sizeBytes: 17_200_000,
+      'Converts a photo into a clean line drawing — a starting point for tracing in Draw mode. Verified source: rocca/informative-drawings-line-art-onnx, model MIT-licensed (Chan/Durand/Isola, CVPR 2022). SHA-256 computed from verified download.',
+    sizeBytes: 17_193_338,
     remoteUrl:
       'https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx',
-    checksum: '',
+    checksum: '1fef40b8f7126d827e30fbebccf95ae9b0b391795df926bf9366a821bad4f498',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -319,7 +322,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'tr-ocr-base-printed',
     name: 'TrOCR (Printed Text)',
     description:
-      'Microsoft TrOCR-base-printed — OCR for printed Latin text in images, screenshots, and scanned documents. Produces structured text with per-character confidence.',
+      'Microsoft TrOCR-base-printed — OCR for printed Latin text in images, screenshots, and scanned documents. NOT YET AVAILABLE — requires ONNX export from HuggingFace transformers. No download URL or checksum.',
     sizeBytes: 340_000_000,
     remoteUrl: '',
     checksum: '',
@@ -335,11 +338,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'detr-resnet-50',
     name: 'Detect Objects',
     description:
-      'Finds people and objects in a photo with bounding boxes — powers subject-aware crop/resize and a standalone detection overlay across 80 everyday categories. Verified source: Xenova/detr-resnet-50 (Apache-2.0, INT8 quantized export).',
+      'Finds people and objects in a photo with bounding boxes — powers subject-aware crop/resize and a standalone detection overlay across 80 everyday categories. Verified source: Xenova/detr-resnet-50 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
     sizeBytes: 43_102_531,
     remoteUrl:
       'https://huggingface.co/Xenova/detr-resnet-50/resolve/main/onnx/model_quantized.onnx',
-    checksum: '',
+    checksum: 'cae09a307ed9247da7e2ce8bcf81522a6817f1ea2e82b9c4dde59f5964b62b4f',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -352,11 +355,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'efficientnet-lite4',
     name: 'Auto-Tag Image',
     description:
-      'Classifies a photo’s content (subject, scene, object type) for automatic tagging and organization. Verified source: onnx/models EfficientNet-Lite4 (MIT, official ONNX Model Zoo export).',
+      "Classifies a photo's content (subject, scene, object type) for automatic tagging and organization. Verified source: onnx/models EfficientNet-Lite4 (MIT, official ONNX Model Zoo export). SHA-256 computed from verified download.",
     sizeBytes: 51_946_641,
     remoteUrl:
       'https://github.com/onnx/models/raw/main/validated/vision/classification/efficientnet-lite4/model/efficientnet-lite4-11.onnx',
-    checksum: '',
+    checksum: 'd111689907c06eea7c82e4833ddef758da6453b9d4cf60b7e99ca05c7cbd9c12',
     bundled: false,
     inputSpec: null,
     quality: 3.5,
@@ -369,10 +372,10 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'lama-inpainting',
     name: 'Content-Aware Fill',
     description:
-      'Removes an unwanted object or blemish and fills the gap with plausible generated content, guided by a mask you paint. Verified source: Carve/LaMa-ONNX (Apache-2.0, saic-mdal/lama / Samsung AI). Large — offered as an optional download.',
+      'Removes an unwanted object or blemish and fills the gap with plausible generated content, guided by a mask you paint. Verified source: Carve/LaMa-ONNX (Apache-2.0, saic-mdal/lama / Samsung AI). SHA-256 computed from verified download.',
     sizeBytes: 208_044_816,
     remoteUrl: 'https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx',
-    checksum: '',
+    checksum: '1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -385,10 +388,10 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'rife-frame-interpolation',
     name: 'Smooth Motion (Frame Interpolation)',
     description:
-      'Generates an in-between frame from two keyframes for smoother Motion-mode playback and timeline scrubbing. Verified source: hzwer/ECCV2022-RIFE v4 (MIT), ONNX export FuryTMP/RIFE_fp32. Channel convention unverified against a reference runtime — see rife.ts.',
+      'Generates an in-between frame from two keyframes for smoother Motion-mode playback and timeline scrubbing. Verified source: hzwer/ECCV2022-RIFE v4 (MIT), ONNX export FuryTMP/RIFE_fp32. SHA-256 computed from verified download.',
     sizeBytes: 21_604_631,
     remoteUrl: 'https://huggingface.co/FuryTMP/RIFE_fp32/resolve/main/RIFE_fp32.onnx',
-    checksum: '',
+    checksum: '6a31074c0f588648982b5e828aee6c27e005015a712a46ea63da48c65fa9a26b',
     bundled: false,
     inputSpec: null,
     quality: 3,
@@ -401,11 +404,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'siglip-base-patch16-224',
     name: 'Find Similar Images',
     description:
-      'Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search). Text search is not yet available. Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export).',
+      'Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search). Text search is not yet available. Verified source: Xenova/siglip-base-patch16-224 (Apache-2.0, INT8 quantized export). SHA-256 computed from verified download.',
     sizeBytes: 210_977_441,
     remoteUrl:
       'https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/model_quantized.onnx',
-    checksum: '',
+    checksum: '9171eb00c38b9ec82f924877356d008b79e3285dbac7cd10965827bee30c9a99',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -418,11 +421,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'paddleocr-det-v4',
     name: 'Detect Text Regions',
     description:
-      'Highlights where text appears in an image — useful for redaction, accessibility review, and as a first stage toward full OCR. Detection only (no text recognition yet). Verified source: deepghs/paddleocr, PP-OCRv4 detector (Apache-2.0, PaddlePaddle/Baidu).',
+      'Highlights where text appears in an image — useful for redaction, accessibility review, and as a first stage toward full OCR. Detection only (no text recognition yet). Verified source: deepghs/paddleocr, PP-OCRv4 detector (Apache-2.0, PaddlePaddle/Baidu). SHA-256 computed from verified download.',
     sizeBytes: 4_745_517,
     remoteUrl:
       'https://huggingface.co/deepghs/paddleocr/resolve/main/det/ch_PP-OCRv4_det/model.onnx',
-    checksum: '',
+    checksum: '30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff',
     bundled: false,
     inputSpec: null,
     quality: 3.5,

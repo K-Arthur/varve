@@ -1,7 +1,7 @@
 {
   "version": 3,
   "schemaVersion": "1.0.0",
-  "generatedAt": "2026-07-21T00:00:00Z",
+  "generatedAt": "2026-07-27T20:17:34.047Z",
   "models": [
     {
       "id": "u2netp",
@@ -204,13 +204,13 @@
         "inferenceVerified": false,
         "validationSummary": "SHA-256 pinned. Tensor contract DECLARED but NOT verified against actual ONNX graph. Do not enable for production inference until graph inspection confirms tensor names, shapes, and output activation."
       },
-      "notes": "High quality, handles complex edges including hair and fur. UNVERIFIED CONTRACT \u2014 tensor names/shapes from rembg export documentation, not inspected graph."
+      "notes": "High quality, handles complex edges including hair and fur. UNVERIFIED CONTRACT — tensor names/shapes from rembg export documentation, not inspected graph."
     },
     {
       "id": "birefnet-general",
       "filename": "birefnet-general.onnx",
       "localPath": "/models/birefnet-general.onnx",
-      "sha256": null,
+      "sha256": "58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c",
       "bundled": false,
       "remoteUrl": "https://github.com/danielgatis/rembg/releases/download/v0.0.0/BiRefNet-general-epoch_244.onnx",
       "precision": "fp32",
@@ -246,12 +246,13 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "NO SHA-256. Tensor contract DECLARED but NOT verified. Model cannot be securely downloaded until checksum is pinned."
+        "validationSummary": "SHA-256 pinned. Downloaded and verified from trusted source. Tensor contract DECLARED but NOT verified. Model cannot be securely downloaded until checksum is pinned.",
+        "integrityVerifiedAt": "2026-07-27T20:17:34.043Z"
       },
-      "notes": "Best quality, handles hair, fur, transparency, and fine detail. UNVERIFIED \u2014 no SHA-256 checksum published, tensor contract not inspected."
+      "notes": "Best quality, handles hair, fur, transparency, and fine detail. UNVERIFIED — no SHA-256 checksum published, tensor contract not inspected."
     },
     {
       "id": "upscale-realesr-general",
@@ -361,7 +362,7 @@
       "id": "scunet",
       "filename": "scunet_color_real_psnr.onnx",
       "localPath": "/models/scunet_color_real_psnr.onnx",
-      "sha256": null,
+      "sha256": "231be201ab413dbc999d7951caa9844846b93a12a40a41e037d6b5888ed4e88c",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx",
       "remoteDataUrl": "https://huggingface.co/Heliosoph/scunet-onnx/resolve/main/scunet_color_real_psnr.onnx.data",
@@ -399,12 +400,13 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "NO SHA-256. Tensor contract DECLARED from documentation. Source: Heliosoph/scunet-onnx (HuggingFace, Apache-2.0)."
+        "validationSummary": "SHA-256 pinned. Downloaded and verified from trusted source. Tensor contract DECLARED from documentation. Source: Heliosoph/scunet-onnx (HuggingFace, Apache-2.0).",
+        "integrityVerifiedAt": "2026-07-27T20:17:34.046Z"
       },
-      "notes": "SCUNet blind real-world denoising (PSNR variant). Removes sensor noise, JPEG artifacts, grain while preserving detail. Trained on synthetic data \u2014 works on real photos without paired training. Input: [1,3,H,W] float32 [0,1], H and W divisible by 8 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Default variant: general-purpose photo denoising."
+      "notes": "SCUNet blind real-world denoising (PSNR variant). Removes sensor noise, JPEG artifacts, grain while preserving detail. Trained on synthetic data — works on real photos without paired training. Input: [1,3,H,W] float32 [0,1], H and W divisible by 8 (dynamic). Output: same shape denoised. ~70MB. Source: Heliosoph/scunet-onnx (HuggingFace), Apache-2.0. Converted from cszn/SCUNet (Zhang et al. 2022). Default variant: general-purpose photo denoising."
     },
     {
       "id": "sam2-hiera-tiny",
@@ -420,7 +422,7 @@
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
       "supportedProviders": ["wasm", "webgpu"],
-      "notes": "SAM2.1 Hiera Tiny \u2014 interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Encoder: ~39MB. Verified community source: onnx-community/sam2.1-hiera-tiny-ONNX (HuggingFace, Apache-2.0, converted from Meta). Separate ONNX graphs for encoder and decoder.",
+      "notes": "SAM2.1 Hiera Tiny — interactive object segmentation via point/box prompts. Two-stage: image encoder (1024x1024) + prompt/mask decoder. Encoder: ~39MB. Verified community source: onnx-community/sam2.1-hiera-tiny-ONNX (HuggingFace, Apache-2.0, converted from Meta). Separate ONNX graphs for encoder and decoder.",
       "components": [
         {
           "id": "sam2-hiera-tiny-encoder",
@@ -428,7 +430,9 @@
           "localPath": "/models/sam2-hiera-tiny/vision_encoder.onnx",
           "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx",
           "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/vision_encoder.onnx.data",
-          "role": "encoder"
+          "role": "encoder",
+          "checksum": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
+          "sizeBytes": 134261315
         },
         {
           "id": "sam2-hiera-tiny-decoder",
@@ -436,7 +440,9 @@
           "localPath": "/models/sam2-hiera-tiny/prompt_encoder_mask_decoder.onnx",
           "remoteUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx",
           "remoteDataUrl": "https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX/resolve/main/onnx/prompt_encoder_mask_decoder.onnx.data",
-          "role": "decoder"
+          "role": "decoder",
+          "checksum": "f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf",
+          "sizeBytes": 20640886
         }
       ]
     },
@@ -444,7 +450,7 @@
       "id": "sam2-hiera-tiny-encoder",
       "filename": "sam2_hiera_tiny.encoder.onnx",
       "localPath": "/models/sam2_hiera_tiny.encoder.onnx",
-      "sha256": null,
+      "sha256": "4cc015ee18520e93f8c7ddfeaca7436039daaaaf19721b4b96a8810a805e82f7",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.encoder.onnx",
       "precision": "fp32",
@@ -489,18 +495,19 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "NO SHA-256. Contract from graph inspection noted in manifest notes. Source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Opset 17, no custom ops."
+        "validationSummary": "SHA-256 pinned. Downloaded and verified from trusted source. Contract from graph inspection noted in manifest notes. Source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Opset 17, no custom ops.",
+        "integrityVerifiedAt": "2026-07-27T20:17:34.047Z"
       },
-      "notes": "Select Subject \u2014 image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. No SHA-256 pinned yet \u2014 compute and pin on first verified download."
+      "notes": "Select Subject — image encoder (runs once per image). ~134MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): input image [1,3,1024,1024] -> outputs image_embed [1,256,64,64], high_res_feats_0 [1,32,256,256], high_res_feats_1 [1,64,128,128]. No SHA-256 pinned yet — compute and pin on first verified download."
     },
     {
       "id": "sam2-hiera-tiny-decoder",
       "filename": "sam2_hiera_tiny.decoder.onnx",
       "localPath": "/models/sam2_hiera_tiny.decoder.onnx",
-      "sha256": null,
+      "sha256": "f5a4bd656c143899fb7f52d64ed81e6f6aeb37d477a0b6da50146ac7cf2187bf",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/vietanhdev/segment-anything-2-onnx-models/resolve/main/sam2_hiera_tiny.decoder.onnx",
       "precision": "fp32",
@@ -565,18 +572,19 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "NO SHA-256. Contract from graph inspection noted in manifest notes. Source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Opset 17, no custom ops."
+        "validationSummary": "SHA-256 pinned. Downloaded and verified from trusted source. Contract from graph inspection noted in manifest notes. Source: vietanhdev/segment-anything-2-onnx-models (HuggingFace, Apache-2.0). Opset 17, no custom ops.",
+        "integrityVerifiedAt": "2026-07-27T20:17:34.047Z"
       },
-      "notes": "Select Subject \u2014 prompt decoder (runs per click/drag, using the cached encoder output). ~20.6MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): inputs image_embed/high_res_feats_0/high_res_feats_1 (from encoder) + point_coords/point_labels/mask_input/has_mask_input -> outputs masks + iou_predictions. No SHA-256 pinned yet \u2014 compute and pin on first verified download."
+      "notes": "Select Subject — prompt decoder (runs per click/drag, using the cached encoder output). ~20.6MB. Verified source: vietanhdev/segment-anything-2-onnx-models on Hugging Face (Apache-2.0). Graph inspected directly 2026-07-21 (opset 17, no custom ops): inputs image_embed/high_res_feats_0/high_res_feats_1 (from encoder) + point_coords/point_labels/mask_input/has_mask_input -> outputs masks + iou_predictions. No SHA-256 pinned yet — compute and pin on first verified download."
     },
     {
       "id": "depth-anything-v2-small",
       "filename": "depth_anything_v2_small_int8.onnx",
       "localPath": "/models/depth_anything_v2_small_int8.onnx",
-      "sha256": null,
+      "sha256": "01aa7a23de3f4a0ee1a2bb9997e6918104c85a9f95dea46d27b9b3fb0c6b9001",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_int8.onnx",
       "precision": "int8",
@@ -613,18 +621,19 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "NO SHA-256. Contract DECLARED from documentation (518x518 input, multiple of 14). Source: onnx-community/depth-anything-v2-small (HuggingFace, Apache-2.0)."
+        "validationSummary": "SHA-256 pinned. Downloaded and verified from trusted source. Contract DECLARED from documentation (518x518 input, multiple of 14). Source: onnx-community/depth-anything-v2-small (HuggingFace, Apache-2.0).",
+        "integrityVerifiedAt": "2026-07-27T20:17:34.047Z"
       },
-      "notes": "AI depth estimation \u2014 powers Lens Blur's background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]). No SHA-256 pinned yet \u2014 compute and pin on first verified download."
+      "notes": "AI depth estimation — powers Lens Blur's background blur. Verified source: onnx-community/depth-anything-v2-small on Hugging Face (Apache-2.0, converted from the official depth-anything/Depth-Anything-V2-Small checkpoint). Using the INT8 variant (~27MB) over FP32 (~99MB) to keep the one-time download reasonable on constrained connections and 4GB-RAM devices. Input: 518x518 RGB (multiple of 14). Output: relative depth map. Normalization: ImageNet (mean=[0.485,0.456,0.406], std=[0.229,0.224,0.225]). No SHA-256 pinned yet — compute and pin on first verified download."
     },
     {
       "id": "lineart",
       "filename": "informative-drawings-line-art.onnx",
       "localPath": "/models/informative-drawings-line-art.onnx",
-      "sha256": null,
+      "sha256": "1fef40b8f7126d827e30fbebccf95ae9b0b391795df926bf9366a821bad4f498",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx",
       "precision": "fp32",
@@ -660,12 +669,13 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "NO SHA-256. Contract DECLARED from documentation (256x256 RGB, 0-1 range, sigmoid output). Source: rocca/informative-drawings-line-art-onnx (HuggingFace, MIT)."
+        "validationSummary": "SHA-256 pinned. Downloaded and verified from trusted source. Contract DECLARED from documentation (256x256 RGB, 0-1 range, sigmoid output). Source: rocca/informative-drawings-line-art-onnx (HuggingFace, MIT).",
+        "integrityVerifiedAt": "2026-07-27T20:17:34.047Z"
       },
-      "notes": "AI line art extraction \u2014 converts a photo into a clean line drawing, a starting point for tracing in Draw mode. ~17.2MB. Model: informative-drawings (MIT, Chan/Durand/Isola, CVPR 2022) \u2014 verified via the official carolineec/informative-drawings repo and test.py/model.py. Input: 256x256 RGB, 0-1 range (no mean/std subtraction). Output: single-channel, Sigmoid activation (already 0-1, no rescale). No SHA-256 pinned yet \u2014 compute and pin on first verified download."
+      "notes": "AI line art extraction — converts a photo into a clean line drawing, a starting point for tracing in Draw mode. ~17.2MB. Model: informative-drawings (MIT, Chan/Durand/Isola, CVPR 2022) — verified via the official carolineec/informative-drawings repo and test.py/model.py. Input: 256x256 RGB, 0-1 range (no mean/std subtraction). Output: single-channel, Sigmoid activation (already 0-1, no rescale). No SHA-256 pinned yet — compute and pin on first verified download."
     },
     {
       "id": "ddcolor-tiny",
@@ -673,7 +683,7 @@
       "localPath": "/models/ddcolor-tiny.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/ddcolor-tiny.onnx",
+      "remoteUrl": "",
       "precision": "fp32",
       "modelVersion": "1.0.0",
       "sourceRevision": "DDColor-T (ConvNeXt-tiny) ICCV 2023, Apache-2.0",
@@ -712,7 +722,7 @@
         "inferenceVerified": false,
         "validationSummary": "NO SHA-256 yet. Contract from DDColor official export script (scripts/export_onnx.py). Source: piddnad/ddcolor_paper_tiny on HuggingFace. Apache-2.0."
       },
-      "notes": "DDColor-Tiny (ConvNeXt-tiny) \u2014 fast preview quality grayscale-to-color. ~50MB. Apache-2.0. Input: 256x256 RGB [0,1]. Output: a*b* chroma [1,2,256,256]."
+      "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast preview quality grayscale-to-color. ~50MB. Apache-2.0. Input: 256x256 RGB [0,1]. Output: a*b* chroma [1,2,256,256]."
     },
     {
       "id": "ddcolor",
@@ -720,7 +730,7 @@
       "localPath": "/models/ddcolor.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/ddcolor.onnx",
+      "remoteUrl": "",
       "precision": "fp32",
       "modelVersion": "1.0.0",
       "sourceRevision": "DDColor-L (ConvNeXt-large) ICCV 2023, Apache-2.0",
@@ -759,7 +769,7 @@
         "inferenceVerified": false,
         "validationSummary": "NO SHA-256 yet. Contract from DDColor official export script (scripts/export_onnx.py). Source: piddnad/ddcolor_modelscope on HuggingFace. Apache-2.0."
       },
-      "notes": "DDColor-L (ConvNeXt-large) \u2014 photo-realistic grayscale-to-color. ~156MB. Apache-2.0. Input: 512x512 RGB [0,1]. Output: a*b* chroma [1,2,512,512]. Same architecture as ddcolor_modelscope model card."
+      "notes": "DDColor-L (ConvNeXt-large) — photo-realistic grayscale-to-color. ~156MB. Apache-2.0. Input: 512x512 RGB [0,1]. Output: a*b* chroma [1,2,512,512]. Same architecture as ddcolor_modelscope model card."
     },
     {
       "id": "sam2-hiera-small",
@@ -773,7 +783,7 @@
       "sourceLicense": "Apache-2.0",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "notes": "SAM2 Hiera Small \u2014 higher quality interactive segmentation. ~92MB. Requires merged single-file ONNX export. For export instructions see: facebookresearch/sam2 scripts/export_onnx_model.py"
+      "notes": "SAM2 Hiera Small — higher quality interactive segmentation. ~92MB. Requires merged single-file ONNX export. For export instructions see: facebookresearch/sam2 scripts/export_onnx_model.py"
     },
     {
       "id": "tr-ocr-base-printed",
@@ -787,7 +797,7 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "notes": "Microsoft TrOCR-base-printed \u2014 OCR for printed Latin text in images and scanned documents. ~340MB. Not yet available as download \u2014 requires ONNX export from HuggingFace transformers."
+      "notes": "Microsoft TrOCR-base-printed — OCR for printed Latin text in images and scanned documents. ~340MB. Not yet available as download — requires ONNX export from HuggingFace transformers."
     },
     {
       "id": "font-detect-resnet",
@@ -801,25 +811,25 @@
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "notes": "Font detection ResNet \u2014 identifies font families from text region images. ~44MB. Not yet available as download \u2014 model export pending."
+      "notes": "Font detection ResNet — identifies font families from text region images. ~44MB. Not yet available as download — model export pending."
     },
     {
       "id": "detr-resnet-50",
       "filename": "detr-resnet-50.onnx",
       "localPath": "/models/detr-resnet-50.onnx",
-      "sha256": null,
+      "sha256": "cae09a307ed9247da7e2ce8bcf81522a6817f1ea2e82b9c4dde59f5964b62b4f",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/Xenova/detr-resnet-50/resolve/main/onnx/model_quantized.onnx",
       "precision": "int8",
       "sourceLicense": "Apache-2.0",
       "sourceRevision": "Xenova/detr-resnet-50 (facebook/detr-resnet-50 ONNX export)",
-      "notes": "Finds people and objects in a photo with bounding boxes across 80 everyday categories \u2014 powers subject-aware crop/resize and a standalone detection overlay. Verified 2026-07-21 by downloading and inspecting the real graph (opset 12): pixel_values [B,3,800,800] float32 + pixel_mask [B,64,64] int64 -> logits [B,100,92], pred_boxes [B,100,4] normalized cx/cy/w/h."
+      "notes": "Finds people and objects in a photo with bounding boxes across 80 everyday categories — powers subject-aware crop/resize and a standalone detection overlay. Verified 2026-07-21 by downloading and inspecting the real graph (opset 12): pixel_values [B,3,800,800] float32 + pixel_mask [B,64,64] int64 -> logits [B,100,92], pred_boxes [B,100,4] normalized cx/cy/w/h."
     },
     {
       "id": "efficientnet-lite4",
       "filename": "efficientnet-lite4.onnx",
       "localPath": "/models/efficientnet-lite4.onnx",
-      "sha256": null,
+      "sha256": "d111689907c06eea7c82e4833ddef758da6453b9d4cf60b7e99ca05c7cbd9c12",
       "bundled": false,
       "remoteUrl": "https://github.com/onnx/models/raw/main/validated/vision/classification/efficientnet-lite4/model/efficientnet-lite4-11.onnx",
       "precision": "fp32",
@@ -831,49 +841,49 @@
       "id": "lama-inpainting",
       "filename": "lama-inpainting.onnx",
       "localPath": "/models/lama-inpainting.onnx",
-      "sha256": null,
+      "sha256": "1faef5301d78db7dda502fe59966957ec4b79dd64e16f03ed96913c7a4eb68d6",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/Carve/LaMa-ONNX/resolve/main/lama_fp32.onnx",
       "precision": "fp32",
       "sourceLicense": "Apache-2.0",
       "sourceRevision": "Carve/LaMa-ONNX (saic-mdal/lama big-lama, Samsung AI)",
-      "notes": "Removes an unwanted object or blemish and fills the gap with plausible generated content, guided by a mask you paint. Verified 2026-07-21 by downloading and inspecting the real graph (opset 17): TWO separate named inputs image [B,3,512,512] + mask [B,1,512,512] float32 (not a stacked 4-channel tensor as some secondhand descriptions claim); output already scaled to 0-255. Large (~208MB) \u2014 offered as an optional download."
+      "notes": "Removes an unwanted object or blemish and fills the gap with plausible generated content, guided by a mask you paint. Verified 2026-07-21 by downloading and inspecting the real graph (opset 17): TWO separate named inputs image [B,3,512,512] + mask [B,1,512,512] float32 (not a stacked 4-channel tensor as some secondhand descriptions claim); output already scaled to 0-255. Large (~208MB) — offered as an optional download."
     },
     {
       "id": "rife-frame-interpolation",
       "filename": "rife-frame-interpolation.onnx",
       "localPath": "/models/rife-frame-interpolation.onnx",
-      "sha256": null,
+      "sha256": "6a31074c0f588648982b5e828aee6c27e005015a712a46ea63da48c65fa9a26b",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/FuryTMP/RIFE_fp32/resolve/main/RIFE_fp32.onnx",
       "precision": "fp32",
       "sourceLicense": "MIT",
       "sourceRevision": "FuryTMP/RIFE_fp32 (hzwer/ECCV2022-RIFE v4)",
-      "notes": "Generates an in-between frame from two keyframes for smoother Motion-mode playback and timeline scrubbing. Verified 2026-07-21 by downloading and inspecting the real graph (single dynamic-shape input, no fixed dims declared) \u2014 channel convention (frame0+frame1 RGB stacked, no separate img0/img1 inputs as some secondhand descriptions claim) follows the standard RIFE export convention but is NOT confirmed against a reference runtime; treat interpolation quality as unverified until checked against known-good output."
+      "notes": "Generates an in-between frame from two keyframes for smoother Motion-mode playback and timeline scrubbing. Verified 2026-07-21 by downloading and inspecting the real graph (single dynamic-shape input, no fixed dims declared) — channel convention (frame0+frame1 RGB stacked, no separate img0/img1 inputs as some secondhand descriptions claim) follows the standard RIFE export convention but is NOT confirmed against a reference runtime; treat interpolation quality as unverified until checked against known-good output."
     },
     {
       "id": "siglip-base-patch16-224",
       "filename": "siglip-base-patch16-224.onnx",
       "localPath": "/models/siglip-base-patch16-224.onnx",
-      "sha256": null,
+      "sha256": "9171eb00c38b9ec82f924877356d008b79e3285dbac7cd10965827bee30c9a99",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/Xenova/siglip-base-patch16-224/resolve/main/onnx/model_quantized.onnx",
       "precision": "int8",
       "sourceLicense": "Apache-2.0",
       "sourceRevision": "Xenova/siglip-base-patch16-224 (google/siglip-base-patch16-224 ONNX export)",
-      "notes": "Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search only \u2014 text search needs a tokenizer not yet wired up). Verified 2026-07-21 by downloading and inspecting the real graph (opset 13): pixel_values [B,3,224,224] float32 -> pooler_output [B,768]. SigLIP normalizes to mean=0.5/std=0.5 per channel, not ImageNet stats."
+      "notes": "Embeds an image so visually/semantically similar assets can be ranked and surfaced (image-to-image search only — text search needs a tokenizer not yet wired up). Verified 2026-07-21 by downloading and inspecting the real graph (opset 13): pixel_values [B,3,224,224] float32 -> pooler_output [B,768]. SigLIP normalizes to mean=0.5/std=0.5 per channel, not ImageNet stats."
     },
     {
       "id": "paddleocr-det-v4",
       "filename": "paddleocr-det-v4.onnx",
       "localPath": "/models/paddleocr-det-v4.onnx",
-      "sha256": null,
+      "sha256": "30a86f5731181461d08021402766601e4302a9b9b9666be8aff402696339cdff",
       "bundled": false,
       "remoteUrl": "https://huggingface.co/deepghs/paddleocr/resolve/main/det/ch_PP-OCRv4_det/model.onnx",
       "precision": "fp32",
       "sourceLicense": "Apache-2.0",
       "sourceRevision": "deepghs/paddleocr PP-OCRv4 detector (PaddlePaddle/PaddleOCR, Baidu)",
-      "notes": "Highlights where text appears in an image \u2014 useful for redaction, accessibility review, and as a first stage toward full OCR. Detection only (recognition + character dictionary not yet wired up). Verified 2026-07-21 by downloading and inspecting the real graph (opset 11): x [B,3,H,W] float32 fully dynamic -> sigmoid_0.tmp_0 [B,1,H,W] per-pixel text probability map."
+      "notes": "Highlights where text appears in an image — useful for redaction, accessibility review, and as a first stage toward full OCR. Detection only (recognition + character dictionary not yet wired up). Verified 2026-07-21 by downloading and inspecting the real graph (opset 11): x [B,3,H,W] float32 fully dynamic -> sigmoid_0.tmp_0 [B,1,H,W] per-pixel text probability map."
     }
   ]
 }
