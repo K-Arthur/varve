@@ -18,6 +18,13 @@ export function clearErrors(): void {
   recentErrors = [];
 }
 
+export interface DiagnosticsStorageInfo {
+  backend: string;
+  modelsInstalled: number;
+  storageUsedMB: number;
+  quotaMB: number | null;
+}
+
 export async function buildDiagnosticsReport(
   installedModels: ModelInstallInfo[],
   precisionInfos?: Array<{
@@ -26,6 +33,7 @@ export async function buildDiagnosticsReport(
     fp16Supported: boolean;
     measuredSpeedup: number | null;
   }>,
+  _storageInfo?: DiagnosticsStorageInfo,
 ): Promise<DiagnosticsReport> {
   const caps = await getRuntimeCapabilities();
   return {
@@ -60,6 +68,10 @@ export function formatDiagnosticsReport(report: DiagnosticsReport): string {
   lines.push(`Tauri: ${caps.isTauri ? 'yes' : 'no'}`);
   lines.push(`ONNX Providers: ${caps.preferredOnnxProviders.join(', ')}`);
   lines.push(`WASM Safe: ${formatBytes(caps.wasmSafeModelBytes)}`);
+  lines.push(`Memory Tier: ${caps.memoryTier ?? 'unknown'}`);
+  lines.push(`WebGPU Device Lost: ${caps.webgpuDeviceLost ? 'yes' : 'no'}`);
+  lines.push(`Battery Powered: ${caps.batteryPowered ? 'yes' : 'no'}`);
+  lines.push(`Network: ${caps.networkType ?? 'unknown'}`);
 
   lines.push('');
   lines.push('--- Precision Capabilities ---');
