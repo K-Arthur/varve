@@ -2173,11 +2173,92 @@ fn embed_font_program(
     doc.objects
         .insert(font_dict_id, Object::Dictionary(font_dict));
 
+    // 4. ToUnicode CMap for text extraction
+    let to_unicode_id = doc.new_object_id();
+    let to_unicode_stream = build_to_unicode_cmap(font_data, 0);
+    doc.objects.insert(
+        to_unicode_id,
+        Object::Stream(Stream::new(
+            dictionary! {},
+            to_unicode_stream,
+        )),
+    );
+
+    // Add ToUnicode reference to font dict
+    if let Object::Dictionary(ref mut dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
+        dict.set("ToUnicode", Object::Reference(to_unicode_id));
+    }
+
     Ok(EmbeddedFontEntry {
         res_name,
         family: family.to_string(),
         dict_id: font_dict_id,
     })
+}
+
+/// Build a ToUnicode CMap stream for CIDFont-based text extraction.
+/// Maps character codes (0x00-0xFF for WinAnsi) to Unicode values
+/// using the font's cmap table.
+fn build_to_unicode_cmap(font_data: &[u8], face_index: u32) -> Vec<u8> {
+    // Build bfrange entries: character code → Unicode
+    let mut ranges: Vec<(u8, u8, u32)> = Vec::new();
+
+    if let Ok(face) = ttf_parser::Face::parse(font_data, face_index) {
+        let mut range_start: Option<u8> = None;
+        let mut range_unicode: Option<u32> = None;
+
+        for code in 0x20u8..=0xFF {
+            let glyph = face.glyph_index(char::from(code));
+            if glyph.is_some() {
+                match (range_start, range_unicode) {
+                    (Some(rs), Some(ru))
+                        if u32::from(rs) + u32::from(code) - u32::from(rs) == ru => {}
+                    (Some(rs), Some(ru)) => {
+                        ranges.push((rs, code - 1, ru));
+                        range_start = Some(code);
+                        range_unicode = Some(u32::from(code));
+                    }
+                    _ => {
+                        range_start = Some(code);
+                        range_unicode = Some(u32::from(code));
+                    }
+                }
+            }
+        }
+
+        if let (Some(rs), Some(ru)) = (range_start, range_unicode) {
+            ranges.push((rs, 0xFF, ru));
+        }
+    }
+
+    if ranges.is_empty() {
+        ranges.push((0x20, 0xFF, 0x20));
+    }
+
+    let mut cmap = Vec::new();
+    cmap.extend_from_slice(b"/CIDInit /ProcSet findresource begin\n");
+    cmap.extend_from_slice(b"12 dict begin\n");
+    cmap.extend_from_slice(b"begincmap\n");
+    cmap.extend_from_slice(
+        b"/CIDSystemInfo << /Registry (Strata) /Ordering (Identity) /Supplement 0 >> def\n",
+    );
+    cmap.extend_from_slice(b"/CMapName /Strata-Identity def\n");
+    cmap.extend_from_slice(b"/CMapType 2 def\n");
+    cmap.extend_from_slice(b"1 begincodespacerange\n");
+    cmap.extend_from_slice(b"<00> <FF>\n");
+    cmap.extend_from_slice(b"endcodespacerange\n");
+
+    cmap.extend_from_slice(format!("{} beginbfrange\n", ranges.len()).as_bytes());
+    for (start, end, unicode_start) in &ranges {
+        cmap.extend_from_slice(
+            format!("<{start:02X}> <{end:02X}> <{unicode_start:04X}>\n").as_bytes(),
+        );
+    }
+    cmap.extend_from_slice(b"endbfrange\n");
+    cmap.extend_from_slice(b"endcmap\n");
+    cmap.extend_from_slice(b"end\n");
+
+    cmap
 }
 
 /// A single text run extracted from the rich text model.
