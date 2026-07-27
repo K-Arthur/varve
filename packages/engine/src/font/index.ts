@@ -76,6 +76,12 @@ export {
 } from './fontManifest';
 // Font file parsing
 export { parseFontData } from './fontParser';
+export type { FontPersistenceResult } from './fontPersistence';
+// Document font manifest persistence (save/load integration)
+export {
+  attachFontManifestToDocument,
+  resolveFontManifestForLoadedDocument,
+} from './fontPersistence';
 export type {
   FontLicense,
   FontProvider,

@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_UPSCALE_MODE, getUpscaleMode, UPSCALE_MODES } from './upscaleModes';
 
 describe('UPSCALE_MODES', () => {
-  it('defines five user-facing modes', () => {
-    expect(UPSCALE_MODES).toHaveLength(5);
+  it('defines six user-facing modes', () => {
+    expect(UPSCALE_MODES).toHaveLength(6);
   });
 
   it('maps each mode to a valid engine method', () => {
