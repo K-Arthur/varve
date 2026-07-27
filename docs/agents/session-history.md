@@ -2211,3 +2211,36 @@ Asset** (external file) storage kind without a schema redesign.
 | `packages/editor/src/context.tsx` | `registerEmbeddedImageAsset` |
 | `packages/editor/src/components/Inspector/sections/ImageFillControls.tsx` | Natural-dimension decode, stale-assetId cleanup |
 | `docs/audits/smart-object-feasibility-audit.md` | Full decision record |
+
+## Session 54 — Architecture Health Triage & Remediation (2026-07-26)
+
+User requested a full code-quality triage via jcodemunch tooling, followed by authenticity
+verification and a comprehensive plan. The triage report was reviewed against the actual repo
+state — many findings were stale or false positives due to a prior remediation round (2026-07-14,
+commit `6f381edb`) that the index hadn't caught up with.
+
+### What was done
+
+| Phase | Action | Key files |
+|---|---|---|
+| **0** | Tooling repair: fixed corrupted `.architecture-baseline.json` (cycles/complexity sections were empty), aligned budget sources between two audit scripts, added 8 missing COMPLEXITY header comments, updated AGENTS.md baselines | `.architecture-baseline.json`, `.health-baseline.json`, `scripts/audit-architecture.mjs`, `AGENTS.md` |
+| **1** | Safe cleanup: removed `apps/desktop/ui/spike/` (tracked, zero references) and `scripts/diagnostics/` (gitignored scratch); left model report JSONs intact (CI-consumed) | — |
+| **2** | Scene runtime cycle broken: extracted 5 shared functions (`cryptoId`, `makeGroupNode`, `getParent`, `validateDocument`, `devValidate`) from `document.ts` into new `document-utils.ts` leaf module. Uses `DocumentLike` minimal interface to keep madge acyclic. 4 remaining cycles are `import type { Document }` only (erased at compile time) | `packages/scene/src/document-utils.ts` (new), `document.ts`, `document-components.ts`, `document-nodes.ts`, `document-pages.ts` |
+| **3** | EditorProvider extraction (partial): extracted workspace mode cluster into `context/useWorkspaceMode.ts`. Removed 72 inline lines from `context.tsx` (7914→7853). Follows established hook-extraction pattern | `packages/editor/src/context/useWorkspaceMode.ts` (new), `context.tsx` |
+| **5** | Menubar trim: merged separate type+vale imports (14→12 imports), now under all budgets | `Menubar.tsx` |
+| **7** | Closeout: re-ran full audit, updated baselines, regenerated `.architecture-baseline.json`, updated session history | |
+
+### Verification
+
+- `pnpm format`: clean
+- `pnpm typecheck`: all packages pass
+- `pnpm test --filter @strata/scene`: 86 files, 1587 tests, all passing
+- `node scripts/audit-architecture.mjs --ci`: clean (no regressions)
+- `node scripts/audit-health.mjs`: clean (all hub files under budget)
+
+### Remaining for next session
+
+- [ ] Phase 3 continued: more EditorProvider extractions (shape creation, duplicate, clipboard)
+- [ ] Phase 4: CanvasArea buildToolCtx extraction, overlay consolidation (benchmark-gated for replay)
+- [ ] Phase 6: HomeShell, platform factories, BackgroundRemovalSection hotspot reduction
+- [ ] Re-index jcodemunch for fresh triage, update `docs/quality/cycles.md`
