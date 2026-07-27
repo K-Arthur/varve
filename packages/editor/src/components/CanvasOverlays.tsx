@@ -18,6 +18,7 @@ import { EmptyState } from '@strata/ui';
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
 import type { GridOverlayMode } from '../context/types';
+import { DebugOverlayHost } from '../debug/DebugOverlayHost';
 import { SelectionOverlay } from '../SelectionOverlay';
 import { nodeWorldBounds } from '../scene/world';
 import type { CropTool } from '../tools/CropTool';
@@ -355,6 +356,7 @@ export function CanvasOverlays({
         cursors={stubRemoteCursors}
         worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
       />
+      <DebugOverlayHost />
       <Ruler
         zoom={zoom}
         pan={pan}

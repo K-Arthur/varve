@@ -368,6 +368,7 @@ export type {
   QualityReport,
 } from './imageQuality/qualityTypes';
 export type {
+  DownloadProgress,
   InferenceEvents,
   InferenceProvider,
   InferenceRequest,
@@ -379,13 +380,20 @@ export type {
   ModelManifestEntry,
   ModelState as InferenceModelState,
   ProviderChainOptions,
+  RuntimeCapabilities,
 } from './inference';
 export {
+  createDiagnosticsLabel,
+  DownloadManager,
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
+  getRuntimeCapabilities,
+  InferenceError,
   InferenceWorkerHost,
+  isInferenceError,
   listAllModels,
   ModelRegistry,
+  resetRuntimeCapabilities,
   runProviderChain,
   SessionManager,
 } from './inference';

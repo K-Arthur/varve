@@ -83,6 +83,8 @@ export interface ModelManifestEntry {
   inputSpec: ModelInputSpec | null;
   /** Human-readable quality rating (0-5). */
   quality: number;
+  /** Speed rating (1-5). */
+  speed?: number;
   /** Estimated peak memory during inference (bytes). */
   peakMemoryBytes?: number;
   /** Whether GPU acceleration is strongly recommended. */

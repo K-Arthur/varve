@@ -1,13 +1,15 @@
+import type {
+  DownloadProgress,
+  ModelManifestEntry,
+  ModelState,
+  RuntimeCapabilities,
+} from '@strata/engine';
 import {
   createDiagnosticsLabel,
   DownloadManager,
-  type DownloadProgress,
   getRuntimeCapabilities,
   isInferenceError,
   listAllModels,
-  type ModelManifestEntry,
-  type ModelState,
-  type RuntimeCapabilities,
   resetRuntimeCapabilities,
 } from '@strata/engine';
 import { Button, RegionLoader } from '@strata/ui';
@@ -16,9 +18,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 interface ModelRow {
   entry: ModelManifestEntry;
   state: ModelState;
-  downloadProgress: { loaded: number; total: number } | null;
+  downloadProgress: DownloadProgress | null;
   sourceLabel: string;
   storageLabel: string;
+  memoryWarning?: string;
+  availabilityReason?: string;
 }
 
 const CATEGORY_ORDER: Record<string, number> = {
@@ -97,7 +101,7 @@ export function ModelManager() {
       const catalog = listAllModels();
       const dm = new DownloadManager();
       for (const entry of catalog) {
-        dm.registerModel(entry);
+        dm.registerModel(entry as Parameters<typeof dm.registerModel>[0]);
       }
       downloadManagerRef.current = dm;
 
@@ -109,12 +113,38 @@ export function ModelManager() {
       for (const entry of catalog) {
         const state = await dm.getDownloadState(entry.id);
         const isReady = state === 'ready';
+
+        let memoryWarning: string | undefined;
+        if (entry.peakMemoryBytes && runtimeCaps.memoryTier === 'low') {
+          const peakMB = Math.round(entry.peakMemoryBytes / 1_000_000);
+          if (peakMB > 500) {
+            memoryWarning = `~${peakMB}MB peak — may be slow on ${Math.round((runtimeCaps.approximateMemoryMB ?? 4096) / 1024)}GB systems`;
+          }
+        }
+
+        let availabilityReason: string | undefined;
+        if (!entry.bundled && !isReady) {
+          if (entry.remoteUrl === '') {
+            availabilityReason = 'No download URL available';
+          } else if (!entry.checksum) {
+            availabilityReason = 'No integrity checksum';
+          } else if (
+            entry.peakMemoryBytes &&
+            runtimeCaps.memoryTier === 'low' &&
+            entry.peakMemoryBytes > 1_000_000_000
+          ) {
+            availabilityReason = 'Too large for this device (requires >4GB RAM)';
+          }
+        }
+
         modelRows.push({
           entry,
           state: isReady ? 'ready' : state === 'downloading' ? 'downloading' : 'unavailable',
           downloadProgress: null,
           sourceLabel: entry.bundled ? 'Bundled' : isReady ? 'Downloaded' : 'Not installed',
           storageLabel: entry.bundled ? 'App package' : isReady ? 'Local storage' : '',
+          memoryWarning,
+          availabilityReason,
         });
       }
       setRows(modelRows);
@@ -133,11 +163,15 @@ export function ModelManager() {
     setBusyId(modelId);
 
     try {
-      const unsubState = dm.subscribeState(modelId, (id, state) => {
-        setRows((prev) =>
-          prev.map((r) =>
+      const unsubState = dm.subscribeState(modelId, (id: string, state) => {
+        setRows((prev: ModelRow[]) =>
+          prev.map((r: ModelRow) =>
             r.entry.id === id
-              ? { ...r, state, sourceLabel: state === 'ready' ? 'Downloaded' : r.sourceLabel }
+              ? {
+                  ...r,
+                  state: state as ModelState,
+                  sourceLabel: state === 'ready' ? 'Downloaded' : r.sourceLabel,
+                }
               : r,
           ),
         );
@@ -145,11 +179,7 @@ export function ModelManager() {
 
       const unsubProgress = dm.subscribeDownloadProgress(modelId, (p: DownloadProgress) => {
         setRows((prev) =>
-          prev.map((r) =>
-            r.entry.id === p.modelId
-              ? { ...r, downloadProgress: { loaded: p.loaded, total: p.total } }
-              : r,
-          ),
+          prev.map((r) => (r.entry.id === p.modelId ? { ...r, downloadProgress: p } : r)),
         );
       });
 
@@ -457,14 +487,18 @@ export function ModelManager() {
                       <span
                         className="bg-models-list__meta"
                         title={
-                          !row.entry.remoteUrl
-                            ? 'No download URL available'
-                            : !row.entry.checksum
-                              ? 'No integrity checksum — download disabled for safety'
-                              : 'Not available'
+                          row.availabilityReason ??
+                          (row.entry.checksum ? 'Download not available' : 'No integrity checksum')
                         }
                       >
-                        Unavailable
+                        {row.availabilityReason ??
+                          (row.entry.checksum ? 'Unavailable' : 'No checksum')}
+                      </span>
+                    )}
+
+                    {row.memoryWarning && (
+                      <span className="bg-models-list__meta bg-models-list__warning">
+                        ⚠ {row.memoryWarning}
                       </span>
                     )}
                   </div>
@@ -499,6 +533,8 @@ function createDiagnosticsEntries(caps: RuntimeCapabilities): string[] {
 
   entries.push(`ONNX providers: ${caps.preferredOnnxProviders.join(', ')}`);
   entries.push(`WASM safe model size: ${formatSize(caps.wasmSafeModelBytes)}`);
+  if (caps.memoryTier) entries.push(`Memory tier: ${caps.memoryTier}`);
+  if (caps.webgpuDeviceLost) entries.push('WebGPU: device lost (fallback active)');
   entries.push(`Network: ${caps.networkType ?? 'unknown'}`);
 
   return entries;
