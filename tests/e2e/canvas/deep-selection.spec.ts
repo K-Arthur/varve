@@ -112,7 +112,7 @@ test.describe('Deep Selection', () => {
   });
 
   test('5. Tab cycles through selectable nodes', async ({ page }) => {
-    const { canvasBox } = await createFrameWithChild(page);
+    await createFrameWithChild(page);
 
     // Ensure select tool is active
     await page.keyboard.press('v');

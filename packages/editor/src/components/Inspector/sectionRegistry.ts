@@ -43,6 +43,7 @@ export type SectionId =
   | 'brush-settings'
   | 'canvas-background'
   | 'document-color'
+  | 'document-grid'
   | 'ai-denoise'
   | 'lens-blur'
   | 'line-art'
@@ -614,6 +615,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 610,
+    category: 'canvas',
+    isAvailable: (ctx) => ctx.selectionKind === 'empty',
+  },
+  {
+    id: 'document-grid',
+    title: 'Document Grid',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 620,
     category: 'canvas',
     isAvailable: (ctx) => ctx.selectionKind === 'empty',
   },
