@@ -2858,12 +2858,25 @@ pub fn export_pdf(nodes: &[SceneNode], opts: &PdfOptions) -> Result<Vec<u8>, Str
                                 content.extend_from_slice(b"BT\n");
                                 need_bt = true;
                             }
-                            let encoded = encode_win_ansi(text);
-                            let escaped = escape_pdf_string(&String::from_utf8_lossy(&encoded));
+                            // Use TJ array with kerning when font binary is available
+                            let font_data_ref = opts
+                                .fonts
+                                .iter()
+                                .find(|(n, _)| n == font_family)
+                                .map(|(_, d)| d.as_slice());
+                            let tj_str = match font_data_ref {
+                                Some(fd) => build_tj_array(text, fd, *font_size, 0),
+                                None => {
+                                    let encoded = encode_win_ansi(text);
+                                    let escaped =
+                                        escape_pdf_string(&String::from_utf8_lossy(&encoded));
+                                    format!("({}) Tj", escaped)
+                                }
+                            };
                             content.extend(
                                 format!(
-                                    "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n({}) Tj\n",
-                                    ef.res_name, font_size, pdf_x, pdf_y, escaped
+                                    "/{} {} Tf\n1 0 0 1 {:.2} {:.2} Tm\n{}\n",
+                                    ef.res_name, font_size, pdf_x, pdf_y, tj_str
                                 )
                                 .as_bytes(),
                             );
