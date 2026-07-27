@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { navigateToEditor } from '../shared';
 
 test.describe('PDF text export', () => {
   test.describe.configure({ mode: 'serial' });

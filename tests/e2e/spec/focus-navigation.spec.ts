@@ -17,7 +17,7 @@ async function getCanvas(page: import('@playwright/test').Page) {
   return page.getByRole('img', { name: 'Design canvas' });
 }
 
-async function getActiveElementTag(page: import('@playwright/test').Page): Promise<string> {
+async function _getActiveElementTag(page: import('@playwright/test').Page): Promise<string> {
   return page.evaluate(() => {
     const el = document.activeElement;
     if (!el) return 'null';
