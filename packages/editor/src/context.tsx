@@ -1001,6 +1001,8 @@ export interface EditorContextValue {
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
   /** Toggle pixel grid overlay. */
   setPixelGridEnabled: (v: boolean) => void;
+  /** Toggle snap-to-pixel-grid. */
+  setPixelGridSnapEnabled: (v: boolean) => void;
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
@@ -1529,6 +1531,7 @@ function restoreViewportFields(
     cameraRotation: v.cameraRotation,
     snapEnabled: v.snapEnabled,
     pixelGridEnabled: v.pixelGridEnabled,
+    pixelGridSnapEnabled: v.pixelGridSnapEnabled ?? false,
     rulerMode: v.rulerMode,
     gridOverlayMode: v.gridOverlayMode,
     unitType: v.unitType,
@@ -1543,6 +1546,7 @@ function persistViewportPrefs(s: EditorState): void {
     viewport: {
       snapEnabled: s.snapEnabled,
       pixelGridEnabled: s.pixelGridEnabled,
+      pixelGridSnapEnabled: s.pixelGridSnapEnabled,
       rulerMode: s.rulerMode,
       gridOverlayMode: s.gridOverlayMode,
       unitType: s.unitType,
@@ -1999,6 +2003,7 @@ export function EditorProvider({
       cursorPos: null,
       unitType: vpDefaults.unitType,
       pixelGridEnabled: vpDefaults.pixelGridEnabled,
+      pixelGridSnapEnabled: false,
       dotGridEnabled: false,
       findingsOverlayVisible: false,
       snapEnabled: vpDefaults.snapEnabled,
@@ -6369,6 +6374,10 @@ export function EditorProvider({
         patch({ pixelGridEnabled: v });
         persistViewportPrefs({ ...stateRef.current, pixelGridEnabled: v });
       },
+      setPixelGridSnapEnabled: (v) => {
+        patch({ pixelGridSnapEnabled: v });
+        persistViewportPrefs({ ...stateRef.current, pixelGridSnapEnabled: v });
+      },
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });
         persistViewportPrefs({ ...stateRef.current, snapEnabled: v });
@@ -6636,6 +6645,7 @@ export function EditorProvider({
             cameraRotation: 0,
             snapEnabled: vpDefaults.snapEnabled,
             pixelGridEnabled: vpDefaults.pixelGridEnabled,
+            pixelGridSnapEnabled: false,
             dotGridEnabled: s.dotGridEnabled,
             snapGrid: vpDefaults.snapGrid,
             rulerMode: vpDefaults.rulerMode,
