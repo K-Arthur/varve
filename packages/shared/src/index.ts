@@ -65,7 +65,9 @@ export {
   generateFindingId,
   isBlockingSeverity,
   mapLegacySeverity,
+  sceneFindingToShared,
   serializeEvidence,
+  sharedFindingToSceneShape,
   shouldShowByDefault,
 } from './auditTypes';
 export type { CubicBezier, PathPoint as BezierPathPoint, Point2D } from './bezier';
