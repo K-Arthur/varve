@@ -17,6 +17,14 @@ export interface FrameDiagnostics {
   cacheHitCount: number;
   buildIrMs: number;
   replayMs: number;
+  /**
+   * Time spent in the per-node content-hash loop (cacheContentParts +
+   * SubtreeIrCache.nodeHash + cache lookup) that runs before buildIr. This cost
+   * sits inside the frame (totalMs) but OUTSIDE buildIrMs/replayMs, so without
+   * this field it is invisible — exactly the blind spot where the full-image-src
+   * hashing regression hid. Optional so pre-existing frame records stay valid.
+   */
+  hashMs?: number;
   totalMs: number;
   renderPath: 'structural' | 'worker' | 'worker-cached' | 'compositor';
   wasDirty: boolean;
@@ -73,15 +81,20 @@ export function renderDrawDiagnostics(ctx: CanvasRenderingContext2D, canvasWidth
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.font = '11px monospace';
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillRect(canvasWidth - 420, 4, 416, 140);
+  ctx.fillRect(canvasWidth - 420, 4, 416, 160);
   ctx.fillStyle = '#0f0';
   ctx.textAlign = 'right';
+  const hashMs = last.hashMs ?? 0;
+  // Everything inside the frame that isn't buildIr, replay, or the hash loop
+  // (node walk, style/variant resolution, culling, dirty-region). Surfacing it
+  // means an untimed cost can no longer regress the frame invisibly.
+  const otherMs = Math.max(0, last.totalMs - last.buildIrMs - last.replayMs - hashMs);
   const lines = [
     `F#${last.frameIndex}  dv#${last.docVersion}  rc#${last.redrawCount}  tier:${last.profileTier}`,
     `path:${last.renderPath}  ${last.wasDirty ? 'dirty' : 'clean'}  ${last.partialRedraw ? 'partial' : 'full'}`,
     `nodes:${last.nodeCount}  culled:${last.culledCount}  cache:${last.cacheHitCount}`,
     `cache: ${last.cacheEntries} entries, ${(last.cacheBytes / 1024).toFixed(0)} KB`,
-    `build:${last.buildIrMs.toFixed(1)}ms  replay:${last.replayMs.toFixed(1)}ms`,
+    `hash:${hashMs.toFixed(1)}ms  build:${last.buildIrMs.toFixed(1)}ms  replay:${last.replayMs.toFixed(1)}ms  other:${otherMs.toFixed(1)}ms`,
     `total:${last.totalMs.toFixed(1)}ms  avg30:${avgMs.toFixed(1)}ms  p95:${p95Ms.toFixed(1)}ms`,
   ];
   lines.forEach((line, i) => {

@@ -8,6 +8,7 @@ import {
   getRecentFrames,
   isDiagnosticsEnabled,
   recordFrame,
+  renderDrawDiagnostics,
   resetDiagnostics,
 } from '../drawDiagnostics';
 
@@ -134,5 +135,32 @@ describe('drawDiagnostics', () => {
     expect(getFrameCount()).toBe(0);
     recordFrame(makeFrame());
     expect(getFrameCount()).toBe(1);
+  });
+
+  // Regression guard for the diagnostics blind spot that hid the image-src
+  // hashing cost: the per-frame hash-loop time (hashMs) must survive round-trip
+  // through the ring buffer so it can be surfaced in the HUD.
+  describe('hashMs (per-frame hash-loop timing)', () => {
+    it('records and returns hashMs on a frame', () => {
+      enableDrawDiagnostics(true);
+      recordFrame(
+        makeFrame({ frameIndex: 7, hashMs: 6.2, buildIrMs: 1, replayMs: 2, totalMs: 12 }),
+      );
+      expect(getLastFrame()!.hashMs).toBe(6.2);
+    });
+
+    it('renders the HUD without throwing whether hashMs is present or absent', () => {
+      enableDrawDiagnostics(true);
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d')!;
+      recordFrame(makeFrame({ hashMs: 6.2, buildIrMs: 1, replayMs: 2, totalMs: 12 }));
+      expect(() => renderDrawDiagnostics(ctx, 800)).not.toThrow();
+      resetDiagnostics();
+      // hashMs omitted (pre-existing frame shape) must still render.
+      recordFrame(makeFrame({ buildIrMs: 1, replayMs: 2, totalMs: 12 }));
+      expect(() => renderDrawDiagnostics(ctx, 800)).not.toThrow();
+    });
   });
 });
