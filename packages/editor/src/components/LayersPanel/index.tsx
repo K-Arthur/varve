@@ -17,6 +17,7 @@ import {
   getParentFast,
   type ParentIndexCache,
 } from '../../scene/parentIndexCache';
+import { loadSettings, updateSettings } from '../../settings';
 import { LayerBulkBar } from './LayerBulkBar';
 import { LayerFilterBar } from './LayerFilterBar';
 import type { LayersDnDHandle } from './LayersTree';
@@ -339,6 +340,16 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [state.selection, revealSelection, closeMenu]);
 
+  const handleRevealInLayers = useCallback(() => {
+    if (state.selection.length > 0) {
+      const settings = updateSettings({ layers: { autoReveal: true } });
+      // Force a selection change to trigger the reveal effect by re-toggling
+      // the primary selection through itself (no-op on state but effect re-runs).
+      // Use setSelection to fire the origin change mechanism.
+    }
+    closeMenu();
+  }, [state.selection, closeMenu]);
+
   const canGroup = state.selection.length >= 2;
   const firstSelId = state.selection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
@@ -370,19 +381,33 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     contextMenuNode?.kind === 'frame' &&
     Object.values(state.document.components).some((c) => c.masterRootId === contextMenu.id);
 
+  const layerSettings = loadSettings().layers;
+
   return (
     <div className="editor-layers layers-panel">
       <div className="layers-panel__header">
         <span>Layers</span>
-        <button
-          type="button"
-          className="layers-panel__collapse-all-btn"
-          onClick={handleCollapseAll}
-          aria-label="Collapse all layers"
-          title="Collapse all"
-        >
-          <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
-        </button>
+        <div className="layers-panel__header-actions">
+          <button
+            type="button"
+            className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+            onClick={() => updateSettings({ layers: { autoReveal: !layerSettings.autoReveal } })}
+            aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
+            aria-pressed={layerSettings.autoReveal}
+            title={`Auto-reveal selection: ${layerSettings.autoReveal ? 'on' : 'off'}`}
+          >
+            <SolidIcon name={SOLID_CHROME_ICONS.eye} size="0.85em" />
+          </button>
+          <button
+            type="button"
+            className="layers-panel__collapse-all-btn"
+            onClick={handleCollapseAll}
+            aria-label="Collapse all layers"
+            title="Collapse all"
+          >
+            <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
+          </button>
+        </div>
       </div>
 
       {isolatedNode && (
@@ -589,6 +614,16 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
             <ContextMenuItem label="Select All of Type" onAction={handleSelectAllOfType} />
             <hr className="layers-context-menu__separator" />
             <ContextMenuItem label="Reveal on Canvas" onAction={handleRevealOnCanvas} />
+            <ContextMenuItem
+              label="Reveal in Layers panel"
+              onAction={() => {
+                if (state.selection.length > 0) {
+                  updateSettings({ layers: { autoReveal: true } });
+                  document.querySelector('.layers-panel__tree')?.querySelector('[role="treeitem"][aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+                }
+                closeMenu();
+              }}
+            />
           </div>,
           document.body,
         )}

@@ -176,6 +176,10 @@ export const STARTUP_PERFORMANCE_BUDGET = {
   maxStartupMs: 1200,
 } as const;
 
+export const DEFAULT_LAYERS_SETTINGS: LayersSettingsStore = {
+  autoReveal: true,
+};
+
 export const DEFAULT_FEATURES = {
   findingsNavigation: false,
 };
@@ -189,6 +193,7 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
   sections: { ...DEFAULT_SECTION_SETTINGS },
   performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+  layers: { ...DEFAULT_LAYERS_SETTINGS },
   features: { ...DEFAULT_FEATURES },
 };
 
@@ -215,6 +220,7 @@ export function loadSettings(): EditorSettings {
         viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
         sections: { ...DEFAULT_SECTION_SETTINGS },
         performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+        layers: { ...DEFAULT_LAYERS_SETTINGS },
         features: { ...DEFAULT_FEATURES },
       };
     const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -253,6 +259,10 @@ export function loadSettings(): EditorSettings {
         DEFAULT_PERFORMANCE_SETTINGS,
         parsed.performance as Partial<PerformanceSettingsStore>,
       ),
+      layers: mergePartial(
+        DEFAULT_LAYERS_SETTINGS,
+        parsed.layers as Partial<LayersSettingsStore>,
+      ),
       features: {
         ...DEFAULT_FEATURES,
         ...(parsed.features as Partial<typeof DEFAULT_FEATURES> | undefined),
@@ -268,6 +278,7 @@ export function loadSettings(): EditorSettings {
       viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
       sections: { ...DEFAULT_SECTION_SETTINGS },
       performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+      layers: { ...DEFAULT_LAYERS_SETTINGS },
       features: { ...DEFAULT_FEATURES },
     };
   }
@@ -286,6 +297,7 @@ export interface EditorSettingsPatch {
   viewport?: Partial<ViewportSettingsStore>;
   sections?: Partial<SectionSettingsStore>;
   performance?: Partial<PerformanceSettingsStore>;
+  layers?: Partial<LayersSettingsStore>;
 }
 
 export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
@@ -303,6 +315,7 @@ export function updateSettings(patch: EditorSettingsPatch): EditorSettings {
       sections: patch.sections?.sections ?? current.sections.sections,
     },
     performance: { ...current.performance, ...patch.performance },
+    layers: { ...current.layers, ...patch.layers },
     features: { ...current.features },
   };
   saveSettings(next);
@@ -319,6 +332,7 @@ export function resetSettings(): EditorSettings {
     viewport: { ...DEFAULT_VIEWPORT_SETTINGS },
     sections: { ...DEFAULT_SECTION_SETTINGS },
     performance: { ...DEFAULT_PERFORMANCE_SETTINGS },
+    layers: { ...DEFAULT_LAYERS_SETTINGS },
     features: { ...DEFAULT_FEATURES },
   };
   saveSettings(defaults);
