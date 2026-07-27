@@ -1,7 +1,7 @@
 // COMPLEXITY: 214 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 
-export const CURRENT_DOCUMENT_VERSION = '2.8';
+export const CURRENT_DOCUMENT_VERSION = '2.10';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -24,6 +24,8 @@ export const SUPPORTED_VERSIONS = [
   '2.6',
   '2.7',
   '2.8',
+  '2.9',
+  '2.10',
 ];
 
 export interface DocumentMigration {
@@ -616,6 +618,60 @@ const migrations: DocumentMigration[] = [
         return { ...raw, formatVersion: '2.8', suppressions };
       }
       return { ...raw, formatVersion: '2.8', suppressions: [] };
+    },
+  },
+  {
+    from: '2.8',
+    to: '2.9',
+    migrate: (raw) => {
+      // Initialize grid settings if they don't exist
+      // This provides a clean slate for the new grid system
+      // Existing localStorage-based grid settings will be migrated separately in the editor
+      if (!raw.gridSettings) {
+        return {
+          ...raw,
+          formatVersion: '2.9',
+          gridSettings: {
+            documentGrid: {
+              id: 'grid-document-default',
+              type: 'document',
+              name: 'Document Grid',
+              visible: false,
+              snapEnabled: true,
+              color: 'var(--color-border-subtle)',
+              opacity: 0.4,
+              scope: 'document',
+              spacingX: 8,
+              spacingY: 8,
+              subdivisions: 4,
+              offsetX: 0,
+              offsetY: 0,
+            },
+            pixelGrid: {
+              id: 'grid-pixel-default',
+              type: 'pixel',
+              name: 'Pixel Grid',
+              visible: false,
+              snapEnabled: false,
+              color: 'var(--color-border-subtle)',
+              opacity: 0.5,
+              scope: 'document',
+              showAtHighZoom: true,
+              zoomThreshold: 4.0,
+            },
+          },
+        };
+      }
+      return { ...raw, formatVersion: '2.9' };
+    },
+  },
+  {
+    from: '2.9',
+    to: '2.10',
+    migrate: (raw) => {
+      // Add optional upscale field to ImageFillData.
+      // The field is optional, so this is a no-op for existing documents.
+      return { ...raw, formatVersion: '2.10' };
     },
   },
 ];

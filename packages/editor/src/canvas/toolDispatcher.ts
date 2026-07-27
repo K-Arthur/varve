@@ -31,6 +31,7 @@ import { StarTool } from '../tools/StarTool';
 import { TextTool } from '../tools/TextTool';
 import { TrimapEditTool } from '../tools/TrimapEditTool';
 import { ZoomTool } from '../tools/ZoomTool';
+import { LassoTool } from '../tools/LassoTool';
 
 let toolManager: ToolManager | null = null;
 
@@ -66,6 +67,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('eraser', () => new PaintTool(true));
     toolManager.register('smudge', () => new SmudgeTool());
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
+    toolManager.register('lasso', () => new LassoTool());
   }
   return toolManager;
 }
