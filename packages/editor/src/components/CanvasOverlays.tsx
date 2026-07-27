@@ -337,6 +337,11 @@ export function CanvasOverlays({
           cameraRotation={cameraRotation}
           width={canvasSize.width}
           height={canvasSize.height}
+          baselineStep={
+            doc.gridSettings?.baselineGrids
+              ? (Object.values(doc.gridSettings.baselineGrids)[0]?.baselineStep ?? 24)
+              : 24
+          }
         />
       )}
       {showColorBlindness && (
