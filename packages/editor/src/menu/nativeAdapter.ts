@@ -1,3 +1,4 @@
+import { isTauriRuntime } from '@strata/platform';
 import type { MenuContext, MenuItemDef } from './types';
 
 export interface NativeMenuItemSpec {
@@ -387,12 +388,10 @@ let _previousSpec: NativeMenuSpec | null = null;
 let _sendTimeout: ReturnType<typeof requestAnimationFrame> | null = null;
 
 export function isNativeMenuAvailable(): boolean {
+  if (!isTauriRuntime()) return false;
   if (typeof window === 'undefined') return false;
-  const runtimeWindow = window as Window & {
-    __TAURI__?: unknown;
-    __TAURI_INTERNALS__?: unknown;
-  };
-  return runtimeWindow.__TAURI__ !== undefined && runtimeWindow.__TAURI_INTERNALS__ !== undefined;
+  const runtimeWindow = window as { __TAURI_INTERNALS__?: unknown };
+  return runtimeWindow.__TAURI_INTERNALS__ !== undefined;
 }
 
 export function detectPlatform(): 'mac' | 'windows' | 'linux' {

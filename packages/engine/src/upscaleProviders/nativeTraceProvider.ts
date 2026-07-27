@@ -1,10 +1,7 @@
+import { isTauriRuntime as isTauri } from '@strata/platform';
 import { mapNativePathsToTraceResult } from './mapNativePaths';
 import { encodeImageDataToPngBytes } from './pngDecode';
 import type { TraceProvider } from './types';
-
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
 
 export const nativeTraceProvider: TraceProvider = {
   id: 'native-trace',

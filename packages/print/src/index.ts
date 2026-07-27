@@ -9,6 +9,7 @@
  * (see packages/engine/src/engine.ts).
  */
 
+import { isTauriRuntime } from '@strata/platform';
 import { createStubPrintEngine } from './stub';
 import type { PrintEngine } from './types';
 
@@ -36,7 +37,7 @@ export async function createPrintEngine(
   }
   // 'auto': try native, fall back to stub
   try {
-    if (typeof window !== 'undefined' && '__TAURI__' in window) {
+    if (isTauriRuntime()) {
       const { createNativePrintEngine } = await import('./native');
       return createNativePrintEngine();
     }

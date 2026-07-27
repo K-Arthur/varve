@@ -13,6 +13,7 @@ import {
   createBackupStore,
   DEFAULT_RETENTION,
 } from '@strata/engine';
+import { isTauriRuntime } from '@strata/platform';
 
 export type IncludeAssetsPolicy = 'none' | 'used' | 'all';
 
@@ -111,7 +112,7 @@ export class BackupService {
   async initialize(): Promise<void> {
     this.store = createBackupStore({
       hasIndexedDb: typeof indexedDB !== 'undefined',
-      platform: typeof window !== 'undefined' && '__TAURI__' in window ? 'tauri' : 'web',
+      platform: isTauriRuntime() ? 'tauri' : 'web',
     });
     this.engine = new BackupEngine(this.store);
     this.restoreState();

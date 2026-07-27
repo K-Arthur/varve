@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@strata/engine": "workspace:*",
+    "@strata/platform": "workspace:*",
     "@strata/scene": "workspace:*"
   },
   "license": "FSL-1.1-MIT"

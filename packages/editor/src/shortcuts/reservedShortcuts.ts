@@ -27,9 +27,7 @@ export const DESKTOP_OS_RESERVED_SHORTCUTS: ReservedShortcut[] = [
   { keys: 'Print Screen', action: 'Screenshot (OS)' },
 ];
 
-export function isTauriRuntime(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
-}
+export { isTauriRuntime } from '@strata/platform';
 
 export function getReservedShortcutsForTarget(): {
   target: 'browser' | 'desktop';

@@ -20,6 +20,7 @@
     "test": "cd ../.. && vitest run packages/engine"
   },
   "dependencies": {
+    "@strata/platform": "workspace:*",
     "@strata/shared": "workspace:*",
     "bidi-js": "^1.0.3",
     "harfbuzzjs": "^1.4.0",

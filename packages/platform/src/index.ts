@@ -38,6 +38,21 @@ export {
   stripExtension,
   uuid,
 } from './pure';
+export type {
+  OsKind,
+  PlatformCapability,
+  PlatformInfo,
+  RuntimeKind,
+} from './runtime';
+export {
+  detectRuntimeKind,
+  getPlatformInfo,
+  hasCapability,
+  isTauriRuntime,
+  isWebRuntime,
+  resetPlatformInfo,
+  setPlatformInfoForTest,
+} from './runtime';
 export type { ContentSearchMatch } from './searchIndex';
 export { createTauriPlatform } from './tauri';
 export * from './types';

@@ -1,3 +1,4 @@
+import { isTauriRuntime as detectTauri } from '@strata/platform';
 import type { ExecutionProvider, RuntimeCapabilities } from './types';
 
 let cachedCapabilities: RuntimeCapabilities | null = null;
@@ -6,10 +7,6 @@ let webGpuResolve: Promise<boolean> | null = null;
 function detectWebKitGTK(): boolean {
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   return ua.includes('WebKit') && !ua.includes('Chrome') && !ua.includes('Mac');
-}
-
-function detectTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI__' in window;
 }
 
 function detectWebGL(): boolean {
