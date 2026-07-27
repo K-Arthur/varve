@@ -232,6 +232,18 @@ export interface ToolContext {
     bounds: { x: number; y: number; w: number; h: number };
   }>;
 
+  /** Last pointer event for movement tracking (long-press tolerance check). */
+  lastPointerEvent: { clientX: number; clientY: number };
+
+  /** Show a deep-selection candidate menu at the given screen position.
+   *  Used by touch/stylus long-press to let users pick through overlapping
+   *  or nested objects without keyboard modifiers. */
+  showDeepSelectionMenu?: (
+    world: { x: number; y: number },
+    screenX: number,
+    screenY: number,
+  ) => void;
+
   /** Ephemeral trimap session (not persisted on Document). */
   getTrimapData?: (nodeId: string) => { data: Uint8Array; width: number; height: number } | null;
   setTrimapPreview?: (trimap: Uint8Array, width: number, height: number) => void;

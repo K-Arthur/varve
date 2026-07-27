@@ -3,10 +3,11 @@
  * and UI. Runs in Rust-wasm bindings, web workers, and React components alike.
  */
 
-export type { Affine, Point, Rect } from './affine';
+export type { Affine, DecomposedAffine, Point, Rect } from './affine';
 export {
   applyAffine,
   decomposeAffine,
+  decomposeAffineFull,
   identity,
   invertAffine,
   multiplyAffine,

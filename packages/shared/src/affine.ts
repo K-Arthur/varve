@@ -190,25 +190,91 @@ export function transformRect(m: Affine, localRect: Rect): Rect {
 }
 
 /**
- * Decompose an affine into translation, rotation (radians), and uniform scale.
- * Returns `null` if the matrix is degenerate (skewed or non-uniformly scaled);
- * such matrices cannot be round-tripped through (translate, rotate, scale)
- * alone, so callers must preserve them as raw affines.
+ * Result of decomposing an affine matrix into its constituent transforms.
+ * The decomposition is canonical: T * R * S * Sk where:
+ *   T = translation
+ *   R = rotation (radians, Y-down)
+ *   S = scale (non-uniform)
+ *   Sk = skew (shearX, shearY)
  *
- * Useful for Inspector display and for serialising transforms into
- * human-editable form.
+ * For matrices without skew, skewX and skewY are 0.
+ * The decomposition is stable for non-degenerate matrices.
+ */
+export interface DecomposedAffine {
+  translateX: number;
+  translateY: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+  skewX: number;
+  skewY: number;
+}
+
+/**
+ * Decompose an affine matrix into translation, rotation, scale, and skew.
+ *
+ * Uses the canonical CSS/SVG decomposition:
+ *   M = translate(e,f) * rotate(θ) * skewX(α) * scale(sx, sy)
+ *
+ * Where:
+ *   translate: (e, f)
+ *   scaleX:  hypot(a, b), the length of the first column
+ *   skewX:   (a*c + b*d) / (scaleX²), 0 for pure rotate+scale
+ *   scaleY:  det / scaleX (preserves orientation)
+ *   rotation: atan2(b, a)
+ *
+ * Returns null for degenerate matrices (det = 0).
+ * For matrices without skew, skewX is 0 and the result matches the
+ * simpler decomposeAffine transform but with non-uniform scale retained.
+ */
+export function decomposeAffineFull(m: Affine): DecomposedAffine | null {
+  const [a, b, c, d, e, f] = m;
+  const det = a * d - b * c;
+  if (det === 0) return null;
+
+  const scaleX = Math.hypot(a, b);
+  if (scaleX < 1e-10) return null;
+
+  // Compute skewX: how much the y-axis tilts from perpendicular to the x-axis
+  const skewX = (a * c + b * d) / (scaleX * scaleX);
+
+  // Compute scaleY as determinant / scaleX (handles reflection)
+  const scaleY = det / scaleX;
+  if (Math.abs(scaleY) < 1e-10) return null;
+
+  // Rotation angle from the x-axis
+  const rotation = Math.atan2(b, a);
+
+  return {
+    translateX: e,
+    translateY: f,
+    rotation,
+    scaleX,
+    scaleY,
+    skewX,
+    skewY: 0, // Standard CSS decomposition doesn't expose skewY separately
+  };
+}
+
+/**
+ * Decompose an affine into translation, rotation (radians), and uniform scale.
+ * Returns `null` if the matrix is degenerate or has skew or non-uniform scale.
+ *
+ * Useful for backward-compatible Inspector display. Prefer `decomposeAffineFull`
+ * for new code that needs to handle skew.
  */
 export function decomposeAffine(
   m: Affine,
 ): { translateX: number; translateY: number; rotation: number; scale: number } | null {
-  const [a, b, c, d, e, f] = m;
-  const scaleX = Math.hypot(a, b);
-  const scaleY = Math.hypot(c, d);
-  if (scaleX === 0 || scaleY === 0) return null;
-  // Skew check: determinant sign vs. scale product. Pure rotation+scale has
-  // det = scaleX*scaleY (positive). Skew flips the sign or changes magnitude.
-  const det = a * d - b * c;
-  if (Math.abs(Math.abs(det) - scaleX * scaleY) > 1e-9) return null;
-  const rotation = Math.atan2(b, a);
-  return { translateX: e, translateY: f, rotation, scale: scaleX };
+  const full = decomposeAffineFull(m);
+  if (!full) return null;
+  // Reject matrices with skew or non-uniform scale
+  if (Math.abs(full.skewX) > 1e-9 || Math.abs(full.skewY) > 1e-9) return null;
+  if (Math.abs(Math.abs(full.scaleX) - Math.abs(full.scaleY)) > 1e-9) return null;
+  return {
+    translateX: full.translateX,
+    translateY: full.translateY,
+    rotation: full.rotation,
+    scale: Math.abs(full.scaleX),
+  };
 }
