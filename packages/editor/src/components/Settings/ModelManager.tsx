@@ -7,6 +7,7 @@ import type {
 import {
   createDiagnosticsLabel,
   DownloadManager,
+  deriveAcquisition,
   getRuntimeCapabilities,
   isInferenceError,
   listAllModels,
@@ -124,24 +125,11 @@ export function ModelManager() {
 
         let availabilityReason: string | undefined;
         if (!entry.bundled && !isReady) {
-          if (entry.remoteUrl === '') {
-            const notes = entry.sourceRevision || entry.description || '';
-            if (
-              notes.toLowerCase().includes('source unavailable') ||
-              notes.toLowerCase().includes('no public onnx')
-            ) {
-              availabilityReason =
-                'No public ONNX export — requires manual export from source repo';
-            } else if (
-              notes.toLowerCase().includes('no download url') ||
-              notes.toLowerCase().includes('requires onnx export')
-            ) {
-              availabilityReason = 'Requires ONNX export from source framework';
-            } else {
-              availabilityReason = 'No download source available';
-            }
-          } else if (!entry.checksum) {
-            availabilityReason = 'No integrity checksum — download disabled for safety';
+          const acquisition = deriveAcquisition(entry);
+          if (acquisition.kind === 'unavailable') {
+            availabilityReason = acquisition.detail;
+          } else if (acquisition.kind === 'generated') {
+            availabilityReason = 'Build from source weights (see tools/ddcolor-export/)';
           } else if (
             entry.peakMemoryBytes &&
             runtimeCaps.memoryTier === 'low' &&
@@ -329,12 +317,12 @@ export function ModelManager() {
       </div>
 
       {showDiagnostics && caps && (
-        <div className="model-manager__diagnostics" role="region" aria-label="Runtime diagnostics">
+        <section className="model-manager__diagnostics" aria-label="Runtime diagnostics">
           <h4 className="settings-section__subtitle">Runtime Diagnostics</h4>
           <p className="model-manager__diag-label">{createDiagnosticsLabel(caps)}</p>
           <ul className="model-manager__diag-list">
-            {diagnostics.map((d, i) => (
-              <li key={i} className="model-manager__diag-item">
+            {diagnostics.map((d) => (
+              <li key={d} className="model-manager__diag-item">
                 {d}
               </li>
             ))}
@@ -376,7 +364,7 @@ export function ModelManager() {
               Re-detect
             </Button>
           </div>
-        </div>
+        </section>
       )}
 
       {sortedRows.map(([catId, catRows]) => (
