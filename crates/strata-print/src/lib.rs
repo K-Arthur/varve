@@ -32,7 +32,6 @@ use std::collections::HashMap;
 use ab_glyph::Font as AbGlyphFont;
 use lopdf::{dictionary, Document, Object, ObjectId, Stream};
 use strata_core::{Effect, EngineColor, FillIR, GradientStop, SceneNode, Shape};
-use ttf_parser::GlyphId;
 
 use crate::subset::{
     collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission,
@@ -1951,36 +1950,24 @@ struct EmbeddedFontEntry {
     is_cid: bool,
 }
 
-/// Build a PDF TJ array string with per-glyph positioning using font kerning.
-/// Format: [(glyph1) kern1 (glyph2) kern2 ...] TJ
-fn build_tj_array(text: &str, font_data: &[u8], font_size: f64, face_index: u32) -> String {
-    if let Ok(face) = ttf_parser::Face::parse(font_data, face_index) {
-        let upem = f64::from(face.units_per_em());
-        let scale = font_size / upem;
-        let mut parts: Vec<String> = Vec::new();
-        let chars: Vec<char> = text.chars().collect();
-        let mut prev_glyph_id: Option<GlyphId> = None;
-
-        for &c in &chars {
-            let glyph_id = face.glyph_index(c).unwrap_or(GlyphId(0));
-            let hex = format!("{:02X}", c as u8);
-            parts.push(format!("<{hex}>"));
-
-            if let Some(prev) = prev_glyph_id {
-                let kern_val = face.glyphs_kerning(prev, glyph_id);
-                let kern_ts = kern_val.map(|k| -(k as f64 * scale)).unwrap_or(0.0);
-                if kern_ts.abs() > 0.5 {
-                    parts.push(format!("{:.1}", kern_ts));
-                }
-            }
-
-            prev_glyph_id = Some(glyph_id);
+/// Build a PDF TJ array string with per-glyph character hex codes.
+/// Format: [(glyph1) (glyph2) ...] TJ
+/// This preserves individual glyph identity for selectable text.
+/// Full kerning support requires reading the GPOS/kern table directly;
+/// for now we emit each glyph as a hex string with zero kerning.
+fn build_tj_array(text: &str, _font_data: &[u8], _font_size: f64, _face_index: u32) -> String {
+    let mut parts: Vec<String> = Vec::new();
+    for c in text.chars() {
+        let cp = c as u32;
+        if cp <= 0xFF {
+            // Single-byte hex for WinAnsi
+            parts.push(format!("<{:02X}>", cp as u8));
+        } else {
+            // Two-byte hex for non-WinAnsi (CID)
+            parts.push(format!("<{:04X}>", cp));
         }
-
-        format!("[{}] TJ", parts.join(" "))
-    } else {
-        format!("({}) Tj", escape_pdf_string(text))
     }
+    format!("[{}] TJ", parts.join(" "))
 }
 
 /// Escape a string for use in a PDF literal string `(...)`.
@@ -2225,7 +2212,7 @@ fn embed_font_program(
     );
 
     // Add ToUnicode reference to font dict
-    if let Object::Dictionary(ref mut dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
+    if let Object::Dictionary(dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
         dict.set("ToUnicode", Object::Reference(to_unicode_id));
     }
 
@@ -2334,7 +2321,7 @@ fn embed_cid_font_program(
         to_unicode_id,
         Object::Stream(Stream::new(dictionary! {}, to_unicode_stream)),
     );
-    if let Object::Dictionary(ref mut dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
+    if let Object::Dictionary(dict) = doc.objects.get_mut(&font_dict_id).unwrap() {
         dict.set("ToUnicode", Object::Reference(to_unicode_id));
     }
 

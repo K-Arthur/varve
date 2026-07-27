@@ -137,6 +137,7 @@ const NON_COLOR = `
   --z-sticky: 100;
   --z-overlay: 1000;
   --z-dialog: 1100;
+  --z-modal: 1150;
   --z-toast: 1200;
   --z-tooltip: 1300;
 
@@ -146,6 +147,14 @@ const NON_COLOR = `
   --bp-lg: 1024px;
   --bp-xl: 1280px;
   --bp-2xl: 1536px;
+
+  /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
+  --elevation-scrim: oklch(0 0 0 / 0.55);
+
+  /* --- Compatibility aliases (canonical name → alias) --- */
+  --color-surface-default: var(--color-surface-base);
+  --color-on-accent: var(--color-text-on-accent);
+  --color-accent-hover: var(--color-interactive-hover);
 `;
 
 const DARK_ELEVATION = `
@@ -162,6 +171,9 @@ const DARK_ELEVATION = `
   /* Micro-borders (dark mode — more visible). */
   --border-micro: 1px solid oklch(1 0 0 / 0.08);
   --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.30);
+
+  /* Scrim overlay (dark mode — slightly more opaque for contrast). */
+  --elevation-scrim: oklch(0 0 0 / 0.65);
 `;
 
 const HC_ELEVATION = `
@@ -178,6 +190,9 @@ const HC_ELEVATION = `
   /* Micro-borders (HC — thicker, full-contrast edges). */
   --border-micro: 2px solid oklch(1 0 0);
   --border-micro-accent: 2px solid oklch(0.95 0.2 188);
+
+  /* Scrim overlay (HC — near-opaque for maximum separation). */
+  --elevation-scrim: oklch(0 0 0 / 0.7);
 `;
 
 /** Map legacy --color-surface-* to canonical elevation tokens (overrides color.ts values). */

@@ -10,6 +10,7 @@
 //! Bruce Lindbloom's colour equations.
 
 use crate::marks::{self, MarksGeometry};
+use crate::subset::{collect_used_chars, get_subset_tag, subset_font, validate_embedding_permission, EmbeddingPermission};
 use crate::{ImageRenderState, PdfOptions};
 use lopdf::{dictionary, Document, Object, Stream};
 pub use strata_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
@@ -190,14 +191,79 @@ fn build_pdfx_document(
     doc.objects
         .insert(content_id, Object::Stream(content_stream));
 
-    // Font resource
-    let font_dict = dictionary! {
-        "F1" => dictionary! {
-            "Type" => "Font",
-            "Subtype" => "Type1",
-            "BaseFont" => "Helvetica",
-        },
-    };
+    // Font resources — embed fonts when data is provided
+    let mut font_dict = lopdf::Dictionary::new();
+    if !opts.fonts.is_empty() {
+        for (font_idx, (family, font_data)) in opts.fonts.iter().enumerate() {
+            // Validate embedding permission
+            if let Ok(perm) = validate_embedding_permission(font_data) {
+                match perm {
+                    EmbeddingPermission::Restricted => continue,
+                    _ => {}
+                }
+            }
+            // Subset font to used characters
+            let used_text = crate::collect_text_per_family(nodes);
+            let text = used_text.get(family).map(|s| s.as_str()).unwrap_or("");
+            let chars = collect_used_chars(text);
+            let subset_data = if chars.is_empty() {
+                font_data.clone()
+            } else {
+                subset_font(font_data, &chars).unwrap_or_else(|_| font_data.clone())
+            };
+            let tag = get_subset_tag(family);
+            let sanitized: String = family.chars().filter(|c| c.is_alphanumeric()).collect();
+            let base_font = format!("{tag}{sanitized}");
+
+            // Embed font program
+            let font_stream_id = doc.new_object_id();
+            let font_stream = Stream::new(
+                dictionary! { "Length1" => subset_data.len() as i64 },
+                subset_data,
+            );
+            doc.objects.insert(font_stream_id, Object::Stream(font_stream));
+
+            // Font descriptor
+            let descriptor_id = doc.new_object_id();
+            let font_name_bytes = base_font.as_bytes().to_vec();
+            let descriptor = dictionary! {
+                "Type" => "FontDescriptor",
+                "FontName" => Object::Name(font_name_bytes.clone()),
+                "Flags" => 32,
+                "FontBBox" => vec![Object::Real(0.0), Object::Real(-200.0), Object::Real(1000.0), Object::Real(800.0)],
+                "ItalicAngle" => 0,
+                "Ascent" => 800,
+                "Descent" => -200,
+                "CapHeight" => 500,
+                "StemV" => 50,
+                "FontFile2" => Object::Reference(font_stream_id),
+            };
+            doc.objects.insert(descriptor_id, Object::Dictionary(descriptor));
+
+            // Font dictionary
+            let res_name = format!("F{}", font_idx + 1);
+            let font_dict_entry = dictionary! {
+                "Type" => "Font",
+                "Subtype" => "TrueType",
+                "BaseFont" => Object::Name(font_name_bytes),
+                "FontDescriptor" => Object::Reference(descriptor_id),
+                "Encoding" => "WinAnsiEncoding",
+                "FirstChar" => 32,
+                "LastChar" => 255,
+            };
+            font_dict.set(res_name.as_bytes(), font_dict_entry);
+        }
+    } else {
+        // Fallback to Helvetica when no font data
+        font_dict.set(
+            "F1",
+            dictionary! {
+                "Type" => "Font",
+                "Subtype" => "Type1",
+                "BaseFont" => "Helvetica",
+            },
+        );
+    }
     let mut resources = dictionary! {
         "Font" => font_dict,
     };
