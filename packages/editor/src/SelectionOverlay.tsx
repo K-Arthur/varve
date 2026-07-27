@@ -623,6 +623,10 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
             (navigator.platform?.toLowerCase().includes('mac') ?? false),
           g.handle.length === 1,
         );
+        // C4: Ctrl/Cmd + resize on a frame = scale frame and contents together.
+        // Default frame resize preserves child positions unless they have constraints.
+        const isFrameResize = g.engine.isAllRaster() === false;
+        const scaleContents = mods.bypassSnap && isFrameResize;
         updateDoc((doc) =>
           g.engine.resize(
             pointerWorld,
@@ -631,6 +635,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
               centered: mods.centered,
               proportional: mods.proportional,
               bypassSnap: mods.bypassSnap,
+              scaleContents,
             },
             doc,
           ),

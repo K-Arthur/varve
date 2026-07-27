@@ -1040,3 +1040,111 @@ describe('SelectTool drag-end auto-reparent', () => {
     expect(reparentNode).toHaveBeenCalledWith('n0', null, expect.any(Number));
   });
 });
+
+describe('SelectTool deep selection (Ctrl+click)', () => {
+  it('Ctrl+click selects the deepest non-container child at the hit point', () => {
+    const tool = new SelectTool();
+    // Hit returns a frame; findNodesAtPoint returns [frame, child]
+    const frameNode = { id: 'f1', kind: 'frame' as const, name: 'Frame' };
+    const childNode = { id: 'c1', kind: 'shape' as const, name: 'Child' };
+    const ctx = makeCtx({
+      ctrlKey: true,
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'f1', node: frameNode }),
+      isSelected: vi.fn().mockReturnValue(false),
+      getNode: vi.fn((id: string) => (id === 'f1' ? frameNode : childNode)),
+      document: {
+        nodes: { f1: frameNode, c1: childNode },
+        pages: [],
+        rootChildren: ['f1'],
+        activePageId: 'page1',
+      } as any,
+    });
+    // Mock findNodesAtPoint using the private method path
+    (tool as any).findNodesAtPoint = vi.fn().mockReturnValue([
+      { nodeId: 'f1', node: frameNode },
+      { nodeId: 'c1', node: childNode },
+    ]);
+    tool.onPointerDown(
+      {
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+        button: 0,
+        shiftKey: false,
+        ctrlKey: true,
+        metaKey: false,
+      } as any,
+      ctx,
+    );
+    // Should select the child, not the frame
+    expect(ctx.setSelection).toHaveBeenCalledWith('c1');
+  });
+
+  it('Ctrl+Shift+click deep-selects and adds to selection', () => {
+    const tool = new SelectTool();
+    const frameNode = { id: 'f1', kind: 'frame' as const, name: 'Frame' };
+    const childNode = { id: 'c1', kind: 'shape' as const, name: 'Child' };
+    const ctx = makeCtx({
+      ctrlKey: true,
+      shiftKey: true,
+      hitTest: vi.fn().mockReturnValue({ nodeId: 'f1', node: frameNode }),
+      isSelected: vi.fn().mockReturnValue(false),
+      getNode: vi.fn((id: string) => (id === 'f1' ? frameNode : childNode)),
+      document: {
+        nodes: { f1: frameNode, c1: childNode },
+        pages: [],
+        rootChildren: ['f1'],
+        activePageId: 'page1',
+      } as any,
+    });
+    (tool as any).findNodesAtPoint = vi.fn().mockReturnValue([
+      { nodeId: 'f1', node: frameNode },
+      { nodeId: 'c1', node: childNode },
+    ]);
+    tool.onPointerDown(
+      {
+        clientX: 50,
+        clientY: 50,
+        pointerId: 1,
+        button: 0,
+        shiftKey: true,
+        ctrlKey: true,
+        metaKey: false,
+      } as any,
+      ctx,
+    );
+    expect(ctx.toggleSelection).toHaveBeenCalledWith('c1', true);
+  });
+});
+
+describe('SelectTool Enter key navigates into containers', () => {
+  it('Enter on a selected frame enters isolation', () => {
+    const tool = new SelectTool();
+    const frameNode = { id: 'f1', kind: 'frame' as const, name: 'Frame 1' };
+    const ctx = makeCtx({
+      selection: ['f1'],
+      getNode: vi.fn().mockReturnValue(frameNode),
+    });
+    tool.onKeyDown({ key: 'Enter', repeat: false } as any, ctx);
+    expect(ctx.enterIsolation).toHaveBeenCalledWith('f1');
+    expect(ctx.announceOperation).toHaveBeenCalledWith('Enter', 'Frame 1');
+  });
+
+  it('Enter on a selected group enters isolation', () => {
+    const tool = new SelectTool();
+    const groupNode = { id: 'g1', kind: 'group' as const, name: 'Group 1' };
+    const ctx = makeCtx({
+      selection: ['g1'],
+      getNode: vi.fn().mockReturnValue(groupNode),
+    });
+    tool.onKeyDown({ key: 'Enter', repeat: false } as any, ctx);
+    expect(ctx.enterIsolation).toHaveBeenCalledWith('g1');
+  });
+
+  it('Enter with no selection is a no-op', () => {
+    const tool = new SelectTool();
+    const ctx = makeCtx({ selection: [] });
+    tool.onKeyDown({ key: 'Enter', repeat: false } as any, ctx);
+    expect(ctx.enterIsolation).not.toHaveBeenCalled();
+  });
+});

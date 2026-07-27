@@ -152,6 +152,59 @@ describe('HitTestEngine', () => {
     expect(engine.hitTest({ x: 80, y: 80 })).toBeNull();
   });
 
+  it('deepSelect returns deepest non-container child instead of parent container', () => {
+    let doc = createDocument('test', true);
+    // Create child rect before frame so frameId is larger (later in paint order)
+    const { id: rectId, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    const { id: frameId, doc: d2 } = nextNodeId(doc);
+    doc = d2;
+    const rect = makeShapeNode(
+      rectId,
+      { kind: 'rect', x: 0, y: 0, w: 10, h: 10 },
+      { transform: [1, 0, 0, 1, 5, 5] as Affine },
+    );
+    const frame = makeFrameNode(frameId, {
+      transform: [1, 0, 0, 1, 0, 0] as Affine,
+      w: 100,
+      h: 100,
+      children: [rectId],
+    });
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, [frameId]: frame, [rectId]: rect },
+      rootChildren: [frameId],
+    };
+    // Without deepSelect: returns the frame (topmost)
+    const normal = new HitTestEngine(doc);
+    const normalHit = normal.hitTest({ x: 7, y: 7 });
+    expect(normalHit?.nodeId).toBeDefined();
+    // With deepSelect: returns the child rect (deepest non-container)
+    const deep = new HitTestEngine(doc, { deepSelect: true });
+    const deepHit = deep.hitTest({ x: 7, y: 7 });
+    expect(deepHit?.nodeId).toBe(rectId);
+  });
+
+  it('deepSelect returns container when no non-container child is hit', () => {
+    let doc = createDocument('test', true);
+    const { id: frameId, doc: d1 } = nextNodeId(doc);
+    doc = d1;
+    const frame = makeFrameNode(frameId, {
+      transform: [1, 0, 0, 1, 0, 0] as Affine,
+      w: 100,
+      h: 100,
+      children: [],
+    });
+    doc = {
+      ...doc,
+      nodes: { ...doc.nodes, [frameId]: frame },
+      rootChildren: [frameId],
+    };
+    // No children, so deepSelect falls back to the container
+    const engine = new HitTestEngine(doc, { deepSelect: true });
+    expect(engine.hitTest({ x: 50, y: 50 })?.nodeId).toBe(frameId);
+  });
+
   it('honours compound-path holes and inverted clipping during hit testing', () => {
     let doc = createDocument('test', true);
     const maskId = 'mask';

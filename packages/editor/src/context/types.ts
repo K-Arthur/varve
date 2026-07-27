@@ -143,6 +143,24 @@ export interface EditorState {
   zoom: number;
   pan: { x: number; y: number };
   selection: NodeId[];
+  /** Primary/anchor selection ID — the first or most recently focused node
+   *  in multi-selection. Used for inspector context, alignment origin, and
+   *  as the authoritative "what is selected" for commands that expect a
+   *  single object. Guaranteed to be in `selection` when selection is non-empty. */
+  primaryId: NodeId | null;
+  /** Active container for nested/deep selection. When set, hit-testing and
+   *  selection commands are scoped to this container's subtree. The container
+   *  itself is also selectable. Null means document/artboard scope. */
+  activeContainerId: NodeId | null;
+  /** What kind of selection is active. Determines rendering and interaction
+   *  behaviour for handles, hit testing, and overlay rendering. */
+  selectionMode: 'object' | 'direct' | 'path' | 'text' | 'pixel';
+  /** Origin of the most recent selection change — used for synchronisation
+   *  and undo-grouping decisions. */
+  selectionOrigin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api';
+  /** Monotonic revision that increments on every selection change, enabling
+   *  cheap change detection without deep-equal on the full selection array. */
+  selectionRevision: number;
   document: Document;
   sessions: SessionMeta[];
   activeId: string;
@@ -304,6 +322,8 @@ export interface EditorState {
   /** Node ID for the Content-Aware Fill dialog target. When set, Shell
    *  renders the dialog. Null when closed. */
   cafDialogNodeId: NodeId | null;
+  /** Whether the upscale dialog is open. */
+  upscaleDialogOpen: boolean;
   /** Incremented on every theme switch so CanvasArea, Minimap, Ruler and
    *  other canvas-based components can detect and react to theme changes
    *  without a full editor remount. */
@@ -384,8 +404,15 @@ export interface EditorContextValue {
   ) => void;
   resetSectionOrder: () => void;
   // Selection
-  setSelection: (id: NodeId | null) => void;
-  toggleSelection: (id: NodeId, additive?: boolean) => void;
+  setSelection: (
+    id: NodeId | null,
+    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
+  ) => void;
+  toggleSelection: (
+    id: NodeId,
+    additive?: boolean,
+    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
+  ) => void;
   isSelected: (id: NodeId) => boolean;
   selectedNodes: () => SceneNode[];
   selectAllWithSameType: () => void;
@@ -685,6 +712,11 @@ export interface EditorContextValue {
   // Export
   showExportDialog: boolean;
   setShowExportDialog: (show: boolean) => void;
+
+  // Upscale dialog
+  upscaleDialogOpen: boolean;
+  openUpscaleDialog: () => void;
+  closeUpscaleDialog: () => void;
 
   // Archive
   showArchiveDialog: boolean;

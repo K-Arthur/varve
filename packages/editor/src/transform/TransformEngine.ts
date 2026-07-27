@@ -50,11 +50,17 @@ export interface TransformOptions {
   snapBox?: (box: SelectionBox) => SelectionBox;
   /** When true, commit() bakes vector geometry into shape/frame properties. */
   bakeOnCommit?: boolean;
+  /** When true, frame children are scaled uniformly with the frame (like a group).
+   *  When false (default), children without constraints stay in place, and children
+   *  with constraints respond according to their constraint settings. */
+  scaleContents?: boolean;
 }
 
 type TransformResizeOptions = ResizeOptions & {
   /** Skip the injected snap policy for this pointer sample (Ctrl/Cmd). */
   bypassSnap?: boolean;
+  /** When true, frame children are scaled uniformly (Ctrl/Cmd on frame edge handle). */
+  scaleContents?: boolean;
 };
 
 export class TransformEngine {
@@ -104,6 +110,11 @@ export class TransformEngine {
     const newBox = opts.bypassSnap ? resizedBox : this.snapBox(resizedBox);
     const delta = boxDeltaMatrix(box, newBox);
     this.lastDelta = delta;
+    // Propagate scaleContents from transient resize opts to the stored options
+    // so commit() uses the right mode for frame children.
+    if (opts.scaleContents !== undefined) {
+      this.options.scaleContents = opts.scaleContents;
+    }
     return this.applyDelta(doc, delta);
   }
 
@@ -279,52 +290,68 @@ export class TransformEngine {
           h: newH,
         } as SceneNode;
 
-        // Apply child constraints when the frame has changed dimensions
-        // and has children with constraint settings.
+        // When scaleContents is true, frame children are scaled uniformly
+        // (like a group). When false, only children with explicit constraints
+        // respond to the parent resize; children without constraints stay put.
         if (oldW > 0 && oldH > 0 && node.children && node.children.length > 0) {
-          for (const childId of node.children) {
-            const child = currentDoc.nodes[childId];
-            if (!child) continue;
-            const cs = child.constraints;
-            if (!cs) continue; // No constraints → child stays in place
-            const childBounds = nodeLocalBounds(child, currentDoc);
-            if (!childBounds) continue;
-            const childTransform = child.transform as Affine;
-            const childX = childTransform[4] + childBounds.x;
-            const childY = childTransform[5] + childBounds.y;
-
-            const result = applyConstraints(
-              cs,
-              { x: childX, y: childY, w: childBounds.w, h: childBounds.h },
-              oldW,
-              oldH,
-              newW,
-              newH,
-            );
-
-            // Apply both position AND dimension changes from constraints.
-            // For 'stretch' and 'scale' the size differs from the original;
-            // the type-aware resize adapter handles each node kind correctly
-            // (shape w/h, text w/h, frame w/h, path points, etc.).
-            let updatedChild: SceneNode = child;
-            const dimChanged =
-              Math.abs(result.w - childBounds.w) > 0.001 ||
-              Math.abs(result.h - childBounds.h) > 0.001;
-            if (dimChanged) {
-              updatedChild = resizeNodeGeometry(child, result.w, result.h);
+          if (this.options.scaleContents) {
+            // Scale all children uniformly with the frame.
+            for (const childId of node.children) {
+              const child = currentDoc.nodes[childId];
+              if (!child) continue;
+              const childTransform = child.transform as Affine;
+              const childWorld = multiplyAffine(localTransform, childTransform);
+              const parentInv = tryInvertAffine(localTransform);
+              if (!parentInv) continue;
+              const newChildLocal = multiplyAffine(parentInv, childWorld);
+              updates[childId] = {
+                ...child,
+                transform: newChildLocal,
+              } as SceneNode;
             }
+          } else {
+            // Apply child constraints when the frame has changed dimensions
+            // and has children with constraint settings.
+            for (const childId of node.children) {
+              const child = currentDoc.nodes[childId];
+              if (!child) continue;
+              const cs = child.constraints;
+              if (!cs) continue; // No constraints → child stays in place
+              const childBounds = nodeLocalBounds(child, currentDoc);
+              if (!childBounds) continue;
+              const childTransform = child.transform as Affine;
+              const childX = childTransform[4] + childBounds.x;
+              const childY = childTransform[5] + childBounds.y;
 
-            updates[childId] = {
-              ...updatedChild,
-              transform: [
-                child.transform[0],
-                child.transform[1],
-                child.transform[2],
-                child.transform[3],
-                result.x,
-                result.y,
-              ] as Affine,
-            } as SceneNode;
+              const result = applyConstraints(
+                cs,
+                { x: childX, y: childY, w: childBounds.w, h: childBounds.h },
+                oldW,
+                oldH,
+                newW,
+                newH,
+              );
+
+              let updatedChild: SceneNode = child;
+              const dimChanged =
+                Math.abs(result.w - childBounds.w) > 0.001 ||
+                Math.abs(result.h - childBounds.h) > 0.001;
+              if (dimChanged) {
+                updatedChild = resizeNodeGeometry(child, result.w, result.h);
+              }
+
+              updates[childId] = {
+                ...updatedChild,
+                transform: [
+                  child.transform[0],
+                  child.transform[1],
+                  child.transform[2],
+                  child.transform[3],
+                  result.x,
+                  result.y,
+                ] as Affine,
+              } as SceneNode;
+            }
           }
         }
 

@@ -6,8 +6,20 @@ import type { EditorState } from './types';
 
 export interface SelectionContextValue {
   selection: NodeId[];
-  setSelection: (id: NodeId | null) => void;
-  toggleSelection: (id: NodeId, additive?: boolean) => void;
+  primaryId: NodeId | null;
+  activeContainerId: NodeId | null;
+  selectionMode: 'object' | 'direct' | 'path' | 'text' | 'pixel';
+  selectionOrigin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api';
+  selectionRevision: number;
+  setSelection: (
+    id: NodeId | null,
+    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
+  ) => void;
+  toggleSelection: (
+    id: NodeId,
+    additive?: boolean,
+    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
+  ) => void;
   isSelected: (id: NodeId) => boolean;
   selectedNodes: () => SceneNode[];
   selectAllWithSameType: () => void;
@@ -149,6 +161,11 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
   const value = useMemo<SelectionContextValue>(
     () => ({
       selection: state.selection,
+      primaryId: state.primaryId,
+      activeContainerId: state.activeContainerId,
+      selectionMode: state.selectionMode,
+      selectionOrigin: state.selectionOrigin,
+      selectionRevision: state.selectionRevision,
       setSelection,
       toggleSelection,
       isSelected,
@@ -160,6 +177,11 @@ export function SelectionProvider({ children, state, setState }: SelectionProvid
     }),
     [
       state.selection,
+      state.primaryId,
+      state.activeContainerId,
+      state.selectionMode,
+      state.selectionOrigin,
+      state.selectionRevision,
       setSelection,
       toggleSelection,
       isSelected,
