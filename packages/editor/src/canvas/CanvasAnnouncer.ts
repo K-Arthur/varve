@@ -20,6 +20,7 @@ export class CanvasAnnouncer {
 
   private createRegions(): void {
     this.politeEl = document.createElement('div');
+    this.politeEl.id = 'strata-canvas-announcer-polite';
     this.politeEl.setAttribute('role', 'status');
     this.politeEl.setAttribute('aria-live', 'polite');
     this.politeEl.setAttribute('aria-atomic', 'true');
@@ -33,6 +34,7 @@ export class CanvasAnnouncer {
     document.body.appendChild(this.politeEl);
 
     this.assertiveEl = document.createElement('div');
+    this.assertiveEl.id = 'strata-canvas-announcer-assertive';
     this.assertiveEl.setAttribute('role', 'alert');
     this.assertiveEl.setAttribute('aria-live', 'assertive');
     this.assertiveEl.setAttribute('aria-atomic', 'true');

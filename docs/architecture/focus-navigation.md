@@ -152,29 +152,89 @@ Located in `packages/editor/src/hooks/`:
 | `useCompositeNavigation` | `useCompositeNavigation.ts` | Arrow-key + typeahead composite nav |
 | `useFocusVisible` | `useFocusVisible.ts` | Track keyboard vs pointer focus |
 
-## Known Limitations and Pre-existing Issues
+## Resolved Limitations
 
-1. **CanvasArea focus ring** — The canvas element has a `focus-visible` style
-   but the ring is clipped in certain zoom states. This is a CSS `overflow`
-   issue on the canvas container.
+### 1. Canvas focus ring (RESOLVED)
 
-2. **Toolbar wrapping** — Current toolbar implementation wraps focus within
-   the toolbar (last → first). Some users may prefer non-wrapping. The
-   `useRovingTabIndex` hook supports both.
+**Was:** The canvas's `:focus-visible` rule targeted `.editor-canvas` (the
+section) but DOM focus was on the inner `<canvas tabIndex=0>`, so the ring
+never appeared. Additionally, the container's `overflow: hidden` could clip
+child focus indicators.
 
-3. **Floating panel focus** — Floating panels use the native `popover` API
-   which provides automatic focus management but has inconsistent behavior
-   across WebView versions.
+**Fix:** Added a `::after` pseudo-element on `.editor-canvas` at z-index 11
+(above interactive overlays) that renders the focus ring. JS toggles
+`data-canvas-focus-visible` on the section when the inner canvas receives
+`:focus-visible` (keyboard only — mouse clicks don't show the ring). Because
+the pseudo-element is positioned on the section itself (not a child), it is
+never clipped by `overflow: hidden`. See `editor.css` `.editor-canvas::after`
+and `CanvasArea.tsx` `handleCanvasFocus`/`handleCanvasBlur`.
 
-4. **Minimap focus** — The minimap is a non-interactive visual reference and
-   is correctly excluded from tab order.
+### 2. Toolbar wrapping (RESOLVED)
 
-5. **Collab cursors** — Collaborative presence cursors are visual only and
-   not focusable.
+**Was:** `<Toolbar>` had hardcoded wrapping navigation with no way to disable it.
 
-6. **WebView2 / WKWebView** — Some older WebView versions do not support
-   the `inert` attribute. A polyfill would be required for comprehensive
-   focus isolation on those platforms.
+**Fix:** Added a `wrap?: boolean` prop (defaults to `true` for backward
+compatibility). When `wrap={false}`, arrow navigation clamps at the first/last
+item instead of wrapping. See `packages/ui/src/components/Toolbar.tsx`.
 
-7. **Tauri native dialogs** — Native file dialogs opened by Tauri are outside
-   the webview's control and may temporarily interrupt focus tracking.
+### 3. Popover focus fallback (RESOLVED)
+
+**Was:** The `Popover` component unconditionally used the native `popover` API
+(`showPopover`/`hidePopover`/`popover="auto"`). Browsers without this API
+(Firefox < 125, Safari < 17) would get a TypeError.
+
+**Fix:** Added feature detection (`HAS_POPOVER_API`). When unavailable, the
+component falls back to `display: none`/`display: ''` toggling and a
+`[data-popover-open]` attribute that CSS uses for visibility. The `inert`
+sibling behavior and focus management work identically in both modes. See
+`packages/ui/src/components/Popover.tsx`.
+
+### 4. Tauri native dialog focus (RESOLVED)
+
+**Was:** When a native Tauri file dialog opened, the webview lost OS-level
+focus. On close, no DOM focus restoration happened — focus stayed on
+`document.body`.
+
+**Fix:** Added `withFocusRestore()` wrapper in `packages/platform/src/tauri.ts`
+that saves `document.activeElement` before each dialog call and restores it
+when the dialog closes. All four Tauri dialog methods
+(`openDocumentFromDisk`, `importDocumentFromDisk`, `saveDocumentToDisk`,
+`saveBinaryFile`) are now wrapped.
+
+### 5. Screen-reader canvas announcements (RESOLVED)
+
+**Was:** The canvas element had no `aria-describedby` pointing to the live
+region, so screen readers wouldn't announce canvas state changes (selection,
+tool, zoom) in the context of the focused canvas.
+
+**Fix:** Added stable IDs (`strata-canvas-announcer-polite`,
+`strata-canvas-announcer-assertive`) to the `CanvasAnnouncer` live regions
+and wired `aria-describedby="strata-canvas-announcer-polite"` on the canvas
+element. Now when the canvas is focused, screen readers can access the live
+region's announcements.
+
+### 6. WebGPU offscreen canvas (NOT APPLICABLE)
+
+**Was listed as:** Potential focus issue with OffscreenCanvas in the render worker.
+
+**Finding:** `OffscreenCanvas` in `packages/editor/src/render/` is purely a
+rendering target with no DOM presence, no `tabIndex`, and no focus semantics.
+It cannot receive focus and has no accessibility implications. No fix needed.
+
+## Remaining Platform Notes
+
+- **WebView2 / WKWebView** — Some older WebView versions do not support
+  the `inert` attribute. A polyfill would be required for comprehensive
+  focus isolation on those platforms. This project targets WebKitGTK 2.52.4
+  which supports `inert`.
+
+- **Screen-reader testing** — ARIA improvements were made but physical testing
+  with NVDA (Windows), VoiceOver (macOS), and Orca (Linux) has not been
+  performed in this session. The live regions and `aria-describedby` wiring
+  follow WAI-ARIA 1.2 patterns.
+
+- **Collab cursors** — Collaborative presence cursors remain visual-only and
+  correctly non-focusable.
+
+- **Minimap** — The minimap is correctly excluded from tab order as a
+  non-interactive visual reference.
