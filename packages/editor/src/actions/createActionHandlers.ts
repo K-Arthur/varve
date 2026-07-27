@@ -204,6 +204,7 @@ export function createActionHandlers(
     openAppearancePanel: () => e.setInspectorTab('appearance'),
     openAdjustmentsPanel: () => e.setInspectorTab('adjustments'),
     openPrototypePanel: () => e.setInspectorTab('prototype'),
+    openFontsPanel: () => e.setInspectorTab('fonts'),
     openDocumentPanel: () => {
       e.setSelection(null);
       e.setInspectorTab('properties');
