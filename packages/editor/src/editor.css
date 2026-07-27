@@ -620,9 +620,27 @@
     transform: translateY(0);
   }
 }
-.editor-canvas:focus-visible {
+/* Canvas focus ring — the inner <canvas tabIndex=0> receives keyboard
+   focus, but we want a ring around the entire canvas area. Using a
+   dedicated ::after pseudo-element at z-index 11 (above interactive
+   overlays) avoids clipping from the container's overflow:hidden.
+   JS toggles [data-canvas-focus-visible] on .editor-canvas when the
+   inner canvas receives :focus-visible (see CanvasArea.tsx), so mouse
+   clicks never show the ring. */
+.editor-canvas::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 11;
   outline: 2px solid var(--color-interactive-default);
   outline-offset: -2px;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.editor-canvas[data-canvas-focus-visible="true"]::after {
+  opacity: 1;
 }
 .editor-canvas__focus-layer {
   position: absolute;

@@ -763,13 +763,15 @@
     transform var(--duration-base) ease;
 }
 
-.strata-popover:popover-open {
+.strata-popover:popover-open,
+.strata-popover[data-popover-open="true"] {
   opacity: 1;
   transform: scale(1);
 }
 
 @starting-style {
-  .strata-popover:popover-open {
+  .strata-popover:popover-open,
+  .strata-popover[data-popover-open="true"] {
     opacity: 0;
     transform: scale(0.95);
   }

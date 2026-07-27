@@ -6,6 +6,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -17,6 +18,10 @@ export interface PopoverProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
+
+/** True if the browser implements the native Popover API. */
+const HAS_POPOVER_API =
+  typeof HTMLElement !== 'undefined' && typeof HTMLElement.prototype.showPopover === 'function';
 
 export function Popover({
   children,
@@ -41,9 +46,12 @@ export function Popover({
   const [arrowStyle, setArrowStyle] = useState<{ left: number; top: number } | null>(null);
   const popoverId = useId();
 
+  // ── Native Popover API (with fallback) ──────────────────────────────────
+
   useEffect(() => {
     const el = popoverRef.current;
     if (!el) return;
+    if (!HAS_POPOVER_API) return; // fallback uses CSS class below
     skipToggleRef.current = true;
     try {
       if (isOpen) {
@@ -60,6 +68,7 @@ export function Popover({
   useEffect(() => {
     const el = popoverRef.current;
     if (!el) return;
+    if (!HAS_POPOVER_API) return;
     const handleToggle = () => {
       if (skipToggleRef.current) return;
       const nowOpen = !isOpenRef.current;
@@ -71,6 +80,23 @@ export function Popover({
     el.addEventListener('toggle', handleToggle);
     return () => el.removeEventListener('toggle', handleToggle);
   }, [onOpenChange, isControlled]);
+
+  // ── Fallback visibility for browsers without popover API ─────────────────
+
+  useEffect(() => {
+    const el = popoverRef.current;
+    if (!el) return;
+    if (HAS_POPOVER_API) return;
+    if (isOpen) {
+      el.style.display = '';
+      el.setAttribute('data-popover-open', 'true');
+    } else {
+      el.style.display = 'none';
+      el.removeAttribute('data-popover-open');
+    }
+  }, [isOpen]);
+
+  // ── Positioning ──────────────────────────────────────────────────────────
 
   useEffect(() => {
     const triggerEl = triggerRef.current;
@@ -102,6 +128,8 @@ export function Popover({
     };
   }, [isOpen, placement]);
 
+  // ── Focus management ─────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!isOpen) return;
     const popoverEl = popoverRef.current;
@@ -124,21 +152,30 @@ export function Popover({
     prevOpenRef.current = isOpen;
   }, [isOpen]);
 
+  // ── Inert siblings ───────────────────────────────────────────────────────
+
+  const siblingsRef = useRef<Set<HTMLElement>>(new Set());
+
   useEffect(() => {
     const popoverEl = popoverRef.current;
-    const triggerEl = triggerRef.current;
     if (!popoverEl) return;
     const parent = popoverEl.parentElement;
     if (!parent) return;
-    const siblings = Array.from(parent.children).filter(
-      (child) => child !== popoverEl && child !== triggerEl,
-    );
-    siblings.forEach((s) => {
-      (s as HTMLElement).inert = isOpen;
+
+    // Capture siblings once
+    if (siblingsRef.current.size === 0) {
+      const siblings = Array.from(parent.children).filter(
+        (child) => child !== popoverEl && child !== triggerRef.current,
+      );
+      siblingsRef.current = new Set(siblings as HTMLElement[]);
+    }
+
+    siblingsRef.current.forEach((s) => {
+      s.inert = isOpen;
     });
     return () => {
-      siblings.forEach((s) => {
-        (s as HTMLElement).inert = false;
+      siblingsRef.current.forEach((s) => {
+        s.inert = false;
       });
     };
   }, [isOpen]);
@@ -169,6 +206,22 @@ export function Popover({
   }>(children)
     ? children
     : null;
+
+  const popoverStyle = useMemo((): React.CSSProperties => {
+    const base: React.CSSProperties = {
+      position: 'fixed',
+      left: posStyle?.left ?? 0,
+      top: posStyle?.top ?? 0,
+      margin: 0,
+      zIndex: 'var(--z-overlay)' as unknown as number,
+    };
+    // For browsers without the popover API, hide via display:none
+    // when closed (the effect above also toggles this reactively).
+    if (!HAS_POPOVER_API && !isOpen) {
+      base.display = 'none';
+    }
+    return base;
+  }, [posStyle, isOpen]);
 
   return (
     <>
@@ -210,15 +263,9 @@ export function Popover({
       <div
         ref={popoverRef}
         id={popoverId}
-        popover="auto"
+        {...(HAS_POPOVER_API ? { popover: 'auto' } : {})}
         className="strata-popover"
-        style={{
-          position: 'fixed',
-          left: posStyle?.left ?? 0,
-          top: posStyle?.top ?? 0,
-          margin: 0,
-          zIndex: 'var(--z-overlay)' as unknown as number,
-        }}
+        style={popoverStyle}
       >
         {popover}
         <div
