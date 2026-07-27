@@ -39,6 +39,17 @@ all = { level = "warn", priority = -1 }
 opt-level = 0
 debug = 1
 
+# Third-party dependencies rarely change between dev builds, so optimizing
+# them doesn't cost incremental-rebuild time the way optimizing our own
+# workspace crates (left at opt-level 0 above) would. This mainly speeds up
+# native-heavy paths that lean on deps — image decode, ONNX inference, PDF
+# export, geometry/matrix math — which otherwise run at debug speed in
+# `tauri dev`, several times slower than a release build. First `cargo build`
+# after this change is slower (deps compile at -O2 instead of -O0); every
+# build after that is unaffected, since deps are cached until they change.
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 opt-level = 3
 lto = "thin"
