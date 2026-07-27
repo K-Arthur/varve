@@ -6,7 +6,12 @@
  * same interface. Consolidates the separate model sets formerly scattered
  * across modelManifest.ts and upscaleModels.ts.
  */
-import type { ModelManifestEntry, ModelPrecision } from './types';
+import type {
+  ModelAcquisition,
+  ModelManifestEntry,
+  ModelPrecision,
+  ModelUnavailableReason,
+} from './types';
 
 export interface RawManifestEntry {
   id: string;
@@ -128,6 +133,7 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     ...(raw.sourceSha256 ? { sourceSha256: raw.sourceSha256 } : {}),
     ...(category ? { category } : {}),
     ...(raw.localPath ? { localPath: raw.localPath } : {}),
+    acquisition: deriveAcquisition(raw),
   };
 
   // Quality validation is read from the validation report files at
@@ -145,6 +151,52 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
   }
 
   return base;
+}
+
+/**
+ * Derive an acquisition strategy from raw manifest fields. This centralises
+ * the previously-scattered truthiness checks (`remoteUrl === ''`,
+ * `sha256 === null`, etc.) into one place.
+ */
+function deriveAcquisition(raw: RawManifestEntry): ModelAcquisition {
+  // Bundled models ship with the app — no download needed.
+  if (raw.bundled) {
+    return {
+      kind: 'bundled',
+      assetPath: raw.localPath || `/models/${raw.id}.onnx`,
+      sha256: raw.sha256 ?? '',
+    };
+  }
+
+  // Has a download URL and a checksum → directly downloadable.
+  if (raw.remoteUrl && raw.sha256) {
+    return {
+      kind: 'remote',
+      sources: [{ url: raw.remoteUrl, sha256: raw.sha256 }],
+      sha256: raw.sha256,
+    };
+  }
+
+  // No URL, not bundled → unavailable.
+  if (!raw.remoteUrl) {
+    const notes = raw.notes ?? '';
+    let reasonCode: ModelUnavailableReason = 'source-unavailable';
+    if (notes.toLowerCase().includes('no public onnx') || notes.toLowerCase().includes('export pending')) {
+      reasonCode = 'no-public-onnx';
+    }
+    return {
+      kind: 'unavailable',
+      reasonCode,
+      detail: notes || 'No download source available',
+    };
+  }
+
+  // Has URL but no checksum — ambiguous, treat as unavailable.
+  return {
+    kind: 'unavailable',
+    reasonCode: 'source-unavailable',
+    detail: 'Model has a download URL but no integrity checksum',
+  };
 }
 
 function modelDisplayName(id: string): string {

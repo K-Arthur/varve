@@ -1,3 +1,11 @@
+import type {
+  ModelAcquisition,
+  ModelSource,
+  ModelUnavailableReason,
+} from '../types';
+
+export type { ModelAcquisition, ModelSource, ModelUnavailableReason } from '../types';
+
 export type ModelPrecision = 'fp32' | 'fp16' | 'int8' | 'bf16';
 
 export type TaskCategory =
@@ -171,6 +179,65 @@ export interface ModelManifestEntry {
   multiComponent?: boolean;
   components?: ModelComponentEntry[];
   metadata?: Record<string, string>;
+  /** Explicit acquisition strategy. Falls back to deriveAcquisition() when absent. */
+  acquisition?: ModelAcquisition;
+}
+
+/**
+ * Derive an acquisition strategy from legacy fields. Centralises the
+ * previously-scattered truthiness checks.
+ */
+export function deriveAcquisition(entry: {
+  id: string;
+  bundled: boolean;
+  remoteUrl: string;
+  checksum: string;
+  localPath?: string;
+}): ModelAcquisition {
+  if (!entry.bundled && !entry.remoteUrl) {
+    return {
+      kind: 'unavailable',
+      reasonCode: 'source-unavailable',
+      detail: 'No download source available',
+    };
+  }
+
+  if (entry.bundled) {
+    return {
+      kind: 'bundled',
+      assetPath: entry.localPath ?? `/models/${entry.id}.onnx`,
+      sha256: entry.checksum || '',
+    };
+  }
+
+  if (entry.remoteUrl && entry.checksum) {
+    return {
+      kind: 'remote',
+      sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
+      sha256: entry.checksum,
+    };
+  }
+
+  return {
+    kind: 'unavailable',
+    reasonCode: 'source-unavailable',
+    detail: 'Model entry has incomplete acquisition metadata',
+  };
+}
+
+/**
+ * Resolve the effective acquisition for an entry, preferring the explicit
+ * field and falling back to legacy derivation.
+ */
+export function resolveAcquisition(entry: {
+  acquisition?: ModelAcquisition;
+  id: string;
+  bundled: boolean;
+  remoteUrl: string;
+  checksum: string;
+  localPath?: string;
+}): ModelAcquisition {
+  return entry.acquisition ?? deriveAcquisition(entry);
 }
 
 export interface ModelComponentEntry {

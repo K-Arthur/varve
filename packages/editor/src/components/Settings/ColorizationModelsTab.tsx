@@ -1,4 +1,5 @@
-import { getModelLoaderReady, listAllModels } from '@strata/engine';
+import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@strata/engine';
+import type { ModelAcquisition } from '@strata/engine';
 import { Button, RegionLoader } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
@@ -9,7 +10,7 @@ interface ModelRow {
   size: number;
   installed: boolean;
   source: 'bundled' | 'downloaded' | 'none';
-  downloadable: boolean;
+  acquisition: ModelAcquisition;
   description?: string;
 }
 
@@ -34,7 +35,7 @@ async function buildRows(
         : (await loader.hasDownloadedBlob?.(model.id))
           ? 'downloaded'
           : 'none',
-      downloadable: Boolean(model.remoteUrl && model.checksum) || !model.bundled,
+      acquisition: resolveAcquisition(model),
       description: model.description,
     });
   }
@@ -112,7 +113,7 @@ export function ColorizationModelsTab() {
                     {busyId === row.id ? 'Removing...' : 'Remove'}
                   </Button>
                 )}
-                {!row.installed && row.downloadable && (
+                {!row.installed && row.acquisition.kind === 'remote' && (
                   <Button
                     variant="primary"
                     onClick={() => setDownloadModelId(row.id)}
@@ -121,8 +122,15 @@ export function ColorizationModelsTab() {
                     Download
                   </Button>
                 )}
-                {!row.installed && !row.downloadable && (
-                  <span className="bg-models-list__meta">Unavailable</span>
+                {!row.installed && row.acquisition.kind === 'generated' && (
+                  <span className="bg-models-list__meta">
+                    Build from source — see tools/ddcolor-export/
+                  </span>
+                )}
+                {!row.installed && row.acquisition.kind === 'unavailable' && (
+                  <span className="bg-models-list__meta">
+                    {row.acquisition.detail}
+                  </span>
                 )}
               </div>
             </li>

@@ -39,3 +39,6 @@ export type {
   SelectionFacts,
 } from './types';
 export { useNativeMenu } from './useNativeMenu';
+export { useMenu } from './useMenu';
+export type { UseMenuOptions, UseMenuReturn } from './useMenu';
+export { formatLabel, formatLabelWithValues, reportMissingKey } from './localization';
