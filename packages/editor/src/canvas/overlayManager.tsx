@@ -7,8 +7,7 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import type { NodeId, SceneNode } from '@strata/scene';
-import { activePageNodes, canBeClipMaskSource, walkNodes } from '@strata/scene';
+import { canBeClipMaskSource, walkNodes } from '@strata/scene';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
@@ -20,7 +19,6 @@ import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { renderDrawDiagnostics } from './drawDiagnostics';
 import { computeGridLines, renderGridOnCtx } from './gridRenderer';
-import { parseGridTemplate } from './gridTemplate';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 
 export interface UseOverlayDrawOptions {
@@ -65,7 +63,7 @@ export function useOverlayDraw({
     const s = stateRef.current;
     const doc = s.document;
     const cache = transformCacheRef.current;
-    const entries = walkNodes(doc, activePageNodes(doc));
+    const _entries = walkNodes(doc, activePageNodes(doc));
     const vp = { width: cssW, height: cssH };
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
     const accentColor = accentColorRef.current;
@@ -318,58 +316,77 @@ export function useOverlayDraw({
     }
 
     // ── Layout grid overlay ────────────────────────────────────────────
-    ctx.strokeStyle = accentColor.replace(')', ' / 0.25)');
-    ctx.lineWidth = 1 / s.zoom;
-    ctx.setLineDash([0]);
-    for (const [nid] of entries) {
-      const n = doc.nodes[nid];
-      if (n?.kind !== 'frame' || !n.layoutStyle) continue;
-      const frame = n as SceneNode & {
-        w: number;
-        h: number;
-        layoutStyle: {
-          gridTemplateColumns?: string;
-          gridTemplateRows?: string;
-          columnGap?: number;
-          rowGap?: number;
-          gap?: number;
-        };
-      };
-      const ls = frame.layoutStyle;
-      if (!ls.gridTemplateColumns && !ls.gridTemplateRows) continue;
-      const world = getCachedWorldTransform(cache, doc, nid);
-      const [a, b, c, d, e, f] = world;
-      const fw = frame.w;
-      const fh = frame.h;
-      const colSizes = parseGridTemplate(ls.gridTemplateColumns ?? '', fw);
-      const rowSizes = parseGridTemplate(ls.gridTemplateRows ?? '', fh);
-      const gapX = ls.columnGap ?? ls.gap ?? 0;
-      const gapY = ls.rowGap ?? ls.gap ?? 0;
-      let xPos = 0;
-      for (const cs of colSizes) {
-        xPos += cs;
-        const wx = a * xPos + c * 0 + e;
-        const wy = b * xPos + d * 0 + f;
-        const wx2 = a * xPos + c * fh + e;
-        const wy2 = b * xPos + d * fh + f;
-        ctx.beginPath();
-        ctx.moveTo(wx, wy);
-        ctx.lineTo(wx2, wy2);
-        ctx.stroke();
-        xPos += gapX;
-      }
-      let yPos = 0;
-      for (const rs of rowSizes) {
-        yPos += rs;
-        const wx = a * 0 + c * yPos + e;
-        const wy = b * 0 + d * yPos + f;
-        const wx2 = a * fw + c * yPos + e;
-        const wy2 = b * fw + d * yPos + f;
-        ctx.beginPath();
-        ctx.moveTo(wx, wy);
-        ctx.lineTo(wx2, wy2);
-        ctx.stroke();
-        yPos += gapY;
+    const layoutGrids = doc.gridSettings?.layoutGrids;
+    if (layoutGrids) {
+      for (const [frameId, layoutGrid] of Object.entries(layoutGrids)) {
+        if (!layoutGrid.visible) continue;
+        const frame = doc.nodes[frameId];
+        if (frame?.kind !== 'frame') continue;
+
+        const world = getCachedWorldTransform(cache, doc, frameId);
+        const [a, b, c, d, e, f] = world;
+        const fw = frame.w;
+        const fh = frame.h;
+        const [marginTop, marginRight, marginBottom, marginLeft] = layoutGrid.margin;
+
+        ctx.save();
+        ctx.strokeStyle = layoutGrid.color;
+        ctx.globalAlpha = layoutGrid.opacity;
+        ctx.lineWidth = 1 / s.zoom;
+        ctx.setLineDash([0]);
+
+        const contentWidth = fw - marginLeft - marginRight;
+        const contentHeight = fh - marginTop - marginBottom;
+
+        if (layoutGrid.layoutMode === 'columns' || layoutGrid.layoutMode === 'uniform') {
+          // Render column grid
+          const columnCount = layoutGrid.columnCount || 1;
+          const columnWidth = layoutGrid.columnWidth ?? contentWidth / columnCount;
+          const totalGutterWidth = (columnCount - 1) * layoutGrid.gutter;
+          const totalColumnWidth = columnCount * columnWidth + totalGutterWidth;
+          const scale = contentWidth / totalColumnWidth;
+          const scaledColumnWidth = columnWidth * scale;
+          const scaledGutter = layoutGrid.gutter * scale;
+
+          let xPos = marginLeft;
+          for (let i = 0; i < columnCount; i++) {
+            const wx = a * xPos + c * marginTop + e;
+            const wy = b * xPos + d * marginTop + f;
+            const wx2 = a * xPos + c * (marginTop + contentHeight) + e;
+            const wy2 = b * xPos + d * (marginTop + contentHeight) + f;
+            ctx.beginPath();
+            ctx.moveTo(wx, wy);
+            ctx.lineTo(wx2, wy2);
+            ctx.stroke();
+            xPos += scaledColumnWidth + scaledGutter;
+          }
+        }
+
+        if (layoutGrid.layoutMode === 'rows' || layoutGrid.layoutMode === 'uniform') {
+          // Render row grid
+          const rowCount = layoutGrid.rowCount || 1;
+          const rowHeight = layoutGrid.rowHeight ?? contentHeight / rowCount;
+          const totalGutterHeight = (rowCount - 1) * layoutGrid.gutter;
+          const totalRowHeight = rowCount * rowHeight + totalGutterHeight;
+          const scale = contentHeight / totalRowHeight;
+          const scaledRowHeight = rowHeight * scale;
+          const scaledGutter = layoutGrid.gutter * scale;
+
+          let yPos = marginTop;
+          for (let i = 0; i < rowCount; i++) {
+            const wx = a * marginLeft + c * yPos + e;
+            const wy = b * marginLeft + d * yPos + f;
+            const wx2 = a * (marginLeft + contentWidth) + c * yPos + e;
+            const wy2 = b * (marginLeft + contentWidth) + d * yPos + f;
+            ctx.beginPath();
+            ctx.moveTo(wx, wy);
+            ctx.lineTo(wx2, wy2);
+            ctx.stroke();
+            yPos += scaledRowHeight + scaledGutter;
+          }
+        }
+
+        ctx.restore();
       }
     }
 
