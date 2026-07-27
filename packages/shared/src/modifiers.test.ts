@@ -84,6 +84,33 @@ describe('computeResizeModifiers', () => {
       expect(m.proportional).toBe(false);
     });
   });
+
+  describe('explicit defaultProportional parameter', () => {
+    it('uses defaultProportional=true when provided and no Shift', () => {
+      const m = computeResizeModifiers(false, false, false, false, true, false, false, true);
+      expect(m.proportional).toBe(true);
+    });
+
+    it('Shift toggles OFF when defaultProportional=true', () => {
+      const m = computeResizeModifiers(true, false, false, false, true, false, false, true);
+      expect(m.proportional).toBe(false);
+    });
+
+    it('uses defaultProportional=false when provided and no Shift', () => {
+      const m = computeResizeModifiers(false, false, false, false, true, false, false, false);
+      expect(m.proportional).toBe(false);
+    });
+
+    it('Shift toggles ON when defaultProportional=false', () => {
+      const m = computeResizeModifiers(true, false, false, false, true, false, false, false);
+      expect(m.proportional).toBe(true);
+    });
+
+    it('defaultProportional takes precedence over isRaster heuristic', () => {
+      const m = computeResizeModifiers(false, false, false, false, true, false, false, false);
+      expect(m.proportional).toBe(false);
+    });
+  });
 });
 
 describe('computeRotateModifiers', () => {
