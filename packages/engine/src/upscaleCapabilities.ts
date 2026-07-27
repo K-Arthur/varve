@@ -40,6 +40,20 @@ function workersAvailable(): boolean {
   return typeof Worker !== 'undefined';
 }
 
+/**
+ * Check whether native ONNX inference is actually usable right now.
+ * Mirrors backgroundRemoval/providers/tauriProvider.ts:isNativeAiReady.
+ */
+async function isNativeAiReady(): Promise<boolean> {
+  if (!isTauriEnvironment()) return false;
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke<boolean>('native_ai_status');
+  } catch {
+    return false;
+  }
+}
+
 export async function detectUpscaleCapabilities(): Promise<UpscaleCapabilities> {
   const isTauri = isTauriEnvironment();
   const worker = workersAvailable();
@@ -48,8 +62,16 @@ export async function detectUpscaleCapabilities(): Promise<UpscaleCapabilities> 
   let aiAvailable = false;
 
   if (isTauri && worker) {
-    aiProvider = 'native';
-    aiAvailable = true;
+    // Probe actual native runtime state before claiming native provider
+    const nativeReady = await isNativeAiReady();
+    if (nativeReady) {
+      aiProvider = 'native';
+      aiAvailable = true;
+    } else {
+      // Native ONNX not available; fall back to worker
+      aiProvider = 'worker';
+      aiAvailable = true;
+    }
   } else if (worker) {
     aiProvider = 'worker';
     aiAvailable = true;

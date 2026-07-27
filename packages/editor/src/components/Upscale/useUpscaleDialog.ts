@@ -1,3 +1,10 @@
+/**
+ * useUpscaleDialog — manages the upscale dialog lifecycle.
+ *
+ * Provides open/close state, source image loading, and wires the dialog
+ * to the document model via upscaleSelectedImage.
+ */
+
 import type {
   DenoiseStrength,
   PixelArtAlgorithm,
@@ -28,7 +35,7 @@ interface UseUpscaleDialogReturn {
   handleDialogApply: (options: {
     mode: UpscaleModeId;
     scale: number;
-    output: 'new-layer' | 'replace-source';
+    output: 'new-layer' | 'replace-source' | 'non-destructive';
     denoiseStrength: DenoiseStrength;
     pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
@@ -45,8 +52,7 @@ const INITIAL_STATE: UpscaleDialogState = {
 };
 
 export function useUpscaleDialog(): UseUpscaleDialogReturn {
-  const editor = useEditor();
-  const { upscaleSelectedImage } = editor;
+  const { upscaleSelectedImage } = useEditor();
   const [dialogState, setDialogState] = useState<UpscaleDialogState>(INITIAL_STATE);
 
   const openUpscaleDialog = useCallback((options: UpscaleDialogOpenOptions = {}) => {
@@ -68,30 +74,11 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
     async (options: {
       mode: UpscaleModeId;
       scale: number;
-      output: 'new-layer' | 'replace-source';
+      output: 'new-layer' | 'replace-source' | 'non-destructive';
       denoiseStrength: DenoiseStrength;
       pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
     }) => {
-      const needsEnhancement =
-        options.denoiseStrength !== 'none' ||
-        (options.mode === 'pixel-art' &&
-          options.pixelArtAlgorithm &&
-          options.pixelArtAlgorithm !== 'nearest');
-
-      if (needsEnhancement) {
-        const { applyEnhancement } = await import('./applyEnhancement');
-        await applyEnhancement(editor, {
-          mode: options.mode,
-          scale: options.scale,
-          output: options.output,
-          denoiseStrength: options.denoiseStrength,
-          pixelArtAlgorithm: options.pixelArtAlgorithm,
-          onProgress: options.onProgress,
-        });
-        return;
-      }
-
       const method =
         options.mode === 'ai-enhance' || options.mode === 'illustration'
           ? 'ai'
@@ -112,6 +99,9 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
         scale: options.scale,
         method,
         modelId,
+        denoiseStrength: options.denoiseStrength,
+        pixelArtAlgorithm: options.pixelArtAlgorithm,
+        output: options.output,
         onProgress: options.onProgress,
         replaceSource: options.output === 'replace-source',
       });

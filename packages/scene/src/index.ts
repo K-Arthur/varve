@@ -60,6 +60,7 @@ export * from './findReplace';
 export * from './flatten';
 export * from './fontDefaults';
 export * from './governance';
+export * from './gridTypes';
 export * from './intelligence';
 export * from './interaction-types';
 export * from './interactions';

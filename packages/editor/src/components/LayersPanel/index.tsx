@@ -7,7 +7,7 @@
 
 import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene';
 import { isContainer } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip, TooltipProvider } from '@strata/ui';
 import type React from 'react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -27,6 +27,7 @@ import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
 import { VariablePanel } from '../../VariablePanel';
+import { SelectionSetsSection } from './SelectionSetsSection';
 
 export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
   const {
@@ -340,16 +341,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     closeMenu();
   }, [state.selection, revealSelection, closeMenu]);
 
-  const handleRevealInLayers = useCallback(() => {
-    if (state.selection.length > 0) {
-      const settings = updateSettings({ layers: { autoReveal: true } });
-      // Force a selection change to trigger the reveal effect by re-toggling
-      // the primary selection through itself (no-op on state but effect re-runs).
-      // Use setSelection to fire the origin change mechanism.
-    }
-    closeMenu();
-  }, [state.selection, closeMenu]);
-
   const canGroup = state.selection.length >= 2;
   const firstSelId = state.selection[0];
   const firstSel = firstSelId ? state.document.nodes[firstSelId] : undefined;
@@ -387,27 +378,60 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     <div className="editor-layers layers-panel">
       <div className="layers-panel__header">
         <span>Layers</span>
-        <div className="layers-panel__header-actions">
-          <button
-            type="button"
-            className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
-            onClick={() => updateSettings({ layers: { autoReveal: !layerSettings.autoReveal } })}
-            aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
-            aria-pressed={layerSettings.autoReveal}
-            title={`Auto-reveal selection: ${layerSettings.autoReveal ? 'on' : 'off'}`}
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.eye} size="0.85em" />
-          </button>
-          <button
-            type="button"
-            className="layers-panel__collapse-all-btn"
-            onClick={handleCollapseAll}
-            aria-label="Collapse all layers"
-            title="Collapse all"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
-          </button>
-        </div>
+        <TooltipProvider>
+          <div className="layers-panel__header-actions">
+            <Tooltip
+              label={
+                layerSettings.autoReveal
+                  ? 'Disable auto-reveal in Layers panel'
+                  : 'Enable auto-reveal in Layers panel'
+              }
+            >
+              <button
+                type="button"
+                className={`layers-panel__auto-reveal-btn ${layerSettings.autoReveal ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+                onClick={() =>
+                  updateSettings({ layers: { autoReveal: !layerSettings.autoReveal } })
+                }
+                aria-label={`Auto-reveal canvas selection in Layers panel: ${layerSettings.autoReveal ? 'enabled' : 'disabled'}`}
+                aria-pressed={layerSettings.autoReveal}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.visibility} size="0.85em" />
+              </button>
+            </Tooltip>
+            <Tooltip
+              label={
+                layerSettings.marqueeContainment
+                  ? 'Marquee selects only fully-contained objects'
+                  : 'Marquee selects any intersecting object'
+              }
+            >
+              <button
+                type="button"
+                className={`layers-panel__auto-reveal-btn ${layerSettings.marqueeContainment ? 'layers-panel__auto-reveal-btn--active' : ''}`}
+                onClick={() =>
+                  updateSettings({
+                    layers: { marqueeContainment: !layerSettings.marqueeContainment },
+                  })
+                }
+                aria-label={`Marquee containment: ${layerSettings.marqueeContainment ? 'enabled' : 'disabled'}`}
+                aria-pressed={layerSettings.marqueeContainment}
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.crosshair} size="0.85em" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Collapse all layers">
+              <button
+                type="button"
+                className="layers-panel__collapse-all-btn"
+                onClick={handleCollapseAll}
+                aria-label="Collapse all layers"
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
+              </button>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </div>
 
       {isolatedNode && (
@@ -594,7 +618,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                     className={`layers-context-menu__color-tag-btn layers-context-menu__color-tag-btn--${c}`}
                     aria-label={COLOR_LABELS[c]}
                     onClick={() => handleSetLayerColor(c)}
-                    title={COLOR_LABELS[c]}
                   />
                 ))}
                 <button
@@ -602,7 +625,6 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                   className="layers-context-menu__color-tag-btn layers-context-menu__color-tag-btn--none"
                   aria-label="No color"
                   onClick={() => handleSetLayerColor(null)}
-                  title="No color"
                 >
                   <SolidIcon name={SOLID_CHROME_ICONS.close} label={undefined} />
                 </button>
@@ -634,6 +656,8 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       <div className="layers-panel__variables">
         <VariablePanel />
       </div>
+
+      <SelectionSetsSection />
     </div>
   );
 }

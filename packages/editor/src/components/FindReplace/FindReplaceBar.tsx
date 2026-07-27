@@ -1,4 +1,4 @@
-import { Icon, Select } from '@strata/ui';
+import { Icon, Select, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useRef } from 'react';
 import type { FindReplaceAPI } from '../../findReplace/useFindReplace';
 import { FindResultsList } from './FindResultsList';
@@ -95,35 +95,38 @@ export function FindReplaceBar({
             {state.status === 'ready' ? `${currentDisplay} of ${totalMatches}` : ''}
           </span>
           <div className="find-replace-bar__nav-buttons">
-            <button
-              type="button"
-              className="find-replace-bar__nav-btn"
-              onClick={api.goToPrev}
-              disabled={totalMatches === 0}
-              aria-label="Previous match"
-              title="Previous match (Shift+Enter)"
-            >
-              <Icon name="ChevronUp" label="" />
-            </button>
-            <button
-              type="button"
-              className="find-replace-bar__nav-btn"
-              onClick={api.goToNext}
-              disabled={totalMatches === 0}
-              aria-label="Next match"
-              title="Next match (Enter)"
-            >
-              <Icon name="ChevronDown" label="" />
-            </button>
-            <button
-              type="button"
-              className="find-replace-bar__nav-btn"
-              onClick={onRequestClose ?? api.close}
-              aria-label="Close find and replace"
-              title="Close (Escape)"
-            >
-              <Icon name="X" label="" />
-            </button>
+            <Tooltip label="Previous match">
+              <button
+                type="button"
+                className="find-replace-bar__nav-btn"
+                onClick={api.goToPrev}
+                disabled={totalMatches === 0}
+                aria-label="Previous match"
+              >
+                <Icon name="ChevronUp" label="" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Next match">
+              <button
+                type="button"
+                className="find-replace-bar__nav-btn"
+                onClick={api.goToNext}
+                disabled={totalMatches === 0}
+                aria-label="Next match"
+              >
+                <Icon name="ChevronDown" label="" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Close find and replace">
+              <button
+                type="button"
+                className="find-replace-bar__nav-btn"
+                onClick={onRequestClose ?? api.close}
+                aria-label="Close find and replace"
+              >
+                <Icon name="X" label="" />
+              </button>
+            </Tooltip>
           </div>
         </div>
 

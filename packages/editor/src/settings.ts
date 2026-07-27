@@ -73,6 +73,7 @@ export interface StartupSettingsStore {
 export interface ViewportSettingsStore {
   snapEnabled: boolean;
   pixelGridEnabled: boolean;
+  pixelGridSnapEnabled: boolean;
   rulerMode: 'global' | 'artboard';
   gridOverlayMode: 'none' | 'baseline' | 'isometric';
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
@@ -156,6 +157,7 @@ export const DEFAULT_STARTUP_SETTINGS: StartupSettingsStore = {
 export const DEFAULT_VIEWPORT_SETTINGS: ViewportSettingsStore = {
   snapEnabled: true,
   pixelGridEnabled: false,
+  pixelGridSnapEnabled: false,
   rulerMode: 'artboard',
   gridOverlayMode: 'none',
   unitType: 'px',

@@ -164,6 +164,7 @@ describe('createActionHandlers — intelligence menu actions', () => {
     ['openAppearancePanel', 'appearance'],
     ['openAdjustmentsPanel', 'adjustments'],
     ['openPrototypePanel', 'prototype'],
+    ['openFontsPanel', 'fonts'],
     ['openExportPanel', 'export'],
     ['openAuditPanel', 'audit'],
   ] as const)('%s deep-links to its inspector workflow', (action, tab) => {

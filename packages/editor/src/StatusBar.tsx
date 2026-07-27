@@ -11,6 +11,7 @@ import {
   getCompositorDiagnosticsSnapshot,
   subscribeCompositorDiagnostics,
 } from './render/compositorDiagnosticsStore';
+import { formatShortcut, getEffectiveBinding } from './shortcuts/ShortcutManager';
 import { getVisibleStatusSections } from './workspace/workspaceTypes';
 
 interface StatusBarProps {
@@ -61,139 +62,142 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
   const showTipChip = statusSectionIds.includes('shortcutTip');
   const { currentTip, dismiss } = useShortcutTips(state.workspaceMode, showTipChip);
 
+  const sc = (id: string) => formatShortcut(getEffectiveBinding(id));
+
   return (
-    <div className="editor-status">
-      <span>{state.tool}</span>
-      {showPreflight && <PreflightWarnings />}
-      {showDebtBadge && <DebtBadge />}
-      <AuditBadge />
-      {compositorDiag?.deviceLost && (
-        <span
-          className="editor-status__info editor-status__info--warning"
-          title="The GPU device was lost mid-session (driver reset, OS suspend/resume, or another app claiming the GPU). Rendering continues on Canvas2D; reload if you want to re-acquire the GPU."
-        >
-          GPU lost — using Canvas2D
-        </span>
-      )}
-      {compositorDiag && !compositorDiag.deviceLost && (
-        <span
-          className="editor-status__info"
-          title={`GPU ${compositorDiag.gpuActive ? 'active' : compositorDiag.adapterIsFallback ? 'fallback (software adapter declined)' : 'fallback'} · pool ${compositorDiag.vertexPoolEntries} · bundles ${compositorDiag.bundleCacheEntries}`}
-        >
-          {compositorDiag.backendId}
-          {compositorDiag.gpuActive ? '' : ' (cpu)'}
-        </span>
-      )}
-      {state.cursorPos && (
-        <span>
-          X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
-        </span>
-      )}
-      <LayoutScoreIndicator />
-      {state.cameraRotation !== 0 && (
-        <span title="View rotation">{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
-      )}
-      {currentTip && (
-        <ShortcutTipChip
-          tip={currentTip}
-          onDismiss={dismiss}
-          onOpenPalette={(id) => onOpenPalette?.(id)}
+    <TooltipProvider>
+      <div className="editor-status">
+        <span>{state.tool}</span>
+        {showPreflight && <PreflightWarnings />}
+        {showDebtBadge && <DebtBadge />}
+        <AuditBadge />
+        {compositorDiag?.deviceLost && (
+          <span className="editor-status__info editor-status__info--warning">
+            GPU lost — using Canvas2D
+          </span>
+        )}
+        {compositorDiag && !compositorDiag.deviceLost && (
+          <span className="editor-status__info">
+            {compositorDiag.backendId}
+            {compositorDiag.gpuActive ? '' : ' (cpu)'}
+          </span>
+        )}
+        {state.cursorPos && (
+          <span>
+            X: {Math.round(state.cursorPos.x)} Y: {Math.round(state.cursorPos.y)}
+          </span>
+        )}
+        <LayoutScoreIndicator />
+        {state.cameraRotation !== 0 && (
+          <span>{Math.round((state.cameraRotation * 180) / Math.PI)}°</span>
+        )}
+        {currentTip && (
+          <ShortcutTipChip
+            tip={currentTip}
+            onDismiss={dismiss}
+            onOpenPalette={(id) => onOpenPalette?.(id)}
+          />
+        )}
+        <span aria-hidden>—</span>
+        <Select
+          label="Units"
+          value={state.unitType}
+          options={[
+            { value: 'px', label: 'px' },
+            { value: 'pt', label: 'pt' },
+            { value: 'cm', label: 'cm' },
+            { value: 'mm', label: 'mm' },
+            { value: 'in', label: 'in' },
+            { value: '%', label: '%' },
+          ]}
+          onChange={(v) => setUnitType(v as typeof state.unitType)}
         />
-      )}
-      <span aria-hidden>—</span>
-      <Select
-        label="Units"
-        value={state.unitType}
-        options={[
-          { value: 'px', label: 'px' },
-          { value: 'pt', label: 'pt' },
-          { value: 'cm', label: 'cm' },
-          { value: 'mm', label: 'mm' },
-          { value: 'in', label: 'in' },
-          { value: '%', label: '%' },
-        ]}
-        onChange={(v) => setUnitType(v as typeof state.unitType)}
-      />
-      <button
-        type="button"
-        aria-pressed={state.pixelGridEnabled}
-        onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
-        aria-label="Toggle pixel grid"
-        className={`editor-status__toggle${state.pixelGridEnabled ? ' editor-status__toggle--active' : ''}`}
-      >
-        <Icon name="Grid3x3" size={12} />
-      </button>
-      <button
-        type="button"
-        aria-pressed={state.snapEnabled}
-        onClick={() => setSnapEnabled(!state.snapEnabled)}
-        aria-label="Toggle snapping"
-        className={`editor-status__toggle${state.snapEnabled ? ' editor-status__toggle--active' : ''}`}
-      >
-        <Icon name="Magnet" size={12} />
-      </button>
-      <span className="editor-status__snap-grid" title="Snap grid spacing (px)">
-        <NumberInput
-          value={state.snapGrid}
-          min={1}
-          max={256}
-          step={1}
-          onChange={setSnapGrid}
-          label="Snap grid"
-        />
-      </span>
-      <Tooltip label="Artboard ruler" shortcut="Alt+;">
-        <button
-          type="button"
-          aria-pressed={state.rulerMode === 'artboard'}
-          onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
-          aria-label="Toggle artboard ruler origin"
-          className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
-        >
-          AB
-        </button>
-      </Tooltip>
-      <Tooltip label="Baseline grid">
-        <button
-          type="button"
-          aria-pressed={state.gridOverlayMode === 'baseline'}
-          onClick={() =>
-            setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
-          }
-          aria-label="Toggle baseline grid overlay"
-          className={`editor-status__toggle${state.gridOverlayMode === 'baseline' ? ' editor-status__toggle--active' : ''}`}
-        >
-          <Icon name="AlignVerticalSpaceAround" size={12} />
-        </button>
-      </Tooltip>
-      {state.cameraRotation !== 0 && (
-        <Tooltip label="Reset view rotation" shortcut="Shift+R">
+        <Tooltip label="Toggle pixel grid">
           <button
             type="button"
-            onClick={() => resetViewRotation()}
-            aria-label="Reset view rotation"
-            className="editor-status__fit-btn"
+            aria-pressed={state.pixelGridEnabled}
+            onClick={() => setPixelGridEnabled(!state.pixelGridEnabled)}
+            aria-label="Toggle pixel grid"
+            className={`editor-status__toggle${state.pixelGridEnabled ? ' editor-status__toggle--active' : ''}`}
           >
-            Reset rot
+            <Icon name="Grid3x3" size={12} />
           </button>
         </Tooltip>
-      )}
-      {state.document.guides && state.document.guides.length > 0 && (
-        <Tooltip label="Clear all guides">
+        <Tooltip
+          label={state.snapEnabled ? 'Disable snapping' : 'Enable snapping'}
+          shortcut={sc('toggleSnap')}
+        >
           <button
             type="button"
-            onClick={() => clearAllGuides()}
-            aria-label="Clear all guides"
-            className="editor-status__toggle"
+            aria-pressed={state.snapEnabled}
+            onClick={() => setSnapEnabled(!state.snapEnabled)}
+            aria-label={state.snapEnabled ? 'Disable snapping' : 'Enable snapping'}
+            className={`editor-status__toggle${state.snapEnabled ? ' editor-status__toggle--active' : ''}`}
           >
-            <Icon name="RemoveFormatting" size={12} />
+            <Icon name="Magnet" size={12} />
           </button>
         </Tooltip>
-      )}
-      <span aria-hidden>—</span>
-      <TooltipProvider>
+        <span className="editor-status__snap-grid">
+          <NumberInput
+            value={state.snapGrid}
+            min={1}
+            max={256}
+            step={1}
+            onChange={setSnapGrid}
+            label="Snap grid spacing (px)"
+          />
+        </span>
+        <Tooltip label="Artboard ruler" shortcut={sc('toggleRulerMode')}>
+          <button
+            type="button"
+            aria-pressed={state.rulerMode === 'artboard'}
+            onClick={() => setRulerMode(state.rulerMode === 'artboard' ? 'global' : 'artboard')}
+            aria-label="Toggle artboard ruler origin"
+            className={`editor-status__toggle${state.rulerMode === 'artboard' ? ' editor-status__toggle--active' : ''}`}
+          >
+            AB
+          </button>
+        </Tooltip>
+        <Tooltip label="Baseline grid" shortcut={sc('gridOverlayBaseline')}>
+          <button
+            type="button"
+            aria-pressed={state.gridOverlayMode === 'baseline'}
+            onClick={() =>
+              setGridOverlayMode(state.gridOverlayMode === 'baseline' ? 'none' : 'baseline')
+            }
+            aria-label="Toggle baseline grid overlay"
+            className={`editor-status__toggle${state.gridOverlayMode === 'baseline' ? ' editor-status__toggle--active' : ''}`}
+          >
+            <Icon name="AlignVerticalSpaceAround" size={12} />
+          </button>
+        </Tooltip>
+        {state.cameraRotation !== 0 && (
+          <Tooltip label="Reset view rotation" shortcut={sc('resetViewRotation')}>
+            <button
+              type="button"
+              onClick={() => resetViewRotation()}
+              aria-label="Reset view rotation"
+              className="editor-status__fit-btn"
+            >
+              Reset rot
+            </button>
+          </Tooltip>
+        )}
+        {state.document.guides && state.document.guides.length > 0 && (
+          <Tooltip label="Clear all guides">
+            <button
+              type="button"
+              onClick={() => clearAllGuides()}
+              aria-label="Clear all guides"
+              className="editor-status__toggle"
+            >
+              <Icon name="RemoveFormatting" size={12} />
+            </button>
+          </Tooltip>
+        )}
+        <span aria-hidden>—</span>
         <div className="editor-status__zoom-chip">
-          <Tooltip label="Zoom out" shortcut="−">
+          <Tooltip label="Zoom out" shortcut={sc('zoomOut')}>
             <button
               type="button"
               onClick={zoomOut}
@@ -219,7 +223,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             className="editor-status__zoom-value"
           />
           <span aria-hidden>%</span>
-          <Tooltip label="Zoom in" shortcut="+">
+          <Tooltip label="Zoom in" shortcut={sc('zoomIn')}>
             <button
               type="button"
               onClick={zoomIn}
@@ -230,7 +234,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             </button>
           </Tooltip>
         </div>
-        <Tooltip label="Fit page" shortcut="Shift+3">
+        <Tooltip label="Fit page" shortcut={sc('fitActivePage')}>
           <button
             type="button"
             onClick={fitActivePage}
@@ -240,7 +244,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             Fit page
           </button>
         </Tooltip>
-        <Tooltip label="Fit all" shortcut="Shift+1">
+        <Tooltip label="Fit all" shortcut={sc('fitAll')}>
           <button
             type="button"
             onClick={fitAll}
@@ -250,7 +254,7 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             Fit all
           </button>
         </Tooltip>
-        <Tooltip label="Fit selection" shortcut="Shift+2">
+        <Tooltip label="Fit selection" shortcut={sc('fitSelection')}>
           <button
             type="button"
             onClick={() => revealSelection({ fit: true })}
@@ -260,17 +264,19 @@ export function StatusBar({ onOpenPalette }: StatusBarProps) {
             Fit sel
           </button>
         </Tooltip>
-      </TooltipProvider>
-      <span className="editor-status__info">
-        {singleSel ? (
-          <span>{sel[0]?.name ?? 'unknown'}</span>
-        ) : (
-          <>
-            <span className="num-display">{sel.length > 1 ? sel.length : rootNodes().length}</span>
-            <span className="num-display__suffix">{sel.length > 1 ? 'selected' : 'layers'}</span>
-          </>
-        )}
-      </span>
-    </div>
+        <span className="editor-status__info">
+          {singleSel ? (
+            <span>{sel[0]?.name ?? 'unknown'}</span>
+          ) : (
+            <>
+              <span className="num-display">
+                {sel.length > 1 ? sel.length : rootNodes().length}
+              </span>
+              <span className="num-display__suffix">{sel.length > 1 ? 'selected' : 'layers'}</span>
+            </>
+          )}
+        </span>
+      </div>
+    </TooltipProvider>
   );
 }

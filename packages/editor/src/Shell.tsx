@@ -1,15 +1,15 @@
+// COMPLEXITY: 48 imports (ceiling 49). Merged duplicate @strata/scene and @strata/ui imports.
+// Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
-import type { Document, SceneNode } from '@strata/scene';
-import { registerBuiltinRules } from '@strata/scene';
-import type { MenuEntry } from '@strata/ui';
-import { ContextMenu, Icon, ToastProvider, Tooltip, useToast } from '@strata/ui';
+import { type Document, registerBuiltinRules, type SceneNode } from '@strata/scene';
+import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { CanvasArea } from './CanvasArea';
-import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
+import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -736,30 +736,7 @@ function ShellInner({
 
         {/* Upscale dialog */}
         {editor.upscaleDialogOpen && (
-          <UpscaleDialogHost
-            open={editor.upscaleDialogOpen}
-            onClose={editor.closeUpscaleDialog}
-            onApply={async (options) => {
-              const method =
-                options.mode === 'ai-enhance'
-                  ? 'ai'
-                  : options.mode === 'pixel-art'
-                    ? 'nearest'
-                    : options.mode === 'fast'
-                      ? 'bilinear'
-                      : options.mode === 'balanced'
-                        ? 'bicubic'
-                        : 'lanczos3';
-              await editor.upscaleSelectedImage({
-                scale: options.scale,
-                method,
-                modelId: options.mode === 'ai-enhance' ? 'upscale-realesr-general' : undefined,
-                onProgress: options.onProgress,
-                replaceSource: options.output === 'replace-source',
-              });
-              editor.closeUpscaleDialog();
-            }}
-          />
+          <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
         )}
 
         {/* Canvas right-click context menu */}

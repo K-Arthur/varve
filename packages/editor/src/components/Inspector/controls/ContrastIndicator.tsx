@@ -55,6 +55,8 @@ export function ContrastIndicator({
       <Tooltip label="No foreground color to check">
         <span
           className="contrast-indicator"
+          role="status"
+          aria-label="No foreground color to check"
           style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
         >
           <Icon name="CircleHelp" size={10} label={undefined} />
@@ -83,22 +85,27 @@ export function ContrastIndicator({
 
   const { color, label } = computeLabel(ratio);
 
+  const tooltipLabel = `${ratio.toFixed(2)}:1${bgLabel ? ` ${bgLabel}` : ''} — ${label === 'Fail' ? 'Below WCAG AA' : `WCAG ${label}`} ${large ? '(large text)' : '(normal text)'}`;
+
   return (
-    <span
-      className="contrast-indicator"
-      style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color }}
-      title={`${ratio.toFixed(2)}:1${bgLabel ? ` ${bgLabel}` : ''} — ${label === 'Fail' ? 'Below WCAG AA' : `WCAG ${label}`} ${large ? '(large text)' : '(normal text)'}`}
-    >
+    <Tooltip label={tooltipLabel}>
       <span
-        style={{
-          display: 'inline-block',
-          width: 6,
-          height: 6,
-          borderRadius: '50%',
-          background: color,
-        }}
-      />
-      <span style={{ fontSize: '0.7em', lineHeight: 1 }}>{label}</span>
-    </span>
+        className="contrast-indicator"
+        role="status"
+        aria-label={`Contrast ${label}`}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 2, color }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            width: 6,
+            height: 6,
+            borderRadius: '50%',
+            background: color,
+          }}
+        />
+        <span style={{ fontSize: '0.7em', lineHeight: 1 }}>{label}</span>
+      </span>
+    </Tooltip>
   );
 }

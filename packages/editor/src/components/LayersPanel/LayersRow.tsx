@@ -462,14 +462,16 @@ export const LayersRow = memo(function LayersRow({
                     ? 'Container descendants'
                     : 'Document-wide';
             return (
-              <span className="layers-row__scope-badge" title={title}>
+              <span className="layers-row__scope-badge" role="img" aria-label={title}>
                 {label}
               </span>
             );
           })()}
 
         {/* Motion indicator dot */}
-        {hasMotion && !editing && <span className="layers-row__motion-dot" title="Has animation" />}
+        {hasMotion && !editing && (
+          <span className="layers-row__motion-dot" role="img" aria-label="Has animation" />
+        )}
 
         {/* Keyframe count badge */}
         {keyframeCount != null && keyframeCount > 0 && !editing && (
@@ -486,7 +488,8 @@ export const LayersRow = memo(function LayersRow({
                   ? 'layers-row__mask-badge--luminance'
                   : 'layers-row__mask-badge--clip'
             }`}
-            title={`${(node as { mask?: { type?: string } }).mask?.type ?? 'clip'} mask`}
+            role="img"
+            aria-label={`${(node as { mask?: { type?: string } }).mask?.type ?? 'clip'} mask`}
           >
             {(node as { mask?: { type?: string } }).mask?.type ?? 'clip'}
           </span>
@@ -495,6 +498,8 @@ export const LayersRow = memo(function LayersRow({
         {maskRole && !editing && (
           <span
             className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
+            role="img"
+            aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
             title={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
             data-mask-role={maskRole}
           >

@@ -143,6 +143,7 @@ export function registerEditorActions(
     ['openAppearancePanel', 'Open Appearance & Effects', ['effects', 'mask', 'paint', 'styles']],
     ['openAdjustmentsPanel', 'Open Adjustments', ['image', 'retouch', 'enhance', 'ai']],
     ['openPrototypePanel', 'Open Prototype', ['interaction', 'flow', 'trigger']],
+    ['openFontsPanel', 'Open Fonts Panel', ['font', 'typography', 'typeface']],
     ['openDocumentPanel', 'Open Document Settings', ['canvas', 'color mode', 'document']],
     ['openExportPanel', 'Open Export', ['asset', 'png', 'svg', 'pdf']],
     ['openInspectPanel', 'Open Inspect', ['spec', 'handoff', 'measure', 'code']],

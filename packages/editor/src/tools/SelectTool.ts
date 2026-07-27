@@ -31,11 +31,18 @@ import {
 } from '@strata/shared';
 import { executeNudge, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
+import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 /** Screen-pixel hit tolerance for zoom-aware selection. */
 const HIT_TOLERANCE_PX = 8;
+
+/** Long-press duration threshold for touch/stylus deep-selection menu (ms). */
+const LONG_PRESS_MS = 500;
+
+/** Movement tolerance (px) for long-press to not be cancelled as a drag. */
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
 export class SelectTool extends BaseTool {
   id = 'select' as const;
@@ -60,6 +67,12 @@ export class SelectTool extends BaseTool {
   private duplicateSourceIds: string[] = [];
   /** True between firing an Alt-duplicate and the clones becoming the selection. */
   private awaitingDuplicateHandoff = false;
+  /** Long-press timer for touch/stylus deep selection. */
+  private longPressTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Long-press start position for move-tolerance check. */
+  private longPressStart: { x: number; y: number } | null = null;
+  /** Whether this pointer down already fired a long-press action. */
+  private longPressFired = false;
 
   /**
    * True when a node already sits at the active page's top level, i.e. its
@@ -118,6 +131,21 @@ export class SelectTool extends BaseTool {
     // waiting on clone ids that will never arrive.
     this.duplicateSourceIds = [];
     this.awaitingDuplicateHandoff = false;
+
+    // Long-press: only for touch/pen, not mouse
+    this.cancelLongPress();
+    this.longPressFired = false;
+    if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+      this.longPressStart = { x: e.clientX, y: e.clientY };
+      this.longPressTimer = setTimeout(() => {
+        if (this.longPressStart && !this.longPressFired) {
+          this.longPressFired = true;
+          // Don't consume the gesture — let the drag continue
+          // but signal the long-press menu via context
+          ctx.showDeepSelectionMenu?.(world, e.clientX, e.clientY);
+        }
+      }, LONG_PRESS_MS);
+    }
 
     const hit = this.resolveHit(world, ctx);
 
@@ -213,7 +241,24 @@ export class SelectTool extends BaseTool {
     return { consumed: true, captured: true };
   }
 
+  private cancelLongPress(): void {
+    if (this.longPressTimer !== null) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+    this.longPressStart = null;
+  }
+
   override onDragMove(ctx: ToolContext): void {
+    // Cancel long-press if pointer moves beyond tolerance
+    if (this.longPressStart && !this.longPressFired && ctx.lastPointerEvent) {
+      const dx = ctx.lastPointerEvent.clientX - this.longPressStart.x;
+      const dy = ctx.lastPointerEvent.clientY - this.longPressStart.y;
+      if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_TOLERANCE_PX) {
+        this.cancelLongPress();
+      }
+    }
+
     if (this.marqueeActive) {
       const rect = this.computeDragRect(ctx);
       ctx.setDraft({ kind: 'rect', x: rect.x, y: rect.y, w: rect.w, h: rect.h });
@@ -327,8 +372,11 @@ export class SelectTool extends BaseTool {
     if (this.marqueeActive) {
       ctx.setDraft(null);
       const rect = this.computeDragRect(ctx);
-      // A3: Alt key → fully-contained marquee mode
-      const useContainment = ctx.altKey;
+      // A3: Alt key inverts the default marquee mode.
+      // Default: preference-driven (marqueeContainment). Alt key temporarily
+      // switches to the opposite mode.
+      const prefContainment = loadSettings().layers.marqueeContainment;
+      const useContainment = ctx.altKey ? !prefContainment : prefContainment;
       // Iterate the active page's nodes (including nested) via walkNodes.
       // Scoped so marquee-select can't pick up shapes from other pages that
       // happen to occupy the same on-screen coordinates.

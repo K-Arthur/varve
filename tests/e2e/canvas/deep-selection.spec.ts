@@ -68,7 +68,9 @@ test.describe('Deep Selection', () => {
     const { childCenter } = await createFrameWithChild(page);
 
     // Ctrl+Click on the child area to deep-select through the frame
-    await page.mouse.click(childCenter.x, childCenter.y, { modifiers: ['Control'] });
+    await page.keyboard.down('Control');
+    await page.mouse.click(childCenter.x, childCenter.y);
+    await page.keyboard.up('Control');
     await page.waitForTimeout(200);
 
     // The child (rect) should be selected, not the frame
@@ -102,7 +104,9 @@ test.describe('Deep Selection', () => {
     const { childCenter } = await createFrameWithChild(page);
 
     // Deep-select child via Ctrl+Click
-    await page.mouse.click(childCenter.x, childCenter.y, { modifiers: ['Control'] });
+    await page.keyboard.down('Control');
+    await page.mouse.click(childCenter.x, childCenter.y);
+    await page.keyboard.up('Control');
     await page.waitForTimeout(200);
 
     // Check the layers panel shows correct selection
@@ -112,7 +116,7 @@ test.describe('Deep Selection', () => {
   });
 
   test('5. Tab cycles through selectable nodes', async ({ page }) => {
-    const { canvasBox } = await createFrameWithChild(page);
+    await createFrameWithChild(page);
 
     // Ensure select tool is active
     await page.keyboard.press('v');

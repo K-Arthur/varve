@@ -356,7 +356,7 @@ function MenuInternal({
           break;
       }
     },
-    [flatItems, focusIdx, onClose, closeAll, level],
+    [flatItems, focusIdx, onClose, closeAll, level, menuRef],
   );
 
   let focusableCounter = -1;

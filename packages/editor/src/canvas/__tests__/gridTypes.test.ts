@@ -1,5 +1,6 @@
+import { createDefaultDocumentGrid } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { computeMajorStep, createDefaultDocumentGrid } from '../gridTypes';
+import { computeMajorStep } from '../gridTypes';
 
 describe('createDefaultDocumentGrid', () => {
   it('returns a grid with sensible defaults', () => {

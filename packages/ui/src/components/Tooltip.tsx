@@ -4,16 +4,25 @@
  * Research basis: ARIA Authoring Practices Guide — Tooltip pattern
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/
  *
- * Improvements over the previous implementation:
- * - Portaled rendering to document.body to escape overflow:hidden ancestors
- * - Warm-up timing via TooltipProvider (faster adjacent tooltips)
- * - Disabled-reason support for inaccessible disabled controls
- * - Truncation-only mode for text overflow detection
+ * Design goals for Strata's dense professional canvas app:
+ * - Portaled rendering to document.body to escape overflow:hidden ancestors.
+ * - Warm-up timing via TooltipProvider (faster adjacent tooltips in toolbars).
+ * - aria-describedby is placed on the actual focusable trigger, not a wrapper.
+ * - Pointer-aware delays: first hover waits, subsequent nearby tooltips warm.
+ * - Small close delay to prevent flicker when crossing tiny gaps.
+ * - Tooltips are hoverable so users can read them without them disappearing.
+ * - Pointer-down / drag / touch suppression so tooltips never open mid-gesture.
+ * - Truncation-only mode for ellipsised layer/file/font names.
+ * - Reduced-motion and forced-colours safe by default.
  */
 
 import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom';
 import {
+  Children,
+  cloneElement,
   createContext,
+  isValidElement,
+  type ReactElement,
   type ReactNode,
   useCallback,
   useContext,
@@ -28,18 +37,24 @@ import { createPortal } from 'react-dom';
 
 export interface TooltipProps {
   children: ReactNode;
+  /** Primary tooltip text. Shown as the trigger's description unless disabledReason is set. */
   label: string;
   /** Preferred placement. Defaults to 'top'. */
   placement?: 'top' | 'bottom' | 'left' | 'right';
-  /** Delay in ms before showing on hover. Default 300. */
+  /** Delay in ms before showing on hover. Default 300. Kept as alias for openDelay. */
   delay?: number;
+  /** Delay in ms before showing on hover. Overrides `delay` if both are provided. */
+  openDelay?: number;
+  /** Delay in ms before hiding after pointer/focus leaves. Default 0. */
+  closeDelay?: number;
   /** Max width of the tooltip. Default 240px. */
   maxWidth?: number;
   /** Keyboard shortcut label shown in the tooltip (e.g., "V" for Select). */
   shortcut?: string;
   /**
-   * Explanation shown when the trigger is disabled. When set, the trigger
-   * wrapper keeps focusable access and associates the reason via aria-describedby.
+   * Explanation shown when the trigger is disabled. When the child is disabled
+   * with the HTML `disabled` attribute, the trigger is wrapped in a focusable
+   * span so the reason remains available to keyboard/screen-reader users.
    */
   disabledReason?: string;
   /**
@@ -47,11 +62,20 @@ export interface TooltipProps {
    * truncated (scrollWidth > clientWidth). Useful for long layer/file names.
    */
   truncationOnly?: boolean;
+  /** Controlled open state. When set, the component becomes fully controlled. */
+  open?: boolean;
+  /** Called when the tooltip opens or closes (controlled mode). */
+  onOpenChange?: (open: boolean) => void;
+  /**
+   * Tabindex forwarded to the focusable trigger. Useful inside roving-tabindex
+   * toolbars that expect to manage trigger focusability.
+   */
+  tabIndex?: number;
+  /** Explicit id for the tooltip element. A stable id is generated if omitted. */
+  id?: string;
 }
 
 interface TooltipContextValue {
-  /** Timestamp (ms) when the last tooltip in this group was shown, or 0. */
-  lastShownAt: number;
   /** Register a show event with the provider. */
   registerShow: () => void;
   /** Read the latest lastShownAt without triggering re-render. */
@@ -73,51 +97,103 @@ export interface TooltipProviderProps {
 
 const WARM_DELAY = 100;
 const DEFAULT_DELAY = 300;
+const POINTER_SUPPRESS_MS = 150;
+
+const supportsPointer = typeof window !== 'undefined' && typeof window.PointerEvent !== 'undefined';
 
 export function TooltipProvider({ children, warmWindow = 2000 }: TooltipProviderProps) {
   const lastShownAtRef = useRef(0);
   const warmWindowRef = useRef(warmWindow);
   warmWindowRef.current = warmWindow;
-  const [lastShownAt, setLastShownAt] = useState(0);
-  const registerShow = useCallback(() => {
-    const now = Date.now();
-    lastShownAtRef.current = now;
-    setLastShownAt(now);
-  }, []);
 
   const value = useMemo<TooltipContextValue>(
     () => ({
-      lastShownAt,
-      registerShow,
+      registerShow: () => {
+        lastShownAtRef.current = Date.now();
+      },
       getLastShownAt: () => lastShownAtRef.current,
       getWarmWindow: () => warmWindowRef.current,
     }),
-    [lastShownAt, registerShow],
+    [],
   );
 
   return <TooltipContext.Provider value={value}>{children}</TooltipContext.Provider>;
+}
+
+function useMergedRef<T extends HTMLElement>(
+  ownRef: React.MutableRefObject<T | null>,
+  incomingRef?: React.Ref<T>,
+) {
+  return useCallback(
+    (node: T | null) => {
+      ownRef.current = node;
+      if (!incomingRef) return;
+      if (typeof incomingRef === 'function') {
+        incomingRef(node);
+      } else if ('current' in incomingRef) {
+        (incomingRef as React.MutableRefObject<T | null>).current = node;
+      }
+    },
+    [incomingRef, ownRef],
+  );
+}
+
+function composeHandlers<T extends { stopPropagation?: () => void }>(
+  own: (e: T) => void,
+  incoming?: (e: T) => void,
+) {
+  return (e: T) => {
+    incoming?.(e);
+    // If the caller stopped propagation, respect it so ancestor handlers do not run.
+    if ('stopPropagation' in e && (e as { stopPropagation?: () => void }).stopPropagation) {
+      try {
+        if ((e as unknown as { isPropagationStopped?: () => boolean }).isPropagationStopped?.()) {
+          return;
+        }
+      } catch {
+        // Fallback: still call our handler unless the event explicitly says not to.
+      }
+    }
+    own(e);
+  };
 }
 
 export function Tooltip({
   children,
   label,
   placement = 'top',
-  delay = DEFAULT_DELAY,
+  delay,
+  openDelay,
+  closeDelay = 0,
   maxWidth = 240,
   shortcut,
   disabledReason,
   truncationOnly = false,
+  open: controlledOpen,
+  onOpenChange,
+  tabIndex: tabIndexProp,
+  id,
 }: TooltipProps) {
-  const [visible, setVisible] = useState(false);
-  const triggerRef = useRef<HTMLSpanElement>(null);
+  const generatedId = useId();
+  const tooltipId = id ?? generatedId;
+
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const visible = isControlled ? controlledOpen : internalOpen;
+
+  const triggerRef = useRef<HTMLElement | null>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tooltipId = useId();
+  const openTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const isTruncatedRef = useRef(false);
+  const pointerDownRef = useRef(false);
+  const suppressFocusShowUntilRef = useRef(0);
   const [posStyle, setPosStyle] = useState<{ left: number; top: number } | null>(null);
 
   const warmContext = useContext(TooltipContext);
+
+  const actualOpenDelay = openDelay ?? delay ?? DEFAULT_DELAY;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -126,52 +202,88 @@ export function Tooltip({
     };
   }, []);
 
-  const show = useCallback(
-    (immediate = false) => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (truncationOnly && !isTruncatedRef.current) return;
-
-      let effectiveDelay = delay;
-      if (!immediate && warmContext) {
-        const elapsed = Date.now() - warmContext.getLastShownAt();
-        if (elapsed < warmContext.getWarmWindow()) {
-          effectiveDelay = Math.min(delay, WARM_DELAY);
-        }
-      }
-
-      if (immediate) {
-        if (mountedRef.current) {
-          setVisible(true);
-          warmContext?.registerShow();
-        }
+  const setOpen = useCallback(
+    (nextOpen: boolean) => {
+      if (isControlled) {
+        onOpenChange?.(nextOpen);
       } else {
-        timerRef.current = setTimeout(() => {
-          if (mountedRef.current) {
-            setVisible(true);
-            warmContext?.registerShow();
-          }
-        }, effectiveDelay);
+        setInternalOpen(nextOpen);
       }
     },
-    [delay, truncationOnly, warmContext],
+    [isControlled, onOpenChange],
   );
 
-  const hide = useCallback(() => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const clearTimers = useCallback(() => {
+    if (openTimerRef.current) {
+      clearTimeout(openTimerRef.current);
+      openTimerRef.current = null;
     }
-    if (visible && mountedRef.current) {
-      setVisible(false);
-      setPosStyle(null);
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
     }
-  }, [visible]);
+  }, []);
+
+  const openNow = useCallback(() => {
+    if (!mountedRef.current) return;
+    setOpen(true);
+    warmContext?.registerShow();
+  }, [setOpen, warmContext]);
+
+  const scheduleOpen = useCallback(
+    (immediate = false) => {
+      clearTimers();
+      if (truncationOnly && !isTruncatedRef.current) return;
+
+      if (immediate) {
+        openNow();
+        return;
+      }
+
+      let effectiveDelay = actualOpenDelay;
+      if (warmContext) {
+        const elapsed = Date.now() - warmContext.getLastShownAt();
+        if (elapsed < warmContext.getWarmWindow()) {
+          effectiveDelay = Math.min(actualOpenDelay, WARM_DELAY);
+        }
+      }
+
+      openTimerRef.current = setTimeout(() => {
+        openTimerRef.current = null;
+        openNow();
+      }, effectiveDelay);
+    },
+    [actualOpenDelay, clearTimers, openNow, truncationOnly, warmContext],
+  );
+
+  const scheduleClose = useCallback(() => {
+    if (closeTimerRef.current) return;
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      if (mountedRef.current) {
+        setOpen(false);
+        setPosStyle(null);
+      }
+    }, closeDelay);
+  }, [closeDelay, setOpen]);
+
+  const handleClose = useCallback(() => {
+    clearTimers();
+    if (closeDelay <= 0) {
+      if (mountedRef.current) {
+        setOpen(false);
+        setPosStyle(null);
+      }
+    } else {
+      scheduleClose();
+    }
+  }, [clearTimers, closeDelay, scheduleClose, setOpen]);
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      clearTimers();
     };
-  }, []);
+  }, [clearTimers]);
 
   useLayoutEffect(() => {
     const triggerEl = triggerRef.current;
@@ -179,9 +291,10 @@ export function Tooltip({
     if (!visible || !triggerEl || !tipEl) return;
 
     const updatePosition = () => {
-      computePosition(triggerEl, tipEl, {
+      void computePosition(triggerEl, tipEl, {
         placement,
-        middleware: [offset(6), flip(), shift({ padding: 8 })],
+        strategy: 'fixed',
+        middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 12 })],
       }).then(({ x, y }) => {
         setPosStyle({ left: x, top: y });
       });
@@ -190,15 +303,17 @@ export function Tooltip({
     const cleanup = autoUpdate(triggerEl, tipEl, updatePosition);
     updatePosition();
 
-    return () => cleanup();
+    return () => {
+      cleanup();
+    };
   }, [visible, placement]);
 
   useEffect(() => {
     if (!visible) return;
-    const handler = () => hide();
-    document.addEventListener('scroll', handler, true);
-    return () => document.removeEventListener('scroll', handler, true);
-  }, [visible, hide]);
+    const onScroll = () => handleClose();
+    document.addEventListener('scroll', onScroll, true);
+    return () => document.removeEventListener('scroll', onScroll, true);
+  }, [visible, handleClose]);
 
   const checkTruncation = useCallback(() => {
     if (!truncationOnly) return;
@@ -208,7 +323,7 @@ export function Tooltip({
     }
   }, [truncationOnly]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!truncationOnly) return;
     checkTruncation();
     const el = triggerRef.current;
@@ -218,56 +333,236 @@ export function Tooltip({
     return () => ro.disconnect();
   }, [truncationOnly, checkTruncation]);
 
-  if (!label) {
-    return <>{children}</>;
-  }
+  const onPointerEnter = useCallback(
+    (e: { pointerType?: string; buttons?: number }) => {
+      // Ignore touch, stylus hover is fine but touch-first interaction should
+      // activate the control immediately, not discover a tooltip.
+      if (e.pointerType === 'touch') return;
+      // Do not show while any pointer button is held (drag, gesture, stroke).
+      if ((e.buttons ?? 0) !== 0) return;
+      // If we recently had a pointer-down on this trigger, ignore the focus
+      // event that often follows a mouse click.
+      if (Date.now() < suppressFocusShowUntilRef.current) return;
+      scheduleOpen(false);
+    },
+    [scheduleOpen],
+  );
+
+  const onPointerLeave = useCallback(() => {
+    handleClose();
+  }, [handleClose]);
+
+  const onPointerDown = useCallback(() => {
+    pointerDownRef.current = true;
+    suppressFocusShowUntilRef.current = Date.now() + POINTER_SUPPRESS_MS;
+    clearTimers();
+    if (!isControlled && mountedRef.current) {
+      setInternalOpen(false);
+      setPosStyle(null);
+    } else if (isControlled) {
+      onOpenChange?.(false);
+    }
+  }, [clearTimers, isControlled, onOpenChange]);
+
+  const onPointerUp = useCallback(() => {
+    pointerDownRef.current = false;
+  }, []);
+
+  const onFocus = useCallback(() => {
+    if (Date.now() < suppressFocusShowUntilRef.current) return;
+    if (pointerDownRef.current) return;
+    scheduleOpen(true);
+  }, [scheduleOpen]);
+
+  const onBlur = useCallback(() => {
+    handleClose();
+  }, [handleClose]);
+
+  const onKeyDown = useCallback(
+    (e: { key: string; preventDefault?: () => void; stopPropagation?: () => void }) => {
+      if (e.key === 'Escape') {
+        e.preventDefault?.();
+        e.stopPropagation?.();
+        clearTimers();
+        setOpen(false);
+        setPosStyle(null);
+      }
+    },
+    [clearTimers, setOpen],
+  );
+
+  const onTooltipPointerEnter = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const onTooltipPointerLeave = useCallback(() => {
+    handleClose();
+  }, [handleClose]);
 
   const tooltipContent = disabledReason ?? label;
   const describedBy = visible ? tooltipId : undefined;
-  const wrapperTabIndex = disabledReason ? 0 : undefined;
+
+  const child = Children.toArray(children)[0];
+  const childElement = isValidElement(child)
+    ? (child as ReactElement<{ disabled?: boolean }>)
+    : null;
+  // We only wrap a disabled child when there is a disabledReason to explain.
+  const needsDisabledWrapper =
+    Boolean(disabledReason) && childElement && childElement.props.disabled === true;
+
+  // Prepare ref merging unconditionally to avoid hook ordering violation
+  const incomingRef = childElement
+    ? (childElement as unknown as { ref?: React.Ref<HTMLElement> }).ref
+    : null;
+  const mergedRef = useMergedRef(triggerRef, incomingRef);
+
+  const isDev = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+  useEffect(() => {
+    if (!isDev || !childElement) return;
+    const props = childElement.props as Record<string, unknown>;
+    const hasAccessibleName =
+      Boolean(props['aria-label']) ||
+      Boolean(props['aria-labelledby']) ||
+      Boolean(props.title) ||
+      Boolean(props.label) ||
+      typeof props.children === 'string' ||
+      typeof props.children === 'number' ||
+      (Array.isArray(props.children) &&
+        props.children.some((c) => typeof c === 'string' || typeof c === 'number'));
+    if (!hasAccessibleName) {
+      console.warn(
+        `Tooltip trigger is missing an accessible name. Tooltip: "${label}". Add aria-label, aria-labelledby, a visible text child, or a label prop to the trigger.`,
+      );
+    }
+    if (props.title) {
+      console.warn(
+        `Tooltip trigger has a native title attribute that conflicts with the Tooltip component: "${label}". Remove the title attribute from the trigger.`,
+      );
+    }
+  }, [childElement, isDev, label]);
+
+  const hoverTriggerHandlers = supportsPointer
+    ? {
+        onPointerEnter,
+        onPointerLeave,
+        onPointerDown,
+        onPointerUp,
+      }
+    : {
+        onMouseEnter: () => scheduleOpen(false),
+        onMouseLeave: handleClose,
+        onMouseDown: onPointerDown,
+        onMouseUp: onPointerUp,
+      };
+
+  const baseTriggerProps = {
+    'aria-describedby': describedBy,
+    onFocus,
+    onBlur,
+    onKeyDown,
+    tabIndex: tabIndexProp,
+    ref: undefined as React.Ref<HTMLElement> | undefined,
+  };
+
+  const tooltipPortal = visible && (
+    <div
+      ref={tooltipRef}
+      id={tooltipId}
+      role="tooltip"
+      className="strata-tooltip"
+      data-strata-tooltip=""
+      style={{
+        left: posStyle?.left ?? 0,
+        top: posStyle?.top ?? 0,
+        maxWidth,
+      }}
+      onPointerEnter={onTooltipPointerEnter}
+      onPointerLeave={onTooltipPointerLeave}
+    >
+      <span className="strata-tooltip__body">{tooltipContent}</span>
+      {shortcut && !disabledReason && (
+        <span
+          className="strata-tip__shortcut"
+          role="status"
+          aria-label={`Keyboard shortcut: ${shortcut}`}
+        >
+          {shortcut}
+        </span>
+      )}
+    </div>
+  );
+
+  if (!label && !disabledReason) {
+    return <>{children}</>;
+  }
+
+  if (needsDisabledWrapper) {
+    return (
+      <span
+        {...hoverTriggerHandlers}
+        {...baseTriggerProps}
+        ref={triggerRef as React.Ref<HTMLSpanElement>}
+        tabIndex={tabIndexProp ?? 0}
+        className="strata-tooltip-trigger"
+        style={{ display: 'inline-flex' }}
+      >
+        {children}
+        {tooltipPortal && createPortal(tooltipPortal, document.body)}
+      </span>
+    );
+  }
+
+  if (childElement) {
+    const triggerProps = {
+      ...baseTriggerProps,
+      ...hoverTriggerHandlers,
+      ref: mergedRef,
+    };
+
+    // Compose any handlers the child already provides so we don't clobber them.
+    const composedProps: Record<string, unknown> = {};
+    for (const key of Object.keys(triggerProps) as Array<keyof typeof triggerProps>) {
+      const incoming = (childElement.props as Record<string, unknown>)[key];
+      const own = triggerProps[key];
+      if (typeof own === 'function' && (key.startsWith('on') || key === 'ref')) {
+        if (key === 'ref') {
+          composedProps[key] = own;
+        } else {
+          composedProps[key] = composeHandlers(
+            own as (e: never) => void,
+            incoming as (e: never) => void,
+          );
+        }
+      } else if (key === 'aria-describedby' && incoming) {
+        composedProps[key] = `${incoming} ${describedBy ?? ''}`.trim();
+      } else if (key === 'tabIndex' && incoming !== undefined && tabIndexProp === undefined) {
+        composedProps[key] = incoming;
+      } else {
+        composedProps[key] = own ?? incoming;
+      }
+    }
+
+    return (
+      <>
+        {cloneElement(childElement as ReactElement, composedProps as Record<string, unknown>)}
+        {tooltipPortal && createPortal(tooltipPortal, document.body)}
+      </>
+    );
+  }
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: tooltip trigger wraps interactive children; hover/focus handlers are for tooltip display only
     <span
-      ref={triggerRef}
-      style={{ position: 'relative', display: 'inline-flex' }}
-      tabIndex={wrapperTabIndex}
-      onMouseEnter={() => show(false)}
-      onMouseLeave={hide}
-      onFocus={() => show(true)}
-      onBlur={hide}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          hide();
-        }
-      }}
-      aria-describedby={describedBy}
+      {...hoverTriggerHandlers}
+      {...baseTriggerProps}
+      ref={triggerRef as React.Ref<HTMLSpanElement>}
+      className="strata-tooltip-trigger"
+      style={{ display: 'inline-flex' }}
     >
       {children}
-      {visible &&
-        createPortal(
-          <div
-            ref={tooltipRef}
-            id={tooltipId}
-            role="tooltip"
-            className="strata-tooltip"
-            style={{
-              position: 'fixed',
-              left: posStyle?.left ?? 0,
-              top: posStyle?.top ?? 0,
-              zIndex: 'var(--z-tooltip)' as unknown as number,
-              pointerEvents: 'none',
-              maxWidth,
-            }}
-          >
-            {tooltipContent}
-            {shortcut && !disabledReason && (
-              <span className="strata-tip__shortcut">{shortcut}</span>
-            )}
-          </div>,
-          document.body,
-        )}
+      {tooltipPortal && createPortal(tooltipPortal, document.body)}
     </span>
   );
 }
