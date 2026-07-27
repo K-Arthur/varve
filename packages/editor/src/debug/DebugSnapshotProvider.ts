@@ -10,16 +10,16 @@ import type { Affine, Point, Rect } from '@strata/shared';
 import { applyAffine, tryInvertAffine } from '@strata/shared';
 import type { EditorState } from '../context/types';
 import type { HitTestEngine } from '../hitTest/HitTestEngine';
+import type { SpatialIndex } from '../scene/spatialIndex';
 import type { TransformCache } from '../scene/transformCache';
 import { getWorldBounds, getWorldTransform } from '../scene/transformCache';
-import type { SpatialIndex } from '../scene/spatialIndex';
-import {
-  type DebugGeometryEntry,
-  type DebugHitTestSnapshot,
-  type DebugInteractionSnapshot,
-  type DebugSelectionSnapshot,
-  type DebugSnapshot,
-  type DebugSpatialIndexSnapshot,
+import type {
+  DebugGeometryEntry,
+  DebugHitTestSnapshot,
+  DebugInteractionSnapshot,
+  DebugSelectionSnapshot,
+  DebugSnapshot,
+  DebugSpatialIndexSnapshot,
 } from './DebugOverlayRegistry';
 
 let frameCounter = 0;
@@ -63,7 +63,12 @@ export function buildDebugSnapshot(
     snapshot.geometry = buildGeometrySnapshot(doc, cache, opts.maxItems);
   }
 
-  if (opts.includeHitTest && opts.hitTestPoint !== undefined && opts.hitTestPoint !== null && hitTestEngine) {
+  if (
+    opts.includeHitTest &&
+    opts.hitTestPoint !== undefined &&
+    opts.hitTestPoint !== null &&
+    hitTestEngine
+  ) {
     snapshot.hitTest = buildHitTestSnapshot(
       hitTestEngine,
       opts.hitTestPoint,
@@ -73,7 +78,8 @@ export function buildDebugSnapshot(
   }
 
   if (opts.includeSpatialIndex && spatialIndex) {
-    snapshot.spatialIndex = buildSpatialIndexSnapshot(spatialIndex, opts.hitTestPoint);
+    const qp: Point | null = opts.hitTestPoint ?? null;
+    snapshot.spatialIndex = buildSpatialIndexSnapshot(spatialIndex, qp);
   }
 
   if (opts.includeInteraction) {

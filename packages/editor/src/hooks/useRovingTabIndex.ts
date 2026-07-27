@@ -35,31 +35,13 @@ export interface RovingTabIndexResult {
   focusLast: (total: number) => void;
 }
 
-function findNextEnabled(
-  currentIndex: number,
-  delta: number,
-  total: number,
-  isDisabled: (i: number) => boolean,
-  isHidden: (i: number) => boolean,
-): number {
+function clampIndex(idx: number, total: number): number {
   if (total <= 0) return 0;
-  let attempts = 0;
-  let idx = currentIndex;
-  while (attempts < total) {
-    idx = (idx + delta + total) % total;
-    if (!isDisabled(idx) && !isHidden(idx)) return idx;
-    attempts++;
-  }
-  return currentIndex;
+  return ((idx % total) + total) % total;
 }
 
-export function useRovingTabIndex({
-  orientation = 'horizontal',
-  wrap = true,
-  skipDisabled = true,
-  skipHidden = true,
-  onIndexChange,
-}: RovingTabIndexOptions = {}): RovingTabIndexResult {
+export function useRovingTabIndex(options: RovingTabIndexOptions = {}): RovingTabIndexResult {
+  const { orientation = 'horizontal', wrap = true, onIndexChange } = options;
   const [currentIndex, setCurrentIndex] = useState(0);
   const onIndexChangeRef = useRef(onIndexChange);
   onIndexChangeRef.current = onIndexChange;
@@ -84,19 +66,12 @@ export function useRovingTabIndex({
   const moveFocus = useCallback(
     (delta: number, total: number) => {
       if (total <= 0) return;
-      if (skipDisabled || skipHidden) {
-        const isDisabledFn = skipDisabled ? (i: number) => false : () => false;
-        const isHiddenFn = skipHidden ? (i: number) => false : () => false;
-        const next = findNextEnabled(currentIndex, delta, total, isDisabledFn, isHiddenFn);
-        setAndNotify(next);
-      } else {
-        const next = wrap
-          ? (currentIndex + delta + total) % total
-          : Math.max(0, Math.min(currentIndex + delta, total - 1));
-        setAndNotify(next);
-      }
+      const next = wrap
+        ? clampIndex(currentIndex + delta, total)
+        : Math.max(0, Math.min(currentIndex + delta, total - 1));
+      setAndNotify(next);
     },
-    [currentIndex, skipDisabled, skipHidden, wrap, setAndNotify],
+    [currentIndex, wrap, setAndNotify],
   );
 
   const focusFirst = useCallback(

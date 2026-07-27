@@ -86,7 +86,7 @@ export function useFocusScope({
     const idx = activeScopes.findIndex((s) => s.id === id);
     if (idx < 0) return;
 
-    const entry = activeScopes[idx];
+    const entry = activeScopes[idx]!;
     activeScopes.splice(idx, 1);
 
     const prev = entry.previousActive;

@@ -34,9 +34,7 @@ const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"]):not([disabled])';
 
 function getFocusable(container: HTMLElement): HTMLElement[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-  ).filter(
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
     (el) => el.offsetParent !== null && getComputedStyle(el).visibility !== 'hidden',
   );
 }
@@ -114,8 +112,7 @@ export function useFocusTrap({
     if (!container) return;
 
     const savedActive = document.activeElement as HTMLElement;
-    previousActiveRef.current =
-      savedActive !== document.body ? savedActive : null;
+    previousActiveRef.current = savedActive !== document.body ? savedActive : null;
 
     let initialTarget: HTMLElement | null = null;
     if (initialFocus) {

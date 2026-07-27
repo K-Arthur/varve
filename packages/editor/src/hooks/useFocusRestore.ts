@@ -33,28 +33,25 @@ export function useFocusRestore(): FocusRestoreResult {
     }
   }, []);
 
-  const restore = useCallback(
-    (fallback?: HTMLElement | (() => HTMLElement | null)): boolean => {
-      const target = savedRef.current;
-      savedRef.current = null;
+  const restore = useCallback((fallback?: HTMLElement | (() => HTMLElement | null)): boolean => {
+    const target = savedRef.current;
+    savedRef.current = null;
 
-      if (target && document.contains(target)) {
-        target.focus({ preventScroll: true });
+    if (target && document.contains(target)) {
+      target.focus({ preventScroll: true });
+      return true;
+    }
+
+    if (fallback) {
+      const fb = typeof fallback === 'function' ? fallback() : fallback;
+      if (fb && document.contains(fb)) {
+        fb.focus({ preventScroll: true });
         return true;
       }
+    }
 
-      if (fallback) {
-        const fb = typeof fallback === 'function' ? fallback() : fallback;
-        if (fb && document.contains(fb)) {
-          fb.focus({ preventScroll: true });
-          return true;
-        }
-      }
-
-      return false;
-    },
-    [],
-  );
+    return false;
+  }, []);
 
   return {
     save,

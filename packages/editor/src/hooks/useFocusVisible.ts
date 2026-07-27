@@ -28,10 +28,17 @@ export function useFocusVisible({
     let keyboardActive = false;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Tab' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' ||
-          e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
-          e.key === 'Home' || e.key === 'End' ||
-          e.key === 'Enter' || e.key === ' ') {
+      if (
+        e.key === 'Tab' ||
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight' ||
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'Home' ||
+        e.key === 'End' ||
+        e.key === 'Enter' ||
+        e.key === ' '
+      ) {
         keyboardActive = true;
       }
     };
