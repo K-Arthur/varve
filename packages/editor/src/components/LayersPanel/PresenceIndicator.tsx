@@ -23,7 +23,6 @@ export function PresenceIndicator({
           key={p.userId}
           className="layers-row__presence-avatar"
           style={{ backgroundColor: p.color }}
-          title={p.label}
           aria-label={p.label}
           role="img"
         >
@@ -31,7 +30,11 @@ export function PresenceIndicator({
         </div>
       ))}
       {overflow > 0 && (
-        <span className="layers-row__presence-overflow" title={`${overflow} more`}>
+        <span
+          className="layers-row__presence-overflow"
+          role="img"
+          aria-label={`${overflow} more collaborators`}
+        >
           +{overflow}
         </span>
       )}
