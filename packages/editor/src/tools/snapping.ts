@@ -20,6 +20,7 @@ export interface SnapBoxOptions {
   otherBounds?: Array<{ x: number; y: number; w: number; h: number }>;
   grid?: number | GridSnapConfig;
   layoutGridStep?: number;
+  pixelGridSnap?: boolean;
 }
 
 export interface SnapResult {
@@ -45,6 +46,8 @@ export interface SnapOptions {
   guideTargets?: Array<{ axis: 'horizontal' | 'vertical'; position: number }>;
   /** Layout grid cell size for frame grid snapping (world units). */
   layoutGridStep?: number;
+  /** Pixel grid snapping (snaps to integer pixel coordinates). */
+  pixelGridSnap?: boolean;
 }
 
 export const SNAP_RANGE_PX = 200;
@@ -246,6 +249,27 @@ export function snapPosition(
       bestYDiff = dy;
       bestYSnap = ly;
       bestYGuide = { axis: 'horizontal', position: ly, type: 'edge' };
+      bestYPriority = prio;
+    }
+  }
+
+  // C3: Pixel grid snap (snaps to integer pixel coordinates)
+  if (options.pixelGridSnap) {
+    const px = Math.round(x);
+    const py = Math.round(y);
+    const dx = Math.abs(px - x);
+    const dy = Math.abs(py - y);
+    const prio = SNAP_PRIORITY.grid; // Use same priority as document grid
+    if (dx < thresh && compete(prio, dx, bestXPriority, bestXDiff)) {
+      bestXDiff = dx;
+      bestXSnap = px;
+      bestXGuide = { axis: 'vertical', position: px, label: `${px}px`, type: 'edge' };
+      bestXPriority = prio;
+    }
+    if (dy < thresh && compete(prio, dy, bestYPriority, bestYDiff)) {
+      bestYDiff = dy;
+      bestYSnap = py;
+      bestYGuide = { axis: 'horizontal', position: py, label: `${py}px`, type: 'edge' };
       bestYPriority = prio;
     }
   }
@@ -506,7 +530,7 @@ export function createSnapSession(): SnapSession {
 
 /** Snap a selection box (position and size) to other bounds. */
 export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}): SelectionBox {
-  const { zoom = 1, otherBounds = [], grid, layoutGridStep } = options;
+  const { zoom = 1, otherBounds = [], grid, layoutGridStep, pixelGridSnap } = options;
   const thresh = thresholdWorld(zoom);
 
   let snappedCx = box.cx;
@@ -562,6 +586,24 @@ export function snapSelectionBox(box: SelectionBox, options: SnapBoxOptions = {}
         bestYPriority = SNAP_PRIORITY.grid;
         snappedCy = gridCy;
       }
+    }
+  }
+
+  // Snap to pixel grid (snaps to integer pixel coordinates)
+  if (pixelGridSnap) {
+    const px = Math.round(box.cx);
+    const py = Math.round(box.cy);
+    const dx = Math.abs(px - box.cx);
+    const dy = Math.abs(py - box.cy);
+    if (dx < thresh && compete(SNAP_PRIORITY.grid, dx, bestXPriority, bestXDiff)) {
+      bestXDiff = dx;
+      bestXPriority = SNAP_PRIORITY.grid;
+      snappedCx = px;
+    }
+    if (dy < thresh && compete(SNAP_PRIORITY.grid, dy, bestYPriority, bestYDiff)) {
+      bestYDiff = dy;
+      bestYPriority = SNAP_PRIORITY.grid;
+      snappedCy = py;
     }
   }
 

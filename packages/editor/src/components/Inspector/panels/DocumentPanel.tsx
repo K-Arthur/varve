@@ -18,7 +18,8 @@ export function whiteForMode(mode: ColorMode): ManagedColor {
 
 /** Document-wide settings are available without changing the current selection. */
 export function DocumentPanel() {
-  const { state, setCanvasBackground, switchColorMode, documentColorMode, setDocumentGrid } = useEditor();
+  const { state, setCanvasBackground, switchColorMode, documentColorMode, setDocumentGrid } =
+    useEditor();
   const doc = state.document;
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
@@ -90,7 +91,7 @@ export function DocumentPanel() {
                 value={state.documentGrid.spacingX}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
-                  if (!isNaN(value) && value > 0) {
+                  if (!Number.isNaN(value) && value > 0) {
                     setDocumentGrid({
                       ...state.documentGrid,
                       spacingX: value,
@@ -111,7 +112,7 @@ export function DocumentPanel() {
                 value={state.documentGrid.spacingY}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
-                  if (!isNaN(value) && value > 0) {
+                  if (!Number.isNaN(value) && value > 0) {
                     setDocumentGrid({
                       ...state.documentGrid,
                       spacingY: value,
@@ -132,7 +133,7 @@ export function DocumentPanel() {
                 value={state.documentGrid.subdivisions}
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value) && value > 0) {
+                  if (!Number.isNaN(value) && value > 0) {
                     setDocumentGrid({
                       ...state.documentGrid,
                       subdivisions: value,
@@ -151,7 +152,7 @@ export function DocumentPanel() {
                 value={state.documentGrid.offsetX}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
-                  if (!isNaN(value)) {
+                  if (!Number.isNaN(value)) {
                     setDocumentGrid({
                       ...state.documentGrid,
                       offsetX: value,
@@ -170,7 +171,7 @@ export function DocumentPanel() {
                 value={state.documentGrid.offsetY}
                 onChange={(e) => {
                   const value = parseFloat(e.target.value);
-                  if (!isNaN(value)) {
+                  if (!Number.isNaN(value)) {
                     setDocumentGrid({
                       ...state.documentGrid,
                       offsetY: value,

@@ -2782,7 +2782,7 @@ export function CanvasArea({
         }}
       />
       {/* Pixel grid overlay (1px lines at 1:1 zoom) */}
-      {state.pixelGridEnabled && (
+      {state.pixelGridEnabled && state.zoom >= (state.document.pixelGrid?.zoomThreshold ?? 4) && (
         <div
           className="editor-canvas__pixel-grid"
           style={{
@@ -2791,6 +2791,7 @@ export function CanvasArea({
               'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
             ].join(', '),
             backgroundSize: `${state.zoom}px ${state.zoom}px`,
+            opacity: state.document.pixelGrid?.showAtHighZoom ? 0.5 : 0,
           }}
         />
       )}

@@ -9,10 +9,10 @@
  *                 freehand point capture from PencilTool.
  */
 
-import { buildParentIndexMap, isInIsolatedSubtree, walkNodes } from '@strata/scene';
-import { BaseTool } from './BaseTool';
-import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
+import { BaseTool } from './BaseTool';
+import { isInIsolatedSubtree, walkNodes } from '@strata/scene';
+import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
 
 const LASSO_MIN_DISTANCE = 2; // Minimum distance between captured points (world units)
 
@@ -77,10 +77,9 @@ export class LassoTool extends BaseTool {
     if (ctx.altKey && ctx.shiftKey) {
       // Shift+Alt: intersect (select only nodes that are both in current selection and lasso)
       const currentSet = new Set(ctx.selection);
-      const _intersectSet = new Set(intersectingIds);
       const result = intersectingIds.filter((id) => currentSet.has(id));
       if (result.length > 0) {
-        ctx.setSelection(result[0]);
+        ctx.setSelection(result[0] ?? null);
         result.slice(1).forEach((id) => {
           ctx.toggleSelection(id, true);
         });
@@ -98,7 +97,7 @@ export class LassoTool extends BaseTool {
     } else if (ctx.shiftKey) {
       // Shift: add (add lassoed nodes to selection)
       if (ctx.selection.length === 0) {
-        ctx.setSelection(intersectingIds[0]);
+        ctx.setSelection(intersectingIds[0] ?? null);
         intersectingIds.slice(1).forEach((id) => {
           ctx.toggleSelection(id, true);
         });
@@ -109,7 +108,7 @@ export class LassoTool extends BaseTool {
       }
     } else {
       // Default: replace selection
-      ctx.setSelection(intersectingIds[0]);
+      ctx.setSelection(intersectingIds[0] ?? null);
       intersectingIds.slice(1).forEach((id) => {
         ctx.toggleSelection(id, true);
       });
@@ -128,34 +127,29 @@ export class LassoTool extends BaseTool {
     const page = doc.pages?.[doc.activePageId];
     if (!page) return [];
 
-    const parentIndex = buildParentIndexMap(doc);
     const intersecting: string[] = [];
 
-    walkNodes(
-      doc,
-      page.contentRoot,
-      (node) => {
-        // Skip locked and invisible nodes
-        if (node.locked || node.visible === false) return;
+    // Use walkNodes to get all nodes in the document
+    const entries = walkNodes(doc, [page.contentRoot]);
+    for (const [nodeId, entry] of entries) {
+      const node = entry.node;
 
-        // Respect isolation mode
-        if (
-          ctx.isolatedNodeId &&
-          !isInIsolatedSubtree(doc, node.id, ctx.isolatedNodeId, parentIndex)
-        ) {
-          return;
-        }
+      // Skip locked and invisible nodes
+      if (node.locked || node.visible === false) continue;
 
-        // Get node bounds using the context's efficient method
-        const bounds = ctx.nodeWorldBounds(node);
-        if (!bounds) return;
+      // Respect isolation mode
+      if (ctx.isolatedNodeId && !isInIsolatedSubtree(nodeId, ctx.isolatedNodeId, doc)) {
+        continue;
+      }
 
-        if (polygonIntersectsBounds(polygon, bounds)) {
-          intersecting.push(node.id);
-        }
-      },
-      parentIndex,
-    );
+      // Get node bounds using the context's efficient method
+      const bounds = ctx.nodeWorldBounds(node);
+      if (!bounds) continue;
+
+      if (polygonIntersectsBounds(polygon, bounds)) {
+        intersecting.push(nodeId);
+      }
+    }
 
     return intersecting;
   }
