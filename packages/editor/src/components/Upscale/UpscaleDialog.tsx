@@ -6,10 +6,16 @@
  * result to the document. Keyboard accessible with FocusTrap and aria-live.
  */
 
-import type { UpscaleModeId, UpscaleProgressFn } from '@strata/engine';
+import type {
+  DenoiseStrength,
+  PixelArtAlgorithm,
+  UpscaleModeId,
+  UpscaleProgressFn,
+} from '@strata/engine';
 import {
   DEFAULT_UPSCALE_MODE,
   detectUpscaleCapabilities,
+  dispatchUpscale,
   getUpscaleMode,
   UPSCALE_MODES,
 } from '@strata/engine';
@@ -17,7 +23,7 @@ import { Button, FocusTrap, SegmentedControl, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 
-type OutputBehavior = 'new-layer' | 'replace-source';
+type OutputBehavior = 'new-layer' | 'replace-source' | 'non-destructive';
 
 interface UpscaleDialogProps {
   /** Source image natural width. */
@@ -26,6 +32,8 @@ interface UpscaleDialogProps {
   sourceHeight: number;
   /** Source image data URL for preview. */
   sourceDataUrl: string;
+  /** Source image data for preview computation. */
+  sourceImageData?: ImageData;
   /** Whether the dialog is open. */
   open: boolean;
   /** Close handler. */
@@ -35,6 +43,8 @@ interface UpscaleDialogProps {
     mode: UpscaleModeId;
     scale: number;
     output: OutputBehavior;
+    denoiseStrength: DenoiseStrength;
+    pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
   }) => Promise<void>;
 }
@@ -52,6 +62,7 @@ export function UpscaleDialog({
   sourceWidth,
   sourceHeight,
   sourceDataUrl,
+  sourceImageData,
   open,
   onClose,
   onApply,
@@ -60,12 +71,18 @@ export function UpscaleDialog({
   const [modeId, setModeId] = useState<UpscaleModeId>(DEFAULT_UPSCALE_MODE);
   const [scale, setScale] = useState(2);
   const [output, setOutput] = useState<OutputBehavior>('new-layer');
+  const [denoiseStrength, setDenoiseStrength] = useState<DenoiseStrength>('none');
+  const [pixelArtAlgorithm, setPixelArtAlgorithm] = useState<PixelArtAlgorithm>('epx');
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<{ pathDescription: string } | null>(null);
   const [previewPosition, setPreviewPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
+  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  const [previewGenerating, setPreviewGenerating] = useState(false);
+  const previewAbortRef = useRef<AbortController | null>(null);
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previewContainerRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
@@ -85,6 +102,11 @@ export function UpscaleDialog({
     });
     return () => {
       previousFocusRef.current?.focus();
+      // Cancel any pending preview on close
+      previewAbortRef.current?.abort();
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
     };
   }, [open]);
 
@@ -93,6 +115,68 @@ export function UpscaleDialog({
       setScale(mode.defaultScale);
     }
   }, [mode]);
+
+  // Debounced preview generation for CPU modes
+  useEffect(() => {
+    if (!open || !sourceImageData || !mode || mode.isAi) {
+      return;
+    }
+    // Cancel previous preview
+    previewAbortRef.current?.abort();
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+    }
+    // Debounce 250ms
+    previewTimeoutRef.current = setTimeout(() => {
+      generatePreview();
+    }, 250);
+    return () => {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current);
+      }
+    };
+  }, [modeId, scale, open, sourceImageData, mode]);
+
+  // Clear preview when switching to AI mode
+  useEffect(() => {
+    if (mode?.isAi) {
+      setPreviewDataUrl(null);
+    }
+  }, [mode?.isAi]);
+
+  async function generatePreview() {
+    if (!sourceImageData || !mode) return;
+    const abort = new AbortController();
+    previewAbortRef.current = abort;
+    setPreviewGenerating(true);
+    try {
+      const result = await dispatchUpscale(
+        sourceImageData,
+        {
+          method: mode.method,
+          scale,
+          preview: true,
+          previewMaxDimension: 512,
+        },
+        abort.signal,
+      );
+      const canvas = document.createElement('canvas');
+      canvas.width = result.width;
+      canvas.height = result.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.putImageData(result, 0, 0);
+        const dataUrl = canvas.toDataURL('image/png');
+        setPreviewDataUrl(dataUrl);
+      }
+    } catch (err) {
+      if ((err as Error).message !== 'cancelled') {
+        console.error('Preview generation failed:', err);
+      }
+    } finally {
+      setPreviewGenerating(false);
+    }
+  }
 
   const onProgress: UpscaleProgressFn = useCallback((done: number, total: number) => {
     setProgress({ done, total });
@@ -104,7 +188,14 @@ export function UpscaleDialog({
     setProcessing(true);
     setProgress(null);
     try {
-      await onApply({ mode: modeId, scale, output, onProgress });
+      await onApply({
+        mode: modeId,
+        scale,
+        output,
+        denoiseStrength,
+        pixelArtAlgorithm: modeId === 'pixel-art' ? pixelArtAlgorithm : undefined,
+        onProgress,
+      });
       onClose();
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Processing failed';
@@ -213,18 +304,62 @@ export function UpscaleDialog({
                   className="upscale-preview__overlay"
                   style={{ clipPath: `inset(0 ${100 - previewPosition}% 0 0)` }}
                 >
-                  <img
-                    src={sourceDataUrl}
-                    alt="Upscaled preview"
-                    className="upscale-preview__image upscale-preview__image--upscaled"
-                    style={{
-                      aspectRatio: `${sourceWidth}/${sourceHeight}`,
-                      transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
-                      transformOrigin: 'top left',
-                      width: `${(outW / sourceWidth) * 100}%`,
-                      height: `${(outH / sourceHeight) * 100}%`,
-                    }}
-                  />
+                  {mode?.isAi ? (
+                    // AI mode: use CSS-scaled placeholder or real preview if generated
+                    previewDataUrl ? (
+                      <img
+                        src={previewDataUrl}
+                        alt="AI upscaled preview"
+                        className="upscale-preview__image upscale-preview__image--upscaled"
+                        style={{
+                          aspectRatio: `${sourceWidth}/${sourceHeight}`,
+                          transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
+                          transformOrigin: 'top left',
+                          width: `${(outW / sourceWidth) * 100}%`,
+                          height: `${(outH / sourceHeight) * 100}%`,
+                        }}
+                      />
+                    ) : (
+                      <img
+                        src={sourceDataUrl}
+                        alt="AI upscaled preview placeholder"
+                        className="upscale-preview__image upscale-preview__image--upscaled"
+                        style={{
+                          aspectRatio: `${sourceWidth}/${sourceHeight}`,
+                          transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
+                          transformOrigin: 'top left',
+                          width: `${(outW / sourceWidth) * 100}%`,
+                          height: `${(outH / sourceHeight) * 100}%`,
+                          opacity: 0.6,
+                        }}
+                      />
+                    )
+                  ) : // CPU modes: use real preview or fallback to CSS scaling
+                  previewDataUrl ? (
+                    <img
+                      src={previewDataUrl}
+                      alt="Upscaled preview"
+                      className="upscale-preview__image upscale-preview__image--upscaled"
+                      style={{
+                        aspectRatio: `${sourceWidth}/${sourceHeight}`,
+                        width: '100%',
+                        height: '100%',
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src={sourceDataUrl}
+                      alt="Upscaled preview placeholder"
+                      className="upscale-preview__image upscale-preview__image--upscaled"
+                      style={{
+                        aspectRatio: `${sourceWidth}/${sourceHeight}`,
+                        transform: `scale(${outW / sourceWidth}, ${outH / sourceHeight})`,
+                        transformOrigin: 'top left',
+                        width: `${(outW / sourceWidth) * 100}%`,
+                        height: `${(outH / sourceHeight) * 100}%`,
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="upscale-preview__slider" style={{ left: `${previewPosition}%` }}>
                   <div className="upscale-preview__slider-line" />
@@ -238,6 +373,11 @@ export function UpscaleDialog({
                 <span className="upscale-preview__label upscale-preview__label--after">
                   Upscaled
                 </span>
+                {mode?.isAi && !previewDataUrl && (
+                  <p className="upscale-preview__ai-hint">
+                    AI preview is opt-in. Generate to see real results.
+                  </p>
+                )}
               </div>
               <p className="upscale-preview__hint">
                 Drag to compare. Output: {outW}by{outH}px
@@ -256,7 +396,75 @@ export function UpscaleDialog({
                   onChange={(v) => setModeId(v as UpscaleModeId)}
                 />
                 {mode && <p className="insp-hint">{mode.description}</p>}
+                {mode?.isAi && (
+                  <div className="upscale-settings__ai-preview">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      disabled={previewGenerating || processing}
+                      onClick={() => void generatePreview()}
+                    >
+                      {previewGenerating ? 'Generating...' : 'Generate AI preview'}
+                    </Button>
+                  </div>
+                )}
               </div>
+
+              <div className="upscale-settings__group">
+                <span className="upscale-settings__label">Denoise</span>
+                <SegmentedControl
+                  label="Denoise strength"
+                  value={denoiseStrength}
+                  disabled={processing || mode?.isAi}
+                  options={[
+                    { value: 'none', label: 'None' },
+                    { value: 'light', label: 'Light' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'strong', label: 'Strong' },
+                  ]}
+                  onChange={(v) => setDenoiseStrength(v as DenoiseStrength)}
+                />
+                {!mode?.isAi && (
+                  <p className="insp-hint">
+                    {denoiseStrength === 'none'
+                      ? 'No denoising'
+                      : `${denoiseStrength} denoise before upscale`}
+                  </p>
+                )}
+              </div>
+
+              {modeId === 'pixel-art' && (
+                <div className="upscale-settings__group">
+                  <span className="upscale-settings__label">Algorithm</span>
+                  <Select
+                    label="Pixel-art algorithm"
+                    value={pixelArtAlgorithm}
+                    disabled={processing}
+                    options={[
+                      { value: 'nearest', label: 'Nearest neighbour' },
+                      { value: 'epx', label: 'EPX (smooth diagonals)' },
+                      { value: 'scale2x', label: 'Scale2x' },
+                      { value: 'scale3x', label: 'Scale3x' },
+                      { value: 'scale4x', label: 'Scale4x' },
+                      { value: 'hqx', label: 'hqx (high quality)' },
+                      { value: 'xbr', label: 'xBR (pattern aware)' },
+                    ]}
+                    onChange={(v) => setPixelArtAlgorithm(v as PixelArtAlgorithm)}
+                  />
+                  <p className="insp-hint">
+                    {pixelArtAlgorithm === 'nearest'
+                      ? 'Hard edges, no smoothing'
+                      : pixelArtAlgorithm === 'epx'
+                        ? 'Smooth diagonal lines, preserves pixel grid'
+                        : pixelArtAlgorithm === 'hqx'
+                          ? 'Area-based interpolation for curved edges'
+                          : pixelArtAlgorithm === 'xbr'
+                            ? 'Pattern-aware scaling for complex pixel art'
+                            : 'Pure integer nearest-neighbour scaling'}
+                  </p>
+                </div>
+              )}
 
               <div className="upscale-settings__group">
                 <span className="upscale-settings__label">Scale</span>
@@ -278,6 +486,7 @@ export function UpscaleDialog({
                   options={[
                     { value: 'new-layer', label: 'New layer' },
                     { value: 'replace-source', label: 'Replace source' },
+                    { value: 'non-destructive', label: 'Non-destructive' },
                   ]}
                   onChange={(v) => setOutput(v as OutputBehavior)}
                 />

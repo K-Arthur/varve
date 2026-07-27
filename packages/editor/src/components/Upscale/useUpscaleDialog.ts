@@ -1,11 +1,9 @@
-/**
- * useUpscaleDialog — manages the upscale dialog lifecycle.
- *
- * Provides open/close state, source image loading, and wires the dialog
- * to the document model via upscaleSelectedImage.
- */
-
-import type { UpscaleModeId, UpscaleProgressFn } from '@strata/engine';
+import type {
+  DenoiseStrength,
+  PixelArtAlgorithm,
+  UpscaleModeId,
+  UpscaleProgressFn,
+} from '@strata/engine';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 
@@ -31,6 +29,8 @@ interface UseUpscaleDialogReturn {
     mode: UpscaleModeId;
     scale: number;
     output: 'new-layer' | 'replace-source';
+    denoiseStrength: DenoiseStrength;
+    pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
   }) => Promise<void>;
 }
@@ -45,7 +45,8 @@ const INITIAL_STATE: UpscaleDialogState = {
 };
 
 export function useUpscaleDialog(): UseUpscaleDialogReturn {
-  const { upscaleSelectedImage } = useEditor();
+  const editor = useEditor();
+  const { upscaleSelectedImage } = editor;
   const [dialogState, setDialogState] = useState<UpscaleDialogState>(INITIAL_STATE);
 
   const openUpscaleDialog = useCallback((options: UpscaleDialogOpenOptions = {}) => {
@@ -68,10 +69,31 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
       mode: UpscaleModeId;
       scale: number;
       output: 'new-layer' | 'replace-source';
+      denoiseStrength: DenoiseStrength;
+      pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
     }) => {
+      const needsEnhancement =
+        options.denoiseStrength !== 'none' ||
+        (options.mode === 'pixel-art' &&
+          options.pixelArtAlgorithm &&
+          options.pixelArtAlgorithm !== 'nearest');
+
+      if (needsEnhancement) {
+        const { applyEnhancement } = await import('./applyEnhancement');
+        await applyEnhancement(editor, {
+          mode: options.mode,
+          scale: options.scale,
+          output: options.output,
+          denoiseStrength: options.denoiseStrength,
+          pixelArtAlgorithm: options.pixelArtAlgorithm,
+          onProgress: options.onProgress,
+        });
+        return;
+      }
+
       const method =
-        options.mode === 'ai-enhance'
+        options.mode === 'ai-enhance' || options.mode === 'illustration'
           ? 'ai'
           : options.mode === 'pixel-art'
             ? 'nearest'
@@ -80,10 +102,16 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
               : options.mode === 'balanced'
                 ? 'bicubic'
                 : 'lanczos3';
+      const modelId =
+        options.mode === 'ai-enhance'
+          ? 'upscale-realesr-general'
+          : options.mode === 'illustration'
+            ? 'upscale-realesrgan-anime'
+            : undefined;
       await upscaleSelectedImage({
         scale: options.scale,
         method,
-        modelId: options.mode === 'ai-enhance' ? 'upscale-realesr-general' : undefined,
+        modelId,
         onProgress: options.onProgress,
         replaceSource: options.output === 'replace-source',
       });
