@@ -208,7 +208,7 @@ export const CAPABILITY: Record<ExportTarget, FlattenCapability> = {
   pdf: {
     nativeShapeKinds: PDF_NATIVE_SHAPES,
     nativeGradientTypes: PDF_NATIVE_GRADIENTS,
-    supportsText: false, // strata-print font outlining not wired; text must be rasterized
+    supportsText: true, // native PDF text via strata-print (WinAnsi + subset + outline fallback)
     supportsGroups: true,
     supportsImages: true,
     nativeEffectTypes: PDF_NATIVE_EFFECTS,

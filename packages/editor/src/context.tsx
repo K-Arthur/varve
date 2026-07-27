@@ -2127,6 +2127,25 @@ export function EditorProvider({
       themeRevision: 0,
       revision: 0,
       upscaleDialogOpen: false,
+      debugOverlay: {
+        enabled: false,
+        channels: {
+          geometry: false,
+          hitTest: false,
+          spatialIndex: false,
+          interaction: false,
+          selection: false,
+          performance: false,
+        },
+        labelDensity: 'sparse',
+        frozen: false,
+        maxItems: 100,
+        sampleRate: 1,
+      },
+      touchMultiSelect: {
+        active: false,
+        suspended: false,
+      },
     };
   });
   const dialogState = useDialogState();
@@ -5324,6 +5343,36 @@ export function EditorProvider({
         patch({ cafDialogNodeId: null });
       },
 
+      setDebugOverlayEnabled: (enabled: boolean) => {
+        const current = stateRef.current.debugOverlay;
+        patch({ debugOverlay: { ...current, enabled } });
+      },
+
+      setDebugOverlayChannel: (channel, value) => {
+        const current = stateRef.current.debugOverlay;
+        patch({
+          debugOverlay: {
+            ...current,
+            channels: { ...current.channels, [channel]: value },
+          },
+        });
+      },
+
+      setDebugOverlayLabelDensity: (density) => {
+        const current = stateRef.current.debugOverlay;
+        patch({ debugOverlay: { ...current, labelDensity: density } });
+      },
+
+      setDebugOverlayFrozen: (frozen) => {
+        const current = stateRef.current.debugOverlay;
+        patch({ debugOverlay: { ...current, frozen } });
+      },
+
+      setTouchMultiSelect: (active) => {
+        const current = stateRef.current.touchMultiSelect;
+        patch({ touchMultiSelect: { ...current, active } });
+      },
+
       setNodeLocked: (id, locked) => {
         updateNodeProp(id, (n) => ({ ...n, locked }));
       },
@@ -8188,6 +8237,11 @@ export function EditorProvider({
       setActivePage: value.setActivePage,
       setCurrentPageId: value.setCurrentPageId,
       activePageNodes: value.activePageNodes,
+      setDebugOverlayEnabled: value.setDebugOverlayEnabled,
+      setDebugOverlayChannel: value.setDebugOverlayChannel,
+      setDebugOverlayLabelDensity: value.setDebugOverlayLabelDensity,
+      setDebugOverlayFrozen: value.setDebugOverlayFrozen,
+      setTouchMultiSelect: value.setTouchMultiSelect,
     }),
     [value],
   );

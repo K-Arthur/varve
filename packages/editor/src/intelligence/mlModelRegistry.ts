@@ -20,6 +20,8 @@ const MANIFEST: ModelManifestEntry[] = [
     bundled: false,
     inputSpec: null,
     quality: 1,
+    speed: 3,
+    maxSessions: 1,
   },
   {
     id: 'component-embedder',
@@ -31,6 +33,8 @@ const MANIFEST: ModelManifestEntry[] = [
     bundled: false,
     inputSpec: null,
     quality: 1,
+    speed: 3,
+    maxSessions: 1,
   },
   {
     id: 'color-harmony',
@@ -42,6 +46,8 @@ const MANIFEST: ModelManifestEntry[] = [
     bundled: false,
     inputSpec: null,
     quality: 1,
+    speed: 3,
+    maxSessions: 1,
   },
 ];
 

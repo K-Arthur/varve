@@ -323,6 +323,30 @@ export interface EditorState {
   themeRevision: number;
   /** Monotonic revision counter for document backup/recovery. */
   revision: number;
+
+  // ── Debug overlay state (Workstream A) ─────────────────────────────────
+  debugOverlay: {
+    enabled: boolean;
+    channels: {
+      geometry: boolean;
+      hitTest: boolean;
+      spatialIndex: boolean;
+      interaction: boolean;
+      selection: boolean;
+      performance: boolean;
+    };
+    labelDensity: 'none' | 'sparse' | 'normal' | 'full';
+    frozen: boolean;
+    maxItems: number;
+    sampleRate: number;
+  };
+
+  // ── Touch multi-select state (Workstream D) ────────────────────────────
+  touchMultiSelect: {
+    active: boolean;
+    /** When true, transform gestures temporarily suspend multi-select toggling. */
+    suspended: boolean;
+  };
 }
 
 export interface EditorContextValue {
@@ -983,4 +1007,13 @@ export interface EditorContextValue {
   // Content-Aware Fill dialog
   openCafDialog: (nodeId: NodeId) => void;
   closeCafDialog: () => void;
+
+  // Debug overlays (Workstream A)
+  setDebugOverlayEnabled: (enabled: boolean) => void;
+  setDebugOverlayChannel: (channel: import('../debug/DebugOverlayRegistry').DebugOverlayChannel, value: boolean) => void;
+  setDebugOverlayLabelDensity: (density: import('../debug/DebugOverlayRegistry').DebugLabelDensity) => void;
+  setDebugOverlayFrozen: (frozen: boolean) => void;
+
+  // Touch multi-select (Workstream D)
+  setTouchMultiSelect: (active: boolean) => void;
 }

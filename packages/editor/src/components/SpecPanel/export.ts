@@ -6,6 +6,7 @@
 import { exportNodeToSvg } from '@strata/codegen';
 import {
   awaitExportsReady,
+  collectFontData,
   createEngine,
   createRasterSurface,
   DEFAULT_RASTER_SURFACE_POLICY,
