@@ -268,6 +268,7 @@ export type {
   ExportFontRequest,
   FontEntry,
   FontLoadState,
+  FontMetadata,
   VariableAxisInfo,
 } from './fontRegistry';
 export {
@@ -323,7 +324,12 @@ export {
 } from './iccImageConverter';
 export type { ImageCacheEntry, ImageLoadState } from './imageCache';
 export { getImageCache, ImageCache, resetImageCache } from './imageCache';
-export type { UpscaleMethod, UpscaleOptions, UpscaleProgressFn } from './imageEnhancement';
+export type {
+  DenoiseStrength,
+  UpscaleMethod,
+  UpscaleOptions,
+  UpscaleProgressFn,
+} from './imageEnhancement';
 export {
   computeUpscaleDimensions,
   DEFAULT_AI_UPSCALE_MODEL_ID,
@@ -341,6 +347,26 @@ export {
   localToSourcePixel,
   sourcePixelToLocal,
 } from './imagePlacement';
+export {
+  generateSyntheticFixtureImage,
+  getSyntheticFixtures,
+  QUALITY_MANIFEST,
+} from './imageQuality/corpusManifest';
+export { evaluateFixture, generateReport } from './imageQuality/evaluator';
+export {
+  computeAlphaDifference,
+  computeColorDifference,
+  computeMultiScaleSsim,
+  computePsnr,
+  computeSsim,
+} from './imageQuality/metrics';
+export type {
+  QualityCategory,
+  QualityFixture,
+  QualityFixtureManifest,
+  QualityMetricResult,
+  QualityReport,
+} from './imageQuality/qualityTypes';
 export type {
   InferenceEvents,
   InferenceProvider,
@@ -525,6 +551,8 @@ export type { FillRule, PathShapeLike } from './pathCompound';
 export { pathFillRule, pathRings } from './pathCompound';
 export type { GlyphPlacement, GlyphPlaceOptions, PathSample } from './pathText';
 export { pathLength, placeGlyphsOnPath, samplePathAtLength } from './pathText';
+export type { PixelArtAlgorithm, PixelArtOptions } from './pixelArtScaling';
+export { scalePixelArt } from './pixelArtScaling';
 export type { PorterDuffOp } from './porterDuff';
 export {
   compositePixels,
@@ -667,6 +695,12 @@ export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
 export type { UpscaleMode, UpscaleModeId } from './upscaleModes';
 export { DEFAULT_UPSCALE_MODE, getUpscaleMode, UPSCALE_MODES } from './upscaleModes';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
+export type {
+  EnhancementPipelineOptions,
+  EnhancementPipelineResult,
+  EnhancementStage,
+} from './upscaleProviders/enhancementPipeline';
+export { runEnhancementPipeline } from './upscaleProviders/enhancementPipeline';
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export {
   dispatchTrace,
