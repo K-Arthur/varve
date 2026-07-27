@@ -126,6 +126,7 @@ export interface ModelComponentEntry {
   filename: string;
   sizeBytes: number;
   remoteUrl?: string;
+  checksum?: string;
 }
 
 export type ModelState = 'unavailable' | 'downloading' | 'ready' | 'error';
