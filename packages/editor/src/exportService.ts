@@ -13,6 +13,7 @@ import {
   exportNodeToTailwind,
 } from '@strata/codegen';
 import type { Engine } from '@strata/engine';
+import { getFontRegistry } from '@strata/engine';
 import type { Document, ExportBatch, ExportFormat, ExportJob } from '@strata/scene';
 import {
   exportNodeAsPdf,
@@ -123,6 +124,49 @@ export function rasterScaleForJob(job: ExportJob, context: ExportRunContext): nu
   }
 }
 
+/**
+ * Check a node for missing/restricted fonts and return warning strings.
+ */
+function collectMissingFontWarnings(node: Document['nodes'][string]): string[] {
+  const warnings: string[] = [];
+  const registry = getFontRegistry();
+
+  if (node.kind !== 'text') return warnings;
+
+  // Check node-level font family
+  const nodeFamily = (node as { fontFamily?: string }).fontFamily;
+  if (nodeFamily && registry.isMissing(nodeFamily)) {
+    warnings.push(
+      `Font "${nodeFamily}" is not available on this device. ` +
+        `Text using this font may appear differently.`,
+    );
+  }
+
+  // Check rich text run fonts
+  const richText = (
+    node as {
+      richText?: { paragraphs: Array<{ runs: Array<{ format?: { fontFamily?: string } }> }> };
+    }
+  ).richText;
+  if (richText) {
+    for (const para of richText.paragraphs) {
+      for (const run of para.runs) {
+        const runFamily = run.format?.fontFamily;
+        if (runFamily && registry.isMissing(runFamily)) {
+          if (!warnings.some((w) => w.includes(runFamily))) {
+            warnings.push(
+              `Font "${runFamily}" is not available on this device. ` +
+                `Text in some runs may appear differently.`,
+            );
+          }
+        }
+      }
+    }
+  }
+
+  return warnings;
+}
+
 async function renderJob(job: ExportJob, context: ExportRunContext): Promise<RenderedExport> {
   const node = context.document.nodes[job.nodeId];
   if (!node) throw new Error(`Node ${job.nodeId} was not found`);
@@ -139,44 +183,46 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
           engine: context.engine ?? undefined,
         },
       );
+      const fontWarnings = collectMissingFontWarnings(node);
       return {
         bytes: encode(exportNodeToSvg(node, context.document, { rasterAssets })),
         mimeType: 'image/svg+xml',
-        warnings: [],
+        warnings: fontWarnings,
       };
     }
     case 'react-tailwind':
       return {
         bytes: encode(exportNodeToTailwind(node, context.document)),
         mimeType: 'text/tsx',
-        warnings: [],
+        warnings: collectMissingFontWarnings(node),
       };
     case 'react-cssmodules': {
       const result = exportNodeToCssModules(node, context.document);
       return {
         bytes: encode(`${result.jsx}\n\n/* CSS Module */\n${result.css}`),
         mimeType: 'text/tsx',
-        warnings: [],
+        warnings: collectMissingFontWarnings(node),
       };
     }
     case 'flutter':
       return {
         bytes: encode(exportNodeToFlutter(node, context.document)),
         mimeType: 'text/x-dart',
-        warnings: [],
+        warnings: collectMissingFontWarnings(node),
       };
     case 'swiftui':
       return {
         bytes: encode(exportNodeToSwiftUI(node, context.document)),
         mimeType: 'text/x-swift',
-        warnings: [],
+        warnings: collectMissingFontWarnings(node),
       };
     case 'pdf-screen': {
       const result = await exportNodeAsPdf(node, context.document, 1, context.engine ?? undefined);
+      const fontWarnings = collectMissingFontWarnings(node);
       return {
         bytes: result.bytes,
         mimeType: 'application/pdf',
-        warnings: [],
+        warnings: fontWarnings,
       };
     }
     case 'pdf-x1a':
@@ -188,15 +234,21 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       const mime = rasterMime(job.format);
       if (!mime) throw new Error(`Unsupported export format: ${job.format}`);
       if (!context.engine) throw new Error(`${job.format.toUpperCase()} export requires an engine`);
-      const { blob, warnings } = await exportNodeAsRaster(node, context.document, context.engine, {
-        format: mime,
-        scale: rasterScaleForJob(job, context),
-        quality: job.format === 'jpg' ? 0.92 : undefined,
-      });
+      const { blob, warnings: rasterWarnings } = await exportNodeAsRaster(
+        node,
+        context.document,
+        context.engine,
+        {
+          format: mime,
+          scale: rasterScaleForJob(job, context),
+          quality: job.format === 'jpg' ? 0.92 : undefined,
+        },
+      );
+      const fontWarnings = collectMissingFontWarnings(node);
       return {
         bytes: await blobToBytes(blob),
         mimeType: blob.type || mime,
-        warnings,
+        warnings: [...fontWarnings, ...rasterWarnings],
       };
     }
   }
