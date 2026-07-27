@@ -7,7 +7,7 @@
  * overlay rendering here instead of managing it inline.
  */
 
-import { canBeClipMaskSource, walkNodes } from '@strata/scene';
+import { activePageNodes, canBeClipMaskSource, type NodeId, walkNodes } from '@strata/scene';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { EditorState } from '../context/types';
 import type { TransformCache } from '../scene/transformCache';
@@ -63,7 +63,6 @@ export function useOverlayDraw({
     const s = stateRef.current;
     const doc = s.document;
     const cache = transformCacheRef.current;
-    const _entries = walkNodes(doc, activePageNodes(doc));
     const vp = { width: cssW, height: cssH };
     const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
     const accentColor = accentColorRef.current;
