@@ -34,7 +34,7 @@ export interface QuickBarActionDeps {
     decontaminate: boolean,
   ) => Promise<void>;
   cancelBackgroundRemoval: () => void;
-  upscaleSelectedImage: (opts: { scale: number; method: 'bilinear' }) => Promise<void>;
+  openUpscaleDialog: () => void;
   traceSelectedImage: (opts: {
     mode: 'monochrome';
     threshold: number;
@@ -78,7 +78,7 @@ export async function dispatchQuickBarAction(
       deps.cancelBackgroundRemoval();
       return;
     case 'upscale':
-      await deps.upscaleSelectedImage({ scale: 2, method: 'bilinear' });
+      deps.openUpscaleDialog();
       return;
     case 'vectorize':
       await deps.traceSelectedImage({

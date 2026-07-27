@@ -22,6 +22,7 @@ import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
+import type { SelectionOrigin } from './selectionState';
 
 export type { MaskPreviewMode, ToolId };
 
@@ -157,7 +158,7 @@ export interface EditorState {
   selectionMode: 'object' | 'direct' | 'path' | 'text' | 'pixel';
   /** Origin of the most recent selection change — used for synchronisation
    *  and undo-grouping decisions. */
-  selectionOrigin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api';
+  selectionOrigin: SelectionOrigin;
   /** Monotonic revision that increments on every selection change, enabling
    *  cheap change detection without deep-equal on the full selection array. */
   selectionRevision: number;
@@ -404,15 +405,8 @@ export interface EditorContextValue {
   ) => void;
   resetSectionOrder: () => void;
   // Selection
-  setSelection: (
-    id: NodeId | null,
-    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
-  ) => void;
-  toggleSelection: (
-    id: NodeId,
-    additive?: boolean,
-    origin?: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api',
-  ) => void;
+  setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
+  toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
   isSelected: (id: NodeId) => boolean;
   selectedNodes: () => SceneNode[];
   selectAllWithSameType: () => void;

@@ -13,6 +13,7 @@ import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCurs
 import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { FloatingToolbar } from './components/FloatingToolbar/FloatingToolbar';
+import { MissingFontController } from './components/FontBrowser/MissingFontController';
 import { ImageCompareOverlay } from './components/ImageCompareOverlay';
 import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
@@ -24,6 +25,8 @@ import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PromptDialog, promptDialog } from './components/PromptDialog';
+import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
+import './components/Upscale/UpscaleDialog.css';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { SelectionInfoBar } from './components/SelectionInfoBar';
@@ -141,7 +144,8 @@ function ShellInner({
   // Test-only: allow direct LUT import via custom event (bypasses file input)
   useEffect(() => {
     // Expose a global function for E2E tests to call directly
-    (window as any).__importLut = (adj: any) => {
+    const w = window as Record<string, unknown>;
+    w.__importLut = (adj: unknown) => {
       editor.addLutAdjustment(adj);
     };
     const handler = (e: Event) => {
@@ -149,10 +153,10 @@ function ShellInner({
       const { adjustment } = ce.detail ?? {};
       if (adjustment) editor.addLutAdjustment(adjustment);
     };
-    window.addEventListener('strata:test-import-lut', handler as EventListener);
+    window.addEventListener('strata:test-import-lut', handler);
     return () => {
-      delete (window as any).__importLut;
-      window.removeEventListener('strata:test-import-lut', handler as EventListener);
+      delete w.__importLut;
+      window.removeEventListener('strata:test-import-lut', handler);
     };
   }, [editor]);
 
@@ -283,6 +287,7 @@ function ShellInner({
             onContextMenu={handleCanvasContextMenu}
           />
         </ErrorBoundary>
+        <MissingFontController />
         <CollabCursorOverlay
           users={collabUsers}
           cursors={[]}
@@ -723,6 +728,34 @@ function ShellInner({
           onClose={() => editorHelp.setHelpCenterOpen(false)}
         />
         <PromptDialog />
+
+        {/* Upscale dialog */}
+        {editor.upscaleDialogOpen && (
+          <UpscaleDialogHost
+            open={editor.upscaleDialogOpen}
+            onClose={editor.closeUpscaleDialog}
+            onApply={async (options) => {
+              const method =
+                options.mode === 'ai-enhance'
+                  ? 'ai'
+                  : options.mode === 'pixel-art'
+                    ? 'nearest'
+                    : options.mode === 'fast'
+                      ? 'bilinear'
+                      : options.mode === 'balanced'
+                        ? 'bicubic'
+                        : 'lanczos3';
+              await editor.upscaleSelectedImage({
+                scale: options.scale,
+                method,
+                modelId: options.mode === 'ai-enhance' ? 'upscale-realesr-general' : undefined,
+                onProgress: options.onProgress,
+                replaceSource: options.output === 'replace-source',
+              });
+              editor.closeUpscaleDialog();
+            }}
+          />
+        )}
 
         {/* Canvas right-click context menu */}
         {canvasContextMenu &&
