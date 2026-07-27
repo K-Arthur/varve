@@ -18,8 +18,14 @@ export function whiteForMode(mode: ColorMode): ManagedColor {
 
 /** Document-wide settings are available without changing the current selection. */
 export function DocumentPanel() {
-  const { state, setCanvasBackground, switchColorMode, documentColorMode, setDocumentGrid } =
-    useEditor();
+  const {
+    state,
+    setCanvasBackground,
+    switchColorMode,
+    documentColorMode,
+    setDocumentGrid,
+    setPixelGridSnapEnabled,
+  } = useEditor();
   const doc = state.document;
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = doc.canvasBackground ?? fallbackColor;
@@ -220,6 +226,21 @@ export function DocumentPanel() {
                 className="insp-range"
               />
               <output>{Math.round(state.documentGrid.opacity * 100)}%</output>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Snap to Pixels</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={state.pixelGridSnapEnabled}
+                  onChange={(e) => {
+                    setPixelGridSnapEnabled(e.target.checked);
+                  }}
+                />
+                Snap to integer pixels
+              </label>
             </div>
           </div>
         </div>

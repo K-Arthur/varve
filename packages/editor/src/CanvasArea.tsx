@@ -1097,6 +1097,7 @@ export function CanvasArea({
             session: snapSessionRef.current,
             guideTargets,
             layoutGridStep,
+            pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
           },
         );
         snapSessionRef.current = result.session;
