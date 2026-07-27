@@ -52,7 +52,14 @@ export {
 } from './fontLicensePolicy';
 export type { FontLoaderConfig, LoadResult } from './fontLoader';
 // Loading and registration
-export { detectSystemFonts, FontLoader } from './fontLoader';
+export {
+  detectSystemFonts,
+  enumerateSystemFonts,
+  FontLoader,
+  getCachedLocalFontMetadata,
+  hasQueryLocalFonts,
+  resetSystemFontCache,
+} from './fontLoader';
 // Font file parsing
 export { parseFontData } from './fontParser';
 export type {
@@ -64,10 +71,13 @@ export type {
   FontProviderSearchOptions,
 } from './fontProviders';
 // Provider system
-export { FontProviderRegistry, GoogleFontsProvider } from './fontProviders';
+export { FontProviderRegistry, FontsourceProvider, GoogleFontsProvider } from './fontProviders';
 export type { FontReplacement, FontSubstitute, MissingFontInfo } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+// Bridge between FontRegistry and FontCatalog
+export { FontBridge } from './fontBridge';
+export type { UnifiedFontInfo } from './fontBridge';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';

@@ -145,8 +145,8 @@ export interface ParsedNamedInstance {
  * Detect font format from raw file bytes using magic bytes.
  */
 export function detectFontFormat(data: ArrayBuffer): FontFormat {
+  if (data.byteLength < 4) return 'unknown';
   const view = new Uint8Array(data, 0, 4);
-  if (view.length < 4) return 'unknown';
 
   if (view[0] === 0x77 && view[1] === 0x4f && view[2] === 0x46 && view[3] === 0x46) return 'woff';
   if (view[0] === 0x77 && view[1] === 0x4f && view[2] === 0x46 && view[3] === 0x32) return 'woff2';

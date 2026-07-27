@@ -575,14 +575,19 @@ function parseOS2Table(data: ArrayBuffer, tables: Map<string, TableDirectory>): 
 }
 
 function classifyFSType(fsType: number): EmbeddingRights {
-  const embeddingBits = fsType & 0x000c;
   const noSubsetting = (fsType & 0x0100) !== 0;
 
-  if (noSubsetting) return 'no-subsetting';
-  if (embeddingBits === 0) return 'installable';
-  if (embeddingBits === 0x0004) return 'preview-and-print';
-  if (embeddingBits === 0x0008) return 'editable';
-  return 'restricted';
+  // Bit 1 (0x0002) = Restricted License Embedding
+  if (fsType & 0x0002) return noSubsetting ? 'no-subsetting' : 'restricted';
+
+  // Bit 2 (0x0004) = Preview & Print Embedding
+  if (fsType & 0x0004) return noSubsetting ? 'no-subsetting' : 'preview-and-print';
+
+  // Bit 3 (0x0008) = Editable Embedding
+  if (fsType & 0x0008) return noSubsetting ? 'no-subsetting' : 'editable';
+
+  // No embedding bits set = Installable Embedding
+  return noSubsetting ? 'no-subsetting' : 'installable';
 }
 
 interface HheaData {
