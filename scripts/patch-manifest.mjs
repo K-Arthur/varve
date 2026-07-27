@@ -81,11 +81,11 @@ for (const model of manifest.models) {
   if (model.id === 'ddcolor-tiny' || model.id === 'ddcolor') {
     model.remoteUrl = '';
     model.sha256 = null;
-    console.log(`Cleared URL for ${model.id} (source unavailable)`);
+    console.log(`Cleared URL for ${model.id} (generated from official weights via recipe)`);
   }
 }
 
-['sam2-hiera-small', 'tr-ocr-base-printed', 'font-detect-resnet'].forEach((id) => {
+['sam2-hiera-small', 'tr-ocr-base-printed'].forEach((id) => {
   const model = manifest.models.find((m) => m.id === id);
   if (model) {
     model.remoteUrl = '';
@@ -93,6 +93,19 @@ for (const model of manifest.models) {
     console.log(`Ensured ${id} has empty URL (no trusted source)`);
   }
 });
+
+// font-classify has a real download URL from storia/font-classify-onnx (MIT)
+const fontClassify = manifest.models.find((m) => m.id === 'font-classify');
+if (fontClassify) {
+  console.log(`font-classify keeps its remoteUrl (storia/font-classify-onnx, MIT)`);
+}
+
+// font-detect-resnet is retired — removed in favor of font-classify
+const retiredIdx = manifest.models.findIndex((m) => m.id === 'font-detect-resnet');
+if (retiredIdx !== -1) {
+  manifest.models.splice(retiredIdx, 1);
+  console.log(`Removed retired font-detect-resnet (replaced by font-classify)`);
+}
 
 for (const model of manifest.models) {
   if (model.validation) {

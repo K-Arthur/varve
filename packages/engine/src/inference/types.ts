@@ -9,6 +9,63 @@
 
 export type ModelPrecision = 'fp32' | 'fp16' | 'int8' | 'bf16';
 
+/**
+ * A downloadable source for a model artifact or its upstream weights.
+ * Every source must pin a SHA-256 so integrity is independently verifiable.
+ */
+export interface ModelSource {
+  url: string;
+  mirrorUrls?: string[];
+  sha256: string;
+  label?: string;
+}
+
+/**
+ * Why a model cannot be acquired or used. Codes are machine-readable so the
+ * UI can branch on them and tests can assert coverage.
+ */
+export type ModelUnavailableReason =
+  | 'source-unavailable'
+  | 'no-public-onnx'
+  | 'export-pending'
+  | 'license-restricted'
+  | 'runtime-incompatible'
+  | 'retired';
+
+/**
+ * Discriminated union describing how a model is obtained. This replaces the
+ * ambiguous pattern of inferring availability from `remoteUrl === ''` or
+ * `sha256 === null`. Every entry MUST resolve to exactly one variant.
+ */
+export type ModelAcquisition =
+  | {
+      kind: 'bundled';
+      assetPath: string;
+      sha256: string;
+    }
+  | {
+      kind: 'remote';
+      sources: ModelSource[];
+      sha256: string;
+    }
+  | {
+      kind: 'generated';
+      recipeId: string;
+      sourceWeights: ModelSource[];
+      expectedSha256?: string;
+    }
+  | {
+      kind: 'manual-import';
+      acceptedFormats: string[];
+      validationProfile: string;
+    }
+  | {
+      kind: 'unavailable';
+      reasonCode: ModelUnavailableReason;
+      detail: string;
+      alternatives?: string[];
+    };
+
 /** Specification for a model's input preprocessing. */
 export interface ModelInputSpec {
   /** Expected input width/height (models square). */
@@ -120,6 +177,12 @@ export interface ModelManifestEntry {
   multiComponent?: boolean;
   /** Per-graph component specs for multiComponent models. */
   components?: ModelComponentEntry[];
+  /**
+   * Explicit acquisition strategy. When present, this is the single source of
+   * truth for how the model is obtained. When absent, use
+   * `deriveAcquisition()` to compute it from legacy fields.
+   */
+  acquisition?: ModelAcquisition;
 }
 
 export interface ModelComponentEntry {

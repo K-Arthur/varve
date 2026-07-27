@@ -722,7 +722,7 @@
         "inferenceVerified": false,
         "validationSummary": "NO SHA-256 yet. Contract from DDColor official export script (scripts/export_onnx.py). Source: piddnad/ddcolor_paper_tiny on HuggingFace. Apache-2.0."
       },
-      "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast preview quality grayscale-to-color. ~50MB. Apache-2.0. Input: 256x256 RGB [0,1]. Output: a*b* chroma [1,2,256,256]. SOURCE UNAVAILABLE: No public ONNX export exists. Requires manual export from PyTorch checkpoint."
+      "notes": "DDColor-Tiny (ConvNeXt-tiny) — fast preview quality grayscale-to-color. ~50MB. Apache-2.0. Input: 256x256 RGB [0,1]. Output: a*b* chroma [1,2,256,256]. Generated from official weights via reproducible ONNX export recipe (see tools/ddcolor-export/)."
     },
     {
       "id": "ddcolor",
@@ -769,7 +769,7 @@
         "inferenceVerified": false,
         "validationSummary": "NO SHA-256 yet. Contract from DDColor official export script (scripts/export_onnx.py). Source: piddnad/ddcolor_modelscope on HuggingFace. Apache-2.0."
       },
-      "notes": "DDColor-L (ConvNeXt-large) — photo-realistic grayscale-to-color. ~156MB. Apache-2.0. Input: 512x512 RGB [0,1]. Output: a*b* chroma [1,2,512,512]. Same architecture as ddcolor_modelscope model card. SOURCE UNAVAILABLE: No public ONNX export exists. Requires manual export from PyTorch checkpoint."
+      "notes": "DDColor-L (ConvNeXt-large) — photo-realistic grayscale-to-color. ~156MB. Apache-2.0. Input: 512x512 RGB [0,1]. Output: a*b* chroma [1,2,512,512]. Generated from official weights via reproducible ONNX export recipe (see tools/ddcolor-export/)."
     },
     {
       "id": "sam2-hiera-small",
@@ -844,18 +844,51 @@
       ]
     },
     {
-      "id": "font-detect-resnet",
-      "filename": "font-detect-resnet.onnx",
-      "localPath": "/models/font-detect-resnet.onnx",
+      "id": "font-classify",
+      "filename": "font-classify.onnx",
+      "localPath": "/models/font-classify.onnx",
       "sha256": null,
       "bundled": false,
-      "remoteUrl": "",
+      "remoteUrl": "https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx",
       "precision": "fp32",
       "modelVersion": "1.0.0",
+      "sourceRevision": "storia/font-classify-onnx (EfficientNet B3, Google Fonts)",
       "sourceLicense": "MIT",
       "preprocessingVersion": 1,
       "postprocessingVersion": 1,
-      "notes": "Font detection ResNet — identifies font families from text region images. ~44MB. Not yet available as download — model export pending. SOURCE UNAVAILABLE: No public ONNX export exists. Requires manual export from PyTorch checkpoint."
+      "supportedProviders": ["wasm", "webgpu", "webgl"],
+      "tensorContract": {
+        "version": 1,
+        "inputs": [
+          {
+            "name": "input",
+            "dims": [1, 3, 300, 300],
+            "dtype": "float32"
+          }
+        ],
+        "outputs": [
+          {
+            "name": "output",
+            "dims": [1, 3473],
+            "dtype": "float32"
+          }
+        ],
+        "normalization": {
+          "mean": [0.485, 0.456, 0.406],
+          "std": [0.229, 0.224, 0.225],
+          "channelOrder": "rgb"
+        },
+        "outputActivation": "none",
+        "peakMemoryBytes": 260000000
+      },
+      "validation": {
+        "contractVerified": false,
+        "integrityVerified": false,
+        "provenanceStatus": "unverified",
+        "inferenceVerified": false,
+        "validationSummary": "MIT-licensed EfficientNet B3 font classifier from Storia AI. 3473 Google Fonts classes. SHA-256 to be pinned from verified download."
+      },
+      "notes": "Font classifier — identifies font families from text region images. EfficientNet B3 finetuned on 3473 Google Fonts. ~64MB. MIT license. Input: 300x300 RGB (ImageNet normalization). Output: 3473 class logits. Includes fonts_mapping.yaml for Google Fonts filename resolution."
     },
     {
       "id": "detr-resnet-50",

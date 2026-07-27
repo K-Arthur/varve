@@ -17,6 +17,7 @@ import { DD_COLOR_INPUT_SIZE, DD_COLOR_TENSOR_SPEC } from './models/ddcolor';
 import { DEPTH_ANYTHING_INPUT_SIZE, DEPTH_ANYTHING_TENSOR_SPEC } from './models/depth';
 import { DETR_INPUT_SIZE, DETR_TENSOR_SPEC } from './models/detr';
 import { EFFICIENTNET_INPUT_SIZE, EFFICIENTNET_TENSOR_SPEC } from './models/efficientnet';
+import { FONT_CLASSIFY_INPUT_SIZE, FONT_CLASSIFY_TENSOR_SPEC } from './models/fontClassify';
 import { LAMA_INPUT_SIZE, LAMA_TENSOR_SPEC } from './models/lama';
 import { LINE_ART_INPUT_SIZE, LINE_ART_TENSOR_SPEC } from './models/lineArt';
 import { PADDLE_DET_TENSOR_SPEC } from './models/paddleocr';
@@ -43,7 +44,8 @@ export type WorkerModelType =
   | 'paddleocr-det'
   | 'paddleocr-rec'
   | 'trocr'
-  | 'siglip-image';
+  | 'siglip-image'
+  | 'font-classify';
 
 export interface WorkerTensor {
   data: Float32Array;
@@ -272,6 +274,12 @@ registerModelType('trocr', {
 registerModelType('siglip-image', {
   tensorSpec: SIGLIP_IMAGE_TENSOR_SPEC,
   getInputSize: () => SIGLIP_IMAGE_SIZE,
+  hasImageInput: true,
+});
+
+registerModelType('font-classify', {
+  tensorSpec: FONT_CLASSIFY_TENSOR_SPEC,
+  getInputSize: () => FONT_CLASSIFY_INPUT_SIZE,
   hasImageInput: true,
 });
 
