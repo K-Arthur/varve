@@ -720,6 +720,8 @@ export interface EditorContextValue {
   setSelectedFlipH: () => void;
   /** F6: batch-edit flip vertical on all selected nodes. */
   setSelectedFlipV: () => void;
+  /** F6: batch-edit skew on all selected nodes (degrees). */
+  setSelectedSkew: (skewX: number, skewY: number) => void;
   /** F6: batch-edit corner radius on all selected shape nodes. */
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
   /** F6: create a selection set from the current selection. */
@@ -4143,6 +4145,36 @@ export function EditorProvider({
             nodes[id] = {
               ...node,
               transform: [a, b, -c, -d, e + 2 * c * lcy, f + 2 * d * lcy] as Affine,
+            } as SceneNode;
+          }
+          return { ...doc, nodes };
+        });
+      },
+
+      // F6: batch-edit skew — apply shear to the affine transform.
+      setSelectedSkew: (skewXDeg: number, skewYDeg: number) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        const skewXRad = (skewXDeg * Math.PI) / 180;
+        const skewYRad = (skewYDeg * Math.PI) / 180;
+        const tanSkewX = Math.tan(skewXRad);
+        const tanSkewY = Math.tan(skewYRad);
+        updateDoc((doc) => {
+          const nodes = { ...doc.nodes };
+          for (const id of sel) {
+            const node = nodes[id];
+            if (!node) continue;
+            const [a, b, c, d, e, f] = node.transform as Affine;
+            nodes[id] = {
+              ...node,
+              transform: [
+                a + c * tanSkewY,
+                b + d * tanSkewY,
+                c + a * tanSkewX,
+                d + b * tanSkewX,
+                e,
+                f,
+              ] as Affine,
             } as SceneNode;
           }
           return { ...doc, nodes };
@@ -7865,6 +7897,7 @@ export function EditorProvider({
       setSelectedRotation: value.setSelectedRotation,
       setSelectedFlipH: value.setSelectedFlipH,
       setSelectedFlipV: value.setSelectedFlipV,
+      setSelectedSkew: value.setSelectedSkew,
       setSelectedCornerRadius: value.setSelectedCornerRadius,
       createSelectionSet: value.createSelectionSet,
       updateSelectionSet: value.updateSelectionSet,
