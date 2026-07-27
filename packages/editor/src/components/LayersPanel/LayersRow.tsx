@@ -45,6 +45,7 @@ export interface LayersRowProps {
   onDoubleClickIcon?: (id: NodeId) => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
+  onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
   style?: React.CSSProperties;
@@ -127,6 +128,7 @@ export const LayersRow = memo(function LayersRow({
   onDoubleClickIcon,
   onToggleVisibility,
   onToggleLock,
+  onToggleSelectionCheckbox,
   onFocus,
   idx,
   style,
@@ -303,6 +305,25 @@ export const LayersRow = memo(function LayersRow({
           {...dragAttributes}
         >
           <SolidIcon name={SOLID_CHROME_ICONS.gripVertical} size="0.75em" />
+        </button>
+
+        {/* Selection checkbox — visual and touch-friendly multi-select affordance */}
+        <button
+          type="button"
+          className={`layers-row__selection-checkbox ${selected ? 'layers-row__selection-checkbox--selected' : ''}`}
+          tabIndex={-1}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelectionCheckbox?.(node.id);
+          }}
+          aria-label={selected ? `Remove ${node.name} from selection` : `Add ${node.name} to selection`}
+          aria-checked={selected}
+          role="checkbox"
+        >
+          <SolidIcon
+            name={selected ? SOLID_CHROME_ICONS.checkSquare : SOLID_CHROME_ICONS.square}
+            size="0.75em"
+          />
         </button>
 
         {/* Disclosure triangle */}
