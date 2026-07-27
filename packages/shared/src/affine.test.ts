@@ -3,6 +3,7 @@ import {
   type Affine,
   applyAffine,
   decomposeAffine,
+  decomposeAffineFull,
   identity,
   invertAffine,
   multiplyAffine,
@@ -274,5 +275,83 @@ describe('decomposeAffine', () => {
     expect(Math.abs(d.translateY - ty)).toBeLessThan(EPS);
     expect(Math.abs(d.rotation - rot)).toBeLessThan(EPS);
     expect(Math.abs(d.scale - s)).toBeLessThan(EPS);
+  });
+});
+
+describe('decomposeAffineFull', () => {
+  const EPS = 1e-9;
+
+  it('decomposes identity matrix', () => {
+    const d = decomposeAffineFull(identity);
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(d.translateX).toBe(0);
+    expect(d.translateY).toBe(0);
+    expect(d.rotation).toBe(0);
+    expect(d.scaleX).toBe(1);
+    expect(d.scaleY).toBe(1);
+    expect(d.skewX).toBe(0);
+    expect(d.skewY).toBe(0);
+  });
+
+  it('decomposes translation', () => {
+    const d = decomposeAffineFull(translate(10, 20));
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(d.translateX).toBe(10);
+    expect(d.translateY).toBe(20);
+    expect(d.rotation).toBe(0);
+    expect(d.scaleX).toBe(1);
+    expect(d.scaleY).toBe(1);
+  });
+
+  it('decomposes rotation', () => {
+    const d = decomposeAffineFull(rotateRad(Math.PI / 4));
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(Math.abs(d.rotation - Math.PI / 4)).toBeLessThan(EPS);
+  });
+
+  it('decomposes non-uniform scale', () => {
+    const d = decomposeAffineFull(scaleXY(2, 3));
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(Math.abs(d.scaleX - 2)).toBeLessThan(EPS);
+    expect(Math.abs(d.scaleY - 3)).toBeLessThan(EPS);
+  });
+
+  it('decomposes skewX', () => {
+    const skewAngle = (30 * Math.PI) / 180;
+    const skewMatrix: Affine = [1, 0, Math.tan(skewAngle), 1, 0, 0];
+    const d = decomposeAffineFull(skewMatrix);
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(Math.abs(d.skewX - Math.tan(skewAngle))).toBeLessThan(EPS);
+  });
+
+  it('returns null for singular matrix', () => {
+    expect(decomposeAffineFull([0, 0, 0, 0, 0, 0])).toBeNull();
+  });
+
+  it('round-trips through skew application', () => {
+    const skewDeg = 15;
+    const skewRad = (skewDeg * Math.PI) / 180;
+    const tanSkew = Math.tan(skewRad);
+    const skewed: Affine = [1, 0, tanSkew, 1, 0, 0];
+    const d = decomposeAffineFull(skewed);
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(Math.abs(d.skewX - tanSkew)).toBeLessThan(EPS);
+    expect(Math.abs(d.rotation)).toBeLessThan(EPS);
+    expect(Math.abs(d.scaleX - 1)).toBeLessThan(EPS);
+    expect(Math.abs(d.scaleY - 1)).toBeLessThan(EPS);
+  });
+
+  it('handles negative scale (reflection)', () => {
+    const reflected: Affine = [-1, 0, 0, 1, 0, 0];
+    const d = decomposeAffineFull(reflected);
+    expect(d).not.toBeNull();
+    if (!d) return;
+    expect(d.scaleY).toBeLessThan(0);
   });
 });

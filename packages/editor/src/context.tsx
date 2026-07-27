@@ -1499,7 +1499,11 @@ function snapshotEditorSession(
   return {
     document: s.document,
     selection: s.selection,
-    viewport: captureViewport({ ...s, gridVisible: s.documentGrid.visible }),
+    viewport: captureViewport({
+      ...s,
+      gridVisible: s.documentGrid.visible,
+      dotGridEnabled: s.dotGridEnabled,
+    }),
     undo: [...undo],
     redo: [...redo],
     undoSel: [...undoSel],
@@ -1518,6 +1522,7 @@ function restoreViewportFields(
   | 'snapEnabled'
   | 'pixelGridEnabled'
   | 'pixelGridSnapEnabled'
+  | 'dotGridEnabled'
   | 'rulerMode'
   | 'gridOverlayMode'
   | 'unitType'
@@ -1535,6 +1540,7 @@ function restoreViewportFields(
     snapEnabled: v.snapEnabled,
     pixelGridEnabled: v.pixelGridEnabled,
     pixelGridSnapEnabled: v.pixelGridSnapEnabled ?? false,
+    dotGridEnabled: v.dotGridEnabled ?? false,
     rulerMode: v.rulerMode,
     gridOverlayMode: v.gridOverlayMode,
     unitType: v.unitType,
@@ -1550,6 +1556,7 @@ function persistViewportPrefs(s: EditorState): void {
       snapEnabled: s.snapEnabled,
       pixelGridEnabled: s.pixelGridEnabled,
       pixelGridSnapEnabled: s.pixelGridSnapEnabled,
+      dotGridEnabled: s.dotGridEnabled,
       rulerMode: s.rulerMode,
       gridOverlayMode: s.gridOverlayMode,
       unitType: s.unitType,
@@ -6674,7 +6681,7 @@ export function EditorProvider({
             snapEnabled: vpDefaults.snapEnabled,
             pixelGridEnabled: vpDefaults.pixelGridEnabled,
             pixelGridSnapEnabled: false,
-            dotGridEnabled: s.dotGridEnabled,
+            dotGridEnabled: vpDefaults.dotGridEnabled ?? false,
             snapGrid: vpDefaults.snapGrid,
             rulerMode: vpDefaults.rulerMode,
             gridOverlayMode: vpDefaults.gridOverlayMode,

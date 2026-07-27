@@ -155,6 +155,7 @@ function buildMenus(
     beforeAfterCompare: boolean;
     rulerMode: string;
     snapEnabled: boolean;
+    pixelGridEnabled: boolean;
     documentGrid: {
       visible: boolean;
       spacingX: number;
@@ -508,6 +509,7 @@ export function Menubar({
       state.beforeAfterCompare,
       state.rulerMode,
       state.snapEnabled,
+      state.pixelGridEnabled,
       state.documentGrid?.visible,
       recentEntries,
     ],
