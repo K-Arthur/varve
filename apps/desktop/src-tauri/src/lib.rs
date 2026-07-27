@@ -764,43 +764,6 @@ fn native_ai_status(_app: tauri::AppHandle) -> bool {
 /// inference. Returning an empty output map with a native execution-provider
 /// label would make capability diagnostics and provider routing misleading.
 #[allow(unused_variables)]
-#[tauri::command]
-async fn native_colorize_infer(
-    app: tauri::AppHandle,
-    model_type: String,
-    model_path: String,
-    image_data_base64: Option<String>,
-    tensors: Option<std::collections::HashMap<String, TensorPayload>>,
-    infer_params: Option<std::collections::HashMap<String, serde_json::Value>>,
-    target_width: Option<u32>,
-    target_height: Option<u32>,
-) -> Result<NativeInferResult, String> {
-    let _ = (
-        app,
-        model_type,
-        model_path,
-        image_data_base64,
-        tensors,
-        infer_params,
-        target_width,
-        target_height,
-    );
-    Err("Native colorization is unavailable: ONNX inference is not implemented".into())
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct TensorPayload {
-    data: Vec<f32>,
-    dims: Vec<i64>,
-}
-
-#[derive(Debug, Serialize)]
-struct NativeInferResult {
-    outputs: std::collections::HashMap<String, serde_json::Value>,
-    execution_provider: String,
-    processing_time_ms: u64,
-}
-
 /// Idempotently initialize the native ONNX Runtime from the bundled dylib
 /// and report whether it is actually usable. Must be called before ANY code
 /// path that could touch `ort` session APIs (`remove_background` with an AI
@@ -2156,8 +2119,6 @@ pub fn run() {
             list_printers,
             print_pdf,
             cancel_print_job,
-            // Native ONNX inference for colorization
-            native_colorize_infer,
             // W6: backend-dependent UI stubs
             ai_chat,
             get_collab_users,

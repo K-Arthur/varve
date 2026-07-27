@@ -64,8 +64,8 @@ pub fn enumerate_system_fonts(
         };
 
         result.push(SystemFontFace {
-            family: font.family_name,
-            name: font.font_name,
+            family: font.family_name.clone(),
+            name: font.font_name.clone(),
             path: font.path.to_string_lossy().to_string(),
             style,
             weight: font.weight.value(),
