@@ -125,9 +125,16 @@ export function ModelManager() {
         let availabilityReason: string | undefined;
         if (!entry.bundled && !isReady) {
           if (entry.remoteUrl === '') {
-            availabilityReason = 'No download URL available';
+            const notes = entry.sourceRevision || entry.description || '';
+            if (notes.toLowerCase().includes('source unavailable') || notes.toLowerCase().includes('no public onnx')) {
+              availabilityReason = 'No public ONNX export — requires manual export from source repo';
+            } else if (notes.toLowerCase().includes('no download url') || notes.toLowerCase().includes('requires onnx export')) {
+              availabilityReason = 'Requires ONNX export from source framework';
+            } else {
+              availabilityReason = 'No download source available';
+            }
           } else if (!entry.checksum) {
-            availabilityReason = 'No integrity checksum';
+            availabilityReason = 'No integrity checksum — download disabled for safety';
           } else if (
             entry.peakMemoryBytes &&
             runtimeCaps.memoryTier === 'low' &&
@@ -266,6 +273,10 @@ export function ModelManager() {
         if (a.entry.bundled !== b.entry.bundled) return a.entry.bundled ? -1 : 1;
         if (a.state === 'ready' && b.state !== 'ready') return -1;
         if (a.state !== 'ready' && b.state === 'ready') return 1;
+        const aAvailable = a.state === 'ready' || (!!a.entry.remoteUrl && !!a.entry.checksum);
+        const bAvailable = b.state === 'ready' || (!!b.entry.remoteUrl && !!b.entry.checksum);
+        if (aAvailable && !bAvailable) return -1;
+        if (!aAvailable && bAvailable) return 1;
         return b.entry.quality - a.entry.quality;
       });
     }
@@ -293,7 +304,8 @@ export function ModelManager() {
         <p className="settings-section__hint">
           All AI models run locally on your device. Bundled models ship with the app. Optional
           models are downloaded on demand and stored in your browser's local storage or the desktop
-          app's data directory.
+          app's data directory. Models marked as unavailable have no trusted public ONNX source
+          and require manual export from their original framework.
         </p>
 
         {totalStorage > 0 && (
