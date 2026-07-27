@@ -1499,3 +1499,382 @@
     transition: none;
   }
 }
+
+/* ── Input (text field) ──────────────────────────── */
+.strata-input {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.strata-input__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+.strata-input__wrapper {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  transition: border-color var(--duration-quick) var(--ease-standard);
+}
+.strata-input--focused .strata-input__wrapper {
+  border-color: var(--color-interactive-default);
+}
+.strata-input--error .strata-input__wrapper {
+  border-color: var(--color-feedback-danger);
+}
+.strata-input--disabled .strata-input__wrapper {
+  opacity: 0.5;
+}
+.strata-input__prefix,
+.strata-input__suffix {
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+.strata-input__prefix {
+  padding-left: var(--space-2);
+}
+.strata-input__suffix {
+  padding-right: var(--space-2);
+}
+.strata-input__field {
+  flex: 1;
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+}
+.strata-input--sm .strata-input__field {
+  height: var(--space-4);
+}
+.strata-input--lg .strata-input__field {
+  height: var(--space-6);
+}
+.strata-input__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-danger);
+}
+.strata-input__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+
+/* ── TextArea ─────────────────────────────────────── */
+.strata-textarea {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.strata-textarea__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+.strata-textarea__field {
+  width: 100%;
+  min-height: calc(var(--space-5) * 3);
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  line-height: var(--font-line-normal);
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--duration-quick) var(--ease-standard);
+}
+.strata-textarea--focused .strata-textarea__field {
+  border-color: var(--color-interactive-default);
+}
+.strata-textarea--error .strata-textarea__field {
+  border-color: var(--color-feedback-danger);
+}
+.strata-textarea--disabled .strata-textarea__field {
+  opacity: 0.5;
+  resize: none;
+}
+.strata-textarea--sm .strata-textarea__field {
+  min-height: calc(var(--space-4) * 3);
+}
+.strata-textarea--lg .strata-textarea__field {
+  min-height: calc(var(--space-6) * 3);
+}
+.strata-textarea__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: var(--space-3);
+}
+.strata-textarea__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-danger);
+}
+.strata-textarea__hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.strata-textarea__counter {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  margin-left: auto;
+}
+
+/* ── Radio (APG Radio Group) ──────────────────────── */
+.strata-radio-group {
+  display: flex;
+  gap: var(--space-1);
+}
+.strata-radio-group--vertical {
+  flex-direction: column;
+}
+.strata-radio-group--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.strata-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+.strata-radio__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.strata-radio__dot {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: var(--color-surface-raised);
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    border-color var(--duration-quick) var(--ease-standard);
+}
+.strata-radio__dot::after {
+  content: "";
+  position: absolute;
+  inset: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--color-text-on-accent);
+  opacity: 0;
+  transform: scale(0);
+  transition:
+    opacity var(--duration-quick) var(--ease-standard),
+    transform var(--duration-quick) var(--ease-standard);
+}
+.strata-radio--checked .strata-radio__dot {
+  background: var(--color-interactive-default);
+  border-color: var(--color-interactive-default);
+}
+.strata-radio--checked .strata-radio__dot::after {
+  opacity: 1;
+  transform: scale(1);
+}
+.strata-radio__input:focus-visible + .strata-radio__dot {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.strata-radio--disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.strata-radio__label {
+  user-select: none;
+}
+
+/* ── Switch (APG Switch) ──────────────────────────── */
+.strata-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+.strata-switch__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+.strata-switch__track {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--color-border-strong);
+  transition: background var(--duration-quick) var(--ease-standard);
+}
+.strata-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-raised);
+  transition: transform var(--duration-quick) var(--ease-standard);
+}
+.strata-switch__input:checked + .strata-switch__track {
+  background: var(--color-interactive-default);
+}
+.strata-switch__input:checked + .strata-switch__track .strata-switch__thumb {
+  transform: translateX(16px);
+}
+.strata-switch__input:focus-visible + .strata-switch__track {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.strata-switch--disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.strata-switch__label {
+  user-select: none;
+}
+
+/* ── ToggleButton (pressed/unpressed tool button) ─── */
+.strata-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition:
+    background var(--duration-quick) var(--ease-standard),
+    color var(--duration-quick) var(--ease-standard);
+}
+.strata-toggle-btn:hover {
+  background: var(--color-surface-sunken);
+}
+.strata-toggle-btn--pressed {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent-primary);
+}
+.strata-toggle-btn--pressed:hover {
+  background: var(--color-accent-subtle);
+}
+.strata-toggle-btn--sm {
+  height: var(--space-4);
+  width: var(--space-4);
+}
+.strata-toggle-btn--md {
+  height: var(--space-5);
+  width: var(--space-5);
+}
+.strata-toggle-btn--lg {
+  height: var(--space-6);
+  width: var(--space-6);
+}
+.strata-toggle-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.strata-toggle-btn--disabled {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── Combobox (free-text with suggestions) ────────── */
+.strata-combobox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  position: relative;
+}
+.strata-combobox__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+.strata-combobox__wrapper {
+  display: flex;
+  align-items: center;
+}
+.strata-combobox__input {
+  flex: 1;
+  height: var(--space-5);
+  padding: 0 var(--space-2);
+  background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  outline: none;
+  transition: border-color var(--duration-quick) var(--ease-standard);
+}
+.strata-combobox__input:focus {
+  border-color: var(--color-interactive-default);
+}
+.strata-combobox--error .strata-combobox__input {
+  border-color: var(--color-feedback-danger);
+}
+.strata-combobox--disabled .strata-combobox__input {
+  opacity: 0.5;
+}
+.strata-combobox__error {
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-danger);
+}
+.strata-combobox__listbox {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: var(--z-overlay);
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--elevation-shadow-raised);
+  margin-top: var(--space-1);
+}
+.strata-combobox__option {
+  padding: var(--space-2);
+  cursor: pointer;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+}
+.strata-combobox__option--highlighted {
+  background: var(--color-surface-sunken);
+}
+.strata-combobox__option--disabled {
+  opacity: 0.5;
+  cursor: default;
+}

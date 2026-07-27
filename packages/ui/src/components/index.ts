@@ -28,6 +28,8 @@ export {
   SpotColorBrowser,
   SwatchPalette,
 } from './ColorPicker';
+export type { ComboboxOption, ComboboxProps } from './Combobox';
+export { Combobox } from './Combobox';
 export type { ContentSkeletonProps } from './ContentSkeleton';
 export { ContentSkeleton } from './ContentSkeleton';
 export type { CopyButtonProps } from './CopyButton';
@@ -46,6 +48,8 @@ export type { IconButtonProps } from './IconButton';
 export { IconButton } from './IconButton';
 export type { InlineActivityIndicatorProps } from './InlineActivityIndicator';
 export { InlineActivityIndicator } from './InlineActivityIndicator';
+export type { InputProps } from './Input';
+export { Input } from './Input';
 export type {
   ContextMenuProps,
   MenuButtonProps,
@@ -66,6 +70,8 @@ export type { PopoverProps } from './Popover';
 export { Popover } from './Popover';
 export type { PresetPickerProps, PresetTileProps } from './PresetPicker';
 export { PresetPicker, PresetTile } from './PresetPicker';
+export type { RadioGroupProps, RadioOption, RadioProps } from './Radio';
+export { Radio, RadioGroup } from './Radio';
 export type { RegionLoaderProps } from './RegionLoader';
 export { RegionLoader } from './RegionLoader';
 export type { SearchFieldProps } from './SearchField';
@@ -78,11 +84,17 @@ export type { SliderProps } from './Slider';
 export { Slider } from './Slider';
 export type { StartupLoaderProps } from './StartupLoader';
 export { StartupLoader } from './StartupLoader';
+export type { SwitchProps } from './Switch';
+export { Switch } from './Switch';
 export type { Tab, TabsProps } from './Tabs';
 export { Tabs } from './Tabs';
+export type { TextAreaProps } from './TextArea';
+export { TextArea } from './TextArea';
 export type { ToastItem, ToastProps } from './Toast';
 export { Toast } from './Toast';
 export { ToastProvider, useToast } from './ToastProvider';
+export type { ToggleButtonProps } from './ToggleButton';
+export { ToggleButton } from './ToggleButton';
 export type { ToolbarProps } from './Toolbar';
 export { Toolbar } from './Toolbar';
 export type { TooltipProps, TooltipProviderProps } from './Tooltip';

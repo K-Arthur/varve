@@ -1,0 +1,55 @@
+import { type ButtonHTMLAttributes, forwardRef } from 'react';
+import type { IconName } from '../icons';
+import { Icon } from '../icons/Icon';
+
+export interface ToggleButtonProps
+  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
+  pressed: boolean;
+  onPressedChange: (pressed: boolean) => void;
+  icon?: IconName;
+  label: string;
+  size?: 'sm' | 'md' | 'lg';
+  /** Tooltip text; defaults to label. */
+  tooltip?: string;
+}
+
+export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(function ToggleButton(
+  {
+    pressed,
+    onPressedChange,
+    icon,
+    label,
+    size = 'md',
+    tooltip,
+    className = '',
+    disabled,
+    ...rest
+  },
+  ref,
+) {
+  const classes = [
+    'strata-toggle-btn',
+    `strata-toggle-btn--${size}`,
+    pressed ? 'strata-toggle-btn--pressed' : '',
+    disabled ? 'strata-toggle-btn--disabled' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={classes}
+      aria-pressed={pressed}
+      aria-label={label}
+      title={tooltip || label}
+      disabled={disabled}
+      onClick={() => onPressedChange(!pressed)}
+      {...rest}
+    >
+      {icon && <Icon name={icon} size={size} />}
+    </button>
+  );
+});
