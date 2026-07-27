@@ -151,3 +151,40 @@ history entries and one Alt-drag 5, with no-op first/middle undos. That is the
 `context.tsx` transaction path, which a concurrent session is actively
 refactoring (`context/useHistory.ts`); measurements are recorded in the write-up
 as an acceptance check for that work.
+
+## Quadratic getParent fallback across seven hot paths (2026-07-27)
+
+Full write-up: [`2026-07-27-quadratic-getparent-fallback.md`](2026-07-27-quadratic-getparent-fallback.md).
+
+Follow-up to the 2026-07-26 session: chasing "what's the real node-count
+ceiling" (asked to inform a rendering-engine choice) found a real ceiling, and
+it wasn't the renderer. `nodeWorldTransform`/`nodeWorldBounds` accept an
+optional `parentIndex` cache; omitting it falls back to an O(n) linear scan
+(`getParent`) per ancestor-chain hop. Found and fixed at seven call sites,
+three of them on the live pointer-move/click hot path, not just document-open.
+
+| Workload | Before | Bound | Result | Confidence |
+|---|---:|---:|---|---|
+| `computeFitAllCamera`, 500 → 4,000 nodes (8x) | 54.7 s | 3.3 s | fails pre-fix, 204 ms post-fix | high — reverted by hand and re-run |
+| `HitTestEngine.hitTest` (deepSelect), 300 → 2,400 candidates | 9.2 s | 0.68 s | fails pre-fix, passes post-fix | high |
+| `HitTestEngine.findNodesAtPoint`, 300 → 2,400 candidates | 8.5 s | 0.44 s | fails pre-fix, passes post-fix | high |
+| `flattenVisibleNodesForVideo`, 300 → 2,400 nodes (8x) | 11.4 s | 1.3 s | fails pre-fix, 74 ms post-fix | high |
+| Marquee-select (structural: mock call count, not timing) | called 50/50 | 0 calls | fails pre-fix, passes post-fix | high |
+| 20,000-node document open, real browser, original discovery | 10+ min, CPU pegged at 96%, never finished | — | not re-measured cleanly post-fix (see below) | high for the *before* number only |
+
+**Not independently re-confirmed end-to-end.** All seven unit-test-level
+fixes are proven (each reverted by hand and shown to fail, then restored and
+shown to pass). A post-fix real-browser re-run of the original 20,000-node
+case did not complete cleanly this session — the app's own boot timed out
+before the fixture even loaded, with system load at 15.8/20.4/24.4 and
+another agent's `tsc`/`madge` run active concurrently. Confirmed the fix was
+genuinely being served (fetched the live module, found `buildParentIndexMap`
+in it) rather than assuming. Recommended follow-up: re-run on a quiet
+machine; see the write-up for the exact reproduction steps.
+
+**Also recorded:** `git show HEAD:<file>` was not safe to use as "the pre-fix
+version" during this session — a concurrent process committed several of this
+session's in-progress files under unrelated commit messages within minutes of
+editing them, twice causing a false-negative revert (silently restoring the
+already-fixed code instead of the original). See the write-up's "Methodology
+hazards" section.
