@@ -144,6 +144,27 @@ export class FontLoader {
     }
   }
 
+  /**
+   * Restore a previously persisted font from raw binary data.
+   *
+   * This is the public API used by the font-storage restoration flow:
+   * it parses the binary, creates a FontFace, registers it with the
+   * FontRegistry, and makes it available for canvas/DOM rendering.
+   * Skips duplicate-restore gracefully (returns the cached result).
+   */
+  async restoreFont(family: string, data: ArrayBuffer): Promise<LoadResult> {
+    const existing = this.inFlight.get(family);
+    if (existing) return existing;
+
+    const promise = this.loadFromArrayBufferPublic(family, data, 'local');
+    this.inFlight.set(family, promise);
+    try {
+      return await promise;
+    } finally {
+      this.inFlight.delete(family);
+    }
+  }
+
   private async _loadFontInner(meta: ParsedFontMetadata, data?: ArrayBuffer): Promise<LoadResult> {
     const family = meta.identity.familyName;
 
@@ -262,6 +283,15 @@ export class FontLoader {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  /** Restore helper — public wrapper around loadFromArrayBuffer. */
+  async loadFromArrayBufferPublic(
+    family: string,
+    data: ArrayBuffer,
+    source: 'network' | 'local',
+  ): Promise<LoadResult> {
+    return this.loadFromArrayBuffer(family, data, source);
   }
 
   // ── Internal ───────────────────────────────────────────────────────────

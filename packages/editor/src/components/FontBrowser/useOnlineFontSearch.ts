@@ -8,6 +8,7 @@ import {
   GoogleFontsProvider,
 } from '@strata/engine/font';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { storeFont } from './fontStorage';
 
 export interface OnlineFontSearchResult {
   results: FontProviderResult[];
@@ -39,6 +40,9 @@ function getDownloadManager(): FontDownloadManager {
           if (job.metadata && job.data) {
             const fontLoader = new FontLoader(undefined, registry);
             void fontLoader.loadFont(job.metadata, job.data);
+            void storeFont(job.familyName, job.data, {
+              providerId: job.url.includes('googleapis') ? 'google-fonts' : 'fontsource',
+            });
           }
         },
       },
