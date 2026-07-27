@@ -4,10 +4,10 @@ import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useMemo } from 'react';
 import {
   DEFAULT_SELECTION_ORIGIN,
+  type EditorState,
   nextSelectionPrimary,
   type SelectionOrigin,
-} from './selectionState';
-import type { EditorState } from './types';
+} from './types';
 
 export interface SelectionContextValue {
   selection: NodeId[];

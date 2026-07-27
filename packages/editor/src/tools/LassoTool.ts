@@ -9,20 +9,10 @@
  *                 freehand point capture from PencilTool.
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
-import {
-  activePageNodes,
-  buildParentIndexMap,
-  isInIsolatedSubtree,
-  walkNodes,
-} from '@strata/scene';
+import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 import { BaseTool } from './BaseTool';
-import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
-import {
-  polygonIntersectsBounds,
-  simplifyPolygon,
-  type Point2D,
-} from './lassoGeometry';
+import { buildParentIndexMap, isInIsolatedSubtree, walkNodes } from '@strata/scene';
+import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
 
 const LASSO_MIN_DISTANCE = 2; // Minimum distance between captured points (world units)
 
@@ -31,7 +21,7 @@ export class LassoTool extends BaseTool {
 
   private points: Point2D[] = [];
 
-  cursor(state: ToolCursorState): CursorSpec {
+  cursor(_state: ToolCursorState): CursorSpec {
     return { css: 'crosshair', fallback: 'crosshair' };
   }
 
@@ -87,11 +77,13 @@ export class LassoTool extends BaseTool {
     if (ctx.altKey && ctx.shiftKey) {
       // Shift+Alt: intersect (select only nodes that are both in current selection and lasso)
       const currentSet = new Set(ctx.selection);
-      const intersectSet = new Set(intersectingIds);
+      const _intersectSet = new Set(intersectingIds);
       const result = intersectingIds.filter((id) => currentSet.has(id));
       if (result.length > 0) {
         ctx.setSelection(result[0]);
-        result.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+        result.slice(1).forEach((id) => {
+          ctx.toggleSelection(id, true);
+        });
       } else {
         ctx.setSelection(null);
       }
@@ -107,7 +99,9 @@ export class LassoTool extends BaseTool {
       // Shift: add (add lassoed nodes to selection)
       if (ctx.selection.length === 0) {
         ctx.setSelection(intersectingIds[0]);
-        intersectingIds.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+        intersectingIds.slice(1).forEach((id) => {
+          ctx.toggleSelection(id, true);
+        });
       } else {
         intersectingIds.forEach((id) => {
           ctx.toggleSelection(id, true);
@@ -116,7 +110,9 @@ export class LassoTool extends BaseTool {
     } else {
       // Default: replace selection
       ctx.setSelection(intersectingIds[0]);
-      intersectingIds.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+      intersectingIds.slice(1).forEach((id) => {
+        ctx.toggleSelection(id, true);
+      });
     }
 
     this.points = [];
@@ -127,31 +123,39 @@ export class LassoTool extends BaseTool {
     this.points = [];
   }
 
-  private findIntersectingNodes(ctx: ToolContext, polygon: Point2D[]): NodeId[] {
+  private findIntersectingNodes(ctx: ToolContext, polygon: Point2D[]): string[] {
     const doc = ctx.document;
     const page = doc.pages?.[doc.activePageId];
     if (!page) return [];
 
     const parentIndex = buildParentIndexMap(doc);
-    const intersecting: NodeId[] = [];
+    const intersecting: string[] = [];
 
-    walkNodes(doc, page.contentRoot, (node) => {
-      // Skip locked and invisible nodes
-      if (node.locked || node.visible === false) return;
-      
-      // Respect isolation mode
-      if (ctx.isolatedNodeId && !isInIsolatedSubtree(doc, node.id, ctx.isolatedNodeId, parentIndex)) {
-        return;
-      }
+    walkNodes(
+      doc,
+      page.contentRoot,
+      (node) => {
+        // Skip locked and invisible nodes
+        if (node.locked || node.visible === false) return;
 
-      // Get node bounds using the context's efficient method
-      const bounds = ctx.nodeWorldBounds(node);
-      if (!bounds) return;
+        // Respect isolation mode
+        if (
+          ctx.isolatedNodeId &&
+          !isInIsolatedSubtree(doc, node.id, ctx.isolatedNodeId, parentIndex)
+        ) {
+          return;
+        }
 
-      if (polygonIntersectsBounds(polygon, bounds)) {
-        intersecting.push(node.id);
-      }
-    }, parentIndex);
+        // Get node bounds using the context's efficient method
+        const bounds = ctx.nodeWorldBounds(node);
+        if (!bounds) return;
+
+        if (polygonIntersectsBounds(polygon, bounds)) {
+          intersecting.push(node.id);
+        }
+      },
+      parentIndex,
+    );
 
     return intersecting;
   }
