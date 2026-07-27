@@ -179,6 +179,36 @@
   background: var(--color-warning);
 }
 
+.font-selector__badge--online {
+  color: var(--color-text-inverse);
+  background: var(--color-accent-primary);
+}
+
+.font-selector__section-note {
+  margin-left: var(--space-2);
+  font-weight: var(--font-weight-normal);
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: var(--font-size-3xs);
+  color: var(--color-accent-primary);
+  opacity: 0.8;
+}
+
+.font-selector__option--loading {
+  justify-content: center;
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-size: var(--font-size-sm);
+  cursor: default;
+}
+
+.font-selector__option--error {
+  justify-content: center;
+  color: var(--color-danger);
+  font-size: var(--font-size-sm);
+  cursor: default;
+}
+
 /* ---------- High-contrast / forced-colors ---------- */
 
 [data-theme="high-contrast"] .font-selector__input {
