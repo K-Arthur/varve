@@ -6,33 +6,29 @@
  * to the editor context's upscaleSelectedImage.
  */
 
-import type { UpscaleProgressFn } from '@strata/engine';
 import { getImageCache } from '@strata/engine';
 import { getImageFill, isImageShape } from '@strata/scene';
 import { useEffect, useState } from 'react';
 import { useEditor } from '../../context';
 import { selectedImageShape } from '../../imageOperations';
 import { UpscaleDialog } from './UpscaleDialog';
+import { useUpscaleDialog } from './useUpscaleDialog';
 
 interface UpscaleDialogHostProps {
   open: boolean;
   onClose: () => void;
-  onApply: (options: {
-    mode: import('@strata/engine').UpscaleModeId;
-    scale: number;
-    output: 'new-layer' | 'replace-source';
-    onProgress: UpscaleProgressFn;
-  }) => Promise<void>;
 }
 
 interface SourceInfo {
   dataUrl: string;
+  imageData: ImageData | null;
   width: number;
   height: number;
 }
 
-export function UpscaleDialogHost({ open, onClose, onApply }: UpscaleDialogHostProps) {
-  const { state } = useEditor();
+export function UpscaleDialogHost({ open, onClose }: UpscaleDialogHostProps) {
+  const { state, closeUpscaleDialog } = useEditor();
+  const { handleDialogApply } = useUpscaleDialog();
   const [source, setSource] = useState<SourceInfo | null>(null);
 
   useEffect(() => {
@@ -71,11 +67,13 @@ export function UpscaleDialogHost({ open, onClose, onApply }: UpscaleDialogHostP
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
         ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, img.width, img.height);
         const dataUrl = canvas.toDataURL('image/png');
         if (cancelled) return;
 
         setSource({
           dataUrl,
+          imageData,
           width: img.width,
           height: img.height,
         });
@@ -97,9 +95,13 @@ export function UpscaleDialogHost({ open, onClose, onApply }: UpscaleDialogHostP
       sourceWidth={source?.width ?? 0}
       sourceHeight={source?.height ?? 0}
       sourceDataUrl={source?.dataUrl ?? ''}
+      sourceImageData={source?.imageData ?? undefined}
       open={open}
       onClose={onClose}
-      onApply={onApply}
+      onApply={async (options) => {
+        await handleDialogApply(options);
+        closeUpscaleDialog();
+      }}
     />
   );
 }
