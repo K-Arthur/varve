@@ -460,7 +460,15 @@ async function rasterizeSubtreeToPdfViaPrintEngine(
   };
 
   const subtree = flattenSceneToEngine(replacementDoc, [replacement.id]);
-  const opts = { page_width: w, page_height: h, title: node.name, author: 'Strata' };
+  const opts = {
+    pageWidth: w,
+    pageHeight: h,
+    title: node.name,
+    author: 'Strata',
+    outlineText: false,
+    subsetFonts: false,
+    fonts: [] as Array<[string, number[]]>,
+  };
   const bytes = (await tauri.core.invoke('export_node_pdf', {
     nodes: subtree.nodes,
     opts,
@@ -500,7 +508,19 @@ export async function exportNodeAsPdf(
 
   // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
   const subtree = flattenSceneToEngine(doc, [node.id]);
-  await awaitExportsReady(collectEngineFonts(subtree.nodes));
+  const fontRequests = collectEngineFonts(subtree.nodes);
+  await awaitExportsReady(fontRequests);
+
+  // Collect font binary data for native PDF text/embedding
+  const fontFamilies = [...new Set(fontRequests.map((f) => f.family))];
+  const fontRecords = await collectFontData(fontFamilies, {
+    fetchBundled: true,
+    signal: undefined,
+  });
+  const fontDataForIpc: Array<[string, number[]]> = fontRecords.map((r) => [
+    r.family,
+    Array.from(r.data),
+  ]);
 
   const bbox = worldBBox(node, doc);
   if (scale !== 1) {
@@ -522,7 +542,15 @@ export async function exportNodeAsPdf(
       sceneNode.transform[5] - bbox.y,
     ] as const,
   }));
-  const opts = { page_width: w, page_height: h, title: node.name, author: 'Strata' };
+  const opts: Record<string, unknown> = {
+    pageWidth: w,
+    pageHeight: h,
+    title: node.name,
+    author: 'Strata',
+    outlineText: false,
+    subsetFonts: fontDataForIpc.length > 0,
+    fonts: fontDataForIpc,
+  };
   const tauri = getTauriBridge();
 
   if (!tauri) {

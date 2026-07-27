@@ -1,6 +1,5 @@
 import { getFontRegistry } from '../fontRegistry';
-import { FontBinaryCache, getBinaryCache } from './fontCache';
-import { loadStoredFont, listStoredFonts } from './fontStorage';
+import { listStoredFonts, loadStoredFont } from './fontStorage';
 
 export interface FontDataRecord {
   family: string;
@@ -16,18 +15,13 @@ export interface FontCollectOptions {
   onProgress?: (family: string, status: 'cached' | 'storage' | 'fetched' | 'missing') => void;
 }
 
-const BINARY_CACHE_KEY_PREFIX = 'font-binary:';
-
-function familyKey(family: string): string {
-  return `${BINARY_CACHE_KEY_PREFIX}${family.toLowerCase()}`;
+function isWoff2(data: Uint8Array): boolean {
+  if (data.byteLength < 4) return false;
+  return data[0] === 0x77 && data[1] === 0x4f && data[2] === 0x46 && data[3] === 0x32;
 }
 
 async function decompressWoff2(data: Uint8Array): Promise<Uint8Array | null> {
-  if (data.byteLength < 4) return null;
-  const header = new Uint8Array(data.buffer, data.byteOffset, 4);
-  if (header[0] !== 0x77 || header[1] !== 0x4f || header[2] !== 0x46 || header[3] !== 0x32) {
-    return null;
-  }
+  if (!isWoff2(data)) return null;
   try {
     const { decompress } = await import('wawoff2');
     const result = await decompress(data);
@@ -37,7 +31,9 @@ async function decompressWoff2(data: Uint8Array): Promise<Uint8Array | null> {
       if (typeof DecompressionStream !== 'undefined') {
         const ds = new DecompressionStream('deflate-raw');
         const writer = ds.writable.getWriter();
-        void writer.write(data);
+        const copy = new Uint8Array(data.byteLength);
+        copy.set(data);
+        void writer.write(copy);
         void writer.close();
         const reader = ds.readable.getReader();
         const chunks: Uint8Array[] = [];
@@ -82,7 +78,6 @@ export async function collectFontData(
   const { fetchBundled = true, signal, onProgress } = options;
   const results: FontDataRecord[] = [];
   const seen = new Set<string>();
-  const cache = getBinaryCache();
 
   for (const rawFamily of families) {
     if (signal?.aborted) break;
@@ -91,21 +86,11 @@ export async function collectFontData(
     seen.add(family.toLowerCase());
     onProgress?.(family, 'cached');
 
-    // 1. Check in-memory cache
-    const cached = cache.getFontData(family);
-    if (cached) {
-      results.push({ family, data: new Uint8Array(cached) });
-      onProgress?.(family, 'cached');
-      continue;
-    }
-
-    // 2. Check IndexedDB storage
+    // 1. Check IndexedDB storage
     try {
       const stored = await loadStoredFont(family);
       if (stored?.data) {
         results.push({ family, data: stored.data });
-        // Warm the binary cache
-        cache.storeFontData(family, stored.data.buffer);
         onProgress?.(family, 'storage');
         continue;
       }
@@ -113,19 +98,16 @@ export async function collectFontData(
       // IndexedDB unavailable
     }
 
-    // 3. Check FontRegistry for bundled URL
+    // 2. Check FontRegistry for bundled URL
     if (fetchBundled) {
       try {
         const registry = getFontRegistry();
         const entries = registry?.getEntries(family) ?? [];
-        const bundled = entries.find(
-          (e) => e.source === 'bundled' && e.url,
-        );
+        const bundled = entries.find((e) => e.source === 'bundled' && e.url);
         if (bundled?.url) {
           const data = await fetchFontData(bundled.url, signal);
           if (data) {
             results.push({ family, data });
-            cache.storeFontData(family, data.buffer);
             onProgress?.(family, 'fetched');
             continue;
           }
@@ -154,12 +136,4 @@ export async function collectAllStoredFonts(): Promise<FontDataRecord[]> {
     // IndexedDB unavailable
   }
   return results;
-}
-
-export function getBinaryCache(): FontBinaryCache {
-  const global_ = globalThis as unknown as Record<string, unknown>;
-  if (!global_['__strata_font_binary_cache']) {
-    global_['__strata_font_binary_cache'] = new FontBinaryCache();
-  }
-  return global_['__strata_font_binary_cache'] as FontBinaryCache;
 }
