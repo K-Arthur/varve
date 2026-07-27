@@ -97,6 +97,16 @@ export { FontProviderRegistry, FontsourceProvider, GoogleFontsProvider } from '.
 export type { FontReplacement, FontSubstitute, MissingFontInfo } from './fontResolver';
 // Missing font resolution
 export { FONT_COMPAT_MAP, FontResolver } from './fontResolver';
+// Tauri filesystem font storage adapter
+export type { FontStorageFsMeta } from './fontStorageFs';
+export {
+  getFilesystemFontStorageUsage,
+  isFilesystemFontStorageAvailable,
+  listFilesystemFonts,
+  loadFontFromFilesystem,
+  removeFontFromFilesystem,
+  storeFontOnFilesystem,
+} from './fontStorageFs';
 export type { FontUsage } from './fontUsageIndex';
 // Document font usage tracking
 export { FontUsageIndex, migrateLegacyFontRefs } from './fontUsageIndex';
