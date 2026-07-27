@@ -1,1 +1,1 @@
-*.onnx binary
+*.onnx filter=lfs diff=lfs merge=lfs -text
