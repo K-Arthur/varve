@@ -145,7 +145,10 @@ function ShellInner({
   // Test-only: allow direct LUT import via custom event (bypasses file input)
   useEffect(() => {
     // Expose a global function for E2E tests to call directly
-    const win = window as unknown as Record<string, (adj: import('@strata/engine').Adjustment) => void>;
+    const win = window as unknown as Record<
+      string,
+      (adj: import('@strata/engine').Adjustment) => void
+    >;
     win.__importLut = (adj) => {
       editor.addLutAdjustment(adj);
     };

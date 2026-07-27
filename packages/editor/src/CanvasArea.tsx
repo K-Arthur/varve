@@ -141,6 +141,8 @@ import {
 import { nodeWorldBounds } from './scene/world';
 import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
+import { HitTestEngine } from './hitTest/HitTestEngine';
+import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import type { DraftShape, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
 import { collectSourceEvents } from './tools/inputNormalizer';
@@ -617,6 +619,19 @@ export function CanvasArea({
   const [renameDialog, setRenameDialog] = useState<{ defaultValue: string } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const renameDialogRef = useRef<HTMLDialogElement>(null);
+
+  // Touch/stylus deep-selection candidate menu state
+  const [deepSelectionCandidates, setDeepSelectionCandidates] = useState<{
+    worldX: number;
+    worldY: number;
+    screenX: number;
+    screenY: number;
+    candidates: Array<{
+      nodeId: import('@strata/scene').NodeId;
+      node: import('@strata/scene').SceneNode;
+      depth: number;
+    }>;
+  } | null>(null);
 
   useEffect(() => {
     const el = contentCanvasRef.current?.parentElement;
@@ -1116,6 +1131,28 @@ export function CanvasArea({
         const newDoc = addNode(d2, layer);
         e.updateDoc(() => newDoc);
         return id;
+      },
+      lastPointerEvent: ev,
+      showDeepSelectionMenu: (world, screenX, screenY) => {
+        // Gather all nodes beneath the touch point and show the candidate menu
+        const hitEngine = new HitTestEngine(stateRef.current.document, {
+          zoom: stateRef.current.zoom,
+          isolatedNodeId: stateRef.current.isolatedNodeId,
+        });
+        const candidates = hitEngine.findNodesAtPoint(world);
+        if (candidates.length > 1) {
+          setDeepSelectionCandidates({
+            worldX: world.x,
+            worldY: world.y,
+            screenX,
+            screenY,
+            candidates: candidates.map((c) => ({
+              nodeId: c.nodeId,
+              node: c.node,
+              depth: 0,
+            })),
+          });
+        }
       },
     };
   }
@@ -2814,6 +2851,27 @@ export function CanvasArea({
         renameInputRef={renameInputRef}
         artboardRect={artboardRect}
       />
+      {deepSelectionCandidates && (
+        <TouchCandidateMenu
+          worldX={deepSelectionCandidates.worldX}
+          worldY={deepSelectionCandidates.worldY}
+          screenX={deepSelectionCandidates.screenX}
+          screenY={deepSelectionCandidates.screenY}
+          candidates={deepSelectionCandidates.candidates}
+          onSelect={(nodeId) => {
+            const e = editorRef.current;
+            e.setSelection(nodeId);
+            setDeepSelectionCandidates(null);
+          }}
+          onEnterContainer={(nodeId) => {
+            const e = editorRef.current;
+            e.enterIsolation(nodeId);
+            e.setSelection(nodeId);
+            setDeepSelectionCandidates(null);
+          }}
+          onClose={() => setDeepSelectionCandidates(null)}
+        />
+      )}
     </section>
   );
 }

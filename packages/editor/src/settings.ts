@@ -90,6 +90,11 @@ export interface SectionSettingsStore {
   sections: SectionVisibilityState;
 }
 
+export interface LayersSettingsStore {
+  autoReveal: boolean;
+  marqueeContainment: boolean;
+}
+
 export interface EditorSettings {
   export: ExportSettingsStore;
   appearance: AppearanceSettingsStore;
@@ -99,6 +104,7 @@ export interface EditorSettings {
   viewport: ViewportSettingsStore;
   sections: SectionSettingsStore;
   performance: PerformanceSettingsStore;
+  layers: LayersSettingsStore;
   features: {
     findingsNavigation: boolean;
   };
@@ -178,6 +184,7 @@ export const STARTUP_PERFORMANCE_BUDGET = {
 
 export const DEFAULT_LAYERS_SETTINGS: LayersSettingsStore = {
   autoReveal: true,
+  marqueeContainment: false,
 };
 
 export const DEFAULT_FEATURES = {
@@ -259,10 +266,7 @@ export function loadSettings(): EditorSettings {
         DEFAULT_PERFORMANCE_SETTINGS,
         parsed.performance as Partial<PerformanceSettingsStore>,
       ),
-      layers: mergePartial(
-        DEFAULT_LAYERS_SETTINGS,
-        parsed.layers as Partial<LayersSettingsStore>,
-      ),
+      layers: mergePartial(DEFAULT_LAYERS_SETTINGS, parsed.layers as Partial<LayersSettingsStore>),
       features: {
         ...DEFAULT_FEATURES,
         ...(parsed.features as Partial<typeof DEFAULT_FEATURES> | undefined),

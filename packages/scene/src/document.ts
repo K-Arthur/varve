@@ -39,8 +39,11 @@ import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import { nextNodeId } from './node-id';
 import type {
   ContainerNode,
+  DocumentGrid,
+  DocumentGridSettings,
   FrameNode,
   Guide,
+  LayoutGrid,
   NodeId,
   Page,
   Paint,
@@ -54,6 +57,14 @@ import { isContainer } from './types';
 import type { Variable } from './variables';
 import { createVariableStore, deleteVariable } from './variables';
 import { CURRENT_DOCUMENT_VERSION } from './version';
+import {
+  createDefaultDocumentGrid,
+  createDefaultPixelGrid,
+  sanitizeGrid,
+  validateGrid,
+  type BaselineGrid,
+  type PixelGrid,
+} from './gridTypes';
 
 export type { CreateMasterOptions } from './document-components';
 export {
@@ -161,6 +172,8 @@ export interface Document {
   fontManifest?: FontManifest;
   /** Layout guides for aligning nodes on the canvas. */
   guides?: Guide[];
+  /** Grid settings for document, layout, baseline, and pixel grids (v1.8+). */
+  gridSettings?: import('./types').DocumentGridSettings;
   /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */
   pages?: Page[];
   /** State machines for prototype interactions (v1.3). */
@@ -247,6 +260,9 @@ export interface Document {
   /** Persisted linter configuration (v2.7+). Undefined for pre-v2.7 docs,
    *  in which case DEFAULT_LINTER_CONFIG applies at scan time. */
   linterConfig?: import('./intelligence/linterTypes').LinterConfig;
+
+  /** Named selection sets for saving and restoring selections. */
+  selectionSets?: import('./selectionSet').SelectionSetsData;
 }
 
 export interface NodeEntry {
@@ -1061,6 +1077,161 @@ export function pasteGuides(
     });
   }
   return result;
+}
+
+// ── Grid operations ─────────────────────────────────────────────────────────────
+
+/**
+ * Get or create grid settings for a document.
+ */
+function getOrCreateGridSettings(doc: Document): DocumentGridSettings {
+  return doc.gridSettings ?? {};
+}
+
+/**
+ * Set the document grid configuration.
+ */
+export function setDocumentGrid(doc: Document, grid: DocumentGrid): Document {
+  const sanitized = sanitizeGrid(grid) as DocumentGrid;
+  if (!validateGrid(sanitized)) {
+    return doc; // Invalid grid, return unchanged
+  }
+  return {
+    ...doc,
+    gridSettings: {
+      ...getOrCreateGridSettings(doc),
+      documentGrid: sanitized,
+    },
+  };
+}
+
+/**
+ * Remove the document grid configuration.
+ */
+export function removeDocumentGrid(doc: Document): Document {
+  if (!doc.gridSettings?.documentGrid) return doc;
+  const { documentGrid, ...rest } = doc.gridSettings;
+  return {
+    ...doc,
+    gridSettings: Object.keys(rest).length > 0 ? rest : undefined,
+  };
+}
+
+/**
+ * Set a layout grid for a specific frame.
+ */
+export function setLayoutGrid(doc: Document, frameId: string, grid: LayoutGrid): Document {
+  const sanitized = sanitizeGrid(grid) as LayoutGrid;
+  if (!validateGrid(sanitized)) {
+    return doc; // Invalid grid, return unchanged
+  }
+  return {
+    ...doc,
+    gridSettings: {
+      ...getOrCreateGridSettings(doc),
+      layoutGrids: {
+        ...getOrCreateGridSettings(doc).layoutGrids,
+        [frameId]: sanitized,
+      },
+    },
+  };
+}
+
+/**
+ * Remove a layout grid for a specific frame.
+ */
+export function removeLayoutGrid(doc: Document, frameId: string): Document {
+  if (!doc.gridSettings?.layoutGrids || !(frameId in doc.gridSettings.layoutGrids)) {
+    return doc;
+  }
+  const { [frameId]: _, ...rest } = doc.gridSettings.layoutGrids;
+  return {
+    ...doc,
+    gridSettings: {
+      ...doc.gridSettings,
+      layoutGrids: Object.keys(rest).length > 0 ? rest : undefined,
+    },
+  };
+}
+
+/**
+ * Set a baseline grid configuration.
+ */
+export function setBaselineGrid(doc: Document, gridId: string, grid: BaselineGrid): Document {
+  const sanitized = sanitizeGrid(grid) as BaselineGrid;
+  if (!validateGrid(sanitized)) {
+    return doc; // Invalid grid, return unchanged
+  }
+  return {
+    ...doc,
+    gridSettings: {
+      ...getOrCreateGridSettings(doc),
+      baselineGrids: {
+        ...getOrCreateGridSettings(doc).baselineGrids,
+        [gridId]: sanitized,
+      },
+    },
+  };
+}
+
+/**
+ * Remove a baseline grid configuration.
+ */
+export function removeBaselineGrid(doc: Document, gridId: string): Document {
+  if (!doc.gridSettings?.baselineGrids || !(gridId in doc.gridSettings.baselineGrids)) {
+    return doc;
+  }
+  const { [gridId]: _, ...rest } = doc.gridSettings.baselineGrids;
+  return {
+    ...doc,
+    gridSettings: {
+      ...doc.gridSettings,
+      baselineGrids: Object.keys(rest).length > 0 ? rest : undefined,
+    },
+  };
+}
+
+/**
+ * Set the pixel grid configuration.
+ */
+export function setPixelGrid(doc: Document, grid: PixelGrid): Document {
+  const sanitized = sanitizeGrid(grid) as PixelGrid;
+  if (!validateGrid(sanitized)) {
+    return doc; // Invalid grid, return unchanged
+  }
+  return {
+    ...doc,
+    gridSettings: {
+      ...getOrCreateGridSettings(doc),
+      pixelGrid: sanitized,
+    },
+  };
+}
+
+/**
+ * Remove the pixel grid configuration.
+ */
+export function removePixelGrid(doc: Document): Document {
+  if (!doc.gridSettings?.pixelGrid) return doc;
+  const { pixelGrid, ...rest } = doc.gridSettings;
+  return {
+    ...doc,
+    gridSettings: Object.keys(rest).length > 0 ? rest : undefined,
+  };
+}
+
+/**
+ * Initialize default grid settings for a new document.
+ */
+export function initializeDefaultGridSettings(doc: Document): Document {
+  if (doc.gridSettings) return doc; // Already has grid settings
+  return {
+    ...doc,
+    gridSettings: {
+      documentGrid: createDefaultDocumentGrid(),
+      pixelGrid: createDefaultPixelGrid(),
+    },
+  };
 }
 
 // ── Document validation ──────────────────────────────────────────────────────
