@@ -8,7 +8,12 @@
  * ISO/IEC 14496-22 (Open Font Format), W3C WOFF/WOFF2 specifications.
  */
 
+/// <reference path="./wawoff2.d.ts" />
+
+import { decompress as decompressBrotli } from 'wawoff2';
+
 import {
+  computeFontHash,
   detectFontFormat,
   type EmbeddingRights,
   type FontCategory,
@@ -40,6 +45,16 @@ export async function parseFontData(data: ArrayBuffer): Promise<ParsedFontMetada
   return parseRawFont(data, format);
 }
 
+const DEFAULT_IDENTITY = {
+  contentHash: '',
+  fingerprint: '',
+  hashAlgorithm: 'unknown' as const,
+  postScriptName: 'Unknown',
+  familyName: 'Unknown',
+  subfamilyName: 'Regular',
+  fullName: 'Unknown',
+};
+
 // ── WOFF2 Parsing ───────────────────────────────────────────────────────────
 
 async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
@@ -64,13 +79,7 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   // Fallback: parse what we can from the WOFF2 header
   const flavor = view.getUint32(4);
   const fontFamily = flavor === 0x4f54544f ? 'OTF' : 'TTF';
-  const identity = {
-    contentHash: '',
-    postScriptName: 'Unknown',
-    familyName: fontFamily,
-    subfamilyName: 'Regular',
-    fullName: fontFamily,
-  };
+  const identity = { ...DEFAULT_IDENTITY, familyName: fontFamily, fullName: fontFamily };
 
   return {
     identity,
@@ -95,17 +104,26 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   };
 }
 
-async function decompressWOFF2(_data: ArrayBuffer): Promise<ArrayBuffer | null> {
-  // WOFF2 decompression requires brotli — use the browser's built-in
-  // DecompressionStream if available, or a WASM brotli decoder.
-  // For now, return null to use the header-only fallback.
-  // TODO: Integrate brotli decoder when available
+async function decompressWOFF2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
+  try {
+    const input = new Uint8Array(data);
+    const result = await decompressBrotli(input);
+    // wawoff2 returns a Uint8Array/Buffer of the decompressed SFNT data.
+    if (result && result.byteLength > 0) {
+      return result.buffer.slice(
+        result.byteOffset,
+        result.byteOffset + result.byteLength,
+      ) as ArrayBuffer;
+    }
+  } catch {
+    // Fall back to header-only parsing if decompression fails.
+  }
   return null;
 }
 
 // ── WOFF1 Parsing ───────────────────────────────────────────────────────────
 
-function parseWOFF1(data: ArrayBuffer): ParsedFontMetadata {
+async function parseWOFF1(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   const view = new DataView(data);
 
   // WOFF1 header: signature(4) flavor(4) length(4) numTables(2) reserved(2)
@@ -144,7 +162,7 @@ function parseWOFF1(data: ArrayBuffer): ParsedFontMetadata {
     } else {
       // Zlib-compressed — decompress
       try {
-        const decompressed = decompressZlib(compressed, origLength);
+        const decompressed = await decompressZlib(compressed, origLength);
         tables.set(tag, decompressed);
       } catch {
         // Skip tables we can't decompress
@@ -160,13 +178,7 @@ function parseWOFF1(data: ArrayBuffer): ParsedFontMetadata {
 
   // Fallback
   return {
-    identity: {
-      contentHash: '',
-      postScriptName: 'Unknown',
-      familyName: 'Unknown',
-      subfamilyName: 'Regular',
-      fullName: 'Unknown',
-    },
+    identity: DEFAULT_IDENTITY,
     format: 'woff',
     fileSize: data.byteLength,
     unitsPerEm: 1000,
@@ -189,28 +201,42 @@ function parseWOFF1(data: ArrayBuffer): ParsedFontMetadata {
 }
 
 /**
- * Decompress a zlib-compressed block (RFC 1950).
- * Uses the browser's DecompressionStream if available.
+ * Decompress a zlib-compressed block (raw deflate, as used by WOFF1 tables).
+ * Uses the Web `DecompressionStream` when available and falls back to the
+ * browser/node `inflate-raw` equivalent.
  */
-function decompressZlib(data: ArrayBuffer, _expectedLength: number): ArrayBuffer {
-  // Try DecompressionStream (modern browsers)
+async function decompressZlib(data: ArrayBuffer, expectedLength: number): Promise<ArrayBuffer> {
   if (typeof DecompressionStream !== 'undefined') {
     const ds = new DecompressionStream('deflate-raw');
     const writer = ds.writable.getWriter();
-    void ds.readable.getReader();
+    const reader = ds.readable.getReader();
 
-    // Write compressed data
-    writer.write(new Uint8Array(data)).catch(() => {});
-    writer.close().catch(() => {});
+    const writePromise = writer.write(new Uint8Array(data)).then(() => writer.close());
 
-    // Read decompressed data synchronously isn't possible, so we build a buffer
-    // Since this is synchronous code, we'll use the sync fallback
-    throw new Error('Use async path');
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      total += value.byteLength;
+      // Guard against pathological expansion.
+      if (total > Math.max(expectedLength * 4, 16 * 1024 * 1024)) {
+        throw new Error('Decompressed WOFF1 table exceeds safety limit');
+      }
+    }
+    await writePromise;
+
+    const out = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return out.buffer;
   }
 
-  // Sync fallback: manual inflate for common WOFF1 cases
-  // This is a simplified inflate — returns the original data as a best-effort
-  return data;
+  throw new Error('DecompressionStream is not available for WOFF1 decompression');
 }
 
 function reconstructSFNT(tables: Map<string, ArrayBuffer>): ArrayBuffer | null {
@@ -286,7 +312,11 @@ function computeTableChecksum(data: ArrayBuffer): number {
 
 // ── Raw TTF/OTF Parsing ────────────────────────────────────────────────────
 
-function parseRawFont(data: ArrayBuffer, format: FontFormat): ParsedFontMetadata {
+async function parseRawFont(
+  data: ArrayBuffer,
+  format: FontFormat,
+  collectionIndex = 0,
+): Promise<ParsedFontMetadata> {
   const view = new DataView(data);
 
   // Detect TTC (TrueType Collection)
@@ -317,27 +347,25 @@ function parseRawFont(data: ArrayBuffer, format: FontFormat): ParsedFontMetadata
   const gposFeatures = parseGPOSTable(data, tableMap);
   const hasColor = detectColorGlyphs(data, tableMap);
 
-  // Extract name strings
+  // Extract name strings (OpenType name table)
+  // nameID 1/2/4/6 are required; 16/17 are typographic preferred names;
+  // 5 is version; 8 is vendor/manufacturer.
   const postScriptName = nameRecords[6] || nameRecords[4] || '';
   const familyName = nameRecords[1] || postScriptName || 'Unknown';
   const subfamilyName = nameRecords[2] || 'Regular';
   const fullName = nameRecords[4] || `${familyName} ${subfamilyName}`;
-  const vendor = nameRecords[5];
+  const typographicFamilyName = nameRecords[16];
+  const typographicSubfamilyName = nameRecords[17];
   const version = nameRecords[5];
+  const vendor = nameRecords[8];
   const copyrightStr = nameRecords[0];
   const license = nameRecords[13];
   const licenseUrl = nameRecords[14];
   const description = nameRecords[10];
   const designer = nameRecords[9];
 
-  // Compute content hash
-  let contentHash = '';
-  try {
-    // Use a simple hash if crypto.subtle isn't available (test env)
-    contentHash = simpleHash(data);
-  } catch {
-    contentHash = simpleHash(data);
-  }
+  // Compute canonical SHA-256 content hash
+  const { contentHash, fingerprint, hashAlgorithm } = await computeFontHash(data);
 
   const unitsPerEm = headData.unitsPerEm || 1000;
   const ascender = os2Data.ascender || hheaData.ascender || 800;
@@ -362,10 +390,17 @@ function parseRawFont(data: ArrayBuffer, format: FontFormat): ParsedFontMetadata
   return {
     identity: {
       contentHash,
+      fingerprint,
+      hashAlgorithm,
       postScriptName,
       familyName,
       subfamilyName,
       fullName,
+      typographicFamilyName,
+      typographicSubfamilyName,
+      vendor,
+      version,
+      collectionIndex: format === 'ttc' || format === 'otc' ? collectionIndex : undefined,
     },
     format,
     fileSize: data.byteLength,
@@ -848,24 +883,4 @@ function classifyFont(familyName: string, _panose?: Uint8Array, _macStyle?: numb
 
   // Default: sans-serif (most common for modern UI/design fonts)
   return 'sans-serif';
-}
-
-// ── Simple hash (for test environments) ─────────────────────────────────────
-
-function simpleHash(data: ArrayBuffer): string {
-  const bytes = new Uint8Array(data);
-  // FNV-1a hash
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < Math.min(bytes.length, 10000); i++) {
-    hash ^= bytes[i] ?? 0;
-    hash = (hash * 0x01000193) | 0;
-  }
-  // Also hash the last 1000 bytes if file is large
-  if (bytes.length > 10000) {
-    for (let i = bytes.length - 1000; i < bytes.length; i++) {
-      hash ^= bytes[i] ?? 0;
-      hash = (hash * 0x01000193) | 0;
-    }
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
 }

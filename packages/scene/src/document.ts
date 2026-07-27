@@ -34,6 +34,7 @@ import type {
 import { defaultColorConfig } from './colorManagement';
 import { cryptoId, getParent, makeGroupNode } from './document-utils';
 import type { ExportSettings } from './export-types';
+import type { FontManifest } from '@strata/engine';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
 import { nextNodeId } from './node-id';
 import type {
@@ -155,6 +156,9 @@ export interface Document {
   variableStore?: import('./variables').VariableStore;
   /** References to installed libraries. */
   installedLibraries?: import('./library').InstalledLibraryRef[];
+  /** Document font manifest (v2.9+). Records every font reference, identity,
+   * embedding rights, and availability status for cross-device portability. */
+  fontManifest?: FontManifest;
   /** Layout guides for aligning nodes on the canvas. */
   guides?: Guide[];
   /** Pages (v1.2+). When unset, the document is in flat (pre-page) mode. */

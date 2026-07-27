@@ -10,7 +10,8 @@
  * and Figma's undocumented accessibility tree (inferred behaviour).
  */
 
-import type { Document } from '@strata/scene';
+import type { Document, NodeId } from '@strata/scene';
+import { buildParentIndexMap } from '@strata/scene';
 import { useMemo } from 'react';
 
 interface CanvasAccessibilityTreeProps {
@@ -21,6 +22,7 @@ interface CanvasAccessibilityTreeProps {
   nodeWorldBounds: (
     doc: Document,
     id: string,
+    parentIndex?: Map<NodeId, NodeId>,
   ) => { x: number; y: number; w: number; h: number } | null;
   isWorldRectInViewport: (
     cam: { zoom: number; pan: { x: number; y: number } },
@@ -39,6 +41,10 @@ export function CanvasAccessibilityTree({
 }: CanvasAccessibilityTreeProps) {
   const visibleNodes = useMemo(() => {
     const entries = walkNodes(doc);
+    // nodeWorldBounds falls back to an O(n) linear scan (getParent) per call
+    // when no parentIndex is passed. Called once per node here, that made
+    // this memo O(n^2) in node count on every doc/camera/viewport change.
+    const parentIndex = buildParentIndexMap(doc);
     const result: Array<{
       id: string;
       name: string;
@@ -54,7 +60,7 @@ export function CanvasAccessibilityTree({
     for (const [id] of entries) {
       const n = doc.nodes[id];
       if (!n || n.visible === false) continue;
-      const bounds = nodeWorldBounds(doc, id);
+      const bounds = nodeWorldBounds(doc, id, parentIndex);
       if (!bounds) continue;
       if (!isWorldRectInViewport(camera, viewport, bounds)) continue;
       const bgRemoval =

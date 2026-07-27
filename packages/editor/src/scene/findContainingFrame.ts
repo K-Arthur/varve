@@ -1,5 +1,6 @@
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import {
+  buildParentIndexMap,
   type Document,
   type GroupNode,
   activePageNodes as getActivePageNodes,
@@ -23,6 +24,13 @@ export function findContainingFrameInDoc(
   // drawn shape silently auto-parent into a frame that belongs to a
   // different (invisible) page, making the shape vanish from the canvas.
   const entries = walkNodes(doc, getActivePageNodes(doc));
+  // This runs on every pointer move during a drag (SelectTool.onDragMove's
+  // drop-target-frame check). nodeWorldTransform falls back to an O(n)
+  // linear scan (getParent) per call when no parentIndex is passed, so
+  // checking F candidate frames/groups cost O(F*n) per pointer move.
+  // buildParentIndexMap is one O(n) pass; reusing it below makes the
+  // per-candidate lookup O(1).
+  const parentIndex = buildParentIndexMap(doc);
 
   // If a frame index is provided, use it to filter candidates first
   const candidates = frameIndex
@@ -43,7 +51,7 @@ export function findContainingFrameInDoc(
     if (n.kind === 'frame') {
       // Inverse-transform the world point into the frame's local space so
       // containment is correct for rotated/scaled frames (not just AABB).
-      const frameWorld = nodeWorldTransform(doc, nid);
+      const frameWorld = nodeWorldTransform(doc, nid, parentIndex);
       const frameLocal = invertAffine(frameWorld);
       const localPt = applyAffine(frameLocal, [world.x, world.y]);
       if (localPt[0] >= 0 && localPt[0] <= n.w && localPt[1] >= 0 && localPt[1] <= n.h) {
@@ -57,7 +65,7 @@ export function findContainingFrameInDoc(
       // check each child's local bounds (transformed by the child's own
       // transform). This avoids false positives from AABB-only checks
       // on rotated/scaled groups (matching the frame logic above).
-      const groupWorld = nodeWorldTransform(doc, nid);
+      const groupWorld = nodeWorldTransform(doc, nid, parentIndex);
       const groupInv = invertAffine(groupWorld);
       const localPt = applyAffine(groupInv, [world.x, world.y]);
       const groupNode = doc.nodes[nid] as GroupNode;
