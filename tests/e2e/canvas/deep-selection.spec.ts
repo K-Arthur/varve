@@ -180,4 +180,127 @@ test.describe('Deep Selection', () => {
     const selectedCount = await selected.count();
     expect(selectedCount).toBeGreaterThanOrEqual(1);
   });
+
+  test('9. Breadcrumb parent navigation selects the parent', async ({ page }) => {
+    const { canvasBox } = await createFrameWithChild(page);
+
+    // Deep-select the child
+    await page.keyboard.down('Control');
+    await page.mouse.click(canvasBox.x + 225, canvasBox.y + 200);
+    await page.keyboard.up('Control');
+    await page.waitForTimeout(200);
+
+    // The breadcrumb should show the hierarchy
+    const breadcrumb = page.locator('.selection-breadcrumb');
+    await expect(breadcrumb).toBeAttached();
+
+    // Click the parent segment in the breadcrumb
+    const parentSegment = page.locator('.selection-breadcrumb__segment').first();
+    await parentSegment.click();
+    await page.waitForTimeout(200);
+
+    // The frame should now be selected
+    const frameItem = page.locator(
+      '[role="treeitem"][data-layer-type="frame"][aria-selected="true"]',
+    );
+    await expect(frameItem).toHaveCount(1);
+  });
+
+  test('10. Selection set can be created and restored', async ({ page }) => {
+    const { canvasBox } = await createFrameWithChild(page);
+
+    // Select the frame
+    await page.mouse.click(canvasBox.x + 400, canvasBox.y + 350);
+    await page.waitForTimeout(200);
+
+    // Create a selection set via the API (exposed for testing)
+    await page.evaluate(() => {
+      const win = window as unknown as Record<string, unknown>;
+      if (win.__strataTest) {
+        (win.__strataTest as { createSelectionSet: (name: string) => void }).createSelectionSet(
+          'Test Set',
+        );
+      }
+    });
+    await page.waitForTimeout(200);
+
+    // Deselect
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+
+    // Verify selection set exists in the panel
+    const selectionSetsList = page.locator('.selection-sets__list');
+    await expect(selectionSetsList).toBeAttached();
+
+    // Click the selection set to restore it
+    const setItem = page.locator('.selection-sets__name-btn');
+    await setItem.first().click();
+    await page.waitForTimeout(200);
+
+    // The frame should be selected again
+    const frameItem = page.locator(
+      '[role="treeitem"][data-layer-type="frame"][aria-selected="true"]',
+    );
+    await expect(frameItem).toHaveCount(1);
+  });
+
+  test('11. Auto-reveal disabled preserves scroll position', async ({ page }) => {
+    const { canvasBox } = await createFrameWithChild(page);
+
+    // Toggle auto-reveal off
+    const autoRevealBtn = page.locator('.layers-panel__auto-reveal-btn');
+    await autoRevealBtn.click();
+    await page.waitForTimeout(100);
+    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'false');
+
+    // Select the frame
+    await page.mouse.click(canvasBox.x + 400, canvasBox.y + 350);
+    await page.waitForTimeout(200);
+
+    // The frame should be selected (highlight works even with auto-reveal off)
+    const frameItem = page.locator(
+      '[role="treeitem"][data-layer-type="frame"][aria-selected="true"]',
+    );
+    await expect(frameItem).toHaveCount(1);
+
+    // Toggle auto-reveal back on
+    await autoRevealBtn.click();
+    await page.waitForTimeout(100);
+    await expect(autoRevealBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('12. Deep selection does not move objects', async ({ page }) => {
+    const { canvasBox } = await createFrameWithChild(page);
+
+    // Get initial frame position via the test API
+    const initialPos = await page.evaluate(() => {
+      const win = window as unknown as Record<string, unknown>;
+      if (win.__strataTest) {
+        return (
+          win.__strataTest as { getSelectionBounds: () => { x: number; y: number } | null }
+        ).getSelectionBounds();
+      }
+      return null;
+    });
+
+    // Deep-select the child
+    await page.keyboard.down('Control');
+    await page.mouse.click(canvasBox.x + 225, canvasBox.y + 200);
+    await page.keyboard.up('Control');
+    await page.waitForTimeout(200);
+
+    // Get position after selection
+    const afterPos = await page.evaluate(() => {
+      const win = window as unknown as Record<string, unknown>;
+      if (win.__strataTest) {
+        return (
+          win.__strataTest as { getSelectionBounds: () => { x: number; y: number } | null }
+        ).getSelectionBounds();
+      }
+      return null;
+    });
+
+    // Position should not have changed
+    expect(afterPos).toEqual(initialPos);
+  });
 });

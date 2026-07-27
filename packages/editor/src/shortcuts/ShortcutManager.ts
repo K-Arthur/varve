@@ -86,6 +86,11 @@ export const SHORTCUT_DEFS = {
     label: 'Isometric Grid Overlay',
     category: 'View',
   },
+  togglePixelGrid: {
+    binding: { key: 'p', alt: true, shift: true },
+    label: 'Toggle Pixel Grid',
+    category: 'View',
+  },
   zoom50: { binding: { key: '1' }, label: 'Zoom to 50%', category: 'View' },
   zoom75: { binding: { key: '2' }, label: 'Zoom to 75%', category: 'View' },
   zoom100: { binding: { key: '3' }, label: 'Zoom to 100%', category: 'View' },

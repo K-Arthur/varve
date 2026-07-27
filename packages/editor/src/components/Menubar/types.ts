@@ -30,6 +30,7 @@ export interface MenuBuildState {
   beforeAfterCompare: boolean;
   rulerMode: string;
   snapEnabled: boolean;
+  pixelGridEnabled: boolean;
   documentGrid: {
     visible: boolean;
     spacingX: number;

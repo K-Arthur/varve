@@ -117,6 +117,12 @@ export function buildViewMenu(_state: MenuBuildState, helpers: MenuBuildHelpers)
       ariaKeyshortcut: helpers.ks('gridOverlayIsometric'),
       action: 'gridOverlayIsometric',
     },
+    {
+      label: _state.pixelGridEnabled ? 'Hide Pixel Grid' : 'Show Pixel Grid',
+      shortcut: helpers.fmt('togglePixelGrid'),
+      ariaKeyshortcut: helpers.ks('togglePixelGrid'),
+      action: 'togglePixelGrid',
+    },
     { label: '---' },
     {
       label: 'Toggle Snap',
