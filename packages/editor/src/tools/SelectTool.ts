@@ -27,16 +27,12 @@ import {
   managedColorToRgba,
   pathPointToBezier,
   pointToSegmentDistSq,
-  tryInvertAffine,
 } from '@strata/shared';
 import { executeNudge, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
-
-/** Screen-pixel hit tolerance for zoom-aware selection. */
-const HIT_TOLERANCE_PX = 8;
 
 /** Long-press duration threshold for touch/stylus deep-selection menu (ms). */
 const LONG_PRESS_MS = 500;
@@ -140,8 +136,6 @@ export class SelectTool extends BaseTool {
       this.longPressTimer = setTimeout(() => {
         if (this.longPressStart && !this.longPressFired) {
           this.longPressFired = true;
-          // Don't consume the gesture — let the drag continue
-          // but signal the long-press menu via context
           ctx.showDeepSelectionMenu?.(world, e.clientX, e.clientY);
         }
       }, LONG_PRESS_MS);
@@ -671,12 +665,20 @@ export class SelectTool extends BaseTool {
   /**
    * B2: Resolve click target, skipping transparent/stroke-only nodes that
    * should pass through to the next opaque node below.
+   * @param world World-space point.
+   * @param ctx Tool context.
+   * @param policyName Optional hit-test policy name (hover, click, touch, etc).
+   *   When omitted, uses the default click policy.
    */
   private resolveHit(
     world: { x: number; y: number },
     ctx: ToolContext,
+    policyName?: import('../hitTest').HitTestPolicyName,
   ): { nodeId: string; node: import('@strata/scene').SceneNode } | null {
-    const hit = ctx.hitTest(world);
+    const hit =
+      policyName && ctx.hitTestWithPolicy
+        ? ctx.hitTestWithPolicy(world, policyName)
+        : ctx.hitTest(world);
     if (!hit) return null;
 
     // Filter hit-test result by isolation mode
@@ -706,13 +708,12 @@ export class SelectTool extends BaseTool {
     return hit;
   }
 
-  /** Find all visible unlock nodes at a world point, in paint order (topmost last). */
+  /** Find all visible unlocked nodes at a world point, in paint order (topmost last). */
   private findNodesAtPoint(
     world: { x: number; y: number },
     ctx: ToolContext,
   ): Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> {
     const results: Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> = [];
-    // Scoped to the active page — see the marquee-select comment above.
     const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
     // Screen-pixel threshold for path hit-testing (world units at current zoom).
     const pathThresh = 6 / Math.max(0.001, ctx.zoom);
@@ -741,7 +742,7 @@ export class SelectTool extends BaseTool {
       }
       // Zoom-aware tolerance: at low zoom, expand the bbox by screen-pixel
       // tolerance so visually-small objects are still selectable.
-      const tol = HIT_TOLERANCE_PX / Math.max(0.001, ctx.zoom);
+      const tol = 8 / Math.max(0.001, ctx.zoom);
       if (tol > 0) {
         const expanded = {
           x: bbox.x - tol,
@@ -848,7 +849,7 @@ function isPointNearPath(
   if (!points || points.length < 2) return false;
 
   const worldMat = nodeWorldTransform(doc, nodeId);
-  const invMat = tryInvertAffine(worldMat);
+  const invMat = invertAffine(worldMat);
   if (!invMat) return false;
 
   const localPt = applyAffine(invMat, [world.x, world.y]);
