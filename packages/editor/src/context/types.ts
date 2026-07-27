@@ -413,6 +413,19 @@ export interface EditorContextValue {
   selectAllWithSameFill: () => void;
   selectAllWithSameLayerColor: () => void;
   selectAllOfType: () => void;
+  selectNone: () => void;
+  invertSelection: () => void;
+  selectParent: () => void;
+  selectChildren: () => void;
+  selectSiblings: () => void;
+  selectNextSibling: () => void;
+  selectPreviousSibling: () => void;
+  selectAllChildren: () => void;
+  selectAllWithSameStroke: () => void;
+  selectAllWithSameOpacity: () => void;
+  selectAllWithSameBlendMode: () => void;
+  selectAllWithSameFont: () => void;
+  selectAllWithSameCornerRadius: () => void;
   selectPreviousSelection: () => void;
   selectNextSelection: () => void;
   // Document CRUD
