@@ -1388,6 +1388,19 @@ fn outline_text(
 }
 
 #[tauri::command]
+fn shape_text_command(
+    _state: tauri::State<'_, strata_sync::DocumentStore>,
+    request_json: String,
+) -> Result<String, String> {
+    let request: strata_print::shaper::ShapeRequest =
+        serde_json::from_str(&request_json)
+            .map_err(|e| format!("Shape request parse error: {e}"))?;
+    let result = strata_print::shaper::shape_text(&request)?;
+    serde_json::to_string(&result)
+        .map_err(|e| format!("Shape result serialize error: {e}"))
+}
+
+#[tauri::command]
 fn export_pdf_with_options(
     _state: tauri::State<'_, strata_sync::DocumentStore>,
     nodes_json: String,
@@ -2183,6 +2196,8 @@ pub fn run() {
             export_pdf_with_options,
             // Native font enumeration
             font::enumerate_system_fonts,
+            // Native text shaping
+            shape_text_command,
             // Native font filesystem storage
             font_storage::store_font_on_filesystem,
             font_storage::load_font_from_filesystem,

@@ -20,6 +20,7 @@ pub mod marks;
 pub mod outline;
 pub mod profiles;
 pub mod resources;
+pub mod shaper;
 pub mod subset;
 
 pub use outline::{
@@ -2038,6 +2039,79 @@ fn font_ascender(font_data: &[u8], font_size: f64) -> f64 {
     font_size * 0.8
 }
 
+/// Read font metrics from font binary data using ttf_parser.
+fn read_font_metrics(font_data: &[u8], face_index: u32) -> FontMetrics {
+    if let Ok(face) = ttf_parser::Face::parse(font_data, face_index) {
+        let upem = f64::from(face.units_per_em());
+        let scale = 1000.0 / upem;
+
+        let ascent = f64::from(face.ascender()) * scale;
+        let descent = f64::from(face.descender()) * scale;
+        let cap_height = face
+            .capital_height()
+            .map(|c| f64::from(c) * scale)
+            .unwrap_or(500.0);
+        let _x_height: f64 = face
+            .x_height()
+            .map(|x| f64::from(x) * scale)
+            .unwrap_or(250.0);
+
+        // FontBBox from head table
+        let head = face.tables().head;
+        let bbox = [
+            f64::from(head.global_bbox.x_min) * scale,
+            f64::from(head.global_bbox.y_min) * scale,
+            f64::from(head.global_bbox.x_max) * scale,
+            f64::from(head.global_bbox.y_max) * scale,
+        ];
+
+        // Determine flags from OS/2 table
+        let flags = if face.tables().os2.is_some() {
+            let mut f = 32i32;
+            if face.is_italic() {
+                f |= 1 << 3;
+            }
+            f
+        } else {
+            32
+        };
+
+        FontMetrics {
+            ascent: ascent.max(0.0),
+            descent: descent.min(0.0),
+            cap_height: cap_height.max(100.0),
+            stem_v: 50.0,
+            italic_angle: 0.0,
+            flags,
+            bbox,
+            units_per_em: upem,
+        }
+    } else {
+        FontMetrics {
+            ascent: 800.0,
+            descent: -200.0,
+            cap_height: 500.0,
+            stem_v: 50.0,
+            italic_angle: 0.0,
+            flags: 32,
+            bbox: [0.0, -200.0, 1000.0, 800.0],
+            units_per_em: 1000.0,
+        }
+    }
+}
+
+struct FontMetrics {
+    ascent: f64,
+    descent: f64,
+    cap_height: f64,
+    stem_v: f64,
+    italic_angle: f64,
+    flags: i32,
+    bbox: [f64; 4],
+    #[allow(dead_code)]
+    units_per_em: f64,
+}
+
 /// Embed a font program into the PDF document as a TrueType font with
 /// FontDescriptor and font dictionary, returning the entry record.
 fn embed_font_program(
@@ -2047,6 +2121,9 @@ fn embed_font_program(
     font_data: &[u8],
     font_idx: usize,
 ) -> Result<EmbeddedFontEntry, String> {
+    // Read metrics from actual font binary
+    let metrics = read_font_metrics(font_data, 0);
+
     // 1. Font program stream (FontFile2)
     let font_stream_id = doc.new_object_id();
     let font_stream = Stream::new(
@@ -2058,24 +2135,24 @@ fn embed_font_program(
     doc.objects
         .insert(font_stream_id, Object::Stream(font_stream));
 
-    // 2. Font descriptor (with some sensible defaults for metrics)
+    // 2. Font descriptor with metrics read from actual font data
     let descriptor_id = doc.new_object_id();
     let font_name_bytes = base_font.as_bytes().to_vec();
     let descriptor = dictionary! {
         "Type" => "FontDescriptor",
         "FontName" => Object::Name(font_name_bytes.clone()),
-        "Flags" => 32, // Small, serif-free, scalable
+        "Flags" => metrics.flags,
         "FontBBox" => vec![
-            Object::Real(0.0),
-            Object::Real(-200.0),
-            Object::Real(1000.0),
-            Object::Real(800.0),
+            Object::Real(metrics.bbox[0] as f32),
+            Object::Real(metrics.bbox[1] as f32),
+            Object::Real(metrics.bbox[2] as f32),
+            Object::Real(metrics.bbox[3] as f32),
         ],
-        "ItalicAngle" => 0,
-        "Ascent" => 800,
-        "Descent" => -200,
-        "CapHeight" => 500,
-        "StemV" => 50,
+        "ItalicAngle" => metrics.italic_angle as i32,
+        "Ascent" => metrics.ascent as i32,
+        "Descent" => metrics.descent as i32,
+        "CapHeight" => metrics.cap_height as i32,
+        "StemV" => metrics.stem_v as i64,
         "FontFile2" => Object::Reference(font_stream_id),
     };
     doc.objects

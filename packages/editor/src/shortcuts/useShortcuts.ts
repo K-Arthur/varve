@@ -108,6 +108,7 @@ export function useShortcuts(
       if (!enabledRef.current) return;
       if (e.defaultPrevented) return;
       if (shouldIgnoreShortcutTarget(e.target as Element | null)) return;
+      if (e.isComposing) return;
 
       const editor = ref.current;
       const guideId = editor.state.selectedGuideId;
