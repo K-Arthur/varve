@@ -1,5 +1,5 @@
-import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@strata/engine';
 import type { ModelAcquisition } from '@strata/engine';
+import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@strata/engine';
 import { Button, RegionLoader } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
@@ -128,9 +128,7 @@ export function ColorizationModelsTab() {
                   </span>
                 )}
                 {!row.installed && row.acquisition.kind === 'unavailable' && (
-                  <span className="bg-models-list__meta">
-                    {row.acquisition.detail}
-                  </span>
+                  <span className="bg-models-list__meta">{row.acquisition.detail}</span>
                 )}
               </div>
             </li>

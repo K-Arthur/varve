@@ -666,7 +666,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       version: 1,
       inputs: [{ name: 'input', dims: [1, 3, 300, 300], dtype: 'float32' }],
       outputs: [{ name: 'output', dims: [1, 3473], dtype: 'float32' }],
-      normalization: { mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225], channelOrder: 'rgb' },
+      normalization: {
+        mean: [0.485, 0.456, 0.406],
+        std: [0.229, 0.224, 0.225],
+        channelOrder: 'rgb',
+      },
       outputActivation: 'none',
     },
     acquisition: {

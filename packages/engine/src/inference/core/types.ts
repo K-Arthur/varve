@@ -1,8 +1,4 @@
-import type {
-  ModelAcquisition,
-  ModelSource,
-  ModelUnavailableReason,
-} from '../types';
+import type { ModelAcquisition } from '../types';
 
 export type { ModelAcquisition, ModelSource, ModelUnavailableReason } from '../types';
 
