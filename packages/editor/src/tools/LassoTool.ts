@@ -128,9 +128,10 @@ export class LassoTool extends BaseTool {
     if (!page || !page.contentRoot) return [];
 
     const intersecting: string[] = [];
+    const contentRoot = page.contentRoot;
 
     // Use walkNodes to get all nodes in the document
-    const entries = walkNodes(doc, [page.contentRoot]);
+    const entries = walkNodes(doc, [contentRoot]);
     for (const [nodeId, entry] of entries) {
       const node = entry.node;
 

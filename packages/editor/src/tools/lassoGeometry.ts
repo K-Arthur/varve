@@ -102,6 +102,7 @@ export function polygonIntersectsBounds(polygon: Point2D[], bounds: Rect): boole
  */
 export function simplifyPolygon(polygon: Point2D[], minDistance: number): Point2D[] {
   if (polygon.length === 0) return [];
+  if (!polygon[0]) return [];
 
   const simplified: Point2D[] = [polygon[0]];
   for (let i = 1; i < polygon.length; i++) {
