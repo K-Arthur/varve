@@ -17,6 +17,11 @@ export const SHORTCUT_DEFS = {
   },
   flipH: { binding: { key: 'h', shift: true }, label: 'Flip Horizontal', category: 'Object' },
   flipV: { binding: { key: 'v', shift: true }, label: 'Flip Vertical', category: 'Object' },
+  upscaleImage: {
+    binding: { key: 'u', ctrl: true, shift: true },
+    label: 'Upscale Image',
+    category: 'Object',
+  },
   newDocument: { binding: { key: 'n', ctrl: true }, label: 'New', category: 'File' },
   open: { binding: { key: 'o', ctrl: true }, label: 'Open\u2026', category: 'File' },
   save: { binding: { key: 's', ctrl: true }, label: 'Save', category: 'File' },

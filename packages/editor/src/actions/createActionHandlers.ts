@@ -235,7 +235,7 @@ export function createActionHandlers(
         e.announce?.('Select an image layer to upscale');
         return;
       }
-      void e.upscaleSelectedImage({ scale: 4, method: 'ai' });
+      e.openUpscaleDialog();
     },
     addAlphaMask: () => e.addMaskToSelected?.('alpha'),
     addClipMask: () => e.addMaskToSelected?.('clip'),

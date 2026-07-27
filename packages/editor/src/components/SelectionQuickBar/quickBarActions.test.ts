@@ -43,7 +43,7 @@ function makeDeps(overrides: Partial<QuickBarActionDeps> = {}): QuickBarActionDe
     setSelectedFlipV: vi.fn(),
     removeBackgroundWithOptions: vi.fn().mockResolvedValue(undefined),
     cancelBackgroundRemoval: vi.fn(),
-    upscaleSelectedImage: vi.fn().mockResolvedValue(undefined),
+    openUpscaleDialog: vi.fn(),
     traceSelectedImage: vi.fn().mockResolvedValue(undefined),
     setShowOriginalBg: vi.fn(),
     setRefineMaskOptions: vi.fn(),
@@ -66,10 +66,10 @@ describe('dispatchQuickBarAction', () => {
     expect(deps.removeBackgroundWithOptions).toHaveBeenCalledWith('quick', 0.5, true);
   });
 
-  it('wires upscale to bilinear 2x', async () => {
+  it('wires upscale to openUpscaleDialog', async () => {
     const deps = makeDeps();
     await dispatchQuickBarAction('upscale', deps);
-    expect(deps.upscaleSelectedImage).toHaveBeenCalledWith({ scale: 2, method: 'bilinear' });
+    expect(deps.openUpscaleDialog).toHaveBeenCalledWith();
   });
 
   it('wires vectorize to monochrome trace defaults', async () => {

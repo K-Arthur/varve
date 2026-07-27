@@ -336,6 +336,11 @@ import { type MotionContextValue, MotionProvider } from './context/MotionContext
 import { PrototypeProvider } from './context/PrototypeContext';
 import { isReducedMotion } from './context/reducedMotionManager';
 import { SelectionProvider } from './context/SelectionContext';
+import {
+  DEFAULT_SELECTION_ORIGIN,
+  nextSelectionPrimary,
+  type SelectionOrigin,
+} from './context/selectionState';
 import { applyToolChange, ToolProvider } from './context/ToolContext';
 import type {
   CanvasMode,
@@ -2776,17 +2781,15 @@ export function EditorProvider({
       },
 
       // F1: single-select replaces the whole set
-      setSelection: (
-        id: NodeId | null,
-        origin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api' = 'canvas',
-      ) => {
+      setSelection: (id: NodeId | null, origin?: SelectionOrigin) => {
         const newSelection = id ? [id] : [];
         selectionHistory.push(newSelection);
+        const resolvedOrigin = origin ?? DEFAULT_SELECTION_ORIGIN;
         patch({
           selection: newSelection,
           primaryId: id,
           selectionRevision: state.selectionRevision + 1,
-          selectionOrigin: origin,
+          selectionOrigin: resolvedOrigin,
         });
       },
 
@@ -2794,11 +2797,7 @@ export function EditorProvider({
       // Read from stateRef.current.selection (not the closed-over state.selection)
       // so callers that batch setSelection + toggleSelection (e.g. selectAll)
       // see the accumulation from prior calls in the same synchronous tick.
-      toggleSelection: (
-        id: NodeId,
-        additive: boolean = false,
-        origin: 'canvas' | 'layers' | 'keyboard' | 'command' | 'api' = 'canvas',
-      ) => {
+      toggleSelection: (id: NodeId, additive: boolean = false, origin?: SelectionOrigin) => {
         const currentSel = stateRef.current.selection;
         const nextSelection = (() => {
           if (additive) {
@@ -2810,25 +2809,27 @@ export function EditorProvider({
         const hasChanges = JSON.stringify(currentSel) !== JSON.stringify(nextSelection);
         if (!hasChanges) return;
         selectionHistory.push(nextSelection);
-        const newPrimaryId =
-          nextSelection.length > 0
-            ? additive
-              ? (stateRef.current.primaryId ?? nextSelection[0]!)
-              : id
-            : null;
+        const newPrimaryId = nextSelectionPrimary(
+          currentSel,
+          nextSelection,
+          stateRef.current.primaryId,
+          id,
+          additive,
+        );
+        const resolvedOrigin = origin ?? DEFAULT_SELECTION_ORIGIN;
         stateRef.current = {
           ...stateRef.current,
           selection: nextSelection,
           primaryId: newPrimaryId,
           selectionRevision: stateRef.current.selectionRevision + 1,
-          selectionOrigin: origin,
+          selectionOrigin: resolvedOrigin,
         };
         setState((s) => ({
           ...s,
           selection: nextSelection,
           primaryId: newPrimaryId,
           selectionRevision: s.selectionRevision + 1,
-          selectionOrigin: origin,
+          selectionOrigin: resolvedOrigin,
         }));
       },
 

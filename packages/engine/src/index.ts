@@ -659,8 +659,12 @@ export {
 } from './unicode/grapheme';
 export type { ScriptCode, ScriptRun } from './unicode/script';
 export { detectScript, dominantScript, segmentByScript } from './unicode/script';
+export type { UpscaleCapabilities } from './upscaleCapabilities';
+export { detectUpscaleCapabilities } from './upscaleCapabilities';
 export type { UpscaleModelMetadata } from './upscaleModels';
 export { DEFAULT_UPSCALE_MODEL_ID, UPSCALE_MODELS } from './upscaleModels';
+export type { UpscaleMode, UpscaleModeId } from './upscaleModes';
+export { DEFAULT_UPSCALE_MODE, getUpscaleMode, UPSCALE_MODES } from './upscaleModes';
 export { dispatchUpscale, UPSCALE_PROVIDER_CHAIN } from './upscaleProviders/dispatch';
 export { nativeUpscaleProvider } from './upscaleProviders/nativeProvider';
 export {
