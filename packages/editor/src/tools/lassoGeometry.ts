@@ -75,10 +75,10 @@ export function polygonIntersectsBounds(polygon: Point2D[], bounds: Rect): boole
 
   // Check if any polygon edge intersects any rect edge
   const rectEdges: [Point2D, Point2D][] = [
-    [corners[0], corners[1]], // top
-    [corners[1], corners[2]], // right
-    [corners[2], corners[3]], // bottom
-    [corners[3], corners[0]], // left
+    [corners[0]!, corners[1]!], // top
+    [corners[1]!, corners[2]!], // right
+    [corners[2]!, corners[3]!], // bottom
+    [corners[3]!, corners[0]!], // left
   ];
 
   for (let i = 0; i < polygon.length; i++) {
@@ -87,7 +87,6 @@ export function polygonIntersectsBounds(polygon: Point2D[], bounds: Rect): boole
     if (!p1 || !p2) continue;
 
     for (const [r1, r2] of rectEdges) {
-      if (!r1 || !r2) continue;
       if (segmentsIntersect(p1, p2, r1, r2)) {
         return true;
       }

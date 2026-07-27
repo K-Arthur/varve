@@ -133,12 +133,22 @@ export function renderGridOnCtx(
   minorColor: string,
   majorOpacity: number,
   minorOpacity: number,
+  rotation: number = 0,
+  originX: number = 0,
+  originY: number = 0,
 ): void {
   const mw = 1;
   const mw2 = 0.5;
 
   ctx.save();
   ctx.scale(dpr, dpr);
+
+  // Apply rotation around origin point
+  if (rotation !== 0) {
+    ctx.translate(originX, originY);
+    ctx.rotate(rotation);
+    ctx.translate(-originX, -originY);
+  }
 
   if (lines.minor.length > 0) {
     ctx.strokeStyle = minorColor;
