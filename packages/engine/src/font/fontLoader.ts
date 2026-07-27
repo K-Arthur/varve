@@ -343,13 +343,89 @@ export class FontLoader {
 // ── System Font Detection ─────────────────────────────────────────────────
 
 /**
+ * Browser Local Font Access API types (Chrome 103+, Edge 103+).
+ */
+interface LocalFontMetadata {
+  postscriptName: string;
+  fullName: string;
+  family: string;
+  style: string;
+}
+
+interface QueryLocalFontsOptions {
+  postscriptNames?: string[];
+}
+
+interface WindowWithLocalFonts extends Window {
+  queryLocalFonts?(options?: QueryLocalFontsOptions): Promise<LocalFontMetadata[]>;
+}
+
+/** Cache for queryLocalFonts results (enumerated once per session). */
+let _enumeratedSystemFamilies: string[] | null = null;
+let _enumeratedSystemFonts: LocalFontMetadata[] | null = null;
+
+/**
+ * Check whether the browser supports the Local Font Access API.
+ */
+export function hasQueryLocalFonts(): boolean {
+  if (typeof window === 'undefined') return false;
+  return 'queryLocalFonts' in window;
+}
+
+/**
+ * Enumerate system fonts using the Local Font Access API (Chrome 103+).
+ *
+ * Requires a user gesture (transient activation) on first call.
+ * Returns the hardcoded safe list as fallback when the API is unavailable.
+ *
+ * Results are cached for the session — subsequent calls return immediately.
+ */
+export async function enumerateSystemFonts(): Promise<string[]> {
+  if (_enumeratedSystemFamilies) return _enumeratedSystemFamilies;
+
+  if (hasQueryLocalFonts()) {
+    try {
+      const win = window as WindowWithLocalFonts;
+      const fonts = await win.queryLocalFonts!();
+      _enumeratedSystemFonts = fonts;
+      const families = [...new Set(fonts.map((f) => f.family))].sort();
+      _enumeratedSystemFamilies = families;
+      return families;
+    } catch {
+      // Permission denied or API error — fall through to safe list
+    }
+  }
+
+  // Fallback: safe list of fonts available across Windows, macOS, and Linux
+  _enumeratedSystemFamilies = [...SYSTEM_FONTS];
+  return _enumeratedSystemFamilies;
+}
+
+/**
+ * Get detailed local font metadata from the session cache.
+ * Returns null if queryLocalFonts has not been called or is unavailable.
+ */
+export function getCachedLocalFontMetadata(): LocalFontMetadata[] | null {
+  return _enumeratedSystemFonts;
+}
+
+/**
+ * Reset cached system font enumeration (for testing or when fonts change).
+ */
+export function resetSystemFontCache(): void {
+  _enumeratedSystemFamilies = null;
+  _enumeratedSystemFonts = null;
+}
+
+/**
  * Return a safe list of system font families.
  *
- * The `queryLocalFonts` API requires a user gesture and isn't available in all
- * browsers, so we return a hardcoded list of fonts commonly available across
+ * Uses the cached Local Font Access API result if available, otherwise
+ * returns a hardcoded list of fonts commonly available across
  * Windows, macOS, and Linux.
  */
 export function detectSystemFonts(): string[] {
+  if (_enumeratedSystemFamilies) return _enumeratedSystemFamilies;
   return [...SYSTEM_FONTS];
 }
 
