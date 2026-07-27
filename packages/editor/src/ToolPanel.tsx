@@ -5,19 +5,20 @@
  */
 import { IconButton, TOOL_ICONS, Toolbar, Tooltip } from '@strata/ui';
 import { type ToolId, useEditor } from './context';
+import { toolShortcutLabel } from './shortcuts';
 
-const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
-  { id: 'select', label: 'Select', shortcut: 'V' },
-  { id: 'frame', label: 'Frame', shortcut: 'F' },
-  { id: 'rect', label: 'Rectangle', shortcut: 'R' },
-  { id: 'ellipse', label: 'Ellipse', shortcut: 'O' },
-  { id: 'polygon', label: 'Polygon', shortcut: 'U' },
-  { id: 'star', label: 'Star', shortcut: 'S' },
-  { id: 'line', label: 'Line', shortcut: 'L' },
-  { id: 'pen', label: 'Pen', shortcut: 'P' },
-  { id: 'text', label: 'Text', shortcut: 'T' },
-  { id: 'hand', label: 'Hand', shortcut: 'H' },
-  { id: 'zoom', label: 'Zoom', shortcut: 'Z' },
+const TOOLS: { id: ToolId; label: string }[] = [
+  { id: 'select', label: 'Select' },
+  { id: 'frame', label: 'Frame' },
+  { id: 'rect', label: 'Rectangle' },
+  { id: 'ellipse', label: 'Ellipse' },
+  { id: 'polygon', label: 'Polygon' },
+  { id: 'star', label: 'Star' },
+  { id: 'line', label: 'Line' },
+  { id: 'pen', label: 'Pen' },
+  { id: 'text', label: 'Text' },
+  { id: 'hand', label: 'Hand' },
+  { id: 'zoom', label: 'Zoom' },
 ];
 
 /** @deprecated Use FloatingToolbar instead. */
@@ -27,7 +28,7 @@ export function ToolPanel() {
     <div className="editor-toolbar">
       <Toolbar label="Drawing tools">
         {TOOLS.map((t) => (
-          <Tooltip key={t.id} label={t.shortcut ? `${t.label} (${t.shortcut})` : t.label}>
+          <Tooltip key={t.id} label={t.label} shortcut={toolShortcutLabel(t.id)}>
             <IconButton
               icon={TOOL_ICONS[t.id as keyof typeof TOOL_ICONS]}
               label={t.label}

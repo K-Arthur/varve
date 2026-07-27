@@ -15,6 +15,7 @@ export interface SavedViewport {
   cameraRotation: number;
   snapEnabled: boolean;
   pixelGridEnabled: boolean;
+  pixelGridSnapEnabled: boolean;
   rulerMode: RulerMode;
   gridOverlayMode: GridOverlayMode;
   unitType: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%';
@@ -29,6 +30,7 @@ export const DEFAULT_SAVED_VIEWPORT: SavedViewport = {
   cameraRotation: 0,
   snapEnabled: true,
   pixelGridEnabled: false,
+  pixelGridSnapEnabled: false,
   rulerMode: 'artboard',
   gridOverlayMode: 'none',
   unitType: 'px',
@@ -43,6 +45,7 @@ export interface ViewportCaptureSource {
   cameraRotation: number;
   snapEnabled: boolean;
   pixelGridEnabled: boolean;
+  pixelGridSnapEnabled: boolean;
   rulerMode: RulerMode;
   gridOverlayMode: GridOverlayMode;
   unitType: SavedViewport['unitType'];
@@ -58,6 +61,7 @@ export function captureViewport(s: ViewportCaptureSource): SavedViewport {
     cameraRotation: s.cameraRotation,
     snapEnabled: s.snapEnabled,
     pixelGridEnabled: s.pixelGridEnabled,
+    pixelGridSnapEnabled: s.pixelGridSnapEnabled,
     rulerMode: s.rulerMode,
     gridOverlayMode: s.gridOverlayMode,
     unitType: s.unitType,
@@ -76,6 +80,7 @@ export function normalizeSavedViewport(raw: Partial<SavedViewport> | undefined):
     cameraRotation: raw.cameraRotation ?? DEFAULT_SAVED_VIEWPORT.cameraRotation,
     snapEnabled: raw.snapEnabled ?? DEFAULT_SAVED_VIEWPORT.snapEnabled,
     pixelGridEnabled: raw.pixelGridEnabled ?? DEFAULT_SAVED_VIEWPORT.pixelGridEnabled,
+    pixelGridSnapEnabled: raw.pixelGridSnapEnabled ?? DEFAULT_SAVED_VIEWPORT.pixelGridSnapEnabled,
     rulerMode: raw.rulerMode ?? DEFAULT_SAVED_VIEWPORT.rulerMode,
     gridOverlayMode: raw.gridOverlayMode ?? DEFAULT_SAVED_VIEWPORT.gridOverlayMode,
     unitType: raw.unitType ?? DEFAULT_SAVED_VIEWPORT.unitType,

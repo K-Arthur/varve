@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { detectFontFormat, fontIdentityKey } from './fontIdentity';
-import { parseFontData } from './fontParser';
+import { parseFontCollection, parseFontData } from './fontParser';
 
 // ── Helper: build minimal OpenType font bytes ──────────────────────────
 
@@ -14,6 +14,7 @@ function buildMinimalSFNT(
   cmapTable?: ArrayBuffer,
   gsubTable?: ArrayBuffer,
   colrTable?: ArrayBuffer,
+  cpalTable?: ArrayBuffer,
 ): ArrayBuffer {
   const tables: Array<{ tag: string; data: ArrayBuffer }> = [
     { tag: 'head', data: headTable },
@@ -26,6 +27,7 @@ function buildMinimalSFNT(
   if (cmapTable) tables.push({ tag: 'cmap', data: cmapTable });
   if (gsubTable) tables.push({ tag: 'GSUB', data: gsubTable });
   if (colrTable) tables.push({ tag: 'COLR', data: colrTable });
+  if (cpalTable) tables.push({ tag: 'CPAL', data: cpalTable });
 
   const numTables = tables.length;
   const headerSize = 12;
@@ -598,6 +600,140 @@ describe('parseFontData', () => {
     const meta = await parseFontData(data);
     expect(meta.version).toBeDefined();
     expect(meta.version).toBe('Version 1.0');
+  });
+});
+
+function buildTestCollection(
+  members: Array<Record<number, string>>,
+  colorTables?: { colr?: number; cpal?: { numPalettes: number }; svg?: boolean; sbix?: boolean },
+): ArrayBuffer {
+  const memberBuffers = members.map((fields) =>
+    buildTestFont(fields, colorTables ? { colr: !!colorTables.colr } : undefined),
+  );
+
+  // Compute total size: TTC header (8 + 4*numFonts) + member offsets aligned to 4
+  let offset = 8 + members.length * 4;
+  const memberOffsets: number[] = [];
+  for (const buf of memberBuffers) {
+    memberOffsets.push(offset);
+    offset += (buf.byteLength + 3) & ~3;
+  }
+
+  const buffer = new ArrayBuffer(offset);
+  const out = new Uint8Array(buffer);
+  const view = new DataView(buffer);
+
+  // TTC header
+  view.setUint32(0, 0x74746366); // "ttcf"
+  view.setUint32(4, members.length);
+  for (let i = 0; i < members.length; i++) {
+    view.setUint32(8 + i * 4, memberOffsets[i]!);
+  }
+
+  for (let i = 0; i < memberBuffers.length; i++) {
+    out.set(new Uint8Array(memberBuffers[i]!), memberOffsets[i]!);
+    // OpenType collections store absolute offsets in each member's table directory.
+    const memberOffset = memberOffsets[i]!;
+    const numTables = view.getUint16(memberOffset + 4);
+    const dirStart = memberOffset + 12;
+    for (let j = 0; j < numTables; j++) {
+      const entryOff = dirStart + j * 16;
+      const tableOffset = view.getUint32(entryOff + 8);
+      view.setUint32(entryOff + 8, tableOffset + memberOffset);
+    }
+  }
+
+  return buffer;
+}
+
+describe('parseFontCollection', () => {
+  it('parses a TTC with multiple members', async () => {
+    const data = buildTestCollection([
+      {
+        1: 'TestSans',
+        2: 'Regular',
+        4: 'TestSans Regular',
+        6: 'TestSans-Regular',
+      },
+      {
+        1: 'TestSans',
+        2: 'Bold',
+        4: 'TestSans Bold',
+        6: 'TestSans-Bold',
+      },
+    ]);
+    const members = await parseFontCollection(data);
+    expect(members).toHaveLength(2);
+    expect(members[0]!.identity.subfamilyName).toBe('Regular');
+    expect(members[0]!.identity.collectionIndex).toBe(0);
+    expect(members[1]!.identity.subfamilyName).toBe('Bold');
+    expect(members[1]!.identity.collectionIndex).toBe(1);
+    expect(members[0]!.identity.contentHash).toBe(members[1]!.identity.contentHash);
+    expect(fontIdentityKey(members[0]!.identity)).not.toBe(fontIdentityKey(members[1]!.identity));
+  });
+
+  it('returns a single member for non-collection fonts', async () => {
+    const data = buildTestFont();
+    const members = await parseFontCollection(data);
+    expect(members).toHaveLength(1);
+    expect(members[0]!.identity.familyName).toBe('TestSans');
+  });
+
+  it('rejects over-long collection counts', async () => {
+    const buf = new ArrayBuffer(12);
+    const view = new DataView(buf);
+    view.setUint32(0, 0x74746366);
+    view.setUint32(4, 100); // exceeds MAX_COLLECTION_MEMBERS
+    const members = await parseFontCollection(buf);
+    expect(members).toHaveLength(0);
+  });
+});
+
+describe('color font detection', () => {
+  it('detects COLR v0', async () => {
+    const colrTable = new ArrayBuffer(4);
+    new DataView(colrTable).setUint16(0, 0);
+    const data = buildMinimalSFNT(
+      makeHeadTable(),
+      makeNameTable({ 1: 'C', 2: 'Regular', 4: 'C Regular', 6: 'C-Regular' }),
+      makeOS2Table(),
+      makeHheaTable(),
+      makeMaxpTable(),
+      undefined,
+      undefined,
+      undefined,
+      colrTable,
+    );
+    const meta = await parseFontData(data);
+    expect(meta.hasColorGlyphs).toBe(true);
+    expect(meta.colorFormats).toContain('colr0');
+  });
+
+  it('detects COLR v1 and CPAL palette count', async () => {
+    const colrTable = new ArrayBuffer(4);
+    new DataView(colrTable).setUint16(0, 1);
+    const cpalTable = new ArrayBuffer(8);
+    const cpalView = new DataView(cpalTable);
+    cpalView.setUint16(0, 0); // version
+    cpalView.setUint16(2, 3); // numPaletteEntries
+    cpalView.setUint16(4, 2); // numPalettes
+    const data = buildMinimalSFNT(
+      makeHeadTable(),
+      makeNameTable({ 1: 'C', 2: 'Regular', 4: 'C Regular', 6: 'C-Regular' }),
+      makeOS2Table(),
+      makeHheaTable(),
+      makeMaxpTable(),
+      undefined,
+      undefined,
+      undefined,
+      colrTable,
+      cpalTable,
+    );
+    const meta = await parseFontData(data);
+    expect(meta.hasColorGlyphs).toBe(true);
+    expect(meta.colorFormats).toContain('colr1');
+    expect(meta.colorFormats).toContain('cpal');
+    expect(meta.paletteCount).toBe(2);
   });
 });
 

@@ -78,7 +78,14 @@ export function getBackupService(): BackupService | null {
  */
 
 import { getTransactionHooks } from '@strata/collab';
-import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
+import type {
+  Adjustment,
+  Affine,
+  PathPoint,
+  PixelArtAlgorithm,
+  Shape,
+  UpscaleMethod,
+} from '@strata/engine';
 import {
   analogousHarmony,
   applyAffine,
@@ -103,6 +110,8 @@ import type {
   ContainerNode,
   ExportPreset,
   FacingPagesConfig,
+  Fill,
+  ImageFillData,
   InstanceStatus,
   LiveTraceParams,
   ManagedColor,
@@ -122,6 +131,7 @@ import {
   addSMInput,
   addSMState,
   addSMTransition,
+  addToSelectionSet as addToSelectionSetDoc,
   addVariableToDocument,
   advanceSMTransition,
   appendFrameToChain as appendFrameToChainDoc,
@@ -137,8 +147,10 @@ import {
   createClippingMask as createClippingMaskDoc,
   createComponent,
   createDocument,
+  createEmptySelectionSetsData,
   createGuideId,
   createMaster as createMasterDoc,
+  createSelectionSet as createSelectionSetDoc,
   createStateMachine,
   createTextChain as createTextChainDoc,
   createVariableStore,
@@ -148,12 +160,14 @@ import {
   deepCloneSubtree,
   defaultConstraints,
   deleteMaster as deleteMasterDoc,
+  deleteSelectionSet as deleteSelectionSetDoc,
   deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
   booleanOp as doBooleanOp,
   duplicateGuide as duplicateGuideDoc,
   duplicateMaster as duplicateMasterDoc,
+  duplicateSelectionSet as duplicateSelectionSetDoc,
   duplicateSMState,
   fillSlot as fillSlotDoc,
   findOrCreateEmbeddedAsset,
@@ -193,6 +207,7 @@ import {
   rebuildSpreads as rebuildSpreadsDoc,
   releaseClippingMask as releaseClippingMaskDoc,
   removeFrameFromChain as removeFrameFromChainDoc,
+  removeFromSelectionSet as removeFromSelectionSetDoc,
   removeGuide as removeGuideDoc,
   removeInteraction as removeInteractionDoc,
   removeMask as removeMaskDoc,
@@ -203,6 +218,7 @@ import {
   removeStateMachine,
   renameMaster as renameMasterDoc,
   renameNode,
+  renameSelectionSet as renameSelectionSetDoc,
   renameSMState,
   reparentNode as reparentNodeDoc,
   replaceNodesWithFlattened,
@@ -213,8 +229,12 @@ import {
   resolveVariantPropertiesForNode as resolveVariantPropertiesForNodeDoc,
   type SafeAreaConfig,
   type SceneNode,
+  type SelectionSet,
+  type SelectionSetScope,
   type SlugConfig,
   type SMRuntime,
+  initializeDefaultGridSettings as sceneInitializeGridSettings,
+  setDocumentGrid as sceneSetDocumentGrid,
   scopeForTargets,
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
@@ -252,6 +272,7 @@ import {
   toggleGuideLock as toggleGuideLockDoc,
   ungroupNode as ungroupNodeDoc,
   updateInteraction as updateInteractionDoc,
+  updateSelectionSetNodes as updateSelectionSetNodesDoc,
   updateTrack as updateTrackDoc,
   updateVariableInDocument,
   type Variable,
@@ -336,11 +357,6 @@ import { type MotionContextValue, MotionProvider } from './context/MotionContext
 import { PrototypeProvider } from './context/PrototypeContext';
 import { isReducedMotion } from './context/reducedMotionManager';
 import { SelectionProvider } from './context/SelectionContext';
-import {
-  DEFAULT_SELECTION_ORIGIN,
-  nextSelectionPrimary,
-  type SelectionOrigin,
-} from './context/selectionState';
 import { applyToolChange, ToolProvider } from './context/ToolContext';
 import type {
   CanvasMode,
@@ -349,10 +365,15 @@ import type {
   InspectorTab,
   IntelligenceTab,
   RulerMode,
+  SelectionOrigin,
   SessionMeta,
   ToolId,
 } from './context/types';
-import { createDefaultDocumentGridSettings } from './context/types';
+import {
+  createDefaultDocumentGridSettings,
+  DEFAULT_SELECTION_ORIGIN,
+  nextSelectionPrimary,
+} from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
 import { useInteractionState } from './context/useInteractionState';
@@ -576,9 +597,9 @@ export interface EditorContextValue {
   /** Fit all nodes in the document to the viewport. */
   fitAll: () => void;
   /** Replace selection with a single node (or clear if null). */
-  setSelection: (id: NodeId | null) => void;
+  setSelection: (id: NodeId | null, origin?: SelectionOrigin) => void;
   /** Toggle one node in/out of the selection; additive keeps existing selection. */
-  toggleSelection: (id: NodeId, additive?: boolean) => void;
+  toggleSelection: (id: NodeId, additive?: boolean, origin?: SelectionOrigin) => void;
   /** True if the given id is currently selected. */
   isSelected: (id: NodeId) => boolean;
   /** All selected scene nodes — works for nested nodes (uses doc.nodes lookup). */
@@ -701,6 +722,22 @@ export interface EditorContextValue {
   setSelectedFlipV: () => void;
   /** F6: batch-edit corner radius on all selected shape nodes. */
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
+  /** F6: create a selection set from the current selection. */
+  createSelectionSet: (name?: string) => SelectionSet | null;
+  /** F6: replace a selection set's members with the current selection. */
+  updateSelectionSet: (setId: string) => void;
+  /** F6: delete a selection set. */
+  deleteSelectionSet: (setId: string) => void;
+  /** F6: rename a selection set. */
+  renameSelectionSet: (setId: string, name: string) => void;
+  /** F6: duplicate a selection set. */
+  duplicateSelectionSet: (setId: string) => void;
+  /** F6: select the members of a selection set that still exist. */
+  selectSelectionSet: (setId: string) => void;
+  /** F6: add the current selection to a selection set. */
+  addToSelectionSet: (setId: string) => void;
+  /** F6: remove the current selection from a selection set. */
+  removeFromSelectionSet: (setId: string) => void;
   /** F6: align selected nodes by the given axis. */
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   /** F6: distribute selected nodes equally along the given axis. */
@@ -964,6 +1001,10 @@ export interface EditorContextValue {
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
   /** Toggle pixel grid overlay. */
   setPixelGridEnabled: (v: boolean) => void;
+  /** Toggle snap-to-pixel-grid. */
+  setPixelGridSnapEnabled: (v: boolean) => void;
+  /** Reset grid origin to (0, 0). */
+  resetGridOrigin: () => void;
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
@@ -1468,6 +1509,7 @@ function snapshotEditorSession(
 
 function restoreViewportFields(
   raw: Partial<SavedViewport> | undefined,
+  doc: Document,
 ): Pick<
   EditorState,
   | 'zoom'
@@ -1475,6 +1517,7 @@ function restoreViewportFields(
   | 'cameraRotation'
   | 'snapEnabled'
   | 'pixelGridEnabled'
+  | 'pixelGridSnapEnabled'
   | 'rulerMode'
   | 'gridOverlayMode'
   | 'unitType'
@@ -1483,18 +1526,21 @@ function restoreViewportFields(
   | 'documentGrid'
 > {
   const v = normalizeSavedViewport(raw);
+  const initialized = sceneInitializeGridSettings(doc);
+  const grid = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
   return {
     zoom: v.zoom,
     pan: v.pan,
     cameraRotation: v.cameraRotation,
     snapEnabled: v.snapEnabled,
     pixelGridEnabled: v.pixelGridEnabled,
+    pixelGridSnapEnabled: v.pixelGridSnapEnabled ?? false,
     rulerMode: v.rulerMode,
     gridOverlayMode: v.gridOverlayMode,
     unitType: v.unitType,
     guidesVisible: v.guidesVisible,
     snapGrid: v.snapGrid,
-    documentGrid: { ...createDefaultDocumentGridSettings(), visible: v.gridVisible ?? false },
+    documentGrid: { ...grid, visible: v.gridVisible ?? grid.visible },
   };
 }
 
@@ -1503,6 +1549,7 @@ function persistViewportPrefs(s: EditorState): void {
     viewport: {
       snapEnabled: s.snapEnabled,
       pixelGridEnabled: s.pixelGridEnabled,
+      pixelGridSnapEnabled: s.pixelGridSnapEnabled,
       rulerMode: s.rulerMode,
       gridOverlayMode: s.gridOverlayMode,
       unitType: s.unitType,
@@ -1620,6 +1667,7 @@ function shapeForTool(tool: ToolId): Shape {
     case 'backgroundRemoval':
     case 'clone':
     case 'contentAwareFill':
+    case 'lasso':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {
@@ -1938,6 +1986,8 @@ export function EditorProvider({
         name = initialDocumentName ?? doc.name ?? 'Untitled';
       }
     }
+    doc = sceneInitializeGridSettings(doc);
+    const docGrid = doc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
     const vpDefaults = loadSettings().viewport;
     return {
       tool: 'select',
@@ -1956,14 +2006,12 @@ export function EditorProvider({
       cursorPos: null,
       unitType: vpDefaults.unitType,
       pixelGridEnabled: vpDefaults.pixelGridEnabled,
+      pixelGridSnapEnabled: false,
       dotGridEnabled: false,
       findingsOverlayVisible: false,
       snapEnabled: vpDefaults.snapEnabled,
       snapGrid: vpDefaults.snapGrid,
-      documentGrid: {
-        ...createDefaultDocumentGridSettings(),
-        visible: vpDefaults.gridVisible ?? false,
-      },
+      documentGrid: docGrid,
       saveState: 'idle' as const,
       lastSavedAt: null,
       prototypeMode: false,
@@ -4097,6 +4145,88 @@ export function EditorProvider({
             nodes[id] = { ...node, cornerRadius: value } as SceneNode;
           }
           return { ...doc, nodes };
+        });
+      },
+
+      // F6: selection sets — save, restore, and manage named selections
+      createSelectionSet: (name) => {
+        const sel = state.selection;
+        if (sel.length === 0) return null;
+        const scope: SelectionSetScope = state.document.activePageId
+          ? { type: 'page', id: state.document.activePageId }
+          : { type: 'document' };
+        const setsData = state.document.selectionSets ?? createEmptySelectionSetsData();
+        const baseName = name?.trim() || `Selection ${setsData.sets.length + 1}`;
+        const set = createSelectionSetDoc(baseName, sel, scope);
+        updateDoc((doc) => ({
+          ...doc,
+          selectionSets: { ...setsData, sets: [...setsData.sets, set] },
+        }));
+        return set;
+      },
+
+      updateSelectionSet: (setId) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const setsData = doc.selectionSets ?? createEmptySelectionSetsData();
+          return { ...doc, selectionSets: updateSelectionSetNodesDoc(setsData, setId, sel) };
+        });
+      },
+
+      deleteSelectionSet: (setId) => {
+        updateDoc((doc) => {
+          const setsData = doc.selectionSets ?? createEmptySelectionSetsData();
+          return { ...doc, selectionSets: deleteSelectionSetDoc(setsData, setId) };
+        });
+      },
+
+      renameSelectionSet: (setId, name) => {
+        if (!name.trim()) return;
+        updateDoc((doc) => {
+          const setsData = doc.selectionSets ?? createEmptySelectionSetsData();
+          return { ...doc, selectionSets: renameSelectionSetDoc(setsData, setId, name.trim()) };
+        });
+      },
+
+      duplicateSelectionSet: (setId) => {
+        updateDoc((doc) => {
+          const setsData = doc.selectionSets ?? createEmptySelectionSetsData();
+          return { ...doc, selectionSets: duplicateSelectionSetDoc(setsData, setId) };
+        });
+      },
+
+      selectSelectionSet: (setId) => {
+        const setsData = state.document.selectionSets ?? createEmptySelectionSetsData();
+        const set = setsData.sets.find((s) => s.id === setId);
+        if (!set || set.nodeIds.length === 0) return;
+        const available = set.nodeIds.filter((id) => state.document.nodes[id]);
+        if (available.length === 0) return;
+        const origin: SelectionOrigin = 'command';
+        selectionHistory.push(available);
+        patch({
+          selection: available,
+          primaryId: available[0],
+          selectionRevision: state.selectionRevision + 1,
+          selectionOrigin: origin,
+        });
+      },
+
+      addToSelectionSet: (setId) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const setsData = doc.selectionSets ?? createEmptySelectionSetsData();
+          return { ...doc, selectionSets: addToSelectionSetDoc(setsData, setId, sel) };
+        });
+      },
+
+      removeFromSelectionSet: (setId) => {
+        const sel = state.selection;
+        if (sel.length === 0) return;
+        updateDoc((doc) => {
+          const setsData = doc.selectionSets ?? createEmptySelectionSetsData();
+          return { ...doc, selectionSets: removeFromSelectionSetDoc(setsData, setId, sel) };
         });
       },
 
@@ -6247,21 +6377,37 @@ export function EditorProvider({
         patch({ pixelGridEnabled: v });
         persistViewportPrefs({ ...stateRef.current, pixelGridEnabled: v });
       },
+      setPixelGridSnapEnabled: (v) => {
+        patch({ pixelGridSnapEnabled: v });
+        persistViewportPrefs({ ...stateRef.current, pixelGridSnapEnabled: v });
+      },
+      resetGridOrigin: () => {
+        const dg = stateRef.current.documentGrid;
+        patch({ documentGrid: { ...dg, offsetX: 0, offsetY: 0 } });
+      },
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });
         persistViewportPrefs({ ...stateRef.current, snapEnabled: v });
       },
       setSnapGrid: (v) => {
         const clamped = Math.max(1, Math.min(256, Math.round(v)));
-        patch({ snapGrid: clamped });
-        persistViewportPrefs({ ...stateRef.current, snapGrid: clamped });
+        const nextGrid = { ...stateRef.current.documentGrid, spacingX: clamped, spacingY: clamped };
+        updateDoc((doc) => sceneSetDocumentGrid(doc, nextGrid));
+        patch({ snapGrid: clamped, documentGrid: nextGrid });
+        persistViewportPrefs({ ...stateRef.current, snapGrid: clamped, documentGrid: nextGrid });
       },
       setDotGridEnabled: (v: boolean) => {
         patch({ dotGridEnabled: v });
       },
       setDocumentGrid: (settings) => {
-        patch({ documentGrid: settings });
-        persistViewportPrefs({ ...stateRef.current, documentGrid: settings });
+        const grid = {
+          ...settings,
+          id: settings.id ?? 'grid-document-default',
+          type: 'document' as const,
+        };
+        updateDoc((doc) => sceneSetDocumentGrid(doc, grid));
+        patch({ documentGrid: grid });
+        persistViewportPrefs({ ...stateRef.current, documentGrid: grid });
       },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
@@ -6489,6 +6635,8 @@ export function EditorProvider({
           );
           const newId = `session-${Date.now()}`;
           const newDoc = createDocument('Untitled');
+          const newDocGrid =
+            newDoc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
           const vpDefaults = loadSettings().viewport;
           undoStackRef.current = [];
           redoStackRef.current = [];
@@ -6504,13 +6652,14 @@ export function EditorProvider({
             cameraRotation: 0,
             snapEnabled: vpDefaults.snapEnabled,
             pixelGridEnabled: vpDefaults.pixelGridEnabled,
+            pixelGridSnapEnabled: false,
             dotGridEnabled: s.dotGridEnabled,
             snapGrid: vpDefaults.snapGrid,
             rulerMode: vpDefaults.rulerMode,
             gridOverlayMode: vpDefaults.gridOverlayMode,
             unitType: vpDefaults.unitType,
             guidesVisible: vpDefaults.guidesVisible,
-            documentGrid: { ...s.documentGrid, visible: vpDefaults.gridVisible ?? false },
+            documentGrid: { ...newDocGrid, visible: vpDefaults.gridVisible ?? newDocGrid.visible },
             dirty: false,
             sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
             activeId: newId,
@@ -6546,7 +6695,7 @@ export function EditorProvider({
             document: restoredDoc,
             selection: saved?.selection ?? [],
             selectedGuideId: null,
-            ...restoreViewportFields(saved?.viewport),
+            ...restoreViewportFields(saved?.viewport, restoredDoc),
             dirty: targetMeta?.dirty ?? false,
             sessions: syncedSessions,
             activeId: id,
@@ -6614,7 +6763,7 @@ export function EditorProvider({
               document: savedDoc,
               selection: saved?.selection ?? [],
               selectedGuideId: null,
-              ...restoreViewportFields(saved?.viewport),
+              ...restoreViewportFields(saved?.viewport, savedDoc),
               dirty: existing.dirty,
               sessions: syncedSessions,
               activeId: existing.id,
@@ -6866,11 +7015,11 @@ export function EditorProvider({
         processingImageNodeRef.current = processingNodeId;
         announcerRef.current?.announce('Upscaling image...');
         try {
-          const { getImageCache, dispatchUpscale } = await import('@strata/engine');
+          const engine = await import('@strata/engine');
           const { imageShapeSrc, getImageFill, findOrCreateEmbeddedAsset, mimeTypeFromDataUrl } =
             await import('@strata/scene');
           const sourceSrc = imageShapeSrc(imageNode);
-          const image = await getImageCache().load(sourceSrc);
+          const image = await engine.getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
           const width = Math.max(1, image.naturalWidth || image.width);
           const height = Math.max(1, image.naturalHeight || image.height);
@@ -6881,14 +7030,40 @@ export function EditorProvider({
           if (!context) throw new Error('Canvas pixel processing is unavailable');
           context.drawImage(image, 0, 0, width, height);
           const source = context.getImageData(0, 0, width, height);
-          const output = await dispatchUpscale(source, options, controller.signal);
+          const denoiseStrength = options.denoiseStrength;
+          const pixelArtAlgo = options.pixelArtAlgorithm;
+          const usePixelArt =
+            options.method === 'nearest' && pixelArtAlgo && pixelArtAlgo !== 'nearest';
+          let outputImage: ImageData;
+          if (denoiseStrength && denoiseStrength !== 'none') {
+            const pipelineResult = await engine.runEnhancementPipeline({
+              source,
+              denoiseStrength,
+              upscaleMethod: (usePixelArt ? 'pixel-art' : options.method) as
+                | UpscaleMethod
+                | 'pixel-art',
+              upscaleScale: options.scale ?? 2,
+              upscaleModelId: options.modelId,
+              pixelArtAlgorithm: usePixelArt ? (pixelArtAlgo as PixelArtAlgorithm) : undefined,
+              signal: controller.signal,
+              onProgress: options.onProgress,
+            });
+            outputImage = pipelineResult.imageData;
+          } else if (usePixelArt) {
+            outputImage = engine.scalePixelArt(source, {
+              algorithm: pixelArtAlgo as PixelArtAlgorithm,
+              scale: options.scale ?? 2,
+            });
+          } else {
+            outputImage = await engine.dispatchUpscale(source, options, controller.signal);
+          }
           if (controller.signal.aborted) return;
           const outputCanvas = document.createElement('canvas');
-          outputCanvas.width = output.width;
-          outputCanvas.height = output.height;
+          outputCanvas.width = outputImage.width;
+          outputCanvas.height = outputImage.height;
           const outputContext = outputCanvas.getContext('2d');
           if (!outputContext) throw new Error('Canvas image encoding is unavailable');
-          outputContext.putImageData(output, 0, 0);
+          outputContext.putImageData(outputImage, 0, 0);
           const dataUrl = outputCanvas.toDataURL('image/png');
           const current = stateRef.current;
           if (
@@ -6896,19 +7071,23 @@ export function EditorProvider({
             current.document.nodes[processingNodeId] !== imageNode
           )
             return;
-          if (options.replaceSource) {
+
+          const fill = getImageFill(imageNode);
+          const currentFill =
+            fill?.type === 'image' && fill.image ? (fill.image as ImageFillData) : undefined;
+          const assetInput = {
+            dataUrl,
+            mimeType: mimeTypeFromDataUrl(dataUrl),
+            naturalWidth: outputImage.width,
+            naturalHeight: outputImage.height,
+          };
+
+          if (options.replaceSource || options.output === 'replace-source') {
             // Replace the source image in place: register the upscaled bytes as
             // a deduped embedded asset in the document's asset table, then patch
             // the node's image fill. Atomic — the old src is only overwritten
             // after the upscaled image is fully produced and stored, so a
             // failure mid-inference never corrupts the source.
-            const fill = getImageFill(imageNode);
-            const assetInput = {
-              dataUrl,
-              mimeType: mimeTypeFromDataUrl(dataUrl),
-              naturalWidth: output.width,
-              naturalHeight: output.height,
-            };
             updateDoc((doc) => {
               const node = doc.nodes[processingNodeId];
               if (node?.kind !== 'shape') return doc;
@@ -6916,22 +7095,66 @@ export function EditorProvider({
                 doc,
                 assetInput,
               );
-              const currentFill = fill?.type === 'image' && fill.image ? fill.image : undefined;
-              const nextFill = {
-                type: 'image' as const,
+              const imageFill: ImageFillData = {
+                src: dataUrl,
+                assetId,
+                fit: currentFill?.fit ?? 'fill',
+                x: currentFill?.x ?? 0,
+                y: currentFill?.y ?? 0,
+                scale: currentFill?.scale ?? 1,
+                imageWidth: outputImage.width,
+                imageHeight: outputImage.height,
+              };
+              const nextFill: Fill = {
+                type: 'image',
                 opacity: fill?.opacity ?? 1,
-                blendMode: fill?.blendMode ?? ('normal' as const),
+                blendMode: fill?.blendMode ?? 'normal',
                 visible: fill?.visible ?? true,
-                image: {
-                  src: dataUrl,
-                  assetId,
-                  fit: currentFill?.fit ?? ('fill' as const),
-                  x: currentFill?.x ?? 0,
-                  y: currentFill?.y ?? 0,
-                  scale: currentFill?.scale ?? 1,
-                  imageWidth: output.width,
-                  imageHeight: output.height,
+                image: imageFill,
+              };
+              return {
+                ...docWithAsset,
+                nodes: {
+                  ...docWithAsset.nodes,
+                  [processingNodeId]: { ...node, fills: [nextFill] },
                 },
+              };
+            });
+          } else if (options.output === 'non-destructive') {
+            // Non-destructive: create upscaled asset, store upscale metadata on fill
+            updateDoc((doc) => {
+              const node = doc.nodes[processingNodeId];
+              if (node?.kind !== 'shape') return doc;
+              const { document: docWithAsset, assetId: upscaleAssetId } = findOrCreateEmbeddedAsset(
+                doc,
+                assetInput,
+              );
+              const sourceAssetId = currentFill?.assetId;
+              const imageFill: ImageFillData = {
+                src: dataUrl,
+                assetId: upscaleAssetId,
+                fit: currentFill?.fit ?? 'fill',
+                x: currentFill?.x ?? 0,
+                y: currentFill?.y ?? 0,
+                scale: currentFill?.scale ?? 1,
+                imageWidth: outputImage.width,
+                imageHeight: outputImage.height,
+                upscale: sourceAssetId
+                  ? {
+                      sourceAssetId,
+                      upscaleAssetId,
+                      mode: options.method ?? 'unknown',
+                      scale: options.scale ?? 2,
+                      modelId: options.modelId,
+                    }
+                  : undefined,
+              };
+              const nextFill: Fill = {
+                type: 'image',
+                opacity: fill?.opacity ?? 1,
+                blendMode: fill?.blendMode ?? 'normal',
+                visible: fill?.visible ?? true,
+                image: imageFill,
               };
               return {
                 ...docWithAsset,
@@ -6946,15 +7169,15 @@ export function EditorProvider({
             const scaleLabel = options.method === 'ai' ? '4x-ai' : `${options.scale ?? 2}x`;
             const inserted = insertDerivedImageShape(current.document, processingNodeId, {
               dataUrl,
-              width: output.width,
-              height: output.height,
+              width: outputImage.width,
+              height: outputImage.height,
               suffix: scaleLabel,
             });
             updateDoc(() => inserted.doc);
             patch({ selection: [inserted.nodeId] });
           }
           announcerRef.current?.announce(
-            `Image upscaled to ${output.width} by ${output.height} pixels`,
+            `Image upscaled to ${outputImage.width} by ${outputImage.height} pixels`,
           );
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
@@ -7492,7 +7715,7 @@ export function EditorProvider({
             document: nextDoc,
             selection: saved?.selection ?? [],
             selectedGuideId: null,
-            ...restoreViewportFields(saved?.viewport),
+            ...restoreViewportFields(saved?.viewport, nextDoc),
             dirty: next.dirty,
             sessions: remaining,
             activeId: next.id,
@@ -7615,6 +7838,14 @@ export function EditorProvider({
       setSelectedFlipH: value.setSelectedFlipH,
       setSelectedFlipV: value.setSelectedFlipV,
       setSelectedCornerRadius: value.setSelectedCornerRadius,
+      createSelectionSet: value.createSelectionSet,
+      updateSelectionSet: value.updateSelectionSet,
+      deleteSelectionSet: value.deleteSelectionSet,
+      renameSelectionSet: value.renameSelectionSet,
+      duplicateSelectionSet: value.duplicateSelectionSet,
+      selectSelectionSet: value.selectSelectionSet,
+      addToSelectionSet: value.addToSelectionSet,
+      removeFromSelectionSet: value.removeFromSelectionSet,
       alignSelected: value.alignSelected,
       distributeSelected: value.distributeSelected,
       distributeWithGap: value.distributeWithGap,

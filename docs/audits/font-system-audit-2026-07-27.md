@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-27
 **Scope:** Complete font subsystem audit, integration, and hardening
-**Status:** Phase 1-3 complete (audit, integration, testing)
+**Status:** Phase 1-4 complete (audit, integration, testing, deferred work completion)
 
 ---
 
@@ -204,7 +204,106 @@ These issues exist in the working tree but are not from this session's changes:
 
 ---
 
-## 7. Deferred Work
+## 7. Deferred Work Completion
+
+The following deferred work items from the original audit have been completed:
+
+### 7.1 FontBrowser Panel Integration ✅
+
+**Status:** Completed  
+**Implementation:**
+- Added FontBrowser as inspector tab in PropertiesPanel across all workspace configs
+- Added `'fonts'` as new InspectorTabId in workspaceTypes.ts and context/types.ts
+- Lazily loaded FontBrowser as FontBrowserPanel in PropertiesPanel.tsx
+- Updated TAB_ORDER and FALLBACK_TAB_LABELS to include the new 'Fonts' tab
+- Added conditional render for FontBrowserPanel in PropertiesPanel
+
+**Files modified:**
+- `packages/editor/src/components/Inspector/PropertiesPanel.tsx`
+- `packages/editor/src/workspace/workspaceTypes.ts`
+- `packages/editor/src/context/types.ts`
+
+### 7.2 Color Font UI Indicators ✅
+
+**Status:** Completed  
+**Implementation:**
+- Added `colorFormats`, `paletteCount`, `hasColorGlyphs` to FontDisplayEntry interface
+- Updated FontBrowser and FontSelector to display color font badges
+- Added CSS styles for color badges (`.font-browser__badge--color`, `.font-selector__badge--color`)
+- Color fonts now show a "COLOR" badge in the font list
+
+**Files modified:**
+- `packages/editor/src/components/FontBrowser/FontBrowser.tsx`
+- `packages/editor/src/components/FontBrowser/FontBrowser.css`
+- `packages/editor/src/components/FontBrowser/FontSelector.tsx`
+- `packages/editor/src/components/FontBrowser/FontSelector.css`
+
+### 7.3 Font License UI ✅
+
+**Status:** Completed  
+**Implementation:**
+- Created FontLicenseDetails component for displaying font metadata
+- Shows copyright, vendor, version, embedding rights, license, and variant information
+- Added internal selection state to FontBrowser for interactive license details display
+- Added CSS styles for license badges with color-coded embedding rights
+
+**Files created:**
+- `packages/editor/src/components/FontBrowser/FontLicenseDetails.tsx`
+- `packages/editor/src/components/FontBrowser/FontLicenseDetails.css`
+
+### 7.4 System Font Enumeration (Tauri) ✅
+
+**Status:** Completed  
+**Implementation:**
+- Added font-enumeration crate dependency to Tauri (Cargo.toml)
+- Created font.rs module with SystemFontFace struct and enumerate_system_fonts command
+- Registered enumerate_system_fonts command in Tauri invoke handler (lib.rs)
+- Updated fontLoader.ts to prefer Tauri native backend over Local Font Access API
+- Added SystemFontFace type and Tauri detection logic
+- Automatic FontRegistry registration when fonts are enumerated via Tauri
+
+**Files created:**
+- `apps/desktop/src-tauri/src/font.rs`
+
+**Files modified:**
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/lib.rs`
+- `packages/engine/src/font/fontLoader.ts`
+- `packages/engine/src/font/index.ts`
+
+### 7.5 TTC/OTC Collection Parsing Improvements ✅
+
+**Status:** Completed  
+**Implementation:**
+- Added colorFormats and paletteCount to ParsedFontMetadata for color font detection
+- Improved sameFontFace function to properly handle TTC/OTC collection members
+- Enhanced font parser to detect and report color font capabilities (COLR, CBDT, SVG tables)
+
+**Files modified:**
+- `packages/engine/src/font/fontIdentity.ts`
+- `packages/engine/src/font/fontParser.ts`
+- `packages/engine/src/font/fontParser.test.ts`
+
+### 7.6 Action Handlers and Shortcuts Integration ✅
+
+**Status:** Completed  
+**Implementation:**
+- Added openFontsPanel action handler with deep-link support
+- Registered openFontsPanel in searchable commands via registerAll
+- Added Ctrl+Shift+F shortcut for opening the fonts panel
+- Updated ViewMenu to include fonts panel option
+- Added tests for action handler deep-link and command registration
+
+**Files modified:**
+- `packages/editor/src/actions/createActionHandlers.ts`
+- `packages/editor/src/actions/createActionHandlers.test.ts`
+- `packages/editor/src/actions/registerAll.ts`
+- `packages/editor/src/actions/registerAll.test.ts`
+- `packages/editor/src/shortcuts/ShortcutManager.ts`
+- `packages/editor/src/components/Menubar/ViewMenu.tsx`
+- `packages/editor/src/Menubar.tsx`
+
+## 8. Remaining Deferred Work
 
 | Item | Why Deferred | Impact | Next Action |
 |------|-------------|--------|-------------|

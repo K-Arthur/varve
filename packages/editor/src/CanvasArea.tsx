@@ -100,6 +100,7 @@ import {
 import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
+import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import { CanvasOverlays } from './components/CanvasOverlays';
 import {
   type EditorState,
@@ -108,6 +109,7 @@ import {
   useEditor,
 } from './context';
 import { collectFilesFromDataTransfer } from './dropUtils';
+import { HitTestEngine } from './hitTest/HitTestEngine';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { type CropState, commitImageCropExtended } from './imageCrop';
 import { closeImageBitmapMap, collectImageBitmaps } from './render/collectImageBitmaps';
@@ -141,8 +143,6 @@ import {
 import { nodeWorldBounds } from './scene/world';
 import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
-import { HitTestEngine } from './hitTest/HitTestEngine';
-import { TouchCandidateMenu } from './components/Breadcrumb/TouchCandidateMenu';
 import type { DraftShape, ToolContext } from './tools';
 import type { CropTool } from './tools/CropTool';
 import { collectSourceEvents } from './tools/inputNormalizer';
@@ -1082,19 +1082,22 @@ export function CanvasArea({
             axis: guide.axis,
             position: guide.position,
           })) ?? [];
+        const gridConfig =
+          s.snapEnabled && s.documentGrid?.snapEnabled ? s.documentGrid : undefined;
         const result = snapPosition(
           bounds.x,
           bounds.y,
           bounds.w,
           bounds.h,
           allTargets,
-          s.snapGrid,
+          gridConfig,
           undefined,
           {
             zoom: s.zoom,
             session: snapSessionRef.current,
             guideTargets,
             layoutGridStep,
+            pixelGridSnap: s.snapEnabled && s.pixelGridSnapEnabled,
           },
         );
         snapSessionRef.current = result.session;
@@ -2780,7 +2783,7 @@ export function CanvasArea({
         }}
       />
       {/* Pixel grid overlay (1px lines at 1:1 zoom) */}
-      {state.pixelGridEnabled && (
+      {state.pixelGridEnabled && state.zoom >= 4 && (
         <div
           className="editor-canvas__pixel-grid"
           style={{
@@ -2789,6 +2792,7 @@ export function CanvasArea({
               'linear-gradient(90deg, var(--color-border-subtle) 1px, transparent 1px)',
             ].join(', '),
             backgroundSize: `${state.zoom}px ${state.zoom}px`,
+            opacity: 0.5,
           }}
         />
       )}

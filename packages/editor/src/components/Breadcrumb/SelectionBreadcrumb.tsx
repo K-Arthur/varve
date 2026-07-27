@@ -1,6 +1,6 @@
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId } from '@strata/scene';
 import { isContainer } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { getOrCreateParentCache, getParentFast } from '../../scene/parentIndexCache';
@@ -79,7 +79,7 @@ interface BreadcrumbBarProps {
 }
 
 function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
-  const { setSelection, enterIsolation, exitIsolation, revealSelection } = useEditor();
+  const { setSelection, enterIsolation, revealSelection } = useEditor();
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
 
@@ -123,7 +123,7 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
   };
 
   return (
-    <nav className="selection-breadcrumb" aria-label="Selection path" role="navigation">
+    <nav className="selection-breadcrumb" aria-label="Selection path">
       {overflowCount > 0 && (
         <div className="selection-breadcrumb__overflow-wrapper" ref={overflowRef}>
           <button
@@ -133,7 +133,7 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
             aria-label={`${overflowCount} more levels`}
             aria-expanded={overflowOpen}
           >
-            <SolidIcon name={SOLID_CHROME_ICONS.moreHorizontal} size="0.75em" />
+            <SolidIcon name={SOLID_CHROME_ICONS.ellipsis} size="0.75em" />
           </button>
           {overflowOpen && (
             <div className="selection-breadcrumb__overflow-menu" role="menu">
@@ -168,21 +168,24 @@ function BreadcrumbBar({ segments }: BreadcrumbBarProps) {
               className="selection-breadcrumb__separator"
             />
           )}
-          <button
-            type="button"
-            className="selection-breadcrumb__segment"
-            onClick={() => handleSegmentClick(seg)}
-            onContextMenu={(e) => handleSegmentContext(e, seg)}
-            aria-label={`${kindLabel(seg.kind)}: ${seg.name}${seg.isContainer ? '. Right-click to enter.' : ''}`}
-            title={
+          <Tooltip
+            label={
               seg.isContainer
                 ? `${seg.name} (${kindLabel(seg.kind)}) — right-click to enter`
-                : seg.name
+                : `${seg.name} (${kindLabel(seg.kind)})`
             }
           >
-            <span className="selection-breadcrumb__segment-kind">{kindLabel(seg.kind)}</span>
-            <span className="selection-breadcrumb__segment-name">{seg.name}</span>
-          </button>
+            <button
+              type="button"
+              className="selection-breadcrumb__segment"
+              onClick={() => handleSegmentClick(seg)}
+              onContextMenu={(e) => handleSegmentContext(e, seg)}
+              aria-label={`${kindLabel(seg.kind)}: ${seg.name}${seg.isContainer ? '. Right-click to enter.' : ''}`}
+            >
+              <span className="selection-breadcrumb__segment-kind">{kindLabel(seg.kind)}</span>
+              <span className="selection-breadcrumb__segment-name">{seg.name}</span>
+            </button>
+          </Tooltip>
         </span>
       ))}
     </nav>

@@ -12,6 +12,7 @@ import { EyedropperTool } from '../tools/EyedropperTool';
 import { FrameTool } from '../tools/FrameTool';
 import { HandTool } from '../tools/HandTool';
 import { HealingBrushTool } from '../tools/HealingBrushTool';
+import { LassoTool } from '../tools/LassoTool';
 import { LineTool } from '../tools/LineTool';
 import { NodeEditTool } from '../tools/NodeEditTool';
 import { PaintTool } from '../tools/PaintTool';
@@ -66,6 +67,7 @@ export function getToolManager(): ToolManager {
     toolManager.register('eraser', () => new PaintTool(true));
     toolManager.register('smudge', () => new SmudgeTool());
     toolManager.register('sam2Segment', () => new Sam2SegmentationTool());
+    toolManager.register('lasso', () => new LassoTool());
   }
   return toolManager;
 }
