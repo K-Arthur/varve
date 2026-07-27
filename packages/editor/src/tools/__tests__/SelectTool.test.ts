@@ -1148,3 +1148,94 @@ describe('SelectTool Enter key navigates into containers', () => {
     expect(ctx.enterIsolation).not.toHaveBeenCalled();
   });
 });
+
+describe('SelectTool marquee-select scaling', () => {
+  /**
+   * A paged document with `count` overlapping rects directly under the
+   * page's contentRoot (not a direct rootChild) -- matching the shape that
+   * actually exercises getParent's expensive `Object.entries(doc.nodes)`
+   * fallback scan when no parentIndex is passed.
+   */
+  function makeOverlappingDoc(count: number) {
+    const doc = createDocument('test', {});
+    const page = doc.pages![0]!;
+    const contentRootId = page.contentRoot!;
+    const contentRoot = doc.nodes[contentRootId]!;
+    const nodes: Record<string, ReturnType<typeof makeShapeNode>> = {};
+    const childIds: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const id = `n-${i}`;
+      nodes[id] = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
+      childIds.push(id);
+    }
+    return {
+      ...doc,
+      nodes: { ...doc.nodes, [contentRootId]: { ...contentRoot, children: childIds }, ...nodes },
+    } as typeof doc;
+  }
+
+  function marqueeDrag(tool: SelectTool, ctx: ReturnType<typeof makeCtx>) {
+    (tool as any).marqueeActive = true;
+    (tool as any).drag = {
+      startCanvas: { x: 0, y: 0 },
+      startWorld: { x: 0, y: 0 },
+      currentCanvas: { x: 100, y: 100 },
+      currentWorld: { x: 100, y: 100 },
+    };
+    (tool as any).onDragEnd(ctx);
+  }
+
+  it('does not call ctx.nodeWorldBounds (the O(n^2)-prone indirection)', () => {
+    // Regression guard: onDragEnd's marquee loop used to call
+    // ctx.nodeWorldBounds(node) per node, which internally calls
+    // nodeWorldBounds(doc, id) with no parentIndex -- an O(n) linear scan
+    // (getParent) per call, making one marquee-select gesture O(n^2) in
+    // active-page node count. Same pattern as computeFitAllCamera (a
+    // measured 10+ minute hang at 20,000 nodes).
+    //
+    // A timing-based scaling test can't demonstrate this in isolation here:
+    // makeCtx()'s default ctx.nodeWorldBounds is a mock that returns
+    // instantly regardless of document size, so it would pass identically
+    // before and after the fix -- the mock hides exactly the cost the real
+    // bug lived in. What the fix actually does is stop going through that
+    // indirection at all (it now calls the direct, parentIndex-capable
+    // nodeWorldBounds from ../scene/world instead), so the precise,
+    // deterministic guard is: the mock must never be invoked.
+    const doc = makeOverlappingDoc(50);
+    const tool = new SelectTool();
+    const nodeWorldBoundsMock = vi.fn().mockReturnValue({ x: 0, y: 0, w: 100, h: 100 });
+    const ctx = makeCtx({ document: doc, altKey: false, nodeWorldBounds: nodeWorldBoundsMock });
+
+    marqueeDrag(tool, ctx);
+
+    expect(nodeWorldBoundsMock).not.toHaveBeenCalled();
+    // Sanity: selection still happened via the real geometry path, so this
+    // isn't passing because the loop silently did nothing.
+    expect(ctx.toggleSelection).toHaveBeenCalledTimes(50);
+  });
+
+  it('scales near-linearly with active-page node count, not quadratically', () => {
+    // Protects the fix's own implementation (buildParentIndexMap +
+    // nodeWorldBounds called directly in the loop below) against a future
+    // regression -- e.g. someone re-adding a per-node parent lookup without
+    // the cache. Uses real geometry computation throughout (the fixed code
+    // path bypasses ctx.nodeWorldBounds entirely), so unlike a mock-based
+    // comparison this genuinely exercises the cost that matters.
+    const small = makeOverlappingDoc(300);
+    const large = makeOverlappingDoc(2400); // 8x
+
+    const toolSmall = new SelectTool();
+    const ctxSmall = makeCtx({ document: small, altKey: false });
+    const t0 = performance.now();
+    marqueeDrag(toolSmall, ctxSmall);
+    const smallMs = performance.now() - t0;
+
+    const toolLarge = new SelectTool();
+    const ctxLarge = makeCtx({ document: large, altKey: false });
+    const t1 = performance.now();
+    marqueeDrag(toolLarge, ctxLarge);
+    const largeMs = performance.now() - t1;
+
+    expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 300));
+  });
+});
