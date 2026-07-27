@@ -66,7 +66,6 @@ export {
 export type {
   BuildManifestOptions,
   FontManifest,
-  FontManifestEntry,
   FontManifestStatus,
 } from './fontManifest';
 // Document font manifest

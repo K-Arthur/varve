@@ -109,7 +109,7 @@ export type CanvasMode = 'full' | 'outline' | 'preview';
 
 export type RulerMode = 'global' | 'artboard';
 
-export type GridOverlayMode = 'none' | 'baseline' | 'isometric';
+export type GridOverlayMode = 'none' | 'document' | 'baseline' | 'isometric';
 
 export type DocumentGridSettings = DocumentGrid;
 
