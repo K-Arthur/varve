@@ -124,6 +124,7 @@ export function createActionHandlers(
     clearAllGuides: () => e.clearAllGuides(),
     clearGuides: () => e.clearAllGuides(),
     softProof: () => e.setSoftProofEnabled(!e.state.softProofEnabled),
+    toggleFindingsOverlay: () => e.setFindingsOverlayVisible(!e.state.findingsOverlayVisible),
     toggleLeftPanel: () => e.toggleLeftPanel(),
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
