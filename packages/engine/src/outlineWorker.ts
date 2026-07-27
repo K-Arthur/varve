@@ -70,7 +70,12 @@ interface OpentypeFont {
   };
   charToGlyph(char: string): OpentypeGlyph;
   stringToGlyphs(str: string): number[];
-  getPath(text: string, x: number, y: number, fontSize: number): { commands: OpentypePathCommand[]; toPathData(decimalPlaces: number): string };
+  getPath(
+    text: string,
+    x: number,
+    y: number,
+    fontSize: number,
+  ): { commands: OpentypePathCommand[]; toPathData(decimalPlaces: number): string };
 }
 
 function isWoff2(data: ArrayBuffer): boolean {
@@ -106,11 +111,19 @@ self.onmessage = async (e: MessageEvent<OutlineWorkerRequest>) => {
       const opentype = await import('opentype.js');
       font = opentype.parse(fontData) as unknown as OpentypeFont;
       if (!font) {
-        postMessage({ id: req.id, type: 'error', error: 'Failed to parse font data' } satisfies OutlineWorkerError);
+        postMessage({
+          id: req.id,
+          type: 'error',
+          error: 'Failed to parse font data',
+        } satisfies OutlineWorkerError);
         return;
       }
     } catch {
-      postMessage({ id: req.id, type: 'error', error: 'Failed to load or parse font' } satisfies OutlineWorkerError);
+      postMessage({
+        id: req.id,
+        type: 'error',
+        error: 'Failed to load or parse font',
+      } satisfies OutlineWorkerError);
       return;
     }
 
