@@ -6,8 +6,15 @@
  */
 
 import type { UpscaleMethod } from './imageEnhancement';
+import type { PixelArtAlgorithm } from './pixelArtScaling';
 
-export type UpscaleModeId = 'pixel-art' | 'fast' | 'balanced' | 'quality' | 'ai-enhance';
+export type UpscaleModeId =
+  | 'pixel-art'
+  | 'fast'
+  | 'balanced'
+  | 'quality'
+  | 'ai-enhance'
+  | 'illustration';
 
 export interface UpscaleMode {
   id: UpscaleModeId;
@@ -24,6 +31,10 @@ export interface UpscaleMode {
   scaleOptions: number[];
   /** Whether only integer scales are allowed. */
   integerOnly: boolean;
+  /** Available pixel-art algorithms (for pixel-art mode). */
+  pixelArtAlgorithms?: PixelArtAlgorithm[];
+  /** Default pixel-art algorithm (for pixel-art mode). */
+  defaultPixelArtAlgorithm?: PixelArtAlgorithm;
 }
 
 export const UPSCALE_MODES: UpscaleMode[] = [
@@ -37,6 +48,8 @@ export const UPSCALE_MODES: UpscaleMode[] = [
     defaultScale: 4,
     scaleOptions: [2, 3, 4, 8],
     integerOnly: true,
+    pixelArtAlgorithms: ['nearest', 'epx', 'scale2x', 'scale3x', 'scale4x', 'hqx', 'xbr'],
+    defaultPixelArtAlgorithm: 'epx',
   },
   {
     id: 'fast',
@@ -76,6 +89,18 @@ export const UPSCALE_MODES: UpscaleMode[] = [
     label: 'AI enhancement',
     description:
       'Real-ESRGAN x4 super-resolution. Restores detail using the bundled offline model. Best for photographs and illustrations.',
+    method: 'ai',
+    isAi: true,
+    lockedScale: true,
+    defaultScale: 4,
+    scaleOptions: [4],
+    integerOnly: true,
+  },
+  {
+    id: 'illustration',
+    label: 'Illustration & anime',
+    description:
+      'Real-ESRGAN anime-optimized x4 model. Preserves line art, flat colours, and cel shading. Optional download — falls back to general AI if not installed.',
     method: 'ai',
     isAi: true,
     lockedScale: true,

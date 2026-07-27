@@ -30,6 +30,19 @@ export const UPSCALE_MODELS: UpscaleModelMetadata[] = [
     checksum: '856e1f4d77f553e8871302f1782b58e315a12dac52bb0b856dde2dde149b96f7',
     bundled: true,
   },
+  {
+    id: 'upscale-realesrgan-anime',
+    name: 'Real-ESRGAN Anime (x4)',
+    description: 'Optional download: x4 model optimized for anime, illustrations, and line art.',
+    size: 6_700_000,
+    filename: 'realesrgan-x4plus-anime.onnx',
+    sourceRelease: 'Real-ESRGAN v0.2.5.0',
+    sourceUrl:
+      'https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.5.0/RealESRGAN_x4plus_anime_6B.pth',
+    remoteUrl: '',
+    checksum: '',
+    bundled: false,
+  },
 ];
 
 export function getUpscaleModel(id: string): UpscaleModelMetadata | undefined {
