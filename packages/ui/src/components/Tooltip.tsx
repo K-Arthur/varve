@@ -433,13 +433,11 @@ export function Tooltip({
       (Array.isArray(props.children) &&
         props.children.some((c) => typeof c === 'string' || typeof c === 'number'));
     if (!hasAccessibleName) {
-      // biome-ignore lint/suspicious/noConsole: development-only warning for a11y misuse
       console.warn(
         `Tooltip trigger is missing an accessible name. Tooltip: "${label}". Add aria-label, aria-labelledby, a visible text child, or a label prop to the trigger.`,
       );
     }
     if (props.title) {
-      // biome-ignore lint/suspicious/noConsole: development-only warning for a11y misuse
       console.warn(
         `Tooltip trigger has a native title attribute that conflicts with the Tooltip component: "${label}". Remove the title attribute from the trigger.`,
       );
@@ -503,7 +501,6 @@ export function Tooltip({
 
   if (needsDisabledWrapper) {
     return (
-      // biome-ignore lint/a11y/noStaticElementInteractions: focusable wrapper that explains an otherwise inaccessible disabled control
       <span
         {...hoverTriggerHandlers}
         {...baseTriggerProps}

@@ -25,6 +25,7 @@ import {
   validateRasterMaskDocument,
 } from './masks';
 import { resolveNodePaints } from './paint';
+import { createEmptySelectionSetsData } from './selectionSet';
 import { type NodeId, normalizeImageFillData, type Page, type SceneNode } from './types';
 import {
   CURRENT_DOCUMENT_VERSION,
@@ -614,6 +615,9 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
+  if (!document.selectionSets) {
+    document = { ...document, selectionSets: createEmptySelectionSetsData() };
+  }
   return { document, warnings };
 }
 
