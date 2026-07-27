@@ -1,0 +1,67 @@
+/**
+ * FontLicenseDetails styles — compact metadata readout inside the font browser.
+ */
+
+.font-license-details {
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.font-license-details__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.font-license-details__family {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+
+.font-license-details__format {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-raised);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+}
+
+.font-license-details__row {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  line-height: 1.4;
+}
+
+.font-license-details__label {
+  width: 5rem;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-2xs);
+  text-transform: uppercase;
+}
+
+.font-license-details__value {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.font-license-details__value--restricted,
+.font-license-details__value--license {
+  color: var(--color-warning);
+}
+
+.font-license-details__value--installable,
+.font-license-details__value--editable,
+.font-license-details__value--preview {
+  color: var(--color-success);
+}
+
+.font-license-details__value--unknown {
+  color: var(--color-text-muted);
+}

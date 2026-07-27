@@ -11,6 +11,7 @@
 
 import { type FontRegistry, getFontRegistry } from '../fontRegistry';
 import type { ParsedFontMetadata } from './fontIdentity';
+import { parseFontData } from './fontParser';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -65,10 +66,38 @@ const SYSTEM_FONTS: string[] = [
   'Apple SD Gothic Neo',
 ];
 
+/** True when running inside the Tauri desktop shell. */
+function isTauri(): boolean {
+  return typeof window !== 'undefined' && '__TAURI__' in window;
+}
+
+/** Result shape returned by the `enumerate_system_fonts` Tauri command. */
+export interface SystemFontFace {
+  family: string;
+  name: string;
+  path: string;
+  style: string;
+  weight: number;
+  stretch: number;
+}
+
 function createTimeout(ms: number): Promise<never> {
   return new Promise((_, reject) => {
     setTimeout(() => reject(new Error(`Font load timed out after ${ms}ms`)), ms);
   });
+}
+
+function weightFromSubfamily(subfamily: string): number {
+  const lower = subfamily.toLowerCase();
+  if (lower.includes('thin')) return 100;
+  if (lower.includes('extralight') || lower.includes('extra light')) return 200;
+  if (lower.includes('light')) return 300;
+  if (lower.includes('medium')) return 500;
+  if (lower.includes('semibold') || lower.includes('semi bold')) return 600;
+  if (lower.includes('bold')) return 700;
+  if (lower.includes('extrabold') || lower.includes('extra bold')) return 800;
+  if (lower.includes('black')) return 900;
+  return 400;
 }
 
 // ── FontLoader ─────────────────────────────────────────────────────────────
@@ -254,6 +283,15 @@ export class FontLoader {
       return result;
     }
 
+    // Parse metadata before loading so we can register accurate weight/style,
+    // color capabilities, and license info alongside the FontRegistry entry.
+    let meta: ParsedFontMetadata | undefined;
+    try {
+      meta = await parseFontData(data);
+    } catch {
+      // Parse errors are non-fatal; we fall back to generic registration below.
+    }
+
     const face = new FontFace(family, data);
     try {
       await Promise.race([face.load(), createTimeout(this.config.timeoutMs)]);
@@ -272,12 +310,35 @@ export class FontLoader {
     this.loaded.set(family, result);
 
     // Register in FontRegistry so existing UI components see the font
+    const subfamily = meta?.identity.subfamilyName ?? 'Regular';
     this.registry.register({
       family,
-      weight: 400,
-      style: 'normal',
+      weight: weightFromSubfamily(subfamily),
+      style: subfamily.toLowerCase().includes('italic') ? 'italic' : 'normal',
       source: 'bundled',
     });
+
+    if (meta) {
+      this.registry.registerMetadata({
+        family,
+        postScriptName: meta.identity.postScriptName,
+        format: meta.format,
+        vendor: meta.vendor,
+        version: meta.version,
+        copyright: meta.copyright,
+        license: meta.license,
+        embeddingRights: meta.embeddingRights,
+        hasColorGlyphs: meta.hasColorGlyphs,
+        colorFormats: meta.colorFormats,
+        paletteCount: meta.paletteCount,
+        openTypeFeatures: meta.openTypeFeatures,
+        glyphCount: meta.glyphCount,
+        unitsPerEm: meta.unitsPerEm,
+        ascender: meta.ascender,
+        descender: meta.descender,
+        lineGap: meta.lineGap,
+      });
+    }
 
     this.notify();
     return result;
@@ -373,15 +434,49 @@ export function hasQueryLocalFonts(): boolean {
 }
 
 /**
- * Enumerate system fonts using the Local Font Access API (Chrome 103+).
+ * Enumerate system fonts using the Tauri native backend when available,
+ * otherwise the Local Font Access API (Chrome 103+), finally falling back
+ * to a hardcoded safe list.
  *
- * Requires a user gesture (transient activation) on first call.
- * Returns the hardcoded safe list as fallback when the API is unavailable.
- *
+ * Requires a user gesture (transient activation) on first call for the browser API.
  * Results are cached for the session — subsequent calls return immediately.
  */
 export async function enumerateSystemFonts(): Promise<string[]> {
   if (_enumeratedSystemFamilies) return _enumeratedSystemFamilies;
+
+  // Prefer the Tauri native command; it works without browser permissions and
+  // gives us richer metadata (path, weight, style) for each face.
+  if (isTauri()) {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const faces = await invoke<SystemFontFace[]>('enumerate_system_fonts', {});
+      const registry = getFontRegistry();
+      const familySet = new Set<string>();
+
+      for (const face of faces) {
+        familySet.add(face.family);
+        registry.register({
+          family: face.family,
+          weight: Math.round(face.weight),
+          style: face.style.includes('italic') ? 'italic' : 'normal',
+          source: 'system',
+        });
+      }
+
+      const families = [...familySet].sort();
+      _enumeratedSystemFamilies = families;
+      // Expose full face details through getCachedLocalFontMetadata semantics.
+      _enumeratedSystemFonts = faces.map((f) => ({
+        postscriptName: f.name,
+        fullName: f.name,
+        family: f.family,
+        style: f.style,
+      }));
+      return families;
+    } catch {
+      // Tauri command failed — fall through to browser API or safe list.
+    }
+  }
 
   if (hasQueryLocalFonts()) {
     try {

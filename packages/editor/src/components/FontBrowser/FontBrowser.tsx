@@ -7,8 +7,11 @@
  *
  * Research basis: Figma font menu, FontBase/FontBook catalog UX patterns.
  */
+
+import type { FontMetadata } from '@strata/engine';
 import { getFontRegistry } from '@strata/engine';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';
 
 export interface FontBrowserProps {
@@ -26,6 +29,11 @@ interface FontDisplayEntry {
   isVariable: boolean;
   isFavorite: boolean;
   recentlyUsedAt?: number;
+  hasColorGlyphs: boolean;
+  colorFormats: string[];
+  paletteCount?: number;
+  embeddingRights?: FontMetadata['embeddingRights'];
+  license?: string;
 }
 
 const SOURCE_FILTERS: readonly { key: SourceFilter; label: string }[] = [
@@ -64,12 +72,13 @@ function familyMatchesFilter(entry: FontDisplayEntry, filter: SourceFilter): boo
 
 export function FontBrowser({
   onSelect,
-  selectedFamily,
+  selectedFamily: selectedFamilyProp,
   showDownloadable = false,
   maxHeight = 400,
 }: FontBrowserProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<SourceFilter>('all');
+  const [selectedFamily, setSelectedFamily] = useState<string | undefined>(selectedFamilyProp);
   const listRef = useRef<HTMLDivElement>(null);
 
   const registry = useMemo(() => getFontRegistry(), []);
@@ -86,11 +95,17 @@ export function FontBrowser({
       const firstEntry = entries[0];
       if (!firstEntry) continue;
       if (!showDownloadable && firstEntry.source === 'google') continue;
+      const meta = registry.getMetadata(family);
       results.push({
         family,
         source: firstEntry.source,
         isVariable: registry.isVariable(family),
         isFavorite: false,
+        hasColorGlyphs: meta?.hasColorGlyphs ?? false,
+        colorFormats: meta?.colorFormats ?? [],
+        paletteCount: meta?.paletteCount,
+        embeddingRights: meta?.embeddingRights,
+        license: meta?.license,
       });
     }
     return results;
@@ -115,6 +130,7 @@ export function FontBrowser({
 
   const handleSelect = useCallback(
     (family: string) => {
+      setSelectedFamily(family);
       onSelect?.(family);
     },
     [onSelect],
@@ -156,6 +172,13 @@ export function FontBrowser({
           const isSelected = selectedFamily === entry.family;
           const sourceBadge = SOURCE_BADGES[entry.source] ?? '';
 
+          const colorTitle = entry.paletteCount
+            ? `${entry.colorFormats.join(', ')} · ${entry.paletteCount} palettes`
+            : entry.colorFormats.join(', ');
+          const licenseTitle = entry.license
+            ? entry.license
+            : `Embedding: ${entry.embeddingRights ?? 'unknown'}`;
+
           return (
             <button
               key={entry.family}
@@ -175,6 +198,22 @@ export function FontBrowser({
                 {entry.isVariable && (
                   <span className="font-browser__badge font-browser__badge--var">w</span>
                 )}
+                {entry.hasColorGlyphs && (
+                  <span
+                    className="font-browser__badge font-browser__badge--color"
+                    title={colorTitle}
+                  >
+                    C
+                  </span>
+                )}
+                {entry.embeddingRights === 'restricted' && (
+                  <span
+                    className="font-browser__badge font-browser__badge--license"
+                    title={licenseTitle}
+                  >
+                    L
+                  </span>
+                )}
               </span>
             </button>
           );
@@ -182,6 +221,12 @@ export function FontBrowser({
       </div>
 
       <div className="font-browser__count">{filteredEntries.length} fonts</div>
+
+      {selectedFamily && (
+        <div className="font-browser__details">
+          <FontLicenseDetails family={selectedFamily} />
+        </div>
+      )}
     </div>
   );
 }

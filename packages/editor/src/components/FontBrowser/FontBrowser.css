@@ -153,6 +153,16 @@
   font-weight: var(--font-weight-bold);
 }
 
+.font-browser__badge--color {
+  color: var(--color-text-inverse);
+  background: var(--color-accent-secondary);
+}
+
+.font-browser__badge--license {
+  color: var(--color-text-inverse);
+  background: var(--color-warning);
+}
+
 /* ---------- Footer count ---------- */
 
 .font-browser__count {
@@ -160,6 +170,16 @@
   font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   border-top: 1px solid var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+/* ---------- Details panel ---------- */
+
+.font-browser__details {
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-sunken);
+  max-height: 160px;
+  overflow-y: auto;
   flex-shrink: 0;
 }
 
