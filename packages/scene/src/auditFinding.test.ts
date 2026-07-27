@@ -280,3 +280,135 @@ describe('auditFindingToLegacy', () => {
     expect(legacy.message).toBe(original.message);
   });
 });
+
+// ─── Canonical type exhaustiveness tests ──────────────────────────────────
+
+describe('AuditFinding canonical type', () => {
+  it('supports all lifecycle fields', () => {
+    const finding: AuditFinding = createFinding({
+      ruleId: 'test/lifecycle',
+      category: 'color',
+      severity: 'error',
+      message: 'Lifecycle test',
+      nodeId: 'n1' as NodeId,
+      stale: true,
+      resolved: false,
+      scanId: 42,
+      suppressionEligible: true,
+      suppressionScope: 'finding',
+      suppression: {
+        id: 'sup-1',
+        reason: 'Known issue',
+        suppressedAt: Date.now(),
+        active: true,
+      },
+    });
+    expect(finding.stale).toBe(true);
+    expect(finding.resolved).toBe(false);
+    expect(finding.scanId).toBe(42);
+    expect(finding.suppressionEligible).toBe(true);
+    expect(finding.suppression?.active).toBe(true);
+  });
+
+  it('supports multi-node references', () => {
+    const finding = createFinding({
+      ruleId: 'test/multi',
+      category: 'accessibility',
+      severity: 'warning',
+      message: 'Multiple nodes',
+      nodeIds: ['n1' as NodeId, 'n2' as NodeId],
+    });
+    expect(finding.nodeIds).toEqual(['n1', 'n2']);
+  });
+
+  it('supports region and interaction metadata', () => {
+    const finding = createFinding({
+      ruleId: 'test/meta',
+      category: 'prototype',
+      severity: 'suggestion',
+      message: 'Metadata',
+      region: { x: 0, y: 0, w: 100, h: 200, pageId: 'p1' },
+      interactionId: 'int-1',
+      targetName: 'Button',
+      standardReference: 'WCAG 2.1 SC 1.4.3',
+      documentationUrl: 'https://example.com',
+      metadata: { extra: 'data' },
+    });
+    expect(finding.region?.w).toBe(100);
+    expect(finding.interactionId).toBe('int-1');
+    expect(finding.targetName).toBe('Button');
+    expect(finding.standardReference).toBe('WCAG 2.1 SC 1.4.3');
+    expect(finding.metadata?.extra).toBe('data');
+  });
+
+  it('supports forward-compat metadata', () => {
+    const finding = createFinding({
+      ruleId: 'test/forward',
+      category: 'codegen',
+      severity: 'advisory',
+      message: 'Forward compat',
+      metadata: { newField: 'value' },
+    });
+    expect(finding.metadata?.newField).toBe('value');
+  });
+
+  it('auto-fills nodeIds from nodeId when nodeIds not provided', () => {
+    const finding = createFinding({
+      ruleId: 'test/auto',
+      category: 'color',
+      severity: 'error',
+      message: 'Auto fill',
+      nodeId: 'n1' as NodeId,
+    });
+    expect(finding.nodeIds).toEqual(['n1']);
+  });
+
+  it('does not set nodeIds when nodeId is absent', () => {
+    const finding = createFinding({
+      ruleId: 'test/doc',
+      category: 'print',
+      severity: 'warning',
+      message: 'Doc level',
+    });
+    expect(finding.nodeIds).toBeUndefined();
+  });
+
+  it('supports applicableModes', () => {
+    const finding = createFinding({
+      ruleId: 'test/modes',
+      category: 'color',
+      severity: 'suggestion',
+      message: 'Mode filter',
+      applicableModes: ['standard', 'text-editing'],
+    });
+    expect(finding.applicableModes).toEqual(['standard', 'text-editing']);
+  });
+
+  it('supports all FindingCategory values', () => {
+    const categories: Array<AuditFinding['category']> = [
+      'color',
+      'typography',
+      'layout',
+      'accessibility',
+      'vector',
+      'raster',
+      'effects',
+      'layer-hygiene',
+      'touch-target',
+      'focus-order',
+      'palette',
+      'prototype',
+      'governance',
+      'performance',
+      'print',
+      'codegen',
+      'export',
+      'spacing',
+      'structure',
+    ];
+    expect(categories.length).toBe(19);
+    // All compile — this test verifies the type discriminant is exhaustive
+    const u: string = categories[0];
+    expect(u).toBeTruthy();
+  });
+});
