@@ -591,6 +591,32 @@ export interface EditorContextValue {
   selectAllWithSameLayerColor: () => void;
   /** Select all visible unlocked nodes of the same kind as the first selected node. */
   selectAllOfType: () => void;
+  /** Clear the entire selection. */
+  selectNone: () => void;
+  /** Invert the current selection across all visible unlocked nodes. */
+  invertSelection: () => void;
+  /** Select the parent of the primary node. */
+  selectParent: () => void;
+  /** Select the direct children of the primary container. */
+  selectChildren: () => void;
+  /** Select all siblings of the primary node. */
+  selectSiblings: () => void;
+  /** Select the next sibling of the primary node. */
+  selectNextSibling: () => void;
+  /** Select the previous sibling of the primary node. */
+  selectPreviousSibling: () => void;
+  /** Select all descendants of the primary container. */
+  selectAllChildren: () => void;
+  /** Select all nodes matching the primary node's stroke. */
+  selectAllWithSameStroke: () => void;
+  /** Select all nodes matching the primary node's opacity. */
+  selectAllWithSameOpacity: () => void;
+  /** Select all nodes matching the primary node's blend mode. */
+  selectAllWithSameBlendMode: () => void;
+  /** Select all text nodes matching the primary text node's font family. */
+  selectAllWithSameFont: () => void;
+  /** Select all nodes matching the primary node's corner radius. */
+  selectAllWithSameCornerRadius: () => void;
   /** Navigate back in selection history. */
   selectPreviousSelection: () => void;
   /** Navigate forward in selection history. */
