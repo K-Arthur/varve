@@ -178,7 +178,7 @@ export function renderGridOnCtx(
 }
 
 export function resolveCanvasColor(color: string): string {
-  if (!color || !color.startsWith('var(')) return color;
+  if (!color?.startsWith('var(')) return color;
   if (typeof document === 'undefined') return color;
 
   const match = color.match(/var\((--[^,)]+)(?:,\s*([^)]+))?\)/);
@@ -191,7 +191,7 @@ export function resolveCanvasColor(color: string): string {
   if (fallback) {
     const trimmed = fallback.trim();
     if (trimmed.startsWith('var(')) return resolveCanvasColor(trimmed);
-    if (trimmed.startsWith('--')) return resolveCanvasColor('var(' + trimmed + ')');
+    if (trimmed.startsWith('--')) return resolveCanvasColor(`var(${trimmed})`);
     return trimmed;
   }
   return color;

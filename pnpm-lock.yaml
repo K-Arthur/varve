@@ -303,6 +303,9 @@ importers:
 
   packages/engine:
     dependencies:
+      '@strata/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@strata/shared':
         specifier: workspace:*
         version: link:../shared
@@ -421,6 +424,9 @@ importers:
       '@strata/engine':
         specifier: workspace:*
         version: link:../engine
+      '@strata/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@strata/scene':
         specifier: workspace:*
         version: link:../scene
