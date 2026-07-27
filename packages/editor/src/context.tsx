@@ -1517,6 +1517,7 @@ function restoreViewportFields(
   | 'cameraRotation'
   | 'snapEnabled'
   | 'pixelGridEnabled'
+  | 'pixelGridSnapEnabled'
   | 'rulerMode'
   | 'gridOverlayMode'
   | 'unitType'
@@ -6382,7 +6383,7 @@ export function EditorProvider({
       },
       resetGridOrigin: () => {
         const dg = stateRef.current.documentGrid;
-        setDocumentGrid({ ...dg, offsetX: 0, offsetY: 0 });
+        patch({ documentGrid: { ...dg, offsetX: 0, offsetY: 0 } });
       },
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });
