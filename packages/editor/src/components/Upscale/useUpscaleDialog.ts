@@ -5,7 +5,12 @@
  * to the document model via upscaleSelectedImage.
  */
 
-import type { UpscaleModeId, UpscaleProgressFn } from '@strata/engine';
+import type {
+  DenoiseStrength,
+  PixelArtAlgorithm,
+  UpscaleModeId,
+  UpscaleProgressFn,
+} from '@strata/engine';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 
@@ -30,7 +35,9 @@ interface UseUpscaleDialogReturn {
   handleDialogApply: (options: {
     mode: UpscaleModeId;
     scale: number;
-    output: 'new-layer' | 'replace-source';
+    output: 'new-layer' | 'replace-source' | 'non-destructive';
+    denoiseStrength: DenoiseStrength;
+    pixelArtAlgorithm?: PixelArtAlgorithm;
     onProgress: UpscaleProgressFn;
   }) => Promise<void>;
 }
@@ -67,11 +74,13 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
     async (options: {
       mode: UpscaleModeId;
       scale: number;
-      output: 'new-layer' | 'replace-source';
+      output: 'new-layer' | 'replace-source' | 'non-destructive';
+      denoiseStrength: DenoiseStrength;
+      pixelArtAlgorithm?: PixelArtAlgorithm;
       onProgress: UpscaleProgressFn;
     }) => {
       const method =
-        options.mode === 'ai-enhance'
+        options.mode === 'ai-enhance' || options.mode === 'illustration'
           ? 'ai'
           : options.mode === 'pixel-art'
             ? 'nearest'
@@ -80,10 +89,19 @@ export function useUpscaleDialog(): UseUpscaleDialogReturn {
               : options.mode === 'balanced'
                 ? 'bicubic'
                 : 'lanczos3';
+      const modelId =
+        options.mode === 'ai-enhance'
+          ? 'upscale-realesr-general'
+          : options.mode === 'illustration'
+            ? 'upscale-realesrgan-anime'
+            : undefined;
       await upscaleSelectedImage({
         scale: options.scale,
         method,
-        modelId: options.mode === 'ai-enhance' ? 'upscale-realesr-general' : undefined,
+        modelId,
+        denoiseStrength: options.denoiseStrength,
+        pixelArtAlgorithm: options.pixelArtAlgorithm,
+        output: options.output,
         onProgress: options.onProgress,
         replaceSource: options.output === 'replace-source',
       });
