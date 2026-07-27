@@ -1003,6 +1003,8 @@ export interface EditorContextValue {
   setPixelGridEnabled: (v: boolean) => void;
   /** Toggle snap-to-pixel-grid. */
   setPixelGridSnapEnabled: (v: boolean) => void;
+  /** Reset grid origin to (0, 0). */
+  resetGridOrigin: () => void;
   /** Toggle snap-to-grid. */
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
@@ -6377,6 +6379,10 @@ export function EditorProvider({
       setPixelGridSnapEnabled: (v) => {
         patch({ pixelGridSnapEnabled: v });
         persistViewportPrefs({ ...stateRef.current, pixelGridSnapEnabled: v });
+      },
+      resetGridOrigin: () => {
+        const dg = stateRef.current.documentGrid;
+        setDocumentGrid({ ...dg, offsetX: 0, offsetY: 0 });
       },
       setSnapEnabled: (v) => {
         patch({ snapEnabled: v });
