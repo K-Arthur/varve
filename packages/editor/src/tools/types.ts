@@ -118,6 +118,8 @@ export interface ToolContext {
   selection: NodeId[];
   zoom: number;
   pan: { x: number; y: number };
+  /** When true, tap-to-add/remove selection mode is active for touch input. */
+  touchMultiSelect: { active: boolean; suspended: boolean };
   shiftKey: boolean;
   altKey: boolean;
   ctrlKey: boolean;
