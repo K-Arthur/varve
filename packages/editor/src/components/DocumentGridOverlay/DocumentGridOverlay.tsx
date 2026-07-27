@@ -13,6 +13,7 @@ interface DocumentGridOverlayProps {
   width: number;
   height: number;
   baselineStep?: number;
+  offset?: number;
 }
 
 export function DocumentGridOverlay({
@@ -23,6 +24,7 @@ export function DocumentGridOverlay({
   width,
   height,
   baselineStep = 24,
+  offset = 0,
 }: DocumentGridOverlayProps) {
   const lines = useMemo(() => {
     if (mode === 'none' || width <= 0 || height <= 0) return [];
@@ -41,8 +43,9 @@ export function DocumentGridOverlay({
     };
 
     if (mode === 'baseline') {
-      const startY = Math.floor(-pan.y / zoom / baselineStep) * baselineStep - baselineStep * 2;
-      const endY = startY + height / zoom + baselineStep * 4;
+      const firstLine = Math.floor((-pan.y / zoom - offset) / baselineStep) * baselineStep + offset;
+      const startY = firstLine - baselineStep * 2;
+      const endY = firstLine + height / zoom + baselineStep * 4;
       for (let y = startY; y <= endY; y += baselineStep) {
         const [x1, y1] = toScreen(-10000, y);
         const [x2, y2] = toScreen(10000, y);
