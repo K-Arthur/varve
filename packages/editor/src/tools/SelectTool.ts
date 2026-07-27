@@ -16,6 +16,7 @@
 import { applyAffine, invertAffine, rectContains } from '@strata/engine';
 import {
   activePageNodes,
+  buildParentIndexMap,
   getParent,
   isInIsolatedSubtree,
   type NodeId,
@@ -336,6 +337,15 @@ export class SelectTool extends BaseTool {
       // walkNodes returns DFS ancestors-first; reverse so later siblings win.
       const ordered = [...entries.values()].reverse();
       const selectedIds: string[] = [];
+      // ctx.nodeWorldBounds(node) calls nodeWorldBounds(doc, id) with no
+      // parentIndex, which falls back to an O(n) linear scan (getParent) per
+      // call -- making marquee-select O(n^2) in active-page node count.
+      // Every entry here comes straight from walkNodes(ctx.document, ...),
+      // so it's guaranteed to already be a real node in ctx.document; call
+      // the direct, parentIndex-capable nodeWorldBounds instead of going
+      // through ctx.nodeWorldBounds's node-object indirection (which also
+      // has a not-yet-in-document fallback that's irrelevant here).
+      const parentIndex = buildParentIndexMap(ctx.document);
       for (const entry of ordered) {
         if (!entry) continue;
         const node = entry.node;
@@ -346,7 +356,7 @@ export class SelectTool extends BaseTool {
           !isInIsolatedSubtree(entry.nodeId, ctx.isolatedNodeId, ctx.document)
         )
           continue;
-        const bbox = ctx.nodeWorldBounds(node);
+        const bbox = nodeWorldBounds(ctx.document, entry.nodeId, parentIndex);
         if (bbox) {
           if (useContainment) {
             // Fully contained: the node's bbox must be completely inside the
