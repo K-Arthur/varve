@@ -97,7 +97,7 @@ import {
   scheduleCanvasFrame,
   startFrameTiming,
 } from './canvas/perfRuntime';
-import { cacheContentParts, SubtreeIrCache } from './canvas/subtreeIrCache';
+import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
 import { CanvasOverlays } from './components/CanvasOverlays';
@@ -473,6 +473,10 @@ export function CanvasArea({
   const settings = loadSettings();
   const budgets = getMemoryBudgets(settings.render.memoryBudget);
   const subtreeIrCacheRef = useRef(new SubtreeIrCache(500, budgets.subtreeIrCacheBytes));
+  // Cross-frame memo for the per-node content hash. Lets pan/zoom/rotate/resize
+  // frames (which change neither the document nor world transforms) skip the
+  // per-node cacheContentParts + nodeHash loop entirely. See NodeHashMemo.
+  const nodeHashMemoRef = useRef(new NodeHashMemo());
 
   // Diagnostics HUD is off by default; driven by the persisted Settings >
   // Performance > Diagnostics toggle. The toggle also calls
@@ -1374,10 +1378,13 @@ export function CanvasArea({
           new Array(nodeIds.length);
         const nodesToBuild: EngineNode[] = [];
         const buildSlotIndices: number[] = [];
-        // Cache content parts computed during lookup so the store path doesn't
-        // re-run the expensive cacheContentParts() JSON serialization a second
-        // time for cache-miss nodes.
-        const partsCache = new Map<number, string[]>();
+        // The per-node content hash is memoized across frames. `doc` (immutable,
+        // structurally shared) changing is the sole signal that any node content
+        // could have changed; showOriginalBgNodeId is the one content input that
+        // is not part of `doc`. beginFrame clears the memo when either changes,
+        // so a document edit can never surface a stale hash.
+        const memo = nodeHashMemoRef.current;
+        memo.beginFrame(doc, s.showOriginalBgNodeId ?? '');
 
         for (let i = 0; i < nodeIds.length; i++) {
           const nodeId = nodeIds[i]!;
@@ -1386,9 +1393,7 @@ export function CanvasArea({
           const isAnimated = animatedNodeIds.has(nodeId);
           if (!isAnimated) {
             const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-            const parts = cacheContentParts(fn).parts;
-            partsCache.set(i, parts);
-            const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, styleKey, parts);
+            const { hash } = memo.hash(nodeId, fn, styleKey);
             const cached = subtreeIrCacheRef.current.get(nodeId, hash);
             if (cached) {
               irSlots[i] = cached;
@@ -1416,11 +1421,8 @@ export function CanvasArea({
             if (!nodeId || !fn || !item) continue;
             if (!animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-              let parts = partsCache.get(i);
-              if (!parts) {
-                parts = cacheContentParts(fn).parts;
-              }
-              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, styleKey, parts);
+              // Memoized from the lookup loop above (same doc + transform) → hit.
+              const { hash } = memo.hash(nodeId, fn, styleKey);
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
           }
@@ -1436,8 +1438,8 @@ export function CanvasArea({
             if (item) irSlots[slot] = item;
             if (nodeId && fn && item && !animatedNodeIds.has(nodeId)) {
               const styleKey = (doc.nodes[nodeId] as { styleId?: string }).styleId ?? '';
-              const parts = cacheContentParts(fn).parts;
-              const hash = SubtreeIrCache.nodeHash(nodeId, fn.transform, styleKey, parts);
+              // Memoized from the lookup loop above (same doc + transform) → hit.
+              const { hash } = memo.hash(nodeId, fn, styleKey);
               subtreeIrCacheRef.current.set(nodeId, hash, item);
             }
           }
