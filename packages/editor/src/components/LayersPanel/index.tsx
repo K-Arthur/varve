@@ -619,7 +619,10 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
               onAction={() => {
                 if (state.selection.length > 0) {
                   updateSettings({ layers: { autoReveal: true } });
-                  document.querySelector('.layers-panel__tree')?.querySelector('[role="treeitem"][aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+                  document
+                    .querySelector('.layers-panel__tree')
+                    ?.querySelector('[role="treeitem"][aria-selected="true"]')
+                    ?.scrollIntoView({ block: 'nearest' });
                 }
                 closeMenu();
               }}
