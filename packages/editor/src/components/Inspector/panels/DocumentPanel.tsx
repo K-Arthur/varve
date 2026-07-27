@@ -25,6 +25,7 @@ export function DocumentPanel() {
     documentColorMode,
     setDocumentGrid,
     setPixelGridSnapEnabled,
+    resetGridOrigin,
   } = useEditor();
   const doc = state.document;
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
@@ -241,6 +242,54 @@ export function DocumentPanel() {
                 />
                 Snap to integer pixels
               </label>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Grid Origin</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <button
+                type="button"
+                className="insp-btn"
+                onClick={() => {
+                  resetGridOrigin();
+                }}
+              >
+                Reset Origin
+              </button>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Rotation (degrees)</span>
+            <div className="insp-field__control">
+              <input
+                type="number"
+                min="0"
+                max="360"
+                step="15"
+                value={((state.documentGrid.rotation ?? 0) * 180) / Math.PI}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  if (!Number.isNaN(value)) {
+                    setDocumentGrid({
+                      ...state.documentGrid,
+                      rotation: (value * Math.PI) / 180,
+                    });
+                  }
+                }}
+                className="insp-num__input"
+              />
+              <button
+                type="button"
+                className="insp-btn"
+                onClick={() => {
+                  setDocumentGrid({
+                    ...state.documentGrid,
+                    rotation: 0,
+                  });
+                }}
+              >
+                Reset
+              </button>
             </div>
           </div>
         </div>

@@ -685,6 +685,7 @@ export interface EditorContextValue {
   setSoftProofEnabled: (v: boolean) => void;
   setPixelGridEnabled: (v: boolean) => void;
   setPixelGridSnapEnabled: (v: boolean) => void;
+  resetGridOrigin: () => void;
   setDotGridEnabled: (v: boolean) => void;
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;

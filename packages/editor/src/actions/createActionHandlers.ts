@@ -149,6 +149,14 @@ export function createActionHandlers(
     },
     togglePixelGrid: () => e.setPixelGridEnabled(!e.state.pixelGridEnabled),
     togglePixelGridSnap: () => e.setPixelGridSnapEnabled(!e.state.pixelGridSnapEnabled),
+    setGridOrigin: (x: number, y: number) => {
+      const dg = e.state.documentGrid;
+      e.setDocumentGrid({ ...dg, offsetX: x, offsetY: y });
+    },
+    resetGridOrigin: () => {
+      const dg = e.state.documentGrid;
+      e.setDocumentGrid({ ...dg, offsetX: 0, offsetY: 0 });
+    },
     colorBlindnessNone: () => e.setColorBlindnessView('none'),
     colorBlindnessProtanopia: () => e.setColorBlindnessView('protanopia'),
     colorBlindnessDeuteranopia: () => e.setColorBlindnessView('deuteranopia'),
