@@ -1,3 +1,4 @@
+// COMPLEXITY: 220 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
  * LayersTree — virtualized APG Tree View with full keyboard navigation,
  * multi-select, expand/collapse, and type-ahead.

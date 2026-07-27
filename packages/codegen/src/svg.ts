@@ -1,3 +1,4 @@
+// COMPLEXITY: 252 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
  * Per-node SVG export target.
  *

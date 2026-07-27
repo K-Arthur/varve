@@ -1,3 +1,4 @@
+// COMPLEXITY: 155 cyclo (over component ceiling) — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
  * @strata/platform — browser Platform implementation.
  *
