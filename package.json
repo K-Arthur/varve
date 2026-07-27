@@ -18,7 +18,6 @@
     "bench:canvas": "vitest run packages/engine/src/bench/replay.bench.ts",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit",
-    "lint:css": "stylelint \"**/*.css\" --ignore-path .gitignore",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
@@ -32,7 +31,9 @@
     "test:wdio": "pnpm test:desktop:native",
     "desktop:preflight": "node scripts/desktop/preflight.mjs",
     "ci:debug": "node scripts/ci-debug.mjs",
-    "ci:local": "bash scripts/ci-local-run.sh"
+    "ci:local": "bash scripts/ci-local-run.sh",
+    "lint:css": "stylelint \"packages/ui/src/**/*.css\"",
+    "lint:css:all": "stylelint \"**/*.css\""
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
@@ -67,6 +68,8 @@
     "react-dom": "^19.0.0",
     "ts-node": "10.9.2",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "vitest": "^2.1.0",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard": "^40.0.0"
   }
 }
