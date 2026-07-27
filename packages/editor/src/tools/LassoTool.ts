@@ -9,10 +9,10 @@
  *                 freehand point capture from PencilTool.
  */
 
-import type { CursorSpec, ToolContext, ToolCursorState } from './types';
-import { BaseTool } from './BaseTool';
 import { buildParentIndexMap, isInIsolatedSubtree, walkNodes } from '@strata/scene';
+import { BaseTool } from './BaseTool';
 import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
+import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 
 const LASSO_MIN_DISTANCE = 2; // Minimum distance between captured points (world units)
 
