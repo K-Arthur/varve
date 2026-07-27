@@ -291,6 +291,9 @@ export function hitTestCaret(shaping: TextShaping, x: number): number {
         const totalGi = run.glyphs.length;
         const logicalGi = totalGi - bestGi;
         return run.glyphs[logicalGi]?.clusterUtf16 ?? 0;
+      } else if (bestGi === 0) {
+        // Caret is before the first glyph — return the start of the run.
+        return run.glyphs[0]?.clusterUtf16 ?? 0;
       } else {
         return (
           run.glyphs[bestGi - 1]?.clusterUtf16 ??

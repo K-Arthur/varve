@@ -8,7 +8,7 @@
  * implementation both now delegate to.
  */
 import type { Document } from '@strata/scene';
-import { walkNodes } from '@strata/scene';
+import { buildParentIndexMap, walkNodes } from '@strata/scene';
 import {
   clampZoom,
   fitBoundsCamera,
@@ -84,9 +84,16 @@ export function computeFitAllCamera(
   viewport: Viewport,
 ): { zoom: number; pan: { x: number; y: number } } | null {
   const entries = walkNodes(doc);
+  // nodeWorldBounds falls back to an O(n) linear scan (getParent) for every
+  // node's ancestor-chain lookup when no parentIndex is passed. Called once
+  // per node here, that made document-open O(n^2) in node count -- 20,000
+  // flat nodes pegged a CPU core for 10+ minutes without finishing.
+  // buildParentIndexMap is a single O(n) pass; reusing it below makes the
+  // whole loop O(n).
+  const parentIndex = buildParentIndexMap(doc);
   let union: { x: number; y: number; w: number; h: number } | null = null;
   for (const [id] of entries) {
-    const b = nodeWorldBounds(doc, id);
+    const b = nodeWorldBounds(doc, id, parentIndex);
     if (!b) continue;
     if (!union) {
       union = { ...b };

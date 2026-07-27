@@ -1,7 +1,8 @@
+import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
 import type { Viewport } from '@strata/shared';
 import { describe, expect, it } from 'vitest';
 import type { EditorCameraState } from '../canvas/cameraState';
-import { computeZoomStep, computeZoomTo } from './viewportOps';
+import { computeFitAllCamera, computeZoomStep, computeZoomTo } from './viewportOps';
 
 const viewport: Viewport = { width: 1000, height: 800 };
 
@@ -66,5 +67,67 @@ describe('computeZoomTo', () => {
   it('does not merely scale the existing pan (the bug this replaces)', () => {
     const result = computeZoomTo(camState, 3, viewport);
     expect(result.pan).not.toEqual(camState.pan);
+  });
+});
+
+describe('computeFitAllCamera', () => {
+  /** A flat document (every node a direct child of contentRoot). */
+  function makeFlatDoc(count: number) {
+    const doc = createDocument('bench', {});
+    const page = doc.pages![0]!;
+    const contentRootId = page.contentRoot!;
+    const contentRoot = doc.nodes[contentRootId]!;
+    const nodes: Record<string, ReturnType<typeof makeShapeNode>> = {};
+    const childIds: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const id = `n-${i}`;
+      nodes[id] = makeShapeNode(
+        id,
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 16 },
+        { transform: [1, 0, 0, 1, i * 24, 0] },
+      );
+      childIds.push(id);
+    }
+    return {
+      ...doc,
+      nodes: { ...doc.nodes, [contentRootId]: { ...contentRoot, children: childIds }, ...nodes },
+    } as typeof doc;
+  }
+
+  it('frames every node in a small document', () => {
+    const doc = makeFlatDoc(10);
+    const cam = computeFitAllCamera(doc, viewport);
+    expect(cam).not.toBeNull();
+    expect(cam!.zoom).toBeGreaterThan(0);
+  });
+
+  it('returns null for a genuinely empty document', () => {
+    const doc = createDocument('empty', {});
+    expect(computeFitAllCamera(doc, viewport)).toBeNull();
+  });
+
+  it('scales near-linearly with node count, not quadratically', () => {
+    // Regression guard: computeFitAllCamera calls nodeWorldBounds(doc, id)
+    // once per node without a parentIndex, which falls back to an O(n)
+    // linear scan (getParent) per call -- making document-open O(n^2).
+    // Measured directly against a real Tauri/Chromium build: a 20,000-node
+    // flat document pegged a CPU core at 96% for 10+ minutes without
+    // finishing. A linear implementation should show roughly proportional
+    // growth; a quadratic one grows an order of magnitude faster than the
+    // node-count ratio. 8x nodes should cost nowhere near 8x^2 = 64x time.
+    const small = makeFlatDoc(500);
+    const large = makeFlatDoc(4000); // 8x the nodes
+
+    const t0 = performance.now();
+    computeFitAllCamera(small, viewport);
+    const smallMs = performance.now() - t0;
+
+    const t1 = performance.now();
+    computeFitAllCamera(large, viewport);
+    const largeMs = performance.now() - t1;
+
+    // Generous headroom (20x, not 8x) to avoid timer-noise flakiness while
+    // still catching a reintroduced O(n^2), which would show ~64x+ growth.
+    expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 200));
   });
 });

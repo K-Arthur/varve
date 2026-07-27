@@ -250,4 +250,61 @@ describe('HitTestEngine', () => {
     expect(inverted.hitTest({ x: 10, y: 10 })).toBeNull();
     expect(inverted.hitTest({ x: 50, y: 50 })?.nodeId).toBeTruthy();
   });
+
+  describe('scaling with overlapping candidates', () => {
+    /** N overlapping rects at the same point -- all survive spatial filtering. */
+    function makeStackedDoc(count: number) {
+      let doc = createDocument('test', true);
+      const ids: string[] = [];
+      for (let i = 0; i < count; i++) {
+        const { id, doc: d1 } = nextNodeId(doc);
+        doc = d1;
+        const rect = makeShapeNode(id, { kind: 'rect', x: 0, y: 0, w: 10, h: 10 }, {});
+        doc = { ...doc, nodes: { ...doc.nodes, [id]: rect } };
+        ids.push(id);
+      }
+      return { ...doc, rootChildren: ids };
+    }
+
+    it('hitTest scales near-linearly with candidate count, not quadratically', () => {
+      // Regression guard: hitTest()/findNodesAtPoint() call nodeWorldTransform/
+      // nodeWorldBounds once per candidate without the engine's own
+      // `this.parentIndex` (built once in the constructor for exactly this
+      // purpose, but left unwired at these call sites) -- so each candidate
+      // fell back to an O(n) linear scan (getParent), making a single
+      // hitTest() call O(candidates^2) when most nodes overlap the query
+      // point. 8x nodes should cost nowhere near 8x^2 = 64x time.
+      const small = makeStackedDoc(300);
+      const large = makeStackedDoc(2400); // 8x
+
+      const engineSmall = new HitTestEngine(small);
+      const t0 = performance.now();
+      engineSmall.hitTest({ x: 5, y: 5 });
+      const smallMs = performance.now() - t0;
+
+      const engineLarge = new HitTestEngine(large);
+      const t1 = performance.now();
+      engineLarge.hitTest({ x: 5, y: 5 });
+      const largeMs = performance.now() - t1;
+
+      expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 200));
+    });
+
+    it('findNodesAtPoint scales near-linearly with candidate count, not quadratically', () => {
+      const small = makeStackedDoc(300);
+      const large = makeStackedDoc(2400);
+
+      const engineSmall = new HitTestEngine(small);
+      const t0 = performance.now();
+      engineSmall.findNodesAtPoint({ x: 5, y: 5 });
+      const smallMs = performance.now() - t0;
+
+      const engineLarge = new HitTestEngine(large);
+      const t1 = performance.now();
+      engineLarge.findNodesAtPoint({ x: 5, y: 5 });
+      const largeMs = performance.now() - t1;
+
+      expect(largeMs).toBeLessThan(Math.max(smallMs * 20, 200));
+    });
+  });
 });

@@ -16,7 +16,7 @@
  *   a immutable snapshot that the renderer consumes.
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import { buildParentIndexMap, type Document, type NodeId, type SceneNode } from '@strata/scene';
 import type { Rect } from '@strata/shared';
 import { nodeWorldBounds } from '../../scene/world';
 
@@ -110,6 +110,7 @@ function collectEntries(
   entries: MinimapEntry[],
   depth: number,
   opts: Required<MinimapLayoutOptions>,
+  parentIndex: Map<NodeId, NodeId>,
 ): void {
   for (const id of nodeIds) {
     const node = doc.nodes[id];
@@ -124,8 +125,11 @@ function collectEntries(
     if (!isVisible && !opts.includeHidden) continue;
     if (isLocked && !opts.includeLocked) continue;
 
-    // Compute world bounds
-    const bounds = nodeWorldBounds(doc, id);
+    // Compute world bounds. nodeWorldBounds falls back to an O(n) linear
+    // scan (getParent) per call when no parentIndex is passed; called once
+    // per node in this recursive traversal, that made the whole minimap
+    // rebuild O(n^2) in node count.
+    const bounds = nodeWorldBounds(doc, id, parentIndex);
     if (!bounds || bounds.w === 0 || bounds.h === 0) {
       // Skip zero-area nodes (e.g. adjustment nodes with no geometry)
       // unless they're containers — containers may have children
@@ -157,7 +161,7 @@ function collectEntries(
 
     // Recurse into children
     if (children.length > 0) {
-      collectEntries(doc, children, selectedIds, entries, depth + 1, opts);
+      collectEntries(doc, children, selectedIds, entries, depth + 1, opts, parentIndex);
     }
   }
 }
@@ -210,7 +214,8 @@ export function buildMinimapScene(
   }
 
   const entries: MinimapEntry[] = [];
-  collectEntries(doc, rootIds, selectedIds, entries, 0, options);
+  const parentIndex = buildParentIndexMap(doc);
+  collectEntries(doc, rootIds, selectedIds, entries, 0, options, parentIndex);
 
   // Compute content bounds and detect outliers
   const median = medianArea(entries);

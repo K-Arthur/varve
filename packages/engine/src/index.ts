@@ -263,6 +263,7 @@ export {
   filterToCss,
   makeAdjustment,
 } from './filters';
+export * from './font';
 export type {
   ExportFontRequest,
   FontEntry,
