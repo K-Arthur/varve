@@ -6,6 +6,7 @@ import type {
   BackgroundRemovalMethod,
   ColorMode,
   Document,
+  DocumentGrid,
   Fill,
   GridItemPlacement,
   Guide,
@@ -16,6 +17,7 @@ import type {
   SceneNode,
   VariableValue,
 } from '@strata/scene';
+import { createDefaultDocumentGrid } from '@strata/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
@@ -24,6 +26,7 @@ import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import type { SelectionOrigin } from './selectionState';
 
+export * from './selectionState';
 export type { MaskPreviewMode, ToolId };
 
 export type InspectorTab =
@@ -32,7 +35,8 @@ export type InspectorTab =
   | 'adjustments'
   | 'prototype'
   | 'export'
-  | 'audit';
+  | 'audit'
+  | 'fonts';
 
 export type IntelligenceTab =
   | 'audit'
@@ -107,28 +111,10 @@ export type RulerMode = 'global' | 'artboard';
 
 export type GridOverlayMode = 'none' | 'baseline' | 'isometric';
 
-export interface DocumentGridSettings {
-  visible: boolean;
-  spacingX: number;
-  spacingY: number;
-  subdivisions: number;
-  offsetX: number;
-  offsetY: number;
-  color: string;
-  opacity: number;
-}
+export type DocumentGridSettings = DocumentGrid;
 
 export function createDefaultDocumentGridSettings(): DocumentGridSettings {
-  return {
-    visible: false,
-    spacingX: 8,
-    spacingY: 8,
-    subdivisions: 4,
-    offsetX: 0,
-    offsetY: 0,
-    color: 'var(--color-border-subtle)',
-    opacity: 0.4,
-  };
+  return createDefaultDocumentGrid();
 }
 
 export interface SessionMeta {

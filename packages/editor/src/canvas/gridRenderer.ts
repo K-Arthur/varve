@@ -13,8 +13,13 @@ function lodStep(zoom: number, spacing: number): number {
   return Math.max(1, Math.ceil(MIN_SCREEN_PX_BETWEEN_LINES / screenStep));
 }
 
+export type GridGeometry = Pick<
+  DocumentGrid,
+  'visible' | 'spacingX' | 'spacingY' | 'subdivisions' | 'offsetX' | 'offsetY'
+>;
+
 export function computeGridLines(
-  grid: DocumentGrid,
+  grid: GridGeometry,
   zoom: number,
   panX: number,
   panY: number,

@@ -55,7 +55,8 @@ export type ToolId =
   | 'comment'
   | 'backgroundRemoval'
   | 'clone'
-  | 'contentAwareFill';
+  | 'contentAwareFill'
+  | 'lasso';
 
 export type MaskPreviewMode =
   | 'checkerboard'
@@ -233,7 +234,7 @@ export interface ToolContext {
   }>;
 
   /** Last pointer event for movement tracking (long-press tolerance check). */
-  lastPointerEvent: { clientX: number; clientY: number };
+  lastPointerEvent?: { clientX: number; clientY: number };
 
   /** Show a deep-selection candidate menu at the given screen position.
    *  Used by touch/stylus long-press to let users pick through overlapping

@@ -1,20 +1,10 @@
+import { createDefaultDocumentGrid } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
-import { computeGridLines } from '../gridRenderer';
-import type { DocumentGrid } from '../gridTypes';
+import { computeGridLines, type GridGeometry } from '../gridRenderer';
 
-function makeGrid(overrides?: Partial<DocumentGrid>): DocumentGrid {
-  return {
-    visible: true,
-    spacingX: 8,
-    spacingY: 8,
-    subdivisions: 4,
-    offsetX: 0,
-    offsetY: 0,
-    color: '#ccc',
-    opacity: 0.4,
-    snapEnabled: true,
-    ...overrides,
-  };
+function makeGrid(overrides?: Partial<GridGeometry>): GridGeometry {
+  const defaults = createDefaultDocumentGrid();
+  return { ...defaults, visible: true, ...overrides };
 }
 
 describe('computeGridLines', () => {

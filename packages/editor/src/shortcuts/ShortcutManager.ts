@@ -192,6 +192,7 @@ export const SHORTCUT_DEFS = {
     category: 'View',
   },
   toolSelect: { binding: { key: 'v' }, label: 'Select tool', category: 'Tools' },
+  toolLasso: { binding: { key: 'l', shift: true }, label: 'Lasso tool', category: 'Tools' },
   toolFrame: { binding: { key: 'f' }, label: 'Frame tool', category: 'Tools' },
   toolRect: { binding: { key: 'r' }, label: 'Rectangle tool', category: 'Tools' },
   toolEllipse: { binding: { key: 'o' }, label: 'Ellipse tool', category: 'Tools' },
@@ -277,6 +278,11 @@ export const SHORTCUT_DEFS = {
   quickActions: {
     binding: { key: ';', ctrl: true, shift: true },
     label: 'Quick Actions',
+    category: 'View',
+  },
+  openFontsPanel: {
+    binding: { key: 'f', ctrl: true, alt: true },
+    label: 'Open Fonts Panel',
     category: 'View',
   },
   home: {

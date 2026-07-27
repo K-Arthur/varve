@@ -76,24 +76,7 @@ export function useOverlayDraw({
     // ── Document grid overlay ────────────────────────────────────────────
     const dg = s.documentGrid;
     if (dg?.visible && dg.spacingX > 0 && dg.spacingY > 0) {
-      const lines = computeGridLines(
-        {
-          visible: true,
-          spacingX: dg.spacingX,
-          spacingY: dg.spacingY,
-          subdivisions: dg.subdivisions,
-          offsetX: dg.offsetX,
-          offsetY: dg.offsetY,
-          color: dg.color,
-          opacity: dg.opacity,
-          snapEnabled: true,
-        },
-        s.zoom,
-        s.pan.x,
-        s.pan.y,
-        cssW,
-        cssH,
-      );
+      const lines = computeGridLines(dg, s.zoom, s.pan.x, s.pan.y, cssW, cssH);
       const minorOpacity = Math.min(dg.opacity, 0.25);
       renderGridOnCtx(ctx, lines, dpr, dg.color, dg.color, dg.opacity, minorOpacity);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
