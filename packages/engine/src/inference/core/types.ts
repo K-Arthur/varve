@@ -231,6 +231,7 @@ export interface RuntimeCapabilities {
   cpuArch?: string;
   logicalProcessors?: number;
   approximateMemoryMB?: number;
+  memoryTier?: 'low' | 'medium' | 'high';
   hasAvx2?: boolean;
   hasAvx512?: boolean;
   hasVnni?: boolean;
@@ -239,6 +240,7 @@ export interface RuntimeCapabilities {
   webgpuAdapterInfo?: string;
   batteryPowered?: boolean;
   networkType?: string;
+  webgpuDeviceLost?: boolean;
 }
 
 export interface SelectionDecision {

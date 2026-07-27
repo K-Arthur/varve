@@ -1310,6 +1310,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                     const anyLocked = ids.some((sid) => state.document.nodes[sid]?.locked);
                     for (const sid of ids) setNodeLocked(sid, !anyLocked);
                   }}
+                  onToggleSelectionCheckbox={(id) => {
+                    toggleSelection(id, true, 'layers');
+                  }}
                   onFocus={handleRowFocus}
                   idx={virtualItem.index}
                   rowRefs={rowRefs}
@@ -1383,6 +1386,7 @@ interface SortableVirtualRowProps {
   onRenameCycle?: (direction: 'next' | 'previous') => void;
   onToggleVisibility: (id: NodeId) => void;
   onToggleLock: (id: NodeId) => void;
+  onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
   /** Shared map of currently-mounted row elements, keyed by node id — used by
@@ -1415,6 +1419,7 @@ function SortableVirtualRow({
   onRenameCycle,
   onToggleVisibility,
   onToggleLock,
+  onToggleSelectionCheckbox,
   onFocus,
   idx,
   rowRefs,
@@ -1513,6 +1518,7 @@ function SortableVirtualRow({
         onRenameCycle={onRenameCycle}
         onToggleVisibility={onToggleVisibility}
         onToggleLock={onToggleLock}
+        onToggleSelectionCheckbox={onToggleSelectionCheckbox}
         onFocus={onFocus}
         idx={idx}
         dragListeners={isDragging ? undefined : listeners}

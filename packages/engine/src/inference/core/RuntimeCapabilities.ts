@@ -79,14 +79,31 @@ function detectNetworkType(): string {
   }
 }
 
-function detectBatteryPowered(): boolean {
+async function detectBatteryPoweredAsync(): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined') return false;
+    const battery = await (
+      navigator as unknown as { getBattery?: () => Promise<{ charging: boolean }> }
+    ).getBattery?.();
+    if (battery) return !battery.charging;
+  } catch {}
   return false;
 }
 
 function estimateWasmSafeModelBytes(crossOriginIsolated: boolean, memoryMB: number): number {
   const baseLimit = crossOriginIsolated ? 400_000_000 : 50_000_000;
   const memoryFactor = Math.min(memoryMB / 2048, 2.0);
-  return Math.round(baseLimit * memoryFactor);
+  const result = Math.round(baseLimit * memoryFactor);
+  if (memoryMB < 4096) {
+    return Math.min(result, 200_000_000);
+  }
+  return result;
+}
+
+function memoryTier(memoryMB: number): 'low' | 'medium' | 'high' {
+  if (memoryMB < 4096) return 'low';
+  if (memoryMB < 8192) return 'medium';
+  return 'high';
 }
 
 function computePreferredProviders(caps: {
@@ -111,7 +128,7 @@ function computePreferredProviders(caps: {
   return providers;
 }
 
-function buildCapabilities(hasWebGPU: boolean): RuntimeCapabilities {
+async function buildCapabilities(hasWebGPU: boolean): Promise<RuntimeCapabilities> {
   const crossOriginIsolated = detectCrossOriginIsolated();
   const isWebKitGTK = detectWebKitGTK();
   const isTauri = detectTauri();
@@ -119,6 +136,7 @@ function buildCapabilities(hasWebGPU: boolean): RuntimeCapabilities {
   const memoryMB = approximateMemoryMB();
   const logicalProcessors =
     typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 0) : 0;
+  const batteryPowered = await detectBatteryPoweredAsync();
 
   return {
     crossOriginIsolated,
@@ -147,13 +165,15 @@ function buildCapabilities(hasWebGPU: boolean): RuntimeCapabilities {
     cpuArch: detectCpuArch(),
     logicalProcessors,
     approximateMemoryMB: memoryMB,
+    memoryTier: memoryTier(memoryMB),
     hasAvx2: false,
     hasAvx512: false,
     hasVnni: false,
     hasNeon: false,
     hasDotProduct: false,
-    batteryPowered: detectBatteryPowered(),
+    batteryPowered,
     networkType: detectNetworkType(),
+    webgpuDeviceLost: false,
   };
 }
 
@@ -200,17 +220,48 @@ export async function getRuntimeCapabilities(): Promise<RuntimeCapabilities> {
     webGpuResolve = detectWebGPUAsync();
   }
 
-  return webGpuResolve.then((hasWebGPU) => {
-    if (!cachedCapabilities) {
-      cachedCapabilities = buildCapabilities(hasWebGPU);
-    }
-    return cachedCapabilities;
-  });
+  const hasWebGPU = await webGpuResolve;
+  if (!cachedCapabilities) {
+    cachedCapabilities = await buildCapabilities(hasWebGPU);
+  }
+  return cachedCapabilities;
+}
+
+export function markWebGPUDeviceLost(): void {
+  if (cachedCapabilities) {
+    cachedCapabilities = { ...cachedCapabilities, hasWebGPU: false, webgpuDeviceLost: true };
+  }
 }
 
 export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
   if (cachedCapabilities) return cachedCapabilities;
-  return buildCapabilities(false);
+  const memoryMB = approximateMemoryMB();
+  const crossOriginIsolated = detectCrossOriginIsolated();
+  return {
+    crossOriginIsolated,
+    isWebKitGTK: detectWebKitGTK(),
+    isTauri: detectTauri(),
+    hasWorker: detectWorker(),
+    hasWebGL: detectWebGL(),
+    hasWebGPU: false,
+    sharedMemoryAvailable: detectSharedMemory(),
+    wasmSafeModelBytes: estimateWasmSafeModelBytes(crossOriginIsolated, memoryMB),
+    preferredOnnxProviders: ['wasm'],
+    label: 'Sync snapshot (no async probes)',
+    os: detectOs(),
+    cpuArch: detectCpuArch(),
+    logicalProcessors: typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency ?? 0) : 0,
+    approximateMemoryMB: memoryMB,
+    memoryTier: memoryTier(memoryMB),
+    hasAvx2: false,
+    hasAvx512: false,
+    hasVnni: false,
+    hasNeon: false,
+    hasDotProduct: false,
+    batteryPowered: false,
+    networkType: detectNetworkType(),
+    webgpuDeviceLost: false,
+  };
 }
 
 export async function isWasmModelSafe(modelId: string): Promise<boolean> {
