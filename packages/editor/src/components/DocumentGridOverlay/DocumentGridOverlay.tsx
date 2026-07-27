@@ -1,3 +1,5 @@
+import type { IsometricAxis, IsometricGrid } from '@strata/scene';
+import { normaliseAngle } from '@strata/scene';
 import { useMemo } from 'react';
 import { editorWorldToScreen } from '../../canvas/cameraState';
 import type { GridOverlayMode } from '../../context/types';
@@ -11,10 +13,27 @@ interface DocumentGridOverlayProps {
   width: number;
   height: number;
   baselineStep?: number;
+  isometricGrid?: IsometricGrid | null;
 }
 
-const ISOMETRIC_ANGLES_DEG = [30, 150, 90];
 const HORIZONTAL_SPAN = 10000;
+
+function defaultIsometricAngles(): number[] {
+  return [30, 150, 90];
+}
+
+function getIsometricAngles(grid: IsometricGrid | null | undefined): number[] {
+  if (grid?.axes && grid.axes.length >= 2) {
+    return grid.axes
+      .filter((a: IsometricAxis) => a.visible !== false)
+      .map((a: IsometricAxis) => normaliseAngle(a.angle));
+  }
+  return defaultIsometricAngles();
+}
+
+function getIsometricSpacing(grid: IsometricGrid | null | undefined, fallback: number): number {
+  return grid?.spacing && grid.spacing > 0 ? grid.spacing : fallback;
+}
 
 export function DocumentGridOverlay({
   mode,
@@ -24,6 +43,7 @@ export function DocumentGridOverlay({
   width,
   height,
   baselineStep = 24,
+  isometricGrid,
 }: DocumentGridOverlayProps) {
   const camState = useMemo(() => ({ zoom, pan, cameraRotation }), [zoom, pan, cameraRotation]);
   const viewport = useMemo(() => ({ width, height }), [width, height]);
@@ -43,10 +63,16 @@ export function DocumentGridOverlay({
     }
 
     if (mode === 'isometric' && baselineStep > 0) {
-      const step = Math.max(baselineStep, baselineStep * Math.ceil(6 / (baselineStep * zoom)));
+      const effectiveSpacing = getIsometricSpacing(isometricGrid, baselineStep);
+      const step = Math.max(
+        effectiveSpacing,
+        effectiveSpacing * Math.ceil(6 / (effectiveSpacing * zoom)),
+      );
       const extent = 2000;
       const perpSpan = 5000;
-      for (const deg of ISOMETRIC_ANGLES_DEG) {
+      const angles = getIsometricAngles(isometricGrid);
+
+      for (const deg of angles) {
         const rad = (deg * Math.PI) / 180;
         const nx = Math.cos(rad);
         const ny = Math.sin(rad);
@@ -71,7 +97,19 @@ export function DocumentGridOverlay({
     }
 
     return result;
-  }, [mode, zoom, pan.x, pan.y, cameraRotation, width, height, baselineStep, camState, viewport]);
+  }, [
+    mode,
+    zoom,
+    pan.x,
+    pan.y,
+    cameraRotation,
+    width,
+    height,
+    baselineStep,
+    camState,
+    viewport,
+    isometricGrid,
+  ]);
 
   if (mode === 'none' || lines.length === 0) return null;
 

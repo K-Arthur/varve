@@ -163,6 +163,7 @@ export interface EditorState {
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
   findingsOverlayVisible: boolean;
+  findingsProviderOverrides: Record<string, boolean | undefined>;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel: string;
@@ -729,6 +730,7 @@ export interface EditorContextValue {
   setDocumentUnit: (unit: DocumentUnit) => void;
   setSoftProofEnabled: (v: boolean) => void;
   setFindingsOverlayVisible: (v: boolean) => void;
+  setFindingsProviderOverride: (providerId: string) => void;
   setPixelGridEnabled: (v: boolean) => void;
   setPixelGridSnapEnabled: (v: boolean) => void;
   resetGridOrigin: () => void;

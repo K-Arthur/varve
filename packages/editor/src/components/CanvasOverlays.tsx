@@ -10,7 +10,7 @@
 
 import type { CollabUser } from '@strata/collab';
 import type { MeshWarp } from '@strata/engine';
-import type { Document, Fill, NodeId, SceneNode } from '@strata/scene';
+import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@strata/scene';
 import { activePageNodes, walkNodes } from '@strata/scene';
 import type { RulerMode } from '@strata/shared';
 import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@strata/shared';
@@ -149,6 +149,13 @@ export function CanvasOverlays({
 
   // ─── DocumentGridOverlay ──────────────────────────────────────────────
   const showGridOverlay = gridOverlayMode !== 'none';
+  const isometricGrid: IsometricGrid | null = (() => {
+    if (gridOverlayMode !== 'isometric') return null;
+    const grids = doc.gridSettings?.isometricGrids;
+    if (!grids) return null;
+    const entries = Object.values(grids);
+    return entries[0] ?? null;
+  })();
 
   // ─── ColorBlindnessOverlay ────────────────────────────────────────────
   const showColorBlindness = colorBlindnessView !== 'none';
@@ -343,6 +350,7 @@ export function CanvasOverlays({
               ? (Object.values(doc.gridSettings.baselineGrids)[0]?.baselineStep ?? 24)
               : 24
           }
+          isometricGrid={isometricGrid}
         />
       )}
       {showColorBlindness && (
