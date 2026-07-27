@@ -1660,6 +1660,7 @@ function shapeForTool(tool: ToolId): Shape {
     case 'backgroundRemoval':
     case 'clone':
     case 'contentAwareFill':
+    case 'lasso':
       // These tools don't create shapes — should never reach here
       throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
     default: {

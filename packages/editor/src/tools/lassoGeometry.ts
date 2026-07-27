@@ -87,6 +87,7 @@ export function polygonIntersectsBounds(polygon: Point2D[], bounds: Rect): boole
     if (!p1 || !p2) continue;
 
     for (const [r1, r2] of rectEdges) {
+      if (!r1 || !r2) continue;
       if (segmentsIntersect(p1, p2, r1, r2)) {
         return true;
       }
@@ -107,6 +108,7 @@ export function simplifyPolygon(polygon: Point2D[], minDistance: number): Point2
   for (let i = 1; i < polygon.length; i++) {
     const prev = simplified[simplified.length - 1];
     const curr = polygon[i];
+    if (!prev || !curr) continue;
     const dx = curr.x - prev.x;
     const dy = curr.y - prev.y;
     if (Math.hypot(dx, dy) >= minDistance) {
