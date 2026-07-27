@@ -131,4 +131,43 @@ describe('canvas redraw on document change', () => {
       expect(contentScheduleCount()).toBeGreaterThan(baseline);
     });
   });
+
+  // The inverse guard: with no input and no document change, the canvas must
+  // stop scheduling content frames once startup settles. A redraw firing on
+  // idle (a self-retriggering effect, an unthrottled worker ping-pong, hover,
+  // etc.) would burn the frame budget doing nothing — the opposite failure to
+  // the stale-canvas one above.
+  it('schedules ~0 content-lane frames while idle (no input, no doc change)', async () => {
+    let ctx: ReturnType<typeof useEditor> | undefined;
+    function Capture() {
+      ctx = useEditor();
+      return null;
+    }
+
+    render(
+      <EditorProvider initialDocumentJson={docJson}>
+        <div style={{ width: 400, height: 300 }}>
+          <CanvasArea />
+        </div>
+        <Capture />
+      </EditorProvider>,
+    );
+    await waitFor(() => expect(ctx).toBeDefined());
+
+    // Poll until startup draws (engine/compositor init) stop arriving.
+    const tick = () => new Promise((r) => setTimeout(r, 10));
+    let stable = contentScheduleCount();
+    for (let i = 0; i < 30; i++) {
+      await tick();
+      const cur = contentScheduleCount();
+      if (cur === stable) break;
+      stable = cur;
+    }
+
+    // Now sit idle: no pointer input, no camera move, no document mutation.
+    const idleBaseline = contentScheduleCount();
+    for (let i = 0; i < 6; i++) await tick();
+
+    expect(contentScheduleCount()).toBe(idleBaseline);
+  });
 });
