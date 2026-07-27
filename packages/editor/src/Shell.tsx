@@ -2,7 +2,7 @@
 // Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
-import { type Document, registerBuiltinRules, type SceneNode } from '@strata/scene';
+import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@strata/scene';
 import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
@@ -43,6 +43,7 @@ import {
   type OnboardingLayerHandle,
   RecoveryManager,
 } from './components/Shell';
+import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { StateMachinePanel } from './components/StateMachinePanel';
@@ -225,6 +226,23 @@ function ShellInner({
     // Populate the audit rule registry. Without this, runAudit() (the
     // IntelligencePanel's Audit tab) silently scans against zero rules.
     registerBuiltinRules();
+
+    // Dev guard: fail visibly if audit engine starts with zero rules
+    if (process.env.NODE_ENV !== 'production') {
+      const allRules = getAllRules();
+      if (allRules.length === 0) {
+        console.error(
+          '[audit] FATAL: Audit engine started with zero registered rules. ' +
+          'registerBuiltinRules() did not populate the registry. ' +
+          'Check that auditAdapter.ts creates rules correctly.',
+        );
+      } else {
+        console.info(
+          `[audit] Rule registry: ${allRules.length} rules registered`,
+          allRules.map((r) => r.id),
+        );
+      }
+    }
   }, [editor, editorHelp, onBackToHome]);
 
   const handlePaletteSelect = useCallback((id: string) => {
@@ -299,6 +317,7 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
+        <AuditOverlayHost viewport={editor.state.viewport} />
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}
           selection={editor.selectedNodes()}

@@ -6707,6 +6707,7 @@ export function EditorProvider({
         patch(fitBoundsToState(bounds, vp));
       },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
+      setFindingsOverlayVisible: (v) => patch({ findingsOverlayVisible: v }),
       setColorBlindnessView: (type) => patch({ colorBlindnessView: type }),
       setForegroundColor: (color) => patch({ foregroundColor: color }),
       setBackgroundColor: (color) => patch({ backgroundColor: color }),
