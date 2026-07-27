@@ -1,3 +1,4 @@
+// COMPLEXITY: 214 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 
 export const CURRENT_DOCUMENT_VERSION = '2.8';

@@ -1,6 +1,76 @@
 {
-  "version": "2026-07-26",
-  "cycles": {},
+  "version": "2026-07-27",
+  "cycles": {
+    "shared": {
+      "count": 0,
+      "cycles": []
+    },
+    "engine": {
+      "count": 0,
+      "cycles": []
+    },
+    "scene": {
+      "count": 4,
+      "cycles": [
+        "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document.ts",
+        "document-pages.ts → document.ts"
+      ]
+    },
+    "ui": {
+      "count": 0,
+      "cycles": []
+    },
+    "compositor": {
+      "count": 0,
+      "cycles": []
+    },
+    "import": {
+      "count": 0,
+      "cycles": []
+    },
+    "prototype": {
+      "count": 0,
+      "cycles": []
+    },
+    "codegen": {
+      "count": 0,
+      "cycles": []
+    },
+    "layout": {
+      "count": 0,
+      "cycles": []
+    },
+    "platform": {
+      "count": 0,
+      "cycles": []
+    },
+    "help": {
+      "count": 0,
+      "cycles": []
+    },
+    "ai": {
+      "count": 0,
+      "cycles": []
+    },
+    "collab": {
+      "count": 0,
+      "cycles": []
+    },
+    "print": {
+      "count": 0,
+      "cycles": []
+    },
+    "home": {
+      "count": 0,
+      "cycles": []
+    },
+    "editor": {
+      "count": 0,
+      "cycles": []
+    }
+  },
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
@@ -9,8 +79,8 @@
       "overBudget": false
     },
     "packages/editor/src/CanvasArea.tsx": {
-      "lines": 2780,
-      "imports": 39,
+      "lines": 2820,
+      "imports": 42,
       "overBudget": false
     },
     "packages/editor/src/Menubar.tsx": {
@@ -24,15 +94,96 @@
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 7901,
+      "lines": 7914,
       "imports": 64,
       "overBudget": true
     }
   },
-  "complexity": {},
+  "complexity": {
+    "shared": {
+      "average": 24.29032258064516,
+      "max": 74,
+      "files": 31
+    },
+    "engine": {
+      "average": 27.3375,
+      "max": 651,
+      "files": 240
+    },
+    "scene": {
+      "average": 43.42391304347826,
+      "max": 358,
+      "files": 92
+    },
+    "ui": {
+      "average": 11.742424242424242,
+      "max": 96,
+      "files": 66
+    },
+    "compositor": {
+      "average": 14.25,
+      "max": 83,
+      "files": 8
+    },
+    "import": {
+      "average": 35.88235294117647,
+      "max": 159,
+      "files": 17
+    },
+    "prototype": {
+      "average": 23,
+      "max": 63,
+      "files": 16
+    },
+    "codegen": {
+      "average": 48.97142857142857,
+      "max": 252,
+      "files": 35
+    },
+    "layout": {
+      "average": 1,
+      "max": 1,
+      "files": 1
+    },
+    "platform": {
+      "average": 29.428571428571427,
+      "max": 118,
+      "files": 14
+    },
+    "help": {
+      "average": 4.166666666666667,
+      "max": 36,
+      "files": 12
+    },
+    "ai": {
+      "average": 9.333333333333334,
+      "max": 20,
+      "files": 3
+    },
+    "collab": {
+      "average": 2,
+      "max": 2,
+      "files": 1
+    },
+    "print": {
+      "average": 3,
+      "max": 6,
+      "files": 5
+    },
+    "home": {
+      "average": 20.228571428571428,
+      "max": 102,
+      "files": 35
+    },
+    "editor": {
+      "average": 26.307692307692307,
+      "max": 844,
+      "files": 546
+    }
+  },
   "global": {
-    "max_cycles": 2,
-    "max_unstable": 5,
+    "max_cycles": 6,
+    "max_unstable": 39,
     "max_layer_violations": 0,
     "max_unused_exports": 10
   }

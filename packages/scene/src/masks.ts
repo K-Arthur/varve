@@ -1,3 +1,4 @@
+// COMPLEXITY: 358 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
  * Mask resolution and CRUD operations for the scene graph.
  *

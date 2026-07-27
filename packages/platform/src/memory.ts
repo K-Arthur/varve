@@ -1,3 +1,4 @@
+// COMPLEXITY: 177 cyclo (over component ceiling) — see docs/plans/architecture-health-remediation-2026-07-26.md
 /**
  * @strata/platform — in-memory Platform implementation.
  *

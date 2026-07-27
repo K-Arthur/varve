@@ -1,3 +1,4 @@
+// COMPLEXITY: 275 cyclo (over ceiling 200) — see Phase 5 of architecture-health-remediation-2026-07-26.md
 import {
   AlertDialog,
   FloatingPortal,
