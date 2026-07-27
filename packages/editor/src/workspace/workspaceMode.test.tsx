@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_WORKSPACE_MODES,
   getVisibleStatusSections,
   getWorkspaceConfig,
   WORKSPACE_CONFIGS,
@@ -64,7 +65,7 @@ describe('WorkspaceConfig', () => {
   });
 
   it('all workspace configs have valid structure', () => {
-    for (const mode of ['design', 'print', 'drawing', 'image', 'motion'] as const) {
+    for (const mode of ALL_WORKSPACE_MODES) {
       const c = WORKSPACE_CONFIGS[mode];
       expect(typeof c.panels.layers.visible).toBe('boolean');
       expect(typeof c.panels.inspector.visible).toBe('boolean');
@@ -79,7 +80,7 @@ describe('WorkspaceConfig', () => {
   });
 
   it('all status sections are defined for all modes', () => {
-    for (const mode of ['design', 'print', 'drawing', 'image', 'motion'] as const) {
+    for (const mode of ALL_WORKSPACE_MODES) {
       const sections = getVisibleStatusSections(mode);
       expect(sections.length).toBeGreaterThan(0);
       expect(sections).toContain('toolName');
@@ -90,7 +91,7 @@ describe('WorkspaceConfig', () => {
   });
 
   it('all canvas overlays are defined for all modes', () => {
-    for (const mode of ['design', 'print', 'drawing', 'image', 'motion'] as const) {
+    for (const mode of ALL_WORKSPACE_MODES) {
       const c = WORKSPACE_CONFIGS[mode];
       expect(c.canvasOverlays.rulers).toBeDefined();
       expect(c.canvasOverlays.guides).toBeDefined();

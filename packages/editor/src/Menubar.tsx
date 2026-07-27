@@ -22,7 +22,12 @@ import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
-import { ALL_WORKSPACE_MODES, WORKSPACE_LABELS, type WorkspaceMode } from './workspace/workspaceTypes';
+import {
+  ALL_WORKSPACE_MODES,
+  WORKSPACE_LABELS,
+  WORKSPACE_SHORTCUTS,
+  type WorkspaceMode,
+} from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
@@ -2236,7 +2241,7 @@ export function Menubar({
               <label
                 key={mode}
                 className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                title={`${WORKSPACE_LABELS[mode]} workspace (Ctrl+Shift+${idx + 1})`}
+                title={`${WORKSPACE_LABELS[mode]} workspace (${WORKSPACE_SHORTCUTS[mode]})`}
               >
                 <input
                   type="radio"

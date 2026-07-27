@@ -137,6 +137,7 @@ export function createActionHandlers(
     workspaceDrawing: () => e.requestWorkspaceSwitch('drawing'),
     workspaceImage: () => e.requestWorkspaceSwitch('image'),
     workspaceMotion: () => e.requestWorkspaceSwitch('motion'),
+    workspaceCodegen: () => e.requestWorkspaceSwitch('codegen'),
     resetWorkspace: () => e.resetWorkspaceToDefault(),
     canvasModeOutline: () => e.setCanvasMode('outline'),
     canvasModePreview: () => e.setCanvasMode('preview'),
