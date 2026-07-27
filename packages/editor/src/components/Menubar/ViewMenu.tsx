@@ -170,6 +170,12 @@ export function buildViewMenu(_state: MenuBuildState, helpers: MenuBuildHelpers)
       ariaKeyshortcut: helpers.ks('toggleStateMachinePanel'),
       action: 'toggleStateMachinePanel',
     },
+    {
+      label: 'Fonts Panel',
+      shortcut: helpers.fmt('openFontsPanel'),
+      ariaKeyshortcut: helpers.ks('openFontsPanel'),
+      action: 'openFontsPanel',
+    },
     { label: '---' },
     {
       label: 'Workspace: Design',
