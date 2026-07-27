@@ -32,6 +32,7 @@ import {
   translate,
   tryInvertAffine,
 } from '@strata/shared';
+import { OBJECT_RESIZE_POLICIES } from '../context/selectionState';
 import { resizeNodeGeometry } from '../scene/resizeGeometry';
 import { nodeLocalBounds, nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 
@@ -97,6 +98,35 @@ export class TransformEngine {
     return this.computeBoxFromDoc(doc);
   }
 
+  /** Determine the dominant resize policy across the selection.
+   *  For mixed selections, proportional=true wins if ANY node is
+   *  an image or group (to avoid distortion). */
+  getResizePolicy(opts?: TransformResizeOptions): ResizeOptions {
+    const explicitProportional = opts?.proportional;
+    const explicitCentered = opts?.centered;
+    if (explicitProportional !== undefined && explicitCentered !== undefined) {
+      return {
+        proportional: explicitProportional,
+        centered: explicitCentered,
+        minSize: opts?.minSize,
+      };
+    }
+    let defaultProportional = false;
+    for (const id of this.selectedIds) {
+      const node = this.doc.nodes[id];
+      if (!node) continue;
+      let kind = node.kind;
+      if (kind === 'shape' && this.isRasterNode(node)) kind = 'image';
+      const policy = OBJECT_RESIZE_POLICIES[kind] ?? OBJECT_RESIZE_POLICIES.shape;
+      if (policy.defaultProportional) defaultProportional = true;
+    }
+    return {
+      proportional: explicitProportional ?? defaultProportional,
+      centered: explicitCentered ?? false,
+      minSize: opts?.minSize,
+    };
+  }
+
   /** Resize by dragging one of the eight selection-box handles. */
   resize(
     pointerWorld: Point,
@@ -106,7 +136,8 @@ export class TransformEngine {
   ): Document {
     const box = this.initialBox;
     const pointerDelta = this.pointerDeltaToBoxLocal(pointerWorld, box, handle);
-    const resizedBox = resizeSelectionBox(box, handle, pointerDelta, opts);
+    const policy = this.getResizePolicy(opts);
+    const resizedBox = resizeSelectionBox(box, handle, pointerDelta, { ...opts, ...policy });
     const newBox = opts.bypassSnap ? resizedBox : this.snapBox(resizedBox);
     const delta = boxDeltaMatrix(box, newBox);
     this.lastDelta = delta;

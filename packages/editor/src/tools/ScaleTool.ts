@@ -142,26 +142,31 @@ export class ScaleTool extends BaseTool {
         const scaleAffine: Affine = [scaleX, 0, 0, scaleY, 0, 0];
         const composed = multiplyAffine(scaleAffine, node.transform as Affine);
 
-        // Map world-space centroid offset into the transform space the node lives in
-        // (parent local space when nested, world root otherwise).
+        // Map world-space centroid offset into the node's parent local space.
+        // This is the correct space for adjusting position after scaling —
+        // the node's transform is expressed relative to its parent, so the
+        // position adjustment must also be in parent space.
+        // For deeply nested objects, we extract only rotation (not translation)
+        // from the parent world transform to avoid double-counting position.
         const parentId = ctx.document ? getParent(ctx.document, init.id) : null;
-        const spaceMat = parentId
-          ? nodeWorldTransform(ctx.document, parentId)
-          : ctx.document
-            ? nodeWorldTransform(ctx.document, init.id)
-            : (() => {
-                const rot = node.rotation ?? 0;
-                if (rot === 0) return [1, 0, 0, 1, 0, 0] as Affine;
-                const rad = (rot * Math.PI) / 180;
-                return [
-                  Math.cos(rad),
-                  Math.sin(rad),
-                  -Math.sin(rad),
-                  Math.cos(rad),
-                  0,
-                  0,
-                ] as Affine;
-              })();
+        let spaceMat: Affine;
+        if (parentId) {
+          const parentTransform = nodeWorldTransform(ctx.document, parentId);
+          const angle = Math.atan2(parentTransform[1], parentTransform[0]);
+          spaceMat = [
+            Math.cos(angle),
+            Math.sin(angle),
+            -Math.sin(angle),
+            Math.cos(angle),
+            0,
+            0,
+          ] as Affine;
+        } else {
+          const rot = node.rotation ?? 0;
+          if (rot === 0) spaceMat = [1, 0, 0, 1, 0, 0] as Affine;
+          const rad = (rot * Math.PI) / 180;
+          spaceMat = [Math.cos(rad), Math.sin(rad), -Math.sin(rad), Math.cos(rad), 0, 0] as Affine;
+        }
         const det = spaceMat[0] * spaceMat[3] - spaceMat[1] * spaceMat[2];
         let localDx = nodeDx;
         let localDy = nodeDy;
