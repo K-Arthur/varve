@@ -1,7 +1,7 @@
 import { deepCloneSubtree } from './clone';
 import type { Document } from './document';
-import { cryptoId, makeGroupNode } from './document';
 import { removeNode } from './document-nodes';
+import { cryptoId, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
 import type {
   GroupNode,

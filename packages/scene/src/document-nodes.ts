@@ -3,7 +3,7 @@ import { generateKeyBetween } from '@strata/shared';
 import { deepCloneSubtree } from './clone';
 import { captureSyncBaseline, detectOverrides } from './component-sync';
 import type { Document } from './document';
-import { devValidate, getParent } from './document';
+import { devValidate, getParent } from './document-utils';
 import type {
   ArrangeOp,
   ContainerNode,
