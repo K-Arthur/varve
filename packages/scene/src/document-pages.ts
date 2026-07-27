@@ -1,8 +1,8 @@
 import type { Affine } from '@strata/engine';
 import { generateKeyBetween } from '@strata/shared';
 import type { Document } from './document';
-import { cryptoId, devValidate, makeGroupNode } from './document';
 import { removeNode } from './document-nodes';
+import { cryptoId, devValidate, makeGroupNode } from './document-utils';
 import { nextNodeId } from './node-id';
 import type {
   FacingPagesConfig,
