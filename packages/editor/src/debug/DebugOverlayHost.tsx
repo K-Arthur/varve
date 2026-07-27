@@ -17,8 +17,7 @@ export function DebugOverlayHost() {
   if (!isDev || !enabled) return null;
 
   const ch = state.debugOverlay.channels;
-  const hasAnyChannel =
-    ch.geometry || ch.hitTest || ch.spatialIndex || ch.performance;
+  const hasAnyChannel = ch.geometry || ch.hitTest || ch.spatialIndex || ch.performance;
 
   if (!hasAnyChannel) return null;
 

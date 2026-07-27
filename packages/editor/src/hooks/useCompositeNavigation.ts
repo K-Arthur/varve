@@ -19,7 +19,7 @@
  * Research basis: APG keyboard interface patterns
  *   https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 export type NavigationModel = 'roving-tabindex' | 'aria-activedescendant';
 
@@ -47,19 +47,17 @@ interface ItemEntry {
   index: number;
 }
 
-export function useCompositeNavigation({
-  orientation = 'horizontal',
-  wrap = true,
-  model = 'roving-tabindex',
-  skipDisabled = true,
-  typeahead = false,
-  typeaheadResetMs = 1000,
-  onActivate,
-}: CompositeNavigationOptions = {}): CompositeNavigationResult {
+export function useCompositeNavigation(
+  options: CompositeNavigationOptions = {},
+): CompositeNavigationResult {
+  const {
+    orientation = 'horizontal',
+    wrap = true,
+    model = 'roving-tabindex',
+    onActivate,
+  } = options;
   const [currentIndex, setCurrentIndex] = useState(0);
   const itemsRef = useRef<Map<number, ItemEntry>>(new Map());
-  const typeaheadRef = useRef('');
-  const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onActivateRef = useRef(onActivate);
   onActivateRef.current = onActivate;
 
@@ -79,37 +77,11 @@ export function useCompositeNavigation({
     (delta: number, total: number) => {
       if (total <= 0) return;
       setCurrentIndex((prev) => {
-        const next = wrap
-          ? (prev + delta + total) % total
-          : clamp(prev + delta, total);
+        const next = wrap ? (prev + delta + total) % total : clamp(prev + delta, total);
         return next;
       });
     },
     [wrap, clamp],
-  );
-
-  const handleTypeahead = useCallback(
-    (key: string, totalItems: number, getLabel: (i: number) => string): number | null => {
-      if (!typeahead) return null;
-
-      typeaheadRef.current += key.toLowerCase();
-      clearTimeout(typeaheadTimerRef.current ?? undefined);
-      typeaheadTimerRef.current = setTimeout(() => {
-        typeaheadRef.current = '';
-      }, typeaheadResetMs);
-
-      const query = typeaheadRef.current;
-      if (!query) return null;
-
-      for (let i = 0; i < totalItems; i++) {
-        const idx = (currentIndex + 1 + i) % totalItems;
-        const label = getLabel(idx).toLowerCase();
-        if (label.startsWith(query)) return idx;
-      }
-
-      return null;
-    },
-    [typeahead, typeaheadResetMs, currentIndex],
   );
 
   const handleKeyDown = useCallback(
@@ -174,14 +146,6 @@ export function useCompositeNavigation({
     },
     [model, currentIndex],
   );
-
-  useEffect(() => {
-    return () => {
-      if (typeaheadTimerRef.current) {
-        clearTimeout(typeaheadTimerRef.current);
-      }
-    };
-  }, []);
 
   return {
     currentIndex,

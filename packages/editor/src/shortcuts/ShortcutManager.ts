@@ -672,9 +672,7 @@ export function shouldIgnoreShortcutTarget(target: Element | null): boolean {
   if (activeEl && isIMEComposing(activeEl)) return true;
 
   // Walk up to nearest widget that signals keyboard-input ownership
-  const widget = target.closest?.(
-    `${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`,
-  );
+  const widget = target.closest?.(`${SHORTCUT_IGNORE_SELECTOR},[data-shortcut-ignore]`);
   if (widget) return true;
 
   return false;

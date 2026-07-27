@@ -96,10 +96,13 @@ export async function convertTextOutline(
       return;
     }
 
-    // Run the conversion
+    // Run the conversion with progressive options
     const result = convertTextNodeToPath(doc, nodeId, {
       fontData,
       maxChars: 20000,
+      includeDecorations: true,
+      preserveRuns: true,
+      flatten: false,
     });
 
     if (result.warnings.length > 0) {

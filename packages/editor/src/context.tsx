@@ -1489,6 +1489,15 @@ export interface EditorContextValue {
   // Content-Aware Fill dialog
   openCafDialog: (nodeId: NodeId) => void;
   closeCafDialog: () => void;
+
+  // Debug overlays (Workstream A)
+  setDebugOverlayEnabled: (enabled: boolean) => void;
+  setDebugOverlayChannel: (channel: string, value: boolean) => void;
+  setDebugOverlayLabelDensity: (density: string) => void;
+  setDebugOverlayFrozen: (frozen: boolean) => void;
+
+  // Touch multi-select (Workstream D)
+  setTouchMultiSelect: (active: boolean) => void;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
