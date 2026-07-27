@@ -3,7 +3,7 @@
  * Enhancement worker: CPU upscale + monochrome trace off the UI thread.
  */
 
-import { type UpscaleOptions, upscaleImageData } from '../imageEnhancement';
+import { type UpscaleOptions, upscaleImageData, computeUpscalePreview } from '../imageEnhancement';
 import { type RasterTraceOptions, traceRasterToPaths } from '../rasterTrace';
 import { upscaleWithRealEsrgan } from './aiUpscale';
 import type { EnhancementWorkerRequest, EnhancementWorkerResponse } from './enhancementWorkerHost';
@@ -30,12 +30,46 @@ self.onmessage = async (event: MessageEvent<EnhancementWorkerRequest>) => {
 
     const pixels = new Uint8ClampedArray(msg.buffer);
     const imageData = new ImageData(pixels, msg.width, msg.height);
+    const options = msg.options as UpscaleOptions;
 
     if (msg.type === 'upscale') {
-      const result =
-        (msg.options as UpscaleOptions).method === 'ai'
-          ? await upscaleWithRealEsrgan(imageData, msg.modelPath ?? '', () => cancelled.has(msg.id))
-          : upscaleImageData(imageData, msg.options);
+      let result: ImageData;
+      if (options.preview) {
+        // Preview mode: use CPU preview for non-AI, AI preview handled via downsample
+        if (options.method === 'ai') {
+          // For AI preview, downsample input to max dimension before inference
+          const maxDim = options.previewMaxDimension ?? 512;
+          const { width, height } = imageData;
+          if (width > maxDim || height > maxDim) {
+            const scale = Math.min(maxDim / width, maxDim / height);
+            const outW = Math.max(1, Math.round(width * scale));
+            const outH = Math.max(1, Math.round(height * scale));
+            const downsampled = upscaleImageData(imageData, {
+              method: 'bicubic',
+              targetWidth: outW,
+              targetHeight: outH,
+            });
+            result = await upscaleWithRealEsrgan(downsampled, msg.modelPath ?? '', () =>
+              cancelled.has(msg.id),
+            );
+          } else {
+            result = await upscaleWithRealEsrgan(imageData, msg.modelPath ?? '', () =>
+              cancelled.has(msg.id),
+            );
+          }
+        } else {
+          // CPU modes: use preview helper
+          result = computeUpscalePreview(imageData, options);
+        }
+      } else {
+        // Full upscale
+        result =
+          options.method === 'ai'
+            ? await upscaleWithRealEsrgan(imageData, msg.modelPath ?? '', () =>
+                cancelled.has(msg.id),
+              )
+            : upscaleImageData(imageData, options);
+      }
       if (cancelled.has(msg.id)) {
         cancelled.delete(msg.id);
         post({ type: 'cancelled', id: msg.id });

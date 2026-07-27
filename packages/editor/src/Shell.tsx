@@ -736,30 +736,7 @@ function ShellInner({
 
         {/* Upscale dialog */}
         {editor.upscaleDialogOpen && (
-          <UpscaleDialogHost
-            open={editor.upscaleDialogOpen}
-            onClose={editor.closeUpscaleDialog}
-            onApply={async (options) => {
-              const method =
-                options.mode === 'ai-enhance'
-                  ? 'ai'
-                  : options.mode === 'pixel-art'
-                    ? 'nearest'
-                    : options.mode === 'fast'
-                      ? 'bilinear'
-                      : options.mode === 'balanced'
-                        ? 'bicubic'
-                        : 'lanczos3';
-              await editor.upscaleSelectedImage({
-                scale: options.scale,
-                method,
-                modelId: options.mode === 'ai-enhance' ? 'upscale-realesr-general' : undefined,
-                onProgress: options.onProgress,
-                replaceSource: options.output === 'replace-source',
-              });
-              editor.closeUpscaleDialog();
-            }}
-          />
+          <UpscaleDialogHost open={editor.upscaleDialogOpen} onClose={editor.closeUpscaleDialog} />
         )}
 
         {/* Canvas right-click context menu */}

@@ -461,6 +461,33 @@ function FillRow({
             }
             return asset.id;
           }}
+          onResetUpscale={
+            fill.image?.upscale
+              ? () => {
+                  const image = fill.image as ImageFillData;
+                  const sourceAssetId = image.upscale?.sourceAssetId;
+                  if (!sourceAssetId) return;
+                  const sourceAsset = editor.state.document.assets?.[sourceAssetId];
+                  if (sourceAsset) {
+                    patch({
+                      image: {
+                        ...image,
+                        src: sourceAsset.dataUrl,
+                        assetId: sourceAssetId,
+                        upscale: undefined,
+                      },
+                    });
+                  }
+                }
+              : undefined
+          }
+          onReUpscale={
+            fill.image?.upscale
+              ? () => {
+                  editor.openUpscaleDialog();
+                }
+              : undefined
+          }
         />
       )}
 
