@@ -45,14 +45,14 @@ architecture audit to verify architectural metrics haven't regressed:
 node scripts/audit-architecture.mjs --ci
 ```
 
-Check these thresholds (2026-07-27 baseline):
+Check these thresholds (2026-07-27 post-remediation):
 | Metric | Current | Ceiling |
 |--------|---------|---------|
 | Avg cyclomatic complexity (editor) | 26.3 | 52.0 |
 | Dependency cycles (madge) | 4 | 6 |
 | Layer violations | 0 | 0 |
-| Hub files over budget | 2 | 2 |
-| Editor max complexity (context.tsx) | 844 | 847 |
+| Hub files over budget | 0 | 0 |
+| Editor max complexity (context.tsx) | 833 | 847 |
 | CanvasArea max complexity | 780 | 630 |
 | Shell.tsx import count | 46 | 49 |
 

@@ -255,6 +255,23 @@ git log --oneline -10 -- docs/plans/architecture-health-remediation-2026-07-26.m
 # After each phase, run the full regression gate before committing.
 ```
 
-**Last Updated:** 2026-07-26
-**Last Action:** Created tracker
-**Next Immediate Action:** Phase 1 — safe cleanup (spike/ and diagnostics/)
+**Last Updated:** 2026-07-27
+**Last Action:** Re-triage closeout. All hub files now under budget. Baselines captured.
+**Next Immediate Action:** Run `just gate` to verify everything before next session.
+
+## Final results summary
+
+| Metric | Before | After | Delta |
+|---|---|---|---|
+| Dependency cycles (real) | 4 (1 value, 3 type-only) | 0 value, 4 type-only grandfathered | ✅ Value cycle broken |
+| Editor max complexity (context.tsx) | 844 | 833 | -11 (workspace mode extracted) |
+| Menubar import count | 14 | 12 | -2 (under budget) |
+| context.tsx imports | 64 | 65 | +1 (stays within budget 65) |
+| context.tsx lines | 7914 | 7853 | -61 |
+| Hub files over budget | 2 (Menubar, context) | 0 | ✅ All compliant |
+| Dead code | spike/, diagnostics/ | Removed | ✅ 186 lines cleaned |
+| .architecture-baseline.json | Corrupted (empty cycles/complexity) | Properly populated | ✅ |
+| COMPLEXITY comments | 8 files missing them | All 8 added | ✅ |
+| Scene file count | 92 | 93 | +1 (document-utils.ts)/td> |
+| Editor file count | 546 | 547 | +1 (useWorkspaceMode.ts) |
+
