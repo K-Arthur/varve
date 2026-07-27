@@ -124,7 +124,9 @@ export class LassoTool extends BaseTool {
 
   private findIntersectingNodes(ctx: ToolContext, polygon: Point2D[]): string[] {
     const doc = ctx.document;
-    const page = doc.pages?.[doc.activePageId];
+    const activePageId = doc.activePageId;
+    if (!activePageId) return [];
+    const page = doc.pages?.[activePageId as string];
     if (!page || !page.contentRoot) return [];
 
     const intersecting: string[] = [];
