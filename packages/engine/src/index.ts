@@ -264,6 +264,16 @@ export {
   makeAdjustment,
 } from './filters';
 export * from './font';
+// Outline worker pool
+export type { OutlineJob, OutlineJobResult, OutlinePoolConfig, PoolEvent, WorkerStatus } from './outlineWorkerPool';
+export { destroyOutlineWorkerPool, getOutlineWorkerPool, OutlineWorkerPool } from './outlineWorkerPool';
+export type {
+  OutlineWorkerError,
+  OutlineWorkerProgress,
+  OutlineWorkerRequest,
+  OutlineWorkerResult,
+  WorkerGlyphOutline,
+} from './outlineWorker';
 export type {
   ExportFontRequest,
   FontEntry,
