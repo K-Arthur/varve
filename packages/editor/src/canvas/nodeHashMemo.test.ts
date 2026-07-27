@@ -8,7 +8,7 @@ import { cacheContentParts, NodeHashMemo, SubtreeIrCache } from './subtreeIrCach
 function frameNode(
   id: string,
   world: readonly number[],
-  content: Partial<EngineNode> = {},
+  content: Record<string, unknown> = {},
 ): EngineNode {
   return {
     id,
@@ -19,7 +19,7 @@ function frameNode(
     opacity: 1,
     blendMode: 'normal',
     ...content,
-    transform: world as EngineNode['transform'],
+    transform: world,
   } as unknown as EngineNode;
 }
 
@@ -105,7 +105,7 @@ describe('NodeHashMemo', () => {
     const node = frameNode('n', world, {
       fills: [{ kind: 'solid', color: { space: 'rgb', r: 1, g: 2, b: 3, a: 255 } }],
       opacity: 0.5,
-    } as Partial<EngineNode>);
+    });
 
     memo.beginFrame(doc, '');
     const { hash, parts } = memo.hash('n', node, 'style-7');
@@ -119,8 +119,8 @@ describe('NodeHashMemo', () => {
     const doc = { tag: 'doc' };
     const world = [1, 0, 0, 1, 0, 0] as const;
     memo.beginFrame(doc, '');
-    const a = memo.hash('a', frameNode('a', world, { opacity: 1 } as Partial<EngineNode>), '');
-    const b = memo.hash('b', frameNode('b', world, { opacity: 0.25 } as Partial<EngineNode>), '');
+    const a = memo.hash('a', frameNode('a', world, { opacity: 1 }), '');
+    const b = memo.hash('b', frameNode('b', world, { opacity: 0.25 }), '');
     expect(a.hash).not.toBe(b.hash);
   });
 

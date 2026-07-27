@@ -657,4 +657,38 @@ describe('SubtreeIrCache', () => {
       expect(parts.join('|')).toContain(src);
     });
   });
+
+  // Regression: RenderItems for image fills embed the full src data URL, so
+  // estimateItemBytes must not JSON.stringify it verbatim (O(image bytes) on
+  // every cache store) — yet the byte estimate must still reflect the src size
+  // so LRU eviction behaviour is unchanged.
+  describe('estimateItemBytes bounds cost without changing accounting', () => {
+    const bigSrc = (n: number) => `data:image/png;base64,${'A'.repeat(n)}`;
+    const imageItem = (n: number) =>
+      ({ type: 'image', src: bigSrc(n), x: 0, y: 0, w: 100, h: 100 }) as unknown as RenderItem;
+
+    it('estimate still scales with embedded src size (eviction accounting preserved)', () => {
+      const small = SubtreeIrCache.estimateItemBytes(imageItem(1_000));
+      const large = SubtreeIrCache.estimateItemBytes(imageItem(2_000_000));
+      // A ~2000x larger src yields a proportionally larger estimate: the src
+      // length is still counted, just not walked into the JSON output.
+      expect(large).toBeGreaterThan(small * 1000);
+      expect(large).toBeGreaterThan(2_000_000 * 2); // ~UTF-16 bytes of the src
+    });
+
+    it('cost is bounded: many large-image estimates stay fast', () => {
+      const item = imageItem(2_000_000); // ~2MB src
+      const t0 = performance.now();
+      for (let i = 0; i < 200; i++) SubtreeIrCache.estimateItemBytes(item);
+      const elapsed = performance.now() - t0;
+      // 200 estimates of a 2MB image would be ~400MB of stringify work under the
+      // naive path; bounded, it is trivial. Generous ceiling to avoid flakiness.
+      expect(elapsed).toBeLessThan(500);
+    });
+
+    it('short-src items are unaffected', () => {
+      const item = { type: 'rect', x: 0, y: 0, w: 10, h: 10 } as unknown as RenderItem;
+      expect(SubtreeIrCache.estimateItemBytes(item)).toBeGreaterThan(0);
+    });
+  });
 });
