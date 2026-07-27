@@ -69,7 +69,7 @@ export function DocumentPanel() {
         </div>
       </DisclosureSection>
       <DisclosureSection title="Document Grid" sectionId="document-grid" defaultExpanded={false}>
-        <div className="insp-canvas-props">
+        <div className="insp-canvas-props" role="region" aria-live="polite" aria-label="Document grid settings">
           <div className="insp-field">
             <span className="insp-field__label">Visible</span>
             <div className="insp-field__control insp-field__control--inline">
@@ -83,6 +83,7 @@ export function DocumentPanel() {
                       visible: e.target.checked,
                     });
                   }}
+                  aria-label={`Grid visibility ${state.documentGrid.visible ? 'enabled' : 'disabled'}`}
                 />
                 Show grid
               </label>
@@ -106,6 +107,7 @@ export function DocumentPanel() {
                   }
                 }}
                 className="insp-num__input"
+                aria-label={`Grid horizontal spacing ${state.documentGrid.spacingX} pixels`}
               />
             </div>
           </div>
@@ -127,6 +129,7 @@ export function DocumentPanel() {
                   }
                 }}
                 className="insp-num__input"
+                aria-label={`Grid vertical spacing ${state.documentGrid.spacingY} pixels`}
               />
             </div>
           </div>
@@ -148,6 +151,7 @@ export function DocumentPanel() {
                   }
                 }}
                 className="insp-num__input"
+                aria-label={`Grid subdivisions ${state.documentGrid.subdivisions}`}
               />
             </div>
           </div>
@@ -167,6 +171,7 @@ export function DocumentPanel() {
                   }
                 }}
                 className="insp-num__input"
+                aria-label={`Grid horizontal offset ${state.documentGrid.offsetX} pixels`}
               />
             </div>
           </div>
@@ -186,6 +191,7 @@ export function DocumentPanel() {
                   }
                 }}
                 className="insp-num__input"
+                aria-label={`Grid vertical offset ${state.documentGrid.offsetY} pixels`}
               />
             </div>
           </div>
@@ -239,6 +245,7 @@ export function DocumentPanel() {
                   onChange={(e) => {
                     setPixelGridSnapEnabled(e.target.checked);
                   }}
+                  aria-label={`Snap to pixels ${e.target.checked ? 'enabled' : 'disabled'}`}
                 />
                 Snap to integer pixels
               </label>
@@ -253,6 +260,7 @@ export function DocumentPanel() {
                 onClick={() => {
                   resetGridOrigin();
                 }}
+                aria-label="Reset grid origin to zero"
               >
                 Reset Origin
               </button>
@@ -277,6 +285,7 @@ export function DocumentPanel() {
                   }
                 }}
                 className="insp-num__input"
+                aria-label={`Grid rotation ${Math.round(((state.documentGrid.rotation ?? 0) * 180) / Math.PI)} degrees`}
               />
               <button
                 type="button"
@@ -287,6 +296,7 @@ export function DocumentPanel() {
                     rotation: 0,
                   });
                 }}
+                aria-label="Reset grid rotation to zero"
               >
                 Reset
               </button>
