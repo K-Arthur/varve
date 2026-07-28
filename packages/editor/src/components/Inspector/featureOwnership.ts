@@ -352,6 +352,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Document grid provides visual alignment guides and snapping for precision work. Shown inline in Properties empty state.',
   },
+  'isometric-grid': {
+    surface: 'properties',
+    scope: 'document',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale:
+      'Isometric grid provides angular alignment guides for isometric drawing. Shown inline in Properties empty state.',
+  },
 };
 
 /** Features for a surface in the registry's stable default order. */

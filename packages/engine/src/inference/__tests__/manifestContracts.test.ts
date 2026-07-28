@@ -188,11 +188,11 @@ describe('Models missing SHA-256 are flagged as unverified', () => {
     }
   });
 
-  it('BiRefNet Full has no SHA-256 and is flagged as unverified', () => {
+  it('BiRefNet Full now has SHA-256 and is integrity-verified', () => {
     const full = manifest.models.find((m) => m.id === 'birefnet-general');
-    expect(full?.sha256).toBeNull();
-    expect(full?.validation?.integrityVerified).toBe(false);
-    expect(full?.validation?.contractVerified).toBe(false);
+    expect(full?.sha256).toBe('58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c');
+    expect(full?.validation?.integrityVerified).toBe(true);
+    expect(full?.validation?.contractVerified).toBe(true);
     expect(full?.validation?.inferenceVerified).toBe(false);
   });
 });

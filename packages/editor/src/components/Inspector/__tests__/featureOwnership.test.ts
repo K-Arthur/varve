@@ -29,6 +29,8 @@ describe('Inspector feature ownership', () => {
       'typography',
       'canvas-background',
       'document-color',
+      'document-grid',
+      'isometric-grid',
     ]);
   });
 
@@ -55,6 +57,7 @@ describe('Inspector feature ownership', () => {
       'ocr',
       'blend-images',
       'palette',
+      'font-detect',
     ]);
   });
 
