@@ -7,10 +7,16 @@
 
 import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene';
 import { isContainer } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip, TooltipProvider } from '@strata/ui';
+import {
+  ContextMenu,
+  type MenuEntry,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
+  Tooltip,
+  TooltipProvider,
+} from '@strata/ui';
 import type React from 'react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
   getOrCreateParentCache,
@@ -68,29 +74,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     y: number;
     id: NodeId;
   } | null>(null);
-  const contextMenuRef = useRef<HTMLDivElement>(null);
-
-  // The menu is anchored at the raw click point with no viewport-edge
-  // awareness — a right-click near the panel's top/right edge (the layers
-  // panel is a narrow sidebar, so this is the common case, not an edge
-  // case) pushes items like the color-tag row or bottom actions off
-  // screen. Clamp after the real size is known, before paint.
-  useLayoutEffect(() => {
-    if (!contextMenu || !contextMenuRef.current) return;
-    const el = contextMenuRef.current;
-    const rect = el.getBoundingClientRect();
-    const margin = 4;
-    let left = contextMenu.x;
-    let top = contextMenu.y;
-    if (rect.right > window.innerWidth - margin) {
-      left = Math.max(margin, window.innerWidth - rect.width - margin);
-    }
-    if (rect.bottom > window.innerHeight - margin) {
-      top = Math.max(margin, window.innerHeight - rect.height - margin);
-    }
-    el.style.left = `${left}px`;
-    el.style.top = `${top}px`;
-  }, [contextMenu]);
+  // Viewport-edge clamping handled by shared ContextMenu component.
 
   // Parent index cache for O(1) lookups
   const parentCacheRef = useRef<ParentIndexCache | null>(null);
@@ -107,19 +91,11 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     );
   }, [state.document, filterSpec, totalCount]);
 
+  // Outside click and Escape handled by shared ContextMenu component.
+  // This effect remains for stale-context-menu cleanup on unmount.
   useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
-    };
-    document.addEventListener('click', close);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('click', close);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [contextMenu]);
+    return () => setContextMenu(null);
+  }, []);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, id: NodeId) => {
@@ -466,192 +442,57 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         />
       )}
 
-      {contextMenu &&
-        createPortal(
-          <div
-            ref={contextMenuRef}
-            className="layers-context-menu"
-            role="menu"
-            style={{ left: contextMenu.x, top: contextMenu.y }}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') closeMenu();
-            }}
-          >
-            <ContextMenuItem label="Rename" shortcut="F2" onAction={handleRenameFromMenu} />
-            <ContextMenuItem label="Delete" shortcut="Del" onAction={handleDeleteFromMenu} />
-            <hr className="layers-context-menu__separator" />
-            <ContextMenuItem label="Copy" shortcut="Ctrl+C" onAction={handleCopy} />
-            <ContextMenuItem label="Cut" shortcut="Ctrl+X" onAction={handleCut} />
-            <ContextMenuItem label="Paste" shortcut="Ctrl+V" onAction={handlePaste} />
-            {contextMenu != null &&
-              contextMenuNode?.kind === 'shape' &&
-              contextMenuNode.fills?.some((f) => f.type === 'image' && f.image?.src) && (
-                <>
-                  <hr className="layers-context-menu__separator" />
-                  <ContextMenuItem
-                    label="Upscale Image"
-                    onAction={() => {
-                      setSelection(contextMenu.id);
-                      openUpscaleDialog();
-                      closeMenu();
-                    }}
-                  />
-                </>
-              )}
-            <hr className="layers-context-menu__separator" />
-            <ContextMenuItem
-              label="Group"
-              shortcut="Ctrl+G"
-              disabled={!canGroup}
-              onAction={handleGroup}
-            />
-            <ContextMenuItem
-              label="Ungroup"
-              shortcut="Ctrl+Shift+G"
-              disabled={!isGroupSelected}
-              onAction={handleUngroup}
-            />
-            <ContextMenuItem
-              label="Detach Instance"
-              disabled={!isInstanceSelected}
-              onAction={handleDetach}
-            />
-            <ContextMenuItem
-              label="Sync Component"
-              disabled={!isInstanceSelected}
-              onAction={handleSyncInstance}
-            />
-            <ContextMenuItem
-              label="Publish to Library"
-              disabled={!isComponentMasterSelected}
-              onAction={handlePublishToLibrary}
-            />
-            <hr className="layers-context-menu__separator" />
-            <ContextMenuItem
-              label="Bring to Front"
-              shortcut="Ctrl+Shift+]"
-              onAction={handleMoveToFront}
-            />
-            <ContextMenuItem
-              label="Send to Back"
-              shortcut="Ctrl+Shift+["
-              onAction={handleMoveToBack}
-            />
-            <hr className="layers-context-menu__separator" />
-            {contextMenuIsContainer && !contextMenuHasMask && (
-              <>
-                <ContextMenuItem
-                  label="Add Alpha Mask"
-                  onAction={() => {
-                    addMaskToSelected('alpha');
-                    closeMenu();
-                  }}
-                />
-                <ContextMenuItem
-                  label="Add Clip Mask"
-                  onAction={() => {
-                    addMaskToSelected('clip');
-                    closeMenu();
-                  }}
-                />
-                <ContextMenuItem
-                  label="Add Luminance Mask"
-                  onAction={() => {
-                    addMaskToSelected('luminance');
-                    closeMenu();
-                  }}
-                />
-              </>
-            )}
-            {contextMenuHasMask && (
-              <>
-                <ContextMenuItem
-                  label="Remove Mask"
-                  onAction={() => {
-                    removeMaskFromSelected();
-                    closeMenu();
-                  }}
-                />
-                <ContextMenuItem
-                  label="Toggle Mask"
-                  onAction={() => {
-                    toggleMask();
-                    closeMenu();
-                  }}
-                />
-                <ContextMenuItem
-                  label="Invert Mask"
-                  onAction={() => {
-                    invertMask();
-                    closeMenu();
-                  }}
-                />
-              </>
-            )}
-            <hr className="layers-context-menu__separator" />
-            {contextMenu && isContainer(state.document.nodes[contextMenu.id] as SceneNode) && (
-              <ContextMenuItem label="Collapse Others" onAction={handleCollapseOthers} />
-            )}
-            {canIsolateContextMenuNode && (
-              <ContextMenuItem label="Isolate" onAction={handleIsolate} />
-            )}
-            <ContextMenuItem label="Lock" onAction={() => handleLockFromMenu(true)} />
-            <ContextMenuItem label="Hide" onAction={() => handleVisibilityFromMenu(false)} />
-            {contextMenu && (
-              <ContextMenuItem
-                label={
-                  state.document.nodes[contextMenu.id]?.snapExcluded
-                    ? 'Include in Snapping'
-                    : 'Exclude from Snapping'
-                }
-                onAction={handleSnapExclusionToggle}
-              />
-            )}
-            <hr className="layers-context-menu__separator" />
-            <div className="layers-context-menu__color-tag-section">
-              <span className="layers-context-menu__section-label">Color Tag</span>
-              <div className="layers-context-menu__color-tag-grid">
-                {LAYER_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    className={`layers-context-menu__color-tag-btn layers-context-menu__color-tag-btn--${c}`}
-                    aria-label={COLOR_LABELS[c]}
-                    onClick={() => handleSetLayerColor(c)}
-                  />
-                ))}
-                <button
-                  type="button"
-                  className="layers-context-menu__color-tag-btn layers-context-menu__color-tag-btn--none"
-                  aria-label="No color"
-                  onClick={() => handleSetLayerColor(null)}
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.close} label={undefined} />
-                </button>
-              </div>
-            </div>
-            <hr className="layers-context-menu__separator" />
-            <ContextMenuItem label="Select Same Type" onAction={handleSelectSameType} />
-            <ContextMenuItem label="Select Same Color" onAction={handleSelectSameLayerColor} />
-            <ContextMenuItem label="Select All of Type" onAction={handleSelectAllOfType} />
-            <hr className="layers-context-menu__separator" />
-            <ContextMenuItem label="Reveal on Canvas" onAction={handleRevealOnCanvas} />
-            <ContextMenuItem
-              label="Reveal in Layers panel"
-              onAction={() => {
-                if (state.selection.length > 0) {
-                  updateSettings({ layers: { autoReveal: true } });
-                  document
-                    .querySelector('.layers-panel__tree')
-                    ?.querySelector('[role="treeitem"][aria-selected="true"]')
-                    ?.scrollIntoView({ block: 'nearest' });
-                }
-                closeMenu();
-              }}
-            />
-          </div>,
-          document.body,
-        )}
+      {contextMenu && (
+        <ContextMenu
+          items={buildLayerContextMenuItems({
+            nodeId: contextMenu.id,
+            contextMenuNode,
+            contextMenuIsContainer,
+            contextMenuHasMask,
+            canGroup,
+            isGroupSelected,
+            isInstanceSelected,
+            isComponentMasterSelected,
+            canIsolateContextMenuNode,
+            selection: state.selection,
+            documentNodes: state.document.nodes,
+            handleRenameFromMenu,
+            handleDeleteFromMenu,
+            handleCopy,
+            handleCut,
+            handlePaste,
+            handleGroup,
+            handleUngroup,
+            handleDetach,
+            handleSyncInstance,
+            handlePublishToLibrary,
+            handleMoveToFront,
+            handleMoveToBack,
+            handleCollapseOthers,
+            handleIsolate,
+            handleLockFromMenu,
+            handleVisibilityFromMenu,
+            handleSnapExclusionToggle,
+            handleSetLayerColor,
+            handleSelectSameType,
+            handleSelectSameLayerColor,
+            handleSelectAllOfType,
+            handleRevealOnCanvas,
+            addMaskToSelected,
+            removeMaskFromSelected,
+            toggleMask,
+            invertMask,
+            setSelection,
+            openUpscaleDialog,
+            closeMenu,
+            LAYER_COLORS,
+            COLOR_LABELS,
+          })}
+          position={contextMenu}
+          onClose={closeMenu}
+          label="Layer context menu"
+        />
+      )}
 
       <div className="layers-panel__variables">
         <VariablePanel />
@@ -662,25 +503,274 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
   );
 }
 
-interface ContextMenuItemProps {
-  label: string;
-  shortcut?: string;
-  disabled?: boolean;
-  onAction: () => void;
+interface BuildLayerMenuItemsArgs {
+  nodeId: string;
+  contextMenuNode: SceneNode | undefined;
+  contextMenuIsContainer: boolean;
+  contextMenuHasMask: boolean;
+  canGroup: boolean;
+  isGroupSelected: boolean;
+  isInstanceSelected: boolean;
+  isComponentMasterSelected: boolean;
+  canIsolateContextMenuNode: boolean;
+  selection: string[];
+  documentNodes: Record<string, SceneNode>;
+  handleRenameFromMenu: () => void;
+  handleDeleteFromMenu: () => void;
+  handleCopy: () => void;
+  handleCut: () => void;
+  handlePaste: () => void;
+  handleGroup: () => void;
+  handleUngroup: () => void;
+  handleDetach: () => void;
+  handleSyncInstance: () => void;
+  handlePublishToLibrary: () => void;
+  handleMoveToFront: () => void;
+  handleMoveToBack: () => void;
+  handleCollapseOthers: () => void;
+  handleIsolate: () => void;
+  handleLockFromMenu: (locked: boolean) => void;
+  handleVisibilityFromMenu: (visible: boolean) => void;
+  handleSnapExclusionToggle: () => void;
+  handleSetLayerColor: (color: NonNullable<LayerColor> | null) => void;
+  handleSelectSameType: () => void;
+  handleSelectSameLayerColor: () => void;
+  handleSelectAllOfType: () => void;
+  handleRevealOnCanvas: () => void;
+  addMaskToSelected: (type: 'alpha' | 'clip' | 'luminance') => void;
+  removeMaskFromSelected: () => void;
+  toggleMask: () => void;
+  invertMask: () => void;
+  setSelection: (id: string) => void;
+  openUpscaleDialog: () => void;
+  closeMenu: () => void;
+  LAYER_COLORS: NonNullable<LayerColor>[];
+  COLOR_LABELS: Record<NonNullable<LayerColor>, string>;
 }
 
-function ContextMenuItem({ label, shortcut, disabled, onAction }: ContextMenuItemProps) {
-  return (
-    <button
-      type="button"
-      className="layers-context-menu__item"
-      role="menuitem"
-      aria-disabled={disabled}
-      disabled={disabled}
-      onClick={onAction}
-    >
-      <span>{label}</span>
-      {shortcut && <span className="layers-context-menu__shortcut">{shortcut}</span>}
-    </button>
+function buildLayerContextMenuItems(args: BuildLayerMenuItemsArgs): MenuEntry[] {
+  const {
+    nodeId,
+    contextMenuNode,
+    contextMenuIsContainer,
+    contextMenuHasMask,
+    canGroup,
+    isGroupSelected,
+    isInstanceSelected,
+    isComponentMasterSelected,
+    canIsolateContextMenuNode,
+    selection,
+    documentNodes,
+    handleRenameFromMenu,
+    handleDeleteFromMenu,
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleGroup,
+    handleUngroup,
+    handleDetach,
+    handleSyncInstance,
+    handlePublishToLibrary,
+    handleMoveToFront,
+    handleMoveToBack,
+    handleCollapseOthers,
+    handleIsolate,
+    handleLockFromMenu,
+    handleVisibilityFromMenu,
+    handleSnapExclusionToggle,
+    handleSetLayerColor,
+    handleSelectSameType,
+    handleSelectSameLayerColor,
+    handleSelectAllOfType,
+    handleRevealOnCanvas,
+    addMaskToSelected,
+    removeMaskFromSelected,
+    toggleMask,
+    invertMask,
+    setSelection,
+    openUpscaleDialog,
+    closeMenu,
+    LAYER_COLORS,
+    COLOR_LABELS,
+  } = args;
+
+  const items: MenuEntry[] = [
+    { id: 'rename', label: 'Rename', badge: 'F2', onAction: handleRenameFromMenu },
+    { id: 'delete', label: 'Delete', badge: 'Del', onAction: handleDeleteFromMenu },
+    { id: 'sep1', separator: true },
+    { id: 'copy', label: 'Copy', badge: 'Ctrl+C', onAction: handleCopy },
+    { id: 'cut', label: 'Cut', badge: 'Ctrl+X', onAction: handleCut },
+    { id: 'paste', label: 'Paste', badge: 'Ctrl+V', onAction: handlePaste },
+  ];
+
+  if (
+    contextMenuNode?.kind === 'shape' &&
+    contextMenuNode.fills?.some((f) => f.type === 'image' && f.image?.src)
+  ) {
+    items.push(
+      { id: 'sep-upscale', separator: true },
+      {
+        id: 'upscale',
+        label: 'Upscale Image',
+        onAction: () => {
+          setSelection(nodeId);
+          openUpscaleDialog();
+          closeMenu();
+        },
+      },
+    );
+  }
+
+  items.push(
+    { id: 'sep2', separator: true },
+    { id: 'group', label: 'Group', badge: 'Ctrl+G', disabled: !canGroup, onAction: handleGroup },
+    {
+      id: 'ungroup',
+      label: 'Ungroup',
+      badge: 'Ctrl+Shift+G',
+      disabled: !isGroupSelected,
+      onAction: handleUngroup,
+    },
+    {
+      id: 'detach',
+      label: 'Detach Instance',
+      disabled: !isInstanceSelected,
+      onAction: handleDetach,
+    },
+    {
+      id: 'sync',
+      label: 'Sync Component',
+      disabled: !isInstanceSelected,
+      onAction: handleSyncInstance,
+    },
+    {
+      id: 'publish',
+      label: 'Publish to Library',
+      disabled: !isComponentMasterSelected,
+      onAction: handlePublishToLibrary,
+    },
+    { id: 'sep3', separator: true },
+    { id: 'front', label: 'Bring to Front', badge: 'Ctrl+Shift+]', onAction: handleMoveToFront },
+    { id: 'back', label: 'Send to Back', badge: 'Ctrl+Shift+[', onAction: handleMoveToBack },
   );
+
+  if (contextMenuIsContainer && !contextMenuHasMask) {
+    items.push(
+      { id: 'sep-mask-add', separator: true },
+      {
+        id: 'mask-alpha',
+        label: 'Add Alpha Mask',
+        onAction: () => {
+          addMaskToSelected('alpha');
+          closeMenu();
+        },
+      },
+      {
+        id: 'mask-clip',
+        label: 'Add Clip Mask',
+        onAction: () => {
+          addMaskToSelected('clip');
+          closeMenu();
+        },
+      },
+      {
+        id: 'mask-luminance',
+        label: 'Add Luminance Mask',
+        onAction: () => {
+          addMaskToSelected('luminance');
+          closeMenu();
+        },
+      },
+    );
+  }
+
+  if (contextMenuHasMask) {
+    items.push(
+      { id: 'sep-mask-edit', separator: true },
+      {
+        id: 'mask-remove',
+        label: 'Remove Mask',
+        onAction: () => {
+          removeMaskFromSelected();
+          closeMenu();
+        },
+      },
+      {
+        id: 'mask-toggle',
+        label: 'Toggle Mask',
+        onAction: () => {
+          toggleMask();
+          closeMenu();
+        },
+      },
+      {
+        id: 'mask-invert',
+        label: 'Invert Mask',
+        onAction: () => {
+          invertMask();
+          closeMenu();
+        },
+      },
+    );
+  }
+
+  items.push({ id: 'sep4', separator: true });
+
+  const isContainerNode = isContainer(documentNodes[nodeId] as SceneNode);
+  if (isContainerNode) {
+    items.push({ id: 'collapse-others', label: 'Collapse Others', onAction: handleCollapseOthers });
+  }
+  if (canIsolateContextMenuNode) {
+    items.push({ id: 'isolate', label: 'Isolate', onAction: handleIsolate });
+  }
+  items.push(
+    { id: 'lock', label: 'Lock', onAction: () => handleLockFromMenu(true) },
+    { id: 'hide', label: 'Hide', onAction: () => handleVisibilityFromMenu(false) },
+  );
+
+  const snapExcluded = documentNodes[nodeId]?.snapExcluded;
+  items.push({
+    id: 'snap-toggle',
+    label: snapExcluded ? 'Include in Snapping' : 'Exclude from Snapping',
+    onAction: handleSnapExclusionToggle,
+  });
+
+  items.push(
+    { id: 'sep5', separator: true },
+    {
+      id: 'color-tag',
+      label: 'Color Tag',
+      type: 'submenu' as const,
+      submenu: [
+        ...LAYER_COLORS.map((c) => ({
+          id: `color-${c}`,
+          label: COLOR_LABELS[c],
+          onAction: () => handleSetLayerColor(c),
+        })),
+        { id: 'color-none', label: 'No Color', onAction: () => handleSetLayerColor(null) },
+      ],
+    },
+    { id: 'sep6', separator: true },
+    { id: 'select-type', label: 'Select Same Type', onAction: handleSelectSameType },
+    { id: 'select-color', label: 'Select Same Color', onAction: handleSelectSameLayerColor },
+    { id: 'select-all-type', label: 'Select All of Type', onAction: handleSelectAllOfType },
+    { id: 'sep7', separator: true },
+    { id: 'reveal-canvas', label: 'Reveal on Canvas', onAction: handleRevealOnCanvas },
+    {
+      id: 'reveal-layers',
+      label: 'Reveal in Layers panel',
+      onAction: () => {
+        if (selection.length > 0) {
+          updateSettings({ layers: { autoReveal: true } });
+          document
+            .querySelector('.layers-panel__tree')
+            ?.querySelector('[role="treeitem"][aria-selected="true"]')
+            ?.scrollIntoView({ block: 'nearest' });
+        }
+        closeMenu();
+      },
+    },
+  );
+
+  return items;
 }
