@@ -426,7 +426,7 @@
   border-radius: var(--radius-sm);
   background-color: var(--color-accent-subtle);
   color: var(--color-accent-primary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
   text-transform: uppercase;
   letter-spacing: 0.03em;

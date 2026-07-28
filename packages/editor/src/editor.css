@@ -2378,7 +2378,7 @@ dialog.strata-dialog--settings[open] {
   border-color: var(--color-border-subtle);
 }
 .collab-avatars__initial {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   line-height: 1;

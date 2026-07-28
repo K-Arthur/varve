@@ -137,6 +137,7 @@ const NON_COLOR = `
   --z-raised: 10;
   --z-sticky: 50;
   --z-dropdown: 100;
+  --z-popover: 200;
   --z-overlay: 1000;
   --z-dialog: 1100;
   --z-modal: 1150;

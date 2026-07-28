@@ -41,7 +41,7 @@
 
 .alignment-handle__label {
   fill: var(--color-text-secondary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-family: var(--font-mono, monospace);
   pointer-events: none;
 }
@@ -72,7 +72,7 @@
 
 .alignment-guide__label {
   fill: var(--color-accent-primary);
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   font-family: var(--font-mono, monospace);
   opacity: 0.6;
 }

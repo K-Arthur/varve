@@ -1,6 +1,7 @@
 .crop-overlay {
   position: absolute;
   inset: 0;
+  /* 46: above canvas overlays (10-15), below popovers (200) and panels (100). */
   z-index: 46;
   pointer-events: none;
 }
