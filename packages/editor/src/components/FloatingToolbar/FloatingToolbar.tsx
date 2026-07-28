@@ -58,6 +58,68 @@ const TOOL_LABELS: Partial<Record<ToolId, string>> = {
   lasso: 'Lasso',
 };
 
+/** Tools hidden in structured-layout modes (Print, Design): raster painting
+ *  and photo retouching aren't part of page-layout or UI-component work —
+ *  those live in Drawing and Image Editing mode respectively. */
+const STRUCTURED_MODE_HIDDEN_TOOLS = new Set<ToolId>([
+  'paint',
+  'eraser',
+  'cloneStamp',
+  'healBrush',
+  'spotHeal',
+  'patch',
+  'pencil',
+  'smudge',
+]);
+
+/** Tools hidden in Image Editing mode: artboard creation isn't relevant when
+ *  editing an existing photo (retouch/mask tools stay — see INDIVIDUAL_TOOLS). */
+const IMAGE_HIDDEN_TOOLS = new Set<ToolId>(['frame']);
+
+/** Tools for the drawing toolbar subset (painting tools at front). */
+const DRAWING_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
+  { id: 'paint', groupStart: true },
+  { id: 'eraser' },
+  { id: 'smudge' },
+  { id: 'pen', groupStart: true },
+  { id: 'pencil' },
+  { id: 'line' },
+  { id: 'arrow' },
+  { id: 'select', groupStart: true },
+  { id: 'lasso' },
+  { id: 'hand' },
+  { id: 'zoom' },
+  { id: 'text' },
+  { id: 'eyedropper' },
+  { id: 'frame' },
+  { id: 'sam2Segment', groupStart: true },
+];
+
+const INDIVIDUAL_TOOLS: { id: ToolId; groupStart?: boolean }[] = [
+  { id: 'line' },
+  { id: 'arrow' },
+  { id: 'text' },
+  { id: 'pen', groupStart: true },
+  { id: 'pencil' },
+  { id: 'frame' },
+  { id: 'select', groupStart: true },
+  { id: 'lasso' },
+  { id: 'hand' },
+  { id: 'zoom' },
+  { id: 'slice' },
+  { id: 'eyedropper' },
+  { id: 'scale' },
+  { id: 'inspect' },
+  { id: 'sam2Segment', groupStart: true },
+  { id: 'paint', groupStart: true },
+  { id: 'eraser' },
+  { id: 'smudge' },
+  { id: 'cloneStamp', groupStart: true },
+  { id: 'healBrush' },
+  { id: 'spotHeal' },
+  { id: 'patch' },
+];
+
 interface ToolButtonProps {
   id: ToolId;
   groupStart?: boolean;
@@ -207,8 +269,16 @@ export function FloatingToolbar() {
     ? state.tool
     : ('booleanUnion' as ToolId);
   const isDrawingMode = workspaceMode === 'drawing';
-  // Use workspace config as the source of truth for which tools to show
-  const filteredTools = config.toolbar.tools;
+  const isPrintMode = workspaceMode === 'print';
+  const isImageMode = workspaceMode === 'image';
+  const isDesignMode = workspaceMode === 'design';
+  const activeTools = isDrawingMode ? DRAWING_TOOLS : INDIVIDUAL_TOOLS;
+  const filteredTools =
+    isPrintMode || isDesignMode
+      ? activeTools.filter((t) => !STRUCTURED_MODE_HIDDEN_TOOLS.has(t.id))
+      : isImageMode
+        ? activeTools.filter((t) => !IMAGE_HIDDEN_TOOLS.has(t.id))
+        : activeTools;
 
   const shapeItems: MenuEntry[] = SHAPE_SUB_TOOLS.map((id) => ({
     id,
@@ -267,7 +337,7 @@ export function FloatingToolbar() {
               </button>
             </Tooltip>
             {filteredTools.map((t) => (
-              <ToolButton key={t.toolId} id={t.toolId} groupStart={t.groupStart} />
+              <ToolButton key={t.id} id={t.id} groupStart={t.groupStart} />
             ))}
             {workspaceMode !== 'drawing' && workspaceMode !== 'image' && (
               <>
