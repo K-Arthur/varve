@@ -27,7 +27,8 @@ Run in order:
 pnpm format          # or format-check
 pnpm typecheck       # 15/15 packages must pass
 pnpm lint            # 0 new errors on touched files
-pnpm test            # full test suite must pass
+pnpm test            # full test suite must pass (excludes .bench.ts — run separately)
+pnpm bench           # benchmark mode for .bench.ts files (optional, perf-sensitive)
 pnpm audit:emoji     # zero violations
 pnpm audit:tokens    # 120/120 WCAG-AA (3 themes)
 ```
