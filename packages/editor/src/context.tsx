@@ -51,6 +51,8 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
+import { getLayerNavigationCommands } from './components/LayersPanel/useLayerNavigation';
+
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
@@ -5471,6 +5473,12 @@ export function EditorProvider({
       setTouchMultiSelect: (active: boolean) => {
         const current = stateRef.current.touchMultiSelect;
         patch({ touchMultiSelect: { ...current, active } });
+      },
+
+      get layerNavigation():
+        | import('./components/LayersPanel/layerNavigationCommands').LayerNavigationCommands
+        | undefined {
+        return getLayerNavigationCommands() ?? undefined;
       },
 
       setNodeLocked: (id, locked) => {
