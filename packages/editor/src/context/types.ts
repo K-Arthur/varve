@@ -10,6 +10,7 @@ import type {
   Fill,
   GridItemPlacement,
   Guide,
+  IsometricGrid,
   LayerColor,
   LayoutSizing,
   LayoutStyle,
@@ -171,6 +172,7 @@ export interface EditorState {
   snapEnabled: boolean;
   snapGrid: number;
   documentGrid: DocumentGridSettings;
+  isometricGrid: IsometricGrid;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   prototypeMode: boolean;
@@ -738,6 +740,7 @@ export interface EditorContextValue {
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
   setDocumentGrid: (settings: DocumentGridSettings) => void;
+  setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => void;
   isSnapExcluded?: (id: string) => boolean;
 
   // Export

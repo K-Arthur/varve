@@ -44,6 +44,7 @@ export type SectionId =
   | 'canvas-background'
   | 'document-color'
   | 'document-grid'
+  | 'isometric-grid'
   | 'ai-denoise'
   | 'lens-blur'
   | 'line-art'
@@ -55,6 +56,7 @@ export type SectionId =
   | 'colorize'
   | 'ocr'
   | 'palette'
+  | 'font-detect'
   | 'ai-tools-hint';
 
 // ---------------------------------------------------------------------------
@@ -511,6 +513,17 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 301,
+    category: 'advanced',
+    isAvailable: (ctx) =>
+      isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
+  },,
+  {
+    id: 'font-detect',
+    title: 'Identify Font',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 302,
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
