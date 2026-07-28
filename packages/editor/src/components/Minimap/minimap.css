@@ -38,7 +38,7 @@
 }
 
 .minimap-panel__title {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   line-height: 1;
   color: var(--color-text-muted);
   white-space: nowrap;
