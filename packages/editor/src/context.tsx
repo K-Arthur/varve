@@ -7618,9 +7618,12 @@ export function EditorProvider({
           );
         } catch (error) {
           if (controller.signal.aborted) throw new Error('cancelled');
-          const message = error instanceof Error ? error.message : 'Unknown error';
-          announcerRef.current?.announce(`Image upscaling failed: ${message}`);
-          throw error;
+          // Tauri rejects with a bare string, so preserve it as an Error rather
+          // than rethrowing a raw value the UI boundary cannot read.
+          const normalized =
+            error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+          announcerRef.current?.announce(`Image upscaling failed: ${normalized.message}`);
+          throw normalized;
         } finally {
           if (processingImageNodeRef.current === processingNodeId) {
             imageProcessingAbortRef.current = null;

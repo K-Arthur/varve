@@ -822,7 +822,6 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       { id: 'debt', visible: true, order: 21 },
       { id: 'shortcutTip', visible: true, order: 25 },
       { id: 'zoom', visible: true, order: 30 },
-      { id: 'selectionInfo', visible: true, order: 40 },
     ],
     canvasOverlays: {
       rulers: true,

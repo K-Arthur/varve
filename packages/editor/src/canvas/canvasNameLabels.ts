@@ -47,9 +47,14 @@ export function shouldShowNameLabel(opts: {
   screenH: number;
   /** Hide empty / whitespace names. */
   name: string;
+  /** Whether this node is inside a container (frame/group). */
+  insideContainer?: boolean;
 }): boolean {
   if (!opts.name.trim()) return false;
   if (opts.kind === 'frame') return true;
+  // Children inside frames/groups don't get labels — the parent frame label
+  // provides context. Only top-level nodes get labels when zoomed out.
+  if (opts.insideContainer) return false;
   if (opts.zoom <= NAME_LABEL_ZOOM_THRESHOLD) return true;
   const edge = Math.min(opts.screenW, opts.screenH);
   return edge > 0 && edge <= NAME_LABEL_MIN_SCREEN_EDGE;
@@ -101,6 +106,7 @@ export function pickNameLabelCandidates(
         screenW: p.screenW,
         screenH: p.screenH,
         name: c.name,
+        insideContainer: c.parentId !== null,
       })
     ) {
       continue;

@@ -45,6 +45,11 @@ export function MasterPanel() {
     [editName, renameMaster],
   );
 
+  // Hide entirely when no masters exist — users create them on demand
+  if (masterList.length === 0) {
+    return null;
+  }
+
   return (
     <div className="master-panel">
       <div className="master-panel__header">

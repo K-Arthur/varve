@@ -168,6 +168,7 @@ export type SemanticToken =
   | 'surface-raised'
   | 'surface-sunken'
   | 'surface-overlay'
+  | 'surface-hover'
   | 'text-primary'
   | 'text-secondary'
   | 'text-subtle'
@@ -254,6 +255,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'surface-raised': N(1),
     'surface-sunken': N(3),
     'surface-overlay': N(1),
+    'surface-hover': ok(0.88, 0.018, 258),
     'text-primary': N(12),
     'text-secondary': N(10),
     // WCAG fix: N(6)=L0.68 was 2.1:1 on light bg (catastrophic fail). L≈0.46 achieves ~4.5:1.
@@ -335,6 +337,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'surface-raised': N(11),
     'surface-sunken': ok(0.1719, 0.0186, 259.66),
     'surface-overlay': ok(0.1335, 0.0152, 259.32),
+    'surface-hover': ok(0.22, 0.02, 263),
     'text-primary': N(2),
     'text-secondary': N(4),
     'text-subtle': N(6),
@@ -412,6 +415,7 @@ export const SEMANTIC: Record<Theme, Record<SemanticToken, Oklch>> = {
     'surface-raised': ok(0.0971, 0.0, 0),
     'surface-sunken': ok(0.0, 0.0, 0),
     'surface-overlay': ok(0.0, 0.0, 0),
+    'surface-hover': ok(0.25, 0.0, 0),
     'text-primary': ok(1.0, 0.0, 0),
     'text-secondary': ok(0.92, 0.0, 0),
     'text-subtle': ok(0.78, 0.0, 0),
