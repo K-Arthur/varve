@@ -82,7 +82,7 @@ export function getFileMenu(runAction: (id: string) => void): MenuItemDef[] {
                 id: 'noRecent',
                 labelKey: 'No Recent Files',
                 kind: 'command',
-                enabled: () => ({ reason: '' }),
+                enabled: () => ({ reason: 'No recently opened files yet' }),
                 run: () => {},
               },
             ];
@@ -268,7 +268,7 @@ export function getEditMenu(runAction: (id: string) => void): MenuItemDef[] {
     {
       id: 'selectNone',
       labelKey: 'menu.edit.selectNone',
-      accelerator: a('d', true),
+      accelerator: a('a', true, true),
       kind: 'command',
       group: 'selection',
       run: () => runAction('selectNone'),

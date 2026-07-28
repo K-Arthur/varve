@@ -82,12 +82,16 @@
 /* ── Preview ─────────────────────────────────────────────────────────────── */
 
 .upscale-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
 }
 
 .upscale-preview__image-container {
   position: relative;
-  width: 100%;
+  display: inline-block;
+  max-width: 100%;
   border-radius: var(--radius-md);
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
@@ -108,13 +112,20 @@
 
 .upscale-preview__image {
   display: block;
-  width: 100%;
   pointer-events: none;
 }
 
+/* Sizing authority: the original image is a real <img> with genuine
+   intrinsic dimensions, so it (not the wrapper) drives the fitted box —
+   the wrapper shrink-wraps it via display:inline-block above. This keeps
+   tall/portrait sources from blowing out the dialog's viewport height. */
 .upscale-preview__image--original {
   position: relative;
   z-index: 1;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: min(40vh, 360px);
 }
 
 .upscale-preview__overlay {
@@ -131,6 +142,8 @@
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .upscale-preview__slider {
@@ -191,7 +204,24 @@
   right: var(--space-2);
 }
 
+.upscale-preview__ai-hint {
+  position: absolute;
+  bottom: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+  z-index: 4;
+  pointer-events: none;
+}
+
 .upscale-preview__hint {
+  align-self: stretch;
   margin: var(--space-2) 0 0;
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
