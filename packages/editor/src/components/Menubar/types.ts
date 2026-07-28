@@ -31,6 +31,7 @@ export interface MenuBuildState {
   rulerMode: string;
   snapEnabled: boolean;
   pixelGridEnabled: boolean;
+  findingsOverlayVisible: boolean;
   documentGrid: {
     visible: boolean;
     spacingX: number;

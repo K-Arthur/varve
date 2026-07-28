@@ -21,7 +21,7 @@ const alignmentOptions = [
 ];
 
 const viewOptions = [
-  { value: 'grid', label: 'Grid', icon: 'Grid' as const },
+  { value: 'grid', label: 'Grid', icon: 'SquaresFour' as const },
   { value: 'list', label: 'List', icon: 'List' as const },
 ];
 

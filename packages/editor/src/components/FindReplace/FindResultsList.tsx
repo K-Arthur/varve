@@ -21,9 +21,9 @@ export function FindResultsList({ results, currentIndex, onSelect }: FindResults
   const groups = Object.entries(grouped);
 
   return (
-    <div className="find-results-list" role="list" aria-label="Find results">
+    <ul className="find-results-list" aria-label="Find results">
       {groups.map(([nodeId, group]) => (
-        <div key={nodeId} className="find-results-group" role="group" aria-label={group.nodeName}>
+        <li key={nodeId} className="find-results-group" aria-label={group.nodeName}>
           <div className="find-results-group__header" aria-hidden>
             {group.nodeName}
           </div>
@@ -44,8 +44,8 @@ export function FindResultsList({ results, currentIndex, onSelect }: FindResults
               </button>
             );
           })}
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 }

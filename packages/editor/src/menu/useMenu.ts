@@ -10,10 +10,10 @@ import {
   computeSelectionFacts,
   detectPlatformFacts,
 } from './facts';
+import { formatLabel } from './localization';
 import { menuPerfMark, timeMenuOperation } from './perfFlags';
 import { renderMenubarItems, renderMenuItems } from './renderer';
 import type { MenuContext, MenuContextId, MenuItemDef } from './types';
-import { formatLabel } from './localization';
 
 export type MenuActionHandler = (actionId: string) => void;
 

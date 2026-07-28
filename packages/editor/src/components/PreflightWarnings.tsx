@@ -135,6 +135,11 @@ export function PreflightWarnings() {
           <div
             className="preflight-warnings__backdrop"
             onClick={() => setOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setOpen(false);
+            }}
+            role="dialog"
+            tabIndex={-1}
             style={{
               position: 'fixed',
               inset: 0,

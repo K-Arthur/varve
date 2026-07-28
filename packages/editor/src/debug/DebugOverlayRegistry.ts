@@ -10,6 +10,8 @@
 import type { NodeId, SceneNode } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
 
+export type { Point };
+
 // ── Channel identifiers ──────────────────────────────────────────────────────
 
 export type DebugOverlayChannel =

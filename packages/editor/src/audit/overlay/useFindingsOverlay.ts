@@ -23,12 +23,20 @@ export function useFindingsOverlay(viewport: {
 }): UseFindingsOverlayResult {
   const editor = useEditor();
   const { state } = editor;
-  const [toggleState, setToggleState] = useState<OverlayToggleState>(DEFAULT_OVERLAY_TOGGLE_STATE);
+  const [toggleState, setToggleState] = useState<OverlayToggleState>(() => ({
+    ...DEFAULT_OVERLAY_TOGGLE_STATE,
+    masterEnabled: state.findingsOverlayVisible,
+    providerOverrides: { ...state.findingsProviderOverrides },
+  }));
   const registryRef = useRef<OverlayRegistry | null>(null);
   const renderVersion = useRef(0);
 
   const registry = useMemo(() => {
-    const r = new OverlayRegistry(DEFAULT_OVERLAY_TOGGLE_STATE);
+    const r = new OverlayRegistry({
+      ...DEFAULT_OVERLAY_TOGGLE_STATE,
+      masterEnabled: state.findingsOverlayVisible,
+      providerOverrides: { ...state.findingsProviderOverrides },
+    });
     r.register(createContrastProvider());
     r.register(createVectorIssuesProvider());
     r.register(createDpiWarningProvider());
@@ -40,6 +48,14 @@ export function useFindingsOverlay(viewport: {
     registry.setToggleState(toggleState);
     renderVersion.current++;
   }, [registry, toggleState]);
+
+  useEffect(() => {
+    setToggleState((prev) => ({
+      ...prev,
+      masterEnabled: state.findingsOverlayVisible,
+      providerOverrides: { ...state.findingsProviderOverrides },
+    }));
+  }, [state.findingsOverlayVisible, state.findingsProviderOverrides]);
 
   const hiddenNodeIds = useMemo(() => {
     const hidden = new Set<string>();

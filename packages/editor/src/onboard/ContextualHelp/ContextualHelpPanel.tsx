@@ -49,9 +49,8 @@ export function ContextualHelpPanel({
   const sortedCategories = CATEGORY_ORDER.filter((c) => articlesByCategory.has(c));
 
   return (
-    <div
+    <aside
       className={`contextual-help-panel${state.open ? ' contextual-help-panel--open' : ''}`}
-      role="complementary"
       aria-label="Help"
     >
       <div className="contextual-help-panel__header">
@@ -113,7 +112,7 @@ export function ContextualHelpPanel({
               aria-live="polite"
             >
               {state.searchResults.map((article) => (
-                <li key={article.id} aria-selected={state.article?.id === article.id}>
+                <li key={article.id}>
                   <button
                     type="button"
                     className="contextual-help-panel__result-item"
@@ -184,6 +183,6 @@ export function ContextualHelpPanel({
           </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 }

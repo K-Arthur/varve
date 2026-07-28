@@ -196,19 +196,18 @@ export function PalettePreviewDialog({
             <div style={{ marginBottom: 'var(--space-2)' }}>
               <label style={{ fontSize: '0.85em', display: 'block', marginBottom: 2 }}>
                 Mapping mode
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as MappingMode)}
+                  style={{ width: '100%', padding: '2px 4px' }}
+                >
+                  {(Object.keys(MODE_LABELS) as MappingMode[]).map((m) => (
+                    <option key={m} value={m}>
+                      {MODE_LABELS[m]}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as MappingMode)}
-                aria-label="Mapping mode"
-                style={{ width: '100%', padding: '2px 4px' }}
-              >
-                {(Object.keys(MODE_LABELS) as MappingMode[]).map((m) => (
-                  <option key={m} value={m}>
-                    {MODE_LABELS[m]}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {affectedNodeCount != null && (

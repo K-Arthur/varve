@@ -265,6 +265,20 @@ export {
 } from './filters';
 export * from './font';
 export type {
+  ConfidenceCategory,
+  CropRegion,
+  FontCandidate,
+  FontDetectionMode,
+  FontDetectionRequest,
+  FontDetectionResult,
+  FontDetectionStatus,
+  MatchType,
+  QualityWarning,
+  RenderCompareScores,
+  TypographyFeatures,
+} from './fontDetection';
+export * from './fontDetection';
+export type {
   ExportFontRequest,
   FontEntry,
   FontLoadState,
@@ -388,8 +402,8 @@ export type {
 } from './inference';
 export {
   createDiagnosticsLabel,
-  deriveAcquisition,
   DownloadManager,
+  deriveAcquisition,
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
   getRuntimeCapabilities,

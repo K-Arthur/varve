@@ -33,8 +33,9 @@ export function ImportResults({ result, onClose }: ImportResultsProps) {
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={handleKeyDown}
     >
-      <div className="import-results" onKeyDown={handleKeyDown}>
+      <div className="import-results">
         <div className="import-results__header">
           <h2 className="import-results__title">Import Results</h2>
           <button

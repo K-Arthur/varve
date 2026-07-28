@@ -8,6 +8,7 @@ import { BlendImagesSection } from '../sections/BlendImagesSection';
 import { ColorizeSection } from '../sections/ColorizeSection';
 import { ContentAwareFillSection } from '../sections/ContentAwareFillSection';
 import { DetectTextSection } from '../sections/DetectTextSection';
+import { FontDetectSection } from '../sections/FontDetectSection';
 import { ImageEnhancementSection } from '../sections/ImageEnhancementSection';
 import { LensBlurSection } from '../sections/LensBlurSection';
 import { LineArtSection } from '../sections/LineArtSection';
@@ -48,6 +49,7 @@ export function AdjustmentsPanel() {
       <ContentAwareFillSection nodes={nodes} onOpenDialog={openCafDialog} />
       <DetectTextSection nodes={nodes} />
       <OcrSection nodes={nodes} />
+      <FontDetectSection nodes={nodes} />
       <BlendImagesSection nodes={nodes} />
       <PaletteSection />
     </>

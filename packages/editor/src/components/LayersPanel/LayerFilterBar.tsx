@@ -97,7 +97,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
   }, [onChange]);
 
   return (
-    <div className="layers-filter-bar" role="search" aria-label="Filter layers">
+    <search className="layers-filter-bar" aria-label="Filter layers">
       <div className="layers-filter-bar__search-row">
         <SolidIcon name={SOLID_CHROME_ICONS.search} size="0.85em" aria-hidden />
         <input
@@ -146,9 +146,8 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
       </div>
 
       {expanded && (
-        <div
+        <fieldset
           className="layers-filter-bar__advanced"
-          role="group"
           aria-label="Filter by type and attributes"
         >
           <div className="layers-filter-bar__section">
@@ -179,7 +178,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
 
           <div className="layers-filter-bar__section">
             <span className="layers-filter-bar__section-label">Attribute</span>
-            <div className="layers-filter-bar__chips" role="group" aria-label="Filter by attribute">
+            <fieldset className="layers-filter-bar__chips" aria-label="Filter by attribute">
               {ATTRIBUTE_CHIPS.map((chip) => {
                 const attrVal = filter.attributes[chip.value];
                 const isOn = attrVal === true;
@@ -198,7 +197,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
                   </button>
                 );
               })}
-            </div>
+            </fieldset>
           </div>
 
           <div className="layers-filter-bar__section">
@@ -226,7 +225,7 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
               })}
             </div>
           </div>
-        </div>
+        </fieldset>
       )}
 
       <div className="layers-filter-bar__count" aria-live="polite">
@@ -234,6 +233,6 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
           ? `${matchCount} of ${totalCount} layer${totalCount !== 1 ? 's' : ''}`
           : `${totalCount} layer${totalCount !== 1 ? 's' : ''}`}
       </div>
-    </div>
+    </search>
   );
 }

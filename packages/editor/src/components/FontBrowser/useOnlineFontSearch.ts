@@ -63,7 +63,7 @@ export function useOnlineFontSearch(query: string): {
   const [fontsourceLoading, setFontsourceLoading] = useState(false);
   const [fontsourceError, setFontsourceError] = useState<string | null>(null);
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const search = useCallback(async (q: string) => {
     const registry = getProviderRegistry();
@@ -148,5 +148,4 @@ export async function downloadAndApplyOnlineFont(
 
   const dm = getDownloadManager();
   dm.addJob(urls[0]!.url, familyName, 'woff2');
-  dm.start();
 }

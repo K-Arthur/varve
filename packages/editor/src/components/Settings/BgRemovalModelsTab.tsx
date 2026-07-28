@@ -6,6 +6,7 @@
  */
 
 import {
+  deriveAcquisition,
   getModelLoaderReady,
   listAllModels,
   type RemovalMethod,
@@ -85,7 +86,7 @@ async function buildRows(
         : (await loader.hasDownloadedBlob?.(model.id))
           ? 'downloaded'
           : 'none',
-      downloadable: Boolean(model.remoteUrl && model.checksum) || !model.bundled,
+      downloadable: deriveAcquisition(model).kind === 'remote',
       description: model.description,
       precision: model.precision as 'fp32' | 'int8' | undefined,
       isQuantized: model.precision === 'int8',

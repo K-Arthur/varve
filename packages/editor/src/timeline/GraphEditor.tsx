@@ -332,42 +332,52 @@ export const GraphEditor: FC<GraphEditorProps> = ({
                   focusedPoint?.trackId === track.id && focusedPoint?.keyframeIndex === ki;
                 return (
                   <g key={ki}>
-                    {/* Invisible larger hit circle behind the visible dot. */}
-                    <circle
-                      cx={x}
-                      cy={y}
-                      r={KEYFRAME_HIT_R}
-                      fill="transparent"
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Keyframe at ${(kf.progress * 100).toFixed(0)}%, value ${typeof kf.value === 'number' ? kf.value.toFixed(2) : 'auto'}`}
-                      onFocus={() =>
-                        setFocusedPoint({
-                          x,
-                          y,
-                          keyframeIndex: ki,
-                          trackId: track.id,
-                        } as CurvePoint & { trackId: string })
-                      }
-                      onBlur={() => setFocusedPoint(null)}
-                      onKeyDown={(e) => {
-                        const step = e.shiftKey ? 0.1 : 0.02;
-                        let newProgress = kf.progress;
-                        if (e.key === 'ArrowLeft') newProgress = Math.max(0, kf.progress - step);
-                        else if (e.key === 'ArrowRight')
-                          newProgress = Math.min(1, kf.progress + step);
-                        else if (e.key === 'Delete' || e.key === 'Backspace') {
-                          if (onMoveKeyframe) {
-                            // Delete by nudging to 0/1 (marker removal handled by caller)
+                    {/* Transparent HTML button overlaid for accessible keyframe interaction */}
+                    <foreignObject
+                      x={x - KEYFRAME_HIT_R}
+                      y={y - KEYFRAME_HIT_R}
+                      width={KEYFRAME_HIT_R * 2}
+                      height={KEYFRAME_HIT_R * 2}
+                    >
+                      <button
+                        type="button"
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          opacity: 0,
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                        aria-label={`Keyframe at ${(kf.progress * 100).toFixed(0)}%, value ${typeof kf.value === 'number' ? kf.value.toFixed(2) : 'auto'}`}
+                        onFocus={() =>
+                          setFocusedPoint({
+                            x,
+                            y,
+                            keyframeIndex: ki,
+                            trackId: track.id,
+                          } as CurvePoint & { trackId: string })
+                        }
+                        onBlur={() => setFocusedPoint(null)}
+                        onKeyDown={(e) => {
+                          const step = e.shiftKey ? 0.1 : 0.02;
+                          let newProgress = kf.progress;
+                          if (e.key === 'ArrowLeft') newProgress = Math.max(0, kf.progress - step);
+                          else if (e.key === 'ArrowRight')
+                            newProgress = Math.min(1, kf.progress + step);
+                          else if (e.key === 'Delete' || e.key === 'Backspace') {
+                            if (onMoveKeyframe) {
+                              // Delete by nudging to 0/1 (marker removal handled by caller)
+                            }
+                            return;
                           }
-                          return;
-                        }
-                        if (newProgress !== kf.progress && onMoveKeyframe) {
-                          onMoveKeyframe(timeline.id, track.id, kf.progress, newProgress);
-                          e.preventDefault();
-                        }
-                      }}
-                    />
+                          if (newProgress !== kf.progress && onMoveKeyframe) {
+                            onMoveKeyframe(timeline.id, track.id, kf.progress, newProgress);
+                            e.preventDefault();
+                          }
+                        }}
+                      />
+                    </foreignObject>
                     <circle
                       cx={x}
                       cy={y}
