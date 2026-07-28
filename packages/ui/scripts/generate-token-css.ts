@@ -55,6 +55,7 @@ const NON_COLOR = `
 
   /* --- Spacing (4-pt grid, fluid) --- */
   --space-0: 0;
+  --space-05: clamp(0.08rem, 0.07rem + 0.03vw, 0.10rem);
   --space-1: clamp(0.15rem, 0.14rem + 0.05vw, 0.20rem);
   --space-2: clamp(0.30rem, 0.28rem + 0.10vw, 0.40rem);
   --space-3: clamp(0.50rem, 0.47rem + 0.15vw, 0.65rem);
@@ -134,7 +135,8 @@ const NON_COLOR = `
   /* --- Legacy z-index (kept for backward compat, prefer elevation-z-*) --- */
   --z-base: 0;
   --z-raised: 10;
-  --z-sticky: 100;
+  --z-sticky: 50;
+  --z-dropdown: 100;
   --z-overlay: 1000;
   --z-dialog: 1100;
   --z-modal: 1150;

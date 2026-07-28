@@ -137,7 +137,7 @@
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  z-index: 20;
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   gap: var(--space-1);
@@ -344,7 +344,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--elevation-shadow-overlay);
   font-family: var(--font-body);
-  z-index: 100;
+  z-index: var(--z-dropdown);
 }
 
 .editor-menubar__doc-name-text {
@@ -596,7 +596,7 @@
   position: absolute;
   top: var(--space-2);
   right: var(--space-2);
-  z-index: 100;
+  z-index: var(--z-dropdown);
   border-radius: var(--radius-sm);
   background: var(--color-surface-raised);
   color: var(--color-text-primary);
@@ -992,7 +992,7 @@
 }
 .insp-contrast-popover {
   position: absolute;
-  z-index: 100;
+  z-index: var(--z-dropdown);
   background: var(--color-surface-raised, #fff);
   border: 1px solid var(--color-border-strong, #ccc);
   border-radius: var(--radius-md, 8px);

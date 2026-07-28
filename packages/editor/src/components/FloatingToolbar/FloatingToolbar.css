@@ -6,7 +6,7 @@
   bottom: var(--space-3);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 40;
+  z-index: var(--z-sticky);
   pointer-events: none;
   width: max-content;
   height: max-content;
