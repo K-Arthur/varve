@@ -12,6 +12,7 @@
 import type { ExportFormat, ExportScale, RenderingIntent } from '@strata/scene';
 import {
   createDefaultSectionState,
+  migrateLegacyDisclosureState,
   migrateSectionState,
   type SectionVisibilityState,
 } from './components/Inspector/sectionState';
@@ -273,10 +274,12 @@ export function loadSettings(): EditorSettings {
       ),
       sections: {
         version: 1,
-        sections: migrateSectionState(
-          (parsed.sections as Record<string, unknown> | undefined)?.sections as
-            | Record<string, unknown>
-            | undefined,
+        sections: migrateLegacyDisclosureState(
+          migrateSectionState(
+            (parsed.sections as Record<string, unknown> | undefined)?.sections as
+              | Record<string, unknown>
+              | undefined,
+          ),
         ),
       },
       performance: mergePartial(
