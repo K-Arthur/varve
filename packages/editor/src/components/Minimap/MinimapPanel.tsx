@@ -36,9 +36,22 @@ export function MinimapPanel() {
   const editor = useEditor();
   const { selectedNodes } = useEditor();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const lastPanRef = useRef<{ x: number; y: number } | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  // Measure container width for responsive minimap sizing
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width;
+      if (w) setContainerWidth(w);
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
 
   // Selected node IDs as a stable Set
   const sel = selectedNodes();
@@ -50,8 +63,11 @@ export function MinimapPanel() {
     [editor.state.document, selectedIds],
   );
 
-  // Compute minimap canvas dimensions
-  const mmSize = useMemo(() => computeMinimapSize(scene.contentBounds), [scene.contentBounds]);
+  // Compute minimap canvas dimensions — use container width for responsive sizing
+  const mmSize = useMemo(
+    () => computeMinimapSize(scene.contentBounds, containerWidth || 160),
+    [scene.contentBounds, containerWidth],
+  );
 
   // Compute the world→minimap transform
   const tf = useMemo(
@@ -235,7 +251,11 @@ export function MinimapPanel() {
   const outlierCount = scene.outliers.length;
 
   return (
-    <section className="minimap-panel" aria-label={`Minimap: ${nodeCount} objects`}>
+    <section
+      ref={containerRef}
+      className="minimap-panel"
+      aria-label={`Minimap: ${nodeCount} objects`}
+    >
       <div className="minimap-panel__header">
         <button
           type="button"
@@ -269,6 +289,8 @@ export function MinimapPanel() {
       <canvas
         ref={canvasRef}
         className="minimap-panel__canvas"
+        width={mmSize.width}
+        height={mmSize.height}
         tabIndex={0}
         role="img"
         aria-label={`Document minimap showing ${nodeCount} objects. Use arrow keys to pan, Enter to fit all.`}
