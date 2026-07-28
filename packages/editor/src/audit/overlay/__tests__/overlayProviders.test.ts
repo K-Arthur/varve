@@ -8,7 +8,18 @@ function mockContext(overrides?: Partial<OverlayContext>): OverlayContext {
   return {
     document: {
       nodes: {
-        n1: { kind: 'text', visible: true, fontSize: 16, text: 'Hello' },
+        n1: {
+          kind: 'text',
+          visible: true,
+          fontSize: 16,
+          text: 'Hello',
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          order: 'a0',
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
+        },
         n2: {
           kind: 'shape',
           shape: {
@@ -21,6 +32,12 @@ function mockContext(overrides?: Partial<OverlayContext>): OverlayContext {
             closed: false,
           },
           visible: true,
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          order: 'a1',
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
         } as any,
         n3: {
           kind: 'shape',
@@ -28,10 +45,17 @@ function mockContext(overrides?: Partial<OverlayContext>): OverlayContext {
           fills: [
             {
               type: 'image',
+              visible: true,
               image: { src: 'test.jpg', imageWidth: 6000, imageHeight: 4000 },
             },
           ],
           visible: true,
+          fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+          order: 'a2',
+          locked: false,
+          opacity: 1,
+          blendMode: 'normal',
+          rotation: 0,
         } as any,
       },
     } as any,

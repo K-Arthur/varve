@@ -17,7 +17,15 @@ export function AuditOverlayHost({ viewport }: AuditOverlayHostProps) {
     (findingId: string) => {
       const nodeId = resolveNodeIdFromFinding(findingId, overlayContext.document);
       if (nodeId) {
-        editor.setSelection(nodeId);
+        if (editor.layerNavigation) {
+          editor.layerNavigation.revealNode(nodeId, {
+            select: true,
+            fitViewport: true,
+            scrollToRow: true,
+          });
+        } else {
+          editor.setSelection(nodeId);
+        }
         const tab = overlayContext.document.nodes[nodeId]?.kind === 'text' ? 'typography' : 'audit';
         if ('setInspectorTab' in editor) {
           (editor as unknown as { setInspectorTab: (tab: string) => void }).setInspectorTab(tab);

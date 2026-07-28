@@ -72,6 +72,7 @@ import {
 } from './layerSearchIndex';
 import { usePresence } from './presenceStore';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
+import { useLayerNavigation } from './useLayerNavigation';
 import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
@@ -493,6 +494,24 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     overscan: 10,
   });
 
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const virtualizerRef = useRef(virtualizer);
+  virtualizerRef.current = virtualizer;
+  const focusIdxRef = useRef(focusIdx);
+  focusIdxRef.current = focusIdx;
+
+  useLayerNavigation({
+    expanded,
+    setExpanded,
+    parentCacheRef,
+    virtualizerRef,
+    entriesRef,
+    treeRef,
+    focusIdxRef,
+    setFocusIdx,
+  });
+
   // Sync focus to selection when selection changes externally (e.g. canvas click).
   // Respects the auto-reveal preference: when enabled, scrolls the primary selection
   // into view and expands ancestors; when disabled, only highlights if already visible.
@@ -500,7 +519,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // are skipped to avoid stealing the user's scroll position during multi-select.
   useEffect(() => {
     if (!loadSettings().layers.autoReveal) return;
-    if (state.selectionOrigin === 'layers') return;
+    if (state.selectionOrigin === 'layers' || state.selectionOrigin === 'navigation') return;
     if (state.selection.length > 0) {
       const firstSel = state.selection[0];
       if (!firstSel) return;
