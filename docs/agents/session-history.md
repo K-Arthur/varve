@@ -2244,3 +2244,44 @@ commit `6f381edb`) that the index hadn't caught up with.
 - [ ] Phase 4: CanvasArea buildToolCtx extraction, overlay consolidation (benchmark-gated for replay)
 - [ ] Phase 6: HomeShell, platform factories, BackgroundRemovalSection hotspot reduction
 - [ ] Re-index jcodemunch for fresh triage, update `docs/quality/cycles.md`
+
+## UI/UX Audit & Hardening (Session N, 2026-07-28)
+
+Comprehensive UI/UX audit covering command wiring, design-system enforcement, 
+menubar/panel/workspace-mode coherence, accessibility, cross-platform behavior, 
+and visual verification across all three themes.
+
+### What was done
+
+| Phase | Action | Key files |
+|---|---|---|
+| **Command wiring** | Fixed Ctrl+D shortcut collision (duplicate/selectNone), replaced 9 native `<select>` elements, wired PlanBadge "Upgrade" to toast, fixed empty disabled reason | `ShortcutManager.ts`, `menu/defs.ts`, `PlanBadge.tsx`, `BackupSettingsPanel.tsx`, `ColorizeSection.tsx`, `BlendImagesSection.tsx`, `ReferenceImagePicker.tsx`, `DocumentPanel.tsx`, `ArchiveDialog.tsx`, `PalettePreviewDialog.tsx`, `ShareDialog.tsx` |
+| **Design system** | Added missing `--color-surface-hover` token to all 3 themes (menu hover was invisible), fixed PlanBadge hardcoded colors, fixed DnDShell boxShadow to use elevation token | `color.ts`, `tokens.css`, `DnDShell.tsx` |
+| **Workspace-mode** | Removed duplicate `selectionInfo` in motion mode statusSections, fixed SpreadSettings to only show in Print mode | `workspaceTypes.ts`, `SpreadSettings.tsx` |
+| **Inspector filtering** | Adjustments tab: only for adjustment nodes or images in Photo mode. Prototype tab: only for frames or prototype mode. Fonts tab: only for text nodes. | `PropertiesPanel.tsx` |
+| **Layers panel** | Hidden empty sections (Masters, Variables, Spreads, SelectionSets), fixed SelectionSetsSection return null when empty, cleaned up VariablePanel early return | `MasterPanel.tsx`, `VariablePanel.tsx`, `SelectionSetsSection.tsx`, `Shell.tsx` |
+| **Canvas labels** | Children inside frames no longer get name labels (prevents visual clutter) | `canvasNameLabels.ts` |
+| **Toolbar** | Preserved shapes flyout, removed unused DRAWING_TOOLS/INDIVIDUAL_TOOLS references | `FloatingToolbar.tsx` |
+| **Minimap** | Responsive sizing via ResizeObserver to fill sidebar width instead of fixed 160px | `MinimapPanel.tsx`, `minimap.css` |
+| **CSS hardening** | Replaced hardcoded padding/gap/font-size/radius values with design tokens across 6 CSS files | `editor.css`, `inspector.css`, `layers.css`, `TimelinePanel.css`, `UpscaleDialog.css`, `home.css` |
+| **Dead code** | Marked WorkspaceSwitcher.tsx and useWorkspace.ts as deprecated (zero imports) | `WorkspaceSwitcher.tsx`, `useWorkspace.ts` |
+| **Visual verification** | Confirmed all changes work in light, dark, and high-contrast themes via Playwright screenshots | — |
+
+### Verification
+
+- `pnpm typecheck`: all 15 packages pass
+- `commandIntegrity.test.ts`: 5/5 pass  
+- `audit:emoji`: clean (2359 files)
+- `audit-health`: clean (all hub files under budget)
+- Screenshots captured: light, dark, high-contrast themes with menu hover, empty state, and selection state
+- No new lint errors introduced
+
+### Remaining for next session (deferred items needing architectural work)
+
+- [ ] Remove dead `Menubar.tsx` 2367-line legacy file (test file references it)
+- [ ] Wire LibraryPanel visibility to workspace config instead of local useState
+- [ ] Wire Codegen panel to workspace config (component doesn't exist yet)
+- [ ] Consolidate DisclosureSection dual persistence (registry vs legacy sessionStorage)
+- [ ] Migrate LayersPanel context menu to shared `@strata/ui` ContextMenu
+- [ ] ~40+ arbitrary z-index values throughout CSS (needs token scale alignment)
+- [ ] Additional ~60 hardcoded CSS spacing/font-size values across remaining files
