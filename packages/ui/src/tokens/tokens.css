@@ -10,6 +10,7 @@
   --color-surface-raised: oklch(1 0 0);
   --color-surface-sunken: oklch(0.9448 0.0092 258.34);
   --color-surface-overlay: oklch(1 0 0);
+  --color-surface-hover: oklch(0.88 0.018 258);
   --color-text-primary: oklch(0.1956 0.0217 263.87);
   --color-text-secondary: oklch(0.3123 0.0293 262.83);
   --color-text-subtle: oklch(0.46 0.028 261);
@@ -206,7 +207,7 @@
   /* --- Scrim overlay (semi-transparent backdrop behind dialogs/popovers) --- */
   --elevation-scrim: oklch(0 0 0 / 0.55);
 
-  /* --- Compatibility aliases (canonical name -> alias) --- */
+  /* --- Compatibility aliases (canonical name → alias) --- */
   --color-surface-default: var(--color-surface-base);
   --color-on-accent: var(--color-text-on-accent);
   --color-accent-hover: var(--color-interactive-hover);
@@ -225,6 +226,7 @@
   --color-surface-raised: oklch(0.2637 0.0265 262.61);
   --color-surface-sunken: oklch(0.1719 0.0186 259.66);
   --color-surface-overlay: oklch(0.1335 0.0152 259.32);
+  --color-surface-hover: oklch(0.22 0.02 263);
   --color-text-primary: oklch(0.9755 0.0045 258.32);
   --color-text-secondary: oklch(0.8948 0.0145 254.61);
   --color-text-subtle: oklch(0.6798 0.0281 259.04);
@@ -326,6 +328,7 @@
   --color-surface-raised: oklch(0.0971 0 0);
   --color-surface-sunken: oklch(0 0 0);
   --color-surface-overlay: oklch(0 0 0);
+  --color-surface-hover: oklch(0.25 0 0);
   --color-text-primary: oklch(1 0 0);
   --color-text-secondary: oklch(0.92 0 0);
   --color-text-subtle: oklch(0.78 0 0);
@@ -429,6 +432,7 @@
     --color-surface-raised: oklch(0.2637 0.0265 262.61);
     --color-surface-sunken: oklch(0.1719 0.0186 259.66);
     --color-surface-overlay: oklch(0.1335 0.0152 259.32);
+    --color-surface-hover: oklch(0.22 0.02 263);
     --color-text-primary: oklch(0.9755 0.0045 258.32);
     --color-text-secondary: oklch(0.8948 0.0145 254.61);
     --color-text-subtle: oklch(0.6798 0.0281 259.04);
@@ -497,6 +501,7 @@
     --color-text-subtle-on-raised: oklch(0.6798 0.0281 259.04);
     --color-text-subtle-on-sunken: oklch(0.6798 0.0281 259.04);
     --color-text-subtle-on-overlay: oklch(0.6798 0.0281 259.04);
+    --color-text-on-warning: oklch(0.1956 0.0217 263.87);
 
     /* Elevation surfaces (dark mode — front-lit: higher = brighter). */
     --elevation-surface-sunken: oklch(0.12 0.008 260);
@@ -511,6 +516,9 @@
     /* Micro-borders (dark mode — more visible). */
     --border-micro: 1px solid oklch(1 0 0 / 0.08);
     --border-micro-accent: 1px solid oklch(0.779 0.1229 188.31 / 0.3);
+
+    /* Scrim overlay (dark mode — slightly more opaque for contrast). */
+    --elevation-scrim: oklch(0 0 0 / 0.65);
 
     /* Surface aliases — single elevation system (Neo-Bento redesign). */
     --color-surface-app: var(--elevation-surface-default);
@@ -571,7 +579,6 @@
     --color-text-subtle-on-raised: GrayText;
     --color-text-subtle-on-sunken: GrayText;
     --color-text-subtle-on-overlay: GrayText;
-    --color-text-on-warning: CanvasText;
     --color-hero-glow: transparent;
     --elevation-surface-sunken: Canvas;
     --elevation-surface-default: Canvas;

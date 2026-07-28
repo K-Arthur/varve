@@ -95,13 +95,17 @@ export function PropertiesPanel() {
   const [requestedTab, setRequestedTab] = useState<InspectorTab | null>(null);
   const visibleTabs = useMemo(() => {
     const tabs = [...configuredTabs];
-    const adjustmentSelection =
-      selNodes.length === 1 &&
-      (selNodes[0]?.kind === 'adjustment' || (selNodes[0] ? isImageShape(selNodes[0]) : false));
-    if (adjustmentSelection && !tabs.includes('adjustments')) tabs.push('adjustments');
+    const isImageSelected =
+      selNodes.length === 1 && (selNodes[0] ? isImageShape(selNodes[0]) : false);
+    const isAdjustmentSelected = selNodes.length === 1 && selNodes[0]?.kind === 'adjustment';
+    // Show Adjustments tab only for adjustment nodes (any mode) or images in Photo mode.
+    // In Design/Draw mode, image sections are hidden — don't show an empty tab.
+    if (isAdjustmentSelected || (isImageSelected && state.workspaceMode === 'image')) {
+      if (!tabs.includes('adjustments')) tabs.push('adjustments');
+    }
     if (requestedTab && !tabs.includes(requestedTab)) tabs.push(requestedTab);
     return tabs.sort((a, b) => TAB_ORDER.indexOf(a) - TAB_ORDER.indexOf(b));
-  }, [configuredTabs, requestedTab, selNodes]);
+  }, [configuredTabs, requestedTab, selNodes, state.workspaceMode]);
 
   const [tab, setTab] = useState<InspectorTab>(
     () => getDefaultInspectorTab(state.workspaceMode) as InspectorTab,

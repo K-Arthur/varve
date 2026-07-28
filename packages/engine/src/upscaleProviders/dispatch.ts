@@ -76,8 +76,12 @@ export async function dispatchUpscale(
       );
     } catch (error) {
       if (signal?.aborted) throw new Error('cancelled');
+      // Tauri rejects with a bare string rather than an Error, so normalize
+      // before inspecting or rethrowing — propagating the raw value strips the
+      // message at the UI boundary, where `instanceof Error` decides whether a
+      // real diagnostic or a generic fallback is shown.
       const message = error instanceof Error ? error.message : String(error);
-      if (message === 'cancelled') throw error;
+      if (message === 'cancelled') throw new Error('cancelled');
       errors.push(`${provider.id}: ${message}`);
     }
   }

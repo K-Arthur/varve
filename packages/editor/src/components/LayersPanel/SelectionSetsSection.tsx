@@ -68,12 +68,7 @@ export function SelectionSetsSection() {
   }, []);
 
   if (sets.length === 0 && selCount === 0) {
-    return (
-      <div className="selection-sets__empty">
-        <span className="selection-sets__empty-text">No saved selections</span>
-        <span className="selection-sets__empty-hint">Select nodes, then save a set.</span>
-      </div>
-    );
+    return null;
   }
 
   return (
