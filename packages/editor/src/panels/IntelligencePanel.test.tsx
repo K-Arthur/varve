@@ -67,12 +67,18 @@ function lowContrastDocument(): Document {
 }
 
 describe('IntelligencePanel — Audit tab', () => {
+  function switchToAuditTab() {
+    const auditTab = screen.getByRole('tab', { name: /audit/i });
+    fireEvent.click(auditTab);
+  }
+
   it('shows "no issues" for a document with no contrast problems', () => {
     render(
       <EditorProvider>
         <IntelligencePanel />
       </EditorProvider>,
     );
+    switchToAuditTab();
     expect(screen.getByText('No issues detected')).toBeInTheDocument();
   });
 
@@ -82,6 +88,7 @@ describe('IntelligencePanel — Audit tab', () => {
         <IntelligencePanel />
       </EditorProvider>,
     );
+    switchToAuditTab();
     expect(screen.queryByText('No issues detected')).not.toBeInTheDocument();
     expect(screen.getByText(/WCAG AA minimum/i)).toBeInTheDocument();
 

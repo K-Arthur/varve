@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.8');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.10');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('stamps current version on new documents', () => {
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.8');
+    expect(migrated.formatVersion).toBe('2.10');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.8');
+    expect(migrated.formatVersion).toBe('2.10');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.8');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.10');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -319,7 +319,7 @@ describe('Document Migration', () => {
     };
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
-    expect((result as Record<string, unknown>).formatVersion).toBe('2.8');
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.10');
   });
 
   it('migrates v2.4 → v2.5: bakes rotation into transform', () => {
@@ -341,7 +341,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.8');
+    expect(result.formatVersion).toBe('2.10');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     // n1: rotation 90 baked into transform
     expect(nodes.n1!.rotation).toBe(0);
@@ -369,7 +369,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.8');
+    expect(result.formatVersion).toBe('2.10');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     const fills = nodes.n1!.fills as Record<string, unknown>[];
     const image = fills[0]!.image as Record<string, unknown>;
@@ -867,7 +867,7 @@ describe('v2.7 migration (image crop + transform fields)', () => {
       formatVersion: '2.6',
       nodes: {},
     });
-    expect(migrated!.formatVersion).toBe('2.8');
+    expect(migrated!.formatVersion).toBe('2.10');
   });
 
   it('normalizes an out-of-bounds crop rect', () => {

@@ -310,30 +310,24 @@ describe('ImageEnhancementSection — original one-shot', () => {
 
   afterEach(cleanup);
 
-  it('dispatches configured upscale and trace operations for image-filled shapes', async () => {
+  it('opens upscale dialog and dispatches trace operations for image-filled shapes', async () => {
+    const openUpscaleDialog = vi.fn();
+    mockedUseEditor.mockReturnValue({
+      ...mockedUseEditor(),
+      openUpscaleDialog,
+    });
     render(<ImageEnhancementSection nodes={[imageNode()]} />);
 
-    expect(screen.getByText(/Processing runs locally/i)).toBeTruthy();
     expect(screen.getByRole('button', { name: /image & vector/i })).toHaveAttribute(
       'aria-expanded',
       'true',
     );
 
-    fireEvent.click(screen.getByLabelText('Upscale factor'));
-    fireEvent.click(screen.getByRole('option', { name: '4x' }));
-    fireEvent.click(screen.getByLabelText('Upscale method'));
-    fireEvent.click(screen.getByRole('option', { name: /hard edges/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Upscale image' }));
+    // Upscale now opens a dialog
+    fireEvent.click(screen.getByRole('button', { name: /open upscale dialog/i }));
+    expect(openUpscaleDialog).toHaveBeenCalled();
 
-    await waitFor(() =>
-      expect(upscaleSelectedImage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          scale: 4,
-          method: 'nearest',
-        }),
-      ),
-    );
-
+    // Trace controls are still inline
     fireEvent.click(screen.getByLabelText('Trace mode'));
     fireEvent.click(screen.getByRole('option', { name: 'Color' }));
     fireEvent.change(screen.getByLabelText('Trace color count'), { target: { value: '6' } });
@@ -353,27 +347,16 @@ describe('ImageEnhancementSection — original one-shot', () => {
     );
   });
 
-  it('offers bundled Real-ESRGAN and dispatches its fixed 4x model', async () => {
+  it('opens upscale dialog instead of inline controls', async () => {
+    const openUpscaleDialog = vi.fn();
+    mockedUseEditor.mockReturnValue({
+      ...mockedUseEditor(),
+      openUpscaleDialog,
+    });
     render(<ImageEnhancementSection nodes={[imageNode()]} />);
 
-    fireEvent.click(screen.getByLabelText('Upscale method'));
-    const optionEls = screen.getAllByRole('option');
-    expect(optionEls.some((o) => o.textContent?.toLowerCase().includes('ai'))).toBe(true);
-    fireEvent.click(screen.getByRole('option', { name: /ai detail/i }));
-
-    expect(screen.getByLabelText('Upscale factor')).toHaveTextContent('4x');
-    expect(screen.getByLabelText('Upscale factor')).toHaveAttribute('data-disabled');
-    fireEvent.click(screen.getByRole('button', { name: 'Upscale with AI' }));
-
-    await waitFor(() =>
-      expect(upscaleSelectedImage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          scale: 4,
-          method: 'ai',
-          modelId: 'upscale-realesr-general',
-        }),
-      ),
-    );
+    fireEvent.click(screen.getByRole('button', { name: /open upscale dialog/i }));
+    expect(openUpscaleDialog).toHaveBeenCalled();
   });
 
   it('does not render for non-image nodes', () => {

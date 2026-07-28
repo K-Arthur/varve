@@ -58,7 +58,14 @@ describe('PropertiesPanel canvas settings', () => {
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
     const tabLabels = tabs.filter(Boolean);
-    expect(tabLabels).toEqual(['Properties', 'Appearance', 'Prototype', 'Export', 'Audit']);
+    expect(tabLabels).toEqual([
+      'Properties',
+      'Appearance',
+      'Prototype',
+      'Export',
+      'Audit',
+      'Fonts',
+    ]);
     expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Inspect' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Score' })).toBeNull();
@@ -68,7 +75,6 @@ describe('PropertiesPanel canvas settings', () => {
     renderPanel();
     const properties = screen.getByRole('tab', { name: 'Properties' });
     const appearance = screen.getByRole('tab', { name: 'Appearance' });
-    const audit = screen.getByRole('tab', { name: 'Audit' });
 
     appearance.focus();
     fireEvent.keyDown(appearance, { key: 'ArrowRight' });
@@ -76,13 +82,14 @@ describe('PropertiesPanel canvas settings', () => {
     expect(prototype).toHaveFocus();
 
     fireEvent.keyDown(prototype, { key: 'End' });
-    expect(audit).toHaveFocus();
+    const fonts = screen.getByRole('tab', { name: 'Fonts' });
+    expect(fonts).toHaveFocus();
 
-    fireEvent.keyDown(audit, { key: 'Home' });
+    fireEvent.keyDown(fonts, { key: 'Home' });
     expect(properties).toHaveFocus();
 
     fireEvent.keyDown(properties, { key: 'ArrowLeft' });
-    expect(audit).toHaveFocus();
+    expect(fonts).toHaveFocus();
   });
 
   it('renders canvas settings inline in the Properties empty state', async () => {
