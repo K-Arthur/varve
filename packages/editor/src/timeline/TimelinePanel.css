@@ -107,7 +107,7 @@
   background: var(--color-bg-canvas);
   color: var(--color-text-primary);
   cursor: pointer;
-  font-size: 14px;
+  font-size: var(--font-size-sm);
   line-height: 1;
   padding: 0;
   position: relative;
