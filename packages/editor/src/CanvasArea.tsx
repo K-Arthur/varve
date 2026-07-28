@@ -112,6 +112,7 @@ import { collectFilesFromDataTransfer } from './dropUtils';
 import { HitTestEngine } from './hitTest/HitTestEngine';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { type CropState, commitImageCropExtended } from './imageCrop';
+import { applyPropertyPath } from './propertyPath';
 import { closeImageBitmapMap, collectImageBitmaps } from './render/collectImageBitmaps';
 import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import {
@@ -377,65 +378,6 @@ function renderGroupInsetEffect(
     }
     ctx.putImageData(dst, 0, 0);
   }
-}
-
-/**
- * Parse a property path into segments. Supports dot notation and bracket
- * array indices, e.g. `opacity`, `transform[4]`, `fills[0].color`.
- */
-function parsePropertyPath(path: string): string[] {
-  const segments: string[] = [];
-  const parts = path.split('.');
-  for (const part of parts) {
-    const match = /^([^[]+)((?:\[[^\]]+\])*)$/.exec(part);
-    if (!match) {
-      segments.push(part);
-      continue;
-    }
-    const [, first, second] = match;
-    if (first) segments.push(first);
-    const bracketGroups = second ? second.matchAll(/\[([^\]]+)\]/g) : [];
-    for (const m of bracketGroups) {
-      const [, inner] = m;
-      if (inner) segments.push(inner);
-    }
-  }
-  return segments;
-}
-
-/**
- * Set a value at a nested property path without mutating original objects.
- * Clones arrays and records along the path.
- */
-function setAtPath(value: unknown, segments: string[], newValue: unknown): unknown {
-  if (segments.length === 0) return newValue;
-  const [head, ...tail] = segments;
-  if (Array.isArray(value)) {
-    const idx = Number(head);
-    if (Number.isNaN(idx)) return value;
-    const next = value[idx] ?? (tail.length > 0 && /^\d+$/.test(tail[0]!) ? [] : {});
-    const copy = [...value];
-    copy[idx] = setAtPath(next, tail, newValue);
-    return copy;
-  }
-  if (typeof value === 'object' && value !== null) {
-    const record = value as Record<string, unknown>;
-    const next = record[head!] ?? (tail.length > 0 && /^\d+$/.test(tail[0]!) ? [] : {});
-    return { ...record, [head!]: setAtPath(next, tail, newValue) };
-  }
-  return value;
-}
-
-/** Apply a property override to a target object using a dot/bracket path. */
-export function applyPropertyPath(
-  target: Record<string, unknown>,
-  path: string,
-  value: unknown,
-): void {
-  const segments = parsePropertyPath(path);
-  const head = segments[0]!;
-  const tail = segments.slice(1);
-  target[head] = setAtPath(target[head], tail, value);
 }
 
 export function CanvasArea({

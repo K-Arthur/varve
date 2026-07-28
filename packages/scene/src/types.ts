@@ -23,8 +23,20 @@ export type {
   DocumentGridSettings,
   GridDefinition,
   GridScope,
+  IsometricAxis,
+  IsometricGrid,
+  IsometricPreset,
+  IsometricPresetDef,
   LayoutGrid,
   PixelGrid,
+} from './gridTypes';
+
+export {
+  createDefaultIsometricGrid,
+  createStandardIsometricAxes,
+  normaliseAngle,
+  validateIsometricAxes,
+  validateIsometricGrid,
 } from './gridTypes';
 
 export type { ManagedColor };

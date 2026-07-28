@@ -207,12 +207,12 @@ describe('workspaceTypes', () => {
 
   it('design mode exposes grouped tabs without legacy document or spec', () => {
     const tabs = getVisibleInspectorTabs('design');
-    expect(tabs).toEqual(['properties', 'appearance', 'prototype', 'export', 'audit']);
+    expect(tabs).toEqual(['properties', 'appearance', 'prototype', 'export', 'audit', 'fonts']);
   });
 
   it('print mode places audit before export for preflight-before-output workflow', () => {
     const tabs = getVisibleInspectorTabs('print');
-    expect(tabs).toEqual(['properties', 'appearance', 'audit', 'export']);
+    expect(tabs).toEqual(['properties', 'appearance', 'audit', 'export', 'fonts']);
   });
 
   it('drawing mode keeps a compact inspector because brush settings live in tool options', () => {

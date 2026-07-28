@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { applyPropertyPath } from './CanvasArea';
+import { applyPropertyPath } from './propertyPath';
 
 describe('applyPropertyPath', () => {
   it('sets top-level properties', () => {

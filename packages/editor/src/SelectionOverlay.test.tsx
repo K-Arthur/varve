@@ -234,9 +234,9 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // 1 bbox + 8 touch targets + 8 visual handles = 17 rects
+    // 1 bbox + 8 touch targets + 8 visual handles + 4 skew hit targets + 4 skew visual handles = 25 rects
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
     // 2 touch targets (rotation + pivot) + 2 visual (rotation + pivot) = 4 circles
     const circles = container.querySelectorAll('svg > circle');
     expect(circles.length).toBe(4);
@@ -258,7 +258,7 @@ describe('SelectionOverlay — shape handle types', () => {
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
     const lines = container.querySelectorAll('svg > line');
     expect(lines.length).toBe(1);
   });
@@ -277,7 +277,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 
   it('shows 8 resize handles + rotation handle for a line shape', () => {
@@ -291,7 +291,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 
   it('shows 8 resize handles + rotation handle for an arrow shape', () => {
@@ -306,7 +306,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 
   it('shows 8 resize handles + rotation handle for a path shape', () => {
@@ -323,7 +323,7 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     expect(container.querySelector('svg')).toBeTruthy();
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 
   it('shows no interactive handles for multi-selection (dashed bbox, handles still in DOM with pointerEvents:none)', () => {
@@ -333,7 +333,8 @@ describe('SelectionOverlay — shape handle types', () => {
     ]);
     const svg = container.querySelector('svg');
     expect(svg).toBeTruthy();
-    // 1 bbox + 8 touch targets + 8 visual handles = 17 rects (always rendered, pointer-events: none in multi)
+    // Multi-selection: skew handles not rendered (no individual node to skew)
+    // 1 bbox + 8 touch targets + 8 visual handles = 17 rects
     const rects = container.querySelectorAll('svg > rect');
     expect(rects.length).toBe(17);
     // No rotation handle in multi-select
@@ -509,9 +510,9 @@ describe('SelectionOverlay — touch targets', () => {
     const container = renderOverlay([
       makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 4, h: 4 }),
     ]);
-    // 1 bbox + 8 handles × (1 hit + 1 visual) = 1 + 16 = 17
+    // 1 bbox + 8 handles × (1 hit + 1 visual) + 4 skew × (1 hit + 1 visual) = 25
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 
   it('shows all 8 handles for a narrow box (single selection)', () => {
@@ -521,9 +522,9 @@ describe('SelectionOverlay — touch targets', () => {
       { x: 0, y: 0 },
       1,
     );
-    // Single selection: all 8 handles visible = 1 bbox + 16 = 17
+    // Single selection: all 8 handles + 4 skew = 1 bbox + 24 = 25
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 
   it('shows all 8 handles for a flat box (single selection)', () => {
@@ -534,6 +535,6 @@ describe('SelectionOverlay — touch targets', () => {
       1,
     );
     const rects = container.querySelectorAll('svg > rect');
-    expect(rects.length).toBe(17);
+    expect(rects.length).toBe(25);
   });
 });

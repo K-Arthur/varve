@@ -18,7 +18,7 @@ const tabs = [
 ];
 
 const tabsWithIcons = [
-  { value: 'grid', label: 'Grid', icon: 'Grid' as const },
+  { value: 'grid', label: 'Grid', icon: 'LayoutGrid' as const },
   { value: 'list', label: 'List', icon: 'List' as const },
   { value: 'settings', label: 'Settings', icon: 'Settings' as const },
 ];

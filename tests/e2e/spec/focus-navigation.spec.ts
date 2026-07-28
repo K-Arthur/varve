@@ -17,14 +17,6 @@ async function getCanvas(page: import('@playwright/test').Page) {
   return page.getByRole('img', { name: 'Design canvas' });
 }
 
-async function _getActiveElementTag(page: import('@playwright/test').Page): Promise<string> {
-  return page.evaluate(() => {
-    const el = document.activeElement;
-    if (!el) return 'null';
-    return `${el.tagName.toLowerCase()}[role="${el.getAttribute('role') ?? ''}"][data-testid="${el.getAttribute('data-testid') ?? ''}"]`;
-  });
-}
-
 async function getActiveElementId(page: import('@playwright/test').Page): Promise<string> {
   return page.evaluate(() => {
     const el = document.activeElement;

@@ -11,6 +11,25 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@strata/engine', () => ({
+  resolveAcquisition: (entry: { bundled: boolean; remoteUrl: string; checksum: string }) => {
+    if (entry.bundled)
+      return {
+        kind: 'bundled',
+        assetPath: `/models/${entry.id}.onnx`,
+        sha256: entry.checksum || '',
+      };
+    if (entry.remoteUrl && entry.checksum)
+      return {
+        kind: 'remote',
+        sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
+        sha256: entry.checksum,
+      };
+    return {
+      kind: 'unavailable',
+      reasonCode: 'source-unavailable',
+      detail: 'No download source available',
+    };
+  },
   getModelLoaderReady: vi.fn().mockResolvedValue({
     isModelAvailable: mocks.mockIsModelAvailable,
     hasDownloadedBlob: mocks.mockHasDownloadedBlob,
@@ -24,7 +43,7 @@ vi.mock('@strata/engine', () => ({
       sizeBytes: 156_000_000,
       bundled: false,
       remoteUrl: 'https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/ddcolor.onnx',
-      checksum: '',
+      checksum: 'abc123',
       description: 'Photo-realistic grayscale colorization',
       precision: 'fp32',
     },
@@ -34,7 +53,7 @@ vi.mock('@strata/engine', () => ({
       sizeBytes: 50_000_000,
       bundled: false,
       remoteUrl: 'https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/ddcolor-tiny.onnx',
-      checksum: '',
+      checksum: 'def456',
       description: 'Fast preview colorization',
       precision: 'fp32',
     },

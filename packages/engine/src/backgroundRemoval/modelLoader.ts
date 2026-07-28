@@ -65,11 +65,6 @@ const EXTENDED_MODEL_META: Record<string, { remoteUrl: string; name: string; siz
     name: 'TrOCR (Printed Text)',
     size: 340_000_000,
   },
-  'font-detect-resnet': {
-    remoteUrl: '',
-    name: 'Font Detection',
-    size: 44_000_000,
-  },
 };
 
 function modelMeta(

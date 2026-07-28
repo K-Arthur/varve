@@ -80,6 +80,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
       guides: [],
     })),
     createRasterLayer: vi.fn(() => null),
+    touchMultiSelect: { active: false, suspended: false },
     ...overrides,
   };
 }

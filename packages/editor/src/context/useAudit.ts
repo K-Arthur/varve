@@ -42,9 +42,7 @@ export function useAudit(
 
     if (isDev && schedulerRef.current) {
       const start = performance.now();
-      const _plan = schedulerRef.current.scheduleAudit([
-        { type: 'node-added', timestamp: Date.now() },
-      ]);
+      schedulerRef.current.scheduleAudit([{ type: 'node-added', timestamp: Date.now() }]);
       lastScanRef.current = performance.now() - start;
     }
   }, [document]);
@@ -59,19 +57,19 @@ export function useAudit(
 
   const diagnostics: AuditDiagnostics = {
     registeredRuleCount: schedulerRef.current
-      ? schedulerRef.current.schedule?.immediate.length +
-        schedulerRef.current.schedule?.debounced.length +
-        schedulerRef.current.schedule?.onDemand.length +
-        schedulerRef.current.schedule?.preflight.length +
-        schedulerRef.current.schedule?.scheduled.length
+      ? schedulerRef.current.getExecutionSchedule().immediate.length +
+        schedulerRef.current.getExecutionSchedule().debounced.length +
+        schedulerRef.current.getExecutionSchedule().onDemand.length +
+        schedulerRef.current.getExecutionSchedule().preflight.length +
+        schedulerRef.current.getExecutionSchedule().scheduled.length
       : 0,
     ruleIds: schedulerRef.current
       ? [
-          ...(schedulerRef.current.schedule?.immediate ?? []),
-          ...(schedulerRef.current.schedule?.debounced ?? []),
-          ...(schedulerRef.current.schedule?.onDemand ?? []),
-          ...(schedulerRef.current.schedule?.preflight ?? []),
-          ...(schedulerRef.current.schedule?.scheduled ?? []),
+          ...schedulerRef.current.getExecutionSchedule().immediate,
+          ...schedulerRef.current.getExecutionSchedule().debounced,
+          ...schedulerRef.current.getExecutionSchedule().onDemand,
+          ...schedulerRef.current.getExecutionSchedule().preflight,
+          ...schedulerRef.current.getExecutionSchedule().scheduled,
         ]
       : [],
     isSchedulerActive: schedulerRef.current !== null,

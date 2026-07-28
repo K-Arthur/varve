@@ -32,6 +32,7 @@ export type {
   TensorContract,
   UserQualityMode,
 } from './core/types';
+export { deriveAcquisition, resolveAcquisition } from './core/types';
 export type { WorkerInferRequest, WorkerInferResult, WorkerModelType } from './inferenceWorker';
 export {
   disposeInferenceWorkerHost,
@@ -108,4 +109,3 @@ export type {
   ModelValidationStatus,
   QualityValidation,
 } from './types';
-export { deriveAcquisition, resolveAcquisition } from './core/types';

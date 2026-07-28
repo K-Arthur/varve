@@ -127,6 +127,11 @@ export interface SchedulerOptions {
 export class AuditScheduler {
   private preferences: AuditExecutionPreferences;
   private schedule: ExecutionSchedule;
+
+  getExecutionSchedule(): ExecutionSchedule {
+    return this.schedule;
+  }
+
   private pendingRules: Set<string> = new Set();
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private immediateDebounceTimer: ReturnType<typeof setTimeout> | null = null;

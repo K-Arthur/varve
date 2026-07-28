@@ -1,6 +1,6 @@
 import type { NodeId } from '@strata/scene';
 
-export type SelectionOrigin = 'canvas' | 'layers' | 'keyboard' | 'command' | 'api';
+export type SelectionOrigin = 'canvas' | 'layers' | 'keyboard' | 'command' | 'api' | 'navigation';
 
 export const DEFAULT_SELECTION_ORIGIN: SelectionOrigin = 'canvas';
 

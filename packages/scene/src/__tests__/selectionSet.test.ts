@@ -11,6 +11,7 @@ import {
   removeMissingMembers,
   renameSelectionSet,
   reorderSelectionSets,
+  type SelectionSetsData,
   updateSelectionSetNodes,
 } from '../selectionSet';
 
@@ -47,7 +48,7 @@ describe('SelectionSet', () => {
   test('deleteSelectionSet removes the set', () => {
     const set1 = createSelectionSet('Set 1', ['n1']);
     const set2 = createSelectionSet('Set 2', ['n2']);
-    let data = { version: 1 as const, sets: [set1, set2] };
+    let data: SelectionSetsData = { version: 1, sets: [set1, set2] };
 
     data = deleteSelectionSet(data, set1.id);
     expect(data.sets.length).toBe(1);
@@ -56,7 +57,7 @@ describe('SelectionSet', () => {
 
   test('duplicateSelectionSet creates a copy with new ID', () => {
     const set = createSelectionSet('Original', ['n1', 'n2']);
-    let data = { version: 1 as const, sets: [set] };
+    let data: SelectionSetsData = { version: 1, sets: [set] };
 
     data = duplicateSelectionSet(data, set.id);
     expect(data.sets.length).toBe(2);
@@ -67,7 +68,7 @@ describe('SelectionSet', () => {
 
   test('updateSelectionSetNodes replaces node IDs', () => {
     const set = createSelectionSet('Set', ['n1', 'n2']);
-    let data = { version: 1 as const, sets: [set] };
+    let data: SelectionSetsData = { version: 1, sets: [set] };
 
     data = updateSelectionSetNodes(data, set.id, ['n3', 'n4', 'n5']);
     expect(data.sets[0]?.nodeIds).toEqual(['n3', 'n4', 'n5']);
@@ -75,7 +76,7 @@ describe('SelectionSet', () => {
 
   test('addToSelectionSet adds new IDs without duplicates', () => {
     const set = createSelectionSet('Set', ['n1', 'n2']);
-    let data = { version: 1 as const, sets: [set] };
+    let data: SelectionSetsData = { version: 1, sets: [set] };
 
     data = addToSelectionSet(data, set.id, ['n2', 'n3']);
     expect(data.sets[0]?.nodeIds).toEqual(['n1', 'n2', 'n3']);
@@ -83,7 +84,7 @@ describe('SelectionSet', () => {
 
   test('removeFromSelectionSet removes specified IDs', () => {
     const set = createSelectionSet('Set', ['n1', 'n2', 'n3']);
-    let data = { version: 1 as const, sets: [set] };
+    let data: SelectionSetsData = { version: 1, sets: [set] };
 
     data = removeFromSelectionSet(data, set.id, ['n2']);
     expect(data.sets[0]?.nodeIds).toEqual(['n1', 'n3']);
@@ -93,7 +94,7 @@ describe('SelectionSet', () => {
     const set1 = createSelectionSet('Set 1', ['n1']);
     const set2 = createSelectionSet('Set 2', ['n2']);
     const set3 = createSelectionSet('Set 3', ['n3']);
-    let data = { version: 1 as const, sets: [set1, set2, set3] };
+    let data: SelectionSetsData = { version: 1, sets: [set1, set2, set3] };
 
     // Move set 0 down
     data = reorderSelectionSets(data, 0, 1);
@@ -114,7 +115,7 @@ describe('SelectionSet', () => {
   test('removeMissingMembers removes deleted nodes from sets', () => {
     const set1 = createSelectionSet('Set 1', ['n1', 'n2']);
     const set2 = createSelectionSet('Set 2', ['n3', 'n4']);
-    let data = { version: 1 as const, sets: [set1, set2] };
+    let data: SelectionSetsData = { version: 1, sets: [set1, set2] };
 
     const availableNodes = new Set(['n1', 'n4']);
     data = removeMissingMembers(data, availableNodes);

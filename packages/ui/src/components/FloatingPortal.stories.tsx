@@ -14,7 +14,7 @@ type Story = StoryObj<typeof FloatingPortal>;
 export const Default: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const anchorRef = useRef<HTMLButtonElement>(null);
+    const anchorRef = useRef<HTMLButtonElement | null>(null);
     return (
       <div>
         <button ref={anchorRef} type="button" onClick={() => setOpen(!open)}>
@@ -41,7 +41,7 @@ export const Default: Story = {
 export const MatchAnchorWidth: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const anchorRef = useRef<HTMLButtonElement>(null);
+    const anchorRef = useRef<HTMLButtonElement | null>(null);
     return (
       <div>
         <button ref={anchorRef} type="button" onClick={() => setOpen(!open)} style={{ width: 300 }}>

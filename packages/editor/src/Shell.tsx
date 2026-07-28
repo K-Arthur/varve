@@ -317,7 +317,7 @@ function ShellInner({
           worldToScreen={(wx, wy) => editor.worldToCanvas(wx, wy)}
         />
         <SoftProofOverlay softProofEnabled={editor.state.softProofEnabled} />
-        <AuditOverlayHost viewport={editor.state.viewport} />
+        <AuditOverlayHost viewport={{ width: window.innerWidth, height: window.innerHeight }} />
         <ImageCompareOverlay
           active={editor.state.beforeAfterCompare}
           selection={editor.selectedNodes()}

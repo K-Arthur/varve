@@ -23,7 +23,7 @@ export function ExportProgressBar({
   const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   return (
-    <div className="export-progress" role="group" aria-label="Export progress">
+    <fieldset className="export-progress" aria-label="Export progress">
       <div
         role="progressbar"
         aria-valuenow={completed}
@@ -43,6 +43,6 @@ export function ExportProgressBar({
           Cancel
         </button>
       )}
-    </div>
+    </fieldset>
   );
 }

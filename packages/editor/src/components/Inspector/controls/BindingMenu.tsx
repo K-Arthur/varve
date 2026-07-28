@@ -109,7 +109,7 @@ export function BindingMenu({
       placement="bottom-start"
       maxHeight={320}
     >
-      <div className="binding-menu" role="presentation" onKeyDown={handleListKey}>
+      <div className="binding-menu" role="dialog" onKeyDown={handleListKey}>
         <input
           id={comboboxId}
           type="text"
@@ -143,6 +143,13 @@ export function BindingMenu({
                 className={`binding-menu__item${selectedIdx === i ? ' binding-menu__item--highlighted' : ''}`}
                 onClick={() => handleSelect(v.id)}
                 onMouseEnter={() => setSelectedIdx(i)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleSelect(v.id);
+                  }
+                }}
+                tabIndex={0}
               >
                 <span className="binding-menu__item-name">{v.name}</span>
                 <span className="binding-menu__item-value">

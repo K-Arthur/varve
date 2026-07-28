@@ -187,17 +187,20 @@ function CodegenTab({ doc, selection }: CodePanelProps) {
 
       <div className="code-panel__preview-sizes" role="radiogroup" aria-label="Preview width">
         {PREVIEW_SIZES.map((size) => (
-          <button
+          <label
             key={size.value}
-            type="button"
-            role="radio"
             className={`code-panel__size-btn${previewSize === size.value ? ' code-panel__size-btn--active' : ''}`}
-            aria-checked={previewSize === size.value}
-            onClick={() => setPreviewSize(size.value)}
           >
+            <input
+              type="radio"
+              name="code-preview-size"
+              checked={previewSize === size.value}
+              onChange={() => setPreviewSize(size.value)}
+              hidden
+            />
             {size.label}
             {size.width && <span className="code-panel__size-unit">px</span>}
-          </button>
+          </label>
         ))}
       </div>
 

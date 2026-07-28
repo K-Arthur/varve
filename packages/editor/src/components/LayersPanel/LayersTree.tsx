@@ -72,6 +72,7 @@ import {
 } from './layerSearchIndex';
 import { usePresence } from './presenceStore';
 import { computeDocumentDiff, type FlatEntry, useFlatTree } from './useFlatTree';
+import { useLayerNavigation } from './useLayerNavigation';
 import { sharedThumbnailCache } from './useThumbnail';
 import { useTreeFocus } from './useTreeFocus';
 import { useTypeAhead } from './useTypeAhead';
@@ -346,6 +347,7 @@ export interface LayersDnDHandle {
   collapseAll: () => void;
   collapseOthers: (containerId: NodeId) => void;
   startRename: (id: NodeId) => void;
+  expandAncestors: (nodeId: NodeId) => void;
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
@@ -492,6 +494,30 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     overscan: 10,
   });
 
+  const entriesRef = useRef(entries);
+  entriesRef.current = entries;
+  const virtualizerRef = useRef<{
+    scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
+    getVirtualItems: () => Array<{ index: number }>;
+  } | null>(null);
+  virtualizerRef.current = virtualizer as unknown as {
+    scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
+    getVirtualItems: () => Array<{ index: number }>;
+  };
+  const focusIdxRef = useRef(focusIdx);
+  focusIdxRef.current = focusIdx;
+
+  useLayerNavigation({
+    expanded,
+    setExpanded,
+    parentCacheRef,
+    virtualizerRef,
+    entriesRef,
+    treeRef,
+    focusIdxRef,
+    setFocusIdx,
+  });
+
   // Sync focus to selection when selection changes externally (e.g. canvas click).
   // Respects the auto-reveal preference: when enabled, scrolls the primary selection
   // into view and expands ancestors; when disabled, only highlights if already visible.
@@ -499,7 +525,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   // are skipped to avoid stealing the user's scroll position during multi-select.
   useEffect(() => {
     if (!loadSettings().layers.autoReveal) return;
-    if (state.selectionOrigin === 'layers') return;
+    if (state.selectionOrigin === 'layers' || state.selectionOrigin === 'navigation') return;
     if (state.selection.length > 0) {
       const firstSel = state.selection[0];
       if (!firstSel) return;
@@ -1154,6 +1180,27 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       collapseAll: handleCollapseAll,
       collapseOthers: handleCollapseOthers,
       startRename: setRenamingId,
+      expandAncestors: (nodeId: NodeId) => {
+        setExpanded((prev) => {
+          const next = new Set(prev);
+          let changed = false;
+          let parent = getParentFast(state.document, nodeId, parentCacheRef.current);
+          while (parent) {
+            if (!next.has(parent)) {
+              next.add(parent);
+              changed = true;
+            }
+            parent = getParentFast(state.document, parent, parentCacheRef.current);
+          }
+          if (changed) {
+            const idx = entries.findIndex((e) => e.node.id === nodeId);
+            if (idx >= 0) {
+              setTimeout(() => virtualizer.scrollToIndex(idx, { align: 'auto' }), 0);
+            }
+          }
+          return changed ? next : prev;
+        });
+      },
     }),
     [
       handleDragStart,
@@ -1165,6 +1212,9 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       handleCollapseAll,
       handleCollapseOthers,
       setRenamingId,
+      state.document,
+      entries,
+      virtualizer,
     ],
   );
 

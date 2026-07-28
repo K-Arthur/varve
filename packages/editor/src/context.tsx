@@ -51,6 +51,8 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
+import { getLayerNavigationCommands } from './components/LayersPanel/useLayerNavigation';
+
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 
 /** Module-level bridge giving the BackupSettingsPanel access to the editor's
@@ -146,6 +148,7 @@ import {
   clearLiveTrace as clearLiveTraceDoc,
   createClippingMask as createClippingMaskDoc,
   createComponent,
+  createDefaultIsometricGrid,
   createDocument,
   createEmptySelectionSetsData,
   createGuideId,
@@ -235,6 +238,7 @@ import {
   type SMRuntime,
   initializeDefaultGridSettings as sceneInitializeGridSettings,
   setDocumentGrid as sceneSetDocumentGrid,
+  setIsometricGrid as sceneSetIsometricGrid,
   scopeForTargets,
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
@@ -1052,6 +1056,8 @@ export interface EditorContextValue {
   setSnapGrid: (v: number) => void;
   /** Set document grid settings (visible, subdivisions, color). */
   setDocumentGrid: (settings: import('./context/types').DocumentGridSettings) => void;
+  /** Set isometric grid settings. */
+  setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => void;
   /** Set canvas rendering mode (full / outline / preview). */
   setCanvasMode: (mode: CanvasMode) => void;
   setCameraRotation: (radians: number) => void;
@@ -1525,6 +1531,13 @@ export interface EditorContextValue {
 
   // Touch multi-select (Workstream D)
   setTouchMultiSelect: (active: boolean) => void;
+
+  // Findings overlay (delegated to context/types.ts EditorContextValue)
+  setFindingsOverlayVisible: (v: boolean) => void;
+  setFindingsProviderOverride: (providerId: string) => void;
+
+  // Layer navigation (registered by LayersTree when mounted)
+  layerNavigation?: import('./components/LayersPanel/layerNavigationCommands').LayerNavigationCommands;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -1588,10 +1601,14 @@ function restoreViewportFields(
   | 'guidesVisible'
   | 'snapGrid'
   | 'documentGrid'
+  | 'isometricGrid'
 > {
   const v = normalizeSavedViewport(raw);
   const initialized = sceneInitializeGridSettings(doc);
   const grid = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
+  const isoGrid =
+    Object.values(initialized.gridSettings?.isometricGrids ?? {})[0] ??
+    createDefaultIsometricGrid();
   return {
     zoom: v.zoom,
     pan: v.pan,
@@ -1606,6 +1623,7 @@ function restoreViewportFields(
     guidesVisible: v.guidesVisible,
     snapGrid: v.snapGrid,
     documentGrid: { ...grid, visible: v.gridVisible ?? grid.visible },
+    isometricGrid: isoGrid,
   };
 }
 
@@ -2054,6 +2072,8 @@ export function EditorProvider({
     }
     doc = sceneInitializeGridSettings(doc);
     const docGrid = doc.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
+    const isoGrid =
+      Object.values(doc.gridSettings?.isometricGrids ?? {})[0] ?? createDefaultIsometricGrid();
     const vpDefaults = loadSettings().viewport;
     return {
       tool: 'select',
@@ -2076,6 +2096,7 @@ export function EditorProvider({
       pixelGridSnapEnabled: false,
       dotGridEnabled: false,
       findingsOverlayVisible: false,
+      findingsProviderOverrides: {},
       canUndo: false,
       canRedo: false,
       undoLabel: 'Undo',
@@ -2083,6 +2104,7 @@ export function EditorProvider({
       snapEnabled: vpDefaults.snapEnabled,
       snapGrid: vpDefaults.snapGrid,
       documentGrid: docGrid,
+      isometricGrid: isoGrid,
       saveState: 'idle' as const,
       lastSavedAt: null,
       prototypeMode: false,
@@ -2451,7 +2473,10 @@ export function EditorProvider({
   function editorGridFromDoc(doc: Document) {
     const initialized = sceneInitializeGridSettings(doc);
     const dg = initialized.gridSettings?.documentGrid ?? createDefaultDocumentGridSettings();
-    return dg;
+    const ig =
+      Object.values(initialized.gridSettings?.isometricGrids ?? {})[0] ??
+      createDefaultIsometricGrid();
+    return { documentGrid: dg, isometricGrid: ig };
   }
 
   const selectionCommands = useSelectionCommands({
@@ -2473,12 +2498,13 @@ export function EditorProvider({
         redoLabelsRef.current = [];
       }
       const newDoc = fn(s.document);
-      const syncedGrid = editorGridFromDoc(newDoc);
+      const synced = editorGridFromDoc(newDoc);
       return {
         ...s,
         document: newDoc,
-        documentGrid: syncedGrid,
-        snapGrid: syncedGrid.spacingX,
+        documentGrid: synced.documentGrid,
+        isometricGrid: synced.isometricGrid,
+        snapGrid: synced.documentGrid.spacingX,
         dirty: true,
         canUndo: true,
         canRedo: false,
@@ -5027,12 +5053,13 @@ export function EditorProvider({
         redoStackRef.current = [...redoStackRef.current, state.document];
         redoSelStackRef.current = [...redoSelStackRef.current, state.selection];
         redoLabelsRef.current = [...redoLabelsRef.current, prevLabel ?? 'Undo'];
-        const syncedGrid = editorGridFromDoc(prev);
+        const synced = editorGridFromDoc(prev);
         patch({
           document: prev,
           selection: prevSel ?? [],
-          documentGrid: syncedGrid,
-          snapGrid: syncedGrid.spacingX,
+          documentGrid: synced.documentGrid,
+          isometricGrid: synced.isometricGrid,
+          snapGrid: synced.documentGrid.spacingX,
           canUndo: undoStackRef.current.length > 0,
           canRedo: true,
           undoLabel: undoLabelsRef.current[undoLabelsRef.current.length - 1] ?? 'Undo',
@@ -5048,12 +5075,13 @@ export function EditorProvider({
         undoStackRef.current = [...undoStackRef.current, state.document];
         undoSelStackRef.current = [...undoSelStackRef.current, state.selection];
         undoLabelsRef.current = [...undoLabelsRef.current, nextLabel ?? 'Redo'];
-        const syncedGrid = editorGridFromDoc(next);
+        const synced = editorGridFromDoc(next);
         patch({
           document: next,
           selection: nextSel ?? [],
-          documentGrid: syncedGrid,
-          snapGrid: syncedGrid.spacingX,
+          documentGrid: synced.documentGrid,
+          isometricGrid: synced.isometricGrid,
+          snapGrid: synced.documentGrid.spacingX,
           canUndo: true,
           canRedo: redoStackRef.current.length > 0,
           undoLabel: nextLabel ?? 'Redo',
@@ -5487,6 +5515,12 @@ export function EditorProvider({
       setTouchMultiSelect: (active: boolean) => {
         const current = stateRef.current.touchMultiSelect;
         patch({ touchMultiSelect: { ...current, active } });
+      },
+
+      get layerNavigation():
+        | import('./components/LayersPanel/layerNavigationCommands').LayerNavigationCommands
+        | undefined {
+        return getLayerNavigationCommands() ?? undefined;
       },
 
       setNodeLocked: (id, locked) => {
@@ -6766,6 +6800,11 @@ export function EditorProvider({
         patch({ documentGrid: grid });
         persistViewportPrefs({ ...stateRef.current, documentGrid: grid });
       },
+      setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => {
+        const g = { ...grid, id: grid.id ?? 'grid-isometric-default', type: 'isometric' as const };
+        updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
+        patch({ isometricGrid: g });
+      },
       setCanvasMode: (mode) => patch({ canvasMode: mode }),
       setCameraRotation: (radians) => patch({ cameraRotation: radians }),
       rotateViewBy: (radians, screenAnchor) => {
@@ -6827,7 +6866,14 @@ export function EditorProvider({
         patch(fitBoundsToState(bounds, vp));
       },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
-      setFindingsOverlayVisible: (v) => patch({ findingsOverlayVisible: v }),
+      setFindingsOverlayVisible: (v: boolean) => patch({ findingsOverlayVisible: v }),
+      setFindingsProviderOverride: (providerId: string) =>
+        patch({
+          findingsProviderOverrides: {
+            ...state.findingsProviderOverrides,
+            [providerId]: !state.findingsProviderOverrides[providerId],
+          },
+        }),
       setColorBlindnessView: (type) => patch({ colorBlindnessView: type }),
       setForegroundColor: (color) => patch({ foregroundColor: color }),
       setBackgroundColor: (color) => patch({ backgroundColor: color }),
@@ -7018,6 +7064,7 @@ export function EditorProvider({
             unitType: vpDefaults.unitType,
             guidesVisible: vpDefaults.guidesVisible,
             documentGrid: { ...newDocGrid, visible: vpDefaults.gridVisible ?? newDocGrid.visible },
+            isometricGrid: createDefaultIsometricGrid(),
             dirty: false,
             sessions: [...syncedSessions, { id: newId, name: 'Untitled', dirty: false }],
             activeId: newId,
