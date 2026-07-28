@@ -252,6 +252,14 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'OCR output and conversion need more space than routine properties.',
   },
+  'font-detect': {
+    surface: 'adjustments',
+    scope: 'selection',
+    frequency: 'rare',
+    complexity: 'large-editor',
+    status: 'functional',
+    rationale: 'Font identification is an image-analysis operation that needs results space.',
+  },
   'blend-images': {
     surface: 'adjustments',
     scope: 'selection',

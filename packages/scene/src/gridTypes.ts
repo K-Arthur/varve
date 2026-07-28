@@ -158,6 +158,43 @@ export function createStandardIsometricAxes(): IsometricAxis[] {
   ];
 }
 
+export interface IsometricPresetDef {
+  id: IsometricPreset;
+  label: string;
+  axes: IsometricAxis[];
+}
+
+export const ISOMETRIC_PRESETS: IsometricPresetDef[] = [
+  {
+    id: 'standard',
+    label: 'Standard Isometric (30\u00b0)',
+    axes: createStandardIsometricAxes(),
+  },
+  {
+    id: 'dimetric',
+    label: 'Dimetric (arctan(1/2))',
+    axes: [
+      { angle: 26.565, visible: true, label: 'Right' },
+      { angle: 153.435, visible: true, label: 'Left' },
+      { angle: 90, visible: true, label: 'Vertical' },
+    ],
+  },
+  {
+    id: 'trimetric',
+    label: 'Trimetric (15\u00b0/45\u00b0/75\u00b0)',
+    axes: [
+      { angle: 15, visible: true, label: 'Right' },
+      { angle: 135, visible: true, label: 'Left' },
+      { angle: 75, visible: true, label: 'Vertical' },
+    ],
+  },
+];
+
+export function getPresetAxes(preset: IsometricPreset): IsometricAxis[] {
+  const found = ISOMETRIC_PRESETS.find((p) => p.id === preset);
+  return found ? found.axes.map((a) => ({ ...a })) : createStandardIsometricAxes();
+}
+
 export function createDefaultIsometricGrid(): IsometricGrid {
   return {
     id: 'grid-isometric-default',

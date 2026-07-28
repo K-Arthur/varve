@@ -1,6 +1,11 @@
-import type { ColorMode, ManagedColor } from '@strata/scene';
-import { managedColorToCss } from '@strata/shared';
-import { useMemo } from 'react';
+import type { ColorMode, IsometricAxis, ManagedColor } from '@strata/scene';
+import {
+  ISOMETRIC_PRESETS,
+  normaliseAngle,
+  validateIsometricAxes,
+} from '@strata/scene';
+import { cssStringToManagedColor, managedColorToCss } from '@strata/shared';
+import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
@@ -309,6 +314,340 @@ export function DocumentPanel() {
           </div>
         </div>
       </DisclosureSection>
+      <IsometricGridSection />
     </>
+  );
+}
+
+function IsometricGridSection() {
+  const { state, setIsometricGrid, documentColorMode } = useEditor();
+  const grid = state.isometricGrid;
+  const presetId = grid.preset;
+
+  const axisValidation = useMemo(() => validateIsometricAxes(grid.axes), [grid.axes]);
+
+  const updateGrid = useCallback(
+    (patch: Partial<typeof grid>) => {
+      setIsometricGrid({ ...grid, ...patch, version: grid.version + 1 });
+    },
+    [grid, setIsometricGrid],
+  );
+
+  const updateAxis = useCallback(
+    (index: number, patch: Partial<IsometricAxis>) => {
+      const nextAxes = grid.axes.map((a, i) => (i === index ? { ...a, ...patch } : a));
+      updateGrid({ axes: nextAxes, preset: 'custom' });
+    },
+    [grid.axes, updateGrid],
+  );
+
+  const addAxis = useCallback(() => {
+    if (grid.axes.length >= 3) return;
+    const usedAngles = new Set(grid.axes.map((a) => normaliseAngle(a.angle)));
+    let candidate = 0;
+    while (usedAngles.has(normaliseAngle(candidate)) && candidate < 360) candidate += 30;
+    updateGrid({
+      axes: [...grid.axes, { angle: candidate, visible: true, label: 'Axis' }],
+      preset: 'custom',
+    });
+  }, [grid.axes, updateGrid]);
+
+  const removeAxis = useCallback(
+    (index: number) => {
+      if (grid.axes.length <= 2) return;
+      const nextAxes = grid.axes.filter((_, i) => i !== index);
+      updateGrid({ axes: nextAxes, preset: 'custom' });
+    },
+    [grid.axes, updateGrid],
+  );
+
+  const handlePresetChange = useCallback(
+    (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value as typeof grid.preset;
+      if (value === 'custom') {
+        updateGrid({ preset: 'custom' });
+      } else {
+        const preset = ISOMETRIC_PRESETS.find((p) => p.id === value);
+        if (preset) {
+          updateGrid({ preset: value, axes: preset.axes.map((a) => ({ ...a })) });
+        }
+      }
+    },
+    [updateGrid],
+  );
+
+  const axisColorManaged = useMemo(() => {
+    return grid.axes.map((a) => {
+      if (a.color) {
+        const parsed = cssStringToManagedColor(a.color);
+        return (parsed ?? { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 }) as ManagedColor;
+      }
+      return { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 } as ManagedColor;
+    });
+  }, [grid.axes]);
+
+  return (
+    <DisclosureSection title="Isometric Grid" sectionId="isometric-grid" defaultExpanded={false}>
+      <div
+        className="insp-canvas-props"
+        role="region"
+        aria-live="polite"
+        aria-label="Isometric grid settings"
+      >
+        <div className="insp-field">
+          <span className="insp-field__label">Visible</span>
+          <div className="insp-field__control insp-field__control--inline">
+            <label>
+              <input
+                type="checkbox"
+                checked={grid.visible}
+                onChange={(e) => updateGrid({ visible: e.target.checked })}
+                aria-label={`Isometric grid visibility ${grid.visible ? 'enabled' : 'disabled'}`}
+              />
+              Show isometric grid
+            </label>
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Snap Enabled</span>
+          <div className="insp-field__control insp-field__control--inline">
+            <label>
+              <input
+                type="checkbox"
+                checked={grid.snapEnabled}
+                onChange={(e) => updateGrid({ snapEnabled: e.target.checked })}
+                aria-label={`Isometric snap ${grid.snapEnabled ? 'enabled' : 'disabled'}`}
+              />
+              Snap to isometric grid
+            </label>
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Preset</span>
+          <div className="insp-field__control">
+            <select
+              className="insp-select"
+              value={presetId}
+              onChange={handlePresetChange}
+              aria-label="Isometric grid preset"
+            >
+              {ISOMETRIC_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+              {presetId === 'custom' && (
+                <option value="custom">Custom</option>
+              )}
+            </select>
+          </div>
+        </div>
+
+        {presetId === 'custom' && (
+          <>
+            {grid.axes.map((axis, index) => (
+              <div
+                key={index}
+                className="insp-field"
+                style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: 6, marginBottom: 4 }}
+              >
+                <span className="insp-field__label">
+                  {axis.label ?? `Axis ${index + 1}`}
+                </span>
+                <div className="insp-field__control" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 11, opacity: 0.7 }}>Angle</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="360"
+                      step="0.1"
+                      value={axis.angle}
+                      onChange={(e) => {
+                        const v = parseFloat(e.target.value);
+                        if (!Number.isNaN(v)) updateAxis(index, { angle: v });
+                      }}
+                      onBlur={() => updateAxis(index, { angle: normaliseAngle(axis.angle) })}
+                      className="insp-num__input"
+                      style={{ width: 70 }}
+                      aria-label={`Axis ${index + 1} angle ${axis.angle} degrees`}
+                    />
+                    <span style={{ fontSize: 11, opacity: 0.7 }}>deg</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <label style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <input
+                        type="checkbox"
+                        checked={axis.visible}
+                        onChange={(e) => updateAxis(index, { visible: e.target.checked })}
+                        aria-label={`Axis ${index + 1} visibility`}
+                      />
+                      Visible
+                    </label>
+                    <InspectorColorPopover
+                      label={`Axis ${index + 1} color`}
+                      value={axisColorManaged[index] ?? { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 } as ManagedColor}
+                      onChange={(color) => updateAxis(index, { color: managedColorToCss(color as Parameters<typeof managedColorToCss>[0]) })}
+                      swatchStyle={{ background: axis.color ?? 'rgb(128,128,128)' }}
+                      documentColorMode={documentColorMode}
+                    />
+                    <span style={{ fontSize: 11, opacity: 0.7 }}>
+                      {Math.round((axis.opacity ?? 1) * 100)}%
+                    </span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={axis.opacity ?? 1}
+                      onChange={(e) => updateAxis(index, { opacity: parseFloat(e.target.value) })}
+                      className="insp-range"
+                      style={{ width: 60 }}
+                      aria-label={`Axis ${index + 1} opacity`}
+                    />
+                    {grid.axes.length > 2 && (
+                      <button
+                        type="button"
+                        className="insp-btn"
+                        onClick={() => removeAxis(index)}
+                        aria-label={`Remove axis ${index + 1}`}
+                        style={{ fontSize: 11, padding: '1px 4px' }}
+                      >
+                        &times;
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {grid.axes.length < 3 && (
+              <div className="insp-field">
+                <div className="insp-field__control insp-field__control--inline">
+                  <button
+                    type="button"
+                    className="insp-btn"
+                    onClick={addAxis}
+                    aria-label="Add axis"
+                  >
+                    + Add Axis
+                  </button>
+                </div>
+              </div>
+            )}
+            {axisValidation.errors.length > 0 && (
+              <div className="insp-field" role="alert">
+                <div
+                  className="insp-field__control"
+                  style={{ fontSize: 11, color: 'var(--color-warning)' }}
+                >
+                  {axisValidation.errors.join('; ')}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="insp-field">
+          <span className="insp-field__label">Spacing</span>
+          <div className="insp-field__control">
+            <input
+              type="number"
+              min="1"
+              max="10000"
+              value={grid.spacing}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v) && v > 0) updateGrid({ spacing: v });
+              }}
+              className="insp-num__input"
+              aria-label={`Isometric grid spacing ${grid.spacing}`}
+            />
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Origin X</span>
+          <div className="insp-field__control">
+            <input
+              type="number"
+              value={grid.originX}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) updateGrid({ originX: v });
+              }}
+              className="insp-num__input"
+              aria-label={`Isometric grid origin X ${grid.originX}`}
+            />
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Origin Y</span>
+          <div className="insp-field__control">
+            <input
+              type="number"
+              value={grid.originY}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) updateGrid({ originY: v });
+              }}
+              className="insp-num__input"
+              aria-label={`Isometric grid origin Y ${grid.originY}`}
+            />
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Rotation (deg)</span>
+          <div className="insp-field__control">
+            <input
+              type="number"
+              min="0"
+              max="360"
+              step="1"
+              value={grid.rotation}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value);
+                if (!Number.isNaN(v)) updateGrid({ rotation: v });
+              }}
+              className="insp-num__input"
+              aria-label={`Isometric grid rotation ${grid.rotation} degrees`}
+            />
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Color</span>
+          <div className="insp-field__control">
+            <InspectorColorPopover
+              label="Isometric grid color"
+              value={
+                cssStringToManagedColor(grid.color) ?? {
+                  space: 'rgb',
+                  r: 128,
+                  g: 128,
+                  b: 128,
+                  a: 255,
+                }
+              }
+              onChange={(color) => updateGrid({ color: managedColorToCss(color) })}
+              swatchStyle={{ background: grid.color }}
+              documentColorMode={documentColorMode}
+            />
+          </div>
+        </div>
+        <div className="insp-field">
+          <span className="insp-field__label">Opacity</span>
+          <div className="insp-field__control">
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={grid.opacity}
+              onChange={(e) => updateGrid({ opacity: parseFloat(e.target.value) })}
+              className="insp-range"
+            />
+            <output>{Math.round(grid.opacity * 100)}%</output>
+          </div>
+        </div>
+      </div>
+    </DisclosureSection>
   );
 }
