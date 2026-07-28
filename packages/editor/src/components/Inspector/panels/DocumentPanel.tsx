@@ -1,6 +1,7 @@
 import type { ColorMode, IsometricAxis, ManagedColor } from '@strata/scene';
 import { ISOMETRIC_PRESETS, normaliseAngle, validateIsometricAxes } from '@strata/scene';
 import { cssStringToManagedColor, managedColorToCss } from '@strata/shared';
+import { Select } from '@strata/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -353,14 +354,16 @@ function IsometricGridSection() {
   );
 
   const handlePresetChange = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const value = e.target.value as typeof grid.preset;
+    (value: string) => {
       if (value === 'custom') {
         updateGrid({ preset: 'custom' });
       } else {
         const preset = ISOMETRIC_PRESETS.find((p) => p.id === value);
         if (preset) {
-          updateGrid({ preset: value, axes: preset.axes.map((a) => ({ ...a })) });
+          updateGrid({
+            preset: value as typeof grid.preset,
+            axes: preset.axes.map((a) => ({ ...a })),
+          });
         }
       }
     },
@@ -415,22 +418,15 @@ function IsometricGridSection() {
           </div>
         </div>
         <div className="insp-field">
-          <span className="insp-field__label">Preset</span>
-          <div className="insp-field__control">
-            <select
-              className="insp-select"
-              value={presetId}
-              onChange={handlePresetChange}
-              aria-label="Isometric grid preset"
-            >
-              {ISOMETRIC_PRESETS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-              {presetId === 'custom' && <option value="custom">Custom</option>}
-            </select>
-          </div>
+          <Select
+            label="Isometric grid preset"
+            value={presetId}
+            onChange={handlePresetChange}
+            options={[
+              ...ISOMETRIC_PRESETS.map((p) => ({ value: p.id, label: p.label })),
+              ...(presetId === 'custom' ? [{ value: 'custom', label: 'Custom' }] : []),
+            ]}
+          />
         </div>
 
         {presetId === 'custom' && (

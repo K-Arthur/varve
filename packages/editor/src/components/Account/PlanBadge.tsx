@@ -1,4 +1,4 @@
-import { Button } from '@strata/ui';
+import { Button, useToast } from '@strata/ui';
 
 export interface Entitlement {
   tier: 'free' | 'pro' | 'team' | 'enterprise';
@@ -16,12 +16,13 @@ const TIER_LABELS: Record<Entitlement['tier'], string> = {
 const TIER_COLORS: Record<Entitlement['tier'], string> = {
   free: 'var(--color-text-muted)',
   pro: 'var(--color-accent)',
-  team: '#e06c75',
-  enterprise: '#c678dd',
+  team: 'var(--color-feedback-danger)',
+  enterprise: 'var(--color-accent)',
 };
 
 export function PlanBadge({ entitlement }: { entitlement: Entitlement }) {
   const isFree = entitlement.tier === 'free';
+  const toast = useToast();
 
   return (
     <div className="plan-badge">
@@ -29,7 +30,17 @@ export function PlanBadge({ entitlement }: { entitlement: Entitlement }) {
         {TIER_LABELS[entitlement.tier]}
       </div>
       {isFree && (
-        <Button variant="primary" size="sm" onClick={() => {}}>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() =>
+            toast.toast({
+              message:
+                'Strata is currently free during beta. Pricing will be announced before 1.0.',
+              type: 'info',
+            })
+          }
+        >
           Upgrade
         </Button>
       )}

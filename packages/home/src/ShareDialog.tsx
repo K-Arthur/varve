@@ -1,5 +1,5 @@
 import type { Permission, Platform } from '@strata/platform';
-import { Button, Dialog, InlineActivityIndicator } from '@strata/ui';
+import { Button, Dialog, InlineActivityIndicator, Select } from '@strata/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface ShareDialogProps {
@@ -32,7 +32,6 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
   const [newRole, setNewRole] = useState<Permission['role']>('editor');
   const [adding, setAdding] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const selectId = useId();
   const statusId = useId();
   const emailInputId = useId();
 
@@ -138,21 +137,15 @@ export function ShareDialog({ fileId, fileName, platform, open, onClose }: Share
               onKeyDown={handleKeyDown}
               aria-describedby={statusId}
             />
-            <label htmlFor={selectId} className="share-dialog__label">
-              Role
-            </label>
-            <select
-              id={selectId}
-              className="share-dialog__role-select"
+            <Select
+              label="Role"
               value={newRole}
-              onChange={(e) => setNewRole(e.target.value as Permission['role'])}
-            >
-              {ROLE_OPTIONS.map((role) => (
-                <option key={role} value={role}>
-                  {formatRole(role)}
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setNewRole(v as Permission['role'])}
+              options={ROLE_OPTIONS.map((role) => ({
+                value: role,
+                label: formatRole(role),
+              }))}
+            />
             <Button
               variant="primary"
               size="sm"

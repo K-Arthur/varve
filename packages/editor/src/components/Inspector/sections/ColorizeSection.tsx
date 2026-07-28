@@ -17,7 +17,7 @@ import type { QualityMode } from '@strata/engine';
 import { listAllModels } from '@strata/engine';
 import type { SceneNode } from '@strata/scene';
 import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+import { Button, Select } from '@strata/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -359,18 +359,18 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
 
         {/* Workflow selector */}
         <FieldRow label="Mode">
-          <select
-            className="insp-select"
+          <Select
+            label="Colorization workflow"
             value={workflow}
             disabled={isProcessing}
-            onChange={(e) => setWorkflow(e.target.value as RecolorWorkflow)}
-            aria-label="Colorization workflow"
-          >
-            <option value="recolor">Recolor (Hue Shift)</option>
-            <option value="palette">Palette Colorize</option>
-            <option value="transfer">Reference Transfer</option>
-            <option value="harmonize">Harmonize</option>
-          </select>
+            onChange={(v) => setWorkflow(v as RecolorWorkflow)}
+            options={[
+              { value: 'recolor', label: 'Recolor (Hue Shift)' },
+              { value: 'palette', label: 'Palette Colorize' },
+              { value: 'transfer', label: 'Reference Transfer' },
+              { value: 'harmonize', label: 'Harmonize' },
+            ]}
+          />
         </FieldRow>
 
         {/* Recolor controls */}

@@ -13,7 +13,7 @@
 import { decodeRifeOutput, getInferenceWorkerHost, getModelLoader } from '@strata/engine';
 import type { NodeId, SceneNode, ShapeNode } from '@strata/scene';
 import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+import { Button, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { pickSoleOutputTensor } from '../../../inferenceOutputs';
@@ -275,20 +275,15 @@ export function BlendImagesSection({ nodes }: { nodes: SceneNode[] }) {
           experimental. Runs locally in a web worker.
         </p>
 
-        <label className="insp-field" htmlFor="blend-images-second-node">
-          <span className="insp-field__label">Blend with</span>
-          <select
-            id="blend-images-second-node"
+        <div className="insp-field">
+          <Select
+            label="Blend with"
             value={secondNodeId}
-            onChange={(e) => setSecondNodeId(e.target.value as NodeId)}
-          >
-            {otherImages.map((o) => (
-              <option key={o.nodeId} value={o.nodeId}>
-                {o.name}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={(v) => setSecondNodeId(v as NodeId)}
+            placeholder="Choose image…"
+            options={otherImages.map((o) => ({ value: o.nodeId, label: o.name }))}
+          />
+        </div>
 
         {needsDownload && (
           <div className="insp-actions">

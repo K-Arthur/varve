@@ -13,7 +13,7 @@
  * WCAG 2.2 AA compliant: keyboard accessible, focus visible,
  * screen reader labels, reduced motion support.
  */
-import { Button, Tooltip } from '@strata/ui';
+import { Button, Select, Tooltip } from '@strata/ui';
 import { useCallback, useRef, useState } from 'react';
 
 // ---------------------------------------------------------------------------
@@ -271,24 +271,17 @@ export function ReferenceImagePicker({
           </div>
           {documentImages.length > 0 && (
             <div className="ref-image-picker__document-select">
-              <label className="insp-subsection__label" htmlFor="ref-doc-select">
-                Or select from document:
-              </label>
-              <select
-                id="ref-doc-select"
-                className="insp-select"
-                disabled={disabled}
-                onChange={(e) => handleDocumentSelect(e.target.value)}
+              <Select
+                label="Or select from document"
                 value=""
-                aria-label="Select reference from document images"
-              >
-                <option value="">Choose image…</option>
-                {documentImages.map((img) => (
-                  <option key={img.id} value={img.id}>
-                    {img.name} ({img.width}x{img.height})
-                  </option>
-                ))}
-              </select>
+                disabled={disabled}
+                onChange={handleDocumentSelect}
+                placeholder="Choose image…"
+                options={documentImages.map((img) => ({
+                  value: img.id,
+                  label: `${img.name} (${img.width}x${img.height})`,
+                }))}
+              />
             </div>
           )}
         </div>

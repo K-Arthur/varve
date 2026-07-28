@@ -1,6 +1,6 @@
 import type { ManagedColor } from '@strata/scene';
 import { managedColorToCss } from '@strata/shared';
-import { Dialog } from '@strata/ui';
+import { Dialog, Select } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import type { MappingMode, MappingResult } from '../intelligence/paletteMapper';
 
@@ -194,20 +194,15 @@ export function PalettePreviewDialog({
             )}
 
             <div style={{ marginBottom: 'var(--space-2)' }}>
-              <label style={{ fontSize: '0.85em', display: 'block', marginBottom: 2 }}>
-                Mapping mode
-                <select
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value as MappingMode)}
-                  style={{ width: '100%', padding: '2px 4px' }}
-                >
-                  {(Object.keys(MODE_LABELS) as MappingMode[]).map((m) => (
-                    <option key={m} value={m}>
-                      {MODE_LABELS[m]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <Select
+                label="Mapping mode"
+                value={mode}
+                onChange={(v) => setMode(v as MappingMode)}
+                options={(Object.keys(MODE_LABELS) as MappingMode[]).map((m) => ({
+                  value: m,
+                  label: MODE_LABELS[m],
+                }))}
+              />
             </div>
 
             {affectedNodeCount != null && (
