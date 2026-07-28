@@ -98,14 +98,32 @@ export function PropertiesPanel() {
     const isImageSelected =
       selNodes.length === 1 && (selNodes[0] ? isImageShape(selNodes[0]) : false);
     const isAdjustmentSelected = selNodes.length === 1 && selNodes[0]?.kind === 'adjustment';
+    const isFrameSelected = selNodes.length === 1 && selNodes[0]?.kind === 'frame';
+    const isTextSelected = selNodes.length === 1 && selNodes[0]?.kind === 'text';
+
     // Show Adjustments tab only for adjustment nodes (any mode) or images in Photo mode.
-    // In Design/Draw mode, image sections are hidden — don't show an empty tab.
     if (isAdjustmentSelected || (isImageSelected && state.workspaceMode === 'image')) {
       if (!tabs.includes('adjustments')) tabs.push('adjustments');
     }
+
+    // Prototype tab: only when a frame is selected or prototype mode is active
+    if (tabs.includes('prototype')) {
+      if (!isFrameSelected && !state.prototypeMode) {
+        tabs.splice(tabs.indexOf('prototype'), 1);
+      }
+    }
+
+    // Fonts tab: only when a text node is selected
+    if (tabs.includes('fonts')) {
+      if (!isTextSelected) {
+        tabs.splice(tabs.indexOf('fonts'), 1);
+      }
+    }
+
+    // Audit and Export tabs: always available but show a hint when nothing is selected
     if (requestedTab && !tabs.includes(requestedTab)) tabs.push(requestedTab);
     return tabs.sort((a, b) => TAB_ORDER.indexOf(a) - TAB_ORDER.indexOf(b));
-  }, [configuredTabs, requestedTab, selNodes, state.workspaceMode]);
+  }, [configuredTabs, requestedTab, selNodes, state.workspaceMode, state.prototypeMode]);
 
   const [tab, setTab] = useState<InspectorTab>(
     () => getDefaultInspectorTab(state.workspaceMode) as InspectorTab,

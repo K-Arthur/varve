@@ -53,6 +53,8 @@
 
 .minimap-panel__canvas {
   display: block;
+  width: 100%;
+  height: auto;
   border-radius: var(--radius-sm);
   cursor: pointer;
   outline: none;
