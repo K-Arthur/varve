@@ -1,4 +1,3 @@
-import { bench, describe } from 'vitest';
 import type { Document, NodeId } from '@strata/scene';
 import {
   addNode,
@@ -6,9 +5,10 @@ import {
   createDocument,
   isContainer,
   makeShapeNode,
+  nodeWorldBounds as sceneNodeWorldBounds,
 } from '@strata/scene';
 import type { Affine, Rect } from '@strata/shared';
-import { nodeWorldBounds as sceneNodeWorldBounds } from '@strata/scene';
+import { bench, describe } from 'vitest';
 import { buildSpatialIndex, queryPoint, queryRect } from '../spatialIndex';
 
 const AREA_SIZE = 10000;
@@ -220,5 +220,27 @@ describe('queryRect — incremental finding updates', () => {
 
   bench('queryRect large rect (many cells)', () => {
     queryRect(index, largeRect);
+  });
+});
+
+describe('overlay-scale finding counts', () => {
+  for (const count of [5000, 20000]) {
+    const doc = generateUniform(count, AREA_SIZE * 2);
+    const index = buildSpatialIndex(doc);
+    const viewport: Rect = { x: 5000, y: 5000, w: 2000, h: 2000 };
+
+    bench(`overlay cull ${count} findings`, () => {
+      queryRect(index, viewport);
+    });
+  }
+});
+
+describe('overlay-scale dense cluster', () => {
+  const doc = generateDenseCluster(5000, 10000, 10000, 500);
+  const index = buildSpatialIndex(doc);
+  const viewport: Rect = { x: 9500, y: 9500, w: 2000, h: 2000 };
+
+  bench('dense 5k cluster viewport cull', () => {
+    queryRect(index, viewport);
   });
 });
