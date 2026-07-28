@@ -2265,6 +2265,9 @@ and visual verification across all three themes.
 | **Minimap** | Responsive sizing via ResizeObserver to fill sidebar width instead of fixed 160px | `MinimapPanel.tsx`, `minimap.css` |
 | **CSS hardening** | Replaced hardcoded padding/gap/font-size/radius values with design tokens across 6 CSS files | `editor.css`, `inspector.css`, `layers.css`, `TimelinePanel.css`, `UpscaleDialog.css`, `home.css` |
 | **Dead code** | Marked WorkspaceSwitcher.tsx and useWorkspace.ts as deprecated (zero imports) | `WorkspaceSwitcher.tsx`, `useWorkspace.ts` |
+| **Z-index tokens** | Updated --z-sticky to 50, added --z-dropdown: 100 to align token scale with actual app values. Replaced 11 raw z-index values with correct tokens. | `generate-token-css.ts`, `tokens.css`, `editor.css` + 6 more |
+| **Space token** | Added missing --space-05 token (used 20+ times across CSS files) | `generate-token-css.ts`, `tokens.css` |
+| **Font-size** | Replaced 3 hardcoded `font-size: 10px` in layers panel with --font-size-2xs | `layers.css` |
 | **Visual verification** | Confirmed all changes work in light, dark, and high-contrast themes via Playwright screenshots | — |
 
 ### Verification
@@ -2278,10 +2281,10 @@ and visual verification across all three themes.
 
 ### Remaining for next session (deferred items needing architectural work)
 
-- [ ] Remove dead `Menubar.tsx` 2367-line legacy file (test file references it)
+- [ ] Remove dead `Menubar.tsx` 2368-line legacy file (test file references it)
 - [ ] Wire LibraryPanel visibility to workspace config instead of local useState
 - [ ] Wire Codegen panel to workspace config (component doesn't exist yet)
 - [ ] Consolidate DisclosureSection dual persistence (registry vs legacy sessionStorage)
 - [ ] Migrate LayersPanel context menu to shared `@strata/ui` ContextMenu
-- [ ] ~40+ arbitrary z-index values throughout CSS (needs token scale alignment)
-- [ ] Additional ~60 hardcoded CSS spacing/font-size values across remaining files
+- [ ] Replace remaining hardcoded z-index values in canvas-internal layers (1-5 are render pipeline internals)
+- [ ] Additional ~50 hardcoded CSS spacing/font-size values across remaining files
