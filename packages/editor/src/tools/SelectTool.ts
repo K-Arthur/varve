@@ -86,7 +86,22 @@ export class SelectTool extends BaseTool {
     return parent === activePage?.contentRoot;
   }
 
+  private visibilityHandler: (() => void) | null = null;
+
+  override onActivate(_ctx: ToolContext): void {
+    this.visibilityHandler = () => {
+      if (document.hidden && this.nudgeGestureActive) {
+        this.nudgeGestureActive = false;
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
   override onDeactivate(ctx: ToolContext): void {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
     // Commit any active nudge transaction when switching tools
     if (this.nudgeGestureActive) {
       ctx.commitTransaction();
@@ -653,6 +668,12 @@ export class SelectTool extends BaseTool {
     }
 
     if (e.key === 'Escape') {
+      // If mid-nudge, commit the transaction (do not discard user intent)
+      if (this.nudgeGestureActive) {
+        ctx.commitTransaction();
+        this.nudgeGestureActive = false;
+        return true;
+      }
       // If mid-drag, abort transaction to revert
       if (this.drag.kind === 'dragging' && this.isMoveGesture) {
         ctx.abortTransaction();
