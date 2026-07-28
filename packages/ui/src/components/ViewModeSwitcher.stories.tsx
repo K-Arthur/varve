@@ -15,7 +15,7 @@ export default meta;
 type Story = StoryObj<typeof ViewModeSwitcher>;
 
 const viewOptions = [
-  { value: 'grid', label: 'Grid', icon: 'Grid' as const },
+  { value: 'grid', label: 'Grid', icon: 'SquaresFour' as const },
   { value: 'list', label: 'List', icon: 'List' as const },
   { value: 'details', label: 'Details', icon: 'Info' as const },
 ];

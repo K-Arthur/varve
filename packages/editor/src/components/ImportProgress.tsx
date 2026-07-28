@@ -9,7 +9,7 @@ export function ImportProgress({ current, total, fileName, onCancel }: ImportPro
   const progress = total > 0 ? Math.round((current / total) * 100) : 0;
 
   return (
-    <div className="import-progress" role="group" aria-label="Import progress">
+    <fieldset className="import-progress" aria-label="Import progress">
       <div className="import-progress__info">
         <span className="import-progress__label">
           Importing file {current} of {total}
@@ -34,6 +34,6 @@ export function ImportProgress({ current, total, fileName, onCancel }: ImportPro
       <div role="status" aria-live="polite" className="strata-visually-hidden">
         Importing {fileName} — {current} of {total}
       </div>
-    </div>
+    </fieldset>
   );
 }

@@ -1260,6 +1260,8 @@ export function Menubar({
                           }
                           const subRole = itemRole(subItem);
                           const subChecked = itemAriaChecked(subItem, state);
+                          const isCheckable =
+                            subRole === 'menuitemcheckbox' || subRole === 'menuitemradio';
                           const subActive =
                             (subItem.action?.startsWith('theme:') &&
                               currentTheme === subItem.action.slice(6)) ||
@@ -1269,7 +1271,7 @@ export function Menubar({
                               key={subItem.label}
                               role={subRole}
                               type="button"
-                              aria-checked={subChecked}
+                              {...(isCheckable ? { 'aria-checked': subChecked } : {})}
                               aria-keyshortcuts={subItem.ariaKeyshortcut}
                               disabled={subItem.disabled}
                               className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
@@ -1310,9 +1312,8 @@ export function Menubar({
               aria-label="Document name"
             />
           ) : (
-            <span
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               className="editor-menubar__doc-name-text"
               onClick={startNameEdit}
               onKeyDown={(e) => {
@@ -1324,7 +1325,7 @@ export function Menubar({
               title="Click to rename"
             >
               {state.document.name || 'Untitled'}
-            </span>
+            </button>
           )}
         </div>
       </div>

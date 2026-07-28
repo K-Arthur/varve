@@ -179,6 +179,17 @@ cleanup tooling, codemods).
 - `pnpm --filter @strata/ui tokens:generate` — regenerate `tokens.css` from `color.ts`
 - `just gate` — full Cascade Review gate (format-check + lint + test + audits)
 
+### CI/CD Commands
+- `just install-ci-tooling` — install GitHub CLI, act, and Docker for local CI/CD
+- `just pin-actions` — check for unpinned GitHub Actions (supply chain security)
+- `just pin-actions-fix` — pin all GitHub Actions to commit SHAs
+- `just validate-workflows` — validate all workflow YAML files
+- `just validate-workflows-staged` — validate only staged workflow files
+- `just act-list` — list available GitHub Actions jobs for local testing
+- `just act-run <job>` — run a specific GitHub Actions job locally
+- `just act-dry <workflow>` — dry-run a workflow to check execution plan
+- `just ci-debug <run-id>` — fetch and analyze CI failure logs
+
 ## Automated UI/canvas testing
 
 **If a bug involves the canvas, pointer/drag interaction, or "something doesn't

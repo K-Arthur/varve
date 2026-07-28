@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getActionTracker, type ActionRecord } from '../intelligence/actionTracker';
+import { type ActionRecord, getActionTracker } from '../intelligence/actionTracker';
 
 export interface ShortcutUsage {
   actionId: string;

@@ -132,7 +132,7 @@ export interface IsometricGrid extends GridBase {
 export function validateIsometricAxes(axes: IsometricAxis[]): { valid: boolean; errors: string[] } {
   const errors: string[] = [];
   if (axes.length < 2 || axes.length > 3) {
-    errors.push('Isometric grid requires 2-3 axes, got ' + axes.length);
+    errors.push(`Isometric grid requires 2-3 axes, got ${axes.length}`);
     return { valid: false, errors };
   }
   for (let i = 0; i < axes.length; i++) {
@@ -140,7 +140,7 @@ export function validateIsometricAxes(axes: IsometricAxis[]): { valid: boolean; 
     for (let j = i + 1; j < axes.length; j++) {
       const b = axes[j];
       const diff = Math.abs((((a!.angle % 360) + 360) % 360) - (((b!.angle % 360) + 360) % 360));
-      if (diff < 0.1 || diff > 359.9) errors.push('Axis ' + i + ' and ' + j + ' are duplicates');
+      if (diff < 0.1 || diff > 359.9) errors.push(`Axis ${i} and ${j} are duplicates`);
     }
   }
   return { valid: errors.length === 0, errors };

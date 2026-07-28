@@ -761,12 +761,11 @@ export function ArchiveDialog({
             </div>
 
             {password && passwordStrength && (
-              <div
+              <meter
                 className="archive-dialog__strength"
                 id="archive-password-strength"
-                role="meter"
                 aria-label="Password strength"
-                aria-valuenow={
+                value={
                   passwordStrength.strength === 'weak'
                     ? 1
                     : passwordStrength.strength === 'fair'
@@ -775,14 +774,14 @@ export function ArchiveDialog({
                         ? 3
                         : 4
                 }
-                aria-valuemin={1}
-                aria-valuemax={4}
+                min={1}
+                max={4}
               >
-                <div className="archive-dialog__strength-bar">
-                  <div
+                <span className="archive-dialog__strength-bar">
+                  <span
                     className={`archive-dialog__strength-fill archive-dialog__strength-fill--${passwordStrength.strength}`}
                   />
-                </div>
+                </span>
                 <span
                   className={`archive-dialog__strength-label archive-dialog__strength-label--${passwordStrength.strength}`}
                 >
@@ -793,7 +792,7 @@ export function ArchiveDialog({
                     This password appears in known breach datasets — choose a unique one.
                   </span>
                 )}
-              </div>
+              </meter>
             )}
           </div>
         )}

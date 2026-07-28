@@ -174,7 +174,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
 
       <span className="timeline-playback-sep" aria-hidden />
 
-      <time className="timeline-playback-time" aria-label="Current time">
+      <time className="timeline-playback-time" role="timer" aria-label="Current time">
         {formatTime(currentTime)}
       </time>
 
@@ -182,7 +182,7 @@ export const PlaybackControls: FC<PlaybackControlsProps> = ({
         /
       </span>
 
-      <time className="timeline-playback-time" aria-label="Duration">
+      <time className="timeline-playback-time" role="timer" aria-label="Duration">
         {formatTime(duration)}
       </time>
     </div>

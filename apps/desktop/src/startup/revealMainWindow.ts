@@ -5,7 +5,7 @@
  * Research: https://v2.tauri.app/learn/splashscreen/ (accessed 2026-07-13)
  */
 
-export { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@strata/platform';
 
 /**
  * Close the native splashscreen and show the main window.

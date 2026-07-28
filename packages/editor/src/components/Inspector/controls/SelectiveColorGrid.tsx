@@ -92,16 +92,19 @@ export function SelectiveColorGrid({ value, onChange }: SelectiveColorGridProps)
         style={{ alignSelf: 'flex-start' }}
       >
         {(['relative', 'absolute'] as const).map((m) => (
-          <button
+          <label
             key={m}
-            type="button"
-            role="radio"
-            aria-checked={method === m}
-            className="insp-segmented__btn"
-            onClick={() => setMethod(m)}
+            className={`insp-segmented__btn${method === m ? ' insp-segmented__btn--active' : ''}`}
           >
+            <input
+              type="radio"
+              name="adjustment-method"
+              checked={method === m}
+              onChange={() => setMethod(m)}
+              hidden
+            />
             {m.charAt(0).toUpperCase() + m.slice(1)}
-          </button>
+          </label>
         ))}
       </div>
       <div

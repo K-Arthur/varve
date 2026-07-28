@@ -25,7 +25,7 @@ interface UseLayerNavigationOptions {
   setExpanded: React.Dispatch<React.SetStateAction<Set<NodeId>>>;
   parentCacheRef: React.MutableRefObject<ParentIndexCache | null>;
   virtualizerRef: React.MutableRefObject<{
-    scrollToIndex: (index: number, options?: { align?: string }) => void;
+    scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
     getVirtualItems: () => Array<{ index: number }>;
   } | null>;
   entriesRef: React.MutableRefObject<Array<{ node: { id: NodeId } }>>;

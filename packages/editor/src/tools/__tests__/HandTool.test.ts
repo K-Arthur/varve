@@ -77,6 +77,7 @@ function makeCtx(overrides?: Record<string, unknown>) {
     setTextEditTargetId: vi.fn(),
     snapPosition: vi.fn((b: { x: number; y: number }) => ({ x: b.x, y: b.y, guides: [] })),
     createRasterLayer: vi.fn(() => null),
+    touchMultiSelect: { active: false, suspended: false },
     ...overrides,
   };
   return ctx;
