@@ -6,7 +6,7 @@
  * APIs favor binary ZIP payloads over many loose writes for portability.
  */
 
-import { getFontRegistry } from '@strata/engine';
+import type { FontCatalog } from '@strata/engine/font';
 import { dataUrlToBytes } from '@strata/import';
 import {
   type Document,
@@ -111,10 +111,11 @@ interface MutablePackage {
 export function buildPackageExport(
   doc: Document,
   exportReport?: ExportReport,
+  catalog?: FontCatalog,
 ): PackageExportResult {
   const pkg: MutablePackage = { files: {}, contents: [] };
   const assets = collectAssets(doc, pkg);
-  const fonts = collectFonts(doc);
+  const fonts = collectFonts(doc, catalog);
 
   addJson(pkg, 'document.strata', 'document', DocumentCodec.encode(doc));
   addJson(pkg, 'tokens/tokens.dtcg.json', 'tokens', dtcgExport());
@@ -231,51 +232,65 @@ function collectAssets(doc: Document, pkg: MutablePackage): PackageAssetEntry[] 
   return assets;
 }
 
-function collectFonts(doc: Document): PackageFontEntry[] {
+function collectFonts(doc: Document, catalog?: FontCatalog): PackageFontEntry[] {
   const families = new Set<string>();
   for (const node of Object.values(doc.nodes)) {
     if (node.kind === 'text' && node.fontFamily) families.add(node.fontFamily);
   }
 
-  const registry = getFontRegistry();
-
   return [...families].sort().map((family) => {
-    const meta = registry.getMetadata(family);
-    const isMissing = registry.isMissing(family);
-    const isRegistered = registry.isRegistered(family);
-
-    let embeddingStatus: PackageFontEntry['embeddingStatus'];
-    if (meta?.embeddingRights) {
-      const rights = meta.embeddingRights;
-      if (rights === 'installable') embeddingStatus = 'installable';
-      else if (rights === 'preview-and-print') embeddingStatus = 'preview-and-print';
-      else if (rights === 'editable') embeddingStatus = 'editable';
-      else if (rights === 'restricted') embeddingStatus = 'restricted';
-      else if (rights === 'no-subsetting') embeddingStatus = 'no-subsetting';
-      else embeddingStatus = 'unknown';
-    } else if (isMissing) {
-      embeddingStatus = 'unknown';
-    } else if (isRegistered) {
-      embeddingStatus = 'installable';
-    } else {
-      embeddingStatus = 'unknown';
-    }
-
+    const embeddingStatus = resolveEmbeddingStatus(family, catalog);
     const canBundle = canBundleFont(embeddingStatus);
 
     return {
       family,
       bundled: canBundle,
       embeddingStatus,
-      reason: isMissing
-        ? `Font "${family}" is not available on this device and cannot be bundled.`
-        : canBundle
-          ? 'Font embedding is permitted by the font license'
-          : embeddingStatus === 'restricted' || embeddingStatus === 'unknown'
-            ? 'Font files are not bundled. Embedding requires user confirmation of redistribution rights'
-            : `Font "${family}" may only be embedded for preview and print.`,
+      reason: embeddingReason(embeddingStatus, canBundle),
     };
   });
+}
+
+function resolveEmbeddingStatus(
+  family: string,
+  catalog?: FontCatalog,
+): PackageFontEntry['embeddingStatus'] {
+  if (!catalog) return 'unknown';
+
+  const entries = catalog.getEntriesForFamily(family);
+  if (entries.length === 0) return 'unknown';
+
+  const rights = entries[0]!.embeddingRights;
+  switch (rights) {
+    case 'installable':
+      return 'installable';
+    case 'editable':
+      return 'editable';
+    case 'preview-and-print':
+      return 'preview-and-print';
+    case 'restricted':
+      return 'restricted';
+    case 'no-subsetting':
+      return 'no-subsetting';
+    default:
+      return 'unknown';
+  }
+}
+
+function embeddingReason(status: PackageFontEntry['embeddingStatus'], canBundle: boolean): string {
+  if (canBundle) {
+    return 'Font embedding is permitted by the font license';
+  }
+  switch (status) {
+    case 'restricted':
+      return 'Font embedding is restricted by the font license';
+    case 'preview-and-print':
+      return 'Font permits preview/print embedding only — not editable document embedding';
+    case 'no-subsetting':
+      return 'Font permits embedding but prohibits subsetting';
+    default:
+      return 'Font files are not bundled. Embedding requires user confirmation of redistribution rights';
+  }
 }
 
 function fillsForNode(node: SceneNode): Fill[] {
