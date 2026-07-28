@@ -13,7 +13,12 @@ import type { MeshWarp } from '@strata/engine';
 import type { Document, Fill, NodeId, SceneNode } from '@strata/scene';
 import { activePageNodes, walkNodes } from '@strata/scene';
 import type { RulerMode } from '@strata/shared';
-import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@strata/shared';
+import {
+  computeFloatingOrigin,
+  isWorldRectInViewport,
+  simpleWorldToScreen,
+  worldToScreen,
+} from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
@@ -450,6 +455,9 @@ export function CanvasOverlays({
           />
         )}
       <SelectionOverlay canvasRef={contentCanvasRef} />
+      {showOverlays && hoveredNode && !selection.includes(hoveredNode.id) && (
+        <HoverOutline node={hoveredNode} zoom={zoom} pan={pan} />
+      )}
       <CanvasNameLabels
         doc={doc}
         zoom={zoom}
@@ -574,5 +582,59 @@ export function CanvasOverlays({
         </form>
       </dialog>
     </>
+  );
+}
+
+/**
+ * HoverOutline — renders a thin outline around the hovered node to preview
+ * what a click will select. Uses the same world-to-screen transform as the
+ * selection overlay for pixel-perfect alignment.
+ */
+function HoverOutline({
+  node,
+  zoom,
+  pan,
+}: {
+  node: SceneNode;
+  zoom: number;
+  pan: { x: number; y: number };
+}) {
+  const editor = useEditor();
+  const bounds = editor.getWorldBounds(node.id);
+  if (!bounds) return null;
+  const [sx, sy] = simpleWorldToScreen(bounds.x, bounds.y, zoom, pan);
+  const w = bounds.w * zoom;
+  const h = bounds.h * zoom;
+  const rotationDeg = (node.rotation * 180) / Math.PI;
+  const centerX = sx + w / 2;
+  const centerY = sy + h / 2;
+
+  return (
+    <svg
+      role="presentation"
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        inset: 0,
+        pointerEvents: 'none',
+        overflow: 'visible',
+        width: '100%',
+        height: '100%',
+        touchAction: 'none',
+      }}
+    >
+      <rect
+        x={sx}
+        y={sy}
+        width={w}
+        height={h}
+        transform={rotationDeg ? `rotate(${rotationDeg}, ${centerX}, ${centerY})` : undefined}
+        fill="none"
+        stroke="var(--color-interactive-default)"
+        strokeWidth={1}
+        strokeDasharray="3 2"
+        opacity={0.6}
+      />
+    </svg>
   );
 }
