@@ -10,6 +10,7 @@ import { CanvasArea } from './CanvasArea';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
 import { SelectionBreadcrumb } from './components/Breadcrumb/SelectionBreadcrumb';
+import { CodePanel } from './components/CodePanel/CodePanel';
 import { CollabCursorOverlay } from './components/CollabCursorOverlay/CollabCursorOverlay';
 import { ContentAwareFillDialog } from './components/ContentAwareFill';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -176,7 +177,6 @@ function ShellInner({
   const fileRef = useRef<HTMLInputElement>(null);
   const [layersVisible, setLayersVisible] = useState(false);
   const [inspectorVisible, setInspectorVisible] = useState(false);
-  const [libraryVisible, setLibraryVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
     'general' | 'appearance' | 'shortcuts' | 'export' | 'models' | 'collab' | 'ai' | 'about'
@@ -254,7 +254,14 @@ function ShellInner({
 
   // Desktop panel visibility (Ctrl+B / Ctrl+Shift+B): collapse the grid
   // column so the canvas reclaims the space.
-  const { leftPanelVisible, rightPanelVisible, workspaceMode, distractionFreeMode } = editor.state;
+  const {
+    leftPanelVisible,
+    rightPanelVisible,
+    libraryPanelVisible,
+    codegenPanelVisible,
+    workspaceMode,
+    distractionFreeMode,
+  } = editor.state;
   const gridStyle: React.CSSProperties = { ...shellStyle };
   if (!leftPanelVisible) (gridStyle as Record<string, string>)['--sidebar-width'] = '0px';
   if (!rightPanelVisible) (gridStyle as Record<string, string>)['--inspector-width'] = '0px';
@@ -370,13 +377,18 @@ function ShellInner({
             />
           </div>
         )}
-        {libraryVisible && !distractionFreeMode && (
+        {libraryPanelVisible && !distractionFreeMode && (
           <div className="editor__library-panel" data-panel="library">
             <LibraryPanel
               doc={editor.state.document}
               onInstallLibrary={editor.installLibrary}
               onUninstallLibrary={editor.uninstallLibrary}
             />
+          </div>
+        )}
+        {codegenPanelVisible && !distractionFreeMode && (
+          <div className="editor__codegen-panel" data-panel="codegen">
+            <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
           </div>
         )}
         {editor.state.timelinePanelVisible && !distractionFreeMode && (
@@ -512,20 +524,20 @@ function ShellInner({
             <button
               type="button"
               className="editor__fab editor__fab--library"
-              onClick={() => setLibraryVisible((v) => !v)}
-              aria-label={libraryVisible ? 'Hide library panel' : 'Show library panel'}
+              onClick={() => editor.toggleLibraryPanel()}
+              aria-label={libraryPanelVisible ? 'Hide library panel' : 'Show library panel'}
             >
               <Icon name="Library" />
             </button>
             {/* Backdrop for overlays */}
-            {(layersVisible || inspectorVisible || libraryVisible) && (
+            {(layersVisible || inspectorVisible) && (
               // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismisses panels
               <div
                 className="editor__panel-backdrop"
                 onClick={() => {
                   setLayersVisible(false);
                   setInspectorVisible(false);
-                  setLibraryVisible(false);
+                  if (libraryPanelVisible) editor.toggleLibraryPanel();
                 }}
                 role="presentation"
               />

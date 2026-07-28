@@ -437,7 +437,7 @@ import { createInitialMotionState } from './state/motion-state';
 import { invalidateSamplerCache } from './timeline/TimelineSampler';
 import type { DraftShape } from './tools/types';
 import { captureViewport, normalizeSavedViewport, type SavedViewport } from './viewportSession';
-import type { WorkspaceMode } from './workspace/workspaceTypes';
+import { getWorkspaceConfig, type WorkspaceMode } from './workspace/workspaceTypes';
 
 // Re-export for backward compatibility
 export type { CanvasMode, EditorState, SessionMeta, ToolId };
@@ -584,6 +584,10 @@ export interface EditorContextValue {
   toggleLeftPanel: () => void;
   /** Toggle inspector (right) panel visibility; persists to editor settings. */
   toggleRightPanel: () => void;
+  /** Toggle library panel visibility; follows workspace config defaults. */
+  toggleLibraryPanel: () => void;
+  /** Toggle codegen panel visibility; follows workspace config defaults. */
+  toggleCodegenPanel: () => void;
   /** Toggle distraction-free canvas mode (hides chrome, keeps canvas/toolbar). */
   toggleDistractionFreeMode: () => void;
   /** Toggle before/after comparison for the selected image. */
@@ -2126,6 +2130,10 @@ export function EditorProvider({
       // user reaches via its own toggle, not something every document should
       // open into.
       timelinePanelVisible: false,
+      // Library panel visibility follows the current workspace config default.
+      libraryPanelVisible: getWorkspaceConfig('design').panels.library.visible,
+      // Codegen panel visibility follows the current workspace config default.
+      codegenPanelVisible: getWorkspaceConfig('design').panels.codegen.visible,
       motion: createInitialMotionState(),
       canvasMode: 'full',
       workspaceMode: 'design' as WorkspaceMode,
@@ -2884,6 +2892,14 @@ export function EditorProvider({
         const next = !state.rightPanelVisible;
         patch({ rightPanelVisible: next });
         updateSettings({ panel: { rightPanelVisible: next } });
+      },
+      toggleLibraryPanel: () => {
+        const next = !state.libraryPanelVisible;
+        patch({ libraryPanelVisible: next });
+      },
+      toggleCodegenPanel: () => {
+        const next = !state.codegenPanelVisible;
+        patch({ codegenPanelVisible: next });
       },
       toggleDistractionFreeMode: () => {
         const next = !state.distractionFreeMode;

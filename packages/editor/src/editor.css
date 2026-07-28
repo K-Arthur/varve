@@ -1249,6 +1249,31 @@
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
+/* ── Library panel ── */
+.editor__library-panel {
+  grid-area: canvas;
+  position: relative;
+  width: 300px;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border-right: 1px solid var(--color-border-subtle);
+  z-index: var(--elevation-z-raised);
+}
+
+/* ── Codegen panel ── */
+.editor__codegen-panel {
+  grid-area: canvas;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border-left: 1px solid var(--color-border-subtle);
+  z-index: var(--elevation-z-raised);
+}
+
 /* ── Panel overlays (responsive) ── */
 @media (max-width: 899px) {
   .editor-shell {

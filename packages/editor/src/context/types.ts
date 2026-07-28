@@ -187,6 +187,7 @@ export interface EditorState {
   softProofEnabled: boolean;
   leftPanelVisible: boolean;
   rightPanelVisible: boolean;
+  libraryPanelVisible: boolean;
   /** Distraction-free canvas mode: hides chrome (menubar, side panels, status
    *  bar, page nav) while keeping the canvas, floating toolbar, and an exit
    *  affordance. Save/undo/zoom remain reachable via keyboard shortcuts,
@@ -197,6 +198,7 @@ export interface EditorState {
    *  A transient view flag, not a document mutation. */
   beforeAfterCompare: boolean;
   timelinePanelVisible: boolean;
+  codegenPanelVisible: boolean;
   /** Active workspace mode (design / print / drawing / motion). */
   workspaceMode: WorkspaceMode;
   /** Whether the graph editor panel is visible in the timeline area. */
@@ -396,6 +398,8 @@ export interface EditorContextValue {
   // Workspace
   toggleLeftPanel: () => void;
   toggleRightPanel: () => void;
+  toggleLibraryPanel: () => void;
+  toggleCodegenPanel: () => void;
   toggleDistractionFreeMode: () => void;
   __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => void;
   requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => Promise<boolean>;
