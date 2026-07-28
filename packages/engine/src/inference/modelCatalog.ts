@@ -660,14 +660,8 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'remote',
-      sources: [
-        {
-          url: 'https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx',
-          sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
-          label: 'storia/font-classify-onnx model',
-        },
-      ],
+      kind: 'bundled',
+      assetPath: '/models/font-classify.onnx',
       sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
     },
   },

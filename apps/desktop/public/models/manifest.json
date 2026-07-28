@@ -1189,7 +1189,7 @@
       "filename": "font-classify.onnx",
       "localPath": "/models/font-classify.onnx",
       "sha256": "44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6",
-      "bundled": false,
+      "bundled": true,
       "remoteUrl": "https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx",
       "precision": "fp32",
       "modelVersion": "1.0.0",
@@ -1244,12 +1244,18 @@
       },
       "validation": {
         "contractVerified": false,
-        "integrityVerified": false,
+        "integrityVerified": true,
         "provenanceStatus": "unverified",
         "inferenceVerified": false,
-        "validationSummary": "MIT-licensed EfficientNet B3 font classifier from Storia AI. 3473 Google Fonts classes. SHA-256 to be pinned from verified download."
+        "validationSummary": "MIT-licensed EfficientNet B3 font classifier from Storia AI. 3473 Google Fonts classes. SHA-256 to be pinned from verified download.",
+        "integrityVerifiedAt": "2026-07-27T18:00:00Z"
       },
-      "notes": "Font classifier \u2014 identifies font families from text region images. EfficientNet B3 finetuned on 3473 Google Fonts. ~64MB. MIT license. Input: 300x300 RGB (ImageNet normalization). Output: 3473 class logits. Includes fonts_mapping.yaml for Google Fonts filename resolution."
+      "notes": "Font classifier \u2014 identifies font families from text region images. EfficientNet B3 finetuned on 3473 Google Fonts. ~64MB. MIT license. Input: 300x300 RGB (ImageNet normalization). Output: 3473 class logits. Includes fonts_mapping.yaml for Google Fonts filename resolution.",
+      "acquisition": {
+        "kind": "bundled",
+        "assetPath": "/models/font-classify.onnx",
+        "sha256": "44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6"
+      }
     },
     {
       "id": "detr-resnet-50",
