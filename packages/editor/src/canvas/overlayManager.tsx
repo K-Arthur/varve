@@ -18,7 +18,7 @@ import {
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
 import { renderDrawDiagnostics } from './drawDiagnostics';
-import { computeGridLines, renderGridOnCtx } from './gridRenderer';
+import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 
 export interface UseOverlayDrawOptions {
@@ -340,7 +340,7 @@ export function useOverlayDraw({
         const [marginTop, marginRight, marginBottom, marginLeft] = layoutGrid.margin;
 
         ctx.save();
-        ctx.strokeStyle = layoutGrid.color;
+        ctx.strokeStyle = resolveCanvasColor(layoutGrid.color);
         ctx.globalAlpha = layoutGrid.opacity;
         ctx.lineWidth = 1 / s.zoom;
         ctx.setLineDash([0]);
