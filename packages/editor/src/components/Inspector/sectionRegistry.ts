@@ -516,7 +516,7 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     category: 'advanced',
     isAvailable: (ctx) =>
       isSingleSelection(ctx) && isImageNode(ctx.selectedNodes) && ctx.workspaceMode === 'image',
-  },,
+  },
   {
     id: 'font-detect',
     title: 'Identify Font',
@@ -638,6 +638,16 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     canHide: true,
     essential: false,
     order: 620,
+    category: 'canvas',
+    isAvailable: (ctx) => ctx.selectionKind === 'empty',
+  },
+  {
+    id: 'isometric-grid',
+    title: 'Isometric Grid',
+    defaultExpanded: false,
+    canHide: true,
+    essential: false,
+    order: 625,
     category: 'canvas',
     isAvailable: (ctx) => ctx.selectionKind === 'empty',
   },

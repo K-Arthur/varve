@@ -139,7 +139,7 @@ export function validateIsometricAxes(axes: IsometricAxis[]): { valid: boolean; 
     const a = axes[i];
     for (let j = i + 1; j < axes.length; j++) {
       const b = axes[j];
-      const diff = Math.abs((((a.angle % 360) + 360) % 360) - (((b.angle % 360) + 360) % 360));
+      const diff = Math.abs((((a!.angle % 360) + 360) % 360) - (((b!.angle % 360) + 360) % 360));
       if (diff < 0.1 || diff > 359.9) errors.push('Axis ' + i + ' and ' + j + ' are duplicates');
     }
   }
