@@ -257,7 +257,7 @@
   height: 24px;
   min-width: 28px;
   min-height: 28px;
-  padding: 2px;
+  padding: var(--space-1);
   background: none;
   border: none;
   border-radius: var(--radius-sm);
@@ -359,7 +359,7 @@
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  padding: 2px;
+  padding: var(--space-1);
   border-radius: var(--radius-sm);
 }
 .sidebar-item__pin:hover {
@@ -379,7 +379,7 @@
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  padding: 2px;
+  padding: var(--space-1);
   border-radius: var(--radius-sm);
   line-height: 1;
   transition:
@@ -659,7 +659,7 @@
   border: none;
   cursor: pointer;
   color: var(--color-text-muted);
-  padding: 2px;
+  padding: var(--space-1);
   border-radius: var(--radius-sm);
   display: flex;
 }
@@ -698,7 +698,7 @@
   background: var(--color-surface-raised);
   border: 1px solid var(--color-interactive-default);
   border-radius: var(--radius-sm);
-  padding: 2px 4px;
+  padding: var(--space-1) var(--space-2);
   outline: none;
 }
 .file-card__rename-input:focus,
@@ -1211,7 +1211,7 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-muted);
   background: var(--color-surface-sunken);
-  padding: 2px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border-subtle);
 }
@@ -1660,7 +1660,7 @@
 .search-palette {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-overlay);
   display: flex;
   justify-content: center;
   padding-top: 12vh;

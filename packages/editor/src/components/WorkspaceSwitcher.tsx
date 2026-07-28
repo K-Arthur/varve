@@ -1,4 +1,8 @@
 /**
+ * @deprecated This component is no longer imported anywhere in the codebase. The workspace
+ * switcher is now rendered inline within the Menubar components. Kept for reference only;
+ * will be removed in a future release.
+ *
  * WorkspaceSwitcher — mode switcher UI rendered in the Menubar.
  *
  * Displays four mode buttons (Design/Print/Draw/Photo) with icons and labels.
