@@ -39,9 +39,11 @@ import {
   type BaselineGrid,
   createDefaultDocumentGrid,
   createDefaultPixelGrid,
+  type IsometricGrid,
   type PixelGrid,
   sanitizeGrid,
   validateGrid,
+  validateIsometricGrid,
 } from './gridTypes';
 import { nextNodeId } from './node-id';
 import { createEmptySelectionSetsData } from './selectionSet';
@@ -1218,6 +1220,41 @@ export function removePixelGrid(doc: Document): Document {
   return {
     ...doc,
     gridSettings: Object.keys(rest).length > 0 ? rest : undefined,
+  };
+}
+
+/**
+ * Set an isometric grid configuration.
+ */
+export function setIsometricGrid(doc: Document, gridId: string, grid: IsometricGrid): Document {
+  const sanitized = sanitizeGrid(grid) as IsometricGrid;
+  if (!validateIsometricGrid(sanitized)) return doc;
+  return {
+    ...doc,
+    gridSettings: {
+      ...getOrCreateGridSettings(doc),
+      isometricGrids: {
+        ...getOrCreateGridSettings(doc).isometricGrids,
+        [gridId]: sanitized,
+      },
+    },
+  };
+}
+
+/**
+ * Remove an isometric grid configuration.
+ */
+export function removeIsometricGrid(doc: Document, gridId: string): Document {
+  if (!doc.gridSettings?.isometricGrids || !(gridId in doc.gridSettings.isometricGrids)) {
+    return doc;
+  }
+  const { [gridId]: _, ...rest } = doc.gridSettings.isometricGrids;
+  return {
+    ...doc,
+    gridSettings: {
+      ...doc.gridSettings,
+      isometricGrids: Object.keys(rest).length > 0 ? rest : undefined,
+    },
   };
 }
 
