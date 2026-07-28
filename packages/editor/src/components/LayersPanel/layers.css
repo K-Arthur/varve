@@ -537,7 +537,7 @@
 
 /* ─── Keyframe count badge ───────────────────────────────── */
 .layers-row__keyframe-badge {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-feedback-success);
   background: var(--color-feedback-success-subtle);
   border-radius: var(--radius-sm);
@@ -549,7 +549,7 @@
 
 /* ─── Blend mode / opacity badge ──────────────────────────── */
 .layers-row__badge {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   background: var(--color-surface-sunken);
   border-radius: var(--radius-sm);
@@ -560,7 +560,7 @@
 }
 
 .layers-row__mask-role {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
   flex-shrink: 0;
