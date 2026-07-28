@@ -1,3 +1,9 @@
+import { getFontRegistry } from '@strata/engine';
+import {
+  buildDocumentFontManifest,
+  FontCatalog,
+  resolveManifestAgainstCatalog,
+} from '@strata/engine/font';
 import { type Platform, upsertPreservingMeta } from '@strata/platform';
 import { createDocument, type Document, DocumentCodec, validateDocument } from '@strata/scene';
 import type { Viewport } from '@strata/shared';
@@ -91,15 +97,16 @@ export function usePersistence(
         if (!result.valid && typeof console !== 'undefined') {
           console.warn('[Strata] loadDocument: validation warnings:', result.errors);
         }
+        const resolvedDoc = resolveFontManifest(doc);
         resetUndo();
         const name = meta?.name ?? doc.name;
         const filePath = meta?.filePath;
         const sessions = state.sessions.map((s) =>
           s.id === state.activeId ? { ...s, name, filePath, dirty: false } : s,
         );
-        const cam = computeFitAllCamera(doc, getCanvasViewport());
+        const cam = computeFitAllCamera(resolvedDoc, getCanvasViewport());
         patch({
-          document: doc,
+          document: resolvedDoc,
           selection: [],
           sessions,
           dirty: false,
@@ -113,6 +120,104 @@ export function usePersistence(
   );
 
   return { newDocument, serializeDocument, save, saveAs, loadDocument };
+}
+
+/**
+ * Re-resolve a document's font manifest against the current device's font catalog.
+ *
+ * If the document already has a font manifest, its entries are re-resolved
+ * against the locally available fonts (handles cross-device opening). If the
+ * document has no manifest (legacy pre-v2.9), a new one is built from scratch.
+ *
+ * Returns the document with an updated `fontManifest` field.
+ */
+function resolveFontManifest(doc: Document): Document {
+  if (hasTextNodes(doc) === false) {
+    return doc;
+  }
+
+  const catalog = buildCatalogFromRegistry();
+
+  if (doc.fontManifest) {
+    const resolved = resolveManifestAgainstCatalog(doc.fontManifest, catalog);
+    return { ...doc, fontManifest: resolved };
+  }
+
+  const manifest = buildDocumentFontManifest(
+    { nodes: doc.nodes, styles: doc.styles } as Parameters<typeof buildDocumentFontManifest>[0],
+    catalog,
+  );
+  return { ...doc, fontManifest: manifest };
+}
+
+/** Check if a document contains any text nodes that reference fonts. */
+function hasTextNodes(doc: Document): boolean {
+  for (const node of Object.values(doc.nodes)) {
+    if (node.kind === 'text' && node.fontFamily) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Build a FontCatalog from the current FontRegistry for manifest resolution.
+ */
+function buildCatalogFromRegistry(): FontCatalog {
+  const catalog = new FontCatalog();
+  const registry = getFontRegistry();
+
+  for (const family of registry.families()) {
+    const entries = registry.getEntries(family);
+    const first = entries[0];
+    if (!first) continue;
+
+    catalog.addEntry({
+      identity: {
+        contentHash: `registry:${family}`,
+        postScriptName: family.replace(/\s+/g, '-'),
+        familyName: family,
+        subfamilyName: weightToSubfamily(first.weight, first.style),
+        fullName: `${family} ${weightToSubfamily(first.weight, first.style)}`,
+      },
+      format: 'unknown',
+      fileSize: 0,
+      unitsPerEm: 1000,
+      ascender: 800,
+      descender: -200,
+      lineGap: 0,
+      glyphCount: 0,
+      isVariable: registry.isVariable(family),
+      axes: [],
+      namedInstances: [],
+      openTypeFeatures: registry.getSupportedFeatures(family),
+      unicodeRanges: [],
+      scripts: [],
+      embeddingRights: first.source === 'system' ? 'installable' : 'unknown',
+      hasColorGlyphs: false,
+      category: 'sans-serif',
+      source:
+        first.source === 'system' ? 'system' : first.source === 'google' ? 'remote' : 'bundled',
+    });
+  }
+
+  return catalog;
+}
+
+function weightToSubfamily(weight: number, style: string): string {
+  const weightNames: Record<number, string> = {
+    100: 'Thin',
+    200: 'ExtraLight',
+    300: 'Light',
+    400: 'Regular',
+    500: 'Medium',
+    600: 'SemiBold',
+    700: 'Bold',
+    800: 'ExtraBold',
+    900: 'Black',
+  };
+  const base = weightNames[weight] ?? 'Regular';
+  return style === 'italic' ? `${base} Italic` : base;
 }
 
 export async function saveAsImpl(

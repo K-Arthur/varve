@@ -1,67 +1,175 @@
 /**
- * FontLicenseDetails styles — compact metadata readout inside the font browser.
+ * FontLicenseDetails styles — license metadata display for a selected font.
+ * Uses design tokens exclusively.
  */
 
 .font-license-details {
-  padding: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-raised);
 }
 
 .font-license-details__header {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  margin-bottom: var(--space-2);
 }
 
-.font-license-details__family {
-  font-weight: var(--font-weight-medium);
+.font-license-details__title {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
-.font-license-details__format {
-  padding: 0 var(--space-1);
+.font-license-details__close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: transparent;
+  border: none;
   border-radius: var(--radius-sm);
-  background: var(--color-surface-raised);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
-  text-transform: uppercase;
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+
+.font-license-details__close-btn:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+
+.font-license-details__close-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .font-license-details__row {
   display: flex;
-  gap: var(--space-2);
-  margin: var(--space-1) 0 0;
-  line-height: 1.4;
+  flex-direction: column;
+  gap: var(--space-1);
 }
 
 .font-license-details__label {
-  width: 5rem;
-  flex-shrink: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
   color: var(--color-text-muted);
-  font-size: var(--font-size-2xs);
   text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .font-license-details__value {
-  flex: 1;
-  min-width: 0;
-  overflow-wrap: break-word;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  word-break: break-word;
 }
 
-.font-license-details__value--restricted,
-.font-license-details__value--license {
-  color: var(--color-warning);
+.font-license-details__value--positive {
+  color: var(--color-semantic-positive);
 }
 
-.font-license-details__value--installable,
-.font-license-details__value--editable,
-.font-license-details__value--preview {
-  color: var(--color-success);
+.font-license-details__value--warning {
+  color: var(--color-semantic-warning);
 }
 
-.font-license-details__value--unknown {
+.font-license-details__value--negative {
+  color: var(--color-semantic-negative);
+}
+
+.font-license-details__value--neutral {
+  color: var(--color-text-secondary);
+}
+
+.font-license-details__link {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.font-license-details__link:hover {
+  text-decoration: underline;
+}
+
+.font-license-details__link:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.font-license-details__permissions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.font-license-details__permissions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+
+.font-license-details__permission-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+
+.font-license-details__permission-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.font-license-details__permission-value {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  margin: 0;
+}
+
+.font-license-details__permission-value--allowed {
+  color: var(--color-semantic-positive);
+}
+
+.font-license-details__permission-value--denied {
   color: var(--color-text-muted);
+}
+
+.font-license-details__text {
+  margin-top: var(--space-1);
+}
+
+.font-license-details__text-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.font-license-details__text-summary:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.font-license-details__text-content {
+  margin-top: var(--space-1);
+  padding: var(--space-2);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
 }
