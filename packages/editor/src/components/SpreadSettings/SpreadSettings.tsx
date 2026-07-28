@@ -10,6 +10,11 @@ export function SpreadSettings() {
   const activePageId = doc.activePageId;
   const activeSide = activePageId ? getPageSide(activePageId) : 'none';
 
+  // Only show in print mode — spread/facing-pages is a print production feature
+  if (state.workspaceMode !== 'print') {
+    return null;
+  }
+
   return (
     <div className="spread-settings">
       <div className="spread-settings__header">

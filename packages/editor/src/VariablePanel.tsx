@@ -81,6 +81,11 @@ export function VariablePanel() {
     }
   }
 
+  // Hide entirely when no variables and not actively adding
+  if (vars.length === 0 && !adding) {
+    return null;
+  }
+
   return (
     <div className="editor-inspector__group">
       <div className="variable-panel__header">
@@ -99,12 +104,6 @@ export function VariablePanel() {
           </button>
         </div>
       </div>
-
-      {vars.length === 0 && !adding && (
-        <p className="variable-panel__empty-hint">
-          No variables yet. Use variables to share values across nodes.
-        </p>
-      )}
 
       {vars.length > 0 && (
         <table className="variable-panel__table">

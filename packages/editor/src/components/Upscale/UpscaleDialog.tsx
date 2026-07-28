@@ -52,6 +52,23 @@ interface UpscaleDialogProps {
 const MEMORY_WARNING_BYTES = 256 * 1024 * 1024;
 const MEMORY_MAX_BYTES = 1024 * 1024 * 1024;
 
+/**
+ * Extract a usable message from an unknown throwable.
+ *
+ * Tauri `invoke` rejects with the command's `Err(String)` payload rather than an
+ * Error instance, so an `instanceof Error` check alone collapses every native
+ * backend failure into a single uninformative string.
+ */
+function normalizeThrownMessage(caught: unknown): string {
+  if (caught instanceof Error) return caught.message;
+  if (typeof caught === 'string' && caught.trim() !== '') return caught;
+  if (caught && typeof caught === 'object') {
+    const message = (caught as { message?: unknown }).message;
+    if (typeof message === 'string' && message.trim() !== '') return message;
+  }
+  return 'Processing failed';
+}
+
 function formatBytes(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
@@ -116,9 +133,14 @@ export function UpscaleDialog({
     }
   }, [mode]);
 
-  // Debounced preview generation for CPU modes
+  // Debounced preview generation for CPU modes.
+  //
+  // Previews must never overlap the real upscale: the native backend keeps a
+  // single active job slot, and registering a new job flips the previous job's
+  // cancellation flag. A preview landing mid-apply would therefore cancel the
+  // user's actual upscale, so previews are suppressed while processing.
   useEffect(() => {
-    if (!open || !sourceImageData || !mode || mode.isAi) {
+    if (!open || !sourceImageData || !mode || mode.isAi || processing) {
       return;
     }
     // Cancel previous preview
@@ -135,7 +157,7 @@ export function UpscaleDialog({
         clearTimeout(previewTimeoutRef.current);
       }
     };
-  }, [modeId, scale, open, sourceImageData, mode]);
+  }, [modeId, scale, open, sourceImageData, mode, processing]);
 
   // Clear preview when switching to AI mode
   useEffect(() => {
@@ -145,7 +167,9 @@ export function UpscaleDialog({
   }, [mode?.isAi]);
 
   async function generatePreview() {
-    if (!sourceImageData || !mode) return;
+    // Never contend with a running upscale for the native backend's single job
+    // slot — registering a preview job there cancels the real one.
+    if (!sourceImageData || !mode || processing) return;
     const abort = new AbortController();
     previewAbortRef.current = abort;
     setPreviewGenerating(true);
@@ -170,7 +194,7 @@ export function UpscaleDialog({
         setPreviewDataUrl(dataUrl);
       }
     } catch (err) {
-      if ((err as Error).message !== 'cancelled') {
+      if (normalizeThrownMessage(err) !== 'cancelled') {
         console.error('Preview generation failed:', err);
       }
     } finally {
@@ -184,6 +208,15 @@ export function UpscaleDialog({
 
   const handleApply = useCallback(async () => {
     if (!mode || memoryExceeded || processing) return;
+    // Retire any queued or in-flight preview first. Both share the native
+    // backend's single job slot, so a preview starting after this point would
+    // cancel the real upscale.
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current);
+      previewTimeoutRef.current = null;
+    }
+    previewAbortRef.current?.abort();
+    previewAbortRef.current = null;
     setError(null);
     setProcessing(true);
     setProgress(null);
@@ -198,14 +231,30 @@ export function UpscaleDialog({
       });
       onClose();
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : 'Processing failed';
+      // Tauri commands reject with a bare string, so `instanceof Error` alone
+      // would discard the backend's message and report a useless generic.
+      const message = normalizeThrownMessage(caught);
+      console.error('Upscale failed:', caught);
       setError(message === 'cancelled' ? 'Cancelled' : message);
       announce(message === 'cancelled' ? 'Upscale cancelled' : `Upscale failed: ${message}`);
     } finally {
       setProcessing(false);
       setProgress(null);
     }
-  }, [mode, modeId, scale, output, memoryExceeded, processing, onApply, onClose, announce]);
+  }, [
+    mode,
+    modeId,
+    scale,
+    output,
+    denoiseStrength,
+    pixelArtAlgorithm,
+    memoryExceeded,
+    processing,
+    onApply,
+    onClose,
+    onProgress,
+    announce,
+  ]);
 
   const handleCancel = useCallback(() => {
     if (!processing) {

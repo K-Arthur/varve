@@ -87,6 +87,18 @@ function ensureWorker(): Worker {
   return worker;
 }
 
+/**
+ * `postMessage` structured-clones its payload, and `UpscaleOptions` carries an
+ * `onProgress` callback. Functions are not cloneable, so forwarding the options
+ * object as-is throws `DataCloneError` and fails every worker upscale before it
+ * starts. Progress for the worker path is reported via worker messages, not this
+ * callback, so dropping it here loses nothing.
+ */
+function cloneableOptions(options: UpscaleOptions): UpscaleOptions {
+  const { onProgress: _onProgress, ...rest } = options;
+  return rest;
+}
+
 function imageDataToTransferable(imageData: ImageData): {
   buffer: ArrayBuffer;
   width: number;
@@ -144,7 +156,7 @@ export async function runUpscaleInWorker(
         width,
         height,
         buffer,
-        options,
+        options: cloneableOptions(options),
         modelPath,
       } satisfies EnhancementWorkerRequest,
       [buffer],
