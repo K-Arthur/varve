@@ -8,7 +8,7 @@
  * SettingsDialog, and RecoveryDialog.
  */
 
-import { Dialog } from '@strata/ui';
+import { Dialog, Select } from '@strata/ui';
 import {
   type ChangeEvent,
   type DragEvent,
@@ -1171,32 +1171,16 @@ export function ArchiveDialog({
               )}
             </ul>
             <div className="archive-dialog__conflict-resolve">
-              <label
-                htmlFor="archive-conflict-resolution"
-                style={{ fontSize: 'var(--font-size-sm)', color: 'var(--color-text-secondary)' }}
-              >
-                Resolution:
-              </label>
-              <select
-                id="archive-conflict-resolution"
+              <Select
+                label="Conflict resolution strategy"
                 value={conflictResolution}
-                onChange={(e) =>
-                  setConflictResolution(e.target.value as 'overwrite' | 'skip' | 'merge')
-                }
-                style={{
-                  padding: 'var(--space-1) var(--space-2)',
-                  background: 'var(--color-surface-sunken)',
-                  border: 'var(--border-micro)',
-                  borderRadius: 'var(--radius-sm)',
-                  color: 'var(--color-text-primary)',
-                  fontSize: 'var(--font-size-sm)',
-                }}
-                aria-label="Conflict resolution strategy"
-              >
-                <option value="overwrite">Overwrite existing</option>
-                <option value="skip">Skip conflicts</option>
-                <option value="merge">Merge values</option>
-              </select>
+                onChange={(v) => setConflictResolution(v as 'overwrite' | 'skip' | 'merge')}
+                options={[
+                  { value: 'overwrite', label: 'Overwrite existing' },
+                  { value: 'skip', label: 'Skip conflicts' },
+                  { value: 'merge', label: 'Merge values' },
+                ]}
+              />
             </div>
           </div>
         </section>

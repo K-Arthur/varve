@@ -286,19 +286,18 @@ export function UpscaleDialog({
 
           <div className="upscale-dialog__body">
             {/* Preview */}
-            <div
-              ref={previewContainerRef}
-              className="upscale-preview"
-              onPointerDown={handlePointerDown}
-              onPointerMove={handlePointerMove}
-              onPointerUp={handlePointerUp}
-            >
-              <div className="upscale-preview__image-container">
+            <div className="upscale-preview">
+              <div
+                ref={previewContainerRef}
+                className="upscale-preview__image-container"
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+              >
                 <img
                   src={sourceDataUrl}
                   alt="Original"
                   className="upscale-preview__image upscale-preview__image--original"
-                  style={{ aspectRatio: `${sourceWidth}/${sourceHeight}` }}
                 />
                 <div
                   className="upscale-preview__overlay"

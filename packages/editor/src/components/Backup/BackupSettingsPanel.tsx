@@ -1,3 +1,4 @@
+import { Select } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { BackupService, IncludeAssetsPolicy } from '../../backupService';
 
@@ -156,17 +157,16 @@ export function BackupSettingsPanel({ backupService, onClose }: BackupSettingsPa
           </div>
 
           <div className="backup-settings__field">
-            <label htmlFor="backup-assets">Include assets</label>
-            <select
-              id="backup-assets"
+            <Select
+              label="Include assets"
               value={includeAssets}
-              onChange={(e) => setIncludeAssets(e.target.value as IncludeAssetsPolicy)}
-              className="backup-settings__select"
-            >
-              <option value="none">None (document only)</option>
-              <option value="used">Used in project</option>
-              <option value="all">All linked assets</option>
-            </select>
+              onChange={(v) => setIncludeAssets(v as IncludeAssetsPolicy)}
+              options={[
+                { value: 'none', label: 'None (document only)' },
+                { value: 'used', label: 'Used in project' },
+                { value: 'all', label: 'All linked assets' },
+              ]}
+            />
           </div>
 
           <div className="backup-settings__status" role="status" aria-live="polite">

@@ -98,7 +98,11 @@ export const SHORTCUT_DEFS = {
   zoom200: { binding: { key: '5' }, label: 'Zoom to 200%', category: 'View' },
   zoom400: { binding: { key: '6' }, label: 'Zoom to 400%', category: 'View' },
   selectAll: { binding: { key: 'a', ctrl: true }, label: 'Select All', category: 'Edit' },
-  selectNone: { binding: { key: 'd', ctrl: true }, label: 'Select None', category: 'Edit' },
+  selectNone: {
+    binding: { key: 'a', ctrl: true, shift: true },
+    label: 'Select None',
+    category: 'Edit',
+  },
   invertSelection: {
     binding: { key: 'i', ctrl: true, shift: true },
     label: 'Invert Selection',
