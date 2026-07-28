@@ -513,7 +513,7 @@
   color: var(--color-accent-primary);
   /* Must clear the opaque canvas content/overlay layers (z-index 2/3) — see
    * CANVAS_INTERACTIVE_OVERLAY_Z_INDEX in canvas/overlayZIndex.ts. */
-  z-index: 10;
+  z-index: var(--z-raised);
 }
 
 .editor-shell__canvas-area {
@@ -552,7 +552,7 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: var(--z-base);
 }
 
 .editor-canvas__pixel-grid {
@@ -715,7 +715,7 @@
 .editor-status {
   grid-area: status;
   position: relative;
-  z-index: 50;
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   gap: var(--space-3);

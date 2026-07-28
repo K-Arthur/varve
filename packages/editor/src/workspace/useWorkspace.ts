@@ -1,4 +1,11 @@
 /**
+ * @deprecated No callers remain. The app uses `useWorkspaceMode` from `context/useWorkspaceMode.ts`
+ * instead. The exports from this file (`useWorkspaceSwitcher`, `createWorkspaceSnapshot`,
+ * `getWorkspaceShortcutHint`, `matchWorkspaceShortcut`) are re-exported via `workspace/index.ts`,
+ * but that barrel is itself never imported. `switchMode` and `cycleMode` are internal to
+ * `useWorkspaceSwitcher` and are not called anywhere. This file will be removed in a future
+ * release.
+ *
  * useWorkspace — hook for safe workspace mode switching.
  *
  * Handles:
