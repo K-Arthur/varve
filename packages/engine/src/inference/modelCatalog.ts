@@ -575,11 +575,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     id: 'ddcolor-tiny',
     name: 'DDColor Tiny (AI Colorize)',
     description:
-      'Fast AI colorization for grayscale photos and line art. ConvNeXt-tiny, 256x256 input. Generated from official DDColor weights (Apache-2.0) via reproducible recipe in tools/ddcolor-export/.',
-    sizeBytes: 50_000_000,
+      'Fast AI colorization for grayscale photos and line art. ConvNeXt-tiny, 256x256 input. Bundled with the app (Apache-2.0).',
+    sizeBytes: 220_524_460,
     remoteUrl: '',
-    checksum: '',
-    bundled: false,
+    checksum: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
+    bundled: true,
     inputSpec: null,
     quality: 3,
     precision: 'fp32',
@@ -596,27 +596,20 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'generated',
-      recipeId: 'ddcolor-tiny-v1',
-      sourceWeights: [
-        {
-          url: 'https://huggingface.co/piddnad/ddcolor_paper_tiny/resolve/main/ddcolor_paper_tiny.pth',
-          sha256: '',
-          label: 'DDColor-T checkpoint',
-        },
-      ],
-      expectedSha256: '',
+      kind: 'bundled',
+      assetPath: '/models/ddcolor-tiny.onnx',
+      sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
     },
   },
   {
     id: 'ddcolor',
     name: 'DDColor (AI Colorize)',
     description:
-      'Photo-realistic AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Generated from official DDColor weights (Apache-2.0) via reproducible recipe in tools/ddcolor-export/.',
-    sizeBytes: 156_000_000,
+      'Photo-realistic AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Bundled with the app (Apache-2.0).',
+    sizeBytes: 980_082_799,
     remoteUrl: '',
-    checksum: '',
-    bundled: false,
+    checksum: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
+    bundled: true,
     inputSpec: null,
     quality: 4,
     precision: 'fp32',
@@ -633,16 +626,9 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       outputActivation: 'none',
     },
     acquisition: {
-      kind: 'generated',
-      recipeId: 'ddcolor-v1',
-      sourceWeights: [
-        {
-          url: 'https://huggingface.co/piddnad/ddcolor_modelscope/resolve/main/ddcolor_modelscope.pth',
-          sha256: '',
-          label: 'DDColor-L checkpoint',
-        },
-      ],
-      expectedSha256: '',
+      kind: 'bundled',
+      assetPath: '/models/ddcolor.onnx',
+      sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
     },
   },
   {
@@ -652,7 +638,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       'Identifies font families from text region images. EfficientNet B3 finetuned on 3473 Google Fonts (MIT license). Returns top-k candidates matched against installed and downloadable fonts.',
     sizeBytes: 64_100_000,
     remoteUrl: 'https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx',
-    checksum: '',
+    checksum: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
     bundled: false,
     inputSpec: null,
     quality: 4,
@@ -664,7 +650,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     sourceLicense: 'MIT',
     tensorContract: {
       version: 1,
-      inputs: [{ name: 'input', dims: [1, 3, 300, 300], dtype: 'float32' }],
+      inputs: [{ name: 'input', dims: [1, 3, 320, 320], dtype: 'float32' }],
       outputs: [{ name: 'output', dims: [1, 3473], dtype: 'float32' }],
       normalization: {
         mean: [0.485, 0.456, 0.406],
@@ -678,11 +664,11 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       sources: [
         {
           url: 'https://huggingface.co/storia/font-classify-onnx/resolve/main/model.onnx',
-          sha256: '',
+          sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
           label: 'storia/font-classify-onnx model',
         },
       ],
-      sha256: '',
+      sha256: '44aa3d46804aa55b7841a0eb6dcc9bb72badd6d01645e5c7448a70525655b7b6',
     },
   },
 ];
