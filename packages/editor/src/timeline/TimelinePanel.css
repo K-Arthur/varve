@@ -267,7 +267,7 @@
   position: absolute;
   left: 4px;
   top: 8px;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   white-space: nowrap;
 }
@@ -354,7 +354,7 @@
   background: none;
   color: var(--color-text-muted);
   cursor: pointer;
-  font-size: 9px;
+  font-size: var(--font-size-2xs);
   padding: 0;
   flex-shrink: 0;
   line-height: 1;
@@ -388,7 +388,7 @@
 }
 
 .timeline-track-row__prop-name {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
   line-height: 1.2;
   white-space: nowrap;
@@ -404,14 +404,14 @@
 }
 
 .timeline-track-row__nested-label {
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   color: var(--color-text-muted);
 }
 
 .timeline-track-row__nested select {
   flex: 1;
   min-width: 0;
-  font-size: 10px;
+  font-size: var(--font-size-2xs);
   background: var(--color-bg-canvas);
   color: var(--color-text-primary);
   border: 1px solid var(--color-border-subtle);

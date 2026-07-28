@@ -312,7 +312,7 @@
   padding: 0 0.25rem;
   background: var(--color-accent-primary);
   color: var(--color-text-on-accent);
-  border-radius: 9999px;
+  border-radius: var(--radius-pill);
   font-size: 0.6rem;
   font-weight: var(--font-weight-bold);
   line-height: 1;
@@ -1470,7 +1470,7 @@
 .insp-paint-library__actions {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 .insp-paint-library__action-btn {
@@ -1825,7 +1825,7 @@
 .intelligence-more-group {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: var(--space-1);
   align-items: center;
 }
 .intelligence-more-group__label {
@@ -2490,7 +2490,7 @@
 .debt-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-1);
   padding: 1px 5px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
@@ -2663,7 +2663,7 @@
 .debt-badge {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-1);
   padding: 1px 5px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-pill);
@@ -2922,7 +2922,7 @@
 .contextual-audit-chip {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-1);
   padding: 1px 6px;
   border-radius: var(--radius-sm);
   font-size: var(--font-size-xs);
@@ -2954,7 +2954,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  padding: 1px 4px;
+  padding: var(--space-1) var(--space-2);
 }
 .contextual-audit-more:hover {
   text-decoration: underline;
