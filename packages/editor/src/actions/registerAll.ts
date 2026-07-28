@@ -157,6 +157,8 @@ export function registerEditorActions(
 
   reg('toggleLeftPanel', 'Toggle Layers Panel', 'panel', () => ctx.toggleLeftPanel());
   reg('toggleRightPanel', 'Toggle Inspector Panel', 'panel', () => ctx.toggleRightPanel());
+  reg('toggleLibraryPanel', 'Toggle Library Panel', 'panel', () => ctx.toggleLibraryPanel());
+  reg('toggleCodegenPanel', 'Toggle Codegen Panel', 'panel', () => ctx.toggleCodegenPanel());
   if (handlers.home) reg('home', 'Go to Home', 'file', handlers.home);
   reg('togglePixelGrid', 'Toggle Pixel Grid', 'canvas', () =>
     ctx.setPixelGridEnabled(!ctx.state.pixelGridEnabled),
