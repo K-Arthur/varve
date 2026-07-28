@@ -1,4 +1,5 @@
-import { createEngine, type Engine } from '@strata/engine';
+import { createEngine, type Engine, getFontRegistry } from '@strata/engine';
+import { FontCatalog } from '@strata/engine/font';
 import type { Platform } from '@strata/platform';
 import type { ExportBatch, ExportFormat, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
@@ -78,7 +79,8 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   );
 
   const handlePackageExport = useCallback(async () => {
-    const pkg = buildPackageExport(editor.state.document);
+    const catalog = buildCatalogFromRegistry();
+    const pkg = buildPackageExport(editor.state.document, undefined, catalog);
     await saveExportBytes(platform, pkg.fileName, pkg.bytes, pkg.mimeType, '.zip');
   }, [editor.state.document, platform]);
 
@@ -113,3 +115,64 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
     </>
   );
 });
+
+/**
+ * Build a FontCatalog from the current FontRegistry so that package export
+ * can report real embedding status for each font family.
+ */
+function buildCatalogFromRegistry(): FontCatalog {
+  const catalog = new FontCatalog();
+  const registry = getFontRegistry();
+
+  for (const family of registry.families()) {
+    const entries = registry.getEntries(family);
+    const first = entries[0];
+    if (!first) continue;
+
+    catalog.addEntry({
+      identity: {
+        contentHash: `registry:${family}`,
+        postScriptName: family.replace(/\s+/g, '-'),
+        familyName: family,
+        subfamilyName: weightToSubfamily(first.weight, first.style),
+        fullName: `${family} ${weightToSubfamily(first.weight, first.style)}`,
+      },
+      format: 'unknown',
+      fileSize: 0,
+      unitsPerEm: 1000,
+      ascender: 800,
+      descender: -200,
+      lineGap: 0,
+      glyphCount: 0,
+      isVariable: registry.isVariable(family),
+      axes: [],
+      namedInstances: [],
+      openTypeFeatures: registry.getSupportedFeatures(family),
+      unicodeRanges: [],
+      scripts: [],
+      embeddingRights: first.source === 'system' ? 'installable' : 'unknown',
+      hasColorGlyphs: false,
+      category: 'sans-serif',
+      source:
+        first.source === 'system' ? 'system' : first.source === 'google' ? 'remote' : 'bundled',
+    });
+  }
+
+  return catalog;
+}
+
+function weightToSubfamily(weight: number, style: string): string {
+  const weightNames: Record<number, string> = {
+    100: 'Thin',
+    200: 'ExtraLight',
+    300: 'Light',
+    400: 'Regular',
+    500: 'Medium',
+    600: 'SemiBold',
+    700: 'Bold',
+    800: 'ExtraBold',
+    900: 'Black',
+  };
+  const base = weightNames[weight] ?? 'Regular';
+  return style === 'italic' ? `${base} Italic` : base;
+}
