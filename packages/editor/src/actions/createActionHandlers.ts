@@ -143,6 +143,8 @@ export function createActionHandlers(
     toggleFindingsProviderDpiWarnings: () => e.setFindingsProviderOverride('dpi-warnings'),
     toggleLeftPanel: () => e.toggleLeftPanel(),
     toggleRightPanel: () => e.toggleRightPanel(),
+    toggleLibraryPanel: () => e.toggleLibraryPanel(),
+    toggleCodegenPanel: () => e.toggleCodegenPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),

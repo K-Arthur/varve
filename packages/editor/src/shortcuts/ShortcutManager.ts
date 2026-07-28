@@ -270,6 +270,16 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Inspector Panel',
     category: 'View',
   },
+  toggleLibraryPanel: {
+    binding: { key: 'l', ctrl: true, alt: true },
+    label: 'Toggle Library Panel',
+    category: 'View',
+  },
+  toggleCodegenPanel: {
+    binding: { key: 'j', ctrl: true, shift: true },
+    label: 'Toggle Codegen Panel',
+    category: 'View',
+  },
   toggleTimelinePanel: {
     binding: { key: 't', ctrl: true, alt: true },
     label: 'Toggle Timeline Panel',
