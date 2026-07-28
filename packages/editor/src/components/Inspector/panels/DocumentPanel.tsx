@@ -70,12 +70,7 @@ export function DocumentPanel() {
         </div>
       </DisclosureSection>
       <DisclosureSection title="Document Grid" sectionId="document-grid" defaultExpanded={false}>
-        <div
-          className="insp-canvas-props"
-          role="region"
-          aria-live="polite"
-          aria-label="Document grid settings"
-        >
+        <fieldset className="insp-canvas-props" aria-label="Document grid settings">
           <div className="insp-field">
             <span className="insp-field__label">Visible</span>
             <div className="insp-field__control insp-field__control--inline">
@@ -308,7 +303,7 @@ export function DocumentPanel() {
               </button>
             </div>
           </div>
-        </div>
+        </fieldset>
       </DisclosureSection>
       <IsometricGridSection />
     </>
@@ -390,12 +385,7 @@ function IsometricGridSection() {
 
   return (
     <DisclosureSection title="Isometric Grid" sectionId="isometric-grid" defaultExpanded={false}>
-      <div
-        className="insp-canvas-props"
-        role="region"
-        aria-live="polite"
-        aria-label="Isometric grid settings"
-      >
+      <fieldset className="insp-canvas-props" aria-label="Isometric grid settings">
         <div className="insp-field">
           <span className="insp-field__label">Visible</span>
           <div className="insp-field__control insp-field__control--inline">
@@ -661,7 +651,7 @@ function IsometricGridSection() {
             <output>{Math.round(grid.opacity * 100)}%</output>
           </div>
         </div>
-      </div>
+      </fieldset>
     </DisclosureSection>
   );
 }

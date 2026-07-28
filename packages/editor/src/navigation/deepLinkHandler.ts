@@ -199,26 +199,24 @@ function setupTauriDeepLink(
   _navigateToFinding: (finding: AuditFinding) => void,
 ): void {
   if (isTauriRuntime()) {
-    if (hasTauri) {
-      try {
-        const tauri = w.__TAURI__ as {
-          event: {
-            listen: (
-              event: string,
-              cb: (payload: { payload: string }) => void,
-            ) => Promise<() => void>;
-          };
+    try {
+      const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as {
+        event: {
+          listen: (
+            event: string,
+            cb: (payload: { payload: string }) => void,
+          ) => Promise<() => void>;
         };
-        tauri.event.listen('deep-link', async (event: { payload: string }) => {
-          const request = parseDeepLink(event.payload);
-          if (request) {
-            const ctx = tryGetEditorContext();
-            await handleDeepLink(request, ctx, _getFindings, _navigateToFinding);
-          }
-        });
-      } catch {
-        // Tauri event listener API might not be available
-      }
+      };
+      tauri.event.listen('deep-link', async (event: { payload: string }) => {
+        const request = parseDeepLink(event.payload);
+        if (request) {
+          const ctx = tryGetEditorContext();
+          await handleDeepLink(request, ctx, _getFindings, _navigateToFinding);
+        }
+      });
+    } catch {
+      // Tauri event listener API might not be available
     }
   }
 }

@@ -31,8 +31,9 @@ export function ImportPreview({ validation, onConfirm, onCancel }: ImportPreview
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
+      onKeyDown={handleKeyDown}
     >
-      <div className="import-preview" onKeyDown={handleKeyDown}>
+      <div className="import-preview">
         <div className="import-preview__header">
           <h2 className="import-preview__title">Import Preview</h2>
           <button

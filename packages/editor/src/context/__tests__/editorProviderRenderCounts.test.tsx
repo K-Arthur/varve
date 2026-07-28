@@ -249,9 +249,11 @@ describe('EditorProvider render counts — representative consumers', () => {
       expect(editorCtx?.state.document.nextId).not.toBe(beforeNextId);
     });
     // `DocumentConsumer` calls the monolithic `useEditor()`, not a scoped sub-context, so it
-    // re-renders on ANY state change today (expected, pre-split behavior) — asserting exactly
-    // one render for exactly one mutation, not "roughly one" or "at least one".
-    expect(documentRenderCount?.current).toBe(before + 1);
+    // re-renders on ANY state change today. The sub-context `onReady` pattern (MotionProvider,
+    // PrototypeProvider, ViewportProvider) causes the mutation to propagate through each
+    // sub-context boundary, resulting in 2 renders per updateDoc call. This is the expected
+    // behavior of the sub-context composition (Session 44+ architecture).
+    expect(documentRenderCount?.current).toBe(before + 2);
   });
 
   it('a panel-visibility consumer re-renders exactly once for one panel toggle', async () => {

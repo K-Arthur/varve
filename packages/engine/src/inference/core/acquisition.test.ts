@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deriveAcquisition, resolveAcquisition } from './types';
 import type { ModelManifestEntry } from '../types';
+import { deriveAcquisition, resolveAcquisition } from './types';
 
 function makeEntry(overrides: Partial<ModelManifestEntry> = {}): ModelManifestEntry {
   return {

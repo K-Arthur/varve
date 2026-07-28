@@ -387,6 +387,12 @@ export function ShortcutPalette({
                       tabIndex={0}
                       className="shortcut-palette__row shortcut-palette__row--unused"
                       onClick={() => handleRowClick(id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleRowClick(id);
+                        }
+                      }}
                     >
                       <span className="shortcut-palette__row-label">{def?.label ?? id}</span>
                       <span className="shortcut-palette__usage">Not used</span>

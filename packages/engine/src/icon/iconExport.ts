@@ -147,10 +147,8 @@ export function ${componentName}({ size = ${size}, label, ...props }: ${componen
 }`;
 }
 
-function exportVue(svg: string, name: string, options: IconExportOptions): string {
-  const _componentName = options.componentName ?? toPascalCase(name);
+function exportVue(svg: string, _name: string, options: IconExportOptions): string {
   const viewBox = options.viewBox ?? extractViewBox(svg) ?? DEFAULT_VIEWBOX;
-  const _size = options.size ?? DEFAULT_SIZE;
   const inner = applyOverrides(extractInnerSvg(svg), options);
   const title =
     options.includeTitle && options.title

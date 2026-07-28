@@ -31,11 +31,7 @@ export async function restoreStoredFonts(): Promise<{
 
   for (const record of records) {
     try {
-      const buffer = record.data.buffer.slice(
-        record.data.byteOffset,
-        record.data.byteOffset + record.data.byteLength,
-      ) as ArrayBuffer;
-      const result = await loader.restoreFont(record.family, buffer);
+      const result = await loader.restoreFont(record.familyName, record.data);
       if (result.success) restored++;
       else failed++;
     } catch {

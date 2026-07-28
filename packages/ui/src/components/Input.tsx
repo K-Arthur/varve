@@ -1,6 +1,6 @@
 import { forwardRef, type InputHTMLAttributes, useId, useState } from 'react';
 
-export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'> {
+export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size' | 'prefix'> {
   label?: string;
   error?: string;
   hint?: string;

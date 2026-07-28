@@ -76,21 +76,35 @@ export function LibraryPanel({ doc, onInstallLibrary, onUninstallLibrary }: Libr
       ) : (
         <div className="library-panel__list">
           {installedLibraries.map((lib) => (
-            <div
+            <button
+              type="button"
               key={lib.id}
               className={`library-panel__item ${selectedLibraryId === lib.id ? 'library-panel__item--selected' : ''}`}
               onClick={() => setSelectedLibraryId(lib.id)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setSelectedLibraryId(lib.id);
+                }
+              }}
             >
-              <div className="library-panel__item-info">
+              <span className="library-panel__item-info">
                 <span className="library-panel__item-name">{lib.name}</span>
                 <span className="library-panel__item-version">v{lib.version}</span>
-              </div>
-              <div className="library-panel__item-actions">
-                <Button variant="ghost" size="sm" onClick={() => onUninstallLibrary(lib.id)}>
+              </span>
+              <span className="library-panel__item-actions">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    onUninstallLibrary(lib.id);
+                  }}
+                >
                   Uninstall
                 </Button>
-              </div>
-            </div>
+              </span>
+            </button>
           ))}
         </div>
       )}

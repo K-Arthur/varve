@@ -1,6 +1,6 @@
 import { useRef, useState } from '@storybook/preview-api';
 import type { Meta, StoryObj } from '@storybook/react';
-import { Menu, MenuButton } from './Menu';
+import { Menu, MenuButton, type MenuEntry } from './Menu';
 
 const meta: Meta<typeof Menu> = {
   title: 'Components/Menu',
@@ -11,7 +11,7 @@ const meta: Meta<typeof Menu> = {
 export default meta;
 type Story = StoryObj<typeof Menu>;
 
-const defaultItems = [
+const defaultItems: readonly MenuEntry[] = [
   { id: 'undo', label: 'Undo', onAction: () => {} },
   { id: 'redo', label: 'Redo', onAction: () => {} },
   { id: 'sep1', separator: true },
@@ -20,23 +20,17 @@ const defaultItems = [
   { id: 'paste', label: 'Paste', onAction: () => {}, disabled: true },
 ];
 
-const itemsWithCheckbox = [
-  { id: 'bold', label: 'Bold', type: 'checkbox' as const, checked: false, onToggle: () => {} },
-  { id: 'italic', label: 'Italic', type: 'checkbox' as const, checked: true, onToggle: () => {} },
-  {
-    id: 'underline',
-    label: 'Underline',
-    type: 'checkbox' as const,
-    checked: false,
-    onToggle: () => {},
-  },
+const itemsWithCheckbox: readonly MenuEntry[] = [
+  { id: 'bold', label: 'Bold', type: 'checkbox', checked: false, onToggle: () => {} },
+  { id: 'italic', label: 'Italic', type: 'checkbox', checked: true, onToggle: () => {} },
+  { id: 'underline', label: 'Underline', type: 'checkbox', checked: false, onToggle: () => {} },
 ];
 
-const itemsWithRadio = [
+const itemsWithRadio: readonly MenuEntry[] = [
   {
     id: 'left',
     label: 'Align Left',
-    type: 'radio' as const,
+    type: 'radio',
     checked: true,
     onToggle: () => {},
     group: 'align',
@@ -44,7 +38,7 @@ const itemsWithRadio = [
   {
     id: 'center',
     label: 'Align Center',
-    type: 'radio' as const,
+    type: 'radio',
     checked: false,
     onToggle: () => {},
     group: 'align',
@@ -52,19 +46,19 @@ const itemsWithRadio = [
   {
     id: 'right',
     label: 'Align Right',
-    type: 'radio' as const,
+    type: 'radio',
     checked: false,
     onToggle: () => {},
     group: 'align',
   },
 ];
 
-const itemsWithSubmenu = [
+const itemsWithSubmenu: readonly MenuEntry[] = [
   { id: 'new', label: 'New File', onAction: () => {} },
   {
     id: 'open',
     label: 'Open Recent',
-    type: 'submenu' as const,
+    type: 'submenu',
     submenu: [
       { id: 'r1', label: 'Document 1', onAction: () => {} },
       { id: 'r2', label: 'Document 2', onAction: () => {} },
@@ -76,7 +70,7 @@ const itemsWithSubmenu = [
 export const Default: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
     return (
       <>
         <MenuButton
@@ -101,7 +95,7 @@ export const Default: Story = {
 export const WithCheckboxes: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
     return (
       <>
         <MenuButton
@@ -126,7 +120,7 @@ export const WithCheckboxes: Story = {
 export const WithRadio: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
     return (
       <>
         <MenuButton
@@ -151,7 +145,7 @@ export const WithRadio: Story = {
 export const WithSubmenu: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
     return (
       <>
         <MenuButton
@@ -176,7 +170,7 @@ export const WithSubmenu: Story = {
 export const Dark: Story = {
   render: () => {
     const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
     return (
       <div data-theme="dark" style={{ background: '#10151f', padding: '24px', minHeight: '200px' }}>
         <MenuButton

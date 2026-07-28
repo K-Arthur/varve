@@ -92,6 +92,43 @@ export async function getStoredFont(
 }
 
 /**
+ * List all stored font family names from the font cache.
+ */
+export async function listStoredFonts(): Promise<
+  { familyName: string; data: ArrayBuffer; metadata: FontStorageMetadata }[]
+> {
+  if (typeof indexedDB === 'undefined') return [];
+
+  try {
+    const open = indexedDB.open('strata-font-storage', 1);
+    return await new Promise((resolve, reject) => {
+      open.onsuccess = () => {
+        const db = open.result;
+        if (!db.objectStoreNames.contains('fonts')) {
+          db.close();
+          resolve([]);
+          return;
+        }
+        const tx = db.transaction('fonts', 'readonly');
+        const store = tx.objectStore('fonts');
+        const req = store.getAll();
+        req.onsuccess = () => {
+          db.close();
+          resolve(req.result ?? []);
+        };
+        req.onerror = () => {
+          db.close();
+          reject(req.error);
+        };
+      };
+      open.onerror = () => reject(open.error);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Remove a stored font from the application font cache.
  */
 export async function removeStoredFont(familyName: string): Promise<void> {

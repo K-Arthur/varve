@@ -76,7 +76,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [viewBox, setViewBox] = useState('0 0 24 24');
 
-  const gridRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement | null>(null);
   const { results, isLoading, search, clear } = useIconSearch();
 
   useEffect(() => {
@@ -183,7 +183,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
       const cards = Array.from(
         gridRef.current.querySelectorAll<HTMLDivElement>('.icon-browser__card'),
       );
-      const currentIdx = cards.indexOf(document.activeElement);
+      const currentIdx = cards.indexOf(document.activeElement as HTMLDivElement);
       let nextIdx = currentIdx;
 
       switch (e.key) {
@@ -236,13 +236,13 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
           name: item.licence ?? 'unknown',
           spdxId: 'unknown',
           url: '',
-          commercialUse: false,
+          commercial: false,
           modification: false,
           redistribution: false,
           attributionRequired: false,
           attributionText: '',
         },
-      } as IconProviderResult,
+      } as unknown as IconProviderResult,
       async () => null,
     );
     setDownloadingIds((prev) => {
@@ -256,7 +256,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
   return (
     <div className="icon-browser" style={{ maxHeight }}>
       <div className="icon-browser__search">
-        <Icon name="search" className="icon-browser__search-icon" />
+        <Icon name="Search" className="icon-browser__search-icon" />
         <input
           type="text"
           value={searchQuery}
@@ -272,7 +272,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
             onClick={handleClear}
             aria-label="Clear search"
           >
-            <Icon name="x" />
+            <Icon name="X" />
           </button>
         )}
       </div>
@@ -299,7 +299,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
       <div className="icon-browser__grid" ref={gridRef} onKeyDown={handleKeyDown} role="listbox">
         {filteredItems.length === 0 && (
           <div className="icon-browser__empty">
-            <Icon name="search-x" size={32} />
+            <Icon name="SearchX" size={32} />
             <p>No icons found</p>
           </div>
         )}
@@ -328,9 +328,9 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
             ) : (
               <div className="icon-browser__card-preview icon-browser__card-preview--placeholder">
                 {downloadingIds.has(item.id) ? (
-                  <Icon name="loader" size={20} className="icon-browser__card-spinner" />
+                  <Icon name="Loader" size={20} className="icon-browser__card-spinner" />
                 ) : (
-                  <Icon name="download" size={20} onClick={() => handleDownload(item)} />
+                  <Icon name="Download" size={20} onClick={() => handleDownload(item)} />
                 )}
               </div>
             )}
@@ -367,7 +367,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
                   }
                 >
                   <SolidIcon
-                    name={favourites.has(previewIcon.id) ? 'heart-filled' : 'heart'}
+                    name={favourites.has(previewIcon.id) ? 'HeartFill' : 'Heart'}
                     size={16}
                   />
                 </button>

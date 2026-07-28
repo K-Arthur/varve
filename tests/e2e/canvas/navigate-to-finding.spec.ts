@@ -6,7 +6,7 @@
  * navigation, virtualised layers panel, and focus/keyboard usability.
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor, dragOnCanvas, seedLayers } from '../shared';
+import { dragOnCanvas, navigateToEditor, seedLayers } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
 

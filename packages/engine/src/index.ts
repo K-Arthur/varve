@@ -265,6 +265,20 @@ export {
 } from './filters';
 export * from './font';
 export type {
+  ConfidenceCategory,
+  CropRegion,
+  FontCandidate,
+  FontDetectionMode,
+  FontDetectionRequest,
+  FontDetectionResult,
+  FontDetectionStatus,
+  MatchType,
+  QualityWarning,
+  RenderCompareScores,
+  TypographyFeatures,
+} from './fontDetection';
+export * from './fontDetection';
+export type {
   ExportFontRequest,
   FontEntry,
   FontLoadState,
@@ -388,8 +402,8 @@ export type {
 } from './inference';
 export {
   createDiagnosticsLabel,
-  deriveAcquisition,
   DownloadManager,
+  deriveAcquisition,
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
   getRuntimeCapabilities,
@@ -418,20 +432,6 @@ export {
   FONT_CLASSIFY_NUM_CLASSES,
   FONT_CLASSIFY_TENSOR_SPEC,
 } from './inference/models/fontClassify';
-export * from './fontDetection';
-export type {
-  FontCandidate,
-  FontDetectionMode,
-  FontDetectionRequest,
-  FontDetectionResult,
-  FontDetectionStatus,
-  MatchType,
-  ConfidenceCategory,
-  QualityWarning,
-  TypographyFeatures,
-  RenderCompareScores,
-  CropRegion,
-} from './fontDetection';
 export { decodeLineArtOutput, LINE_ART_INPUT_SIZE } from './inference/models/lineArt';
 export type { TextRegion } from './inference/models/paddleocr';
 export { decodeTextRegions, padToStride } from './inference/models/paddleocr';

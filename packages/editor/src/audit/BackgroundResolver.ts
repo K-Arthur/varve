@@ -144,7 +144,7 @@ export class BackgroundResolver {
     let ambiguityReason: string | undefined;
 
     for (let i = ancestors.length - 1; i >= 0; i--) {
-      const id = ancestors[i];
+      const id = ancestors[i]!;
       const node = doc.nodes[id];
       if (!node) continue;
 
@@ -159,7 +159,7 @@ export class BackgroundResolver {
               ambiguityReason = 'ancestor fill has alpha transparency';
             }
             for (let j = 0; j < 3; j++) {
-              composited[j] = composited[j] * (1 - alpha) + triple[j] * alpha;
+              composited[j] = composited[j]! * (1 - alpha) + triple[j]! * alpha;
             }
           }
         }
@@ -187,7 +187,7 @@ export class BackgroundResolver {
         if (triple) {
           const alpha = fillColor.space === 'rgb' ? fillColor.a / 255 : fillColor.a / 255;
           for (let j = 0; j < 3; j++) {
-            composited[j] = composited[j] * (1 - alpha) + triple[j] * alpha;
+            composited[j] = composited[j]! * (1 - alpha) + triple[j]! * alpha;
           }
         }
       }
@@ -227,7 +227,7 @@ export class BackgroundResolver {
     let hasAlpha = false;
 
     for (let i = ancestors.length - 1; i >= 0; i--) {
-      const id = ancestors[i];
+      const id = ancestors[i]!;
       const node = doc.nodes[id];
       if (!node) continue;
 
@@ -241,7 +241,7 @@ export class BackgroundResolver {
         if (triple) {
           const alpha = fc.space === 'rgb' ? fc.a / 255 : fc.a / 255;
           for (let j = 0; j < 3; j++) {
-            composited[j] = composited[j] * (1 - alpha) + triple[j] * alpha;
+            composited[j] = composited[j]! * (1 - alpha) + triple[j]! * alpha;
           }
         }
         continue;
@@ -256,7 +256,7 @@ export class BackgroundResolver {
             const alpha = ((f.color.space === 'rgb' ? f.color.a : f.color.a) / 255) * f.opacity;
             if (alpha < 1) hasAlpha = true;
             for (let j = 0; j < 3; j++) {
-              composited[j] = composited[j] * (1 - alpha) + triple[j] * alpha;
+              composited[j] = composited[j]! * (1 - alpha) + triple[j]! * alpha;
             }
           }
         } else if (f.type === 'gradient') {
@@ -275,7 +275,7 @@ export class BackgroundResolver {
             const alpha = f.opacity;
             if (alpha < 1) hasAlpha = true;
             for (let j = 0; j < 3; j++) {
-              composited[j] = composited[j] * (1 - alpha) + avg[j] * alpha;
+              composited[j] = composited[j]! * (1 - alpha) + avg[j]! * alpha;
             }
           }
         } else if (f.type === 'image') {

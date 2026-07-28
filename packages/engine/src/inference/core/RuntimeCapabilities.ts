@@ -38,21 +38,6 @@ function detectSharedMemory(): boolean {
   return typeof SharedArrayBuffer !== 'undefined';
 }
 
-function _detectCpuFeature(feature: string): boolean {
-  if (typeof navigator === 'undefined') return false;
-  try {
-    const nav = navigator as unknown as Record<string, unknown>;
-    if (nav.hardwareConcurrency !== undefined) {
-      if (feature === 'logicalProcessors') {
-        return (nav.hardwareConcurrency as number) > 0;
-      }
-    }
-  } catch {
-    return false;
-  }
-  return false;
-}
-
 function approximateMemoryMB(): number {
   if (typeof navigator === 'undefined') return 2048;
   try {

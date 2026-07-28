@@ -129,7 +129,6 @@ export function InteractionSection() {
                 </div>
 
                 <div className="insp-interaction-row__field">
-                  <label>Trigger</label>
                   <Select
                     label="Trigger"
                     value={String(trigger.kind ?? 'onClick')}
@@ -143,7 +142,6 @@ export function InteractionSection() {
                 </div>
 
                 <div className="insp-interaction-row__field">
-                  <label>Action</label>
                   <Select
                     label="Action"
                     value={String(primary.kind ?? 'navigateTo')}
@@ -164,7 +162,6 @@ export function InteractionSection() {
 
                 {(primary.kind === 'navigateTo' || primary.kind === 'openOverlay') && (
                   <div className="insp-interaction-row__field">
-                    <label>Target screen</label>
                     <Select
                       label="Target screen"
                       value={String(primary.targetId ?? '')}
@@ -182,7 +179,6 @@ export function InteractionSection() {
                 {primary.kind === 'navigateTo' && (
                   <>
                     <div className="insp-interaction-row__field">
-                      <label>Transition</label>
                       <Select
                         label="Transition"
                         value={String(transition.kind ?? 'dissolve')}

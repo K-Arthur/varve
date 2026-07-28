@@ -130,19 +130,17 @@ export function AuditContextualSummary({
       {relatedFindings.length > 0 && (
         <div className="audit-contextual-related">
           <h4>Related Findings ({relatedFindings.length})</h4>
-          <ul>
+          <ul className="audit-contextual-related-list">
             {relatedFindings.slice(0, 3).map((related) => (
-              <li
-                key={related.findingId}
-                className="audit-contextual-related-item"
-                onClick={() => onFindingClick?.(related)}
-              >
-                <span
-                  className={`audit-contextual-related-severity audit-contextual-related-severity--${related.severity}`}
-                >
-                  {capitalize(related.severity)}
-                </span>
-                <span className="audit-contextual-related-message">{related.message}</span>
+              <li key={related.findingId} className="audit-contextual-related-item">
+                <button type="button" onClick={() => onFindingClick?.(related)}>
+                  <span
+                    className={`audit-contextual-related-severity audit-contextual-related-severity--${related.severity}`}
+                  >
+                    {capitalize(related.severity)}
+                  </span>
+                  <span className="audit-contextual-related-message">{related.message}</span>
+                </button>
               </li>
             ))}
             {relatedFindings.length > 3 && (

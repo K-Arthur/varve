@@ -418,16 +418,19 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
             aria-label="Quality mode"
           >
             {(['fast', 'balanced', 'quality', 'automatic'] as QualityMode[]).map((qm) => (
-              <button
+              <label
                 key={qm}
-                type="button"
-                role="radio"
-                aria-checked={qualityMode === qm}
                 className={`insp-radio-btn${qualityMode === qm ? ' insp-radio-btn--active' : ''}`}
-                onClick={() => setQualityMode(qm)}
               >
+                <input
+                  type="radio"
+                  name="quality-mode"
+                  checked={qualityMode === qm}
+                  onChange={() => setQualityMode(qm)}
+                  hidden
+                />
                 {qm.charAt(0).toUpperCase() + qm.slice(1)}
-              </button>
+              </label>
             ))}
           </div>
         </fieldset>
