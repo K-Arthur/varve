@@ -188,28 +188,55 @@ INT8 models are NOT automatically selected. The policy engine considers:
 
 ## Known Limitations
 
-1. **9 of 17 manifest models have null SHA-256** — cannot be securely downloaded
-2. **`birefnet-general` (928 MB)** has no checksum and no download URL — effectively unusable
-3. **`native_colorize_infer` Tauri command** was a stub that always returned an error and has been removed. Colorization routes exclusively through the browser-worker (WASM) DDColor path. See `docs/quality/tauri-command-audit.md` for the removal record.
-4. **SAM2 small, TrOCR, font-detection** models are listed but have no download URLs
-5. **`fetch-onnxruntime.mjs`** silently exits with code 0 on any error
-6. **Rust session pool** limits are hardcoded (max 2 sessions, 2 concurrent, 1.5 GB)
-7. **ORT threads** hardcoded to 2 intra + 1 inter in `strata-upscale/src/ai.rs`
-8. **WebKitGTK** does not support WebGPU; WebGL is unreliable
-9. **Large model WASM inference** (BiRefNet at 1024×1024) can cause `std::bad_alloc`
+1. **5 of 20+ manifest models have null SHA-256** — cannot be securely downloaded (mostly legacy/stub entries)
+2. **`fetch-onnxruntime.mjs`** silently exits with code 0 on any error
+3. **Rust session pool** limits are hardcoded (max 2 sessions, 2 concurrent, 1.5 GB)
+4. **ORT threads** hardcoded to 2 intra + 1 inter in `strata-upscale/src/ai.rs`
+5. **WebKitGTK** does not support WebGPU; WebGL is unreliable
+6. **Large model WASM inference** (BiRefNet at 1024×1024) can cause `std::bad_alloc`
+
+## Bundled Models
+
+The following models ship with the app (Git LFS tracked, no runtime download):
+
+| Model | Size | License | SHA-256 |
+|-------|------|---------|---------|
+| `ddcolor-tiny` | 220 MB | Apache-2.0 | `cb8996ef...` |
+| `ddcolor` | 980 MB | Apache-2.0 | `69ba2e3d...` |
+| `upscale-realesr-general` | 5 MB | BSD-3-Clause | `856e1f4d...` |
+| `upscale-realesr-general-int8` | 1.3 MB | BSD-3-Clause | `357ebd67...` |
+| `u2netp` | 4.7 MB | MIT | `309c8469...` |
+| `u2netp-int8` | 1.2 MB | MIT | `7b3355af...` |
+
+DDColor artifacts were generated from official Apache-2.0 weights via the reproducible export recipe in `tools/ddcolor-export/`. See that directory for the full conversion record (pinned versions, verification steps, license).
 
 ## Development
 
 ### Adding a New Model
 
-1. Add entry to `apps/desktop/public/models/manifest.json` with full tensor contract
+1. Add entry to `apps/desktop/public/models/manifest.json` with full tensor contract and `acquisition` strategy
 2. Compute SHA-256 checksum: `node scripts/compute-model-checksum.mjs <file>`
-3. Create task adapter in `packages/engine/src/inference/models/<name>.ts`
-4. Register in `packages/engine/src/backgroundRemoval/modelLoader.ts`'s `EXTENDED_MODEL_META`
-5. Add to `packages/engine/src/inference/modelCatalog.ts`'s `FALLBACK_ENTRIES`
+3. Create model module in `packages/engine/src/inference/models/<name>.ts`
+4. Register in `packages/engine/src/inference/inferenceWorker.ts` via `registerModelType()`
+5. Add to `packages/engine/src/inference/modelCatalog.ts`'s `FALLBACK_ENTRIES` with explicit `acquisition` field
 6. Add to `packages/engine/src/inference/manifest.ts`'s `KNOWN_SIZES`, `modelQuality`, `modelDisplayName`
 7. Create test file `packages/engine/src/inference/models/<name>.test.ts`
-8. Add frontend surface in the appropriate tool section
+8. If bundled: place `.onnx` in `apps/desktop/public/models/` (Git LFS handles binaries)
+9. Add frontend surface in the appropriate tool section
+
+### Acquisition Strategies
+
+Each model declares how it is obtained via the `acquisition` field:
+
+| Kind | Meaning | Example |
+|------|---------|---------|
+| `bundled` | Ships with the app (LFS) | `ddcolor`, `u2netp` |
+| `remote` | Downloadable from URL at runtime | `scunet`, `font-classify` |
+| `generated` | Produced from upstream weights via recipe | (DDColor was this, now bundled) |
+| `manual-import` | User supplies the file | — |
+| `unavailable` | Cannot be acquired (reason in `detail`) | Legacy stubs |
+
+Use `resolveAcquisition(entry)` to get the effective strategy (prefers explicit field, falls back to legacy `remoteUrl`/`checksum` truthiness).
 
 ### Running Tests
 
