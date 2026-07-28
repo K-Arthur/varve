@@ -197,7 +197,7 @@
 
 .adj-panel__add-menu {
   position: absolute;
-  z-index: 100;
+  z-index: var(--z-dropdown);
   background: var(--color-surface-raised);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
@@ -676,7 +676,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: var(--z-overlay);
 }
 
 .insp-overlay__content {

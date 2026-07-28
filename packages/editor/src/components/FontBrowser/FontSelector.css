@@ -73,7 +73,7 @@
   top: 100%;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: var(--z-dropdown);
   max-height: 280px;
   overflow-y: auto;
   background: var(--color-surface-overlay);
