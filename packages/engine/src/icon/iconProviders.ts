@@ -208,8 +208,6 @@ export class IconProviderRegistry {
     // Icon IDs are in format "prefix:iconName"
     const colonIdx = iconId.indexOf(':');
     if (colonIdx < 0) return null;
-    const _prefix = iconId.slice(0, colonIdx);
-
     // Find the provider that handles this prefix
     for (const provider of this.getEnabled()) {
       const svg = await provider.getSvg(iconId, style);

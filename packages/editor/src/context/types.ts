@@ -10,6 +10,7 @@ import type {
   Fill,
   GridItemPlacement,
   Guide,
+  IsometricGrid,
   LayerColor,
   LayoutSizing,
   LayoutStyle,
@@ -20,6 +21,7 @@ import type {
 import { createDefaultDocumentGrid } from '@strata/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
+import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
@@ -163,6 +165,7 @@ export interface EditorState {
   pixelGridSnapEnabled: boolean;
   dotGridEnabled: boolean;
   findingsOverlayVisible: boolean;
+  findingsProviderOverrides: Record<string, boolean | undefined>;
   canUndo: boolean;
   canRedo: boolean;
   undoLabel: string;
@@ -170,6 +173,7 @@ export interface EditorState {
   snapEnabled: boolean;
   snapGrid: number;
   documentGrid: DocumentGridSettings;
+  isometricGrid: IsometricGrid;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSavedAt: number | null;
   prototypeMode: boolean;
@@ -742,6 +746,7 @@ export interface EditorContextValue {
   setDocumentUnit: (unit: DocumentUnit) => void;
   setSoftProofEnabled: (v: boolean) => void;
   setFindingsOverlayVisible: (v: boolean) => void;
+  setFindingsProviderOverride: (providerId: string) => void;
   setPixelGridEnabled: (v: boolean) => void;
   setPixelGridSnapEnabled: (v: boolean) => void;
   resetGridOrigin: () => void;
@@ -749,6 +754,7 @@ export interface EditorContextValue {
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
   setDocumentGrid: (settings: DocumentGridSettings) => void;
+  setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => void;
   isSnapExcluded?: (id: string) => boolean;
 
   // Export
@@ -1039,4 +1045,7 @@ export interface EditorContextValue {
 
   // Touch multi-select (Workstream D)
   setTouchMultiSelect: (active: boolean) => void;
+
+  // Layer navigation (registered by LayersTree when mounted)
+  layerNavigation?: LayerNavigationCommands;
 }

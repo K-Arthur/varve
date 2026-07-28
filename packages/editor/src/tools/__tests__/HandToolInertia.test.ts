@@ -112,6 +112,7 @@ describe('HandTool inertia fix — immutable ctx.pan', () => {
       setTextEditTargetId: vi.fn(),
       snapPosition: vi.fn((b: { x: number; y: number }) => ({ x: b.x, y: b.y, guides: [] })),
       createRasterLayer: vi.fn(() => null),
+      touchMultiSelect: { active: false, suspended: false },
     };
   }
 

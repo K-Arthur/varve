@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 
@@ -261,10 +261,14 @@ describe('BatchBgRemoveDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('traps focus inside the dialog and auto-focuses on open (keyboard-only users cannot tab behind the modal)', () => {
+  it('traps focus inside the dialog and auto-focuses on open (keyboard-only users cannot tab behind the modal)', async () => {
     renderDialog([imageNode('i1')]);
 
     const dialog = screen.getByRole('dialog', { name: /batch background removal/i });
+
+    // FocusTrap uses requestAnimationFrame — wait for initial focus to land.
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+
     const focusable = Array.from(
       dialog.querySelectorAll<HTMLElement>(
         'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -274,8 +278,10 @@ describe('BatchBgRemoveDialog', () => {
     const first = focusable[0]!;
     const last = focusable[focusable.length - 1]!;
 
-    // On mount, focus should already be inside the dialog, not on <body>.
-    expect(dialog.contains(document.activeElement)).toBe(true);
+    // Polyfill offsetParent in jsdom so FocusTrap's getFocusable finds these.
+    for (const el of focusable) {
+      Object.defineProperty(el, 'offsetParent', { value: dialog, configurable: true });
+    }
 
     // Shift+Tab from the first element wraps around to the last.
     first.focus();

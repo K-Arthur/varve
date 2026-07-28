@@ -6,7 +6,12 @@
  * script. In a Vite dev server / Tauri build the Worker/module path does not
  * reliably resolve node_modules, so we publish the artifacts under /ort-wasm/
  * and point ort.env.wasm.wasmPaths there.
+ *
+ * Also ensures Git LFS-tracked model files (*.onnx) are materialized before
+ * the build — without this, CI clones with `--skip-smudge` would ship
+ * pointer files instead of real model weights.
  */
+import { execSync } from 'node:child_process';
 import {
   copyFileSync,
   mkdirSync,
@@ -107,3 +112,25 @@ writeFileSync(
 console.log(
   `Copied and validated ${files.length} onnxruntime-web ${packageVersion} artifacts from ${onnxWebDir} to ${publicDest}`,
 );
+
+// Ensure LFS-tracked model files are materialized (not pointer files).
+const modelsDir = join(repoRoot, 'apps', 'desktop', 'public', 'models');
+try {
+  // Check if any .onnx file is a LFS pointer (starts with "version https://git-lfs")
+  let needsSmudge = false;
+  for (const f of readdirSync(modelsDir)) {
+    if (!f.endsWith('.onnx')) continue;
+    const head = readFileSync(join(modelsDir, f), 'utf8').slice(0, 20);
+    if (head === 'version https://git-lf') {
+      needsSmudge = true;
+      break;
+    }
+  }
+  if (needsSmudge) {
+    console.log('LFS: materializing *.onnx model files...');
+    execSync('git lfs pull --include="*.onnx"', { cwd: repoRoot, stdio: 'inherit' });
+    console.log('LFS: model files materialized.');
+  }
+} catch {
+  // LFS not installed or no pointer files — safe to ignore.
+}

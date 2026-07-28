@@ -82,7 +82,7 @@ export function ConstraintPinControl({
 }: ConstraintPinControlProps) {
   const [focusIndex, setFocusIndex] = useState(0);
   const focusIndexRef = useRef(0);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLFieldSetElement>(null);
 
   const handleZoneClick = useCallback(
     (zone: Zone) => {
@@ -138,10 +138,9 @@ export function ConstraintPinControl({
   const activeV = vertical;
 
   return (
-    <div
+    <fieldset
       ref={containerRef}
       className="constraint-pin-control"
-      role="group"
       aria-label="Visual constraint editor"
       onKeyDown={handleKeyDown}
     >
@@ -246,7 +245,7 @@ export function ConstraintPinControl({
           />
         ))}
       </div>
-    </div>
+    </fieldset>
   );
 }
 

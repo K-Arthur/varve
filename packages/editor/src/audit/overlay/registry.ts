@@ -131,7 +131,7 @@ export class OverlayRegistry {
       }
     }
 
-    const visible = this.cullToViewport(allPrimitives, viewportRect);
+    const visible = this.cullSpatial(allPrimitives, viewportRect);
     const { result, clusters, displayed } = this.applyLODAndCap(
       visible,
       viewportRect,
@@ -178,26 +178,43 @@ export class OverlayRegistry {
     }
   }
 
-  private cullToViewport(
+  private cullSpatial(
     items: { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[],
     viewportRect: Rect,
   ): { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[] {
-    return items.filter(({ bounds }) => {
-      if (bounds.w === 0 && bounds.h === 0) {
-        return (
-          bounds.x >= viewportRect.x &&
+    if (items.length === 0) return [];
+
+    const cellKeys = rectCells(viewportRect);
+    const seen = new Set<string>();
+
+    for (const key of cellKeys) {
+      const cellEntries = this.spatialIndex.get(key);
+      if (!cellEntries) continue;
+      for (const entry of cellEntries) {
+        if (seen.has(entry.primitive.findingId)) continue;
+        const b = entry.worldBounds;
+        const bounds = b;
+        if (bounds.w === 0 && bounds.h === 0) {
+          if (
+            bounds.x >= viewportRect.x &&
+            bounds.x <= viewportRect.x + viewportRect.w &&
+            bounds.y >= viewportRect.y &&
+            bounds.y <= viewportRect.y + viewportRect.h
+          ) {
+            seen.add(entry.primitive.findingId);
+          }
+        } else if (
+          bounds.x + bounds.w >= viewportRect.x &&
           bounds.x <= viewportRect.x + viewportRect.w &&
-          bounds.y >= viewportRect.y &&
+          bounds.y + bounds.h >= viewportRect.y &&
           bounds.y <= viewportRect.y + viewportRect.h
-        );
+        ) {
+          seen.add(entry.primitive.findingId);
+        }
       }
-      return (
-        bounds.x + bounds.w >= viewportRect.x &&
-        bounds.x <= viewportRect.x + viewportRect.w &&
-        bounds.y + bounds.h >= viewportRect.y &&
-        bounds.y <= viewportRect.y + viewportRect.h
-      );
-    });
+    }
+
+    return items.filter(({ primitive }) => seen.has(primitive.findingId));
   }
 
   private applyLODAndCap(

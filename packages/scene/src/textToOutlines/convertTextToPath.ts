@@ -170,8 +170,14 @@ export function convertTextNodeToPath(
         if (!runText.trim()) continue;
 
         const runFontSize = run.format?.fontSize ?? fontSize;
-        const runFill = run.format?.fillColor
-          ? cloneManagedColor(run.format.fillColor as ManagedColor)
+        const runFill = run.format?.color
+          ? {
+              space: 'rgb' as const,
+              r: run.format.color[0]!,
+              g: run.format.color[1]!,
+              b: run.format.color[2]!,
+              a: run.format.color[3]!,
+            }
           : fillColor;
 
         const outlineOptions: TextOutlineOptions = {

@@ -65,7 +65,6 @@ const KNOWN_SIZES: Record<string, number> = {
   'sam2-hiera-tiny': 39_000_000,
   'sam2-hiera-small': 92_000_000,
   'tr-ocr-base-printed': 340_000_000,
-  'font-detect-resnet': 44_000_000,
   'depth-anything-v2-small': 25_000_000,
 };
 
@@ -101,8 +100,7 @@ function entryDescription(id: string, notes?: string): string {
     return 'SAM2 — interactive object segmentation via point, box, or mask prompts. Click foreground/background, drag box, iteratively refine.';
   if (id === 'tr-ocr-base-printed')
     return 'TrOCR — printed Latin text recognition from images. Produces structured text with confidence scores.';
-  if (id === 'font-detect-resnet')
-    return 'Font detection — identifies font families from text region images. Returns ranked candidates with similarity scores.';
+
   if (id === 'depth-anything-v2-small')
     return 'Depth-Anything-V2 Small — monocular depth estimation for lens blur, 3D effects, depth-aware masking. Input: 518x518 RGB. Output: relative depth map.';
   return '';
@@ -215,7 +213,6 @@ function modelDisplayName(id: string): string {
     'sam2-hiera-tiny': 'SAM2 Tiny',
     'sam2-hiera-small': 'SAM2 Small',
     'tr-ocr-base-printed': 'TrOCR (Printed Text)',
-    'font-detect-resnet': 'Font Detection',
     'depth-anything-v2-small': 'Depth-Anything-V2 Small',
   };
   return names[id] ?? id;
@@ -234,7 +231,6 @@ function modelQuality(id: string): number {
     'sam2-hiera-tiny': 3.5,
     'sam2-hiera-small': 4,
     'tr-ocr-base-printed': 4,
-    'font-detect-resnet': 3,
     'depth-anything-v2-small': 4.5,
   };
   return qualities[id] ?? 1;

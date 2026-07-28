@@ -497,10 +497,10 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(true);
     });
 
-    it('PDF rejects text (font outlining not wired)', () => {
+    it('PDF supports text via strata-print', () => {
       const node = makeTextNode('t1');
       const doc = makeDoc({ t1: node });
-      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(true);
     });
   });
 

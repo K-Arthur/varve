@@ -74,6 +74,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
         <span className="batch-job-row__size">{formatSize(job.estimatedSize)}</span>
         <span
           className={`batch-job-row__status batch-job-row__status--${job.status}`}
+          role="status"
           aria-label={`Status: ${job.status}`}
         >
           {statusIcon(job.status)}
@@ -83,7 +84,7 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
   }, [jobs, selectedIds, onToggleJob]);
 
   return (
-    <div className="batch-job-list" role="group" aria-label="Export jobs">
+    <fieldset className="batch-job-list" aria-label="Export jobs">
       <div className="batch-job-list__header">
         <label className="batch-job-list__select-all">
           <input
@@ -101,6 +102,6 @@ export function BatchJobList({ jobs, selectedIds, onToggleJob, onToggleAll }: Ba
       </div>
       <VirtualizedList itemCount={jobs.length}>{rows}</VirtualizedList>
       {jobs.length === 0 && <div className="batch-job-list__empty">No export jobs to display.</div>}
-    </div>
+    </fieldset>
   );
 }

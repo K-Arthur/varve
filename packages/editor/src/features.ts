@@ -7,7 +7,7 @@
  */
 
 import { getPlatformInfo, type PlatformCapability } from '@strata/platform';
-import { DEFAULT_FEATURES, type EditorSettings, loadSettings } from './settings';
+import { DEFAULT_FEATURES, loadSettings } from './settings';
 
 export type FeatureFlag =
   | 'findingsNavigation'

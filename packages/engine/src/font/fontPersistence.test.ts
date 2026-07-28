@@ -102,12 +102,19 @@ describe('attachFontManifestToDocument', () => {
     expect(manifest.fonts).toHaveLength(1); // Inter appears twice but deduped
     expect(manifest.fonts[0]!.familyName).toBe('Inter');
     expect(manifest.fonts[0]!.status).toBe('available');
-    expect((updated as Record<string, unknown>).fontManifest).toBe(manifest);
+    expect((updated as unknown as Record<string, unknown>).fontManifest).toBe(manifest);
   });
 
   it('detects missing fonts and marks them as missing', () => {
     const doc = makeTestDoc();
-    doc.nodes.n1 = { ...doc.nodes.n1, fontFamily: 'MissingFont' } as typeof doc.nodes.n1;
+    doc.nodes.n1 = {
+      id: 'n1',
+      kind: 'text',
+      fontFamily: 'MissingFont',
+      fontWeight: 400,
+      fontStyle: 'normal',
+      text: 'Hello world',
+    };
     const catalog = makeStubCatalog();
     const { manifest } = attachFontManifestToDocument(doc, catalog);
 
@@ -146,8 +153,22 @@ describe('attachFontManifestToDocument', () => {
     });
 
     const doc = makeTestDoc();
-    doc.nodes.n1 = { ...doc.nodes.n1, fontFamily: 'Restricted' } as typeof doc.nodes.n1;
-    doc.nodes.n2 = { ...doc.nodes.n2, fontFamily: 'Inter' } as typeof doc.nodes.n2;
+    doc.nodes.n1 = {
+      id: 'n1',
+      kind: 'text',
+      fontFamily: 'Restricted',
+      fontWeight: 400,
+      fontStyle: 'normal',
+      text: 'Hello world',
+    };
+    doc.nodes.n2 = {
+      id: 'n2',
+      kind: 'text',
+      fontFamily: 'Inter',
+      fontWeight: 700,
+      fontStyle: 'normal',
+      text: 'Bold text',
+    };
 
     const { manifest } = attachFontManifestToDocument(doc, catalog);
     const restricted = manifest.fonts.find((f) => f.familyName === 'Restricted');

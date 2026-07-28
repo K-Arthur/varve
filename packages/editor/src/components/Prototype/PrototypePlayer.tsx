@@ -41,9 +41,16 @@ export function PrototypePlayer({
     .join(' ');
 
   const content = (
-    <div
+    <button
+      type="button"
       className="prototype-player__interaction-area"
       onClick={() => onEvent({ type: 'click', screenId: currentScreenId })}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onEvent({ type: 'click', screenId: currentScreenId });
+        }
+      }}
     >
       {screens.length === 0 ? (
         <div className="prototype-player__empty">
@@ -57,13 +64,17 @@ export function PrototypePlayer({
           </span>
         </div>
       )}
-    </div>
+    </button>
   );
 
   return (
     <div className={rootClass}>
       {showHints && screens.length > 0 && (
-        <div className="prototype-player__hints-overlay" aria-label="Interactive areas">
+        <div
+          className="prototype-player__hints-overlay"
+          role="status"
+          aria-label="Interactive areas"
+        >
           <span>Click anywhere to interact</span>
         </div>
       )}

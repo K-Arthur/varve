@@ -36,13 +36,13 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4.0.0
         with:
           version: 11.9.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
         with:
           node-version: 26
           cache: pnpm
@@ -181,10 +181,10 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@f677139bbe7f9c59b41fc40762e69991d9768d4b
         with:
           python-version: '3.12'
 
@@ -197,7 +197,7 @@ jobs:
 
       - name: Upload graph inspection report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
         with:
           name: graph-inspection-report
           path: graph-inspection-report.json
@@ -208,7 +208,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
 
       - name: Validate corpus manifest
         run: |

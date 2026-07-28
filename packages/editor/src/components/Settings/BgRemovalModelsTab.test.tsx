@@ -19,6 +19,30 @@ const {
 }));
 
 vi.mock('@strata/engine', () => ({
+  deriveAcquisition: (entry: {
+    id?: string;
+    bundled: boolean;
+    remoteUrl: string;
+    checksum: string;
+  }) => {
+    if (entry.bundled)
+      return {
+        kind: 'bundled',
+        assetPath: `/models/${(entry as { id: string }).id}.onnx`,
+        sha256: entry.checksum || '',
+      };
+    if (entry.remoteUrl && entry.checksum)
+      return {
+        kind: 'remote',
+        sources: [{ url: entry.remoteUrl, sha256: entry.checksum }],
+        sha256: entry.checksum,
+      };
+    return {
+      kind: 'unavailable',
+      reasonCode: 'source-unavailable',
+      detail: 'No download source available',
+    };
+  },
   getModelLoaderReady: mockGetModelLoaderReady,
   listAllModels: mockListAllModels,
   workerModelIdForMethod: (m: string) =>

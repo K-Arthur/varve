@@ -104,9 +104,19 @@ Changes:
 
 ## Phase 4 — DDColor Conversion
 
-Reproducible conversion recipe to be stored in `tools/ddcolor-export/`.
+DDColor ONNX artifacts generated and bundled.
 
-Status: **pending**
+Status: **complete**
+
+| Model | Size | Input | Output | SHA-256 |
+|-------|------|-------|--------|---------|
+| ddcolor-tiny | 220 MB | 256x256 | [1,2,256,256] | `cb8996ef...` |
+| ddcolor | 980 MB | 512x512 | [1,2,512,512] | `69ba2e3d...` |
+
+- Source: piddnad/ddcolor_modelscope + ddcolor_paper_tiny (Apache-2.0)
+- Export: official `scripts/export_onnx.py` (opset 12) via `tools/ddcolor-export/` recipe
+- Verified: ONNX checker, shape inference, simplification, ORT smoke test
+- Storage: Git LFS (`*.onnx` tracked)
 
 ---
 
@@ -120,17 +130,14 @@ Status: **pending**
 
 ## Phase 6 — Font Detection Pipeline
 
-New pipeline: UI → worker → storia model → local font matching.
+Complete pipeline built by concurrent agent + this session.
 
-Status: **partial**
+Status: **complete**
 
-Changes:
-- Created `models/fontClassify.ts` with EfficientNet B3 specs (300x300 input, 3473 classes)
-- Registered `font-classify` in the inference worker
-- Replaced stub `fontDetect.ts` exports with new `fontClassify.ts` in engine index
-- Added storia/font-classify-onnx to catalog + manifest with `remote` acquisition
-- Removed retired `font-detect-resnet` from manifest + patch script
-- Still needed: UI entry point, local font matching, full pipeline orchestration
+- `packages/engine/src/fontDetection/` — full pipeline (classifier, local-match, hybrid)
+- `FontDetectSection.tsx` — Inspector UI entry point
+- `storia/font-classify-onnx` — MIT model, 3473 classes, 320x320 input, SHA-256 pinned
+- Tests: `fontDetectionPipeline.test.ts` (9 tests)
 
 ---
 

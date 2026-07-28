@@ -370,6 +370,9 @@ export function ContentAwareFillDialog({
       onClick={(e) => {
         if (e.target === e.currentTarget && !isProcessing) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && !isProcessing) onClose();
+      }}
     >
       <div className="strata-dialog__header">
         <h2 id="caf-dialog-title" className="strata-dialog__title">

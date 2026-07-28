@@ -98,7 +98,7 @@ export function PrototypeFlowView({
   }
 
   return (
-    <div className="prototype-flow" role="region" aria-label="Prototype flow">
+    <section className="prototype-flow" aria-label="Prototype flow">
       <p className="prototype-flow__entry">
         Entry: {screens.find((s) => s.id === entry)?.name ?? 'First frame'}
       </p>
@@ -145,6 +145,6 @@ export function PrototypeFlowView({
           );
         })}
       </ul>
-    </div>
+    </section>
   );
 }

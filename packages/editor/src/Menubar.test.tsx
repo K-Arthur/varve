@@ -8,6 +8,10 @@ import { Menubar } from './components/Menubar';
 vi.mock('./context', () => ({
   useEditor: () => ({
     state: {
+      canUndo: false,
+      canRedo: false,
+      undoLabel: 'Undo',
+      redoLabel: 'Redo',
       document: { name: 'Test Doc', activePageId: null, nodes: {}, rootChildren: [] },
       zoom: 1,
       canvasMode: 'full',
@@ -229,6 +233,7 @@ vi.mock('./shortcuts', () => ({
     present: { binding: { key: 'p', ctrl: true, shift: true }, label: 'Present' },
     delete: { binding: { key: 'Backspace' }, label: 'Delete' },
     openHelp: { binding: { key: 'F1' }, label: 'Contextual Help' },
+    openFontsPanel: { binding: { key: 'f', ctrl: true, alt: true }, label: 'Open Fonts Panel' },
     openHelpCenter: { binding: { key: 'F1', ctrl: true, shift: true }, label: 'Help Center' },
     repeatDuplicate: { binding: { key: 'd', ctrl: true, shift: true }, label: 'Repeat Duplicate' },
     selectionHistoryBack: {

@@ -36,7 +36,7 @@ describe('bundled model integrity', () => {
     expect(lite?.sha256).toBe('5600024376f572a557870a5eb0afb1e5961636bef4e1e22132025467d0f03333');
     expect(full?.remoteUrl).toContain('BiRefNet-general-epoch_244');
     expect(full?.bundled).toBe(false);
-    expect(full?.sha256).toBeNull();
+    expect(full?.sha256).toBe('58f621f00f5d756097615970a88a791584600dcf7c45b18a0a6267535a1ebd3c');
   });
 
   it('bundled Real-ESRGAN x4v3 SHA-256 matches manifest.json', () => {

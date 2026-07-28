@@ -10,15 +10,10 @@
 
 import type { CollabUser } from '@strata/collab';
 import type { MeshWarp } from '@strata/engine';
-import type { Document, Fill, NodeId, SceneNode } from '@strata/scene';
+import type { Document, Fill, IsometricGrid, NodeId, SceneNode } from '@strata/scene';
 import { activePageNodes, walkNodes } from '@strata/scene';
 import type { RulerMode } from '@strata/shared';
-import {
-  computeFloatingOrigin,
-  isWorldRectInViewport,
-  simpleWorldToScreen,
-  worldToScreen,
-} from '@strata/shared';
+import { computeFloatingOrigin, isWorldRectInViewport, worldToScreen } from '@strata/shared';
 import { EmptyState } from '@strata/ui';
 import { CanvasNameLabels } from '../canvas/CanvasNameLabels';
 import { useEditor } from '../context';
@@ -50,11 +45,8 @@ import { VariantBox } from './VariantBox/VariantBox';
 import { ZoomIndicator } from './ZoomIndicator';
 
 export interface CanvasOverlaysProps {
-  // ─── Canvas refs ────────────────────────────────────────────────────────
   contentCanvasRef: React.RefObject<HTMLCanvasElement | null>;
   announcerRef: React.RefObject<HTMLDivElement | null>;
-
-  // ─── Editor state (from useEditor().state) ──────────────────────────────
   zoom: number;
   pan: { x: number; y: number };
   cameraRotation: number;
@@ -68,51 +60,27 @@ export interface CanvasOverlaysProps {
   selectedGuideId: string | null;
   unitType: 'px' | 'pt' | 'mm' | 'cm' | 'in' | '%';
   rulerMode?: RulerMode;
-
-  // ─── Collab ─────────────────────────────────────────────────────────────
   collabUsers: CollabUser[];
   stubRemoteCursors: RemoteCursor[];
-
-  // ─── Snap guides ────────────────────────────────────────────────────────
   snapGuides: SnapGuide[];
-
-  // ─── Node-edit state ────────────────────────────────────────────────────
   nodeEditTargetId: string | null;
   nodeEditSelectedAnchors: ReadonlySet<number>;
-
-  // ─── Text-edit state ────────────────────────────────────────────────────
   textEditTargetId: string | null;
   setTextEditTargetId: (id: string | null) => void;
   setNodeEditTargetId: (id: string | null) => void;
-
-  // ─── Warp mesh ──────────────────────────────────────────────────────────
   warpMesh: MeshWarp | null;
   setWarpMesh: (mesh: MeshWarp | null) => void;
-
-  // ─── Hovered node ───────────────────────────────────────────────────────
   hoveredNode: SceneNode | null;
-
-  // ─── Canvas size ────────────────────────────────────────────────────────
   canvasSize: { width: number; height: number };
-
-  // ─── Crop tool ──────────────────────────────────────────────────────────
   cropTool: CropTool | null;
   buildToolCtx: (ev: PointerEvent) => import('../tools').ToolContext;
-
-  // ─── Rename dialog ──────────────────────────────────────────────────────
   renameDialog: { defaultValue: string } | null;
   setRenameDialog: (v: { defaultValue: string } | null) => void;
   renameDialogRef: React.RefObject<HTMLDialogElement | null>;
   renameInputRef: React.RefObject<HTMLInputElement | null>;
-
-  // ─── Artboard ───────────────────────────────────────────────────────────
   artboardRect: { x: number; y: number; w: number; h: number } | null;
 }
 
-/**
- * All overlay rendering extracted from CanvasArea's JSX return.
- * Keeps the same rendering order and conditional logic.
- */
 export function CanvasOverlays({
   contentCanvasRef,
   announcerRef,
@@ -152,33 +120,31 @@ export function CanvasOverlays({
   const editor = useEditor();
   const showOverlays = canvasMode !== 'preview';
 
-  // ─── Baseline / isometric overlay settings ────────────────────────────
-  // Drive the overlay from the document's BaselineGrid settings when present
-  // so step and offset are configurable; fall back to the classic defaults.
   const baselineGrid = doc.gridSettings?.baselineGrids
     ? Object.values(doc.gridSettings.baselineGrids)[0]
     : undefined;
 
-  // ─── DocumentGridOverlay ──────────────────────────────────────────────
   const showGridOverlay = gridOverlayMode !== 'none';
+  const isometricGrid: IsometricGrid | null = (() => {
+    if (gridOverlayMode !== 'isometric') return null;
+    const grids = doc.gridSettings?.isometricGrids;
+    if (!grids) return null;
+    const entries = Object.values(grids);
+    return entries[0] ?? null;
+  })();
 
-  // ─── ColorBlindnessOverlay ────────────────────────────────────────────
   const showColorBlindness = colorBlindnessView !== 'none';
 
-  // ─── NodeEditOverlay ──────────────────────────────────────────────────
   const nodeEditNode = tool === 'nodeEdit' && nodeEditTargetId ? doc.nodes[nodeEditTargetId] : null;
   const nodeEditWorldMat =
     nodeEditNode?.kind === 'shape' && nodeEditNode.shape.kind === 'path' && nodeEditTargetId
       ? editor.getWorldTransform(nodeEditTargetId)
       : null;
 
-  // ─── GradientHandleOverlay ────────────────────────────────────────────
   const showGradientHandles = selection.length >= 1;
 
-  // ─── MeshWarpOverlay ──────────────────────────────────────────────────
   const showMeshWarp = warpMesh !== null && selection.length >= 1;
 
-  // ─── VariantBox ───────────────────────────────────────────────────────
   const renderVariantBox = (() => {
     if (selection.length !== 1) return null;
     const singleId = selection[0] as NodeId;
@@ -207,7 +173,6 @@ export function CanvasOverlays({
     );
   })();
 
-  // ─── CropOverlay ──────────────────────────────────────────────────────
   const renderCropOverlay = (() => {
     if (tool !== 'crop' || !cropTool) return null;
     const cropNodeId = cropTool.getNodeId();
@@ -215,7 +180,6 @@ export function CanvasOverlays({
     const worldB = editor.getWorldBounds(cropNodeId);
     if (!worldB) return null;
     const { x: screenX, y: screenY } = editor.worldToCanvas(worldB.x, worldB.y);
-    // Find image src for preview overlay
     const cropNode = doc.nodes[cropNodeId];
     const cropImageFill =
       cropNode && 'fills' in cropNode
@@ -224,7 +188,6 @@ export function CanvasOverlays({
     const imageSrc = cropImageFill?.src;
     const imageWidth = cropImageFill?.imageWidth;
     const imageHeight = cropImageFill?.imageHeight;
-    // Extract shape info for non-rectangular clipping in the preview canvas
     const shapeKind =
       cropNode && 'shape' in cropNode
         ? ((cropNode.shape as { kind?: string }).kind ?? 'rect')
@@ -251,7 +214,6 @@ export function CanvasOverlays({
     );
   })();
 
-  // ─── TextEditOverlay + FloatingTextBar ────────────────────────────────
   const renderTextEdit = (() => {
     if (!textEditTargetId) return null;
     const n = doc.nodes[textEditTargetId];
@@ -318,7 +280,6 @@ export function CanvasOverlays({
     );
   })();
 
-  // ─── Empty canvas state ────────────────────────────────────────────────
   const isEmpty =
     tool !== 'inspect' &&
     Object.keys(doc.nodes).filter((id) => {
@@ -326,10 +287,8 @@ export function CanvasOverlays({
       return n && n.kind !== 'group';
     }).length === 0;
 
-  // ─── Render ─────────────────────────────────────────────────────────────
   return (
     <>
-      {/* Motion Mode overlays (onion skin + motion path) */}
       {canvasSize.width > 0 && (
         <>
           <OnionSkinOverlay canvasSize={canvasSize} zoom={zoom} pan={pan} />
@@ -341,7 +300,6 @@ export function CanvasOverlays({
           />
         </>
       )}
-      {/* Grid overlays */}
       {showGridOverlay && (
         <DocumentGridOverlay
           mode={gridOverlayMode}
@@ -352,6 +310,7 @@ export function CanvasOverlays({
           height={canvasSize.height}
           baselineStep={baselineGrid?.baselineStep}
           offset={baselineGrid?.offset}
+          isometricGrid={isometricGrid}
         />
       )}
       {showColorBlindness && (
@@ -455,9 +414,6 @@ export function CanvasOverlays({
           />
         )}
       <SelectionOverlay canvasRef={contentCanvasRef} />
-      {showOverlays && hoveredNode && !selection.includes(hoveredNode.id) && (
-        <HoverOutline node={hoveredNode} zoom={zoom} pan={pan} />
-      )}
       <CanvasNameLabels
         doc={doc}
         zoom={zoom}
@@ -536,7 +492,6 @@ export function CanvasOverlays({
         nodeWorldBounds={nodeWorldBounds}
         isWorldRectInViewport={isWorldRectInViewport}
       />
-      {/* Accessible rename dialog — replaces blocking prompt() call */}
       <dialog
         ref={renameDialogRef}
         className="strata-dialog strata-dialog--sm"
@@ -582,59 +537,5 @@ export function CanvasOverlays({
         </form>
       </dialog>
     </>
-  );
-}
-
-/**
- * HoverOutline — renders a thin outline around the hovered node to preview
- * what a click will select. Uses the same world-to-screen transform as the
- * selection overlay for pixel-perfect alignment.
- */
-function HoverOutline({
-  node,
-  zoom,
-  pan,
-}: {
-  node: SceneNode;
-  zoom: number;
-  pan: { x: number; y: number };
-}) {
-  const editor = useEditor();
-  const bounds = editor.getWorldBounds(node.id);
-  if (!bounds) return null;
-  const [sx, sy] = simpleWorldToScreen(bounds.x, bounds.y, zoom, pan);
-  const w = bounds.w * zoom;
-  const h = bounds.h * zoom;
-  const rotationDeg = (node.rotation * 180) / Math.PI;
-  const centerX = sx + w / 2;
-  const centerY = sy + h / 2;
-
-  return (
-    <svg
-      role="presentation"
-      aria-hidden="true"
-      style={{
-        position: 'absolute',
-        inset: 0,
-        pointerEvents: 'none',
-        overflow: 'visible',
-        width: '100%',
-        height: '100%',
-        touchAction: 'none',
-      }}
-    >
-      <rect
-        x={sx}
-        y={sy}
-        width={w}
-        height={h}
-        transform={rotationDeg ? `rotate(${rotationDeg}, ${centerX}, ${centerY})` : undefined}
-        fill="none"
-        stroke="var(--color-interactive-default)"
-        strokeWidth={1}
-        strokeDasharray="3 2"
-        opacity={0.6}
-      />
-    </svg>
   );
 }

@@ -79,6 +79,7 @@ function createMockContext(overrides: Partial<ToolContext> = {}): ToolContext {
     setTextEditTargetId: vi.fn(),
     snapPosition: vi.fn(() => ({ x: 0, y: 0, guides: [] })),
     createRasterLayer: vi.fn(() => 'raster-1'),
+    touchMultiSelect: { active: false, suspended: false },
   };
   return { ...base, ...overrides };
 }

@@ -255,7 +255,7 @@ export class LassoTool extends BaseTool {
     switch (op) {
       case 'replace': {
         ctx.setSelection(ids[0] ?? null);
-        ids.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+        for (const id of ids.slice(1)) ctx.toggleSelection(id, true);
         break;
       }
       case 'add': {
@@ -275,7 +275,7 @@ export class LassoTool extends BaseTool {
         const keep = ids.filter((id) => currentSet.has(id));
         if (keep.length > 0) {
           ctx.setSelection(keep[0] ?? null);
-          keep.slice(1).forEach((id) => ctx.toggleSelection(id, true));
+          for (const id of keep.slice(1)) ctx.toggleSelection(id, true);
         } else {
           ctx.setSelection(null);
         }

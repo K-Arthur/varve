@@ -30,7 +30,7 @@ function runKey(run: TextRun, i: number): string {
 
 export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorProps) {
   const editor = useEditor();
-  const editorRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<HTMLButtonElement>(null);
 
   const flatRuns = useMemo(() => {
     const out: { paraIndex: number; runIndex: number; run: TextRun }[] = [];
@@ -78,12 +78,10 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
 
   return (
     <div className="rich-span-editor">
-      <div
+      <button
         ref={editorRef}
-        role="textbox"
-        aria-multiline="true"
+        type="button"
         aria-label="Rich text content"
-        tabIndex={0}
         className="rich-span-editor__box"
         onSelect={reportSelection}
         onBlur={onBlur}
@@ -112,7 +110,7 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
             </span>
           );
         })}
-      </div>
+      </button>
       <div className="rich-span-editor__toolbar" role="toolbar" aria-label="Text formatting">
         <button
           type="button"

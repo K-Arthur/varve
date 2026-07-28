@@ -16,6 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "bench:canvas": "vitest run packages/engine/src/bench/replay.bench.ts",
+    "bench": "vitest bench --run --pool=forks",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit",
     "lint": "biome check .",

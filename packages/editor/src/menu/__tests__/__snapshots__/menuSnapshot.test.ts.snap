@@ -1460,15 +1460,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -1749,6 +1749,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -2228,6 +2235,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -2327,15 +2345,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -2616,6 +2634,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -3095,6 +3120,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -3194,15 +3230,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -3577,6 +3613,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -4287,6 +4330,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -4386,15 +4440,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -4769,6 +4823,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -5479,6 +5540,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -5578,15 +5650,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -5961,6 +6033,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -6583,6 +6662,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -6682,15 +6772,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -7065,6 +7155,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -7687,6 +7784,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -7786,15 +7894,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -8158,6 +8266,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -8784,6 +8899,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -8883,15 +9009,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -9255,6 +9381,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -9883,6 +10016,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
         "label": "menu.help.about",
         "onAction": [Function],
       },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
+        "onAction": [Function],
+      },
     ],
   },
 ]
@@ -9980,15 +10124,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -10352,6 +10496,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -10856,6 +11007,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -10955,15 +11117,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -11327,6 +11489,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -11833,6 +12002,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
         "label": "menu.help.about",
         "onAction": [Function],
       },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
+        "onAction": [Function],
+      },
     ],
   },
 ]
@@ -11930,15 +12110,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -12313,6 +12493,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -13004,6 +13191,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "label": "menu.help.about",
         "onAction": [Function],
       },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
+        "onAction": [Function],
+      },
     ],
   },
 ]
@@ -13101,15 +13299,15 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveBackup",
-        "label": "menu.file.archiveBackup",
+        "id": "downloadSnapshot",
+        "label": "menu.file.downloadSnapshot",
         "onAction": [Function],
       },
       {
         "badge": undefined,
         "disabled": false,
-        "id": "archiveRestore",
-        "label": "menu.file.archiveRestore",
+        "id": "restoreFromSnapshot",
+        "label": "menu.file.restoreFromSnapshot",
         "onAction": [Function],
       },
       {
@@ -13484,6 +13682,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -14173,6 +14378,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "disabled": false,
         "id": "about",
         "label": "menu.help.about",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-about",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "installDesktopApp",
+        "label": "menu.help.installDesktopApp",
         "onAction": [Function],
       },
     ],
@@ -14561,6 +14777,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -15439,6 +15662,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -16411,6 +16641,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -17618,6 +17855,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "gridOverlayBaseline",
         "label": "menu.view.gridOverlayBaseline",
         "onAction": [Function],
@@ -18821,6 +19065,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "gridOverlayBaseline",
         "label": "menu.view.gridOverlayBaseline",
         "onAction": [Function],
@@ -19936,6 +20187,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "gridOverlayBaseline",
         "label": "menu.view.gridOverlayBaseline",
         "onAction": [Function],
@@ -21036,6 +21294,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -22148,6 +22413,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "gridOverlayBaseline",
         "label": "menu.view.gridOverlayBaseline",
         "onAction": [Function],
@@ -23256,6 +23528,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
       {
         "badge": undefined,
         "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "gridOverlayBaseline",
         "label": "menu.view.gridOverlayBaseline",
         "onAction": [Function],
@@ -24238,6 +24517,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -25235,6 +25521,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,
@@ -26417,6 +26710,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       {
         "id": "sep-after-rulers",
         "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "toggleGrid",
+        "label": "menu.view.toggleGrid",
+        "onAction": [Function],
       },
       {
         "badge": undefined,

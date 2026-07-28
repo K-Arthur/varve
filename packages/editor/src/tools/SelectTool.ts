@@ -32,6 +32,8 @@ import { executeNudge, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
 import { BaseTool } from './BaseTool';
+
+import { interactionSession } from './InteractionContext';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
 /** Long-press duration threshold for touch/stylus deep-selection menu (ms). */
@@ -84,7 +86,22 @@ export class SelectTool extends BaseTool {
     return parent === activePage?.contentRoot;
   }
 
+  private visibilityHandler: (() => void) | null = null;
+
+  override onActivate(_ctx: ToolContext): void {
+    this.visibilityHandler = () => {
+      if (document.hidden && this.nudgeGestureActive) {
+        this.nudgeGestureActive = false;
+      }
+    };
+    document.addEventListener('visibilitychange', this.visibilityHandler);
+  }
+
   override onDeactivate(ctx: ToolContext): void {
+    if (this.visibilityHandler) {
+      document.removeEventListener('visibilitychange', this.visibilityHandler);
+      this.visibilityHandler = null;
+    }
     // Commit any active nudge transaction when switching tools
     if (this.nudgeGestureActive) {
       ctx.commitTransaction();
@@ -92,6 +109,7 @@ export class SelectTool extends BaseTool {
     }
     // Cancel any active drag when switching tools
     if (this.drag.kind === 'dragging') {
+      interactionSession.reset();
       if (this.isMoveGesture) {
         ctx.abortTransaction();
       }
@@ -114,6 +132,12 @@ export class SelectTool extends BaseTool {
     ctx.setPointerCapture(e.pointerId);
     const canvas = { x: e.clientX, y: e.clientY };
     const world = ctx.canvasToWorld(canvas.x, canvas.y);
+    interactionSession.begin(
+      (e.pointerType as 'mouse' | 'pen' | 'touch') || 'mouse',
+      e.altKey ? 'duplicate-drag' : 'move',
+      ctx.snapEnabled,
+    );
+    interactionSession.updateModifiers(e.shiftKey, e.altKey, e.ctrlKey, e.metaKey);
     this.drag = {
       kind: 'dragging',
       pointerId: e.pointerId,
@@ -260,15 +284,19 @@ export class SelectTool extends BaseTool {
       }
     }
 
+    // Live modifier state for snap bypass
+    interactionSession.updateModifiers(ctx.shiftKey, ctx.altKey, ctx.ctrlKey, ctx.metaKey);
+    const interaction = interactionSession.freeze();
+
     if (this.marqueeActive) {
       const rect = this.computeDragRect(ctx);
       ctx.setDraft({ kind: 'rect', x: rect.x, y: rect.y, w: rect.w, h: rect.h });
     } else {
-      // Alt-duplicate: clone selected nodes once per gesture
-      if (ctx.altKey && !this.hasDuplicated) {
+      if (interaction.altKey && !this.hasDuplicated) {
         this.duplicateSourceIds = [...ctx.selection];
         ctx.duplicateSelected();
         this.hasDuplicated = true;
+        interactionSession.setDuplicate(true);
         this.awaitingDuplicateHandoff = true;
         // duplicateSelected() re-selects the clones via setState, so their ids
         // are not observable until a later event. Moving the still-selected
@@ -354,12 +382,17 @@ export class SelectTool extends BaseTool {
 
         const thisBounds = ctx.nodeWorldBounds(node);
         if (thisBounds) {
-          const snapped = ctx.snapPosition(
-            { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
-            [],
-          );
-          const local = toLocal(snapped.x, snapped.y);
-          ctx.setNodePosition(id, local.x, local.y);
+          if (interaction.bypassSnap) {
+            const local = toLocal(newWorldX, newWorldY);
+            ctx.setNodePosition(id, local.x, local.y);
+          } else {
+            const snapped = ctx.snapPosition(
+              { x: newWorldX, y: newWorldY, w: thisBounds.w, h: thisBounds.h },
+              [],
+            );
+            const local = toLocal(snapped.x, snapped.y);
+            ctx.setNodePosition(id, local.x, local.y);
+          }
           continue;
         }
         const local = toLocal(newWorldX, newWorldY);
@@ -441,7 +474,8 @@ export class SelectTool extends BaseTool {
       }
       // After move, re-parent if inside a frame.
       // Hold Ctrl to bypass auto-reparent (Space is used for Hand tool spring).
-      if (!ctx.ctrlKey) {
+      const endInteraction = interactionSession.freeze();
+      if (!endInteraction.bypassSnap) {
         const sel = ctx.selection;
         if (sel.length >= 1) {
           ctx.beginTransaction();
@@ -502,6 +536,7 @@ export class SelectTool extends BaseTool {
     this.isMoveGesture = false;
     this.initialPositions.clear();
     this.hasDuplicated = false;
+    interactionSession.reset();
   }
 
   override onDragCancel(ctx: ToolContext): void {
@@ -560,6 +595,7 @@ export class SelectTool extends BaseTool {
           parentId: string | null;
           index: number;
         }> = [];
+        const insertIndexByParent = new Map<string | null, number>();
         for (const selId of sel) {
           if (!selId) continue;
           const node = ctx.getNode(selId);
@@ -584,20 +620,26 @@ export class SelectTool extends BaseTool {
                 if (nodeArea > frameArea * 1.1) continue;
               }
             }
+            const baseIndex = childrenCount(ctx.document, frameId);
+            const localIndex = insertIndexByParent.get(frameId) ?? 0;
             reparentOps.push({
               id: selId,
               parentId: frameId,
-              index: childrenCount(ctx.document, frameId),
+              index: baseIndex + localIndex,
             });
+            insertIndexByParent.set(frameId, localIndex + 1);
           } else if (!frameId && !this.isAtTopLevel(selId, ctx)) {
             // Same top-level equivalence as onDragEnd: a node already directly
             // under the page contentRoot must not be reparented to "null"
             // (which resolves back to that same contentRoot).
+            const baseIndex = ctx.rootNodes().length;
+            const localIndex = insertIndexByParent.get(null) ?? 0;
             reparentOps.push({
               id: selId,
               parentId: null,
-              index: ctx.rootNodes().length,
+              index: baseIndex + localIndex,
             });
+            insertIndexByParent.set(null, localIndex + 1);
           }
         }
         if (reparentOps.length > 0) {
@@ -626,6 +668,12 @@ export class SelectTool extends BaseTool {
     }
 
     if (e.key === 'Escape') {
+      // If mid-nudge, commit the transaction (do not discard user intent)
+      if (this.nudgeGestureActive) {
+        ctx.commitTransaction();
+        this.nudgeGestureActive = false;
+        return true;
+      }
       // If mid-drag, abort transaction to revert
       if (this.drag.kind === 'dragging' && this.isMoveGesture) {
         ctx.abortTransaction();

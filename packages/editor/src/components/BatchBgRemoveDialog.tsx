@@ -376,6 +376,9 @@ export function BatchBgRemoveDialog({
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') handleClose();
+      }}
     >
       <FocusTrap active={open}>
         <div className="batch-bg-remove">

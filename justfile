@@ -110,6 +110,9 @@ gate: format-check lint test gates
 install-git-hooks:
     node scripts/install-git-hooks.mjs
 
+install-ci-tooling:
+    bash scripts/install-ci-tooling.sh
+
 act-list:
     bash scripts/ci-local-run.sh list
 
@@ -121,6 +124,19 @@ act-dry WORKFLOW=".github/workflows/build.yml":
 
 ci-debug RUN_ID="":
     node scripts/ci-debug.mjs --run-id "{{RUN_ID}}"
+
+# GitHub Actions supply chain security
+pin-actions:
+    node scripts/pin-github-actions.mjs --check
+
+pin-actions-fix:
+    node scripts/pin-github-actions.mjs --pin
+
+validate-workflows:
+    node scripts/validate-workflows.mjs
+
+validate-workflows-staged:
+    node scripts/validate-workflows.mjs --staged
 
 # --- Packaging ---
 

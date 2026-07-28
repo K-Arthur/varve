@@ -97,6 +97,7 @@ function makeCtx(overrides: Partial<ToolContext> = {}): ToolContext {
     setTextEditTargetId: vi.fn(),
     duplicateSelected: vi.fn(),
     createRasterLayer: vi.fn(() => null),
+    touchMultiSelect: { active: false, suspended: false },
     snapPosition: vi.fn((b: { x: number; y: number; w: number; h: number }) => ({
       x: b.x,
       y: b.y,
