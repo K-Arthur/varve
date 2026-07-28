@@ -21,6 +21,7 @@ import type {
 import { createDefaultDocumentGrid } from '@strata/scene';
 import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
+import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
 import type { MotionState } from '../state/motion-state';
 import type { DraftShape, MaskPreviewMode, ToolId } from '../tools/types';
@@ -1031,4 +1032,7 @@ export interface EditorContextValue {
 
   // Touch multi-select (Workstream D)
   setTouchMultiSelect: (active: boolean) => void;
+
+  // Layer navigation (registered by LayersTree when mounted)
+  layerNavigation?: LayerNavigationCommands;
 }

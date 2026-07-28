@@ -1,9 +1,5 @@
 import type { ColorMode, IsometricAxis, ManagedColor } from '@strata/scene';
-import {
-  ISOMETRIC_PRESETS,
-  normaliseAngle,
-  validateIsometricAxes,
-} from '@strata/scene';
+import { ISOMETRIC_PRESETS, normaliseAngle, validateIsometricAxes } from '@strata/scene';
 import { cssStringToManagedColor, managedColorToCss } from '@strata/shared';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
@@ -380,7 +376,13 @@ function IsometricGridSection() {
     return grid.axes.map((a) => {
       if (a.color) {
         const parsed = cssStringToManagedColor(a.color);
-        return (parsed ?? { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 }) as ManagedColor;
+        return (parsed ?? {
+          space: 'rgb' as const,
+          r: 128,
+          g: 128,
+          b: 128,
+          a: 255,
+        }) as ManagedColor;
       }
       return { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 } as ManagedColor;
     });
@@ -436,9 +438,7 @@ function IsometricGridSection() {
                   {p.label}
                 </option>
               ))}
-              {presetId === 'custom' && (
-                <option value="custom">Custom</option>
-              )}
+              {presetId === 'custom' && <option value="custom">Custom</option>}
             </select>
           </div>
         </div>
@@ -449,12 +449,17 @@ function IsometricGridSection() {
               <div
                 key={index}
                 className="insp-field"
-                style={{ borderBottom: '1px solid var(--color-border-subtle)', paddingBottom: 6, marginBottom: 4 }}
+                style={{
+                  borderBottom: '1px solid var(--color-border-subtle)',
+                  paddingBottom: 6,
+                  marginBottom: 4,
+                }}
               >
-                <span className="insp-field__label">
-                  {axis.label ?? `Axis ${index + 1}`}
-                </span>
-                <div className="insp-field__control" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span className="insp-field__label">{axis.label ?? `Axis ${index + 1}`}</span>
+                <div
+                  className="insp-field__control"
+                  style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ fontSize: 11, opacity: 0.7 }}>Angle</span>
                     <input
@@ -486,8 +491,17 @@ function IsometricGridSection() {
                     </label>
                     <InspectorColorPopover
                       label={`Axis ${index + 1} color`}
-                      value={axisColorManaged[index] ?? { space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 } as ManagedColor}
-                      onChange={(color) => updateAxis(index, { color: managedColorToCss(color as Parameters<typeof managedColorToCss>[0]) })}
+                      value={
+                        axisColorManaged[index] ??
+                        ({ space: 'rgb' as const, r: 128, g: 128, b: 128, a: 255 } as ManagedColor)
+                      }
+                      onChange={(color) =>
+                        updateAxis(index, {
+                          color: managedColorToCss(
+                            color as Parameters<typeof managedColorToCss>[0],
+                          ),
+                        })
+                      }
                       swatchStyle={{ background: axis.color ?? 'rgb(128,128,128)' }}
                       documentColorMode={documentColorMode}
                     />

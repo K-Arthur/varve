@@ -26,7 +26,7 @@ export type {
   IsometricAxis,
   IsometricGrid,
   IsometricPreset,
-  IsometricValidation,
+  IsometricPresetDef,
   LayoutGrid,
   PixelGrid,
 } from './gridTypes';
