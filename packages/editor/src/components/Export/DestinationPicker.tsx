@@ -63,7 +63,7 @@ export function DestinationPicker({
   }, [jobs, template, folderRule]);
 
   return (
-    <div className="destination-picker" role="group" aria-label="Destination settings">
+    <fieldset className="destination-picker" aria-label="Destination settings">
       <div className="destination-picker__row">
         <span className="destination-picker__label">Destination</span>
         <button
@@ -122,6 +122,6 @@ export function DestinationPicker({
           )}
         </div>
       )}
-    </div>
+    </fieldset>
   );
 }

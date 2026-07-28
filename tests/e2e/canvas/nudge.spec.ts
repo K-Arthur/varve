@@ -7,8 +7,8 @@
  * into a frame.
  */
 import { expect, test } from '@playwright/test';
-import { navigateToEditor, dragOnCanvas } from '../shared';
 import { mod } from '../helpers/menu-helpers';
+import { dragOnCanvas, navigateToEditor } from '../shared';
 
 const VIEWPORT = { width: 1280, height: 800 };
 

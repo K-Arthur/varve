@@ -118,9 +118,9 @@ export class TransformEngine {
     for (const id of this.selectedIds) {
       const node = this.doc.nodes[id];
       if (!node) continue;
-      let kind = node.kind;
+      let kind: string = node.kind;
       if (kind === 'shape' && this.isRasterNode(node)) kind = 'image';
-      const policy = OBJECT_RESIZE_POLICIES[kind] ?? OBJECT_RESIZE_POLICIES.shape;
+      const policy = OBJECT_RESIZE_POLICIES[kind] ?? OBJECT_RESIZE_POLICIES.shape!;
       if (policy.defaultProportional) defaultProportional = true;
     }
     return {
@@ -344,7 +344,7 @@ export class TransformEngine {
     if (node.kind === 'frame') {
       const decomposed = this.extractTRS(localTransform);
       if (decomposed) {
-        const { translateX, translateY, rotation, scaleX, scaleY, skewX, skewY } = decomposed;
+        const { translateX, translateY, scaleX, scaleY, skewX, skewY } = decomposed;
         // When skew is present, preserve the full affine transform instead of baking.
         if (Math.abs(skewX) > 1e-9 || Math.abs(skewY) > 1e-9) {
           updates[node.id] = { ...node, transform: localTransform } as SceneNode;

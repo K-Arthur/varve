@@ -116,7 +116,7 @@ export function AuditUtilityPanel({
         <div className="audit-panel-content">
           {/* Severity filter */}
           <div className="audit-panel-filter">
-            <label className="audit-panel-filter-label">Severity:</label>
+            <span className="audit-panel-filter-label">Severity:</span>
             <div className="audit-panel-filter-options">
               <button
                 type="button"
@@ -158,18 +158,19 @@ export function AuditUtilityPanel({
               </div>
             ) : (
               filteredFindings.map((finding) => (
-                <div
+                <button
+                  type="button"
                   key={finding.findingId}
                   className={`audit-finding audit-finding--${finding.severity}`}
                   onClick={() => onFindingClick(finding)}
                 >
-                  <div className="audit-finding-header">
+                  <span className="audit-finding-header">
                     <Icon name="X" size="1em" />
                     <span className="audit-finding-message">{finding.message}</span>
-                  </div>
+                  </span>
 
                   {finding.fixes.length > 0 && (
-                    <div className="audit-finding-actions">
+                    <span className="audit-finding-actions">
                       {finding.fixes.map((fix) => (
                         <button
                           type="button"
@@ -183,7 +184,7 @@ export function AuditUtilityPanel({
                           {fix.label}
                         </button>
                       ))}
-                    </div>
+                    </span>
                   )}
 
                   {finding.suppressionEligible && (
@@ -198,7 +199,7 @@ export function AuditUtilityPanel({
                       Dismiss
                     </button>
                   )}
-                </div>
+                </button>
               ))
             )}
           </div>

@@ -21,10 +21,13 @@ export function NewFeatureBadge({
 }: NewFeatureBadgeProps) {
   const [dismissed, setDismissed] = useState(false);
 
-  const handleInteraction = useCallback(() => {
-    setDismissed(true);
-    onSee?.(featureId);
-  }, [featureId, onSee]);
+  const handleInteraction = useCallback(
+    (_e?: unknown) => {
+      setDismissed(true);
+      onSee?.(featureId);
+    },
+    [featureId, onSee],
+  );
 
   const featureVersion = FEATURE_VERSIONS[featureId];
 
@@ -35,16 +38,27 @@ export function NewFeatureBadge({
     (!lastSeenVersion || compareVersions(lastSeenVersion, CURRENT_APP_VERSION) < 0);
 
   return (
-    <span
+    <button
+      type="button"
       className={`new-feature-badge ${className}`}
       onClick={showBadge ? handleInteraction : undefined}
       onFocus={showBadge ? handleInteraction : undefined}
-      role="presentation"
+      onKeyDown={
+        showBadge
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleInteraction(e);
+              }
+            }
+          : undefined
+      }
+      tabIndex={showBadge ? 0 : undefined}
     >
       {children}
       {showBadge && (
-        <span className="new-feature-badge__dot" aria-label={`New: ${featureId}`} role="status" />
+        <span className="new-feature-badge__dot" role="status" aria-label={`New: ${featureId}`} />
       )}
-    </span>
+    </button>
   );
 }

@@ -225,7 +225,10 @@ export const TimelinePanel: FC<TimelinePanelProps> = ({
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="1.5"
+                  role="img"
+                  aria-label="Graph editor"
                 >
+                  <title>Graph editor</title>
                   <path d="M1 13 C4 4, 10 10, 13 1" />
                 </svg>
               </button>

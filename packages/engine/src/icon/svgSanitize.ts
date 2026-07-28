@@ -24,14 +24,6 @@ const MAX_NESTING_DEPTH = 32;
 const MAX_PATH_COMMANDS = 10_000;
 const MAX_TOTAL_ELEMENTS = 5_000;
 const MAX_ATTRIBUTE_LENGTH = 4_096;
-const MAX_COORDINATE_VALUE = 1_000_000;
-const _MAX_VIEWBOX_DIMENSION = 10_000;
-
-/** Clamp a coordinate value to the safe range. */
-function _clampCoordinate(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  return Math.max(-MAX_COORDINATE_VALUE, Math.min(MAX_COORDINATE_VALUE, value));
-}
 
 /** Elements that are always removed with their entire subtree. */
 const DANGEROUS_TAGS = new Set([

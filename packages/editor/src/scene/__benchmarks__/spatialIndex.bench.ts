@@ -12,7 +12,6 @@ import { bench, describe } from 'vitest';
 import { buildSpatialIndex, queryPoint, queryRect } from '../spatialIndex';
 
 const AREA_SIZE = 10000;
-const CELL_SIZE = 64;
 
 function generateUniform(count: number, areaSize: number): Document {
   let doc = createDocument();
@@ -57,7 +56,7 @@ function naiveQueryRect(doc: Document, rect: Rect): NodeId[] {
   const result: NodeId[] = [];
   const parentIndex = buildParentIndexMap(doc);
   for (const id of Object.keys(doc.nodes)) {
-    const node = doc.nodes[id as NodeId];
+    const node = doc.nodes[id as NodeId]!;
     if (isContainer(node)) continue;
     const bounds = sceneNodeWorldBounds(doc, id as NodeId, parentIndex);
     if (!bounds) continue;
@@ -77,7 +76,7 @@ function naiveQueryPoint(doc: Document, x: number, y: number): NodeId[] {
   const result: NodeId[] = [];
   const parentIndex = buildParentIndexMap(doc);
   for (const id of Object.keys(doc.nodes)) {
-    const node = doc.nodes[id as NodeId];
+    const node = doc.nodes[id as NodeId]!;
     if (isContainer(node)) continue;
     const bounds = sceneNodeWorldBounds(doc, id as NodeId, parentIndex);
     if (!bounds) continue;

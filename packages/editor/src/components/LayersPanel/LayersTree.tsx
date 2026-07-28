@@ -496,8 +496,14 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const entriesRef = useRef(entries);
   entriesRef.current = entries;
-  const virtualizerRef = useRef(virtualizer);
-  virtualizerRef.current = virtualizer;
+  const virtualizerRef = useRef<{
+    scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
+    getVirtualItems: () => Array<{ index: number }>;
+  } | null>(null);
+  virtualizerRef.current = virtualizer as unknown as {
+    scrollToIndex: (index: number, options?: Record<string, unknown>) => void;
+    getVirtualItems: () => Array<{ index: number }>;
+  };
   const focusIdxRef = useRef(focusIdx);
   focusIdxRef.current = focusIdx;
 

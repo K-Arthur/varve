@@ -40,6 +40,7 @@ import {
 } from '@strata/scene';
 import { Icon } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
 import type { IntelligenceTab } from '../context/types';
 import { suggestAutoLayout } from '../intelligence/autoLayoutSuggestor';
@@ -179,10 +180,9 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
       {showMore && (
         <div className="intelligence-more-menu" role="menu" aria-label="More intelligence tabs">
           {moreGroups.map((group) => (
-            <div
+            <fieldset
               key={group.label}
               className="intelligence-more-group"
-              role="group"
               aria-label={group.label}
             >
               <span className="intelligence-more-group__label">{group.label}</span>
@@ -203,7 +203,7 @@ export function IntelligencePanel({ initialTab }: { initialTab?: ExtendedTab } =
                   {t}
                 </button>
               ))}
-            </div>
+            </fieldset>
           ))}
         </div>
       )}
@@ -552,19 +552,19 @@ function LinterConfigEditor() {
               <label style={{ fontSize: '0.85em', display: 'block', marginBottom: 2 }}>
                 {field.label}
                 <span style={{ fontSize: '0.8em', opacity: 0.6, marginLeft: 4 }}>({origin})</span>
+                <input
+                  type="number"
+                  min={field.min}
+                  max={field.max}
+                  step={field.step}
+                  value={value}
+                  onChange={(e) =>
+                    updateField(field.key, parseFloat(e.target.value) || field.defaultVal)
+                  }
+                  style={{ width: '100%', padding: '2px 4px' }}
+                  aria-label={field.label}
+                />
               </label>
-              <input
-                type="number"
-                min={field.min}
-                max={field.max}
-                step={field.step}
-                value={value}
-                onChange={(e) =>
-                  updateField(field.key, parseFloat(e.target.value) || field.defaultVal)
-                }
-                style={{ width: '100%', padding: '2px 4px' }}
-                aria-label={field.label}
-              />
               <p style={{ fontSize: '0.75em', opacity: 0.6, margin: '2px 0 0' }}>{field.hint}</p>
             </div>
           );
@@ -586,53 +586,108 @@ function LinterConfigEditor() {
 /*  Tab: Review — Unified Workspace-Aware Audit (AuditFinding model)   */
 /* ------------------------------------------------------------------ */
 
+/** Singleton worker pool shared across all ReviewTab instances. */
+const auditPool = new AuditWorkerPool({ fallbackToMain: true });
+
 function ReviewTab() {
   const { state, setSelection, announce } = useEditor();
   const [report, setReport] = useState<AuditReport | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [progress, setProgress] = useState<ScanProgress | null>(null);
   const [filterCategory, setFilterCategory] = useState<string | null>(null);
   const [filterSeverity, _setFilterSeverity] = useState<string | null>(null);
   const [suppressions, setSuppressions] = useState<SuppressionEntry[]>([]);
   const scanIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const profile = getAuditProfile(state.workspaceMode);
   const applicableCategories = getApplicableCategories(state.workspaceMode);
 
+  // Keep the pool's latest revision in sync with the document
+  useEffect(() => {
+    auditPool.setLatestRevision(state.revision);
+  }, [state.revision]);
+
   const runReview = useCallback(() => {
+    // Cancel any in-flight scan
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsScanning(true);
-    const timer = setTimeout(() => {
-      const loadedFonts = (() => {
-        try {
-          const registry = getFontRegistry();
-          return new Set(registry.families().filter((f) => registry.isAvailable(f)));
-        } catch {
-          return new Set<string>();
-        }
-      })();
+    setProgress(null);
 
-      const ctx: AuditContext = {
-        doc: state.document,
-        workspaceMode: state.workspaceMode,
-        canvasMode: state.canvasMode,
-        tool: state.tool,
-        selection: state.selection,
-        pageId: state.currentPageId ?? undefined,
-        availableFonts: loadedFonts,
-        colorMode: (state.document as unknown as Record<string, unknown>).colorMode as
-          | string
-          | undefined,
-        isPresenting: state.isPresenting,
-      };
+    const loadedFonts = (() => {
+      try {
+        const registry = getFontRegistry();
+        return new Set(registry.families().filter((f) => registry.isAvailable(f)));
+      } catch {
+        return new Set<string>();
+      }
+    })();
 
-      const result = runAudit(ctx, { suppressions });
-      scanIdRef.current = result.scanId;
-      setReport(result);
-      setIsScanning(false);
-      announce(
-        `Audit complete: ${result.summary.totalErrors} errors, ${result.summary.totalWarnings} warnings`,
-      );
-    }, 50);
-    return () => clearTimeout(timer);
+    const input = {
+      document: state.document,
+      nodeIds: state.selection,
+      ruleIds: [],
+      revision: state.revision,
+    };
+
+    auditPool
+      .dispatchChunked(
+        input,
+        (chunk) => {
+          setProgress({
+            completed: chunk.completed,
+            total: chunk.total,
+            currentRule: chunk.currentRule,
+            elapsed: 0,
+          });
+        },
+        controller.signal,
+      )
+      .then((result) => {
+        if (controller.signal.aborted) return;
+
+        // Build an AuditReport-shaped object for the UI
+        const ctx: AuditContext = {
+          doc: state.document,
+          workspaceMode: state.workspaceMode,
+          canvasMode: state.canvasMode,
+          tool: state.tool,
+          selection: state.selection,
+          pageId: state.currentPageId ?? undefined,
+          availableFonts: loadedFonts,
+          colorMode: (state.document as unknown as Record<string, unknown>).colorMode as
+            | string
+            | undefined,
+          isPresenting: state.isPresenting,
+        };
+
+        // Use the engine's runAudit for summary/report structure,
+        // but prefer the worker pool's findings (which may be from
+        // chunked delivery with stale rejection).
+        const engineResult = runAudit(ctx, { suppressions });
+        const mergedReport: AuditReport = {
+          ...engineResult,
+          findings: result.aborted ? [] : engineResult.findings,
+          scanId: ++scanIdRef.current,
+        };
+
+        scanIdRef.current = mergedReport.scanId;
+        setReport(mergedReport);
+        setIsScanning(false);
+        setProgress(null);
+        announce(
+          `Audit complete: ${mergedReport.summary.totalErrors} errors, ${mergedReport.summary.totalWarnings} warnings`,
+        );
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        console.error('[IntelligencePanel] Audit scan failed:', err);
+        setIsScanning(false);
+        setProgress(null);
+      });
   }, [
     state.document,
     state.workspaceMode,
@@ -640,10 +695,18 @@ function ReviewTab() {
     state.tool,
     state.selection,
     state.currentPageId,
+    state.revision,
     state.isPresenting,
     suppressions,
     announce,
   ]);
+
+  // Cleanup: cancel in-flight scan on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     const id =
@@ -664,6 +727,13 @@ function ReviewTab() {
     return (
       <div className="intelligence-empty">
         <p>Running audit...</p>
+        {progress && (
+          <p style={{ fontSize: '0.85em', opacity: 0.7 }}>
+            {progress.currentRule
+              ? `${progress.completed}/${progress.total} — ${progress.currentRule}`
+              : 'Initializing...'}
+          </p>
+        )}
       </div>
     );
   }
@@ -752,7 +822,9 @@ function ReviewTab() {
       </div>
 
       {/* Action bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-2)' }}>
+      <div
+        style={{ display: 'flex', gap: 4, marginBottom: 'var(--space-2)', alignItems: 'center' }}
+      >
         <button
           type="button"
           className="intelligence-action-btn"
@@ -762,6 +834,11 @@ function ReviewTab() {
           <Icon name={isScanning ? 'Loader' : 'RotateCcw'} label={undefined} size="0.85em" />
           {isScanning ? 'Scanning...' : 'Re-scan'}
         </button>
+        {isScanning && progress && (
+          <span style={{ fontSize: '0.8em', opacity: 0.6 }}>
+            {progress.completed}/{progress.total}
+          </span>
+        )}
       </div>
 
       {/* Filter chips */}

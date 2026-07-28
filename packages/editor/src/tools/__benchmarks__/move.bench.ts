@@ -1,6 +1,6 @@
 import { bench, describe } from 'vitest';
 import type { GridSnapConfig } from '../snapping';
-import { createSnapSession, snapPosition } from '../snapping';
+import { snapPosition } from '../snapping';
 
 function makeNodeBounds(count: number) {
   const bounds: Array<{ x: number; y: number; w: number; h: number }> = [];

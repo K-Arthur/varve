@@ -505,7 +505,7 @@ export function ModelManager() {
 
                     {row.memoryWarning && (
                       <span className="bg-models-list__meta bg-models-list__warning">
-                        <Icon name="AlertTriangle" size={12} label="Warning" /> {row.memoryWarning}
+                        <Icon name="TriangleAlert" size={12} label="Warning" /> {row.memoryWarning}
                       </span>
                     )}
                   </div>

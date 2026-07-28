@@ -345,17 +345,20 @@ export function CurveEditor({
       >
         <div className="insp-segmented" role="radiogroup" aria-label="Channel">
           {CHANNELS.map((ch) => (
-            <button
+            <label
               key={ch.value}
-              type="button"
-              role="radio"
-              aria-checked={channel === ch.value}
-              className="insp-segmented__btn"
+              className={`insp-segmented__btn${channel === ch.value ? ' insp-segmented__btn--active' : ''}`}
               style={{ fontSize: 'var(--font-size-2xs)', padding: '0 var(--space-1)' }}
-              onClick={() => setChannel(ch.value)}
             >
+              <input
+                type="radio"
+                name="curve-channel"
+                checked={channel === ch.value}
+                onChange={() => setChannel(ch.value)}
+                hidden
+              />
               {ch.label}
-            </button>
+            </label>
           ))}
         </div>
         <button

@@ -34,6 +34,11 @@ export interface IconDownloadManagerEvents {
 export class IconDownloadManager {
   private jobs = new Map<string, IconDownloadJob>();
   private events: IconDownloadManagerEvents;
+  private _activeCount = 0;
+
+  get activeCount(): number {
+    return this._activeCount;
+  }
 
   constructor(events: IconDownloadManagerEvents = {}) {
     this.events = events;
@@ -59,7 +64,7 @@ export class IconDownloadManager {
     this.jobs.set(job.id, job);
 
     try {
-      this.activeCount++;
+      this._activeCount++;
       this.events.onJobProgress?.(job);
 
       const rawSvg = await fetchSvg(icon.id);
@@ -114,7 +119,7 @@ export class IconDownloadManager {
       this.events.onJobFailed?.(job);
       return null;
     } finally {
-      this.activeCount--;
+      this._activeCount--;
       this.jobs.delete(job.id);
     }
   }

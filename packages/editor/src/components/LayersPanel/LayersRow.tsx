@@ -191,8 +191,8 @@ export const LayersRow = memo(function LayersRow({
       : null;
 
   const handleIconDoubleClick = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation();
+    (e?: React.MouseEvent) => {
+      e?.stopPropagation();
       onDoubleClickIcon?.(node.id);
     },
     [node.id, onDoubleClickIcon],
@@ -308,25 +308,27 @@ export const LayersRow = memo(function LayersRow({
         </button>
 
         {/* Selection checkbox — visual and touch-friendly multi-select affordance */}
-        <button
-          type="button"
+        <label
           className={`layers-row__selection-checkbox ${selected ? 'layers-row__selection-checkbox--selected' : ''}`}
           tabIndex={-1}
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggleSelectionCheckbox?.(node.id);
-          }}
           aria-label={
             selected ? `Remove ${node.name} from selection` : `Add ${node.name} to selection`
           }
-          aria-checked={selected}
-          role="checkbox"
         >
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelectionCheckbox?.(node.id);
+            }}
+            hidden
+          />
           <SolidIcon
             name={selected ? SOLID_CHROME_ICONS.checkSquare : SOLID_CHROME_ICONS.square}
             size="0.75em"
           />
-        </button>
+        </label>
 
         {/* Disclosure triangle */}
         {container ? (
@@ -362,6 +364,7 @@ export const LayersRow = memo(function LayersRow({
           <span
             className={`layers-row__color-tag layers-row__color-tag--${node.layerColor}`}
             data-layer-color={node.layerColor}
+            role="img"
             aria-label={`Color: ${node.layerColor}`}
           />
         )}
@@ -372,12 +375,18 @@ export const LayersRow = memo(function LayersRow({
         )}
 
         {/* Type icon — double-click zooms to layer */}
-        <span
+        <button
+          type="button"
           className="layers-row__icon-area"
           onDoubleClick={handleIconDoubleClick}
-          role="button"
           aria-label={`Zoom to ${node.name}`}
           tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleIconDoubleClick();
+            }
+          }}
         >
           <SolidIcon
             name={typeIcon}
@@ -386,7 +395,7 @@ export const LayersRow = memo(function LayersRow({
             className="layers-row__type-icon"
             style={isInstance ? { opacity: 0.65 } : undefined}
           />
-        </span>
+        </button>
 
         {/* Name or rename input */}
         {editing ? (
@@ -418,6 +427,7 @@ export const LayersRow = memo(function LayersRow({
             <span
               className="layers-row__grid-indicator"
               title="Grid layout"
+              role="img"
               aria-label="Grid layout"
             >
               <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
@@ -429,6 +439,7 @@ export const LayersRow = memo(function LayersRow({
           <span
             className="layers-row__style-indicator"
             title="Linked to style"
+            role="img"
             aria-label="Linked to style"
           >
             <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
@@ -561,7 +572,6 @@ export const LayersRow = memo(function LayersRow({
                 : `Show ${node.name}`
           }
           aria-pressed={isMixedVisibility ? undefined : !node.visible}
-          aria-checked={isMixedVisibility ? 'mixed' : undefined}
         >
           {isMixedVisibility ? (
             <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.85em" />
@@ -596,7 +606,6 @@ export const LayersRow = memo(function LayersRow({
                 : `Lock ${node.name}`
           }
           aria-pressed={isMixedLocked ? undefined : node.locked}
-          aria-checked={isMixedLocked ? 'mixed' : undefined}
         >
           {isMixedLocked ? (
             <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.85em" />

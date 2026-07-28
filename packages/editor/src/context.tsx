@@ -1504,6 +1504,13 @@ export interface EditorContextValue {
 
   // Touch multi-select (Workstream D)
   setTouchMultiSelect: (active: boolean) => void;
+
+  // Findings overlay (delegated to context/types.ts EditorContextValue)
+  setFindingsOverlayVisible: (v: boolean) => void;
+  setFindingsProviderOverride: (providerId: string) => void;
+
+  // Layer navigation (registered by LayersTree when mounted)
+  layerNavigation?: import('./components/LayersPanel/layerNavigationCommands').LayerNavigationCommands;
 }
 
 export const EditorCtx = createContext<EditorContextValue | null>(null);
@@ -6820,8 +6827,8 @@ export function EditorProvider({
         patch(fitBoundsToState(bounds, vp));
       },
       setSoftProofEnabled: (v) => patch({ softProofEnabled: v }),
-      setFindingsOverlayVisible: (v) => patch({ findingsOverlayVisible: v }),
-      setFindingsProviderOverride: (providerId) =>
+      setFindingsOverlayVisible: (v: boolean) => patch({ findingsOverlayVisible: v }),
+      setFindingsProviderOverride: (providerId: string) =>
         patch({
           findingsProviderOverrides: {
             ...state.findingsProviderOverrides,

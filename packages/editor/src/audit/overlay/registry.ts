@@ -217,29 +217,6 @@ export class OverlayRegistry {
     return items.filter(({ primitive }) => seen.has(primitive.findingId));
   }
 
-  /** Legacy linear cull fallback. */
-  private cullToViewport(
-    items: { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[],
-    viewportRect: Rect,
-  ): { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[] {
-    return items.filter(({ bounds }) => {
-      if (bounds.w === 0 && bounds.h === 0) {
-        return (
-          bounds.x >= viewportRect.x &&
-          bounds.x <= viewportRect.x + viewportRect.w &&
-          bounds.y >= viewportRect.y &&
-          bounds.y <= viewportRect.y + viewportRect.h
-        );
-      }
-      return (
-        bounds.x + bounds.w >= viewportRect.x &&
-        bounds.x <= viewportRect.x + viewportRect.w &&
-        bounds.y + bounds.h >= viewportRect.y &&
-        bounds.y <= viewportRect.y + viewportRect.h
-      );
-    });
-  }
-
   private applyLODAndCap(
     items: { primitive: OverlayPrimitive; bounds: Rect; severity: AuditSeverity }[],
     _viewportRect: Rect,

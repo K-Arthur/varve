@@ -33,11 +33,10 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     include: [
       'packages/**/src/**/*.{test,spec}.{ts,tsx}',
-      'packages/**/src/**/*.bench.ts',
       'apps/**/src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
-    exclude: ['tests/e2e/**', '**/node_modules/**', '**/__tests__/parity.test.ts'],
+    exclude: ['tests/e2e/**', '**/node_modules/**', '**/__tests__/parity.test.ts', '**/*.bench.ts'],
     environment: 'node',
     environmentMatchGlobs: [
       ['packages/ui/src/components/**', 'jsdom'],

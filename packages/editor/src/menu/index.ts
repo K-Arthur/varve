@@ -13,6 +13,7 @@ export {
   computeSelectionFacts,
   detectPlatformFacts,
 } from './facts';
+export { formatLabel, formatLabelWithValues, reportMissingKey } from './localization';
 export {
   clearMenuPerfMeasurements,
   getMenuPerfMeasurements,
@@ -38,7 +39,6 @@ export type {
   PlatformFacts,
   SelectionFacts,
 } from './types';
-export { useNativeMenu } from './useNativeMenu';
-export { useMenu } from './useMenu';
 export type { UseMenuOptions, UseMenuReturn } from './useMenu';
-export { formatLabel, formatLabelWithValues, reportMissingKey } from './localization';
+export { useMenu } from './useMenu';
+export { useNativeMenu } from './useNativeMenu';

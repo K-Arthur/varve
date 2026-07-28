@@ -132,8 +132,7 @@ export function PanelResizeHandle({
   );
 
   return (
-    <div
-      role="separator"
+    <hr
       aria-orientation="vertical"
       aria-label={isLayers ? 'Resize layers panel' : 'Resize inspector panel'}
       aria-valuenow={width ?? undefined}
