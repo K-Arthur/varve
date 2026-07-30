@@ -181,9 +181,13 @@
 }
 
 /* ─── Tree container ────────────────────────────────────────── */
+/* The tree is the panel's primary content, so it claims space ahead of the
+ * optional sections stacked around it (minimap, masters, variables), each of
+ * which is bounded and scrolls internally. The previous 80px floor let those
+ * sections squeeze it to roughly two rows. */
 .layers-panel__tree {
-  flex: 1;
-  min-height: 80px;
+  flex: 1 1 auto;
+  min-height: 160px;
   overflow-y: auto;
   overflow-x: auto;
   outline: none;
