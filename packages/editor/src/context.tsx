@@ -403,6 +403,7 @@ import {
   trimToSubject as trimToSubjectDoc,
 } from './imageCrop';
 import {
+  bakeAlphaMaskIntoImageData,
   insertDerivedImageShape,
   insertLiveTraceGroup,
   insertTraceGroup,
@@ -724,6 +725,8 @@ export interface EditorContextValue {
   removeSelected: () => void;
   /** Rename the first selected node. */
   renameSelected: (name: string) => void;
+  /** Rename a specific node, independent of the current selection. */
+  renameNodeById: (id: NodeId, name: string) => void;
   /** Move a node to a new paint-order index. */
   moveNode: (id: NodeId, toIndex: number) => void;
   /** Duplicate all selected nodes with new IDs. */
@@ -3612,6 +3615,10 @@ export function EditorProvider({
         const sel = state.selection[0];
         if (!sel) return;
         updateDoc((doc) => renameNode(doc, sel, name));
+      },
+
+      renameNodeById: (id, name) => {
+        updateDoc((doc) => (doc.nodes[id] ? renameNode(doc, id, name) : doc));
       },
 
       moveNode: (id, toIndex) => {
@@ -7482,7 +7489,20 @@ export function EditorProvider({
           const context = canvas.getContext('2d');
           if (!context) throw new Error('Canvas pixel processing is unavailable');
           context.drawImage(image, 0, 0, width, height);
-          const source = context.getImageData(0, 0, width, height);
+          let source = context.getImageData(0, 0, width, height);
+
+          // A background-removal mask lives beside the image and is composited
+          // at render time, so these pixels are still the unmasked original.
+          // Without baking it in, the upscaled layer comes back with the
+          // removed background restored — the derived node carries no mask.
+          const { resolveRasterMaskAsset } = await import('@strata/scene');
+          const maskDataUrl =
+            resolveRasterMaskAsset(stateRef.current.document, imageNode)?.dataUrl ??
+            imageNode.backgroundRemoval?.maskDataUrl;
+          if (maskDataUrl) {
+            source = await bakeAlphaMaskIntoImageData(source, maskDataUrl);
+          }
+
           const denoiseStrength = options.denoiseStrength;
           const pixelArtAlgo = options.pixelArtAlgorithm;
           const usePixelArt =
@@ -7569,7 +7589,15 @@ export function EditorProvider({
                 ...docWithAsset,
                 nodes: {
                   ...docWithAsset.nodes,
-                  [processingNodeId]: { ...node, fills: [nextFill] },
+                  // The cutout is baked into the new pixels, so the node's
+                  // own mask must go with it — leaving it would composite the
+                  // mask a second time, misaligned against the new size.
+                  [processingNodeId]: {
+                    ...node,
+                    fills: [nextFill],
+                    mask: maskDataUrl ? undefined : node.mask,
+                    backgroundRemoval: maskDataUrl ? undefined : node.backgroundRemoval,
+                  },
                 },
               };
             });
@@ -7613,7 +7641,15 @@ export function EditorProvider({
                 ...docWithAsset,
                 nodes: {
                   ...docWithAsset.nodes,
-                  [processingNodeId]: { ...node, fills: [nextFill] },
+                  // The cutout is baked into the new pixels, so the node's
+                  // own mask must go with it — leaving it would composite the
+                  // mask a second time, misaligned against the new size.
+                  [processingNodeId]: {
+                    ...node,
+                    fills: [nextFill],
+                    mask: maskDataUrl ? undefined : node.mask,
+                    backgroundRemoval: maskDataUrl ? undefined : node.backgroundRemoval,
+                  },
                 },
               };
             });
@@ -7625,6 +7661,7 @@ export function EditorProvider({
               width: outputImage.width,
               height: outputImage.height,
               suffix: scaleLabel,
+              maskBakedIn: maskDataUrl !== undefined,
             });
             updateDoc(() => inserted.doc);
             patch({ selection: [inserted.nodeId] });
@@ -8291,6 +8328,7 @@ export function EditorProvider({
       applyFramePreset: value.applyFramePreset,
       removeSelected: value.removeSelected,
       renameSelected: value.renameSelected,
+      renameNodeById: value.renameNodeById,
       moveNode: value.moveNode,
       duplicateSelected: value.duplicateSelected,
       repeatDuplicate: value.repeatDuplicate,

@@ -304,32 +304,44 @@ export function upscaleImageData(source: ImageData, options: UpscaleOptions = {}
   }
 }
 
-/**
- * Downsample an ImageData to fit within a maximum short-edge dimension.
- * Uses bicubic resampling for quality.
- */
-function downsampleForPreview(source: ImageData, maxShortEdge: number): ImageData {
-  const { width, height } = source;
-  if (width <= maxShortEdge && height <= maxShortEdge) {
-    return source;
+/** A centred region of `source` at most `maxWidth`x`maxHeight`, copied 1:1. */
+function centreCrop(source: ImageData, maxWidth: number, maxHeight: number): ImageData {
+  const cropW = Math.max(1, Math.min(source.width, Math.round(maxWidth)));
+  const cropH = Math.max(1, Math.min(source.height, Math.round(maxHeight)));
+  if (cropW === source.width && cropH === source.height) return source;
+
+  const originX = Math.floor((source.width - cropW) / 2);
+  const originY = Math.floor((source.height - cropH) / 2);
+  const out = new ImageData(cropW, cropH);
+  for (let y = 0; y < cropH; y += 1) {
+    const srcRow = (originY + y) * source.width;
+    const dstRow = y * cropW;
+    for (let x = 0; x < cropW; x += 1) {
+      const srcOffset = (srcRow + originX + x) * 4;
+      const dstOffset = (dstRow + x) * 4;
+      out.data[dstOffset] = source.data[srcOffset] as number;
+      out.data[dstOffset + 1] = source.data[srcOffset + 1] as number;
+      out.data[dstOffset + 2] = source.data[srcOffset + 2] as number;
+      out.data[dstOffset + 3] = source.data[srcOffset + 3] as number;
+    }
   }
-  const scale = Math.min(maxShortEdge / width, maxShortEdge / height);
-  const outW = Math.max(1, Math.round(width * scale));
-  const outH = Math.max(1, Math.round(height * scale));
-  return bicubic(source, outW, outH);
+  return out;
 }
 
 /**
  * Compute a preview ImageData for upscale operations.
  *
- * For CPU modes: downsample the source to fit within the preview viewport,
- * then run the selected upscale method at the chosen scale.
+ * Bounded work is achieved by upscaling a *crop* of the source at full
+ * resolution, never by downsampling first. Downsampling ahead of the upscale
+ * makes the preview a lossy round-trip that is strictly worse than the original
+ * it is shown beside, so the comparison reads as "the upscale does nothing" (or
+ * degrades the image) no matter how good the real output is.
  *
- * For AI mode: downsample the source to maxPreviewInputDimension (default 512px
- * short edge), then run the full AI pipeline. The result is the actual upscaled
- * output (e.g., 4x) which will be scaled down in CSS for display.
+ * The crop is sized so the *result* lands near `previewMaxDimension`, keeping
+ * cost roughly constant across scale factors. Callers display it beside the
+ * matching region of the source.
  *
- * This keeps the dialog responsive while showing a real processed preview.
+ * AI mode is handled by the worker/native provider instead.
  */
 export function computeUpscalePreview(source: ImageData, options: UpscaleOptions = {}): ImageData {
   const maxDim = options.previewMaxDimension ?? 512;
@@ -342,7 +354,26 @@ export function computeUpscalePreview(source: ImageData, options: UpscaleOptions
     throw new Error('AI preview must use worker/native provider');
   }
 
-  // For CPU modes, downsample to preview viewport size, then upscale
-  const previewSource = downsampleForPreview(source, maxDim);
-  return upscaleImageData(previewSource, options);
+  const scale = options.scale ?? 2;
+  const cropLimit = Math.max(1, maxDim / Math.max(scale, 0.001));
+  const previewSource = centreCrop(source, cropLimit, cropLimit);
+  return upscaleImageData(previewSource, { ...options, scale });
+}
+
+/** Region of the source that {@link computeUpscalePreview} magnifies. */
+export function upscalePreviewRegion(
+  source: ImageData | { width: number; height: number },
+  options: UpscaleOptions = {},
+): { x: number; y: number; width: number; height: number } {
+  const maxDim = options.previewMaxDimension ?? 512;
+  const scale = options.scale ?? 2;
+  const cropLimit = Math.max(1, maxDim / Math.max(scale, 0.001));
+  const width = Math.max(1, Math.min(source.width, Math.round(cropLimit)));
+  const height = Math.max(1, Math.min(source.height, Math.round(cropLimit)));
+  return {
+    x: Math.floor((source.width - width) / 2),
+    y: Math.floor((source.height - height) / 2),
+    width,
+    height,
+  };
 }

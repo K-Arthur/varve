@@ -1,4 +1,4 @@
-import { AVAILABLE_MODELS, getModelLoader, UPSCALE_MODELS } from '@strata/engine';
+import { AVAILABLE_MODELS, getModelById, getModelLoader, UPSCALE_MODELS } from '@strata/engine';
 import { useCallback, useRef, useState } from 'react';
 import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';
@@ -21,7 +21,22 @@ type DownloadStatus = 'confirm' | 'downloading' | 'done' | 'error';
 
 export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownloadDialogProps) {
   const removalModel = AVAILABLE_MODELS.find((candidate) => candidate.id === modelId);
-  const model = removalModel ?? UPSCALE_MODELS.find((candidate) => candidate.id === modelId);
+  const featureModel = removalModel ?? UPSCALE_MODELS.find((candidate) => candidate.id === modelId);
+  // Denoise/other catalog models (SCUNet, for one) are in neither feature list,
+  // which previously rendered a contentless "This model … a remote server"
+  // prompt. The shared catalog carries the real name, size, and source, and for
+  // a model whose weights sit in a sibling file the advertised size must be the
+  // catalog total rather than just the graph's.
+  const catalogEntry = featureModel ? undefined : getModelById(modelId);
+  const model =
+    featureModel ??
+    (catalogEntry
+      ? {
+          name: catalogEntry.name,
+          size: catalogEntry.sizeBytes,
+          remoteUrl: catalogEntry.remoteUrl,
+        }
+      : undefined);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<DownloadStatus>('confirm');
   const [error, setError] = useState('');
@@ -70,7 +85,11 @@ export function ModelDownloadDialog({ modelId, onClose, onComplete }: ModelDownl
 
   const sizeMB = model ? Math.round(model.size / 1_000_000) : 0;
   const sourceHost = model ? sourceHostname(model.remoteUrl) : 'a remote server';
-  const purpose = removalModel ? 'background removal' : 'image upscaling';
+  const purpose = removalModel
+    ? 'background removal'
+    : catalogEntry?.category === 'denoising'
+      ? 'image denoising'
+      : 'image upscaling';
 
   return (
     <div

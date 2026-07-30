@@ -127,3 +127,27 @@ describe('dispatchDenoise', () => {
     expect(result.denoised.data[centerIdx]).toBeGreaterThan(0);
   });
 });
+
+describe('provider fallback', () => {
+  it('falls back to the next provider when the first one fails', async () => {
+    const nativeFail = vi.fn(async () => {
+      throw new Error(
+        "Denoise model 'scunet' not found at /home/u/.local/share/strata/models/scunet.onnx.",
+      );
+    });
+    vi.resetModules();
+    vi.doMock('./nativeProvider', () => ({
+      nativeDenoiseProvider: { id: 'native-fake', isAvailable: () => true, denoise: nativeFail },
+    }));
+    vi.doMock('./workerProvider', () => ({
+      workerDenoiseProvider: { id: 'worker-fake', isAvailable: () => true, denoise: fakeDenoise },
+    }));
+    const { dispatchDenoise: dispatch } = await import('./dispatch');
+    const result = await dispatch(makeImageData(32, 32), { strength: 0.5, modelId: 'scunet' });
+    expect(nativeFail).toHaveBeenCalled();
+    expect(result.denoised.width).toBe(32);
+    vi.doUnmock('./nativeProvider');
+    vi.doUnmock('./workerProvider');
+    vi.resetModules();
+  });
+});

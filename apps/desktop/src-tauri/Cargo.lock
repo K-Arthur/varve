@@ -5056,6 +5056,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-wdio",
  "tauri-plugin-wdio-webdriver",
+ "webkit2gtk",
 ]
 
 [[package]]

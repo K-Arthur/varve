@@ -358,7 +358,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     state,
     isSelected,
     toggleSelection,
-    renameSelected,
+    renameNodeById,
     setNodeVisible,
     setNodeLocked,
     reparentNode,
@@ -642,16 +642,18 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
     [anchorIdx, entries, toggleSelection, setAnchorIdx, revealSelection],
   );
 
-  const handleRenameStart = useCallback((id: NodeId, _name: string) => {
+  const handleRenameStart = useCallback((id: NodeId) => {
     setRenamingId(id);
   }, []);
 
   const handleRename = useCallback(
-    (_id: NodeId, name: string) => {
-      renameSelected(name);
+    (id: NodeId, name: string) => {
+      // By id, not `renameSelected`: the row being renamed is not necessarily
+      // first in the selection.
+      renameNodeById(id, name);
       setRenamingId(null);
     },
-    [renameSelected],
+    [renameNodeById],
   );
 
   const handleRenameCommit = useCallback(() => {
@@ -1337,7 +1339,8 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
                   onCollapseSubtree={handleCollapseSubtree}
                   onExpandToDepth1={handleExpandToDepth1}
                   onSelect={handleSelect}
-                  onRename={handleRenameStart}
+                  onRename={handleRename}
+                  onRenameStart={handleRenameStart}
                   onRenameCommit={handleRenameCommit}
                   onRenameCancel={handleRenameCancel}
                   onRenameCycle={handleRenameCycle}
@@ -1397,6 +1400,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               onToggleExpand={() => {}}
               onSelect={() => {}}
               onRename={() => {}}
+              onRenameStart={() => {}}
               onRenameCommit={() => {}}
               onRenameCancel={() => {}}
               onToggleVisibility={() => {}}
@@ -1431,6 +1435,7 @@ interface SortableVirtualRowProps {
   onExpandToDepth1: (id: NodeId) => void;
   onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
   onRename: (id: NodeId, name: string) => void;
+  onRenameStart: (id: NodeId) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
   onRenameCycle?: (direction: 'next' | 'previous') => void;
@@ -1464,6 +1469,7 @@ function SortableVirtualRow({
   onExpandToDepth1,
   onSelect,
   onRename,
+  onRenameStart,
   onRenameCommit,
   onRenameCancel,
   onRenameCycle,
@@ -1557,6 +1563,7 @@ function SortableVirtualRow({
         focused={focused}
         expanded={expanded}
         editing={editing}
+        onRenameStart={onRenameStart}
         onToggleExpand={onToggleExpand}
         onExpandSubtree={onExpandSubtree}
         onCollapseSubtree={onCollapseSubtree}

@@ -1087,7 +1087,39 @@
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
 }
+/*
+ * The styled <label> provides the visuals while the real radio carries the
+ * semantics. `hidden` on that input removed it from the accessibility tree
+ * altogether, so the wrapping role="radiogroup" announced a group with no
+ * options and keyboard users had nothing to select. Clip it instead: still
+ * rendered, still focusable, still exposed.
+ */
+.insp-segmented input[type="radio"],
+.insp-segmented input[type="checkbox"],
+.insp-radio-btn input[type="radio"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
+
+.insp-segmented__btn:focus-within,
+.insp-radio-btn:focus-within {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
+.insp-radio-btn {
+  position: relative;
+}
+
 .insp-segmented__btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;

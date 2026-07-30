@@ -326,7 +326,7 @@ describe('ModelLoader', () => {
     await expect(loader.getModelPath('birefnet-general-lite')).resolves.toBeNull();
   });
 
-  it('getModelPath trusts the manifest for bundled models and skips HEAD fetch', async () => {
+  it('getModelPath trusts the manifest for bundled models and never HEAD-probes', async () => {
     const { getModelLoaderReady, resetModelLoader } = await import('../modelLoader');
     const { resetModelManifestCache } = await import('../modelManifest');
     resetModelLoader();
@@ -356,13 +356,25 @@ describe('ModelLoader', () => {
     const loader = await getModelLoaderReady();
 
     // bundled=true in the manifest means the file ships with the app; we
-    // should not rely on a HEAD fetch that can 404 in Vite dev.
+    // should not rely on a HEAD fetch that can 404 in Vite dev. The mock answers
+    // the model URL with ok:false, so resolving anyway is the property at stake.
     await expect(loader.getModelPath('u2netp')).resolves.toBe('/models/u2netp.onnx');
     expect(fetchMock).toHaveBeenCalledWith(
       '/models/manifest.json',
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
-    expect(fetchMock).not.toHaveBeenCalledWith('/models/u2netp.onnx', expect.anything());
+
+    // A bundled path is still read once, bounded by a Range header, to catch an
+    // un-fetched Git LFS stub being handed to the ONNX runtime as a model.
+    // That guard must never become a HEAD probe, which is what could hang.
+    const modelCalls = (fetchMock.mock.calls as unknown[][]).filter(
+      (call) => call[0] === '/models/u2netp.onnx',
+    );
+    for (const call of modelCalls) {
+      const init = call[1] as { method?: string; headers?: Record<string, string> } | undefined;
+      expect(init?.method).not.toBe('HEAD');
+      expect(init?.headers?.Range).toMatch(/^bytes=/);
+    }
   });
 
   it('resolveDownloadSources returns manifest local-first then remote for a known model', async () => {

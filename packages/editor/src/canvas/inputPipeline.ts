@@ -376,15 +376,71 @@ export function useCanvasInputs({
     };
     const onGestureEnd = (e: Event) => e.preventDefault();
 
+    // Anchor for gestures that carry no coordinates of their own.
+    let lastPointer: { x: number; y: number } | null = null;
+    // `null` until the pointer has been seen at all, so a pinch made before any
+    // movement still zooms (about the canvas centre) rather than being dropped.
+    let pointerInside: boolean | null = null;
+    const trackPointer = (e: PointerEvent) => {
+      lastPointer = { x: e.clientX, y: e.clientY };
+      pointerInside = true;
+    };
+    const onPointerLeave = () => {
+      pointerInside = false;
+    };
+
+    /**
+     * WebKitGTK consumes the touchpad pinch itself and applies it as page zoom,
+     * so no wheel or gesture event ever reaches this handler — the desktop shell
+     * intercepts that zoom, restores the page, and re-emits the factor here so
+     * the pinch lands on the artwork instead of scaling the whole UI.
+     *
+     * `gesturechange` covers the same gesture on macOS WebKit, and ctrl+wheel
+     * covers Chromium, so this is the third arm of one behaviour rather than a
+     * separate feature.
+     */
+    let disposePinchBridge: (() => void) | undefined;
+    let pinchBridgeCancelled = false;
+    void import('@strata/platform')
+      .then(({ isTauriRuntime }) => {
+        if (!isTauriRuntime() || pinchBridgeCancelled) return;
+        return import('@tauri-apps/api/event').then(({ listen }) =>
+          listen<{ factor?: number }>('canvas://pinch-zoom', (event) => {
+            const factor = event.payload?.factor;
+            if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 0) return;
+            // Pinching over a panel should not move the artwork. The page zoom
+            // has already been reverted natively, so swallowing it is enough.
+            if (pointerInside === false) return;
+            const rect = el.getBoundingClientRect();
+            const x = lastPointer?.x ?? rect.left + rect.width / 2;
+            const y = lastPointer?.y ?? rect.top + rect.height / 2;
+            zoomAboutClientPoint(x, y, stateRef.current.zoom * factor);
+          }).then((unlisten) => {
+            if (pinchBridgeCancelled) unlisten();
+            else disposePinchBridge = unlisten;
+          }),
+        );
+      })
+      .catch(() => {
+        // Non-desktop build, or the event API is unavailable — the wheel and
+        // gesture paths above still cover their platforms.
+      });
+
     el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('pointermove', trackPointer);
+    el.addEventListener('pointerleave', onPointerLeave);
     el.addEventListener('gesturestart', onGestureStart);
     el.addEventListener('gesturechange', onGestureChange);
     el.addEventListener('gestureend', onGestureEnd);
     return () => {
       el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('pointermove', trackPointer);
+      el.removeEventListener('pointerleave', onPointerLeave);
       el.removeEventListener('gesturestart', onGestureStart);
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
+      pinchBridgeCancelled = true;
+      disposePinchBridge?.();
     };
   }, [contentCanvasRef, stateRef, editor, commitCamera]);
 

@@ -142,3 +142,82 @@ describe('DownloadManager', () => {
     } catch {}
   });
 });
+
+describe('component downloads without the multiComponent flag', () => {
+  /**
+   * SCUNet ships its weights in a sibling `.onnx.data`, declared via
+   * `components` but with no `multiComponent: true`. Gating on the flag sent it
+   * down the single-file path, fetching only the graph and leaving the model
+   * unloadable while reporting success.
+   */
+  const scunetLike = (): Partial<ModelManifestEntry> => ({
+    components: [
+      {
+        id: 'scunet-graph',
+        role: 'graph',
+        filename: 'scunet_color_real_psnr.onnx',
+        sizeBytes: 3_798_678,
+        remoteUrl: 'https://example.com/scunet_color_real_psnr.onnx',
+      },
+      {
+        id: 'scunet-weights',
+        role: 'weights',
+        filename: 'scunet_color_real_psnr.onnx.data',
+        sizeBytes: 73_138_176,
+        remoteUrl: 'https://example.com/scunet_color_real_psnr.onnx.data',
+      },
+    ] as ModelManifestEntry['components'],
+  });
+
+  it('treats a components array as authoritative for download state', async () => {
+    const manager = new DownloadManager();
+    manager.registerModel(makeEntry('scunet', scunetLike()));
+    const storage = manager.getStorage();
+    // The single-file path stores under the *model* id, the component path
+    // under each *component* id. Marking the model id and the graph installed
+    // but the weights missing separates the two: only the component-aware path
+    // notices the absent `.onnx.data`.
+    vi.spyOn(storage, 'hasInstalled').mockImplementation(
+      async (id: string) => id === 'scunet' || id === 'scunet-graph',
+    );
+    vi.spyOn(storage, 'loadPartial').mockResolvedValue(null);
+
+    // Must NOT report ready while the external weights are absent.
+    await expect(manager.getDownloadState('scunet')).resolves.toBe('not-downloaded');
+  });
+
+  it('reports ready only once every component is installed', async () => {
+    const manager = new DownloadManager();
+    manager.registerModel(makeEntry('scunet', scunetLike()));
+    const storage = manager.getStorage();
+    vi.spyOn(storage, 'hasInstalled').mockResolvedValue(true);
+    vi.spyOn(storage, 'loadPartial').mockResolvedValue(null);
+
+    await expect(manager.getDownloadState('scunet')).resolves.toBe('ready');
+  });
+
+  it('routes a components entry to the multi-component download', async () => {
+    const manager = new DownloadManager();
+    manager.registerModel(makeEntry('scunet', scunetLike()));
+    const storage = manager.getStorage();
+    vi.spyOn(storage, 'hasInstalled').mockResolvedValue(false);
+    vi.spyOn(storage, 'loadPartial').mockResolvedValue(null);
+
+    const requested: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        requested.push(String(url));
+        throw new Error('network disabled in test');
+      }),
+    );
+    await manager.startDownload('scunet').catch(() => {});
+    vi.unstubAllGlobals();
+
+    // Components download sequentially, so a failing fetch stops at the first.
+    // What distinguishes the paths is *which* URL that is: the component graph
+    // rather than the entry-level `remoteUrl` the single-file path would use.
+    expect(requested[0]).toBe('https://example.com/scunet_color_real_psnr.onnx');
+    expect(requested[0]).not.toBe('https://example.com/models/scunet.onnx');
+  });
+});

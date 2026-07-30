@@ -21,7 +21,7 @@ import {
   preprocessScunet,
 } from '../inference/models/scunet';
 import { nativeDenoiseProvider } from './nativeProvider';
-import type { DenoiseProvider } from './types';
+import type { DenoiseProvider, DenoiseTileRequest, DenoiseTileResult } from './types';
 import { workerDenoiseProvider } from './workerProvider';
 
 const PROVIDER_CHAIN: DenoiseProvider[] = [nativeDenoiseProvider, workerDenoiseProvider];
@@ -43,11 +43,46 @@ export interface DenoiseResult {
   tilesUsed: number;
 }
 
-function pickProvider(modelId: string): DenoiseProvider {
-  for (const provider of PROVIDER_CHAIN) {
-    if (provider.isAvailable(modelId)) return provider;
+function candidateProviders(modelId: string): DenoiseProvider[] {
+  const available = PROVIDER_CHAIN.filter((provider) => provider.isAvailable(modelId));
+  return available.length > 0 ? available : [workerDenoiseProvider];
+}
+
+/**
+ * Run one denoise request against the provider chain, falling back on failure.
+ *
+ * `isAvailable` is a capability check, not proof the backend can serve the
+ * request: the native provider reports ready whenever it runs under Tauri, yet
+ * fails if the model was only ever downloaded for the WASM path (they use
+ * separate stores). Committing to a single provider up front turned that into a
+ * hard upscale failure, so a failed provider yields to the next one — matching
+ * how `dispatchUpscale` treats its own chain.
+ *
+ * The first provider that succeeds is pinned for the remaining tiles so a dead
+ * provider is not retried once per tile.
+ */
+async function denoiseWithFallback(
+  request: DenoiseTileRequest,
+  candidates: DenoiseProvider[],
+  pinned: { provider: DenoiseProvider | null },
+  signal?: AbortSignal,
+): Promise<DenoiseTileResult> {
+  const chain = pinned.provider ? [pinned.provider] : candidates;
+  const errors: string[] = [];
+  for (const provider of chain) {
+    if (signal?.aborted) throw new Error('cancelled');
+    try {
+      const result = await provider.denoise(request, signal);
+      pinned.provider = provider;
+      return result;
+    } catch (error) {
+      if (signal?.aborted) throw new Error('cancelled');
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === 'cancelled') throw new Error('cancelled');
+      errors.push(`${provider.id}: ${message}`);
+    }
   }
-  return workerDenoiseProvider;
+  throw new Error(`Denoise failed (${errors.join('; ')})`);
 }
 
 export async function dispatchDenoise(
@@ -62,7 +97,8 @@ export async function dispatchDenoise(
   const start = performance.now();
   if (signal?.aborted) throw new Error('cancelled');
 
-  const provider = pickProvider(modelId);
+  const candidates = candidateProviders(modelId);
+  const pinned: { provider: DenoiseProvider | null } = { provider: null };
 
   const { tensor, alignedWidth, alignedHeight, originalWidth, originalHeight, alphaData } =
     preprocessScunet(source);
@@ -79,7 +115,8 @@ export async function dispatchDenoise(
       strength,
       modelId,
       maxDim,
-      provider,
+      candidates,
+      pinned,
       signal,
     );
     const elapsed = performance.now() - start;
@@ -124,7 +161,8 @@ export async function dispatchDenoise(
       strength,
       modelId,
       maxDim,
-      provider,
+      candidates,
+      pinned,
       signal,
     );
 
@@ -180,7 +218,8 @@ async function denoiseSingle(
   strength: number,
   modelId: string,
   maxDim: number,
-  provider: DenoiseProvider,
+  candidates: DenoiseProvider[],
+  pinned: { provider: DenoiseProvider | null },
   signal?: AbortSignal,
 ) {
   if (signal?.aborted) throw new Error('cancelled');
@@ -221,7 +260,7 @@ async function denoiseSingle(
   }
 
   if (signal?.aborted) throw new Error('cancelled');
-  return provider.denoise(
+  return denoiseWithFallback(
     {
       tensor: processTensor,
       width: processW,
@@ -233,6 +272,8 @@ async function denoiseSingle(
       strength,
       modelId,
     },
+    candidates,
+    pinned,
     signal,
   );
 }

@@ -62,6 +62,22 @@ vi.mock('@strata/ui', () => ({
       {children}
     </button>
   ),
+  // Mirrors the real Select: labelled via aria-label, native <option> children,
+  // and onChange handed the option value rather than the event.
+  Select: ({ label, value, options, onChange, disabled }) => (
+    <select
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange?.(e.target.value)}
+    >
+      {(options ?? []).map((o: { value: string; label: string }) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  ),
 }));
 
 import { ColorizeSection } from '../ColorizeSection';

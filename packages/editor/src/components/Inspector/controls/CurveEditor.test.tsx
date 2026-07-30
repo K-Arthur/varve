@@ -49,7 +49,9 @@ describe('CurveEditor', () => {
     );
     const rBtn = screen.getByRole('radio', { name: /^R$/i });
     fireEvent.click(rBtn);
-    expect(rBtn.getAttribute('aria-checked')).toBe('true');
+    // A native radio exposes selection through `checked`; `aria-checked` would
+    // be a redundant override of built-in semantics.
+    expect((rBtn as HTMLInputElement).checked).toBe(true);
   });
 
   it('reset button fires onChange with identity line', () => {

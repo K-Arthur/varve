@@ -23,6 +23,45 @@ describe('selectedImageShape', () => {
   });
 });
 
+describe('insertDerivedImageShape mask handling', () => {
+  /**
+   * A background-removal mask is composited at render time, so a derived layer
+   * that inherits it gets the cutout applied to pixels that may already contain
+   * it. Upscaling both bakes the cutout in and changes the layer's size, so the
+   * inherited mask lands misaligned and uncovers the removed background over
+   * part of the image. Same-size derivations do not bake and must keep it.
+   */
+  function maskedDoc() {
+    const doc = imageDoc();
+    const img = doc.nodes.img1 as unknown as Record<string, unknown>;
+    img.mask = { type: 'alpha', rasterMask: { assetId: 'mask-img1' } };
+    return doc;
+  }
+
+  it('drops the inherited mask when the caller baked the cutout in', () => {
+    const result = insertDerivedImageShape(maskedDoc(), 'img1', {
+      dataUrl: 'data:image/png;base64,BBBB',
+      width: 40,
+      height: 20,
+      suffix: '2x',
+      maskBakedIn: true,
+    });
+    const derived = result.doc.nodes[result.nodeId] as unknown as { mask?: unknown };
+    expect(derived.mask).toBeUndefined();
+  });
+
+  it('keeps the mask for same-size derivations that did not bake', () => {
+    const result = insertDerivedImageShape(maskedDoc(), 'img1', {
+      dataUrl: 'data:image/png;base64,BBBB',
+      width: 20,
+      height: 10,
+      suffix: 'denoised',
+    });
+    const derived = result.doc.nodes[result.nodeId] as unknown as { mask?: unknown };
+    expect(derived.mask).toBeDefined();
+  });
+});
+
 describe('insertDerivedImageShape', () => {
   it('inserts an upscaled copy without mutating the source image shape', () => {
     const doc = imageDoc();

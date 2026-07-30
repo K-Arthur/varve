@@ -1,5 +1,8 @@
 import { isTauriRuntime } from '@strata/platform';
-import { encodeImageDataToPngBytes } from '../upscaleProviders/pngDecode';
+import {
+  decodeImageBytesToImageData,
+  encodeImageDataToPngBytes,
+} from '../upscaleProviders/pngDecode';
 import type { DenoiseProvider, DenoiseTileRequest, DenoiseTileResult } from './types';
 
 interface NativeDenoiseResponse {
@@ -42,17 +45,11 @@ export const nativeDenoiseProvider: DenoiseProvider = {
     if (signal?.aborted) throw new Error('cancelled');
 
     const responseBytes = Uint8Array.from(atob(raw.pngBase64), (c) => c.charCodeAt(0));
-    const blob = new Blob([responseBytes], { type: 'image/png' });
-    const bitmap = await createImageBitmap(blob);
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(bitmap, 0, 0);
-    bitmap.close();
+    const imageData = await decodeImageBytesToImageData(responseBytes);
+    if (signal?.aborted) throw new Error('cancelled');
 
     return {
-      imageData: ctx.getImageData(0, 0, bitmap.width, bitmap.height),
+      imageData,
       executionProvider: 'native',
       processingTimeMs: raw.processingTimeMs,
     };

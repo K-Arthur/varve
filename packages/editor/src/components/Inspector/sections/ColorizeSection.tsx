@@ -427,7 +427,6 @@ export function ColorizeSection({ nodes }: { nodes: SceneNode[] }) {
                   name="quality-mode"
                   checked={qualityMode === qm}
                   onChange={() => setQualityMode(qm)}
-                  hidden
                 />
                 {qm.charAt(0).toUpperCase() + qm.slice(1)}
               </label>

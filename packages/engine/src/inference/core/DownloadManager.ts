@@ -52,6 +52,22 @@ export class DownloadManager {
     return this.storage;
   }
 
+  /**
+   * The component list to download for an entry, or null for a single file.
+   *
+   * A non-empty `components` array is authoritative on its own; the older
+   * `multiComponent` boolean is only a hint. Requiring both meant an entry that
+   * listed components but omitted the flag silently took the single-file path
+   * and fetched just its first URL — for an ONNX model whose weights live in a
+   * sibling `.onnx.data`, that downloads the graph and leaves the model
+   * unloadable, reported as "downloaded".
+   */
+  private componentsOf(
+    entry: ModelManifestEntry,
+  ): NonNullable<ModelManifestEntry['components']> | null {
+    return entry.components && entry.components.length > 0 ? entry.components : null;
+  }
+
   async getDownloadState(modelId: string): Promise<DownloadState> {
     const cached = this.stateCache.get(modelId);
     if (cached) {
@@ -68,11 +84,12 @@ export class DownloadManager {
     }
     if (entry.bundled) return 'ready';
 
-    if (entry.multiComponent && entry.components && entry.components.length > 0) {
-      const allReady = await this.areAllComponentsReady(entry.components);
+    const stateComponents = this.componentsOf(entry);
+    if (stateComponents) {
+      const allReady = await this.areAllComponentsReady(stateComponents);
       if (allReady) return 'ready';
 
-      const anyPartial = await this.anyComponentPartial(entry.components);
+      const anyPartial = await this.anyComponentPartial(stateComponents);
       if (anyPartial) return 'paused';
 
       return 'not-downloaded';
@@ -126,8 +143,9 @@ export class DownloadManager {
       throw new Error(`Already downloading model: ${modelId}`);
     }
 
-    if (entry.multiComponent && entry.components && entry.components.length > 0) {
-      return this.downloadMultiComponent(modelId, entry.components, signal);
+    const components = this.componentsOf(entry);
+    if (components) {
+      return this.downloadMultiComponent(modelId, components, signal);
     }
 
     return this.downloadSingle(modelId, entry, signal);

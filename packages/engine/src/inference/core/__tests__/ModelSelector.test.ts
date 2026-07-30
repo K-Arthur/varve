@@ -39,6 +39,7 @@ function makeCaps(overrides?: Partial<RuntimeCapabilities>): RuntimeCapabilities
     hasWebGPU: false,
     sharedMemoryAvailable: true,
     wasmSafeModelBytes: 400_000_000,
+    wasmSafePeakBytes: 600_000_000,
     preferredOnnxProviders: ['wasm', 'webgl'],
     label: 'Test',
     logicalProcessors: 8,
