@@ -8,6 +8,7 @@
 import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
+import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import './selectionSetsSection.css';
 
 export function SelectionSetsSection() {
@@ -24,6 +25,9 @@ export function SelectionSetsSection() {
   } = useEditor();
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  // Collapsible like its sibling sidebar sections: they stack above the layers
+  // tree in one fixed-height column.
+  const [collapsed, setCollapsed] = useState(false);
   const [editingName, setEditingName] = useState('');
 
   const sets = state.document.selectionSets?.sets ?? [];
@@ -74,6 +78,11 @@ export function SelectionSetsSection() {
   return (
     <div className="selection-sets">
       <div className="selection-sets__header">
+        <SectionCollapseToggle
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((value) => !value)}
+          label="selection sets"
+        />
         <span className="selection-sets__title">Selection Sets</span>
         {selCount > 0 && (
           <button
@@ -86,99 +95,101 @@ export function SelectionSetsSection() {
           </button>
         )}
       </div>
-      <div className="selection-sets__list" role="listbox" aria-label="Selection sets">
-        {sets.map((set) => {
-          const isEditing = editingId === set.id;
-          const memberCount = setMembership.get(set.id) ?? 0;
-          const totalCount = set.nodeIds.length;
-          return (
-            <div key={set.id} className="selection-sets__item" role="option" tabIndex={0}>
-              {isEditing ? (
-                <input
-                  type="text"
-                  value={editingName}
-                  onChange={(e) => setEditingName(e.target.value)}
-                  onBlur={() => handleRenameCommit(set.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRenameCommit(set.id);
-                    if (e.key === 'Escape') handleRenameCancel();
-                  }}
-                  className="selection-sets__name-input"
-                />
-              ) : (
-                <button
-                  type="button"
-                  className="selection-sets__name-btn"
-                  onClick={() => selectSelectionSet(set.id)}
-                  title={`Select ${totalCount} member(s)`}
-                >
-                  <span className="selection-sets__name">{set.name}</span>
-                  <span className="selection-sets__count">
-                    {memberCount > 0 ? `${memberCount}/` : ''}
-                    {totalCount}
-                  </span>
-                </button>
-              )}
-              <div className="selection-sets__actions">
-                {selCount > 0 && (
-                  <>
-                    <button
-                      type="button"
-                      className="selection-sets__action-btn"
-                      onClick={() => updateSelectionSet(set.id)}
-                      title="Replace with current selection"
-                    >
-                      <SolidIcon name={SOLID_CHROME_ICONS.download} size="0.7em" />
-                    </button>
-                    <button
-                      type="button"
-                      className="selection-sets__action-btn"
-                      onClick={() => addToSelectionSet(set.id)}
-                      title="Add current selection"
-                    >
-                      <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.7em" />
-                    </button>
-                    {memberCount > 0 && (
+      {!collapsed && (
+        <div className="selection-sets__list" role="listbox" aria-label="Selection sets">
+          {sets.map((set) => {
+            const isEditing = editingId === set.id;
+            const memberCount = setMembership.get(set.id) ?? 0;
+            const totalCount = set.nodeIds.length;
+            return (
+              <div key={set.id} className="selection-sets__item" role="option" tabIndex={0}>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onBlur={() => handleRenameCommit(set.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameCommit(set.id);
+                      if (e.key === 'Escape') handleRenameCancel();
+                    }}
+                    className="selection-sets__name-input"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className="selection-sets__name-btn"
+                    onClick={() => selectSelectionSet(set.id)}
+                    title={`Select ${totalCount} member(s)`}
+                  >
+                    <span className="selection-sets__name">{set.name}</span>
+                    <span className="selection-sets__count">
+                      {memberCount > 0 ? `${memberCount}/` : ''}
+                      {totalCount}
+                    </span>
+                  </button>
+                )}
+                <div className="selection-sets__actions">
+                  {selCount > 0 && (
+                    <>
                       <button
                         type="button"
                         className="selection-sets__action-btn"
-                        onClick={() => removeFromSelectionSet(set.id)}
-                        title="Remove current selection"
+                        onClick={() => updateSelectionSet(set.id)}
+                        title="Replace with current selection"
                       >
-                        <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.7em" />
+                        <SolidIcon name={SOLID_CHROME_ICONS.download} size="0.7em" />
                       </button>
-                    )}
-                  </>
-                )}
-                <button
-                  type="button"
-                  className="selection-sets__action-btn"
-                  onClick={() => handleRenameStart(set.id, set.name)}
-                  title="Rename"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.fileText} size="0.7em" />
-                </button>
-                <button
-                  type="button"
-                  className="selection-sets__action-btn"
-                  onClick={() => duplicateSelectionSet(set.id)}
-                  title="Duplicate"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.7em" />
-                </button>
-                <button
-                  type="button"
-                  className="selection-sets__action-btn selection-sets__action-btn--danger"
-                  onClick={() => deleteSelectionSet(set.id)}
-                  title="Delete"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.7em" />
-                </button>
+                      <button
+                        type="button"
+                        className="selection-sets__action-btn"
+                        onClick={() => addToSelectionSet(set.id)}
+                        title="Add current selection"
+                      >
+                        <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.7em" />
+                      </button>
+                      {memberCount > 0 && (
+                        <button
+                          type="button"
+                          className="selection-sets__action-btn"
+                          onClick={() => removeFromSelectionSet(set.id)}
+                          title="Remove current selection"
+                        >
+                          <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.7em" />
+                        </button>
+                      )}
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    className="selection-sets__action-btn"
+                    onClick={() => handleRenameStart(set.id, set.name)}
+                    title="Rename"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.fileText} size="0.7em" />
+                  </button>
+                  <button
+                    type="button"
+                    className="selection-sets__action-btn"
+                    onClick={() => duplicateSelectionSet(set.id)}
+                    title="Duplicate"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.7em" />
+                  </button>
+                  <button
+                    type="button"
+                    className="selection-sets__action-btn selection-sets__action-btn--danger"
+                    onClick={() => deleteSelectionSet(set.id)}
+                    title="Delete"
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.7em" />
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
