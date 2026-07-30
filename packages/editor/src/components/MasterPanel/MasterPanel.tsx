@@ -24,6 +24,10 @@ export function MasterPanel() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
+  // Collapsible for the same reason the minimap is: these sections stack in one
+  // sidebar column with the layers tree, and a document with many masters would
+  // otherwise keep the tree short for the whole session.
+  const [collapsed, setCollapsed] = useState(false);
 
   const handleCreate = useCallback(() => {
     createMaster('Master', 1920, 1080);
@@ -60,6 +64,30 @@ export function MasterPanel() {
   return (
     <div className="master-panel">
       <div className="master-panel__header">
+        <button
+          type="button"
+          className="master-panel__collapse-btn"
+          onClick={() => setCollapsed((value) => !value)}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? 'Show master pages' : 'Hide master pages'}
+          title={collapsed ? 'Show master pages' : 'Hide master pages'}
+        >
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 12 12"
+            fill="none"
+            aria-hidden="true"
+            style={{ transform: collapsed ? 'rotate(-90deg)' : undefined }}
+          >
+            <path
+              d="M3 4.5L6 7.5L9 4.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
         <span className="master-panel__title">Masters</span>
         <button
           type="button"
@@ -76,81 +104,85 @@ export function MasterPanel() {
        * with the layers tree, and a tall empty state pushed the tree down to its
        * minimum height, hiding most of its rows. The fuller explanation lives on
        * the create button's tooltip. */}
-      {masterList.length === 0 && <p className="master-panel__empty-text">No master pages yet.</p>}
+      {!collapsed && masterList.length === 0 && (
+        <p className="master-panel__empty-text">No master pages yet.</p>
+      )}
 
-      <ul className="master-panel__list" aria-label="Master pages">
-        {masterList.map((master) => (
-          <li key={master.id} className="master-panel__item">
-            {editingId === master.id ? (
-              <input
-                className="master-panel__rename-input"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                onBlur={() => handleRename(master.id)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleRename(master.id);
-                  if (e.key === 'Escape') setEditingId(null);
-                }}
-                // biome-ignore lint/a11y/noAutofocus: rename input needs auto-focus
-                autoFocus
-                maxLength={64}
-                aria-label="Master name"
-              />
-            ) : (
-              <button
-                type="button"
-                className="master-panel__name"
-                onDoubleClick={() => {
-                  setEditingId(master.id);
-                  setEditName(master.name);
-                }}
-                aria-label={`Master: ${master.name}`}
-              >
-                {master.name}
-              </button>
-            )}
+      {!collapsed && (
+        <ul className="master-panel__list" aria-label="Master pages">
+          {masterList.map((master) => (
+            <li key={master.id} className="master-panel__item">
+              {editingId === master.id ? (
+                <input
+                  className="master-panel__rename-input"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  onBlur={() => handleRename(master.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleRename(master.id);
+                    if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  // biome-ignore lint/a11y/noAutofocus: rename input needs auto-focus
+                  autoFocus
+                  maxLength={64}
+                  aria-label="Master name"
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="master-panel__name"
+                  onDoubleClick={() => {
+                    setEditingId(master.id);
+                    setEditName(master.name);
+                  }}
+                  aria-label={`Master: ${master.name}`}
+                >
+                  {master.name}
+                </button>
+              )}
 
-            <div className="master-panel__actions">
-              <Select
-                label={`Apply to pages: ${master.appliesTo}`}
-                value={master.appliesTo}
-                options={[
-                  { value: 'all', label: 'All pages' },
-                  { value: 'left', label: 'Left pages' },
-                  { value: 'right', label: 'Right pages' },
-                ]}
-                onChange={(v) => setMasterAppliesTo(master.id, v as MasterAppliesTo)}
-              />
+              <div className="master-panel__actions">
+                <Select
+                  label={`Apply to pages: ${master.appliesTo}`}
+                  value={master.appliesTo}
+                  options={[
+                    { value: 'all', label: 'All pages' },
+                    { value: 'left', label: 'Left pages' },
+                    { value: 'right', label: 'Right pages' },
+                  ]}
+                  onChange={(v) => setMasterAppliesTo(master.id, v as MasterAppliesTo)}
+                />
 
-              <button
-                type="button"
-                className="master-panel__action-btn"
-                onClick={() => duplicateMaster(master.id)}
-                aria-label={`Duplicate ${master.name}`}
-                title="Duplicate"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.copy} label={undefined} size="0.85em" />
-              </button>
+                <button
+                  type="button"
+                  className="master-panel__action-btn"
+                  onClick={() => duplicateMaster(master.id)}
+                  aria-label={`Duplicate ${master.name}`}
+                  title="Duplicate"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.copy} label={undefined} size="0.85em" />
+                </button>
 
-              <button
-                type="button"
-                className="master-panel__action-btn master-panel__action-btn--danger"
-                onClick={() => {
-                  if (window.confirm(`Delete master "${master.name}"?`)) {
-                    deleteMaster(master.id);
-                  }
-                }}
-                aria-label={`Delete ${master.name}`}
-                title="Delete"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.trash} label={undefined} size="0.85em" />
-              </button>
-            </div>
-          </li>
-        ))}
-      </ul>
+                <button
+                  type="button"
+                  className="master-panel__action-btn master-panel__action-btn--danger"
+                  onClick={() => {
+                    if (window.confirm(`Delete master "${master.name}"?`)) {
+                      deleteMaster(master.id);
+                    }
+                  }}
+                  aria-label={`Delete ${master.name}`}
+                  title="Delete"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.trash} label={undefined} size="0.85em" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {doc.activePageId && (
+      {!collapsed && doc.activePageId && (
         <div
           className="master-panel__page-status"
           role="status"
