@@ -108,4 +108,16 @@ describe('SpreadSettings', () => {
     const { container } = render(<SpreadSettings />);
     expect(container.firstChild).toBeNull();
   });
+
+  it('collapses its body so it does not hold sidebar height open', () => {
+    mockEditor({ facingPages: { enabled: false, startOnRight: true } });
+    render(<SpreadSettings />);
+    expect(screen.getByRole('checkbox')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide spreads' }));
+
+    expect(screen.queryByRole('checkbox')).toBeNull();
+    // The header remains so it can be reopened.
+    expect(screen.getByRole('button', { name: 'Show spreads' })).toBeDefined();
+  });
 });
