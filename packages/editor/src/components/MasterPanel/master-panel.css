@@ -1,11 +1,17 @@
 /* ── Master Panel ────────────────────────────────────── */
 /* Neo-Bento: collapsible list with Linear-esque chips.  */
 
+/* Bounded: this shares a fixed-height sidebar column with the layers tree, and
+ * the list grows with the document. Without a ceiling a page carrying many
+ * masters starves the tree of every row. */
 .master-panel {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  max-height: 28vh;
+  overflow-y: auto;
+  flex: 0 1 auto;
 }
 
 .master-panel__header {
