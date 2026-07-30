@@ -45,9 +45,18 @@ export function MasterPanel() {
     [editName, renameMaster],
   );
 
-  // Renders with no masters too. Returning null when empty left the "+ New
-  // Master" control unreachable — it lives in this markup — and made the empty
-  // state below dead code.
+  // Master pages propagate a layout across pages and target left/right pages,
+  // which only means something in a multi-page print document — the sibling
+  // Spreads panel is scoped the same way. Showing it everywhere spent a large
+  // block of the sidebar, and the layers tree it shares that column with paid
+  // for it, in modes where masters cannot be used.
+  if (state.workspaceMode !== 'print') {
+    return null;
+  }
+
+  // Within print it renders even with no masters: returning null when empty
+  // left the "+ New Master" control unreachable — it lives in this markup —
+  // and made the empty state below dead code.
   return (
     <div className="master-panel">
       <div className="master-panel__header">

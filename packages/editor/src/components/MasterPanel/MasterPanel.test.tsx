@@ -46,6 +46,8 @@ function mockEditor(overrides: {
   assignMasterToPage?: ReturnType<typeof vi.fn>;
   setMasterAppliesTo?: ReturnType<typeof vi.fn>;
   getPageNumber?: ReturnType<typeof vi.fn>;
+  /** Master pages are a multi-page print concept; the panel is scoped to it. */
+  workspaceMode?: string;
 }) {
   const masters = overrides.masters ?? {};
   const pages = overrides.pages ?? [];
@@ -53,6 +55,7 @@ function mockEditor(overrides: {
 
   vi.mocked(useEditor).mockReturnValue({
     state: {
+      workspaceMode: overrides.workspaceMode ?? 'print',
       document: {
         masters,
         pages,
@@ -338,5 +341,14 @@ describe('MasterPanel', () => {
     expect(screen.getByLabelText('Create new master page')).toBeDefined();
     expect(screen.getByLabelText('Duplicate Test Master')).toBeDefined();
     expect(screen.getByLabelText('Delete Test Master')).toBeDefined();
+  });
+
+  it('renders nothing outside print mode', () => {
+    // Masters propagate a layout across pages and target left/right pages,
+    // which only applies to a multi-page print document. Rendering it in other
+    // modes also spent sidebar height the layers tree needs.
+    mockEditor({ masters: {}, workspaceMode: 'design' });
+    const { container } = render(<MasterPanel />);
+    expect(container.firstChild).toBeNull();
   });
 });
