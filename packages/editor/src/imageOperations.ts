@@ -57,6 +57,18 @@ export interface DerivedImageInput {
   width: number;
   height: number;
   suffix: string;
+  /**
+   * Set when the caller has already composited the source's cutout into
+   * `dataUrl`, so the mask must not travel to the derived node and be applied
+   * a second time.
+   *
+   * Most derived outputs (denoise, colorize, line art, lens blur) keep the
+   * source's dimensions and do not bake, so they inherit the mask and it still
+   * lines up. Upscaling is the exception on both counts: it bakes, and its
+   * output is larger, so an inherited mask would composite misaligned and
+   * uncover the removed background across part of the image.
+   */
+  maskBakedIn?: boolean;
 }
 
 function placeBeside(
@@ -111,6 +123,7 @@ export function insertDerivedImageShape(
     transform: placeBeside(source.transform, sourceWidth, sourceHeight, input.width, input.height),
     fills: [imageFill(input.dataUrl, { fit: 'fill' })],
     backgroundRemoval: undefined,
+    ...(input.maskBakedIn ? { mask: undefined } : {}),
   };
   return { doc: insertAfter(allocated.doc, sourceId, derived), nodeId: allocated.id };
 }
@@ -263,4 +276,44 @@ export function insertLiveTraceGroup(
   result = { ...result, nodes: { ...result.nodes, [sourceId]: hiddenSource } };
 
   return { doc: result, nodeId: group.id };
+}
+
+/**
+ * Bake a background-removal alpha mask into an image's pixels.
+ *
+ * Masks are stored beside the image (a RasterMaskAsset, or the legacy
+ * `backgroundRemoval.maskDataUrl`) and composited at render time, so the fill's
+ * own pixels are still the untouched original. Any operation that reads those
+ * pixels and writes a new layer — upscaling, in particular — would otherwise
+ * resurrect the removed background, because the derived node does not carry the
+ * source's mask forward.
+ *
+ * The mask is drawn scaled to the image's dimensions (mask and image resolution
+ * need not match) and multiplied into the existing alpha rather than replacing
+ * it, so pre-existing transparency survives.
+ */
+export async function bakeAlphaMaskIntoImageData(
+  source: ImageData,
+  maskDataUrl: string,
+): Promise<ImageData> {
+  const { getImageCache } = await import('@strata/engine');
+  const maskImage = await getImageCache().load(maskDataUrl);
+
+  const maskCanvas = globalThis.document.createElement('canvas');
+  maskCanvas.width = source.width;
+  maskCanvas.height = source.height;
+  const maskCtx = maskCanvas.getContext('2d');
+  if (!maskCtx) return source;
+  maskCtx.drawImage(maskImage, 0, 0, source.width, source.height);
+  const mask = maskCtx.getImageData(0, 0, source.width, source.height);
+
+  const out = new ImageData(new Uint8ClampedArray(source.data), source.width, source.height);
+  for (let i = 0; i < source.width * source.height; i += 1) {
+    // Masks are written as opaque greyscale, so the red channel carries the
+    // coverage value; fall back to the mask's own alpha when it is not opaque.
+    const maskAlpha = mask.data[i * 4 + 3] as number;
+    const coverage = maskAlpha === 255 ? (mask.data[i * 4] as number) : maskAlpha;
+    out.data[i * 4 + 3] = Math.round(((out.data[i * 4 + 3] as number) * coverage) / 255);
+  }
+  return out;
 }

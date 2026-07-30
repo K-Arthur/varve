@@ -25,6 +25,11 @@ export interface ModelManifestEntry {
   sha256: string | null;
   bundled: boolean;
   remoteUrl: string;
+  /**
+   * Sibling `.onnx.data` holding weights kept outside the graph. Present only
+   * for models split that way; the graph is unusable without it.
+   */
+  remoteDataUrl?: string;
   /** Weight precision. 'fp32' is the default when omitted. */
   precision?: 'fp32' | 'int8';
   /** For INT8 variants: the FP32 source model this was quantized from. */
@@ -47,6 +52,7 @@ function toLegacyEntry(e: InfModelManifestEntry): ModelManifestEntry {
     sha256: e.checksum || null,
     bundled: e.bundled,
     remoteUrl: e.remoteUrl,
+    remoteDataUrl: e.remoteDataUrl,
     precision: e.precision as 'fp32' | 'int8' | undefined,
     sourceModelId: e.sourceModelId,
     sourceSha256: e.sourceSha256,

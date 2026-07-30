@@ -499,6 +499,12 @@ export interface EditorContextValue {
   setDraft: (draft: DraftShape | null) => void;
   removeSelected: () => void;
   renameSelected: (name: string) => void;
+  /**
+   * Rename a specific node. `renameSelected` targets `selection[0]`, which is
+   * ambiguous when a rename is initiated on a row that is not first in a
+   * multi-selection.
+   */
+  renameNodeById: (id: NodeId, name: string) => void;
   moveNode: (id: NodeId, toIndex: number) => void;
   duplicateSelected: () => void;
   /** Repeat the last duplicate with the same offset (Cmd/Ctrl+D after initial duplicate). */

@@ -608,6 +608,7 @@ fn remove_background_impl(
 
 /// Options for native denoise.
 #[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NativeDenoiseOptions {
     /// Model id (e.g. "scunet"). Defaults to "scunet".
     pub model_id: Option<String>,
@@ -617,6 +618,7 @@ pub struct NativeDenoiseOptions {
 
 /// Result of a native denoise operation.
 #[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NativeDenoiseResult {
     pub png_base64: String,
     pub width: u32,
@@ -2089,6 +2091,38 @@ pub fn run() {
             app.manage(store);
             app.manage(UpscaleCancelState::new());
 
+            // WebKitGTK owns the touchpad pinch gesture and applies it as page
+            // zoom, scaling the entire UI. The gesture never reaches JS, so the
+            // canvas's own pinch handling cannot see it, and wry exposes no
+            // setting to disable it (`zoom_hotkeys_enabled` is WebView2-only).
+            //
+            // Intercept it instead: whenever WebKit moves the page zoom away
+            // from 1.0, forward that factor to the frontend as a canvas zoom and
+            // immediately restore the page. The gesture then zooms the artwork,
+            // which is what a pinch on a canvas is expected to do.
+            #[cfg(target_os = "linux")]
+            {
+                use webkit2gtk::WebViewExt;
+                let zoom_handle = app.handle().clone();
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.with_webview(move |platform| {
+                        let webview = platform.inner();
+                        webview.connect_zoom_level_notify(move |view| {
+                            let level = view.zoom_level();
+                            // Guard against re-entering on our own reset.
+                            if (level - 1.0).abs() < f64::EPSILON {
+                                return;
+                            }
+                            let _ = zoom_handle.emit(
+                                "canvas://pinch-zoom",
+                                serde_json::json!({ "factor": level }),
+                            );
+                            view.set_zoom_level(1.0);
+                        });
+                    });
+                }
+            }
+
             // Listen for native menu item clicks and forward to webview
             app.on_menu_event(|app_handle, event| {
                 let id = event.id();
@@ -2822,6 +2856,34 @@ mod tests {
         assert_eq!(json["maskBase64"], "abc123");
         assert_eq!(json["processingTimeMs"], 42);
         assert!(json.get("mask_base64").is_none());
+        assert!(json.get("processing_time_ms").is_none());
+    }
+
+    #[test]
+    fn denoise_options_accept_frontend_camel_case_wire_format() {
+        let options: NativeDenoiseOptions = serde_json::from_value(serde_json::json!({
+            "modelId": "scunet",
+            "strength": 0.3,
+        }))
+        .expect("deserialize denoise options");
+
+        assert_eq!(options.model_id.as_deref(), Some("scunet"));
+        assert_eq!(options.strength, Some(0.3));
+    }
+
+    #[test]
+    fn denoise_result_serializes_camel_case_wire_format() {
+        let result = NativeDenoiseResult {
+            png_base64: "encoded-png".to_string(),
+            width: 12,
+            height: 8,
+            processing_time_ms: 27,
+        };
+        let json = serde_json::to_value(&result).expect("serialize denoise result");
+
+        assert_eq!(json["pngBase64"], "encoded-png");
+        assert_eq!(json["processingTimeMs"], 27);
+        assert!(json.get("png_base64").is_none());
         assert!(json.get("processing_time_ms").is_none());
     }
 

@@ -355,7 +355,6 @@ export function CurveEditor({
                 name="curve-channel"
                 checked={channel === ch.value}
                 onChange={() => setChannel(ch.value)}
-                hidden
               />
               {ch.label}
             </label>

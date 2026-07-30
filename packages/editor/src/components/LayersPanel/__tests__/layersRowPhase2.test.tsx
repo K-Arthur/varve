@@ -61,6 +61,7 @@ function renderRow(props?: Partial<React.ComponentProps<typeof LayersRow>>) {
     onToggleExpand: vi.fn(),
     onSelect: vi.fn(),
     onRename: vi.fn(),
+    onRenameStart: vi.fn(),
     onRenameCommit: vi.fn(),
     onRenameCancel: vi.fn(),
     onToggleVisibility: vi.fn(),

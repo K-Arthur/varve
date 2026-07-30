@@ -236,10 +236,11 @@ export class ModelSelector {
       this.caps.memoryTier ?? (sysMemoryMB < 4096 ? 'low' : sysMemoryMB < 8192 ? 'medium' : 'high');
 
     if (entry.peakMemoryBytes) {
-      if (entry.peakMemoryBytes > this.caps.wasmSafeModelBytes && !this.caps.isTauri) {
+      // Peak against the peak budget, not the model-file budget.
+      if (entry.peakMemoryBytes > this.caps.wasmSafePeakBytes && !this.caps.isTauri) {
         return {
           safe: false,
-          reason: `Estimated peak memory ${peakMB}MB exceeds safe WASM budget ${Math.round(this.caps.wasmSafeModelBytes / 1_000_000)}MB`,
+          reason: `Estimated peak memory ${peakMB}MB exceeds safe WASM budget ${Math.round(this.caps.wasmSafePeakBytes / 1_000_000)}MB`,
         };
       }
     }

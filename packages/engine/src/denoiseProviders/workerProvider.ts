@@ -23,12 +23,28 @@ export const workerDenoiseProvider: DenoiseProvider = {
     } = request;
     const start = performance.now();
 
+    // Resolve through the loader rather than assuming `/models/<id>.onnx`:
+    // SCUNet's file is named for its variant, and once downloaded it lives as
+    // an IndexedDB blob URL. The hardcoded path pointed at a file that never
+    // exists. Its weights also sit in a sibling `.onnx.data` the runtime must
+    // be told about explicitly.
+    const { getModelLoader } = await import('../backgroundRemoval/modelLoader');
+    const loader = getModelLoader(signal);
+    const resolvedPath = await loader.getModelPath(modelId, signal);
+    if (!resolvedPath) {
+      throw new Error(
+        'Denoise model not downloaded. Use the Download button in the AI Denoise panel first.',
+      );
+    }
+    const externalData = (await loader.getModelExternalData(modelId, signal)) ?? undefined;
+
     const host = getInferenceWorkerHost();
     const result = await host.infer(
       {
         type: 'infer',
         modelType: 'scunet',
-        modelPath: `/models/${modelId}.onnx`,
+        modelPath: resolvedPath,
+        externalData,
         modelId,
         tensors: {
           image: { data: tensor, dims: [1, 3, height, width] },

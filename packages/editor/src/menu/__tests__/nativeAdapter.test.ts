@@ -2,7 +2,12 @@ import { createDocument } from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { getAllMenuDefs } from '../defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from '../facts';
-import { buildNativeMenuSpec, diffNativeMenuState, type NativeMenuSpec } from '../nativeAdapter';
+import {
+  buildNativeMenuSpec,
+  diffNativeMenuState,
+  type NativeMenuItemSpec,
+  type NativeMenuSpec,
+} from '../nativeAdapter';
 import type { MenuContext } from '../types';
 
 function createTestDoc() {
@@ -497,6 +502,39 @@ describe('buildNativeMenuSpec — snapshot (all platforms)', () => {
             `native-menu-${platform}-${workspace}`,
           );
         });
+      }
+    });
+  }
+});
+
+/**
+ * The native side deserializes this payload with serde. A predefined item's
+ * type field is non-optional there, so a name mismatch rejects the whole
+ * `build_native_menu` argument and the app silently runs with no native menu
+ * ("invalid args `spec` ... missing field `item_type`"). Pin the wire name.
+ */
+describe('native menu wire contract', () => {
+  // Both the platform app-menu items and the per-definition predefined path
+  // must carry it, so every platform is exercised.
+  for (const platform of ['mac', 'windows', 'linux'] as const) {
+    it(`emits itemType on every predefined item (${platform})`, () => {
+      const spec = buildNativeMenuSpec(
+        getDefs(),
+        buildCtx(EMPTY_SELECTION, 'design', platform),
+        platform,
+      );
+      const predefined: Array<{ id: string; itemType?: string }> = [];
+      const walk = (items: NativeMenuItemSpec[]) => {
+        for (const item of items) {
+          if (item.kind === 'predefined') predefined.push(item);
+          if (item.items) walk(item.items);
+        }
+      };
+      for (const submenu of spec.submenus) walk(submenu.items);
+
+      expect(predefined.length).toBeGreaterThan(0);
+      for (const item of predefined) {
+        expect(item.itemType, `predefined item ${item.id} must carry itemType`).toBeTruthy();
       }
     });
   }

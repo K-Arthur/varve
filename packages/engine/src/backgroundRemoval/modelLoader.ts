@@ -92,6 +92,79 @@ function isBrowserEnv(): boolean {
   return typeof window !== 'undefined' && typeof indexedDB !== 'undefined';
 }
 
+/**
+ * Whether a probe response is an HTML document rather than a model file.
+ *
+ * Only `text/html` is treated as a miss: a correctly served `.onnx` may carry
+ * an empty or generic content type, so requiring a specific one would reject
+ * genuinely present models.
+ */
+function isHtmlResponse(response: Response): boolean {
+  // Headers are absent on some non-standard/stubbed responses; a response we
+  // cannot inspect is not positively HTML, so it must not be rejected here.
+  return (response.headers?.get('content-type') ?? '').toLowerCase().includes('text/html');
+}
+
+/** First line of a Git LFS pointer file, per the LFS v1 spec. */
+const LFS_POINTER_MAGIC = 'version https://git-lfs.github.com/spec/v1';
+/** Pointer files are a few hundred bytes; real models are megabytes. */
+const LFS_POINTER_MAX_BYTES = 1024;
+
+/**
+ * Whether a served `.onnx` is really a Git LFS pointer stub.
+ *
+ * `*.onnx` is LFS-tracked in this repo, so a checkout without the objects
+ * fetched leaves a ~130-byte text stub where the model should be. The stub is a
+ * real file that serves 200 with a non-HTML type, so every existence check
+ * passes and the failure only surfaces later as an opaque ONNX parse error.
+ * Treating a stub as "not installed" lets the normal download path recover.
+ *
+ * Only bodies small enough to *be* a pointer are read, so this never pulls a
+ * real multi-megabyte model over the wire.
+ */
+async function isGitLfsPointer(url: string, signal?: AbortSignal): Promise<boolean> {
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      { headers: { Range: `bytes=0-${LFS_POINTER_MAX_BYTES - 1}` }, signal },
+      MODEL_PATH_PROBE_TIMEOUT,
+    );
+    if (!response.ok || typeof response.text !== 'function') return false;
+    const text = await response.text();
+    return (
+      typeof text === 'string' && text.slice(0, LFS_POINTER_MAGIC.length) === LFS_POINTER_MAGIC
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a probe response is too small to be a model, and so worth reading to
+ * check for an LFS stub. Absent `content-length` (chunked responses) it is
+ * cheaper to check than to risk trusting a stub.
+ */
+/**
+ * Whether a response body plausibly *is* a model, judged from headers alone so
+ * the stream stays unread for the caller.
+ *
+ * Rejects HTML: a dev server with SPA history fallback answers a missing local
+ * model with 200 + the index document, which would otherwise be downloaded and
+ * then reported as a checksum failure. Size is deliberately not used as a
+ * signal — the body cannot be inspected without consuming the stream the caller
+ * needs, and an LFS stub reaching this point is still caught by the checksum.
+ */
+function looksLikeModelPayload(response: Response): boolean {
+  return !isHtmlResponse(response);
+}
+
+function couldBeLfsPointer(response: Response): boolean {
+  const length = response.headers?.get('content-length') ?? null;
+  if (length === null) return true;
+  const bytes = Number.parseInt(length, 10);
+  return !Number.isFinite(bytes) || bytes <= LFS_POINTER_MAX_BYTES;
+}
+
 class ModelLoader {
   private state: ModelState = 'unavailable';
   private currentModelId = '';
@@ -152,9 +225,15 @@ class ModelLoader {
     const entry = await getManifestEntry(modelId, signal);
     const bundled = entry?.localPath ?? `/models/${modelId}.onnx`;
 
-    // Bundled models are shipped with the app; trust the manifest and avoid
-    // a HEAD fetch that can fail or hang in Vite dev / custom server setups.
+    // Bundled models ship with the app, so the manifest is trusted rather than
+    // HEAD-probed (that can fail or hang in Vite dev / custom server setups).
+    // The one thing still worth checking is an LFS stub: a checkout without the
+    // objects fetched leaves a text file that would otherwise be handed to the
+    // ONNX runtime as if it were a model.
     if (entry?.bundled) {
+      if (typeof fetch !== 'undefined' && (await isGitLfsPointer(bundled, signal))) {
+        return null;
+      }
       return bundled;
     }
 
@@ -165,7 +244,19 @@ class ModelLoader {
           { method: 'HEAD', signal },
           MODEL_PATH_PROBE_TIMEOUT,
         );
-        if (head.ok) return bundled;
+        // A dev server with SPA history fallback answers *every* unknown path
+        // with 200 + the index HTML document, so `head.ok` alone reports a
+        // missing model as installed. That false positive sends callers down
+        // the native inference path, which then fails deep in the backend with
+        // a "model not found at <path>" error instead of the actionable
+        // "not downloaded" message. Real model responses are never HTML.
+        if (head.ok && !isHtmlResponse(head)) {
+          if (couldBeLfsPointer(head) && (await isGitLfsPointer(bundled, signal))) {
+            // An un-fetched LFS stub — fall through to the download path.
+          } else {
+            return bundled;
+          }
+        }
       }
     } catch {
       // offline or blocked — fall through
@@ -223,7 +314,16 @@ class ModelLoader {
       }
     }
     const path = await this.getModelPath(modelId, signal);
-    return path !== null;
+    if (path === null) return false;
+
+    // A split model is only usable with its external weights. Reporting ready
+    // on the graph alone would skip the download prompt and fail later at
+    // session creation instead.
+    const entry = await getManifestEntry(modelId, signal);
+    if (entry?.remoteDataUrl && isBrowserEnv()) {
+      return this.hasDownloadedBlob(this.externalDataId(modelId));
+    }
+    return true;
   }
 
   /**
@@ -372,6 +472,87 @@ class ModelLoader {
     };
   }
 
+  /** Storage id for a model's external-weights sidecar. */
+  private externalDataId(modelId: string): string {
+    return `${modelId}__externaldata`;
+  }
+
+  /**
+   * Fetch and store a model's external-weights sidecar, if it declares one.
+   *
+   * ONNX keeps tensor data outside the graph once the model exceeds protobuf's
+   * 2GB ceiling (and some publishers split smaller models the same way). The
+   * runtime resolves it by the filename recorded inside the graph, so the file
+   * is stored under a derived id and re-presented under that exact name at
+   * session creation.
+   */
+  private async downloadExternalData(
+    modelId: string,
+    manifestEntry: { remoteDataUrl?: string; filename?: string } | null | undefined,
+    onProgress?: (loaded: number, total: number) => void,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const dataUrl = manifestEntry?.remoteDataUrl;
+    if (!dataUrl || !isBrowserEnv()) return;
+    const response = await fetchWithTimeout(dataUrl, { signal }, MODEL_DOWNLOAD_TIMEOUT);
+    if (!response.ok) {
+      throw new Error(
+        `Model ${modelId} weights (${dataUrl.split('/').pop()}) failed to download: ${response.statusText}`,
+      );
+    }
+    const total = Number.parseInt(response.headers.get('content-length') ?? '', 10);
+    const reader = response.body?.getReader();
+    const chunks: Uint8Array[] = [];
+    let loaded = 0;
+    if (reader) {
+      while (true) {
+        if (signal?.aborted) {
+          await reader.cancel();
+          throw new Error('Download cancelled');
+        }
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.length;
+        if (Number.isFinite(total)) onProgress?.(loaded, total);
+      }
+    } else {
+      chunks.push(new Uint8Array(await response.arrayBuffer()));
+    }
+    const size = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.length;
+    }
+    await saveModelBlob(
+      this.externalDataId(modelId),
+      new Blob([bytes], { type: 'application/octet-stream' }),
+    );
+  }
+
+  /**
+   * Resolve a model's external-weights sidecar for session creation.
+   *
+   * `path` is the name the graph refers to internally; `url` is a blob URL the
+   * ONNX runtime can read. Returns null when the model has no sidecar.
+   */
+  async getModelExternalData(
+    modelId: string,
+    signal?: AbortSignal,
+  ): Promise<{ path: string; url: string } | null> {
+    const entry = await getManifestEntry(modelId, signal);
+    const dataUrl = entry?.remoteDataUrl;
+    if (!dataUrl) return null;
+    const path = dataUrl.split('/').pop();
+    if (!path) return null;
+    if (!isBrowserEnv()) return null;
+    const blob = await loadModelBlob(this.externalDataId(modelId)).catch(() => null);
+    if (!blob) return null;
+    return { path, url: URL.createObjectURL(blob) };
+  }
+
   async downloadModel(
     modelId: string,
     onProgress?: (loaded: number, total: number) => void,
@@ -463,6 +644,18 @@ class ModelLoader {
         if (signal?.aborted) throw new Error('Download cancelled');
         response = null;
       }
+      // A local hit is only real if it looks like a model. A dev server with SPA
+      // history fallback returns 200 + the index HTML for a missing path, and an
+      // un-fetched Git LFS stub is a ~130-byte text file — both would be
+      // "downloaded" here and then fail checksum verification, reporting a
+      // corrupt-download error for a file that was simply never there. Falling
+      // through to the remote URL is the correct recovery.
+      if (response?.ok && !looksLikeModelPayload(response)) {
+        if (typeof response.body?.cancel === 'function') {
+          void response.body.cancel().catch(() => {});
+        }
+        response = null;
+      }
       if (!response?.ok) {
         if (!remoteUrl) {
           throw new Error(`Model ${modelId} is not bundled; download explicitly from settings.`);
@@ -546,6 +739,11 @@ class ModelLoader {
       if (isBrowserEnv()) {
         await saveModelBlob(modelId, blob);
         await deletePartialDownload(modelId);
+        // Models above the 2GB protobuf limit keep their weights in a sibling
+        // `.onnx.data` file. The graph alone parses but cannot initialize, so a
+        // graph-only download would report success and then fail at session
+        // creation. Fetch the sidecar as part of the same download.
+        await this.downloadExternalData(modelId, manifestEntry, onProgress, signal);
       } else {
         throw new Error(
           'This environment cannot store AI models (IndexedDB unavailable). Use Quick mode, or run in a browser/desktop build with storage enabled.',

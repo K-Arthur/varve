@@ -57,12 +57,20 @@ export interface WorkerLetterbox {
   offsetY: number;
 }
 
+/** External-weights sidecar: the graph-internal filename and a readable URL. */
+export interface ExternalDataSpec {
+  path: string;
+  url: string;
+}
+
 export interface WorkerInferRequest {
   type: 'infer';
   requestId: string;
   modelType: WorkerModelType;
   modelPath: string;
   modelId: string;
+  /** Set for models whose weights live in a sibling `.onnx.data`. */
+  externalData?: ExternalDataSpec;
   imageData?: ImageData;
   /** Second image input — LaMa's mask, or RIFE's second frame. */
   auxImageData?: ImageData;
@@ -304,10 +312,35 @@ async function getPreferredProviders(): Promise<string[]> {
   return preferredOnnxProviders;
 }
 
+/**
+ * Import ONNX Runtime with its WASM assets pointed at the app's bundled copy.
+ *
+ * Without `wasmPaths`, the runtime resolves its `.wasm` relative to the worker
+ * script. In dev that path does not exist and the SPA fallback answers with a
+ * 200 HTML document, so instantiation never completes and every inference on
+ * this worker hangs until the caller's timeout rather than failing loudly.
+ * The background-removal worker has always configured this; the generic
+ * inference worker did not, which left every model routed through it
+ * (denoise, depth, line art, segmentation, ...) unable to run.
+ */
+let ortModulePromise: Promise<OrtModule> | null = null;
+async function loadOrt(): Promise<OrtModule> {
+  if (!ortModulePromise) {
+    ortModulePromise = (async () => {
+      const ort = await import('onnxruntime-web');
+      const { configureOrtRuntime } = await import('../backgroundRemoval/ortRuntimeAssets');
+      configureOrtRuntime(ort);
+      return ort as unknown as OrtModule;
+    })();
+  }
+  return ortModulePromise;
+}
+
 async function getSession(
   modelPath: string,
   modelId: string,
   modelType: WorkerModelType,
+  externalData?: ExternalDataSpec,
 ): Promise<{ session: unknown; executionProvider: string }> {
   const cacheKey = `${modelType}:${modelPath}`;
   const cached = sessionCache.get(cacheKey);
@@ -329,8 +362,14 @@ async function getSession(
     }
   }
 
-  const ort = (await import('onnxruntime-web')) as OrtModule;
+  const ort = await loadOrt();
   const providers = await getPreferredProviders();
+  // Weights kept outside the graph must be handed to the runtime under the
+  // exact filename the graph references, or session creation fails resolving
+  // the missing tensor data.
+  const externalDataOption = externalData
+    ? { externalData: [{ path: externalData.path, data: externalData.url }] }
+    : {};
 
   let lastError: Error | null = null;
   for (const provider of providers) {
@@ -338,6 +377,7 @@ async function getSession(
     try {
       const session = await ort.InferenceSession.create(modelPath, {
         executionProviders: [provider],
+        ...externalDataOption,
       });
       const cachedSession: CachedSession = {
         session,
@@ -369,6 +409,7 @@ async function getSession(
 
   const session = await ort.InferenceSession.create(modelPath, {
     executionProviders: ['wasm'],
+    ...externalDataOption,
   });
   const cachedSession: CachedSession = {
     session,
@@ -382,7 +423,13 @@ async function getSession(
 
 interface OrtModule {
   InferenceSession: {
-    create: (path: string, opts?: { executionProviders?: string[] }) => Promise<OrtSession>;
+    create: (
+      path: string,
+      opts?: {
+        executionProviders?: string[];
+        externalData?: Array<{ path: string; data: string }>;
+      },
+    ) => Promise<OrtSession>;
   };
   Tensor: new (type: string, data: ArrayLike<number> | BigInt64Array, dims: number[]) => unknown;
 }
@@ -467,6 +514,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     reuseSession,
     targetWidth,
     targetHeight,
+    externalData,
   } = data;
 
   try {
@@ -475,7 +523,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
       throw new Error(`Unknown model type: ${modelType}`);
     }
 
-    const ort = (await import('onnxruntime-web')) as OrtModule;
+    const ort = await loadOrt();
     const cacheKey = `${modelType}:${modelPath}`;
     const cached = sessionCache.get(cacheKey);
     const hadSession = !!cached && cached.session;
@@ -483,7 +531,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     const { session, executionProvider } =
       reuseSession && hadSession
         ? { session: cached!.session, executionProvider: cached!.executionProvider }
-        : await getSession(modelPath, modelId, modelType);
+        : await getSession(modelPath, modelId, modelType, externalData);
 
     if (!hadSession) {
       self.postMessage({ type: 'ready' } satisfies WorkerReady);

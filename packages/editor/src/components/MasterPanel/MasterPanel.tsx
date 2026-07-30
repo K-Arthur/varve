@@ -45,11 +45,10 @@ export function MasterPanel() {
     [editName, renameMaster],
   );
 
-  // Hide entirely when no masters exist — users create them on demand
-  if (masterList.length === 0) {
-    return null;
-  }
-
+  // Renders with no masters too: the empty state below carries the "+ New
+  // Master" control and the copy explaining what masters are for. Returning
+  // null here instead left that markup unreachable and removed the only
+  // in-panel way to create a first master.
   return (
     <div className="master-panel">
       <div className="master-panel__header">

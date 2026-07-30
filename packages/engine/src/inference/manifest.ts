@@ -20,6 +20,11 @@ export interface RawManifestEntry {
   sha256: string | null;
   bundled: boolean;
   remoteUrl: string;
+  /**
+   * Sibling `.onnx.data` holding weights stored outside the graph. Dropping it
+   * here would download a graph that cannot initialize a session.
+   */
+  remoteDataUrl?: string;
   precision?: ModelPrecision;
   sourceModelId?: string;
   sourceSha256?: string;
@@ -120,6 +125,7 @@ function normalizeEntry(raw: RawManifestEntry): ModelManifestEntry {
     description: entryDescription(raw.id, raw.notes),
     sizeBytes,
     remoteUrl: raw.remoteUrl ?? '',
+    ...(raw.remoteDataUrl ? { remoteDataUrl: raw.remoteDataUrl } : {}),
     checksum: raw.sha256 ?? '',
     bundled: isBundled,
     inputSpec: null,

@@ -14,9 +14,12 @@ function mockEditor(overrides: {
   activePageId?: string | null;
   setFacingPagesEnabled?: ReturnType<typeof vi.fn>;
   getPageSide?: ReturnType<typeof vi.fn>;
+  /** Facing pages is a print-production feature; the panel renders only there. */
+  workspaceMode?: string;
 }) {
   vi.mocked(useEditor).mockReturnValue({
     state: {
+      workspaceMode: overrides.workspaceMode ?? 'print',
       document: {
         facingPages: overrides.facingPages ?? null,
         spreads: overrides.spreads ?? [],
@@ -98,5 +101,11 @@ describe('SpreadSettings', () => {
     render(<SpreadSettings />);
     // The page side should show 'none'
     expect(screen.getByText('none')).toBeDefined();
+  });
+
+  it('renders nothing outside print mode', () => {
+    mockEditor({ workspaceMode: 'design' });
+    const { container } = render(<SpreadSettings />);
+    expect(container.firstChild).toBeNull();
   });
 });

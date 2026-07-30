@@ -72,6 +72,25 @@ async function detectBatteryPoweredAsync(): Promise<boolean> {
   return false;
 }
 
+/**
+ * Peak-memory ceiling for WASM inference, scaled by device memory.
+ *
+ * Separate from the model-file budget: peak runs several times file size, so
+ * testing a peak figure against the file budget rejects models that run
+ * comfortably (SCUNet loads and infers in under a second at a 280MB peak).
+ * Stays below BiRefNet's 896MB-lite / 3.9GB-full peaks, the documented case
+ * that exhausts wasm32 and aborts the webview.
+ */
+function estimateWasmSafePeakBytes(crossOriginIsolated: boolean, memoryMB: number): number {
+  const baseLimit = crossOriginIsolated ? 1_500_000_000 : 600_000_000;
+  const memoryFactor = Math.min(memoryMB / 2048, 2.0);
+  const result = Math.round(baseLimit * memoryFactor);
+  if (memoryMB < 4096) {
+    return Math.min(result, 400_000_000);
+  }
+  return result;
+}
+
 function estimateWasmSafeModelBytes(crossOriginIsolated: boolean, memoryMB: number): number {
   const baseLimit = crossOriginIsolated ? 400_000_000 : 50_000_000;
   const memoryFactor = Math.min(memoryMB / 2048, 2.0);
@@ -129,6 +148,7 @@ async function buildCapabilities(hasWebGPU: boolean): Promise<RuntimeCapabilitie
     hasWebGPU,
     sharedMemoryAvailable,
     wasmSafeModelBytes: estimateWasmSafeModelBytes(crossOriginIsolated, memoryMB),
+    wasmSafePeakBytes: estimateWasmSafePeakBytes(crossOriginIsolated, memoryMB),
     preferredOnnxProviders: computePreferredProviders({
       hasWebGPU,
       hasWebGL: detectWebGL(),
@@ -228,6 +248,7 @@ export function getRuntimeCapabilitiesSync(): RuntimeCapabilities {
     hasWebGPU: false,
     sharedMemoryAvailable: detectSharedMemory(),
     wasmSafeModelBytes: estimateWasmSafeModelBytes(crossOriginIsolated, memoryMB),
+    wasmSafePeakBytes: estimateWasmSafePeakBytes(crossOriginIsolated, memoryMB),
     preferredOnnxProviders: ['wasm'],
     label: 'Sync snapshot (no async probes)',
     os: detectOs(),
@@ -256,7 +277,7 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
     const entry = getModelById(modelId);
     if (entry) {
       if (entry.peakMemoryBytes) {
-        return entry.peakMemoryBytes <= caps.wasmSafeModelBytes;
+        return entry.peakMemoryBytes <= caps.wasmSafePeakBytes;
       }
       modelFileSize = entry.sizeBytes;
     } else {
@@ -283,7 +304,7 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
 
   peakMultiplier = modelId === 'u2netp' ? 3 : 4;
   const estimatedPeakBytes = modelFileSize * peakMultiplier;
-  return estimatedPeakBytes <= caps.wasmSafeModelBytes;
+  return estimatedPeakBytes <= caps.wasmSafePeakBytes;
 }
 
 export async function getBestOnnxProviders(): Promise<ExecutionProvider[]> {

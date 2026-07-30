@@ -101,7 +101,6 @@ export function SelectiveColorGrid({ value, onChange }: SelectiveColorGridProps)
               name="adjustment-method"
               checked={method === m}
               onChange={() => setMethod(m)}
-              hidden
             />
             {m.charAt(0).toUpperCase() + m.slice(1)}
           </label>

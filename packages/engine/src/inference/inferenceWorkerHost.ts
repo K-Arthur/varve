@@ -31,18 +31,14 @@ export class InferenceWorkerHost {
     if (this.worker) return this.worker;
 
     this.worker = new Worker(this.workerUrl, { type: 'module' });
+    // A single permanent handler. An earlier readiness probe replaced this with
+    // a listener that forwarded only `ready` and discarded everything else —
+    // and because the worker emits `ready` *after* creating a session inside an
+    // infer request (not at startup), any failure before that point posted an
+    // `error` that was silently dropped, leaving the caller to time out minutes
+    // later with no diagnostic. `handleMessage` already tracks readiness.
     this.worker.onmessage = (e: MessageEvent<WorkerResponse>) => this.handleMessage(e.data);
     this.worker.onerror = (e) => this.handleWorkerError(e);
-    new Promise<void>((resolve) => {
-      const checkReady = (e: MessageEvent<WorkerResponse>) => {
-        if (e.data.type === 'ready') {
-          this.worker!.onmessage = (ev) => this.handleMessage(ev.data);
-          this.workerReady = true;
-          resolve();
-        }
-      };
-      this.worker!.onmessage = checkReady;
-    });
 
     return this.worker;
   }

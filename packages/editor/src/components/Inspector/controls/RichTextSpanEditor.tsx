@@ -30,7 +30,7 @@ function runKey(run: TextRun, i: number): string {
 
 export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorProps) {
   const editor = useEditor();
-  const editorRef = useRef<HTMLButtonElement>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   const flatRuns = useMemo(() => {
     const out: { paraIndex: number; runIndex: number; run: TextRun }[] = [];
@@ -78,10 +78,21 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
 
   return (
     <div className="rich-span-editor">
-      <button
+      {/*
+       * An editable text surface, not a button: selection mapping below walks
+       * DOM ranges inside this element, and a <button> neither exposes the
+       * textbox role nor lets a caret be placed in it, so formatting could
+       * never resolve a range to apply to.
+       */}
+      {/* biome-ignore lint/a11y/useSemanticElements: a rich-text surface holds inline formatted spans, which <textarea> cannot contain; contenteditable + role="textbox" is the correct pattern */}
+      <div
         ref={editorRef}
-        type="button"
+        role="textbox"
+        aria-multiline="true"
         aria-label="Rich text content"
+        tabIndex={0}
+        contentEditable
+        suppressContentEditableWarning
         className="rich-span-editor__box"
         onSelect={reportSelection}
         onBlur={onBlur}
@@ -110,7 +121,7 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
             </span>
           );
         })}
-      </button>
+      </div>
       <div className="rich-span-editor__toolbar" role="toolbar" aria-label="Text formatting">
         <button
           type="button"

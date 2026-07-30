@@ -16,12 +16,15 @@ import {
   DEFAULT_UPSCALE_MODE,
   detectUpscaleCapabilities,
   dispatchUpscale,
+  getModelLoader,
   getUpscaleMode,
   UPSCALE_MODES,
+  upscalePreviewRegion,
 } from '@strata/engine';
 import { Button, FocusTrap, SegmentedControl, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
+import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
 type OutputBehavior = 'new-layer' | 'replace-source' | 'non-destructive';
 
@@ -97,6 +100,10 @@ export function UpscaleDialog({
   const [previewPosition, setPreviewPosition] = useState(50);
   const [isDragging, setIsDragging] = useState(false);
   const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
+  // The same region as `previewDataUrl`, straight from the source. Comparing
+  // the upscale against this (rather than the whole image) is what makes the
+  // slider meaningful — both halves show the same pixels at the same size.
+  const [previewBaselineUrl, setPreviewBaselineUrl] = useState<string | null>(null);
   const [previewGenerating, setPreviewGenerating] = useState(false);
   const previewAbortRef = useRef<AbortController | null>(null);
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -104,6 +111,39 @@ export function UpscaleDialog({
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const mode = useMemo(() => getUpscaleMode(modeId), [modeId]);
+
+  // Model prerequisites. Denoise needs SCUNet and the AI modes need their
+  // Real-ESRGAN weights; the CPU resampling modes need nothing. Checking here
+  // means a missing model is offered as a download up front instead of
+  // surfacing as a backend failure after the user commits to the operation.
+  const requiredModelId = mode?.isAi
+    ? modeId === 'illustration'
+      ? 'upscale-realesrgan-anime'
+      : 'upscale-realesr-general'
+    : denoiseStrength !== 'none'
+      ? 'scunet'
+      : null;
+  const [modelMissing, setModelMissing] = useState(false);
+  const [showModelDownload, setShowModelDownload] = useState(false);
+
+  useEffect(() => {
+    if (!open || !requiredModelId) {
+      setModelMissing(false);
+      return;
+    }
+    let cancelled = false;
+    void getModelLoader()
+      .isModelAvailable(requiredModelId)
+      .then((available) => {
+        if (!cancelled) setModelMissing(!available);
+      })
+      .catch(() => {
+        if (!cancelled) setModelMissing(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, requiredModelId]);
 
   const outW = mode?.isAi ? sourceWidth * 4 : Math.round(sourceWidth * scale);
   const outH = mode?.isAi ? sourceHeight * 4 : Math.round(sourceHeight * scale);
@@ -163,6 +203,7 @@ export function UpscaleDialog({
   useEffect(() => {
     if (mode?.isAi) {
       setPreviewDataUrl(null);
+      setPreviewBaselineUrl(null);
     }
   }, [mode?.isAi]);
 
@@ -191,6 +232,36 @@ export function UpscaleDialog({
       if (ctx) {
         ctx.putImageData(result, 0, 0);
         const dataUrl = canvas.toDataURL('image/png');
+
+        // Baseline: the identical source region, drawn at the upscaled size so
+        // the browser's own interpolation stands in for "no upscale". Any
+        // quality difference the slider reveals is then genuinely the method's.
+        const region = upscalePreviewRegion(sourceImageData, {
+          scale,
+          previewMaxDimension: 512,
+        });
+        const cropCanvas = document.createElement('canvas');
+        cropCanvas.width = region.width;
+        cropCanvas.height = region.height;
+        const cropCtx = cropCanvas.getContext('2d');
+        let baselineUrl: string | null = null;
+        if (cropCtx) {
+          const cropped = new ImageData(region.width, region.height);
+          for (let y = 0; y < region.height; y += 1) {
+            for (let x = 0; x < region.width; x += 1) {
+              const from = ((region.y + y) * sourceImageData.width + region.x + x) * 4;
+              const to = (y * region.width + x) * 4;
+              cropped.data[to] = sourceImageData.data[from] as number;
+              cropped.data[to + 1] = sourceImageData.data[from + 1] as number;
+              cropped.data[to + 2] = sourceImageData.data[from + 2] as number;
+              cropped.data[to + 3] = sourceImageData.data[from + 3] as number;
+            }
+          }
+          cropCtx.putImageData(cropped, 0, 0);
+          baselineUrl = cropCanvas.toDataURL('image/png');
+        }
+        if (abort.signal.aborted) return;
+        setPreviewBaselineUrl(baselineUrl);
         setPreviewDataUrl(dataUrl);
       }
     } catch (err) {
@@ -234,7 +305,14 @@ export function UpscaleDialog({
       // Tauri commands reject with a bare string, so `instanceof Error` alone
       // would discard the backend's message and report a useless generic.
       const message = normalizeThrownMessage(caught);
-      console.error('Upscale failed:', caught);
+      console.error(
+        'Upscale failed:',
+        message,
+        '\nthrown value:',
+        caught,
+        '\nstack:',
+        caught instanceof Error ? caught.stack : '(non-Error throw, no stack)',
+      );
       setError(message === 'cancelled' ? 'Cancelled' : message);
       announce(message === 'cancelled' ? 'Upscale cancelled' : `Upscale failed: ${message}`);
     } finally {
@@ -344,7 +422,7 @@ export function UpscaleDialog({
                 onPointerUp={handlePointerUp}
               >
                 <img
-                  src={sourceDataUrl}
+                  src={previewBaselineUrl ?? sourceDataUrl}
                   alt="Original"
                   className="upscale-preview__image upscale-preview__image--original"
                 />
@@ -428,7 +506,9 @@ export function UpscaleDialog({
                 )}
               </div>
               <p className="upscale-preview__hint">
-                Drag to compare. Output: {outW}by{outH}px
+                {previewBaselineUrl
+                  ? `Drag to compare — magnified detail, not the whole image. Output: ${outW}by${outH}px`
+                  : `Drag to compare. Output: ${outW}by${outH}px`}
               </p>
             </div>
 
@@ -552,6 +632,25 @@ export function UpscaleDialog({
                 )}
               </div>
 
+              {modelMissing && requiredModelId && (
+                <div className="upscale-model-missing" role="status">
+                  <p className="insp-hint insp-hint--warn">
+                    {requiredModelId === 'scunet'
+                      ? 'Denoise needs the SCUNet model, which is not installed yet.'
+                      : 'This mode needs an AI model that is not installed yet.'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={processing}
+                    onClick={() => setShowModelDownload(true)}
+                  >
+                    Download model
+                  </Button>
+                </div>
+              )}
+
               {memoryWarning && (
                 <p className="insp-hint insp-hint--warn" role="status">
                   {memoryExceeded
@@ -599,7 +698,7 @@ export function UpscaleDialog({
               type="button"
               variant="primary"
               size="sm"
-              disabled={processing || memoryExceeded || !mode}
+              disabled={processing || memoryExceeded || !mode || modelMissing}
               loading={processing}
               onClick={() => void handleApply()}
             >
@@ -615,6 +714,17 @@ export function UpscaleDialog({
           </div>
         </div>
       </FocusTrap>
+
+      {showModelDownload && requiredModelId && (
+        <ModelDownloadDialog
+          modelId={requiredModelId}
+          onClose={() => setShowModelDownload(false)}
+          onComplete={() => {
+            setShowModelDownload(false);
+            setModelMissing(false);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -288,6 +288,8 @@ export interface RuntimeCapabilities {
   hasWebGPU: boolean;
   sharedMemoryAvailable: boolean;
   wasmSafeModelBytes: number;
+  /** Estimated safe peak runtime memory for WASM inference. */
+  wasmSafePeakBytes: number;
   preferredOnnxProviders: ExecutionProvider[];
   label: string;
   os?: string;

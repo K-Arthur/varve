@@ -52,44 +52,72 @@ async function renderPanelWithSelectedRect(locked = false) {
   return utils;
 }
 
+/** Same as the rect helper, but selects a frame — the Prototype tab is shown
+ * only for a frame selection (or in prototype mode). */
+async function renderPanelWithSelectedFrame() {
+  const { createDocument, makeFrameNode, addChild } = await import('@strata/scene');
+  let doc = createDocument('frame-selection-test');
+  const frame = makeFrameNode('f1', { name: 'Frame1', transform: [1, 0, 0, 1, 0, 0] });
+  doc = addChild(doc, doc.pages?.[0]?.contentRoot as string, frame);
+
+  let ctx: ReturnType<typeof useEditor> | undefined;
+  function Selector() {
+    ctx = useEditor();
+    React.useEffect(() => {
+      ctx?.setSelection('f1');
+    }, []);
+    return null;
+  }
+
+  const utils = render(
+    <EditorProvider initialDocumentJson={JSON.stringify(doc)}>
+      <Selector />
+      <PropertiesPanel />
+    </EditorProvider>,
+  );
+  await waitFor(() => expect(ctx?.state.selection).toEqual(['f1']));
+  return utils;
+}
+
 describe('PropertiesPanel canvas settings', () => {
   it('uses the grouped workspace tabs and omits legacy document and spec tabs', () => {
     renderPanel();
 
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent?.trim());
     const tabLabels = tabs.filter(Boolean);
-    expect(tabLabels).toEqual([
-      'Properties',
-      'Appearance',
-      'Prototype',
-      'Export',
-      'Audit',
-      'Fonts',
-    ]);
+    // Prototype and Fonts are contextual — they appear for a frame and a text
+    // selection respectively, so an empty selection shows neither.
+    expect(tabLabels).toEqual(['Properties', 'Appearance', 'Export', 'Audit']);
+    expect(screen.queryByRole('tab', { name: 'Prototype' })).toBeNull();
+    expect(screen.queryByRole('tab', { name: 'Fonts' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Document' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Inspect' })).toBeNull();
     expect(screen.queryByRole('tab', { name: 'Score' })).toBeNull();
   });
 
-  it('implements APG roving focus for arrow, Home, and End keys across the canonical tab row', () => {
+  it('implements APG roving focus for arrow, Home, and End keys across the tab row', () => {
     renderPanel();
-    const properties = screen.getByRole('tab', { name: 'Properties' });
-    const appearance = screen.getByRole('tab', { name: 'Appearance' });
+    // Derived from what actually renders: the tab row is contextual, and the
+    // roving-focus contract applies to whichever tabs are present.
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs.length).toBeGreaterThanOrEqual(3);
+    const first = tabs[0]!;
+    const second = tabs[1]!;
+    const third = tabs[2]!;
+    const last = tabs[tabs.length - 1]!;
 
-    appearance.focus();
-    fireEvent.keyDown(appearance, { key: 'ArrowRight' });
-    const prototype = screen.getByRole('tab', { name: 'Prototype' });
-    expect(prototype).toHaveFocus();
+    second.focus();
+    fireEvent.keyDown(second, { key: 'ArrowRight' });
+    expect(third).toHaveFocus();
 
-    fireEvent.keyDown(prototype, { key: 'End' });
-    const fonts = screen.getByRole('tab', { name: 'Fonts' });
-    expect(fonts).toHaveFocus();
+    fireEvent.keyDown(third, { key: 'End' });
+    expect(last).toHaveFocus();
 
-    fireEvent.keyDown(fonts, { key: 'Home' });
-    expect(properties).toHaveFocus();
+    fireEvent.keyDown(last, { key: 'Home' });
+    expect(first).toHaveFocus();
 
-    fireEvent.keyDown(properties, { key: 'ArrowLeft' });
-    expect(fonts).toHaveFocus();
+    fireEvent.keyDown(first, { key: 'ArrowLeft' });
+    expect(last).toHaveFocus();
   });
 
   it('renders canvas settings inline in the Properties empty state', async () => {
@@ -129,7 +157,7 @@ describe('PropertiesPanel section gating for a real single selection', () => {
   });
 
   it('moves Prototype Interactions to the dedicated Prototype surface', async () => {
-    await renderPanelWithSelectedRect();
+    await renderPanelWithSelectedFrame();
     expect(screen.queryByRole('button', { name: 'Prototype Interactions' })).toBeNull();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Prototype' }));
