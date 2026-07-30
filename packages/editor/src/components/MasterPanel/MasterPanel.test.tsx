@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../../context', () => ({
   useEditor: vi.fn(),
@@ -16,6 +16,8 @@ vi.mock('@floating-ui/dom', () => ({
 
 import { useEditor } from '../../context';
 import { MasterPanel } from './MasterPanel';
+
+afterEach(cleanup);
 
 function mockEditor(overrides: {
   masters?: Record<
@@ -69,7 +71,7 @@ function mockEditor(overrides: {
     assignMasterToPage: overrides.assignMasterToPage ?? vi.fn(),
     setMasterAppliesTo: overrides.setMasterAppliesTo ?? vi.fn(),
     getPageNumber: overrides.getPageNumber ?? vi.fn(() => 1),
-  } as unknown as ReturnType<typeof useEditor>);
+  } as never);
 }
 
 describe('MasterPanel', () => {
@@ -350,5 +352,19 @@ describe('MasterPanel', () => {
     mockEditor({ masters: {}, workspaceMode: 'design' });
     const { container } = render(<MasterPanel />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it('collapses its body so it does not hold sidebar height open', () => {
+    // Same affordance the minimap offers: these sections share a fixed-height
+    // column with the layers tree, so the user can reclaim the space.
+    mockEditor({ masters: {} });
+    render(<MasterPanel />);
+    expect(screen.getByText('No master pages yet.')).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide master pages' }));
+
+    expect(screen.queryByText('No master pages yet.')).toBeNull();
+    // The header stays, so it can be reopened.
+    expect(screen.getByRole('button', { name: 'Show master pages' })).toBeDefined();
   });
 });
