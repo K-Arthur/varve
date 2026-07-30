@@ -16,6 +16,7 @@ function makeCaps(label = 'Browser'): EnvironmentCapabilities {
     hasWebGPU: false,
     sharedMemoryAvailable: false,
     wasmSafeModelBytes: 50_000_000,
+    wasmSafePeakBytes: 600_000_000,
     preferredOnnxProviders: ['wasm'],
     label,
   };

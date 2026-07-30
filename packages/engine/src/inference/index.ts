@@ -40,7 +40,7 @@ export {
   InferenceWorkerHost,
 } from './inferenceWorkerHost';
 export { ModelRegistry } from './ModelRegistry';
-export { listAllModels } from './modelCatalog';
+export { getModelById, listAllModels } from './modelCatalog';
 export {
   decodeFontClassifyOutput,
   FONT_CLASSIFY_INPUT_SIZE,

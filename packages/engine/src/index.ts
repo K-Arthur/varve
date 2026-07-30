@@ -349,6 +349,7 @@ export {
   computeUpscaleDimensions,
   DEFAULT_AI_UPSCALE_MODEL_ID,
   upscaleImageData,
+  upscalePreviewRegion,
 } from './imageEnhancement';
 export type {
   ComputeImagePlacementOptions,
@@ -406,6 +407,7 @@ export {
   deriveAcquisition,
   disposeInferenceWorkerHost,
   getInferenceWorkerHost,
+  getModelById,
   getRuntimeCapabilities,
   InferenceError,
   InferenceWorkerHost,

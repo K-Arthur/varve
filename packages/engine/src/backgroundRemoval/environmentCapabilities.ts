@@ -30,6 +30,13 @@ export interface EnvironmentCapabilities {
   readonly sharedMemoryAvailable: boolean;
   /** Estimated safe model-file size in bytes for WASM inference. */
   readonly wasmSafeModelBytes: number;
+  /**
+   * Estimated safe *peak runtime memory* for WASM inference. Distinct from
+   * `wasmSafeModelBytes`, which budgets the model file: peak runs several times
+   * file size, so testing a peak figure against the file budget rejects models
+   * that run comfortably.
+   */
+  readonly wasmSafePeakBytes: number;
   /** Best ONNX execution provider ordering for this environment. */
   readonly preferredOnnxProviders: string[];
   /** Human-readable environment summary for diagnostics. */
@@ -94,6 +101,20 @@ function estimateWasmSafeModelBytes(crossOriginIsolated: boolean): number {
   return crossOriginIsolated ? 400_000_000 : 50_000_000;
 }
 
+/**
+ * Peak-memory ceiling for WASM inference.
+ *
+ * Sized from what the runtime actually sustains rather than from file size:
+ * SCUNet (280MB peak) loads and runs in well under a second on a
+ * non-isolated single-threaded build, while BiRefNet (896MB lite / 3.9GB full)
+ * is the documented case that exhausts wasm32 and aborts the webview. The
+ * non-isolated ceiling therefore sits between the two, and cross-origin
+ * isolation — which unlocks threads and a larger practical heap — raises it.
+ */
+function estimateWasmSafePeakBytes(crossOriginIsolated: boolean): number {
+  return crossOriginIsolated ? 1_500_000_000 : 600_000_000;
+}
+
 function computePreferredOnnxProviders(caps: {
   hasWebGPU: boolean;
   hasWebGL: boolean;
@@ -133,6 +154,7 @@ function buildCapabilities(hasWebGPU: boolean): EnvironmentCapabilities {
     hasWebGPU,
     sharedMemoryAvailable,
     wasmSafeModelBytes: estimateWasmSafeModelBytes(crossOriginIsolated),
+    wasmSafePeakBytes: estimateWasmSafePeakBytes(crossOriginIsolated),
     preferredOnnxProviders: computePreferredOnnxProviders({
       hasWebGPU,
       hasWebGL: detectWebGL(),
@@ -222,7 +244,7 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
     const entry = getModelById(modelId);
     if (entry) {
       if (entry.peakMemoryBytes) {
-        return entry.peakMemoryBytes <= caps.wasmSafeModelBytes;
+        return entry.peakMemoryBytes <= caps.wasmSafePeakBytes;
       }
       modelFileSize = entry.sizeBytes;
     } else {
@@ -252,7 +274,9 @@ export async function isWasmModelSafe(modelId: string): Promise<boolean> {
   peakMultiplier = modelId === 'u2netp' ? 3 : 4;
   const estimatedPeakBytes = modelFileSize * peakMultiplier;
 
-  return estimatedPeakBytes <= caps.wasmSafeModelBytes;
+  // Derived peak, so it belongs against the peak budget for the same reason as
+  // the catalog figure above.
+  return estimatedPeakBytes <= caps.wasmSafePeakBytes;
 }
 
 /**

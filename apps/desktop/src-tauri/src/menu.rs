@@ -40,6 +40,11 @@ pub enum NativeMenuItemSpec {
     #[serde(rename = "predefined")]
     Predefined {
         id: String,
+        // The frontend spec is camelCase throughout. This is the only
+        // multi-word field in it, and being non-optional the mismatch failed
+        // the whole `build_native_menu` payload with "missing field
+        // `item_type`" — so no native menu was ever installed.
+        #[serde(rename = "itemType")]
         item_type: String,
     },
 }

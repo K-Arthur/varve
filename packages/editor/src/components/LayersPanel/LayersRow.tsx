@@ -37,7 +37,10 @@ export interface LayersRowProps {
   onCollapseSubtree?: (id: NodeId) => void;
   onExpandToDepth1?: (id: NodeId) => void;
   onSelect: (id: NodeId, shift: boolean, ctrl: boolean) => void;
+  /** Commit a new name for the row. */
   onRename: (id: NodeId, name: string) => void;
+  /** Enter inline edit mode for the row. */
+  onRenameStart: (id: NodeId) => void;
   onRenameCommit: () => void;
   onRenameCancel: () => void;
   onRenameCycle?: (direction: 'next' | 'previous') => void;
@@ -122,6 +125,7 @@ export const LayersRow = memo(function LayersRow({
   onExpandToDepth1,
   onSelect,
   onRename,
+  onRenameStart,
   onRenameCommit,
   onRenameCancel,
   onRenameCycle,
@@ -208,8 +212,12 @@ export const LayersRow = memo(function LayersRow({
 
   const handleDoubleClick = useCallback(() => {
     if (isContainerNode) onToggleExpand(node.id);
-    onRename(node.id, node.name);
-  }, [isContainerNode, node.id, node.name, onToggleExpand, onRename]);
+    // Begin editing. This previously reused `onRename` with the node's current
+    // name, which left the parent unable to tell "start editing" apart from
+    // "save this name" — so it treated every commit as another start and the
+    // typed name was never written to the document.
+    onRenameStart(node.id);
+  }, [isContainerNode, node.id, onToggleExpand, onRenameStart]);
 
   const commitRename = useCallback(() => {
     const trimmed = editValue.trim();
