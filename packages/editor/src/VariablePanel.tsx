@@ -11,6 +11,7 @@
 
 import { Select } from '@strata/ui';
 import { useEffect, useRef, useState } from 'react';
+import { SectionCollapseToggle } from './components/SectionCollapseToggle';
 import { useEditor } from './context';
 import { docVariableStore } from './docVariableStore';
 import './VariablePanel.css';
@@ -26,6 +27,9 @@ export function VariablePanel() {
   const [newType, setNewType] = useState<'number' | 'string' | 'boolean' | 'color'>('number');
   const [newValue, setNewValue] = useState('');
   const [adding, setAdding] = useState(false);
+  // Collapsible like its sibling sidebar sections: they stack above the layers
+  // tree in one fixed-height column.
+  const [collapsed, setCollapsed] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +93,11 @@ export function VariablePanel() {
   return (
     <div className="editor-inspector__group">
       <div className="variable-panel__header">
+        <SectionCollapseToggle
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((value) => !value)}
+          label="variables"
+        />
         <span className="editor-inspector__group-title variable-panel__title">Variables</span>
         <div className="variable-panel__controls">
           {variableStore.modes.length > 1 && (
@@ -105,7 +114,7 @@ export function VariablePanel() {
         </div>
       </div>
 
-      {vars.length > 0 && (
+      {!collapsed && vars.length > 0 && (
         <table className="variable-panel__table">
           <thead>
             <tr className="variable-panel__table-header">
@@ -184,7 +193,7 @@ export function VariablePanel() {
         </table>
       )}
 
-      {adding && (
+      {!collapsed && adding && (
         <div className="variable-panel__add-form">
           <input
             ref={addNameRef}

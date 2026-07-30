@@ -2,6 +2,7 @@ import type { MasterAppliesTo, MasterPage } from '@strata/scene';
 import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
+import { SectionCollapseToggle } from '../SectionCollapseToggle';
 import './master-panel.css';
 
 export function MasterPanel() {
@@ -64,30 +65,11 @@ export function MasterPanel() {
   return (
     <div className="master-panel">
       <div className="master-panel__header">
-        <button
-          type="button"
-          className="master-panel__collapse-btn"
-          onClick={() => setCollapsed((value) => !value)}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? 'Show master pages' : 'Hide master pages'}
-          title={collapsed ? 'Show master pages' : 'Hide master pages'}
-        >
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 12 12"
-            fill="none"
-            aria-hidden="true"
-            style={{ transform: collapsed ? 'rotate(-90deg)' : undefined }}
-          >
-            <path
-              d="M3 4.5L6 7.5L9 4.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <SectionCollapseToggle
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((value) => !value)}
+          label="master pages"
+        />
         <span className="master-panel__title">Masters</span>
         <button
           type="button"
