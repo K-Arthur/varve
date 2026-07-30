@@ -186,6 +186,8 @@ export function App() {
               openFile={openRequest}
               documentJson={openRequest?.json ?? undefined}
               documentName={openRequest?.name ?? undefined}
+              documentFileId={openRequest?.id ?? undefined}
+              documentFilePath={openRequest?.filePath ?? undefined}
               platform={platform}
               active={view === 'editor'}
             />
