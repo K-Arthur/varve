@@ -2059,12 +2059,25 @@ export function EditorProvider({
   onBackToHome,
   initialDocumentJson,
   initialDocumentName,
+  initialFileId,
+  initialFilePath,
   platform,
 }: {
   children: ReactNode;
   onBackToHome?: () => void;
   initialDocumentJson?: string;
   initialDocumentName?: string;
+  /**
+   * Identity of the file `initialDocumentJson` was read from.
+   *
+   * The bootstrap session holds that document already, so without this it is
+   * anonymous and `openFile`'s dedupe — which matches on file id or path —
+   * cannot recognise it. The host passes the same request through both this
+   * prop and `openFile`, so the file would then open a second time in a new
+   * tab, leaving two tabs on one document.
+   */
+  initialFileId?: string;
+  initialFilePath?: string;
   platform?: Platform;
 }) {
   const [state, setState] = useState<EditorState>(() => {
@@ -2094,7 +2107,15 @@ export function EditorProvider({
       selectionOrigin: 'api' as const,
       selectionRevision: 0,
       document: doc,
-      sessions: [{ id: INITIAL_SESSION_ID, name, dirty: false }],
+      sessions: [
+        {
+          id: INITIAL_SESSION_ID,
+          name,
+          dirty: false,
+          ...(initialFileId ? { fileId: initialFileId } : {}),
+          ...(initialFilePath ? { filePath: initialFilePath } : {}),
+        },
+      ],
       activeId: INITIAL_SESSION_ID,
       dirty: false,
       cursorPos: null,

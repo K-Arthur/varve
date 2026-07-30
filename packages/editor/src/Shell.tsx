@@ -74,6 +74,10 @@ export interface ShellProps {
   onBackToHome?: () => void;
   documentJson?: string;
   documentName?: string;
+  /** Identity of the file `documentJson` came from, so the bootstrap session
+   *  is recognisable to openFile's dedupe rather than being duplicated. */
+  documentFileId?: string;
+  documentFilePath?: string;
   /** File-open requests from the host app (home screen). */
   openFile?: OpenFileRequest | null;
   /** False while the editor is hidden behind the home screen — suspends
@@ -967,6 +971,8 @@ export function Shell({
   onBackToHome,
   documentJson,
   documentName,
+  documentFileId,
+  documentFilePath,
   openFile,
   platform,
   active,
@@ -976,6 +982,8 @@ export function Shell({
       onBackToHome={onBackToHome}
       initialDocumentJson={documentJson}
       initialDocumentName={documentName}
+      initialFileId={documentFileId}
+      initialFilePath={documentFilePath}
       platform={platform}
     >
       <SettingsProvider>
