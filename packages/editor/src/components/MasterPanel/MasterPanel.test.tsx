@@ -74,7 +74,12 @@ describe('MasterPanel', () => {
     mockEditor({ masters: {} });
     render(<MasterPanel />);
     expect(screen.getByText('No master pages yet.')).toBeDefined();
-    expect(screen.getByText(/reusable layouts/)).toBeDefined();
+    // The fuller explanation is a tooltip on the create button rather than a
+    // block of copy, so the panel stays short enough not to squeeze the layers
+    // tree that shares its sidebar column.
+    expect(
+      screen.getByRole('button', { name: 'Create new master page' }).getAttribute('title'),
+    ).toMatch(/reusable layouts/);
   });
 
   it('renders list of masters', () => {

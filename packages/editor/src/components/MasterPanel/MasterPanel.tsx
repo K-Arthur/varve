@@ -45,10 +45,9 @@ export function MasterPanel() {
     [editName, renameMaster],
   );
 
-  // Renders with no masters too: the empty state below carries the "+ New
-  // Master" control and the copy explaining what masters are for. Returning
-  // null here instead left that markup unreachable and removed the only
-  // in-panel way to create a first master.
+  // Renders with no masters too. Returning null when empty left the "+ New
+  // Master" control unreachable — it lives in this markup — and made the empty
+  // state below dead code.
   return (
     <div className="master-panel">
       <div className="master-panel__header">
@@ -58,19 +57,17 @@ export function MasterPanel() {
           className="master-panel__add-btn"
           onClick={handleCreate}
           aria-label="Create new master page"
+          title="Master pages let you define reusable layouts that propagate across pages."
         >
           + New Master
         </button>
       </div>
 
-      {masterList.length === 0 && (
-        <div className="master-panel__empty">
-          <p className="master-panel__empty-text">No master pages yet.</p>
-          <p className="master-panel__hint">
-            Master pages let you define reusable layouts that propagate across pages.
-          </p>
-        </div>
-      )}
+      {/* One line, not a block: this panel shares a fixed-height sidebar column
+       * with the layers tree, and a tall empty state pushed the tree down to its
+       * minimum height, hiding most of its rows. The fuller explanation lives on
+       * the create button's tooltip. */}
+      {masterList.length === 0 && <p className="master-panel__empty-text">No master pages yet.</p>}
 
       <ul className="master-panel__list" aria-label="Master pages">
         {masterList.map((master) => (
