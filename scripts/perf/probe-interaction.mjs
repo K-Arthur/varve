@@ -44,7 +44,7 @@ await page
   .waitForFunction(
     () => {
       const s = document.querySelector('.startup-loader');
-      return !s || s.getAttribute('aria-busy') !== 'true';
+      return s?.getAttribute('aria-busy') !== 'true';
     },
     { timeout: 30000 },
   )
