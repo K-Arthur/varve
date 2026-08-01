@@ -83,7 +83,7 @@ const readCount = () =>
     const f = window.__strataPerf ? window.__strataPerf.getFrames(3) : [];
     return f.length ? f[f.length - 1].nodeCount : 0;
   });
-for (let guard = 0; guard < 5; guard++) {
+for (let guard = 0; guard < 8; guard++) {
   await page.keyboard.press('Control+a');
   await page.waitForTimeout(25);
   await page.keyboard.press('Control+d');
@@ -93,14 +93,20 @@ const nodeCount = await readCount();
 await page.waitForTimeout(800);
 console.log('NODES:', nodeCount);
 
-// Measure frame cost during a real CDP drag of a selected node.
+// ── CPU profile of a real drag ───────────────────────────────────────────────
+// Locates frame cost by function self-time rather than by phase timers, which
+// only bound cost to a code *region*. Run this when a phase breakdown shows a
+// large unattributed remainder.
+const client = await context.newCDPSession(page);
+await client.send('Profiler.enable');
+await client.send('Profiler.setSamplingInterval', { interval: 200 });
+
 await page.keyboard.press('v');
 await page.waitForTimeout(200);
 await page.mouse.click(box.x + 100, box.y + 90);
 await page.waitForTimeout(300);
-await page.evaluate(() => {
-  if (window.__strataPerf) window.__strataPerf.reset();
-});
+
+await client.send('Profiler.start');
 await page.mouse.move(box.x + 100, box.y + 90);
 await page.mouse.down();
 for (let i = 0; i < 20; i++) {
@@ -109,53 +115,29 @@ for (let i = 0; i < 20; i++) {
 }
 await page.mouse.up();
 await page.waitForTimeout(400);
-const dragDiag = await page.evaluate(() => {
-  const f = window.__strataPerf ? window.__strataPerf.getFrames(120) : [];
-  return {
-    total: f.map((x) => x.totalMs),
-    build: f.map((x) => x.buildIrMs),
-    replay: f.map((x) => x.replayMs),
-    hash: f.map((x) => x.hashMs ?? 0),
-    computes: f.map((x) => x.engineNodeComputes ?? -1),
-    hits: f.map((x) => x.engineNodeHits ?? -1),
-    nodes: f.map((x) => x.nodeCount),
-    setup: f.map((x) => x.setupMs ?? -1),
-    preLoop: f.map((x) => x.preLoopMs ?? -1),
-    n: f.length,
-  };
-});
-console.log('DRAG frame totalMs:', JSON.stringify(summary(dragDiag.total)), 'n=', dragDiag.n);
-console.log('DRAG buildIrMs:    ', JSON.stringify(summary(dragDiag.build)));
-console.log('DRAG replayMs:     ', JSON.stringify(summary(dragDiag.replay)));
-console.log('DRAG hashMs:       ', JSON.stringify(summary(dragDiag.hash)));
-console.log('DRAG setupMs:      ', JSON.stringify(summary(dragDiag.setup)));
-console.log('DRAG preLoopMs:    ', JSON.stringify(summary(dragDiag.preLoop)));
-const accounted =
-  summary(dragDiag.setup).p50 +
-  summary(dragDiag.preLoop).p50 +
-  summary(dragDiag.hash).p50 +
-  summary(dragDiag.build).p50 +
-  summary(dragDiag.replay).p50;
-console.log(
-  `PHASES: accounted p50 ${accounted.toFixed(1)}ms of ${summary(dragDiag.total).p50}ms total` +
-    ` → ${(summary(dragDiag.total).p50 - accounted).toFixed(1)}ms post-replay/unattributed`,
-);
+const { profile } = await client.send('Profiler.stop');
 
-// Deterministic work counts. Unlike the timings above these do not depend on
-// machine load, so they are the reliable signal when the box is contended:
-// a drag should re-derive only the node it is moving, not the whole scene.
-console.log('DRAG engineNodeComputes:', JSON.stringify(summary(dragDiag.computes)));
-console.log('DRAG engineNodeHits:    ', JSON.stringify(summary(dragDiag.hits)));
-console.log('DRAG visible nodeCount: ', JSON.stringify(summary(dragDiag.nodes)));
-const medNodes = summary(dragDiag.nodes).p50;
-const medComputes = summary(dragDiag.computes).p50;
-console.log(
-  `VERDICT: median ${medComputes} conversions/frame for ${medNodes} visible nodes` +
-    (medComputes < 0
-      ? ' — counter absent (old build?)'
-      : medNodes > 0 && medComputes <= Math.max(4, medNodes * 0.05)
-        ? ' — memo effective'
-        : ' — MEMO DEFEATED'),
-);
-console.log('ERRS:', errs.slice(0, 3));
+// Aggregate self time per (function, file:line).
+const byId = new Map(profile.nodes.map((n) => [n.id, n]));
+const self = new Map();
+const total = profile.samples?.length ?? 0;
+const durationMs = (profile.endTime - profile.startTime) / 1000;
+for (const sampleId of profile.samples ?? []) {
+  const node = byId.get(sampleId);
+  if (!node) continue;
+  const cf = node.callFrame;
+  const name = cf.functionName || '(anonymous)';
+  const loc = `${(cf.url || '').replace(/^https?:\/\/[^/]+/, '').split('?')[0]}:${cf.lineNumber + 1}`;
+  const key = `${name} @ ${loc}`;
+  self.set(key, (self.get(key) ?? 0) + 1);
+}
+const ranked = [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
+console.log(`\nCPU PROFILE — ${durationMs.toFixed(0)}ms wall, ${total} samples\n`);
+for (const [key, count] of ranked) {
+  const ms = (count / total) * durationMs;
+  console.log(
+    `${ms.toFixed(0).padStart(6)}ms  ${((count / total) * 100).toFixed(1).padStart(5)}%  ${key}`,
+  );
+}
+console.log('\nERRS:', errs.slice(0, 3));
 await browser.close();

@@ -1319,6 +1319,8 @@ export function CanvasArea({
         doc === state.document ? precomputedVariantCaches : buildAllVariantCaches(doc);
       const variableStore = doc.variableStore ?? createVariableStore();
 
+      const setupMs = performance.now() - frameStart;
+      const preLoopStart = performance.now();
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       const engineMemo = engineNodeMemoRef.current;
@@ -1381,6 +1383,7 @@ export function CanvasArea({
         nodeIds.push(id);
         flatNodes.push(engineNode);
       }
+      const preLoopMs = performance.now() - preLoopStart;
 
       if (s.motion.activeTimelineId) {
         const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
@@ -2358,6 +2361,8 @@ export function CanvasArea({
         replayMs,
         engineNodeComputes: engineMemo.computes - engineMemoComputesAtStart,
         engineNodeHits: engineMemo.hits - engineMemoHitsAtStart,
+        setupMs,
+        preLoopMs,
         totalMs: budget.elapsedMs,
         renderPath: needsStructural
           ? 'structural'
