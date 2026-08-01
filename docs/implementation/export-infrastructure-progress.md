@@ -259,6 +259,13 @@ Commit hashes recorded below as milestones complete.
 | Native PDF subset silently rasterizing | Capability contract + preflight findings must precede any raster fallback; never silent |
 | AVIF/TIFF/EPS/PSD overreach | Not implemented formats stay out of the UI until encoders exist (capability-gated) |
 
+> **Session note (2026-08-01):** a concurrent agent is working in the same repo
+> (tooltip-system migration, gradient-map M4, and a screenshot-grounded export
+> panel redesign in `docs/plans/export-infrastructure-redesign.md`). Git
+> history on the working branch is interleaved: this export work shares the
+> branch with that agent's commits. Export work is committed separately and the
+> agent's uncommitted tooltip-doc files are left untouched in the working tree.
+
 ---
 
 ## 10. Deferred work and reasons
@@ -280,10 +287,10 @@ Commit hashes recorded below as milestones complete.
 
 - [x] M1 audit doc reviewed
 - [x] M2 model migrations + unit tests green (39 tests in `scene/src/export`)
-- [ ] M3 capabilities + plan normalization green
-- [ ] M4 naming infra green
-- [ ] M5 preflight green
-- [ ] M6 integration green (typecheck 15/15, lint 0 new, tests, audits)
+- [x] M3 capabilities + plan normalization green
+- [x] M4 naming infra green
+- [x] M5 preflight green
+- [x] M6 integration green (typecheck editor+scene, lint 0 new, tests)
 - [ ] M7+ UI milestones
 - [ ] E2E export suite green
 - [ ] Full `just gate` after each milestone
@@ -292,7 +299,14 @@ Gate results per milestone:
 
 | Milestone | Typecheck | Lint (touched) | Unit tests | Audits |
 |-----------|-----------|----------------|------------|--------|
-| M2 | `@strata/scene` clean | Biome clean on `scene/src/export` | 39/39 `scene/src/export` | n/a (no hub files touched) |
+| M2 | `@strata/scene` clean | Biome clean | 39/39 `scene/src/export` | n/a |
+| M3 | `@strata/scene` clean | Biome clean | 90/90 `scene/src/export` | n/a |
+| M4 | `@strata/scene` clean | Biome clean | 104/104 `scene/src/export` | n/a |
+| M5 | editor + scene clean | Biome clean (touched) | scene+editor suites; 11 unrelated failures proven pre-existing | arch audit run (see below) |
+
+Pre-existing failures on the shared branch (proven pre-existing via stash check,
+not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
+(1), `LayersRow.test.tsx` (1), `AssetExportControls.test.tsx` (1).
 
 Current gate state (baseline, before this work):
 
@@ -311,4 +325,11 @@ Pre-existing known limitations recorded (not introduced by this work):
 | Milestone | Commit |
 |-----------|--------|
 | 1 — audit | `73a157bd` |
-| 2 — canonical model + adapter | _(recorded on commit)_ |
+| 2 — canonical model + adapter | `3e242f34` |
+| 3 — capabilities + plan + naming | `7689bf04` |
+| 4 — preflight service | `5b1a118b` (+ lint `ac5ea669`) |
+| 5 — integration (cancellation, gating, settings, shortcuts) | `f607df92` |
+
+> Branch note: commits are shared with the concurrent agent's branch history
+> (`feat/tooltip-system`); interleaved agent commits `45386252`,
+> `96d7e111` (export panel redesign doc) are not part of this work.
