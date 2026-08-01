@@ -6,9 +6,11 @@ This document describes the hardened GitHub Actions pipeline, the automated fail
 
 All workflows live in `.github/workflows/` and share the following hardening rules:
 
+- **Pin every action to a 40-char commit SHA** — no `@v4`, `@stable`, `@main`, or tool-branch refs. Supply-chain rule enforced by `scripts/pin-github-actions.mjs --check` (static) and `--verify` (network, resolves each SHA upstream).
 - **Pin pnpm** to `11.9.0` (matching `packageManager` in `package.json`).
 - **Use `cache-dependency-path: pnpm-lock.yaml`** for `actions/setup-node` so `pnpm` cache keys are deterministic.
 - **Set `timeout-minutes`** on every job so a hung runner is killed instead of burning minutes.
+- **Install `just` via `taiki-e/install-action`** (`tool: just@1.54.0`) before any `just` recipe runs — GitHub-hosted runners do not ship `just`.
 - **Add `rustup target add`** steps for macOS and Windows so `tauri build` can compile on the default `macos-latest` (Apple Silicon) and `windows-latest` runners.
 - **Add `actions: read`/`actions: write`** permissions where needed so `download-artifact`/`upload-artifact` and GitHub Pages artifact uploads do not fail with `Resource not accessible`.
 - **Use `if: failure()` debug steps** after every long/important job. The steps run `scripts/ci-debug.mjs` and upload a `ci-debug-report.md` artifact.
@@ -16,10 +18,25 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 | Workflow | Trigger | Notes |
 |---|---|---|
 | `build.yml` | push, PR, manual | Build + package on Linux/macOS/Windows. |
-| `ci.yml` | push, PR, manual | Rust, JS, and Playwright E2E matrix. |
+| `ci.yml` | push, PR, manual | Rust, JS, Playwright E2E matrix, plus `pipeline-validate` guard job. |
 | `publish.yml` | tag, manual | Quality gate, platform bundles, AUR validation, release. |
 | `website-deploy.yml` | push to `apps/website/**`, manual | Astro build to GitHub Pages. |
 | `ci-debug.yml` | `workflow_run` after any workflow fails | Generates a consolidated debug report. |
+| `model-validation.yml` | push/PR on model paths, weekly | Manifest v3 + contract verification, ONNX graph inspection. |
+| `quantize.yml` | push/PR on model paths, weekly | Manifest v3 verification, quality validation, full quantization. |
+| `e2e-keyboard-nav.yml` | push/PR on menu/shortcut paths, weekly | Menu + canvas keyboard-nav E2E on 3 OS x browsers. |
+
+## Pipeline validation guard (new)
+
+Every `ci.yml` run includes the `pipeline-validate` job, which:
+
+1. `node scripts/validate-workflows.mjs` — YAML structure + real-parser syntax check.
+2. `node scripts/pin-github-actions.mjs --check` — no mutable action refs.
+3. `node scripts/pin-github-actions.mjs --verify` — every pinned SHA resolves upstream.
+4. `node scripts/ci-debug.test.mjs` + `pin-github-actions.test.mjs` — extractor + pin-table regression.
+5. `bash scripts/test-ci-shell-scripts.sh` — CI shell-script TDD assertions.
+
+This job would have caught the 2026-08-01 outage, where every workflow was pinned to fabricated SHAs.
 
 ## Automated failure-debug report
 
@@ -41,14 +58,14 @@ The script:
 1. Resolves the repo from `GITHUB_REPOSITORY` or `git remote get-url origin`.
 2. Uses `GITHUB_TOKEN` or `gh auth token` for GitHub API auth.
 3. Fetches the workflow run metadata and the per-job logs archive.
-4. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, etc.).
+4. Extracts high-priority failure patterns (errors, panics, test failures, exit codes, `##[error]` annotations, unresolvable action refs, etc.).
 5. Writes a Markdown report with failed jobs, failure snippets, and local reproduction commands.
 
-In CI, every workflow now runs `scripts/ci-debug.mjs` on failure and uploads `ci-debug-report.md`. A separate `ci-debug.yml` workflow also triggers on `workflow_run` events to produce a single consolidated report.
+In CI, every workflow runs `scripts/ci-debug.mjs` on failure and uploads `ci-debug-report.md`. A separate `ci-debug.yml` workflow also triggers on `workflow_run` events to produce a single consolidated report. `ci-debug.yml` is intentionally dependency-free (no `pnpm install`) — the script uses only Node builtins, so a broken dependency tree cannot prevent the debug report from being produced.
 
 ## Local runner parity with `act`
 
-Install `act` (requires Docker):
+Install `act` (full job execution requires Docker):
 
 ```bash
 # Arch / CachyOS
@@ -63,7 +80,7 @@ List workflows/jobs:
 just act-list
 ```
 
-Dry-run a workflow to validate YAML syntax:
+Dry-run a workflow to validate YAML syntax + job graph:
 
 ```bash
 just act-dry .github/workflows/build.yml
@@ -87,11 +104,28 @@ GITHUB_TOKEN=ghp_...
 EOF
 ```
 
+`.act-secrets` is gitignored; never commit real tokens.
+
+## CI tooling regression tests
+
+The pipeline tooling is covered by TDD assertions that run as part of `pnpm test` (via `test:ci:tools`) and the `pipeline-validate` job:
+
+- `node scripts/ci-debug.test.mjs` — failure-line detection + extraction ranking.
+- `node scripts/test-ci-debug.mjs` — simulated log-scenario extraction.
+- `node scripts/pin-github-actions.test.mjs` — pin-table integrity + fabricated-SHA regression.
+- `bash scripts/test-ci-shell-scripts.sh` — 20 assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
+
+Run them directly with:
+
+```bash
+pnpm test:ci:tools
+```
+
 ## Pre-commit / pre-push hooks
 
 Hooks are installed automatically by `pnpm install` through the `prepare` script.
 
-- `pre-commit` — runs `biome check --staged` and `pnpm audit:emoji` on staged files.
+- `pre-commit` — runs `biome check --staged`, `pnpm audit:emoji`, `audit-health`, workflow validation, and — when workflow files are staged — the SHA pin `--check` and `--verify` gates.
 - `pre-push` — runs `just gate` (format-check, lint, tests, token/emoji audits).
 
 Both hooks bail out in CI. If you want to skip them manually, use `git commit --no-verify` or `git push --no-verify` (not recommended for code that will run CI).
@@ -112,6 +146,15 @@ For a quick syntax/dependency check against the actual GitHub Actions runner ima
 just act-dry .github/workflows/build.yml
 ```
 
+If you changed any workflow, additionally run:
+
+```bash
+just validate-workflows
+just pin-actions
+just pin-actions-verify
+just ci-tools-test
+```
+
 ## Notes for CachyOS / Arch Linux
 
 The local environment matches CI closely:
@@ -119,12 +162,22 @@ The local environment matches CI closely:
 - Node 26, pnpm 11.9, and Rust 1.96 are installed user-local.
 - Tauri 2 system dependencies are the same as `apt` in the Ubuntu workflows because both are the WebKitGTK 4.1 / GTK3 stack.
 - `act` is the recommended local runner for YAML/dependency validation before push.
+- `gh` is required for the debug tools; install with `bash scripts/install-ci-tooling.sh` (also installs `act` and Docker).
 
 ## Troubleshooting
 
 ### `Resource not accessible by integration` on artifact upload/download
 
 Make sure the workflow has the correct `permissions` block. Upload needs `actions: write`; download needs `actions: read` when the job sets explicit `permissions`.
+
+### Every job dies at "Set up job" with `Unable to resolve action ... unable to find version ...`
+
+A pinned action SHA does not exist upstream (the 2026-08-01 outage root cause). Diagnose:
+
+```bash
+node scripts/pin-github-actions.mjs --verify   # lists fabricated SHAs
+node scripts/pin-github-actions.mjs --pin      # re-pins to verified SHAs
+```
 
 ### `onnxruntime-web` not found during `pnpm install`
 
