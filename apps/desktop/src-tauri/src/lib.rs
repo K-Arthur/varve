@@ -2620,17 +2620,7 @@ mod tests {
     // ── New command integration tests ─────────────────────────────────────
 
     fn test_font_data() -> Vec<u8> {
-        let paths = [
-            "/usr/share/fonts/TTF/Vera.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/Inter-Regular.ttf",
-        ];
-        for p in &paths {
-            if let Ok(data) = std::fs::read(p) {
-                return data;
-            }
-        }
-        panic!("no test font found — tried {paths:?}")
+        strata_print::test_fonts::test_font_bytes().to_vec()
     }
 
     #[test]
