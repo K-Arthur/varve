@@ -79,7 +79,7 @@ describe('MasterPanel', () => {
     mockEditor({ masters: {} });
     render(<MasterPanel />);
     expect(screen.getByText('No master pages yet.')).toBeDefined();
-    // The fuller explanation is a tooltip on the create button rather than a
+    // The fuller explanation is a Tooltip on the create button rather than a
     // block of copy, so the panel stays short enough not to squeeze the layers
     // tree that shares its sidebar column. Tooltip.tsx implements the
     // aria-describedby + role="tooltip" pattern (not a native `title`).
