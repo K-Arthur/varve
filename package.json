@@ -16,7 +16,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/pin-github-actions.test.mjs && bash scripts/test-ci-shell-scripts.sh",
-    "bench:canvas": "vitest run packages/engine/src/bench/replay.bench.ts",
+    "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
     "bench": "vitest bench --run --pool=forks",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
     "typecheck:e2e": "tsc -p tests/e2e/tsconfig.json --noEmit",
