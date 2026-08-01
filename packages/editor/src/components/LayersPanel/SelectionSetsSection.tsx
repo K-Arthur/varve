@@ -5,7 +5,7 @@
  * Restoring a set selects only the members that still exist in the document.
  */
 
-import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
@@ -85,14 +85,16 @@ export function SelectionSetsSection() {
         />
         <span className="selection-sets__title">Selection Sets</span>
         {selCount > 0 && (
-          <button
-            type="button"
-            className="selection-sets__create-btn"
-            onClick={handleCreate}
-            title={`Save current selection (${selCount})`}
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.75em" />
-          </button>
+          <Tooltip label={`Save current selection (${selCount})`}>
+            <button
+              type="button"
+              className="selection-sets__create-btn"
+              onClick={handleCreate}
+              aria-label={`Save current selection (${selCount})`}
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.75em" />
+            </button>
+          </Tooltip>
         )}
       </div>
       {!collapsed && (
@@ -116,74 +118,87 @@ export function SelectionSetsSection() {
                     className="selection-sets__name-input"
                   />
                 ) : (
-                  <button
-                    type="button"
-                    className="selection-sets__name-btn"
-                    onClick={() => selectSelectionSet(set.id)}
-                    title={`Select ${totalCount} member(s)`}
-                  >
-                    <span className="selection-sets__name">{set.name}</span>
-                    <span className="selection-sets__count">
-                      {memberCount > 0 ? `${memberCount}/` : ''}
-                      {totalCount}
-                    </span>
-                  </button>
+                  <Tooltip label={`Select ${totalCount} member(s)`}>
+                    <button
+                      type="button"
+                      className="selection-sets__name-btn"
+                      onClick={() => selectSelectionSet(set.id)}
+                    >
+                      <span className="selection-sets__name">{set.name}</span>
+                      <span className="selection-sets__count">
+                        {memberCount > 0 ? `${memberCount}/` : ''}
+                        {totalCount}
+                      </span>
+                    </button>
+                  </Tooltip>
                 )}
                 <div className="selection-sets__actions">
                   {selCount > 0 && (
                     <>
-                      <button
-                        type="button"
-                        className="selection-sets__action-btn"
-                        onClick={() => updateSelectionSet(set.id)}
-                        title="Replace with current selection"
-                      >
-                        <SolidIcon name={SOLID_CHROME_ICONS.download} size="0.7em" />
-                      </button>
-                      <button
-                        type="button"
-                        className="selection-sets__action-btn"
-                        onClick={() => addToSelectionSet(set.id)}
-                        title="Add current selection"
-                      >
-                        <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.7em" />
-                      </button>
-                      {memberCount > 0 && (
+                      <Tooltip label="Replace with current selection">
                         <button
                           type="button"
                           className="selection-sets__action-btn"
-                          onClick={() => removeFromSelectionSet(set.id)}
-                          title="Remove current selection"
+                          onClick={() => updateSelectionSet(set.id)}
+                          aria-label="Replace with current selection"
                         >
-                          <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.7em" />
+                          <SolidIcon name={SOLID_CHROME_ICONS.download} size="0.7em" />
                         </button>
+                      </Tooltip>
+                      <Tooltip label="Add current selection">
+                        <button
+                          type="button"
+                          className="selection-sets__action-btn"
+                          onClick={() => addToSelectionSet(set.id)}
+                          aria-label="Add current selection"
+                        >
+                          <SolidIcon name={SOLID_CHROME_ICONS.plus} size="0.7em" />
+                        </button>
+                      </Tooltip>
+                      {memberCount > 0 && (
+                        <Tooltip label="Remove current selection">
+                          <button
+                            type="button"
+                            className="selection-sets__action-btn"
+                            onClick={() => removeFromSelectionSet(set.id)}
+                            aria-label="Remove current selection"
+                          >
+                            <SolidIcon name={SOLID_CHROME_ICONS.minus} size="0.7em" />
+                          </button>
+                        </Tooltip>
                       )}
                     </>
                   )}
-                  <button
-                    type="button"
-                    className="selection-sets__action-btn"
-                    onClick={() => handleRenameStart(set.id, set.name)}
-                    title="Rename"
-                  >
-                    <SolidIcon name={SOLID_CHROME_ICONS.fileText} size="0.7em" />
-                  </button>
-                  <button
-                    type="button"
-                    className="selection-sets__action-btn"
-                    onClick={() => duplicateSelectionSet(set.id)}
-                    title="Duplicate"
-                  >
-                    <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.7em" />
-                  </button>
-                  <button
-                    type="button"
-                    className="selection-sets__action-btn selection-sets__action-btn--danger"
-                    onClick={() => deleteSelectionSet(set.id)}
-                    title="Delete"
-                  >
-                    <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.7em" />
-                  </button>
+                  <Tooltip label="Rename">
+                    <button
+                      type="button"
+                      className="selection-sets__action-btn"
+                      onClick={() => handleRenameStart(set.id, set.name)}
+                      aria-label={`Rename ${set.name}`}
+                    >
+                      <SolidIcon name={SOLID_CHROME_ICONS.fileText} size="0.7em" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Duplicate">
+                    <button
+                      type="button"
+                      className="selection-sets__action-btn"
+                      onClick={() => duplicateSelectionSet(set.id)}
+                      aria-label={`Duplicate ${set.name}`}
+                    >
+                      <SolidIcon name={SOLID_CHROME_ICONS.copy} size="0.7em" />
+                    </button>
+                  </Tooltip>
+                  <Tooltip label="Delete">
+                    <button
+                      type="button"
+                      className="selection-sets__action-btn selection-sets__action-btn--danger"
+                      onClick={() => deleteSelectionSet(set.id)}
+                      aria-label={`Delete ${set.name}`}
+                    >
+                      <SolidIcon name={SOLID_CHROME_ICONS.trash} size="0.7em" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
             );

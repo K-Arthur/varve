@@ -160,33 +160,42 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
           <span className="insp-field__label">Add Mask</span>
           <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-            <button
-              type="button"
-              className="insp-btn-sm"
-              onClick={handleAddClip}
-              aria-label="Add clip mask"
-              title="Clip mask: uses the first child's outline to clip other children"
+            <Tooltip
+              label="Clip mask: uses the first child's outline to clip other children"
             >
-              Clip
-            </button>
-            <button
-              type="button"
-              className="insp-btn-sm"
-              onClick={handleAddAlpha}
-              aria-label="Add alpha mask"
-              title="Alpha mask: uses the first child's alpha channel to modulate visibility"
+              <button
+                type="button"
+                className="insp-btn-sm"
+                onClick={handleAddClip}
+                aria-label="Add clip mask"
+              >
+                Clip
+              </button>
+            </Tooltip>
+            <Tooltip
+              label="Alpha mask: uses the first child's alpha channel to modulate visibility"
             >
-              Alpha
-            </button>
-            <button
-              type="button"
-              className="insp-btn-sm"
-              onClick={handleAddLuminance}
-              aria-label="Add luminance mask"
-              title="Luminance mask: uses the first child's luminance to modulate visibility"
+              <button
+                type="button"
+                className="insp-btn-sm"
+                onClick={handleAddAlpha}
+                aria-label="Add alpha mask"
+              >
+                Alpha
+              </button>
+            </Tooltip>
+            <Tooltip
+              label="Luminance mask: uses the first child's luminance to modulate visibility"
             >
-              Luminance
-            </button>
+              <button
+                type="button"
+                className="insp-btn-sm"
+                onClick={handleAddLuminance}
+                aria-label="Add luminance mask"
+              >
+                Luminance
+              </button>
+            </Tooltip>
           </div>
         </div>
       )}
@@ -205,59 +214,67 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
               Type: {maskTypeLabel}
             </span>
             <div style={{ display: 'flex', gap: 'var(--space-1)', alignItems: 'center' }}>
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={handleToggleVisible}
-                aria-label={mask.visible ? 'Disable mask' : 'Enable mask'}
-                aria-pressed={mask.visible}
-                title={mask.visible ? 'Mask is active' : 'Mask is disabled'}
-              >
-                {mask.visible ? 'On' : 'Off'}
-              </button>
-              <button
-                type="button"
-                className="insp-btn-sm"
-                onClick={handleToggleInverted}
-                aria-label={mask.inverted ? 'Disable inversion' : 'Enable inversion'}
-                aria-pressed={mask.inverted ?? false}
-                title={mask.inverted ? 'Mask is inverted' : 'Mask is not inverted'}
-              >
-                Invert
-              </button>
-              {mask.sourceNodeId && (
+              <Tooltip label={mask.visible ? 'Mask is active' : 'Mask is disabled'}>
                 <button
                   type="button"
                   className="insp-btn-sm"
-                  onClick={handleToggleHideSource}
-                  aria-label={mask.hideMaskSource ? 'Show mask source' : 'Hide mask source'}
-                  aria-pressed={mask.hideMaskSource ?? false}
-                  title={
+                  onClick={handleToggleVisible}
+                  aria-label={mask.visible ? 'Disable mask' : 'Enable mask'}
+                  aria-pressed={mask.visible}
+                >
+                  {mask.visible ? 'On' : 'Off'}
+                </button>
+              </Tooltip>
+              <Tooltip label={mask.inverted ? 'Mask is inverted' : 'Mask is not inverted'}>
+                <button
+                  type="button"
+                  className="insp-btn-sm"
+                  onClick={handleToggleInverted}
+                  aria-label={mask.inverted ? 'Disable inversion' : 'Enable inversion'}
+                  aria-pressed={mask.inverted ?? false}
+                >
+                  Invert
+                </button>
+              </Tooltip>
+              {mask.sourceNodeId && (
+                <Tooltip
+                  label={
                     mask.hideMaskSource
                       ? 'Mask source is hidden from direct rendering'
                       : 'Mask source is rendered normally'
                   }
                 >
-                  Hide
-                </button>
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={handleToggleHideSource}
+                    aria-label={mask.hideMaskSource ? 'Show mask source' : 'Hide mask source'}
+                    aria-pressed={mask.hideMaskSource ?? false}
+                  >
+                    Hide
+                  </button>
+                </Tooltip>
               )}
               {mask.sourceNodeId && (
-                <button
-                  type="button"
-                  className="insp-btn-sm"
-                  onClick={handleToggleLinked}
-                  aria-label={
-                    mask.linked !== false ? 'Unlink mask transform' : 'Link mask transform'
-                  }
-                  aria-pressed={mask.linked !== false}
-                  title={
+                <Tooltip
+                  label={
                     mask.linked !== false
                       ? 'Mask transforms with masked content'
                       : 'Mask has independent transform'
                   }
                 >
-                  Link
-                </button>
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={handleToggleLinked}
+                    aria-label={
+                      mask.linked !== false ? 'Unlink mask transform' : 'Link mask transform'
+                    }
+                    aria-pressed={mask.linked !== false}
+                  >
+                    Link
+                  </button>
+                </Tooltip>
               )}
               <Tooltip label="Remove mask (source node is preserved)">
                 <button
@@ -308,32 +325,38 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 Fill Rule
               </span>
               <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                <button
-                  type="button"
-                  className="insp-btn-sm"
-                  onClick={() => handleSetFillRule('nonzero')}
-                  aria-pressed={mask.fillRule !== 'evenodd'}
-                  aria-label="Nonzero fill rule"
-                  title="Nonzero winding rule: determines interior by winding direction"
-                  style={{
-                    fontWeight: mask.fillRule !== 'evenodd' ? 'bold' : 'normal',
-                  }}
+                <Tooltip
+                  label="Nonzero winding rule: determines interior by winding direction"
                 >
-                  Nonzero
-                </button>
-                <button
-                  type="button"
-                  className="insp-btn-sm"
-                  onClick={() => handleSetFillRule('evenodd')}
-                  aria-pressed={mask.fillRule === 'evenodd'}
-                  aria-label="Even-odd fill rule"
-                  title="Even-odd rule: determines interior by raycast parity"
-                  style={{
-                    fontWeight: mask.fillRule === 'evenodd' ? 'bold' : 'normal',
-                  }}
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={() => handleSetFillRule('nonzero')}
+                    aria-pressed={mask.fillRule !== 'evenodd'}
+                    aria-label="Nonzero fill rule"
+                    style={{
+                      fontWeight: mask.fillRule !== 'evenodd' ? 'bold' : 'normal',
+                    }}
+                  >
+                    Nonzero
+                  </button>
+                </Tooltip>
+                <Tooltip
+                  label="Even-odd rule: determines interior by raycast parity"
                 >
-                  Even-Odd
-                </button>
+                  <button
+                    type="button"
+                    className="insp-btn-sm"
+                    onClick={() => handleSetFillRule('evenodd')}
+                    aria-pressed={mask.fillRule === 'evenodd'}
+                    aria-label="Even-odd fill rule"
+                    style={{
+                      fontWeight: mask.fillRule === 'evenodd' ? 'bold' : 'normal',
+                    }}
+                  >
+                    Even-Odd
+                  </button>
+                </Tooltip>
               </div>
             </div>
           )}

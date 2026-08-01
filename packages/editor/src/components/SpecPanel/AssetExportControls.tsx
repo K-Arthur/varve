@@ -2,7 +2,7 @@ import { exportNodeToSvg } from '@strata/codegen';
 import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
 import type { SceneNode } from '@strata/scene';
-import { CopyButton, Icon } from '@strata/ui';
+import { CopyButton, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
@@ -170,28 +170,33 @@ export function AssetExportControls({
       <div className="spec-export__row">
         <span className="spec-row__label">
           Format
-          <button
-            type="button"
-            className="spec-export__why-btn"
-            aria-label={`Why ${FORMATS.find((f) => f.value === suggestion.format)?.label ?? suggestion.format}?`}
-            title={suggestion.reason}
-          >
-            <Icon name="Info" size={12} label={undefined} />
-          </button>
+          <Tooltip label={suggestion.reason}>
+            <button
+              type="button"
+              className="spec-export__why-btn"
+              aria-label={`Why ${FORMATS.find((f) => f.value === suggestion.format)?.label ?? suggestion.format}?`}
+            >
+              <Icon name="Info" size={12} label={undefined} />
+            </button>
+          </Tooltip>
         </span>
         <div className="spec-export__group">
           {FORMATS.map((f) => (
-            <button
+            <Tooltip
               key={f.value}
-              type="button"
-              className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
-              aria-pressed={format === f.value}
-              disabled={f.desktopOnly && !isTauri}
-              title={f.desktopOnly && !isTauri ? 'Requires desktop app' : undefined}
-              onClick={() => setFormat(f.value)}
+              label={f.label}
+              disabledReason={f.desktopOnly && !isTauri ? 'Requires desktop app' : undefined}
             >
-              {f.label}
-            </button>
+              <button
+                type="button"
+                className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
+                aria-pressed={format === f.value}
+                disabled={f.desktopOnly && !isTauri}
+                onClick={() => setFormat(f.value)}
+              >
+                {f.label}
+              </button>
+            </Tooltip>
           ))}
         </div>
       </div>

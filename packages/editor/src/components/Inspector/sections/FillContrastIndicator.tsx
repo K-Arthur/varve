@@ -7,6 +7,7 @@
  * action that mutates the fill via the editor. Used by FillSection.
  */
 import type { Fill, ManagedColor } from '@strata/scene';
+import { Tooltip } from '@strata/ui';
 import { useState } from 'react';
 import { useEditor } from '../../../context';
 import { checkFillContrast } from '../../../intelligence/wcagFix';
@@ -42,13 +43,14 @@ export function FillContrastIndicator({
 
   return (
     <>
-      <button
-        type="button"
-        className={dotClass}
-        onClick={() => setShowPopover(!showPopover)}
-        aria-label={`Contrast: ${result.level} (${result.ratio.toFixed(1)}:1)`}
-        title={`${result.level} — ${result.ratio.toFixed(1)}:1`}
-      />
+      <Tooltip label={`${result.level} — ${result.ratio.toFixed(1)}:1`}>
+        <button
+          type="button"
+          className={dotClass}
+          onClick={() => setShowPopover(!showPopover)}
+          aria-label={`Contrast: ${result.level} (${result.ratio.toFixed(1)}:1)`}
+        />
+      </Tooltip>
       {showPopover && (
         <div className="insp-contrast-popover" role="dialog" aria-label="Contrast details">
           <p className="insp-contrast-popover__ratio">Ratio: {result.ratio.toFixed(2)}:1</p>
