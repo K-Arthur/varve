@@ -28,10 +28,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@a2758e4818c2e4f4493a1d255f4662f19b65acf2
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           components: rustfmt, clippy
 
@@ -44,13 +44,13 @@ jobs:
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config
 
-      - uses: Swatinem/rust-cache@f74c8cc5f54c0e3f1e043d6a4685b8489aee9c1b
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
 
-      - uses: pnpm/action-setup@v4.0.0
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
 
-      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 26
           cache: pnpm
@@ -92,7 +92,7 @@ jobs:
 
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-publish-gate-${{ github.run_id }}
           path: ci-debug-report.md
@@ -135,10 +135,10 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@a2758e4818c2e4f4493a1d255f4662f19b65acf2
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           targets: ${{ matrix.target }}
 
@@ -161,15 +161,15 @@ jobs:
         if: runner.os == 'Windows'
         run: rustup target add x86_64-pc-windows-msvc
 
-      - uses: Swatinem/rust-cache@f74c8cc5f54c0e3f1e043d6a4685b8489aee9c1b
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
         with:
           key: ${{ matrix.target }}
 
-      - uses: pnpm/action-setup@v4.0.0
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
 
-      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 26
           cache: pnpm
@@ -198,14 +198,14 @@ jobs:
 
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-publish-${{ matrix.name }}-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-${{ matrix.name }}
           path: |
@@ -229,7 +229,7 @@ jobs:
     container:
       image: archlinux:base-devel
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Set up non-root builder
         run: |
@@ -258,7 +258,7 @@ jobs:
 
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-aur-${{ github.run_id }}
           path: ci-debug-report.md
@@ -274,16 +274,16 @@ jobs:
       contents: write
       actions: read
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Download all artifacts
-        uses: actions/download-artifact@65a9edc535144f24f5bb5979b6c2cd39a097d35d
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           path: release-artifacts
           merge-multiple: true
 
       - name: Create release
-        uses: softprops/action-gh-release@a93c152f95b7f9419e123c1ff5b8e06c1a8f5a9a
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
         with:
           tag_name: ${{ github.ref_name || inputs.tag }}
           name: Strata ${{ github.ref_name || inputs.tag }}
@@ -326,7 +326,7 @@ jobs:
 
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-release-${{ github.run_id }}
           path: ci-debug-report.md

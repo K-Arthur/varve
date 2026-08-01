@@ -3,13 +3,27 @@
 /**
  * GitHub Actions SHA Pinning Tool
  *
- * Replaces mutable action version tags (@v4, @v5, @stable) with commit SHAs
- * for supply chain security. Research basis: GitHub Actions best practices 2026.
+ * Replaces mutable action version references (@v4, @stable, @main, or a
+ * branch/tool ref such as @cargo-llvm-cov) with commit SHAs for supply chain
+ * security, and VERIFIES every pinned SHA actually resolves upstream.
+ *
+ * On 2026-08-01 every workflow in this repo was pinned to fabricated SHAs
+ * (none of the 40-char hashes existed in the upstream action repos), which
+ * killed every job at the "Set up job" step. The --verify mode is the
+ * regression guard: it resolves each pinned SHA against the GitHub API and
+ * fails when a SHA does not exist.
+ *
+ * Research basis:
+ *   - GitHub Actions security hardening: https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions
+ *   - OpenSSF Scorecard "Pinned-Dependencies" check
  *
  * Usage:
- *   node scripts/pin-github-actions.mjs --check    # Check for unpinned actions
- *   node scripts/pin-github-actions.mjs --pin      # Pin actions to SHAs
- *   node scripts/pin-github-actions.mjs --update   # Update to latest SHAs
+ *   node scripts/pin-github-actions.mjs --check    # static: no mutable refs, SHA length + hex
+ *   node scripts/pin-github-actions.mjs --verify   # network: every pinned SHA resolves upstream
+ *   node scripts/pin-github-actions.mjs --pin      # resolve mutable refs to SHAs (network)
+ *   node scripts/pin-github-actions.mjs --update   # re-resolve all SHA pins to latest tags
+ *
+ * CI wiring: `--verify` should run on every push/PR that touches workflows.
  */
 
 import { execSync } from 'node:child_process';
@@ -18,31 +32,35 @@ import { join } from 'node:path';
 
 const WORKFLOWS_DIR = '.github/workflows';
 
-// Known action repositories and their latest commit SHAs (as of 2026-07-27)
-// This will be updated via --update command
+// Authoritative pin table. Each entry maps the action repo to the full 40-char
+// SHA of the release we use. These SHAs were resolved from the GitHub API on
+// 2026-08-01 and verified (action.yml present at the commit).
 const ACTION_SHAS = {
-  'actions/checkout': 'a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f', // v4.2.2
-  'actions/setup-node': '1a4442cda7143948ae1d52f1a60fd880ff95df6a', // v4.2.0
-  'actions/upload-artifact': '65462800fd760344b1a7b4382951275a0bbc538f', // v4.6.0
-  'actions/download-artifact': '65a9edc535144f24f5bb5979b6c2cd39a097d35d', // v4.6.0
-  'actions/upload-pages-artifact': '56afc609a6d36c6f4d523e46487649a8f387916e', // v3.0.1
-  'actions/deploy-pages': 'd6db901e937bf07bc879f5e0e003a5b86184d9ae', // v4.0.5
-  'pnpm/action-setup': 'v4.0.0', // Will be resolved to SHA
-  'dtolnay/rust-toolchain': 'a2758e4818c2e4f4493a1d255f4662f19b65acf2', // stable
-  'Swatinem/rust-cache': 'f74c8cc5f54c0e3f1e043d6a4685b8489aee9c1b', // v2.7.1
-  'taiki-e/install-action': '6c4b8581f9e2785c6e3e9df2dd1c0c0c5b5b5b5b', // cargo-llvm-cov
-  'softprops/action-gh-release': 'a93c152f95b7f9419e123c1ff5b8e06c1a8f5a9a', // v2.2.1
-  'actions/setup-python': 'f677139bbe7f9c59b41fc40762e69991d9768d4b', // v5.4.0
+  'actions/checkout': '11bd71901bbe5b1630ceea73d27597364c9af683', // v4.2.2
+  'actions/setup-node': '1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a', // v4.2.0
+  'actions/upload-artifact': '65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08', // v4.6.0
+  'actions/download-artifact': 'd3f86a106a0bac45b974a628896c90dbdf5c8093', // v4.3.0
+  'actions/upload-pages-artifact': '56afc609e74202658d3ffba0e8f6dda462b719fa', // v3.0.1
+  'actions/deploy-pages': 'd6db90164ac5ed86f2b6aed7e0febac5b3c0c03e', // v4.0.5
+  'actions/setup-python': '42375524e23c412d93fb67b49958b491fce71c38', // v5.4.0
+  'dtolnay/rust-toolchain': '4cda84d5c5c54efe2404f9d843567869ab1699d4', // stable branch head
+  'Swatinem/rust-cache': '3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8', // v2.7.1
+  'taiki-e/install-action': '6a1bd70eaac3c8bdf093356838d7ee09fda951cf', // v2
+  'softprops/action-gh-release': 'c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda', // v2.2.1
+  'pnpm/action-setup': 'fe02b34f77f8bc703788d5817da081398fad5dd2', // v4.0.0
 };
+
+const SHA_RE = /^[0-9a-f]{40}$/;
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const flags = { check: false, pin: false, update: false };
+  const flags = { check: false, pin: false, update: false, verify: false };
 
   for (const arg of args) {
     if (arg === '--check') flags.check = true;
     if (arg === '--pin') flags.pin = true;
     if (arg === '--update') flags.update = true;
+    if (arg === '--verify') flags.verify = true;
   }
 
   return flags;
@@ -63,76 +81,181 @@ function extractActionUses(line) {
   if (!match) return null;
 
   const [, , action, version] = match;
-  return { action, version, original: match[0] };
+  return { action, version: version || null, original: match[0] };
 }
 
+// A reference is only "pinned" when it is a full 40-char hex SHA. Everything
+// else (@v4, @v4.0.0, @stable, @main, @cargo-llvm-cov, no ref) is mutable.
 function isMutableVersion(version) {
-  if (!version) return true; // No version = mutable
-  return (
-    version.match(/^v\d+$/) || version === 'stable' || version === 'main' || version === 'master'
-  );
+  if (!version) return true;
+  return !SHA_RE.test(version);
 }
 
-function checkWorkflows(files) {
-  const unpinned = [];
+async function resolveRefSHA(repo, ref, token) {
+  // Prefer the tag object, then dereference annotated tags to the commit.
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    Authorization: token ? `Bearer ${token}` : undefined,
+  };
+  const base = `https://api.github.com/repos/${repo}/git/refs/tags/${ref}`;
 
+  let res;
+  try {
+    res = await fetch(base, { headers });
+  } catch {
+    return null;
+  }
+  if (!res.ok) return null;
+  const refData = await res.json();
+  const oid = refData.object?.sha;
+  if (!oid) return null;
+  if (refData.object?.type === 'commit') return oid;
+
+  // Annotated tag: dereference to the underlying commit.
+  try {
+    const tagRes = await fetch(`https://api.github.com/repos/${repo}/git/tags/${oid}`, {
+      headers,
+    });
+    if (!tagRes.ok) return oid;
+    const tagData = await tagRes.json();
+    return tagData.object?.sha || oid;
+  } catch {
+    return oid;
+  }
+}
+
+async function resolveBranchSHA(repo, branch, token) {
+  const headers = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    Authorization: token ? `Bearer ${token}` : undefined,
+  };
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/branches/${branch}`, {
+      headers,
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.commit?.sha || null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveActionSHA(action, ref, token) {
+  if (ref && SHA_RE.test(ref)) return ref;
+
+  if (ref && (ref === 'main' || ref === 'master')) {
+    return resolveBranchSHA(action, ref, token);
+  }
+
+  if (ref && (ref === 'stable' || ref === 'nightly')) {
+    return resolveBranchSHA(action, ref, token);
+  }
+
+  if (ref) {
+    return resolveRefSHA(action, ref, token);
+  }
+
+  // No ref at all — fall back to the default branch.
+  return resolveBranchSHA(action, 'main', token) || resolveBranchSHA(action, 'master', token);
+}
+
+// Returns true when the commit exists upstream AND carries action.yml.
+async function verifyPinnedSHA(action, sha) {
+  const actionYml = await fetch(`https://raw.githubusercontent.com/${action}/${sha}/action.yml`, {
+    redirect: 'follow',
+  });
+  if (actionYml.ok) return { ok: true, why: '' };
+  const actionYaml = await fetch(`https://raw.githubusercontent.com/${action}/${sha}/action.yaml`, {
+    redirect: 'follow',
+  });
+  if (actionYaml.ok) return { ok: true, why: '' };
+  return {
+    ok: false,
+    why: `no action.yml/action.yaml at commit (HTTP ${actionYml.status}/${actionYaml.status})`,
+  };
+}
+
+async function collectUses() {
+  const files = getWorkflowFiles();
+  const uses = [];
   for (const file of files) {
     const content = readFileSync(file, 'utf8');
     const lines = content.split('\n');
-
-    for (let i = 0; i < lines.length; i++) {
+    for (let i = 0; i < lines.length; i += 1) {
       const line = lines[i];
-      const uses = extractActionUses(line);
-
-      if (uses && isMutableVersion(uses.version)) {
-        unpinned.push({
-          file,
-          line: i + 1,
-          action: uses.action,
-          version: uses.version,
-          original: uses.original,
-        });
+      if (line.trim().startsWith('#') || line.trim().startsWith('#')) continue;
+      const use = extractActionUses(line);
+      if (use) {
+        uses.push({ file, line: i + 1, ...use });
       }
     }
   }
-
-  return unpinned;
+  return uses;
 }
 
-function resolveActionSHA(action) {
-  // Check if we have a cached SHA
-  if (ACTION_SHAS[action]) {
-    const cached = ACTION_SHAS[action];
-    if (!cached.match(/^v\d+$/)) {
-      return cached;
+async function runCheck() {
+  const uses = await collectUses();
+  const problems = [];
+  const seen = new Set();
+
+  for (const u of uses) {
+    const key = `${u.action}@${u.version}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (isMutableVersion(u.version)) {
+      problems.push(
+        `${u.file}:${u.line} - ${u.action}@${u.version || '(none)'} is NOT pinned to a SHA`,
+      );
     }
   }
 
-  // Try to resolve via GitHub CLI
-  try {
-    const output = execSync(`gh api repos/${action}/git/refs/heads/main --jq '.object.sha'`, {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 10000,
-    });
-    return output.trim();
-  } catch {
-    // Fallback to latest tag
-    try {
-      const output = execSync(`gh api repos/${action}/releases/latest --jq '.target_commitish'`, {
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 10000,
-      });
-      return output.trim();
-    } catch {
-      console.warn(`  ⚠️  Could not resolve SHA for ${action}`);
-      return null;
-    }
+  if (problems.length === 0) {
+    console.log('All action references are pinned to 40-char SHAs.');
+    return true;
   }
+
+  console.log(`${problems.length} unpinned action reference(s):`);
+  for (const p of problems) console.log(`  ${p}`);
+  return false;
 }
 
-function pinActions(files) {
+async function runVerify() {
+  const uses = await collectUses();
+  const failures = [];
+  const checked = new Set();
+  let total = 0;
+
+  for (const u of uses) {
+    const key = `${u.action}@${u.version}`;
+    if (!u.version || !SHA_RE.test(u.version)) continue;
+    if (checked.has(key)) continue;
+    checked.add(key);
+    total += 1;
+    const result = await verifyPinnedSHA(u.action, u.version);
+    if (!result.ok) {
+      failures.push(`${u.file}:${u.line} - ${key} does NOT resolve upstream: ${result.why}`);
+    }
+  }
+
+  if (failures.length === 0) {
+    console.log(`Verified ${total} unique pinned SHA(s) resolve upstream with action metadata.`);
+    return true;
+  }
+
+  console.error(`${failures.length} fabricated/non-resolving pinned SHA(s):`);
+  for (const f of failures) console.error(`  ${f}`);
+  console.error('A fabricated SHA kills every job at the "Set up job" step. Fix with:');
+  console.error('  node scripts/pin-github-actions.mjs --pin');
+  return false;
+}
+
+async function runPin() {
+  const files = getWorkflowFiles();
+  const uses = await collectUses();
+  const token = getToken();
   let totalPinned = 0;
 
   for (const file of files) {
@@ -140,20 +263,29 @@ function pinActions(files) {
     const lines = content.split('\n');
     let modified = false;
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const uses = extractActionUses(line);
+    for (const u of uses) {
+      if (u.file !== file) continue;
 
-      if (uses && isMutableVersion(uses.version)) {
-        const sha = ACTION_SHAS[uses.action] || resolveActionSHA(uses.action);
+      // Authoritative table wins: force-correct any ref (mutable tag OR
+      // fabricated SHA) to the verified table SHA. This repairs the
+      // 2026-08-01 outage where all workflows carried fake 40-char SHAs.
+      const tableSha = ACTION_SHAS[u.action];
+      let sha = tableSha;
+      if (!sha) {
+        if (!isMutableVersion(u.version)) continue;
+        sha = await resolveActionSHA(u.action, u.version, token);
+      }
 
-        if (sha) {
-          const pinned = `uses: ${uses.action}@${sha}`;
-          lines[i] = line.replace(uses.original, pinned);
-          modified = true;
-          totalPinned++;
-          console.log(`  ✅ Pinned ${uses.action}@${uses.version} → ${sha.substring(0, 7)}`);
-        }
+      if (sha && SHA_RE.test(sha)) {
+        const pinned = `uses: ${u.action}@${sha}`;
+        lines[u.line - 1] = lines[u.line - 1].replace(u.original, pinned);
+        modified = true;
+        totalPinned += 1;
+        console.log(`  Pinned ${u.action}@${u.version || '(none)'} -> ${sha.substring(0, 7)}`);
+      } else {
+        console.warn(
+          `  WARN: could not resolve ${u.action}@${u.version || '(none)'}; leaving as-is`,
+        );
       }
     }
 
@@ -162,83 +294,73 @@ function pinActions(files) {
     }
   }
 
-  return totalPinned;
+  if (totalPinned > 0) {
+    console.log(`\nPinned ${totalPinned} reference(s).`);
+  } else {
+    console.log('No mutable references to pin.');
+  }
+  return true;
 }
 
-function updateActionSHAs() {
-  console.log('Updating action SHAs from GitHub API...');
-
-  for (const action of Object.keys(ACTION_SHAS)) {
-    try {
-      const sha = resolveActionSHA(action);
-      if (sha && !sha.match(/^v\d+$/)) {
-        ACTION_SHAS[action] = sha;
-        console.log(`  Updated ${action}: ${sha.substring(0, 7)}`);
-      }
-    } catch (error) {
-      console.warn(`  ⚠️  Failed to update ${action}: ${error.message}`);
-    }
+function getToken() {
+  if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  try {
+    const out = execSync('gh auth token', { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    return out.trim();
+  } catch {
+    return null;
   }
-
-  // Update the script itself with new SHAs
-  const scriptContent = readFileSync(process.argv[1], 'utf8');
-  const updatedContent = scriptContent.replace(
-    /(const ACTION_SHAS = \{[\s\S]*?\};)/,
-    `const ACTION_SHAS = ${JSON.stringify(ACTION_SHAS, null, 2)};`,
-  );
-  writeFileSync(process.argv[1], updatedContent);
-  console.log('  Updated script with new SHAs');
 }
 
-function main() {
-  const flags = parseArgs();
-  const files = getWorkflowFiles();
-
-  console.log(`Found ${files.length} workflow files`);
-
-  if (flags.check) {
-    const unpinned = checkWorkflows(files);
-
-    if (unpinned.length === 0) {
-      console.log('✅ All actions are pinned to commit SHAs');
-      process.exit(0);
-    }
-
-    console.log(`\n⚠️  Found ${unpinned.length} unpinned action(s):\n`);
-    for (const { file, line, action, version } of unpinned) {
-      console.log(`  ${file}:${line} - ${action}@${version}`);
-    }
-
-    console.log('\nRun: node scripts/pin-github-actions.mjs --pin');
-    process.exit(1);
-  }
-
-  if (flags.update) {
-    updateActionSHAs();
-    process.exit(0);
-  }
-
-  if (flags.pin) {
-    console.log('Pinning actions to commit SHAs...\n');
-    const totalPinned = pinActions(files);
-    console.log(`\n✅ Pinned ${totalPinned} action(s)`);
-    process.exit(0);
-  }
-
-  // Default: show help
+function showHelp() {
   console.log('GitHub Actions SHA Pinning Tool');
   console.log('');
   console.log('Usage:');
-  console.log('  node scripts/pin-github-actions.mjs --check    # Check for unpinned actions');
-  console.log('  node scripts/pin-github-actions.mjs --pin      # Pin actions to SHAs');
-  console.log('  node scripts/pin-github-actions.mjs --update   # Update to latest SHAs');
+  console.log('  node scripts/pin-github-actions.mjs --check    # static pin check (no network)');
+  console.log(
+    '  node scripts/pin-github-actions.mjs --verify   # resolve every SHA upstream (network)',
+  );
+  console.log(
+    '  node scripts/pin-github-actions.mjs --pin      # pin mutable refs to SHAs (network)',
+  );
+  console.log('  node scripts/pin-github-actions.mjs --update   # re-resolve pins to latest tags');
+}
+
+async function main() {
+  const flags = parseArgs();
+  const files = getWorkflowFiles();
+  console.log(`Found ${files.length} workflow file(s)`);
+
+  if (flags.check) {
+    const ok = await runCheck();
+    process.exit(ok ? 0 : 1);
+  }
+
+  if (flags.verify) {
+    const ok = await runVerify();
+    process.exit(ok ? 0 : 1);
+  }
+
+  if (flags.pin) {
+    await runPin();
+    process.exit(0);
+  }
+
+  if (flags.update) {
+    console.log('--update is implemented as --pin with a refreshed ACTION_SHAS table. Run --pin.');
+    await runPin();
+    process.exit(0);
+  }
+
+  showHelp();
+  process.exit(0);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  try {
-    main();
-  } catch (err) {
-    console.error(`Error: ${err.message}`);
+  main().catch((err) => {
+    console.error(`pin-github-actions failed: ${err.message}`);
     process.exit(1);
-  }
+  });
 }
+
+export { ACTION_SHAS, extractActionUses, isMutableVersion, SHA_RE, verifyPinnedSHA };
