@@ -18,7 +18,15 @@
  *  - Unknown future fields are preserved on serialization (forward-compat).
  */
 
+import type {
+  EmbeddedGradientColorStop,
+  EmbeddedGradientOpacityStop,
+  EmbeddedGradientPreset,
+  GradientMapStop,
+} from '@strata/engine';
+import { managedColorToRgba } from '@strata/shared';
 import type { ManagedColor } from './colorManagement';
+import { rgbFromTuple } from './colorManagement';
 import type { GradientInterpolationSpace } from './types';
 
 /** How a preset's color stops are interpolated. Reuses fill gradient spaces. */
@@ -350,4 +358,112 @@ export function displayName(preset: GradientPreset): string {
   if (preset.name && preset.name.trim().length > 0) return preset.name;
   if (preset.source?.originalName) return preset.source.originalName;
   return 'Untitled gradient';
+}
+
+// ── Conversion between scene presets and engine adjustment data ─────────────
+
+function colorToTuple(c: ManagedColor): [number, number, number, number] {
+  return managedColorToRgba(c as Parameters<typeof managedColorToRgba>[0]);
+}
+
+/** Compile a preset to engine gradient-map stops (Color tuples + per-stop opacity). */
+export function gradientPresetToGradientMapStops(preset: GradientPreset): GradientMapStop[] {
+  return preset.colorStops.map((s) => ({
+    position: s.position,
+    color: colorToTuple(s.color),
+    midpoint: s.midpoint,
+  }));
+}
+
+/** Build an embedded (portable) snapshot of a preset for document persistence. */
+export function gradientPresetToEmbeddedGradient(preset: GradientPreset): EmbeddedGradientPreset {
+  return {
+    id: preset.id,
+    name: preset.name,
+    kind: preset.kind,
+    colorStops: preset.colorStops.map((s) => ({
+      position: s.position,
+      midpoint: s.midpoint,
+      color: colorToTuple(s.color),
+    })),
+    opacityStops: preset.opacityStops.map((s) => ({
+      position: s.position,
+      midpoint: s.midpoint,
+      opacity: s.opacity,
+    })),
+    ...(preset.smoothness !== undefined ? { smoothness: preset.smoothness } : {}),
+    interpolation: preset.interpolation,
+    ...(preset.source
+      ? {
+          source: {
+            origin: preset.source.origin,
+            fileName: preset.source.fileName,
+            originalName: preset.source.originalName,
+          },
+        }
+      : {}),
+    ...(preset.compatibility
+      ? {
+          compatibility: {
+            status: preset.compatibility.status,
+            message: preset.compatibility.message,
+            ...(preset.compatibility.warnings ? { warnings: preset.compatibility.warnings } : {}),
+          },
+        }
+      : {}),
+  };
+}
+
+function embeddedStopToColor(s: EmbeddedGradientColorStop): ManagedColor {
+  return rgbFromTuple(s.color);
+}
+
+/** Reconstruct a scene `GradientPreset` from an embedded snapshot. */
+export function embeddedGradientToGradientPreset(eg: EmbeddedGradientPreset): GradientPreset {
+  return makeGradientPreset({
+    id: eg.id,
+    name: eg.name,
+    kind: eg.kind,
+    colorStops: eg.colorStops.map((s) => ({
+      position: s.position,
+      midpoint: s.midpoint,
+      color: embeddedStopToColor(s),
+    })),
+    opacityStops: (eg.opacityStops as EmbeddedGradientOpacityStop[] | undefined)?.map((s) => ({
+      position: s.position,
+      midpoint: s.midpoint,
+      opacity: s.opacity,
+    })),
+    smoothness: eg.smoothness,
+    interpolation: eg.interpolation as GradientInterpolation | undefined,
+    source: eg.source
+      ? {
+          origin: eg.source.origin as GradientPresetSource['origin'],
+          fileName: eg.source.fileName,
+          originalName: eg.source.originalName,
+        }
+      : undefined,
+    compatibility: eg.compatibility,
+  });
+}
+
+/**
+ * Derive the effective ramp stops for a gradient-map adjustment, honoring an
+ * embedded preset when present (legacy adjustments only carry `stops`).
+ */
+export function resolveGradientMapPreset(adjustment: {
+  stops: GradientMapStop[];
+  embeddedGradient?: EmbeddedGradientPreset;
+}): GradientPreset {
+  if (adjustment.embeddedGradient) {
+    return embeddedGradientToGradientPreset(adjustment.embeddedGradient);
+  }
+  return makeGradientPreset({
+    name: 'Gradient map',
+    colorStops: adjustment.stops.map((s) => ({
+      position: s.position,
+      midpoint: s.midpoint,
+      color: rgbFromTuple(s.color),
+    })),
+  });
 }

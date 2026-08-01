@@ -409,6 +409,7 @@ export function applySoftwareFilter(
         }[];
         dither: boolean;
         preserveLuminosity: boolean;
+        ditherSize?: 4 | 8;
         mode?: 'luminance' | 'channel';
         channelStops?: {
           r?: readonly {
@@ -430,8 +431,33 @@ export function applySoftwareFilter(
             midpoint?: number;
           }[];
         };
+        opacityStops?: readonly {
+          position: number;
+          midpoint?: number;
+          opacity: number;
+        }[];
+        reverse?: boolean;
+        intensity?: number;
+        luminanceMode?: import('./gradientMap').GradientMapLuminanceMode;
+        preserveSourceAlpha?: boolean;
+        interpolation?: import('@strata/shared').GradientInterpolationSpace;
+        lutSize?: number;
       };
-      applyGradientMapFilter(imageData, gf);
+      applyGradientMapFilter(imageData, {
+        stops: gf.stops,
+        dither: gf.dither,
+        preserveLuminosity: gf.preserveLuminosity,
+        ditherSize: gf.ditherSize,
+        mode: gf.mode,
+        channelStops: gf.channelStops,
+        opacityStops: gf.opacityStops,
+        reverse: gf.reverse,
+        intensity: gf.intensity,
+        luminanceMode: gf.luminanceMode,
+        preserveSourceAlpha: gf.preserveSourceAlpha,
+        interpolation: gf.interpolation,
+        lutSize: gf.lutSize,
+      });
       ctx.putImageData(imageData, 0, 0);
       break;
     }
