@@ -1,4 +1,4 @@
-// COMPLEXITY: 48 imports (ceiling 49). Merged duplicate @strata/scene and @strata/ui imports.
+// COMPLEXITY: 49 imports (ceiling 49). Merged duplicate @strata/scene and @strata/ui imports.
 // Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
 import { HelpBrowser } from '@strata/help';
 import type { Platform } from '@strata/platform';
@@ -6,6 +6,7 @@ import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from
 import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
+import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { CanvasArea } from './CanvasArea';
 import { cancelPasteFallback, captureClipboardEvent } from './clipboard';
 import { SubjectPickerOverlay } from './components/BackgroundRemoval/SubjectPickerOverlay';
@@ -27,9 +28,6 @@ import { MinimapPanel } from './components/Minimap/MinimapPanel';
 import { PageNav } from './components/PageNav/PageNav';
 import { PanelResizeHandle, usePanelWidths } from './components/PanelResizeHandle';
 import { PromptDialog, promptDialog } from './components/PromptDialog';
-import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
-import './components/Upscale/UpscaleDialog.css';
-import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
 import { PrototypePresenter } from './components/Prototype/PrototypePresenter';
 import { QuickActionsBar } from './components/QuickActionsBar/QuickActionsBar';
 import { SelectionInfoBar } from './components/SelectionInfoBar';
@@ -45,6 +43,8 @@ import {
   type OnboardingLayerHandle,
   RecoveryManager,
 } from './components/Shell';
+import { UpscaleDialogHost } from './components/Upscale/UpscaleDialogHost';
+import './components/Shell/shellStyles.css';
 import { SoftProofOverlay } from './components/SoftProofOverlay';
 import { SpreadSettings } from './components/SpreadSettings/SpreadSettings';
 import { StateMachinePanel } from './components/StateMachinePanel';
@@ -58,7 +58,6 @@ import { ShortcutPalette, useShortcuts } from './shortcuts';
 import { TabStrip } from './TabStrip';
 import { TimelinePanel } from './timeline/TimelinePanel';
 import { getWorkspaceConfig } from './workspace/workspaceTypes';
-import './components/Prototype/prototype.css';
 
 /** A request to open a file into a tab; bump `seq` for each dispatch. */
 export interface OpenFileRequest {

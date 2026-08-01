@@ -84,8 +84,8 @@ describe('AdjustmentEditor — curves', () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByRole('radio', { name: /^R$/i })).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('radio', { name: /rgb/i })).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('radio', { name: /^R$/i })).toBeChecked();
+    expect(screen.getByRole('radio', { name: /rgb/i })).not.toBeChecked();
   });
 
   it('calls onChange with converted points when the curve editor edits', () => {

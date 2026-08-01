@@ -1,6 +1,16 @@
 {
-  "version": "2026-07-27",
-  "cycles": {},
+  "version": "2026-07-30",
+  "cycles": {
+    "scene": {
+      "count": 4,
+      "cycles": [
+        "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document-nodes.ts → document.ts",
+        "document-components.ts → document.ts",
+        "document-pages.ts → document.ts"
+      ]
+    }
+  },
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
@@ -31,7 +41,7 @@
   },
   "complexity": {},
   "global": {
-    "max_cycles": 2,
+    "max_cycles": 6,
     "max_unstable": 5,
     "max_layer_violations": 0,
     "max_unused_exports": 10

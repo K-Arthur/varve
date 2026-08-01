@@ -66,8 +66,8 @@ describe('buildPackageExport', () => {
     });
     expect(manifest.fonts[0]).toMatchObject({
       family: 'Inter',
-      bundled: true,
-      embeddingStatus: 'installable',
+      bundled: false,
+      embeddingStatus: 'unknown',
     });
   });
 

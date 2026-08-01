@@ -11,28 +11,110 @@ test('imports an image and upscales it through the dialog', async ({ page }) => 
     .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
 
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
-  await expect(page.getByRole('button', { name: 'Open Upscale Dialog' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Trace monochrome' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Upscale$/ })).toBeVisible();
 
-  // Open the upscale dialog via the inspector.
-  await page.getByRole('button', { name: 'Open Upscale Dialog' }).click();
+  // Open the upscale dialog via the canvas selection toolbar.
+  await page.getByRole('button', { name: /^Upscale$/ }).click();
   await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
 
-  // Select AI enhancement mode.
-  await page.getByLabel('Upscale mode').selectOption('ai-enhance');
-  await expect(page.getByText('Real-ESRGAN x4 super-resolution')).toBeVisible();
-
-  // Apply the upscale.
-  await page.getByRole('button', { name: 'Upscale with AI' }).click();
+  // Apply the default deterministic CPU upscale. AI behavior is covered by
+  // provider tests and should not make this dialog interaction depend on a
+  // model download.
+  await page.getByRole('button', { name: 'Upscale image' }).click();
   await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible({
     timeout: 120000,
   });
   await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
-  await expect(page.getByRole('treeitem').filter({ hasText: '4x-ai' })).toHaveCount(1);
 
   // Undo.
   await page.keyboard.press('Control+z');
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 5000 });
+});
+
+test('denoises with SCUNet before applying a CPU upscale', async ({ page }) => {
+  await page.addInitScript(() => {
+    const BrowserWorker = window.Worker;
+    class ScunetWorkerStub {
+      onmessage: ((event: MessageEvent) => void) | null = null;
+      onerror: ((event: ErrorEvent) => void) | null = null;
+
+      postMessage(message: {
+        requestId: string;
+        tensors?: { image?: { data: Float32Array; dims: number[] } };
+      }) {
+        const input = message.tensors?.image;
+        queueMicrotask(() => {
+          this.onmessage?.({
+            data: {
+              type: 'result',
+              requestId: message.requestId,
+              outputs: {
+                output: { data: input?.data ?? new Float32Array(), dims: input?.dims ?? [] },
+                executionProvider: 'e2e-scunet-stub',
+              },
+            },
+          } as MessageEvent);
+        });
+      }
+
+      terminate() {}
+    }
+
+    Object.defineProperty(window, 'Worker', {
+      configurable: true,
+      value: new Proxy(BrowserWorker, {
+        construct(target, args) {
+          if (String(args[0]).includes('inferenceWorker')) return new ScunetWorkerStub();
+          return Reflect.construct(target, args);
+        },
+      }),
+    });
+  });
+
+  await navigateToEditor(page);
+  await page.evaluate(async () => {
+    const db = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('strata-model-store', 2);
+      request.onupgradeneeded = () => {
+        if (!request.result.objectStoreNames.contains('models')) {
+          request.result.createObjectStore('models');
+        }
+        if (!request.result.objectStoreNames.contains('partials')) {
+          request.result.createObjectStore('partials');
+        }
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction('models', 'readwrite');
+      transaction.objectStore('models').put(new Blob([new Uint8Array([1])]), 'scunet');
+      transaction
+        .objectStore('models')
+        .put(new Blob([new Uint8Array([1])]), 'scunet__externaldata');
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  });
+
+  await page
+    .locator('#file-import-input')
+    .setInputFiles(path.resolve('apps/desktop/public/icons/favicon-16x16.png'));
+  await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
+
+  await page.getByRole('button', { name: /^Upscale$/ }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Denoise strength' })
+    .getByText('Light', { exact: true })
+    .click();
+  await expect(page.getByRole('button', { name: 'Upscale image' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Upscale image' }).click();
+
+  await expect(page.getByRole('dialog', { name: 'Upscale image' })).not.toBeVisible({
+    timeout: 30000,
+  });
+  await expect(page.getByRole('treeitem')).toHaveCount(2, { timeout: 10000 });
 });
 
 test('opens the upscale dialog via keyboard shortcut', async ({ page }) => {
@@ -62,7 +144,7 @@ test('cancels the upscale dialog without applying', async ({ page }) => {
 
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-  await page.getByRole('button', { name: 'Open Upscale Dialog' }).click();
+  await page.getByRole('button', { name: /^Upscale$/ }).click();
   await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
 
   // Cancel.
@@ -80,13 +162,15 @@ test('changes scale factor in the upscale dialog', async ({ page }) => {
 
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-  await page.getByRole('button', { name: 'Open Upscale Dialog' }).click();
+  await page.getByRole('button', { name: /^Upscale$/ }).click();
   await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
 
-  // Select balanced mode (bicubic) and change scale.
-  await page.getByLabel('Upscale mode').selectOption('balanced');
-  await page.getByLabel('Scale factor').getByRole('button', { name: '3x' }).click();
-  await expect(page.getByText('Output 48x16px')).toBeVisible();
+  // Balanced mode (bicubic) is the default; change its scale.
+  await page
+    .getByRole('radiogroup', { name: 'Scale factor' })
+    .getByText('3x', { exact: true })
+    .click();
+  await expect(page.getByText('Output 48by48px', { exact: false })).toBeVisible();
 
   await page.getByRole('button', { name: 'Cancel' }).click();
 });
@@ -100,11 +184,14 @@ test('switches output behavior in the upscale dialog', async ({ page }) => {
 
   await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-  await page.getByRole('button', { name: 'Open Upscale Dialog' }).click();
+  await page.getByRole('button', { name: /^Upscale$/ }).click();
   await expect(page.getByRole('dialog', { name: 'Upscale image' })).toBeVisible();
 
   // Switch to "Replace source" output.
-  await page.getByLabel('Output behavior').getByRole('button', { name: 'Replace source' }).click();
+  await page
+    .getByRole('radiogroup', { name: 'Output behavior' })
+    .getByText('Replace source', { exact: true })
+    .click();
 
   // Apply — should replace the source, not create a new layer.
   await page.getByRole('button', { name: 'Upscale image' }).click();
