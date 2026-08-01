@@ -171,6 +171,9 @@ complete web *and* print pipeline, even though nothing user-reachable broke
 - [x] `AssetExportControls.test.tsx` — print and code formats are offered,
       AVIF never is, PDF/X is disabled-with-reason on web, suffix editing
       round-trips.
+- [x] Catalog wiring: applying a built-in preset adds one setting with the
+      catalog's real scale/suffix; applying a bundle adds three with distinct
+      ids; platform-unavailable presets are omitted from the picker.
 - [x] Corrected a stale assertion that expected a native `title` attribute on
       the advisor info icon; `Tooltip` implements the APG pattern
       (`aria-describedby` + portaled `role="tooltip"`) and warns against
@@ -187,14 +190,15 @@ complete web *and* print pipeline, even though nothing user-reachable broke
 - Output preview/thumbnail rendering, transparency-grid/print-box preview
   (brief §11) — no existing scaffolding; would need a new render target and
   is a multi-session effort on its own.
-- Preset *library* / named built-in presets across web/print/developer
-  categories (brief §12) — **the catalog now exists** and is complete
-  (`packages/scene/src/export/presets.ts`, M6/`c3655d05`: 17 presets + 2
-  bundles across web/print/developer, with `materializePreset`). It has no UI
-  consumer yet — `builtinPresetList()` is imported by nothing in the editor.
-  Wiring it into the inspector's add-setting flow (one click for "Web asset
-  set: SVG + PNG 1× + PNG 2×") is the clear next increment and no longer
-  blocked on modelling work.
+- ~~Preset *library* / named built-in presets (brief §12)~~ **DONE.** The
+  catalog (`packages/scene/src/export/presets.ts`, M6/`c3655d05`) is now wired
+  into the inspector via an "Add from preset…" picker: single presets apply one
+  export setting, bundles apply several at once (Web asset set → SVG + PNG 1×
+  + PNG 2× in one click, which is the real multi-output workflow brief §12
+  asks for, not renamed defaults). Entries are filtered two ways — the preset
+  must map to a legacy `ExportPreset` the executor can run, *and* its format
+  must be encodable on the active platform, so press presets simply do not
+  appear on web.
 - Full visual-regression baseline matrix (brief §15, 24 states) — needs a
   screenshot-testing harness decision (which this repo doesn't currently have
   for panel-level UI) before baselines are worth capturing.

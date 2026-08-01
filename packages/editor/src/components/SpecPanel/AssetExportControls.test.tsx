@@ -275,6 +275,69 @@ describe('AssetExportControls', () => {
       expect(preset.suffix).toBe('');
     });
 
+    it('applies a built-in catalog preset', () => {
+      const doc = createDocument('Export', true);
+      const onAddPreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'PNG 2× · web' }));
+
+      expect(onAddPreset).toHaveBeenCalledOnce();
+      expect(onAddPreset.mock.calls[0]?.[0]).toMatchObject({
+        format: 'png',
+        scale: { type: 'factor', value: 2 },
+        suffix: '@2x',
+        enabled: true,
+      });
+    });
+
+    it('applies a bundle as several export settings at once', () => {
+      const doc = createDocument('Export', true);
+      const onAddPreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
+      fireEvent.click(screen.getByRole('option', { name: /Web asset set/ }));
+
+      // SVG + PNG 1x + PNG 2x — the point of the catalog: one click, real
+      // multi-output, not a renamed default.
+      expect(onAddPreset).toHaveBeenCalledTimes(3);
+      const formats = onAddPreset.mock.calls.map((c) => (c[0] as { format: string }).format);
+      expect(formats).toEqual(['svg', 'png', 'png']);
+      const ids = onAddPreset.mock.calls.map((c) => (c[0] as { id: string }).id);
+      expect(new Set(ids).size).toBe(3);
+    });
+
+    it('omits catalog presets whose format is unavailable on this platform', () => {
+      const doc = createDocument('Export', true);
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={() => {}}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
+      const labels = screen.getAllByRole('option').map((o) => o.textContent ?? '');
+      // Web platform: press presets are not encodable, so they are not offered.
+      expect(labels.some((l) => /PDF\/X-4/.test(l))).toBe(false);
+      expect(labels.some((l) => /PNG 1×/.test(l))).toBe(true);
+    });
+
     it('edits a preset suffix', () => {
       const doc = createDocument('Export', true);
       const onUpdatePreset = vi.fn();
