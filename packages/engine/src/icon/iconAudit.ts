@@ -78,9 +78,10 @@ export function auditIconSvg(svg: string): IconAuditResult {
 
   const strokeWidths = new Set<string>();
   const swRegex = /stroke-width="([^"]+)"/g;
-  let swMatch: RegExpExecArray | null;
-  while ((swMatch = swRegex.exec(svg)) !== null) {
+  let swMatch: RegExpExecArray | null = swRegex.exec(svg);
+  while (swMatch !== null) {
     if (swMatch[1]) strokeWidths.add(swMatch[1]);
+    swMatch = swRegex.exec(svg);
   }
   if (strokeWidths.size > 1) {
     findings.push(
@@ -94,9 +95,10 @@ export function auditIconSvg(svg: string): IconAuditResult {
 
   const strokeCaps = new Set<string>();
   const scRegex = /stroke-linecap="([^"]+)"/g;
-  let scMatch: RegExpExecArray | null;
-  while ((scMatch = scRegex.exec(svg)) !== null) {
+  let scMatch: RegExpExecArray | null = scRegex.exec(svg);
+  while (scMatch !== null) {
     if (scMatch[1]) strokeCaps.add(scMatch[1]);
+    scMatch = scRegex.exec(svg);
   }
   if (strokeCaps.size > 1) {
     findings.push(

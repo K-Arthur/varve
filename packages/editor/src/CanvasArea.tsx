@@ -81,6 +81,7 @@ import {
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import { installPerfDiagnosticsHandle } from './canvas/drawDiagnostics';
 import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
@@ -428,6 +429,7 @@ export function CanvasArea({
   // a changed persisted value (e.g. after Reset settings).
   useEffect(() => {
     enableDrawDiagnostics(settings.performance.showPerformanceDiagnostics);
+    installPerfDiagnosticsHandle();
   }, [settings.performance.showPerformanceDiagnostics]);
 
   // Track keyboard focus on the inner canvas to drive the parent section's
