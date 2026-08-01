@@ -5,6 +5,7 @@ import {
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
+  screenDeltaToWorld,
   type Viewport,
 } from '@strata/shared';
 import type { ReactNode } from 'react';
@@ -228,8 +229,15 @@ export function ViewportProvider({
   );
 
   const canvasDeltaToWorld = useCallback(
-    (dx: number, dy: number) => ({ dx: dx / state.zoom, dy: dy / state.zoom }),
-    [state.zoom],
+    (dx: number, dy: number) => {
+      const [wdx, wdy] = screenDeltaToWorld(
+        { pan: state.pan, zoom: state.zoom, rotation: state.cameraRotation },
+        dx,
+        dy,
+      );
+      return { dx: wdx, dy: wdy };
+    },
+    [state.zoom, state.cameraRotation, state.pan],
   );
 
   const revealSelection = useCallback(
