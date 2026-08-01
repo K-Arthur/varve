@@ -1,5 +1,5 @@
 import type { TemplateLibrary, TemplateSource } from '@strata/platform';
-import { Icon, type IconName } from '@strata/ui';
+import { Icon, type IconName, Tooltip } from '@strata/ui';
 import { useMemo, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 
@@ -111,7 +111,6 @@ export function TemplatesGallery({
                   type="button"
                   className="template-card"
                   onClick={() => onSelect(template)}
-                  title={template.description}
                 >
                   <div
                     className="template-card__preview"
@@ -122,7 +121,9 @@ export function TemplatesGallery({
                     </span>
                   </div>
                   <span className="template-card__name">{template.name}</span>
-                  <span className="template-card__desc">{template.description}</span>
+                  <Tooltip label={template.description} truncationOnly>
+                    <span className="template-card__desc">{template.description}</span>
+                  </Tooltip>
                   <div className="template-card__footer">
                     <span
                       className={`template-card__source template-card__source--${template.source}`}

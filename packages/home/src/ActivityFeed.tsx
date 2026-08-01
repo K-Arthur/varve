@@ -1,7 +1,7 @@
 import type { Platform } from '@strata/platform';
 import { formatRelativeTime } from '@strata/platform';
-import { Icon, InlineActivityIndicator } from '@strata/ui';
-import { useCallback, useEffect, useState } from 'react';
+import { Icon, InlineActivityIndicator, Tooltip } from '@strata/ui';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 
 export interface ActivityFeedProps {
   platform: Platform;
@@ -180,34 +180,42 @@ export function ActivityFeed({
           <div key={group.period} className="activity-feed__group">
             <div className="activity-feed__group-label">{group.label}</div>
             <div className="activity-feed__events">
-              {group.events.map((event) => (
-                <button
-                  key={event.id}
-                  type="button"
-                  className="activity-feed__event"
-                  onClick={event.onOpen}
-                  disabled={!event.onOpen}
-                  title={event.onOpen && event.fileName ? `Open ${event.fileName}` : undefined}
-                >
-                  <div className="activity-feed__event-icon" aria-hidden>
-                    <Icon name={event.icon} label={undefined} />
-                  </div>
-                  <div className="activity-feed__event-body">
-                    <span className="activity-feed__event-text">
-                      {event.fileName ? (
-                        <>
-                          <strong>{event.fileName}</strong> {event.verb}
-                        </>
-                      ) : (
-                        event.verb
-                      )}
-                    </span>
-                    <span className="activity-feed__event-time">
-                      {formatRelativeTime(event.timestamp)}
-                    </span>
-                  </div>
-                </button>
-              ))}
+              {group.events.map((event) => {
+                const trigger = (
+                  <button
+                    key={event.id}
+                    type="button"
+                    className="activity-feed__event"
+                    onClick={event.onOpen}
+                    disabled={!event.onOpen}
+                  >
+                    <div className="activity-feed__event-icon" aria-hidden>
+                      <Icon name={event.icon} label={undefined} />
+                    </div>
+                    <div className="activity-feed__event-body">
+                      <span className="activity-feed__event-text">
+                        {event.fileName ? (
+                          <>
+                            <strong>{event.fileName}</strong> {event.verb}
+                          </>
+                        ) : (
+                          event.verb
+                        )}
+                      </span>
+                      <span className="activity-feed__event-time">
+                        {formatRelativeTime(event.timestamp)}
+                      </span>
+                    </div>
+                  </button>
+                );
+                return event.onOpen && event.fileName ? (
+                  <Tooltip key={event.id} label={`Open ${event.fileName}`}>
+                    {trigger}
+                  </Tooltip>
+                ) : (
+                  <Fragment key={event.id}>{trigger}</Fragment>
+                );
+              })}
             </div>
           </div>
         ))
