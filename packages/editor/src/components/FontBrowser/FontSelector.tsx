@@ -329,7 +329,9 @@ export function FontSelector({
                       )}
                       {meta?.hasColorGlyphs && (
                         <Tooltip label={colorTitle}>
-                          <span className="font-selector__badge font-selector__badge--color">C</span>
+                          <span className="font-selector__badge font-selector__badge--color">
+                            C
+                          </span>
                         </Tooltip>
                       )}
                       {meta?.embeddingRights === 'restricted' && (

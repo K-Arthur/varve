@@ -6,9 +6,7 @@ test.describe('Home tooltip system', () => {
     await navigateToHome(page);
   });
 
-  test('hovering the sort toggle shows a Tooltip with the current sort state', async ({
-    page,
-  }) => {
+  test('hovering the sort toggle shows a Tooltip with the current sort state', async ({ page }) => {
     const sortBtn = page.getByRole('button', { name: /^sort (ascending|descending)$/i });
     await expect(sortBtn).toBeVisible({ timeout: 10000 });
 

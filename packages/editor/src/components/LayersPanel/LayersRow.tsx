@@ -421,9 +421,7 @@ export const LayersRow = memo(function LayersRow({
           />
         ) : (
           <Tooltip label={node.name} truncationOnly>
-            <span
-              className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
-            >
+            <span className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}>
               {node.name}
             </span>
           </Tooltip>
@@ -434,11 +432,7 @@ export const LayersRow = memo(function LayersRow({
           (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
           !editing && (
             <Tooltip label="Grid layout">
-              <span
-                className="layers-row__grid-indicator"
-                role="img"
-                aria-label="Grid layout"
-              >
+              <span className="layers-row__grid-indicator" role="img" aria-label="Grid layout">
                 <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
               </span>
             </Tooltip>
@@ -447,11 +441,7 @@ export const LayersRow = memo(function LayersRow({
         {/* Style indicator */}
         {nodeHasStyle(node) && !editing && (
           <Tooltip label="Linked to style">
-            <span
-              className="layers-row__style-indicator"
-              role="img"
-              aria-label="Linked to style"
-            >
+            <span className="layers-row__style-indicator" role="img" aria-label="Linked to style">
               <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
             </span>
           </Tooltip>
@@ -542,9 +532,7 @@ export const LayersRow = memo(function LayersRow({
         )}
 
         {maskRole && !editing && (
-          <Tooltip
-            label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
-          >
+          <Tooltip label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}>
             <span
               className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
               role="img"

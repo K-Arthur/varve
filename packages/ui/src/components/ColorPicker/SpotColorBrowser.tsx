@@ -68,15 +68,15 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
                   a: 255,
                   processFallback: { c: spot.c, m: spot.m, y: spot.y, k: spot.k },
                 })
-            }
-          >
-            <span
-              className="spot-color-browser__swatch"
-              style={{
-                background: `rgb(${255 - spot.c / 1}, ${255 - spot.m / 1}, ${255 - spot.y / 1})`,
-              }}
-            />
-            <span className="spot-color-browser__name">{spot.name}</span>
+              }
+            >
+              <span
+                className="spot-color-browser__swatch"
+                style={{
+                  background: `rgb(${255 - spot.c / 1}, ${255 - spot.m / 1}, ${255 - spot.y / 1})`,
+                }}
+              />
+              <span className="spot-color-browser__name">{spot.name}</span>
             </button>
           </Tooltip>
         ))}

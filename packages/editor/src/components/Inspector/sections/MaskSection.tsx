@@ -160,9 +160,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
         <div className="insp-field" style={{ flexDirection: 'column', gap: 'var(--space-1)' }}>
           <span className="insp-field__label">Add Mask</span>
           <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-            <Tooltip
-              label="Clip mask: uses the first child's outline to clip other children"
-            >
+            <Tooltip label="Clip mask: uses the first child's outline to clip other children">
               <button
                 type="button"
                 className="insp-btn-sm"
@@ -172,9 +170,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 Clip
               </button>
             </Tooltip>
-            <Tooltip
-              label="Alpha mask: uses the first child's alpha channel to modulate visibility"
-            >
+            <Tooltip label="Alpha mask: uses the first child's alpha channel to modulate visibility">
               <button
                 type="button"
                 className="insp-btn-sm"
@@ -184,9 +180,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 Alpha
               </button>
             </Tooltip>
-            <Tooltip
-              label="Luminance mask: uses the first child's luminance to modulate visibility"
-            >
+            <Tooltip label="Luminance mask: uses the first child's luminance to modulate visibility">
               <button
                 type="button"
                 className="insp-btn-sm"
@@ -325,9 +319,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                 Fill Rule
               </span>
               <div style={{ display: 'flex', gap: 'var(--space-1)' }}>
-                <Tooltip
-                  label="Nonzero winding rule: determines interior by winding direction"
-                >
+                <Tooltip label="Nonzero winding rule: determines interior by winding direction">
                   <button
                     type="button"
                     className="insp-btn-sm"
@@ -341,9 +333,7 @@ export function MaskSection({ nodes }: { nodes: SceneNode[] }) {
                     Nonzero
                   </button>
                 </Tooltip>
-                <Tooltip
-                  label="Even-odd rule: determines interior by raycast parity"
-                >
+                <Tooltip label="Even-odd rule: determines interior by raycast parity">
                   <button
                     type="button"
                     className="insp-btn-sm"
