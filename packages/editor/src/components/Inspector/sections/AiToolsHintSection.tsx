@@ -9,8 +9,8 @@
 import { Button } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
-import { WORKSPACE_LABELS } from '../../../workspace/workspaceTypes';
 import { workspaceShortcutLabel } from '../../../workspace/workspaceShortcutLabel';
+import { WORKSPACE_LABELS } from '../../../workspace/workspaceTypes';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function AiToolsHintSection() {
