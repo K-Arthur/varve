@@ -117,8 +117,9 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 ## 6. Milestones
 
 All milestones implemented, tested, and committed on `feat/gradient-map-system`
-(based at `master` @ `cf1ef196`). Final merge to `master` + push recorded in
-`docs/architecture/gradient-map-system.md`.
+(based at `master` @ `cf1ef196`). **Pushed to `origin/master` on 2026-08-01**:
+`98f2e892..9f627ece  HEAD -> master` (verified — my HEAD is an ancestor of
+`origin/master`).
 
 | Milestone | Commit | Status |
 |---|---|---|
