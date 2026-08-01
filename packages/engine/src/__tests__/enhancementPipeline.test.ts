@@ -1,4 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+const { dispatchDenoise } = vi.hoisted(() => ({
+  dispatchDenoise: vi.fn(async (source: ImageData) => ({
+    denoised: source,
+    processingTimeMs: 1,
+    executionProvider: 'test-scunet',
+    tilesUsed: 1,
+  })),
+}));
+
+vi.mock('../denoiseProviders/dispatch', () => ({
+  dispatchDenoise,
+}));
+
 import { runEnhancementPipeline } from '../upscaleProviders/enhancementPipeline';
 
 function createTestImage(width: number, height: number): ImageData {
@@ -31,6 +45,21 @@ describe('enhancement pipeline', () => {
     expect(result.stages[0]?.status).toBe('completed');
     expect(result.stages[1]?.status).toBe('completed');
     expect(result.totalTimeMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('passes the SCUNet result into the upscale stage', async () => {
+    const src = createTestImage(16, 8);
+    const result = await runEnhancementPipeline({
+      source: src,
+      denoiseStrength: 'light',
+      upscaleMethod: 'bicubic',
+      upscaleScale: 2,
+    });
+
+    expect(dispatchDenoise).toHaveBeenCalledWith(src, expect.objectContaining({ strength: 0.3 }));
+    expect(result.imageData.width).toBe(32);
+    expect(result.imageData.height).toBe(16);
+    expect(result.stages.map((stage) => stage.status)).toEqual(['completed', 'completed']);
   });
 
   it('runs pixel-art upscale', async () => {

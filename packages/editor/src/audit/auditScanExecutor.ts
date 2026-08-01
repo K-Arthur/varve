@@ -12,7 +12,7 @@
  */
 
 import { type AuditContext, type AuditRuleDef, getAllRules } from '@strata/scene';
-import type { ScanProgress, ScanResult, SerialisableScanInput } from './auditWorker';
+import type { ScanProgress, ScanResult, SerialisableScanInput } from './auditScanTypes';
 
 export interface ScanExecutorOptions {
   onProgress?: (progress: ScanProgress) => void;

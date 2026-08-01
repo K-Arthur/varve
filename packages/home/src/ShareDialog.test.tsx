@@ -1,6 +1,7 @@
 import type { Platform } from '@strata/platform';
 import { createMemoryPlatform } from '@strata/platform';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ShareDialog } from './ShareDialog';
 
@@ -80,6 +81,7 @@ describe('ShareDialog', () => {
   });
 
   it('role dropdown changes role', async () => {
+    const user = userEvent.setup();
     const platform: Platform = {
       ...basePlatform,
       listPermissions: vi.fn().mockResolvedValue([]),
@@ -88,10 +90,11 @@ describe('ShareDialog', () => {
       <ShareDialog fileId="f1" fileName="My Design" platform={platform} open onClose={vi.fn()} />,
     );
 
-    const select = screen.getByRole('combobox') as HTMLSelectElement;
+    const select = screen.getByRole('combobox');
     expect(select).toBeTruthy();
-    fireEvent.change(select, { target: { value: 'commenter' } });
-    expect(select.value).toBe('commenter');
+    await user.click(select);
+    await user.click(screen.getByRole('option', { name: 'Commenter' }));
+    expect(select).toHaveTextContent('Commenter');
   });
 
   it('closes on Esc', async () => {

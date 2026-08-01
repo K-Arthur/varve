@@ -1,4 +1,4 @@
-// COMPLEXITY: 814 (ceiling 847) — EditorProvider is the central state hub;
+// COMPLEXITY: 843 (ceiling 847) — EditorProvider is the central state hub;
 // sub-contexts (MotionProvider, PrototypeProvider, ViewportProvider) are the
 // planned extraction path. Dialog state (useDialogState) and interaction state
 // (useInteractionState) already extracted. Next: extract tool state into
@@ -51,7 +51,7 @@ export function invalidateNodeThumbnail(nodeId: string): void {
   invalidateThumbnailHandler?.(nodeId);
 }
 
-import { getLayerNavigationCommands } from './components/LayersPanel/useLayerNavigation';
+import { getLayerNavigationCommands } from './components/LayersPanel/layerNavigationRegistry';
 
 import { setBumpThemeRevisionHandler } from './context/sessionGlobals';
 
@@ -356,12 +356,19 @@ import {
 import { buildComponentLibraryPackage } from './components/LayersPanel/libraryPublish';
 import type { ActivePrototypeTransition } from './components/Prototype/usePrototypeTransition';
 import { loadSettings as loadUiSettings } from './components/Settings/settings';
-import { type DocumentContextValue, DocumentProvider } from './context/DocumentContext';
-import { type MotionContextValue, MotionProvider } from './context/MotionContext';
-import { PrototypeProvider } from './context/PrototypeContext';
+import {
+  applyToolChange,
+  type DocumentContextValue,
+  DocumentProvider,
+  type MotionContextValue,
+  MotionProvider,
+  PrototypeProvider,
+  SelectionProvider,
+  ToolProvider,
+  ViewportProvider,
+} from './context/providerComposition';
 import { isReducedMotion } from './context/reducedMotionManager';
-import { SelectionProvider } from './context/SelectionContext';
-import { applyToolChange, ToolProvider } from './context/ToolContext';
+import { resizeSceneNode, shapeForTool } from './context/sceneNodeGeometry';
 import type {
   CanvasMode,
   EditorState,
@@ -385,7 +392,6 @@ import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
 import { useWorkspaceMode } from './context/useWorkspaceMode';
-import { ViewportProvider } from './context/ViewportContext';
 import {
   computeFitAllCamera,
   computeZoomStep,
@@ -1685,199 +1691,9 @@ function nextAutoName(doc: Document, typeName: string): string {
   return `${typeName} ${i}`;
 }
 
-// F4: default shape geometry per tool
-// Research basis: Figma/Illustrator default sizes for shape tools
-function shapeForTool(tool: ToolId): Shape {
-  switch (tool) {
-    case 'rect':
-      return { kind: 'rect', x: 0, y: 0, w: 100, h: 80 };
-    case 'ellipse':
-      return { kind: 'ellipse', cx: 50, cy: 40, rx: 50, ry: 40 };
-    case 'polygon':
-      return { kind: 'polygon', cx: 50, cy: 40, radius: 50, sides: 6, rotation: 0 };
-    case 'star':
-      return {
-        kind: 'star',
-        cx: 50,
-        cy: 40,
-        innerRadius: 20,
-        outerRadius: 50,
-        points: 5,
-        rotation: 0,
-      };
-    case 'line':
-      return { kind: 'line', from: [0, 0], to: [100, 0], tolerance: 3 };
-    case 'arrow':
-      return { kind: 'arrow', from: [0, 0], to: [100, 0], tolerance: 3, arrowheadSize: 10 };
-    case 'pen':
-      return {
-        kind: 'path',
-        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
-        closed: false,
-        tolerance: 3,
-      };
-    case 'pencil':
-      return {
-        kind: 'path',
-        points: [{ x: 0, y: 0, handleIn: null, handleOut: null }],
-        closed: false,
-        tolerance: 3,
-      };
-    case 'text':
-      return { kind: 'rect', x: 0, y: 0, w: 120, h: 32 };
-    case 'frame':
-    case 'slice':
-      // These are containers, not shapes — should never reach here
-      return { kind: 'rect', x: 0, y: 0, w: 200, h: 160 };
-    case 'select':
-    case 'hand':
-    case 'zoom':
-    case 'scale':
-    case 'nodeEdit':
-    case 'image':
-    case 'eyedropper':
-    case 'inspect':
-    case 'booleanUnion':
-    case 'booleanSubtract':
-    case 'booleanIntersect':
-    case 'booleanExclude':
-    case 'cloneStamp':
-    case 'healBrush':
-    case 'spotHeal':
-    case 'patch':
-    case 'refineMask':
-    case 'trimapEdit':
-    case 'crop':
-    case 'paint':
-    case 'eraser':
-    case 'smudge':
-    case 'sam2Segment':
-    case 'shape':
-    case 'connector':
-    case 'comment':
-    case 'backgroundRemoval':
-    case 'clone':
-    case 'contentAwareFill':
-    case 'lasso':
-      // These tools don't create shapes — should never reach here
-      throw new Error(`shapeForTool called for non-drawing tool: ${tool}`);
-    default: {
-      // Exhaustiveness check — if we get here, there's a missing tool case
-      const _exhaustiveCheck: never = tool;
-      throw new Error(`Unknown tool in shapeForTool: ${_exhaustiveCheck}`);
-    }
-  }
-}
-
 const INITIAL_SESSION_ID = 'session-0';
 
 // ─── standalone helpers ─────────────────────────────────────────────────
-
-/**
- * Resize a node to world-space width/height `w`/`h`, keeping its local
- * origin (top-left of `nodeLocalBounds`) fixed so `node.transform`'s
- * translation stays the node's on-canvas position. Shared by the canvas
- * resize handles (`setNodeSize`) and the Position/Size inspector
- * (`setSelectedW`/`setSelectedH`) so both paths agree on geometry.
- */
-function resizeSceneNode(n: SceneNode, w: number, h: number): SceneNode {
-  if (n.kind === 'frame') return { ...n, w, h };
-  if (n.kind === 'text') return { ...n, w, h };
-  if (n.kind !== 'shape') return n;
-  const s = n.shape;
-  switch (s.kind) {
-    case 'rect':
-      return { ...n, shape: { ...s, w, h } };
-    case 'ellipse':
-      return { ...n, shape: { ...s, rx: w / 2, ry: h / 2, cx: w / 2, cy: h / 2 } };
-    case 'circle':
-      // Circle must stay circular: use max dimension so it doesn't warp
-      return { ...n, shape: { ...s, r: Math.max(w, h) / 2, cx: w / 2, cy: h / 2 } };
-    case 'line': {
-      const oldW = Math.abs(s.to[0] - s.from[0]) || 1;
-      const oldH = Math.abs(s.to[1] - s.from[1]) || 1;
-      const sx = w / oldW;
-      const sy = h / oldH;
-      const cx = (s.from[0] + s.to[0]) / 2;
-      const cy = (s.from[1] + s.to[1]) / 2;
-      return {
-        ...n,
-        shape: {
-          ...s,
-          from: [cx + (s.from[0] - cx) * sx, cy + (s.from[1] - cy) * sy] as [number, number],
-          to: [cx + (s.to[0] - cx) * sx, cy + (s.to[1] - cy) * sy] as [number, number],
-        },
-      };
-    }
-    case 'arrow': {
-      const oldW2 = Math.abs(s.to[0] - s.from[0]) || 1;
-      const oldH2 = Math.abs(s.to[1] - s.from[1]) || 1;
-      const sx2 = w / oldW2;
-      const sy2 = h / oldH2;
-      const cx2 = (s.from[0] + s.to[0]) / 2;
-      const cy2 = (s.from[1] + s.to[1]) / 2;
-      return {
-        ...n,
-        shape: {
-          ...s,
-          from: [cx2 + (s.from[0] - cx2) * sx2, cy2 + (s.from[1] - cy2) * sy2] as [number, number],
-          to: [cx2 + (s.to[0] - cx2) * sx2, cy2 + (s.to[1] - cy2) * sy2] as [number, number],
-        },
-      };
-    }
-    case 'polygon':
-      return { ...n, shape: { ...s, radius: Math.max(1, w / 2) } };
-    case 'star': {
-      const oldOR = s.outerRadius || 1;
-      const newOR = Math.max(1, w / 2);
-      const ratio = newOR / oldOR;
-      return {
-        ...n,
-        shape: {
-          ...s,
-          outerRadius: newOR,
-          innerRadius: Math.max(1, s.innerRadius * ratio),
-        },
-      };
-    }
-    case 'path': {
-      const points = s.points;
-      if (points.length === 0) return n;
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = -Infinity,
-        maxY = -Infinity;
-      for (const p of points) {
-        minX = Math.min(minX, p.x);
-        minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x);
-        maxY = Math.max(maxY, p.y);
-      }
-      const pbw = maxX - minX || 1;
-      const pbh = maxY - minY || 1;
-      const sx3 = w / pbw;
-      const sy3 = h / pbh;
-      return {
-        ...n,
-        shape: {
-          ...s,
-          points: points.map((p) => ({
-            x: (p.x - minX) * sx3 + minX,
-            y: (p.y - minY) * sy3 + minY,
-            handleIn: p.handleIn
-              ? ([p.handleIn[0] * sx3, p.handleIn[1] * sy3] as [number, number])
-              : null,
-            handleOut: p.handleOut
-              ? ([p.handleOut[0] * sx3, p.handleOut[1] * sy3] as [number, number])
-              : null,
-          })),
-        },
-      };
-    }
-    default:
-      return n;
-  }
-}
 
 /** Apply layout to a frame's children and return the updated doc. */
 function applyFrameLayout(doc: Document, parentId: string | null | undefined): Document {

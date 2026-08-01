@@ -1,5 +1,4 @@
-import type { NodeId } from '@strata/scene';
-import type { HitResult } from './HitTestEngine';
+import type { NodeId, SceneNode } from '@strata/scene';
 
 export interface HitTestPolicy {
   tolerancePx: number;
@@ -186,11 +185,11 @@ export function screenToWorldTolerance(tolerancePx: number, zoom: number): numbe
   return tolerancePx / Math.max(0.001, zoom);
 }
 
-export function filterCandidatesByPolicy(
-  candidates: HitResult[],
+export function filterCandidatesByPolicy<T extends { nodeId: NodeId; node: SceneNode }>(
+  candidates: T[],
   policy: HitTestPolicy,
   getNodeOpacity: (nodeId: NodeId) => number,
-): HitResult[] {
+): T[] {
   return candidates.filter((c) => {
     const opacity = getNodeOpacity(c.nodeId);
     if (!policy.includeLocked && c.node.locked) return false;

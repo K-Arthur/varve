@@ -37,8 +37,8 @@ describe('SectionCollapseToggle', () => {
         controls="masters-body"
       />,
     );
-    expect(
-      screen.getByRole('button', { name: 'Hide masters' }).getAttribute('aria-controls'),
-    ).toBe('masters-body');
+    expect(screen.getByRole('button', { name: 'Hide masters' }).getAttribute('aria-controls')).toBe(
+      'masters-body',
+    );
   });
 });

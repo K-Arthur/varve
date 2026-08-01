@@ -99,10 +99,7 @@ describe('ContextualHelpPanel', () => {
   it('Panel has correct ARIA attributes', () => {
     const state = createState({ open: true });
     renderPanel(state);
-    const panel = document.querySelector('.contextual-help-panel');
-    expect(panel).toBeTruthy();
-    expect(panel?.getAttribute('role')).toBe('complementary');
-    expect(panel?.getAttribute('aria-label')).toBe('Help');
+    expect(screen.getByRole('complementary', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('Panel is a drawer (not modal) - renders without backdrop', () => {
