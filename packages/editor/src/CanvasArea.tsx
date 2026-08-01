@@ -81,6 +81,7 @@ import {
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import { EngineNodeMemo } from './canvas/engineNodeMemo';
 import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
@@ -421,6 +422,10 @@ export function CanvasArea({
   // frames (which change neither the document nor world transforms) skip the
   // per-node cacheContentParts + nodeHash loop entirely. See NodeHashMemo.
   const nodeHashMemoRef = useRef(new NodeHashMemo());
+  // Cross-frame memo for scene→engine node conversion. During a drag the
+  // document is structurally shared, so every node except the edited one keeps
+  // its reference and skips toEngineNode entirely. See EngineNodeMemo.
+  const engineNodeMemoRef = useRef(new EngineNodeMemo(budgets.engineNodeMemoEntries));
 
   // Diagnostics HUD is off by default; driven by the persisted Settings >
   // Performance > Diagnostics toggle. The toggle also calls
@@ -500,11 +505,16 @@ export function CanvasArea({
       if (plan.isStructural) {
         invalidateTransformCache(transformCacheRef.current);
         subtreeIrCacheRef.current.invalidate();
+        // Reference identity already prevents stale reuse; clearing here stops
+        // entries for deleted nodes retaining their engine nodes (and any image
+        // payloads those reach) until FIFO eviction would drop them.
+        engineNodeMemoRef.current.clear();
         frameIndexRef.current = getOrCreateFrameSpatialIndex(state.document, frameIndexRef.current);
       } else {
         invalidateNodes(transformCacheRef.current, plan.changedIds);
         for (const id of plan.changedIds) {
           subtreeIrCacheRef.current.invalidate(id);
+          engineNodeMemoRef.current.invalidate(id);
         }
         // Frame spatial index is unchanged — container bounds haven't changed.
       }
@@ -1311,6 +1321,19 @@ export function CanvasArea({
 
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
+      const engineMemo = engineNodeMemoRef.current;
+      // Counters are cumulative; snapshot them to report per-frame deltas.
+      const engineMemoComputesAtStart = engineMemo.computes;
+      const engineMemoHitsAtStart = engineMemo.hits;
+      // The motion sampler below mutates the produced engine nodes in place, so
+      // memoized objects must not be handed out while a timeline is active.
+      const canMemoEngineNodes = !s.motion.activeTimelineId;
+      engineMemo.beginFrame(
+        doc.paints,
+        doc.rasterMaskAssets,
+        doc.styles,
+        s.showOriginalBgNodeId ?? '',
+      );
       for (const [id] of entries) {
         const raw = doc.nodes[id];
         if (!raw) continue;
@@ -1321,27 +1344,42 @@ export function CanvasArea({
         n = applyBindingsToNode(n, variableStore);
         const world = getCachedWorldTransform(cache, doc, id);
         const worldBounds = getCachedWorldBounds(cache, doc, id);
-        let engineNode = toEngineNode(n, doc);
         const styleOverrides = resolvedStyles.get(id);
-        if (styleOverrides) engineNode = applyStyleOverrides(engineNode, styleOverrides);
+        // Cull before converting to an engine node. appearancePaddingWorld reads
+        // only `strokes`/`effects`; sceneNodeToEngineNode copies both by
+        // reference and applyStyleOverrides is the same `{...a, ...b}` merge, so
+        // this padding is identical to the post-conversion value it replaces —
+        // offscreen nodes now skip the conversion entirely.
+        const appearance = applyStyleOverrides(n, styleOverrides);
         const visualBounds = worldBounds
-          ? expandRect(worldBounds, appearancePaddingWorld(engineNode, world))
+          ? expandRect(worldBounds, appearancePaddingWorld(appearance, world))
           : null;
         if (visualBounds && !isWorldRectInViewport(cam, vp, visualBounds)) continue;
-        nodeIds.push(id);
-        // Resolve path shape for text-on-path rendering
-        if (
-          engineNode.pathTextSettings?.pathNodeId &&
-          (engineNode as { shape?: { kind: string } }).shape?.kind === 'text'
-        ) {
-          const pathNode = doc.nodes[engineNode.pathTextSettings.pathNodeId] as
-            | import('@strata/scene').ShapeNode
-            | undefined;
-          if (pathNode?.shape) {
-            (engineNode.shape as Record<string, unknown>).pathShape = pathNode.shape;
+
+        let engineNode = canMemoEngineNodes ? engineMemo.get(id, n, world) : undefined;
+        if (!engineNode) {
+          let built = toEngineNode(n, doc);
+          if (styleOverrides) built = applyStyleOverrides(built, styleOverrides);
+          // Resolve path shape for text-on-path rendering. This reads a
+          // *different* node's geometry and patches the shared shape object, so
+          // these nodes are never memoized: the memo key cannot observe the path
+          // node's identity and would serve a stale pathShape after it moves.
+          const pathNodeId = built.pathTextSettings?.pathNodeId;
+          const isPathText =
+            !!pathNodeId && (built as { shape?: { kind: string } }).shape?.kind === 'text';
+          if (isPathText) {
+            const pathNode = doc.nodes[pathNodeId] as import('@strata/scene').ShapeNode | undefined;
+            if (pathNode?.shape) {
+              (built.shape as Record<string, unknown>).pathShape = pathNode.shape;
+            }
+          }
+          engineNode = { ...built, transform: world };
+          if (canMemoEngineNodes && !isPathText) {
+            engineMemo.set(id, n, world, engineNode);
           }
         }
-        flatNodes.push({ ...engineNode, transform: world });
+        nodeIds.push(id);
+        flatNodes.push(engineNode);
       }
 
       if (s.motion.activeTimelineId) {
@@ -2302,6 +2340,9 @@ export function CanvasArea({
       if (cacheMultiplier < 1) {
         const adjusted = Math.round(budgets.subtreeIrCacheBytes * cacheMultiplier);
         subtreeIrCacheRef.current.setSoftBudget(adjusted);
+        engineNodeMemoRef.current.setMaxEntries(
+          Math.round(budgets.engineNodeMemoEntries * cacheMultiplier),
+        );
       }
       // Record frame diagnostics (dev-only ring buffer)
       const cacheDiag = subtreeIrCacheRef.current.diagnostics();
@@ -2315,6 +2356,8 @@ export function CanvasArea({
         buildIrMs,
         hashMs,
         replayMs,
+        engineNodeComputes: engineMemo.computes - engineMemoComputesAtStart,
+        engineNodeHits: engineMemo.hits - engineMemoHitsAtStart,
         totalMs: budget.elapsedMs,
         renderPath: needsStructural
           ? 'structural'

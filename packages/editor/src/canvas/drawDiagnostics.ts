@@ -28,6 +28,17 @@ export interface FrameDiagnostics {
    * hashing regression hid. Optional so pre-existing frame records stay valid.
    */
   hashMs?: number;
+  /**
+   * Scene→engine node conversions performed this frame (`toEngineNode` calls)
+   * and reuses served by EngineNodeMemo. On a steady frame these should be 0
+   * and `nodeCount` respectively; during a single-node drag, 1 and nodeCount-1.
+   * A conversion count that tracks nodeCount means the memo is being defeated —
+   * this is the work-count signal the perf probes assert on, because it is
+   * deterministic and therefore immune to machine load. Optional so
+   * pre-existing frame records stay valid.
+   */
+  engineNodeComputes?: number;
+  engineNodeHits?: number;
   totalMs: number;
   renderPath: 'structural' | 'worker' | 'worker-cached' | 'compositor';
   wasDirty: boolean;
