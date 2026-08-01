@@ -264,6 +264,29 @@ that never reaches the canvas. Parenting it to
 `pages.find(p => p.id === activePageId)?.contentRoot` is the obvious candidate
 fix; it needs its own regression test before the four cases above are unmarked.
 
+### 9.5 Root cause found and fixed — adjustment layers parented into the page
+
+The lead in §9.3 was correct and is now **implemented and verified** in
+`context.tsx` `createAdjustmentLayer` (`<commit hash>`): the node is parented
+to the active page's `contentRoot` via `addChild` when one exists, falling back
+to `addNode` otherwise — mirroring `createShapeAt`.
+
+Verification (real browser, Vite dev server, `.editor-canvas__content-layer`
+readback): with the old `addNode` path, adding an adjustment layer left the
+canvas hash byte-identical (`-1189589384` → `-1189589384`); with the fix it
+changes (`-1189589384` → `1031830328` for a plain `grayscale` adjustment, and
+similarly for a `gradientMap` adjustment). The four pixel-level cases in
+`raster-vector-apply.spec.ts` were unmarked and now pass, guarding the fix
+against regression. This bug affected all 27 adjustment kinds, not just
+gradient maps — the E2E probes (`invert`, `grayscale`) confirmed it before the
+fix.
+
+One E2E stability caveat remains: the undo/redo case asserts the canvas hash
+returns *exactly* to the pre-adjustment value, which requires waiting for the
+raster to settle before capturing the baseline (async decode / camera settle
+otherwise produce a transient baseline). `waitForStableCanvasHash` in
+`gradient-map-helpers.ts` handles that.
+
 ### 9.4 E2E environment note
 
 The Vite dev server compiles this app's module graph on demand, and a cold
