@@ -22,6 +22,7 @@ import {
 } from './components/SpecPanel/export';
 import { worldBBox } from './components/SpecPanel/measurement';
 import { composeFlattenedRasterAssetsForNode } from './export/compositor';
+import { collectGradientMapFlattenWarnings } from './export/gradientMapPreflight';
 
 export interface ExportFileReport {
   fileName: string;
@@ -187,7 +188,10 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       return {
         bytes: encode(exportNodeToSvg(node, context.document, { rasterAssets })),
         mimeType: 'image/svg+xml',
-        warnings: fontWarnings,
+        warnings: [
+          ...fontWarnings,
+          ...collectGradientMapFlattenWarnings(node, context.document, 'svg'),
+        ],
       };
     }
     case 'react-tailwind':
@@ -222,7 +226,10 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       return {
         bytes: result.bytes,
         mimeType: 'application/pdf',
-        warnings: fontWarnings,
+        warnings: [
+          ...fontWarnings,
+          ...collectGradientMapFlattenWarnings(node, context.document, 'pdf'),
+        ],
       };
     }
     case 'pdf-x1a':
