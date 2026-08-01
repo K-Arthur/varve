@@ -78,7 +78,6 @@ export function PresetTile({
       className={`preset-tile${isHighlighted ? ' preset-tile--highlighted' : ''}${isSelected ? ' preset-tile--selected' : ''}`}
       onClick={onSelect}
       onMouseEnter={onMouseEnter}
-      title={`${preset.name} - ${sizeLabel}`}
     >
       <span className="preset-tile__preview" aria-hidden>
         <span className="preset-tile__preview-box" style={{ width: dims.w, height: dims.h }} />
