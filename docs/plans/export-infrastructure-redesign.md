@@ -127,21 +127,31 @@ this document as it lands, with the commit hash noted.
 
 ### C4. Explicitly out of scope for this pass (tracked elsewhere or deferred)
 
-- **Reconciliation with a concurrent rebuild on this same branch.** While
-  landing C1–C3, `feat/export-infrastructure` also picked up (from another
-  session) a from-scratch canonical export model at `packages/scene/src/export/`
-  (`model.ts` — versioned `ExportConfiguration`/`ExportTarget`, `adapter.ts` —
-  legacy `ExportPreset`/`ExportJob`/`ExportBatch` bridge, `capabilities.ts` — a
-  full per-format capability contract table answering brief §6's
-  "capability-driven format list" requirement in more depth than C4's
-  now-superseded note below suggested, plus in-progress `naming.ts`/`plan.ts`).
-  C1–C3 were built against the legacy `node.presets`/`ExportPreset` model
-  deliberately, since that's what's live in `ExportDialog`/`buildJobs()` today
-  and the new model's adapter explicitly bridges old↔new — so this UI work
-  should not need to be redone, only re-pointed at the adapter once the
-  canonical model's own UI layer lands. Re-audit `AssetExportControls` against
-  `capabilities.ts`'s `supportedFormats()`/`formatSupportedOnPlatform()` at
-  that point instead of hand-rolling a second capability table.
+- **Concurrent rebuild, now reassembled onto this branch.** A parallel session
+  built a from-scratch canonical export model in the same repo checkout, and a
+  shared-checkout branch-switch hazard scattered its milestone commits (M2–M5)
+  onto `feat/tooltip-system` instead of here — see the git history note at the
+  bottom of this file. Once confirmed disjoint from C1–C3 at the file level
+  (their M2–M5 touch only `packages/scene/src/export/*`,
+  `ExportDialog.tsx`/`ExportLayer.tsx`/`exportService.ts` — none of the files
+  C1–C3 touch), M2–M5 were cherry-picked onto `feat/export-infrastructure` in
+  an isolated worktree so this branch now carries the complete, coherent
+  effort: M1 (audit) → C1–C3 (this doc's compact-panel wiring) → M2 (versioned
+  `ExportConfiguration`/`ExportTarget` model + legacy adapter) → M3
+  (`capabilities.ts` — the real capability-contract table answering brief §6
+  in more depth than the note below once assumed) → M4 (shared preflight
+  service) → M5 (wires cancellation, capability-gated errors, preflight, and
+  settings into `ExportDialog`/`ExportLayer`/`exportService`). Full
+  `packages/scene/src/export` + editor export suite (157 tests) passes on the
+  reassembled branch, with typecheck clean.
+  **Still open, not done by M2–M5:** `AssetExportControls` (C1) was built
+  against the legacy `node.presets`/`ExportPreset` model deliberately, since
+  that's what's live in `buildJobs()` today; M2's adapter bridges old↔new but
+  nothing yet re-points the compact panel's format list at
+  `capabilities.ts`'s `supportedFormats()`/`formatSupportedOnPlatform()`, so it
+  still hand-rolls its own `desktopOnly` gating instead of consulting the real
+  capability table. That re-pointing is the next concrete step, not a
+  someday-maybe.
 - Rust print-engine work (font outlining, ICC-aware CMYK, real PDF/X-1a/X-4,
   crop/registration marks) — owned by `export-system-deferred.md` Workstream
   A, already implemented per that doc's session-26 status log; brief §10's
