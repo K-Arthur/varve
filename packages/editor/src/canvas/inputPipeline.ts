@@ -16,13 +16,14 @@ import {
 } from '@strata/shared';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { CanvasMode, EditorState } from '../context/types';
+import { physicalDigit } from '../input/physicalKey';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
-import { normalizeWheelDelta } from './wheelClassifier';
+import { resolveWheelAction } from './wheelClassifier';
 
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
@@ -297,9 +298,6 @@ export function useCanvasInputs({
     const el = contentCanvasRef.current;
     if (!el) return;
 
-    const deltaScale = (e: WheelEvent): number =>
-      normalizeWheelDelta(1, e.deltaMode, el.clientHeight);
-
     const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
       const s = stateRef.current;
       const rect = el.getBoundingClientRect();
@@ -346,25 +344,38 @@ export function useCanvasInputs({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const s = stateRef.current;
-      const k = deltaScale(e);
-      if (e.ctrlKey || e.metaKey) {
-        const d = Math.max(-24, Math.min(24, e.deltaY * k));
-        zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * Math.exp(-d * 0.01));
+      const action = resolveWheelAction({
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaMode: e.deltaMode,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        clientHeight: el.clientHeight,
+      });
+      if (action.kind === 'zoom') {
+        zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * action.scale);
         cancelInertia();
-      } else if (e.shiftKey && e.deltaX === 0) {
-        editor.setPan({ x: s.pan.x - e.deltaY * k, y: s.pan.y });
+        return;
+      }
+      if (action.shiftHeld) {
+        editor.setPan({ x: s.pan.x + action.deltaX, y: s.pan.y });
         cancelInertia();
-      } else {
-        const dx = -e.deltaX * k;
-        const dy = -e.deltaY * k;
-        editor.setPan({ x: s.pan.x + dx, y: s.pan.y + dy });
-        inertiaRef.current.vx = inertiaRef.current.vx * 0.4 + dx * 0.6;
-        inertiaRef.current.vy = inertiaRef.current.vy * 0.4 + dy * 0.6;
+        return;
+      }
+      editor.setPan({ x: s.pan.x + action.deltaX, y: s.pan.y + action.deltaY });
+      if (action.applyInertia) {
+        inertiaRef.current.vx = inertiaRef.current.vx * 0.4 + action.deltaX * 0.6;
+        inertiaRef.current.vy = inertiaRef.current.vy * 0.4 + action.deltaY * 0.6;
         const maxV = 80;
         inertiaRef.current.vx = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vx));
         inertiaRef.current.vy = Math.max(-maxV, Math.min(maxV, inertiaRef.current.vy));
         cancelInertia();
         startInertia();
+      } else {
+        // Trackpad input already carries its own OS momentum; adding app-side
+        // inertia would double it, so stop any app inertia instead.
+        cancelInertia();
       }
     };
 
@@ -540,13 +551,8 @@ export function useCanvasInputs({
         // If we reach here, the tool did not consume Escape — cancel the
         // drag explicitly so it cannot remain stuck.
         if (tmInst) {
-          const cancelCtx = buildToolCtx(
-            { pointerType: 'mouse', pressure: 0 } as PointerEvent,
-          );
-          tmInst.handlePointerCancel(
-            new PointerEvent('pointercancel'),
-            cancelCtx,
-          );
+          const cancelCtx = buildToolCtx({ pointerType: 'mouse', pressure: 0 } as PointerEvent);
+          tmInst.handlePointerCancel(new PointerEvent('pointercancel'), cancelCtx);
         }
         stopAutoPan();
         setSnapGuides([]);
@@ -589,35 +595,42 @@ export function useCanvasInputs({
         '5': 2,
         '6': 4,
       };
-      const zoomLevel = ZOOM_PRESETS[e.key];
-      if (zoomLevel !== undefined && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-        e.preventDefault();
-        zoomAboutCanvasCentre(zoomLevel);
-        eRef.announceOperation('Zoom', `${Math.round(zoomLevel * 100)}%`);
-        return;
+      // Digits resolved from the physical key (`Digit1`/`Numpad1`), so the
+      // preset/fit shortcuts work on real layouts where `Shift+1` reports
+      // `key='!'`, and on numpads regardless of NumLock.
+      const digit = physicalDigit({ key: e.key, code: e.code });
+
+      if (digit !== null && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const zoomLevel = ZOOM_PRESETS[digit];
+        if (zoomLevel !== undefined) {
+          e.preventDefault();
+          zoomAboutCanvasCentre(zoomLevel);
+          eRef.announceOperation('Zoom', `${Math.round(zoomLevel * 100)}%`);
+          return;
+        }
       }
 
-      if (e.key === '0' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      if (digit === '0' && (e.ctrlKey || e.metaKey) && !e.shiftKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(1);
         eRef.announceOperation('Zoom', '100%');
         return;
       }
 
-      if ((e.key === '=' || e.key === '+') && !e.altKey) {
+      if ((e.key === '=' || e.key === '+' || e.code === 'NumpadAdd') && !e.altKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 1.25));
         eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
         return;
       }
-      if (e.key === '-' && !e.shiftKey && !e.altKey) {
+      if ((e.key === '-' || e.code === 'NumpadSubtract') && !e.shiftKey && !e.altKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 0.8));
         eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
         return;
       }
 
-      if (e.key === '1' && e.shiftKey) {
+      if (digit === '1' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         const parent = contentCanvasRef.current?.parentElement;
         const vpW = parent?.clientWidth ?? 800;
@@ -645,7 +658,7 @@ export function useCanvasInputs({
           eRef.announceOperation('Zoom', 'fit all');
         }
       }
-      if (e.key === '2' && e.shiftKey) {
+      if (digit === '2' && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
         e.preventDefault();
         if (selArr.length > 0) {
           const parent = contentCanvasRef.current?.parentElement;
