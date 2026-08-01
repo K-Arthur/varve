@@ -1,9 +1,11 @@
+import { getPlatformInfo, shouldUseNativeMenu } from '@strata/platform';
 import type { Document } from '@strata/scene';
 import { useEffect, useMemo, useRef } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';
 import { getAllMenuDefs, type MenuDefsOptions } from './defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from './facts';
+import { formatLabel } from './localization';
 import {
   buildNativeMenuSpec,
   detectPlatform,
@@ -31,7 +33,12 @@ export function dispatchNativeMenuAction(action: string, runAction: (id: string)
 }
 
 export function useNativeMenu(opts: UseNativeMenuOptions): void {
-  const available = isNativeMenuAvailable();
+  // The native application menu is a macOS convention. On Windows and Linux
+  // the in-window custom menubar is authoritative — installing a native menu
+  // there draws a stray OS menubar strip (GTK on Linux) above the webview
+  // content, duplicating the in-window menubar and showing raw label keys.
+  const useNativeMenu = shouldUseNativeMenu(getPlatformInfo());
+  const available = useNativeMenu && isNativeMenuAvailable();
   const os = detectPlatform();
 
   const menuOpts: MenuDefsOptions = useMemo(
@@ -48,7 +55,10 @@ export function useNativeMenu(opts: UseNativeMenuOptions): void {
     return buildMenuContext(opts.selection, opts.document, opts.workspaceMode, pf, intel);
   }, [opts.selection, opts.document, opts.workspaceMode, pf]);
 
-  const spec = useMemo(() => buildNativeMenuSpec(allDefs, ctx, os, undefined), [allDefs, ctx, os]);
+  const spec = useMemo(
+    () => buildNativeMenuSpec(allDefs, ctx, os, formatLabel),
+    [allDefs, ctx, os],
+  );
 
   const initialised = useRef(false);
 

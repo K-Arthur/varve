@@ -1,4 +1,5 @@
 import { isTauriRuntime } from '@strata/platform';
+import { formatLabel as defaultFormatLabel } from './localization';
 import type { MenuContext, MenuItemDef } from './types';
 
 export interface NativeMenuItemSpec {
@@ -65,8 +66,12 @@ function resolveLabel(
   formatLabel?: (key: string) => string,
 ): string {
   if (def.label) return def.label(ctx);
-  if (def.labelKey && formatLabel) return formatLabel(def.labelKey);
-  return def.labelKey ?? def.id;
+  if (def.labelKey) {
+    // Never emit a raw label key. The default resolver guarantees a display
+    // string even for unknown keys.
+    return (formatLabel ?? defaultFormatLabel)(def.labelKey);
+  }
+  return def.id;
 }
 
 function filterItem(def: MenuItemDef, ctx: MenuContext): boolean {
