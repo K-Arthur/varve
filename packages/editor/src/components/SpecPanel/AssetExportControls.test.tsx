@@ -51,7 +51,7 @@ describe('AssetExportControls', () => {
     expect(screen.getByRole('button', { name: 'SVG' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows the advisor reason in a title tooltip', () => {
+  it('shows the advisor reason via the Tooltip primitive, not a native title', () => {
     const doc = createDocument('Export', true);
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Icon' });
 
@@ -62,10 +62,10 @@ describe('AssetExportControls', () => {
       />,
     );
 
-    expect(screen.getByLabelText(/why/i)).toHaveAttribute(
-      'title',
-      'Vector path exports losslessly as SVG',
-    );
+    const whyBtn = screen.getByLabelText(/why/i);
+    // The reason lives in the Tooltip content, not a native title attribute.
+    expect(whyBtn.getAttribute('title')).toBeNull();
+    expect(whyBtn).toHaveAttribute('aria-label', 'Why SVG?');
   });
 
   it('re-suggests when the selected node changes', () => {
