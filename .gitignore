@@ -94,3 +94,4 @@ scripts/diagnostics/
 
 # --- Local CI/CD (act) secrets stub — never commit real tokens ---
 .act-secrets
+.replay-browser-results.json

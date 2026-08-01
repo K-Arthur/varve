@@ -10,7 +10,7 @@
  * world bounds can be a union of its children's bounds — invalidated.
  */
 import type { Document, NodeId } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import { buildParentIndexMap } from '@strata/scene';
 import { computeDocumentDirtyRegion } from './dirtyRegion';
 
 export interface InvalidationPlan {
@@ -31,9 +31,22 @@ export function computeInvalidationPlan(previous: Document, next: Document): Inv
   for (const id of Object.keys(next.nodes)) {
     if (!(id in previous.nodes)) changedIds.add(id);
   }
+  if (changedIds.size === 0) return { isStructural: false, changedIds: [] };
+  // getParent() is O(n) per call; a bulk edit (duplicate, paste, delete) can
+  // change thousands of nodes, so parent lookups here would be O(n²). Build
+  // one O(n) index and resolve every parent through it.
+  //
+  // Walk every ancestor, not just the direct parent: world bounds of a group
+  // are the union of its descendants' bounds, so a change anywhere in a group
+  // invalidates every enclosing container up the chain. Skipping levels would
+  // leave a grandparent group serving a stale cached union from transformCache.
+  const parents = buildParentIndexMap(next);
   for (const id of [...changedIds]) {
-    const parent = getParent(next, id);
-    if (parent) changedIds.add(parent);
+    let parent = parents.get(id);
+    while (parent) {
+      changedIds.add(parent);
+      parent = parents.get(parent);
+    }
   }
   return { isStructural: false, changedIds: [...changedIds] };
 }

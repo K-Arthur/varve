@@ -17,6 +17,9 @@ export interface FrameDiagnostics {
   cacheHitCount: number;
   buildIrMs: number;
   replayMs: number;
+  /** performance.now() at recordFrame time — lets probes measure input→paint
+   * latency (dispatch a pointer event, then read the first frame's committedAt). */
+  committedAt?: number;
   /**
    * Time spent in the per-node content-hash loop (cacheContentParts +
    * SubtreeIrCache.nodeHash + cache lookup) that runs before buildIr. This cost
@@ -25,6 +28,32 @@ export interface FrameDiagnostics {
    * hashing regression hid. Optional so pre-existing frame records stay valid.
    */
   hashMs?: number;
+  /**
+   * Scene→engine node conversions performed this frame (`toEngineNode` calls)
+   * and reuses served by EngineNodeMemo. On a steady frame these should be 0
+   * and `nodeCount` respectively; during a single-node drag, 1 and nodeCount-1.
+   * A conversion count that tracks nodeCount means the memo is being defeated —
+   * this is the work-count signal the perf probes assert on, because it is
+   * deterministic and therefore immune to machine load. Optional so
+   * pre-existing frame records stay valid.
+   */
+  engineNodeComputes?: number;
+  engineNodeHits?: number;
+  /**
+   * Frame time before the per-node loop: walkNodes, the container-culling
+   * pass, dirty-region and style/variant precomputation.
+   */
+  setupMs?: number;
+  /**
+   * The per-node flatNodes loop (effective-node resolution, bindings, cached
+   * world geometry, viewport cull, engine-node conversion or memo hit).
+   *
+   * setupMs + preLoopMs + hashMs + buildIrMs + replayMs is deliberately less
+   * than totalMs: the remainder is post-replay work (compositing, overlays,
+   * worker dispatch). Keeping these phases separate is what turned "the frame
+   * costs 60ms and we cannot see why" into a locatable cost.
+   */
+  preLoopMs?: number;
   totalMs: number;
   renderPath: 'structural' | 'worker' | 'worker-cached' | 'compositor';
   wasDirty: boolean;
@@ -88,7 +117,7 @@ export function resetDiagnostics(): void {
 
 export function recordFrame(frame: FrameDiagnostics): void {
   if (!diagEnabled) return;
-  diagRing.push(frame);
+  diagRing.push({ ...frame, committedAt: performance.now() });
   if (diagRing.length > MAX_DIAG_FRAMES) diagRing.shift();
 }
 
