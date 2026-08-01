@@ -125,14 +125,44 @@ candidate explanation for "the canvas feels slower than the panels" *in daily
 dev use*: the canvas subtree re-renders on every pointer move, so it pays that
 dev tax per move while a static panel does not.
 
-Two things follow, and neither has been done yet:
+## 3a. Development vs production build — measured
 
-1. This must be re-measured against a **production build** before any further
-   optimization is chosen. That comparison is Phase 2 of the original task and
-   is the highest-value next step.
-2. Independent of build mode, React is reconciling the canvas subtree on every
-   pointer move. The reconciliation remains in production (minus validation);
-   only the dev tax disappears.
+A production build (`vite build` + `vite preview`, verified to contain no
+`jsxDEV`) was measured with the same probes at the same node counts.
+
+| Workload | Dev build | Production build |
+|---|---:|---:|
+| Drag frame p50, **128 nodes** | 2.9 ms | 3.4 ms |
+| Drag frame p95, 128 nodes | 7.5 ms | 7.5 ms |
+| Drag frame p50, **932 nodes** | 63.2 ms | **33.2 ms** |
+| Drag frame p95, 932 nodes | 75.1 ms | 197.2 ms |
+| Drag frame p99, 932 nodes | 84.3 ms | 633.4 ms |
+| Profiler wall, same 932-node drag script | 27.9 s – 102.7 s | **8.8 s** |
+| Browser idle share during drag | 0.6 – 1.9 % | 9.6 % |
+
+Conclusions, and one correction:
+
+- **At small node counts the build mode does not matter.** 128 nodes is ~3 ms
+  p50 either way, comfortably inside frame budget.
+- **At 932 nodes the dev build roughly doubles the median frame** (63.2 → 33.2
+  ms). React's dev-mode cost scales with the number of rendered elements, and
+  the canvas subtree re-renders per pointer move — so the dev tax grows with
+  document size exactly where it hurts.
+- **Correction:** an intermediate reading of this session compared a 932-node
+  dev run against a 128-node production run and briefly suggested production was
+  3–12x faster. That was an artifact of the two probes carrying different
+  duplication counts (`guard < 8` vs `guard < 5`). Node count is now set by
+  `STRATA_PERF_DUPS` so the two builds are always compared at parity.
+- **Production is still not fast at 932 nodes.** p50 33.2 ms is double the
+  16.7 ms budget, and p95/p99 of 197/633 ms are real stalls. Dev-mode overhead
+  is a large tax but it is not the whole problem.
+- In the production breakdown `setupMs` (12.8 ms p50) is now the largest
+  measured phase — `walkNodes`, container culling, dirty region and
+  style/variant precomputation — with 14.8 ms still unattributed. That is the
+  next target, and it is a real app cost rather than a build artifact.
+
+Independent of build mode, React is reconciling the canvas subtree on every
+pointer move; only the dev-mode validation disappears in production.
 
 ## 4. Rejected / corrected hypotheses
 
@@ -180,25 +210,32 @@ should be converted to a work-count assertion like the two above.
 
 ## 7. Remaining work, ranked
 
-1. **Production-build comparison.** ~38% of dev-build drag CPU is React
-   dev-mode overhead. Every remaining ranking below is provisional until the
-   same probes run against a release build. Highest value, lowest effort.
-2. **React re-render of the canvas subtree per pointer move.** The dev tax
-   disappears in production but the reconciliation does not. Identify what
-   subscribes the subtree to pointer-position state.
-3. **`groupWorldBounds` ~8%.** Its largest external caller is a React `useMemo`
+1. **`setupMs` — 12.8 ms p50 of a 33 ms production frame at 932 nodes.** The
+   largest measured phase in the production build: `walkNodes`, the container-
+   culling pass, dirty-region computation and style/variant precomputation —
+   all full-document passes that run every frame. A further 14.8 ms is still
+   unattributed post-replay. Now the top target: a real app cost, not a build
+   artifact.
+2. **Production p95/p99 stalls: 197 ms / 633 ms at 932 nodes.** The median
+   (33 ms) is tolerable; the tail is not. Likely GC or a periodic full
+   invalidation. Worth investigating before chasing further median wins.
+3. **React re-render of the canvas subtree per pointer move.** Dev-mode
+   validation disappears in production but reconciliation does not, and it is
+   what makes the dev build scale badly with node count (parity at 128 nodes,
+   2x worse at 932). Identify what subscribes the subtree to pointer state.
+4. **`groupWorldBounds` ~8%.** Its largest external caller is a React `useMemo`
    (3.1%); the rest is its own recursion. A memoized group-bounds path (or
    routing that `useMemo` through the transform cache) is the fix. Identify the
    exact `useMemo` first — this pass guessed wrong once already.
-4. **`existingNames` / autoNamer running during drag (~1.7%).** Naming
+5. **`existingNames` / autoNamer running during drag (~1.7%).** Naming
    intelligence has no reason to run on pointer move; likely a missing guard.
-5. **Renderer crash at ~2048 nodes during rapid duplication.** Pre-existing,
+6. **Renderer crash at ~2048 nodes during rapid duplication.** Pre-existing,
    carried over from part 1, still unaddressed. Directly contradicts "heavy
    documents remain usable rather than freezing".
-6. **Low-memory / 4GB profile.** `MemoryBudgets` gained
+7. **Low-memory / 4GB profile.** `MemoryBudgets` gained
    `engineNodeMemoEntries` (20000 default, 4000 low) and the memo shrinks with
    the adaptive cache multiplier, but there is still no automatic low-memory
    mode, no degradation order, and no recovery path for failed allocation or
    GPU-context loss. Carried over from part 1.
-7. **Real-GPU (WebKitGTK/Tauri) verification.** All measurement here is
+8. **Real-GPU (WebKitGTK/Tauri) verification.** All measurement here is
    headless SwiftShader Chromium.
