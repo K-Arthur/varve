@@ -103,9 +103,10 @@ export function tokenize(text: string): string[] {
   // CJK characters: each is its own token
   const cjkPattern =
     /[\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af\uaa00-\uaa4f]/g;
-  let match: RegExpExecArray | null;
-  while ((match = cjkPattern.exec(text)) !== null) {
+  let match: RegExpExecArray | null = cjkPattern.exec(text);
+  while (match !== null) {
     tokens.add(match[0]);
+    match = cjkPattern.exec(text);
   }
 
   // Remove CJK for western tokenization

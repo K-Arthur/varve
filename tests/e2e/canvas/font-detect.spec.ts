@@ -48,7 +48,7 @@ test.describe('Font detection', () => {
         const tauri = (window as unknown as Record<string, unknown>).__TAURI__ as
           | Record<string, unknown>
           | undefined;
-        (tauri as { invoke?: Function })
+        (tauri as { invoke?: (cmd: string, args?: unknown) => Promise<unknown> })
           ?.invoke?.('set_selection_fill_image', { src })
           .catch(() => {});
       },

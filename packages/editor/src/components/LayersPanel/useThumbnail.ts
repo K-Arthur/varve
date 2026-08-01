@@ -36,15 +36,15 @@ async function renderNodeToCanvas(
   ctx.clearRect(0, 0, THUMB_W, THUMB_H);
 
   // Rotation support: apply node rotation to thumbnail rendering
-  const rotation = 'rotation' in node ? (node as any).rotation : undefined;
+  const rotation = node.rotation;
   const hasRotation = typeof rotation === 'number' && rotation !== 0;
 
   // Stroke support: draw stroke outline if present
-  const strokes: unknown[] | undefined = 'strokes' in node ? (node as any).strokes : undefined;
+  const strokes: unknown[] | undefined = 'strokes' in node ? node.strokes : undefined;
   const hasStroke = Array.isArray(strokes) && strokes.length > 0;
 
   // Opacity support
-  const opacity = 'opacity' in node ? (node as any).opacity : undefined;
+  const opacity = node.opacity;
   const hasOpacity = typeof opacity === 'number' && opacity < 1;
 
   const fill = node.fill
@@ -162,7 +162,9 @@ async function renderNodeToCanvas(
         if (!stroke || typeof stroke !== 'object') continue;
         const st = stroke as Record<string, unknown>;
         if (st.type === 'solid' && st.color) {
-          const [r, g, b, a] = managedColorToRgba(st.color as any);
+          const [r, g, b, a] = managedColorToRgba(
+            st.color as import('@strata/shared').ManagedColorShim,
+          );
           ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
           ctx.lineWidth = typeof st.weight === 'number' ? Math.max(1, st.weight * 2) : 1;
           ctx.strokeRect(ox, oy, area, area);

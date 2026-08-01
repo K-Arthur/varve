@@ -174,7 +174,7 @@ async function runClassifierDetection(
 
     if (signal?.aborted) return [];
 
-    const output = result.outputs['output'] as { data: Float32Array; dims: number[] } | undefined;
+    const output = result.outputs.output as { data: Float32Array; dims: number[] } | undefined;
     if (!output) return [];
 
     const topK = decodeFontClassifyOutput(output.data, CLASSIFIER_TOP_K);
