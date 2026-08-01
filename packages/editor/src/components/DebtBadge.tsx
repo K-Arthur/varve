@@ -46,9 +46,7 @@ export function DebtBadge() {
   }
 
   return (
-    <Tooltip
-      label={`${ec} errors, ${wc} warnings, ${ic} info — click to view debt panel`}
-    >
+    <Tooltip label={`${ec} errors, ${wc} warnings, ${ic} info — click to view debt panel`}>
       <button
         type="button"
         className="debt-badge"

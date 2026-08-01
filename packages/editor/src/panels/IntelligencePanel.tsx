@@ -1415,7 +1415,9 @@ function GovernanceTab() {
               >
                 <Tooltip
                   label="Select this node"
-                  disabledReason={issue.nodeId ? undefined : 'No node is associated with this issue'}
+                  disabledReason={
+                    issue.nodeId ? undefined : 'No node is associated with this issue'
+                  }
                 >
                   <button
                     type="button"

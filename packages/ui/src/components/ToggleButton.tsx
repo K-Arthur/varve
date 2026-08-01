@@ -12,16 +12,7 @@ export interface ToggleButtonProps
 }
 
 export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(function ToggleButton(
-  {
-    pressed,
-    onPressedChange,
-    icon,
-    label,
-    size = 'md',
-    className = '',
-    disabled,
-    ...rest
-  },
+  { pressed, onPressedChange, icon, label, size = 'md', className = '', disabled, ...rest },
   ref,
 ) {
   const classes = [
