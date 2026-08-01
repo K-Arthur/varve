@@ -441,6 +441,20 @@ export function useCanvasInputs({
     el.addEventListener('gesturestart', onGestureStart, { passive: false });
     el.addEventListener('gesturechange', onGestureChange, { passive: false });
     el.addEventListener('gestureend', onGestureEnd, { passive: false });
+
+    // G6: Monitor lostpointercapture to detect pointer capture leaks.
+    // When the browser implicitly releases capture (e.g. the element is
+    // removed from the DOM, or the pointer is lost), this event fires.
+    // We forward it as a pointercancel to the active tool so it can clean
+    // up drag state — otherwise the tool may remain in a "dragging" state
+    // with no matching pointerup.
+    const onLostPointerCapture = (e: PointerEvent) => {
+      const tmInst = tmRef.current;
+      if (!tmInst) return;
+      tmInst.handlePointerCancel(e, buildToolCtx(e));
+    };
+    el.addEventListener('lostpointercapture', onLostPointerCapture);
+
     return () => {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('pointermove', trackPointer);
@@ -448,10 +462,11 @@ export function useCanvasInputs({
       el.removeEventListener('gesturestart', onGestureStart);
       el.removeEventListener('gesturechange', onGestureChange);
       el.removeEventListener('gestureend', onGestureEnd);
+      el.removeEventListener('lostpointercapture', onLostPointerCapture);
       pinchBridgeCancelled = true;
       disposePinchBridge?.();
     };
-  }, [contentCanvasRef, stateRef, editor, commitCamera]);
+  }, [contentCanvasRef, stateRef, editor, commitCamera, tmRef, buildToolCtx]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
