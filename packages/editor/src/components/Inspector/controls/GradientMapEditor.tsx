@@ -1,6 +1,10 @@
-import type { Color, GradientMapStop } from '@strata/engine';
-import { GRADIENT_MAP_PRESETS } from '@strata/engine';
-import type { ManagedColor } from '@strata/scene';
+import type {
+  Color,
+  GradientMapLuminanceMode,
+  GradientMapOpacityStop,
+  GradientMapStop,
+} from '@strata/engine';
+import type { GradientInterpolationSpace, ManagedColor } from '@strata/scene';
 import { rgbFromTuple } from '@strata/scene';
 import { managedColorToRgba } from '@strata/shared';
 import { Select } from '@strata/ui';
@@ -53,6 +57,23 @@ function interpolatedColorAt(stops: GradientMapStop[], position: number): Color 
   return sorted[sorted.length - 1]!.color;
 }
 
+function interpolatedOpacityAt(stops: GradientMapOpacityStop[], position: number): number {
+  const sorted = [...stops].sort((a, b) => a.position - b.position);
+  if (sorted.length === 0) return 1;
+  if (position <= sorted[0]!.position) return sorted[0]!.opacity;
+  if (position >= sorted[sorted.length - 1]!.position) return sorted[sorted.length - 1]!.opacity;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const lo = sorted[i]!;
+    const hi = sorted[i + 1]!;
+    if (position >= lo.position && position <= hi.position) {
+      const span = hi.position - lo.position;
+      const t = span === 0 ? 0 : (position - lo.position) / span;
+      return lo.opacity + (hi.opacity - lo.opacity) * t;
+    }
+  }
+  return sorted[sorted.length - 1]!.opacity;
+}
+
 export interface GradientMapChannelStops {
   r?: GradientMapStop[];
   g?: GradientMapStop[];
@@ -67,6 +88,14 @@ export interface GradientMapEditorProps {
   mode?: 'luminance' | 'channel';
   /** Per-channel gradient stops for channel mode. */
   channelStops?: GradientMapChannelStops;
+  /** Independent opacity ramp (optional). */
+  opacityStops?: GradientMapOpacityStop[];
+  reverse?: boolean;
+  /** Mix with the source: 0-1. Default 1. */
+  intensity?: number;
+  luminanceMode?: GradientMapLuminanceMode;
+  preserveSourceAlpha?: boolean;
+  interpolation?: GradientInterpolationSpace;
   onChange: (
     patch: Partial<{
       stops: GradientMapStop[];
@@ -74,11 +103,31 @@ export interface GradientMapEditorProps {
       preserveLuminosity: boolean;
       mode: 'luminance' | 'channel';
       channelStops: GradientMapChannelStops;
+      opacityStops: GradientMapOpacityStop[];
+      reverse: boolean;
+      intensity: number;
+      luminanceMode: GradientMapLuminanceMode;
+      preserveSourceAlpha: boolean;
+      interpolation: GradientInterpolationSpace;
     }>,
   ) => void;
   onEditStart?: () => void;
   onEditEnd?: () => void;
 }
+
+const LUMINANCE_OPTIONS: { value: GradientMapLuminanceMode; label: string }[] = [
+  { value: 'relative-luminance', label: 'Relative luminance' },
+  { value: 'perceptual-lightness', label: 'Perceptual lightness' },
+  { value: 'average-rgb', label: 'Average RGB' },
+  { value: 'max-channel', label: 'Maximum channel' },
+];
+
+const INTERPOLATION_OPTIONS: { value: GradientInterpolationSpace; label: string }[] = [
+  { value: 'oklab', label: 'OKLab' },
+  { value: 'oklch', label: 'OKLCH' },
+  { value: 'srgb', label: 'sRGB' },
+  { value: 'hsl', label: 'HSL' },
+];
 
 /**
  * Compact per-channel gradient bars for channel mapping mode.
@@ -108,12 +157,12 @@ function ChannelBars({
 
   return (
     <div className="gm-editor__channels">
-      {channels.map(({ key, label, stops, accent }) => (
+      {channels.map(({ key, label, stops: channelStops, accent }) => (
         <ChannelBar
           key={key}
           label={label}
           accent={accent}
-          stops={stops}
+          stops={channelStops}
           onChange={(next) => onChange({ [key]: next } as GradientMapChannelStops)}
         />
       ))}
@@ -217,12 +266,199 @@ function ChannelBar({
   );
 }
 
+/**
+ * Opacity stop bar — drag to move, click to add, delete to remove, numeric
+ * opacity input for the selected stop. Keyboard operable (arrows/Home/End).
+ */
+function OpacityStopBar({
+  opacityStops,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: {
+  opacityStops: GradientMapOpacityStop[];
+  onChange: (stops: GradientMapOpacityStop[]) => void;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
+}) {
+  const [selected, setSelected] = useState(0);
+  const barRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef(0);
+  const sorted = useMemo(
+    () => [...opacityStops].sort((a, b) => a.position - b.position),
+    [opacityStops],
+  );
+  const autoId = useId();
+
+  const updateStop = useCallback(
+    (index: number, partial: Partial<GradientMapOpacityStop>) => {
+      onChange(sorted.map((s, i) => (i === index ? { ...s, ...partial } : s)));
+    },
+    [sorted, onChange],
+  );
+
+  const addStop = useCallback(
+    (position: number) => {
+      const opacity = interpolatedOpacityAt(sorted, position);
+      const next = [...sorted, { position, opacity }];
+      onChange(next);
+      setSelected(next.length - 1);
+    },
+    [sorted, onChange],
+  );
+
+  const removeStop = useCallback(
+    (index: number) => {
+      if (sorted.length <= 2) return;
+      const next = sorted.filter((_, i) => i !== index);
+      onChange(next);
+      setSelected(Math.max(0, Math.min(selected, next.length - 1)));
+    },
+    [sorted, onChange, selected],
+  );
+
+  const handleBarPointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      const bar = barRef.current;
+      if (!bar) return;
+      const rect = bar.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+      const near = sorted.findIndex((s) => Math.abs(s.position - pos) < 0.03);
+      if (near >= 0) {
+        setSelected(near);
+        return;
+      }
+      addStop(pos);
+    },
+    [sorted, addStop],
+  );
+
+  const handleStopDrag = useCallback(
+    (index: number, e: React.PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      onEditStart?.();
+      const bar = barRef.current;
+      if (!bar) return;
+      const rect = bar.getBoundingClientRect();
+      let draggedOff = false;
+      const onMove = (me: PointerEvent) => {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = requestAnimationFrame(() => {
+          const pos = Math.max(0, Math.min(1, (me.clientX - rect.left) / rect.width));
+          updateStop(index, { position: Math.round(pos * 1000) / 1000 });
+        });
+        draggedOff = me.clientY < rect.top - 40 || me.clientY > rect.bottom + 40;
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        document.body.style.userSelect = '';
+        if (draggedOff) removeStop(index);
+        onEditEnd?.();
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      document.body.style.userSelect = 'none';
+    },
+    [updateStop, removeStop, onEditStart, onEditEnd],
+  );
+
+  const current = sorted[selected];
+
+  return (
+    <div className="gm-editor__opacity">
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Opacity stops</span>
+      </div>
+      <div
+        ref={barRef}
+        role="slider"
+        aria-label="Gradient map opacity stop bar — click to add, drag stops to reposition"
+        aria-valuenow={Math.round((current?.position ?? 0) * 100)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        tabIndex={0}
+        onPointerDown={handleBarPointerDown}
+        className="gm-editor__bar gm-editor__bar--opacity"
+      >
+        {sorted.map((stop, i) => (
+          <button
+            key={`os-stop-${i}-${autoId}`}
+            type="button"
+            aria-label={`Opacity stop ${i + 1} at ${Math.round(stop.position * 100)}%, opacity ${Math.round(stop.opacity * 100)}%`}
+            aria-pressed={selected === i}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setSelected(i);
+              handleStopDrag(i, e);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                updateStop(i, { position: Math.max(0, stop.position - 0.01) });
+              } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                updateStop(i, { position: Math.min(1, stop.position + 0.01) });
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                updateStop(i, { opacity: Math.min(1, stop.opacity + 0.05) });
+              } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                updateStop(i, { opacity: Math.max(0, stop.opacity - 0.05) });
+              } else if (e.key === 'Home') {
+                e.preventDefault();
+                updateStop(i, { position: 0 });
+              } else if (e.key === 'End') {
+                e.preventDefault();
+                updateStop(i, { position: 1 });
+              } else if (e.key === 'Delete' || e.key === 'Backspace') {
+                e.preventDefault();
+                removeStop(i);
+              }
+            }}
+            className={`gm-editor__stop gm-editor__stop--opacity${selected === i ? ' gm-editor__stop--selected' : ' gm-editor__stop--idle'}`}
+            style={{ left: `${stop.position * 100}%` }}
+          />
+        ))}
+      </div>
+      {current && (
+        <div className="gm-editor__row">
+          <span className="gm-editor__label">Opacity</span>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round(current.opacity * 100)}
+            aria-label={`Opacity stop ${selected + 1} value`}
+            onChange={(e) =>
+              updateStop(selected, {
+                opacity: Math.max(0, Math.min(1, Number(e.target.value) / 100)),
+              })
+            }
+            className="gm-editor__number"
+          />
+          <span className="gm-editor__unit">%</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function GradientMapEditor({
   stops,
   dither,
   preserveLuminosity,
   mode = 'luminance',
   channelStops,
+  opacityStops,
+  reverse = false,
+  intensity = 1,
+  luminanceMode = 'relative-luminance',
+  preserveSourceAlpha = true,
+  interpolation = 'oklab',
   onChange,
   onEditStart,
   onEditEnd,
@@ -324,34 +560,6 @@ export function GradientMapEditor({
     [currentStop, addStop],
   );
 
-  const currentPresetId = useMemo(() => {
-    const match = GRADIENT_MAP_PRESETS.find(
-      (p) =>
-        p.stops.length === stops.length &&
-        p.stops.every(
-          (ps, i) =>
-            Math.abs(ps.position - stops[i]!.position) < 0.01 &&
-            ps.color[0] === stops[i]!.color[0] &&
-            ps.color[1] === stops[i]!.color[1] &&
-            ps.color[2] === stops[i]!.color[2],
-        ),
-    );
-    return match?.id ?? '';
-  }, [stops]);
-
-  const handlePresetSelect = useCallback(
-    (value: string) => {
-      const preset = GRADIENT_MAP_PRESETS.find((p) => p.id === value);
-      if (preset) {
-        onChange({
-          stops: preset.stops.map((s) => ({ position: s.position, color: [...s.color] as Color })),
-        });
-        setSelectedStop(0);
-      }
-    },
-    [onChange],
-  );
-
   const rStops = channelStops?.r ?? [
     { position: 0, color: [0, 0, 0, 255] as Color },
     { position: 1, color: [255, 0, 0, 255] as Color },
@@ -365,18 +573,10 @@ export function GradientMapEditor({
     { position: 1, color: [0, 0, 255, 255] as Color },
   ];
 
+  const effectiveOpacityStops = opacityStops && opacityStops.length > 0 ? opacityStops : undefined;
+
   return (
     <div className="gm-editor">
-      <div className="gm-editor__row">
-        <span className="gm-editor__label">Preset</span>
-        <Select
-          label="Gradient map preset"
-          value={currentPresetId}
-          placeholder="Custom"
-          options={GRADIENT_MAP_PRESETS.map((p) => ({ value: p.id, label: p.name }))}
-          onChange={handlePresetSelect}
-        />
-      </div>
       <div className="gm-editor__row">
         <span className="gm-editor__label">Mode</span>
         <Select
@@ -490,6 +690,65 @@ export function GradientMapEditor({
         </div>
       )}
 
+      <OpacityStopBar
+        opacityStops={
+          effectiveOpacityStops ?? [
+            { position: 0, opacity: 1 },
+            { position: 1, opacity: 1 },
+          ]
+        }
+        onChange={(next) => onChange({ opacityStops: next })}
+        onEditStart={onEditStart}
+        onEditEnd={onEditEnd}
+      />
+
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Interpolation</span>
+        <Select
+          label="Gradient interpolation"
+          value={interpolation}
+          options={INTERPOLATION_OPTIONS}
+          onChange={(v) => onChange({ interpolation: v as GradientInterpolationSpace })}
+        />
+      </div>
+
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Luminance</span>
+        <Select
+          label="Luminance source"
+          value={luminanceMode}
+          options={LUMINANCE_OPTIONS}
+          onChange={(v) => onChange({ luminanceMode: v as GradientMapLuminanceMode })}
+        />
+      </div>
+
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Intensity</span>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.round(intensity * 100)}
+          onChange={(e) => onChange({ intensity: Number(e.target.value) / 100 })}
+          aria-label="Gradient map intensity"
+          onPointerDown={onEditStart}
+          onPointerUp={onEditEnd}
+          className="gm-editor__slider"
+        />
+        <span className="gm-editor__unit">{Math.round(intensity * 100)}%</span>
+      </div>
+
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Reverse</span>
+        <input
+          type="checkbox"
+          checked={reverse}
+          onChange={(e) => onChange({ reverse: e.target.checked })}
+          aria-label="Reverse gradient map"
+        />
+      </div>
+
       <div className="gm-editor__row">
         <span className="gm-editor__label">Dither</span>
         <input
@@ -501,7 +760,17 @@ export function GradientMapEditor({
       </div>
 
       <div className="gm-editor__row">
-        <span className="gm-editor__label">Preserve Luminosity</span>
+        <span className="gm-editor__label">Keep alpha</span>
+        <input
+          type="checkbox"
+          checked={preserveSourceAlpha}
+          onChange={(e) => onChange({ preserveSourceAlpha: e.target.checked })}
+          aria-label="Preserve source alpha"
+        />
+      </div>
+
+      <div className="gm-editor__row">
+        <span className="gm-editor__label">Luminosity</span>
         <input
           type="checkbox"
           checked={preserveLuminosity}
