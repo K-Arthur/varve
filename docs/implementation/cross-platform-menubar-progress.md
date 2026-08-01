@@ -519,7 +519,7 @@ Both were reproduced with all milestone changes stashed (`git stash push -u`):
 - `@strata/editor`: native-menu gating to macOS (`useNativeMenu`), real label resolution (`localization.ts`), safe default resolvers in `nativeAdapter`/`renderer`, localization integrity tests, snapshot refresh (raw keys → resolved labels)
 - `apps/desktop`: `useWindowChrome` live event bridge, strategy-aware `TitleBar`, `windowActions` service
 - `tests/e2e/menus/chrome-integrity.spec.ts`: no raw keys / no browser window controls / menubar placement
-- Commit hashes: **not yet committed** (working-tree milestone; ready to commit on request)
+- Commit hashes: `85e249ca` (feat/chrome: macOS-only native menus, resolved menu labels, strategy-aware title bar — branch `feat/input-system`)
 
 ---
 
