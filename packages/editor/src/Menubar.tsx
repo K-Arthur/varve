@@ -23,12 +23,12 @@ import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
+import { workspaceShortcutLabel } from './workspace/workspaceShortcutLabel';
 import {
   ALL_WORKSPACE_MODES,
   WORKSPACE_LABELS,
   type WorkspaceMode,
 } from './workspace/workspaceTypes';
-import { workspaceShortcutLabel } from './workspace/workspaceShortcutLabel';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 

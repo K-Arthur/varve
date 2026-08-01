@@ -12,8 +12,8 @@
  * - Keyboard accessible: focus, Enter to fit, arrow keys to pan.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Tooltip } from '@strata/ui';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
   buildMinimapScene,
