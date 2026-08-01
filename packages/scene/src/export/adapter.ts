@@ -14,6 +14,7 @@
  */
 
 import type {
+  ExportBatch,
   ExportFormat as LegacyExportFormat,
   ExportJob as LegacyExportJob,
   ExportPreset as LegacyExportPreset,
@@ -28,6 +29,7 @@ import {
   createPrintExportSettings,
   createRasterExportSettings,
   createVectorExportSettings,
+  type ExportBatchRequest,
   type ExportConfiguration,
   type ExportFormat,
   type ExportJobSpec,
@@ -234,6 +236,30 @@ export function configurationToLegacyPreset(
     enabled: config.enabled,
     raster,
     vector,
+  };
+}
+
+/**
+ * Convert a legacy batch into a canonical export request so the plan builder
+ * and preflight can operate on legacy data without a full migration.
+ */
+export function legacyBatchToRequest(batch: ExportBatch): ExportBatchRequest {
+  return {
+    id: `legacy-${batch.jobs.length}-jobs`,
+    configurations: batch.jobs.map((job, index) =>
+      createExportConfiguration({
+        id: job.presetId || `job-${index}`,
+        target: { type: 'node', nodeId: job.nodeId },
+        format: legacyFormatToCanonical(job.format),
+        scale: job.scale ? legacyScaleToCanonical(job.scale) : { mode: 'multiplier', value: 1 },
+        filenameTemplate: batch.filenameTemplate,
+        enabled: true,
+      }),
+    ),
+    conflictPolicy: 'ask',
+    failurePolicy: 'continue',
+    createdAt: Date.now(),
+    createdBy: 'legacy-batch',
   };
 }
 
