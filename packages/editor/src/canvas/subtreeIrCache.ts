@@ -542,7 +542,7 @@ export interface NodeHashResult {
 export class NodeHashMemo {
   private entries = new Map<string, { world: readonly number[]; result: NodeHashResult }>();
   private docRef: unknown = undefined;
-  private extraKey = ' uninit';
+  private extraKey = '\0uninit';
   private computeCount = 0;
   private hitCount = 0;
 
@@ -599,6 +599,6 @@ export class NodeHashMemo {
   clear(): void {
     this.entries.clear();
     this.docRef = undefined;
-    this.extraKey = ' uninit';
+    this.extraKey = '\0uninit';
   }
 }
