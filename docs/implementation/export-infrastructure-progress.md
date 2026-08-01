@@ -365,7 +365,7 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 8 — inspector export section + per-node settings | `5ad069d0` |
 | 8-follow-up — contextual primary action + tooltip test fix | `a5d59f47` |
 | 8-E2E — inspector export-settings E2E spec | `a7a27246` |
-| 9 — batch-dialog surfaces (preflight, print settings, results/retry) + PDF/X marks | *(committed on `feat/export-workspace`)* |
+| 9 — batch-dialog surfaces (preflight, print settings, results/retry) + PDF/X marks | `f0a4c4ea` (on `feat/export-workspace`) |
 
 > Branch note: commits are shared with the concurrent agent's branch history
 > (`feat/tooltip-system`); interleaved agent commits `45386252`,
