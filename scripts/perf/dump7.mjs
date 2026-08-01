@@ -30,7 +30,7 @@ const info = await page.evaluate(() => {
     last: h ? h.getLast() : null,
     treeItems: document.querySelectorAll('[role=treeitem]').length,
     contentCanvas: !!document.querySelector('canvas.editor-canvas__content-layer'),
-    contentW: (document.querySelector('canvas.editor-canvas__content-layer') || {}).width,
+    contentW: document.querySelector('canvas.editor-canvas__content-layer')?.width,
   };
 });
 console.log(JSON.stringify(info, null, 1));

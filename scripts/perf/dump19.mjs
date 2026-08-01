@@ -11,7 +11,7 @@ await page.addInitScript(() => {
 });
 const fcPromise = page
   .waitForEvent('filechooser', { timeout: 12000 })
-  .then((fc) => 'FC:' + fc.element().tagName)
+  .then((fc) => `FC:${fc.element().tagName}`)
   .catch(() => 'NO-FC');
 await page.goto('http://localhost:1430/?perf=1', { timeout: 90000, waitUntil: 'domcontentloaded' });
 await page.waitForTimeout(4000);
