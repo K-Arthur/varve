@@ -23,6 +23,9 @@ pub mod resources;
 pub mod shaper;
 pub mod subset;
 
+#[cfg(test)]
+mod test_fonts;
+
 pub use outline::{
     commands_to_svg_path, outline_text, outline_text_multi, GlyphOutline, PathCommand,
 };
@@ -3243,19 +3246,7 @@ mod tests {
     }
 
     fn test_font_data() -> Vec<u8> {
-        let paths = [
-            "/usr/share/fonts/TTF/OpenSans-Regular.ttf",
-            "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf",
-            "/usr/share/fonts/TTF/Vera.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/Inter-Regular.ttf",
-        ];
-        for p in &paths {
-            if let Ok(data) = std::fs::read(p) {
-                return data;
-            }
-        }
-        panic!("no test font found — tried {paths:?}")
+        crate::test_fonts::test_font_bytes().to_vec()
     }
 
     fn solid_fill(r: u8, g: u8, b: u8, a: u8, visible: bool) -> FillIR {
