@@ -31,7 +31,6 @@ const item = (id: string): RenderItem =>
 function countSortComparisons(run: () => void): number {
   const original = Array.prototype.sort;
   let comparisons = 0;
-  // biome-ignore lint/complexity/useArrowFunction: needs `this` binding
   Array.prototype.sort = function <T>(this: T[], cmp?: (a: T, b: T) => number) {
     return original.call(
       this,
