@@ -423,5 +423,59 @@ describe('AssetExportControls', () => {
       fireEvent.click(screen.getByRole('button', { name: /Open advanced export/ }));
       expect(onOpenAdvancedExport).toHaveBeenCalledOnce();
     });
+
+    it('adds a quick preset with fixed format/scale in one click', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      const onAddPreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'PNG 2x' }));
+
+      expect(onAddPreset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          format: 'png',
+          scale: { type: 'factor', value: 2 },
+          suffix: '@2x',
+          enabled: true,
+        }),
+      );
+    });
+
+    it('surfaces a preflight warning for an oversized export configuration', () => {
+      const doc = createDocument('Export', true);
+      const node = {
+        ...makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 3000, h: 2000 }, { name: 'Banner' }),
+        presets: [
+          {
+            id: 'p1',
+            format: 'png' as const,
+            scale: { type: 'factor' as const, value: 10 },
+            suffix: '@10x',
+            enabled: true,
+          },
+        ],
+      };
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(/preflight warning/)).toBeInTheDocument();
+      expect(screen.getByText('Large output size')).toBeInTheDocument();
+    });
   });
 });

@@ -3,6 +3,7 @@ import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
 import type {
   Document,
+  ExportBatch,
   ExportPreset,
   ExportScale,
   ExportFormat as LegacyExportFormat,
@@ -25,7 +26,9 @@ import {
 import { CopyButton, Icon, Select, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
+import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
+import { buildJobs } from '../Export/ExportDialog';
 import {
   buildFilename,
   downloadBlob,
@@ -105,6 +108,18 @@ const PRESET_FORMAT_GROUPS: {
       { value: 'swiftui', label: 'SwiftUI' },
     ],
   },
+];
+
+/** One-click starting points for the most common per-node exports, scoped to what a compact inspector can reasonably hold (a full categorized preset library belongs in the advanced dialog). */
+const QUICK_PRESETS: {
+  label: string;
+  format: LegacyExportFormat;
+  scale: number;
+  suffix: string;
+}[] = [
+  { label: 'PNG 1x', format: 'png', scale: 1, suffix: '' },
+  { label: 'PNG 2x', format: 'png', scale: 2, suffix: '@2x' },
+  { label: 'SVG', format: 'svg', scale: 1, suffix: '' },
 ];
 
 /**
@@ -243,10 +258,25 @@ export function AssetExportControls({
   const liveRef = useRef<HTMLDivElement>(null);
   const suggestedForNodeRef = useRef(node.id);
 
-  const presets = node.presets ?? [];
-
   // Capability-driven format availability for the active platform.
   const platformKindValue = platformKind(platform);
+  const presets = node.presets ?? [];
+
+  // Reuse the shared preflight pipeline over the enabled per-node presets so
+  // the compact inspector surfaces the same findings the advanced dialog would
+  // (oversized output, missing fonts, unsupported formats).
+  const preflightFindings = useMemo(() => {
+    const enabledPresets = presets.filter((p) => p.enabled);
+    if (enabledPresets.length === 0) return [];
+    const batch: ExportBatch = {
+      jobs: buildJobs([{ ...node, presets: enabledPresets }], doc),
+      destinationFolder: null,
+      filenameTemplate: '{name}{suffix}.{ext}',
+      folderRule: 'flat',
+    };
+    return runBatchPreflight(batch, doc, platformKindValue);
+  }, [presets, node, doc, platformKindValue]);
+
   const visibleFormats = useMemo(
     () =>
       QUICK_FORMATS.filter((f) => {
@@ -577,6 +607,39 @@ export function AssetExportControls({
       {onAddPreset && (
         <section className="spec-export__presets" aria-labelledby="spec-export-presets-heading">
           <h4 id="spec-export-presets-heading">Export settings</h4>
+          <div className="spec-export__configs-quick">
+            {QUICK_PRESETS.map((qp) => (
+              <button
+                key={qp.label}
+                type="button"
+                className="spec-export__configs-quick-btn"
+                onClick={() =>
+                  onAddPreset({
+                    id: `preset-${Date.now()}-${presets.length}`,
+                    format: qp.format,
+                    scale: { type: 'factor', value: qp.scale },
+                    suffix: qp.suffix,
+                    enabled: true,
+                  })
+                }
+              >
+                {qp.label}
+              </button>
+            ))}
+          </div>
+          {preflightFindings.length > 0 && (
+            <div className="spec-export__configs-preflight" role="status">
+              <strong>
+                {preflightFindings.length} preflight{' '}
+                {preflightFindings.length === 1 ? 'warning' : 'warnings'}
+              </strong>
+              <ul>
+                {preflightFindings.map((finding) => (
+                  <li key={finding.id}>{finding.title}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {presets.length === 0 && (
             <p className="spec-export__presets-empty">
               No export settings for this {nodeLabel(node)}. Add one to export it in several formats
