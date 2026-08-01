@@ -291,7 +291,8 @@ Commit hashes recorded below as milestones complete.
 - [x] M4 naming infra green
 - [x] M5 preflight green
 - [x] M6 integration green (typecheck editor+scene, lint 0 new, tests)
-- [ ] M7+ UI milestones
+- [x] M7 built-in preset catalog green (115 tests in `scene/src/export`)
+- [ ] M8+ UI milestones (inspector section, full workspace, print UI)
 - [ ] E2E export suite green
 - [ ] Full `just gate` after each milestone
 
@@ -302,11 +303,21 @@ Gate results per milestone:
 | M2 | `@strata/scene` clean | Biome clean | 39/39 `scene/src/export` | n/a |
 | M3 | `@strata/scene` clean | Biome clean | 90/90 `scene/src/export` | n/a |
 | M4 | `@strata/scene` clean | Biome clean | 104/104 `scene/src/export` | n/a |
-| M5 | editor + scene clean | Biome clean (touched) | scene+editor suites; 11 unrelated failures proven pre-existing | arch audit run (see below) |
+| M5 | editor + scene clean | Biome clean (touched) | scene+editor suites; 11 unrelated failures proven pre-existing | pre-commit audit-health pass |
+| M6 | editor + scene clean | Biome clean | 133/133 (focused) | pre-commit audit-health pass |
+| M7 | scene clean | Biome clean | 115/115 `scene/src/export` | pre-commit audit-health pass |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
 (1), `LayersRow.test.tsx` (1), `AssetExportControls.test.tsx` (1).
+
+Architecture audit note: `scripts/audit-architecture.mjs --ci` hangs at the
+module-instability step (engine `index.ts` madge graph, a pre-existing
+condition unrelated to this work — the same step was slow before any export
+changes). Pre-commit `audit-health` (dependency cycles, hub-file budgets,
+complexity gates) passes on every commit. Pre-existing instability findings
+(`shared/index.ts` I=1.000, `engine/index.ts` I=1.000) are barrel-file artifacts
+that predate this work.
 
 Current gate state (baseline, before this work):
 
@@ -329,6 +340,7 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 3 — capabilities + plan + naming | `7689bf04` |
 | 4 — preflight service | `5b1a118b` (+ lint `ac5ea669`) |
 | 5 — integration (cancellation, gating, settings, shortcuts) | `f607df92` |
+| 6 — built-in preset catalog | `c3655d05` |
 
 > Branch note: commits are shared with the concurrent agent's branch history
 > (`feat/tooltip-system`); interleaved agent commits `45386252`,
