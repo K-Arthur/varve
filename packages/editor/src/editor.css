@@ -308,6 +308,12 @@
   flex: 1;
 }
 
+.editor-menubar__menu-submenu-arrow {
+  font-size: 8px;
+  margin-left: var(--space-2);
+  color: var(--color-text-muted);
+}
+
 .editor-menubar__menu-item--active > .editor-menubar__menu-label,
 .editor-menubar__menu-item--active > .editor-menubar__menu-submenu-arrow {
   color: var(--color-text-on-accent);
@@ -325,12 +331,6 @@
 
 .editor-menubar__menu-item-wrapper {
   position: relative;
-}
-
-.editor-menubar__menu-submenu-arrow {
-  font-size: 8px;
-  margin-left: var(--space-2);
-  color: var(--color-text-muted);
 }
 
 .editor-menubar__submenu {
@@ -358,6 +358,10 @@
   max-width: 220px;
   display: block;
   text-align: center;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
 }
 
 /* Tab strip (A8) — compact file tabs à la VS Code / Figma */
@@ -1083,16 +1087,16 @@
 }
 
 /* ── High-contrast selection handles ────────────────── */
-.high-contrast-handles .selection-overlay-handle {
-  stroke-width: 2.5;
-  stroke: var(--color-on-surface);
-  fill: var(--color-surface);
-}
-
 @media (prefers-reduced-motion: reduce) {
   .selection-overlay-handle {
     transition: none;
   }
+}
+
+.high-contrast-handles .selection-overlay-handle {
+  stroke-width: 2.5;
+  stroke: var(--color-on-surface);
+  fill: var(--color-surface);
 }
 
 /* ── Center section (mode switcher + doc name) ── */
@@ -2024,6 +2028,15 @@ dialog.strata-dialog--settings[open] {
     background var(--duration-fast) var(--ease-default);
   font: inherit;
 }
+.welcome-dialog__option-label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+.welcome-dialog__option-desc {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  transition: color var(--duration-fast) var(--ease-default);
+}
 .welcome-dialog__option:hover {
   border-color: var(--color-interactive-default);
   background: var(--color-interactive-default);
@@ -2036,15 +2049,6 @@ dialog.strata-dialog--settings[open] {
 .welcome-dialog__option:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
-}
-.welcome-dialog__option-label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-.welcome-dialog__option-desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-muted);
-  transition: color var(--duration-fast) var(--ease-default);
 }
 .welcome-dialog__actions {
   display: flex;

@@ -2206,20 +2206,13 @@ export function Menubar({
             />
           ) : (
             <Tooltip label="Rename document">
-              <span
-                role="button"
-                tabIndex={0}
+              <button
+                type="button"
                 className="editor-menubar__doc-name-text"
                 onClick={startNameEdit}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    startNameEdit();
-                  }
-                }}
               >
                 {state.document.name || 'Untitled'}
-              </span>
+              </button>
             </Tooltip>
           )}
         </div>

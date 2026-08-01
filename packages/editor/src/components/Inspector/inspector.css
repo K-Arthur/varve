@@ -794,28 +794,6 @@
   opacity: 0.7;
 }
 
-/* High-contrast: transparent-border controls need visible affordances. */
-[data-theme="high-contrast"] .insp-num__input,
-[data-theme="high-contrast"] .insp-select,
-[data-theme="high-contrast"] .insp-per-side,
-[data-theme="high-contrast"] .insp-inline-btn,
-[data-theme="high-contrast"] .insp-add-btn,
-[data-theme="high-contrast"] .insp-swatch,
-[data-theme="high-contrast"] .insp-panel .strata-select__trigger,
-[data-theme="high-contrast"] .insp-disclosure .strata-select__trigger,
-[data-theme="high-contrast"] .insp-fill-add .strata-select__trigger,
-[data-theme="high-contrast"] .insp-picker-dialog__close,
-[data-theme="high-contrast"] .insp-picker-popover {
-  border-color: var(--color-border-subtle);
-}
-
-[data-theme="high-contrast"] .insp-panel .strata-select__listbox,
-[data-theme="high-contrast"] .insp-disclosure .strata-select__listbox,
-[data-theme="high-contrast"] .insp-fill-add .strata-select__listbox {
-  border-color: var(--color-border-strong);
-  outline: 1px solid var(--color-border-subtle);
-}
-
 .insp-picker-popover {
   position: fixed;
   z-index: var(--z-overlay);
@@ -953,6 +931,28 @@
 .insp-per-side:focus-visible {
   border-color: var(--color-border-focus);
   outline: none;
+}
+
+/* High-contrast: transparent-border controls need visible affordances. */
+[data-theme="high-contrast"] .insp-num__input,
+[data-theme="high-contrast"] .insp-select,
+[data-theme="high-contrast"] .insp-per-side,
+[data-theme="high-contrast"] .insp-inline-btn,
+[data-theme="high-contrast"] .insp-add-btn,
+[data-theme="high-contrast"] .insp-swatch,
+[data-theme="high-contrast"] .insp-panel .strata-select__trigger,
+[data-theme="high-contrast"] .insp-disclosure .strata-select__trigger,
+[data-theme="high-contrast"] .insp-fill-add .strata-select__trigger,
+[data-theme="high-contrast"] .insp-picker-dialog__close,
+[data-theme="high-contrast"] .insp-picker-popover {
+  border-color: var(--color-border-subtle);
+}
+
+[data-theme="high-contrast"] .insp-panel .strata-select__listbox,
+[data-theme="high-contrast"] .insp-disclosure .strata-select__listbox,
+[data-theme="high-contrast"] .insp-fill-add .strata-select__listbox {
+  border-color: var(--color-border-strong);
+  outline: 1px solid var(--color-border-subtle);
 }
 
 .insp-flip-btn {

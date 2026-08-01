@@ -79,7 +79,7 @@ describe('ShortcutPalette', () => {
 describe('remap flow', () => {
   it('enters capture mode and shows indicator', async () => {
     renderPalette();
-    const remapButtons = screen.getAllByTitle('Remap shortcut');
+    const remapButtons = screen.getAllByRole('button', { name: 'Remap shortcut' });
     expect(remapButtons.length).toBeGreaterThan(0);
     const remapBtn = remapButtons[0];
     if (!remapBtn) throw new Error('remap button not found');
@@ -92,7 +92,7 @@ describe('remap flow', () => {
 
   it('cancels capture mode on Escape', async () => {
     renderPalette();
-    const remapButtons = screen.getAllByTitle('Remap shortcut');
+    const remapButtons = screen.getAllByRole('button', { name: 'Remap shortcut' });
     const remapButton = remapButtons[0];
     if (!remapButton) throw new Error('remap button not found');
     await userEvent.click(remapButton);
@@ -109,7 +109,7 @@ describe('remap flow', () => {
 
   it('captures key combo and stores override', async () => {
     renderPalette();
-    const remapButtons = screen.getAllByTitle('Remap shortcut');
+    const remapButtons = screen.getAllByRole('button', { name: 'Remap shortcut' });
     const remapButton = remapButtons[0];
     if (!remapButton) throw new Error('remap button not found');
     await userEvent.click(remapButton);
@@ -137,14 +137,14 @@ describe('reset flow', () => {
   it('shows reset all button when overrides exist', () => {
     setOverride('undo', { key: 'y', ctrl: true });
     renderPalette();
-    expect(screen.getByTitle('Reset all to defaults')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Reset all to defaults' })).toBeTruthy();
   });
 
   it('resets single shortcut', async () => {
     setOverride('undo', { key: 'y', ctrl: true });
     renderPalette();
 
-    const allResetButtons = screen.getAllByTitle('Reset to default');
+    const allResetButtons = screen.getAllByRole('button', { name: 'Reset to default' });
     const resetBtn = allResetButtons[0];
     if (!resetBtn) throw new Error('reset button not found');
     await userEvent.click(resetBtn);
@@ -160,7 +160,7 @@ describe('reset flow', () => {
     setOverride('redo', { key: 'z', ctrl: true });
     renderPalette();
 
-    await userEvent.click(screen.getByTitle('Reset all to defaults'));
+    await userEvent.click(screen.getByRole('button', { name: 'Reset all to defaults' }));
 
     await waitFor(() => {
       const overrides = getOverrides();
@@ -175,13 +175,13 @@ describe('export/import', () => {
     URL.revokeObjectURL = vi.fn();
 
     renderPalette();
-    await userEvent.click(screen.getByTitle('Export keymap'));
+    await userEvent.click(screen.getByRole('button', { name: 'Export keymap' }));
 
     expect(URL.createObjectURL).toHaveBeenCalled();
   });
 
   it('import button opens file picker', () => {
     renderPalette();
-    expect(screen.getByTitle('Import keymap')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Import keymap' })).toBeTruthy();
   });
 });
