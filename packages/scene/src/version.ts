@@ -1,7 +1,7 @@
 // COMPLEXITY: 214 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 
-export const CURRENT_DOCUMENT_VERSION = '2.10';
+export const CURRENT_DOCUMENT_VERSION = '2.11';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -26,6 +26,7 @@ export const SUPPORTED_VERSIONS = [
   '2.8',
   '2.9',
   '2.10',
+  '2.11',
 ];
 
 export interface DocumentMigration {
@@ -672,6 +673,20 @@ const migrations: DocumentMigration[] = [
       // Add optional upscale field to ImageFillData.
       // The field is optional, so this is a no-op for existing documents.
       return { ...raw, formatVersion: '2.10' };
+    },
+  },
+  {
+    from: '2.10',
+    to: '2.11',
+    migrate: (raw) => {
+      // Document-local gradient presets (gradient-map portability). New
+      // documents get an empty array; the field is optional, so pre-existing
+      // documents without one normalize to [] on read.
+      const result = { ...raw, formatVersion: '2.11' } as Record<string, unknown>;
+      if (!Array.isArray(result.gradientPresets)) {
+        result.gradientPresets = [];
+      }
+      return result;
     },
   },
 ];

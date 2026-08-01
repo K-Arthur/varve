@@ -467,3 +467,96 @@ export function resolveGradientMapPreset(adjustment: {
     })),
   });
 }
+
+// ── Document-local preset management ─────────────────────────────────────────
+
+export type DocumentWithGradientPresets = { gradientPresets?: GradientPreset[] };
+
+/** Read the document-local preset list (empty when absent). */
+export function getDocumentGradientPresets(doc: DocumentWithGradientPresets): GradientPreset[] {
+  return doc.gradientPresets ?? [];
+}
+
+/**
+ * Add presets to the document, merging content-identical duplicates.
+ * Returns the updated document and the ids that were newly added.
+ */
+export function addGradientPresetsToDocument(
+  doc: DocumentWithGradientPresets,
+  presets: GradientPreset[],
+): { doc: DocumentWithGradientPresets; addedIds: string[] } {
+  const existing = getDocumentGradientPresets(doc);
+  const { created } = mergeGradientPresets(existing, presets);
+  return {
+    doc: {
+      ...doc,
+      gradientPresets: [...existing, ...presets.filter((p) => created.includes(p.id))],
+    },
+    addedIds: created,
+  };
+}
+
+/** Remove presets from the document by id. */
+export function removeGradientPresetsFromDocument(
+  doc: DocumentWithGradientPresets,
+  ids: string[],
+): DocumentWithGradientPresets {
+  const remove = new Set(ids);
+  return {
+    ...doc,
+    gradientPresets: getDocumentGradientPresets(doc).filter((p) => !remove.has(p.id)),
+  };
+}
+
+/** Rename a document-local preset (returns the same doc when not found). */
+export function renameDocumentGradientPreset(
+  doc: DocumentWithGradientPresets,
+  id: string,
+  name: string,
+): DocumentWithGradientPresets {
+  return {
+    ...doc,
+    gradientPresets: getDocumentGradientPresets(doc).map((p) => (p.id === id ? { ...p, name } : p)),
+  };
+}
+
+/** Replace a document-local preset by id (no-op when not found). */
+export function replaceDocumentGradientPreset(
+  doc: DocumentWithGradientPresets,
+  preset: GradientPreset,
+): DocumentWithGradientPresets {
+  return {
+    ...doc,
+    gradientPresets: getDocumentGradientPresets(doc).map((p) => (p.id === preset.id ? preset : p)),
+  };
+}
+
+/** Look up a document-local preset by id. */
+export function findDocumentGradientPreset(
+  doc: DocumentWithGradientPresets,
+  id: string,
+): GradientPreset | undefined {
+  return getDocumentGradientPresets(doc).find((p) => p.id === id);
+}
+
+/** True when a preset id is referenced by any gradient-map adjustment in a
+ *  document (used for delete-with-references confirmation). */
+export function gradientPresetIsReferenced(
+  doc: { nodes: Record<string, import('./types').SceneNode> },
+  presetId: string,
+): boolean {
+  for (const node of Object.values(doc.nodes)) {
+    if (node.kind !== 'adjustment') continue;
+    const adjustments = (node as import('./types').AdjustmentNode).adjustments ?? [];
+    for (const adjustment of adjustments) {
+      if (
+        adjustment.kind === 'gradientMap' &&
+        (adjustment.presetId === presetId ||
+          (adjustment.embeddedGradient && adjustment.embeddedGradient.id === presetId))
+      ) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
