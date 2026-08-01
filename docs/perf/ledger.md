@@ -188,3 +188,38 @@ session's in-progress files under unrelated commit messages within minutes of
 editing them, twice causing a false-negative revert (silently restoring the
 already-fixed code instead of the original). See the write-up's "Methodology
 hazards" section.
+
+## Canvas pre-loop, engine-node memo, and cache eviction (2026-08-01, part 2)
+
+Full write-up: [`../audits/canvas-perf-2026-08-01-part2.md`](../audits/canvas-perf-2026-08-01-part2.md).
+
+Continuation of the same day's O(n²) `getParent` work. Took that audit's top
+remaining item (per-frame pre-loop at 1000+ nodes), fixed it, and found it was
+not what dominated the frame.
+
+Measured on a heavily contended machine (load 19–34 on 8 threads, 12.4 GiB in
+zram swap, dev build, SwiftShader). Wall-clock is directional only; the
+work-count rows are deterministic and are what the new tests assert.
+
+| Workload | Before | After | Confidence | Notes |
+|---|---|---|---|---|
+| Engine-node conversions per drag frame, 932 nodes | 932 (p50), 932 (max) | 0 (p50), 1 (max) | high | deterministic count, load-independent |
+| SubtreeIrCache bulk fill, 4000 inserts / 500-entry cap | 1050 ms | 9.2 ms | high | eviction re-sorted the whole map per evicted entry |
+| `Array#sort` comparator calls during that fill | many | 0 | high | asserted by `subtreeIrCacheEviction.test.ts` |
+| `evictIfNeeded` + comparator + `estimateItemBytes`, drag profile | 5.3% | absent from top-25 | high | CPU profile, 932-node drag |
+| Drag frame phase attribution, 932 nodes | ~2 ms of a 63 ms frame explained | setup 9.3 / preLoop 5.5 / hash 1.7 / buildIr 0.2 / replay 0.1 + 46.4 ms unattributed | high | new `setupMs`/`preLoopMs` timers |
+
+**Headline finding, not a speedup:** ~38% of dev-build drag CPU is React
+development-mode overhead (`jsxDEV`, `createElement`, `validateProperties*`)
+that does not exist in a production build. The per-frame node walk the previous
+audit ranked first turned out to be ~15 ms of a ~63 ms frame. No production
+build comparison has been run yet — every remaining ranking is provisional
+until it is.
+
+**Not fixed, measured:** `groupWorldBounds` ~8% (largest external caller is a
+React `useMemo`), autoNamer's `existingNames` running during drag ~1.7%,
+renderer crash at ~2048 nodes, and the 4 GB low-memory profile.
+
+**Corrected claim:** routing snap targets through the transform cache was made
+while chasing `groupWorldBounds` and did **not** move it; it is recorded as a
+consistency fix, not a measured win.
