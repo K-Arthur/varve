@@ -240,4 +240,160 @@ describe('ExportDialog', () => {
     await waitFor(() => expect(onPackageExport).toHaveBeenCalledOnce());
     await waitFor(() => expect(screen.getByText('Package export complete')).toBeInTheDocument());
   });
+
+  it('surfaces preflight findings in the dialog', () => {
+    // JPEG flattens a transparent background, producing a deterministic warning.
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'jpg' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={doc}
+        onExport={async () => {}}
+      />,
+    );
+    expect(screen.getAllByRole('region', { name: /preflight/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Preflight:/i)).toBeTruthy();
+  });
+
+  it('shows print settings when a PDF/X job is selected', () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'pdf-x1a' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={doc}
+        onExport={async () => {}}
+      />,
+    );
+    expect(screen.getByText('Press / print settings (PDF/X-1a)')).toBeTruthy();
+    expect(screen.getByLabelText('Bleed in millimetres')).toBeTruthy();
+    expect(screen.getByLabelText('Crop marks')).toBeTruthy();
+  });
+
+  it('attaches print settings to PDF/X jobs in the exported batch', async () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'p1',
+          format: 'pdf-x4' as const,
+          scale: { type: 'factor' as const, value: 1 },
+          suffix: '',
+          enabled: true,
+        },
+      ],
+    });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    let receivedBatch: unknown;
+    const onExport = vi.fn(async (batch: unknown) => {
+      receivedBatch = batch;
+      return { totalJobs: 1, successCount: 1, failureCount: 0, files: [] };
+    });
+    render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={doc}
+        onExport={onExport}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+
+    await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
+    const jobs = (receivedBatch as { jobs: Array<{ format: string; print?: unknown }> }).jobs;
+    expect(jobs[0]?.format).toBe('pdf-x4');
+    expect(jobs[0]?.print).toMatchObject({ bleedMm: expect.any(Number) });
+  });
+
+  it('renders per-file results and retries only failed outputs', async () => {
+    let firstBatch: unknown;
+    const onExport = vi.fn(async (batch: unknown) => {
+      if (onExport.mock.calls.length === 1) firstBatch = batch;
+      const job = (batch as { jobs: Array<{ fileName: string; nodeId: string; presetId: string }> })
+        .jobs[0];
+      if (!job) return { totalJobs: 0, successCount: 0, failureCount: 0, files: [] };
+      if (onExport.mock.calls.length === 1) {
+        return {
+          startedAt: 1,
+          completedAt: 2,
+          durationMs: 1,
+          totalJobs: 1,
+          successCount: 0,
+          failureCount: 1,
+          files: [
+            {
+              fileName: job.fileName,
+              format: 'png' as const,
+              nodeId: job.nodeId,
+              status: 'failed' as const,
+              mimeType: 'application/octet-stream',
+              byteCount: 0,
+              durationMs: 5,
+              error: 'Engine not ready',
+              warnings: [],
+            },
+          ],
+        };
+      }
+      return {
+        startedAt: 3,
+        completedAt: 4,
+        durationMs: 1,
+        totalJobs: 1,
+        successCount: 1,
+        failureCount: 0,
+        files: [
+          {
+            fileName: job.fileName,
+            format: 'png' as const,
+            nodeId: job.nodeId,
+            status: 'success' as const,
+            mimeType: 'image/png',
+            byteCount: 100,
+            durationMs: 5,
+            warnings: [],
+          },
+        ],
+      };
+    });
+    render(
+      <ExportDialog isOpen={true} onClose={() => {}} nodes={[mockNode()]} onExport={onExport} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+    await waitFor(() => expect(onExport).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText('Engine not ready')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /Retry failed \(1\)/ }));
+    await waitFor(() => expect(onExport).toHaveBeenCalledTimes(2));
+    const retryBatch = (onExport.mock.calls[1]?.[0] as { jobs: unknown[] }).jobs;
+    expect(retryBatch).toHaveLength(1);
+    expect((firstBatch as { jobs: unknown[] }).jobs).toHaveLength(1);
+  });
 });
