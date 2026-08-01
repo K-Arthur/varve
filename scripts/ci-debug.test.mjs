@@ -26,6 +26,14 @@ assertTrue(
   isFailureLine('::error::Compilation failed'),
   'should detect GitHub Actions error annotation',
 );
+assertTrue(
+  isFailureLine('##[error]Unable to resolve action `actions/checkout@abc`'),
+  'should detect legacy ##[error] annotation',
+);
+assertTrue(
+  isFailureLine('Unable to resolve action `actions/checkout@xxx`, unable to find version `xxx`'),
+  'should detect unresolvable action refs',
+);
 assertTrue(isFailureLine('npm ERR! code ENOENT'), 'should detect npm error');
 assertTrue(isFailureLine('pnpm ERR_123 some error'), 'should detect pnpm error');
 assertTrue(

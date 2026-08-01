@@ -13,7 +13,10 @@
 
 import { execSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join } from 'node:path';
+
+const require = createRequire(import.meta.url);
 
 const WORKFLOWS_DIR = '.github/workflows';
 
@@ -71,6 +74,22 @@ function getAllWorkflowFiles() {
 }
 
 function validateYAMLSyntax(content) {
+  // Prefer a real YAML parser when available (node_modules/.pnpm may expose
+  // js-yaml). The naive indentation check below catches tabs and odd indents
+  // but MISSES actual parse errors (bad anchors, invalid block scalars,
+  // unclosed quotes) — those are what break a workflow at parse time.
+  try {
+    const yamlPath = require.resolve('js-yaml');
+    const { load } = require(yamlPath);
+    const doc = load(content);
+    if (!doc || typeof doc !== 'object') {
+      return { valid: false, errors: ['YAML parsed to a non-object document'] };
+    }
+    return { valid: true, errors: [] };
+  } catch {
+    // js-yaml not resolvable — fall through to the heuristic checker.
+  }
+
   try {
     // Basic YAML syntax validation without external dependencies
     // Check for common YAML syntax errors
