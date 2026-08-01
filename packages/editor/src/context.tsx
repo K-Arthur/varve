@@ -3338,7 +3338,9 @@ export function EditorProvider({
         return findContainingFrameInDoc(state.document, world, frameIndex);
       },
 
-      nodeWorldBounds: (n) => nodeWorldBounds(state.document, n.id) ?? nodeWorldBoundsFn(n),
+      nodeWorldBounds: (n) =>
+        getCachedWorldBounds(transformCacheRef.current, state.document, n.id) ??
+        nodeWorldBoundsFn(n),
       getWorldTransform: (id) =>
         getCachedWorldTransform(transformCacheRef.current, state.document, id),
       getWorldBounds: (id) => getCachedWorldBounds(transformCacheRef.current, state.document, id),

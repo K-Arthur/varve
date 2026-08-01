@@ -939,7 +939,8 @@ export function CanvasArea({
 
       findContainingFrame: (world) => e.findContainingFrame(world, frameIndexRef.current),
       setDropTargetFrame: setDropTargetFrameId,
-      nodeWorldBounds: (n) => nodeWorldBounds(s.document, n.id) ?? nodeWorldBoundsFn(n),
+      nodeWorldBounds: (n) =>
+        getCachedWorldBounds(transformCacheRef.current, s.document, n.id) ?? nodeWorldBoundsFn(n),
 
       engine: eng,
       canvasElement: contentCanvasRef.current,
