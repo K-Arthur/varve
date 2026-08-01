@@ -474,6 +474,39 @@
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: 2px;
 }
+.spec-export__add-preset:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Format picker + add button for a new export setting. Stacks so the narrow
+   inspector never truncates long format labels (e.g. "React + CSS Modules"). */
+.spec-export__preset-add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.spec-export__preset-unavailable {
+  margin: var(--space-1) 0 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+.spec-export__preset-suffix {
+  width: 100%;
+  margin-top: 2px;
+  padding: 2px var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-default);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.spec-export__preset-suffix:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
 
 /* ── Annotations ───────────────────────────────────── */
 .spec-annot {

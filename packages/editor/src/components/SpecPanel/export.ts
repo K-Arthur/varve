@@ -21,6 +21,7 @@ import {
 } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode, ShapeNode } from '@strata/scene';
 import { imageFill } from '@strata/scene';
+import { capabilitiesForFormat } from '@strata/scene/export';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@strata/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
 import {
@@ -559,4 +560,100 @@ export async function exportNodeAsPdf(
 
   const bytes = (await tauri.core.invoke('export_node_pdf', { nodes, opts })) as number[];
   return { bytes: new Uint8Array(bytes), filename };
+}
+
+/** Press-ready PDF/X standards backed by the native print pipeline. */
+export type PdfXStandard = 'pdf-x1a' | 'pdf-x4';
+
+export interface PdfXExportOptions {
+  /** Bleed in millimetres added around the trim box. */
+  bleedMm?: number;
+  includeCropMarks?: boolean;
+  includeRegistrationMarks?: boolean;
+  colorBars?: boolean;
+  /** Minimum effective image resolution the preflight enforces. */
+  enforceDpi?: number;
+  /** Destination ICC profile name (PDF/X-1a converts to this CMYK space). */
+  iccProfile?: string;
+  /** Convert text to outlines instead of embedding/subsetting fonts. */
+  outlineText?: boolean;
+}
+
+/**
+ * Export a node as a press-ready PDF/X file via the native print pipeline
+ * (`strata_print::cmyk::export_pdfx1a` / `export_pdfx4`).
+ *
+ * Desktop-only by design: the browser build has no CMYK/ICC print engine, and
+ * the `@strata/print` stub emits a placeholder rather than a real PDF — so this
+ * throws on web instead of silently producing an invalid press file. The
+ * capability contract (`FORMAT_CAPABILITIES['pdf-x1a'].browser === false`)
+ * is the single source of truth the UI gates on.
+ */
+export async function exportNodeAsPdfX(
+  node: SceneNode,
+  doc: SceneDocument,
+  standard: PdfXStandard,
+  options: PdfXExportOptions = {},
+): Promise<{ bytes: Uint8Array; filename: string }> {
+  const capability = capabilitiesForFormat(standard, 'tauri');
+  const tauri = getTauriBridge();
+  if (!tauri) {
+    throw new Error(`${capability.label} export requires the desktop app (native print pipeline)`);
+  }
+
+  const subtree = flattenSceneToEngine(doc, [node.id]);
+  const fontRequests = collectEngineFonts(subtree.nodes);
+  await awaitExportsReady(fontRequests);
+
+  const fontFamilies = [...new Set(fontRequests.map((f) => f.family))];
+  const fontRecords = await collectFontData(fontFamilies, {
+    fetchBundled: true,
+    signal: undefined,
+  });
+  const fonts: Array<[string, number[]]> = fontRecords.map((r) => [r.family, Array.from(r.data)]);
+
+  // Press output is 1x document units; scaling belongs to raster formats.
+  const bbox = worldBBox(node, doc);
+  const w = Math.max(Math.ceil(bbox.w), 1);
+  const h = Math.max(Math.ceil(bbox.h), 1);
+  const nodes = subtree.nodes.map((sceneNode) => ({
+    ...sceneNode,
+    transform: [
+      1,
+      0,
+      0,
+      1,
+      sceneNode.transform[4] - bbox.x,
+      sceneNode.transform[5] - bbox.y,
+    ] as const,
+  }));
+
+  // PdfXOptions in apps/desktop/src-tauri/src/lib.rs is
+  // #[serde(default, rename_all = "camelCase")] — keys must be camelCase.
+  const optionsJson = JSON.stringify({
+    pageWidth: w,
+    pageHeight: h,
+    title: node.name,
+    author: 'Strata',
+    bleedMm: options.bleedMm ?? 3,
+    includeCropMarks: options.includeCropMarks ?? true,
+    includeRegistrationMarks: options.includeRegistrationMarks ?? standard === 'pdf-x1a',
+    enforceDpi: options.enforceDpi ?? 300,
+    outlineText: options.outlineText ?? false,
+    iccProfile: options.iccProfile ?? 'Fogra39',
+    colorBars: options.colorBars ?? standard === 'pdf-x1a',
+    format: standard,
+    fonts,
+    subsetFonts: fonts.length > 0,
+  });
+
+  const command = standard === 'pdf-x1a' ? 'export_pdfx1a' : 'export_pdfx4';
+  const bytes = (await tauri.core.invoke(command, {
+    nodes_json: JSON.stringify(nodes),
+    page_height: h,
+    options_json: optionsJson,
+    manifest_json: null,
+  })) as number[];
+
+  return { bytes: new Uint8Array(bytes), filename: buildFilename(node.name, 'pdf') };
 }

@@ -24,6 +24,7 @@ import {
 } from '@strata/scene/export';
 import {
   exportNodeAsPdf,
+  exportNodeAsPdfX,
   exportNodeAsRaster,
   type RasterFormat,
 } from './components/SpecPanel/export';
@@ -236,12 +237,15 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
     }
     case 'pdf-x1a':
     case 'pdf-x4': {
-      const capability = capabilitiesForFormat(job.format);
-      throw new Error(
-        capability.browser
-          ? `${capability.label} export is available through the print pipeline only`
-          : `${capability.label} export requires the desktop app (native print pipeline)`,
-      );
+      // Press output goes through the native CMYK/ICC print pipeline. This is
+      // desktop-only; exportNodeAsPdfX throws with the capability label when
+      // the Tauri bridge is absent rather than emitting an invalid press file.
+      const result = await exportNodeAsPdfX(node, context.document, job.format);
+      return {
+        bytes: result.bytes,
+        mimeType: 'application/pdf',
+        warnings: collectMissingFontWarnings(node),
+      };
     }
     case 'avif': {
       const capability = capabilitiesForFormat('avif');
