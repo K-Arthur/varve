@@ -22,6 +22,7 @@ import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
+import { recordInputDiagnostic } from './inputDiagnostics';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 import { resolveWheelAction } from './wheelClassifier';
 
@@ -343,6 +344,7 @@ export function useCanvasInputs({
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      const started = performance.now();
       const s = stateRef.current;
       const action = resolveWheelAction({
         deltaX: e.deltaX,
@@ -352,6 +354,22 @@ export function useCanvasInputs({
         metaKey: e.metaKey,
         shiftKey: e.shiftKey,
         clientHeight: el.clientHeight,
+      });
+      recordInputDiagnostic({
+        eventType: 'wheel',
+        source: action.source === 'trackpad' ? 'trackpad' : 'wheel',
+        modifiers: { shift: e.shiftKey, ctrl: e.ctrlKey, alt: e.altKey, meta: e.metaKey },
+        wheel: {
+          deltaX: e.deltaX,
+          deltaY: e.deltaY,
+          deltaMode: e.deltaMode,
+          source: action.source,
+          kind: action.kind,
+          scale: action.scale,
+        },
+        viewport: { zoom: s.zoom, panX: s.pan.x, panY: s.pan.y, rotation: s.cameraRotation },
+        processingMs: performance.now() - started,
+        preventedDefault: true,
       });
       if (action.kind === 'zoom') {
         zoomAboutClientPoint(e.clientX, e.clientY, s.zoom * action.scale);
