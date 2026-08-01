@@ -45,8 +45,7 @@ function resolveNodeIds(doc: Document, source: ThumbnailSourceType): NodeId[] {
       const page = doc.pages?.find((p) => p.id === source.pageId);
       if (!page) return activePageNodes(doc);
       const contentRoot = doc.nodes[page.contentRoot];
-      const children =
-        contentRoot && 'children' in contentRoot ? ((contentRoot as any).children ?? []) : [];
+      const children = contentRoot && 'children' in contentRoot ? (contentRoot.children ?? []) : [];
       return [...globals, ...children];
     }
     case 'frame': {
@@ -68,7 +67,7 @@ function resolveNodeIds(doc: Document, source: ThumbnailSourceType): NodeId[] {
 function buildParentMap(doc: Document): Map<NodeId, NodeId> {
   const parents = new Map<NodeId, NodeId>();
   for (const node of Object.values(doc.nodes)) {
-    const children = 'children' in node ? ((node as any).children ?? []) : [];
+    const children = 'children' in node ? (node.children ?? []) : [];
     for (const c of children) parents.set(c, node.id);
   }
   return parents;
@@ -104,11 +103,11 @@ function toEngineNode(node: import('@strata/scene').SceneNode, transform: Affine
     id: node.id,
     name: node.name,
     transform,
-    opacity: 'opacity' in node ? (node as any).opacity : undefined,
-    blendMode: 'blendMode' in node ? (node as any).blendMode : undefined,
-    fills: 'fills' in node ? (node as any).fills : undefined,
-    strokes: 'strokes' in node ? (node as any).strokes : undefined,
-    effects: 'effects' in node ? (node as any).effects : undefined,
+    opacity: node.opacity,
+    blendMode: node.blendMode,
+    fills: node.fills,
+    strokes: 'strokes' in node ? node.strokes : undefined,
+    effects: 'effects' in node ? node.effects : undefined,
   };
 
   if (node.kind === 'shape') {
@@ -138,26 +137,26 @@ function toEngineNode(node: import('@strata/scene').SceneNode, transform: Affine
   }
 
   if (node.kind === 'frame' || node.kind === 'group') {
-    const w = 'w' in node ? (node as any).w : undefined;
-    const h = 'h' in node ? (node as any).h : undefined;
+    const w = 'w' in node ? node.w : undefined;
+    const h = 'h' in node ? node.h : undefined;
     if (w !== undefined && h !== undefined) {
       return {
         ...base,
         kind: 'frame',
         shape: { kind: 'rect' as const, x: 0, y: 0, w, h },
-        fill: 'fill' in node ? (node as any).fill : undefined,
+        fill: 'fill' in node ? node.fill : undefined,
       } as unknown as SceneNode;
     }
   }
 
   // Fallback: render as rect if shape info available
-  const shape = 'shape' in node ? (node as any).shape : undefined;
+  const shape = 'shape' in node ? node.shape : undefined;
   if (shape) {
     return {
       ...base,
       kind: 'shape',
       shape,
-      fill: 'fill' in node ? (node as any).fill : undefined,
+      fill: 'fill' in node ? node.fill : undefined,
     } as unknown as SceneNode;
   }
 
