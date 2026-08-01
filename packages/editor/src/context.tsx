@@ -1662,9 +1662,13 @@ function computeDocumentUnionBounds(
   doc: Document,
 ): { x: number; y: number; w: number; h: number } | null {
   const entries = walkNodes(doc);
+  // nodeWorldBounds walks the ancestor chain via getParent() (O(n) per call);
+  // a full-document pass without an index would be O(n²). One O(n) parent
+  // index keeps the union computation linear.
+  const parents = buildParentIndexMap(doc);
   let union: { x: number; y: number; w: number; h: number } | null = null;
   for (const [id] of entries) {
-    const b = nodeWorldBounds(doc, id);
+    const b = nodeWorldBounds(doc, id, parents);
     if (!b) continue;
     if (!union) {
       union = { ...b };
