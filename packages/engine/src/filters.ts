@@ -233,6 +233,60 @@ export interface GradientMapStop {
   midpoint?: number;
 }
 
+/** Opacity ramp stop (independent of color stops). */
+export interface GradientMapOpacityStop {
+  position: number;
+  /** Midpoint position (0-1, default 0.5). */
+  midpoint?: number;
+  /** Normalized opacity 0-1. */
+  opacity: number;
+}
+
+/** Luminance/tonal source for the gradient-map ramp input. */
+export type GradientMapLuminanceMode =
+  | 'relative-luminance'
+  | 'perceptual-lightness'
+  | 'average-rgb'
+  | 'max-channel'
+  | 'alpha'
+  | 'red'
+  | 'green'
+  | 'blue'
+  | 'compatibility';
+
+/**
+ * Structural snapshot of a gradient preset embedded on the adjustment so the
+ * document stays portable when the global preset is renamed or deleted.
+ * Uses `Color` tuples (engine-side mirror of the scene `GradientPreset`).
+ */
+export interface EmbeddedGradientColorStop {
+  position: number;
+  midpoint?: number;
+  color: Color;
+}
+
+export interface EmbeddedGradientOpacityStop {
+  position: number;
+  midpoint?: number;
+  opacity: number;
+}
+
+export interface EmbeddedGradientPreset {
+  id: string;
+  name: string;
+  kind?: 'solid' | 'noise' | 'unsupported';
+  colorStops: EmbeddedGradientColorStop[];
+  opacityStops: EmbeddedGradientOpacityStop[];
+  smoothness?: number;
+  interpolation?: import('@strata/shared').GradientInterpolationSpace;
+  source?: { origin: string; fileName?: string; originalName?: string };
+  compatibility?: {
+    status: 'ok' | 'approximated' | 'unsupported';
+    message?: string;
+    warnings?: string[];
+  };
+}
+
 export interface GradientMapAdjustment extends AdjustmentBase {
   kind: 'gradientMap';
   stops: GradientMapStop[];
@@ -249,6 +303,25 @@ export interface GradientMapAdjustment extends AdjustmentBase {
     g?: GradientMapStop[];
     b?: GradientMapStop[];
   };
+  /** Independent opacity ramp (defaults to full opacity). */
+  opacityStops?: GradientMapOpacityStop[];
+  /** Reverse the ramp (shadows sample the last stop). Default false. */
+  reverse?: boolean;
+  /** Mix with the source: 0 = unchanged, 1 = fully mapped. Default 1. */
+  intensity?: number;
+  /** Tonal source. Default 'relative-luminance'. */
+  luminanceMode?: GradientMapLuminanceMode;
+  /** Keep source alpha untouched. Default true. */
+  preserveSourceAlpha?: boolean;
+  /** Interpolation space for stop blending. Legacy default: 'srgb'. */
+  interpolation?: import('@strata/shared').GradientInterpolationSpace;
+  /** LUT resolution. Default 256. */
+  lutSize?: number;
+  /** Reference to a global preset (for diagnostics). Rendering uses
+   *  `embeddedGradient`/`stops`, so a missing global preset never breaks it. */
+  presetId?: string;
+  /** Embedded fallback gradient for portability. */
+  embeddedGradient?: EmbeddedGradientPreset;
 }
 
 export interface TritoneAdjustment extends AdjustmentBase {
@@ -507,6 +580,19 @@ export function adjustmentToFilter(adjustment: Adjustment): FilterIR {
               })),
             }
           : undefined,
+        ...(adjustment.opacityStops !== undefined ? { opacityStops: adjustment.opacityStops } : {}),
+        ...(adjustment.reverse !== undefined ? { reverse: adjustment.reverse } : {}),
+        ...(adjustment.intensity !== undefined ? { intensity: adjustment.intensity } : {}),
+        ...(adjustment.luminanceMode !== undefined
+          ? { luminanceMode: adjustment.luminanceMode }
+          : {}),
+        ...(adjustment.preserveSourceAlpha !== undefined
+          ? { preserveSourceAlpha: adjustment.preserveSourceAlpha }
+          : {}),
+        ...(adjustment.interpolation !== undefined
+          ? { interpolation: adjustment.interpolation }
+          : {}),
+        ...(adjustment.lutSize !== undefined ? { lutSize: adjustment.lutSize } : {}),
         ...base,
       };
     case 'tritone':

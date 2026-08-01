@@ -910,6 +910,17 @@ export type FilterIR =
           midpoint?: number;
         }[];
       };
+      opacityStops?: {
+        position: number;
+        midpoint?: number;
+        opacity: number;
+      }[];
+      reverse?: boolean;
+      intensity?: number;
+      luminanceMode?: import('./filters').GradientMapLuminanceMode;
+      preserveSourceAlpha?: boolean;
+      interpolation?: import('@strata/shared').GradientInterpolationSpace;
+      lutSize?: number;
       opacity: number;
       blendMode: string;
     }
