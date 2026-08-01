@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { fireEvent, render } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { HomeShortcutHelp } from './HomeShortcutHelp';
 
@@ -14,8 +14,8 @@ describe('HomeShortcutHelp', () => {
   });
 
   it('renders all shortcuts', () => {
-    const { container } = render(<HomeShortcutHelp open={true} onClose={vi.fn()} />);
-    const items = container.querySelectorAll('[role="listitem"]');
+    render(<HomeShortcutHelp open={true} onClose={vi.fn()} />);
+    const items = screen.getAllByRole('listitem');
     expect(items.length).toBe(8);
   });
 

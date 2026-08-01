@@ -179,9 +179,7 @@ describe('ExportDialog', () => {
 
     await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
     await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toContain(
-        'Export failed: 1 of 1 files failed',
-      ),
+      expect(screen.getByText('Export failed: 1 of 1 files failed')).toBeInTheDocument(),
     );
   });
 
@@ -200,8 +198,6 @@ describe('ExportDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Package' }));
 
     await waitFor(() => expect(onPackageExport).toHaveBeenCalledOnce());
-    await waitFor(() =>
-      expect(screen.getByRole('status').textContent).toContain('Package export complete'),
-    );
+    await waitFor(() => expect(screen.getByText('Package export complete')).toBeInTheDocument());
   });
 });

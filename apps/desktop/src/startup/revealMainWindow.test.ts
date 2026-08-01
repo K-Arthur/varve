@@ -1,12 +1,19 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it } from 'vitest';
-import { dismissBootFallback, isTauriRuntime, revealMainWindow } from './revealMainWindow';
+import { isTauriRuntime, resetPlatformInfo } from '@strata/platform';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { dismissBootFallback, revealMainWindow } from './revealMainWindow';
 
 describe('revealMainWindow', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    resetPlatformInfo();
+  });
+
+  afterEach(() => {
+    delete (window as Window & { __TAURI__?: unknown }).__TAURI__;
+    resetPlatformInfo();
   });
 
   it('isTauriRuntime is false without __TAURI__', () => {
@@ -17,7 +24,6 @@ describe('revealMainWindow', () => {
     const w = window as Window & { __TAURI__?: { core: object } };
     w.__TAURI__ = { core: {} };
     expect(isTauriRuntime()).toBe(true);
-    delete w.__TAURI__;
   });
 
   it('revealMainWindow no-ops in browser', async () => {

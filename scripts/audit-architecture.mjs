@@ -55,7 +55,9 @@ const PACKAGES = {
   prototype: { path: 'packages/prototype', entry: 'src/index.ts', layer: 3 },
   codegen: { path: 'packages/codegen', entry: 'src/index.ts', layer: 3 },
   layout: { path: 'packages/layout', entry: 'src/index.ts', layer: 3 },
-  platform: { path: 'packages/platform', entry: 'src/index.ts', layer: 3 },
+  // The platform facade has no workspace dependencies and is consumed by the
+  // engine for runtime capability detection, so it belongs with foundations.
+  platform: { path: 'packages/platform', entry: 'src/index.ts', layer: 1 },
   help: { path: 'packages/help', entry: 'src/index.ts', layer: 3 },
   ai: { path: 'packages/ai', entry: 'src/index.ts', layer: 4 },
   collab: { path: 'packages/collab', entry: 'src/index.ts', layer: 4 },

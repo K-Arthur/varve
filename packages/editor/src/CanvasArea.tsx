@@ -113,19 +113,18 @@ import { HitTestEngine } from './hitTest/HitTestEngine';
 import { useCollabPresence } from './hooks/useCollabPresence';
 import { type CropState, commitImageCropExtended } from './imageCrop';
 import { applyPropertyPath } from './propertyPath';
-import { closeImageBitmapMap, collectImageBitmaps } from './render/collectImageBitmaps';
-import { setCompositorDiagnostics } from './render/compositorDiagnosticsStore';
 import {
-  sceneCanUseWorkerRenderer,
-  sceneNeedsStructuralCompositing,
-} from './render/sceneCompositing';
-import { sceneNodeToEngineNode } from './render/sceneToEngine';
-import { workerBitmapDelta } from './render/workerCamera';
-import {
+  closeImageBitmapMap,
+  collectImageBitmaps,
   createRenderWorkerHost,
   isStaleResponse,
   type RenderWorkerHost,
-} from './render/workerHost';
+  sceneCanUseWorkerRenderer,
+  sceneNeedsStructuralCompositing,
+  sceneNodeToEngineNode,
+  setCompositorDiagnostics,
+  workerBitmapDelta,
+} from './render/canvasRenderAdapter';
 import {
   type FrameSpatialIndex,
   getOrCreateFrameSpatialIndex,

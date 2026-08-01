@@ -123,7 +123,7 @@ describe('pickNameLabelCandidates', () => {
     expect(picked.map((p) => p.id)).toEqual(['f1']);
   });
 
-  it('includes nested shapes when zoomed out', () => {
+  it('keeps nested shapes hidden when zoomed out', () => {
     const picked = pickNameLabelCandidates(base, {
       zoom: 0.2,
       viewportW: 800,
@@ -136,7 +136,7 @@ describe('pickNameLabelCandidates', () => {
       }),
     });
     expect(picked.map((p) => p.id)).toContain('f1');
-    expect(picked.map((p) => p.id)).toContain('s1');
+    expect(picked.map((p) => p.id)).not.toContain('s1');
     expect(picked.map((p) => p.id)).not.toContain('off');
   });
 });
