@@ -231,8 +231,12 @@ export type {
   CurvesAdjustment,
   CurvesPoint,
   DuotoneAdjustment,
+  EmbeddedGradientColorStop,
+  EmbeddedGradientOpacityStop,
+  EmbeddedGradientPreset,
   ExposureAdjustment,
   GradientMapAdjustment,
+  GradientMapOpacityStop,
   GradientMapStop,
   GrayscaleAdjustment,
   HalftoneAdjustment,
@@ -304,10 +308,19 @@ export {
 export type { AdapterSelectionResult } from './gpuAdapter';
 export { isSoftwareAdapter, selectWebGpuAdapter } from './gpuAdapter';
 export type {
+  GradientLut,
+  GradientMapLuminanceMode,
   GradientMapParams,
   GradientMapStop as GradientMapFilterStop,
 } from './gradientMap';
-export { applyGradientMapFilter, buildGradientLUT } from './gradientMap';
+export {
+  applyGradientMapFilter,
+  buildGradientAlphaLut,
+  buildGradientColorLut,
+  buildGradientLUT,
+  DEFAULT_GRADIENT_LUT_SIZE,
+  interpolateGradientMapColor,
+} from './gradientMap';
 export type { GrainAnchor, GrainSampleParams } from './grainSampler';
 export {
   resolveGrainValue,
