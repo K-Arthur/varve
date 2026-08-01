@@ -294,13 +294,15 @@ export function isWebRuntime(): boolean {
 /**
  * Convenience: is the OS macOS?
  *
- * Uses the memoised `getPlatformInfo().os` so the check is consistent
- * with the rest of the platform detection and respects test overrides.
+ * Calls `detectOs()` directly (not the memoised `getPlatformInfo()`)
+ * so the result always reflects the current `navigator` state. This
+ * matters in tests where `navigator.platform` / `navigator.userAgent`
+ * is overridden per-test — the memoised cache would leak across files.
  * Replaces the 6+ duplicated `navigator.platform.includes('mac')`
  * checks scattered across the editor package.
  */
 export function isMac(): boolean {
-  return getPlatformInfo().os === 'mac';
+  return detectOs() === 'mac';
 }
 
 /**
