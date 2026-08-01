@@ -130,7 +130,7 @@ function scaledDimensions(
   };
 }
 
-function buildJobs(nodes: SceneNode[]): ExportJob[] {
+export function buildJobs(nodes: SceneNode[]): ExportJob[] {
   const jobs: ExportJob[] = [];
   for (const node of nodes) {
     const presets: ExportPreset[] = node.presets ?? [];

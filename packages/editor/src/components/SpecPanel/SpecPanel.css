@@ -494,6 +494,46 @@
 .spec-export__configs-advanced {
   color: var(--color-text-secondary);
 }
+.spec-export__configs-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+}
+.spec-export__configs-quick-btn {
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface-sunken);
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.spec-export__configs-quick-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+.spec-export__configs-quick-btn:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.spec-export__configs-preflight {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  background: var(--color-feedback-warning-subtle, var(--color-surface-sunken));
+  border: var(--border-micro);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+.spec-export__configs-preflight strong {
+  color: var(--color-text-primary);
+}
+.spec-export__configs-preflight ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-3);
+}
 
 /* ── Annotations ───────────────────────────────────── */
 .spec-annot {
