@@ -9,7 +9,7 @@
  */
 
 import { type FontMetadata, getFontRegistry } from '@strata/engine';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';
@@ -250,20 +250,14 @@ export function FontBrowser({
                     <span className="font-browser__badge font-browser__badge--var">w</span>
                   )}
                   {entry.hasColorGlyphs && (
-                    <span
-                      className="font-browser__badge font-browser__badge--color"
-                      title={colorTitle}
-                    >
-                      C
-                    </span>
+                    <Tooltip label={colorTitle}>
+                      <span className="font-browser__badge font-browser__badge--color">C</span>
+                    </Tooltip>
                   )}
                   {entry.embeddingRights === 'restricted' && (
-                    <span
-                      className="font-browser__badge font-browser__badge--license"
-                      title={licenseTitle}
-                    >
-                      L
-                    </span>
+                    <Tooltip label={licenseTitle}>
+                      <span className="font-browser__badge font-browser__badge--license">L</span>
+                    </Tooltip>
                   )}
                   {hasFaces && (
                     <span className="font-browser__badge font-browser__badge--faces">
@@ -275,18 +269,19 @@ export function FontBrowser({
               {isExpanded && hasFaces && (
                 <div className="font-browser__faces">
                   {entry.faces!.map((face) => (
-                    <button
-                      key={face.postScriptName}
-                      type="button"
-                      className="font-browser__face-row"
-                      onClick={() => handleSelect(entry.family)}
-                      title={`${face.postScriptName} — ${face.weight} ${face.style}`}
-                    >
-                      <span className="font-browser__face-name">{face.postScriptName}</span>
-                      <span className="font-browser__face-meta">
-                        {face.weight} {face.style}
-                      </span>
-                    </button>
+                    <Tooltip label={`${face.postScriptName} — ${face.weight} ${face.style}`}>
+                      <button
+                        key={face.postScriptName}
+                        type="button"
+                        className="font-browser__face-row"
+                        onClick={() => handleSelect(entry.family)}
+                      >
+                        <span className="font-browser__face-name">{face.postScriptName}</span>
+                        <span className="font-browser__face-meta">
+                          {face.weight} {face.style}
+                        </span>
+                      </button>
+                    </Tooltip>
                   ))}
                 </div>
               )}

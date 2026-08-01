@@ -1,5 +1,5 @@
 import type { MasterAppliesTo, MasterPage } from '@strata/scene';
-import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { Select, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 import { SectionCollapseToggle } from '../SectionCollapseToggle';
@@ -71,15 +71,16 @@ export function MasterPanel() {
           label="master pages"
         />
         <span className="master-panel__title">Masters</span>
-        <button
-          type="button"
-          className="master-panel__add-btn"
-          onClick={handleCreate}
-          aria-label="Create new master page"
-          title="Master pages let you define reusable layouts that propagate across pages."
-        >
-          + New Master
-        </button>
+        <Tooltip label="Master pages let you define reusable layouts that propagate across pages.">
+          <button
+            type="button"
+            className="master-panel__add-btn"
+            onClick={handleCreate}
+            aria-label="Create new master page"
+          >
+            + New Master
+          </button>
+        </Tooltip>
       </div>
 
       {/* One line, not a block: this panel shares a fixed-height sidebar column
@@ -135,29 +136,31 @@ export function MasterPanel() {
                   onChange={(v) => setMasterAppliesTo(master.id, v as MasterAppliesTo)}
                 />
 
-                <button
-                  type="button"
-                  className="master-panel__action-btn"
-                  onClick={() => duplicateMaster(master.id)}
-                  aria-label={`Duplicate ${master.name}`}
-                  title="Duplicate"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.copy} label={undefined} size="0.85em" />
-                </button>
+                <Tooltip label="Duplicate">
+                  <button
+                    type="button"
+                    className="master-panel__action-btn"
+                    onClick={() => duplicateMaster(master.id)}
+                    aria-label={`Duplicate ${master.name}`}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.copy} label={undefined} size="0.85em" />
+                  </button>
+                </Tooltip>
 
-                <button
-                  type="button"
-                  className="master-panel__action-btn master-panel__action-btn--danger"
-                  onClick={() => {
-                    if (window.confirm(`Delete master "${master.name}"?`)) {
-                      deleteMaster(master.id);
-                    }
-                  }}
-                  aria-label={`Delete ${master.name}`}
-                  title="Delete"
-                >
-                  <SolidIcon name={SOLID_CHROME_ICONS.trash} label={undefined} size="0.85em" />
-                </button>
+                <Tooltip label="Delete">
+                  <button
+                    type="button"
+                    className="master-panel__action-btn master-panel__action-btn--danger"
+                    onClick={() => {
+                      if (window.confirm(`Delete master "${master.name}"?`)) {
+                        deleteMaster(master.id);
+                      }
+                    }}
+                    aria-label={`Delete ${master.name}`}
+                  >
+                    <SolidIcon name={SOLID_CHROME_ICONS.trash} label={undefined} size="0.85em" />
+                  </button>
+                </Tooltip>
               </div>
             </li>
           ))}

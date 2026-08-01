@@ -38,7 +38,7 @@ import {
   runLinterScan,
   type SuppressionEntry,
 } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AuditWorkerPool, type ScanProgress } from '../audit/auditWorker';
 import { useEditor } from '../context';
@@ -370,19 +370,26 @@ function LinterTab() {
                   key={`${key}-${i}`}
                   className={`intelligence-issue intelligence-issue--${sev}`}
                 >
-                  <button
-                    type="button"
-                    className="intelligence-issue__target"
-                    onClick={() => {
-                      if (issue.nodeIds.length > 0) {
-                        setSelection(issue.nodeIds[0] ?? null);
-                      }
-                    }}
-                    title={issue.nodeIds.length > 0 ? 'Select this node' : undefined}
+                  <Tooltip
+                    label="Select this node"
+                    disabledReason={
+                      issue.nodeIds.length > 0 ? undefined : 'No node is associated with this issue'
+                    }
                   >
-                    <span className="intelligence-severity-dot" />
-                    <span className="intelligence-issue__type">{issue.ruleId}</span>
-                  </button>
+                    <button
+                      type="button"
+                      className="intelligence-issue__target"
+                      onClick={() => {
+                        if (issue.nodeIds.length > 0) {
+                          setSelection(issue.nodeIds[0] ?? null);
+                        }
+                      }}
+                      disabled={issue.nodeIds.length === 0}
+                    >
+                      <span className="intelligence-severity-dot" />
+                      <span className="intelligence-issue__type">{issue.ruleId}</span>
+                    </button>
+                  </Tooltip>
                   <p className="intelligence-issue__message">{issue.message}</p>
                   {issue.detail && (
                     <p
@@ -411,14 +418,16 @@ function LinterTab() {
                       </button>
                     ))}
                     {issue.dismissable && (
-                      <button
-                        type="button"
-                        className="intelligence-action-btn"
-                        onClick={() => setDismissed((prev) => new Set(prev).add(key))}
-                        title="Dismiss this issue"
-                      >
-                        <Icon name="X" label={undefined} size="0.85em" />
-                      </button>
+                      <Tooltip label="Dismiss this issue">
+                        <button
+                          type="button"
+                          className="intelligence-action-btn"
+                          onClick={() => setDismissed((prev) => new Set(prev).add(key))}
+                          aria-label="Dismiss this issue"
+                        >
+                          <Icon name="X" label={undefined} size="0.85em" />
+                        </button>
+                      </Tooltip>
                     )}
                   </div>
                 </div>
@@ -888,24 +897,30 @@ function ReviewTab() {
                   key={finding.findingId}
                   className={`intelligence-issue intelligence-issue--${finding.severity === 'error' ? 'error' : finding.severity === 'warning' ? 'warning' : 'info'}`}
                 >
-                  <button
-                    type="button"
-                    className="intelligence-issue__target"
-                    onClick={() => finding.nodeId && setSelection(finding.nodeId)}
-                    disabled={!finding.nodeId}
-                    title={finding.nodeId ? `Select node ${finding.nodeId}` : undefined}
+                  <Tooltip
+                    label="Select this node"
+                    disabledReason={
+                      finding.nodeId ? undefined : 'No node is associated with this finding'
+                    }
                   >
-                    <span className="intelligence-severity-dot" />
-                    <span className="intelligence-issue__type">{finding.ruleId}</span>
-                    {finding.confidence < 1 && (
-                      <span
-                        className="intelligence-badge intelligence-badge--medium"
-                        style={{ marginLeft: 4 }}
-                      >
-                        {Math.round(finding.confidence * 100)}%
-                      </span>
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      className="intelligence-issue__target"
+                      onClick={() => finding.nodeId && setSelection(finding.nodeId)}
+                      disabled={!finding.nodeId}
+                    >
+                      <span className="intelligence-severity-dot" />
+                      <span className="intelligence-issue__type">{finding.ruleId}</span>
+                      {finding.confidence < 1 && (
+                        <span
+                          className="intelligence-badge intelligence-badge--medium"
+                          style={{ marginLeft: 4 }}
+                        >
+                          {Math.round(finding.confidence * 100)}%
+                        </span>
+                      )}
+                    </button>
+                  </Tooltip>
                   <p className="intelligence-issue__message">{finding.message}</p>
                   {finding.recommendation && (
                     <p
@@ -936,14 +951,16 @@ function ReviewTab() {
                           .join(' | ')}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      className="intelligence-action-btn"
-                      onClick={() => handleSuppress(finding)}
-                      title="Suppress this finding"
-                    >
-                      <Icon name="X" label={undefined} size="0.85em" />
-                    </button>
+                    <Tooltip label="Suppress this finding">
+                      <button
+                        type="button"
+                        className="intelligence-action-btn"
+                        onClick={() => handleSuppress(finding)}
+                        aria-label="Suppress this finding"
+                      >
+                        <Icon name="X" label={undefined} size="0.85em" />
+                      </button>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
@@ -985,15 +1002,16 @@ function AuditTab() {
           key={`${issue.nodeId}-${i}`}
           className={`intelligence-issue intelligence-issue--${issue.severity}`}
         >
-          <button
-            type="button"
-            className="intelligence-issue__target"
-            onClick={() => setSelection(issue.nodeId)}
-            title="Select this node"
-          >
-            <span className="intelligence-severity-dot" />
-            <span className="intelligence-issue__type">{issue.type}</span>
-          </button>
+          <Tooltip label="Select this node">
+            <button
+              type="button"
+              className="intelligence-issue__target"
+              onClick={() => setSelection(issue.nodeId)}
+            >
+              <span className="intelligence-severity-dot" />
+              <span className="intelligence-issue__type">{issue.type}</span>
+            </button>
+          </Tooltip>
           <p className="intelligence-issue__message">{issue.message}</p>
           {issue.autoFix && (
             <button
@@ -1121,13 +1139,15 @@ function buildHistogramBars(gaps: number[]) {
   const maxFreq = Math.max(...bins, 1);
 
   return bins.map((freq, i) => (
-    <div key={i} className="intelligence-histogram__bar-wrap" title={`${freq} gap(s)`}>
-      <div
-        className="intelligence-histogram__bar"
-        style={{ height: `${(freq / maxFreq) * 100}%` }}
-      />
-      <span className="intelligence-histogram__tick">{i * binWidth}</span>
-    </div>
+    <Tooltip key={i} label={`${freq} gap(s)`}>
+      <div className="intelligence-histogram__bar-wrap" role="img" aria-label={`${freq} gap(s)`}>
+        <div
+          className="intelligence-histogram__bar"
+          style={{ height: `${(freq / maxFreq) * 100}%` }}
+        />
+        <span className="intelligence-histogram__tick">{i * binWidth}</span>
+      </div>
+    </Tooltip>
   ));
 }
 
@@ -1393,16 +1413,20 @@ function GovernanceTab() {
                 key={`${issue.nodeId}-${i}`}
                 className={`intelligence-issue intelligence-issue--${issue.severity}`}
               >
-                <button
-                  type="button"
-                  className="intelligence-issue__target"
-                  onClick={() => issue.nodeId && setSelection(issue.nodeId)}
-                  disabled={!issue.nodeId}
-                  title={issue.nodeId ? 'Select this node' : undefined}
+                <Tooltip
+                  label="Select this node"
+                  disabledReason={issue.nodeId ? undefined : 'No node is associated with this issue'}
                 >
-                  <span className="intelligence-severity-dot" />
-                  <span className="intelligence-issue__type">{issue.ruleId}</span>
-                </button>
+                  <button
+                    type="button"
+                    className="intelligence-issue__target"
+                    onClick={() => issue.nodeId && setSelection(issue.nodeId)}
+                    disabled={!issue.nodeId}
+                  >
+                    <span className="intelligence-severity-dot" />
+                    <span className="intelligence-issue__type">{issue.ruleId}</span>
+                  </button>
+                </Tooltip>
                 <p className="intelligence-issue__message">{issue.message}</p>
                 {issue.targetName && (
                   <span className="intelligence-issue__target-name">{issue.targetName}</span>
@@ -1541,16 +1565,22 @@ function DebtTab() {
                     key={`${issue.nodeId}-${i}`}
                     className={`intelligence-issue intelligence-issue--${issue.severity}`}
                   >
-                    <button
-                      type="button"
-                      className="intelligence-issue__target"
-                      onClick={() => issue.nodeId && setSelection(issue.nodeId)}
-                      disabled={!issue.nodeId}
-                      title={issue.nodeId ? 'Select this node' : undefined}
+                    <Tooltip
+                      label="Select this node"
+                      disabledReason={
+                        issue.nodeId ? undefined : 'No node is associated with this issue'
+                      }
                     >
-                      <span className="intelligence-severity-dot" />
-                      <span className="intelligence-issue__type">{issue.checkId}</span>
-                    </button>
+                      <button
+                        type="button"
+                        className="intelligence-issue__target"
+                        onClick={() => issue.nodeId && setSelection(issue.nodeId)}
+                        disabled={!issue.nodeId}
+                      >
+                        <span className="intelligence-severity-dot" />
+                        <span className="intelligence-issue__type">{issue.checkId}</span>
+                      </button>
+                    </Tooltip>
                     <p className="intelligence-issue__message">{issue.message}</p>
                     {isFixable(issue) && (
                       <button
@@ -1601,15 +1631,20 @@ function PrototypeTab() {
           key={`${issue.nodeId}-${i}`}
           className={`intelligence-issue intelligence-issue--${issue.severity === 'error' ? 'error' : issue.severity === 'warning' ? 'warning' : 'info'}`}
         >
-          <button
-            type="button"
-            className="intelligence-issue__target"
-            onClick={() => issue.nodeId && setSelection(issue.nodeId)}
-            title={issue.nodeId ? 'Select this node' : undefined}
+          <Tooltip
+            label="Select this node"
+            disabledReason={issue.nodeId ? undefined : 'No node is associated with this issue'}
           >
-            <span className="intelligence-severity-dot" />
-            <span className="intelligence-issue__type">{issue.code}</span>
-          </button>
+            <button
+              type="button"
+              className="intelligence-issue__target"
+              onClick={() => issue.nodeId && setSelection(issue.nodeId)}
+              disabled={!issue.nodeId}
+            >
+              <span className="intelligence-severity-dot" />
+              <span className="intelligence-issue__type">{issue.code}</span>
+            </button>
+          </Tooltip>
           <p className="intelligence-issue__message">{issue.message}</p>
         </div>
       ))}
@@ -1737,20 +1772,20 @@ function VariantDiffTable({ candidate }: { candidate: VariantCandidate }) {
               Property
             </th>
             {displayNodes.map((nid) => (
-              <th
-                key={nid}
-                style={{
-                  textAlign: 'left',
-                  padding: '2px 4px',
-                  color: 'var(--color-text-muted)',
-                  maxWidth: 80,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-                title={nid}
-              >
-                {nid.slice(0, 6)}
-              </th>
+              <Tooltip key={nid} label={nid}>
+                <th
+                  style={{
+                    textAlign: 'left',
+                    padding: '2px 4px',
+                    color: 'var(--color-text-muted)',
+                    maxWidth: 80,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {nid.slice(0, 6)}
+                </th>
+              </Tooltip>
             ))}
           </tr>
         </thead>
@@ -2059,22 +2094,22 @@ function VariantCandidateCard({
         }}
       >
         {candidate.memberDetails.slice(0, 6).map((m) => (
-          <button
-            key={m.nodeId}
-            type="button"
-            className="intelligence-issue__target"
-            onClick={() => setSelection(m.nodeId)}
-            title={m.name}
-            style={{
-              fontSize: 'var(--font-size-2xs)',
-              padding: '2px var(--space-1)',
-              background: 'var(--color-surface-raised)',
-              border: 'var(--border-micro)',
-              borderRadius: 'var(--radius-sm)',
-            }}
-          >
-            {m.name || m.nodeId.slice(0, 6)}
-          </button>
+          <Tooltip key={m.nodeId} label={m.name}>
+            <button
+              type="button"
+              className="intelligence-issue__target"
+              onClick={() => setSelection(m.nodeId)}
+              style={{
+                fontSize: 'var(--font-size-2xs)',
+                padding: '2px var(--space-1)',
+                background: 'var(--color-surface-raised)',
+                border: 'var(--border-micro)',
+                borderRadius: 'var(--radius-sm)',
+              }}
+            >
+              {m.name || m.nodeId.slice(0, 6)}
+            </button>
+          </Tooltip>
         ))}
         {candidate.memberDetails.length > 6 && (
           <span
@@ -2263,15 +2298,16 @@ function ComponentsTab() {
               <div className="intelligence-issue-list">
                 {group.nodeIds.map((nid) => (
                   <div key={nid} className="intelligence-issue intelligence-issue--info">
-                    <button
-                      type="button"
-                      className="intelligence-issue__target"
-                      onClick={() => setSelection(nid)}
-                      title="Select this node"
-                    >
-                      <span className="intelligence-severity-dot" />
-                      <span className="intelligence-issue__type">{nid}</span>
-                    </button>
+                    <Tooltip label="Select this node">
+                      <button
+                        type="button"
+                        className="intelligence-issue__target"
+                        onClick={() => setSelection(nid)}
+                      >
+                        <span className="intelligence-severity-dot" />
+                        <span className="intelligence-issue__type">{nid}</span>
+                      </button>
+                    </Tooltip>
                   </div>
                 ))}
                 {group.suggestComponent && (
@@ -2545,27 +2581,28 @@ function SimilarTab() {
           ) : (
             matches.map((m) => (
               <div key={m.nodeId} className="intelligence-issue intelligence-issue--info">
-                <button
-                  type="button"
-                  className="intelligence-issue__target"
-                  onClick={() => setSelection(m.nodeId)}
-                  title="Select this node"
-                >
-                  <img
-                    src={m.src}
-                    alt=""
-                    style={{
-                      width: 28,
-                      height: 28,
-                      objectFit: 'cover',
-                      borderRadius: 4,
-                      marginRight: 'var(--space-1)',
-                    }}
-                  />
-                  <span className="intelligence-issue__type">
-                    {Math.round(m.similarity * 100)}% match
-                  </span>
-                </button>
+                <Tooltip label="Select this node">
+                  <button
+                    type="button"
+                    className="intelligence-issue__target"
+                    onClick={() => setSelection(m.nodeId)}
+                  >
+                    <img
+                      src={m.src}
+                      alt=""
+                      style={{
+                        width: 28,
+                        height: 28,
+                        objectFit: 'cover',
+                        borderRadius: 4,
+                        marginRight: 'var(--space-1)',
+                      }}
+                    />
+                    <span className="intelligence-issue__type">
+                      {Math.round(m.similarity * 100)}% match
+                    </span>
+                  </button>
+                </Tooltip>
               </div>
             ))
           )}

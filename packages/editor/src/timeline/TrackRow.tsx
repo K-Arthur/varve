@@ -1,5 +1,5 @@
 import type { AnimationTrack, Timeline } from '@strata/scene';
-import { Icon, Select } from '@strata/ui';
+import { Icon, Select, Tooltip } from '@strata/ui';
 import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TrackRowProps {
@@ -190,34 +190,36 @@ export const TrackRow: FC<TrackRowProps> = ({
         <div className="timeline-track-row__label-header">
           <span className="timeline-track-row__node-name">{nodeName}</span>
           {onSetMuted && (
-            <button
-              type="button"
-              className={`timeline-track-row__mute-btn ${isMuted ? 'timeline-track-row__mute-btn--active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSetMuted(!isMuted);
-              }}
-              aria-label={isMuted ? 'Unmute track' : 'Mute track'}
-              aria-pressed={isMuted}
-              title={isMuted ? 'Unmute' : 'Mute'}
-            >
-              <Icon name={isMuted ? 'VolumeX' : 'Volume2'} size={11} />
-            </button>
+            <Tooltip label={isMuted ? 'Unmute track' : 'Mute track'}>
+              <button
+                type="button"
+                className={`timeline-track-row__mute-btn ${isMuted ? 'timeline-track-row__mute-btn--active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetMuted(!isMuted);
+                }}
+                aria-label={isMuted ? 'Unmute track' : 'Mute track'}
+                aria-pressed={isMuted}
+              >
+                <Icon name={isMuted ? 'VolumeX' : 'Volume2'} size={11} />
+              </button>
+            </Tooltip>
           )}
           {onSetSolo && (
-            <button
-              type="button"
-              className={`timeline-track-row__solo-btn ${isSolo ? 'timeline-track-row__solo-btn--active' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSetSolo(!isSolo);
-              }}
-              aria-label={isSolo ? 'Unsolo track' : 'Solo track'}
-              aria-pressed={isSolo}
-              title={isSolo ? 'Unsolo' : 'Solo'}
-            >
-              S
-            </button>
+            <Tooltip label={isSolo ? 'Unsolo track' : 'Solo track'}>
+              <button
+                type="button"
+                className={`timeline-track-row__solo-btn ${isSolo ? 'timeline-track-row__solo-btn--active' : ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSetSolo(!isSolo);
+                }}
+                aria-label={isSolo ? 'Unsolo track' : 'Solo track'}
+                aria-pressed={isSolo}
+              >
+                S
+              </button>
+            </Tooltip>
           )}
         </div>
         <span className="timeline-track-row__prop-name">

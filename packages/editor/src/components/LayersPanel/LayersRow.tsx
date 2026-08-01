@@ -18,7 +18,7 @@ import type {
 } from '@strata/scene';
 import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
 import type { SolidIconName } from '@strata/ui';
-import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import type { PresenceData } from './PresenceIndicator';
@@ -420,54 +420,58 @@ export const LayersRow = memo(function LayersRow({
             aria-label={`Rename ${node.name}`}
           />
         ) : (
-          <span
-            className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
-            title={node.name}
-          >
-            {node.name}
-          </span>
+          <Tooltip label={node.name} truncationOnly>
+            <span
+              className={`layers-row__name${isInstance ? ' layers-row__name--instance' : ''}`}
+            >
+              {node.name}
+            </span>
+          </Tooltip>
         )}
 
         {/* Grid layout indicator */}
         {node.kind === 'frame' &&
           (node as { layoutStyle?: { mode?: string } }).layoutStyle?.mode === 'grid' &&
           !editing && (
-            <span
-              className="layers-row__grid-indicator"
-              title="Grid layout"
-              role="img"
-              aria-label="Grid layout"
-            >
-              <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
-            </span>
+            <Tooltip label="Grid layout">
+              <span
+                className="layers-row__grid-indicator"
+                role="img"
+                aria-label="Grid layout"
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.layoutGrid} size="0.75em" />
+              </span>
+            </Tooltip>
           )}
 
         {/* Style indicator */}
         {nodeHasStyle(node) && !editing && (
-          <span
-            className="layers-row__style-indicator"
-            title="Linked to style"
-            role="img"
-            aria-label="Linked to style"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
-          </span>
+          <Tooltip label="Linked to style">
+            <span
+              className="layers-row__style-indicator"
+              role="img"
+              aria-label="Linked to style"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.palette} size="0.75em" />
+            </span>
+          </Tooltip>
         )}
 
         {/* Instance badge */}
         {isInstance && !editing && <span className="layers-row__instance-badge">instance</span>}
         {/* Sync status indicator for component instances */}
         {isInstance && !editing && syncStatus && syncStatus !== 'synced' && (
-          <span
-            className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}
-            title={
+          <Tooltip
+            label={
               syncStatus === 'overridden'
                 ? 'Has local overrides'
                 : 'Broken — master component not found'
             }
           >
-            {syncStatus === 'overridden' ? 'modified' : 'broken'}
-          </span>
+            <span className={`layers-row__sync-badge layers-row__sync-badge--${syncStatus}`}>
+              {syncStatus === 'overridden' ? 'modified' : 'broken'}
+            </span>
+          </Tooltip>
         )}
         {/* Variant badge */}
         {isInstance && !editing && variantName && (
@@ -538,15 +542,18 @@ export const LayersRow = memo(function LayersRow({
         )}
 
         {maskRole && !editing && (
-          <span
-            className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
-            role="img"
-            aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
-            title={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
-            data-mask-role={maskRole}
+          <Tooltip
+            label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
           >
-            {maskRole === 'source' ? 'mask' : 'clipped'}
-          </span>
+            <span
+              className={`layers-row__mask-role layers-row__mask-role--${maskRole}`}
+              role="img"
+              aria-label={maskRole === 'source' ? 'Clipping mask source' : 'Clipped content'}
+              data-mask-role={maskRole}
+            >
+              {maskRole === 'source' ? 'mask' : 'clipped'}
+            </span>
+          </Tooltip>
         )}
 
         {/* Blend mode / opacity badge */}

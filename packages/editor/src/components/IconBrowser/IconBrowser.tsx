@@ -3,7 +3,7 @@
  */
 
 import type { IconProviderResult } from '@strata/engine';
-import { Icon, SolidIcon } from '@strata/ui';
+import { Icon, SolidIcon, Tooltip } from '@strata/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getIconDownloadManager } from './iconDownloadManager';
@@ -334,9 +334,9 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
                 )}
               </div>
             )}
-            <span className="icon-browser__card-name" title={item.name}>
-              {item.name}
-            </span>
+            <Tooltip label={item.name} truncationOnly>
+              <span className="icon-browser__card-name">{item.name}</span>
+            </Tooltip>
             <span className={`icon-browser__card-badge icon-browser__card-badge--${item.source}`}>
               {item.source}
             </span>

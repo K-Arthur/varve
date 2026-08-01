@@ -11,7 +11,7 @@
 
 import { getFontRegistry } from '@strata/engine';
 import { runDebtScan } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
 
@@ -46,16 +46,19 @@ export function DebtBadge() {
   }
 
   return (
-    <button
-      type="button"
-      className="debt-badge"
-      onClick={() => setInspectorTab('audit', 'debt')}
-      style={{ color, background: bg }}
-      title={`${ec} errors, ${wc} warnings, ${ic} info — click to view debt panel`}
-      aria-label={`Design debt: ${ec} errors, ${wc} warnings, ${ic} info`}
+    <Tooltip
+      label={`${ec} errors, ${wc} warnings, ${ic} info — click to view debt panel`}
     >
-      <Icon name="FileWarning" size={12} />
-      <span className="debt-badge__count">{total}</span>
-    </button>
+      <button
+        type="button"
+        className="debt-badge"
+        onClick={() => setInspectorTab('audit', 'debt')}
+        style={{ color, background: bg }}
+        aria-label={`Design debt: ${ec} errors, ${wc} warnings, ${ic} info`}
+      >
+        <Icon name="FileWarning" size={12} />
+        <span className="debt-badge__count">{total}</span>
+      </button>
+    </Tooltip>
   );
 }

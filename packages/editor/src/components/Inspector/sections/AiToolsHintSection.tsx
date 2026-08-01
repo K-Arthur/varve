@@ -9,7 +9,8 @@
 import { Button } from '@strata/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../../../context';
-import { WORKSPACE_LABELS, WORKSPACE_SHORTCUTS } from '../../../workspace/workspaceTypes';
+import { WORKSPACE_LABELS } from '../../../workspace/workspaceTypes';
+import { workspaceShortcutLabel } from '../../../workspace/workspaceShortcutLabel';
 import { DisclosureSection } from '../controls/DisclosureSection';
 
 export function AiToolsHintSection() {
@@ -20,7 +21,7 @@ export function AiToolsHintSection() {
   }, [requestWorkspaceSwitch]);
 
   const label = WORKSPACE_LABELS.image;
-  const shortcut = WORKSPACE_SHORTCUTS.image;
+  const shortcut = workspaceShortcutLabel('image');
 
   return (
     <DisclosureSection title="AI Tools" sectionId="ai-tools-hint" defaultExpanded>
