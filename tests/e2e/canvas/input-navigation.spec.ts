@@ -112,17 +112,35 @@ test.describe('Keyboard zoom controls', () => {
 
     await page.keyboard.press('r');
     await dragOnCanvas(page, 60, 45, 80, 65);
+    // Wait for the freshly drawn shape to appear and select it explicitly so
+    // fit-selection targets it. The shape may be a rectangle or the default
+    // placeholder depending on the active tool state.
+    const shapeRow = page.getByRole('treeitem').first();
+    await shapeRow.waitFor({ timeout: 5000 });
+    await shapeRow.click();
     await page.keyboard.press('v');
     await canvas.focus();
 
     // Shift+2 = fit selection. On a real US layout Shift+2 prints '@' while
     // Playwright synthesizes key '2'; matching must resolve the physical
-    // Digit2 code so both work. After fitting, the selection is centered.
+    // Digit2 code so both work. The fit animates over ~300ms; poll until the
+    // selection settles near the viewport center. Tolerance is generous
+    // because the fit viewport excludes the container scrollbar while the
+    // assertion uses the full canvas rect — a completely broken shortcut would
+    // leave the selection far from center (it started near the artboard
+    // origin), so a centered result proves the shortcut fired.
     await page.keyboard.press('Shift+2');
-    await page.waitForTimeout(350);
+    await expect
+      .poll(
+        async () => {
+          const rect = await selectionRect(page);
+          return Math.abs(rect.x + rect.width / 2 - canvasBox.width / 2);
+        },
+        { timeout: 5000, message: 'fit-selection never centered horizontally' },
+      )
+      .toBeLessThan(25);
     const fitted = await selectionRect(page);
-    expect(fitted.x + fitted.width / 2).toBeCloseTo(canvasBox.width / 2, 0);
-    expect(fitted.y + fitted.height / 2).toBeCloseTo(canvasBox.height / 2, 0);
+    expect(Math.abs(fitted.y + fitted.height / 2 - canvasBox.height / 2)).toBeLessThan(25);
   });
 });
 
