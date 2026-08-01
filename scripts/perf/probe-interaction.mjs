@@ -116,6 +116,9 @@ const dragDiag = await page.evaluate(() => {
     build: f.map((x) => x.buildIrMs),
     replay: f.map((x) => x.replayMs),
     hash: f.map((x) => x.hashMs ?? 0),
+    computes: f.map((x) => x.engineNodeComputes ?? -1),
+    hits: f.map((x) => x.engineNodeHits ?? -1),
+    nodes: f.map((x) => x.nodeCount),
     n: f.length,
   };
 });
@@ -123,5 +126,22 @@ console.log('DRAG frame totalMs:', JSON.stringify(summary(dragDiag.total)), 'n='
 console.log('DRAG buildIrMs:    ', JSON.stringify(summary(dragDiag.build)));
 console.log('DRAG replayMs:     ', JSON.stringify(summary(dragDiag.replay)));
 console.log('DRAG hashMs:       ', JSON.stringify(summary(dragDiag.hash)));
+
+// Deterministic work counts. Unlike the timings above these do not depend on
+// machine load, so they are the reliable signal when the box is contended:
+// a drag should re-derive only the node it is moving, not the whole scene.
+console.log('DRAG engineNodeComputes:', JSON.stringify(summary(dragDiag.computes)));
+console.log('DRAG engineNodeHits:    ', JSON.stringify(summary(dragDiag.hits)));
+console.log('DRAG visible nodeCount: ', JSON.stringify(summary(dragDiag.nodes)));
+const medNodes = summary(dragDiag.nodes).p50;
+const medComputes = summary(dragDiag.computes).p50;
+console.log(
+  `VERDICT: median ${medComputes} conversions/frame for ${medNodes} visible nodes` +
+    (medComputes < 0
+      ? ' — counter absent (old build?)'
+      : medNodes > 0 && medComputes <= Math.max(4, medNodes * 0.05)
+        ? ' — memo effective'
+        : ' — MEMO DEFEATED'),
+);
 console.log('ERRS:', errs.slice(0, 3));
 await browser.close();
