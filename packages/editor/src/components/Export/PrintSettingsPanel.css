@@ -1,0 +1,61 @@
+.print-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--elevation-surface-default);
+  padding: var(--space-3);
+}
+.print-settings__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+}
+.print-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--space-2);
+}
+.print-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.print-settings__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.print-settings__input {
+  height: var(--space-5);
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--elevation-surface-default);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--font-size-sm);
+}
+.print-settings__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
+.print-settings__marks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--space-1);
+}
+.print-settings__note {
+  margin: 0;
+  font-size: var(--font-size-2xs);
+  color: var(--color-text-muted);
+}
+
+[data-theme="high-contrast"] .print-settings {
+  border-color: var(--color-border-strong);
+}

@@ -99,6 +99,8 @@ export interface ExportJob {
   status: 'pending' | 'running' | 'done' | 'error';
   error?: string;
   result?: Uint8Array | string;
+  /** Press/print settings for PDF-family jobs (bleed, marks, DPI, profile). */
+  print?: PrintOptions;
 }
 
 export interface ExportBatch {
