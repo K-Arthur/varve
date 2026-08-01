@@ -292,24 +292,28 @@ Commit hashes recorded below as milestones complete.
 - [x] M5 preflight green
 - [x] M6 integration green (typecheck editor+scene, lint 0 new, tests)
 - [x] M7 built-in preset catalog green (115 tests in `scene/src/export`)
-- [ ] M8+ UI milestones (inspector section, full workspace, print UI)
-- [ ] E2E export suite green
-- [ ] Full `just gate` after each milestone
+- [x] M8 inspector export section + per-node settings green
+- [ ] M9+ UI milestones (full export workspace, print UI, preview)
+- [x] Export E2E suite green (new export-settings.spec 4/4; export.spec 5/5)
+- [x] Full typecheck + lint + pre-commit gates after M8
 
 Gate results per milestone:
 
-| Milestone | Typecheck | Lint (touched) | Unit tests | Audits |
-|-----------|-----------|----------------|------------|--------|
+| Milestone | Typecheck | Lint (touched) | Unit tests | E2E / audits |
+|-----------|-----------|----------------|------------|--------------|
 | M2 | `@strata/scene` clean | Biome clean | 39/39 `scene/src/export` | n/a |
 | M3 | `@strata/scene` clean | Biome clean | 90/90 `scene/src/export` | n/a |
 | M4 | `@strata/scene` clean | Biome clean | 104/104 `scene/src/export` | n/a |
 | M5 | editor + scene clean | Biome clean (touched) | scene+editor suites; 11 unrelated failures proven pre-existing | pre-commit audit-health pass |
 | M6 | editor + scene clean | Biome clean | 133/133 (focused) | pre-commit audit-health pass |
 | M7 | scene clean | Biome clean | 115/115 `scene/src/export` | pre-commit audit-health pass |
+| M8 | editor clean | Biome clean | ExportDialog 12/12; AssetExportControls 11/12 (pre-existing tooltip-title failure); full typecheck 15/15 + E2E tsconfig exit 0 | **export-settings E2E 4/4**; export.spec 5/5; pre-commit audit-health pass |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
-(1), `LayersRow.test.tsx` (1), `AssetExportControls.test.tsx` (1).
+(1), `LayersRow.test.tsx` (1), `AssetExportControls.test.tsx` (1 — the
+`shows the advisor reason in a title tooltip` assertion; the Tooltip component
+renders the reason via a tooltip element, not a `title` attribute).
 
 Architecture audit note: `scripts/audit-architecture.mjs --ci` hangs at the
 module-instability step (engine `index.ts` madge graph, a pre-existing
@@ -318,6 +322,10 @@ changes). Pre-commit `audit-health` (dependency cycles, hub-file budgets,
 complexity gates) passes on every commit. Pre-existing instability findings
 (`shared/index.ts` I=1.000, `engine/index.ts` I=1.000) are barrel-file artifacts
 that predate this work.
+
+E2E note: the `@strata/scene/export` subpath requires a fresh Vite dev server
+(`STRATA_E2E_PORT=<other>`); the long-lived server on the default port predates
+the `package.json` exports change and does not re-resolve it.
 
 Current gate state (baseline, before this work):
 
@@ -341,6 +349,9 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 4 — preflight service | `5b1a118b` (+ lint `ac5ea669`) |
 | 5 — integration (cancellation, gating, settings, shortcuts) | `f607df92` |
 | 6 — built-in preset catalog | `c3655d05` |
+| 7 — (folded into M5/M6 — integration + presets landed together) | — |
+| 8 — inspector export section + per-node settings | `5ad069d0` |
+| 8-E2E — inspector export-settings E2E spec | `a7a27246` |
 
 > Branch note: commits are shared with the concurrent agent's branch history
 > (`feat/tooltip-system`); interleaved agent commits `45386252`,
