@@ -27,13 +27,31 @@ describe('AssetExportControls', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'SVG' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Download' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export SVG' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
     const text = new TextDecoder().decode(saved[0]?.bytes);
     expect(saved[0]).toMatchObject({ mime: 'image/svg+xml', ext: '.svg' });
     expect(text).toContain('<svg');
     expect(text.startsWith('\uFFFDPNG')).toBe(false);
+  });
+
+  it('labels the primary action "Download" for browser delivery and "Export" for desktop saves', () => {
+    const doc = createDocument('Export', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Icon' });
+    const fullDoc = { ...doc, rootChildren: ['n1'], nodes: { n1: node } };
+
+    const { rerender } = render(<AssetExportControls node={node} doc={fullDoc} />);
+    expect(screen.getByRole('button', { name: 'Download SVG' })).toBeInTheDocument();
+
+    rerender(
+      <AssetExportControls
+        node={node}
+        doc={fullDoc}
+        platform={{ kind: 'tauri', saveBinaryFile: vi.fn() } as never}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Export SVG' })).toBeInTheDocument();
   });
 
   it('pre-fills the format from exportAdvisor.suggestExportFormat', () => {
@@ -91,5 +109,126 @@ describe('AssetExportControls', () => {
 
     rerender(<AssetExportControls node={bigNode} doc={fullDoc} />);
     expect(screen.getByRole('button', { name: 'JPEG' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  describe('export settings (multi-configuration list)', () => {
+    it('is not rendered when no preset callbacks are provided', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+        />,
+      );
+      expect(screen.queryByText('Export settings')).not.toBeInTheDocument();
+    });
+
+    it('shows the empty state when callbacks are provided but the node has no presets', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={vi.fn()}
+        />,
+      );
+      expect(screen.getByText(/No export settings have been added/)).toBeInTheDocument();
+    });
+
+    it('seeds a new preset from the current quick-export format and scale on "Add export setting"', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      const onAddPreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      // Vector rect defaults to SVG (see exportAdvisor).
+      fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
+
+      expect(onAddPreset).toHaveBeenCalledTimes(1);
+      expect(onAddPreset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          format: 'svg',
+          scale: { type: 'factor', value: 1 },
+          suffix: '',
+          enabled: true,
+        }),
+      );
+    });
+
+    it('renders existing presets and wires toggle/suffix/remove to the provided callbacks', () => {
+      const doc = createDocument('Export', true);
+      const node = {
+        ...makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Icon' }),
+        presets: [
+          {
+            id: 'p1',
+            format: 'png' as const,
+            scale: { type: 'factor' as const, value: 2 },
+            suffix: '@2x',
+            enabled: true,
+          },
+        ],
+      };
+      const onUpdatePreset = vi.fn();
+      const onRemovePreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={vi.fn()}
+          onUpdatePreset={onUpdatePreset}
+          onRemovePreset={onRemovePreset}
+        />,
+      );
+
+      expect(screen.getByText('Icon@2x.png')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Enable PNG export setting' }));
+      expect(onUpdatePreset).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Remove PNG export setting' }));
+      expect(onRemovePreset).toHaveBeenCalledWith('p1');
+    });
+
+    it('invokes onOpenAdvancedExport when provided', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      const onOpenAdvancedExport = vi.fn();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={vi.fn()}
+          onOpenAdvancedExport={onOpenAdvancedExport}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Open advanced export…' }));
+      expect(onOpenAdvancedExport).toHaveBeenCalledTimes(1);
+    });
   });
 });

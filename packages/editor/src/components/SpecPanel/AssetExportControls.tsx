@@ -1,7 +1,7 @@
 import { exportNodeToSvg } from '@strata/codegen';
 import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
-import type { SceneNode } from '@strata/scene';
+import type { ExportPreset, ExportFormat as PresetFormat, SceneNode } from '@strata/scene';
 import { CopyButton, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
@@ -19,6 +19,11 @@ export interface AssetExportControlsProps {
   doc: import('@strata/scene').Document;
   engine?: Engine;
   platform?: Platform;
+  /** When provided (editable contexts only), renders the multi-configuration list below quick export. */
+  onAddPreset?: (preset: ExportPreset) => void;
+  onUpdatePreset?: (preset: ExportPreset) => void;
+  onRemovePreset?: (presetId: string) => void;
+  onOpenAdvancedExport?: () => void;
 }
 
 type ExportFormat = RasterFormat | 'svg' | 'pdf';
@@ -32,6 +37,116 @@ const FORMATS: { value: ExportFormat; label: string; desktopOnly?: boolean }[] =
 ];
 
 const SCALES = [1, 2, 3];
+
+const PRESET_FORMAT_LABELS: Partial<Record<PresetFormat, string>> = {
+  png: 'PNG',
+  jpg: 'JPEG',
+  webp: 'WebP',
+  avif: 'AVIF',
+  svg: 'SVG',
+  'pdf-screen': 'PDF',
+  'pdf-x1a': 'PDF/X-1a',
+  'pdf-x4': 'PDF/X-4',
+  'react-tailwind': 'React + Tailwind',
+  'react-cssmodules': 'React + CSS Modules',
+  flutter: 'Flutter',
+  swiftui: 'SwiftUI',
+  'svg-component': 'SVG Component',
+};
+
+function presetFileExtension(format: PresetFormat): string {
+  if (format.startsWith('pdf')) return 'pdf';
+  if (format === 'jpg') return 'jpg';
+  if (format.startsWith('react')) return 'tsx';
+  if (format === 'flutter') return 'dart';
+  if (format === 'swiftui') return 'swift';
+  if (format === 'svg-component') return 'svg';
+  return format;
+}
+
+/** Seeds a new preset from the quick-export panel's current format/scale, so "Add export setting" doesn't start blank. */
+function buildPresetFromQuickExport(
+  presetCount: number,
+  format: ExportFormat,
+  scale: number,
+): ExportPreset {
+  const presetFormat: PresetFormat =
+    format === 'image/png'
+      ? 'png'
+      : format === 'image/jpeg'
+        ? 'jpg'
+        : format === 'image/webp'
+          ? 'webp'
+          : format === 'svg'
+            ? 'svg'
+            : 'pdf-screen';
+  const isVectorish = presetFormat === 'svg' || presetFormat.startsWith('pdf');
+  return {
+    id: `preset-${Date.now()}-${presetCount}`,
+    format: presetFormat,
+    scale: { type: 'factor', value: isVectorish ? 1 : scale },
+    suffix: isVectorish || scale === 1 ? '' : `@${scale}x`,
+    enabled: true,
+  };
+}
+
+function ExportConfigRow({
+  preset,
+  nodeName,
+  onUpdate,
+  onRemove,
+}: {
+  preset: ExportPreset;
+  nodeName: string;
+  onUpdate?: (preset: ExportPreset) => void;
+  onRemove?: (presetId: string) => void;
+}) {
+  const scaleLabel =
+    preset.scale.type === 'factor' ? `${preset.scale.value}x` : `${preset.scale.pixels}px`;
+  const formatLabel = PRESET_FORMAT_LABELS[preset.format] ?? preset.format;
+  return (
+    <div className="spec-export__config-row">
+      <label className="spec-export__config-checkbox">
+        <input
+          type="checkbox"
+          checked={preset.enabled}
+          onChange={(e) => onUpdate?.({ ...preset, enabled: e.target.checked })}
+          aria-label={`Enable ${formatLabel} export setting`}
+        />
+      </label>
+      <div className="spec-export__config-label">
+        <div className="spec-export__config-name">
+          {nodeName}
+          {preset.suffix}.{presetFileExtension(preset.format)}
+        </div>
+        <div className="spec-export__config-details">
+          {formatLabel}, {scaleLabel}
+        </div>
+      </div>
+      <input
+        value={preset.suffix}
+        onChange={(e) => onUpdate?.({ ...preset, suffix: e.target.value })}
+        aria-label="Filename suffix"
+        className="spec-export__config-suffix"
+      />
+      <button
+        type="button"
+        onClick={() => onRemove?.(preset.id)}
+        aria-label={`Remove ${formatLabel} export setting`}
+        className="spec-export__config-remove"
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true">
+          <path
+            d="M1 1l8 8M9 1l-8 8"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+    </div>
+  );
+}
 
 function isTauriPlatform(p?: Platform): boolean {
   return p?.kind === 'tauri';
@@ -55,6 +170,10 @@ export function AssetExportControls({
   doc,
   engine: _engine,
   platform,
+  onAddPreset,
+  onUpdatePreset,
+  onRemovePreset,
+  onOpenAdvancedExport,
 }: AssetExportControlsProps) {
   const suggestion = useMemo(() => suggestExportFormat(node, doc), [node, doc]);
   const [engine, setEngine] = useState<Engine | null>(null);
@@ -80,6 +199,13 @@ export function AssetExportControls({
   const effectiveScale = customScale ? Number.parseFloat(customScale) : scale;
   const isTauri = isTauriPlatform(platform);
   const isPdfDesktopOnly = format === 'pdf' && !isTauri;
+  const formatLabel = FORMATS.find((f) => f.value === format)?.label ?? format;
+  const usesDesktopSave = isTauri && !!platform;
+  const primaryActionLabel = exporting
+    ? 'Exporting…'
+    : `${usesDesktopSave ? 'Export' : 'Download'} ${formatLabel}`;
+  const nodePresets = node.presets ?? [];
+  const showConfigList = !!(onAddPreset || onUpdatePreset || onRemovePreset);
 
   useEffect(() => {
     if (_engine) {
@@ -241,7 +367,7 @@ export function AssetExportControls({
           disabled={exporting || !effectiveScale || effectiveScale <= 0 || isPdfDesktopOnly}
           onClick={handleExport}
         >
-          {exporting ? 'Exporting\u2026' : 'Download'}
+          {primaryActionLabel}
         </button>
         {format === 'svg' && (
           <CopyButton
@@ -256,6 +382,54 @@ export function AssetExportControls({
         {message}
       </div>
       {message && <p className="spec-export__message">{message}</p>}
+
+      {showConfigList && (
+        <section className="spec-export__configs" aria-labelledby="spec-export-configs-heading">
+          <h4 id="spec-export-configs-heading" className="spec-export__configs-title">
+            Export settings
+          </h4>
+          {nodePresets.length === 0 ? (
+            <p className="spec-export__configs-empty">
+              No export settings have been added. Add one to export this node as PNG, SVG, PDF, or
+              another supported format whenever you batch-export the document.
+            </p>
+          ) : (
+            nodePresets.map((preset) => (
+              <ExportConfigRow
+                key={preset.id}
+                preset={preset}
+                nodeName={node.name}
+                onUpdate={onUpdatePreset}
+                onRemove={onRemovePreset}
+              />
+            ))
+          )}
+          <div className="spec-export__configs-actions">
+            {onAddPreset && (
+              <button
+                type="button"
+                className="spec-export__configs-add"
+                onClick={() =>
+                  onAddPreset(
+                    buildPresetFromQuickExport(nodePresets.length, format, effectiveScale),
+                  )
+                }
+              >
+                + Add export setting
+              </button>
+            )}
+            {onOpenAdvancedExport && (
+              <button
+                type="button"
+                className="spec-export__configs-advanced"
+                onClick={onOpenAdvancedExport}
+              >
+                {'Open advanced export\u2026'}
+              </button>
+            )}
+          </div>
+        </section>
+      )}
     </section>
   );
 }

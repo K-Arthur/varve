@@ -127,6 +127,21 @@ this document as it lands, with the commit hash noted.
 
 ### C4. Explicitly out of scope for this pass (tracked elsewhere or deferred)
 
+- **Reconciliation with a concurrent rebuild on this same branch.** While
+  landing C1–C3, `feat/export-infrastructure` also picked up (from another
+  session) a from-scratch canonical export model at `packages/scene/src/export/`
+  (`model.ts` — versioned `ExportConfiguration`/`ExportTarget`, `adapter.ts` —
+  legacy `ExportPreset`/`ExportJob`/`ExportBatch` bridge, `capabilities.ts` — a
+  full per-format capability contract table answering brief §6's
+  "capability-driven format list" requirement in more depth than C4's
+  now-superseded note below suggested, plus in-progress `naming.ts`/`plan.ts`).
+  C1–C3 were built against the legacy `node.presets`/`ExportPreset` model
+  deliberately, since that's what's live in `ExportDialog`/`buildJobs()` today
+  and the new model's adapter explicitly bridges old↔new — so this UI work
+  should not need to be redone, only re-pointed at the adapter once the
+  canonical model's own UI layer lands. Re-audit `AssetExportControls` against
+  `capabilities.ts`'s `supportedFormats()`/`formatSupportedOnPlatform()` at
+  that point instead of hand-rolling a second capability table.
 - Rust print-engine work (font outlining, ICC-aware CMYK, real PDF/X-1a/X-4,
   crop/registration marks) — owned by `export-system-deferred.md` Workstream
   A, already implemented per that doc's session-26 status log; brief §10's
