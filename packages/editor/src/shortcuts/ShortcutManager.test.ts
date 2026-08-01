@@ -119,10 +119,17 @@ describe('bindingMatchesEvent', () => {
     expect(bindingMatchesEvent(np, { key: '=', ctrl: true })).toBe(true);
   });
 
-  it('matches numpad digit shortcuts regardless of NumLock', () => {
-    // NumLock off: Numpad1 reports key 'End'.
-    const e = new KeyboardEvent('keydown', { key: 'End', code: 'Numpad1' });
+  it('matches numpad digit shortcuts with NumLock on', () => {
+    // NumLock on: the numpad reports the digit as the printed key.
+    const e = new KeyboardEvent('keydown', { key: '1', code: 'Numpad1' });
     expect(bindingMatchesEvent(e, { key: '1' })).toBe(true);
+  });
+
+  it('does NOT treat NumLock-off numpad keys as digit shortcuts', () => {
+    // NumLock off: Numpad1 reports key 'End' — a navigation key, not the digit
+    // '1'. It must not trigger the zoom-50% shortcut.
+    const e = new KeyboardEvent('keydown', { key: 'End', code: 'Numpad1' });
+    expect(bindingMatchesEvent(e, { key: '1' })).toBe(false);
   });
 
   it('still requires the exact modifier set for shifted digits', () => {
