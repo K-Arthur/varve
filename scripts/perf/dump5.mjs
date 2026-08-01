@@ -8,9 +8,7 @@ await page.goto('http://localhost:1430/?perf=1', { timeout: 90000, waitUntil: 'd
 await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 30000 });
 await page
   .waitForFunction(
-    () =>
-      !document.querySelector('.startup-loader') ||
-      document.querySelector('.startup-loader').getAttribute('aria-busy') !== 'true',
+    () => document.querySelector('.startup-loader')?.getAttribute('aria-busy') !== 'true',
     { timeout: 30000 },
   )
   .catch(() => {});

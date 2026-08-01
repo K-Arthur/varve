@@ -84,7 +84,7 @@ const control = await page.evaluate(() => {
 results.control = summarize(control);
 
 for (const count of TIERS) {
-  const items = makeRects(count);
+  const _items = makeRects(count);
   const samples = [];
   const iterations = count >= 10_000 ? 3 : 6;
   for (let i = 0; i < iterations; i++) {

@@ -158,7 +158,7 @@ const dragLatency = await page.evaluate(
       ev('pointerdown', sx, sy);
       const t0 = performance.now();
       let firstFrame = null;
-      let lastFrame = null;
+      let _lastFrame = null;
       const pollStart = performance.now();
       let step = 0;
       while (performance.now() - pollStart < 300) {
@@ -168,7 +168,7 @@ const dragLatency = await page.evaluate(
         const frames = perf.getFrames(1);
         if (frames.length > 0) {
           if (firstFrame === null) firstFrame = performance.now() - t0;
-          lastFrame = performance.now() - t0;
+          _lastFrame = performance.now() - t0;
         }
         step++;
         await new Promise((r) => requestAnimationFrame(r));

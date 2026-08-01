@@ -4,7 +4,7 @@ const browser = await chromium.launch({ headless: true, args: ['--disable-gpu-sa
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
 const page = await context.newPage();
 const errs = [];
-page.on('pageerror', (e) => errs.push('[pageerror] ' + String(e).slice(0, 300)));
+page.on('pageerror', (e) => errs.push(`[pageerror] ${String(e).slice(0, 300)}`));
 page.on('crash', () => errs.push('[page-crash]'));
 browser.on('disconnected', () => errs.push('[browser-disconnected]'));
 await page.goto('http://localhost:1430/', { timeout: 90000, waitUntil: 'domcontentloaded' });
@@ -27,7 +27,7 @@ const canvas = page.locator('canvas.editor-canvas__content-layer');
 await canvas.waitFor({ state: 'visible', timeout: 15000 });
 const box = await canvas.boundingBox();
 const t0 = Date.now();
-const created = 0;
+const _created = 0;
 for (let i = 0; i < 120; i++) {
   const col = i % 30;
   const row = Math.floor(i / 30);
@@ -50,7 +50,7 @@ console.log(
   'FINAL treeitems:',
   finalCount,
   'total time:',
-  ((Date.now() - t0) / 1000).toFixed(1) + 's',
+  `${((Date.now() - t0) / 1000).toFixed(1)}s`,
 );
 console.log('ERRS:', errs.slice(0, 4));
 await browser.close();
