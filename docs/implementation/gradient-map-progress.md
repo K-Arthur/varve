@@ -311,3 +311,8 @@ Current gradient-map E2E status: **9 passed, 0 skipped** (2026-08-01,
 9.2 min on a loaded dev machine). That is the full import-workflow spec (4) plus
 the full raster/vector spec (5) — raster, vector, text, group, and the
 malformed-`.grd` error path, all asserting real composited canvas pixels.
+
+**Portability unit coverage** (`gradientPresets.portability.test.ts`): embedded
+gradient preferred over legacy `stops`, `stops` fallback for legacy adjustments,
+embedded-data round-trip, deleted-global-preset recovery (document still renders
+from the embedded snapshot), and embedded gradient surviving JSON serialization.
