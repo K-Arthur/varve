@@ -9,9 +9,15 @@ import type {
   SceneNode,
 } from '@strata/scene';
 import {
+  type BuiltinPresetDefinition,
+  builtinBundleList,
+  builtinPresetList,
+  canonicalFormatToLegacy,
+  canonicalScaleToLegacy,
   capabilitiesForFormat,
   formatFileName,
   formatSupportedOnPlatform,
+  getBuiltinPreset,
   legacyFormatToCanonical,
   legacyScaleToCanonical,
   type PlatformKind,
@@ -100,6 +106,25 @@ const PRESET_FORMAT_GROUPS: {
     ],
   },
 ];
+
+/**
+ * Convert a built-in catalog preset into the legacy per-node `ExportPreset`
+ * shape that `node.presets` persists and `ExportDialog.buildJobs` expands.
+ *
+ * Returns undefined when the preset's format has no legacy representation
+ * (e.g. canonical-only formats), so the catalog can grow without this surface
+ * silently persisting something the executor cannot run.
+ */
+function builtinPresetToLegacy(
+  preset: BuiltinPresetDefinition,
+  id: string,
+): ExportPreset | undefined {
+  const format = canonicalFormatToLegacy(preset.format);
+  if (!format) return undefined;
+  const scale = canonicalScaleToLegacy(preset.scale);
+  if (!scale) return undefined;
+  return { id, format, scale, suffix: preset.config.suffix ?? '', enabled: true };
+}
 
 /** Formats whose scale control is meaningless (vector, press, or code output). */
 const UNSCALED_PRESET_FORMATS = new Set<LegacyExportFormat>([
@@ -381,6 +406,60 @@ export function AssetExportControls({
     [platformKindValue],
   );
 
+  /**
+   * Built-in catalog entries usable here: they must map to a legacy preset and
+   * their format must be encodable on this platform. Bundles are offered when
+   * at least one member survives that filter.
+   */
+  const catalogOptions = useMemo(() => {
+    const presetEntries = builtinPresetList()
+      .filter((p) => {
+        if (!builtinPresetToLegacy(p, 'probe')) return false;
+        return formatSupportedOnPlatform(p.format, platformKindValue);
+      })
+      .map((p) => ({ value: `preset:${p.id}`, label: `${p.name} · ${p.category}` }));
+
+    const bundleEntries = builtinBundleList()
+      .filter((b) =>
+        b.presetIds.some((id) => {
+          const preset = getBuiltinPreset(id);
+          return (
+            preset !== undefined &&
+            builtinPresetToLegacy(preset, 'probe') !== undefined &&
+            formatSupportedOnPlatform(preset.format, platformKindValue)
+          );
+        }),
+      )
+      .map((b) => ({ value: `bundle:${b.id}`, label: `${b.name} · bundle` }));
+
+    return [...bundleEntries, ...presetEntries];
+  }, [platformKindValue]);
+
+  const handleApplyCatalogEntry = useCallback(
+    (selection: string) => {
+      if (!onAddPreset || !selection) return;
+      const stamp = Date.now();
+
+      if (selection.startsWith('bundle:')) {
+        const bundle = builtinBundleList().find((b) => b.id === selection.slice(7));
+        if (!bundle) return;
+        bundle.presetIds.forEach((presetId, index) => {
+          const preset = getBuiltinPreset(presetId);
+          if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
+          const legacy = builtinPresetToLegacy(preset, `preset-${stamp}-${index}`);
+          if (legacy) onAddPreset(legacy);
+        });
+        return;
+      }
+
+      const preset = getBuiltinPreset(selection.slice(7));
+      if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
+      const legacy = builtinPresetToLegacy(preset, `preset-${stamp}`);
+      if (legacy) onAddPreset(legacy);
+    },
+    [onAddPreset, platformKindValue],
+  );
+
   const handleAddPreset = useCallback(() => {
     if (!onAddPreset || !presetFormatAvailable(presetFormat)) return;
     const scaled = !UNSCALED_PRESET_FORMATS.has(presetFormat);
@@ -541,6 +620,13 @@ export function AssetExportControls({
             );
           })}
           <div className="spec-export__preset-add">
+            <Select
+              label="Add from preset"
+              placeholder="Add from preset…"
+              value=""
+              options={catalogOptions}
+              onChange={handleApplyCatalogEntry}
+            />
             <Select
               label="Format for new export setting"
               value={presetFormat}
