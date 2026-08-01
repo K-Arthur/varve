@@ -333,11 +333,20 @@ Five task-focused modes over the same document/scene/rendering/command/history s
 
 | Mode | Shortcut | Default Tool | Focus |
 |---|---|---|---|
-| **Design** | `Ctrl+Shift+D` | select | UI/UX, components, prototyping |
-| **Print** | `Ctrl+Shift+P` | select | Multi-page, typography, preflight, colour management |
-| **Draw** | `Ctrl+Shift+R` | paint | Raster painting, vector freehand, brushes |
-| **Photo** | `Ctrl+Shift+I` | preserve | Nondestructive photo editing, adjustments |
-| **Motion** | `Ctrl+Shift+M` | select | Timeline animation, keyframes, easing |
+| **Design** | `Ctrl+Shift+1` | select | UI/UX, components, prototyping |
+| **Print** | `Ctrl+Shift+2` | select | Multi-page, typography, preflight, colour management |
+| **Draw** | `Ctrl+Shift+3` | paint | Raster painting, vector freehand, brushes |
+| **Photo** | `Ctrl+Shift+4` | preserve | Nondestructive photo editing, adjustments |
+| **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
+| **Codegen** | `Ctrl+Shift+9` | select | Code export |
+
+The bindings above come from the shortcut registry (`workspaceDesign` … in
+`packages/editor/src/shortcuts/ShortcutManager.ts`). Older docs may show
+`Ctrl+Shift+D/P/R/I/M` — those keys are now taken by Repeat Duplicate,
+Present, Invert Selection, and Preview Mode, and do **not** switch
+workspaces. Always resolve workspace shortcuts for display via
+`workspaceShortcutLabel(mode)` (see `packages/editor/src/workspace/workspaceShortcutLabel.ts`),
+never hard-code them.
 
 ### Invariants (do not violate)
 1. Single document model — mode never forks the scene.
