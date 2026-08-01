@@ -17,6 +17,7 @@ import { computeProfile, type PerformanceProfile } from './adaptiveProfile';
 import {
   enableDrawDiagnostics,
   type FrameDiagnostics,
+  installPerfDiagnosticsHandle,
   recordFrame,
   renderDrawDiagnostics,
 } from './drawDiagnostics';
@@ -36,6 +37,7 @@ export {
   getAverageFrameTime,
   getMemoryBudgets,
   getOverBudgetCount,
+  installPerfDiagnosticsHandle,
   recordFrame,
   renderDrawDiagnostics,
   startFrameTiming,
