@@ -26,18 +26,32 @@ export function physicalKeyFromEvent(e: { key?: string; code?: string }): string
     if (rest === 'Divide') return '/';
     if (rest === 'Decimal') return '.';
     if (rest === 'Enter') return 'Enter';
-    return rest; // 'Numpad0'..'Numpad9'
+    // Numpad digit codes only resolve to the digit while NumLock is on (the
+    // printed key is the digit). With NumLock off the numpad reads as
+    // arrows/Insert/End — navigation keys, not zoom presets.
+    if (/^[0-9]$/.test(rest)) return /^[0-9]$/.test(e.key ?? '') ? rest : (e.key ?? '');
+    return rest;
   }
   return e.key ?? '';
 }
 
 /**
- * Resolve the digit (0-9) from a key event regardless of layout or NumLock.
+ * Resolve the digit (0-9) from a key event regardless of layout.
+ *
+ * Main-row digit codes (`Digit1`) are always digit keys even when Shift
+ * changes the printed character (`Shift+1` -> `!`). Numpad codes are only
+ * treated as digits when the printed key IS the digit — i.e. NumLock is on.
+ * With NumLock off the numpad reads as arrows/Insert/End, which are navigation
+ * keys and must not become zoom presets.
+ *
  * Returns null when the event is not a digit key.
  */
 export function physicalDigit(e: { key?: string; code?: string }): string | null {
-  const physical = physicalKeyFromEvent(e);
-  if (physical.length === 1 && physical >= '0' && physical <= '9') return physical;
+  const code = e.code ?? '';
+  const mainRow = /^Digit([0-9])$/.exec(code);
+  if (mainRow) return mainRow[1];
+  const numpad = /^Numpad([0-9])$/.exec(code);
+  if (numpad && /^[0-9]$/.test(e.key ?? '')) return numpad[1];
   return null;
 }
 

@@ -12,20 +12,22 @@ describe('physicalKeyFromEvent', () => {
     expect(physicalKeyFromEvent(keyOf('@', 'Digit2'))).toBe('2');
   });
 
-  it('resolves numpad digits regardless of NumLock', () => {
-    // NumLock off: numpad keys report Insert/End/arrows, not digits.
-    expect(physicalKeyFromEvent(keyOf('Insert', 'Numpad0'))).toBe('0');
-    expect(physicalKeyFromEvent(keyOf('End', 'Numpad1'))).toBe('1');
-    // NumLock on: the key already reports the digit.
-    expect(physicalKeyFromEvent(keyOf('0', 'Numpad0'))).toBe('0');
-    expect(physicalKeyFromEvent(keyOf('7', 'Numpad7'))).toBe('7');
-  });
-
   it('maps numpad operator codes to their symbols', () => {
     expect(physicalKeyFromEvent(keyOf('+', 'NumpadAdd'))).toBe('+');
     expect(physicalKeyFromEvent(keyOf('-', 'NumpadSubtract'))).toBe('-');
     expect(physicalKeyFromEvent(keyOf('*', 'NumpadMultiply'))).toBe('*');
     expect(physicalKeyFromEvent(keyOf('/', 'NumpadDivide'))).toBe('/');
+  });
+
+  it('resolves numpad digits with NumLock on', () => {
+    expect(physicalKeyFromEvent(keyOf('1', 'Numpad1'))).toBe('1');
+    expect(physicalKeyFromEvent(keyOf('0', 'Numpad0'))).toBe('0');
+  });
+
+  it('does not resolve numpad digits with NumLock off (navigation keys)', () => {
+    // NumLock off: the numpad reports End/arrows, not digits.
+    expect(physicalKeyFromEvent(keyOf('End', 'Numpad1'))).toBe('End');
+    expect(physicalKeyFromEvent(keyOf('ArrowRight', 'Numpad6'))).toBe('ArrowRight');
   });
 
   it('falls back to the printed key for non-digit, non-numpad keys', () => {
@@ -39,8 +41,14 @@ describe('physicalDigit', () => {
   it('returns the digit for main-row and numpad digit keys', () => {
     expect(physicalDigit(keyOf('1', 'Digit1'))).toBe('1');
     expect(physicalDigit(keyOf('!', 'Digit1'))).toBe('1');
-    expect(physicalDigit(keyOf('End', 'Numpad1'))).toBe('1');
+    expect(physicalDigit(keyOf('6', 'Numpad6'))).toBe('6');
     expect(physicalDigit(keyOf('0', 'Numpad0'))).toBe('0');
+  });
+
+  it('returns null for numpad keys with NumLock off (navigation keys)', () => {
+    // NumLock off: Numpad1 reads as End, Numpad6 as ArrowRight.
+    expect(physicalDigit(keyOf('End', 'Numpad1'))).toBeNull();
+    expect(physicalDigit(keyOf('ArrowRight', 'Numpad6'))).toBeNull();
   });
 
   it('returns null for non-digit keys', () => {
