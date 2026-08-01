@@ -99,36 +99,36 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
       {sessions.map((sess) => {
         const isActive = sess.id === activeId;
         return (
-          <div
-            key={sess.id}
-            ref={(el) => {
-              if (el) tabRefs.current.set(sess.id, el);
-              else tabRefs.current.delete(sess.id);
-            }}
-            role="tab"
-            aria-selected={isActive}
-            tabIndex={isActive ? 0 : -1}
-            className={`editor-tabs__tab${isActive ? ' editor-tabs__tab--active' : ''}`}
-            onClick={() => switchTab(sess.id)}
-            onKeyDown={(e) => handleTabKeyDown(e, sess.id)}
-            onAuxClick={(e) => handleAuxClick(e, sess.id)}
-            title={sess.filePath ?? sess.name}
-          >
-            {sess.dirty && <span className="editor-tabs__dirty-dot" aria-hidden="true" />}
-            <span className="editor-tabs__name">{sess.name}</span>
-            <button
-              type="button"
-              className="editor-tabs__close"
-              aria-label={`Close ${sess.name}`}
-              tabIndex={-1}
-              onClick={(e) => {
-                e.stopPropagation();
-                requestClose(sess.id);
+          <Tooltip key={sess.id} label={sess.filePath ?? sess.name}>
+            <div
+              ref={(el) => {
+                if (el) tabRefs.current.set(sess.id, el);
+                else tabRefs.current.delete(sess.id);
               }}
+              role="tab"
+              aria-selected={isActive}
+              tabIndex={isActive ? 0 : -1}
+              className={`editor-tabs__tab${isActive ? ' editor-tabs__tab--active' : ''}`}
+              onClick={() => switchTab(sess.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, sess.id)}
+              onAuxClick={(e) => handleAuxClick(e, sess.id)}
             >
-              <CloseIcon />
-            </button>
-          </div>
+              {sess.dirty && <span className="editor-tabs__dirty-dot" aria-hidden="true" />}
+              <span className="editor-tabs__name">{sess.name}</span>
+              <button
+                type="button"
+                className="editor-tabs__close"
+                aria-label={`Close ${sess.name}`}
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  requestClose(sess.id);
+                }}
+              >
+                <CloseIcon />
+              </button>
+            </div>
+          </Tooltip>
         );
       })}
       <Tooltip label="New document" shortcut="Ctrl+T">

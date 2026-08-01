@@ -9,7 +9,7 @@
  * Research basis: Figma "Variables" panel; Tokens Studio table conventions.
  */
 
-import { Select } from '@strata/ui';
+import { Select, Tooltip } from '@strata/ui';
 import { useEffect, useRef, useState } from 'react';
 import { SectionCollapseToggle } from './components/SectionCollapseToggle';
 import { useEditor } from './context';
@@ -132,7 +132,9 @@ export function VariablePanel() {
               return (
                 <tr key={v.id} className="variable-panel__table-row">
                   <td className="variable-panel__table-cell variable-panel__table-cell--name">
-                    <span title={`${v.type} · ${v.id}`}>{v.name}</span>
+                    <Tooltip label={`${v.type} · ${v.id}`}>
+                      <span>{v.name}</span>
+                    </Tooltip>
                   </td>
                   <td className="variable-panel__table-cell variable-panel__table-cell--value">
                     {editingId === v.id ? (

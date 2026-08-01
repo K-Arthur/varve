@@ -1,6 +1,6 @@
 import type { ManagedColor } from '@strata/scene';
 import { managedColorToCss } from '@strata/shared';
-import { Dialog, Select } from '@strata/ui';
+import { Dialog, Select, Tooltip } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import type { MappingMode, MappingResult } from '../intelligence/paletteMapper';
 
@@ -104,25 +104,26 @@ export function PalettePreviewDialog({
                 </p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {sourceEntries.map((entry, i) => (
-                    <div
+                    <Tooltip
                       key={`src-${i}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-                      title={`${entry.name ?? `Color ${i + 1}`}${entry.warning ? ` — ${entry.warning}` : ''}`}
+                      label={`${entry.name ?? `Color ${i + 1}`}${entry.warning ? ` — ${entry.warning}` : ''}`}
                     >
-                      <div
-                        style={{
-                          ...swatchStyle,
-                          background: managedColorToCss(entry.color),
-                        }}
-                        role="img"
-                        aria-label={`${entry.name ?? `Color ${i + 1}`}: ${managedColorToCss(entry.color)}`}
-                      />
-                      {entry.warning && (
-                        <span style={{ fontSize: '0.75em', color: 'var(--color-text-warning)' }}>
-                          !
-                        </span>
-                      )}
-                    </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div
+                          style={{
+                            ...swatchStyle,
+                            background: managedColorToCss(entry.color),
+                          }}
+                          role="img"
+                          aria-label={`${entry.name ?? `Color ${i + 1}`}: ${managedColorToCss(entry.color)}`}
+                        />
+                        {entry.warning && (
+                          <span style={{ fontSize: '0.75em', color: 'var(--color-text-warning)' }}>
+                            !
+                          </span>
+                        )}
+                      </div>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -133,19 +134,19 @@ export function PalettePreviewDialog({
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-1)' }}>Proposed palette</p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {proposedEntries.map((entry, i) => (
-                    <div
+                    <Tooltip
                       key={`dst-${i}`}
-                      style={{ display: 'flex', alignItems: 'center', gap: 4 }}
-                      title={entry.name}
+                      label={entry.name ?? `Color ${i + 1}`}
                     >
-                      <div
-                        style={{
-                          ...swatchStyle,
-                          background: managedColorToCss(entry.color),
-                        }}
-                        role="img"
-                        aria-label={`${entry.name ?? `Color ${i + 1}`}: ${managedColorToCss(entry.color)}`}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        <div
+                          style={{
+                            ...swatchStyle,
+                            background: managedColorToCss(entry.color),
+                          }}
+                          role="img"
+                          aria-label={`${entry.name ?? `Color ${i + 1}`}: ${managedColorToCss(entry.color)}`}
+                        />
                       {entry.name && (
                         <span
                           style={{
@@ -158,7 +159,8 @@ export function PalettePreviewDialog({
                           {entry.name}
                         </span>
                       )}
-                    </div>
+                      </div>
+                    </Tooltip>
                   ))}
                 </div>
               </div>
@@ -254,12 +256,13 @@ export function PalettePreviewDialog({
                         &Delta;E {m.deltaE.toFixed(1)}
                       </span>
                       {m.contrastPreserved === false && (
-                        <span
-                          style={{ color: 'var(--color-text-warning)', fontSize: '0.9em' }}
-                          title="Contrast may be reduced"
-                        >
-                          !
-                        </span>
+                        <Tooltip label="Contrast may be reduced">
+                          <span
+                            style={{ color: 'var(--color-text-warning)', fontSize: '0.9em' }}
+                          >
+                            !
+                          </span>
+                        </Tooltip>
                       )}
                       {onExcludeMapping && (
                         <button

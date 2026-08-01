@@ -11,6 +11,7 @@
 
 import type { FontMetadata } from '@strata/engine';
 import { getFontRegistry } from '@strata/engine';
+import { Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useOnlineFontSearch } from './useOnlineFontSearch';
 import './FontSelector.css';
@@ -236,9 +237,11 @@ export function FontSelector({
           autoComplete="off"
         />
         {!hasMatch && value && (
-          <span className="font-selector__warning" title="Font not in catalog">
-            !
-          </span>
+          <Tooltip label="Font not in catalog">
+            <span className="font-selector__warning" role="img" aria-label="Font not in catalog">
+              !
+            </span>
+          </Tooltip>
         )}
       </div>
       {isOpen && (
@@ -325,20 +328,16 @@ export function FontSelector({
                         <span className="font-selector__badge font-selector__badge--var">w</span>
                       )}
                       {meta?.hasColorGlyphs && (
-                        <span
-                          className="font-selector__badge font-selector__badge--color"
-                          title={colorTitle}
-                        >
-                          C
-                        </span>
+                        <Tooltip label={colorTitle}>
+                          <span className="font-selector__badge font-selector__badge--color">C</span>
+                        </Tooltip>
                       )}
                       {meta?.embeddingRights === 'restricted' && (
-                        <span
-                          className="font-selector__badge font-selector__badge--license"
-                          title={meta.license || 'Embedding restricted'}
-                        >
-                          L
-                        </span>
+                        <Tooltip label={meta.license || 'Embedding restricted'}>
+                          <span className="font-selector__badge font-selector__badge--license">
+                            L
+                          </span>
+                        </Tooltip>
                       )}
                     </span>
                   </div>

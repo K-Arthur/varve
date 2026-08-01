@@ -1,4 +1,4 @@
-import { ContextMenu, type MenuEntry } from '@strata/ui';
+import { ContextMenu, type MenuEntry, Tooltip } from '@strata/ui';
 import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TimelineRulerProps {
@@ -184,15 +184,15 @@ export const TimelineRuler: FC<TimelineRulerProps> = ({
           </div>
         ))}
         {markers.map((marker) => (
-          <button
-            key={marker.id}
-            type="button"
-            className="timeline-ruler__marker"
-            style={{ left: marker.progress * duration * zoom, position: 'absolute', top: 0 }}
-            title={marker.name}
-            aria-label={`Marker: ${marker.name}`}
-            onContextMenu={(e) => handleMarkerContextMenu(e, marker.id)}
-          />
+          <Tooltip key={marker.id} label={marker.name}>
+            <button
+              type="button"
+              className="timeline-ruler__marker"
+              style={{ left: marker.progress * duration * zoom, position: 'absolute', top: 0 }}
+              aria-label={`Marker: ${marker.name}`}
+              onContextMenu={(e) => handleMarkerContextMenu(e, marker.id)}
+            />
+          </Tooltip>
         ))}
         <div
           className="timeline-ruler__playhead"

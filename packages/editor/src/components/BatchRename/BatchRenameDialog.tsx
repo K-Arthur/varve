@@ -1,4 +1,5 @@
 import type { NodeId } from '@strata/scene';
+import { Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -255,17 +256,17 @@ export function BatchRenameDialog({
                       {'\u279C'}
                     </span>
                   )}
-                  <span className="batch-rename-dialog__preview-old" title={p.originalName}>
-                    {p.originalName}
-                  </span>
+                  <Tooltip label={p.originalName} truncationOnly>
+                    <span className="batch-rename-dialog__preview-old">{p.originalName}</span>
+                  </Tooltip>
                   {p.changed && (
                     <>
                       <span className="batch-rename-dialog__preview-arrow" aria-hidden="true">
                         {'\u2192'}
                       </span>
-                      <span className="batch-rename-dialog__preview-new" title={p.newName}>
-                        {p.newName}
-                      </span>
+                      <Tooltip label={p.newName} truncationOnly>
+                        <span className="batch-rename-dialog__preview-new">{p.newName}</span>
+                      </Tooltip>
                     </>
                   )}
                 </li>

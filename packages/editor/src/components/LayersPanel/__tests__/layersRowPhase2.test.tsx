@@ -196,7 +196,8 @@ describe('Task 2.10: Horizontal Scroll & Name Column', () => {
     const nameSpan = container.querySelector('.layers-row__name');
     expect(nameSpan).not.toBeNull();
     expect(nameSpan?.textContent).toBe(longName);
-    // The title attribute should also contain the full name
-    expect(nameSpan?.getAttribute('title')).toBe(longName);
+    // The name must not carry a redundant native title; truncation-only
+    // tooltip content is provided by the shared Tooltip wrapper instead.
+    expect(nameSpan?.getAttribute('title')).toBeNull();
   });
 });
