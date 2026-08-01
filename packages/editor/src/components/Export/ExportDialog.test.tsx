@@ -183,6 +183,25 @@ describe('ExportDialog', () => {
     );
   });
 
+  it('passes an AbortSignal and aborts the batch via the Cancel button', async () => {
+    let capturedSignal: AbortSignal | undefined;
+    const onExport = vi.fn((_batch: unknown, signal?: AbortSignal) => {
+      capturedSignal = signal;
+      return new Promise(() => {});
+    });
+    render(
+      <ExportDialog isOpen={true} onClose={() => {}} nodes={[mockNode()]} onExport={onExport} />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+    await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
+    expect(capturedSignal).toBeInstanceOf(AbortSignal);
+    expect(capturedSignal?.aborted).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: /Cancel/ }));
+    expect(capturedSignal?.aborted).toBe(true);
+  });
+
   it('runs package export as a separate action', async () => {
     const onPackageExport = vi.fn(async () => {});
     render(

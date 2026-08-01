@@ -12,7 +12,12 @@
 import type { Document } from '../document';
 import { walkNodes } from '../document';
 import type { NodeId } from '../types';
-import { capabilitiesForFormat, type FormatCapability, type PlatformKind } from './capabilities';
+import {
+  capabilitiesForFormat,
+  type FormatCapability,
+  formatSupportedOnPlatform,
+  type PlatformKind,
+} from './capabilities';
 import type { ExportBatchRequest, ExportFormat, ExportJobSpec } from './model';
 import { buildExportPlan, type ExportPlan } from './plan';
 
@@ -115,7 +120,8 @@ function pushItemFindings(
   item: ExportJobSpec,
   options: ExportPreflightOptions,
 ): void {
-  const capability = capabilitiesForFormat(item.format, options.platform ?? 'web');
+  const platform = options.platform ?? 'web';
+  const capability = capabilitiesForFormat(item.format, platform);
 
   pushDimensionFindings(findings, item, options.maxPixels ?? DEFAULT_MAX_PIXELS);
   pushInvisibleOutputFindings(findings, item, capability);
@@ -123,7 +129,7 @@ function pushItemFindings(
   pushFontFindings(findings, document, item, options.availableFonts);
   pushRasterizationFindings(findings, document, item, capability);
   pushPrintFindings(findings, item);
-  pushFormatSpecificFindings(findings, item, capability);
+  pushFormatSpecificFindings(findings, item, capability, platform);
 }
 
 // ── Individual rule groups ──────────────────────────────────────────────────
@@ -376,11 +382,23 @@ function pushPrintFindings(findings: ExportFinding[], item: ExportJobSpec): void
 function pushFormatSpecificFindings(
   findings: ExportFinding[],
   item: ExportJobSpec,
-  capability: FormatCapability,
+  _capability: FormatCapability,
+  platform: PlatformKind,
 ): void {
-  if (item.format === 'gif' && !capability.animation) {
-    // gif capability says animation:true; single-target GIF without a timeline
-    // still produces a static frame — surface it so the user knows.
+  if (!formatSupportedOnPlatform(item.format, platform)) {
+    const cap = capabilitiesForFormat(item.format, platform);
+    findings.push({
+      id: findingId('format-platform-unavailable', item.configurationId),
+      code: 'format-platform-unavailable',
+      severity: 'error',
+      title: 'Format not available on this platform',
+      description:
+        `${cap.label} is only available in the ${platform === 'tauri' ? 'web' : 'desktop'} ` +
+        'runtime. Switch the active platform or choose a format this platform can produce.',
+      configurationId: item.configurationId,
+      nodeIds: item.nodeId ? [item.nodeId] : undefined,
+      canIgnore: false,
+    });
   }
 
   if (item.format === 'gif') {
