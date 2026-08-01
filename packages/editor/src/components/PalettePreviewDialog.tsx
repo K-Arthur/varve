@@ -134,10 +134,7 @@ export function PalettePreviewDialog({
                 <p style={{ fontWeight: 600, marginBottom: 'var(--space-1)' }}>Proposed palette</p>
                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                   {proposedEntries.map((entry, i) => (
-                    <Tooltip
-                      key={`dst-${i}`}
-                      label={entry.name ?? `Color ${i + 1}`}
-                    >
+                    <Tooltip key={`dst-${i}`} label={entry.name ?? `Color ${i + 1}`}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <div
                           style={{
@@ -147,18 +144,18 @@ export function PalettePreviewDialog({
                           role="img"
                           aria-label={`${entry.name ?? `Color ${i + 1}`}: ${managedColorToCss(entry.color)}`}
                         />
-                      {entry.name && (
-                        <span
-                          style={{
-                            fontSize: '0.75em',
-                            maxWidth: 80,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                          }}
-                        >
-                          {entry.name}
-                        </span>
-                      )}
+                        {entry.name && (
+                          <span
+                            style={{
+                              fontSize: '0.75em',
+                              maxWidth: 80,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                            }}
+                          >
+                            {entry.name}
+                          </span>
+                        )}
                       </div>
                     </Tooltip>
                   ))}
@@ -257,9 +254,7 @@ export function PalettePreviewDialog({
                       </span>
                       {m.contrastPreserved === false && (
                         <Tooltip label="Contrast may be reduced">
-                          <span
-                            style={{ color: 'var(--color-text-warning)', fontSize: '0.9em' }}
-                          >
+                          <span style={{ color: 'var(--color-text-warning)', fontSize: '0.9em' }}>
                             !
                           </span>
                         </Tooltip>
