@@ -311,9 +311,10 @@ Gate results per milestone:
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
-(1), `LayersRow.test.tsx` (1), `AssetExportControls.test.tsx` (1 — the
-`shows the advisor reason in a title tooltip` assertion; the Tooltip component
-renders the reason via a tooltip element, not a `title` attribute).
+(1), `LayersRow.test.tsx` (1). The former `AssetExportControls.test.tsx`
+"advisor reason in a title tooltip" failure was **resolved** in M8-follow-up
+(`a5d59f47`) by asserting the real Tooltip pattern (`aria-describedby` +
+`role="tooltip"`) rather than a native `title` attribute.
 
 Architecture audit note: `scripts/audit-architecture.mjs --ci` hangs at the
 module-instability step (engine `index.ts` madge graph, a pre-existing
@@ -351,6 +352,7 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 6 — built-in preset catalog | `c3655d05` |
 | 7 — (folded into M5/M6 — integration + presets landed together) | — |
 | 8 — inspector export section + per-node settings | `5ad069d0` |
+| 8-follow-up — contextual primary action + tooltip test fix | `a5d59f47` |
 | 8-E2E — inspector export-settings E2E spec | `a7a27246` |
 
 > Branch note: commits are shared with the concurrent agent's branch history
