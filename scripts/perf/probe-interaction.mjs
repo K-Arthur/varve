@@ -2,7 +2,9 @@
  * diagnostics ring buffer. Usage: node scripts/perf/probe-interaction.mjs */
 import { chromium } from '@playwright/test';
 
-const BASE = 'http://localhost:1432/?perf=1';
+// STRATA_PERF_URL lets the same probe run against a production build
+// (vite preview) as well as the dev server.
+const BASE = process.env.STRATA_PERF_URL ?? 'http://localhost:1432/?perf=1';
 
 function pct(sorted, p) {
   if (!sorted.length) return 0;
@@ -83,7 +85,12 @@ const readCount = () =>
     const f = window.__strataPerf ? window.__strataPerf.getFrames(3) : [];
     return f.length ? f[f.length - 1].nodeCount : 0;
   });
-for (let guard = 0; guard < 5; guard++) {
+// Each pass doubles the node count (4 rects → 4·2^n). Configurable so the same
+// probe can measure the small-document and heavy-document cases, and so dev and
+// production runs can be compared at an identical node count — the comparison
+// is meaningless otherwise.
+const DUPS = Number(process.env.STRATA_PERF_DUPS ?? 5);
+for (let guard = 0; guard < DUPS; guard++) {
   await page.keyboard.press('Control+a');
   await page.waitForTimeout(25);
   await page.keyboard.press('Control+d');

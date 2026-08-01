@@ -2,7 +2,10 @@
  * diagnostics ring buffer. Usage: node scripts/perf/probe-interaction.mjs */
 import { chromium } from '@playwright/test';
 
-const BASE = 'http://localhost:1432/?perf=1';
+// STRATA_PERF_URL lets the same probe run against a production build
+// (vite preview) as well as the dev server — the dev/prod comparison is the
+// point, since React dev-mode overhead dominates dev-build drag profiles.
+const BASE = process.env.STRATA_PERF_URL ?? 'http://localhost:1432/?perf=1';
 
 function pct(sorted, p) {
   if (!sorted.length) return 0;
