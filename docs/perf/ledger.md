@@ -209,12 +209,22 @@ work-count rows are deterministic and are what the new tests assert.
 | `evictIfNeeded` + comparator + `estimateItemBytes`, drag profile | 5.3% | absent from top-25 | high | CPU profile, 932-node drag |
 | Drag frame phase attribution, 932 nodes | ~2 ms of a 63 ms frame explained | setup 9.3 / preLoop 5.5 / hash 1.7 / buildIr 0.2 / replay 0.1 + 46.4 ms unattributed | high | new `setupMs`/`preLoopMs` timers |
 
-**Headline finding, not a speedup:** ~38% of dev-build drag CPU is React
-development-mode overhead (`jsxDEV`, `createElement`, `validateProperties*`)
-that does not exist in a production build. The per-frame node walk the previous
-audit ranked first turned out to be ~15 ms of a ~63 ms frame. No production
-build comparison has been run yet — every remaining ranking is provisional
-until it is.
+**Dev vs production, matched node counts (`vite build` + `vite preview`):**
+
+| Workload | Dev | Production |
+|---|---:|---:|
+| Drag frame p50, 128 nodes | 2.9 ms | 3.4 ms |
+| Drag frame p50, 932 nodes | 63.2 ms | 33.2 ms |
+| Drag frame p95 / p99, 932 nodes | 75.1 / 84.3 ms | 197.2 / 633.4 ms |
+
+~38% of dev-build drag CPU is React development-mode overhead (`jsxDEV`,
+`createElement`, `validateProperties*`) that does not exist in production. It
+does not matter at 128 nodes and roughly doubles the frame at 932. But
+production at 932 nodes is still 33 ms p50 with 197/633 ms tails, so the dev
+tax is not the whole problem. The per-frame node walk the previous audit ranked
+first turned out to be ~15 ms of a ~63 ms dev frame; in production `setupMs`
+(full-document walk, culling, dirty region, style precompute) is the largest
+measured phase at 12.8 ms p50 and is the next target.
 
 **Not fixed, measured:** `groupWorldBounds` ~8% (largest external caller is a
 React `useMemo`), autoNamer's `existingNames` running during drag ~1.7%,
