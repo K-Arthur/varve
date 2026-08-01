@@ -83,7 +83,7 @@ const TAB_ORDER: InspectorTab[] = [
 ];
 
 export function PropertiesPanel() {
-  const { selectedNodes, state, platform } = useEditor();
+  const { selectedNodes, state, platform, updateNode, setShowExportDialog } = useEditor();
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const hasLockedSelection = selNodes.some((node) => node.locked);
@@ -279,6 +279,25 @@ export function PropertiesPanel() {
                 node={selNodes[0] as SceneNode}
                 doc={state.document}
                 platform={platform}
+                onAddPreset={(preset) => {
+                  const targetId = (selNodes[0] as SceneNode).id;
+                  updateNode(targetId, (n) => ({ ...n, presets: [...(n.presets ?? []), preset] }));
+                }}
+                onUpdatePreset={(preset) => {
+                  const targetId = (selNodes[0] as SceneNode).id;
+                  updateNode(targetId, (n) => ({
+                    ...n,
+                    presets: (n.presets ?? []).map((p) => (p.id === preset.id ? preset : p)),
+                  }));
+                }}
+                onRemovePreset={(presetId) => {
+                  const targetId = (selNodes[0] as SceneNode).id;
+                  updateNode(targetId, (n) => ({
+                    ...n,
+                    presets: (n.presets ?? []).filter((p) => p.id !== presetId),
+                  }));
+                }}
+                onOpenAdvancedExport={() => setShowExportDialog(true)}
               />
             ) : exportSubTab === 'code' && selNodes.length > 0 ? (
               <CodeGenView
