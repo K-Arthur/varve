@@ -210,6 +210,11 @@ export interface Document {
   /** Spot color definitions. */
   spotColors?: SpotColorDef[];
 
+  /** Document-local gradient presets (v2.11+). Gradients used by gradient-map
+   * effects are snapshotted here (or embedded on the effect) so documents stay
+   * portable even when a global preset is renamed or deleted. */
+  gradientPresets?: import('./gradientPresets').GradientPreset[];
+
   // ── Motion / Animation properties (v1.2+) ─────────────────────────────────
 
   /** Named timelines for per-node property animation. */
