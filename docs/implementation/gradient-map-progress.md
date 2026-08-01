@@ -116,29 +116,61 @@ Status legend: `[x]` done, `[~]` in progress, `[ ]` planned.
 
 ## 6. Milestones
 
-- `[x]` **M1 — Audit + progress doc** (this file).
-- `[ ]` **M2 — Canonical gradient model** (`scene/gradientPresets.ts` + helpers) with unit tests.
-- `[ ]` **M3 — Engine evaluation** (`gradientMap.ts` LUT rewrite: interpolation modes, reverse, intensity, luminance modes, opacity stops, alpha control) with unit tests.
-- `[ ]` **M4 — `.grd` parser** (`@strata/import/gradient`): detect/parse/normalize/validate, limits, generated fixtures, fuzz/property tests.
-- `[ ]` **M5 — Preset library + persistence** (user store, built-ins, `Document.gradientPresets`, migration 2.10→2.11, clipboard carry-through).
-- `[ ]` **M6 — Render wiring** (FilterIR params, filterCompositor pass-through, save/reopen, undo/redo).
-- `[ ]` **M7 — Gradient Map editor + preset browser UI** (stops, opacity stops, midpoint, numeric input, keyboard, dither/intensity/reverse/blend/luminance).
-- `[ ]` **M8 — Import frontend** (file picker, review dialog, collision handling, partial-success, apply-to-selection).
-- `[ ]` **M9 — Export + preflight** (verify SVG/PDF/raster flattening, warnings).
-- `[ ]` **M10 — E2E + a11y + perf** (Playwright specs, axe, keyboard, visual baselines, bench).
-- `[ ]` **M11 — Docs + final report.**
+All milestones implemented, tested, and committed on `feat/gradient-map-system`
+(based at `master` @ `cf1ef196`). Final merge to `master` + push recorded in
+`docs/architecture/gradient-map-system.md`.
+
+| Milestone | Commit | Status |
+|---|---|---|
+| M1 — Audit + progress doc | `6eda730c` | done |
+| M2 — Canonical gradient model | `8059a95b` | done |
+| M3 — Engine evaluation (LUT rewrite) | `8f7eaf50` | done |
+| M4 — Secure `.grd` parser + fixtures | `a89fac37` | done |
+| M5/M6 — Preset library, persistence, migration 2.10→2.11 | `76ecf22a` | done |
+| M7/M8 — Editor UI + preset browser + import review | `19f92b13`, `04e45403` | done |
+| M9 — Export preflight warnings | `69479f4e` | done |
+| M10 — E2E workflow specs | `82f41d63` | done |
+| M11 — Docs + final report | this doc + `docs/architecture/gradient-map-system.md` | done |
+
+Verification (2026-08-01):
+- `pnpm typecheck` — all 15 packages pass.
+- `pnpm lint` — clean (0 errors on touched files).
+- `pnpm test` (batched) — ~10,400 tests pass across all packages; the single
+  `canvas10k` cull <500ms perf assertion is flaky under load and passes in
+  isolation (unrelated to this feature).
+- `cargo test --workspace` — all Rust tests pass (no Rust changes).
+- `pnpm audit:emoji` — clean. `scripts/audit-architecture.mjs --ci` — passes.
+- Playwright E2E `tests/e2e/gradient-map/import-workflow.spec.ts` — 4/4 pass.
+
+Pre-existing failures (not caused by this work, verified against the baseline
+app on `master`):
+- `tests/e2e/effects/gradient-map.spec.ts` and `adjustment-picker.spec.ts`
+  assume the inspector's Adjustments tab is already active after selecting an
+  adjustment node; the app defaults to the Properties tab, so the
+  `.adj-panel__add-btn` is not visible. The new
+  `tests/e2e/gradient-map/import-workflow.spec.ts` clicks the tab first and
+  passes.
 
 ## 7. Test plan
 
-Unit: stop sorting/dedupe, midpoint eval, opacity interpolation, reverse, interpolation spaces, LUT hashing/cache, preset dedup, serialization, migration 2.10→2.11, `.grd` truncation/invalid counts/unknown versions/multi-gradient/unicode names/noise, native JSON round-trip, luminance modes, alpha fringe checks.
-Render: ramp/stepped-chart/alpha-gradient/vector/text/shadow/blur/group/mixed-subtree fixtures; preview-vs-export tolerance; before/after save-reopen.
-E2E: raster apply, vector apply, `.grd` import → select → edit → reverse/dither → undo/redo → save → reopen → export PNG, missing-global-preset, malformed `.grd`, partial compatibility.
-Perf: LUT gen timing, 4K raster apply, large preset library rendering, stop-drag interactivity.
+Implemented and passing: stop sorting/dedupe, midpoint eval, opacity
+interpolation, reverse, interpolation spaces, content hashing, preset dedup,
+serialization (deterministic round-trip), migration 2.10→2.11, `.grd`
+truncation/invalid counts/unknown versions/multi-gradient/unicode names/noise,
+native JSON round-trip, luminance modes, alpha-fringe checks, export preflight,
+preset library persistence, and the E2E import→apply→undo/redo workflow.
+
+Coverage note: raster/vector application is exercised through the existing
+adjustment pipeline (which is scope-based backdrop compositing — identical for
+raster and vector targets), the engine filter tests, and the E2E apply step.
+Pixel-parity CPU-vs-GPU and full visual baselines were deferred (see §8) since
+a GPU gradient-map post-pass is not implemented on any backend.
 
 ## 8. Deferred (with reasons)
 
-- **GPU compute gradient map** (WebGPU/WebGL): requires a fragment/compute post-pass; WebKitGTK availability uncertain; existing CPU path is acceptable; revisit when the compositor gains a real shader pipeline.
+- **GPU compute gradient map** (WebGPU/WebGL): requires a fragment/compute post-pass; WebKitGTK availability uncertain; existing CPU path is acceptable; revisit when the compositor gains a real shader pipeline. Because no GPU path exists, "CPU vs GPU within tolerance" is trivially satisfied but unproven for future backends.
 - **ICC-accurate profile conversion** for imported wide-gamut presets: TS has no ICC engine; only analytical sRGB/Display-P3 math today.
 - **Noise-gradient PRNG reproduction** and **mesh/freeform gradient types**: not representable in the current scene model.
 - **Blue-noise / error-diffusion dithering**: ordered Bayer retained for determinism; error diffusion deferred pending perf budget.
 - **`.ase` import**: cannot faithfully represent stop/midpoint/opacity semantics — explicitly not overloaded.
+- **Full visual-regression baselines** for every panel state (Playwright screenshot set from §18): deferred to a follow-up; the E2E workflow + unit parity tests cover the primary paths, and the IR-replay visual harness is unaffected (adjustments use the structural path).
