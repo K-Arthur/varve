@@ -9,8 +9,9 @@
  * Widths persist per panel in localStorage and are applied by overriding the
  * shell grid's --sidebar-width / --inspector-width custom properties.
  */
-import { useCallback, useState } from 'react';
+
 import { Tooltip } from '@strata/ui';
+import { useCallback, useState } from 'react';
 import { loadSettings, updateSettings } from '../settings';
 
 export const PANEL_LIMITS = {
