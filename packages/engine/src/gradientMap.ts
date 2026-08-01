@@ -327,6 +327,38 @@ export function buildGradientAlphaLut(
 }
 
 /**
+ * sRGB-encoded byte -> linear-light, precomputed for all 256 inputs.
+ *
+ * The transfer function is a pure function of an 8-bit channel, so the
+ * `** 2.4` it would otherwise cost per channel per pixel is hoisted into this
+ * table once at module load. This is the dominant cost of the
+ * `perceptual-lightness` tonal mode on large images.
+ */
+const SRGB_TO_LINEAR: Float64Array = (() => {
+  const table = new Float64Array(256);
+  for (let i = 0; i < 256; i += 1) {
+    const v = i / 255;
+    table[i] = v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  }
+  return table;
+})();
+
+/**
+ * Map an 8-bit tonal value onto a ramp of `size` entries.
+ *
+ * Tonal values are always computed in 0-255 space (that is the domain of the
+ * source pixels and of the dither matrix), but the colour/alpha ramps are
+ * built at `lutSize`, which callers may set anywhere in [64, 4096]. Indexing a
+ * ramp directly with the 8-bit value would sample only its first 256 entries
+ * when `size > 256`, and read past the end when `size < 256`.
+ */
+function rampIndex(tonal: number, size: number): number {
+  if (size <= 1) return 0;
+  const scaled = Math.round((tonal / 255) * (size - 1));
+  return scaled < 0 ? 0 : scaled > size - 1 ? size - 1 : scaled;
+}
+
+/**
  * Compute the tonal value (0-255) that samples the ramp.
  * Fast path inlines Rec.709 relative luminance for the default mode.
  */
@@ -342,11 +374,9 @@ function tonalValue(
     case 'compatibility':
       return 0.2126 * r + 0.7152 * g + 0.0722 * b;
     case 'perceptual-lightness': {
-      const lin = (c: number) => {
-        const v = c / 255;
-        return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
-      };
-      const [lr, lg, lb] = [lin(r), lin(g), lin(b)];
+      const lr = SRGB_TO_LINEAR[r]!;
+      const lg = SRGB_TO_LINEAR[g]!;
+      const lb = SRGB_TO_LINEAR[b]!;
       const l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
       const m = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
       const s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
@@ -426,9 +456,9 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
 
     if (mode === 'channel') {
       // Per-channel mapping: each channel value indexes its own LUT independently
-      nr = rLut!.r[r]!;
-      ng = gLut!.g[g]!;
-      nb = bLut!.b[b]!;
+      nr = rLut!.r[rampIndex(r, lutSize)]!;
+      ng = gLut!.g[rampIndex(g, lutSize)]!;
+      nb = bLut!.b[rampIndex(b, lutSize)]!;
     } else {
       let tonal = tonalValue(luminanceMode, r, g, b, a);
 
@@ -440,7 +470,7 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
         tonal = clampByte(tonal + ditherVal);
       }
 
-      const idx = clampByte(tonal);
+      const idx = rampIndex(tonal, lutSize);
       nr = lut.r[idx]!;
       ng = lut.g[idx]!;
       nb = lut.b[idx]!;
@@ -469,7 +499,7 @@ export function applyGradientMapFilter(data: ImageData, params: GradientMapParam
 
     // Alpha: source alpha by default; gradient opacity ramp when opted out.
     if (!preserveSourceAlpha) {
-      const rampIdx = clampByte(tonalValue(luminanceMode, r, g, b, a));
+      const rampIdx = rampIndex(tonalValue(luminanceMode, r, g, b, a), lutSize);
       const rampAlpha = alphaLut[rampIdx] ?? 255;
       pixels[i + 3] = clampByte((a * rampAlpha) / 255);
     }
