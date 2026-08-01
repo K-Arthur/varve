@@ -2288,3 +2288,40 @@ and visual verification across all three themes.
 - [ ] Migrate LayersPanel context menu to shared `@strata/ui` ContextMenu
 - [ ] Replace remaining hardcoded z-index values in canvas-internal layers (1-5 are render pipeline internals)
 - [ ] Additional ~50 hardcoded CSS spacing/font-size values across remaining files
+
+## Session — Tooltip System Standardization (2026-08-01)
+
+Completed the tooltip standardization begun on 2026-07-27. The shared
+`Tooltip` primitive in `@strata/ui` is now the single tooltip implementation
+across home, editor, and the design-system package itself. Full audit matrix:
+`docs/audits/tooltip-system-audit-2026-08-01.md`.
+
+### What was done
+
+| Phase | Action | Key files |
+|---|---|---|
+| **Global provider** | Mounted one `TooltipProvider` at the app root so warm-up timing spans home + editor | `apps/desktop/src/App.tsx` |
+| **Home app** | Migrated all native `title` tooltips (sort toggle, sidebar new-project, continue-editing, batch move, rename hint, clear-search, activity events) and truncation tooltips for file/asset/template names | `HomeToolbar.tsx`, `SidebarNav.tsx`, `HomeShell.tsx`, `BatchActions.tsx`, `ProjectsView.tsx`, `HomeSearchPalette.tsx`, `ActivityFeed.tsx`, `FileCard.tsx`, `AssetBrowser.tsx`, `TemplatesGallery.tsx` |
+| **Editor icon-only a11y** | ShortcutPalette export/import/reset/remap, IntelligencePanel dismiss/suppress/select, SelectionSetsSection actions gained `aria-label` + Tooltip (were icon-only with `title` only) | `ShortcutPalette.tsx`, `IntelligencePanel.tsx`, `SelectionSetsSection.tsx` |
+| **Shortcut truth** | Menubar home button and workspace-mode tooltips now resolve from the shortcut registry via new `workspaceShortcutLabel()` helper. **Bug fixed**: workspace buttons advertised `Ctrl+Shift+D/P/R/I/M`, but those keys are taken by Repeat Duplicate/Present/Invert Selection/Preview Mode; workspace switching actually runs on `Ctrl+Shift+1..9` | `workspace/workspaceShortcutLabel.ts`, `Menubar.tsx`, `AiToolsHintSection.tsx` |
+| **Disabled reasons** | Node-less audit actions, unavailable eyedropper, desktop-only export formats, remap-in-progress explain via `disabledReason` (focusable disabled wrapper) | `IntelligencePanel.tsx`, `EyeDropperButton.tsx`, `AssetExportControls.tsx`, `ShortcutPalette.tsx` |
+| **Layers / Timeline / Inspector** | LayersRow name truncation + badge tooltips; TrackRow mute/solo state-aware labels; ruler markers; MaskSection info; Minimap collapse; status badges (Debt/Audit/Preflight/Layout/Contrast/Cognitive); swatches, palette, batch-rename, variable, font-browser tooltips | many files under `components/` |
+| **ui package cleanup** | Removed `ToggleButton.tooltip`→`title` competing implementation; EyeDropperButton/Swatches/PresetTile/GamutWarning migrated | `ToggleButton.tsx`, `ColorPicker/*`, `PresetPicker/PresetTile.tsx` |
+
+### Verification
+
+- `pnpm typecheck`: 15/15 packages + e2e pass, 0 errors
+- `pnpm lint`: 0 new diagnostics vs master (all pre-existing warnings)
+- `pnpm audit:emoji`: clean · `audit:tokens`: 123/123 · `audit-health`: passed
+- E2E: `tests/e2e/canvas/tooltip-system.spec.ts` 9/9, `tests/e2e/home/tooltips.spec.ts` 2/2 pass (Chromium)
+- Unit: all 11 baseline failures (MasterPanel, AssetExportControls, ShortcutPalette, LayersRow — tests asserting removed native `title`s) fixed; migrated-component batches + ui + home green. Full-suite re-run on a quiet machine recommended (env was memory-contended).
+- Fixed a pre-existing E2E strict-mode failure (canvas-drag locator resolved 5 elements)
+
+### Notes / deferred
+
+- `matchWorkspaceShortcut` / `getWorkspaceShortcutHint` are dead APIs using the stale
+  `WORKSPACE_SHORTCUTS` strings — left for a shortcut-system cleanup.
+- `AGENTS.md` workspace table updated to the registry bindings; older audits/plans still
+  reference `Ctrl+Shift+D…` and are historical records (not authoritative for bindings).
+- Tauri/WebKitGTK/WebView2/WKWebView tooltip behaviour and visual-regression baselines
+  are not yet covered (separate scope).

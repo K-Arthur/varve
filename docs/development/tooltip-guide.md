@@ -380,7 +380,8 @@ test('tooltip interaction', async ({ page }) => {
 ## Resources
 
 ### Internal Documentation
-- [Tooltip System Audit](../audits/tooltip-system-audit-2026-07-27.md)
+- [Tooltip System Audit (2026-08-01)](../audits/tooltip-system-audit-2026-08-01.md)
+- [Tooltip System Audit (2026-07-27)](../audits/tooltip-system-audit-2026-07-27.md)
 - [Component Source](../../../packages/ui/src/components/Tooltip.tsx)
 - [Tooltip Tests](../../../packages/ui/src/components/Tooltip.test.tsx)
 
@@ -392,6 +393,20 @@ test('tooltip interaction', async ({ page }) => {
 ### Shortcut System
 - [Shortcut Registry](../../../packages/editor/src/shortcuts/)
 - [toolShortcutLabel Utility](../../../packages/editor/src/shortcuts/toolShortcutLabel.ts)
+- [workspaceShortcutLabel Utility](../../../packages/editor/src/workspace/workspaceShortcutLabel.ts)
+
+## Migration Status
+
+As of 2026-08-01 the home app, the editor, and the `@strata/ui` package all use
+the shared `Tooltip` component — **no new native `title` tooltips should be
+added**. When you touch a control that still has a `title` attribute, migrate
+it in place:
+
+1. Replace `title="..."` with `<Tooltip label="...">` around the control.
+2. Ensure the control has its own accessible name (`aria-label`, visible text,
+   or `label` prop) independent of the tooltip.
+3. For truncated text use `truncationOnly`; for disabled controls use
+   `disabledReason`; for status indicators use `role="img"` + `aria-label`.
 
 ## Getting Help
 
