@@ -39,6 +39,21 @@ export interface FrameDiagnostics {
    */
   engineNodeComputes?: number;
   engineNodeHits?: number;
+  /**
+   * Frame time before the per-node loop: walkNodes, the container-culling
+   * pass, dirty-region and style/variant precomputation.
+   */
+  setupMs?: number;
+  /**
+   * The per-node flatNodes loop (effective-node resolution, bindings, cached
+   * world geometry, viewport cull, engine-node conversion or memo hit).
+   *
+   * setupMs + preLoopMs + hashMs + buildIrMs + replayMs is deliberately less
+   * than totalMs: the remainder is post-replay work (compositing, overlays,
+   * worker dispatch). Keeping these phases separate is what turned "the frame
+   * costs 60ms and we cannot see why" into a locatable cost.
+   */
+  preLoopMs?: number;
   totalMs: number;
   renderPath: 'structural' | 'worker' | 'worker-cached' | 'compositor';
   wasDirty: boolean;
