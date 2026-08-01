@@ -7,7 +7,7 @@ page.on('pageerror', (e) => errs.push(String(e).slice(0, 500)));
 page.on('crash', () => errs.push('[page-crash]'));
 browser.on('disconnected', () => errs.push('[browser-disconnected]'));
 page.on('console', (m) => {
-  if (m.type() === 'error') errs.push('[console] ' + m.text().slice(0, 300));
+  if (m.type() === 'error') errs.push(`[console] ${m.text().slice(0, 300)}`);
 });
 await page.goto('http://localhost:1430/?perf=1', { timeout: 90000, waitUntil: 'domcontentloaded' });
 await page.getByRole('button', { name: /^new$/i }).click({ force: true, timeout: 30000 });

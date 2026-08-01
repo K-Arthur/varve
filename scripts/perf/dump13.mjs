@@ -60,7 +60,7 @@ const dbInfo = await page.evaluate(async () => {
 console.log(
   JSON.stringify(
     dbInfo,
-    (k, v) => (typeof v === 'string' && v.length > 2000 ? v.slice(0, 2000) + '...[truncated]' : v),
+    (_k, v) => (typeof v === 'string' && v.length > 2000 ? `${v.slice(0, 2000)}...[truncated]` : v),
     1,
   ).slice(0, 4000),
 );

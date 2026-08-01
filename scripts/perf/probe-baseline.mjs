@@ -32,7 +32,7 @@ await page.addInitScript(() => {
   window.__frameTimes = [];
   window.__longTasks = [];
   const push = (cb) => (t) => {
-    const now = performance.now();
+    const _now = performance.now();
     if (window.__frameTimes.length) {
       window.__frameTimes.push(t - window.__frameTimes._last);
     } else {
@@ -61,7 +61,7 @@ await page
   .waitForFunction(
     () => {
       const s = document.querySelector('.startup-loader');
-      return !s || s.getAttribute('aria-busy') !== 'true';
+      return s?.getAttribute('aria-busy') !== 'true';
     },
     { timeout: 30000 },
   )
@@ -156,7 +156,7 @@ async function measureInteraction(name, action, settleMs = 400) {
     const replay = result.perfFrames.map((f) => f.replayMs);
     const hash = result.perfFrames.map((f) => f.hashMs ?? 0);
     const other = result.perfFrames.map(
-      (f, i) => f.totalMs - f.buildIrMs - f.replayMs - (f.hashMs ?? 0),
+      (f, _i) => f.totalMs - f.buildIrMs - f.replayMs - (f.hashMs ?? 0),
     );
     console.log(`  APP totalMs: ${JSON.stringify(summary(total))}`);
     console.log(`    buildIrMs: ${JSON.stringify(summary(build))}`);

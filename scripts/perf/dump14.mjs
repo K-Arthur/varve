@@ -8,7 +8,7 @@ await page.waitForTimeout(6000);
 const info = await page.evaluate(async () => {
   const dbs = await indexedDB.databases();
   const out = [];
-  for (const { name, version } of dbs) {
+  for (const { name } of dbs) {
     const db = await new Promise((res, rej) => {
       const r = indexedDB.open(name);
       r.onsuccess = () => res(r.result);

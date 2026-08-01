@@ -11,7 +11,7 @@ await page.goto('http://localhost:1430/visual-harness.html', {
 await page.waitForTimeout(4000);
 const ready = await page
   .evaluate(() => window.__harnessReady === true)
-  .catch((e) => 'eval-err: ' + String(e));
+  .catch((e) => `eval-err: ${String(e)}`);
 console.log('ready:', ready, 'errs:', errs.slice(0, 3));
 if (ready === true) {
   const items = [];
