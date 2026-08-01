@@ -89,7 +89,17 @@ export function ViewportProvider({
     [setState],
   );
 
-  const setZoom = useCallback((z: number) => patch({ zoom: clampZoom(z) }), [patch]);
+  const setZoom = useCallback(
+    (z: number) => {
+      // Anchor around the viewport center so the point under the canvas
+      // center stays put — identical to `useEditor().setZoom` (both go
+      // through `computeZoomTo`). A plain `clampZoom` patch would diverge.
+      const s = stateRef.current;
+      const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+      patch(computeZoomTo(camState, z, getEditorViewport()));
+    },
+    [patch, stateRef],
+  );
 
   const setCamera = useCallback(
     (camera: Camera) =>
