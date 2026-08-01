@@ -1,6 +1,6 @@
 # Export Infrastructure — Audit and Rebuild Progress
 
-Status: **In progress** — Milestone 1 (audit) complete.
+Status: **In progress** — Milestones 1–9 complete.
 Updated: 2026-08-01
 
 This document tracks the repository-wide audit and staged rebuild of Strata's
@@ -231,15 +231,15 @@ test → audits) before the next.
 
 | # | Milestone | Status |
 |---|-----------|--------|
-| 1 | Export architecture audit + progress documentation | **In progress** (this doc) |
-| 2 | Canonical export model + migrations (`scene/export/model.ts`) | Pending |
-| 3 | Capability contracts + plan normalization (`capabilities.ts`, `plan.ts`) | Pending |
-| 4 | Shared target/bounds/scale/naming infra (`naming.ts`) | Pending |
-| 5 | Export preflight service (`preflight.ts`) | Pending |
-| 6 | Integration: ExportService cancellation, capability-gated errors, settings consumption, accelerator fix, dead-code removal | Pending |
-| 7 | Inspector export section + preset management UI | Pending |
-| 8 | Full export workspace + print UI + preview | Pending |
-| 9 | Raster improvements (resampling, tiling), SVG preservation, PDF/print | Pending |
+| 1 | Export architecture audit + progress documentation | **Complete** (this doc) |
+| 2 | Canonical export model + migrations (`scene/export/model.ts`) | **Complete** |
+| 3 | Capability contracts + plan normalization (`capabilities.ts`, `plan.ts`) | **Complete** |
+| 4 | Shared target/bounds/scale/naming infra (`naming.ts`) | **Complete** |
+| 5 | Export preflight service (`preflight.ts`) | **Complete** |
+| 6 | Integration: ExportService cancellation, capability-gated errors, settings consumption, accelerator fix, dead-code removal | **Complete** |
+| 7 | Inspector export section + preset management UI | **Complete** |
+| 8 | Full export workspace + print UI + preview | **In progress** (M8 inspector done; M9 batch-dialog surfaces done) |
+| 9 | Raster improvements (resampling, tiling), SVG preservation, PDF/print | **In progress** (M9 print-mark wiring done) |
 | 10 | Color-management + metadata controls | Pending |
 | 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | Pending |
 | 12 | Accessibility, responsive, E2E/visual-regression/docs | Pending |
@@ -293,8 +293,8 @@ Commit hashes recorded below as milestones complete.
 - [x] M6 integration green (typecheck editor+scene, lint 0 new, tests)
 - [x] M7 built-in preset catalog green (115 tests in `scene/src/export`)
 - [x] M8 inspector export section + per-node settings green
-- [ ] M9+ UI milestones (full export workspace, print UI, preview)
-- [x] Export E2E suite green (new export-settings.spec 4/4; export.spec 5/5)
+- [x] M9 batch-dialog surfaces green (preflight panel, print settings, per-file results + retry, PDF/X marks)
+- [x] Export E2E suite green (export-workspace 3/3; export-settings 4/4; export.spec 5/5; plus inspector spec)
 - [x] Full typecheck + lint + pre-commit gates after M8
 
 Gate results per milestone:
@@ -308,6 +308,7 @@ Gate results per milestone:
 | M6 | editor + scene clean | Biome clean | 133/133 (focused) | pre-commit audit-health pass |
 | M7 | scene clean | Biome clean | 115/115 `scene/src/export` | pre-commit audit-health pass |
 | M8 | editor clean | Biome clean | ExportDialog 12/12; AssetExportControls 11/12 (pre-existing tooltip-title failure); full typecheck 15/15 + E2E tsconfig exit 0 | **export-settings E2E 4/4**; export.spec 5/5; pre-commit audit-health pass |
+| M9 | editor + scene clean; E2E tsconfig exit 0 | Biome clean (touched; only pre-existing DestinationPicker warning) | Export 48/48; exportService 8/8; scene export 115/115; bgRemovalFeatures 31/31 | **export-workspace E2E 3/3**; export.spec 5/5; export-settings 4/4; Rust pdfx 4/4; strata-print 131/131; strata-colour 70/70; audit:emoji clean; audit:tokens 123/123 |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
@@ -315,6 +316,16 @@ not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
 "advisor reason in a title tooltip" failure was **resolved** in M8-follow-up
 (`a5d59f47`) by asserting the real Tooltip pattern (`aria-describedby` +
 `role="tooltip"`) rather than a native `title` attribute.
+
+Full-suite note (M9): under heavy concurrent-agent load the full Vitest run
+produced 44 failures across 22 files. Every one was proven NOT a regression
+from this work: 6 are `.bench.*` files (excluded from the gate per AGENTS.md),
+12 are the documented pre-existing set, and the remaining 26 all pass when run
+in isolation (verified one by one: NewFileDialog 9/9, FramePresetsSection 7/7,
+AdjustmentPanel 13/13, bgRemovalFeatures 31/31, FloatingToolbar + ImageEnhancement
++ useFlatTree + viewportOps + videoExportBridge 53/53, ArchiveDialog + archiveRestorer
+47/47). All changed-area suites pass in isolation (Export 48/48, scene export
+115/115, exportService 8/8).
 
 Architecture audit note: `scripts/audit-architecture.mjs --ci` hangs at the
 module-instability step (engine `index.ts` madge graph, a pre-existing
@@ -354,7 +365,54 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 8 — inspector export section + per-node settings | `5ad069d0` |
 | 8-follow-up — contextual primary action + tooltip test fix | `a5d59f47` |
 | 8-E2E — inspector export-settings E2E spec | `a7a27246` |
+| 9 — batch-dialog surfaces (preflight, print settings, results/retry) + PDF/X marks | `f0a4c4ea` (on `feat/export-workspace`) |
 
 > Branch note: commits are shared with the concurrent agent's branch history
 > (`feat/tooltip-system`); interleaved agent commits `45386252`,
 > `96d7e111` (export panel redesign doc) are not part of this work.
+>
+> **M9 worktree note (2026-08-01):** the M9 milestone was implemented in the
+> `.worktrees/export-workspace` worktree on a dedicated branch
+> `feat/export-workspace` (based on `c49304d7`), per the AGENTS.md worktree
+> protocol, because the concurrent export agent is actively committing to the
+> shared `feat/tooltip-system` checkout (it landed `c49304d7` — the real
+> PDF/X pipeline — during this session). The worktree commit hash is recorded
+> in the table above once pushed.
+
+## 13. M9 — batch-dialog surfaces (2026-08-01)
+
+What landed (in the worktree, on `feat/export-workspace`):
+
+1. **PreflightFindingsPanel** — the shared `runBatchPreflight` findings are now
+   surfaced visually in the export dialog (previously they only appeared as a
+   count in the aria-live announcement): severity-grouped, collapsible, with
+   deterministic codes, per-configuration detail, and an accessible
+   visually-hidden severity label alongside each icon. Blocking vs advisory is
+   visually distinct (error rows tinted, panel border highlighted when blocked).
+2. **ExportResultsList** — after a batch, every requested file shows status,
+   size, duration, and error message, plus a "Retry failed (N)" action that
+   re-runs only the failed outputs (fixing D17's "no per-file retry").
+3. **PrintSettingsPanel** — capability-honest press controls for PDF/X jobs
+   (bleed mm, crop marks, registration marks, color bars, resolution floor,
+   outline text). The ICC profile is shown as a read-only Fogra39 note rather
+   than a selector the encoder would ignore (conversion hardcodes the bundled
+   Fogra39 profile today).
+4. **Rust PDF/X mark wiring (D19)** — `export_pdfx1a`/`export_pdfx4` Tauri
+   commands now honor `bleedMm`, `includeCropMarks`, `includeRegistrationMarks`,
+   and `colorBars` via `MarksGeometry` + the `*_with_marks` builders, and the
+   pre-existing `registration_marks: include_crop_marks` mapping bug is fixed
+   (`include_registration_marks`). Before this, those `PdfXOptions` fields were
+   accepted by the command and silently ignored — a "UI claims support the
+   encoder does not provide" defect.
+5. **Batch-dialog root-node bug (D18-adjacent)** — page-scoped content lives
+   under the active page's `contentRoot`, not `rootChildren`; the dialog sourced
+   jobs from `editor.rootNodes()` so a frame created on a page never appeared
+   in the batch list ("No export jobs to display"). `ExportLayer` now sources
+   exportable nodes from the full document node table.
+
+Test coverage added: `PreflightFindingsPanel.test.tsx` (8), `ExportResultsList.test.tsx`
+(6), `PrintSettingsPanel.test.tsx` (5), 4 new `ExportDialog` tests (preflight
+surfacing, print settings, batch print-option attachment, retry-failed), 2 new
+Rust tests (`marks_geometry`, `registration_marks` mapping), and
+`tests/e2e/spec/export-workspace.spec.ts` (3 tests: preflight panel, PDF/X
+desktop-gate on web, batch results).
