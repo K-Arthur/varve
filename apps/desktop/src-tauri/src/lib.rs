@@ -162,15 +162,24 @@ fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
     let canonical = if path.exists() {
         std::fs::canonicalize(path).map_err(|e| format!("Failed to resolve path: {e}"))?
     } else {
+        // Reject '.' / '..' components lexically, independent of the
+        // filesystem. On Windows, Path::exists() collapses a trailing
+        // `X\..` (Temp\X\.. resolves to Temp even when X doesn't exist),
+        // so the walk-up loop below never observes the '..' component and
+        // the traversal would be silently accepted. The lexical check runs
+        // before any syscall so behaviour is identical across platforms.
+        if path.components().any(|c| {
+            matches!(
+                c,
+                std::path::Component::CurDir | std::path::Component::ParentDir
+            )
+        }) {
+            return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
+        }
+
         let mut ancestor = path;
         let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
         loop {
-            if suffix
-                .last()
-                .is_some_and(|c| *c == "." || *c == "..")
-            {
-                return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
-            }
             if ancestor.exists() {
                 break;
             }
