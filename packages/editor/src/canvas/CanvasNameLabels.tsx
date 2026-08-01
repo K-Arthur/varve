@@ -10,7 +10,7 @@ import { type Document, getParent, isContainer, type NodeId } from '@strata/scen
 import { useMemo } from 'react';
 import { nodeWorldBounds } from '../scene/world';
 import { editorWorldToScreen, getEditorViewport } from './cameraState';
-import { type NameLabelCandidate, pickNameLabelCandidates } from './canvasNameLabels';
+import { type NameLabelCandidate, pickNameLabelCandidates } from './nameLabelPolicy';
 
 export interface CanvasNameLabelsProps {
   doc: Document;
