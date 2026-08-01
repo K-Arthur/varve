@@ -1,5 +1,5 @@
 import type { FileEntry, Folder, Platform, Project } from '@strata/platform';
-import { Button, Icon } from '@strata/ui';
+import { Button, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { BreadcrumbSegment } from './BreadcrumbNav';
 import { FileGrid } from './FileGrid';
@@ -122,16 +122,17 @@ export function ProjectsView({
             className="project-view__rename-input"
           />
         ) : (
-          <h2
-            className="project-view__name"
-            onDoubleClick={() => {
-              setName(project.name);
-              setEditing(true);
-            }}
-            title="Double-click to rename"
-          >
-            {project.name}
-          </h2>
+          <Tooltip label="Double-click to rename">
+            <h2
+              className="project-view__name"
+              onDoubleClick={() => {
+                setName(project.name);
+                setEditing(true);
+              }}
+            >
+              {project.name}
+            </h2>
+          </Tooltip>
         )}
         <div className="project-view__actions">
           <Button

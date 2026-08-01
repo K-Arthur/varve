@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { SavedSearch } from '@strata/platform';
 import type { SolidIconName } from '@strata/ui';
-import { SearchField, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { SearchField, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import {
   type DragEvent,
   type KeyboardEvent,
@@ -353,18 +353,19 @@ export function SidebarNav({
               </span>
             </button>
             {onCreateProject && (
-              <button
-                type="button"
-                className="sidebar-group__add"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCreateProject();
-                }}
-                aria-label="New project"
-                title="New project"
-              >
-                <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} size="0.85em" />
-              </button>
+              <Tooltip label="New project">
+                <button
+                  type="button"
+                  className="sidebar-group__add"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCreateProject();
+                  }}
+                  aria-label="New project"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.plus} label={undefined} size="0.85em" />
+                </button>
+              </Tooltip>
             )}
           </div>
           {!isCollapsed('projects') && (

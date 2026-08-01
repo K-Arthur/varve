@@ -9,7 +9,7 @@ import {
 } from '@strata/platform';
 import { createDocumentFromPreset, serializeDocument } from '@strata/scene';
 import { generateKeyBetween, type Preset } from '@strata/shared';
-import { ContentSkeleton, Dialog, Icon } from '@strata/ui';
+import { ContentSkeleton, Dialog, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
 import { AssetBrowser } from './AssetBrowser';
@@ -714,15 +714,12 @@ export function HomeShell({
         )}
         <div className={`strata-home__sidebar ${sidebarOpen ? 'strata-home__sidebar--open' : ''}`}>
           {onResumeEditing && (
-            <button
-              type="button"
-              className="sidebar-resume"
-              onClick={onResumeEditing}
-              title="Return to your open tabs"
-            >
-              <Icon name="ArrowLeft" label={undefined} size="1em" />
-              <span>Continue editing</span>
-            </button>
+            <Tooltip label="Return to your open tabs">
+              <button type="button" className="sidebar-resume" onClick={onResumeEditing}>
+                <Icon name="ArrowLeft" label={undefined} size="1em" />
+                <span>Continue editing</span>
+              </button>
+            </Tooltip>
           )}
           {view.workspaces.length > 0 && (
             <WorkspaceSwitcher
