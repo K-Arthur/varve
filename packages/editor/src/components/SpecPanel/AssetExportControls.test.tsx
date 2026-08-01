@@ -287,7 +287,7 @@ describe('AssetExportControls', () => {
       );
 
       fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
-      fireEvent.click(screen.getByRole('option', { name: 'PNG 2× · web' }));
+      fireEvent.click(screen.getByRole('option', { name: 'PNG 2\u00d7 \u00b7 web' }));
 
       expect(onAddPreset).toHaveBeenCalledOnce();
       expect(onAddPreset.mock.calls[0]?.[0]).toMatchObject({
@@ -335,7 +335,7 @@ describe('AssetExportControls', () => {
       const labels = screen.getAllByRole('option').map((o) => o.textContent ?? '');
       // Web platform: press presets are not encodable, so they are not offered.
       expect(labels.some((l) => /PDF\/X-4/.test(l))).toBe(false);
-      expect(labels.some((l) => /PNG 1×/.test(l))).toBe(true);
+      expect(labels.some((l) => /PNG 1\u00d7/.test(l))).toBe(true);
     });
 
     it('edits a preset suffix', () => {

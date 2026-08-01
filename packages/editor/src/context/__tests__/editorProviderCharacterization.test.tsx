@@ -234,6 +234,53 @@ describe('EditorProvider characterization — context value identity', () => {
     expect(viewportCtx).not.toBe(beforeRef);
   });
 
+  it('useViewport().setZoom and useEditor().setZoom anchor around the viewport center identically', async () => {
+    let viewportCtx: ReturnType<typeof useViewport> | undefined;
+    let editorCtx: ReturnType<typeof useEditor> | undefined;
+
+    function TestComponent() {
+      editorCtx = useEditor();
+      viewportCtx = useViewport();
+      return null;
+    }
+
+    render(
+      <EditorProvider>
+        <TestComponent />
+      </EditorProvider>,
+    );
+
+    await waitFor(() => expect(editorCtx).toBeDefined());
+
+    // Both surfaces must produce the same pan when asked to set the same zoom:
+    // a centre-anchored zoom. A plain `patch({ zoom })` (ViewportContext's old
+    // behaviour) left pan untouched and diverged from useEditor().setZoom.
+    viewportCtx?.setZoom(2);
+    await waitFor(() => expect(editorCtx?.state.zoom).toBe(2));
+    const viewportResult = { pan: editorCtx?.state.pan, zoom: editorCtx?.state.zoom };
+
+    editorCtx?.setZoom(1.5);
+    await waitFor(() => expect(editorCtx?.state.zoom).toBe(1.5));
+
+    viewportCtx?.setZoom(1.5);
+    await waitFor(() => expect(editorCtx?.state.zoom).toBe(1.5));
+    const viewportResult2 = { pan: editorCtx?.state.pan, zoom: editorCtx?.state.zoom };
+
+    // Same target zoom from the same current state must land on the same camera.
+    editorCtx?.setZoom(0.75);
+    await waitFor(() => expect(editorCtx?.state.zoom).toBe(0.75));
+
+    editorCtx?.setZoom(1.5);
+    await waitFor(() => expect(editorCtx?.state.zoom).toBe(1.5));
+    const editorResult = { pan: editorCtx?.state.pan, zoom: editorCtx?.state.zoom };
+
+    expect(viewportResult2.zoom).toBe(1.5);
+    expect(editorResult.zoom).toBe(1.5);
+    // Both routes must move pan the same way (not leave it untouched).
+    expect(viewportResult2.pan).not.toEqual(viewportResult.pan);
+    expect(editorResult.pan).toEqual(viewportResult2.pan);
+  });
+
   // FIXED (was a live bug, found by this characterization pass, fixed in its own PR —
   // see docs/quality/editorprovider-surface.md): `useViewport()`'s memoization used to be
   // completely defeated on every EditorProvider render, not just viewport-relevant ones.
