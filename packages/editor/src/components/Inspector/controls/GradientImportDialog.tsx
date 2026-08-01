@@ -100,7 +100,7 @@ export function GradientImportDialog({
             onChange={toggleAll}
           />
         </div>
-        <ul className="gmp-import__list" role="list" aria-label="Discovered gradients">
+        <ul className="gmp-import__list" aria-label="Discovered gradients">
           {presets.map((preset) => {
             const checked = selected.has(preset.id);
             return (
