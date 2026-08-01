@@ -1,5 +1,5 @@
 /**
- * canvasNameLabels — Figma-style when-to-show policy.
+ * nameLabelPolicy — Figma-style when-to-show policy.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -7,7 +7,7 @@ import {
   type NameLabelCandidate,
   pickNameLabelCandidates,
   shouldShowNameLabel,
-} from './canvasNameLabels';
+} from './nameLabelPolicy';
 
 describe('shouldShowNameLabel', () => {
   it('always shows frame names when non-empty', () => {
