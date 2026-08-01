@@ -18,6 +18,7 @@ import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { CanvasMode, EditorState } from '../context/types';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
+import { interactionSession } from '../tools/InteractionContext';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
@@ -141,6 +142,13 @@ export function useCanvasInputs({
       }
 
       if (e.button === 1) e.preventDefault();
+
+      // B6: Intercept mouse side buttons (back=3, forward=4) to prevent
+      // browser navigation while the canvas owns the interaction.
+      if (e.button === 3 || e.button === 4) {
+        e.preventDefault();
+        return;
+      }
 
       snapSessionForPointer.current = createSnapSession();
       snapIndexForPointer.current = null;
@@ -510,6 +518,22 @@ export function useCanvasInputs({
       }
 
       if (e.key === 'Escape') {
+        // B5: Cancel any active tool drag before clearing selection.
+        // Tools that handle Escape in their own onKeyDown return true,
+        // which preventDefaults and returns above (tmInst.handleKeyDown).
+        // If we reach here, the tool did not consume Escape — cancel the
+        // drag explicitly so it cannot remain stuck.
+        if (tmInst) {
+          const cancelCtx = buildToolCtx(
+            { pointerType: 'mouse', pressure: 0 } as PointerEvent,
+          );
+          tmInst.handlePointerCancel(
+            new PointerEvent('pointercancel'),
+            cancelCtx,
+          );
+        }
+        stopAutoPan();
+        setSnapGuides([]);
         if (s.isolatedNodeId) {
           eRef.exitIsolation();
           eRef.setSelection(s.isolatedNodeId);
@@ -626,6 +650,8 @@ export function useCanvasInputs({
       contentCanvasRef,
       setRenameDialog,
       rootNodes,
+      stopAutoPan,
+      setSnapGuides,
     ],
   );
 
@@ -671,6 +697,41 @@ export function useCanvasInputs({
       tmRef.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
     }
   }, [tmRef, stopAutoPan, editor, buildToolCtx]);
+
+  // B4 + G7: Reset modifier state and cancel active interactions when the
+  // window loses focus or the page becomes hidden. Without this, a key
+  // release that occurs outside the window (e.g. alt-tab while holding
+  // Ctrl/Shift) leaves the modifier state stuck, and a drag started before
+  // tab-switching can remain active indefinitely.
+  useEffect(() => {
+    function resetInputState() {
+      tmRef.current?.resetModifiers();
+      interactionSession.reset();
+      stopAutoPan();
+    }
+    function onWindowBlur() {
+      resetInputState();
+      tmRef.current?.activeTool.onPointerCancel?.(
+        new PointerEvent('pointercancel'),
+        buildToolCtx(new PointerEvent('pointercancel')),
+      );
+      if (tmRef.current?.springActive) {
+        tmRef.current.releaseSpring(buildToolCtx(new PointerEvent('pointercancel')));
+      }
+    }
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        resetInputState();
+        editor.commitTransaction();
+      }
+    }
+    window.addEventListener('blur', onWindowBlur);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('blur', onWindowBlur);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [tmRef, editor, buildToolCtx, stopAutoPan]);
 
   return {
     handlePointerDown,
