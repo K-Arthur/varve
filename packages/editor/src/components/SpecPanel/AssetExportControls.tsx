@@ -1,11 +1,19 @@
 import { exportNodeToSvg } from '@strata/codegen';
 import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
-import type { ExportPreset, ExportFormat as PresetFormat, SceneNode } from '@strata/scene';
+import type {
+  ExportBatch,
+  ExportPreset,
+  ExportFormat as PresetFormat,
+  SceneNode,
+} from '@strata/scene';
+import { capabilitiesForFormat, type PlatformKind } from '@strata/scene/export';
 import { CopyButton, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
+import { runBatchPreflight } from '../../exportService';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
+import { buildJobs } from '../Export/ExportDialog';
 import {
   buildFilename,
   downloadBlob,
@@ -28,15 +36,40 @@ export interface AssetExportControlsProps {
 
 type ExportFormat = RasterFormat | 'svg' | 'pdf';
 
-const FORMATS: { value: ExportFormat; label: string; desktopOnly?: boolean }[] = [
+/** Canonical format id from the capability contract table (Strata export rebuild, M3). */
+type CanonicalFormat = 'png' | 'jpeg' | 'webp' | 'svg' | 'pdf';
+
+function toCanonicalFormat(f: ExportFormat): CanonicalFormat {
+  switch (f) {
+    case 'image/png':
+      return 'png';
+    case 'image/jpeg':
+      return 'jpeg';
+    case 'image/webp':
+      return 'webp';
+    case 'svg':
+      return 'svg';
+    case 'pdf':
+      return 'pdf';
+  }
+}
+
+const FORMATS: { value: ExportFormat; label: string }[] = [
   { value: 'image/png', label: 'PNG' },
   { value: 'image/jpeg', label: 'JPEG' },
   { value: 'image/webp', label: 'WebP' },
   { value: 'svg', label: 'SVG' },
-  { value: 'pdf', label: 'PDF', desktopOnly: true },
+  { value: 'pdf', label: 'PDF' },
 ];
 
 const SCALES = [1, 2, 3];
+
+/** One-click starting points for the most common per-node exports (brief §12, scoped to what fits a compact inspector). */
+const QUICK_PRESETS: { label: string; format: PresetFormat; scale: number }[] = [
+  { label: 'PNG 1x', format: 'png', scale: 1 },
+  { label: 'PNG 2x', format: 'png', scale: 2 },
+  { label: 'SVG', format: 'svg', scale: 1 },
+];
 
 const PRESET_FORMAT_LABELS: Partial<Record<PresetFormat, string>> = {
   png: 'PNG',
@@ -198,7 +231,33 @@ export function AssetExportControls({
 
   const effectiveScale = customScale ? Number.parseFloat(customScale) : scale;
   const isTauri = isTauriPlatform(platform);
+  // PDF's general capability contract reports browser support (the raster
+  // fallback path in exportNodeAsPdf can run without Tauri), but that fallback
+  // only triggers for nodes that already need rasterizing (effects, opacity,
+  // blend modes, rotation). This quick-export control can't know that ahead of
+  // inspecting the node, so it keeps the stricter, always-correct desktop-only
+  // gate for the common vector-PDF case rather than advertising a control that
+  // sometimes fails.
   const isPdfDesktopOnly = format === 'pdf' && !isTauri;
+  const platformKind: PlatformKind = isTauri ? 'tauri' : 'web';
+  const formatAvailability = useMemo(
+    () =>
+      new Map(
+        FORMATS.map((f) => {
+          const canonical = toCanonicalFormat(f.value);
+          const cap = capabilitiesForFormat(canonical, platformKind);
+          const platformSupported = platformKind === 'tauri' ? cap.desktop : cap.browser;
+          const disabled = f.value === 'pdf' ? !isTauri : !cap.supported || !platformSupported;
+          const reason =
+            f.value === 'pdf' && !isTauri
+              ? 'Full PDF export requires the desktop app; browser export only covers content that already needs rasterizing'
+              : (cap.reasonUnsupported ??
+                (disabled ? 'Not available on this platform' : undefined));
+          return [f.value, { disabled, reason }];
+        }),
+      ),
+    [platformKind, isTauri],
+  );
   const formatLabel = FORMATS.find((f) => f.value === format)?.label ?? format;
   const usesDesktopSave = isTauri && !!platform;
   const primaryActionLabel = exporting
@@ -206,6 +265,17 @@ export function AssetExportControls({
     : `${usesDesktopSave ? 'Export' : 'Download'} ${formatLabel}`;
   const nodePresets = node.presets ?? [];
   const showConfigList = !!(onAddPreset || onUpdatePreset || onRemovePreset);
+  const preflightFindings = useMemo(() => {
+    const enabledPresets = nodePresets.filter((p) => p.enabled);
+    if (enabledPresets.length === 0) return [];
+    const batch: ExportBatch = {
+      jobs: buildJobs([{ ...node, presets: enabledPresets }]),
+      destinationFolder: null,
+      filenameTemplate: '{name}{suffix}.{ext}',
+      folderRule: 'flat',
+    };
+    return runBatchPreflight(batch, doc, platformKind);
+  }, [nodePresets, node, doc, platformKind]);
 
   useEffect(() => {
     if (_engine) {
@@ -307,23 +377,22 @@ export function AssetExportControls({
           </Tooltip>
         </span>
         <div className="spec-export__group">
-          {FORMATS.map((f) => (
-            <Tooltip
-              key={f.value}
-              label={f.label}
-              disabledReason={f.desktopOnly && !isTauri ? 'Requires desktop app' : undefined}
-            >
-              <button
-                type="button"
-                className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
-                aria-pressed={format === f.value}
-                disabled={f.desktopOnly && !isTauri}
-                onClick={() => setFormat(f.value)}
-              >
-                {f.label}
-              </button>
-            </Tooltip>
-          ))}
+          {FORMATS.map((f) => {
+            const availability = formatAvailability.get(f.value);
+            return (
+              <Tooltip key={f.value} label={f.label} disabledReason={availability?.reason}>
+                <button
+                  type="button"
+                  className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
+                  aria-pressed={format === f.value}
+                  disabled={availability?.disabled}
+                  onClick={() => setFormat(f.value)}
+                >
+                  {f.label}
+                </button>
+              </Tooltip>
+            );
+          })}
         </div>
       </div>
 
@@ -428,6 +497,41 @@ export function AssetExportControls({
               </button>
             )}
           </div>
+          {onAddPreset && (
+            <div className="spec-export__configs-quick">
+              {QUICK_PRESETS.map((qp) => (
+                <button
+                  key={qp.label}
+                  type="button"
+                  className="spec-export__configs-quick-btn"
+                  onClick={() =>
+                    onAddPreset({
+                      id: `preset-${Date.now()}-${nodePresets.length}`,
+                      format: qp.format,
+                      scale: { type: 'factor', value: qp.scale },
+                      suffix: qp.format === 'svg' || qp.scale === 1 ? '' : `@${qp.scale}x`,
+                      enabled: true,
+                    })
+                  }
+                >
+                  {qp.label}
+                </button>
+              ))}
+            </div>
+          )}
+          {preflightFindings.length > 0 && (
+            <div className="spec-export__configs-preflight" role="status">
+              <strong>
+                {preflightFindings.length} preflight{' '}
+                {preflightFindings.length === 1 ? 'warning' : 'warnings'}
+              </strong>
+              <ul>
+                {preflightFindings.map((finding) => (
+                  <li key={finding.id}>{finding.title}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
       )}
     </section>

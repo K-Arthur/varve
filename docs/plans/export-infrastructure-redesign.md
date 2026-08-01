@@ -143,15 +143,8 @@ this document as it lands, with the commit hash noted.
   service) → M5 (wires cancellation, capability-gated errors, preflight, and
   settings into `ExportDialog`/`ExportLayer`/`exportService`). Full
   `packages/scene/src/export` + editor export suite (157 tests) passes on the
-  reassembled branch, with typecheck clean.
-  **Still open, not done by M2–M5:** `AssetExportControls` (C1) was built
-  against the legacy `node.presets`/`ExportPreset` model deliberately, since
-  that's what's live in `buildJobs()` today; M2's adapter bridges old↔new but
-  nothing yet re-points the compact panel's format list at
-  `capabilities.ts`'s `supportedFormats()`/`formatSupportedOnPlatform()`, so it
-  still hand-rolls its own `desktopOnly` gating instead of consulting the real
-  capability table. That re-pointing is the next concrete step, not a
-  someday-maybe.
+  reassembled branch, with typecheck clean. The re-pointing this note used to
+  flag as "still open" is done — see C5.
 - Rust print-engine work (font outlining, ICC-aware CMYK, real PDF/X-1a/X-4,
   crop/registration marks) — owned by `export-system-deferred.md` Workstream
   A, already implemented per that doc's session-26 status log; brief §10's
@@ -161,16 +154,60 @@ this document as it lands, with the commit hash noted.
   (brief §11) — no existing scaffolding; would need a new render target and
   is a multi-session effort on its own.
 - Preset *library* / named built-in presets across web/print/developer
-  categories (brief §12) — the per-node preset model exists but there is no
-  document- or app-level preset catalog to seed "PNG @1x/@2x" etc. as one
-  click; worth a follow-up once C1–C3 are validated in real use.
+  categories (brief §12) — C5 added three compact-panel quick-add chips (PNG
+  1x/2x, SVG), which covers the "single click, no dialog" part of the brief
+  for the most common web case. A real categorized catalog (print presets,
+  developer presets, document-level persistence of custom presets) is still
+  undone and belongs in the advanced dialog, not this narrow inspector.
 - Full visual-regression baseline matrix (brief §15, 24 states) — needs a
   screenshot-testing harness decision (which this repo doesn't currently have
-  for panel-level UI) before baselines are worth capturing.
-- Code-emitter preview inside the Export tab, capability-driven format list
-  (brief §6/§10's "only show supported formats") — `FORMATS` in
-  `AssetExportControls` already gates PDF behind `desktopOnly`, but doesn't
-  consult a real capability registry; deferred until one exists.
+  for panel-level UI) before baselines are worth capturing. Not attempted:
+  picking a new testing tool/dependency is a repo-wide call, not something to
+  bootstrap unprompted inside a UI task.
+- Code-emitter preview and capability gating inside the **Code** sub-tab
+  (`CodeGenView`) — C5 only re-pointed the **Format** sub-tab
+  (`AssetExportControls`) at `capabilities.ts`. `CodeGenView` is a separate
+  component with its own settings model (by design, per brief §9) and hasn't
+  been touched.
+
+### C5. Second pass — capability-driven gating, preflight, quick presets
+
+- [x] **Capability-driven format list (closes the C4 gap above, brief §6).**
+  `AssetExportControls`'s format buttons now call `capabilitiesForFormat()` /
+  the platform-clipped `browser`/`desktop` flags from `@strata/scene/export`
+  instead of a hardcoded `desktopOnly` flag, and surface the capability
+  table's real `reasonUnsupported` text in the tooltip instead of a generic
+  "Requires desktop app" string. PDF keeps one deliberate, documented
+  exception: the capability table reports `pdf.browser: true` because
+  `exportNodeAsPdf`'s raster-fallback path can run without Tauri, but that
+  fallback only triggers for nodes that already need rasterizing (effects,
+  opacity, blend, rotation) — this control can't know that ahead of
+  inspecting the node, so it keeps the stricter always-correct desktop-only
+  gate rather than sometimes offering a control that fails. Left as a
+  follow-up: compute the real per-node `needsRaster` check ahead of the
+  format list so PDF can be correctly enabled in-browser for eligible
+  content.
+- [x] **Preflight warnings surfaced per node (brief §2 "warning count", §4
+  "Preflight — N warnings", §11).** Exported the previously-private
+  `buildJobs()` from `ExportDialog.tsx` (pure function, no component-local
+  dependencies) and reused it to build a single-node `ExportBatch`, run
+  through the already-exported `runBatchPreflight()` from `exportService.ts`
+  (M5). When any enabled preset produces a finding (oversized output, missing
+  font, unsupported format on this platform, etc.), the panel now shows a
+  "N preflight warning(s)" summary with the finding titles listed — real
+  backend findings, not a hand-rolled check.
+- [x] **Quick presets (brief §12, compact-panel-appropriate scope).** Added
+  three one-click chips — PNG 1x, PNG 2x, SVG — next to "+ Add export
+  setting" that call `onAddPreset` with a fully-formed preset directly,
+  without going through the current quick-export selection. Deliberately not
+  a categorized preset library (see the C4 note above) — that belongs in the
+  advanced dialog.
+- [x] Tests added: capability-driven PDF disable/enable across platforms with
+  the dynamic reason, a preflight-warning assertion using a real oversized
+  preset (triggers the `memory-risk` rule), and a quick-preset click
+  assertion. Full `packages/scene/src/export` + editor export suite green
+  (one pre-existing, unrelated tooltip-migration failure persists — verified
+  via `git stash` to predate all of this branch's export work).
 
 ---
 

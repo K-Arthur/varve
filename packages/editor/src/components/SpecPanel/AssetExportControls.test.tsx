@@ -230,5 +230,83 @@ describe('AssetExportControls', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Open advanced export…' }));
       expect(onOpenAdvancedExport).toHaveBeenCalledTimes(1);
     });
+
+    it('adds a quick preset with fixed format/scale in one click', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      const onAddPreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'PNG 2x' }));
+
+      expect(onAddPreset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          format: 'png',
+          scale: { type: 'factor', value: 2 },
+          suffix: '@2x',
+          enabled: true,
+        }),
+      );
+    });
+
+    it('surfaces a preflight warning for an oversized export configuration', () => {
+      const doc = createDocument('Export', true);
+      const node = {
+        ...makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 3000, h: 2000 }, { name: 'Banner' }),
+        presets: [
+          {
+            id: 'p1',
+            format: 'png' as const,
+            scale: { type: 'factor' as const, value: 10 },
+            suffix: '@10x',
+            enabled: true,
+          },
+        ],
+      };
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText(/preflight warning/)).toBeInTheDocument();
+      expect(screen.getByText('Large output size')).toBeInTheDocument();
+    });
+  });
+
+  describe('capability-driven format availability', () => {
+    it('disables PDF with an explanatory reason in the browser and enables it on desktop', () => {
+      const doc = createDocument('Export', true);
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { name: 'Icon' },
+      );
+      const fullDoc = { ...doc, rootChildren: ['n1'], nodes: { n1: node } };
+
+      const { rerender } = render(<AssetExportControls node={node} doc={fullDoc} />);
+      expect(screen.getByRole('button', { name: 'PDF' })).toBeDisabled();
+
+      rerender(
+        <AssetExportControls
+          node={node}
+          doc={fullDoc}
+          platform={{ kind: 'tauri', saveBinaryFile: vi.fn() } as never}
+        />,
+      );
+      expect(screen.getByRole('button', { name: 'PDF' })).toBeEnabled();
+    });
   });
 });
