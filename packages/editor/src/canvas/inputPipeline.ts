@@ -23,6 +23,11 @@ import { interactionSession } from '../tools/InteractionContext';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import { recordInputDiagnostic } from './inputDiagnostics';
+import {
+  type NavigationGestureEvent,
+  type NavigationGestureState,
+  transitionNavigationState,
+} from './navigationState';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
 import { resolveWheelAction } from './wheelClassifier';
 
@@ -91,6 +96,29 @@ export function useCanvasInputs({
     lastDist: number;
     lastCentroid: { x: number; y: number };
   } | null>(null);
+  // Explicit navigation-gesture state machine (see navigationState.ts). Owns
+  // the viewport-level pan/pinch transitions; tools own their own drag state.
+  const navigationStateRef = useRef<NavigationGestureState>('idle');
+
+  function advanceNavigation(event: NavigationGestureEvent): NavigationGestureState {
+    const t = transitionNavigationState(navigationStateRef.current, event);
+    navigationStateRef.current = t.next;
+    return t.next;
+  }
+
+  function recordNavigationEvent(event: NavigationGestureEvent): void {
+    recordInputDiagnostic({
+      eventType: `nav:${event.type}`,
+      source: 'unknown',
+      modifiers: { shift: false, ctrl: false, alt: false, meta: false },
+      viewport: {
+        zoom: stateRef.current.zoom,
+        panX: stateRef.current.pan.x,
+        panY: stateRef.current.pan.y,
+        rotation: stateRef.current.cameraRotation,
+      },
+    });
+  }
 
   function pinchGeometry() {
     const pts = [...touchPointers.current.values()];
@@ -135,6 +163,16 @@ export function useCanvasInputs({
 
       if (e.pointerType === 'touch') {
         touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        advanceNavigation({
+          type: 'pointer-down',
+          pointerType: 'touch',
+          pointerCount: touchPointers.current.size,
+        });
+        recordNavigationEvent({
+          type: 'pointer-down',
+          pointerType: 'touch',
+          pointerCount: touchPointers.current.size,
+        });
         if (touchPointers.current.size === 2) {
           tmInst.handlePointerCancel(ne, ctx);
           const geo = pinchGeometry();
@@ -167,6 +205,11 @@ export function useCanvasInputs({
 
       if (e.pointerType === 'touch' && touchPointers.current.has(e.pointerId)) {
         touchPointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        advanceNavigation({
+          type: 'pointer-move',
+          pointerType: 'touch',
+          pointerCount: touchPointers.current.size,
+        });
         const pinch = pinchRef.current;
         const geo = pinchGeometry();
         if (pinch && geo) {
@@ -270,6 +313,11 @@ export function useCanvasInputs({
       if (e.pointerType === 'touch') {
         const wasPinching = pinchRef.current !== null;
         touchPointers.current.delete(e.pointerId);
+        advanceNavigation({
+          type: 'pointer-up',
+          pointerType: 'touch',
+          pointerCount: touchPointers.current.size,
+        });
         if (touchPointers.current.size < 2) pinchRef.current = null;
         if (wasPinching) return;
       }
@@ -288,6 +336,7 @@ export function useCanvasInputs({
         touchPointers.current.delete(e.pointerId);
         if (touchPointers.current.size < 2) pinchRef.current = null;
       }
+      advanceNavigation({ type: 'pointer-cancel' });
       const ne = e.nativeEvent as PointerEvent;
       tmRef.current?.handlePointerCancel(ne, buildToolCtx(ne));
       setSnapGuides([]);
@@ -355,6 +404,7 @@ export function useCanvasInputs({
         shiftKey: e.shiftKey,
         clientHeight: el.clientHeight,
       });
+      advanceNavigation({ type: 'wheel', zoom: action.kind === 'zoom' });
       recordInputDiagnostic({
         eventType: 'wheel',
         source: action.source === 'trackpad' ? 'trackpad' : 'wheel',
@@ -755,6 +805,7 @@ export function useCanvasInputs({
       tmRef.current?.resetModifiers();
       interactionSession.reset();
       stopAutoPan();
+      advanceNavigation({ type: 'reset' });
     }
     function onWindowBlur() {
       resetInputState();
