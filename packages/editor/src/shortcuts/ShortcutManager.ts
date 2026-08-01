@@ -1,3 +1,4 @@
+import { isMac as isMacPlatform } from '@strata/platform';
 import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
 
 const STORAGE_KEY = 'strata-shortcut-overrides';
@@ -663,7 +664,7 @@ export function importKeymap(data: KeymapExport): number {
 }
 
 export function isMac(): boolean {
-  return navigator.platform?.toLowerCase().includes('mac') ?? false;
+  return isMacPlatform();
 }
 
 export function shortcutFromEvent(e: KeyboardEvent): {

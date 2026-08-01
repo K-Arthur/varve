@@ -15,6 +15,7 @@
  *     4. NormalizedInputEvent → CapturedPoint (for vector freehand)
  */
 
+import { isWebKitGTK } from '@strata/platform';
 import type { StrokePoint } from '@strata/scene';
 
 /**
@@ -85,10 +86,7 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
   const hasPredicted = typeof PointerEvent.prototype.getPredictedEvents === 'function';
   const hasOffscreen = typeof OffscreenCanvas !== 'undefined';
 
-  const isWebKit =
-    typeof navigator !== 'undefined' &&
-    /AppleWebKit/.test(navigator.userAgent ?? '') &&
-    !/Chrome/.test(navigator.userAgent ?? '');
+  const isWebKit = isWebKitGTK();
 
   platformCaps = {
     hasCoalescedEvents: hasCoalesced,
