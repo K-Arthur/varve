@@ -85,6 +85,7 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 /* ── Zoom Controls ──────────────────────────────────────────────────────────── */
