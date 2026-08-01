@@ -133,6 +133,7 @@ All milestones implemented, tested, and committed on `feat/gradient-map-system`
 | M10 — E2E workflow specs | `82f41d63` | done |
 | M11 — Docs + final report | this doc + `docs/architecture/gradient-map-system.md` | done |
 | M12 — LUT-size correctness fix + CPU benchmarks + pixel E2E | `d1f39ec1`, `eb9ea723` | done |
+| M12b — adjustment layers parented into the page content root (unblocks the four pixel-level E2E cases) | `f04703bb` | done |
 
 Verification (2026-08-01):
 - `pnpm typecheck` — all 15 packages pass.
@@ -233,12 +234,15 @@ pure function of an 8-bit channel, so it is now a 256-entry table computed once
 at module load; output is byte-identical. The mode remains the slowest (three
 `Math.cbrt` per pixel are inherent) but is no longer an outlier.
 
-### 9.3 Pre-existing gap — adjustment layers do not reach the content canvas
+### 9.3 Pre-existing gap — adjustment layers did not reach the content canvas
 
-The pixel-level raster/vector/text/group cases in
-`tests/e2e/gradient-map/raster-vector-apply.spec.ts` are committed but marked
-`fixme`. Adding an adjustment layer over a target does not change the
-composited `.editor-canvas__content-layer` pixels in this flow.
+**RESOLVED — see §9.5 for the fix.** Kept here because it records how the bug
+was isolated, which is what made the one-line fix findable.
+
+Originally: the pixel-level raster/vector/text/group cases in
+`tests/e2e/gradient-map/raster-vector-apply.spec.ts` were marked `fixme`
+because adding an adjustment layer over a target did not change the composited
+`.editor-canvas__content-layer` pixels in this flow.
 
 This is **not** gradient-map-specific. A control probe using a plain `invert`
 adjustment — same helper, same `image-local` scope, image demonstrably
@@ -252,22 +256,12 @@ The gap therefore sits in the shared adjustment compositing/canvas path used by
 all 27 adjustment kinds. It was never caught because no E2E spec asserts
 adjustment pixels — `effects-verification.spec.ts` only checks that the canvas
 is not entirely black, and `effects/gradient-map.spec.ts` asserts UI state only.
-Unmark the four cases once adjustment compositing reaches the content layer.
-
-**Lead for whoever picks this up** (not yet verified end-to-end): in
-`context.tsx`, `createAdjustmentLayer` finishes with
-`addNode(newDoc, withAdjustments)`, which appends to `rootChildren`, whereas
-sibling creators such as `createShapeAt` parent new nodes under the active
-page's `contentRoot`. An adjustment node hanging off `rootChildren` is outside
-the subtree the renderer walks, which would explain a correct document model
-that never reaches the canvas. Parenting it to
-`pages.find(p => p.id === activePageId)?.contentRoot` is the obvious candidate
-fix; it needs its own regression test before the four cases above are unmarked.
+That blind spot is why a bug affecting all 27 adjustment kinds went unnoticed.
 
 ### 9.5 Root cause found and fixed — adjustment layers parented into the page
 
 The lead in §9.3 was correct and is now **implemented and verified** in
-`context.tsx` `createAdjustmentLayer` (`<commit hash>`): the node is parented
+`context.tsx` `createAdjustmentLayer` (`f04703bb`): the node is parented
 to the active page's `contentRoot` via `addChild` when one exists, falling back
 to `addNode` otherwise — mirroring `createShapeAt`.
 
@@ -281,11 +275,24 @@ against regression. This bug affected all 27 adjustment kinds, not just
 gradient maps — the E2E probes (`invert`, `grayscale`) confirmed it before the
 fix.
 
-One E2E stability caveat remains: the undo/redo case asserts the canvas hash
-returns *exactly* to the pre-adjustment value, which requires waiting for the
-raster to settle before capturing the baseline (async decode / camera settle
-otherwise produce a transient baseline). `waitForStableCanvasHash` in
-`gradient-map-helpers.ts` handles that.
+**Undo/redo is asserted structurally, not by exact canvas hash.** An earlier
+draft compared the post-undo hash to the pre-adjustment baseline. That is not a
+sound assertion here: removing the layer changes the selection, the inspector's
+content is selection-dependent, so the canvas *element* resizes (measured
+682x494 -> 682x516) and the camera shifts. Two visually-correct states then
+hash differently, and re-selecting the image restores the size but not the
+camera. The spec therefore asserts (a) the canvas is no longer the mapped
+rendering, and (b) `documentNodeKinds()` loses the `adjustment` node on undo and
+regains it on redo — a strictly stronger check than pixel equality, and stable.
+`waitForStableCanvasHash` is still used for the baseline so async raster decode
+cannot produce a transient first reading.
+
+**E2E navigation budget.** `navigateToEditorWithRetry` primes the browser
+context with a tolerant `goto` before delegating to `shared.navigateToEditor`
+(whose 45s budget a cold Vite graph exceeds). Both gradient-map specs raise
+their own timeout to 180s via `test.describe.configure` — the prime must fit
+inside the test timeout or the `beforeEach` hook is killed mid-prime and the
+page closes underneath the retry loop.
 
 ### 9.4 E2E environment note
 
@@ -299,4 +306,8 @@ also observed serving pre-M7 module transforms — if the preset browser
 Note also that Playwright resolves `localhost` to `::1`, so a server started
 with `--host 127.0.0.1` is unreachable to it.
 
-Current gradient-map E2E status: **5 passed, 4 skipped (fixme)**.
+Current gradient-map E2E status: **9 passed, 0 skipped** (2026-08-01,
+`npx playwright test tests/e2e/gradient-map --project=chromium --workers=1`,
+9.2 min on a loaded dev machine). That is the full import-workflow spec (4) plus
+the full raster/vector spec (5) — raster, vector, text, group, and the
+malformed-`.grd` error path, all asserting real composited canvas pixels.

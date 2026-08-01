@@ -116,9 +116,12 @@ async function importGrd(page: import('@playwright/test').Page, fixture: string)
 }
 
 test.describe('Gradient map import workflow', () => {
-  // 180s: a cold Vite dev graph can take over a minute to parse in-browser
-  // before the editor is interactive, which does not fit the 60s default.
-  test.describe.configure({ mode: 'serial', timeout: 180_000 });
+  // 300s. A cold Vite dev graph can take over a minute to parse in-browser
+  // before the editor is interactive, which does not fit the 60s default, and
+  // `navigateToEditorWithRetry` budgets one prime plus up to three attempts on
+  // top of that. This is a dev-server startup allowance only — it does not
+  // relax any assertion, each of which keeps its own short timeout.
+  test.describe.configure({ mode: 'serial', timeout: 300_000 });
   test.beforeEach(async ({ page }) => {
     await navigateToEditorWithRetry(page);
   });
