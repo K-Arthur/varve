@@ -27,7 +27,7 @@ describe('AssetExportControls', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'SVG' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Export SVG' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
     const text = new TextDecoder().decode(saved[0]?.bytes);
@@ -51,7 +51,11 @@ describe('AssetExportControls', () => {
     expect(screen.getByRole('button', { name: 'SVG' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('shows the advisor reason in a title tooltip', () => {
+  it('shows the advisor reason in an accessible tooltip on focus', () => {
+    // Tooltip.tsx uses aria-describedby + a portaled role="tooltip" element,
+    // not a native `title` attribute (which it actively warns against, since
+    // native tooltips can't be styled, positioned, or read reliably by all
+    // screen readers) — assert against the real pattern it implements.
     const doc = createDocument('Export', true);
     const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Icon' });
 
@@ -62,10 +66,12 @@ describe('AssetExportControls', () => {
       />,
     );
 
-    expect(screen.getByLabelText(/why/i)).toHaveAttribute(
-      'title',
-      'Vector path exports losslessly as SVG',
-    );
+    const infoButton = screen.getByLabelText(/why/i);
+    fireEvent.focus(infoButton);
+
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toHaveTextContent('Vector path exports losslessly as SVG');
+    expect(infoButton).toHaveAttribute('aria-describedby', tooltip.id);
   });
 
   it('re-suggests when the selected node changes', () => {
@@ -91,6 +97,23 @@ describe('AssetExportControls', () => {
 
     rerender(<AssetExportControls node={bigNode} doc={fullDoc} />);
     expect(screen.getByRole('button', { name: 'JPEG' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('labels the primary action with the platform verb and selected format', () => {
+    const doc = createDocument('Export', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Icon' });
+    const fullDoc = { ...doc, rootChildren: ['n1'], nodes: { n1: node } };
+
+    const { rerender } = render(<AssetExportControls node={node} doc={fullDoc} />);
+    expect(screen.getByRole('button', { name: 'Download SVG' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'JPEG' }));
+    expect(screen.getByRole('button', { name: 'Download JPEG' })).toBeInTheDocument();
+
+    rerender(
+      <AssetExportControls node={node} doc={fullDoc} platform={{ kind: 'tauri' } as never} />,
+    );
+    expect(screen.getByRole('button', { name: 'Export JPEG' })).toBeInTheDocument();
   });
 
   describe('per-node export settings', () => {

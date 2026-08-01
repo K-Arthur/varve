@@ -357,7 +357,9 @@ export function AssetExportControls({
           disabled={exporting || !effectiveScale || effectiveScale <= 0 || isPdfDesktopOnly}
           onClick={handleExport}
         >
-          {exporting ? 'Exporting\u2026' : isTauri ? 'Export' : 'Download'}
+          {exporting
+            ? 'Exporting\u2026'
+            : `${isTauri ? 'Export' : 'Download'} ${QUICK_FORMATS.find((f) => f.value === format)?.label ?? format.toUpperCase()}`}
         </button>
         {format === 'svg' && (
           <CopyButton
