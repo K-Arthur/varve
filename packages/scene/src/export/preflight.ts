@@ -86,7 +86,7 @@ export function runExportPreflight(
       title: errorTitle(error.code),
       description: error.message,
       configurationId: error.configurationId,
-      canIgnore: error.code === 'format-unsupported' ? false : true,
+      canIgnore: error.code !== 'format-unsupported',
     });
   }
 
