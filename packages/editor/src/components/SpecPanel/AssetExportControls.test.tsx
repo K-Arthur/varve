@@ -186,6 +186,8 @@ describe('AssetExportControls', () => {
       );
       fireEvent.click(screen.getByRole('button', { name: 'PNG' }));
       fireEvent.click(screen.getByRole('button', { name: '2x' }));
+      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'PNG' }));
       fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
 
       expect(onAddPreset).toHaveBeenCalledOnce();
@@ -201,6 +203,98 @@ describe('AssetExportControls', () => {
       expect(preset.enabled).toBe(true);
     });
 
+    it('offers print and code formats, and never offers unsupported AVIF', () => {
+      const doc = createDocument('Export', true);
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          platform={{ kind: 'tauri' } as never}
+          onAddPreset={() => {}}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      const options = screen.getAllByRole('option').map((o) => o.textContent);
+
+      // Print formats reachable from the inspector (the regression that
+      // deleting ExportPresetPanel introduced).
+      expect(options).toContain('PDF/X-1a');
+      expect(options).toContain('PDF/X-4');
+      // Code formats.
+      expect(options).toContain('React + Tailwind');
+      expect(options).toContain('SwiftUI');
+      expect(options).toContain('Flutter');
+      // AVIF has no encoder (capability contract supported: false) — offering
+      // it would be a UI that lies to users.
+      expect(options.join(' ')).not.toMatch(/AVIF/i);
+    });
+
+    it('disables desktop-only print formats on web with an explanation', () => {
+      const doc = createDocument('Export', true);
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={() => {}}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      const pdfx4 = screen
+        .getAllByRole('option')
+        .find((o) => o.textContent?.includes('PDF/X-4')) as HTMLElement;
+      expect(pdfx4).toHaveTextContent(/desktop only/i);
+      expect(pdfx4).toHaveAttribute('aria-disabled', 'true');
+    });
+
+    it('adds a print preset with the selected PDF/X standard on desktop', () => {
+      const doc = createDocument('Export', true);
+      const onAddPreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 100, h: 80 }, { name: 'Logo' })}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          platform={{ kind: 'tauri' } as never}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'PDF/X-4' }));
+      fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
+
+      const preset = onAddPreset.mock.calls[0]?.[0] as {
+        format: string;
+        scale: { value: number };
+        suffix: string;
+      };
+      expect(preset.format).toBe('pdf-x4');
+      // Press output is 1x document units — no @2x suffix.
+      expect(preset.scale.value).toBe(1);
+      expect(preset.suffix).toBe('');
+    });
+
+    it('edits a preset suffix', () => {
+      const doc = createDocument('Export', true);
+      const onUpdatePreset = vi.fn();
+      render(
+        <AssetExportControls
+          node={nodeWithPresets()}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: nodeWithPresets() } }}
+          onAddPreset={() => {}}
+          onUpdatePreset={onUpdatePreset}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText('Filename suffix for Logo@2x.png'), {
+        target: { value: '@3x' },
+      });
+      expect(onUpdatePreset).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'p1', suffix: '@3x' }),
+      );
+    });
+
     it('adds a PDF preset using the legacy pdf-screen format', () => {
       const doc = createDocument('Export', true);
       const onAddPreset = vi.fn();
@@ -212,7 +306,8 @@ describe('AssetExportControls', () => {
           onAddPreset={onAddPreset}
         />,
       );
-      fireEvent.click(screen.getByRole('button', { name: 'PDF' }));
+      fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'PDF (screen)' }));
       fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
 
       const preset = onAddPreset.mock.calls[0]?.[0] as { format: string };

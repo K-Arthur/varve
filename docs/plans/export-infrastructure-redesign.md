@@ -118,12 +118,64 @@ this document as it lands, with the commit hash noted.
       blob delivery — matching the brief's "Download only where a literal
       browser download happens" rule. Existing tests updated to match.
 
+### C2b. Format coverage regression fix (2026-08-01, follow-up session)
+
+The first pass of C1 folded `ExportPresetPanel`'s *reachable* behavior into
+`AssetExportControls` but narrowed "add setting" to the five quick-export
+formats, then deleted the panel. That silently dropped print (PDF/X-1a,
+PDF/X-4) and codegen (React, Flutter, SwiftUI, SVG component) from the only
+UI that can create a preset — a real scope regression against the goal of a
+complete web *and* print pipeline, even though nothing user-reachable broke
+(the old panel was already unwired). Closed by:
+
+- [x] Capability-gated format picker for new export settings covering all 12
+      encodable formats, ordered assets → print → code. Availability comes
+      from `FORMAT_CAPABILITIES` via `formatSupportedOnPlatform`, so PDF/X
+      shows disabled with "requires the desktop app" on web, and AVIF — which
+      has no encoder (`supported: false`, defect D1) — is never offered.
+- [x] Per-row filename-suffix editing (the other capability the deleted panel
+      had and the port dropped).
+- [x] Press formats seed at 1x with no `@Nx` suffix; scale is only applied to
+      formats where it means something.
+
+### C2c. Real PDF/X execution (defect D3)
+
+- [x] `pdf-x1a` / `pdf-x4` previously **threw unconditionally** in
+      `exportService.renderJob`, so offering them anywhere would have been a
+      UI that lies. Worse, the throw called `capabilitiesForFormat(format)`
+      with no platform argument, defaulting to `'web'` — so the message read
+      "requires the desktop app" *even when running on desktop*.
+- [x] Added `exportNodeAsPdfX` in `SpecPanel/export.ts`, invoking the existing
+      Tauri commands `export_pdfx1a` / `export_pdfx4` (Rust
+      `strata_print::cmyk::*`) with the camelCase `PdfXOptions` payload the
+      command deserializes. Mirrors `exportNodeAsPdf`'s bridge rather than
+      taking a new `@strata/print` dependency in the editor — and deliberately
+      does *not* fall back to the `@strata/print` stub, which emits a
+      placeholder rather than a real PDF.
+- [x] Still desktop-only by capability contract: on web it throws with the
+      format label instead of writing an invalid press file.
+
 ### C3. Tests
 
 - [x] Cover: adding a preset persists onto `node.presets` via `updateNode`;
       removing/toggling a preset; empty state renders when no presets exist;
       "Open advanced export" invokes the provided callback; contextual
       primary-action label switches on platform/format.
+- [x] `exportPresets.context.test.tsx` — the `addPreset`/`updatePreset`/
+      `removePreset` reducers themselves (order preserved, siblings untouched,
+      missing node is a no-op). Previously only the callbacks were asserted,
+      never that the document actually changed.
+- [x] `exportService.test.ts` — PDF/X-4 reaches `export_pdfx4` on desktop with
+      a camelCase options payload (snake_case would silently hit serde
+      defaults); the pre-existing web-failure case still holds.
+- [x] `AssetExportControls.test.tsx` — print and code formats are offered,
+      AVIF never is, PDF/X is disabled-with-reason on web, suffix editing
+      round-trips.
+- [x] Corrected a stale assertion that expected a native `title` attribute on
+      the advisor info icon; `Tooltip` implements the APG pattern
+      (`aria-describedby` + portaled `role="tooltip"`) and warns against
+      `title`. The test now asserts the pattern the component actually
+      implements.
 
 ### C4. Explicitly out of scope for this pass (tracked elsewhere or deferred)
 
@@ -136,16 +188,21 @@ this document as it lands, with the commit hash noted.
   (brief §11) — no existing scaffolding; would need a new render target and
   is a multi-session effort on its own.
 - Preset *library* / named built-in presets across web/print/developer
-  categories (brief §12) — the per-node preset model exists but there is no
-  document- or app-level preset catalog to seed "PNG @1x/@2x" etc. as one
-  click; worth a follow-up once C1–C3 are validated in real use.
+  categories (brief §12) — **the catalog now exists** and is complete
+  (`packages/scene/src/export/presets.ts`, M6/`c3655d05`: 17 presets + 2
+  bundles across web/print/developer, with `materializePreset`). It has no UI
+  consumer yet — `builtinPresetList()` is imported by nothing in the editor.
+  Wiring it into the inspector's add-setting flow (one click for "Web asset
+  set: SVG + PNG 1× + PNG 2×") is the clear next increment and no longer
+  blocked on modelling work.
 - Full visual-regression baseline matrix (brief §15, 24 states) — needs a
   screenshot-testing harness decision (which this repo doesn't currently have
   for panel-level UI) before baselines are worth capturing.
-- Code-emitter preview inside the Export tab, capability-driven format list
-  (brief §6/§10's "only show supported formats") — `FORMATS` in
-  `AssetExportControls` already gates PDF behind `desktopOnly`, but doesn't
-  consult a real capability registry; deferred until one exists.
+- Code-emitter preview inside the Export tab (brief §9). The
+  capability-driven format list it was bundled with is **done** — see C2b;
+  both the quick-export row and the add-setting picker now resolve
+  availability from `FORMAT_CAPABILITIES` rather than a hardcoded
+  `desktopOnly` flag.
 
 ---
 

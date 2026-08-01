@@ -1,7 +1,13 @@
 import { exportNodeToSvg } from '@strata/codegen';
 import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
-import type { Document, ExportPreset, ExportScale, SceneNode } from '@strata/scene';
+import type {
+  Document,
+  ExportPreset,
+  ExportScale,
+  ExportFormat as LegacyExportFormat,
+  SceneNode,
+} from '@strata/scene';
 import {
   capabilitiesForFormat,
   formatFileName,
@@ -10,7 +16,7 @@ import {
   legacyScaleToCanonical,
   type PlatformKind,
 } from '@strata/scene/export';
-import { CopyButton, Icon, Tooltip } from '@strata/ui';
+import { CopyButton, Icon, Select, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
 import { suggestExportFormat } from '../../intelligence/exportAdvisor';
@@ -51,6 +57,62 @@ const QUICK_FORMATS: {
 ];
 
 const SCALES = [1, 2, 3];
+
+/**
+ * Every format a per-node export setting can hold, grouped the way the export
+ * workflows actually differ (assets / press / code) rather than by encoder.
+ *
+ * This is deliberately wider than QUICK_FORMATS: quick export runs inline in
+ * this panel, while an export setting is executed later by ExportService, which
+ * additionally reaches the native print pipeline and the codegen emitters.
+ * Availability is resolved against the canonical capability contract, never
+ * hardcoded — a format with no encoder (AVIF today) must never be offered.
+ */
+const PRESET_FORMAT_GROUPS: {
+  label: string;
+  formats: { value: LegacyExportFormat; label: string }[];
+}[] = [
+  {
+    label: 'Images & vector',
+    formats: [
+      { value: 'png', label: 'PNG' },
+      { value: 'jpg', label: 'JPEG' },
+      { value: 'webp', label: 'WebP' },
+      { value: 'svg', label: 'SVG' },
+    ],
+  },
+  {
+    label: 'Print',
+    formats: [
+      { value: 'pdf-screen', label: 'PDF (screen)' },
+      { value: 'pdf-x1a', label: 'PDF/X-1a' },
+      { value: 'pdf-x4', label: 'PDF/X-4' },
+    ],
+  },
+  {
+    label: 'Code',
+    formats: [
+      { value: 'react-tailwind', label: 'React + Tailwind' },
+      { value: 'react-cssmodules', label: 'React + CSS Modules' },
+      { value: 'svg-component', label: 'SVG component' },
+      { value: 'flutter', label: 'Flutter' },
+      { value: 'swiftui', label: 'SwiftUI' },
+    ],
+  },
+];
+
+/** Formats whose scale control is meaningless (vector, press, or code output). */
+const UNSCALED_PRESET_FORMATS = new Set<LegacyExportFormat>([
+  'svg',
+  'svg-component',
+  'pdf-screen',
+  'pdf-x1a',
+  'pdf-x4',
+  'react-tailwind',
+  'react-cssmodules',
+  'flutter',
+  'swiftui',
+]);
 
 function platformKind(p?: Platform): PlatformKind {
   return p?.kind === 'tauri' ? 'tauri' : 'web';
@@ -150,6 +212,9 @@ export function AssetExportControls({
   const [customScale, setCustomScale] = useState('');
   const [exporting, setExporting] = useState(false);
   const [message, setMessage] = useState('');
+  const [presetFormat, setPresetFormat] = useState<LegacyExportFormat>(() =>
+    quickToLegacyFormat(advisorFormatToQuick(suggestion.format)),
+  );
   const liveRef = useRef<HTMLDivElement>(null);
   const suggestedForNodeRef = useRef(node.id);
 
@@ -171,7 +236,9 @@ export function AssetExportControls({
   useEffect(() => {
     if (suggestedForNodeRef.current !== node.id) {
       suggestedForNodeRef.current = node.id;
-      setFormat(advisorFormatToQuick(suggestion.format));
+      const suggested = advisorFormatToQuick(suggestion.format);
+      setFormat(suggested);
+      setPresetFormat(quickToLegacyFormat(suggested));
       setScale(suggestion.scale);
       setCustomScale('');
     }
@@ -264,20 +331,72 @@ export function AssetExportControls({
     }
   }, [node, doc, engine, format, effectiveScale, isTauri, platform]);
 
+  // Availability of each preset format on the active platform, resolved from
+  // the canonical capability contract (never a hardcoded list).
+  const presetFormatGroups = useMemo(
+    () =>
+      PRESET_FORMAT_GROUPS.map((group) => ({
+        label: group.label,
+        formats: group.formats
+          .map((entry) => {
+            const canonical = legacyFormatToCanonical(entry.value);
+            const cap = capabilitiesForFormat(canonical, platformKindValue);
+            const availableHere = formatSupportedOnPlatform(canonical, platformKindValue);
+            return {
+              ...entry,
+              // Unsupported anywhere (no encoder) is omitted entirely;
+              // supported-but-not-here is shown disabled with a reason.
+              omit: !cap.supported,
+              disabled: !availableHere,
+              disabledReason: availableHere
+                ? undefined
+                : `${cap.label} export requires the desktop app`,
+            };
+          })
+          .filter((entry) => !entry.omit),
+      })).filter((group) => group.formats.length > 0),
+    [platformKindValue],
+  );
+
+  const presetFormatOptions = useMemo(
+    () =>
+      presetFormatGroups.flatMap((group) =>
+        group.formats.map((entry) => ({
+          value: entry.value,
+          label: entry.disabled ? `${entry.label} (desktop only)` : entry.label,
+          disabled: entry.disabled,
+        })),
+      ),
+    [presetFormatGroups],
+  );
+
+  const presetFormatLabel = useMemo(
+    () => capabilitiesForFormat(legacyFormatToCanonical(presetFormat), platformKindValue).label,
+    [presetFormat, platformKindValue],
+  );
+
+  const presetFormatAvailable = useCallback(
+    (candidate: LegacyExportFormat) =>
+      formatSupportedOnPlatform(legacyFormatToCanonical(candidate), platformKindValue),
+    [platformKindValue],
+  );
+
   const handleAddPreset = useCallback(() => {
-    if (!onAddPreset) return;
+    if (!onAddPreset || !presetFormatAvailable(presetFormat)) return;
+    const scaled = !UNSCALED_PRESET_FORMATS.has(presetFormat);
+    const scaleValue = scaled ? effectiveScale : 1;
     const suffix =
-      Number.isFinite(effectiveScale) && effectiveScale !== 1
-        ? `@${formatScaleNumber(effectiveScale)}x`
+      scaled && Number.isFinite(scaleValue) && scaleValue !== 1
+        ? `@${formatScaleNumber(scaleValue)}x`
         : '';
     onAddPreset({
       id: `preset-${Date.now()}`,
-      format: quickToLegacyFormat(format),
-      scale: { type: 'factor', value: effectiveScale },
+      format: presetFormat,
+      scale: { type: 'factor', value: scaleValue },
       suffix,
       enabled: true,
     });
-  }, [onAddPreset, format, effectiveScale]);
+  }, [onAddPreset, presetFormat, effectiveScale, presetFormatAvailable]);
 
   return (
     <section className="spec-panel__section" aria-labelledby="spec-export-heading">
@@ -308,7 +427,13 @@ export function AssetExportControls({
                 className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
                 aria-pressed={format === f.value}
                 disabled={f.desktopOnly && !isTauri}
-                onClick={() => setFormat(f.value)}
+                onClick={() => {
+                  setFormat(f.value);
+                  // Picking a quick format also arms "Add export setting" with
+                  // it; the picker below can still override with a print or
+                  // code format the quick row doesn't carry.
+                  setPresetFormat(quickToLegacyFormat(f.value));
+                }}
               >
                 {f.label}
               </button>
@@ -395,6 +520,14 @@ export function AssetExportControls({
                 <div className="spec-export__preset-info">
                   <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
                   <code className="spec-export__preset-file">{fileName}</code>
+                  <input
+                    type="text"
+                    className="spec-export__preset-suffix"
+                    value={preset.suffix}
+                    placeholder="suffix"
+                    aria-label={`Filename suffix for ${fileName}`}
+                    onChange={(e) => onUpdatePreset?.({ ...preset, suffix: e.target.value })}
+                  />
                 </div>
                 <button
                   type="button"
@@ -407,11 +540,29 @@ export function AssetExportControls({
               </div>
             );
           })}
-          <div className="spec-export__preset-actions">
-            <button type="button" className="spec-export__add-preset" onClick={handleAddPreset}>
+          <div className="spec-export__preset-add">
+            <Select
+              label="Format for new export setting"
+              value={presetFormat}
+              options={presetFormatOptions}
+              onChange={(next) => setPresetFormat(next as LegacyExportFormat)}
+            />
+            <button
+              type="button"
+              className="spec-export__add-preset"
+              disabled={!presetFormatAvailable(presetFormat)}
+              onClick={handleAddPreset}
+            >
               + Add export setting
             </button>
-            {onOpenAdvancedExport && (
+          </div>
+          {!presetFormatAvailable(presetFormat) && (
+            <p className="spec-export__preset-unavailable" role="note">
+              {presetFormatLabel} export requires the desktop app.
+            </p>
+          )}
+          {onOpenAdvancedExport && (
+            <div className="spec-export__preset-actions">
               <button
                 type="button"
                 className="spec-export__advanced"
@@ -419,8 +570,8 @@ export function AssetExportControls({
               >
                 Open advanced export\u2026
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </section>
       )}
 
