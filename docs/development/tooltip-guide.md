@@ -99,6 +99,17 @@ Always source shortcuts from the registry, never hard-code:
 <button title="Undo (Ctrl+Z)">Undo</button>
 ```
 
+For workspace-mode shortcuts use the registry-backed helper (the historical
+`Ctrl+Shift+D` strings were stale — workspace switching actually executes on
+`Ctrl+Shift+1..9`):
+
+```tsx
+import { workspaceShortcutLabel } from '@strata/editor';
+<Tooltip label="Design workspace" shortcut={workspaceShortcutLabel('design')}>
+  ...
+</Tooltip>
+```
+
 ## Accessibility Requirements
 
 ### Accessible Names

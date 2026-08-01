@@ -135,11 +135,11 @@ describe('LayersRow blend mode / opacity badge', () => {
 describe('LayersRow clipping relationship', () => {
   it('identifies mask sources and clipped content accessibly', () => {
     const source = renderRow({ maskRole: 'source' });
-    expect(source.getByTitle('Clipping mask source').textContent).toBe('mask');
+    expect(source.getByRole('img', { name: 'Clipping mask source' }).textContent).toBe('mask');
     source.unmount();
 
     const content = renderRow({ maskRole: 'content' });
-    expect(content.getByTitle('Clipped content').textContent).toBe('clipped');
+    expect(content.getByRole('img', { name: 'Clipped content' }).textContent).toBe('clipped');
   });
 });
 
