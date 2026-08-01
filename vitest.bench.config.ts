@@ -1,9 +1,5 @@
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import baseConfig from './vitest.config';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Dedicated bench config. The main config excludes `**/*.bench.ts` so bench
 // files never run inside `pnpm test` (AGENTS.md: "excludes .bench.ts — run
