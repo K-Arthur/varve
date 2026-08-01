@@ -13,7 +13,7 @@ import { Select } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
-import { GradientMapEditor } from '../Inspector/controls/GradientMapEditor';
+import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
 import { HistogramWidget } from '../Inspector/controls/HistogramWidget';
 import './adjustment.css';
 
@@ -400,21 +400,11 @@ export function AdjustmentEditor({
     case 'gradientMap': {
       const adj = adjustment as import('@strata/scene').GradientMapAdjustment;
       return (
-        <GradientMapEditor
-          stops={adj.stops}
-          dither={adj.dither}
-          preserveLuminosity={adj.preserveLuminosity}
-          mode={adj.mode}
-          channelStops={adj.channelStops}
-          onChange={(
-            patch: Partial<{
-              stops: import('@strata/scene').GradientMapStop[];
-              dither: boolean;
-              preserveLuminosity: boolean;
-              mode: 'luminance' | 'channel';
-              channelStops: import('@strata/scene').GradientMapAdjustment['channelStops'];
-            }>,
-          ) => onChange(patch as unknown as Partial<Adjustment>)}
+        <GradientMapAdjustmentSection
+          adjustment={adj}
+          onChange={(patch) => onChange(patch as unknown as Partial<Adjustment>)}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
         />
       );
     }
