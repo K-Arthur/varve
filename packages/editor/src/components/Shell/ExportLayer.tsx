@@ -42,16 +42,21 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   }, []);
 
   const handleExportBatch = useCallback(
-    async (batch: ExportBatch) => {
+    async (batch: ExportBatch, signal?: AbortSignal) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
-      return await ExportService.run(batch, {
-        document: editor.state.document,
-        engine,
-        saveFile: saveExportFile,
-      });
+      return await ExportService.run(
+        batch,
+        {
+          document: editor.state.document,
+          engine,
+          saveFile: saveExportFile,
+        },
+        signal,
+        platform?.kind ?? 'web',
+      );
     },
-    [editor.state.document, getExportEngine, saveExportFile],
+    [editor.state.document, getExportEngine, saveExportFile, platform?.kind],
   );
 
   const handleExportMotion = useCallback(

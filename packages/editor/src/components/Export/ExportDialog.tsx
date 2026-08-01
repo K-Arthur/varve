@@ -36,6 +36,7 @@ import { FocusTrap, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExportReport } from '../../exportService';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
+import { loadSettings } from '../../settings';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
@@ -49,7 +50,7 @@ export interface ExportDialogProps {
   nodes: SceneNode[];
   document?: Document;
   timelines?: Record<string, Timeline>;
-  onExport: (batch: ExportBatch) => Promise<ExportReport | undefined>;
+  onExport: (batch: ExportBatch, signal?: AbortSignal) => Promise<ExportReport | undefined>;
   onPackageExport?: () => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
   onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;
@@ -178,7 +179,7 @@ export function ExportDialog({
   onExportMotion,
   onSaveVideoFile,
   selectionIds = [],
-  initialTemplate = '{name}{suffix}.{ext}',
+  initialTemplate = loadSettings().export.defaultFilenameTemplate,
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
@@ -196,8 +197,8 @@ export function ExportDialog({
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
   const [videoSupport] = useState(() => checkVideoExportSupport());
   const [gifSupport] = useState(() => checkGifExportSupport());
-  const [verboseOutput, setVerboseOutput] = useState(true);
   const videoAbortRef = useRef<AbortController | null>(null);
+  const batchAbortRef = useRef<AbortController | null>(null);
   const previousFocusRef = useRef<Element | null>(null);
 
   const requiredModelId = workerModelIdForMethod(bgMethod);
@@ -333,28 +334,42 @@ export function ExportDialog({
       filenameTemplate: template,
       folderRule,
     };
+    batchAbortRef.current?.abort();
+    const controller = new AbortController();
+    batchAbortRef.current = controller;
     try {
-      const report = await onExport(batch);
+      const report = await onExport(batch, controller.signal);
       if (report) {
         setProgress({ done: report.successCount, errors: report.failureCount });
-        if (report.failureCount > 0) {
+        if (controller.signal.aborted) {
+          setAnnounceMsg('Export cancelled');
+        } else if (report.failureCount > 0) {
           setAnnounceMsg(
             report.successCount > 0
               ? `Export partially complete: ${report.successCount} exported, ${report.failureCount} failed`
               : `Export failed: ${report.failureCount} of ${report.totalJobs} files failed`,
           );
         } else {
-          setAnnounceMsg(`Export complete: ${report.successCount} files exported`);
+          const preflightNote =
+            report.findings && report.findings.length > 0
+              ? ` (${report.findings.filter((f) => f.severity === 'warning').length} warning${report.findings.filter((f) => f.severity === 'warning').length === 1 ? '' : 's'} from preflight)`
+              : '';
+          setAnnounceMsg(`Export complete: ${report.successCount} files exported${preflightNote}`);
         }
-      } else {
+      } else if (!controller.signal.aborted) {
         setProgress({ done: selectedJobs.length, errors: 0 });
         setAnnounceMsg(`Export complete: ${selectedJobs.length} files exported`);
       }
     } catch (err) {
-      setProgress({ done: 0, errors: selectedJobs.length });
-      const msg = err instanceof Error ? err.message : String(err);
-      setAnnounceMsg(`Export failed: ${msg}`);
+      if (controller.signal.aborted) {
+        setAnnounceMsg('Export cancelled');
+      } else {
+        setProgress({ done: 0, errors: selectedJobs.length });
+        const msg = err instanceof Error ? err.message : String(err);
+        setAnnounceMsg(`Export failed: ${msg}`);
+      }
     } finally {
+      batchAbortRef.current = null;
       setRunning(false);
     }
   }, [
@@ -379,6 +394,7 @@ export function ExportDialog({
       setAnnounceMsg('Video export cancelled');
       return;
     }
+    batchAbortRef.current?.abort();
     setRunning(false);
     setProgress({ done: 0, errors: 0 });
     setAnnounceMsg('Export cancelled');
@@ -688,18 +704,6 @@ export function ExportDialog({
                     </p>
                   );
                 })()}
-            </section>
-
-            <section className="export-dialog__section" aria-label="Code generation">
-              <h3 className="export-dialog__section-title">Code Generation</h3>
-              <label className="export-dialog__checkbox-label">
-                <input
-                  type="checkbox"
-                  checked={verboseOutput}
-                  onChange={(e) => setVerboseOutput(e.target.checked)}
-                />
-                <span>Verbose output (disable code optimization)</span>
-              </label>
             </section>
 
             {timelineList.length > 0 && (onExportMotion || onSaveVideoFile) && (

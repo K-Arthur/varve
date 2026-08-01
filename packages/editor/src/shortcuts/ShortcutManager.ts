@@ -31,12 +31,12 @@ export const SHORTCUT_DEFS = {
     category: 'File',
   },
   exportSvg: {
-    binding: { key: 'e', ctrl: true, alt: true },
+    binding: { key: 'e', ctrl: true, shift: true },
     label: 'Export SVG\u2026',
     category: 'File',
   },
   export: {
-    binding: { key: 'e', ctrl: true, shift: true },
+    binding: { key: 'e', ctrl: true },
     label: 'Export\u2026',
     category: 'File',
   },
