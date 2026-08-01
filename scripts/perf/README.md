@@ -35,6 +35,27 @@ node scripts/perf/bench-replay-browser.mjs --ci      # fail on ratio regression 
 Requires the `visual-harness.html` page (served by the desktop app's Vite dev
 server).
 
+### `probe-interaction.mjs`
+
+Measures real interaction frame cost via the diagnostics ring buffer: builds a
+document to the requested node count (default ~128), then reports drag frame
+total/build/replay/hash p50/p95/p99.
+
+```bash
+node scripts/perf/probe-interaction.mjs        # ~128 nodes
+# edit the duplication-loop guard to scale up (see file comments)
+```
+
+### `probe-duplication.mjs`
+
+Measures the wall-clock of a single select-all + duplicate (Ctrl+A, Ctrl+D) at
+~500 nodes — the operation that exposed the O(n²) getParent hotspot (38.3s →
+~5s).
+
+```bash
+node scripts/perf/probe-duplication.mjs
+```
+
 ## Baseline files
 
 - `.replay-browser-baseline.json` — ratio baselines for `bench-replay-browser.mjs`.
