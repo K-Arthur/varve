@@ -1,6 +1,7 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
+import { createDocument } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ExportDialog } from './ExportDialog';
@@ -147,6 +148,26 @@ describe('ExportDialog', () => {
     );
 
     expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('400x320');
+  });
+
+  it('builds jobs through the canonical plan with consistent naming', () => {
+    const doc = createDocument('Export', true);
+    const node = mockNode({ name: 'Logo' });
+    const fullDoc = { ...doc, rootChildren: ['n1'], nodes: { n1: node } };
+
+    const { container } = render(
+      <ExportDialog
+        isOpen={true}
+        onClose={() => {}}
+        nodes={[node]}
+        document={fullDoc}
+        onExport={async () => {}}
+      />,
+    );
+
+    // Canonical naming: '@2x' suffix must not get an extra '-' separator.
+    expect(container.querySelector('.batch-job-row__name')?.textContent).toBe('Logo@2x.png');
+    expect(container.querySelector('.batch-job-row__dims')?.textContent).toBe('200x160');
   });
 
   it('shows close button when not running', () => {
