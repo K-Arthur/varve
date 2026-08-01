@@ -22,6 +22,7 @@ import { interactionSession } from '../tools/InteractionContext';
 import type { SnapGuide } from '../tools/snapping';
 import { createSnapSession } from '../tools/snapping';
 import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
+import { normalizeWheelDelta } from './wheelClassifier';
 
 export interface UseCanvasInputsOptions {
   contentCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
@@ -297,7 +298,7 @@ export function useCanvasInputs({
     if (!el) return;
 
     const deltaScale = (e: WheelEvent): number =>
-      e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
+      normalizeWheelDelta(1, e.deltaMode, el.clientHeight);
 
     const zoomAboutClientPoint = (clientX: number, clientY: number, newZoom: number): void => {
       const s = stateRef.current;
@@ -437,9 +438,9 @@ export function useCanvasInputs({
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('pointermove', trackPointer);
     el.addEventListener('pointerleave', onPointerLeave);
-    el.addEventListener('gesturestart', onGestureStart);
-    el.addEventListener('gesturechange', onGestureChange);
-    el.addEventListener('gestureend', onGestureEnd);
+    el.addEventListener('gesturestart', onGestureStart, { passive: false });
+    el.addEventListener('gesturechange', onGestureChange, { passive: false });
+    el.addEventListener('gestureend', onGestureEnd, { passive: false });
     return () => {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('pointermove', trackPointer);
