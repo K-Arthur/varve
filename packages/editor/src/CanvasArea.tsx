@@ -93,6 +93,7 @@ import {
   getAverageFrameTime,
   getMemoryBudgets,
   getOverBudgetCount,
+  installPerfDiagnosticsHandle,
   recordFrame,
   scheduleCanvasFrame,
   startFrameTiming,
@@ -428,6 +429,7 @@ export function CanvasArea({
   // a changed persisted value (e.g. after Reset settings).
   useEffect(() => {
     enableDrawDiagnostics(settings.performance.showPerformanceDiagnostics);
+    installPerfDiagnosticsHandle();
   }, [settings.performance.showPerformanceDiagnostics]);
 
   // Track keyboard focus on the inner canvas to drive the parent section's
@@ -1233,6 +1235,11 @@ export function CanvasArea({
         applyEditorCameraToCtx(targetCtx, camState, dpr, vp);
       const hiddenByContainer = new Set<string>();
       const resolvedStyles = doc === state.document ? precomputedStyles : resolveAllStyles(doc);
+      // getParent() is O(n) per call; nodeWorldTransform/nodeWorldBounds walk
+      // the ancestor chain with it. Build the O(n) parent index lazily — only
+      // when the culling loop actually finds a cullable container — so camera
+      // moves on flat docs (unchanged doc, no containers) never pay for it.
+      let parentIndex: Map<NodeId, NodeId> | undefined;
 
       for (const [id] of entries) {
         const n = doc.nodes[id];
@@ -1243,7 +1250,8 @@ export function CanvasArea({
           'children' in n &&
           n.children.length > 0
         ) {
-          const containerBounds = nodeVisualWorldBounds(doc, id, resolvedStyles);
+          parentIndex ??= buildParentIndexMap(doc);
+          const containerBounds = nodeVisualWorldBounds(doc, id, resolvedStyles, parentIndex);
           if (containerBounds && !isWorldRectInViewport(cam, vp, containerBounds)) {
             const queue = [...n.children];
             while (queue.length > 0) {
@@ -1258,7 +1266,12 @@ export function CanvasArea({
         }
       }
 
-      const dirty = computeDocumentDirtyRegion(lastRenderedDocRef.current, doc);
+      const dirty = computeDocumentDirtyRegion(
+        lastRenderedDocRef.current,
+        doc,
+        undefined,
+        parentIndex,
+      );
       if (dirty.kind === 'full') {
         dirtyRectRef.current = null;
       } else if (dirty.kind === 'partial') {
@@ -1811,7 +1824,8 @@ export function CanvasArea({
               maxX = -Infinity,
               maxY = -Infinity;
             for (const childId of n.children) {
-              const b = nodeVisualWorldBounds(doc, childId, resolvedStyles);
+              parentIndex ??= buildParentIndexMap(doc);
+              const b = nodeVisualWorldBounds(doc, childId, resolvedStyles, parentIndex);
               if (b) {
                 minX = Math.min(minX, b.x);
                 minY = Math.min(minY, b.y);
@@ -2104,7 +2118,8 @@ export function CanvasArea({
           for (const nid of targetIds) {
             const raw = doc.nodes[nid];
             if (!raw || raw.visible === false) continue;
-            const b = nodeVisualWorldBounds(doc, nid, resolvedStyles);
+            parentIndex ??= buildParentIndexMap(doc);
+            const b = nodeVisualWorldBounds(doc, nid, resolvedStyles, parentIndex);
             if (b) {
               minX = Math.min(minX, b.x);
               minY = Math.min(minY, b.y);

@@ -90,14 +90,18 @@ export function nodeVisualWorldBounds(
   document: Document,
   nodeId: NodeId,
   resolvedStyles = resolveAllStyles(document),
+  parentIndex?: Map<NodeId, NodeId>,
 ): Rect | null {
   const node = document.nodes[nodeId];
-  const geometry = nodeWorldBounds(document, nodeId);
+  const geometry = nodeWorldBounds(document, nodeId, parentIndex);
   if (!node || !geometry) return geometry;
   const resolved = resolvedStyles.get(nodeId);
   const appearance = resolved ? ({ ...node, ...resolved } as SceneNode) : node;
   return expandRect(
     geometry,
-    appearancePaddingWorld(appearance as Appearance, nodeWorldTransform(document, nodeId)),
+    appearancePaddingWorld(
+      appearance as Appearance,
+      nodeWorldTransform(document, nodeId, parentIndex),
+    ),
   );
 }
