@@ -221,12 +221,23 @@ mod tests {
     use super::*;
 
     fn test_font_data() -> &'static [u8] {
+        // Cross-platform candidate fonts. CI matrices run Linux (Ubuntu),
+        // macOS, and Windows — a test that only knows /usr/share/fonts dies on
+        // the other two runners.
         let paths = [
+            // Linux (Ubuntu runner)
             "/usr/share/fonts/TTF/OpenSans-Regular.ttf",
             "/usr/share/fonts/Adwaita/AdwaitaSans-Regular.ttf",
             "/usr/share/fonts/TTF/Vera.ttf",
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
             "/usr/share/fonts/TTF/Inter-Regular.ttf",
+            // macOS
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/System/Library/Fonts/Supplemental/Georgia.ttf",
+            "/Library/Fonts/Arial Unicode.ttf",
+            // Windows
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "C:\\Windows\\Fonts\\calibri.ttf",
         ];
         for p in &paths {
             if let Ok(data) = std::fs::read(p) {
