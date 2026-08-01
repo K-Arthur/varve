@@ -55,6 +55,11 @@ export {
   resetPlatformInfo,
   setPlatformInfoForTest,
 } from './runtime';
+export type { ContentSearchMatch } from './searchIndex';
+export { createTauriPlatform } from './tauri';
+export * from './types';
+export type { WebPlatformOptions } from './web';
+export { createWebPlatform } from './web';
 export type {
   ButtonLayout,
   ControlsPosition,
@@ -73,8 +78,8 @@ export {
   getMenubarHeight,
   getTitleBarHeight,
   getTotalTopChromeHeight,
-  resolveWindowChromeStrategy,
   resetWindowChromeTestOverrides,
+  resolveWindowChromeStrategy,
   setButtonLayoutForTest,
   setDisplayServerForTest,
   shouldRenderCustomMenubar,
@@ -86,8 +91,3 @@ export {
   usesNativeDecorations,
   usesNativeMenu,
 } from './windowChrome';
-export type { ContentSearchMatch } from './searchIndex';
-export { createTauriPlatform } from './tauri';
-export * from './types';
-export type { WebPlatformOptions } from './web';
-export { createWebPlatform } from './web';
