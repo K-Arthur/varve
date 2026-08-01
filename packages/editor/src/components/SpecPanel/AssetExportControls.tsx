@@ -1,7 +1,15 @@
 import { exportNodeToSvg } from '@strata/codegen';
 import { createEngine, type Engine } from '@strata/engine';
 import type { Platform } from '@strata/platform';
-import type { SceneNode } from '@strata/scene';
+import type { Document, ExportPreset, ExportScale, SceneNode } from '@strata/scene';
+import {
+  capabilitiesForFormat,
+  formatFileName,
+  formatSupportedOnPlatform,
+  legacyFormatToCanonical,
+  legacyScaleToCanonical,
+  type PlatformKind,
+} from '@strata/scene/export';
 import { CopyButton, Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { composeFlattenedRasterAssetsForNode } from '../../export/compositor';
@@ -16,25 +24,72 @@ import {
 
 export interface AssetExportControlsProps {
   node: SceneNode;
-  doc: import('@strata/scene').Document;
+  doc: Document;
   engine?: Engine;
   platform?: Platform;
+  /** Present in the live Inspector (node-mutation allowed). */
+  onAddPreset?: (preset: ExportPreset) => void;
+  onUpdatePreset?: (preset: ExportPreset) => void;
+  onRemovePreset?: (presetId: string) => void;
+  onOpenAdvancedExport?: () => void;
 }
 
-type ExportFormat = RasterFormat | 'svg' | 'pdf';
+/** Quick-export formats this surface can produce today. */
+type QuickFormat = 'png' | 'jpeg' | 'webp' | 'svg' | 'pdf';
 
-const FORMATS: { value: ExportFormat; label: string; desktopOnly?: boolean }[] = [
-  { value: 'image/png', label: 'PNG' },
-  { value: 'image/jpeg', label: 'JPEG' },
-  { value: 'image/webp', label: 'WebP' },
+const QUICK_FORMATS: {
+  value: QuickFormat;
+  label: string;
+  mime?: RasterFormat;
+  desktopOnly?: boolean;
+}[] = [
+  { value: 'png', label: 'PNG', mime: 'image/png' },
+  { value: 'jpeg', label: 'JPEG', mime: 'image/jpeg' },
+  { value: 'webp', label: 'WebP', mime: 'image/webp' },
   { value: 'svg', label: 'SVG' },
   { value: 'pdf', label: 'PDF', desktopOnly: true },
 ];
 
 const SCALES = [1, 2, 3];
 
+function platformKind(p?: Platform): PlatformKind {
+  return p?.kind === 'tauri' ? 'tauri' : 'web';
+}
+
 function isTauriPlatform(p?: Platform): boolean {
   return p?.kind === 'tauri';
+}
+
+function advisorFormatToQuick(
+  format: 'image/png' | 'image/jpeg' | 'image/webp' | 'svg' | 'pdf',
+): QuickFormat {
+  switch (format) {
+    case 'image/png':
+      return 'png';
+    case 'image/jpeg':
+      return 'jpeg';
+    case 'image/webp':
+      return 'webp';
+    case 'svg':
+      return 'svg';
+    case 'pdf':
+      return 'pdf';
+  }
+}
+
+function quickToLegacyFormat(format: QuickFormat): 'png' | 'jpg' | 'webp' | 'svg' | 'pdf-screen' {
+  switch (format) {
+    case 'png':
+      return 'png';
+    case 'jpeg':
+      return 'jpg';
+    case 'webp':
+      return 'webp';
+    case 'svg':
+      return 'svg';
+    case 'pdf':
+      return 'pdf-screen';
+  }
 }
 
 async function blobToBytes(blob: Blob): Promise<Uint8Array> {
@@ -50,15 +105,47 @@ async function blobToBytes(blob: Blob): Promise<Uint8Array> {
   throw new Error('Blob byte extraction is not supported in this environment');
 }
 
+/** Resolved filename for a legacy per-node preset using the canonical naming engine. */
+function presetFileName(nodeName: string, preset: ExportPreset): string {
+  const format = legacyFormatToCanonical(preset.format);
+  return formatFileName('{name}{suffix}.{ext}', {
+    name: nodeName,
+    format,
+    scale: legacyScaleToCanonical(preset.scale),
+    suffix: preset.suffix || undefined,
+  });
+}
+
+function presetSummary(preset: ExportPreset): string {
+  const format = legacyFormatToCanonical(preset.format);
+  const label = capabilitiesForFormat(format, 'web').label;
+  const scale = scaleLabel(preset.scale);
+  const suffix = preset.suffix ? ` \u00b7 ${preset.suffix}` : '';
+  return `${label}${scale ? ` \u00b7 ${scale}` : ''}${suffix}`;
+}
+
+function scaleLabel(scale: ExportScale): string {
+  if (scale.type === 'factor') {
+    return scale.value === 1 ? '' : `${scale.value}x`;
+  }
+  if (scale.type === 'width') return `${scale.pixels}w`;
+  if (scale.type === 'height') return `${scale.pixels}h`;
+  return '';
+}
+
 export function AssetExportControls({
   node,
   doc,
   engine: _engine,
   platform,
+  onAddPreset,
+  onUpdatePreset,
+  onRemovePreset,
+  onOpenAdvancedExport,
 }: AssetExportControlsProps) {
   const suggestion = useMemo(() => suggestExportFormat(node, doc), [node, doc]);
   const [engine, setEngine] = useState<Engine | null>(null);
-  const [format, setFormat] = useState<ExportFormat>(suggestion.format);
+  const [format, setFormat] = useState<QuickFormat>(advisorFormatToQuick(suggestion.format));
   const [scale, setScale] = useState(suggestion.scale);
   const [customScale, setCustomScale] = useState('');
   const [exporting, setExporting] = useState(false);
@@ -66,12 +153,25 @@ export function AssetExportControls({
   const liveRef = useRef<HTMLDivElement>(null);
   const suggestedForNodeRef = useRef(node.id);
 
+  const presets = node.presets ?? [];
+
+  // Capability-driven format availability for the active platform.
+  const platformKindValue = platformKind(platform);
+  const visibleFormats = useMemo(
+    () =>
+      QUICK_FORMATS.filter((f) => {
+        if (f.desktopOnly && !isTauriPlatform(platform)) return true; // shown-but-disabled with reason
+        return formatSupportedOnPlatform(f.value, platformKindValue);
+      }),
+    [platformKindValue, platform],
+  );
+
   // Re-apply the advisor's suggestion when the selected node changes, but
   // never fight the user's manual choice while they stay on the same node.
   useEffect(() => {
     if (suggestedForNodeRef.current !== node.id) {
       suggestedForNodeRef.current = node.id;
-      setFormat(suggestion.format);
+      setFormat(advisorFormatToQuick(suggestion.format));
       setScale(suggestion.scale);
       setCustomScale('');
     }
@@ -136,13 +236,14 @@ export function AssetExportControls({
           setMessage('Engine not ready');
           return;
         }
+        const mime = QUICK_FORMATS.find((f) => f.value === format)?.mime ?? 'image/png';
         const { blob, warnings } = await exportNodeAsRaster(node, doc, eng, {
-          format: format as 'image/png' | 'image/jpeg' | 'image/webp',
+          format: mime,
           scale: effectiveScale,
-          quality: format === 'image/jpeg' ? 0.92 : undefined,
+          quality: format === 'jpeg' ? 0.92 : undefined,
         });
-        const ext = format === 'image/png' ? 'png' : format === 'image/jpeg' ? 'jpg' : 'webp';
-        const warningSuffix = warnings.length > 0 ? ` — ${warnings.join(' ')}` : '';
+        const ext = format === 'png' ? 'png' : format === 'jpeg' ? 'jpg' : 'webp';
+        const warningSuffix = warnings.length > 0 ? ` \u2014 ${warnings.join(' ')}` : '';
         if (isTauri && platform) {
           const bytes = await blobToBytes(blob);
           await platform.saveBinaryFile(buildFilename(node.name, ext), bytes, blob.type, `.${ext}`);
@@ -163,6 +264,21 @@ export function AssetExportControls({
     }
   }, [node, doc, engine, format, effectiveScale, isTauri, platform]);
 
+  const handleAddPreset = useCallback(() => {
+    if (!onAddPreset) return;
+    const suffix =
+      Number.isFinite(effectiveScale) && effectiveScale !== 1
+        ? `@${formatScaleNumber(effectiveScale)}x`
+        : '';
+    onAddPreset({
+      id: `preset-${Date.now()}`,
+      format: quickToLegacyFormat(format),
+      scale: { type: 'factor', value: effectiveScale },
+      suffix,
+      enabled: true,
+    });
+  }, [onAddPreset, format, effectiveScale]);
+
   return (
     <section className="spec-panel__section" aria-labelledby="spec-export-heading">
       <h3 id="spec-export-heading">Export</h3>
@@ -174,14 +290,14 @@ export function AssetExportControls({
             <button
               type="button"
               className="spec-export__why-btn"
-              aria-label={`Why ${FORMATS.find((f) => f.value === suggestion.format)?.label ?? suggestion.format}?`}
+              aria-label={`Why ${QUICK_FORMATS.find((f) => f.value === suggestion.format)?.label ?? suggestion.format}?`}
             >
               <Icon name="Info" size={12} label={undefined} />
             </button>
           </Tooltip>
         </span>
         <div className="spec-export__group">
-          {FORMATS.map((f) => (
+          {visibleFormats.map((f) => (
             <Tooltip
               key={f.value}
               label={f.label}
@@ -241,7 +357,7 @@ export function AssetExportControls({
           disabled={exporting || !effectiveScale || effectiveScale <= 0 || isPdfDesktopOnly}
           onClick={handleExport}
         >
-          {exporting ? 'Exporting\u2026' : 'Download'}
+          {exporting ? 'Exporting\u2026' : isTauri ? 'Export' : 'Download'}
         </button>
         {format === 'svg' && (
           <CopyButton
@@ -252,10 +368,80 @@ export function AssetExportControls({
         )}
       </div>
 
+      {onAddPreset && (
+        <section className="spec-export__presets" aria-labelledby="spec-export-presets-heading">
+          <h4 id="spec-export-presets-heading">Export settings</h4>
+          {presets.length === 0 && (
+            <p className="spec-export__presets-empty">
+              No export settings for this {nodeLabel(node)}. Add one to export it in several formats
+              and sizes at once.
+            </p>
+          )}
+          {presets.map((preset) => {
+            const fileName = presetFileName(node.name, preset);
+            return (
+              <div key={preset.id} className="spec-export__preset-row">
+                <label className="spec-export__preset-enabled">
+                  <input
+                    type="checkbox"
+                    checked={preset.enabled}
+                    onChange={() => onUpdatePreset?.({ ...preset, enabled: !preset.enabled })}
+                    aria-label={`Enable ${fileName} export`}
+                  />
+                  <span className="strata-visually-hidden">Enabled</span>
+                </label>
+                <div className="spec-export__preset-info">
+                  <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
+                  <code className="spec-export__preset-file">{fileName}</code>
+                </div>
+                <button
+                  type="button"
+                  className="spec-export__preset-remove"
+                  aria-label={`Remove ${fileName} export`}
+                  onClick={() => onRemovePreset?.(preset.id)}
+                >
+                  <Icon name="X" size={12} label={undefined} />
+                </button>
+              </div>
+            );
+          })}
+          <div className="spec-export__preset-actions">
+            <button type="button" className="spec-export__add-preset" onClick={handleAddPreset}>
+              + Add export setting
+            </button>
+            {onOpenAdvancedExport && (
+              <button
+                type="button"
+                className="spec-export__advanced"
+                onClick={onOpenAdvancedExport}
+              >
+                Open advanced export\u2026
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
       <div ref={liveRef} role="status" aria-live="polite" className="strata-visually-hidden">
         {message}
       </div>
       {message && <p className="spec-export__message">{message}</p>}
     </section>
   );
+}
+
+function nodeLabel(node: SceneNode): string {
+  switch (node.kind) {
+    case 'frame':
+      return 'frame';
+    case 'text':
+      return 'text object';
+    default:
+      return 'object';
+  }
+}
+
+function formatScaleNumber(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return String(parseFloat(value.toFixed(3)));
 }

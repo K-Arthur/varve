@@ -32,6 +32,14 @@ import type {
   Timeline,
 } from '@strata/scene';
 import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/scene';
+import {
+  buildExportPlan,
+  type ExportBatchRequest,
+  formatFileName,
+  legacyFormatToCanonical,
+  legacyPresetsToConfigurations,
+  legacyScaleToCanonical,
+} from '@strata/scene/export';
 import { FocusTrap, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ExportReport } from '../../exportService';
@@ -130,27 +138,41 @@ function scaledDimensions(
   };
 }
 
-function buildJobs(nodes: SceneNode[]): ExportJob[] {
+function buildJobs(nodes: SceneNode[], document?: Document): ExportJob[] {
   const jobs: ExportJob[] = [];
   for (const node of nodes) {
     const presets: ExportPreset[] = node.presets ?? [];
+    if (presets.length === 0) continue;
+
+    // Resolve names and dimensions through the canonical plan so the batch
+    // dialog matches the inspector's naming preview (single source of truth).
+    const configurations = legacyPresetsToConfigurations(node.id, presets);
+    const request: ExportBatchRequest = {
+      id: `dialog-${node.id}`,
+      configurations,
+      conflictPolicy: 'rename',
+      failurePolicy: 'continue',
+      createdAt: Date.now(),
+      createdBy: 'export-dialog',
+    };
+    const plan = document ? buildExportPlan(document, request, { document }) : null;
+    const planByConfig = new Map(plan?.items.map((item) => [item.configurationId, item]) ?? []);
+
     for (const preset of presets) {
       if (!preset.enabled) continue;
-      const safeName = safeFilename(node.name);
-      const ext = preset.format.startsWith('pdf')
-        ? 'pdf'
-        : preset.format === 'svg' || preset.format === 'svg-component'
-          ? 'svg'
-          : preset.format === 'react-tailwind' || preset.format === 'react-cssmodules'
-            ? 'tsx'
-            : preset.format === 'flutter'
-              ? 'dart'
-              : preset.format === 'swiftui'
-                ? 'swift'
-                : preset.format;
-      const suffix = preset.suffix ? `-${preset.suffix}` : '';
-      const fileName = `${safeName}${suffix}.${ext}`;
-      const dimensions = scaledDimensions(nodeBaseDimensions(node), preset.scale);
+      const planItem = planByConfig.get(preset.id);
+      const format = legacyFormatToCanonical(preset.format);
+      const fileName =
+        planItem?.relativePath ??
+        formatFileName('{name}{suffix}.{ext}', {
+          name: node.name,
+          format,
+          scale: legacyScaleToCanonical(preset.scale),
+          suffix: preset.suffix || undefined,
+        });
+      const dimensions = planItem
+        ? { w: planItem.resolvedDimensions.width, h: planItem.resolvedDimensions.height }
+        : scaledDimensions(nodeBaseDimensions(node), preset.scale);
       jobs.push({
         presetId: preset.id,
         nodeId: node.id,
@@ -231,7 +253,7 @@ export function ExportDialog({
     if (isOpen) void refreshModelStatus();
   }, [isOpen, refreshModelStatus]);
 
-  const jobs = useMemo(() => buildJobs(nodes), [nodes]);
+  const jobs = useMemo(() => buildJobs(nodes, document), [nodes, document]);
 
   useEffect(() => {
     if (isOpen) {
