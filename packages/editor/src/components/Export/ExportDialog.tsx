@@ -27,6 +27,7 @@ import type {
   ExportPreset,
   ExportScale,
   NodeId,
+  PrintOptions,
   SceneNode,
   ShapeNode,
   Timeline,
@@ -35,20 +36,25 @@ import { imageShapeH, imageShapeSrc, imageShapeW, isImageShape } from '@strata/s
 import {
   buildExportPlan,
   type ExportBatchRequest,
+  type ExportFinding,
   formatFileName,
   legacyFormatToCanonical,
   legacyPresetsToConfigurations,
   legacyScaleToCanonical,
+  type PlatformKind,
 } from '@strata/scene/export';
 import { FocusTrap, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ExportReport } from '../../exportService';
+import { type ExportReport, runBatchPreflight } from '../../exportService';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { loadSettings } from '../../settings';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 import { BatchJobList } from './BatchJobList';
 import { DestinationPicker } from './DestinationPicker';
 import { ExportProgressBar } from './ExportProgressBar';
+import { ExportResultsList } from './ExportResultsList';
+import { PreflightFindingsPanel } from './PreflightFindingsPanel';
+import { PrintSettingsPanel } from './PrintSettingsPanel';
 
 import './ExportDialog.css';
 
@@ -65,6 +71,8 @@ export interface ExportDialogProps {
   onSaveVideoFile?: (fileName: string, bytes: Uint8Array, mimeType: string) => Promise<void>;
   selectionIds?: NodeId[];
   initialTemplate?: string;
+  /** Active platform; drives capability-gated preflight and destination hints. */
+  platformKind?: PlatformKind;
 }
 
 function safeFilename(name: string): string {
@@ -189,6 +197,45 @@ function buildJobs(nodes: SceneNode[], document?: Document): ExportJob[] {
   return jobs;
 }
 
+function isPdfXFormat(format: ExportJob['format']): boolean {
+  return format === 'pdf-x1a' || format === 'pdf-x4';
+}
+
+function buildSelectedJobs(jobs: ExportJob[], selectedIds: Set<string>): ExportJob[] {
+  return jobs.filter((job) => selectedIds.has(`${job.nodeId}-${job.presetId}`));
+}
+
+/**
+ * Build the batch that will actually be executed: selected jobs with press
+ * settings attached to PDF/X jobs. This is a pure transform — no side effects.
+ */
+function buildBatchForExport(
+  selectedJobs: ExportJob[],
+  template: string,
+  folderRule: ExportBatch['folderRule'],
+  destination: string | null,
+  printSettings: PrintOptions,
+): ExportBatch {
+  const jobs = selectedJobs.map((job) =>
+    isPdfXFormat(job.format) ? { ...job, print: printSettings } : job,
+  );
+  return {
+    jobs,
+    destinationFolder: destination,
+    filenameTemplate: template,
+    folderRule,
+  };
+}
+
+function preflightFindings(
+  batch: ExportBatch,
+  document: Document | undefined,
+  platformKind: PlatformKind,
+): ExportFinding[] {
+  if (!document || batch.jobs.length === 0) return [];
+  return runBatchPreflight(batch, document, platformKind);
+}
+
 export function ExportDialog({
   isOpen,
   onClose,
@@ -202,6 +249,7 @@ export function ExportDialog({
   onSaveVideoFile,
   selectionIds = [],
   initialTemplate = loadSettings().export.defaultFilenameTemplate,
+  platformKind = 'web',
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
@@ -217,6 +265,19 @@ export function ExportDialog({
   const [showDownloadDialog, setShowDownloadDialog] = useState(false);
   const [videoExporting, setVideoExporting] = useState(false);
   const [videoProgress, setVideoProgress] = useState({ done: 0, total: 0 });
+  const [lastReport, setLastReport] = useState<ExportReport | null>(null);
+  const [printSettings, setPrintSettings] = useState<PrintOptions>(() => {
+    const settings = loadSettings().export;
+    return {
+      bleedMm: settings.defaultBleedMm,
+      enforceDpi: 300,
+      includeCropMarks: true,
+      includeRegistrationMarks: false,
+      includeColorBars: false,
+      outlineText: settings.defaultOutlineText,
+      iccProfile: settings.defaultIccProfile,
+    };
+  });
   const [videoSupport] = useState(() => checkVideoExportSupport());
   const [gifSupport] = useState(() => checkGifExportSupport());
   const videoAbortRef = useRef<AbortController | null>(null);
@@ -255,11 +316,36 @@ export function ExportDialog({
 
   const jobs = useMemo(() => buildJobs(nodes, document), [nodes, document]);
 
+  const selectedJobs = useMemo(() => buildSelectedJobs(jobs, selectedIds), [jobs, selectedIds]);
+
+  const hasPdfXJobs = useMemo(
+    () => selectedJobs.some((job) => isPdfXFormat(job.format)),
+    [selectedJobs],
+  );
+
+  const exportBatch = useMemo(
+    () =>
+      buildBatchForExport(
+        selectedJobs,
+        template,
+        folderRule,
+        destinationLabel || null,
+        printSettings,
+      ),
+    [selectedJobs, template, folderRule, destinationLabel, printSettings],
+  );
+
+  const findings = useMemo(
+    () => preflightFindings(exportBatch, document, platformKind),
+    [exportBatch, document, platformKind],
+  );
+
   useEffect(() => {
     if (isOpen) {
       setRunning(false);
       setProgress({ done: 0, errors: 0 });
       setAnnounceMsg('');
+      setLastReport(null);
       const allIds = new Set(jobs.map((job) => `${job.nodeId}-${job.presetId}`));
       setSelectedIds(allIds);
     }
@@ -350,18 +436,13 @@ export function ExportDialog({
       }
     }
 
-    const batch: ExportBatch = {
-      jobs: selectedJobs,
-      destinationFolder: destinationLabel || null,
-      filenameTemplate: template,
-      folderRule,
-    };
     batchAbortRef.current?.abort();
     const controller = new AbortController();
     batchAbortRef.current = controller;
     try {
-      const report = await onExport(batch, controller.signal);
+      const report = await onExport(exportBatch, controller.signal);
       if (report) {
+        setLastReport(report);
         setProgress({ done: report.successCount, errors: report.failureCount });
         if (controller.signal.aborted) {
           setAnnounceMsg('Export cancelled');
@@ -396,7 +477,9 @@ export function ExportDialog({
     }
   }, [
     jobs,
+    selectedJobs,
     selectedIds,
+    exportBatch,
     onExport,
     destinationLabel,
     template,
@@ -407,6 +490,51 @@ export function ExportDialog({
     bgMethod,
     aiAvailable,
   ]);
+
+  const handleRetryFailed = useCallback(() => {
+    const failedJobs = selectedJobs.filter((job) =>
+      lastReport?.files.some(
+        (file) =>
+          file.status === 'failed' && file.nodeId === job.nodeId && file.fileName === job.fileName,
+      ),
+    );
+    if (failedJobs.length === 0) return;
+    setLastReport(null);
+    void (async () => {
+      setRunning(true);
+      setProgress({ done: 0, errors: 0 });
+      batchAbortRef.current?.abort();
+      const controller = new AbortController();
+      batchAbortRef.current = controller;
+      try {
+        const retryBatch = buildBatchForExport(
+          failedJobs,
+          template,
+          folderRule,
+          destinationLabel || null,
+          printSettings,
+        );
+        const report = await onExport(retryBatch, controller.signal);
+        if (report) {
+          setLastReport(report);
+          setProgress({ done: report.successCount, errors: report.failureCount });
+          setAnnounceMsg(
+            controller.signal.aborted
+              ? 'Export cancelled'
+              : report.failureCount > 0
+                ? `Retry partial: ${report.successCount} exported, ${report.failureCount} still failed`
+                : `Retry complete: ${report.successCount} files exported`,
+          );
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setAnnounceMsg(`Retry failed: ${msg}`);
+      } finally {
+        batchAbortRef.current = null;
+        setRunning(false);
+      }
+    })();
+  }, [selectedJobs, lastReport, onExport, template, folderRule, destinationLabel, printSettings]);
 
   const handleCancel = useCallback(() => {
     if (videoExporting) {
@@ -648,6 +776,25 @@ export function ExportDialog({
               />
             </section>
 
+            {findings.length > 0 && (
+              <section className="export-dialog__section" aria-label="Preflight">
+                <h3 className="export-dialog__section-title">Preflight</h3>
+                <PreflightFindingsPanel findings={findings} />
+              </section>
+            )}
+
+            {hasPdfXJobs && (
+              <section className="export-dialog__section" aria-label="Print settings">
+                <PrintSettingsPanel
+                  value={printSettings}
+                  onChange={setPrintSettings}
+                  standard={
+                    selectedJobs.some((job) => job.format === 'pdf-x1a') ? 'pdf-x1a' : 'pdf-x4'
+                  }
+                />
+              </section>
+            )}
+
             <section className="export-dialog__section" aria-label="Destination">
               <h3 className="export-dialog__section-title">Destination</h3>
               <DestinationPicker
@@ -839,6 +986,13 @@ export function ExportDialog({
                   running={running}
                   onCancel={handleCancel}
                 />
+              </section>
+            )}
+
+            {lastReport && !running && (
+              <section className="export-dialog__section" aria-label="Results">
+                <h3 className="export-dialog__section-title">Results</h3>
+                <ExportResultsList files={lastReport.files} onRetryFailed={handleRetryFailed} />
               </section>
             )}
           </div>
