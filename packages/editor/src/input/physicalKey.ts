@@ -49,9 +49,9 @@ export function physicalKeyFromEvent(e: { key?: string; code?: string }): string
 export function physicalDigit(e: { key?: string; code?: string }): string | null {
   const code = e.code ?? '';
   const mainRow = /^Digit([0-9])$/.exec(code);
-  if (mainRow) return mainRow[1];
+  if (mainRow) return mainRow[1] ?? null;
   const numpad = /^Numpad([0-9])$/.exec(code);
-  if (numpad && /^[0-9]$/.test(e.key ?? '')) return numpad[1];
+  if (numpad && /^[0-9]$/.test(e.key ?? '')) return numpad[1] ?? null;
   return null;
 }
 
