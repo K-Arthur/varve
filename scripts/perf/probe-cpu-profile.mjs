@@ -131,6 +131,34 @@ for (const sampleId of profile.samples ?? []) {
   const key = `${name} @ ${loc}`;
   self.set(key, (self.get(key) ?? 0) + 1);
 }
+// Attribute a named function's samples to its callers. Self-time alone says
+// what is expensive; this says who is asking for it, which is what a fix has
+// to target. Usage: node scripts/perf/probe-cpu-profile.mjs --callers=fnName
+const wanted = process.argv.find((a) => a.startsWith('--callers='))?.split('=')[1];
+if (wanted) {
+  const parentOf = new Map();
+  for (const n of profile.nodes) for (const c of n.children ?? []) parentOf.set(c, n.id);
+  const callers = new Map();
+  for (const sampleId of profile.samples ?? []) {
+    const node = byId.get(sampleId);
+    if (node?.callFrame.functionName !== wanted) continue;
+    // Walk up past recursive self-frames to the first different function.
+    let cur = parentOf.get(node.id);
+    while (cur && byId.get(cur)?.callFrame.functionName === wanted) cur = parentOf.get(cur);
+    const cf = byId.get(cur)?.callFrame;
+    const key = cf
+      ? `${cf.functionName || '(anonymous)'} @ ${(cf.url || '').replace(/^https?:\/\/[^/]+/, '').split('?')[0]}:${cf.lineNumber + 1}`
+      : '(root)';
+    callers.set(key, (callers.get(key) ?? 0) + 1);
+  }
+  console.log(`\nCALLERS of ${wanted}:`);
+  for (const [k, c] of [...callers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) {
+    console.log(
+      `${((c / total) * durationMs).toFixed(0).padStart(6)}ms  ${((c / total) * 100).toFixed(1).padStart(5)}%  ${k}`,
+    );
+  }
+}
+
 const ranked = [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
 console.log(`\nCPU PROFILE — ${durationMs.toFixed(0)}ms wall, ${total} samples\n`);
 for (const [key, count] of ranked) {

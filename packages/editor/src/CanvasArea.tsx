@@ -142,7 +142,6 @@ import {
   invalidateAll as invalidateTransformCache,
   type TransformCache,
 } from './scene/transformCache';
-import { nodeWorldBounds } from './scene/world';
 import { loadSettings } from './settings';
 import { sampleTimelineAt } from './timeline/TimelineSampler';
 import type { DraftShape, ToolContext } from './tools';
@@ -996,7 +995,15 @@ export function CanvasArea({
         for (const nodeId of nearbyIds) {
           const node = doc.nodes[nodeId];
           if (!node) continue;
-          const b = nodeWorldBounds(doc, node.id, snapIndex.parentIndex) ?? nodeWorldBoundsFn(node);
+          // Read through the transform cache rather than recomputing. This runs
+          // on every pointer move of a drag, and the uncached nodeWorldBounds
+          // re-derives a group's bounds by unioning all of its children every
+          // time — a 932-node drag profile attributed 7.6% of CPU to
+          // groupWorldBounds reached from here. The cache invalidates exactly
+          // the nodes an edit touched, so during a drag only the dragged node
+          // recomputes and the surrounding snap targets stay cached.
+          const b =
+            getCachedWorldBounds(transformCacheRef.current, doc, node.id) ?? nodeWorldBoundsFn(node);
           if (b) nearbyBoundsWithIds.push({ nodeId: node.id, bounds: b });
         }
         const parentIdx = snapIndex.parentIndex;
