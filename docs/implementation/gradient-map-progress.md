@@ -132,6 +132,7 @@ All milestones implemented, tested, and committed on `feat/gradient-map-system`
 | M9 — Export preflight warnings | `69479f4e` | done |
 | M10 — E2E workflow specs | `82f41d63` | done |
 | M11 — Docs + final report | this doc + `docs/architecture/gradient-map-system.md` | done |
+| M12 — LUT-size correctness fix + CPU benchmarks + pixel E2E | `d1f39ec1`, `eb9ea723` | done |
 
 Verification (2026-08-01):
 - `pnpm typecheck` — all 15 packages pass.
@@ -175,3 +176,104 @@ a GPU gradient-map post-pass is not implemented on any backend.
 - **Blue-noise / error-diffusion dithering**: ordered Bayer retained for determinism; error diffusion deferred pending perf budget.
 - **`.ase` import**: cannot faithfully represent stop/midpoint/opacity semantics — explicitly not overloaded.
 - **Full visual-regression baselines** for every panel state (Playwright screenshot set from §18): deferred to a follow-up; the E2E workflow + unit parity tests cover the primary paths, and the IR-replay visual harness is unaffected (adjustments use the structural path).
+
+## 9. M12 findings (2026-08-01)
+
+### 9.1 Correctness fix — ramp index vs. configured LUT size (`d1f39ec1`)
+
+`applyGradientMapFilter` computed an 8-bit tonal value (0–255) and used it
+directly as an index into the colour and alpha ramps. Those ramps are built at
+`lutSize`, a serialized `GradientMapAdjustment` field clamped to [64, 4096], so
+the index and the ramp domain disagreed whenever `lutSize !== 256`:
+
+| `lutSize` | White pixel (expected pure blue `0,0,255`) | Effect |
+|---|---|---|
+| 64 | `0,0,0` | index past end -> `undefined` -> NaN -> 0 (black) |
+| 128 | `0,0,0` | same |
+| 256 | `0,0,255` | correct (identity case) |
+| 512 | `128,·,·` | only the first half of the ramp reachable |
+| 1024 | `191,·,·` | only the first quarter reachable |
+| 4096 | `239,·,·` | only the darkest 1/16th, stretched over the image |
+
+Both failure modes are reachable from a saved document. The existing test
+suite missed it because the only filter-path `lutSize` test asserted on a
+**black** source pixel — tonal 0 maps to index 0, which is valid at every
+size. Fixed by rescaling the tonal value into the ramp's own domain
+(`rampIndex()`), applied at the colour, alpha, and channel-mode index sites.
+Regression coverage now spans 64/128/256/512/1024/4096.
+
+### 9.2 Performance — measured CPU baseline
+
+Recorded on the dev machine via the new benchmarks (best-of-N, ms). These are
+reference numbers for regression triage, not gates.
+
+LUT build:
+
+| Size | sRGB | Oklab | OKLCH | Alpha LUT |
+|---|---|---|---|---|
+| 256 | 0.9 | 1.5 | 3.5 | 0.26 |
+| 1024 | 0.3 | 3.8 | 5.7 | 0.13 |
+| 4096 | 5.4 | 6.1 | 16.2 | 0.45 |
+
+Per-pixel apply:
+
+| Case | Before | After |
+|---|---|---|
+| 512² dither | 57 | 64 |
+| 512² no dither | 27 | 17 |
+| HD dither | 309 | 175 |
+| 4K no dither | 446 | 264 |
+| 4K reverse + intensity | 500 | 368 |
+| 4K oklab | 457 | 370 |
+| **4K perceptual-lightness** | **2757** | **1043** |
+
+`perceptual-lightness` was a 6x outlier because it ran three `** 2.4` calls and
+allocated a temporary array per pixel. The sRGB→linear transfer function is a
+pure function of an 8-bit channel, so it is now a 256-entry table computed once
+at module load; output is byte-identical. The mode remains the slowest (three
+`Math.cbrt` per pixel are inherent) but is no longer an outlier.
+
+### 9.3 Pre-existing gap — adjustment layers do not reach the content canvas
+
+The pixel-level raster/vector/text/group cases in
+`tests/e2e/gradient-map/raster-vector-apply.spec.ts` are committed but marked
+`fixme`. Adding an adjustment layer over a target does not change the
+composited `.editor-canvas__content-layer` pixels in this flow.
+
+This is **not** gradient-map-specific. A control probe using a plain `invert`
+adjustment — same helper, same `image-local` scope, image demonstrably
+rendered (sampled canvas colours `0,0,255` / `0,200,0` / `200,0,0`) — produced
+a byte-identical canvas hash before and after. Document state is correct in
+both cases: an `adjustment` node carrying
+`scope { mode: 'image-local', targetNodeId }` and a visible adjustment in
+`node.adjustments`.
+
+The gap therefore sits in the shared adjustment compositing/canvas path used by
+all 27 adjustment kinds. It was never caught because no E2E spec asserts
+adjustment pixels — `effects-verification.spec.ts` only checks that the canvas
+is not entirely black, and `effects/gradient-map.spec.ts` asserts UI state only.
+Unmark the four cases once adjustment compositing reaches the content layer.
+
+**Lead for whoever picks this up** (not yet verified end-to-end): in
+`context.tsx`, `createAdjustmentLayer` finishes with
+`addNode(newDoc, withAdjustments)`, which appends to `rootChildren`, whereas
+sibling creators such as `createShapeAt` parent new nodes under the active
+page's `contentRoot`. An adjustment node hanging off `rootChildren` is outside
+the subtree the renderer walks, which would explain a correct document model
+that never reaches the canvas. Parenting it to
+`pages.find(p => p.id === activePageId)?.contentRoot` is the obvious candidate
+fix; it needs its own regression test before the four cases above are unmarked.
+
+### 9.4 E2E environment note
+
+The Vite dev server compiles this app's module graph on demand, and a cold
+graph exceeds the 45s timeout hardcoded in `tests/e2e/shared.ts`'s
+`navigateToEditor`. Warm the server once (load `/`, create a document) before
+running gradient-map specs, or the first spec fails at the home screen for
+reasons unrelated to the code under test. A stale long-running dev server was
+also observed serving pre-M7 module transforms — if the preset browser
+(`.gmp-browser`) is missing from the DOM, restart the server with `--force`.
+Note also that Playwright resolves `localhost` to `::1`, so a server started
+with `--host 127.0.0.1` is unreachable to it.
+
+Current gradient-map E2E status: **5 passed, 4 skipped (fixme)**.
