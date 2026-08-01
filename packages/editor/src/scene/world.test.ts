@@ -624,3 +624,37 @@ describe('TransformCache', () => {
     expect(cache.generation).toBe(genBefore + 3);
   });
 });
+
+describe('transformCache getWorldBounds group handling', () => {
+  it('returns child-union bounds for a group (matches nodeWorldBounds)', () => {
+    const doc = createDocument('g', true);
+    const gId = 'g1';
+    let d = addNode(doc, makeGroupNode(gId, { name: 'Group', children: [] }));
+    d = addNode(
+      d,
+      makeShapeNode(
+        's1',
+        { kind: 'rect', x: 0, y: 0, w: 10, h: 20 },
+        { transform: [1, 0, 0, 1, 5, 7] as const },
+      ),
+    );
+    d = addNode(
+      d,
+      makeShapeNode(
+        's2',
+        { kind: 'rect', x: 0, y: 0, w: 30, h: 5 },
+        { transform: [1, 0, 0, 1, 100, 50] as const },
+      ),
+    );
+    d = {
+      ...d,
+      nodes: {
+        ...d.nodes,
+        [gId]: { ...d.nodes[gId], children: ['s1', 's2'] } as import('@strata/scene').SceneNode,
+      },
+    };
+    const cache = createTransformCache();
+    const groupBounds = getCachedWorldBounds(cache, d, gId);
+    expect(groupBounds).toEqual({ x: 5, y: 7, w: 125, h: 48 });
+  });
+});
