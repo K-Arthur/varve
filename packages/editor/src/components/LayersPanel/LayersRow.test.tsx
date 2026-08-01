@@ -135,11 +135,20 @@ describe('LayersRow blend mode / opacity badge', () => {
 describe('LayersRow clipping relationship', () => {
   it('identifies mask sources and clipped content accessibly', () => {
     const source = renderRow({ maskRole: 'source' });
-    expect(source.getByRole('img', { name: 'Clipping mask source' }).textContent).toBe('mask');
+    // The badge is labelled accessibly; the Tooltip wrapper no longer uses a
+    // native title attribute.
+    const sourceBadge = source.container.querySelector('[data-mask-role="source"]');
+    expect(sourceBadge).not.toBeNull();
+    expect(sourceBadge?.textContent).toBe('mask');
+    expect(sourceBadge).toHaveAttribute('aria-label', 'Clipping mask source');
+    expect(sourceBadge?.getAttribute('title')).toBeNull();
     source.unmount();
 
     const content = renderRow({ maskRole: 'content' });
-    expect(content.getByRole('img', { name: 'Clipped content' }).textContent).toBe('clipped');
+    const contentBadge = content.container.querySelector('[data-mask-role="content"]');
+    expect(contentBadge).not.toBeNull();
+    expect(contentBadge?.textContent).toBe('clipped');
+    expect(contentBadge).toHaveAttribute('aria-label', 'Clipped content');
   });
 });
 
