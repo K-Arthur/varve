@@ -6,7 +6,6 @@
 //! `ttf-parser`'s strict head/OS-2 table validation. For determinism every
 //! test uses the bundled OpenSans-Regular fixture; system-font paths are only
 //! a fallback for developers without the fixture checked out.
-#![cfg(test)]
 
 use std::path::Path;
 

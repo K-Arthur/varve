@@ -23,8 +23,10 @@ pub mod resources;
 pub mod shaper;
 pub mod subset;
 
-#[cfg(test)]
-mod test_fonts;
+/// Shared cross-platform test-font resolver. Kept non-`cfg(test)` so the
+/// desktop crate's test module can reuse the bundled fixture instead of
+/// duplicating Linux-only font paths (which broke macOS/Windows CI).
+pub mod test_fonts;
 
 pub use outline::{
     commands_to_svg_path, outline_text, outline_text_multi, GlyphOutline, PathCommand,
