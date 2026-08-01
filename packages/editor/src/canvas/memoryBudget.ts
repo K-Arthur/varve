@@ -13,6 +13,7 @@ export interface MemoryBudgets {
   gradientCacheEntries: number;
   workerImageBitmaps: number;
   thumbnailCacheEntries: number;
+  engineNodeMemoEntries: number;
 }
 
 export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
@@ -22,6 +23,7 @@ export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
   gradientCacheEntries: 200,
   workerImageBitmaps: 10,
   thumbnailCacheEntries: 200,
+  engineNodeMemoEntries: 20000,
 };
 
 export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): MemoryBudgets {
@@ -33,6 +35,7 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
         subtreeIrCacheBytes: 10 * 1024 * 1024,
         backdropCacheEntries: 5,
         transformCacheEntries: 2000,
+        engineNodeMemoEntries: 4000,
       };
     case 'medium':
       return {

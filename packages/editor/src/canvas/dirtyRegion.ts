@@ -7,7 +7,13 @@
  */
 
 import type { Document, NodeId, RasterLayerNode } from '@strata/scene';
-import { isContainer, parseTileKey, resolveAllStyles, TILE_SIZE } from '@strata/scene';
+import {
+  buildParentIndexMap,
+  isContainer,
+  parseTileKey,
+  resolveAllStyles,
+  TILE_SIZE,
+} from '@strata/scene';
 import type { Rect } from '@strata/shared';
 import { nodeVisualWorldBounds } from './visualBounds';
 
@@ -49,13 +55,20 @@ export function computeDocumentDirtyRegion(
   previous: Document,
   next: Document,
   forceFull?: boolean,
+  nextParentIndex?: Map<NodeId, NodeId>,
 ): DirtyRegion {
   if (previous === next || forceFull) return { kind: forceFull ? 'full' : 'none' };
   const ids = new Set<NodeId>([...Object.keys(previous.nodes), ...Object.keys(next.nodes)]);
   let bounds: Rect | null = null;
   let changed = false;
+  // getParent() is O(n) per call, so nodeWorldTransform/nodeWorldBounds walk
+  // the ancestor chain in O(n) each. A per-document parent index drops that
+  // to O(1); the index itself is O(n) to build, so build lazily only when a
+  // bound is actually needed — single-node edits never pay for it.
   const previousStyles = resolveAllStyles(previous);
   const nextStyles = resolveAllStyles(next);
+  let previousParents: Map<NodeId, NodeId> | undefined;
+  let nextParents: Map<NodeId, NodeId> | undefined;
 
   for (const id of ids) {
     const before = previous.nodes[id];
@@ -81,13 +94,31 @@ export function computeDocumentDirtyRegion(
       }
     }
 
-    const beforeBounds = before ? nodeVisualWorldBounds(previous, id, previousStyles) : null;
-    const afterBounds = after ? nodeVisualWorldBounds(next, id, nextStyles) : null;
-    if (!beforeBounds && !afterBounds) {
-      return { kind: 'full' };
+    if (before && after) {
+      previousParents ??= buildParentIndexMap(previous);
+      nextParents ??= nextParentIndex ?? buildParentIndexMap(next);
+      const beforeBounds = nodeVisualWorldBounds(previous, id, previousStyles, previousParents);
+      const afterBounds = nodeVisualWorldBounds(next, id, nextStyles, nextParents);
+      if (!beforeBounds && !afterBounds) {
+        return { kind: 'full' };
+      }
+      if (beforeBounds) bounds = unionBounds(bounds, beforeBounds);
+      if (afterBounds) bounds = unionBounds(bounds, afterBounds);
+    } else {
+      // Added or removed node: only one side has a bound to compute.
+      const doc = after ? next : previous;
+      const styles = after ? nextStyles : previousStyles;
+      nextParents ??= after ? (nextParentIndex ?? buildParentIndexMap(next)) : undefined;
+      previousParents ??= after ? undefined : buildParentIndexMap(previous);
+      const changedBounds = nodeVisualWorldBounds(
+        doc,
+        id,
+        styles,
+        after ? nextParents : previousParents,
+      );
+      if (!changedBounds) return { kind: 'full' };
+      bounds = unionBounds(bounds, changedBounds);
     }
-    if (beforeBounds) bounds = unionBounds(bounds, beforeBounds);
-    if (afterBounds) bounds = unionBounds(bounds, afterBounds);
   }
 
   if (!changed) return { kind: 'none' };
