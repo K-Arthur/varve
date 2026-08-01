@@ -79,12 +79,13 @@ describe('MasterPanel', () => {
     mockEditor({ masters: {} });
     render(<MasterPanel />);
     expect(screen.getByText('No master pages yet.')).toBeDefined();
-    // The fuller explanation is a tooltip on the create button rather than a
+    // The fuller explanation is a Tooltip on the create button rather than a
     // block of copy, so the panel stays short enough not to squeeze the layers
-    // tree that shares its sidebar column.
-    expect(
-      screen.getByRole('button', { name: 'Create new master page' }).getAttribute('title'),
-    ).toMatch(/reusable layouts/);
+    // tree that shares its sidebar column. Native title attributes are no
+    // longer used — the Tooltip provides the hover explanation.
+    const createBtn = screen.getByRole('button', { name: 'Create new master page' });
+    expect(createBtn.getAttribute('title')).toBeNull();
+    expect(createBtn).toHaveAttribute('aria-label', 'Create new master page');
   });
 
   it('renders list of masters', () => {
