@@ -1003,7 +1003,8 @@ export function CanvasArea({
           // the nodes an edit touched, so during a drag only the dragged node
           // recomputes and the surrounding snap targets stay cached.
           const b =
-            getCachedWorldBounds(transformCacheRef.current, doc, node.id) ?? nodeWorldBoundsFn(node);
+            getCachedWorldBounds(transformCacheRef.current, doc, node.id) ??
+            nodeWorldBoundsFn(node);
           if (b) nearbyBoundsWithIds.push({ nodeId: node.id, bounds: b });
         }
         const parentIdx = snapIndex.parentIndex;

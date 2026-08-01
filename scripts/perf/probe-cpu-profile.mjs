@@ -1,27 +1,17 @@
-/* Interaction latency + frame cost probe using real CDP input and the
- * diagnostics ring buffer. Usage: node scripts/perf/probe-interaction.mjs */
+/* CPU profile of a real drag, aggregated by function self-time.
+ *
+ * Usage:
+ *   node scripts/perf/probe-cpu-profile.mjs
+ *   node scripts/perf/probe-cpu-profile.mjs --callers=groupWorldBounds
+ *   STRATA_PERF_DUPS=5 STRATA_PERF_URL=http://localhost:1447/?perf=1 \
+ *     node scripts/perf/probe-cpu-profile.mjs
+ */
 import { chromium } from '@playwright/test';
 
 // STRATA_PERF_URL lets the same probe run against a production build
 // (vite preview) as well as the dev server — the dev/prod comparison is the
 // point, since React dev-mode overhead dominates dev-build drag profiles.
 const BASE = process.env.STRATA_PERF_URL ?? 'http://localhost:1432/?perf=1';
-
-function pct(sorted, p) {
-  if (!sorted.length) return 0;
-  const i = Math.min(sorted.length - 1, Math.max(0, Math.ceil((p / 100) * sorted.length) - 1));
-  return sorted[i] ?? 0;
-}
-function summary(samples) {
-  const s = [...samples].sort((a, b) => a - b);
-  return {
-    p50: +pct(s, 50).toFixed(2),
-    p95: +pct(s, 95).toFixed(2),
-    p99: +pct(s, 99).toFixed(2),
-    max: +(s[s.length - 1] ?? 0).toFixed(2),
-    n: s.length,
-  };
-}
 
 const browser = await chromium.launch({
   headless: true,
@@ -45,7 +35,7 @@ await page
   .waitForFunction(
     () => {
       const s = document.querySelector('.startup-loader');
-      return !s || s.getAttribute('aria-busy') !== 'true';
+      return s?.getAttribute('aria-busy') !== 'true';
     },
     { timeout: 30000 },
   )
@@ -86,7 +76,10 @@ const readCount = () =>
     const f = window.__strataPerf ? window.__strataPerf.getFrames(3) : [];
     return f.length ? f[f.length - 1].nodeCount : 0;
   });
-for (let guard = 0; guard < 8; guard++) {
+// Node count doubles per pass (4 rects → 4·2^n). Keep this in step with
+// probe-interaction.mjs when comparing the two probes' output.
+const DUPS = Number(process.env.STRATA_PERF_DUPS ?? 8);
+for (let guard = 0; guard < DUPS; guard++) {
   await page.keyboard.press('Control+a');
   await page.waitForTimeout(25);
   await page.keyboard.press('Control+d');
