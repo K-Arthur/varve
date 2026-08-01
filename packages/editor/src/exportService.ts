@@ -240,7 +240,15 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       // Press output goes through the native CMYK/ICC print pipeline. This is
       // desktop-only; exportNodeAsPdfX throws with the capability label when
       // the Tauri bridge is absent rather than emitting an invalid press file.
-      const result = await exportNodeAsPdfX(node, context.document, job.format);
+      const result = await exportNodeAsPdfX(node, context.document, job.format, {
+        bleedMm: job.print?.bleedMm,
+        includeCropMarks: job.print?.includeCropMarks,
+        includeRegistrationMarks: job.print?.includeRegistrationMarks,
+        colorBars: job.print?.includeColorBars,
+        enforceDpi: job.print?.enforceDpi,
+        outlineText: job.print?.outlineText,
+        iccProfile: job.print?.iccProfile,
+      });
       return {
         bytes: result.bytes,
         mimeType: 'application/pdf',
