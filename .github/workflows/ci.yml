@@ -20,9 +20,9 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@a2758e4818c2e4f4493a1d255f4662f19b65acf2
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           components: rustfmt, clippy
       - name: Install Linux system deps (Tauri / wgpu)
@@ -32,7 +32,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev \
             libfontconfig1-dev libglib2.0-dev cmake pkg-config
-      - uses: Swatinem/rust-cache@f74c8cc5f54c0e3f1e043d6a4685b8489aee9c1b
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
       - name: cargo fmt
         run: cargo fmt --all -- --check
       - name: cargo clippy
@@ -43,8 +43,15 @@ jobs:
         run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
       - name: Install cargo-llvm-cov
         if: runner.os == 'Linux'
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
+        with:
+          tool: cargo-llvm-cov
+      - name: Install just
+        if: runner.os == 'Linux'
+        uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf
+        with:
+          tool: just@1.54.0
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         if: runner.os == 'Linux'
         with:
           node-version: 26
@@ -65,7 +72,7 @@ jobs:
         run: just wasm-build-all
       - name: Upload wasm artifact
         if: runner.os == 'Linux'
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-wasm
           path: apps/desktop/public/wasm/
@@ -74,7 +81,7 @@ jobs:
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-rust-${{ matrix.os }}-${{ github.run_id }}
           path: ci-debug-report.md
@@ -85,16 +92,37 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
 
+  pipeline-validate:
+    name: Pipeline validation (workflow + SHA pins)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate workflow YAML + structure
+        run: node scripts/validate-workflows.mjs
+      - name: Static pin check (no mutable refs)
+        run: node scripts/pin-github-actions.mjs --check
+      - name: Verify pinned SHAs resolve upstream
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/pin-github-actions.mjs --verify
+      - name: Verify extractor logic
+        run: node scripts/ci-debug.test.mjs
+      - name: Verify pin-table integrity
+        run: node scripts/pin-github-actions.test.mjs
+      - name: Verify CI shell scripts
+        run: bash scripts/test-ci-shell-scripts.sh
+
   js:
     name: JS (pnpm)
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
-      - uses: pnpm/action-setup@v4.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
-      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 26
           cache: pnpm
@@ -118,7 +146,7 @@ jobs:
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-js-${{ github.run_id }}
           path: ci-debug-report.md
@@ -135,11 +163,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: rust
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
-      - uses: pnpm/action-setup@v4.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
-      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 26
           cache: pnpm
@@ -147,7 +175,7 @@ jobs:
       - name: Install JS dependencies
         run: pnpm install --frozen-lockfile
       - name: Download wasm artifact
-        uses: actions/download-artifact@65a9edc535144f24f5bb5979b6c2cd39a097d35d
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: strata-wasm
           path: apps/desktop/public/wasm/
@@ -162,7 +190,7 @@ jobs:
         run: node scripts/build-visual-diff-manifest.mjs
       - name: Upload visual diff report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-visual-diff-${{ github.run_id }}
           path: visual-diff-report/
@@ -172,7 +200,7 @@ jobs:
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-e2e-${{ github.run_id }}
           path: ci-debug-report.md
@@ -202,11 +230,11 @@ jobs:
             os: macos-latest
             xvfb: false
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
-      - uses: pnpm/action-setup@v4.0.0
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
-      - uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 26
           cache: pnpm
@@ -222,10 +250,10 @@ jobs:
             libfontconfig1-dev libglib2.0-dev libsoup-3.0-dev \
             libgdk-pixbuf2.0-dev libcairo2-dev libpango1.0-dev \
             cmake pkg-config patchelf xvfb dbus-x11 at-spi2-core mesa-utils
-      - uses: dtolnay/rust-toolchain@a2758e4818c2e4f4493a1d255f4662f19b65acf2
-      - uses: Swatinem/rust-cache@f74c8cc5f54c0e3f1e043d6a4685b8489aee9c1b
+      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+      - uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
       - name: Download wasm artifact
-        uses: actions/download-artifact@65a9edc535144f24f5bb5979b6c2cd39a097d35d
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: strata-wasm
           path: apps/desktop/public/wasm/
@@ -240,7 +268,7 @@ jobs:
         run: node scripts/ci-debug.mjs --run-id ${{ github.run_id }} --output ci-debug-report.md || true
       - name: Upload debug report
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-debug-desktop-e2e-${{ github.run_id }}
           path: ci-debug-report.md
@@ -252,7 +280,7 @@ jobs:
         run: node scripts/pr-debug-comment.mjs --run-id ${{ github.run_id }} --repo ${{ github.repository }} --report ci-debug-report.md || true
       - name: Upload native GUI artifacts
         if: failure()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: strata-native-artifacts-${{ matrix.name }}-${{ github.run_id }}
           path: artifacts/desktop/

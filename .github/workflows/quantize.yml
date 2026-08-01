@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Validate manifest JSON schema
         run: |
@@ -44,8 +44,8 @@ jobs:
           const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
           
           // Check version
-          if (manifest.version !== 2) {
-            console.error('ERROR: manifest version must be 2, got', manifest.version);
+          if (manifest.version !== 3) {
+            console.error('ERROR: manifest version must be 3, got', manifest.version);
             process.exit(1);
           }
           
@@ -131,10 +131,10 @@ jobs:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Setup Python
-        uses: actions/setup-python@f677139bbe7f9c59b41fc40762e69991d9768d4b
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -155,7 +155,7 @@ jobs:
 
       - name: Upload validation report
         if: always()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: quantization-validation-report
           path: apps/desktop/public/models/quantized/*-validation-report.json
@@ -170,10 +170,10 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Setup Python
-        uses: actions/setup-python@f677139bbe7f9c59b41fc40762e69991d9768d4b
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -257,13 +257,13 @@ jobs:
           "
 
       - name: Upload quantized artifacts
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: quantized-models
           path: apps/desktop/public/models/quantized/
 
       - name: Upload manifests and reports
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0bbc538f
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
           name: quantization-reports
           path: |
@@ -284,10 +284,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Setup Python
-        uses: actions/setup-python@f677139bbe7f9c59b41fc40762e69991d9768d4b
+        uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38
         with:
           python-version: '3.12'
 
