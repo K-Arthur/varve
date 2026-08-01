@@ -63,7 +63,12 @@ export function GradientMapPresetBrowser({
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (filtered.length === 0) return;
     roving.handleKeyDown(e);
-    if (e.key === 'Enter' && roving.currentIndex >= 0 && filtered[roving.currentIndex]) {
+    if (
+      e.target === e.currentTarget &&
+      e.key === 'Enter' &&
+      roving.currentIndex >= 0 &&
+      filtered[roving.currentIndex]
+    ) {
       onSelect(filtered[roving.currentIndex]!);
     }
   };
@@ -85,7 +90,7 @@ export function GradientMapPresetBrowser({
         label: 'Rename',
         onAction: () => {
           const name = window.prompt('Rename preset', displayName(context.preset));
-          if (name && name.trim()) onRename(id, name.trim());
+          if (name?.trim()) onRename(id, name.trim());
         },
       });
     }
@@ -112,7 +117,7 @@ export function GradientMapPresetBrowser({
   }, [context, favoriteIds, onToggleFavorite, onRename, onDuplicate, onExport, onDelete]);
 
   return (
-    <div className="gmp-browser" role="region" aria-label={label}>
+    <section className="gmp-browser" aria-label={label}>
       <div className="gmp-browser__toolbar">
         <SearchField
           aria-label="Search gradient presets"
@@ -174,6 +179,12 @@ export function GradientMapPresetBrowser({
               tabIndex={roving.getTabIndex(index)}
               className={`gmp-item${selected ? ' gmp-item--selected' : ''}`}
               onClick={() => onSelect(preset)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect(preset);
+                }
+              }}
               onContextMenu={(e) => {
                 e.preventDefault();
                 setContext({ x: e.clientX, y: e.clientY, preset });
@@ -221,6 +232,6 @@ export function GradientMapPresetBrowser({
         onClose={() => setContext(null)}
         label="Gradient preset actions"
       />
-    </div>
+    </section>
   );
 }
