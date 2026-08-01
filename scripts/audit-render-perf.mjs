@@ -33,8 +33,11 @@ const HEADROOM = 1.5;
 
 function runBenchmarks() {
   console.log('Running render-path benchmark suite...');
+  // The main vitest config excludes `**/*.bench.ts` (so benches never run in
+  // `pnpm test`). Use the dedicated bench config, otherwise `vitest run`
+  // matches zero files and exits 1. See vitest.bench.config.ts.
   execSync(
-    'npx vitest run packages/editor/src/canvas/__benchmarks__/renderPath.bench.ts --reporter=basic',
+    'npx vitest run --config vitest.bench.config.ts packages/editor/src/canvas/__benchmarks__/renderPath.bench.ts --reporter=basic',
     { cwd: ROOT, stdio: 'inherit' },
   );
 }
