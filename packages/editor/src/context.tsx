@@ -6058,7 +6058,16 @@ export function EditorProvider({
           },
         );
         const withAdjustments = { ...node, adjustments: adjs };
-        const doc = addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
+        // Scope the adjustment to the active page like every other node
+        // (createShapeAt). Adding it to rootChildren would orphan it from the
+        // page content root that the renderer walks, making it invisible on
+        // the canvas.
+        const activePage = newDoc.pages?.find((p) => p.id === newDoc.activePageId);
+        const contentRootId = activePage?.contentRoot;
+        const doc =
+          contentRootId && newDoc.nodes[contentRootId]
+            ? addChild(newDoc, contentRootId, withAdjustments as import('@strata/scene').SceneNode)
+            : addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
         patch({ document: doc, selection: [id] });
         const scopeName =
           scope?.mode === 'image-local'

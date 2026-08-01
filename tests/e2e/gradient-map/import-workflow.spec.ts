@@ -9,7 +9,8 @@
 
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { dragOnCanvas, navigateToEditor } from '../shared';
+import { navigateToEditorWithRetry } from '../helpers/gradient-map-helpers';
+import { dragOnCanvas } from '../shared';
 
 const TWO_STOP_GRD = resolve(
   __dirname,
@@ -115,9 +116,11 @@ async function importGrd(page: import('@playwright/test').Page, fixture: string)
 }
 
 test.describe('Gradient map import workflow', () => {
-  test.describe.configure({ mode: 'serial' });
+  // 180s: a cold Vite dev graph can take over a minute to parse in-browser
+  // before the editor is interactive, which does not fit the 60s default.
+  test.describe.configure({ mode: 'serial', timeout: 180_000 });
   test.beforeEach(async ({ page }) => {
-    await navigateToEditor(page);
+    await navigateToEditorWithRetry(page);
   });
 
   test('imports a .grd, selects a preset, and applies it to the adjustment', async ({ page }) => {

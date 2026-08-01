@@ -4,8 +4,46 @@
  */
 
 import type { Page } from '@playwright/test';
+import { navigateToEditor } from '../shared';
 
 export const CONTENT_CANVAS = 'canvas.editor-canvas__content-layer';
+
+/**
+ * Navigate into the editor with retries. The Vite dev server compiles this
+ * app's module graph on demand and a cold graph can exceed the 45s goto
+ * timeout in `shared.navigateToEditor` on the first page load; the retry hits
+ * the now-warm graph. (See docs/implementation/gradient-map-progress.md §9.4.)
+ */
+export async function navigateToEditorWithRetry(page: Page, attempts = 3): Promise<void> {
+  // Prime this browser context first. `shared.navigateToEditor` uses a fixed
+  // 45s `goto`, which a cold graph blows through on a loaded dev machine —
+  // retrying it alone just hits the same wall three times. One tolerant load
+  // (waitUntil 'commit', long budget) gets the modules parsed and cached in
+  // process, after which the real navigation is fast.
+  // Budgets must fit inside the spec's own test timeout (these specs raise it
+  // to 180s via `test.describe.configure`); otherwise the beforeEach hook is
+  // killed mid-prime and the page closes under the retry loop.
+  try {
+    await page.goto('/', { waitUntil: 'commit', timeout: 60000 });
+    await page
+      .getByRole('button', { name: /^new$/i })
+      .waitFor({ state: 'visible', timeout: 60000 });
+  } catch {
+    // Priming is best-effort; fall through to the normal path either way.
+  }
+
+  let lastError: unknown;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await navigateToEditor(page);
+      return;
+    } catch (err) {
+      lastError = err;
+      await page.waitForTimeout(1500);
+    }
+  }
+  throw lastError;
+}
 
 /** A distinctive blue->yellow gradient map (shadows blue, highlights yellow).
  *  Any non-neutral source content is visibly remapped, so pixel-hash
@@ -141,6 +179,72 @@ export async function waitForCanvasHash(
     await page.waitForTimeout(100);
   }
   throw new Error(`Timed out waiting for canvas hash to satisfy: ${label} (last=${last})`);
+}
+
+/**
+ * Wait until the content canvas has settled (two consecutive identical
+ * hashes), then return that stable hash. Guards against async raster decode /
+ * camera settle producing a transient `before` snapshot that a later exact
+ * undo assertion could never match.
+ */
+export async function waitForStableCanvasHash(
+  page: Page,
+  label: string,
+  timeout = 8000,
+): Promise<number> {
+  const deadline = Date.now() + timeout;
+  let prev = -1;
+  let prevPrev = -1;
+  while (Date.now() < deadline) {
+    const current = await contentCanvasHash(page);
+    if (current === prev && current === prevPrev && current !== -1) return current;
+    prevPrev = prev;
+    prev = current;
+    await page.waitForTimeout(120);
+  }
+  throw new Error(`Timed out waiting for stable canvas hash: ${label} (last=${prev})`);
+}
+
+/**
+ * Read the document's node kinds straight off the editor context.
+ *
+ * Structural counterpart to `contentCanvasHash`: the canvas hash proves the
+ * *rendering* changed, this proves the *document* did. Undo/redo assertions
+ * use it because canvas-hash equality is not a sound proxy for "the document
+ * came back" — creating or removing a layer legitimately resizes the canvas
+ * element (the inspector's content is selection-dependent) and can shift the
+ * camera, so two visually-correct states can hash differently.
+ */
+export async function documentNodeKinds(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const container = document.getElementById('root');
+    const fiberKey = container
+      ? Object.keys(container).find(
+          (k) => k.startsWith('__reactFiber$') || k.startsWith('__reactContainer$'),
+        )
+      : undefined;
+    if (!container || !fiberKey) return [];
+    function walk(fiber: Record<string, unknown> | null): Record<string, unknown> | null {
+      if (!fiber) return null;
+      for (const key of ['memoizedProps', 'pendingProps'] as const) {
+        const value = (fiber[key] as Record<string, unknown> | undefined)?.value as
+          | Record<string, unknown>
+          | undefined;
+        if (value && typeof value === 'object' && 'createAdjustmentLayer' in value) return value;
+      }
+      return (
+        walk(fiber.child as Record<string, unknown> | null) ||
+        walk(fiber.sibling as Record<string, unknown> | null)
+      );
+    }
+    const ctx = walk(
+      (container as unknown as Record<string, unknown>)[fiberKey] as Record<string, unknown> | null,
+    );
+    const state = ctx?.state as Record<string, unknown> | undefined;
+    const doc = state?.document as Record<string, unknown> | undefined;
+    const nodes = (doc?.nodes ?? {}) as Record<string, Record<string, unknown>>;
+    return Object.values(nodes).map((n) => String(n.kind));
+  });
 }
 
 /** Add a Gradient Map adjustment to the currently selected adjustment node
