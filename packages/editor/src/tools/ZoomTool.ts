@@ -8,7 +8,7 @@
  * Research basis: Figma Zoom tool (Z), Illustrator zoom (Z).
  */
 
-import { clampZoom, zoomAboutPoint } from '@strata/shared';
+import { centerBoundsCamera, clampZoom, zoomAboutPoint } from '@strata/shared';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 
@@ -50,8 +50,6 @@ export class ZoomTool extends BaseTool {
     ctx.setDraft(null);
     if (this.marqueeStart) {
       const rect = this.computeDragRect(ctx);
-      const cx = rect.x + rect.w / 2;
-      const cy = rect.y + rect.h / 2;
       const canvasRect = ctx.canvasElement?.getBoundingClientRect();
       const canvasW = canvasRect?.width ?? window.innerWidth;
       const canvasH = canvasRect?.height ?? window.innerHeight;
@@ -60,13 +58,11 @@ export class ZoomTool extends BaseTool {
         const zoomY = canvasH / rect.h;
         const newZoom = Math.min(zoomX, zoomY) * 0.9;
         const clampedZoom = clampZoom(newZoom);
-        ctx.setCamera({
-          zoom: clampedZoom,
-          pan: {
-            x: -cx * clampedZoom + canvasW / 2,
-            y: -cy * clampedZoom + canvasH / 2,
-          },
-        });
+        // Use the shared centerBoundsCamera instead of duplicating the pan
+        // math — this keeps the marquee center at the viewport center and
+        // is consistent with the rest of the viewport API.
+        const cam = centerBoundsCamera(rect, { width: canvasW, height: canvasH }, clampedZoom);
+        ctx.setCamera(cam);
       }
     } else {
       const factor = ctx.altKey ? 0.8 : 1.25;
