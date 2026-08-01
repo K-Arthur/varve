@@ -102,22 +102,25 @@ ViewportContext surface is wrong.)
 
 ## 3. Gaps
 
-| # | Gap | Notes |
-|---|-----|-------|
-| G1 | No `overscroll-behavior` on scrollable panels | Back-swipe / rubber-band risk |
-| G2 | No `-webkit-touch-callout` / `-webkit-tap-highlight-color` | iOS callout/tap highlight |
-| G3 | No trackpad vs mouse-wheel classification | Conflated; no adaptive sensitivity |
-| G4 | `fitActivePage`/`fitActiveFrame` shortcuts have no canvas handlers | Only in SHORTCUT_DEFS |
-| G5 | No numpad zoom support | Numpad +/-/0 don't zoom |
-| G6 | No `lostpointercapture` listener | Capture leaks undetected |
-| G7 | No `visibilitychange` reset | State stuck after tab switch |
-| G8 | Platform detection duplicated 6+ locations | Mac detection in ShortcutManager, InteractionContext, Menubar, etc. |
-| G9 | Coalesced events only used by brush tools | Other tools miss sub-frame samples |
-| G10 | No formal interaction state machine | ~20 scattered booleans |
-| G11 | No input diagnostics surface | Hard to debug gesture issues |
-| G12 | Pen/touch grouped for long-press in SelectTool | No palm rejection, no pen-only mode |
-| G13 | Gesture event listeners don't specify `{ passive: false }` explicitly | Works (defaults to false) but unclear |
-| G14 | React rerenders on every wheel/pinch event | Camera in React state; no ref-based gesture path |
+> Status legend (2026-08-01, Milestones 2–4/7): `FIXED` items are resolved by
+> the commits listed in §7; `OPEN` items remain.
+
+| # | Gap | Status |
+|---|-----|--------|
+| G1 | No `overscroll-behavior` on scrollable panels | FIXED (`global.css:17` + panel `contain`) |
+| G2 | No `-webkit-touch-callout` / `-webkit-tap-highlight-color` | FIXED (`global.css:18-19`) |
+| G3 | No trackpad vs mouse-wheel classification | FIXED — `resolveWheelAction` classifies and adapts (inertia only for mouse; focal-point zoom for ctrl+wheel) |
+| G4 | `fitActivePage`/`fitActiveFrame` shortcuts have no canvas handlers | FIXED — physical-key matching makes global `Shift+3`/`Shift+4` work on any layout |
+| G5 | No numpad zoom support | FIXED — numpad `+`/`-`/`0`/`1-6` zoom with NumLock on; NumLock-off keys navigate |
+| G6 | No `lostpointercapture` listener | FIXED (commit `a835f273`) |
+| G7 | No `visibilitychange` reset | FIXED (commit `a50204cd`) |
+| G8 | Platform detection duplicated 6+ locations | FIXED (commit `a835f273` → `@strata/platform`) |
+| G9 | Coalesced events only used by brush tools | OPEN (pen/brush path; low priority) |
+| G10 | No formal interaction state machine | PARTIAL — navigation layer is a documented explicit state machine (§5 of the behavior matrix); tools still own their own drag state |
+| G11 | No input diagnostics surface | FIXED — `inputDiagnostics.ts` bounded ring buffer (dev-only opt-in) |
+| G12 | Pen/touch grouped for long-press in SelectTool | OPEN |
+| G13 | Gesture event listeners don't specify `{ passive: false }` explicitly | FIXED (commit `3a16a0c6`) |
+| G14 | React rerenders on every wheel/pinch event | PARTIAL — `commitCamera` writes `stateRef` synchronously; full ref-based gesture path is follow-up |
 
 ---
 
@@ -184,3 +187,21 @@ does not expose an `isMac()` or `isWebKitGTK()` helper for input code.
 - Spring-loaded hand tool — spacebar with 150ms delay, blur releases.
 - Auto-pan — edge velocity during drag, frame-scheduled.
 - Wheel inertia — velocity smoothing, capped, decays.
+
+---
+
+## 7. Implementation record (2026-08-01)
+
+| Commit | Milestone | Contents |
+|--------|-----------|----------|
+| `1212313e`, `a50204cd` | M3 pre-work | B1 `+`/`=` zoom, rotation-aware `canvasDeltaToWorld`, ZoomTool marquee, window-blur modifier reset, Escape drag cancel, side-button intercept |
+| `3a16a0c6`, `a835f273` | M3/M4 pre-work | Wheel classification module, overscroll/touch CSS, explicit gesture passive flags, `lostpointercapture`, platform detection consolidation |
+| `83a16aa6` | M2 + M3 + M4 | Physical-key shortcut matching (`input/physicalKey.ts`), `resolveWheelAction` in the live wheel path, anchored `ViewportContext.setZoom` |
+| `555817e1` | M7 | Input diagnostics ring buffer (`inputDiagnostics.ts`) + wheel-handler integration |
+| `b57c2eb3` | M3 follow-up | NumLock-off numpad navigation correctness; E2E `input-navigation.spec.ts` |
+
+Companion documents:
+- `docs/architecture/input-system-behavior-matrix.md` — intended behavior per device × modifier.
+- `docs/architecture/input-system-behavior-matrix.md#7` — manual hardware checklist (release gate).
+
+
