@@ -377,6 +377,104 @@
   color: var(--color-text-muted);
 }
 
+/* ── Per-node export settings (canonical config list) ───── */
+.spec-export__presets {
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+.spec-export__presets h4 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+.spec-export__presets-empty {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.spec-export__preset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-1);
+  background: var(--color-surface-raised);
+}
+.spec-export__preset-enabled {
+  display: inline-flex;
+  align-items: center;
+}
+.spec-export__preset-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.spec-export__preset-summary {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-primary);
+}
+.spec-export__preset-file {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.spec-export__preset-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.spec-export__preset-remove:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-primary);
+}
+.spec-export__preset-remove:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+.spec-export__preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.spec-export__add-preset,
+.spec-export__advanced {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-interactive-default);
+  font-family: var(--font-body);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.spec-export__add-preset:hover,
+.spec-export__advanced:hover {
+  background: var(--color-surface-sunken);
+}
+.spec-export__add-preset:focus-visible,
+.spec-export__advanced:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
 /* ── Annotations ───────────────────────────────────── */
 .spec-annot {
   display: flex;
