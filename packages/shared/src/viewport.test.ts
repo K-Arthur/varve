@@ -64,6 +64,30 @@ describe('screen<->world round-trips', () => {
     expect(Math.abs(d[0] - 10)).toBeLessThan(EPS);
     expect(Math.abs(d[1] - 5)).toBeLessThan(EPS);
   });
+
+  it('screenDeltaToWorld applies inverse rotation when rotation is non-zero', () => {
+    const c: Camera = { pan: { x: 0, y: 0 }, zoom: 1, rotation: Math.PI / 2 };
+    // A 90° rotation: screen delta (0, 1) should map to world delta (1, 0)
+    // (inverse rotation of 90° = -90°: cos(-90)=0, sin(-90)=-1)
+    // rx = dx*cos(-r) - dy*sin(-r) = 0*0 - 1*(-1) = 1
+    // ry = dx*sin(-r) + dy*cos(-r) = 0*(-1) + 1*0 = 0
+    const d = screenDeltaToWorld(c, 0, 1);
+    expect(Math.abs(d[0] - 1)).toBeLessThan(1e-9);
+    expect(Math.abs(d[1] - 0)).toBeLessThan(1e-9);
+  });
+
+  it('screenDeltaToWorld with rotation and zoom composes correctly', () => {
+    const c: Camera = { pan: { x: 0, y: 0 }, zoom: 2, rotation: Math.PI / 4 };
+    const d = screenDeltaToWorld(c, 10, 0);
+    // At 45° rotation, zoom 2: world delta = rotate(-45)(10,0) / 2
+    // cos(-45) = √2/2, sin(-45) = -√2/2
+    // rx = 10*√2/2 - 0*(-√2/2) = 5√2
+    // ry = 10*(-√2/2) + 0*√2/2 = -5√2
+    // Then divide by zoom (2): 5√2/2, -5√2/2
+    const expected = (5 * Math.SQRT2) / 2;
+    expect(d[0]).toBeCloseTo(expected, 6);
+    expect(d[1]).toBeCloseTo(-expected, 6);
+  });
 });
 
 describe('clientToCanvas', () => {

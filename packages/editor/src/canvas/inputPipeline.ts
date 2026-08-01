@@ -564,7 +564,7 @@ export function useCanvasInputs({
         return;
       }
 
-      if ((e.key === '=' || e.key === '+') && !e.shiftKey && !e.altKey) {
+      if ((e.key === '=' || e.key === '+') && !e.altKey) {
         e.preventDefault();
         zoomAboutCanvasCentre(clampZoom(stateRef.current.zoom * 1.25));
         eRef.announceOperation('Zoom', `${Math.round(stateRef.current.zoom * 100)}%`);
