@@ -46,6 +46,42 @@ export function isDiagnosticsEnabled(): boolean {
   return diagEnabled;
 }
 
+/**
+ * Install a benchmark-only window handle so E2E/perf harnesses can read the
+ * frame diagnostics ring buffer without console flooding. Gated to explicit
+ * `?perf=1` opt-in (which also enables the ring buffer) so normal usage never
+ * pays for it and the handle is inert (never installed) otherwise. Exposed as
+ * `window.__strataPerf`.
+ */
+export function installPerfDiagnosticsHandle(): void {
+  if (typeof window === 'undefined') return;
+  if (!window.location.search.includes('perf=1')) return;
+  const globalThisAny = window as unknown as {
+    __strataPerf?: {
+      enable: (on: boolean) => void;
+      reset: () => void;
+      getFrames: (n: number) => FrameDiagnostics[];
+      getLast: () => FrameDiagnostics | null;
+      isEnabled: () => boolean;
+    };
+  };
+  if (globalThisAny.__strataPerf) {
+    // StrictMode double-mounts effects in dev; the settings-driven
+    // enableDrawDiagnostics(false) on the second pass would otherwise leave
+    // the ring buffer dead. perf=1 always wins while the page is open.
+    enableDrawDiagnostics(true);
+    return;
+  }
+  enableDrawDiagnostics(true);
+  globalThisAny.__strataPerf = {
+    enable: enableDrawDiagnostics,
+    reset: resetDiagnostics,
+    getFrames: getRecentFrames,
+    getLast: getLastFrame,
+    isEnabled: isDiagnosticsEnabled,
+  };
+}
+
 export function resetDiagnostics(): void {
   diagRing.length = 0;
 }

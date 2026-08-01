@@ -760,7 +760,12 @@ function ReviewTab() {
   const byCategory: Record<string, AuditFinding[]> = {};
   for (const f of filteredFindings) {
     const cat = f.category;
-    (byCategory[cat] ??= []).push(f);
+    const bucket = byCategory[cat];
+    if (bucket) {
+      bucket.push(f);
+    } else {
+      byCategory[cat] = [f];
+    }
   }
 
   const sevCounts = {
