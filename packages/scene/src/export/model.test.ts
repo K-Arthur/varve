@@ -14,6 +14,13 @@ import {
   serializeExportConfiguration,
   validateExportConfiguration,
 } from './model';
+import {
+  createColorConversionOptions,
+  createDitherOptions,
+  createMetadataPolicy,
+  createResizeOptions,
+  createSharpenOptions,
+} from './pipeline';
 
 describe('createExportConfiguration', () => {
   it('defaults scale to 1x and enables the configuration', () => {
@@ -272,5 +279,72 @@ describe('createExportDefaults', () => {
   it('can derive a print preset from defaults', () => {
     const print = createPrintExportSettings({ includeCropMarks: true, bleedMm: 5 });
     expect(print).toMatchObject({ includeCropMarks: true, bleedMm: 5, enforceDpi: 300 });
+  });
+});
+
+describe('processing-stage contracts on configurations', () => {
+  it('normalizes typed pipeline sub-settings through createExportConfiguration', () => {
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      raster: {
+        resize: createResizeOptions({ algorithm: 'lanczos3', workingSpace: 'linear-srgb' }),
+        sharpen: createSharpenOptions({ mode: 'unsharp', amount: 0.4 }),
+        dither: createDitherOptions({ algorithm: 'floyd-steinberg', paletteSize: 64 }),
+        metadataPolicy: createMetadataPolicy({ kind: 'privacy-strip' }),
+        colorConversion: createColorConversionOptions({
+          operation: 'convert',
+          destinationProfile: 'FOGRA39',
+        }),
+      },
+    });
+    expect(config.raster?.resize).toMatchObject({ algorithm: 'lanczos3', maxPixels: 64_000_000 });
+    expect(config.raster?.sharpen).toMatchObject({
+      mode: 'unsharp',
+      radius: 1,
+      protectAlpha: true,
+    });
+    expect(config.raster?.dither).toMatchObject({ algorithm: 'floyd-steinberg', seed: 0 });
+    expect(config.raster?.metadataPolicy?.kind).toBe('privacy-strip');
+    expect(config.raster?.colorConversion?.renderingIntent).toBe('relative');
+    expect(() => validateExportConfiguration(config)).not.toThrow();
+  });
+
+  it('rejects invalid pipeline contracts during config validation', () => {
+    const bad = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      raster: { resize: createResizeOptions({ algorithm: 'wat' as never }) },
+    });
+    expect(() => validateExportConfiguration(bad)).toThrow(
+      /Invalid raster export option \(resize\)/,
+    );
+  });
+
+  it('survives migration round-trip with typed contracts intact', () => {
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      raster: {
+        dither: createDitherOptions({ algorithm: 'atkinson', serpentine: false, seed: 7 }),
+        metadataPolicy: createMetadataPolicy({ kind: 'custom', overrides: { gps: 'keep' } }),
+      },
+    });
+    const round = migrateExportConfiguration(JSON.parse(JSON.stringify(config)));
+    expect(round.raster?.dither).toMatchObject({ algorithm: 'atkinson', seed: 7 });
+    expect(round.raster?.metadataPolicy?.overrides?.gps).toBe('keep');
+  });
+
+  it('keeps legacy flat raster fields valid when typed contracts are absent', () => {
+    const config = createExportConfiguration({
+      id: 'c1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'png',
+      raster: { resizeMode: 'area', sharpening: 0.3, dithering: true },
+    });
+    expect(() => validateExportConfiguration(config)).not.toThrow();
   });
 });
