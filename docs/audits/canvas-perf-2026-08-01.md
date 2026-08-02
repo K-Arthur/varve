@@ -15,7 +15,7 @@ fixing it, a Ctrl+D duplication at ~500 nodes went from **38.3s wall-clock** to
 
 | Item | Value |
 |---|---|
-| OS / session | CachyOS (Arch), Linux 7.1.3-2-cachyos, X11 |
+| OS / session | CachyOS (Arch), Linux 7.1.3-2-cachyos, Wayland |
 | CPU | AMD Ryzen 3 5300U (8 threads, up to 3.9 GHz) |
 | RAM | 22 GiB total; 6–8 GiB available during testing (machine heavily contended by concurrent dev agents) |
 | GPU | AMD Radeon Graphics (Vega, integrated) |
