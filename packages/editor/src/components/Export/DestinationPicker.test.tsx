@@ -13,6 +13,8 @@ function makeJob() {
     nodeName: 'Rect',
     format: 'png' as const,
     fileName: 'rect.png',
+    scale: { type: 'factor' as const, value: 2 },
+    suffix: '@2x',
     dimensions: { w: 100, h: 80 },
     estimatedSize: 51200,
     status: 'pending' as const,
@@ -32,7 +34,8 @@ describe('DestinationPicker', () => {
         destinationLabel=""
       />,
     );
-    expect(screen.getByText(/Rect/)).toBeTruthy();
+    expect(screen.getByText('Rect@2x.png')).toBeTruthy();
+    expect(screen.queryByText(/p1/)).toBeNull();
   });
 
   it('shows select folder button', () => {
@@ -78,6 +81,7 @@ describe('DestinationPicker', () => {
       />,
     );
     expect(screen.getByText('Flat')).toBeTruthy();
+    expect(screen.getByText('By format')).toBeTruthy();
     expect(screen.getByText('By node')).toBeTruthy();
   });
 

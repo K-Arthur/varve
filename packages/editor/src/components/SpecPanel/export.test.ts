@@ -60,6 +60,16 @@ describe('exportNodeAsRaster', () => {
     expect(payload.nodes[0]?.transform).toEqual([1, 0, 0, 1, 0, 0]);
   });
 
+  it('exports a simple shape through the browser PDF fallback without a native bridge', async () => {
+    const { doc, node } = buildDoc();
+    const eng = await createEngine('stub');
+
+    const result = await exportNodeAsPdf(node, doc, 1, eng);
+
+    expect(new TextDecoder().decode(result.bytes.slice(0, 4))).toBe('%PDF');
+    expect(result.filename).toBe('Box.pdf');
+  });
+
   it('falls back to rasterized PNG-in-PDF for image fills (native PDF cannot embed raster image fills with alpha)', async () => {
     const doc = createDocument('PDF', true);
     const base = makeShapeNode('pdf-gradient', { kind: 'rect', x: 0, y: 0, w: 40, h: 30 });
@@ -146,6 +156,20 @@ describe('exportNodeAsRaster', () => {
 
     expect(blob).toBeInstanceOf(Blob);
     expect(warnings).toEqual([]);
+  });
+
+  it('creates an opaque raster surface when a configuration disables transparency', async () => {
+    const { doc, node } = buildDoc();
+    const eng = await createEngine('stub');
+
+    await exportNodeAsRaster(node, doc, eng, {
+      format: 'image/png',
+      scale: 1,
+      transparency: false,
+      matteColor: [255, 255, 255, 255],
+    });
+
+    expect(createRasterSurface).toHaveBeenCalledWith(20, 10, { alpha: false });
   });
 
   it('clamps the effective scale and reports a warning when the requested size exceeds the portable allocation policy', async () => {
