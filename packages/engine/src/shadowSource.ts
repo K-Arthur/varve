@@ -24,6 +24,14 @@ export type EffectBuffer = {
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 };
 
+/** Maximum per-side effect padding (guards against malformed parameter values). */
+const MAX_EFFECT_PAD = 2048;
+
+/** Return a finite number, falling back to `fallback` for NaN/Infinity/absent. */
+function finiteOr(v: number | undefined, fallback: number): number {
+  return typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+}
+
 /** Rendering primitives provided by the replay module (dependency injection). */
 export interface ShadowOps {
   traceOutline(target: ReplayTarget, p: RenderItem['primitive']): void;
@@ -138,9 +146,9 @@ export function paintGeometricDropShadow(
 ): void {
   target.save();
   target.shadowColor = ops.rgba(effect.color);
-  target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-  target.shadowOffsetX = effect.x;
-  target.shadowOffsetY = effect.y;
+  target.shadowBlur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+  target.shadowOffsetX = finiteOr(effect.x, 0);
+  target.shadowOffsetY = finiteOr(effect.y, 0);
   target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
   target.globalCompositeOperation = 'destination-over';
   target.fillStyle = ops.rgba(effect.color);
@@ -198,10 +206,13 @@ export function paintAlphaAwareDropShadow(
   ops: ShadowOps,
 ): void {
   const bounds = ops.primitiveBounds(item.primitive);
-  const pad = Math.ceil(
-    effect.blur * 3 +
-      Math.max(0, effect.spread) / 2 +
-      Math.max(Math.abs(effect.x), Math.abs(effect.y)),
+  const pad = Math.min(
+    MAX_EFFECT_PAD,
+    Math.ceil(
+      finiteOr(effect.blur, 0) * 3 +
+        Math.max(0, finiteOr(effect.spread, 0)) / 2 +
+        Math.max(Math.abs(finiteOr(effect.x, 0)), Math.abs(finiteOr(effect.y, 0))),
+    ),
   );
   const ow = Math.ceil(bounds.w + pad * 2);
   const oh = Math.ceil(bounds.h + pad * 2);
@@ -224,9 +235,9 @@ export function paintAlphaAwareDropShadow(
     const sctx = shadowCanvas.ctx;
     sctx.save();
     sctx.shadowColor = ops.rgba(effect.color);
-    sctx.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-    sctx.shadowOffsetX = effect.x;
-    sctx.shadowOffsetY = effect.y;
+    sctx.shadowBlur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+    sctx.shadowOffsetX = finiteOr(effect.x, 0);
+    sctx.shadowOffsetY = finiteOr(effect.y, 0);
     sctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
     sctx.globalCompositeOperation = 'destination-out';
     sctx.drawImage(offscreen as unknown as CanvasImageSource, 0, 0);
@@ -248,9 +259,9 @@ export function paintAlphaAwareDropShadow(
     // the shadow directly (re-draws the item content behind itself).
     target.save();
     target.shadowColor = ops.rgba(effect.color);
-    target.shadowBlur = effect.blur + Math.max(0, effect.spread) / 2;
-    target.shadowOffsetX = effect.x;
-    target.shadowOffsetY = effect.y;
+    target.shadowBlur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+    target.shadowOffsetX = finiteOr(effect.x, 0);
+    target.shadowOffsetY = finiteOr(effect.y, 0);
     target.globalAlpha = (item.opacity ?? 1) * (effect.opacity ?? 1);
     target.globalCompositeOperation = 'destination-over';
     target.drawImage?.(
@@ -290,10 +301,13 @@ export function paintAlphaAwareInsetEffect(
   ops: ShadowOps,
 ): void {
   const bounds = ops.primitiveBounds(item.primitive);
-  const blur = effect.blur + Math.max(0, effect.spread) / 2;
-  const offsetX = mode === 'shadow' && effect.x != null ? effect.x : 0;
-  const offsetY = mode === 'shadow' && effect.y != null ? effect.y : 0;
-  const pad = Math.ceil(blur * 3) + Math.max(Math.abs(offsetX), Math.abs(offsetY));
+  const blur = finiteOr(effect.blur, 0) + Math.max(0, finiteOr(effect.spread, 0)) / 2;
+  const offsetX = mode === 'shadow' ? finiteOr(effect.x, 0) : 0;
+  const offsetY = mode === 'shadow' ? finiteOr(effect.y, 0) : 0;
+  const pad = Math.min(
+    MAX_EFFECT_PAD,
+    Math.ceil(blur * 3) + Math.max(Math.abs(offsetX), Math.abs(offsetY)),
+  );
   const ow = Math.ceil(bounds.w + pad * 2);
   const oh = Math.ceil(bounds.h + pad * 2);
 

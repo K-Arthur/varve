@@ -83,10 +83,16 @@ describe('effectPadding', () => {
       blur: 10,
       spread: 2,
     });
-    expect(padding.left).toBe(12);
-    expect(padding.right).toBe(17);
-    expect(padding.top).toBe(12);
-    expect(padding.bottom).toBe(15);
+    // Kernel = blur*3 + spread/2 = 30 + 1 = 31 per side, plus directional offset.
+    expect(padding.left).toBe(31);
+    expect(padding.right).toBe(36);
+    expect(padding.top).toBe(31);
+    expect(padding.bottom).toBe(34);
+  });
+
+  it('computes drop shadow padding without spread', () => {
+    const padding = effectPadding({ type: 'dropShadow', x: 0, y: 0, blur: 10, spread: 0 });
+    expect(padding).toEqual({ left: 30, top: 30, right: 30, bottom: 30 });
   });
 
   it('computes glow padding symmetrically', () => {
@@ -95,10 +101,11 @@ describe('effectPadding', () => {
       blur: 20,
       spread: 5,
     });
-    expect(padding.left).toBe(25);
-    expect(padding.top).toBe(25);
-    expect(padding.right).toBe(25);
-    expect(padding.bottom).toBe(25);
+    // Kernel = 20*3 + 2.5 = 62.5
+    expect(padding.left).toBe(62.5);
+    expect(padding.top).toBe(62.5);
+    expect(padding.right).toBe(62.5);
+    expect(padding.bottom).toBe(62.5);
   });
 
   it('computes layer blur padding from radius', () => {
@@ -106,8 +113,21 @@ describe('effectPadding', () => {
       type: 'layerBlur',
       radius: 15,
     });
-    expect(padding.left).toBe(15);
-    expect(padding.right).toBe(15);
+    expect(padding.left).toBe(45);
+    expect(padding.right).toBe(45);
+  });
+
+  it('inset effects never expand bounds', () => {
+    const shadow = effectPadding({
+      type: 'innerShadow',
+      x: 10,
+      y: 10,
+      blur: 50,
+      spread: 20,
+    });
+    const glow = effectPadding({ type: 'innerGlow', blur: 50, spread: 20 });
+    expect(shadow).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
+    expect(glow).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
   });
 
   it('returns zero for unknown effect types with no expansion fields', () => {
@@ -129,7 +149,8 @@ describe('nodeEffectPadding', () => {
         { type: 'outerGlow', blur: 20, spread: 0, visible: true } as any,
       ],
     });
-    expect(padding.left).toBe(20);
+    // outerGlow blur 20 → kernel 60; dropShadow blur 10 → 30.
+    expect(padding.left).toBe(60);
   });
 
   it('ignores invisible effects', () => {
@@ -139,7 +160,7 @@ describe('nodeEffectPadding', () => {
         { type: 'layerBlur', radius: 5, visible: true } as any,
       ],
     });
-    expect(padding.left).toBe(5);
+    expect(padding.left).toBe(15);
   });
 });
 
@@ -186,10 +207,11 @@ describe('computeFlattenBounds', () => {
     const doc = makeDoc([shape]);
     const bounds = computeFlattenBounds(doc, ['s1'], true);
     expect(bounds).not.toBeNull();
-    expect(bounds!.x).toBe(-20);
-    expect(bounds!.y).toBe(-20);
-    expect(bounds!.w).toBe(90);
-    expect(bounds!.h).toBe(90);
+    // blur 20 → kernel 60 (blur*3), x/y 0 → no directional offset.
+    expect(bounds!.x).toBe(-60);
+    expect(bounds!.y).toBe(-60);
+    expect(bounds!.w).toBe(170);
+    expect(bounds!.h).toBe(170);
   });
 
   it('excludes effect overflow when disabled', () => {

@@ -313,6 +313,35 @@ describe('alpha-aware drop shadow', () => {
     expect(rec.alphaHistory.some((a) => a >= 0.24 && a <= 0.26)).toBe(true);
     expect(rec.alphaHistory.some((a) => a >= 0.49 && a <= 0.51)).toBe(true);
   });
+
+  it('degrades gracefully for malformed (NaN) effect parameters', () => {
+    const rec = recorder();
+    const src = 'data:image/png;base64,nan';
+    getImageCache().setLoaded(src, mockImage(src, 30, 30));
+
+    const item: RenderItem = {
+      transform: [1, 0, 0, 1, 0, 0],
+      fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 },
+      fills: [transparentPngFill(src, 30, 30)],
+      effects: [
+        {
+          type: 'dropShadow',
+          x: Number.NaN,
+          y: Number.NaN,
+          blur: Number.NaN,
+          spread: Number.NaN,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
+          opacity: 0.5,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+      primitive: { kind: 'rect', x: 0, y: 0, w: 30, h: 30 },
+    };
+    expect(() => replayIr(rec.target, [item])).not.toThrow();
+    // NaN parameters must not produce a NaN fill/rect.
+    expect(rec.drawImageArgs.length).toBeGreaterThan(0);
+  });
 });
 
 describe('alpha-aware inner shadow', () => {
