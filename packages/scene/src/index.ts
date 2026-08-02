@@ -53,6 +53,7 @@ export {
   toggleFacingPages,
 } from './document';
 export * from './documentCodec';
+export * from './effects';
 export * from './export-types';
 export * from './expr';
 export * from './fills';

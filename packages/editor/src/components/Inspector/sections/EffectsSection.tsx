@@ -12,6 +12,7 @@ import type {
   ChannelOffset,
   Effect,
   FrameNode,
+  GroupNode,
   ManagedColor,
   SceneNode,
   ShapeNode,
@@ -31,7 +32,7 @@ export interface EffectsSectionProps {
   nodes: SceneNode[];
 }
 
-type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode;
+type EffectNode = ShapeNode | TextNode | FrameNode | AdjustmentNode | GroupNode;
 
 const BLEND_OPTIONS: { value: BlendMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -58,7 +59,8 @@ function hasEffects(n: SceneNode): n is EffectNode {
     n.kind === 'text' ||
     n.kind === 'frame' ||
     n.kind === 'adjustment' ||
-    n.kind === 'path'
+    n.kind === 'path' ||
+    n.kind === 'group'
   );
 }
 
@@ -67,10 +69,18 @@ function getEffect(n: SceneNode, i: number): Effect | undefined {
   return sn.effects?.[i];
 }
 
+/** Generate a stable per-effect identifier (used as a row key for reordering). */
+function newEffectId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `eff-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function defaultEffect(type: Effect['type']): Effect {
+  const id = newEffectId();
   switch (type) {
     case 'dropShadow':
       return {
+        id,
         type,
         x: 0,
         y: 4,
@@ -83,6 +93,7 @@ function defaultEffect(type: Effect['type']): Effect {
       };
     case 'innerShadow':
       return {
+        id,
         type,
         x: 0,
         y: 2,
@@ -94,11 +105,12 @@ function defaultEffect(type: Effect['type']): Effect {
         visible: true,
       };
     case 'layerBlur':
-      return { type, radius: 4, visible: true };
+      return { id, type, radius: 4, visible: true };
     case 'backgroundBlur':
-      return { type, radius: 8, visible: true };
+      return { id, type, radius: 8, visible: true };
     case 'outerGlow':
       return {
+        id,
         type,
         blur: 6,
         spread: 0,
@@ -109,6 +121,7 @@ function defaultEffect(type: Effect['type']): Effect {
       };
     case 'innerGlow':
       return {
+        id,
         type,
         blur: 6,
         spread: 0,
@@ -119,6 +132,7 @@ function defaultEffect(type: Effect['type']): Effect {
       };
     case 'glassMaterial':
       return {
+        id,
         type,
         blur: 12,
         tint: { space: 'rgb' as const, r: 200, g: 220, b: 255, a: 60 },
@@ -134,6 +148,7 @@ function defaultEffect(type: Effect['type']): Effect {
       };
     case 'chromaticAberration':
       return {
+        id,
         type,
         offsets: { redX: 3, redY: 0, greenX: 0, greenY: 0, blueX: -3, blueY: 0 },
         intensity: 1,
@@ -143,6 +158,7 @@ function defaultEffect(type: Effect['type']): Effect {
       };
     case 'glitch':
       return {
+        id,
         type,
         seed: 42,
         strength: 8,
@@ -258,19 +274,23 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
       {effectNodes.every((n) => n.effects.length === 0) ? (
         <div className="insp-empty-message">No effects</div>
       ) : (
-        Array.from({ length: minEffects }, (_, i) => (
-          <EffectRow
-            key={i}
-            index={i}
-            nodes={effectNodes}
-            onChange={(updater) => updateEffect(i, updater)}
-            onRemove={() => removeEffect(i)}
-            onReorder={(dir: number) => reorderEffect(i, i + dir)}
-            canMoveUp={i > 0}
-            canMoveDown={i < minEffects - 1}
-            startExpanded={i === lastAddedIndex}
-          />
-        ))
+        Array.from({ length: minEffects }, (_, i) => {
+          const first = effectNodes[0]?.effects?.[i];
+          const rowKey = first?.id ?? `${i}-${first?.type ?? 'effect'}`;
+          return (
+            <EffectRow
+              key={rowKey}
+              index={i}
+              nodes={effectNodes}
+              onChange={(updater) => updateEffect(i, updater)}
+              onRemove={() => removeEffect(i)}
+              onReorder={(dir: number) => reorderEffect(i, i + dir)}
+              canMoveUp={i > 0}
+              canMoveDown={i < minEffects - 1}
+              startExpanded={i === lastAddedIndex}
+            />
+          );
+        })
       )}
       {countMixed && minEffects > 0 && (
         <div className="insp-empty-message">Some selected nodes have additional effects</div>

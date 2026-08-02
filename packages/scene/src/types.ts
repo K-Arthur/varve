@@ -320,6 +320,8 @@ export interface ChannelOffset {
 export type Effect =
   | {
       type: 'dropShadow';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       x: number;
       y: number;
       blur: number;
@@ -331,6 +333,8 @@ export type Effect =
     }
   | {
       type: 'innerShadow';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       x: number;
       y: number;
       blur: number;
@@ -340,10 +344,24 @@ export type Effect =
       blendMode: BlendMode;
       visible: boolean;
     }
-  | { type: 'layerBlur'; radius: number; visible: boolean }
-  | { type: 'backgroundBlur'; radius: number; visible: boolean }
+  | {
+      type: 'layerBlur';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
+      radius: number;
+      visible: boolean;
+    }
+  | {
+      type: 'backgroundBlur';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
+      radius: number;
+      visible: boolean;
+    }
   | {
       type: 'outerGlow';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       blur: number;
       spread: number;
       color: ManagedColor;
@@ -353,6 +371,8 @@ export type Effect =
     }
   | {
       type: 'innerGlow';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       blur: number;
       spread: number;
       color: ManagedColor;
@@ -362,6 +382,8 @@ export type Effect =
     }
   | {
       type: 'glassMaterial';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       blur: number;
       tint: ManagedColor;
       tintOpacity: number;
@@ -376,6 +398,8 @@ export type Effect =
     }
   | {
       type: 'chromaticAberration';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       offsets: ChannelOffset;
       intensity: number;
       blendMode: BlendMode;
@@ -384,6 +408,8 @@ export type Effect =
     }
   | {
       type: 'glitch';
+      /** Stable identifier for UI state and reordering. */
+      id?: string;
       seed: number;
       strength: number;
       density: number;
