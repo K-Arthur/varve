@@ -38,6 +38,8 @@ export interface ExportOptions {
   format: RasterFormat;
   scale: number;
   quality?: number;
+  transparency?: boolean;
+  matteColor?: [number, number, number, number];
 }
 
 export interface RasterExportResult {
@@ -168,8 +170,15 @@ export async function exportNodeAsRaster(
     );
   }
 
-  const surface = createRasterSurface(w, h, { alpha: opts.format !== 'image/jpeg' });
+  const transparent = opts.format !== 'image/jpeg' && (opts.transparency ?? true);
+  const surface = createRasterSurface(w, h, { alpha: transparent });
   const ctx = surface.context;
+
+  if (!transparent && opts.matteColor) {
+    const [r, g, b, a] = opts.matteColor;
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a / 255})`;
+    ctx.fillRect(0, 0, w, h);
+  }
 
   ctx.scale(scale, scale);
   ctx.translate(-bbox.x, -bbox.y);
@@ -495,16 +504,21 @@ export async function exportNodeAsPdf(
   // pre-rasterization.
   const needsRaster = await subtreeRequiresRasterPdfFallback(node, doc);
   const filename = buildFilename(node.name, 'pdf');
+  const tauri = getTauriBridge();
+
+  // Browsers do not have the native vector PDF command. Use the same rendered
+  // subtree as preview and embed it in the local PDF fallback for every node,
+  // including simple shapes that the desktop path can preserve as vectors.
+  if (!tauri) {
+    const engine = eng ?? (await createEngine('stub'));
+    const result = await rasterizeSubtreeToPdf(node, doc, scale, engine);
+    return { bytes: result.bytes, filename };
+  }
 
   if (needsRaster) {
     const engine = eng ?? (await createEngine('stub'));
-    const tauri = getTauriBridge();
-    if (tauri) {
-      const bytes = await rasterizeSubtreeToPdfViaPrintEngine(node, doc, scale, engine, tauri);
-      return { bytes, filename };
-    }
-    const result = await rasterizeSubtreeToPdf(node, doc, scale, engine);
-    return { bytes: result.bytes, filename };
+    const bytes = await rasterizeSubtreeToPdfViaPrintEngine(node, doc, scale, engine, tauri);
+    return { bytes, filename };
   }
 
   // ── Vector path (pure solid-fill shapes, no effects) ─────────────────
@@ -552,12 +566,6 @@ export async function exportNodeAsPdf(
     subsetFonts: fontDataForIpc.length > 0,
     fonts: fontDataForIpc,
   };
-  const tauri = getTauriBridge();
-
-  if (!tauri) {
-    throw new Error('PDF export requires the desktop app');
-  }
-
   const bytes = (await tauri.core.invoke('export_node_pdf', { nodes, opts })) as number[];
   return { bytes: new Uint8Array(bytes), filename };
 }

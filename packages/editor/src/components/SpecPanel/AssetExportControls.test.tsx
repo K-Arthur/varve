@@ -116,6 +116,20 @@ describe('AssetExportControls', () => {
     expect(screen.getByRole('button', { name: 'Export JPEG' })).toBeInTheDocument();
   });
 
+  it('offers screen PDF on web because the browser raster-PDF fallback is available', () => {
+    const doc = createDocument('Export', true);
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Icon' });
+
+    render(
+      <AssetExportControls
+        node={node}
+        doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'PDF' })).toBeEnabled();
+  });
+
   describe('per-node export settings', () => {
     const PRESETS: ExportPreset[] = [
       {
@@ -144,7 +158,9 @@ describe('AssetExportControls', () => {
           onAddPreset={() => {}}
         />,
       );
-      expect(screen.getByText('Export settings')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Quick export' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Export configurations' })).toBeInTheDocument();
+      expect(screen.getByRole('group', { name: 'Add configuration' })).toBeInTheDocument();
       expect(screen.getByText('Logo@2x.png')).toBeInTheDocument();
       expect(screen.getByText('Logo.svg')).toBeInTheDocument();
       expect(screen.getByLabelText('Enable Logo@2x.png export')).toBeChecked();
@@ -159,7 +175,7 @@ describe('AssetExportControls', () => {
           doc={{ ...doc, nodes: { n1: nodeWithPresets() } }}
         />,
       );
-      expect(screen.queryByText('Export settings')).not.toBeInTheDocument();
+      expect(screen.queryByText('Export configurations')).not.toBeInTheDocument();
     });
 
     it('shows an empty state when no presets exist', () => {
@@ -171,7 +187,7 @@ describe('AssetExportControls', () => {
           onAddPreset={() => {}}
         />,
       );
-      expect(screen.getByText(/No export settings/)).toBeInTheDocument();
+      expect(screen.getByText(/No saved configurations yet/)).toBeInTheDocument();
     });
 
     it('adds a preset seeded from the current format and scale', () => {
@@ -188,7 +204,7 @@ describe('AssetExportControls', () => {
       fireEvent.click(screen.getByRole('button', { name: '2x' }));
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
       fireEvent.click(screen.getByRole('option', { name: 'PNG' }));
-      fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
       expect(onAddPreset).toHaveBeenCalledOnce();
       const preset = onAddPreset.mock.calls[0]?.[0] as {
@@ -262,7 +278,7 @@ describe('AssetExportControls', () => {
 
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
       fireEvent.click(screen.getByRole('option', { name: 'PDF/X-4' }));
-      fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
       const preset = onAddPreset.mock.calls[0]?.[0] as {
         format: string;
@@ -296,6 +312,37 @@ describe('AssetExportControls', () => {
         suffix: '@2x',
         enabled: true,
       });
+    });
+
+    it('preserves built-in raster settings instead of reducing a preset to format and scale', () => {
+      const doc = createDocument('Export', true);
+      const onAddPreset = vi.fn();
+      const node = makeShapeNode(
+        'n1',
+        { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
+        { name: 'Photo' },
+      );
+      render(
+        <AssetExportControls
+          node={node}
+          doc={{ ...doc, rootChildren: ['n1'], nodes: { n1: node } }}
+          onAddPreset={onAddPreset}
+        />,
+      );
+
+      fireEvent.click(screen.getByRole('combobox', { name: /Add from preset/i }));
+      fireEvent.click(screen.getByRole('option', { name: 'JPEG high quality · web' }));
+
+      expect(onAddPreset).toHaveBeenCalledWith(
+        expect.objectContaining({
+          format: 'jpg',
+          raster: expect.objectContaining({
+            quality: 0.92,
+            transparency: false,
+            matteColor: [255, 255, 255, 255],
+          }),
+        }),
+      );
     });
 
     it('applies a bundle as several export settings at once', () => {
@@ -371,7 +418,7 @@ describe('AssetExportControls', () => {
       );
       fireEvent.click(screen.getByRole('combobox', { name: /Format for new export setting/i }));
       fireEvent.click(screen.getByRole('option', { name: 'PDF (screen)' }));
-      fireEvent.click(screen.getByRole('button', { name: '+ Add export setting' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Add configuration' }));
 
       const preset = onAddPreset.mock.calls[0]?.[0] as { format: string };
       expect(preset.format).toBe('pdf-screen');

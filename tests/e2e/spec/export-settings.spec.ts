@@ -32,9 +32,20 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await expect(page.getByRole('heading', { name: 'Export settings' })).toBeVisible();
-    await expect(page.getByText(/No export settings/)).toBeVisible();
-    await expect(page.getByRole('button', { name: '+ Add export setting' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Quick export' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Export configurations' })).toBeVisible();
+    await expect(page.getByText(/No saved configurations yet/)).toBeVisible();
+    await expect(page.getByRole('group', { name: 'Add configuration' })).toBeVisible();
+    await expect(page.getByText('Preset library', { exact: true })).toBeVisible();
+    await expect(page.getByText('Custom format', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add configuration' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Open advanced export/ })).toBeVisible();
+    await expect(page.getByText(/\\u2026/)).toHaveCount(0);
+
+    const inspectorFits = await page.locator('#insp-tabpanel-export').evaluate((element) => {
+      return element.scrollWidth <= element.clientWidth + 1;
+    });
+    expect(inspectorFits).toBe(true);
   });
 
   test('adds a PNG@2x export setting and previews the canonical filename', async ({ page }) => {
@@ -43,7 +54,7 @@ test.describe('Inspector export settings — per-node configurations', () => {
 
     await page.getByRole('button', { name: 'PNG', exact: true }).click();
     await page.getByRole('button', { name: '2x', exact: true }).click();
-    await page.getByRole('button', { name: '+ Add export setting' }).click();
+    await page.getByRole('button', { name: 'Add configuration' }).click();
 
     // Canonical naming: '@2x' suffix (no '-' separator) with a .png extension.
     await expect(page.locator('.spec-export__preset-file')).toHaveText(/@2x\.png$/);
@@ -54,7 +65,7 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await createExportableFrame(page);
     await selectExportTab(page);
 
-    await page.getByRole('button', { name: '+ Add export setting' }).click();
+    await page.getByRole('button', { name: 'Add configuration' }).click();
     const file = page.locator('.spec-export__preset-file');
     const fileName = await file.textContent();
 
@@ -64,7 +75,7 @@ test.describe('Inspector export settings — per-node configurations', () => {
     await expect(checkbox).not.toBeChecked();
 
     await page.getByRole('button', { name: `Remove ${fileName} export` }).click();
-    await expect(page.getByText(/No export settings/)).toBeVisible();
+    await expect(page.getByText(/No saved configurations yet/)).toBeVisible();
   });
 
   test('opens the advanced export dialog from the inspector', async ({ page }) => {

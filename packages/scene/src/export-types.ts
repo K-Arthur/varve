@@ -94,6 +94,12 @@ export interface ExportJob {
   fileName: string;
   /** Preset scale used to compute raster output. Kept on the job for workers. */
   scale?: ExportScale;
+  /** Filename suffix persisted by the source configuration. */
+  suffix?: string;
+  /** Format-specific options carried from the source configuration. */
+  raster?: RasterOptions;
+  vector?: VectorOptions;
+  code?: CodeOptions;
   dimensions: { w: number; h: number };
   estimatedSize: number;
   status: 'pending' | 'running' | 'done' | 'error';

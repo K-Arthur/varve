@@ -45,6 +45,7 @@ import {
 } from '@strata/scene/export';
 import { FocusTrap, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { applyExportBatchPaths } from '../../exportBatchPaths';
 import {
   type ExportProgressEvent,
   type ExportReport,
@@ -201,6 +202,11 @@ export function buildJobs(nodes: SceneNode[], document?: Document): ExportJob[] 
         format: preset.format,
         fileName,
         scale: preset.scale,
+        suffix: preset.suffix,
+        raster: preset.raster,
+        vector: preset.vector,
+        code: preset.code,
+        print: preset.print,
         dimensions,
         estimatedSize: 1024 * 50,
         status: 'pending',
@@ -229,9 +235,10 @@ function buildBatchForExport(
   destination: string | null,
   printSettings: PrintOptions,
 ): ExportBatch {
-  const jobs = selectedJobs.map((job) =>
+  const jobsWithPrint = selectedJobs.map((job) =>
     isPdfXFormat(job.format) ? { ...job, print: printSettings } : job,
   );
+  const jobs = applyExportBatchPaths(jobsWithPrint, template, folderRule);
   return {
     jobs,
     destinationFolder: destination,
@@ -516,7 +523,7 @@ export function ExportDialog({
   ]);
 
   const handleRetryFailed = useCallback(() => {
-    const failedJobs = selectedJobs.filter((job) =>
+    const failedJobs = exportBatch.jobs.filter((job) =>
       lastReport?.files.some(
         (file) =>
           file.status === 'failed' && file.nodeId === job.nodeId && file.fileName === job.fileName,
@@ -532,13 +539,7 @@ export function ExportDialog({
       const controller = new AbortController();
       batchAbortRef.current = controller;
       try {
-        const retryBatch = buildBatchForExport(
-          failedJobs,
-          template,
-          folderRule,
-          destinationLabel || null,
-          printSettings,
-        );
+        const retryBatch = { ...exportBatch, jobs: failedJobs };
         const report = await onExport(retryBatch, controller.signal, (event) => {
           setProgress({ done: event.completed, errors: event.failed });
           setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
@@ -566,7 +567,7 @@ export function ExportDialog({
         setRunning(false);
       }
     })();
-  }, [selectedJobs, lastReport, onExport, template, folderRule, destinationLabel, printSettings]);
+  }, [exportBatch, lastReport, onExport]);
 
   const handleCancel = useCallback(() => {
     if (videoExporting) {

@@ -13,14 +13,14 @@ import {
   type BuiltinPresetDefinition,
   builtinBundleList,
   builtinPresetList,
-  canonicalFormatToLegacy,
-  canonicalScaleToLegacy,
   capabilitiesForFormat,
+  configurationToLegacyPreset,
   formatFileName,
   formatSupportedOnPlatform,
   getBuiltinPreset,
   legacyFormatToCanonical,
   legacyScaleToCanonical,
+  materializePreset,
   type PlatformKind,
 } from '@strata/scene/export';
 import { CopyButton, Icon, Select, Tooltip } from '@strata/ui';
@@ -36,6 +36,8 @@ import {
   exportNodeAsRaster,
   type RasterFormat,
 } from './export';
+
+import './SpecPanel.css';
 
 export interface AssetExportControlsProps {
   node: SceneNode;
@@ -56,13 +58,12 @@ const QUICK_FORMATS: {
   value: QuickFormat;
   label: string;
   mime?: RasterFormat;
-  desktopOnly?: boolean;
 }[] = [
   { value: 'png', label: 'PNG', mime: 'image/png' },
   { value: 'jpeg', label: 'JPEG', mime: 'image/jpeg' },
   { value: 'webp', label: 'WebP', mime: 'image/webp' },
   { value: 'svg', label: 'SVG' },
-  { value: 'pdf', label: 'PDF', desktopOnly: true },
+  { value: 'pdf', label: 'PDF' },
 ];
 
 const SCALES = [1, 2, 3];
@@ -132,13 +133,10 @@ const QUICK_PRESETS: {
  */
 function builtinPresetToLegacy(
   preset: BuiltinPresetDefinition,
+  nodeId: string,
   id: string,
 ): ExportPreset | undefined {
-  const format = canonicalFormatToLegacy(preset.format);
-  if (!format) return undefined;
-  const scale = canonicalScaleToLegacy(preset.scale);
-  if (!scale) return undefined;
-  return { id, format, scale, suffix: preset.config.suffix ?? '', enabled: true };
+  return configurationToLegacyPreset(materializePreset(preset, { type: 'node', nodeId }, id));
 }
 
 /** Formats whose scale control is meaningless (vector, press, or code output). */
@@ -279,11 +277,8 @@ export function AssetExportControls({
 
   const visibleFormats = useMemo(
     () =>
-      QUICK_FORMATS.filter((f) => {
-        if (f.desktopOnly && !isTauriPlatform(platform)) return true; // shown-but-disabled with reason
-        return formatSupportedOnPlatform(f.value, platformKindValue);
-      }),
-    [platformKindValue, platform],
+      QUICK_FORMATS.filter((entry) => formatSupportedOnPlatform(entry.value, platformKindValue)),
+    [platformKindValue],
   );
 
   // Re-apply the advisor's suggestion when the selected node changes, but
@@ -301,7 +296,6 @@ export function AssetExportControls({
 
   const effectiveScale = customScale ? Number.parseFloat(customScale) : scale;
   const isTauri = isTauriPlatform(platform);
-  const isPdfDesktopOnly = format === 'pdf' && !isTauri;
 
   useEffect(() => {
     if (_engine) {
@@ -321,18 +315,21 @@ export function AssetExportControls({
     setMessage('');
     try {
       if (format === 'pdf') {
-        if (!isTauri) {
-          setMessage('PDF export requires the desktop app');
-          return;
-        }
         const { bytes, filename } = await exportNodeAsPdf(
           node,
           doc,
           effectiveScale,
           eng ?? undefined,
         );
-        const saved = await platform?.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
-        setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
+        if (platform) {
+          const saved = await platform.saveBinaryFile(filename, bytes, 'application/pdf', '.pdf');
+          setMessage(saved ? `Exported ${node.name} as PDF` : 'Export cancelled');
+        } else {
+          const browserBytes = new Uint8Array(bytes.byteLength);
+          browserBytes.set(bytes);
+          downloadBlob(new Blob([browserBytes.buffer], { type: 'application/pdf' }), filename);
+          setMessage(`Downloaded ${node.name} as PDF`);
+        }
       } else if (format === 'svg') {
         const rasterAssets = await composeFlattenedRasterAssetsForNode(node, doc, 'svg', {
           scale: 1,
@@ -444,7 +441,7 @@ export function AssetExportControls({
   const catalogOptions = useMemo(() => {
     const presetEntries = builtinPresetList()
       .filter((p) => {
-        if (!builtinPresetToLegacy(p, 'probe')) return false;
+        if (!builtinPresetToLegacy(p, node.id, 'probe')) return false;
         return formatSupportedOnPlatform(p.format, platformKindValue);
       })
       .map((p) => ({ value: `preset:${p.id}`, label: `${p.name} · ${p.category}` }));
@@ -455,7 +452,7 @@ export function AssetExportControls({
           const preset = getBuiltinPreset(id);
           return (
             preset !== undefined &&
-            builtinPresetToLegacy(preset, 'probe') !== undefined &&
+            builtinPresetToLegacy(preset, node.id, 'probe') !== undefined &&
             formatSupportedOnPlatform(preset.format, platformKindValue)
           );
         }),
@@ -463,7 +460,7 @@ export function AssetExportControls({
       .map((b) => ({ value: `bundle:${b.id}`, label: `${b.name} · bundle` }));
 
     return [...bundleEntries, ...presetEntries];
-  }, [platformKindValue]);
+  }, [node.id, platformKindValue]);
 
   const handleApplyCatalogEntry = useCallback(
     (selection: string) => {
@@ -476,7 +473,7 @@ export function AssetExportControls({
         bundle.presetIds.forEach((presetId, index) => {
           const preset = getBuiltinPreset(presetId);
           if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
-          const legacy = builtinPresetToLegacy(preset, `preset-${stamp}-${index}`);
+          const legacy = builtinPresetToLegacy(preset, node.id, `preset-${stamp}-${index}`);
           if (legacy) onAddPreset(legacy);
         });
         return;
@@ -484,10 +481,10 @@ export function AssetExportControls({
 
       const preset = getBuiltinPreset(selection.slice(7));
       if (!preset || !formatSupportedOnPlatform(preset.format, platformKindValue)) return;
-      const legacy = builtinPresetToLegacy(preset, `preset-${stamp}`);
+      const legacy = builtinPresetToLegacy(preset, node.id, `preset-${stamp}`);
       if (legacy) onAddPreset(legacy);
     },
-    [onAddPreset, platformKindValue],
+    [onAddPreset, platformKindValue, node.id],
   );
 
   const handleAddPreset = useCallback(() => {
@@ -509,7 +506,10 @@ export function AssetExportControls({
 
   return (
     <section className="spec-panel__section" aria-labelledby="spec-export-heading">
-      <h3 id="spec-export-heading">Export</h3>
+      <div className="spec-export__section-heading">
+        <h3 id="spec-export-heading">Quick export</h3>
+        <p>Export this {nodeLabel(node)} once with the settings below.</p>
+      </div>
 
       <div className="spec-export__row">
         <span className="spec-row__label">
@@ -526,16 +526,11 @@ export function AssetExportControls({
         </span>
         <div className="spec-export__group">
           {visibleFormats.map((f) => (
-            <Tooltip
-              key={f.value}
-              label={f.label}
-              disabledReason={f.desktopOnly && !isTauri ? 'Requires desktop app' : undefined}
-            >
+            <Tooltip key={f.value} label={f.label}>
               <button
                 type="button"
                 className={`spec-export__btn${format === f.value ? ' spec-export__btn--active' : ''}`}
                 aria-pressed={format === f.value}
-                disabled={f.desktopOnly && !isTauri}
                 onClick={() => {
                   setFormat(f.value);
                   // Picking a quick format also arms "Add export setting" with
@@ -588,9 +583,10 @@ export function AssetExportControls({
         <button
           type="button"
           className="spec-export__download"
-          disabled={exporting || !effectiveScale || effectiveScale <= 0 || isPdfDesktopOnly}
+          disabled={exporting || !effectiveScale || effectiveScale <= 0}
           onClick={handleExport}
         >
+          <Icon name="Download" size={14} label={undefined} />
           {exporting
             ? 'Exporting\u2026'
             : `${isTauri ? 'Export' : 'Download'} ${QUICK_FORMATS.find((f) => f.value === format)?.label ?? format.toUpperCase()}`}
@@ -606,26 +602,9 @@ export function AssetExportControls({
 
       {onAddPreset && (
         <section className="spec-export__presets" aria-labelledby="spec-export-presets-heading">
-          <h4 id="spec-export-presets-heading">Export settings</h4>
-          <div className="spec-export__configs-quick">
-            {QUICK_PRESETS.map((qp) => (
-              <button
-                key={qp.label}
-                type="button"
-                className="spec-export__configs-quick-btn"
-                onClick={() =>
-                  onAddPreset({
-                    id: `preset-${Date.now()}-${presets.length}`,
-                    format: qp.format,
-                    scale: { type: 'factor', value: qp.scale },
-                    suffix: qp.suffix,
-                    enabled: true,
-                  })
-                }
-              >
-                {qp.label}
-              </button>
-            ))}
+          <div className="spec-export__section-heading">
+            <h4 id="spec-export-presets-heading">Export configurations</h4>
+            <p>Saved outputs included whenever this {nodeLabel(node)} is batch exported.</p>
           </div>
           {preflightFindings.length > 0 && (
             <div className="spec-export__configs-preflight" role="status">
@@ -642,8 +621,7 @@ export function AssetExportControls({
           )}
           {presets.length === 0 && (
             <p className="spec-export__presets-empty">
-              No export settings for this {nodeLabel(node)}. Add one to export it in several formats
-              and sizes at once.
+              No saved configurations yet. Add a preset or create a custom configuration below.
             </p>
           )}
           {presets.map((preset) => {
@@ -682,42 +660,77 @@ export function AssetExportControls({
               </div>
             );
           })}
-          <div className="spec-export__preset-add">
-            <Select
-              label="Add from preset"
-              placeholder="Add from preset…"
-              value=""
-              options={catalogOptions}
-              onChange={handleApplyCatalogEntry}
-            />
-            <Select
-              label="Format for new export setting"
-              value={presetFormat}
-              options={presetFormatOptions}
-              onChange={(next) => setPresetFormat(next as LegacyExportFormat)}
-            />
+          <fieldset className="spec-export__preset-add">
+            <legend>Add configuration</legend>
+            <span className="spec-export__field-label">Quick presets</span>
+            <div className="spec-export__configs-quick">
+              {QUICK_PRESETS.map((qp) => (
+                <button
+                  key={qp.label}
+                  type="button"
+                  className="spec-export__configs-quick-btn"
+                  onClick={() =>
+                    onAddPreset({
+                      id: `preset-${Date.now()}-${presets.length}`,
+                      format: qp.format,
+                      scale: { type: 'factor', value: qp.scale },
+                      suffix: qp.suffix,
+                      enabled: true,
+                    })
+                  }
+                >
+                  {qp.label}
+                </button>
+              ))}
+            </div>
+            <div className="spec-export__field">
+              <span className="spec-export__field-label">Preset library</span>
+              <Select
+                label="Add from preset"
+                placeholder="Choose a preset…"
+                value=""
+                options={catalogOptions}
+                onChange={handleApplyCatalogEntry}
+              />
+            </div>
+            <div className="spec-export__field">
+              <span className="spec-export__field-label">Custom format</span>
+              <Select
+                label="Format for new export setting"
+                value={presetFormat}
+                options={presetFormatOptions}
+                onChange={(next) => setPresetFormat(next as LegacyExportFormat)}
+              />
+            </div>
             <button
               type="button"
               className="spec-export__add-preset"
               disabled={!presetFormatAvailable(presetFormat)}
               onClick={handleAddPreset}
             >
-              + Add export setting
+              <Icon name="Plus" size={14} label={undefined} />
+              Add configuration
             </button>
-          </div>
-          {!presetFormatAvailable(presetFormat) && (
-            <p className="spec-export__preset-unavailable" role="note">
-              {presetFormatLabel} export requires the desktop app.
-            </p>
-          )}
+            {!presetFormatAvailable(presetFormat) && (
+              <p className="spec-export__preset-unavailable" role="note">
+                {presetFormatLabel} export requires the desktop app.
+              </p>
+            )}
+          </fieldset>
           {onOpenAdvancedExport && (
             <div className="spec-export__preset-actions">
               <button
                 type="button"
                 className="spec-export__advanced"
                 onClick={onOpenAdvancedExport}
+                aria-label="Open advanced export workspace"
               >
-                Open advanced export\u2026
+                <Icon name="SlidersHorizontal" size={14} label={undefined} />
+                <span>
+                  Open export workspace
+                  <small>Batch selection, print, naming, and destination options</small>
+                </span>
+                <Icon name="ChevronRight" size={14} label={undefined} />
               </button>
             </div>
           )}
