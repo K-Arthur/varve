@@ -10,6 +10,20 @@ Every `RenderItem` with effects goes through 5 rendering passes in
 a specific subset of effect types via `if/else if` dispatch and
 `continue` for already-processed types.
 
+## Canonical schema and native interchange
+
+The document-level `Effect` discriminated union is owned by `@strata/scene`.
+Each effect may carry a stable `id`; document normalization assigns missing IDs
+and repairs duplicates without changing valid IDs. The Rust `strata-core::Effect`
+wire representation mirrors all nine TypeScript variants, retains optional IDs,
+and uses the same camelCase field names. Older documents without IDs remain
+valid and omit the field when serialized through Rust.
+
+Rust currently stores and transports every effect, but Canvas2D/software replay
+remains the authoritative renderer for chromatic aberration, glitch, blur, glow,
+glass, and alpha-aware shadows. Export capability planning must rasterize an
+effected subtree unless the target backend can reproduce the canonical pixels.
+
 ### Pass 1 — Backdrop effects (lines 704–713)
 
 Processes: `backgroundBlur`, `glassMaterial` backdrop
