@@ -1,7 +1,7 @@
 # Export Infrastructure — Audit and Rebuild Progress
 
-Status: **In progress** — Milestones 1–9 complete; Milestone 11 execution and destination work is in progress.
-Updated: 2026-08-01
+Status: **In progress** — Inspector information architecture and the core static-export option handoff are complete; advanced encoder controls remain staged work.
+Updated: 2026-08-02
 
 This document tracks the repository-wide audit and staged rebuild of Strata's
 export infrastructure. It is the single source of truth for the export
@@ -32,8 +32,8 @@ Supported formats today:
 | GIF (timeline) | `engine/gifExport.ts` TS encoder | Works |
 | MP4 / WebM (timeline) | WebCodecs / MediaRecorder / image-sequence | Works (Chromium) |
 | SVG | `@strata/codegen/svg.ts` scene→SVG (+ subtree raster fallback) | Works with limits |
-| PDF (screen) | Rust `strata_print::export_pdf`; browser fallback `makeSimpleImagePdf` | Works (strict subset) |
-| PDF/X-1a / PDF/X-4 | Rust `strata_print::cmyk::{export_pdfx1a, export_pdfx4}` | Rust-exposed, **TS export path throws** |
+| PDF (screen) | Rust `strata_print::export_pdf`; browser fallback `makeSimpleImagePdf` | Works; browser output is a raster-backed PDF |
+| PDF/X-1a / PDF/X-4 | Rust `strata_print::cmyk::{export_pdfx1a, export_pdfx4}` | Works on desktop; capability-gated on web |
 | AVIF | none | **Advertised, throws at runtime** |
 | React / Flutter / SwiftUI / CSS | `@strata/codegen` | Works (semantic, not pixel-exact) |
 | `.strata-package.zip` | `packageExport.ts` + `DocumentCodec` | Works |
@@ -121,6 +121,12 @@ different in preview vs export. This is intentional and documented
 | D16 | **Slice tool creates plain frames.** `SliceTool.ts` comments claim export slices; no tagging or export wiring exists. | `tools/SliceTool.ts:32` | Medium |
 | D17 | ~~**No real batch cancellation/retry/summary-after-partial-failure.**~~ **PARTIALLY FIXED (M9/M11).** Cancellation, per-file results, failed-output retry, and actual executor progress are live. A persistent background queue and memory-aware scheduling remain open. | `exportService.ts`; `ExportResultsList.tsx` | Medium → Low |
 | D18 | **No deterministic plan layer.** Per-node presets → jobs is a blind expansion (`ExportDialog.buildJobs`) with per-dialog dimension heuristics (`nodeBaseDimensions`) that duplicate renderer bounds logic. | `ExportDialog.tsx:65-167` | High |
+| D19 | ~~**PDF/X mark controls were accepted but ignored.**~~ **FIXED (M9).** Crop, registration, and color-bar options now reach the Rust PDF/X builders. | `ExportDialog.tsx`; Tauri PDF/X commands | ~~High~~ Fixed |
+| D20 | ~~**The live Inspector mounted export controls without their stylesheet.**~~ **FIXED (M12a).** `AssetExportControls` now owns its style import, so it no longer depends on the unrelated `SpecPanel` entry point being mounted first. | `AssetExportControls.tsx`; `SpecPanel.css` | ~~High~~ Fixed |
+| D21 | ~~**Built-in presets lost most of their options when added.**~~ **FIXED (M12a).** Catalog entries are materialized as canonical configurations and converted through the shared adapter; raster, vector, color, and print fields supported by the legacy boundary survive. | `AssetExportControls.tsx`; `export/adapter.ts` | ~~High~~ Fixed |
+| D22 | ~~**Destination preview and execution disagreed.**~~ **FIXED (M12a).** Both now use the same filename/folder resolver, real suffixes, sanitization, and deterministic collision handling. | `exportBatchPaths.ts`; `DestinationPicker.tsx`; `ExportDialog.tsx` | ~~High~~ Fixed |
+| D23 | ~~**Web advertised screen PDF but simple nodes threw at runtime.**~~ **FIXED (M12a).** All browser screen-PDF jobs now use the raster-backed local PDF writer; desktop retains the vector path where eligible. | `SpecPanel/export.ts` | ~~High~~ Fixed |
+| D24 | **Canonical option exposure is incomplete.** Resize filter, sharpening, dithering, metadata policy, full ICC/color conversion, several print controls, vector precision/minification, and code-generation settings are not all editable and/or consumed by their encoder. Unsupported controls remain out of the Inspector rather than implying they work. | capability audit below | Medium |
 
 ---
 
@@ -136,14 +142,33 @@ different in preview vs export. This is intentional and documented
 - No TIFF/EPS/PSD/BMP/ICO encoders.
 
 ### 4.2 Frontend (plan/UI)
-- No canonical export-plan type; settings are spread across `ExportPreset`/`ExportJob`/`ExportSettings`/per-dialog state.
-- No capability contract; the UI lists formats/options the encoder rejects at runtime (D1, D3).
-- No shared export preflight service; only print-mode preflight exists and it is not wired to export.
-- No filename template engine (sanitization is ad hoc `safeFilename`); no collision detection before writing.
-- No multi-configuration per target (Figma-style PNG@1x/2x/3x + SVG on one object is only approximated by stacking `ExportPreset[]`).
-- No export queue/job system with real cancellation for static batch export (D4).
-- No file-size estimation or export preview.
-- No background/foreground export distinction; large raster exports block nothing but also show no per-stage progress.
+- A canonical export-plan type and capability contract exist, but the live executor still crosses the legacy `ExportPreset`/`ExportJob` adapter boundary.
+- Format availability is capability-gated in the Inspector; AVIF remains absent because no real encoder exists.
+- Batch export uses the canonical preflight service; the separate print preflight path still needs consolidation (D10).
+- Naming templates, sanitization, folder rules, and collision resolution are shared by destination preview and execution.
+- Per-target multi-configuration is live through stacked `ExportPreset[]`; the canonical configuration model still crosses that legacy boundary.
+- Static batch export has real cancellation, progress, partial-failure results, and retry; it does not yet have a persistent background queue or memory-aware scheduler.
+- Size estimates are heuristic and there is no content/pixel preview of the planned output.
+- No background/foreground export distinction; static batches do report real per-stage progress.
+
+### 4.3 Capability exposure audit (M12a)
+
+The Inspector now separates a one-off **Quick export** from persistent **Export
+configurations**, labels every preset/custom-format input, and provides one
+clear handoff to the advanced workspace. The audit also traced configuration
+values through catalog materialization, the legacy adapter, job construction,
+rendering, naming, and destination preview.
+
+| Capability | Current integrity |
+|------------|-------------------|
+| Format, scale, suffix | Editable, persisted, and consumed; suffix is used in the actual output path. |
+| Raster quality, transparency, matte | Preserved from catalog presets, attached to jobs, and consumed by raster rendering. |
+| Screen PDF on web | Exposed and functional through an explicit raster-backed PDF fallback. |
+| PDF/X bleed, marks, DPI floor, outline text, ICC name | Preserved and consumed by the desktop print path. |
+| Folder rule, filename template, collision handling | Preview and execution share one resolver. |
+| Vector precision/minification/style and code options | Preserved on jobs, but the current SVG/code executors do not yet consume every field. |
+| Resize mode, sharpening, dithering, metadata, full color conversion | Present in the canonical model but not fully represented by the legacy adapter/executor; controls intentionally remain out of the Inspector. |
+| Full print model (page information, mark offset, downsampling, compression, ranges, spreads) | Canonical only or partially surfaced; dedicated print-plan integration remains M9/M10 work. |
 
 ---
 
@@ -242,7 +267,7 @@ test → audits) before the next.
 | 9 | Raster improvements (resampling, tiling), SVG preservation, PDF/print | **In progress** (M9 print-mark wiring done) |
 | 10 | Color-management + metadata controls | Pending |
 | 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, retry, browser archives, one-folder Tauri batches, and native reveal landed; persistent queue pending) |
-| 12 | Accessibility, responsive, E2E/visual-regression/docs | Pending |
+| 12 | Accessibility, responsive, E2E/visual-regression/docs | **In progress** (M12a Inspector hierarchy, narrow-layout E2E, and capability audit complete) |
 
 Commit hashes recorded below as milestones complete.
 
@@ -296,6 +321,7 @@ Commit hashes recorded below as milestones complete.
 - [x] M9 batch-dialog surfaces green (preflight panel, print settings, per-file results + retry, PDF/X marks)
 - [x] Export E2E suite green (export-workspace 3/3; export-settings 4/4; export.spec 5/5; plus inspector spec)
 - [x] Full typecheck + lint + pre-commit gates after M8
+- [x] M12a Inspector information architecture + option-integrity audit green
 
 Gate results per milestone:
 
@@ -313,6 +339,7 @@ Gate results per milestone:
 | M11b | 16 packages + E2E clean | Biome clean on touched files | **10,881/10,881** full suite before final cancel-case assertion; final focused export 31/31 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11c | 16 packages + E2E clean | Biome clean on touched files | **10,885/10,885** full suite; focused platform/export 30/30 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11d | 16 packages + E2E clean | Biome clean on touched files | **10,887/10,887** full suite; focused export UI 24/24 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
+| M12a | 16 packages + E2E clean | Biome clean | 95/95 focused scene/editor export tests | **export-settings + export-workspace E2E 7/7**; audit:emoji clean; audit:tokens 123/123; architecture audit clean against baseline (6 known cycles, 0 layer violations) |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
@@ -372,6 +399,7 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 9 — batch-dialog surfaces (preflight, print settings, results/retry) + PDF/X marks | `f0a4c4ea` (on `feat/export-workspace`) |
 | 11a — real executor progress stages + abort propagation | `c3397093` |
 | 11b — browser multi-file ZIP delivery + save-cancel integrity | `502c3838` |
+| 12a — Inspector hierarchy + configuration integrity | `4048c306` |
 
 > Branch note: commits are shared with the concurrent agent's branch history
 > (`feat/tooltip-system`); interleaved agent commits `45386252`,
@@ -485,3 +513,27 @@ The results component prevents duplicate opener requests while one is in
 flight and reports native opener failures through an accessible alert without
 discarding the export report or retry controls. Tests cover path selection,
 the native-only capability gate, and omission when no revealable output exists.
+
+## 18. M12a — Inspector hierarchy and configuration integrity (2026-08-02)
+
+The live Inspector export section is now a deliberate two-part workflow:
+**Quick export** is a one-off download, while **Export configurations** are
+persistent outputs for batch export. Preset-library and custom-format controls
+have visible labels, the add form is grouped semantically, the empty state is
+contained, and the advanced workspace is a single full-width handoff describing
+the additional batch, print, naming, and destination features. The component
+imports its own stylesheet, fixing the production-only unstyled layout caused
+by mounting it outside the old `SpecPanel` entry point.
+
+The same milestone closed four integrity gaps discovered while tracing the UI
+to execution: catalog presets retain supported raster/vector/print options;
+raster quality, transparency, and matte reach the renderer; destination preview
+and execution use one filename/folder/collision resolver; and browser screen
+PDF works for simple as well as complex nodes. Remaining canonical-but-not-yet-
+consumed settings are listed in the capability audit rather than exposed as
+controls that would silently do nothing.
+
+Coverage includes 95 focused unit/component tests and 7 Chromium E2E tests for
+the two export surfaces. The browser tests verify the visual hierarchy, visible
+labels, literal-text regression, narrow-panel overflow, advanced-workspace
+handoff, preflight, and completed batch results.
