@@ -36,6 +36,7 @@ const DEFAULT_MAX_BYTES = 256 * 1024 * 1024;
 export class ImageCache {
   private cache = new Map<string, ImageCacheEntry>();
   private pending = new Map<string, Promise<HTMLImageElement>>();
+  private loadTokens = new Map<string, symbol>();
   private listeners = new Map<string, Set<() => void>>();
   private globalListeners = new Set<() => void>();
   private maxEntries: number;
@@ -183,6 +184,8 @@ export class ImageCache {
 
     // Mark as loading
     this.cache.set(url, { state: 'loading', image: null });
+    const loadToken = Symbol(url);
+    this.loadTokens.set(url, loadToken);
 
     const isInline = url.startsWith('data:') || url.startsWith('blob:');
 
@@ -204,9 +207,11 @@ export class ImageCache {
     // Inline data:/blob: URLs are always same-origin, so skip the CORS dance.
     const promise = (isInline ? attempt(false) : attempt(true).catch(() => attempt(false)))
       .then((img) => {
+        if (this.loadTokens.get(url) !== loadToken) return img;
         const bytes = this.estimateBytes(img);
         this.cache.set(url, { state: 'loaded', image: img });
         this.pending.delete(url);
+        this.loadTokens.delete(url);
         this.touch(url);
         this.entryBytes.set(url, bytes);
         this.retainedBytes += bytes;
@@ -222,9 +227,11 @@ export class ImageCache {
         return img;
       })
       .catch((error: Error) => {
+        if (this.loadTokens.get(url) !== loadToken) throw error;
         this.cache.set(url, { state: 'error', image: null, error });
         this.evictIfNeeded();
         this.pending.delete(url);
+        this.loadTokens.delete(url);
         this.touch(url);
         this.notifyListeners(url);
         throw error;
@@ -253,6 +260,7 @@ export class ImageCache {
    */
   cancel(url: string): void {
     this.pending.delete(url);
+    this.loadTokens.delete(url);
     const existing = this.cache.get(url);
     if (existing?.state === 'loading') {
       this.cache.set(url, { state: 'idle', image: null });
@@ -262,6 +270,7 @@ export class ImageCache {
   /** Remove an entry from the cache. */
   evict(url: string): void {
     this.pending.delete(url);
+    this.loadTokens.delete(url);
     this.remove(url, false);
   }
 
@@ -269,6 +278,7 @@ export class ImageCache {
   clear(): void {
     this.cache.clear();
     this.pending.clear();
+    this.loadTokens.clear();
     this.entryBytes.clear();
     this.accessTimes.clear();
     this.retainedBytes = 0;
