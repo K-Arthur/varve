@@ -213,6 +213,10 @@ export {
 } from './engine';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
+export type { DitherImageOptions, DitherResult } from './exportPipeline/dither';
+export { bayerThresholdMatrix, ditherImageData } from './exportPipeline/dither';
+export type { PaletteQuantizeOptions, PaletteQuantizeResult } from './exportPipeline/palette';
+export { quantizeToPalette } from './exportPipeline/palette';
 export type {
   ResampleOptions,
   ResampleResult,
@@ -224,6 +228,8 @@ export {
   resampleImageData,
   selectResamplingAlgorithm,
 } from './exportPipeline/resample';
+export type { SharpenImageOptions, SharpenResult } from './exportPipeline/sharpen';
+export { sharpenImageData } from './exportPipeline/sharpen';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
