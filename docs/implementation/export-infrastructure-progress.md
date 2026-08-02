@@ -241,7 +241,7 @@ test → audits) before the next.
 | 8 | Full export workspace + print UI + preview | **In progress** (M8 inspector done; M9 batch-dialog surfaces done) |
 | 9 | Raster improvements (resampling, tiling), SVG preservation, PDF/print | **In progress** (M9 print-mark wiring done) |
 | 10 | Color-management + metadata controls | Pending |
-| 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, and retry landed; persistent queue/destinations pending) |
+| 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, retry, and single-archive browser batches landed; Tauri folder/reveal and persistent queue pending) |
 | 12 | Accessibility, responsive, E2E/visual-regression/docs | Pending |
 
 Commit hashes recorded below as milestones complete.
@@ -310,6 +310,7 @@ Gate results per milestone:
 | M8 | editor clean | Biome clean | ExportDialog 12/12; AssetExportControls 11/12 (pre-existing tooltip-title failure); full typecheck 15/15 + E2E tsconfig exit 0 | **export-settings E2E 4/4**; export.spec 5/5; pre-commit audit-health pass |
 | M9 | editor + scene clean; E2E tsconfig exit 0 | Biome clean (touched; only pre-existing DestinationPicker warning) | Export 48/48; exportService 8/8; scene export 115/115; bgRemovalFeatures 31/31 | **export-workspace E2E 3/3**; export.spec 5/5; export-settings 4/4; Rust pdfx 4/4; strata-print 131/131; strata-colour 70/70; audit:emoji clean; audit:tokens 123/123 |
 | M11a | 16 packages + E2E clean | Biome clean on touched files | **10,879/10,879** full suite; focused export 32/32 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
+| M11b | 16 packages + E2E clean | Biome clean on touched files | **10,881/10,881** full suite before final cancel-case assertion; final focused export 31/31 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
@@ -368,6 +369,7 @@ Pre-existing known limitations recorded (not introduced by this work):
 | 8-E2E — inspector export-settings E2E spec | `a7a27246` |
 | 9 — batch-dialog surfaces (preflight, print settings, results/retry) + PDF/X marks | `f0a4c4ea` (on `feat/export-workspace`) |
 | 11a — real executor progress stages + abort propagation | `c3397093` |
+| 11b — browser multi-file ZIP delivery + save-cancel integrity | `502c3838` |
 
 > Branch note: commits are shared with the concurrent agent's branch history
 > (`feat/tooltip-system`); interleaved agent commits `45386252`,
@@ -432,3 +434,19 @@ Cancellation raised during rendering or writing remains an `AbortError` and is
 not mislabeled as a failed export. Progress accounting uses constant-time
 counters so batches containing hundreds or thousands of assets do not acquire
 quadratic reporting overhead.
+
+## 15. M11b — browser batch archive delivery (2026-08-01)
+
+Browser batches containing more than one output are now buffered and delivered
+through one ZIP save/download instead of opening one picker or uncontrolled
+download per file. Single-file export keeps the direct format-specific save
+path. Archive entries reuse the canonical cross-platform sanitizer, remove
+path traversal, normalize separators, and resolve duplicate names
+deterministically (`Logo.svg`, `Logo-2.svg`). A batch with no successful output
+does not create an empty archive; partial-success batches contain only the
+successful outputs and retain their per-file report.
+
+Canceling a single-file picker or the final archive picker now propagates as
+`AbortError`, so the dialog announces cancellation and never claims that an
+unwritten file succeeded. Tests decode the generated ZIP and verify its actual
+entry names rather than checking only that bytes were produced.
