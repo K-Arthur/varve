@@ -146,6 +146,10 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         onSelectDestination={
           platform?.kind === 'tauri' ? () => platform.chooseExportFolder() : undefined
         }
+        onRevealOutput={
+          platform?.kind === 'tauri' ? (path) => platform.revealInFileManager(path) : undefined
+        }
+        revealOutputLabel={platform?.kind === 'tauri' ? platform.fileManagerLabel() : undefined}
         onExport={handleExportBatch}
         onPackageExport={handlePackageExport}
         onExportMotion={handleExportMotion}

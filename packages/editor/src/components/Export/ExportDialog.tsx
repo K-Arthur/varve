@@ -83,6 +83,9 @@ export interface ExportDialogProps {
   platformKind?: PlatformKind;
   /** Native desktop folder picker. Browser batches use one ZIP destination. */
   onSelectDestination?: () => Promise<string | null>;
+  /** Native file-manager integration for completed outputs. */
+  onRevealOutput?: (path: string) => Promise<void>;
+  revealOutputLabel?: string;
 }
 
 function safeFilename(name: string): string {
@@ -261,6 +264,8 @@ export function ExportDialog({
   initialTemplate = loadSettings().export.defaultFilenameTemplate,
   platformKind = 'web',
   onSelectDestination,
+  onRevealOutput,
+  revealOutputLabel,
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
@@ -1024,7 +1029,12 @@ export function ExportDialog({
             {lastReport && !running && (
               <section className="export-dialog__section" aria-label="Results">
                 <h3 className="export-dialog__section-title">Results</h3>
-                <ExportResultsList files={lastReport.files} onRetryFailed={handleRetryFailed} />
+                <ExportResultsList
+                  files={lastReport.files}
+                  onRetryFailed={handleRetryFailed}
+                  onRevealOutput={onRevealOutput}
+                  revealOutputLabel={revealOutputLabel}
+                />
               </section>
             )}
           </div>
