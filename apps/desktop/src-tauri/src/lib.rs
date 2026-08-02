@@ -1328,12 +1328,19 @@ impl PdfXOptions {
             fonts: self.fonts.clone(),
             registration_marks: self.include_registration_marks,
             color_bar: self.color_bars,
-            print_profile: None,
+            print_profile: self.print_profile(),
             subset_fonts: self.subset_fonts || self.outline_text,
             embedding_restriction_handling: strata_print::subset::EmbeddingRestriction::Warn,
             manifest: None,
             lossy: false,
         }
+    }
+
+    /// Resolve the requested ICC print profile from the `iccProfile` option.
+    /// Unknown profile names return `None` — the caller's preflight must have
+    /// surfaced the mismatch; we never guess a different profile silently.
+    fn print_profile(&self) -> Option<strata_print::profiles::PrintProfile> {
+        strata_print::profiles::PrintProfile::parse(&self.icc_profile)
     }
 
     /// Build print-mark geometry when bleed or crop marks are requested. The
