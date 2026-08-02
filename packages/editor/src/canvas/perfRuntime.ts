@@ -17,7 +17,7 @@ import { computeProfile, type PerformanceProfile } from './adaptiveProfile';
 import {
   enableDrawDiagnostics,
   type FrameDiagnostics,
-  installPerfDiagnosticsHandle,
+  installPerfDiagnosticsHandle as installDrawDiagnosticsHandle,
   recordFrame,
   renderDrawDiagnostics,
 } from './drawDiagnostics';
@@ -29,6 +29,15 @@ import {
   startFrameTiming,
 } from './frameBudget';
 import { getAdaptiveCacheLimits, getMemoryBudgets, type MemoryBudgets } from './memoryBudget';
+import {
+  enableSnapMetrics,
+  getSnapMetrics,
+  getSnapMetricsCount,
+  isSnapMetricsEnabled,
+  recordSnapMetrics,
+  resetSnapMetrics,
+  summarizeSnapMetrics,
+} from './snapDiagnostics';
 import type { SubtreeIrCache } from './subtreeIrCache';
 
 export {
@@ -38,11 +47,26 @@ export {
   getAverageFrameTime,
   getMemoryBudgets,
   getOverBudgetCount,
-  installPerfDiagnosticsHandle,
+  getSnapMetrics,
+  getSnapMetricsCount,
+  isSnapMetricsEnabled,
   recordFrame,
+  recordSnapMetrics,
   renderDrawDiagnostics,
+  resetSnapMetrics,
   startFrameTiming,
+  summarizeSnapMetrics,
 };
+
+export function installPerfDiagnosticsHandle(): void {
+  // The draw-diagnostics handle also flips snap metrics on so interaction
+  // probes reading window.__strataPerf see both frame and snap candidates.
+  // Gated to the same explicit ?perf=1 opt-in as the frame diagnostics.
+  if (typeof window !== 'undefined' && window.location.search.includes('perf=1')) {
+    enableSnapMetrics(true);
+  }
+  installDrawDiagnosticsHandle();
+}
 
 export function createCanvasFrameKey(scope: string): string {
   return createEditorFrameKey(`canvas-${scope}`);

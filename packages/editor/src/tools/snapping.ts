@@ -105,13 +105,17 @@ export function filterSnapTargets(
   }>,
   parentIndex: Map<string, string | null>,
   draggedId: string,
+  excludedIds?: ReadonlySet<string>,
 ): Array<{ x: number; y: number; w: number; h: number }> {
   const draggedParent = parentIndex.get(draggedId) ?? null;
   const draggedScreen = screenBounds(draggedBounds, camera);
   const results: Array<{ x: number; y: number; w: number; h: number; priority: number }> = [];
 
   for (const entry of allBounds) {
+    // Semantic filter: the dragged object, every sibling moving in the same
+    // selection, and any explicitly excluded node can never be a valid target.
     if (entry.nodeId === draggedId) continue;
+    if (excludedIds?.has(entry.nodeId)) continue;
     const targetScreen = screenBounds(entry.bounds, camera);
     if (!intersect(draggedScreen, targetScreen)) continue;
     const targetParent = parentIndex.get(entry.nodeId) ?? null;
@@ -160,6 +164,77 @@ function compete(
   bestDiff: number,
 ): boolean {
   return candidatePrio > bestPrio || (candidatePrio === bestPrio && candidateDiff < bestDiff);
+}
+
+/**
+ * Binary-search the index whose sorted value is closest to `target`, excluding
+ * `exclude`. Ties resolve to the smallest original index, matching the
+ * pair-scan iteration order of the canonical O(k²) evaluators this replaces.
+ * Returns -1 when the only candidate is the excluded index itself.
+ */
+function findClosest(sorted: number[], order: number[], target: number, exclude: number): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid]! < target) lo = mid + 1;
+    else hi = mid;
+  }
+  let best = -1;
+  let bestDiff = Infinity;
+  for (const idx of [lo - 1, lo]) {
+    if (idx < 0 || idx >= sorted.length) continue;
+    const orig = order[idx]!;
+    if (orig === exclude) continue;
+    const d = Math.abs(sorted[idx]! - target);
+    if (best === -1 || d < bestDiff || (d === bestDiff && orig < order[best]!)) {
+      best = idx;
+      bestDiff = d;
+    }
+  }
+  return best === -1 ? -1 : order[best]!;
+}
+
+/**
+ * Find the partner index minimizing |sorted[idx] - target| among entries with
+ * value strictly greater than `min` (used for gap snap candidates that must
+ * straddle the moving center). Same tie-breaking as {@link findClosest}.
+ */
+function findClosestGap(
+  sorted: number[],
+  order: number[],
+  target: number,
+  exclude: number,
+  min: number,
+): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid]! <= min) lo = mid + 1;
+    else hi = mid;
+  }
+  const start = lo;
+  lo = start;
+  hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sorted[mid]! < target) lo = mid + 1;
+    else hi = mid;
+  }
+  let best = -1;
+  let bestDiff = Infinity;
+  for (const idx of [lo - 1, lo]) {
+    if (idx < start || idx >= sorted.length) continue;
+    const orig = order[idx]!;
+    if (orig === exclude) continue;
+    const d = Math.abs(sorted[idx]! - target);
+    if (best === -1 || d < bestDiff || (d === bestDiff && orig < order[best]!)) {
+      best = idx;
+      bestDiff = d;
+    }
+  }
+  return best === -1 ? -1 : order[best]!;
 }
 
 function snapCoordToGrid(value: number, spacing: number, offset = 0): number {
@@ -317,27 +392,55 @@ export function snapPosition(
     }
   }
 
-  // C3: Mid-point between two objects
-  for (let i = 0; i < activeBounds.length; i++) {
-    const a = activeBounds[i]!;
-    for (let j = i + 1; j < activeBounds.length; j++) {
-      const b = activeBounds[j]!;
-      const midX = (a.x + a.w / 2 + b.x + b.w / 2) / 2;
-      const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
-      const dmx = Math.abs(cx - midX);
-      const dmy = Math.abs(cy - midY);
-      const prio = SNAP_PRIORITY.midpoint;
-      if (dmx < thresh && compete(prio, dmx, bestXPriority, bestXDiff)) {
-        bestXDiff = dmx;
-        bestXSnap = x - (cx - midX);
-        bestXGuide = { axis: 'vertical', position: midX, type: 'midpoint', label: 'mid' };
-        bestXPriority = prio;
+  // C3: Mid-point between two objects. The canonical evaluation scans every
+  // unordered pair (O(k²)); the criterion is symmetric, so the winning pair
+  // is found by sorting centers once and, per node, binary-searching the
+  // partner whose center is closest to (2*cx - center) — O(k log k) with
+  // identical winners (verified against the pair scan by the parity tests in
+  // tools/__benchmarks__/snapParity.bench.test.ts).
+  if (activeBounds.length > 1) {
+    const n = activeBounds.length;
+    const centersX: number[] = new Array(n);
+    const centersY: number[] = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const b = activeBounds[i]!;
+      centersX[i] = b.x + b.w / 2;
+      centersY[i] = b.y + b.h / 2;
+    }
+    const xOrder = Array.from({ length: n }, (_, i) => i).sort(
+      (i, j) => centersX[i]! - centersX[j]!,
+    );
+    const yOrder = Array.from({ length: n }, (_, i) => i).sort(
+      (i, j) => centersY[i]! - centersY[j]!,
+    );
+    const sortedX = xOrder.map((i) => centersX[i]!);
+    const sortedY = yOrder.map((i) => centersY[i]!);
+    const prio = SNAP_PRIORITY.midpoint;
+
+    for (let i = 0; i < n; i++) {
+      const xTarget = 2 * cx - centersX[i]!;
+      const xPartner = findClosest(sortedX, xOrder, xTarget, i);
+      if (xPartner !== -1) {
+        const midX = (centersX[i]! + centersX[xPartner]!) / 2;
+        const dmx = Math.abs(cx - midX);
+        if (dmx < thresh && compete(prio, dmx, bestXPriority, bestXDiff)) {
+          bestXDiff = dmx;
+          bestXSnap = x - (cx - midX);
+          bestXGuide = { axis: 'vertical', position: midX, type: 'midpoint', label: 'mid' };
+          bestXPriority = prio;
+        }
       }
-      if (dmy < thresh && compete(prio, dmy, bestYPriority, bestYDiff)) {
-        bestYDiff = dmy;
-        bestYSnap = y - (cy - midY);
-        bestYGuide = { axis: 'horizontal', position: midY, type: 'midpoint', label: 'mid' };
-        bestYPriority = prio;
+      const yTarget = 2 * cy - centersY[i]!;
+      const yPartner = findClosest(sortedY, yOrder, yTarget, i);
+      if (yPartner !== -1) {
+        const midY = (centersY[i]! + centersY[yPartner]!) / 2;
+        const dmy = Math.abs(cy - midY);
+        if (dmy < thresh && compete(prio, dmy, bestYPriority, bestYDiff)) {
+          bestYDiff = dmy;
+          bestYSnap = y - (cy - midY);
+          bestYGuide = { axis: 'horizontal', position: midY, type: 'midpoint', label: 'mid' };
+          bestYPriority = prio;
+        }
       }
     }
   }
@@ -443,52 +546,83 @@ export function snapPosition(
     else session = { ...session, stickyY: null };
   }
 
-  // C4: Spacing distribution (lowest priority)
-  const xGaps: { mid: number; gap: number }[] = [];
-  const yGaps: { mid: number; gap: number }[] = [];
-  for (const a of otherBounds) {
-    for (const b of otherBounds) {
-      if (a === b) continue;
-      const gapX = b.x - (a.x + a.w);
-      if (gapX > 0 && a.x + a.w < cx && b.x > cx) {
-        xGaps.push({ mid: (a.x + a.w + b.x) / 2, gap: gapX });
-      }
-      const gapY = b.y - (a.y + a.h);
-      if (gapY > 0 && a.y + a.h < cy && b.y > cy) {
-        yGaps.push({ mid: (a.y + a.h + b.y) / 2, gap: gapY });
+  // C4: Spacing distribution (lowest priority). The canonical evaluation is
+  // O(k²) over every ordered pair (a,b) with a.right < cx < b.left. Because
+  // |gap - (mid - cx)| equals |b.left - 3*a.right + 2*cx| / 2, the best b for
+  // a fixed a is the left edge closest to (3*a.right - 2*cx) among left edges
+  // > cx — a sorted binary search, reducing the rule to O(k log k) with
+  // identical winners (parity-verified).
+  if (otherBounds.length > 1) {
+    const n = otherBounds.length;
+    const rightEdges: number[] = new Array(n);
+    const bottomEdges: number[] = new Array(n);
+    const leftEdges: number[] = new Array(n);
+    const topEdges: number[] = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const b = otherBounds[i]!;
+      rightEdges[i] = b.x + b.w;
+      bottomEdges[i] = b.y + b.h;
+      leftEdges[i] = b.x;
+      topEdges[i] = b.y;
+    }
+    const xOrder = Array.from({ length: n }, (_, i) => i).sort(
+      (i, j) => leftEdges[i]! - leftEdges[j]!,
+    );
+    const yOrder = Array.from({ length: n }, (_, i) => i).sort(
+      (i, j) => topEdges[i]! - topEdges[j]!,
+    );
+    const sortedLeft = xOrder.map((i) => leftEdges[i]!);
+    const sortedTop = yOrder.map((i) => topEdges[i]!);
+    const prio = SNAP_PRIORITY.spacing;
+
+    let bestXGap: { mid: number; gap: number; obj: number } | null = null;
+    for (let i = 0; i < n; i++) {
+      const ra = rightEdges[i]!;
+      if (!(ra < cx)) continue;
+      const target = 3 * ra - 2 * cx;
+      const j = findClosestGap(sortedLeft, xOrder, target, i, cx);
+      if (j === -1) continue;
+      const mid = (ra + leftEdges[j]!) / 2;
+      const gap = leftEdges[j]! - ra;
+      const obj = Math.abs(gap - (mid - cx));
+      if (bestXGap === null || obj < bestXGap.obj) bestXGap = { mid, gap, obj };
+    }
+    if (bestXGap) {
+      const dmx = Math.abs(cx - bestXGap.mid);
+      if (dmx < thresh * 3 && compete(prio, dmx, bestXPriority, bestXDiff)) {
+        snappedX = x - (cx - bestXGap.mid);
+        guides.push({
+          axis: 'vertical',
+          position: bestXGap.mid,
+          type: 'spacing',
+          label: `${Math.round(bestXGap.gap)}px`,
+        });
       }
     }
-  }
-  if (xGaps.length > 0) {
-    const best = xGaps.reduce((a, b) =>
-      Math.abs(a.gap - (a.mid - cx)) < Math.abs(b.gap - (b.mid - cx)) ? a : b,
-    );
-    const dmx = Math.abs(cx - best.mid);
-    const prio = SNAP_PRIORITY.spacing;
-    if (dmx < thresh * 3 && compete(prio, dmx, bestXPriority, bestXDiff)) {
-      snappedX = x - (cx - best.mid);
-      guides.push({
-        axis: 'vertical',
-        position: best.mid,
-        type: 'spacing',
-        label: `${Math.round(best.gap)}px`,
-      });
+
+    let bestYGap: { mid: number; gap: number; obj: number } | null = null;
+    for (let i = 0; i < n; i++) {
+      const ba = bottomEdges[i]!;
+      if (!(ba < cy)) continue;
+      const target = 3 * ba - 2 * cy;
+      const j = findClosestGap(sortedTop, yOrder, target, i, cy);
+      if (j === -1) continue;
+      const mid = (ba + topEdges[j]!) / 2;
+      const gap = topEdges[j]! - ba;
+      const obj = Math.abs(gap - (mid - cy));
+      if (bestYGap === null || obj < bestYGap.obj) bestYGap = { mid, gap, obj };
     }
-  }
-  if (yGaps.length > 0) {
-    const best = yGaps.reduce((a, b) =>
-      Math.abs(a.gap - (a.mid - cy)) < Math.abs(b.gap - (b.mid - cy)) ? a : b,
-    );
-    const dmy = Math.abs(cy - best.mid);
-    const prio = SNAP_PRIORITY.spacing;
-    if (dmy < thresh * 3 && compete(prio, dmy, bestYPriority, bestYDiff)) {
-      snappedY = y - (cy - best.mid);
-      guides.push({
-        axis: 'horizontal',
-        position: best.mid,
-        type: 'spacing',
-        label: `${Math.round(best.gap)}px`,
-      });
+    if (bestYGap) {
+      const dmy = Math.abs(cy - bestYGap.mid);
+      if (dmy < thresh * 3 && compete(prio, dmy, bestYPriority, bestYDiff)) {
+        snappedY = y - (cy - bestYGap.mid);
+        guides.push({
+          axis: 'horizontal',
+          position: bestYGap.mid,
+          type: 'spacing',
+          label: `${Math.round(bestYGap.gap)}px`,
+        });
+      }
     }
   }
 
