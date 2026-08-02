@@ -420,9 +420,18 @@ mod tests {
     fn print_profile_parse_is_case_insensitive() {
         assert_eq!(PrintProfile::parse("Fogra39"), Some(PrintProfile::Fogra39));
         assert_eq!(PrintProfile::parse("fogra39"), Some(PrintProfile::Fogra39));
-        assert_eq!(PrintProfile::parse("ISO Coated v2"), Some(PrintProfile::Fogra39));
-        assert_eq!(PrintProfile::parse("GRACoL2006"), Some(PrintProfile::Gracol2006));
-        assert_eq!(PrintProfile::parse("swop_coated"), Some(PrintProfile::SwopCoated));
+        assert_eq!(
+            PrintProfile::parse("ISO Coated v2"),
+            Some(PrintProfile::Fogra39)
+        );
+        assert_eq!(
+            PrintProfile::parse("GRACoL2006"),
+            Some(PrintProfile::Gracol2006)
+        );
+        assert_eq!(
+            PrintProfile::parse("swop_coated"),
+            Some(PrintProfile::SwopCoated)
+        );
         assert_eq!(PrintProfile::parse("NoSuchProfile"), None);
         assert_eq!(PrintProfile::parse(""), None);
     }
