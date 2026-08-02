@@ -14,7 +14,6 @@ const FORMAT_OPTIONS: { value: ExportFormat; label: string }[] = [
   { value: 'png', label: 'PNG' },
   { value: 'jpg', label: 'JPEG' },
   { value: 'webp', label: 'WebP' },
-  { value: 'avif', label: 'AVIF' },
   { value: 'svg', label: 'SVG' },
   { value: 'pdf-screen', label: 'PDF (Screen)' },
   { value: 'pdf-x1a', label: 'PDF/X-1a' },

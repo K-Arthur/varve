@@ -214,6 +214,13 @@ export interface SvgExportOptions {
    */
   preserveColorSpace?: boolean;
   /**
+   * Minify the output: strip newlines and indentation between tags so the
+   * file is smaller at the cost of readability. Text content is preserved
+   * (whitespace runs between tags are removed only when the gap contains no
+   * other characters).
+   */
+  minify?: boolean;
+  /**
    * Pre-rasterized image assets for nodes that use effects which
    * SVG 1.1 cannot represent natively (adjustment layers with
    * curves/levels/halftone/duotone/blackAndWhite/posterize/threshold
@@ -221,6 +228,19 @@ export interface SvgExportOptions {
    * an `<image>` element instead of silently dropping the node.
    */
   rasterAssets?: Record<string, import('./types').RasterAsset>;
+}
+
+/**
+ * Conservative SVG minifier: removes newlines and the pretty-printing
+ * indentation between tags. It never touches text content — whitespace is only
+ * collapsed when the gap between two tags contains nothing else.
+ */
+export function minifySvg(svg: string): string {
+  return svg
+    .split('\n')
+    .map((line) => line.trim())
+    .join('')
+    .replace(/>\s+</g, '><');
 }
 
 interface SvgBounds {
@@ -1102,7 +1122,7 @@ export function exportNodeToSvg(
     opts?.preserveColorSpace ?? false,
     rasterAssets,
   );
-  return [
+  const svg = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,
     `  <rect width="100%" height="100%" fill="#ffffff" />`,
@@ -1111,6 +1131,7 @@ export function exportNodeToSvg(
     `</svg>`,
     '',
   ].join('\n');
+  return opts?.minify ? minifySvg(svg) : svg;
 }
 
 /**
