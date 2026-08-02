@@ -66,4 +66,33 @@ describe('worker ImageBitmap lifecycle', () => {
 
     expect(first.close).toHaveBeenCalledOnce();
   });
+
+  it('caps the number of decoded fills per transfer', async () => {
+    const bmps = [bitmap(vi.fn()), bitmap(vi.fn()), bitmap(vi.fn())];
+    getImageCache().setLoaded('a.png', image('a.png'));
+    getImageCache().setLoaded('b.png', image('b.png'));
+    getImageCache().setLoaded('c.png', image('c.png'));
+    globalThis.createImageBitmap = vi
+      .fn()
+      .mockResolvedValueOnce(bmps[0])
+      .mockResolvedValueOnce(bmps[1])
+      .mockResolvedValueOnce(bmps[2]);
+
+    await expect(
+      collectImageBitmaps([imageItem('a.png', 'b.png', 'c.png')], { maxEntries: 2 }),
+    ).resolves.toBeNull();
+    expect(bmps[0]!.close).toHaveBeenCalledOnce();
+    expect(bmps[1]!.close).toHaveBeenCalledOnce();
+    expect(bmps[2]!.close).not.toHaveBeenCalled();
+  });
+
+  it('reports the estimated bytes of the collected map', async () => {
+    const bmp = { width: 40, height: 30, close: vi.fn() } as unknown as ImageBitmap;
+    getImageCache().setLoaded('a.png', image('a.png'));
+    globalThis.createImageBitmap = vi.fn().mockResolvedValue(bmp);
+
+    const collected = await collectImageBitmaps([imageItem('a.png')]);
+    expect(collected).not.toBeNull();
+    expect(collected!.bytes).toBe(40 * 30 * 4);
+  });
 });

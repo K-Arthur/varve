@@ -3,6 +3,7 @@
  */
 import type { RenderItem } from '@strata/engine';
 import { getImageCache } from '@strata/engine';
+import { estimateRgbaBytes } from './renderBitmapBudget';
 
 /** Close every distinct ImageBitmap in a map. */
 export function closeImageBitmapMap(images: Readonly<Record<string, ImageBitmap>>): void {
@@ -55,17 +56,30 @@ export function imageSrcsFromIr(ir: RenderItem[]): string[] {
 
 /**
  * Load all image fills from ImageCache and produce transferable ImageBitmaps.
- * Returns null when any required src is not yet loaded (caller keeps main-thread path).
+ * Returns null when any required src is not yet loaded (caller keeps main-thread path)
+ * or when the transfer would exceed the entry cap (caller falls back to main-thread).
  */
+export interface CollectImageBitmapsOptions {
+  /** Cap the number of distinct image fills decoded for one transfer. */
+  maxEntries?: number;
+}
+
 export async function collectImageBitmaps(
   ir: RenderItem[],
-): Promise<{ images: Record<string, ImageBitmap>; transfer: Transferable[] } | null> {
+  options: CollectImageBitmapsOptions = {},
+): Promise<{
+  images: Record<string, ImageBitmap>;
+  transfer: Transferable[];
+  bytes: number;
+} | null> {
   const srcs = imageSrcsFromIr(ir);
-  if (srcs.length === 0) return { images: {}, transfer: [] };
+  if (srcs.length === 0) return { images: {}, transfer: [], bytes: 0 };
 
   const cache = getImageCache();
   const images: Record<string, ImageBitmap> = {};
   const transfer: Transferable[] = [];
+  const maxEntries = options.maxEntries ?? Number.POSITIVE_INFINITY;
+  let bytes = 0;
 
   const fail = (): null => {
     closeImageBitmapMap(images);
@@ -73,6 +87,7 @@ export async function collectImageBitmaps(
   };
 
   for (const src of srcs) {
+    if (Object.keys(images).length >= maxEntries) return fail();
     if (!cache.isLoaded(src)) {
       void cache.load(src).catch(() => undefined);
       return fail();
@@ -83,10 +98,11 @@ export async function collectImageBitmaps(
       const bitmap = await createImageBitmap(img);
       images[src] = bitmap;
       transfer.push(bitmap);
+      bytes += estimateRgbaBytes(bitmap.width, bitmap.height);
     } catch {
       return fail();
     }
   }
 
-  return { images, transfer };
+  return { images, transfer, bytes };
 }

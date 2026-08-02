@@ -4,6 +4,15 @@
 import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@strata/shared';
 import { closeImageBitmapMap } from './collectImageBitmaps';
+import {
+  type BitmapBudgetState,
+  estimateImagesBytes,
+  estimateRgbaBytes,
+  RenderBitmapBudget,
+} from './renderBitmapBudget';
+
+/** Default byte budget for main-thread-visible render-worker bitmaps. */
+export const DEFAULT_WORKER_BITMAP_BUDGET_BYTES = 128 * 1024 * 1024;
 
 export interface WorkerRenderCommand {
   type: 'render';
@@ -49,12 +58,20 @@ export interface RenderWorkerHost {
   readonly resizeGeneration: number;
   readonly inFlightRenderRevision: RenderRevision | null;
   readonly pendingRenderRevision: RenderRevision | null;
+  readonly bitmapBudget: RenderBitmapBudget;
+  getBitmapBudgetState(): BitmapBudgetState;
+}
+
+export interface RenderWorkerHostOptions {
+  /** Byte budget for main-thread-visible worker bitmaps (0 disables admission). */
+  budgetBytes?: number;
 }
 
 type NormalizedRenderCommand = WorkerRenderCommand & { renderRevision: RenderRevision };
 interface PendingRender {
   command: NormalizedRenderCommand;
   transfer?: Transferable[];
+  transferBytes: number;
 }
 
 function normalizeRenderCommand(command: WorkerRenderCommand): NormalizedRenderCommand {
@@ -68,6 +85,7 @@ function normalizeRenderCommand(command: WorkerRenderCommand): NormalizedRenderC
 export function createRenderWorkerHost(
   onResponse: (msg: WorkerResponse) => void,
   onPermanentFailure?: () => void,
+  options: RenderWorkerHostOptions = {},
 ): RenderWorkerHost | null {
   // OffscreenCanvas support is not uniform across the webview engines this app
   // ships on — current research (2026-07) found WebKitGTK's OffscreenCanvas
@@ -91,11 +109,16 @@ export function createRenderWorkerHost(
   let lastRenderCommand: NormalizedRenderCommand | null = null;
   let lastRenderUsedTransfer = false;
   let inFlightRenderRevision: RenderRevision | null = null;
+  let inFlightTransferBytes = 0;
+  let lastForwardedFrameBytes = 0;
   let pendingRender: PendingRender | null = null;
   let latestRequestedRevision: RenderRevision | null = null;
   let latestFrameIdentity: { viewport: Viewport; dpr: number } | null = null;
   let restartTimeout: ReturnType<typeof setTimeout> | null = null;
   const maxRestarts = 5;
+  const bitmapBudget = new RenderBitmapBudget(
+    options.budgetBytes ?? DEFAULT_WORKER_BITMAP_BUDGET_BYTES,
+  );
 
   function closeCommandResources(command: WorkerCommand): void {
     if (command.type === 'render' && command.images) closeImageBitmapMap(command.images);
@@ -104,10 +127,16 @@ export function createRenderWorkerHost(
   function closePendingRender(): void {
     if (!pendingRender) return;
     closeCommandResources(pendingRender.command);
+    bitmapBudget.releaseTransfer(pendingRender.transferBytes);
     pendingRender = null;
   }
 
   function closeResponseResources(response: WorkerResponse): void {
+    // Only close — never touch the resident accounting. Resident bytes track
+    // the single forwarded frame bitmap and are released via
+    // accountResidentFrame/releaseAllReservations; frames dropped here were
+    // never forwarded, so releasing resident for them would under-count the
+    // live frame.
     if (response.type === 'frameRendered') response.bitmap?.close();
   }
 
@@ -126,9 +155,19 @@ export function createRenderWorkerHost(
     workerGen++;
     closePendingRender();
     inFlightRenderRevision = null;
+    inFlightTransferBytes = 0;
     lastRenderCommand = null;
     lastRenderUsedTransfer = false;
+    releaseAllReservations();
     onPermanentFailure?.();
+  }
+
+  /** Release every main-thread bitmap reservation the host still holds. */
+  function releaseAllReservations(): void {
+    if (inFlightTransferBytes > 0) bitmapBudget.releaseTransfer(inFlightTransferBytes);
+    inFlightTransferBytes = 0;
+    if (lastForwardedFrameBytes > 0) bitmapBudget.releaseResident(lastForwardedFrameBytes);
+    lastForwardedFrameBytes = 0;
   }
 
   function frameIdentityMatches(response: Extract<WorkerResponse, { type: 'frameRendered' }>) {
@@ -143,6 +182,7 @@ export function createRenderWorkerHost(
   function dispatchRender(render: PendingRender): boolean {
     if (!worker || permanentFailure) {
       closeCommandResources(render.command);
+      bitmapBudget.releaseTransfer(render.transferBytes);
       return false;
     }
     try {
@@ -153,9 +193,12 @@ export function createRenderWorkerHost(
       }
     } catch {
       closeCommandResources(render.command);
+      bitmapBudget.releaseTransfer(render.transferBytes);
       markPermanentFailure();
       return false;
     }
+    bitmapBudget.commitTransfer(render.transferBytes);
+    inFlightTransferBytes = render.transferBytes;
     inFlightRenderRevision = render.command.renderRevision;
     lastRenderUsedTransfer = Boolean(render.transfer?.length);
     // Transferred or cloned ImageBitmaps cannot be replayed safely after a
@@ -193,8 +236,22 @@ export function createRenderWorkerHost(
             lastRenderResizeGeneration !== resizeGeneration ||
             !frameIdentityMatches(msg);
           inFlightRenderRevision = null;
+          // The completed render's outbound ImageBitmaps are now worker-held;
+          // release the main-thread reservation so a long drag cannot accrue
+          // reservations faster than frames complete.
+          if (inFlightTransferBytes > 0) {
+            bitmapBudget.releaseTransfer(inFlightTransferBytes);
+            inFlightTransferBytes = 0;
+          }
           if (obsolete) closeResponseResources(msg);
-          else onResponse(msg);
+          else {
+            if (msg.bitmap) {
+              const frameBytes = estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height);
+              bitmapBudget.accountResidentFrame(frameBytes, lastForwardedFrameBytes);
+              lastForwardedFrameBytes = frameBytes;
+            }
+            onResponse(msg);
+          }
           dispatchPendingRender();
           return;
         }
@@ -282,14 +339,23 @@ export function createRenderWorkerHost(
           closeCommandResources(normalized);
           return false;
         }
+        const transferBytes = estimateImagesBytes(normalized.images ?? {});
+        // Admission control: refuse the render up front when its image
+        // transfer would blow the worker-bitmap budget. The caller falls back
+        // to the main-thread path, which already holds these images in
+        // ImageCache, so nothing is lost.
+        if (!bitmapBudget.tryReserveTransfer(transferBytes)) {
+          closeCommandResources(normalized);
+          return false;
+        }
         latestRequestedRevision = normalized.renderRevision;
         latestFrameIdentity = { viewport: normalized.viewport, dpr: normalized.dpr };
         if (inFlightRenderRevision !== null) {
           closePendingRender();
-          pendingRender = { command: normalized, transfer };
+          pendingRender = { command: normalized, transfer, transferBytes };
           return true;
         }
-        return dispatchRender({ command: normalized, transfer });
+        return dispatchRender({ command: normalized, transfer, transferBytes });
       }
       try {
         if (transfer?.length) {
@@ -304,6 +370,10 @@ export function createRenderWorkerHost(
       }
       if (command.type === 'resize') {
         resizeGeneration++;
+        // Account the worker's OffscreenCanvas backing store for diagnostics.
+        bitmapBudget.setWorkerCanvasBytes(
+          estimateRgbaBytes(command.width * command.dpr, command.height * command.dpr),
+        );
       }
       return true;
     },
@@ -315,8 +385,16 @@ export function createRenderWorkerHost(
       workerGen++;
       closePendingRender();
       inFlightRenderRevision = null;
+      inFlightTransferBytes = 0;
       lastRenderCommand = null;
       lastRenderUsedTransfer = false;
+      releaseAllReservations();
+    },
+    getBitmapBudgetState() {
+      return bitmapBudget.state;
+    },
+    get bitmapBudget() {
+      return bitmapBudget;
     },
   };
 }
