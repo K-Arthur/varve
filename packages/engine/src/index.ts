@@ -564,6 +564,29 @@ export {
 } from './maskCompositing';
 export type { MeshControlPoint, MeshTriangle, MeshWarp, MeshWarpCell } from './meshWarp';
 export { createFlatMesh, renderWarpGrid, warpMesh, warpPath, warpPosition } from './meshWarp';
+export type { ExifOrientation } from './metadata/exif';
+export {
+  applyExifOrientation,
+  isValidExifOrientation,
+  orientationAfterApply,
+  parseExifOrientation,
+} from './metadata/exif';
+export type { PngChunkInfo, PngTextEntry } from './metadata/png';
+export {
+  buildPngChunk,
+  canDeflate,
+  insertPngIccp,
+  insertPngTextChunks,
+  isPng,
+  readPngChunks,
+  stripPngMetadata,
+} from './metadata/png';
+export type { MetadataContent, ResolveMetadataOptions } from './metadata/policy';
+export {
+  metadataToPngEntries,
+  policyKeepsSensitiveData,
+  resolveMetadataContent,
+} from './metadata/policy';
 export type { NonSeparableMode } from './nonSeparable';
 export {
   blendColorLch,
