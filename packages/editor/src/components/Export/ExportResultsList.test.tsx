@@ -82,4 +82,34 @@ describe('ExportResultsList', () => {
     );
     expect(screen.queryByRole('button', { name: /retry failed/i })).toBeNull();
   });
+
+  it('reveals the first successfully saved output when the platform supports it', () => {
+    const onRevealOutput = vi.fn(async () => {});
+    render(
+      <ExportResultsList
+        files={[
+          makeFile({ savedPath: '/exports/rect.png' }),
+          makeFile({ fileName: 'rect2.png', savedPath: '/exports/rect2.png' }),
+        ]}
+        onRevealOutput={onRevealOutput}
+        revealOutputLabel="Reveal in Files"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reveal in Files' }));
+    expect(onRevealOutput).toHaveBeenCalledOnce();
+    expect(onRevealOutput).toHaveBeenCalledWith('/exports/rect.png');
+  });
+
+  it('omits reveal when no successful result has a saved path', () => {
+    render(
+      <ExportResultsList
+        files={[makeFile()]}
+        onRevealOutput={vi.fn(async () => {})}
+        revealOutputLabel="Reveal in Files"
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Reveal in Files' })).toBeNull();
+  });
 });
