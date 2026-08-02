@@ -120,6 +120,26 @@ export function queryRect(
   rect: { x: number; y: number; w: number; h: number },
 ): Set<NodeId> {
   const result = new Set<NodeId>();
+  const startCx = Math.floor(rect.x / CELL_SIZE);
+  const endCx = Math.floor((rect.x + rect.w) / CELL_SIZE);
+  const startCy = Math.floor(rect.y / CELL_SIZE);
+  const endCy = Math.floor((rect.y + rect.h) / CELL_SIZE);
+  const queryCellCount = (endCx - startCx + 1) * (endCy - startCy + 1);
+
+  // Zoomed-out viewports can cover millions of mostly empty cells. Once the
+  // theoretical query grid is larger than the occupied index, scan occupied
+  // cells instead; both paths return the same cell-level candidate union.
+  if (queryCellCount > index.grid.size) {
+    for (const [key, ids] of index.grid) {
+      const separator = key.indexOf(',');
+      const cx = Number(key.slice(0, separator));
+      const cy = Number(key.slice(separator + 1));
+      if (cx < startCx || cx > endCx || cy < startCy || cy > endCy) continue;
+      for (const id of ids) result.add(id);
+    }
+    return result;
+  }
+
   const cells = rectCells(rect);
   for (const key of cells) {
     const ids = index.grid.get(key);
