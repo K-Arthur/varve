@@ -266,10 +266,23 @@ impl Default for Stroke {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelOffset {
+    pub red_x: f64,
+    pub red_y: f64,
+    pub green_x: f64,
+    pub green_y: f64,
+    pub blue_x: f64,
+    pub blue_y: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all_fields = "camelCase")]
 pub enum Effect {
     #[serde(rename = "dropShadow")]
     DropShadow {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         x: f64,
         y: f64,
         blur: f64,
@@ -282,6 +295,8 @@ pub enum Effect {
     },
     #[serde(rename = "innerShadow")]
     InnerShadow {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         x: f64,
         y: f64,
         blur: f64,
@@ -293,11 +308,23 @@ pub enum Effect {
         visible: bool,
     },
     #[serde(rename = "layerBlur")]
-    LayerBlur { radius: f64, visible: bool },
+    LayerBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        radius: f64,
+        visible: bool,
+    },
     #[serde(rename = "backgroundBlur")]
-    BackgroundBlur { radius: f64, visible: bool },
+    BackgroundBlur {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        radius: f64,
+        visible: bool,
+    },
     #[serde(rename = "outerGlow")]
     OuterGlow {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         blur: f64,
         spread: f64,
         color: EngineColor,
@@ -308,6 +335,8 @@ pub enum Effect {
     },
     #[serde(rename = "innerGlow")]
     InnerGlow {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         blur: f64,
         spread: f64,
         color: EngineColor,
@@ -318,6 +347,8 @@ pub enum Effect {
     },
     #[serde(rename = "glassMaterial")]
     GlassMaterial {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
         blur: f64,
         tint: EngineColor,
         tint_opacity: f64,
@@ -328,6 +359,37 @@ pub enum Effect {
         edge_highlight_width: f64,
         edge_highlight_color: EngineColor,
         edge_highlight_opacity: f64,
+        visible: bool,
+    },
+    #[serde(rename = "chromaticAberration")]
+    ChromaticAberration {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        offsets: ChannelOffset,
+        intensity: f64,
+        blend_mode: BlendMode,
+        opacity: f64,
+        visible: bool,
+    },
+    #[serde(rename = "glitch")]
+    Glitch {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        seed: f64,
+        strength: f64,
+        density: f64,
+        slice_height: f64,
+        block_count: f64,
+        block_size: f64,
+        block_strength: f64,
+        noise_intensity: f64,
+        scanline_intensity: f64,
+        scanline_spacing: f64,
+        direction: String,
+        channel_shift: ChannelOffset,
+        channel_shift_mode: String,
+        blend_mode: BlendMode,
+        opacity: f64,
         visible: bool,
     },
 }
@@ -558,6 +620,73 @@ mod tests {
         assert!(normalized.get("imageWidth").is_none());
         assert!(normalized.get("imageHeight").is_none());
         assert!(normalized.get("alphaMask").is_none());
+    }
+
+    #[test]
+    fn effects_round_trip_typescript_schema_and_stable_ids() {
+        let wire = serde_json::json!([
+            {
+                "type": "glassMaterial",
+                "id": "glass-1",
+                "blur": 12.0,
+                "tint": { "space": "rgb", "r": 200.0, "g": 220.0, "b": 255.0, "a": 60.0 },
+                "tintOpacity": 0.3,
+                "saturation": 1.2,
+                "brightness": 1.05,
+                "noise": 0.02,
+                "edgeHighlight": true,
+                "edgeHighlightWidth": 1.5,
+                "edgeHighlightColor": { "space": "rgb", "r": 255.0, "g": 255.0, "b": 255.0, "a": 120.0 },
+                "edgeHighlightOpacity": 0.4,
+                "visible": true
+            },
+            {
+                "type": "chromaticAberration",
+                "id": "chromatic-1",
+                "offsets": { "redX": 3.0, "redY": 0.0, "greenX": 0.0, "greenY": 0.0, "blueX": -3.0, "blueY": 0.0 },
+                "intensity": 1.0,
+                "blendMode": "normal",
+                "opacity": 1.0,
+                "visible": true
+            },
+            {
+                "type": "glitch",
+                "id": "glitch-1",
+                "seed": 42.0,
+                "strength": 8.0,
+                "density": 0.2,
+                "sliceHeight": 4.0,
+                "blockCount": 8.0,
+                "blockSize": 12.0,
+                "blockStrength": 6.0,
+                "noiseIntensity": 0.1,
+                "scanlineIntensity": 0.2,
+                "scanlineSpacing": 4.0,
+                "direction": "horizontal",
+                "channelShift": { "redX": 2.0, "redY": 0.0, "greenX": 0.0, "greenY": 0.0, "blueX": -2.0, "blueY": 0.0 },
+                "channelShiftMode": "seeded",
+                "blendMode": "screen",
+                "opacity": 0.8,
+                "visible": true
+            }
+        ]);
+
+        let decoded: Vec<Effect> = serde_json::from_value(wire.clone()).expect("decode effects");
+        let encoded = serde_json::to_value(decoded).expect("encode effects");
+        assert_eq!(encoded, wire);
+    }
+
+    #[test]
+    fn legacy_effect_without_id_remains_backward_compatible() {
+        let wire = serde_json::json!({
+            "type": "layerBlur",
+            "radius": 8.0,
+            "visible": true
+        });
+
+        let decoded: Effect = serde_json::from_value(wire.clone()).expect("decode legacy effect");
+        let encoded = serde_json::to_value(decoded).expect("encode legacy effect");
+        assert_eq!(encoded, wire);
     }
 
     #[test]

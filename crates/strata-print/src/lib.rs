@@ -1586,12 +1586,16 @@ fn render_effects(
                     buf.extend(b"% innerShadow (not rendered in basic PDF)\n");
                 }
             }
-            Effect::LayerBlur { radius, visible } => {
+            Effect::LayerBlur {
+                radius, visible, ..
+            } => {
                 if *visible {
                     buf.extend(format!("% layerBlur radius={radius:.2}\n").as_bytes());
                 }
             }
-            Effect::BackgroundBlur { radius, visible } => {
+            Effect::BackgroundBlur {
+                radius, visible, ..
+            } => {
                 if *visible {
                     buf.extend(format!("% backgroundBlur radius={radius:.2}\n").as_bytes());
                 }
@@ -1618,6 +1622,16 @@ fn render_effects(
                         format!("% glassMaterial blur={blur:.2} (not rendered in basic PDF)\n")
                             .as_bytes(),
                     );
+                }
+            }
+            Effect::ChromaticAberration { visible, .. } => {
+                if *visible {
+                    buf.extend(b"% chromaticAberration (not rendered in basic PDF)\n");
+                }
+            }
+            Effect::Glitch { visible, .. } => {
+                if *visible {
+                    buf.extend(b"% glitch (not rendered in basic PDF)\n");
                 }
             }
         }
@@ -4419,6 +4433,7 @@ mod tests {
     fn render_effects_dropshadow() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.effects = vec![Effect::DropShadow {
+            id: None,
             x: 5.0,
             y: 5.0,
             blur: 2.0,
@@ -4479,6 +4494,7 @@ mod tests {
     fn render_effects_inner_shadow_commented() {
         let mut node = rect_node(1, 0.0, 0.0, 100.0, 100.0);
         node.effects = vec![Effect::InnerShadow {
+            id: None,
             x: 2.0,
             y: 2.0,
             blur: 1.0,
@@ -4643,6 +4659,7 @@ mod tests {
     fn export_pdf_with_effects() {
         let mut node = rect_node(1, 10.0, 10.0, 100.0, 100.0);
         node.effects = vec![Effect::DropShadow {
+            id: None,
             x: 5.0,
             y: 5.0,
             blur: 2.0,

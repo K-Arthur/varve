@@ -25,8 +25,8 @@ pub use component::{slots_satisfied, ComponentDefinition, Slot, SlotKind};
 pub use expr::evaluate;
 pub use geom::{point_to_segment_dist_sq, rect_contains};
 pub use scene::{
-    get_parent, hit_test, walk_nodes, BlendMode, CmykFallback, CropRect, Effect, EngineColor,
-    FillIR, GradientFill, GradientStop, NodeId, SceneNode, Stroke,
+    get_parent, hit_test, walk_nodes, BlendMode, ChannelOffset, CmykFallback, CropRect, Effect,
+    EngineColor, FillIR, GradientFill, GradientStop, NodeId, SceneNode, Stroke,
 };
 pub use shape::{PathPoint, Shape};
 
