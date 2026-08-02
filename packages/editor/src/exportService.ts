@@ -57,6 +57,22 @@ export interface ExportReport {
   findings?: ExportFinding[];
 }
 
+export type ExportStage =
+  | 'preflight'
+  | 'rendering'
+  | 'encoding'
+  | 'writing'
+  | 'completed'
+  | 'failed';
+
+export interface ExportProgressEvent {
+  stage: ExportStage;
+  completed: number;
+  failed: number;
+  total: number;
+  currentFile?: string;
+}
+
 export interface ExportRunContext {
   document: Document;
   engine?: Engine | null;
@@ -66,6 +82,8 @@ export interface ExportRunContext {
     mimeType: string,
     job: ExportJob,
   ) => Promise<string | null | undefined>;
+  /** Receives actual executor transitions; never synthesized from elapsed time. */
+  onProgress?: (event: ExportProgressEvent) => void;
 }
 
 interface RenderedExport {
@@ -335,14 +353,32 @@ export const ExportService = {
     const startedAt = Date.now();
     const perfStarted = performance.now();
     const files: ExportFileReport[] = [];
+    let completedJobs = 0;
+    let failedJobs = 0;
+    const emit = (stage: ExportStage, currentFile?: string) => {
+      context.onProgress?.({
+        stage,
+        completed: completedJobs,
+        failed: failedJobs,
+        total: batch.jobs.length,
+        currentFile,
+      });
+    };
+
+    emit('preflight');
     const findings = runBatchPreflight(batch, context.document, platform);
 
     for (const job of batch.jobs) {
       assertNotAborted(signal);
       const jobStarted = performance.now();
       try {
+        emit('rendering', job.fileName);
         const rendered = await renderJob(job, context);
         assertNotAborted(signal);
+        // Render helpers return encoded bytes today. This event identifies the
+        // real encode boundary without pretending to know fractional progress.
+        emit('encoding', job.fileName);
+        emit('writing', job.fileName);
         const saved = await context.saveFile?.(
           job.fileName,
           rendered.bytes,
@@ -360,7 +396,10 @@ export const ExportService = {
           savedPath: typeof saved === 'string' ? saved : undefined,
           warnings: rendered.warnings,
         });
+        completedJobs += 1;
+        emit('completed', job.fileName);
       } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') throw err;
         files.push({
           fileName: job.fileName,
           format: job.format,
@@ -372,6 +411,8 @@ export const ExportService = {
           error: err instanceof Error ? err.message : 'Unknown export error',
           warnings: [],
         });
+        failedJobs += 1;
+        emit('failed', job.fileName);
       }
     }
 

@@ -22,6 +22,15 @@
   color: var(--color-text-muted);
   white-space: nowrap;
 }
+.export-progress__stage {
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .export-progress__errors {
   color: var(--color-feedback-danger);
 }
@@ -58,4 +67,11 @@
 /* ── High-contrast overrides ──────────────────────────── */
 [data-theme="high-contrast"] .export-progress__bar {
   border: 1px solid var(--color-border-strong);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .export-progress__fill,
+  .export-progress__cancel {
+    transition: none;
+  }
 }
