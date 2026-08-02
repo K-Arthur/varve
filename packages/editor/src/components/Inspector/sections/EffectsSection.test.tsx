@@ -638,3 +638,49 @@ describe('EffectsSection — stack actions', () => {
     expect(announce).toHaveBeenCalledWith('Effect reset');
   });
 });
+
+describe('EffectsSection — glitch displacement controls', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('exposes block strength, channel mode, and per-channel offsets', () => {
+    render(<EffectsSection nodes={[nodeWithGlitch('n1')]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /advanced/i }));
+
+    expect(screen.getByLabelText('Block Strength')).toBeTruthy();
+    expect(screen.getByLabelText('Channel shift mode')).toBeTruthy();
+    expect(screen.getByLabelText('Red X')).toBeTruthy();
+    expect(screen.getByLabelText('Green Y')).toBeTruthy();
+    expect(screen.getByLabelText('Blue X')).toBeTruthy();
+  });
+
+  it('updates a channel offset through one undo transaction', () => {
+    const node = nodeWithGlitch('n1');
+    render(<EffectsSection nodes={[node]} />);
+    fireEvent.click(screen.getByRole('button', { name: /expand glitch parameters/i }));
+    fireEvent.click(screen.getByRole('button', { name: /advanced/i }));
+    const redX = screen.getByLabelText('Red X');
+    fireEvent.change(redX, { target: { value: '12' } });
+    fireEvent.blur(redX);
+
+    expect(beginTransaction).toHaveBeenCalled();
+    expect(updateNode).toHaveBeenCalledWith('n1', expect.any(Function));
+    expect(commitTransaction).toHaveBeenCalled();
+  });
+});
