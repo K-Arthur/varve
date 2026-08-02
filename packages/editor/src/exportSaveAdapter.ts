@@ -7,6 +7,8 @@
 
 import type { Platform } from '@strata/platform';
 import type { ExportFormat, ExportJob } from '@strata/scene';
+import { sanitizeSegment } from '@strata/scene/export';
+import { zipSync } from 'fflate';
 import type { ExportRunContext } from './exportService';
 
 const FORMAT_EXTENSIONS: Partial<Record<ExportFormat, string>> = {
@@ -92,5 +94,63 @@ export function createExportSaveFile(platform?: Platform): ExportRunContext['sav
       mimeType,
       extensionForExport(fileName, mimeType, job),
     );
+  };
+}
+
+export interface BufferedExportArchive {
+  saveFile: NonNullable<ExportRunContext['saveFile']>;
+  fileCount: () => number;
+  flush: (archiveName: string) => Promise<string | null>;
+}
+
+function safeArchiveEntryPath(fileName: string): string {
+  const segments = fileName
+    .replaceAll('\\', '/')
+    .split('/')
+    .filter((segment) => segment.length > 0 && segment !== '.' && segment !== '..')
+    .map((segment) => sanitizeSegment(segment, { keepDots: true }).trim())
+    .filter(Boolean);
+  return segments.join('/') || 'export.bin';
+}
+
+/**
+ * Buffer a browser batch and deliver it as one ZIP. This prevents a batch from
+ * opening one picker or uncontrolled download per output. Only successful
+ * rendered files reach the archive because ExportService calls the sink after
+ * rendering each output.
+ */
+export function createBufferedExportArchive(platform?: Platform): BufferedExportArchive {
+  const files: Record<string, Uint8Array> = {};
+  let count = 0;
+
+  return {
+    saveFile: async (fileName, bytes) => {
+      let entry = safeArchiveEntryPath(fileName);
+      if (files[entry]) {
+        const dot = entry.lastIndexOf('.');
+        const stem = dot > 0 ? entry.slice(0, dot) : entry;
+        const extension = dot > 0 ? entry.slice(dot) : '';
+        let suffix = 2;
+        while (files[`${stem}-${suffix}${extension}`]) suffix += 1;
+        entry = `${stem}-${suffix}${extension}`;
+      }
+      files[entry] = bytes;
+      count += 1;
+      return entry;
+    },
+    fileCount: () => count,
+    flush: async (archiveName) => {
+      if (count === 0) return null;
+      const fileName = archiveName.toLowerCase().endsWith('.zip')
+        ? archiveName
+        : `${archiveName}.zip`;
+      return await saveExportBytes(
+        platform,
+        fileName,
+        zipSync(files, { level: 6 }),
+        'application/zip',
+        '.zip',
+      );
+    },
   };
 }

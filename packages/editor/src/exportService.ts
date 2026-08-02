@@ -385,6 +385,7 @@ export const ExportService = {
           rendered.mimeType,
           job,
         );
+        if (context.saveFile && saved === null) throw abortError();
         files.push({
           fileName: job.fileName,
           format: job.format,

@@ -1,7 +1,12 @@
 import type { Platform } from '@strata/platform';
 import type { ExportJob } from '@strata/scene';
+import { unzipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
-import { createExportSaveFile, extensionForExport } from './exportSaveAdapter';
+import {
+  createBufferedExportArchive,
+  createExportSaveFile,
+  extensionForExport,
+} from './exportSaveAdapter';
 
 function job(format: ExportJob['format'], fileName = 'Layer.export'): ExportJob {
   return {
@@ -47,5 +52,44 @@ describe('export save adapter', () => {
     expect(bytes.byteLength).toBe(7);
     expect(mimeType).toBe('image/svg+xml');
     expect(extension).toBe('.svg');
+  });
+
+  it('delivers a browser batch as one ZIP with safe unique entry names', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>(async () => 'Design-exports.zip');
+    const platform = { kind: 'web', saveBinaryFile } as unknown as Platform;
+    const archive = createBufferedExportArchive(platform);
+
+    await archive.saveFile(
+      '../Logo.svg',
+      new TextEncoder().encode('<svg />'),
+      'image/svg+xml',
+      job('svg'),
+    );
+    await archive.saveFile(
+      'Logo.svg',
+      new TextEncoder().encode('<svg id="two" />'),
+      'image/svg+xml',
+      job('svg'),
+    );
+    const saved = await archive.flush('Design-exports');
+
+    expect(saved).toBe('Design-exports.zip');
+    expect(archive.fileCount()).toBe(2);
+    expect(saveBinaryFile).toHaveBeenCalledOnce();
+    const [fileName, bytes, mimeType, extension] = saveBinaryFile.mock.calls[0]!;
+    expect(fileName).toBe('Design-exports.zip');
+    expect(bytes.byteLength).toBeGreaterThan(20);
+    expect(Object.keys(unzipSync(bytes))).toEqual(['Logo.svg', 'Logo-2.svg']);
+    expect(mimeType).toBe('application/zip');
+    expect(extension).toBe('.zip');
+  });
+
+  it('does not create an empty archive after a fully failed batch', async () => {
+    const saveBinaryFile = vi.fn<Platform['saveBinaryFile']>();
+    const platform = { kind: 'web', saveBinaryFile } as unknown as Platform;
+    const archive = createBufferedExportArchive(platform);
+
+    expect(await archive.flush('empty')).toBeNull();
+    expect(saveBinaryFile).not.toHaveBeenCalled();
   });
 });

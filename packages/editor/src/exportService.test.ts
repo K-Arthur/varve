@@ -91,6 +91,15 @@ describe('ExportService', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 
+  it('treats a cancelled save picker as cancellation instead of success', async () => {
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+
+    await expect(
+      ExportService.run(svgBatch(), { document: doc, saveFile: async () => null }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('resolves raster scale from factor, width, and height presets', () => {
     const node = makeShapeNode(
       'n1',
