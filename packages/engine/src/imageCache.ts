@@ -72,6 +72,17 @@ export class ImageCache {
     };
   }
 
+  /** Update retention limits and immediately evict entries above them. */
+  setLimits(options: ImageCacheOptions): void {
+    if (options.maxEntries !== undefined) {
+      this.maxEntries = Math.max(1, options.maxEntries);
+    }
+    if (options.maxBytes !== undefined) {
+      this.maxBytes = Math.max(0, options.maxBytes);
+    }
+    this.evictIfNeeded();
+  }
+
   private estimateBytes(image: HTMLImageElement): number {
     const width = image.naturalWidth || image.width || 0;
     const height = image.naturalHeight || image.height || 0;

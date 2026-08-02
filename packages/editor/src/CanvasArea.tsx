@@ -808,12 +808,14 @@ export function CanvasArea({
 
   // Re-render the canvas whenever an async image finishes loading.
   useEffect(() => {
-    const unsub = getImageCache().subscribeGlobal(() => {
+    const imageCache = getImageCache();
+    imageCache.setLimits({ maxBytes: budgets.imageCacheBytes });
+    const unsub = imageCache.subscribeGlobal(() => {
       setImageCacheStamp((n) => n + 1);
       requestRedrawRef.current?.();
     });
     return unsub;
-  }, []);
+  }, [budgets.imageCacheBytes]);
 
   // Re-render the canvas whenever async fonts finish loading.
   // Without this, dynamic fonts (Google Fonts, FontFace) render in the

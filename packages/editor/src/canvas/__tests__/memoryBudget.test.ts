@@ -19,6 +19,7 @@ describe('memoryBudget', () => {
     expect(budgets.gradientCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.gradientCacheEntries);
     expect(budgets.workerImageBitmaps).toBe(DEFAULT_MEMORY_BUDGETS.workerImageBitmaps);
     expect(budgets.thumbnailCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.thumbnailCacheEntries);
+    expect(budgets.imageCacheBytes).toBe(64 * 1024 * 1024);
   });
 
   it('medium only widens the IR cache relative to the default', () => {
@@ -26,12 +27,14 @@ describe('memoryBudget', () => {
     expect(budgets.subtreeIrCacheBytes).toBe(25 * 1024 * 1024);
     expect(budgets.transformCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.transformCacheEntries);
     expect(budgets.backdropCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.backdropCacheEntries);
+    expect(budgets.imageCacheBytes).toBe(DEFAULT_MEMORY_BUDGETS.imageCacheBytes);
   });
 
-  it('high widens only the IR cache, well beyond the default', () => {
+  it('high widens the IR and decoded-image caches beyond the default', () => {
     const budgets = getMemoryBudgets('high');
     expect(budgets.subtreeIrCacheBytes).toBe(200 * 1024 * 1024);
     expect(budgets.transformCacheEntries).toBe(DEFAULT_MEMORY_BUDGETS.transformCacheEntries);
+    expect(budgets.imageCacheBytes).toBe(512 * 1024 * 1024);
   });
 
   it('ranks the presets in ascending IR cache size: low < medium < default < high', () => {
@@ -41,6 +44,8 @@ describe('memoryBudget', () => {
     expect(low.subtreeIrCacheBytes).toBeLessThan(medium.subtreeIrCacheBytes);
     expect(medium.subtreeIrCacheBytes).toBeLessThan(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes);
     expect(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes).toBeLessThan(high.subtreeIrCacheBytes);
+    expect(low.imageCacheBytes).toBeLessThan(medium.imageCacheBytes);
+    expect(medium.imageCacheBytes).toBeLessThan(high.imageCacheBytes);
   });
 
   it('restores configured cache limits when the adaptive profile recovers', () => {
