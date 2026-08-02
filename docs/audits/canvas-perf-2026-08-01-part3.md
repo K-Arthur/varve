@@ -249,5 +249,21 @@ This is only partial progress on P3-07. Worker-transferred bitmaps, decoded mask
 surfaces, text shaping, scratch canvases, and GPU allocations still need common
 ownership and a real constrained-memory/reclamation run before any 4 GiB claim.
 
+Clean detached-worktree verification for this milestone passed format, all
+package and E2E typechecks, lint, 889 test files (10,895 tests), `pnpm bench`,
+the canvas replay benchmark, the ratio-normalized render audit, emoji, all 123
+token pairs, architecture audit, and the optimized desktop build. The full
+benchmark additionally measured two existing high-scale problems: an extreme
+zoom 0.01 rectangle query averaged 7.72 seconds, while snapping with 5,000
+candidates averaged 1.75 seconds. They are tracked as P3-17/P3-18 and were not
+changed in this memory slice.
+
+The browser canvas budget passed four interaction scenarios in the clean run.
+Its 50-shape memory-pressure case hit the fixed 60-second test timeout twice
+while the host load was 22 on 8 logical CPUs with 7–16 unrelated Vitest workers;
+one attempt timed out during deletion and the isolated retry during creation.
+The same case passed in 28.2 seconds earlier in this session under lower load.
+This is retained as contention evidence, not recorded as a clean-run pass.
+
 The live status, risk, evidence, and commit reference for each finding are kept
 in [`../perf/findings.md`](../perf/findings.md).
