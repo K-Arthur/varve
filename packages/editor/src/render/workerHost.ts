@@ -293,7 +293,7 @@ export function createRenderWorkerHost(
             dispatchPendingRender();
           } else if (lastRenderCommand) {
             try {
-              dispatchRender({ command: lastRenderCommand });
+              dispatchRender({ command: lastRenderCommand, transferBytes: 0 });
             } catch {
               markPermanentFailure();
             }

@@ -31,6 +31,7 @@ describe('computeDocumentDirtyRegion', () => {
     expect(computeDocumentDirtyRegion(before, after)).toEqual({
       kind: 'partial',
       bounds: { x: 10, y: 15, w: 60, h: 40 },
+      rectCount: 2,
     });
   });
 
@@ -79,6 +80,7 @@ describe('computeDocumentDirtyRegion', () => {
     expect(computeDocumentDirtyRegion(before, after)).toEqual({
       kind: 'partial',
       bounds: { x: -26, y: -21, w: 132, h: 112 },
+      rectCount: 2,
     });
   });
 
@@ -110,6 +112,7 @@ describe('computeDocumentDirtyRegion', () => {
     expect(computeDocumentDirtyRegion(before, after)).toEqual({
       kind: 'partial',
       bounds: { x: 0, y: 0, w: 512, h: 512 },
+      rectCount: 1,
     });
   });
 });

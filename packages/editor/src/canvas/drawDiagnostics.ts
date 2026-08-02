@@ -61,6 +61,20 @@ export interface FrameDiagnostics {
   cacheBytes: number;
   cacheEntries: number;
   profileTier: string;
+  /**
+   * Stable reason this frame was redrawn (see RedrawReason in dirtyRegion.ts).
+   * Optional so pre-existing frame records stay valid.
+   */
+  redrawReason?: string;
+  /** Fraction of the viewport covered by the dirty region (0 none, 1 full). */
+  dirtyAreaRatio?: number;
+  /**
+   * Number of rectangles unioned into the dirty region before merging. For a
+   * partial frame this is the count of contributed old/new bounds.
+   */
+  dirtyRects?: number;
+  /** Why a dirty frame fell back to a full redraw (null when partial is fine). */
+  fullRedrawReason?: string;
 }
 
 const MAX_DIAG_FRAMES = 120;
@@ -154,9 +168,14 @@ export function renderDrawDiagnostics(ctx: CanvasRenderingContext2D, canvasWidth
   // (node walk, style/variant resolution, culling, dirty-region). Surfacing it
   // means an untimed cost can no longer regress the frame invisibly.
   const otherMs = Math.max(0, last.totalMs - last.buildIrMs - last.replayMs - hashMs);
+  const dirtyArea =
+    last.dirtyAreaRatio === undefined ? '?' : `${Math.round(last.dirtyAreaRatio * 100)}%`;
+  const reason = last.redrawReason ?? '?';
+  const fullReason = last.fullRedrawReason ? ` full:${last.fullRedrawReason}` : '';
   const lines = [
     `F#${last.frameIndex}  dv#${last.docVersion}  rc#${last.redrawCount}  tier:${last.profileTier}`,
     `path:${last.renderPath}  ${last.wasDirty ? 'dirty' : 'clean'}  ${last.partialRedraw ? 'partial' : 'full'}`,
+    `reason:${reason}  dirty:${dirtyArea}${fullReason}`,
     `nodes:${last.nodeCount}  culled:${last.culledCount}  cache:${last.cacheHitCount}`,
     `cache: ${last.cacheEntries} entries, ${(last.cacheBytes / 1024).toFixed(0)} KB`,
     `hash:${hashMs.toFixed(1)}ms  build:${last.buildIrMs.toFixed(1)}ms  replay:${last.replayMs.toFixed(1)}ms  other:${otherMs.toFixed(1)}ms`,
