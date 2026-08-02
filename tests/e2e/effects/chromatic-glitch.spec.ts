@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { dragOnCanvas, navigateToEditor } from '../shared';
 
+async function openEffectsSection(page: import('@playwright/test').Page) {
+  await page.getByRole('tab', { name: 'Appearance' }).click();
+  const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
+  await expect(effectsSection).toBeVisible({ timeout: 5000 });
+  return effectsSection;
+}
+
 test.describe('Chromatic Aberration & Glitch Effects', () => {
   test.beforeEach(async ({ page }) => {
     await navigateToEditor(page);
@@ -11,8 +18,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await dragOnCanvas(page, 150, 150, 400, 350);
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.strata-select__trigger[aria-label="New effect type"]',
@@ -49,8 +55,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await dragOnCanvas(page, 150, 150, 400, 350);
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.strata-select__trigger[aria-label="New effect type"]',
@@ -85,8 +90,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await dragOnCanvas(page, 150, 150, 400, 350);
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.strata-select__trigger[aria-label="New effect type"]',
@@ -113,6 +117,11 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
 
       const sliceHeightField = page.locator('text=Slice Height').first();
       await expect(sliceHeightField).toBeVisible({ timeout: 3000 });
+      await expect(page.getByLabel('Block Strength')).toBeVisible();
+      await expect(page.getByLabel('Channel shift mode')).toBeVisible();
+      await expect(page.getByLabel('Red X')).toBeVisible();
+      await expect(page.getByLabel('Green Y')).toBeVisible();
+      await expect(page.getByLabel('Blue X')).toBeVisible();
 
       const hideAdvancedBtn = page.getByText('Hide advanced');
       await expect(hideAdvancedBtn).toBeVisible({ timeout: 2000 });
@@ -129,8 +138,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await dragOnCanvas(page, 150, 150, 400, 350);
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.strata-select__trigger[aria-label="New effect type"]',
@@ -162,8 +170,7 @@ test.describe('Chromatic Aberration & Glitch Effects', () => {
     await dragOnCanvas(page, 150, 150, 400, 350);
     await expect(page.getByRole('treeitem')).toHaveCount(1, { timeout: 10000 });
 
-    const effectsSection = page.locator('section.insp-disclosure').filter({ hasText: 'Effects' });
-    await expect(effectsSection).toBeVisible({ timeout: 5000 });
+    const effectsSection = await openEffectsSection(page);
 
     const effectTypeSelect = effectsSection.locator(
       '.strata-select__trigger[aria-label="New effect type"]',
