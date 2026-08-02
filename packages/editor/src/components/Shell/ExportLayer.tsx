@@ -5,7 +5,11 @@ import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@strata/sc
 import { isImageShape } from '@strata/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
-import { createExportSaveFile, saveExportBytes } from '../../exportSaveAdapter';
+import {
+  createBufferedExportArchive,
+  createExportSaveFile,
+  saveExportBytes,
+} from '../../exportSaveAdapter';
 import { type ExportProgressEvent, ExportService } from '../../exportService';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
@@ -63,17 +67,33 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
     ) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
-      return await ExportService.run(
+      const useBrowserArchive = platform?.kind === 'web' && batch.jobs.length > 1;
+      const archive = useBrowserArchive ? createBufferedExportArchive(platform) : null;
+      const report = await ExportService.run(
         batch,
         {
           document: editor.state.document,
           engine,
-          saveFile: saveExportFile,
+          saveFile: archive?.saveFile ?? saveExportFile,
           onProgress,
         },
         signal,
         platform?.kind ?? 'web',
       );
+      if (archive && archive.fileCount() > 0) {
+        const archivePath = await archive.flush(`${editor.state.document.name}-exports`);
+        if (archivePath === null) {
+          const error = new Error('Export archive save was cancelled');
+          error.name = 'AbortError';
+          throw error;
+        }
+        if (archivePath) {
+          for (const file of report.files) {
+            if (file.status === 'success') file.savedPath = archivePath;
+          }
+        }
+      }
+      return report;
     },
     [editor.state.document, getExportEngine, saveExportFile, platform?.kind],
   );

@@ -480,7 +480,7 @@ export function ExportDialog({
         setAnnounceMsg(`Export complete: ${selectedJobs.length} files exported`);
       }
     } catch (err) {
-      if (controller.signal.aborted) {
+      if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
         setAnnounceMsg('Export cancelled');
       } else {
         setProgress({ done: 0, errors: selectedJobs.length });
@@ -547,8 +547,12 @@ export function ExportDialog({
           );
         }
       } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        setAnnounceMsg(`Retry failed: ${msg}`);
+        if (controller.signal.aborted || (err instanceof Error && err.name === 'AbortError')) {
+          setAnnounceMsg('Export cancelled');
+        } else {
+          const msg = err instanceof Error ? err.message : String(err);
+          setAnnounceMsg(`Retry failed: ${msg}`);
+        }
       } finally {
         batchAbortRef.current = null;
         setRunning(false);
