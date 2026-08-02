@@ -154,8 +154,13 @@ const SVG_NATIVE_GRADIENTS = new Set(['linear']);
 /** PDF natively supports linear gradients (Shading Type 2). */
 const PDF_NATIVE_GRADIENTS = new Set(['linear']);
 
-/** PDF can approximate drop shadows natively. */
-const PDF_NATIVE_EFFECTS = new Set(['dropShadow']);
+/**
+ * The basic Rust PDF writer can emit an offset path for a drop shadow, but it
+ * cannot represent the canonical alpha blur/spread result. Treat every effect
+ * as unsupported so the structural compositor rasterizes the affected subtree
+ * instead of silently exporting a hard-edged approximation.
+ */
+const PDF_NATIVE_EFFECTS: ReadonlySet<string> = new Set();
 
 /** Raster supports everything — no restrictions. */
 const RASTER_NATIVE_SHAPES: ReadonlySet<string> = new Set([
