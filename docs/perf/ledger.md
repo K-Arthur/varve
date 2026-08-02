@@ -274,3 +274,11 @@ The canvas memory preset now also controls global decoded-image retention with
 eviction immediately. Focused image-cache and preset tests pass 20/20. This does
 not close the wider low-memory finding: worker, mask, shaping, scratch, and GPU
 allocations remain outside shared ownership, and no 4 GiB run has passed yet.
+
+Clean-worktree verification passed format, typecheck, lint, 10,895 tests,
+repository and canvas benchmarks, render-ratio audit, emoji/tokens, architecture
+audit, and production build. The benchmark measured two existing scale cliffs:
+zoom 0.01 rectangle queries at 7.72 s mean and 5K-candidate snapping at 1.75 s
+mean. Browser interaction budgets passed 4/5 under load; the 50-shape case hit
+its fixed 60-second wall timeout twice at host load 22, after passing in 28.2 s
+earlier under lower contention.
