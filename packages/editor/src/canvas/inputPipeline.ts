@@ -17,6 +17,12 @@ import {
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { CanvasMode, EditorState } from '../context/types';
 import { physicalDigit } from '../input/physicalKey';
+import {
+  beginInteraction,
+  endInteraction,
+  isInteractionTracingEnabled,
+  recordInteractionSpan,
+} from '../performance/interactionTrace';
 import type { ToolContext, ToolManager } from '../tools';
 import { computeEdgeVelocity } from '../tools/autoPan';
 import { interactionSession } from '../tools/InteractionContext';
@@ -154,6 +160,7 @@ export function useCanvasInputs({
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      beginInteraction('pointer-drag');
       const ne = e.nativeEvent as PointerEvent;
       const tmInst = tmRef.current;
       if (!tmInst) return;
@@ -241,6 +248,17 @@ export function useCanvasInputs({
         }
       }
 
+      const traceOn = isInteractionTracingEnabled();
+      const traceStart = traceOn ? performance.now() : 0;
+      const traceFinish = () => {
+        if (traceOn) {
+          recordInteractionSpan('pointer.input', performance.now() - traceStart, {
+            pointerType: e.pointerType,
+            buttons: e.buttons,
+          });
+        }
+      };
+
       const now = performance.now();
       if (now - lastCursorUpdate.current > 32) {
         lastCursorUpdate.current = now;
@@ -249,7 +267,10 @@ export function useCanvasInputs({
       }
 
       const tmInst = tmRef.current;
-      if (!tmInst) return;
+      if (!tmInst) {
+        traceFinish();
+        return;
+      }
 
       // Show hover preview for both select and inspect tools.
       // For other tools, keep the inspect-only behavior (or none at all).
@@ -293,6 +314,7 @@ export function useCanvasInputs({
       } else {
         stopAutoPan();
       }
+      traceFinish();
     },
     [
       tmRef,
@@ -323,8 +345,12 @@ export function useCanvasInputs({
       }
       const ne = e.nativeEvent as PointerEvent;
       const tmInst = tmRef.current;
-      if (!tmInst) return;
+      if (!tmInst) {
+        endInteraction();
+        return;
+      }
       tmInst.handlePointerUp(ne, buildToolCtx(ne));
+      endInteraction();
     },
     [tmRef, stopAutoPan, setSnapGuides, buildToolCtx],
   );
@@ -340,6 +366,7 @@ export function useCanvasInputs({
       const ne = e.nativeEvent as PointerEvent;
       tmRef.current?.handlePointerCancel(ne, buildToolCtx(ne));
       setSnapGuides([]);
+      endInteraction();
     },
     [tmRef, stopAutoPan, setSnapGuides, buildToolCtx],
   );
@@ -781,10 +808,12 @@ export function useCanvasInputs({
   const onPointerLeave = useCallback(() => {
     editor.setCursorPos(null);
     stopAutoPan();
+    endInteraction();
   }, [editor, stopAutoPan]);
 
   const onBlur = useCallback(() => {
     stopAutoPan();
+    endInteraction();
     editor.commitTransaction();
     tmRef.current?.activeTool.onPointerCancel?.(
       new PointerEvent('pointercancel'),
