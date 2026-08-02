@@ -257,3 +257,9 @@ defects. A continuously read gradient-cache entry now remains live across 12
 test frames while an unread entry still expires after four. Adaptive subtree IR
 and engine-node memo limits now restore the configured preset after a
 constrained tier and never exceed an explicit low-memory ceiling.
+
+Benchmark discovery is now isolated from `.worktrees` in the shared Vitest
+configuration. Normal and benchmark-config collection report 891 and 898 files
+respectively, with zero worktree paths. The subsequent root-only `pnpm bench`
+run stopped consuming CPU but did not return from runner teardown; that is
+tracked separately and the full command is not recorded as passing.

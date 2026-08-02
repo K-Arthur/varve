@@ -7,7 +7,8 @@ import baseConfig from './vitest.config';
 // as ordinary tests and write .render-perf-results.json), so `vitest run`
 // with the main config matches zero files ("No test files found"). This
 // config re-includes bench files so the perf gate and `pnpm bench:canvas`
-// actually run them.
+// actually run them. Workspace checkouts remain excluded through the base
+// config so a local worktree cannot contaminate benchmark discovery/results.
 export default defineConfig({
   ...baseConfig,
   test: {

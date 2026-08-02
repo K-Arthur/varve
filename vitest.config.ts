@@ -36,7 +36,13 @@ export default defineConfig({
       'apps/**/src/**/*.{test,spec}.{ts,tsx}',
       'tests/**/*.{test,spec}.{ts,tsx}',
     ],
-    exclude: ['tests/e2e/**', '**/node_modules/**', '**/__tests__/parity.test.ts', '**/*.bench.ts'],
+    exclude: [
+      'tests/e2e/**',
+      '**/node_modules/**',
+      '**/.worktrees/**',
+      '**/__tests__/parity.test.ts',
+      '**/*.bench.ts',
+    ],
     environment: 'node',
     environmentMatchGlobs: [
       ['packages/ui/src/components/**', 'jsdom'],
