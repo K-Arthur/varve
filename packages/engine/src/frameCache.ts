@@ -7,7 +7,10 @@ export class FrameCache<K, V> {
   }
 
   get(k: K): V | undefined {
-    return this.store.get(k)?.value;
+    const entry = this.store.get(k);
+    if (!entry) return undefined;
+    entry.lastFrame = this.frame;
+    return entry.value;
   }
 
   set(k: K, v: V): void {

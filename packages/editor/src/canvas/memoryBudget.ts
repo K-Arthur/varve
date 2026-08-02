@@ -26,6 +26,34 @@ export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
   engineNodeMemoEntries: 20000,
 };
 
+export interface AdaptiveCacheLimits {
+  subtreeIrCacheBytes: number;
+  engineNodeMemoEntries: number;
+}
+
+/**
+ * Derive temporary adaptive cache limits without exceeding the user's
+ * configured memory preset. Recomputing this for every tier transition also
+ * restores the configured limits after a constrained/performance episode.
+ */
+export function getAdaptiveCacheLimits(
+  budgets: MemoryBudgets,
+  cacheMultiplier: number,
+): AdaptiveCacheLimits {
+  const finiteMultiplier = Number.isFinite(cacheMultiplier) ? cacheMultiplier : 1;
+  const boundedMultiplier = Math.min(1, Math.max(0, finiteMultiplier));
+  return {
+    subtreeIrCacheBytes: Math.max(
+      1024 * 1024,
+      Math.round(budgets.subtreeIrCacheBytes * boundedMultiplier),
+    ),
+    engineNodeMemoEntries: Math.max(
+      1,
+      Math.round(budgets.engineNodeMemoEntries * boundedMultiplier),
+    ),
+  };
+}
+
 export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): MemoryBudgets {
   if (!memoryBudget) return DEFAULT_MEMORY_BUDGETS;
   switch (memoryBudget) {
