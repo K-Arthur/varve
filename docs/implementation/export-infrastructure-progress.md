@@ -1,6 +1,6 @@
 # Export Infrastructure — Audit and Rebuild Progress
 
-Status: **In progress** — Milestones 1–9 complete; Milestone 11 executor progress landed.
+Status: **In progress** — Milestones 1–9 complete; Milestone 11 execution and destination work is in progress.
 Updated: 2026-08-01
 
 This document tracks the repository-wide audit and staged rebuild of Strata's
@@ -241,7 +241,7 @@ test → audits) before the next.
 | 8 | Full export workspace + print UI + preview | **In progress** (M8 inspector done; M9 batch-dialog surfaces done) |
 | 9 | Raster improvements (resampling, tiling), SVG preservation, PDF/print | **In progress** (M9 print-mark wiring done) |
 | 10 | Color-management + metadata controls | Pending |
-| 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, retry, and single-archive browser batches landed; Tauri folder/reveal and persistent queue pending) |
+| 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, retry, single-archive browser batches, and one-folder Tauri batches landed; reveal and persistent queue pending) |
 | 12 | Accessibility, responsive, E2E/visual-regression/docs | Pending |
 
 Commit hashes recorded below as milestones complete.
@@ -311,6 +311,7 @@ Gate results per milestone:
 | M9 | editor + scene clean; E2E tsconfig exit 0 | Biome clean (touched; only pre-existing DestinationPicker warning) | Export 48/48; exportService 8/8; scene export 115/115; bgRemovalFeatures 31/31 | **export-workspace E2E 3/3**; export.spec 5/5; export-settings 4/4; Rust pdfx 4/4; strata-print 131/131; strata-colour 70/70; audit:emoji clean; audit:tokens 123/123 |
 | M11a | 16 packages + E2E clean | Biome clean on touched files | **10,879/10,879** full suite; focused export 32/32 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11b | 16 packages + E2E clean | Biome clean on touched files | **10,881/10,881** full suite before final cancel-case assertion; final focused export 31/31 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
+| M11c | 16 packages + E2E clean | Biome clean on touched files | **10,885/10,885** full suite; focused platform/export 30/30 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
@@ -450,3 +451,21 @@ Canceling a single-file picker or the final archive picker now propagates as
 `AbortError`, so the dialog announces cancellation and never claims that an
 unwritten file succeeded. Tests decode the generated ZIP and verify its actual
 entry names rather than checking only that bytes were produced.
+
+## 16. M11c — native one-folder batch delivery (2026-08-01)
+
+Desktop batch export now opens the native Tauri directory picker once and
+writes every successful output beneath that chosen folder. The platform facade
+owns both folder selection and atomic folder-relative writes, keeping native
+filesystem behavior out of the export dialog and executor. Relative output
+paths are normalized and rejected when they are absolute, drive-qualified, or
+contain empty, current-directory, or parent-directory segments; the existing
+Rust `write_binary_file` command creates parent directories and completes each
+write through its atomic temporary-file path.
+
+Browser destination controls now state their actual capability: multi-file
+exports download as one ZIP archive, so the unavailable folder button is
+disabled instead of simulating a local `/exports` path. Canceling the native
+folder picker leaves the previous destination unchanged. Tests cover the
+native picker contract, safe nested writes, traversal rejection, the export
+folder sink, and browser capability messaging.
