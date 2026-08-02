@@ -217,6 +217,8 @@ export type { DitherImageOptions, DitherResult } from './exportPipeline/dither';
 export { bayerThresholdMatrix, ditherImageData } from './exportPipeline/dither';
 export type { PaletteQuantizeOptions, PaletteQuantizeResult } from './exportPipeline/palette';
 export { quantizeToPalette } from './exportPipeline/palette';
+export type { RasterPipelineOptions, RasterPipelineResult } from './exportPipeline/pipeline';
+export { runRasterPipeline } from './exportPipeline/pipeline';
 export type {
   ResampleOptions,
   ResampleResult,

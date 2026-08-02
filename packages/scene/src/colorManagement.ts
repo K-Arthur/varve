@@ -11,7 +11,7 @@
  * OpenEXR / half-float convention.
  */
 
-import type { BitDepth, ColorMode, DocumentUnit } from '@strata/shared';
+import type { BitDepth, ColorMode, DocumentUnit, RenderingIntent } from '@strata/shared';
 import { DEFAULT_BIT_DEPTH } from '@strata/shared';
 
 // ── Color Mode + Bit Depth ─────────────────────────────────────────────────
@@ -49,7 +49,7 @@ export type ColorSpace = 'rgb' | 'cmyk' | 'gray' | 'spot';
  * - Absolute: simulate source paper color on target (proofing).
  * - Saturation: preserve saturation (charts, business graphics).
  */
-export type RenderingIntent = 'perceptual' | 'relative' | 'absolute' | 'saturation';
+export type { RenderingIntent } from '@strata/shared';
 
 // ── ICC Profile Reference ───────────────────────────────────────────────────
 

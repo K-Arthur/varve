@@ -157,6 +157,10 @@ function mapLegacyRasterOptions(
     transparency: opts.transparency,
     matte: opts.matteColor,
     bitDepth: opts.bitDepth ?? 32,
+    resize: opts.resize,
+    sharpen: opts.sharpen,
+    dither: opts.dither,
+    metadataPolicy: opts.metadataPolicy,
   });
 }
 
@@ -214,6 +218,10 @@ export function configurationToLegacyPreset(
         transparency: config.raster.transparency,
         matteColor: config.raster.matte ?? config.background?.color,
         colorProfile: config.color?.profile === 'display-p3' ? 'display-p3' : 'srgb',
+        resize: config.raster.resize,
+        sharpen: config.raster.sharpen,
+        dither: config.raster.dither,
+        metadataPolicy: config.raster.metadataPolicy ?? config.metadata?.policy,
       }
     : undefined;
 
