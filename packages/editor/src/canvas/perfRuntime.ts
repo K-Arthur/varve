@@ -13,12 +13,21 @@ import {
   requestEditorFrame,
 } from '../performance/editorFrameRuntime';
 import type { FrameJob, FrameLane } from '../performance/frameScheduler';
+import {
+  enableInteractionTraces,
+  getInteractionTraceCount,
+  getRecentInteractionTraces,
+  notifyFrameCommit,
+  resetInteractionTraces,
+  setSlowCaptureOnly,
+  setSlowInteractionThreshold,
+} from '../performance/interactionTrace';
 import { computeProfile, type PerformanceProfile } from './adaptiveProfile';
 import {
+  recordFrame as drawDiagnosticsRecordFrame,
   enableDrawDiagnostics,
   type FrameDiagnostics,
   installPerfDiagnosticsHandle as installDrawDiagnosticsHandle,
-  recordFrame,
   renderDrawDiagnostics,
 } from './drawDiagnostics';
 import {
@@ -45,27 +54,42 @@ export {
   endFrameTiming,
   getAdaptiveCacheLimits,
   getAverageFrameTime,
+  getInteractionTraceCount,
   getMemoryBudgets,
   getOverBudgetCount,
+  getRecentInteractionTraces,
   getSnapMetrics,
   getSnapMetricsCount,
   isSnapMetricsEnabled,
-  recordFrame,
   recordSnapMetrics,
   renderDrawDiagnostics,
+  resetInteractionTraces,
   resetSnapMetrics,
+  setSlowCaptureOnly,
+  setSlowInteractionThreshold,
   startFrameTiming,
   summarizeSnapMetrics,
 };
 
 export function installPerfDiagnosticsHandle(): void {
-  // The draw-diagnostics handle also flips snap metrics on so interaction
-  // probes reading window.__strataPerf see both frame and snap candidates.
-  // Gated to the same explicit ?perf=1 opt-in as the frame diagnostics.
+  // The draw-diagnostics handle also flips snap metrics and interaction
+  // tracing on so interaction probes reading window.__strataPerf see frame,
+  // snap, and pointer-to-present data together. Gated to the same explicit
+  // ?perf=1 opt-in as the frame diagnostics.
   if (typeof window !== 'undefined' && window.location.search.includes('perf=1')) {
     enableSnapMetrics(true);
+    enableInteractionTraces(true);
   }
   installDrawDiagnosticsHandle();
+}
+
+/**
+ * Record a frame into the diagnostics ring and correlate it with any active
+ * interaction trace (pointer-to-present latency).
+ */
+export function recordFrame(frame: FrameDiagnostics): void {
+  drawDiagnosticsRecordFrame(frame);
+  notifyFrameCommit(performance.now(), frame.totalMs);
 }
 
 export function createCanvasFrameKey(scope: string): string {
