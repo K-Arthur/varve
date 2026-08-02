@@ -19,7 +19,7 @@
 
 import type { Document } from './document';
 import { cryptoId } from './document-utils';
-import type { Effect, SceneNode } from './types';
+import type { ChannelOffset, Effect, SceneNode } from './types';
 
 /** Deterministic fallback when crypto is unavailable. */
 function effectId(): string {
@@ -42,6 +42,43 @@ function isCleanEffect(e: Record<string, unknown>, params: readonly string[]): b
   return true;
 }
 
+function inRange(value: unknown, min: number, max: number): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max;
+}
+
+const ZERO_CHANNEL_OFFSET: ChannelOffset = {
+  redX: 0,
+  redY: 0,
+  greenX: 0,
+  greenY: 0,
+  blueX: 0,
+  blueY: 0,
+};
+
+function isCleanChannelOffset(value: unknown): value is ChannelOffset {
+  if (!value || typeof value !== 'object') return false;
+  const offset = value as Record<string, unknown>;
+  return ['redX', 'redY', 'greenX', 'greenY', 'blueX', 'blueY'].every((key) =>
+    inRange(offset[key], -4096, 4096),
+  );
+}
+
+function normalizeChannelOffset(value: unknown, fallback = ZERO_CHANNEL_OFFSET): ChannelOffset {
+  const offset = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    redX: clampNum(offset.redX, fallback.redX, -4096, 4096),
+    redY: clampNum(offset.redY, fallback.redY, -4096, 4096),
+    greenX: clampNum(offset.greenX, fallback.greenX, -4096, 4096),
+    greenY: clampNum(offset.greenY, fallback.greenY, -4096, 4096),
+    blueX: clampNum(offset.blueX, fallback.blueX, -4096, 4096),
+    blueY: clampNum(offset.blueY, fallback.blueY, -4096, 4096),
+  };
+}
+
+function normalizedId(id: unknown): string {
+  return typeof id === 'string' && id.length > 0 ? id : effectId();
+}
+
 /** Assign an `id` to an effect if it lacks one. */
 export function ensureEffectId(effect: Effect): Effect {
   if (typeof effect.id === 'string' && effect.id.length > 0) return effect;
@@ -54,10 +91,18 @@ export function normalizeEffectParams(effect: Effect): Effect {
   switch (e.type) {
     case 'dropShadow':
     case 'innerShadow': {
-      if (isCleanEffect(e, ['x', 'y', 'blur', 'spread', 'opacity'])) return effect;
+      if (
+        isCleanEffect(e, ['x', 'y', 'blur', 'spread', 'opacity']) &&
+        inRange(e.x, -4096, 4096) &&
+        inRange(e.y, -4096, 4096) &&
+        inRange(e.blur, 0, 4096) &&
+        inRange(e.spread, -2048, 2048) &&
+        inRange(e.opacity, 0, 1)
+      )
+        return effect;
       return {
         ...e,
-        id: typeof e.id === 'string' ? e.id : effectId(),
+        id: normalizedId(e.id),
         x: clampNum(e.x, 0, -4096, 4096),
         y: clampNum(e.y, 0, -4096, 4096),
         blur: clampNum(e.blur, 0),
@@ -67,10 +112,16 @@ export function normalizeEffectParams(effect: Effect): Effect {
     }
     case 'outerGlow':
     case 'innerGlow': {
-      if (isCleanEffect(e, ['blur', 'spread', 'opacity'])) return effect;
+      if (
+        isCleanEffect(e, ['blur', 'spread', 'opacity']) &&
+        inRange(e.blur, 0, 4096) &&
+        inRange(e.spread, -2048, 2048) &&
+        inRange(e.opacity, 0, 1)
+      )
+        return effect;
       return {
         ...e,
-        id: typeof e.id === 'string' ? e.id : effectId(),
+        id: normalizedId(e.id),
         blur: clampNum(e.blur, 0),
         spread: clampNum(e.spread, 0, -2048, 2048),
         opacity: clampNum(e.opacity, 1, 0, 1),
@@ -78,28 +129,119 @@ export function normalizeEffectParams(effect: Effect): Effect {
     }
     case 'layerBlur':
     case 'backgroundBlur': {
-      if (isCleanEffect(e, ['radius'])) return effect;
+      if (isCleanEffect(e, ['radius']) && inRange(e.radius, 0, 4096)) return effect;
       return {
         ...e,
-        id: typeof e.id === 'string' ? e.id : effectId(),
+        id: normalizedId(e.id),
         radius: clampNum(e.radius, 0),
       } as Effect;
     }
     case 'glassMaterial': {
-      if (isCleanEffect(e, ['blur', 'tintOpacity'])) return effect;
+      if (
+        isCleanEffect(e, [
+          'blur',
+          'tintOpacity',
+          'saturation',
+          'brightness',
+          'noise',
+          'edgeHighlightWidth',
+          'edgeHighlightOpacity',
+        ]) &&
+        inRange(e.blur, 0, 4096) &&
+        inRange(e.tintOpacity, 0, 1) &&
+        inRange(e.saturation, 0, 4) &&
+        inRange(e.brightness, 0, 4) &&
+        inRange(e.noise, 0, 1) &&
+        inRange(e.edgeHighlightWidth, 0, 256) &&
+        inRange(e.edgeHighlightOpacity, 0, 1)
+      )
+        return effect;
       return {
         ...e,
-        id: typeof e.id === 'string' ? e.id : effectId(),
+        id: normalizedId(e.id),
         blur: clampNum(e.blur, 0),
-        tintOpacity: clampNum(e.tintOpacity, 1, 0, 1),
+        tintOpacity: clampNum(e.tintOpacity, 0.3, 0, 1),
+        saturation: clampNum(e.saturation, 1, 0, 4),
+        brightness: clampNum(e.brightness, 1, 0, 4),
+        noise: clampNum(e.noise, 0, 0, 1),
+        edgeHighlightWidth: clampNum(e.edgeHighlightWidth, 1, 0, 256),
+        edgeHighlightOpacity: clampNum(e.edgeHighlightOpacity, 0.4, 0, 1),
       } as Effect;
     }
-    case 'chromaticAberration':
-    case 'glitch': {
-      if (isCleanEffect(e, ['opacity'])) return effect;
+    case 'chromaticAberration': {
+      if (
+        isCleanEffect(e, ['intensity', 'opacity']) &&
+        inRange(e.intensity, 0, 64) &&
+        inRange(e.opacity, 0, 1) &&
+        isCleanChannelOffset(e.offsets)
+      ) {
+        return effect;
+      }
       return {
         ...e,
-        id: typeof e.id === 'string' ? e.id : effectId(),
+        id: normalizedId(e.id),
+        offsets: normalizeChannelOffset(e.offsets, {
+          redX: 3,
+          redY: 0,
+          greenX: 0,
+          greenY: 0,
+          blueX: -3,
+          blueY: 0,
+        }),
+        intensity: clampNum(e.intensity, 1, 0, 64),
+        opacity: clampNum(e.opacity, 1, 0, 1),
+      } as Effect;
+    }
+    case 'glitch': {
+      if (
+        isCleanEffect(e, [
+          'seed',
+          'strength',
+          'density',
+          'sliceHeight',
+          'blockCount',
+          'blockSize',
+          'blockStrength',
+          'noiseIntensity',
+          'scanlineIntensity',
+          'scanlineSpacing',
+          'opacity',
+        ]) &&
+        inRange(e.seed, 0, 999999) &&
+        inRange(e.strength, 0, 4096) &&
+        inRange(e.density, 0, 1) &&
+        inRange(e.sliceHeight, 1, 4096) &&
+        inRange(e.blockCount, 0, 4096) &&
+        inRange(e.blockSize, 1, 4096) &&
+        inRange(e.blockStrength, 0, 4096) &&
+        inRange(e.noiseIntensity, 0, 1) &&
+        inRange(e.scanlineIntensity, 0, 1) &&
+        inRange(e.scanlineSpacing, 1, 4096) &&
+        inRange(e.opacity, 0, 1) &&
+        isCleanChannelOffset(e.channelShift) &&
+        (e.direction === 'horizontal' || e.direction === 'vertical' || e.direction === 'both') &&
+        (e.channelShiftMode === 'static' || e.channelShiftMode === 'seeded')
+      )
+        return effect;
+      return {
+        ...e,
+        id: normalizedId(e.id),
+        seed: clampNum(e.seed, 42, 0, 999999),
+        strength: clampNum(e.strength, 8, 0, 4096),
+        density: clampNum(e.density, 0.3, 0, 1),
+        sliceHeight: clampNum(e.sliceHeight, 8, 1, 4096),
+        blockCount: clampNum(e.blockCount, 5, 0, 4096),
+        blockSize: clampNum(e.blockSize, 20, 1, 4096),
+        blockStrength: clampNum(e.blockStrength, 10, 0, 4096),
+        noiseIntensity: clampNum(e.noiseIntensity, 0.05, 0, 1),
+        scanlineIntensity: clampNum(e.scanlineIntensity, 0.15, 0, 1),
+        scanlineSpacing: clampNum(e.scanlineSpacing, 4, 1, 4096),
+        direction:
+          e.direction === 'horizontal' || e.direction === 'vertical' || e.direction === 'both'
+            ? e.direction
+            : 'horizontal',
+        channelShift: normalizeChannelOffset(e.channelShift),
+        channelShiftMode: e.channelShiftMode === 'seeded' ? 'seeded' : 'static',
         opacity: clampNum(e.opacity, 1, 0, 1),
       } as Effect;
     }

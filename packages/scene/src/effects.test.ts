@@ -47,6 +47,89 @@ describe('normalizeEffectParams', () => {
     if (normalized.type === 'dropShadow') expect(normalized.opacity).toBe(1);
   });
 
+  it('clamps extreme finite values even when the effect already has an id', () => {
+    const normalized = normalizeEffectParams(shadow({ id: 'fx-1', blur: 1e12, x: -1e12 }));
+    if (normalized.type !== 'dropShadow') throw new Error('expected drop shadow');
+    expect(normalized.id).toBe('fx-1');
+    expect(normalized.blur).toBe(4096);
+    expect(normalized.x).toBe(-4096);
+  });
+
+  it('normalizes nested chromatic offsets and intensity', () => {
+    const effect = {
+      type: 'chromaticAberration',
+      id: 'chromatic-1',
+      offsets: { redX: Number.POSITIVE_INFINITY, blueX: -1e9 },
+      intensity: Number.NaN,
+      blendMode: 'normal',
+      opacity: 4,
+      visible: true,
+    } as unknown as Effect;
+
+    const normalized = normalizeEffectParams(effect);
+    if (normalized.type !== 'chromaticAberration') throw new Error('expected chromatic effect');
+    expect(normalized.offsets).toEqual({
+      redX: 3,
+      redY: 0,
+      greenX: 0,
+      greenY: 0,
+      blueX: -4096,
+      blueY: 0,
+    });
+    expect(normalized.intensity).toBe(1);
+    expect(normalized.opacity).toBe(1);
+  });
+
+  it('bounds glitch loop counts, spacing, intensities, and enum values', () => {
+    const effect = {
+      type: 'glitch',
+      id: 'glitch-1',
+      seed: Number.POSITIVE_INFINITY,
+      strength: -4,
+      density: 8,
+      sliceHeight: 0,
+      blockCount: Number.POSITIVE_INFINITY,
+      blockSize: 1e12,
+      blockStrength: Number.NaN,
+      noiseIntensity: -1,
+      scanlineIntensity: 2,
+      scanlineSpacing: 0,
+      direction: 'diagonal',
+      channelShift: null,
+      channelShiftMode: 'random',
+      blendMode: 'normal',
+      opacity: Number.NaN,
+      visible: true,
+    } as unknown as Effect;
+
+    const normalized = normalizeEffectParams(effect);
+    if (normalized.type !== 'glitch') throw new Error('expected glitch effect');
+    expect(normalized).toMatchObject({
+      id: 'glitch-1',
+      seed: 42,
+      strength: 0,
+      density: 1,
+      sliceHeight: 1,
+      blockCount: 5,
+      blockSize: 4096,
+      blockStrength: 10,
+      noiseIntensity: 0,
+      scanlineIntensity: 1,
+      scanlineSpacing: 1,
+      direction: 'horizontal',
+      channelShiftMode: 'static',
+      opacity: 1,
+    });
+    expect(normalized.channelShift).toEqual({
+      redX: 0,
+      redY: 0,
+      greenX: 0,
+      greenY: 0,
+      blueX: 0,
+      blueY: 0,
+    });
+  });
+
   it('does not touch malformed unknown effect types beyond assigning an id', () => {
     const unknown = { type: 'somethingNew', visible: true } as unknown as Effect;
     const normalized = normalizeEffectParams(unknown);
