@@ -224,5 +224,16 @@ worker process or completion result. Only the owned session was interrupted.
 That teardown defect remains open as P3-14; the discovery fix must not be
 misrepresented as a successful full benchmark run.
 
+## Pending image decode invalidation
+
+Three deterministic async tests reproduced a decoded-image retention race. A
+load cancelled before decode completion returned to `loaded` when its stale
+promise resolved; `clear()` behaved the same way; and a cancelled first attempt
+could overwrite a newer successful retry for the same URL. Each load now owns a
+unique identity, and completion/error handlers mutate cache state only while
+that identity is still current. Stale callers may still observe their promise
+settle, but stale work cannot repopulate the cache or change retained-byte
+accounting. All eleven image-cache tests pass.
+
 The live status, risk, evidence, and commit reference for each finding are kept
 in [`../perf/findings.md`](../perf/findings.md).

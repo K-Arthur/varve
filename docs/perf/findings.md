@@ -21,6 +21,7 @@ proposed change has been approved.
 | P3-12 | Raw Canvas2D replay becomes the limit only at high visible counts | five current browser runs | rendering | measured | prioritize culling/work reduction before backend replacement | low | p50 0.7/3.6/34.7/138.0 ms at 100/1K/10K/50K | `ff4d5ea9` baseline |
 | P3-13 | `pnpm bench` rediscovers benchmark suites under unrelated `.worktrees` | live benchmark run entered `.worktrees/export-infrastructure` after root suites | benchmark/QA | verified | exclude `.worktrees` in shared Vitest discovery | low | normal/bench collection: 891/898 files, zero worktree files | benchmark-isolation milestone |
 | P3-14 | `pnpm bench` can hang during runner teardown after benchmark CPU work stops | isolated rerun remained attached with no matching worker or CPU process | benchmark/QA | reproducing | isolate the suite and runner lifecycle responsible before changing timeouts | low | session required owned-session interrupt after root-only discovery | — |
+| P3-15 | Cancelled or cleared image decodes can finish late and repopulate retained cache memory | three failing async race tests | memory | verified | bind cache mutation to the current per-URL load identity | low | cancel, retry race, and clear retain zero stale bytes | image-cache race milestone |
 
 ## Rejected or constrained hypotheses
 
