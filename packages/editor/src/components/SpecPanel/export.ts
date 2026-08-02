@@ -16,11 +16,19 @@ import {
   encodeRasterSurface,
   fitRasterDimensions,
   getImageCache,
+  insertPngTextChunks,
+  type MetadataContent,
+  metadataToPngEntries,
   primitiveBounds,
+  type RasterPipelineOptions,
   type RenderItem,
+  resolveMetadataContent,
+  runRasterPipeline,
+  stripPngMetadata,
 } from '@strata/engine';
 import type { Document as SceneDocument, SceneNode, ShapeNode } from '@strata/scene';
 import { imageFill } from '@strata/scene';
+import type { MetadataPolicy } from '@strata/scene/export';
 import { capabilitiesForFormat } from '@strata/scene/export';
 import { DEFAULT_ARTWORK_FONT_FAMILY, transformRect } from '@strata/shared';
 import { appearancePaddingWorld, expandRect } from '../../canvas/visualBounds';
@@ -40,6 +48,14 @@ export interface ExportOptions {
   quality?: number;
   transparency?: boolean;
   matteColor?: [number, number, number, number];
+  /**
+   * Canonical post-render pipeline (resize → sharpen → colour → dither).
+   * When omitted the surface is encoded directly — matching today's behaviour
+   * and keeping the no-op path free.
+   */
+  pipeline?: RasterPipelineOptions;
+  /** Metadata policy applied to the encoded PNG/JPEG bytes. */
+  metadata?: { policy: MetadataPolicy; content?: MetadataContent };
 }
 
 export interface RasterExportResult {
@@ -190,6 +206,15 @@ export async function exportNodeAsRaster(
     items: ir,
   });
 
+  // Canonical post-render processing (resize → sharpen → colour → dither).
+  // Runs on the rendered surface; the result is written back before encoding.
+  if (opts.pipeline) {
+    const pixels = ctx.getImageData(0, 0, w, h);
+    const processed = await runRasterPipeline(pixels, opts.pipeline);
+    warnings.push(...processed.log.map((entry) => `pipeline: ${entry}`));
+    ctx.putImageData(processed.imageData, 0, 0);
+  }
+
   let blob: Blob;
   try {
     blob = await encodeRasterSurface(
@@ -210,6 +235,30 @@ export async function exportNodeAsRaster(
     warnings.push(
       `This runtime encoded ${blob.type} instead of the requested ${opts.format}; the file uses the actual encoded format.`,
     );
+  }
+
+  // Metadata policy applied to the encoded bytes. Canvas encoders produce
+  // metadata-free output; this adds exactly what the policy allows (PNG text
+  // chunks) and strips any accidental ancillary chunks when the policy demands.
+  if (opts.metadata && opts.format === 'image/png') {
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const resolved = resolveMetadataContent(opts.metadata.content, {
+      policy: opts.metadata.policy,
+    });
+    if (opts.metadata.policy.kind === 'strip-all') {
+      const stripped = stripPngMetadata(bytes, opts.metadata.policy.deterministic ? [] : ['iCCP']);
+      blob = new Blob([stripped.slice()], { type: 'image/png' });
+      warnings.push('metadata: stripped all metadata per export policy');
+    } else {
+      const entries = metadataToPngEntries(resolved);
+      if (entries.length > 0) {
+        const withText = insertPngTextChunks(bytes, entries);
+        blob = new Blob([withText.slice()], { type: 'image/png' });
+        warnings.push(
+          `metadata: embedded ${entries.map((e) => e.keyword).join(', ')} per export policy`,
+        );
+      }
+    }
   }
 
   return { blob, warnings };

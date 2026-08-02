@@ -140,3 +140,73 @@ export function resolveMetadataFieldDecision(
 export function isMetadataFieldDecision(value: unknown): value is MetadataFieldDecision {
   return typeof value === 'string' && (FIELD_DECISIONS as readonly string[]).includes(value);
 }
+
+// ── Processing-stage option contracts ───────────────────────────────────────
+//
+// These option shapes are the canonical stage contracts shared by @strata/scene
+// (config model) and @strata/engine (pipeline execution). They contain only
+// cross-package types so neither side duplicates them.
+
+export type RenderingIntent = 'perceptual' | 'relative' | 'absolute' | 'saturation';
+
+export interface RasterResizeOptions {
+  algorithm: ResamplingAlgorithm;
+  workingSpace: ExportWorkingSpace;
+  /** Explicit pixel-art hint; overrides auto-classification when set. */
+  pixelArt?: boolean;
+  /** Preserve exact integer scaling without interpolation (pixel-art). */
+  integerScale?: boolean;
+  /** Upper bound for any intermediate allocation, in pixels. */
+  maxPixels: number;
+  /** Tile height (px) for bounded-memory processing; 0 = single pass. */
+  tileHeight: number;
+}
+
+export interface SharpenOptions {
+  mode: SharpenMode;
+  /** 0..1 unsharp-mask amount (mode=unsharp). */
+  amount: number;
+  /** Radius in output pixels. */
+  radius: number;
+  /** 0..1 threshold; pixels with less luminance change are untouched. */
+  threshold: number;
+  /** Sharpen luminance only, protecting hue/saturation. */
+  luminanceOnly: boolean;
+  /** Do not let filtering leak colour into fully transparent regions. */
+  protectAlpha: boolean;
+  workingSpace: ExportWorkingSpace;
+}
+
+export interface DitherOptions {
+  algorithm: DitherAlgorithm;
+  /** 0..1 diffusion strength (error scaling). */
+  strength: number;
+  /** Target bit depth per channel after quantization (8 = no quantization). */
+  targetBitDepth: number;
+  /** Palette size for indexed output (0 = full colour). */
+  paletteSize: number;
+  serpentine: boolean;
+  /** Deterministic seed for ordered/blue-noise patterns. */
+  seed: number;
+  channelMode: DitherChannelMode;
+  /** 0..1 alpha threshold; pixels below it are forced fully transparent. */
+  alphaThreshold: number;
+}
+
+export type ProfileSource = 'embedded' | 'document' | 'assigned' | 'assume-srgb' | 'user' | 'none';
+
+export type ColorOperation = 'assign' | 'convert' | 'embed' | 'strip' | 'proof';
+
+export interface ColorConversionOptions {
+  operation: ColorOperation;
+  /** Where the source profile comes from. */
+  sourceProfile: ProfileSource;
+  /** Named user-assigned source profile when sourceProfile=user. */
+  sourceProfileName?: string;
+  /** Destination profile name (e.g. 'FOGRA39', 'sRGB', 'Display-P3'). */
+  destinationProfile?: string;
+  renderingIntent: RenderingIntent;
+  blackPointCompensation: boolean;
+  /** Preview-only proofing; never mutates document pixels. */
+  proof?: boolean;
+}

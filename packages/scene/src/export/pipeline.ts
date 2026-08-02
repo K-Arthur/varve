@@ -22,11 +22,15 @@
  */
 
 import type {
+  ColorConversionOptions,
+  ColorOperation,
   DitherAlgorithm,
-  DitherChannelMode,
-  ExportWorkingSpace,
+  DitherOptions,
+  ProfileSource,
   ResamplingAlgorithm,
+  RasterResizeOptions as ResizeOptions,
   SharpenMode,
+  SharpenOptions,
 } from '@strata/shared';
 import type { RenderingIntent } from '../colorManagement';
 
@@ -43,19 +47,14 @@ export type {
 
 // ── Resampling ───────────────────────────────────────────────────────────────
 
-export interface ResizeOptions {
-  algorithm: ResamplingAlgorithm;
-  workingSpace: ExportWorkingSpace;
-  /** Explicit pixel-art hint; overrides auto-classification when set. */
-  pixelArt?: boolean;
-  /** Preserve exact integer scaling without interpolation (pixel-art). */
-  integerScale?: boolean;
-  /** Upper bound for any intermediate allocation, in pixels. */
-  maxPixels: number;
-  /** Tile height (px) for bounded-memory processing; 0 = single pass. */
-  tileHeight: number;
-}
-
+export type {
+  ColorConversionOptions,
+  ColorOperation,
+  DitherOptions,
+  ProfileSource,
+  RasterResizeOptions as ResizeOptions,
+  SharpenOptions,
+} from '@strata/shared';
 export const RESAMPLING_ALGORITHMS: readonly ResamplingAlgorithm[] = [
   'auto',
   'nearest',
@@ -99,21 +98,6 @@ export function validateResizeOptions(value: ResizeOptions, path: string): void 
 }
 
 // ── Output sharpening ───────────────────────────────────────────────────────
-
-export interface SharpenOptions {
-  mode: SharpenMode;
-  /** 0..1 unsharp-mask amount (mode=unsharp). */
-  amount: number;
-  /** Radius in output pixels. */
-  radius: number;
-  /** 0..1 threshold; pixels with less luminance change are untouched. */
-  threshold: number;
-  /** Sharpen luminance only, protecting hue/saturation. */
-  luminanceOnly: boolean;
-  /** Do not let filtering leak colour into fully transparent regions. */
-  protectAlpha: boolean;
-  workingSpace: ExportWorkingSpace;
-}
 
 export const SHARPEN_MODES: readonly SharpenMode[] = [
   'none',
@@ -161,22 +145,6 @@ export function validateSharpenOptions(value: SharpenOptions, path: string): voi
 }
 
 // ── Dithering & quantization ─────────────────────────────────────────────────
-
-export interface DitherOptions {
-  algorithm: DitherAlgorithm;
-  /** 0..1 diffusion strength (error scaling). */
-  strength: number;
-  /** Target bit depth per channel after quantization (8 = no quantization). */
-  targetBitDepth: number;
-  /** Palette size for indexed output (0 = full colour). */
-  paletteSize: number;
-  serpentine: boolean;
-  /** Deterministic seed for ordered/blue-noise patterns. */
-  seed: number;
-  channelMode: DitherChannelMode;
-  /** 0..1 alpha threshold; pixels below it are forced fully transparent. */
-  alphaThreshold: number;
-}
 
 export const DITHER_ALGORITHMS: readonly DitherAlgorithm[] = [
   'none',
@@ -287,24 +255,6 @@ export function validateMetadataPolicy(value: MetadataPolicy, path: string): voi
 }
 
 // ── Colour conversion ────────────────────────────────────────────────────────
-
-export type ProfileSource = 'embedded' | 'document' | 'assigned' | 'assume-srgb' | 'user' | 'none';
-
-export type ColorOperation = 'assign' | 'convert' | 'embed' | 'strip' | 'proof';
-
-export interface ColorConversionOptions {
-  operation: ColorOperation;
-  /** Where the source profile comes from. */
-  sourceProfile: ProfileSource;
-  /** Named user-assigned source profile when sourceProfile=user. */
-  sourceProfileName?: string;
-  /** Destination profile name (e.g. 'FOGRA39', 'sRGB', 'Display-P3'). */
-  destinationProfile?: string;
-  renderingIntent: RenderingIntent;
-  blackPointCompensation: boolean;
-  /** Preview-only proofing; never mutates document pixels. */
-  proof?: boolean;
-}
 
 export const PROFILE_SOURCES: readonly ProfileSource[] = [
   'embedded',

@@ -9,6 +9,12 @@
  */
 
 import type { RenderingIntent } from './colorManagement';
+import type {
+  DitherOptions,
+  MetadataPolicy,
+  ResizeOptions,
+  SharpenOptions,
+} from './export/pipeline';
 
 export type { RenderingIntent };
 
@@ -40,6 +46,14 @@ export interface RasterOptions {
   matteColor?: [number, number, number, number];
   colorProfile?: 'srgb' | 'display-p3';
   pixelPerfect?: boolean;
+  /**
+   * Canonical processing-stage contracts (bridge into the legacy persistence
+   * boundary). Optional; when absent the executor uses the legacy flat fields.
+   */
+  resize?: ResizeOptions;
+  sharpen?: SharpenOptions;
+  dither?: DitherOptions;
+  metadataPolicy?: MetadataPolicy;
 }
 
 export interface VectorOptions {

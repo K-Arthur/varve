@@ -170,16 +170,23 @@ export {
   steps,
 } from './easing';
 export type {
+  ColorConversionOptions,
+  ColorOperation,
   DitherAlgorithm,
   DitherChannelMode,
+  DitherOptions,
   ExportWorkingSpace,
   MetadataFieldDecision,
   MetadataFieldKey,
   MetadataFieldOverrides,
   MetadataPolicy,
   MetadataPolicyKind,
+  ProfileSource,
+  RasterResizeOptions,
+  RenderingIntent,
   ResamplingAlgorithm,
   SharpenMode,
+  SharpenOptions,
 } from './exportContracts';
 export {
   createMetadataPolicy,
