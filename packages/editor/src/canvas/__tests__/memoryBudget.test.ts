@@ -22,6 +22,12 @@ describe('memoryBudget', () => {
     expect(budgets.imageCacheBytes).toBe(64 * 1024 * 1024);
   });
 
+  it('low halves the worker bitmap byte budget relative to the default', () => {
+    const budgets = getMemoryBudgets('low');
+    expect(budgets.workerBitmapBytes).toBe(64 * 1024 * 1024);
+    expect(DEFAULT_MEMORY_BUDGETS.workerBitmapBytes).toBe(128 * 1024 * 1024);
+  });
+
   it('medium only widens the IR cache relative to the default', () => {
     const budgets = getMemoryBudgets('medium');
     expect(budgets.subtreeIrCacheBytes).toBe(25 * 1024 * 1024);

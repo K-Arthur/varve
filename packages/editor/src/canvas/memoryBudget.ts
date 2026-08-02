@@ -12,6 +12,8 @@ export interface MemoryBudgets {
   backdropCacheEntries: number;
   gradientCacheEntries: number;
   workerImageBitmaps: number;
+  /** Byte budget for main-thread-visible bitmaps in the render-worker pipeline. */
+  workerBitmapBytes: number;
   thumbnailCacheEntries: number;
   engineNodeMemoEntries: number;
   imageCacheBytes: number;
@@ -23,6 +25,7 @@ export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
   backdropCacheEntries: 20,
   gradientCacheEntries: 200,
   workerImageBitmaps: 10,
+  workerBitmapBytes: 128 * 1024 * 1024,
   thumbnailCacheEntries: 200,
   engineNodeMemoEntries: 20000,
   imageCacheBytes: 256 * 1024 * 1024,
@@ -66,6 +69,7 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
         backdropCacheEntries: 5,
         transformCacheEntries: 2000,
         engineNodeMemoEntries: 4000,
+        workerBitmapBytes: 64 * 1024 * 1024,
         imageCacheBytes: 64 * 1024 * 1024,
       };
     case 'medium':

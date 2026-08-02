@@ -383,4 +383,76 @@ describe('render worker host restarts', () => {
     expect(host.inFlightRenderRevision).toBeNull();
     expect(host.pendingRenderRevision).toBeNull();
   });
+
+  it('refuses a render whose image transfer exceeds the byte budget and closes its bitmaps', () => {
+    const onResponse = vi.fn();
+    const host = createRenderWorkerHost(onResponse, undefined, {
+      budgetBytes: 1000,
+    })!;
+    const bitmap = mockBitmap();
+    // mockBitmap() is 1x1 (4 bytes); patch width/height to exceed the budget.
+    (bitmap as { width: number }).width = 64;
+    (bitmap as { height: number }).height = 64; // 16,384 bytes > 1000
+
+    expect(host.post(renderCommand({ images: { big: bitmap } }), [bitmap])).toBe(false);
+    expect(bitmap.close).toHaveBeenCalledTimes(1);
+    expect(mockWorkers[0]!.postMessage).not.toHaveBeenCalled();
+    expect(host.getBitmapBudgetState().admissionRejections).toBe(1);
+  });
+
+  it('accounts pending, in-flight, resident, and worker-canvas bytes', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1_000_000,
+    })!;
+    expect(host.post({ type: 'resize', width: 800, height: 600, dpr: 2 })).toBe(true);
+    expect(host.getBitmapBudgetState().workerCanvasBytes).toBe(800 * 2 * 600 * 2 * 4);
+
+    const bitmap = mockBitmap();
+    expect(host.post(renderCommand({ images: { img: bitmap } }), [bitmap])).toBe(true);
+    expect(host.getBitmapBudgetState().inFlightBytes).toBe(4);
+
+    const frame = mockBitmap();
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          bitmap: frame,
+        },
+      }),
+    );
+    expect(host.getBitmapBudgetState().residentBytes).toBe(4);
+    expect(host.getBitmapBudgetState().inFlightBytes).toBe(0);
+  });
+
+  it('releases in-flight and resident accounting on terminate', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1_000_000,
+    })!;
+    const bitmap = mockBitmap();
+    expect(host.post(renderCommand({ images: { img: bitmap } }), [bitmap])).toBe(true);
+    const frame = mockBitmap();
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          bitmap: frame,
+        },
+      }),
+    );
+    host.terminate();
+    const state = host.getBitmapBudgetState();
+    expect(state.inFlightBytes).toBe(0);
+    expect(state.residentBytes).toBe(0);
+    expect(state.pendingBytes).toBe(0);
+  });
 });
