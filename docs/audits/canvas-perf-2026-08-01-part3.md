@@ -265,5 +265,19 @@ one attempt timed out during deletion and the isolated retry during creation.
 The same case passed in 28.2 seconds earlier in this session under lower load.
 This is retained as contention evidence, not recorded as a clean-run pass.
 
+## Extreme zoom spatial queries
+
+The clean benchmark exposed a 7.72-second mean rectangle query at zoom 0.01.
+`queryRect` always materialized and probed every theoretical 64-pixel grid cell,
+even when nearly all were empty. A failing deterministic test observed 10,201
+lookups for a two-cell index. The query now chooses the smaller search space:
+enumerate query cells for normal views, or scan occupied cells when the
+theoretical query grid is larger. The regression test bounds the same query to
+at most two occupied cells while preserving its candidate set.
+
+A direct 200-iteration probe of the zoom-0.01 geometry (200,000-pixel view,
+9.77 million theoretical cells) against 4,000 occupied cells measures 1.55 ms
+mean per query on the same host. The focused spatial-index suite passes 30/30.
+
 The live status, risk, evidence, and commit reference for each finding are kept
 in [`../perf/findings.md`](../perf/findings.md).
