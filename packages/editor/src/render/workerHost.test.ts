@@ -1,7 +1,11 @@
 import { asRenderRevision } from '@strata/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerCommand } from './workerHost';
-import { createRenderWorkerHost } from './workerHost';
+import {
+  createRenderWorkerHost,
+  getRegisteredWorkerHost,
+  registerWorkerHostForDiagnostics,
+} from './workerHost';
 
 const mockWorkers: MockWorker[] = [];
 
@@ -454,5 +458,32 @@ describe('render worker host restarts', () => {
     expect(state.inFlightBytes).toBe(0);
     expect(state.residentBytes).toBe(0);
     expect(state.pendingBytes).toBe(0);
+  });
+
+  it('registers itself as the diagnostics host and unregisters on terminate', () => {
+    const host = createRenderWorkerHost(vi.fn())!;
+    expect(getRegisteredWorkerHost()).toBe(host);
+    host.terminate();
+    expect(getRegisteredWorkerHost()).toBeNull();
+  });
+
+  it('the latest created host wins the diagnostics slot', () => {
+    const first = createRenderWorkerHost(vi.fn())!;
+    const second = createRenderWorkerHost(vi.fn())!;
+    expect(getRegisteredWorkerHost()).toBe(second);
+    first.terminate();
+    expect(getRegisteredWorkerHost()).toBe(second);
+    second.terminate();
+    expect(getRegisteredWorkerHost()).toBeNull();
+  });
+
+  it('diagnostics can register/unregister a host explicitly', () => {
+    registerWorkerHostForDiagnostics(null);
+    expect(getRegisteredWorkerHost()).toBeNull();
+    const host = createRenderWorkerHost(vi.fn())!;
+    expect(getRegisteredWorkerHost()).toBe(host);
+    registerWorkerHostForDiagnostics(null);
+    expect(getRegisteredWorkerHost()).toBeNull();
+    host.terminate();
   });
 });
