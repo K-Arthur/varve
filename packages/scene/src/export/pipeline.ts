@@ -26,7 +26,13 @@ import type { RenderingIntent } from '../colorManagement';
 // The algorithm/working-space unions live in @strata/shared so @strata/engine
 // (which must not depend on @strata/scene) can import them without duplicating
 // the union definitions. Re-export here so scene consumers keep one import path.
-export type { ExportWorkingSpace, ResamplingAlgorithm } from '@strata/shared';
+export type {
+  DitherAlgorithm,
+  DitherChannelMode,
+  ExportWorkingSpace,
+  ResamplingAlgorithm,
+  SharpenMode,
+} from '@strata/shared';
 
 // ── Resampling ───────────────────────────────────────────────────────────────
 
@@ -86,8 +92,6 @@ export function validateResizeOptions(value: ResizeOptions, path: string): void 
 }
 
 // ── Output sharpening ───────────────────────────────────────────────────────
-
-export type SharpenMode = 'none' | 'auto' | 'unsharp' | 'high-pass' | 'crisp';
 
 export interface SharpenOptions {
   mode: SharpenMode;
@@ -150,19 +154,6 @@ export function validateSharpenOptions(value: SharpenOptions, path: string): voi
 }
 
 // ── Dithering & quantization ─────────────────────────────────────────────────
-
-export type DitherAlgorithm =
-  | 'none'
-  | 'floyd-steinberg'
-  | 'atkinson'
-  | 'jarvis-judice-ninke'
-  | 'stucki'
-  | 'bayer-2'
-  | 'bayer-4'
-  | 'bayer-8'
-  | 'blue-noise';
-
-export type DitherChannelMode = 'all' | 'luminance';
 
 export interface DitherOptions {
   algorithm: DitherAlgorithm;
