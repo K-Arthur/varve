@@ -214,7 +214,13 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       );
       const fontWarnings = collectMissingFontWarnings(node);
       return {
-        bytes: encode(exportNodeToSvg(node, context.document, { rasterAssets })),
+        bytes: encode(
+          exportNodeToSvg(node, context.document, {
+            rasterAssets,
+            minify: job.vector?.minify ?? false,
+            preserveColorSpace: job.vector?.embedImages === false,
+          }),
+        ),
         mimeType: 'image/svg+xml',
         warnings: [
           ...fontWarnings,

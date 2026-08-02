@@ -256,6 +256,11 @@ export function loadSettings(): EditorSettings {
     // Migrate the previously exposed but unimplemented Display-P3 choice.
     // All current raster encoders use the cross-engine sRGB baseline.
     exportSettings.defaultColorProfile = 'srgb';
+    // AVIF has no encoder in any backend; a persisted default would make every
+    // export throw. Reset to PNG rather than surfacing a broken default.
+    if (exportSettings.defaultFormat === 'avif') {
+      exportSettings.defaultFormat = 'png';
+    }
     return {
       export: exportSettings,
       appearance: mergePartial(
