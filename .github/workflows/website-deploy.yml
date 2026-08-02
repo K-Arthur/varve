@@ -25,15 +25,15 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@a5ac7e51b41094c92402da3b243b9e2b7c2e1d6f
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
       - name: Install pnpm
-        uses: pnpm/action-setup@v4.0.0
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2
         with:
           version: 11.9.0
 
       - name: Setup Node
-        uses: actions/setup-node@1a4442cda7143948ae1d52f1a60fd880ff95df6a
+        uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a
         with:
           node-version: 26
           cache: 'pnpm'
@@ -46,7 +46,7 @@ jobs:
         run: pnpm --filter @strata/website build
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@56afc609a6d36c6f4d523e46487649a8f387916e
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
         with:
           path: apps/website/dist
 
@@ -59,4 +59,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@d6db901e937bf07bc879f5e0e003a5b86184d9ae
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e

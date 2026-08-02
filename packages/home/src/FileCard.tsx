@@ -2,7 +2,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { FileEntry } from '@strata/platform';
 import { formatRelativeTime } from '@strata/platform';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import {
   forwardRef,
   type HTMLAttributes,
@@ -171,9 +171,9 @@ export const FileCard = forwardRef<HTMLDivElement, FileCardProps>(function FileC
             style={{ width: '100%' }}
           />
         ) : (
-          <span className="file-card__name" title={entry.name}>
-            {entry.name}
-          </span>
+          <Tooltip label={entry.name} truncationOnly>
+            <span className="file-card__name">{entry.name}</span>
+          </Tooltip>
         )}
         <div className="file-card__meta">
           {onToggleFavorite && (

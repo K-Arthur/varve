@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react';
+import { Tooltip } from '../Tooltip';
 import type { Color } from './color-utils';
 import { rgbToHex } from './color-utils';
 
@@ -92,20 +93,20 @@ export function SwatchPalette({
         <div className="swatch-palette__section-title">{title}</div>
         <div className="swatch-palette__grid">
           {colors.map(({ name, color }) => (
-            <button
-              key={`${name}-${color.join(',')}`}
-              type="button"
-              role="option"
-              aria-selected={false}
-              aria-label={name}
-              title={name}
-              className="swatch-palette__swatch"
-              onClick={() => onSelect(color)}
-              style={{
-                background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
-                border: swatchBorder(color),
-              }}
-            />
+            <Tooltip key={`${name}-${color.join(',')}`} label={name}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={false}
+                aria-label={name}
+                className="swatch-palette__swatch"
+                onClick={() => onSelect(color)}
+                style={{
+                  background: `rgba(${color[0]},${color[1]},${color[2]},${(color[3] / 255).toFixed(2)})`,
+                  border: swatchBorder(color),
+                }}
+              />
+            </Tooltip>
           ))}
         </div>
       </div>

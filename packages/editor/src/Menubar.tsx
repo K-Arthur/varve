@@ -6,6 +6,7 @@ import {
   SOLID_CHROME_ICONS,
   SolidIcon,
   StrataLogo,
+  Tooltip,
 } from '@strata/ui';
 import { getTheme, setTheme, type Theme } from '@strata/ui/tokens';
 import {
@@ -22,10 +23,10 @@ import { computeCapabilities, useNativeMenu } from './menu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
+import { workspaceShortcutLabel } from './workspace/workspaceShortcutLabel';
 import {
   ALL_WORKSPACE_MODES,
   WORKSPACE_LABELS,
-  WORKSPACE_SHORTCUTS,
   type WorkspaceMode,
 } from './workspace/workspaceTypes';
 
@@ -2011,15 +2012,16 @@ export function Menubar({
       onKeyDown={handleMenuKeyDown}
     >
       <div className="editor-menubar__left">
-        <button
-          type="button"
-          className="editor-menubar__home"
-          aria-label="Home (Ctrl+Shift+H)"
-          title="Home (Ctrl+Shift+H)"
-          onClick={() => onBackToHome?.()}
-        >
-          <StrataLogo size={16} />
-        </button>
+        <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
+          <button
+            type="button"
+            className="editor-menubar__home"
+            aria-label="Home"
+            onClick={() => onBackToHome?.()}
+          >
+            <StrataLogo size={16} />
+          </button>
+        </Tooltip>
         {menus.map((menu, i) => (
           <button
             key={menu.id}
@@ -2203,22 +2205,15 @@ export function Menubar({
               aria-label="Document name"
             />
           ) : (
-            // biome-ignore lint/a11y/useSemanticElements: span with role="button" is intentional for inline clickable text; keyboard + click handlers present
-            <span
-              role="button"
-              tabIndex={0}
-              className="editor-menubar__doc-name-text"
-              onClick={startNameEdit}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  startNameEdit();
-                }
-              }}
-              title="Click to rename"
-            >
-              {state.document.name || 'Untitled'}
-            </span>
+            <Tooltip label="Rename document">
+              <button
+                type="button"
+                className="editor-menubar__doc-name-text"
+                onClick={startNameEdit}
+              >
+                {state.document.name || 'Untitled'}
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>
@@ -2238,25 +2233,29 @@ export function Menubar({
             };
             const solidIcon = WORKSPACE_SOLID_ICONS[mode];
             return (
-              <label
+              <Tooltip
                 key={mode}
-                className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                title={`${WORKSPACE_LABELS[mode]} workspace (${WORKSPACE_SHORTCUTS[mode]})`}
+                label={`${WORKSPACE_LABELS[mode]} workspace`}
+                shortcut={workspaceShortcutLabel(mode)}
               >
-                <input
-                  type="radio"
-                  name="workspace-mode"
-                  value={mode}
-                  checked={state.workspaceMode === mode}
-                  aria-checked={state.workspaceMode === mode}
-                  onChange={() => requestWorkspaceSwitch(mode)}
-                  className="sr-only"
-                />
-                <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
-                <span className="editor-menubar__workspace-btn-label">
-                  {WORKSPACE_LABELS[mode]}
-                </span>
-              </label>
+                <label
+                  className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
+                >
+                  <input
+                    type="radio"
+                    name="workspace-mode"
+                    value={mode}
+                    checked={state.workspaceMode === mode}
+                    aria-checked={state.workspaceMode === mode}
+                    onChange={() => requestWorkspaceSwitch(mode)}
+                    className="sr-only"
+                  />
+                  <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
+                  <span className="editor-menubar__workspace-btn-label">
+                    {WORKSPACE_LABELS[mode]}
+                  </span>
+                </label>
+              </Tooltip>
             );
           })}
         </div>

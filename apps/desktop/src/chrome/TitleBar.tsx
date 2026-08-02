@@ -1,50 +1,36 @@
 /**
- * Custom titlebar — rendered when Tauri decorations are disabled.
+ * Custom title bar — rendered only when the resolved window-chrome strategy
+ * calls for custom decorations (Linux fully-custom chrome; unknown desktop
+ * fallback).
  *
- * A3: drag region (data-tauri-drag-region), bounded window-control cluster,
- *     no stray text nodes that could leak glyphs at window edges.
+ * Responsibilities, kept deliberately separate:
+ *  - drag region (`data-tauri-drag-region`)
+ *  - window controls (minimize / maximize-restore / close)
+ *  - document title
  *
- * Window controls use window.__TAURI__.window (injected via withGlobalTauri:true)
- * with optional-chaining fallback so the component is safe in browser/test envs.
- *
- * Research basis: Tauri 2 custom titlebar guide, Wayland CSD notes
- *   (https://tauri.app/learn/window-customization/).
+ * Interactive controls live OUTSIDE the drag region. The maximize button
+ * reflects the live maximized state (icon + accessible label flip), and the
+ * bar dims while the window is unfocused. Window actions go through the
+ * `windowActions` service (rejection-safe, rapid-click guarded).
  */
 
 import './title-bar.css';
-
-declare global {
-  interface Window {
-    __TAURI__?: {
-      window?: {
-        getCurrentWindow?: () => {
-          minimize: () => Promise<void>;
-          toggleMaximize: () => Promise<void>;
-          close: () => Promise<void>;
-        };
-      };
-    };
-  }
-}
-
-function getTauriWindow() {
-  return window.__TAURI__?.window?.getCurrentWindow?.();
-}
+import { useWindowChrome } from './useWindowChrome';
+import { runWindowAction } from './windowActions';
 
 export function TitleBar({ title = 'Strata' }: { title?: string }) {
-  function minimize() {
-    getTauriWindow()?.minimize();
-  }
-  function toggleMaximize() {
-    getTauriWindow()?.toggleMaximize();
-  }
-  function close() {
-    getTauriWindow()?.close();
-  }
+  const chrome = useWindowChrome(title);
+  const { strategy, isMaximized, isFocused, canMinimize, canMaximize, canClose } = chrome;
+
+  // Native decorations / browser build: no custom chrome is rendered at all,
+  // so the platform's own title bar and window controls are the only ones.
+  if (!strategy.showCustomTitleBar) return null;
+
+  const className = `title-bar${isFocused ? '' : ' title-bar--inactive'}`;
 
   return (
-    <div className="title-bar">
-      {/* Drag region fills available space */}
+    <div className={className} data-window-chrome data-focused={isFocused || undefined}>
+      {/* Drag region fills available space. Never contains focusable controls. */}
       <div className="title-bar__drag-region" data-tauri-drag-region>
         <img src="/icons/strata-icon.svg" alt="" aria-hidden className="title-bar__icon" />
         <span className="title-bar__title">{title}</span>
@@ -52,13 +38,28 @@ export function TitleBar({ title = 'Strata' }: { title?: string }) {
 
       {/* Window controls — width-bounded container so they can never overflow */}
       <div className="title-bar__controls">
-        <WinButton variant="minimize" label="Minimize" onClick={minimize}>
+        <WinButton
+          variant="minimize"
+          label="Minimize"
+          onClick={() => runWindowAction('minimize')}
+          disabled={!canMinimize}
+        >
           <MinimizeIcon />
         </WinButton>
-        <WinButton variant="maximize" label="Maximize" onClick={toggleMaximize}>
-          <MaximizeIcon />
+        <WinButton
+          variant="maximize"
+          label={isMaximized ? 'Restore' : 'Maximize'}
+          onClick={() => runWindowAction('toggleMaximize')}
+          disabled={!canMaximize}
+        >
+          {isMaximized ? <RestoreIcon /> : <MaximizeIcon />}
         </WinButton>
-        <WinButton variant="close" label="Close" onClick={close}>
+        <WinButton
+          variant="close"
+          label="Close"
+          onClick={() => runWindowAction('close')}
+          disabled={!canClose}
+        >
           <CloseIcon />
         </WinButton>
       </div>
@@ -70,18 +71,22 @@ function WinButton({
   variant,
   label,
   onClick,
+  disabled,
   children,
 }: {
   variant: 'minimize' | 'maximize' | 'close';
   label: string;
   onClick: () => void;
+  disabled?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
+      title={label}
       onClick={onClick}
+      disabled={disabled}
       className={`title-bar__win-btn title-bar__win-btn--${variant}`}
     >
       {children}
@@ -101,6 +106,23 @@ function MaximizeIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" role="presentation">
       <rect x="1" y="1" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
+function RestoreIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" role="presentation">
+      <rect
+        x="0.5"
+        y="2.5"
+        width="6.5"
+        height="6.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1"
+      />
+      <path d="M3 3V1.5h5.5V7H8" fill="none" stroke="currentColor" strokeWidth="1" />
     </svg>
   );
 }

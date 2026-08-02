@@ -14,7 +14,7 @@
  */
 
 import type { AuditFinding } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../context';
 
@@ -90,7 +90,6 @@ export function ContextualAuditSummary({
         <span
           key={finding.findingId}
           className={`contextual-audit-chip contextual-audit-chip--${finding.severity}`}
-          title={finding.message}
         >
           <Icon
             name={
@@ -107,24 +106,23 @@ export function ContextualAuditSummary({
         </span>
       ))}
       {remaining > 0 && (
-        <button
-          type="button"
-          className="contextual-audit-more"
-          onClick={handleOpenAudit}
-          title={`View ${remaining} more finding(s) in audit panel`}
-        >
-          +{remaining} more
-        </button>
+        <Tooltip label={`View ${remaining} more finding(s) in audit panel`}>
+          <button type="button" className="contextual-audit-more" onClick={handleOpenAudit}>
+            +{remaining} more
+          </button>
+        </Tooltip>
       )}
       {relevantFindings.length <= maxVisible && relevantFindings.length > 0 && (
-        <button
-          type="button"
-          className="contextual-audit-link"
-          onClick={handleOpenAudit}
-          title="Open audit review"
-        >
-          <Icon name="ExternalLink" label={undefined} size="0.7em" />
-        </button>
+        <Tooltip label="Open audit review">
+          <button
+            type="button"
+            className="contextual-audit-link"
+            onClick={handleOpenAudit}
+            aria-label="Open audit review"
+          >
+            <Icon name="ExternalLink" label={undefined} size="0.7em" />
+          </button>
+        </Tooltip>
       )}
     </div>
   );

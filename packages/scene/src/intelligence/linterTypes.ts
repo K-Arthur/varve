@@ -172,9 +172,24 @@ export function buildReport(
   const bySeverity: LinterIssueGroup = {};
 
   for (const issue of issues) {
-    (byRuleId[issue.ruleId] ??= []).push(issue);
-    (byCategory[issue.category] ??= []).push(issue);
-    (bySeverity[issue.severity] ??= []).push(issue);
+    const ruleBucket = byRuleId[issue.ruleId];
+    if (ruleBucket) {
+      ruleBucket.push(issue);
+    } else {
+      byRuleId[issue.ruleId] = [issue];
+    }
+    const categoryBucket = byCategory[issue.category];
+    if (categoryBucket) {
+      categoryBucket.push(issue);
+    } else {
+      byCategory[issue.category] = [issue];
+    }
+    const severityBucket = bySeverity[issue.severity];
+    if (severityBucket) {
+      severityBucket.push(issue);
+    } else {
+      bySeverity[issue.severity] = [issue];
+    }
   }
 
   return {

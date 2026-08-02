@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ModelRegistry } from '../inference/ModelRegistry';
-import { detectFont, type PipelineDependencies } from './fontDetectionPipeline';
+import { detectFont } from './fontDetectionPipeline';
 import type { FontDetectionRequest } from './fontDetectionTypes';
 
 function makeImageData(width: number, height: number): ImageData {

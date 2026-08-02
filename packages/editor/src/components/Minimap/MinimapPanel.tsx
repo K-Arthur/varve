@@ -12,6 +12,7 @@
  * - Keyboard accessible: focus, Enter to fit, arrow keys to pan.
  */
 
+import { Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import {
@@ -230,20 +231,29 @@ export function MinimapPanel() {
   // Don't render if collapsed
   if (collapsed) {
     return (
-      <button
-        type="button"
-        className="minimap-panel minimap-panel--collapsed"
-        onClick={() => setCollapsed(false)}
-        title="Show minimap"
-        aria-label="Show minimap"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" strokeWidth="1.5" />
-          <rect x="3" y="3" width="4" height="3" rx="0.5" fill="currentColor" opacity="0.4" />
-          <rect x="9" y="5" width="4" height="5" rx="0.5" fill="currentColor" opacity="0.4" />
-          <rect x="4" y="9" width="6" height="4" rx="0.5" fill="currentColor" opacity="0.4" />
-        </svg>
-      </button>
+      <Tooltip label="Show minimap">
+        <button
+          type="button"
+          className="minimap-panel minimap-panel--collapsed"
+          onClick={() => setCollapsed(false)}
+          aria-label="Show minimap"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect
+              x="1"
+              y="1"
+              width="14"
+              height="14"
+              rx="2"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <rect x="3" y="3" width="4" height="3" rx="0.5" fill="currentColor" opacity="0.4" />
+            <rect x="9" y="5" width="4" height="5" rx="0.5" fill="currentColor" opacity="0.4" />
+            <rect x="4" y="9" width="6" height="4" rx="0.5" fill="currentColor" opacity="0.4" />
+          </svg>
+        </button>
+      </Tooltip>
     );
   }
 
@@ -257,32 +267,32 @@ export function MinimapPanel() {
       aria-label={`Minimap: ${nodeCount} objects`}
     >
       <div className="minimap-panel__header">
-        <button
-          type="button"
-          className="minimap-panel__collapse-btn"
-          onClick={() => setCollapsed(true)}
-          title="Hide minimap"
-          aria-label="Hide minimap"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <path
-              d="M3 4.5L6 7.5L9 4.5"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <Tooltip label="Hide minimap">
+          <button
+            type="button"
+            className="minimap-panel__collapse-btn"
+            onClick={() => setCollapsed(true)}
+            aria-label="Hide minimap"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path
+                d="M3 4.5L6 7.5L9 4.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+        </Tooltip>
         <span className="minimap-panel__title">
           {nodeCount} object{nodeCount !== 1 ? 's' : ''}
           {outlierCount > 0 && (
-            <span
-              className="minimap-panel__outlier-badge"
-              title={`${outlierCount} outlier(s) excluded from overview`}
-            >
-              {' '}
-              {outlierCount} outlier{outlierCount !== 1 ? 's' : ''}
-            </span>
+            <Tooltip label={`${outlierCount} outlier(s) excluded from overview`}>
+              <span className="minimap-panel__outlier-badge">
+                {' '}
+                {outlierCount} outlier{outlierCount !== 1 ? 's' : ''}
+              </span>
+            </Tooltip>
           )}
         </span>
       </div>

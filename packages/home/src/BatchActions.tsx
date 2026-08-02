@@ -1,5 +1,5 @@
 import type { Project } from '@strata/platform';
-import { Button, Icon } from '@strata/ui';
+import { Button, Icon, Tooltip } from '@strata/ui';
 
 export interface BatchActionsProps {
   selectedCount: number;
@@ -39,15 +39,15 @@ export function BatchActions({
               Move to…
             </Button>
             {projects.slice(0, 3).map((p) => (
-              <Button
-                key={p.id}
-                variant="ghost"
-                className="batch-actions__project-btn"
-                title={`Move to ${p.name}`}
-                onClick={() => onMoveToProject(p.id)}
-              >
-                {p.name}
-              </Button>
+              <Tooltip key={p.id} label={`Move to ${p.name}`}>
+                <Button
+                  variant="ghost"
+                  className="batch-actions__project-btn"
+                  onClick={() => onMoveToProject(p.id)}
+                >
+                  {p.name}
+                </Button>
+              </Tooltip>
             ))}
           </div>
         )}

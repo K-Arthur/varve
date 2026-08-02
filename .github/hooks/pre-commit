@@ -24,6 +24,10 @@ STAGED_WORKFLOWS=$(git diff --cached --name-only --diff-filter=ACMR | grep '.git
 if [ -n "$STAGED_WORKFLOWS" ]; then
   echo "  → Validating GitHub Actions workflows..."
   node scripts/validate-workflows.mjs --staged
+  echo "  → Checking action SHA pinning (static)..."
+  node scripts/pin-github-actions.mjs --check
+  echo "  → Verifying pinned SHAs resolve upstream..."
+  node scripts/pin-github-actions.mjs --verify
 fi
 
 # 5. Quick cycle check on changed packages (madge, runs only on JS/TS changes)

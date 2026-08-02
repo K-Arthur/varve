@@ -6,11 +6,11 @@
  *
  * Research basis: Figma frame/section titles at low zoom.
  */
-import { type Document, getParent, isContainer, type NodeId } from '@strata/scene';
+import { buildParentIndexMap, type Document, isContainer, type NodeId } from '@strata/scene';
 import { useMemo } from 'react';
 import { nodeWorldBounds } from '../scene/world';
 import { editorWorldToScreen, getEditorViewport } from './cameraState';
-import { type NameLabelCandidate, pickNameLabelCandidates } from './canvasNameLabels';
+import { type NameLabelCandidate, pickNameLabelCandidates } from './nameLabelPolicy';
 
 export interface CanvasNameLabelsProps {
   doc: Document;
@@ -22,12 +22,16 @@ export interface CanvasNameLabelsProps {
 
 function collectCandidates(doc: Document): NameLabelCandidate[] {
   const out: NameLabelCandidate[] = [];
+  // getParent() is O(n) per call and nodeWorldBounds walks the ancestor chain
+  // with it, so a full-tree pass without an index is O(n²) on large docs.
+  // Build one O(n) parent index and reuse it for every node.
+  const parents = buildParentIndexMap(doc);
   const visit = (id: NodeId, depth: number) => {
     const node = doc.nodes[id];
     if (!node || node.visible === false) return;
-    const bounds = nodeWorldBounds(doc, id);
+    const bounds = nodeWorldBounds(doc, id, parents);
     if (!bounds) return;
-    const parent = getParent(doc, id);
+    const parent = parents.get(id) ?? null;
     out.push({
       id,
       name: node.name,
@@ -37,7 +41,7 @@ function collectCandidates(doc: Document): NameLabelCandidate[] {
       w: bounds.w,
       h: bounds.h,
       depth,
-      parentId: parent ?? null,
+      parentId: parent,
     });
     if (isContainer(node)) {
       for (const childId of node.children) visit(childId, depth + 1);

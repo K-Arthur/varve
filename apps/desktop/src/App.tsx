@@ -1,7 +1,7 @@
 import { afterFirstVisiblePaint, type OpenFileRequest, Shell, useStartup } from '@strata/editor';
 import { HomeShell } from '@strata/home';
 import { detectPlatform, type FileEntry } from '@strata/platform';
-import { StartupLoader } from '@strata/ui';
+import { StartupLoader, TooltipProvider } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 import { revealMainWindow } from './startup/revealMainWindow';
@@ -150,7 +150,7 @@ export function App() {
   });
 
   return (
-    <>
+    <TooltipProvider>
       {showLoader && (
         <StartupLoader
           error={bootError}
@@ -194,6 +194,6 @@ export function App() {
           </div>
         )}
       </div>
-    </>
+    </TooltipProvider>
   );
 }

@@ -191,7 +191,6 @@ export function LayerFilterBar({ filter, onChange, matchCount, totalCount }: Lay
                     className={`layers-filter-bar__chip${isOn ? ' layers-filter-bar__chip--active' : ''}${isOff ? ' layers-filter-bar__chip--inverse' : ''}`}
                     onClick={() => toggleAttribute(chip.value)}
                     aria-pressed={active}
-                    title={isOn ? chip.trueLabel : isOff ? chip.falseLabel : chip.label}
                   >
                     {isOn ? chip.trueLabel : isOff ? chip.falseLabel : chip.label}
                   </button>

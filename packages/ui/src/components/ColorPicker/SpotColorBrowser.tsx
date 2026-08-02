@@ -1,5 +1,6 @@
 import type { ManagedColor } from '@strata/scene';
 import { useMemo, useState } from 'react';
+import { Tooltip } from '../Tooltip';
 
 const SPOT_COLORS: { name: string; c: number; m: number; y: number; k: number; family: string }[] =
   [
@@ -52,32 +53,32 @@ export function SpotColorBrowser({ onSelect }: SpotColorBrowserProps) {
       </div>
       <div className="spot-color-browser__list" role="listbox" aria-label="Spot colors">
         {filtered.map((spot) => (
-          <button
-            key={spot.name}
-            type="button"
-            role="option"
-            aria-selected={false}
-            aria-label={spot.name}
-            title={spot.name}
-            className="spot-color-browser__item"
-            onClick={() =>
-              onSelect({
-                space: 'spot',
-                name: spot.name,
-                tint: 100,
-                a: 255,
-                processFallback: { c: spot.c, m: spot.m, y: spot.y, k: spot.k },
-              })
-            }
-          >
-            <span
-              className="spot-color-browser__swatch"
-              style={{
-                background: `rgb(${255 - spot.c / 1}, ${255 - spot.m / 1}, ${255 - spot.y / 1})`,
-              }}
-            />
-            <span className="spot-color-browser__name">{spot.name}</span>
-          </button>
+          <Tooltip key={spot.name} label={spot.name}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={false}
+              aria-label={spot.name}
+              className="spot-color-browser__item"
+              onClick={() =>
+                onSelect({
+                  space: 'spot',
+                  name: spot.name,
+                  tint: 100,
+                  a: 255,
+                  processFallback: { c: spot.c, m: spot.m, y: spot.y, k: spot.k },
+                })
+              }
+            >
+              <span
+                className="spot-color-browser__swatch"
+                style={{
+                  background: `rgb(${255 - spot.c / 1}, ${255 - spot.m / 1}, ${255 - spot.y / 1})`,
+                }}
+              />
+              <span className="spot-color-browser__name">{spot.name}</span>
+            </button>
+          </Tooltip>
         ))}
         {filtered.length === 0 && (
           <div className="spot-color-browser__empty">No spot colors found</div>

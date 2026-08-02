@@ -96,4 +96,133 @@ describe('ExportService', () => {
       name: 'AbortError',
     });
   });
+
+  it('attaches preflight findings to the report', async () => {
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      { name: 'Photo' },
+    );
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    const saveFile = vi.fn(async () => '/exports/Photo.jpg');
+
+    const batch = {
+      ...svgBatch('n1'),
+      jobs: [
+        {
+          ...svgBatch('n1').jobs[0]!,
+          format: 'jpg' as const,
+          fileName: 'Photo.jpg',
+          dimensions: { w: 200, h: 100 },
+        },
+      ],
+    };
+
+    const report = await ExportService.run(batch, { document: doc, saveFile });
+
+    // The raster render needs an engine (absent here), but preflight runs
+    // before execution and must report the flattening finding regardless.
+    expect(report.findings?.some((f) => f.code === 'transparent-background-flattened')).toBe(true);
+  });
+
+  it('reports desktop-required PDF/X jobs with a clear failure on web', async () => {
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      { name: 'Print' },
+    );
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+
+    const batch = {
+      ...svgBatch('n1'),
+      jobs: [
+        {
+          ...svgBatch('n1').jobs[0]!,
+          format: 'pdf-x1a' as const,
+          fileName: 'Print.pdf',
+          dimensions: { w: 200, h: 100 },
+        },
+      ],
+    };
+
+    const report = await ExportService.run(batch, { document: doc });
+
+    expect(report.failureCount).toBe(1);
+    expect(report.files[0]?.error).toContain('desktop app');
+    expect(report.findings?.some((f) => f.code === 'format-platform-unavailable')).toBe(true);
+  });
+
+  it('exports PDF/X through the native print pipeline on desktop', async () => {
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      { name: 'Print' },
+    );
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+
+    const invoke = vi.fn(async (command: string, _args?: Record<string, unknown>) => {
+      if (command === 'export_pdfx4') return [0x25, 0x50, 0x44, 0x46]; // %PDF
+      throw new Error(`unexpected command: ${command}`);
+    });
+    (window as unknown as Record<string, unknown>).__TAURI__ = { core: { invoke } };
+
+    try {
+      const batch = {
+        ...svgBatch('n1'),
+        jobs: [
+          {
+            ...svgBatch('n1').jobs[0]!,
+            format: 'pdf-x4' as const,
+            fileName: 'Print.pdf',
+            dimensions: { w: 200, h: 100 },
+          },
+        ],
+      };
+
+      const report = await ExportService.run(batch, { document: doc }, undefined, 'tauri');
+
+      expect(report.failureCount).toBe(0);
+      expect(report.files[0]?.mimeType).toBe('application/pdf');
+      expect(invoke).toHaveBeenCalledWith('export_pdfx4', expect.anything());
+
+      // The Rust command deserializes PdfXOptions with rename_all="camelCase";
+      // snake_case keys would silently fall back to serde defaults.
+      const args = invoke.mock.calls[0]?.[1] as unknown as {
+        options_json: string;
+        page_height: number;
+      };
+      const options = JSON.parse(args.options_json) as Record<string, unknown>;
+      expect(options.format).toBe('pdf-x4');
+      expect(options).toHaveProperty('includeCropMarks');
+      expect(options).toHaveProperty('bleedMm');
+      expect(args.page_height).toBe(100);
+    } finally {
+      (window as unknown as Record<string, unknown>).__TAURI__ = undefined;
+    }
+  });
+
+  it('rejects unsupported formats from the capability contract', async () => {
+    const node = makeShapeNode(
+      'n1',
+      { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
+      { name: 'Thing' },
+    );
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+
+    const batch = {
+      ...svgBatch('n1'),
+      jobs: [
+        {
+          ...svgBatch('n1').jobs[0]!,
+          format: 'avif' as const,
+          fileName: 'Thing.avif',
+          dimensions: { w: 200, h: 100 },
+        },
+      ],
+    };
+
+    const report = await ExportService.run(batch, { document: doc });
+    expect(report.failureCount).toBe(1);
+    expect(report.files[0]?.error).toContain('AVIF');
+  });
 });

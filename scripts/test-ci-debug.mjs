@@ -5,7 +5,6 @@
  * Simulates a failure scenario and verifies the debug tool works correctly
  */
 
-import { spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extractFailures, isFailureLine, rankLine } from './ci-debug.mjs';

@@ -5,6 +5,7 @@ import {
   clampZoom,
   fitBoundsCamera,
   revealBoundsCamera,
+  screenDeltaToWorld,
   type Viewport,
 } from '@strata/shared';
 import type { ReactNode } from 'react';
@@ -88,7 +89,17 @@ export function ViewportProvider({
     [setState],
   );
 
-  const setZoom = useCallback((z: number) => patch({ zoom: clampZoom(z) }), [patch]);
+  const setZoom = useCallback(
+    (z: number) => {
+      // Anchor around the viewport center so the point under the canvas
+      // center stays put — identical to `useEditor().setZoom` (both go
+      // through `computeZoomTo`). A plain `clampZoom` patch would diverge.
+      const s = stateRef.current;
+      const camState = { zoom: s.zoom, pan: s.pan, cameraRotation: s.cameraRotation };
+      patch(computeZoomTo(camState, z, getEditorViewport()));
+    },
+    [patch, stateRef],
+  );
 
   const setCamera = useCallback(
     (camera: Camera) =>
@@ -228,8 +239,15 @@ export function ViewportProvider({
   );
 
   const canvasDeltaToWorld = useCallback(
-    (dx: number, dy: number) => ({ dx: dx / state.zoom, dy: dy / state.zoom }),
-    [state.zoom],
+    (dx: number, dy: number) => {
+      const [wdx, wdy] = screenDeltaToWorld(
+        { pan: state.pan, zoom: state.zoom, rotation: state.cameraRotation },
+        dx,
+        dy,
+      );
+      return { dx: wdx, dy: wdy };
+    },
+    [state.zoom, state.cameraRotation, state.pan],
   );
 
   const revealSelection = useCallback(

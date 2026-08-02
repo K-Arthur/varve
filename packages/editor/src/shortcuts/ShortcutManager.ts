@@ -1,3 +1,5 @@
+import { isMac as isMacPlatform } from '@strata/platform';
+import { canonicalShortcutKey, physicalKeyFromEvent } from '../input/physicalKey';
 import type { KeymapExport, ShortcutBinding, ShortcutDef } from './types';
 
 const STORAGE_KEY = 'strata-shortcut-overrides';
@@ -31,12 +33,12 @@ export const SHORTCUT_DEFS = {
     category: 'File',
   },
   exportSvg: {
-    binding: { key: 'e', ctrl: true, alt: true },
+    binding: { key: 'e', ctrl: true, shift: true },
     label: 'Export SVG\u2026',
     category: 'File',
   },
   export: {
-    binding: { key: 'e', ctrl: true, shift: true },
+    binding: { key: 'e', ctrl: true },
     label: 'Export\u2026',
     category: 'File',
   },
@@ -612,7 +614,7 @@ export function getEffectiveBinding(id: string): ShortcutBinding {
 // ── Key capture ────────────────────────────────────────────────────────
 
 export function captureKeyCombo(e: KeyboardEvent): ShortcutBinding | null {
-  const key = e.key;
+  const key = physicalKeyFromEvent(e);
 
   if (key === 'Control' || key === 'Shift' || key === 'Alt' || key === 'Meta') {
     return null;
@@ -663,7 +665,7 @@ export function importKeymap(data: KeymapExport): number {
 }
 
 export function isMac(): boolean {
-  return navigator.platform?.toLowerCase().includes('mac') ?? false;
+  return isMacPlatform();
 }
 
 export function shortcutFromEvent(e: KeyboardEvent): {
@@ -672,7 +674,14 @@ export function shortcutFromEvent(e: KeyboardEvent): {
   shift: boolean;
   alt: boolean;
 } {
-  const key = e.key === 'Backspace' || e.key === 'Delete' ? 'Backspace' : e.key.toLowerCase();
+  // Resolve digits/numpad from the physical `code` so `Shift+1` (key `!` on a
+  // US layout) still matches a binding declared against `1`, and numpad keys
+  // work regardless of NumLock. Non-digit keys fall back to `e.key`.
+  const physicalKey = physicalKeyFromEvent(e);
+  const key =
+    physicalKey === 'Backspace' || physicalKey === 'Delete'
+      ? 'Backspace'
+      : canonicalShortcutKey(physicalKey.toLowerCase());
   return {
     key,
     ctrl: isMac() ? e.metaKey : e.ctrlKey,

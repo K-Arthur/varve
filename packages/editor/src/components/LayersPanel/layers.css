@@ -190,6 +190,7 @@
   min-height: 160px;
   overflow-y: auto;
   overflow-x: auto;
+  overscroll-behavior: contain;
   outline: none;
   padding: var(--space-1) var(--space-1);
 }

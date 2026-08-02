@@ -79,12 +79,15 @@ describe('MasterPanel', () => {
     mockEditor({ masters: {} });
     render(<MasterPanel />);
     expect(screen.getByText('No master pages yet.')).toBeDefined();
-    // The fuller explanation is a tooltip on the create button rather than a
+    // The fuller explanation is a Tooltip on the create button rather than a
     // block of copy, so the panel stays short enough not to squeeze the layers
-    // tree that shares its sidebar column.
-    expect(
-      screen.getByRole('button', { name: 'Create new master page' }).getAttribute('title'),
-    ).toMatch(/reusable layouts/);
+    // tree that shares its sidebar column. Tooltip.tsx implements the
+    // aria-describedby + role="tooltip" pattern (not a native `title`).
+    const createBtn = screen.getByRole('button', { name: 'Create new master page' });
+    fireEvent.focus(createBtn);
+    const tooltip = screen.getByRole('tooltip');
+    expect(tooltip).toHaveTextContent(/reusable layouts/);
+    expect(createBtn).toHaveAttribute('aria-describedby', tooltip.id);
   });
 
   it('renders list of masters', () => {

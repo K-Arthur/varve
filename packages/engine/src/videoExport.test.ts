@@ -36,9 +36,9 @@ describe('checkVideoExportSupport', () => {
   it('reports supported when VideoEncoder and canvas are available', () => {
     vi.stubGlobal(
       'VideoEncoder',
-      class VideoEncoder {
-        static isConfigSupported = vi.fn(async () => ({ supported: true }));
-      },
+      Object.assign(function VideoEncoder() {}, {
+        isConfigSupported: vi.fn(async () => ({ supported: true })),
+      }),
     );
     vi.stubGlobal('VideoFrame', class VideoFrame {});
     vi.stubGlobal('OffscreenCanvas', class OffscreenCanvas {});
