@@ -212,7 +212,7 @@ export function configurationToLegacyPreset(
         quality: config.raster.quality,
         bitDepth: config.raster.bitDepth,
         transparency: config.raster.transparency,
-        matteColor: config.raster.matte,
+        matteColor: config.raster.matte ?? config.background?.color,
         colorProfile: config.color?.profile === 'display-p3' ? 'display-p3' : 'srgb',
       }
     : undefined;
@@ -228,6 +228,21 @@ export function configurationToLegacyPreset(
       }
     : undefined;
 
+  const print = config.print
+    ? {
+        iccProfile: config.color?.iccProfile,
+        renderingIntent: config.color?.renderingIntent,
+        blackPointCompensation: config.color?.blackPointCompensation,
+        bleedMm: config.print.bleedMm,
+        includeCropMarks: config.print.includeCropMarks,
+        includeRegistrationMarks: config.print.includeRegistrationMarks,
+        includeColorBars: config.print.includeColorBars,
+        enforceDpi: config.print.enforceDpi,
+        overprintBlack: config.print.overprint,
+        outlineText: config.vector?.text === 'outline',
+      }
+    : undefined;
+
   return {
     id: config.id,
     format,
@@ -236,6 +251,7 @@ export function configurationToLegacyPreset(
     enabled: config.enabled,
     raster,
     vector,
+    print,
   };
 }
 

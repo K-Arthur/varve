@@ -200,6 +200,56 @@ describe('configurationToLegacyPreset', () => {
     });
     expect(configurationToLegacyPreset(resolution)).toBeUndefined();
   });
+
+  it('preserves legacy-compatible print settings', () => {
+    const config = createExportConfiguration({
+      id: 'print-1',
+      target: { type: 'node', nodeId: 'n1' },
+      format: 'pdf-x4',
+      color: {
+        profile: 'cmyk',
+        iccProfile: 'FOGRA39',
+        renderingIntent: 'relative',
+        blackPointCompensation: true,
+        convertToDestination: true,
+      },
+      print: {
+        bleedMm: 3,
+        includeCropMarks: true,
+        includeRegistrationMarks: true,
+        includeColorBars: false,
+        includePageInformation: false,
+        markOffsetMm: 2,
+        enforceDpi: 300,
+        downsampling: 'bicubic',
+        compression: 'auto',
+        convertToDestination: true,
+        overprint: true,
+        spreads: false,
+      },
+      vector: {
+        text: 'outline',
+        embedFonts: false,
+        embedImages: true,
+        styleMode: 'inline',
+        minify: false,
+        precision: 3,
+        idMode: 'layer-name',
+      },
+    });
+
+    expect(configurationToLegacyPreset(config)?.print).toMatchObject({
+      iccProfile: 'FOGRA39',
+      renderingIntent: 'relative',
+      blackPointCompensation: true,
+      bleedMm: 3,
+      includeCropMarks: true,
+      includeRegistrationMarks: true,
+      enforceDpi: 300,
+      overprintBlack: true,
+      outlineText: true,
+    });
+  });
 });
 
 describe('legacyJobToJobSpec', () => {

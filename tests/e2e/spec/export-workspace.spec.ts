@@ -56,7 +56,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
 
     // JPEG flattens a transparent background → a deterministic preflight warning.
     await page.getByRole('button', { name: 'JPEG', exact: true }).click();
-    await page.getByRole('button', { name: '+ Add export setting' }).click();
+    await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
     await expect(page.getByText(/Preflight:/i)).toBeVisible();
@@ -82,7 +82,7 @@ test.describe('Export workspace — batch dialog surfaces', () => {
     await selectExportTab(page);
 
     await page.getByRole('button', { name: 'PNG', exact: true }).click();
-    await page.getByRole('button', { name: '+ Add export setting' }).click();
+    await page.getByRole('button', { name: 'Add configuration' }).click();
     await openAdvancedExport(page);
 
     await page.getByRole('button', { name: /^Export \(/i }).click();

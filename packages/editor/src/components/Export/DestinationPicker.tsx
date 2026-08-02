@@ -4,6 +4,7 @@
 
 import type { ExportBatch, ExportJob } from '@strata/scene';
 import { useMemo } from 'react';
+import { applyExportBatchPaths } from '../../exportBatchPaths';
 
 import './DestinationPicker.css';
 
@@ -20,7 +21,7 @@ export interface DestinationPickerProps {
 
 const RULE_OPTIONS: { value: ExportBatch['folderRule']; label: string }[] = [
   { value: 'flat', label: 'Flat' },
-  { value: 'by-preset', label: 'By preset' },
+  { value: 'by-preset', label: 'By format' },
   { value: 'by-node', label: 'By node' },
 ];
 
@@ -35,38 +36,18 @@ export function DestinationPicker({
   folderSelectionAvailable = true,
 }: DestinationPickerProps) {
   const previews = useMemo(() => {
-    return jobs.slice(0, 3).map((job) => {
-      const safeName = job.nodeName.replace(/[^a-zA-Z0-9-_\s]/g, '').trim() || 'export';
-      const ext = job.format.startsWith('pdf')
-        ? 'pdf'
-        : job.format === 'svg'
-          ? 'svg'
-          : job.format === 'react-tailwind'
-            ? 'tsx'
-            : job.format === 'react-cssmodules'
-              ? 'tsx'
-              : job.format === 'flutter'
-                ? 'dart'
-                : job.format === 'swiftui'
-                  ? 'swift'
-                  : 'png';
-      const folder =
-        folderRule === 'by-preset'
-          ? `${job.format}/`
-          : folderRule === 'by-node'
-            ? `${safeName}/`
-            : '';
-      const file = template
-        .replace('{name}', safeName)
-        .replace('{suffix}', job.presetId ? `-${job.presetId.slice(0, 8)}` : '')
-        .replace('{ext}', ext);
-      return {
-        key: `${job.nodeId}-${job.presetId}`,
-        folder,
-        file,
-        full: `${folder}${file}`,
-      };
-    });
+    return applyExportBatchPaths(jobs, template, folderRule)
+      .slice(0, 3)
+      .map((job) => {
+        const slash = job.fileName.lastIndexOf('/');
+        const folder = slash >= 0 ? job.fileName.slice(0, slash + 1) : '';
+        const file = slash >= 0 ? job.fileName.slice(slash + 1) : job.fileName;
+        return {
+          key: `${job.nodeId}-${job.presetId}-${job.fileName}`,
+          folder,
+          file,
+        };
+      });
   }, [jobs, template, folderRule]);
 
   return (

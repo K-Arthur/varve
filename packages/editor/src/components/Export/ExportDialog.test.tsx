@@ -4,7 +4,7 @@
 import { createDocument } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ExportDialog } from './ExportDialog';
+import { buildJobs, ExportDialog } from './ExportDialog';
 
 vi.mock('../../motion/videoExportBridge', () => ({
   createVideoFrameRenderer: vi.fn(),
@@ -43,6 +43,52 @@ function mockNode(overrides: Record<string, unknown> = {}) {
 }
 
 describe('ExportDialog', () => {
+  it('carries configuration-specific encoder options into executable jobs', () => {
+    const node = mockNode({
+      presets: [
+        {
+          id: 'jpeg-high',
+          format: 'jpg',
+          scale: { type: 'factor', value: 1 },
+          suffix: '-high',
+          enabled: true,
+          raster: {
+            scale: { type: 'factor', value: 1 },
+            quality: 0.92,
+            transparency: false,
+            matteColor: [255, 255, 255, 255],
+          },
+        },
+      ],
+    });
+
+    expect(buildJobs([node])[0]).toMatchObject({
+      suffix: '-high',
+      raster: {
+        quality: 0.92,
+        transparency: false,
+        matteColor: [255, 255, 255, 255],
+      },
+    });
+  });
+
+  it('applies the filename template and organization rule to the executed batch', async () => {
+    const onExport = vi.fn(async () => undefined);
+    render(
+      <ExportDialog isOpen={true} onClose={() => {}} nodes={[mockNode()]} onExport={onExport} />,
+    );
+
+    fireEvent.change(screen.getByLabelText('Filename template'), {
+      target: { value: '{name}-{width}.{ext}' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'By format' }));
+    fireEvent.click(screen.getByRole('button', { name: /Export \(1\)/ }));
+
+    await waitFor(() => expect(onExport).toHaveBeenCalledOnce());
+    const batch = onExport.mock.calls[0]?.[0] as { jobs: Array<{ fileName: string }> };
+    expect(batch.jobs[0]?.fileName).toBe('png/Rectangle 1-200.png');
+  });
+
   it('renders when isOpen is true', () => {
     const { container } = render(
       <ExportDialog

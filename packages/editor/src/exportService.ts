@@ -297,7 +297,9 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         {
           format: mime,
           scale: rasterScaleForJob(job, context),
-          quality: job.format === 'jpg' ? 0.92 : undefined,
+          quality: job.raster?.quality ?? (job.format === 'jpg' ? 0.92 : undefined),
+          transparency: job.raster?.transparency,
+          matteColor: job.raster?.matteColor,
         },
       );
       const fontWarnings = collectMissingFontWarnings(node);
