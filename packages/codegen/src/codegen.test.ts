@@ -29,6 +29,19 @@ describe('exportNodeToSvg', () => {
     expect(out).toContain('rect');
   });
 
+  it('minifies output when requested, preserving structure', () => {
+    const doc = createDocument('Test');
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 200, h: 100 }, { name: 'Box' });
+    const pretty = exportNodeToSvg(node, doc);
+    const minified = exportNodeToSvg(node, doc, { minify: true });
+    expect(minified.length).toBeLessThan(pretty.length);
+    expect(minified).toContain('<svg');
+    expect(minified).toContain('</svg>');
+    expect(minified).not.toContain('\n');
+    expect(minified).toContain('<rect');
+    expect(minified).toContain('viewBox=');
+  });
+
   it('emits multi-line text as tspan elements', () => {
     const doc = createDocument('Test');
     const node = makeTextNode('t1', 'Line 1\nLine 2', {
