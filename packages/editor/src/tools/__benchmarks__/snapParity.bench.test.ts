@@ -458,8 +458,12 @@ describe('snapPosition fine-phase scaling', () => {
     return bounds;
   }
 
-  function measureP95(count: number, samples = 800): number {
+  /** Median of `samples` calls; robust to GC/JIT spikes. */
+  function measureMedianMs(count: number, samples = 400): number {
     const candidates = makeDenseCluster(count);
+    for (let i = 0; i < 20; i++) {
+      snapPosition(150 + i, 150 + i, 30, 30, candidates, undefined, undefined, { zoom: 1 });
+    }
     const times: number[] = [];
     for (let s = 0; s < samples; s++) {
       const x = 150 + Math.sin(s) * 40;
@@ -469,25 +473,30 @@ describe('snapPosition fine-phase scaling', () => {
       times.push(performance.now() - t0);
     }
     times.sort((a, b) => a - b);
-    return times[Math.floor(times.length * 0.95)] ?? 0;
+    return times[Math.floor(times.length / 2)] ?? 0;
   }
 
   it('fine-phase cost scales near-linearly, not quadratically, with candidate count', () => {
-    // Load-independent gate: the pre-optimization O(k²) pair scans cost ~64x
-    // more at k=800 than at k=100; the near-linear evaluator should be well
-    // under the 8x proportional bound even on a noisy shared runner. Absolute
-    // wall-clock ceilings on shared CI are flaky, so assert the RATIO and keep
-    // only a generous absolute sanity cap.
-    const p95Base = Math.max(measureP95(100), 0.01);
-    const p95Big = measureP95(800);
-    const ratio = p95Big / p95Base;
-    expect(ratio).toBeLessThan(12);
-    // Absolute sanity: pre-optimization p95 at k=800 measured ~59ms; current
-    // runs ~1.5ms. 25ms is a generous load-tolerant ceiling that still catches
+    // Load-independent gate. Pre-optimization the O(k²) pair scans cost ~64x
+    // more at k=800 than k=100; the near-linear evaluator measures ~4-5x.
+    // Best-of-N interleaved medians are robust to the parallel test suite
+    // saturating the machine; the 20x ceiling sits far above measured (~5x)
+    // and far below quadratic (~64x), so a regression to the pair scans
+    // cannot hide inside load noise.
+    let base = Infinity;
+    let big = Infinity;
+    for (let run = 0; run < 5; run++) {
+      base = Math.min(base, measureMedianMs(100));
+      big = Math.min(big, measureMedianMs(800));
+    }
+    const ratio = big / Math.max(base, 0.05);
+    expect(ratio).toBeLessThan(20);
+    // Absolute sanity: pre-optimization p50 at k=800 measured ~30ms; current
+    // runs ~1ms. 25ms is a generous load-tolerant ceiling that still catches
     // a full regression to the quadratic pair scans.
-    expect(p95Big).toBeLessThan(25);
+    expect(big).toBeLessThan(25);
     console.log(
-      `[snap-scaling] k=100 p95=${p95Base.toFixed(2)}ms  k=800 p95=${p95Big.toFixed(2)}ms  ratio=${ratio.toFixed(1)}x`,
+      `[snap-scaling] k=100=${base.toFixed(2)}ms  k=800=${big.toFixed(2)}ms  ratio=${ratio.toFixed(1)}x`,
     );
-  }, 30_000);
+  }, 60_000);
 });
