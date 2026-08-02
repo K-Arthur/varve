@@ -169,6 +169,7 @@ export {
   springPhysics,
   steps,
 } from './easing';
+export type { ExportWorkingSpace, ResamplingAlgorithm } from './exportContracts';
 export type { PathPoint, SpatialTangents } from './interpolation';
 export {
   ensureVertexMatch,

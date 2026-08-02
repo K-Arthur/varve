@@ -96,7 +96,9 @@ import {
   getMemoryBudgets,
   getOverBudgetCount,
   installPerfDiagnosticsHandle,
+  isSnapMetricsEnabled,
   recordFrame,
+  recordSnapMetrics,
   scheduleCanvasFrame,
   startFrameTiming,
 } from './canvas/perfRuntime';
@@ -463,6 +465,7 @@ export function CanvasArea({
     index: SpatialIndex;
     parentIndex: Map<string, string>;
     documentId: string;
+    indexedNodeCount: number;
   } | null>(null);
   const prevDrawDocRef = useRef(state.document);
   const lastRenderedDocRef = useRef(state.document);
@@ -978,6 +981,8 @@ export function CanvasArea({
           snapSessionRef.current = createSnapSession();
           return { x: bounds.x, y: bounds.y, guides: [] };
         }
+        const snapMetricsOn = isSnapMetricsEnabled();
+        const snapStart = snapMetricsOn ? performance.now() : 0;
 
         // D-02: Spatial + hierarchical filtering of snap targets
         const doc = stateRef.current.document;
@@ -987,10 +992,13 @@ export function CanvasArea({
             index: getOrCreateSpatialIndex(doc, null),
             parentIndex: buildParentIndexMap(doc),
             documentId: doc.id,
+            indexedNodeCount: Object.keys(doc.nodes).length,
           };
           snapIndexRef.current = snapIndex;
         }
+        const queryStart = snapMetricsOn ? performance.now() : 0;
         const nearbyIds = queryRect(snapIndex.index, snapTargetSearchRect(bounds, s.zoom));
+        const queryDurationMs = snapMetricsOn ? performance.now() - queryStart : 0;
         const nearbyBoundsWithIds: Array<{
           nodeId: string;
           bounds: { x: number; y: number; w: number; h: number };
@@ -998,6 +1006,9 @@ export function CanvasArea({
         for (const nodeId of nearbyIds) {
           const node = doc.nodes[nodeId];
           if (!node) continue;
+          // Semantic filter: hidden nodes are not visible, so snapping to their
+          // edges would produce invisible feedback — exclude them as candidates.
+          if (node.visible === false) continue;
           // Read through the transform cache rather than recomputing. This runs
           // on every pointer move of a drag, and the uncached nodeWorldBounds
           // re-derives a group's bounds by unioning all of its children every
@@ -1011,13 +1022,18 @@ export function CanvasArea({
           if (b) nearbyBoundsWithIds.push({ nodeId: node.id, bounds: b });
         }
         const parentIdx = snapIndex.parentIndex;
-        const draggedId = stateRef.current.selection[0] ?? '';
+        const selection = stateRef.current.selection;
+        const draggedId = selection[0] ?? '';
         const filtered = filterSnapTargets(
           bounds,
           { zoom: s.zoom },
           nearbyBoundsWithIds,
           parentIdx,
           draggedId,
+          // Semantic filter: every object moving in the same selection is an
+          // invalid target — snapping a multi-selection against its own members
+          // both wastes evaluation and produces incorrect guides.
+          selection.length > 1 ? new Set(selection) : undefined,
         );
 
         const pageBoundsTargets: Array<{ x: number; y: number; w: number; h: number }> = [];
@@ -1093,6 +1109,20 @@ export function CanvasArea({
         );
         snapSessionRef.current = result.session;
         setSnapGuides(result.guides);
+        if (snapMetricsOn) {
+          recordSnapMetrics({
+            ts: performance.now(),
+            sceneObjectCount: snapIndex.indexedNodeCount,
+            indexedCandidateCount: snapIndex.indexedNodeCount,
+            broadPhaseResultCount: nearbyIds.size,
+            semanticFilteredCount: filtered.length,
+            finePhaseEvalCount: allTargets.length,
+            queryDurationMs,
+            evalDurationMs: performance.now() - snapStart,
+            winningX: result.x !== bounds.x,
+            winningY: result.y !== bounds.y,
+          });
+        }
         return { x: result.x, y: result.y, guides: result.guides };
       },
       isSnapExcluded: (id: string) => {

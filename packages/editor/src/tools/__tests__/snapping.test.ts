@@ -289,6 +289,51 @@ describe('filterSnapTargets — D-02', () => {
     // The important thing is that it filters 500 targets quickly.
     expect(elapsed).toBeLessThan(50);
   });
+
+  it('excludes every member of a multi-selection, not just the dragged node', () => {
+    const allBounds = [
+      { nodeId: 'dragged', bounds: { x: 0, y: 0, w: 100, h: 100 } },
+      // selected sibling moving with the drag — must be excluded
+      { nodeId: 'selA', bounds: { x: 160, y: 0, w: 100, h: 100 } },
+      { nodeId: 'selB', bounds: { x: 0, y: 160, w: 100, h: 100 } },
+      // unrelated third object — remains a valid candidate
+      { nodeId: 'other', bounds: { x: 180, y: 180, w: 100, h: 100 } },
+    ];
+    const parentIndex = new Map<string, string | null>([
+      ['dragged', 'root'],
+      ['selA', 'root'],
+      ['selB', 'root'],
+      ['other', 'root'],
+    ]);
+    const selection = new Set(['dragged', 'selA', 'selB']);
+    const result = filterSnapTargets(
+      { x: 0, y: 0, w: 100, h: 100 },
+      { zoom: 1 },
+      allBounds,
+      parentIndex,
+      'dragged',
+      selection,
+    );
+    const ids = result.map((b) => `${b.x},${b.y}`);
+    expect(ids).not.toContain('160,0'); // selA excluded
+    expect(ids).not.toContain('0,160'); // selB excluded
+    expect(ids).toContain('180,180'); // unrelated object retained
+  });
+
+  it('excludedIds is optional and behaves like the dragged-only filter', () => {
+    const allBounds = [{ nodeId: 'near', bounds: { x: 150, y: 0, w: 100, h: 100 } }];
+    const parentIndex = new Map<string, string | null>([['near', 'root']]);
+    const without = filterSnapTargets(dragged, camera, allBounds, parentIndex, 'dragged');
+    const withEmpty = filterSnapTargets(
+      dragged,
+      camera,
+      allBounds,
+      parentIndex,
+      'dragged',
+      new Set(),
+    );
+    expect(without).toEqual(withEmpty);
+  });
 });
 
 describe('snapPosition — snapExcludedIds (D-03)', () => {

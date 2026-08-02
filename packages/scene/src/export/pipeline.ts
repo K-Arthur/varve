@@ -23,26 +23,12 @@
 
 import type { RenderingIntent } from '../colorManagement';
 
+// The algorithm/working-space unions live in @strata/shared so @strata/engine
+// (which must not depend on @strata/scene) can import them without duplicating
+// the union definitions. Re-export here so scene consumers keep one import path.
+export type { ExportWorkingSpace, ResamplingAlgorithm } from '@strata/shared';
+
 // ── Resampling ───────────────────────────────────────────────────────────────
-
-export type ResamplingAlgorithm =
-  | 'auto'
-  | 'nearest'
-  | 'bilinear'
-  | 'bicubic'
-  | 'catmull-rom'
-  | 'mitchell'
-  | 'lanczos2'
-  | 'lanczos3'
-  | 'area'
-  | 'pixel-art';
-
-/**
- * Working space for a stage. `srgb` treats stored values as the encoded signal
- * (perceptual); `linear-srgb` converts through the IEC 61966-2-1 EOTF first
- * (physically additive, reduces darkening/brightening at high-contrast edges).
- */
-export type ExportWorkingSpace = 'srgb' | 'linear-srgb';
 
 export interface ResizeOptions {
   algorithm: ResamplingAlgorithm;
