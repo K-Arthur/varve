@@ -80,7 +80,12 @@ import {
   subscribeToDevicePixelRatio,
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
-import { computeDocumentDirtyRegion } from './canvas/dirtyRegion';
+import {
+  computeDocumentDirtyRegion,
+  type RedrawReason,
+  resolveFullRedrawReason,
+  resolveRedrawReason,
+} from './canvas/dirtyRegion';
 import { EngineNodeMemo } from './canvas/engineNodeMemo';
 import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
@@ -559,6 +564,16 @@ export function CanvasArea({
   // B-04: Dirty-rect tracking for partial redraw. Populated by draw()
   // diffing old vs current node world bounds.
   const dirtyRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  // Redraw attribution: the previous camera / decode / font stamps let the
+  // diagnostics record WHY a frame is being drawn (see resolveRedrawReason).
+  const prevCameraForRedrawRef = useRef<{
+    zoom: number;
+    pan: { x: number; y: number };
+    rotation: number;
+  } | null>(null);
+  const prevImageCacheStampForRedrawRef = useRef(imageCacheStamp);
+  const prevFontLoadStampForRedrawRef = useRef(fontLoadStamp);
 
   // Cache CSS custom-property colors so drawContent doesn't call
   // getComputedStyle() every frame (forces style recalc). Updated only on
@@ -2392,6 +2407,49 @@ export function CanvasArea({
       const adaptiveCacheLimits = getAdaptiveCacheLimits(budgets, cacheMultiplier);
       subtreeIrCacheRef.current.setSoftBudget(adaptiveCacheLimits.subtreeIrCacheBytes);
       engineNodeMemoRef.current.setMaxEntries(adaptiveCacheLimits.engineNodeMemoEntries);
+      // Redraw attribution: why is this frame being drawn at all, and (when a
+      // dirty frame fell back to full redraw) why was partial redraw skipped?
+      const prevCamera = prevCameraForRedrawRef.current;
+      const cameraChanged =
+        prevCamera !== null &&
+        (prevCamera.zoom !== s.zoom ||
+          prevCamera.pan.x !== s.pan.x ||
+          prevCamera.pan.y !== s.pan.y ||
+          prevCamera.rotation !== (s.cameraRotation ?? 0));
+      const redrawReason: RedrawReason = resolveRedrawReason({
+        docChanged: lastRenderedDocRef.current !== doc,
+        dirtyKind: dirty.kind,
+        cameraChanged,
+        imageCacheStampChanged: prevImageCacheStampForRedrawRef.current !== imageCacheStamp,
+        fontLoadStampChanged: prevFontLoadStampForRedrawRef.current !== fontLoadStamp,
+        variableOnlyChange: false,
+      });
+      const viewportArea = VP_W * VP_H;
+      const dirtyAreaRatio =
+        dirty.kind === 'none'
+          ? 0
+          : dirty.kind === 'full'
+            ? 1
+            : dirtyRect && viewportArea > 0
+              ? Math.min(1, (dirtyRect.w * dirtyRect.h) / viewportArea)
+              : 1;
+      const fullRedrawReason =
+        dirty.kind !== 'none' && !usePartialRedraw
+          ? (resolveFullRedrawReason({
+              rotation: s.cameraRotation ?? 0,
+              profileEnablePartialRedraw: profile.enablePartialRedraw,
+              dirtyRectArea: dirtyRect ? dirtyRect.w * dirtyRect.h : 0,
+              viewportArea,
+              hasDirtyRect: dirtyRect !== null,
+            }) ?? undefined)
+          : undefined;
+      prevCameraForRedrawRef.current = {
+        zoom: s.zoom,
+        pan: s.pan,
+        rotation: s.cameraRotation ?? 0,
+      };
+      prevImageCacheStampForRedrawRef.current = imageCacheStamp;
+      prevFontLoadStampForRedrawRef.current = fontLoadStamp;
       // Record frame diagnostics (dev-only ring buffer)
       const cacheDiag = subtreeIrCacheRef.current.diagnostics();
       recordFrame({
@@ -2419,6 +2477,10 @@ export function CanvasArea({
         cacheBytes: cacheDiag.bytes,
         cacheEntries: cacheDiag.entries,
         profileTier: profile.tier,
+        redrawReason,
+        dirtyAreaRatio,
+        dirtyRects: dirty.kind === 'partial' ? dirty.rectCount : 0,
+        fullRedrawReason,
       });
       const diag = compositorRef.current?.getDiagnostics?.();
       if (diag) setCompositorDiagnostics(diag);
