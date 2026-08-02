@@ -165,3 +165,68 @@ describe('ImageCache memory budget', () => {
     expect(cache.has('large')).toBe(false);
   });
 });
+
+describe('ImageCache pending-load invalidation', () => {
+  let originalImage: typeof Image;
+
+  beforeEach(() => {
+    originalImage = globalThis.Image;
+    globalThis.Image = MockImage as unknown as typeof Image;
+  });
+
+  afterEach(() => {
+    globalThis.Image = originalImage;
+  });
+
+  it('does not repopulate the cache when a cancelled decode finishes late', async () => {
+    const created: MockImage[] = [];
+    MockImage.dispatch = (img) => created.push(img);
+
+    const cache = new ImageCache();
+    const pending = cache.load('data:image/png;base64,cancelled');
+    await Promise.resolve();
+
+    cache.cancel('data:image/png;base64,cancelled');
+    created[0]?.onload?.();
+    await pending;
+
+    expect(cache.isLoaded('data:image/png;base64,cancelled')).toBe(false);
+    expect(cache.stats.bytes).toBe(0);
+  });
+
+  it('does not let an older cancelled decode overwrite a successful retry', async () => {
+    const created: MockImage[] = [];
+    MockImage.dispatch = (img) => created.push(img);
+
+    const cache = new ImageCache();
+    const first = cache.load('data:image/png;base64,retry');
+    await Promise.resolve();
+    cache.cancel('data:image/png;base64,retry');
+
+    const second = cache.load('data:image/png;base64,retry');
+    await Promise.resolve();
+    created[1]?.onload?.();
+    const secondImage = await second;
+    created[0]?.onload?.();
+    await first;
+
+    expect(cache.getImage('data:image/png;base64,retry')).toBe(secondImage);
+    expect(cache.stats.bytes).toBe(100 * 100 * 4);
+  });
+
+  it('does not repopulate the cache when clear races a pending decode', async () => {
+    const created: MockImage[] = [];
+    MockImage.dispatch = (img) => created.push(img);
+
+    const cache = new ImageCache();
+    const pending = cache.load('data:image/png;base64,cleared');
+    await Promise.resolve();
+
+    cache.clear();
+    created[0]?.onload?.();
+    await pending;
+
+    expect(cache.has('data:image/png;base64,cleared')).toBe(false);
+    expect(cache.stats.bytes).toBe(0);
+  });
+});

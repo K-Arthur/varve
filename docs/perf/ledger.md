@@ -263,3 +263,8 @@ configuration. Normal and benchmark-config collection report 891 and 898 files
 respectively, with zero worktree paths. The subsequent root-only `pnpm bench`
 run stopped consuming CPU but did not return from runner teardown; that is
 tracked separately and the full command is not recorded as passing.
+
+Pending image decode invalidation was also hardened. Failing tests demonstrated
+that cancel, clear, and cancel-then-retry could all be undone by late promise
+completion. Per-load identities now prevent stale completions from mutating the
+cache or retained-byte accounting; the focused image-cache suite passes 11/11.
