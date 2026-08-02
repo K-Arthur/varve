@@ -268,3 +268,9 @@ Pending image decode invalidation was also hardened. Failing tests demonstrated
 that cancel, clear, and cancel-then-retry could all be undone by late promise
 completion. Per-load identities now prevent stale completions from mutating the
 cache or retained-byte accounting; the focused image-cache suite passes 11/11.
+
+The canvas memory preset now also controls global decoded-image retention with
+64/256/512 MiB low/medium/high ceilings. Lowering the live ceiling triggers LRU
+eviction immediately. Focused image-cache and preset tests pass 20/20. This does
+not close the wider low-memory finding: worker, mask, shaping, scratch, and GPU
+allocations remain outside shared ownership, and no 4 GiB run has passed yet.
