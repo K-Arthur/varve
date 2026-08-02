@@ -26,7 +26,7 @@ import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 import { InspectorColorPopover } from '../controls/InspectorColorPopover';
 import { NumberField } from '../controls/NumberField';
-import { commonValue, isMixed } from '../selection/selectionState';
+import { commonValue, isMixed, type MaybeMixed } from '../selection/selectionState';
 
 export interface EffectsSectionProps {
   nodes: SceneNode[];
@@ -741,6 +741,107 @@ function ChromaticAberrationParams({
   );
 }
 
+function GlitchDisplacementParams({
+  nodes,
+  index,
+  onChange,
+}: {
+  nodes: EffectNode[];
+  index: number;
+  onChange: (updater: (e: Effect) => Effect) => void;
+}) {
+  const blockStrengthRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    return e?.type === 'glitch' ? e.blockStrength : 10;
+  });
+  const modeRaw = commonValue(nodes, (n) => {
+    const e = getEffect(n, index);
+    return e?.type === 'glitch' ? e.channelShiftMode : 'static';
+  });
+  const channelValue = (key: keyof ChannelOffset): MaybeMixed<number> =>
+    commonValue<number>(nodes, (n) => {
+      const e = getEffect(n, index);
+      return e?.type === 'glitch' ? e.channelShift[key] : 0;
+    });
+  const updateChannel = (key: keyof ChannelOffset, value: number): void => {
+    onChange((effect) =>
+      effect.type === 'glitch'
+        ? { ...effect, channelShift: { ...effect.channelShift, [key]: value } }
+        : effect,
+    );
+  };
+
+  return (
+    <>
+      <NumberField
+        label="Block Strength"
+        value={isMixed(blockStrengthRaw) ? 10 : blockStrengthRaw}
+        mixed={isMixed(blockStrengthRaw)}
+        step={1}
+        min={0}
+        max={200}
+        onChange={(value) =>
+          onChange((effect) =>
+            effect.type === 'glitch' ? { ...effect, blockStrength: value } : effect,
+          )
+        }
+      />
+      <FieldRow label="Channel Shift">
+        <Select
+          label="Channel shift mode"
+          value={isMixed(modeRaw) ? '' : modeRaw}
+          options={[
+            ...(isMixed(modeRaw) ? [{ value: '', label: 'Mixed', disabled: true }] : []),
+            { value: 'static', label: 'Static' },
+            { value: 'seeded', label: 'Seeded' },
+          ]}
+          onChange={(value) => {
+            if (!value) return;
+            onChange((effect) =>
+              effect.type === 'glitch'
+                ? { ...effect, channelShiftMode: value as 'static' | 'seeded' }
+                : effect,
+            );
+          }}
+          placeholder="Mixed"
+        />
+      </FieldRow>
+      {(
+        [
+          ['Red', 'redX', 'redY'],
+          ['Green', 'greenX', 'greenY'],
+          ['Blue', 'blueX', 'blueY'],
+        ] as const
+      ).map(([label, xKey, yKey]) => {
+        const xRaw = channelValue(xKey);
+        const yRaw = channelValue(yKey);
+        return (
+          <FieldRow key={label} label={label}>
+            <NumberField
+              label={`${label} X`}
+              value={isMixed(xRaw) ? 0 : xRaw}
+              mixed={isMixed(xRaw)}
+              step={1}
+              min={-200}
+              max={200}
+              onChange={(value) => updateChannel(xKey, value)}
+            />
+            <NumberField
+              label={`${label} Y`}
+              value={isMixed(yRaw) ? 0 : yRaw}
+              mixed={isMixed(yRaw)}
+              step={1}
+              min={-200}
+              max={200}
+              onChange={(value) => updateChannel(yKey, value)}
+            />
+          </FieldRow>
+        );
+      })}
+    </>
+  );
+}
+
 function GlitchParams({
   nodes,
   index,
@@ -925,6 +1026,7 @@ function GlitchParams({
               onChange={(v) => onChange((e) => (e.type === 'glitch' ? { ...e, blockSize: v } : e))}
             />
           </FieldRow>
+          <GlitchDisplacementParams nodes={nodes} index={index} onChange={onChange} />
           <FieldRow label="Noise">
             <NumberField
               label="Intensity"
