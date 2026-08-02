@@ -16,8 +16,8 @@ use crate::subset::{
 };
 use crate::{ImageRenderState, PdfOptions};
 use lopdf::{dictionary, Document, Object, Stream};
-pub use strata_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
 use strata_colour::profiles::PrintProfile;
+pub use strata_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
 use strata_core::SceneNode;
 
 /// Return default bleed/trim marks geometry as `(bleed_mm, trim_offset_mm, mark_length_mm)`.
@@ -56,7 +56,8 @@ fn build_pdfx_content(
 
     for node in nodes {
         let state = image_state.as_mut().map(|s| &mut **s);
-        let cmd = crate::shape_to_pdf_content(node, page_height, state, manifest, use_cmyk, profile);
+        let cmd =
+            crate::shape_to_pdf_content(node, page_height, state, manifest, use_cmyk, profile);
         content.extend_from_slice(&cmd);
     }
 
@@ -321,7 +322,9 @@ fn build_pdfx_document(
     // conforming viewer (and preflight tool) can perform real colour
     // management. The chosen profile comes from `opts.print_profile`, defaulting
     // to Fogra39 when the caller asked for CMYK but named no profile.
-    let dest_profile = opts.print_profile.or_else(|| use_cmyk.then_some(PrintProfile::Fogra39));
+    let dest_profile = opts
+        .print_profile
+        .or_else(|| use_cmyk.then_some(PrintProfile::Fogra39));
     let output_intent_id = doc.new_object_id();
     let mut output_intent = dictionary! {
         "Type" => "OutputIntent",
@@ -334,7 +337,10 @@ fn build_pdfx_document(
     };
     if let Some(profile) = dest_profile {
         let icc_bytes = profile.icc_bytes();
-        let icc_stream = Stream::new(dictionary! { "N" => 4, "Alternate" => "DeviceCMYK" }, icc_bytes.to_vec());
+        let icc_stream = Stream::new(
+            dictionary! { "N" => 4, "Alternate" => "DeviceCMYK" },
+            icc_bytes.to_vec(),
+        );
         let icc_id = doc.new_object_id();
         doc.objects.insert(icc_id, Object::Stream(icc_stream));
         output_intent.set("DestOutputProfile", Object::Reference(icc_id));
@@ -529,8 +535,14 @@ mod tests {
                 }
             }
         }
-        assert!(found_cmyk_fill, "PDF/X-1a content must contain CMYK fill operators");
-        assert!(!found_rgb_fill, "PDF/X-1a content must not contain RGB fill operators");
+        assert!(
+            found_cmyk_fill,
+            "PDF/X-1a content must contain CMYK fill operators"
+        );
+        assert!(
+            !found_rgb_fill,
+            "PDF/X-1a content must not contain RGB fill operators"
+        );
     }
 
     #[test]
