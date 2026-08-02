@@ -87,3 +87,43 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
       return DEFAULT_MEMORY_BUDGETS;
   }
 }
+
+/**
+ * Deterministic low-memory pressure profiles for testing and the low-memory
+ * test mode. These are NOT claims about exact OS memory behavior — they are
+ * application-level pressure fixtures that tighten every byte/entry budget so
+ * admission control, eviction and degradation paths are exercised
+ * reproducibly. 'normal' restores the defaults.
+ */
+export type PressureProfile = 'normal' | '4gb' | '2gb';
+
+export function resolvePressureBudgets(profile: PressureProfile): MemoryBudgets {
+  switch (profile) {
+    case '2gb':
+      return {
+        ...DEFAULT_MEMORY_BUDGETS,
+        subtreeIrCacheBytes: 8 * 1024 * 1024,
+        workerBitmapBytes: 32 * 1024 * 1024,
+        imageCacheBytes: 32 * 1024 * 1024,
+        backdropCacheEntries: 3,
+        gradientCacheEntries: 50,
+        engineNodeMemoEntries: 2000,
+        transformCacheEntries: 1000,
+        thumbnailCacheEntries: 50,
+      };
+    case '4gb':
+      return {
+        ...DEFAULT_MEMORY_BUDGETS,
+        subtreeIrCacheBytes: 16 * 1024 * 1024,
+        workerBitmapBytes: 64 * 1024 * 1024,
+        imageCacheBytes: 64 * 1024 * 1024,
+        backdropCacheEntries: 5,
+        gradientCacheEntries: 100,
+        engineNodeMemoEntries: 5000,
+        transformCacheEntries: 2000,
+        thumbnailCacheEntries: 100,
+      };
+    default:
+      return DEFAULT_MEMORY_BUDGETS;
+  }
+}

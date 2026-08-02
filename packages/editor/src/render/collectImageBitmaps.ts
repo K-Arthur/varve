@@ -3,6 +3,7 @@
  */
 import type { RenderItem } from '@strata/engine';
 import { getImageCache } from '@strata/engine';
+import { checkFault } from './faultInjection';
 import { estimateRgbaBytes } from './renderBitmapBudget';
 
 /** Close every distinct ImageBitmap in a map. */
@@ -95,6 +96,9 @@ export async function collectImageBitmaps(
     const img = cache.getImage(src);
     if (!img) return fail();
     try {
+      if (checkFault('image-bitmap-create')) {
+        throw new DOMException('injected createImageBitmap fault', 'AbortError');
+      }
       const bitmap = await createImageBitmap(img);
       images[src] = bitmap;
       transfer.push(bitmap);
