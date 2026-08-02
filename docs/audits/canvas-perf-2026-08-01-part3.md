@@ -129,6 +129,11 @@ Other repeatability gaps:
   DPR, refresh rate, and memory metadata even though a result schema exists.
 - The real-browser replay gate is not in CI; several older timing tests use
   loose absolute limits that are noisy under contention.
+- `pnpm bench` also discovers benchmark files beneath `.worktrees/`, repeating
+  unrelated worktree suites after the repository-root suite. A full invocation
+  was stopped once that duplicate discovery was observed; root spatial-index
+  and snapping results had completed, and the dedicated root render/replay
+  gates were run separately.
 - No native WebKitGTK performance collector, 4 GiB cgroup run, DevTools
   open/closed comparison, or decoded-image memory/reclamation soak exists.
 
@@ -176,6 +181,30 @@ Other repeatability gaps:
     a restricted primitive subset, does a GPU-to-Canvas2D presentation copy,
     and is unavailable in the Linux WebKitGTK target. Correctness goldens and
     real hardware measurements are prerequisites for further adoption.
+11. **Benchmark discovery includes unrelated worktrees.** Exclude `.worktrees`
+    in the benchmark config before treating `pnpm bench` as a bounded,
+    reproducible gate.
+
+## Safe early cache corrections
+
+Two audit-confirmed defects were reproduced with failing tests before their
+fixes were applied:
+
+- `FrameCache.get()` now refreshes an entry's frame recency. Before the fix, a
+  gradient read on every frame still disappeared on frame four; the renderer
+  then recreated it periodically. The regression test reads the same value for
+  twelve frames while a separate cold-entry test preserves expiry behavior.
+- Adaptive subtree-IR and engine-node-memo limits are now derived on every
+  frame from the current multiplier, capped by the user's configured preset.
+  Before the fix, the code only applied multipliers below one, so returning to
+  balanced left the reduced limit in place. Deterministic tests cover a low
+  preset transitioning from constrained (25 percent) back to its full limit
+  and ensure quality mode cannot exceed the explicit preset.
+
+These changes alter neither raster output nor interaction quality. They remove
+avoidable regeneration/churn and make low-memory settings remain a ceiling.
+They do not establish full 4 GiB support; the wider cache-ownership gaps remain
+open.
 
 The live status, risk, evidence, and commit reference for each finding are kept
 in [`../perf/findings.md`](../perf/findings.md).

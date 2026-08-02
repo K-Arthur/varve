@@ -251,3 +251,9 @@ result collector, and soak harness are not connected to a real application
 runner; cache limits do not recover after an adaptive constrained tier;
 gradient cache hits do not refresh recency; and the current low-memory preset
 does not bound all decoded, worker, mask, shaping, scratch, or GPU resources.
+
+The first safe correction milestone reproduced and fixed the two local cache
+defects. A continuously read gradient-cache entry now remains live across 12
+test frames while an unread entry still expires after four. Adaptive subtree IR
+and engine-node memo limits now restore the configured preset after a
+constrained tier and never exceed an explicit low-memory ceiling.
