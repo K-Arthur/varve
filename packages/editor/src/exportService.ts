@@ -290,6 +290,12 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       const mime = rasterMime(job.format);
       if (!mime) throw new Error(`Unsupported export format: ${job.format}`);
       if (!context.engine) throw new Error(`${job.format.toUpperCase()} export requires an engine`);
+      const rasterOpts = job.raster;
+      // Map canonical processing-stage contracts from the legacy job boundary
+      // onto the engine pipeline. Structure is shared; only the resize stage
+      // needs explicit target dimensions, which come from the rendered size.
+      const pipeline = buildRasterPipeline(rasterOpts);
+      const metadata = buildRasterMetadata(rasterOpts);
       const { blob, warnings: rasterWarnings } = await exportNodeAsRaster(
         node,
         context.document,
@@ -297,9 +303,11 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
         {
           format: mime,
           scale: rasterScaleForJob(job, context),
-          quality: job.raster?.quality ?? (job.format === 'jpg' ? 0.92 : undefined),
-          transparency: job.raster?.transparency,
-          matteColor: job.raster?.matteColor,
+          quality: rasterOpts?.quality ?? (job.format === 'jpg' ? 0.92 : undefined),
+          transparency: rasterOpts?.transparency,
+          matteColor: rasterOpts?.matteColor,
+          pipeline,
+          metadata,
         },
       );
       const fontWarnings = collectMissingFontWarnings(node);
@@ -342,6 +350,44 @@ export function runBatchPreflight(
     availableFonts: availableFontFamilies(),
   });
   return result.findings;
+}
+
+/**
+ * Build the canonical raster pipeline contract from legacy job raster options.
+ * The resize stage only becomes active when a caller supplied explicit target
+ * dimensions via the typed `resize` contract; otherwise it is omitted so the
+ * existing vector-render path is untouched (no double resampling).
+ */
+function buildRasterPipeline(
+  raster: ExportJob['raster'],
+): import('@strata/engine').RasterPipelineOptions | undefined {
+  const resize = raster?.resize;
+  const sharpen = raster?.sharpen;
+  const dither = raster?.dither;
+  if (!resize && !sharpen && !dither) return undefined;
+  return {
+    ...(resize
+      ? { resize: resize as import('@strata/engine').RasterPipelineOptions['resize'] }
+      : {}),
+    ...(sharpen ? { sharpen } : {}),
+    ...(dither ? { dither } : {}),
+  };
+}
+
+function buildRasterMetadata(raster: ExportJob['raster']):
+  | {
+      policy: import('@strata/scene/export').MetadataPolicy;
+      content?: import('@strata/engine').MetadataContent;
+    }
+  | undefined {
+  if (!raster?.metadataPolicy) return undefined;
+  return {
+    policy: raster.metadataPolicy,
+    content: {
+      title: undefined,
+      keywords: [],
+    },
+  };
 }
 
 export const ExportService = {
