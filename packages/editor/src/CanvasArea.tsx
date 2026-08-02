@@ -720,6 +720,11 @@ export function CanvasArea({
           requestContentDrawRef.current?.();
         }
       },
+      // Byte-budget the main-thread-visible worker bitmap pipeline: outbound
+      // image transfers, the worker backing store, and the retained frame.
+      // Over-budget renders are refused up front and fall back to the
+      // main-thread path instead of unbounded worker memory.
+      { budgetBytes: budgets.workerBitmapBytes },
     );
     return () => {
       renderWorkerRef.current?.terminate();
@@ -2304,31 +2309,33 @@ export function CanvasArea({
         // clones that multi-MB payload across the worker boundary, pinning
         // a CPU core indefinitely and starving the main thread.
         if (!bitmapIsCurrent) {
-          void collectImageBitmaps(ir).then((collected) => {
-            if (!collected) return;
-            const host = renderWorkerRef.current;
-            if (!host) {
-              closeImageBitmapMap(collected.images);
-              return;
-            }
-            const posted = host.post(
-              {
-                type: 'render',
-                nodes: flatNodes,
-                ir,
-                camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
-                viewport: { width: VP_W, height: VP_H },
-                docVersion,
-                dpr,
-                images: collected.images,
-              },
-              collected.transfer,
-            );
-            if (!posted && !workerFailedRef.current) {
-              workerFailedRef.current = true;
-              requestContentDrawRef.current?.();
-            }
-          });
+          void collectImageBitmaps(ir, { maxEntries: budgets.workerImageBitmaps }).then(
+            (collected) => {
+              if (!collected) return;
+              const host = renderWorkerRef.current;
+              if (!host) {
+                closeImageBitmapMap(collected.images);
+                return;
+              }
+              const posted = host.post(
+                {
+                  type: 'render',
+                  nodes: flatNodes,
+                  ir,
+                  camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
+                  viewport: { width: VP_W, height: VP_H },
+                  docVersion,
+                  dpr,
+                  images: collected.images,
+                },
+                collected.transfer,
+              );
+              if (!posted && !workerFailedRef.current) {
+                workerFailedRef.current = true;
+                requestContentDrawRef.current?.();
+              }
+            },
+          );
         }
         if (wb && surfaceMatches) {
           // Replay cached bitmap: identity when camera matches exactly,
