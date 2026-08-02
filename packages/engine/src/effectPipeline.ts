@@ -206,6 +206,26 @@ function hasChannelShift(offsets: ChannelOffset): boolean {
   );
 }
 
+/**
+ * Resolve the glitch channel displacement for this render. Static mode uses
+ * the authored offsets verbatim. Seeded mode treats each authored magnitude
+ * as a symmetric maximum and derives a deterministic signed displacement from
+ * the effect seed. Re-rendering the same document therefore remains stable.
+ */
+export function resolveGlitchChannelShift(effect: GlitchEffect): ChannelOffset {
+  if (effect.channelShiftMode !== 'seeded') return effect.channelShift;
+  const rng = createSeededRandom(effect.seed ^ 0x4348414e);
+  const jitter = (value: number): number => Math.round((rng() * 2 - 1) * Math.abs(value));
+  return {
+    redX: jitter(effect.channelShift.redX),
+    redY: jitter(effect.channelShift.redY),
+    greenX: jitter(effect.channelShift.greenX),
+    greenY: jitter(effect.channelShift.greenY),
+    blueX: jitter(effect.channelShift.blueX),
+    blueY: jitter(effect.channelShift.blueY),
+  };
+}
+
 function shiftChannelData(
   src: Uint8ClampedArray,
   out: Uint8ClampedArray,
@@ -282,8 +302,9 @@ export function applyGlitch(cc: CompositeCanvas, w: number, h: number, effect: G
 
   // Start with channel-shifted copy if requested.
   let working = new ImageData(new Uint8ClampedArray(src.data), W, H);
-  if (hasChannelShift(effect.channelShift)) {
-    const offsets = effect.channelShift;
+  const resolvedChannelShift = resolveGlitchChannelShift(effect);
+  if (hasChannelShift(resolvedChannelShift)) {
+    const offsets = resolvedChannelShift;
     const rX = Math.round(offsets.redX * dpr);
     const rY = Math.round(offsets.redY * dpr);
     const gX = Math.round(offsets.greenX * dpr);
