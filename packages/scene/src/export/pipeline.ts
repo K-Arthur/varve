@@ -21,6 +21,13 @@
  *    export-pipeline-progress.md` for the canonical ordering rationale).
  */
 
+import type {
+  DitherAlgorithm,
+  DitherChannelMode,
+  ExportWorkingSpace,
+  ResamplingAlgorithm,
+  SharpenMode,
+} from '@strata/shared';
 import type { RenderingIntent } from '../colorManagement';
 
 // The algorithm/working-space unions live in @strata/shared so @strata/engine
@@ -232,66 +239,34 @@ export function validateDitherOptions(value: DitherOptions, path: string): void 
 }
 
 // ── Metadata policy ─────────────────────────────────────────────────────────
+//
+// The policy contract lives in @strata/shared (`exportContracts.ts`) so the
+// engine's metadata writer can import it without a scene dependency. Scene
+// re-exports the shared names so config consumers keep a single import path;
+// `validateMetadataPolicy` adds configuration-time validation on top.
 
-export type MetadataPolicyKind =
-  | 'preserve'
-  | 'copyright-only'
-  | 'privacy-strip'
-  | 'strip-all'
-  | 'document'
-  | 'custom';
+export type {
+  MetadataFieldDecision,
+  MetadataFieldKey,
+  MetadataFieldOverrides,
+  MetadataPolicy,
+  MetadataPolicyKind,
+} from '@strata/shared';
+export {
+  createMetadataPolicy,
+  isMetadataFieldDecision,
+  isValidMetadataPolicyKind,
+  METADATA_OVERRIDE_KEYS,
+  METADATA_POLICY_KINDS,
+  resolveMetadataFieldDecision,
+} from '@strata/shared';
 
-export type MetadataFieldDecision = 'keep' | 'strip' | 'inherit';
-
-export interface MetadataFieldOverrides {
-  gps: MetadataFieldDecision;
-  device: MetadataFieldDecision;
-  copyright: MetadataFieldDecision;
-  creator: MetadataFieldDecision;
-  timestamps: MetadataFieldDecision;
-  thumbnail: MetadataFieldDecision;
-  history: MetadataFieldDecision;
-}
-
-export interface MetadataPolicy {
-  kind: MetadataPolicyKind;
-  /** Suppress timestamps/ids/random docs for reproducible output. */
-  deterministic: boolean;
-  /** Per-field overrides; only meaningful when kind=custom. */
-  overrides?: Partial<MetadataFieldOverrides>;
-}
-
-export const METADATA_POLICY_KINDS: readonly MetadataPolicyKind[] = [
-  'preserve',
-  'copyright-only',
-  'privacy-strip',
-  'strip-all',
-  'document',
-  'custom',
-];
-
-export function isValidMetadataPolicyKind(value: unknown): value is MetadataPolicyKind {
-  return typeof value === 'string' && (METADATA_POLICY_KINDS as readonly string[]).includes(value);
-}
-
-const FIELD_DECISIONS: readonly MetadataFieldDecision[] = ['keep', 'strip', 'inherit'];
-const OVERRIDE_KEYS = [
-  'gps',
-  'device',
-  'copyright',
-  'creator',
-  'timestamps',
-  'thumbnail',
-  'history',
-] as const;
-
-export function createMetadataPolicy(partial?: Partial<MetadataPolicy>): MetadataPolicy {
-  return {
-    kind: 'privacy-strip',
-    deterministic: false,
-    ...partial,
-  };
-}
+import type { MetadataPolicy } from '@strata/shared';
+import {
+  isMetadataFieldDecision,
+  isValidMetadataPolicyKind,
+  METADATA_OVERRIDE_KEYS,
+} from '@strata/shared';
 
 export function validateMetadataPolicy(value: MetadataPolicy, path: string): void {
   if (!isValidMetadataPolicyKind(value.kind)) {
@@ -301,40 +276,13 @@ export function validateMetadataPolicy(value: MetadataPolicy, path: string): voi
     throw new Error(`${path}.deterministic: must be a boolean`);
   }
   if (value.overrides) {
-    for (const key of OVERRIDE_KEYS) {
+    for (const key of METADATA_OVERRIDE_KEYS) {
       const decision = value.overrides[key];
       if (decision === undefined) continue;
-      if (!FIELD_DECISIONS.includes(decision)) {
+      if (!isMetadataFieldDecision(decision)) {
         throw new Error(`${path}.overrides.${key}: unknown decision "${String(decision)}"`);
       }
     }
-  }
-}
-
-/**
- * Resolve the effective decision for a metadata field under a policy. `custom`
- * policies use their overrides; named policies have fixed built-in behaviour.
- */
-export function resolveMetadataFieldDecision(
-  policy: MetadataPolicy,
-  field: (typeof OVERRIDE_KEYS)[number],
-): MetadataFieldDecision {
-  switch (policy.kind) {
-    case 'preserve':
-      return 'keep';
-    case 'copyright-only':
-      return field === 'copyright' ? 'keep' : 'strip';
-    case 'privacy-strip':
-      // Privacy-conscious default: drop anything personally identifying or
-      // machine-specific, but keep authorship/copyright.
-      if (field === 'copyright' || field === 'creator') return 'keep';
-      return 'strip';
-    case 'strip-all':
-      return 'strip';
-    case 'document':
-      return 'keep';
-    case 'custom':
-      return policy.overrides?.[field] ?? 'inherit';
   }
 }
 
