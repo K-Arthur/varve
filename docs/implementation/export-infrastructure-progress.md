@@ -241,7 +241,7 @@ test → audits) before the next.
 | 8 | Full export workspace + print UI + preview | **In progress** (M8 inspector done; M9 batch-dialog surfaces done) |
 | 9 | Raster improvements (resampling, tiling), SVG preservation, PDF/print | **In progress** (M9 print-mark wiring done) |
 | 10 | Color-management + metadata controls | Pending |
-| 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, retry, single-archive browser batches, and one-folder Tauri batches landed; reveal and persistent queue pending) |
+| 11 | Destination integration (browser ZIP, Tauri folder, reveal), job queue | **In progress** (real executor stages, progress, cancellation, retry, browser archives, one-folder Tauri batches, and native reveal landed; persistent queue pending) |
 | 12 | Accessibility, responsive, E2E/visual-regression/docs | Pending |
 
 Commit hashes recorded below as milestones complete.
@@ -312,6 +312,7 @@ Gate results per milestone:
 | M11a | 16 packages + E2E clean | Biome clean on touched files | **10,879/10,879** full suite; focused export 32/32 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11b | 16 packages + E2E clean | Biome clean on touched files | **10,881/10,881** full suite before final cancel-case assertion; final focused export 31/31 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11c | 16 packages + E2E clean | Biome clean on touched files | **10,885/10,885** full suite; focused platform/export 30/30 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
+| M11d | 16 packages + E2E clean | Biome clean on touched files | **10,887/10,887** full suite; focused export UI 24/24 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
@@ -469,3 +470,18 @@ disabled instead of simulating a local `/exports` path. Canceling the native
 folder picker leaves the previous destination unchanged. Tests cover the
 native picker contract, safe nested writes, traversal rejection, the export
 folder sink, and browser capability messaging.
+
+## 17. M11d — reveal completed native outputs (2026-08-01)
+
+Completed native exports now offer the platform-specific file-manager action
+(`Reveal in Finder`, `Reveal in Explorer`, or `Reveal in Files`) when at least
+one successful result has a real saved path. The action is absent for browser
+downloads and failed or unsaved outputs, so the interface does not advertise a
+capability it cannot perform. For folder batches it reveals the first
+successful output; for single-file saves it reveals the file selected by the
+user.
+
+The results component prevents duplicate opener requests while one is in
+flight and reports native opener failures through an accessible alert without
+discarding the export report or retry controls. Tests cover path selection,
+the native-only capability gate, and omission when no revealable output exists.
