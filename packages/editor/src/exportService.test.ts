@@ -48,6 +48,49 @@ describe('ExportService', () => {
     expect(new TextDecoder().decode(bytes as Uint8Array)).toContain('<svg');
   });
 
+  it('reports real executor stages and completed counts in order', async () => {
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    const events: Array<{ stage: string; completed: number; currentFile?: string }> = [];
+
+    await ExportService.run(svgBatch(), {
+      document: doc,
+      saveFile: async () => '/exports/Logo.svg',
+      onProgress: (event) => events.push(event),
+    });
+
+    expect(events.map((event) => event.stage)).toEqual([
+      'preflight',
+      'rendering',
+      'encoding',
+      'writing',
+      'completed',
+    ]);
+    expect(events.at(-1)).toMatchObject({ completed: 1, currentFile: 'Logo.svg' });
+  });
+
+  it('does not convert cancellation during writing into a failed output', async () => {
+    const node = makeShapeNode('n1', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }, { name: 'Logo' });
+    const doc = { ...createDocument('Doc', true), rootChildren: ['n1'], nodes: { n1: node } };
+    const controller = new AbortController();
+
+    await expect(
+      ExportService.run(
+        svgBatch(),
+        {
+          document: doc,
+          saveFile: async () => {
+            controller.abort();
+            const error = new Error('Export aborted');
+            error.name = 'AbortError';
+            throw error;
+          },
+        },
+        controller.signal,
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
   it('resolves raster scale from factor, width, and height presets', () => {
     const node = makeShapeNode(
       'n1',
