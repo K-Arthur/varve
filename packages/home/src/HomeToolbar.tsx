@@ -6,7 +6,14 @@ import type {
   SortKey,
   ViewMode,
 } from '@strata/platform';
-import { Button, Popover, SOLID_CHROME_ICONS, SolidIcon, ViewModeSwitcher } from '@strata/ui';
+import {
+  Button,
+  Popover,
+  SOLID_CHROME_ICONS,
+  SolidIcon,
+  Tooltip,
+  ViewModeSwitcher,
+} from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { FilterDropdown } from './FilterDropdown';
 
@@ -153,22 +160,23 @@ export function HomeToolbar({
           onDateToChange={onDateToChange}
           onClear={onClearFilters}
         />
-        <Button
-          variant="ghost"
-          onClick={onSortDirToggle}
-          aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-          title={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
-        >
-          <SolidIcon
-            name={
-              sortDirection === 'asc'
-                ? SOLID_CHROME_ICONS.chevronUp
-                : SOLID_CHROME_ICONS.chevronDown
-            }
-            label={undefined}
-            size="0.85em"
-          />
-        </Button>
+        <Tooltip label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}>
+          <Button
+            variant="ghost"
+            onClick={onSortDirToggle}
+            aria-label={`Sort ${sortDirection === 'asc' ? 'ascending' : 'descending'}`}
+          >
+            <SolidIcon
+              name={
+                sortDirection === 'asc'
+                  ? SOLID_CHROME_ICONS.chevronUp
+                  : SOLID_CHROME_ICONS.chevronDown
+              }
+              label={undefined}
+              size="0.85em"
+            />
+          </Button>
+        </Tooltip>
         <ViewModeSwitcher
           label="View mode"
           value={viewMode}

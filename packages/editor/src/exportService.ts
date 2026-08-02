@@ -16,7 +16,15 @@ import type { Engine } from '@strata/engine';
 import { getFontRegistry } from '@strata/engine';
 import type { Document, ExportBatch, ExportFormat, ExportJob } from '@strata/scene';
 import {
+  capabilitiesForFormat,
+  type ExportFinding,
+  legacyBatchToRequest,
+  type PlatformKind,
+  runExportPreflight,
+} from '@strata/scene/export';
+import {
   exportNodeAsPdf,
+  exportNodeAsPdfX,
   exportNodeAsRaster,
   type RasterFormat,
 } from './components/SpecPanel/export';
@@ -45,6 +53,8 @@ export interface ExportReport {
   successCount: number;
   failureCount: number;
   files: ExportFileReport[];
+  /** Preflight findings computed before execution (informational surfacing). */
+  findings?: ExportFinding[];
 }
 
 export interface ExportRunContext {
@@ -233,10 +243,31 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
       };
     }
     case 'pdf-x1a':
-    case 'pdf-x4':
-      throw new Error(`${job.format} export is available through the print pipeline only`);
-    case 'avif':
-      throw new Error('AVIF export is not available in this runtime');
+    case 'pdf-x4': {
+      // Press output goes through the native CMYK/ICC print pipeline. This is
+      // desktop-only; exportNodeAsPdfX throws with the capability label when
+      // the Tauri bridge is absent rather than emitting an invalid press file.
+      const result = await exportNodeAsPdfX(node, context.document, job.format, {
+        bleedMm: job.print?.bleedMm,
+        includeCropMarks: job.print?.includeCropMarks,
+        includeRegistrationMarks: job.print?.includeRegistrationMarks,
+        colorBars: job.print?.includeColorBars,
+        enforceDpi: job.print?.enforceDpi,
+        outlineText: job.print?.outlineText,
+        iccProfile: job.print?.iccProfile,
+      });
+      return {
+        bytes: result.bytes,
+        mimeType: 'application/pdf',
+        warnings: collectMissingFontWarnings(node),
+      };
+    }
+    case 'avif': {
+      const capability = capabilitiesForFormat('avif');
+      throw new Error(
+        capability.reasonUnsupported ?? 'AVIF export is not available in this runtime',
+      );
+    }
     default: {
       const mime = rasterMime(job.format);
       if (!mime) throw new Error(`Unsupported export format: ${job.format}`);
@@ -261,16 +292,50 @@ async function renderJob(job: ExportJob, context: ExportRunContext): Promise<Ren
   }
 }
 
+/**
+ * Build a font-availability set from the shared registry, or `undefined` when
+ * the registry exposes no usable data (preflight then skips font checks).
+ */
+function availableFontFamilies(): Set<string> | undefined {
+  try {
+    const registry = getFontRegistry();
+    const families = registry.families();
+    return families.length > 0 ? new Set(families) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Run the shared export preflight over a legacy batch. Converts jobs to
+ * canonical configurations, so the plan, capabilities, and findings pipeline
+ * apply to the existing dialog flow without a full migration.
+ */
+export function runBatchPreflight(
+  batch: ExportBatch,
+  document: Document,
+  platform: PlatformKind = 'web',
+): ExportFinding[] {
+  const request = legacyBatchToRequest(batch);
+  const result = runExportPreflight(document, request, {
+    platform,
+    availableFonts: availableFontFamilies(),
+  });
+  return result.findings;
+}
+
 export const ExportService = {
   async run(
     batch: ExportBatch,
     context: ExportRunContext,
     signal?: AbortSignal,
+    platform: PlatformKind = 'web',
   ): Promise<ExportReport> {
     assertNotAborted(signal);
     const startedAt = Date.now();
     const perfStarted = performance.now();
     const files: ExportFileReport[] = [];
+    const findings = runBatchPreflight(batch, context.document, platform);
 
     for (const job of batch.jobs) {
       assertNotAborted(signal);
@@ -322,6 +387,7 @@ export const ExportService = {
       successCount,
       failureCount,
       files,
+      findings,
     };
   },
 };

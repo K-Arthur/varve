@@ -368,6 +368,11 @@ export class SubtreeIrCache {
     const e = this.entries.get(nodeId);
     if (e && e.hash === hash) {
       e.lastUsed = performance.now();
+      // Map iteration order is insertion order, so re-inserting on access makes
+      // the map itself the LRU queue: the least-recently-used entry is always
+      // the first key. This is what lets evictIfNeeded avoid sorting.
+      this.entries.delete(nodeId);
+      this.entries.set(nodeId, e);
       this.hitCount++;
       return e.item;
     }
@@ -385,9 +390,12 @@ export class SubtreeIrCache {
     }
 
     // Remove old entry for this node if it exists (replacement accounting).
+    // The delete is also what re-queues an overwritten node as most-recently
+    // used: a plain Map.set on an existing key keeps its original position.
     const old = this.entries.get(nodeId);
     if (old) {
       this.currentBytes = Math.max(0, this.currentBytes - old.bytes);
+      this.entries.delete(nodeId);
     }
 
     this.entries.set(nodeId, { hash, item, lastUsed: performance.now(), bytes });
@@ -416,15 +424,24 @@ export class SubtreeIrCache {
     this.evictionLog = [];
   }
 
-  private evictIfNeeded(): void {
-    while (this.entries.size > 0) {
-      const overCount = this.entries.size - this.maxEntries;
-      const overBytes = this.currentBytes - this.softBytes;
-      if (overCount <= 0 && overBytes <= 0) break;
+  private isOverBudget(): boolean {
+    return this.entries.size > this.maxEntries || this.currentBytes > this.softBytes;
+  }
 
-      const sorted = [...this.entries.entries()].sort((a, b) => a[1].lastUsed - b[1].lastUsed);
-      const [id, entry] = sorted[0]!;
-      const reason: EvictionReason = overCount > 0 ? 'entry_count' : 'byte_budget';
+  private evictIfNeeded(): void {
+    // O(1) per eviction: the map is maintained in LRU order by get()/set(), so
+    // the first key is always the least-recently-used entry and no sort is
+    // needed. This previously sorted the entire map — once per evicted entry,
+    // so shedding K entries cost K × O(n log n). Because any document with
+    // more nodes than maxEntries sits permanently over the entry cap, every
+    // set() evicted, which put that sort on the drag hot path: a 932-node drag
+    // profile attributed ~4.7% of CPU to evictIfNeeded and its comparator.
+    while (this.isOverBudget()) {
+      const oldest = this.entries.entries().next();
+      if (oldest.done) break;
+      const [id, entry] = oldest.value;
+      const reason: EvictionReason =
+        this.entries.size > this.maxEntries ? 'entry_count' : 'byte_budget';
       this.currentBytes = Math.max(0, this.currentBytes - entry.bytes);
       this.entries.delete(id);
       if (this.evictionLog.length < 100) {
@@ -542,7 +559,7 @@ export interface NodeHashResult {
 export class NodeHashMemo {
   private entries = new Map<string, { world: readonly number[]; result: NodeHashResult }>();
   private docRef: unknown = undefined;
-  private extraKey = ' uninit';
+  private extraKey = '\0uninit';
   private computeCount = 0;
   private hitCount = 0;
 
@@ -599,6 +616,6 @@ export class NodeHashMemo {
   clear(): void {
     this.entries.clear();
     this.docRef = undefined;
-    this.extraKey = ' uninit';
+    this.extraKey = '\0uninit';
   }
 }

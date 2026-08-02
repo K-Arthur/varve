@@ -210,7 +210,7 @@ describe('replay filter chain', () => {
 
 describe('replay glass material effect', () => {
   it('handles glassMaterial effect without crashing (bails out when OffscreenCanvas unavailable)', () => {
-    const { target, calls } = makeRecorder();
+    const { target } = makeRecorder();
     const item: RenderItem = {
       ...rectItem(10, 10),
       effects: [
@@ -234,7 +234,7 @@ describe('replay glass material effect', () => {
   });
 
   it('skips invisible glassMaterial effect', () => {
-    const { target, calls } = makeRecorder();
+    const { target } = makeRecorder();
     const item: RenderItem = {
       ...rectItem(10, 10),
       effects: [

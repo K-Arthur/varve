@@ -9,6 +9,8 @@
  * Widths persist per panel in localStorage and are applied by overriding the
  * shell grid's --sidebar-width / --inspector-width custom properties.
  */
+
+import { Tooltip } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { loadSettings, updateSettings } from '../settings';
 
@@ -132,20 +134,21 @@ export function PanelResizeHandle({
   );
 
   return (
-    <hr
-      aria-orientation="vertical"
-      aria-label={isLayers ? 'Resize layers panel' : 'Resize inspector panel'}
-      aria-valuenow={width ?? undefined}
-      aria-valuemin={PANEL_LIMITS[side].min}
-      aria-valuemax={PANEL_LIMITS[side].max}
-      tabIndex={0}
-      className={`panel-resize panel-resize--${isLayers ? 'right' : 'left'}${
-        dragging ? ' panel-resize--active' : ''
-      }`}
-      onPointerDown={handlePointerDown}
-      onKeyDown={handleKeyDown}
-      onDoubleClick={() => onResize(null)}
-      title="Drag to resize — double-click to reset"
-    />
+    <Tooltip label="Drag to resize — double-click to reset">
+      <hr
+        aria-orientation="vertical"
+        aria-label={isLayers ? 'Resize layers panel' : 'Resize inspector panel'}
+        aria-valuenow={width ?? undefined}
+        aria-valuemin={PANEL_LIMITS[side].min}
+        aria-valuemax={PANEL_LIMITS[side].max}
+        tabIndex={0}
+        className={`panel-resize panel-resize--${isLayers ? 'right' : 'left'}${
+          dragging ? ' panel-resize--active' : ''
+        }`}
+        onPointerDown={handlePointerDown}
+        onKeyDown={handleKeyDown}
+        onDoubleClick={() => onResize(null)}
+      />
+    </Tooltip>
   );
 }

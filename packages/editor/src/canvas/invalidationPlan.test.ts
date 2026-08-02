@@ -1,4 +1,11 @@
-import { addChild, addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
+import {
+  addChild,
+  addNode,
+  createDocument,
+  makeFrameNode,
+  makeGroupNode,
+  makeShapeNode,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import { computeInvalidationPlan } from './invalidationPlan';
 
@@ -28,6 +35,34 @@ describe('computeInvalidationPlan', () => {
     const plan = computeInvalidationPlan(before, after);
     expect(plan.isStructural).toBe(false);
     expect(plan.changedIds).toEqual(['shape']);
+  });
+
+  it('invalidates every ancestor up the chain, not just the direct parent', () => {
+    let doc = createDocument('Invalidation', true);
+    doc = addNode(doc, makeFrameNode('frame', { w: 300, h: 300, children: [] }));
+    // A mid-level group nested in the frame, so the leaf sits two
+    // ancestor levels deep — the direct-parent pass would miss the frame.
+    doc = addNode(doc, makeGroupNode('mid', { name: 'Mid' }));
+    doc = addChild(doc, 'frame', doc.nodes.mid!);
+    doc = addChild(
+      doc,
+      'mid',
+      makeShapeNode(
+        'inner',
+        { kind: 'rect', x: 0, y: 0, w: 20, h: 10 },
+        { transform: [1, 0, 0, 1, 10, 15] as const, name: 'Inner' },
+      ),
+    );
+
+    const inner = doc.nodes.inner!;
+    const after = {
+      ...doc,
+      nodes: { ...doc.nodes, inner: { ...inner, transform: [1, 0, 0, 1, 40, 40] as const } },
+    };
+
+    const plan = computeInvalidationPlan(doc, after);
+    expect(plan.isStructural).toBe(false);
+    expect(plan.changedIds.sort()).toEqual(['frame', 'inner', 'mid']);
   });
 
   it("also invalidates the changed node's parent", () => {

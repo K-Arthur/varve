@@ -5,6 +5,7 @@ import type {
   SubmenuItem,
   MenuItem as UiMenuItem,
 } from '@strata/ui';
+import { formatLabel as defaultFormatLabel } from './localization';
 import { timeMenuOperation } from './perfFlags';
 import type { MenuContext, MenuContextId, MenuItemDef } from './types';
 
@@ -137,8 +138,12 @@ function resolveBadge(def: MenuItemDef, ctx: MenuContext): string | undefined {
 
 function resolveLabel(def: MenuItemDef, ctx: MenuContext, opts: RenderOptions): string {
   if (def.label) return def.label(ctx);
-  if (opts.formatLabel && def.labelKey) return opts.formatLabel(def.labelKey);
-  return def.labelKey ?? '';
+  if (def.labelKey) {
+    // Default resolver guarantees a display string — raw label keys must
+    // never reach the UI even when a caller omits formatLabel.
+    return (opts.formatLabel ?? defaultFormatLabel)(def.labelKey);
+  }
+  return '';
 }
 
 export function renderMenubarItems(

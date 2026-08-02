@@ -75,7 +75,7 @@ test.describe('Tooltip system', () => {
     const tooltip = page.locator('[role="tooltip"]');
 
     // Perform a canvas drag operation
-    const canvas = page.locator('.editor-canvas canvas, .editor-canvas');
+    const canvas = page.getByTestId('editor-canvas');
     await expect(canvas).toBeVisible({ timeout: 10000 });
 
     // Start a drag on the canvas
@@ -122,5 +122,43 @@ test.describe('Tooltip system', () => {
       const content = await tooltip.textContent();
       expect(content).toContain('Zoom out');
     }
+  });
+
+  test('workspace mode tooltip shows the effective registry shortcut, not a stale string', async ({
+    page,
+  }) => {
+    // Design workspace is active by default. Its effective binding in the
+    // shortcut registry is Ctrl+Shift+1 (the old Ctrl+Shift+D is taken by
+    // Repeat Duplicate and does not switch workspaces).
+    const designBtn = page.locator('.editor-menubar__workspace-btn', {
+      hasText: /^Design/,
+    });
+    await expect(designBtn).toBeVisible({ timeout: 10000 });
+
+    await designBtn.hover();
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+    await expect(tooltip).toContainText('Design workspace');
+    await expect(tooltip).toContainText('Ctrl+Shift+1');
+  });
+
+  test('menubar home button tooltip shows the registry shortcut', async ({ page }) => {
+    const homeBtn = page.locator('.editor-menubar__home');
+    await expect(homeBtn).toBeVisible({ timeout: 10000 });
+
+    // The Tooltip suppresses show-for-hover for POINTER_SUPPRESS_MS after a
+    // pointer-down (a click, e.g. the onboarding dismiss that ends navigation).
+    // In serial runs that suppression window can swallow the single pointerenter
+    // `hover()` emits, so re-hover once after the window to open it reliably.
+    await homeBtn.hover();
+    await page.waitForTimeout(400);
+    await page.mouse.move(5, 200);
+    await page.waitForTimeout(50);
+    await homeBtn.hover();
+
+    const tooltip = page.locator('[role="tooltip"]');
+    await expect(tooltip).toBeVisible({ timeout: 1000 });
+    await expect(tooltip).toContainText('Home');
+    await expect(tooltip).toContainText('Ctrl+Shift+H');
   });
 });

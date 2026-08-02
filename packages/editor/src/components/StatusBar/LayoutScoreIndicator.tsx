@@ -1,3 +1,4 @@
+import { Tooltip } from '@strata/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { computeLayoutScore } from '../../intelligence/layoutScore';
@@ -29,14 +30,15 @@ export function LayoutScoreIndicator() {
         : 'editor-status__score-badge--bad';
 
   return (
-    <button
-      type="button"
-      className={`editor-status__score-badge ${cls}`}
-      onClick={() => setInspectorTab('audit', 'layout')}
-      title={`Layout quality: ${score}/100 — click to view layout suggestions`}
-      aria-label={`Layout score: ${score}`}
-    >
-      {score}
-    </button>
+    <Tooltip label={`Layout quality: ${score}/100 — click to view layout suggestions`}>
+      <button
+        type="button"
+        className={`editor-status__score-badge ${cls}`}
+        onClick={() => setInspectorTab('audit', 'layout')}
+        aria-label={`Layout score: ${score}`}
+      >
+        {score}
+      </button>
+    </Tooltip>
   );
 }

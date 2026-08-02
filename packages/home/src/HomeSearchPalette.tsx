@@ -6,7 +6,7 @@ import type {
   TemplateLibrary,
 } from '@strata/platform';
 import { fuzzySearch } from '@strata/platform';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ResultItem {
@@ -297,14 +297,16 @@ export function HomeSearchPalette({
             aria-label="Search"
           />
           {query && (
-            <button
-              type="button"
-              className="search-palette__clear"
-              onClick={() => setQuery('')}
-              aria-label="Clear search"
-            >
-              <Icon name="X" label={undefined} size="0.85em" />
-            </button>
+            <Tooltip label="Clear search">
+              <button
+                type="button"
+                className="search-palette__clear"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+              >
+                <Icon name="X" label={undefined} size="0.85em" />
+              </button>
+            </Tooltip>
           )}
         </div>
 

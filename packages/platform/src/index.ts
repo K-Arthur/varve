@@ -48,7 +48,9 @@ export {
   detectRuntimeKind,
   getPlatformInfo,
   hasCapability,
+  isMac,
   isTauriRuntime,
+  isWebKitGTK,
   isWebRuntime,
   resetPlatformInfo,
   setPlatformInfoForTest,
@@ -58,3 +60,34 @@ export { createTauriPlatform } from './tauri';
 export * from './types';
 export type { WebPlatformOptions } from './web';
 export { createWebPlatform } from './web';
+export type {
+  ButtonLayout,
+  ControlsPosition,
+  DecorationMode,
+  DisplayServer,
+  MenubarPlacement,
+  MenubarStrategy,
+  WindowChromeState,
+  WindowChromeStrategy,
+  WindowEvent,
+} from './windowChrome';
+export {
+  createInitialChromeState,
+  detectButtonLayout,
+  detectDisplayServer,
+  getMenubarHeight,
+  getTitleBarHeight,
+  getTotalTopChromeHeight,
+  resetWindowChromeTestOverrides,
+  resolveWindowChromeStrategy,
+  setButtonLayoutForTest,
+  setDisplayServerForTest,
+  shouldRenderCustomMenubar,
+  shouldRenderCustomTitleBar,
+  shouldUseNativeMenu,
+  updateChromeState,
+  usesCustomControls,
+  usesCustomMenubar,
+  usesNativeDecorations,
+  usesNativeMenu,
+} from './windowChrome';

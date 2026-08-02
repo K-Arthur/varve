@@ -1,7 +1,7 @@
 import { createEngine, type Engine, getFontRegistry } from '@strata/engine';
 import { FontCatalog } from '@strata/engine/font';
 import type { Platform } from '@strata/platform';
-import type { ExportBatch, ExportFormat, ShapeNode } from '@strata/scene';
+import type { ExportBatch, ExportFormat, SceneNode, ShapeNode } from '@strata/scene';
 import { isImageShape } from '@strata/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -13,6 +13,20 @@ import { ExportDialog } from '../Export/ExportDialog';
 
 function isRasterExport(format: ExportFormat): boolean {
   return format === 'png' || format === 'jpg' || format === 'webp';
+}
+
+/**
+ * Nodes the batch dialog can export: every document node that carries at least
+ * one export preset, plus image shapes (the background-removal pre-pass needs
+ * them). This is sourced from the full document node table rather than
+ * `rootNodes()`, because page-scoped content lives under the active page's
+ * content root — a node created on a page would otherwise never appear in the
+ * export dialog.
+ */
+function exportableNodes(doc: { nodes: Record<string, SceneNode> }): SceneNode[] {
+  return Object.values(doc.nodes).filter(
+    (node) => (node.presets?.length ?? 0) > 0 || isImageShape(node),
+  );
 }
 
 export interface ExportLayerHandle {
@@ -42,16 +56,21 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   }, []);
 
   const handleExportBatch = useCallback(
-    async (batch: ExportBatch) => {
+    async (batch: ExportBatch, signal?: AbortSignal) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
-      return await ExportService.run(batch, {
-        document: editor.state.document,
-        engine,
-        saveFile: saveExportFile,
-      });
+      return await ExportService.run(
+        batch,
+        {
+          document: editor.state.document,
+          engine,
+          saveFile: saveExportFile,
+        },
+        signal,
+        platform?.kind ?? 'web',
+      );
     },
-    [editor.state.document, getExportEngine, saveExportFile],
+    [editor.state.document, getExportEngine, saveExportFile, platform?.kind],
   );
 
   const handleExportMotion = useCallback(
@@ -89,10 +108,11 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       <ExportDialog
         isOpen={editor.showExportDialog}
         onClose={() => editor.setShowExportDialog(false)}
-        nodes={editor.rootNodes()}
+        nodes={exportableNodes(editor.state.document)}
         timelines={editor.state.document.timelines}
         document={editor.state.document}
         selectionIds={editor.state.selection}
+        platformKind={platform?.kind ?? 'web'}
         onExport={handleExportBatch}
         onPackageExport={handlePackageExport}
         onExportMotion={handleExportMotion}

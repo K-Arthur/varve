@@ -113,3 +113,67 @@ describe('computeDocumentDirtyRegion', () => {
     });
   });
 });
+
+// ─── Regression: dirty-region cost must stay ~linear on large docs ─────────
+// getParent() is O(n) per call. When nodeWorldTransform/nodeWorldBounds walk
+// the ancestor chain without a parent index, a bulk-edit dirty-region scan is
+// O(n²): on the dev machine this produced a 7.3s frame for a 900-node
+// duplication. These tests pin the per-edit cost of a large-document scan
+// within a generous budget that the O(n²) path blows through (pre-fix, 900
+// nodes measured ~7000ms; the budget below is ~100x tighter).
+
+function makeDoc(count: number): Document {
+  const doc = createDocument('DirtyScale', true);
+  const nodes = { ...doc.nodes } as Document['nodes'];
+  const rootChildren = [...doc.rootChildren];
+  for (let i = 0; i < count; i++) {
+    const id = `n-${i}` as string;
+    nodes[id] = makeShapeNode(
+      id,
+      { kind: 'rect', x: 0, y: 0, w: 40, h: 30 },
+      {
+        name: `r${i}`,
+        transform: [1, 0, 0, 1, (i % 50) * 100, Math.floor(i / 50) * 100] as const,
+      },
+    );
+    rootChildren.push(id);
+  }
+  return { ...doc, nodes, rootChildren } as Document;
+}
+
+function timeRuns(fn: () => unknown, runs: number): number {
+  const samples: number[] = [];
+  for (let i = 0; i < runs; i++) {
+    const t0 = performance.now();
+    fn();
+    samples.push(performance.now() - t0);
+  }
+  samples.sort((a, b) => a - b);
+  return samples[Math.floor(samples.length / 2)] ?? 0;
+}
+
+describe('computeDocumentDirtyRegion large-document cost', () => {
+  it('single-node edit on a 2000-node doc stays cheap', () => {
+    const before = makeDoc(2000);
+    const after = {
+      ...before,
+      nodes: { ...before.nodes, 'n-0': { ...before.nodes['n-0'], name: 'moved' } },
+    } as Document;
+    const p50 = timeRuns(() => computeDocumentDirtyRegion(before, after), 5);
+    // Pre-fix the ancestor-chain walk made single edits O(n) via getParent;
+    // with the parent index it is O(1) per changed node plus one style pass.
+    expect(p50).toBeLessThan(200);
+  });
+
+  it('bulk-edit (half the nodes) on a 2000-node doc stays cheap', () => {
+    const before = makeDoc(2000);
+    const ids = Object.keys(before.nodes).slice(0, 1000);
+    const changed = Object.fromEntries(ids.map((id) => [id, { ...before.nodes[id] }]));
+    const after = { ...before, nodes: { ...before.nodes, ...changed } } as Document;
+    const p50 = timeRuns(() => computeDocumentDirtyRegion(before, after), 5);
+    // Pre-fix this was O(n²): ~7.3s at 900 nodes on the dev machine.
+    expect(p50).toBeLessThan(1000);
+  });
+});
+
+type Document = import('@strata/scene').Document;

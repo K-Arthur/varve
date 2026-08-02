@@ -162,15 +162,24 @@ fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
     let canonical = if path.exists() {
         std::fs::canonicalize(path).map_err(|e| format!("Failed to resolve path: {e}"))?
     } else {
+        // Reject '.' / '..' components lexically, independent of the
+        // filesystem. On Windows, Path::exists() collapses a trailing
+        // `X\..` (Temp\X\.. resolves to Temp even when X doesn't exist),
+        // so the walk-up loop below never observes the '..' component and
+        // the traversal would be silently accepted. The lexical check runs
+        // before any syscall so behaviour is identical across platforms.
+        if path.components().any(|c| {
+            matches!(
+                c,
+                std::path::Component::CurDir | std::path::Component::ParentDir
+            )
+        }) {
+            return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
+        }
+
         let mut ancestor = path;
         let mut suffix: Vec<&std::ffi::OsStr> = Vec::new();
         loop {
-            if suffix
-                .last()
-                .is_some_and(|c| *c == "." || *c == "..")
-            {
-                return Err("Path must not contain '.' or '..' in a not-yet-existing segment".into());
-            }
             if ancestor.exists() {
                 break;
             }
@@ -1317,7 +1326,7 @@ impl PdfXOptions {
             outline_text: self.outline_text,
             font_data: self.font_data.clone(),
             fonts: self.fonts.clone(),
-            registration_marks: self.include_crop_marks,
+            registration_marks: self.include_registration_marks,
             color_bar: self.color_bars,
             print_profile: None,
             subset_fonts: self.subset_fonts || self.outline_text,
@@ -1325,6 +1334,25 @@ impl PdfXOptions {
             manifest: None,
             lossy: false,
         }
+    }
+
+    /// Build print-mark geometry when bleed or crop marks are requested. The
+    /// engine draws crop marks and derives the bleed boxes from this geometry,
+    /// so `include_crop_marks` and `bleed_mm` are honored together (the PDF/X
+    /// builders only receive a `MarksGeometry`, never a bare bleed value).
+    fn marks_geometry(&self) -> Option<strata_print::marks::MarksGeometry> {
+        let bleed = self.bleed_mm.max(0.0);
+        if !self.include_crop_marks && bleed <= 0.0 {
+            return None;
+        }
+        Some(strata_print::marks::MarksGeometry {
+            bleed_mm: if bleed > 0.0 {
+                bleed
+            } else {
+                strata_print::marks::MarksGeometry::default().bleed_mm
+            },
+            ..Default::default()
+        })
     }
 }
 
@@ -1348,7 +1376,11 @@ fn export_pdfx1a(
         .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
-    strata_print::cmyk::export_pdfx1a(&scene, &print_opts)
+    if let Some(geo) = opts.marks_geometry() {
+        strata_print::cmyk::export_pdfx1a_with_marks(&scene, &print_opts, &geo)
+    } else {
+        strata_print::cmyk::export_pdfx1a(&scene, &print_opts)
+    }
 }
 
 #[tauri::command]
@@ -1364,7 +1396,11 @@ fn export_pdfx4(
         .map_err(|e| format!("Options JSON parse error: {e}"))?;
     let mut print_opts = opts.to_pdf_options(page_height);
     print_opts.manifest = manifest_json.and_then(|s| serde_json::from_str(&s).ok());
-    strata_print::cmyk::export_pdfx4(&scene, &print_opts)
+    if let Some(geo) = opts.marks_geometry() {
+        strata_print::cmyk::export_pdfx4_with_marks(&scene, &print_opts, &geo)
+    } else {
+        strata_print::cmyk::export_pdfx4(&scene, &print_opts)
+    }
 }
 
 #[tauri::command]
@@ -2620,17 +2656,7 @@ mod tests {
     // ── New command integration tests ─────────────────────────────────────
 
     fn test_font_data() -> Vec<u8> {
-        let paths = [
-            "/usr/share/fonts/TTF/Vera.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/Inter-Regular.ttf",
-        ];
-        for p in &paths {
-            if let Ok(data) = std::fs::read(p) {
-                return data;
-            }
-        }
-        panic!("no test font found — tried {paths:?}")
+        strata_print::test_fonts::test_font_bytes().to_vec()
     }
 
     #[test]
@@ -2677,6 +2703,64 @@ mod tests {
         let print_opts = opts.to_pdf_options(200.0);
         let bytes = strata_print::cmyk::export_pdfx4(&scene, &print_opts).expect("pdfx4");
         assert!(bytes.starts_with(b"%PDF-1.6"), "PDF/X-4 should use PDF 1.6");
+    }
+
+    #[test]
+    fn pdfx_marks_geometry_honors_bleed_and_crop_marks() {
+        // No bleed, no crop marks → no geometry → plain PDF/X page (no TrimBox bleed).
+        let plain: PdfXOptions = serde_json::from_value(serde_json::json!({
+            "pageWidth": 300.0, "pageHeight": 200.0, "bleedMm": 0.0, "includeCropMarks": false,
+        }))
+        .expect("parse plain");
+        assert!(plain.marks_geometry().is_none(), "no marks or bleed → no geometry");
+
+        // Bleed alone (no crop marks) must still produce geometry so the bleed
+        // box is applied — otherwise bleed is silently dropped.
+        let bleed_only: PdfXOptions = serde_json::from_value(serde_json::json!({
+            "pageWidth": 300.0, "pageHeight": 200.0, "bleedMm": 5.0, "includeCropMarks": false,
+        }))
+        .expect("parse bleed-only");
+        let geo = bleed_only
+            .marks_geometry()
+            .expect("bleed-only should produce geometry");
+        assert!((geo.bleed_mm - 5.0).abs() < 1e-6);
+
+        // Crop marks without explicit bleed uses the default bleed.
+        let marks_only: PdfXOptions = serde_json::from_value(serde_json::json!({
+            "pageWidth": 300.0, "pageHeight": 200.0, "includeCropMarks": true,
+        }))
+        .expect("parse marks-only");
+        let geo = marks_only
+            .marks_geometry()
+            .expect("crop marks should produce geometry");
+        assert!(geo.bleed_mm > 0.0, "crop marks imply a default bleed");
+    }
+
+    #[test]
+    fn pdfx_registration_marks_maps_to_include_registration_marks() {
+        let with_reg: PdfXOptions = serde_json::from_value(serde_json::json!({
+            "pageWidth": 300.0, "pageHeight": 200.0,
+            "includeCropMarks": true,
+            "includeRegistrationMarks": true,
+        }))
+        .expect("parse with reg marks");
+        let print_opts = with_reg.to_pdf_options(200.0);
+        assert!(
+            print_opts.registration_marks,
+            "registration_marks must follow includeRegistrationMarks (not crop marks)"
+        );
+
+        let crop_only: PdfXOptions = serde_json::from_value(serde_json::json!({
+            "pageWidth": 300.0, "pageHeight": 200.0,
+            "includeCropMarks": true,
+            "includeRegistrationMarks": false,
+        }))
+        .expect("parse crop-only");
+        let print_opts = crop_only.to_pdf_options(200.0);
+        assert!(
+            !print_opts.registration_marks,
+            "crop marks alone must not enable registration marks"
+        );
     }
 
     #[test]

@@ -491,13 +491,7 @@ export function ModelManager() {
                     )}
 
                     {!row.entry.bundled && !isReady && !isDownloading && !canDownload && (
-                      <span
-                        className="bg-models-list__meta"
-                        title={
-                          row.availabilityReason ??
-                          (row.entry.checksum ? 'Download not available' : 'No integrity checksum')
-                        }
-                      >
+                      <span className="bg-models-list__meta">
                         {row.availabilityReason ??
                           (row.entry.checksum ? 'Unavailable' : 'No checksum')}
                       </span>

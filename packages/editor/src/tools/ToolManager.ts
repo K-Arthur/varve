@@ -159,6 +159,18 @@ export class ToolManager {
     this._metaKey = e.metaKey;
   }
 
+  /**
+   * Clear all tracked modifier state. Called on window blur and
+   * visibilitychange to prevent stuck modifiers when a key release
+   * occurs outside the application window.
+   */
+  resetModifiers(): void {
+    this._shiftKey = false;
+    this._altKey = false;
+    this._ctrlKey = false;
+    this._metaKey = false;
+  }
+
   private buildContext(e: PointerEvent | KeyboardEvent, base: ToolContext): ToolContext {
     this.updateModifiers(e);
     return {

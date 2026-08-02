@@ -84,6 +84,7 @@ const TAB_ORDER: InspectorTab[] = [
 
 export function PropertiesPanel() {
   const { selectedNodes, state, platform } = useEditor();
+  const { addPreset, updatePreset, removePreset, setShowExportDialog } = useEditor();
   const selNodes = selectedNodes();
   const summary = summarize(selNodes);
   const hasLockedSelection = selNodes.some((node) => node.locked);
@@ -279,6 +280,10 @@ export function PropertiesPanel() {
                 node={selNodes[0] as SceneNode}
                 doc={state.document}
                 platform={platform}
+                onAddPreset={(preset) => addPreset((selNodes[0] as SceneNode).id, preset)}
+                onUpdatePreset={(preset) => updatePreset((selNodes[0] as SceneNode).id, preset)}
+                onRemovePreset={(presetId) => removePreset((selNodes[0] as SceneNode).id, presetId)}
+                onOpenAdvancedExport={() => setShowExportDialog(true)}
               />
             ) : exportSubTab === 'code' && selNodes.length > 0 ? (
               <CodeGenView

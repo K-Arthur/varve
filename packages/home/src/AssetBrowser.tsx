@@ -1,5 +1,5 @@
 import type { Asset, AssetFolder, Platform } from '@strata/platform';
-import { ContentSkeleton, Icon, type IconName } from '@strata/ui';
+import { ContentSkeleton, Icon, type IconName, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface AssetBrowserProps {
@@ -233,9 +233,9 @@ export function AssetBrowser({ platform, workspaceId, onInsertAsset }: AssetBrow
                       )}
                     </div>
                     <div className="asset-browser__card-body">
-                      <span className="asset-browser__card-name" title={asset.name}>
-                        {asset.name}
-                      </span>
+                      <Tooltip label={asset.name} truncationOnly>
+                        <span className="asset-browser__card-name">{asset.name}</span>
+                      </Tooltip>
                       <div className="asset-browser__card-meta">
                         <span className="asset-browser__card-kind">{asset.kind}</span>
                         <span>{formatFileSize(asset.size)}</span>

@@ -90,3 +90,8 @@ apps/desktop/src-tauri/onnxruntime-libs/
 # committed, deliberately-updated artifact — see scripts/audit-render-perf.mjs) ---
 .render-perf-results.json
 scripts/diagnostics/
+.replay-browser-results.json
+
+# --- Local CI/CD (act) secrets stub — never commit real tokens ---
+.act-secrets
+.replay-browser-results.json

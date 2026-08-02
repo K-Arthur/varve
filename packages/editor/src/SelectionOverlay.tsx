@@ -10,6 +10,7 @@
  */
 
 import type { ShapeNode } from '@strata/scene';
+import { buildParentIndexMap } from '@strata/scene';
 import type { Affine, Point, Rect } from '@strata/shared';
 import {
   applyAffine,
@@ -331,15 +332,22 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
   const endpointDragRef = useRef<EndpointDragState | null>(null);
   const cornerRadiusDragRef = useRef<CornerRadiusDragState | null>(null);
 
+  // nodeWorldTransform/nodeWorldBounds walk the ancestor chain via getParent(),
+  // which is O(n) per call. The overlay resolves world geometry for the whole
+  // selection every render, so on a large selection (e.g. after select-all +
+  // duplicate) it would be O(n²). One O(n) parent index per document keeps it
+  // O(selection) — see @strata/scene coordinateService.
+  const parentIndex = useMemo(() => buildParentIndexMap(state.document), [state.document]);
+
   const box = useMemo<SelectionBox | null>(() => {
     const candidates = state.selection
       .map((id) => {
         const node = state.document.nodes[id];
         if (!node) return null;
-        const worldMat = nodeWorldTransform(state.document, id);
+        const worldMat = nodeWorldTransform(state.document, id, parentIndex);
         let localRect = nodeLocalBounds(node, state.document);
         if (!localRect) {
-          const worldBounds = nodeWorldBounds(state.document, id);
+          const worldBounds = nodeWorldBounds(state.document, id, parentIndex);
           if (!worldBounds) return null;
           const inv = tryInvertAffine(worldMat);
           if (!inv) return null;
@@ -370,7 +378,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     const sn = node as ShapeNode;
     const shape = sn.shape;
     if (shape.kind === 'line' || shape.kind === 'arrow') {
-      const worldMat = nodeWorldTransform(state.document, node.id);
+      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
       fromWorld = applyAffine(worldMat, shape.from);
       toWorld = applyAffine(worldMat, shape.to);
     }
@@ -384,7 +392,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       if (uniform <= 0) return null;
       const localBounds = nodeLocalBounds(node);
       if (!localBounds) return null;
-      const worldMat = nodeWorldTransform(state.document, node.id);
+      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
       const [wx, wy] = applyAffine(worldMat, [localBounds.x + uniform, localBounds.y]);
       return [wx, wy] as Point;
     }
@@ -394,7 +402,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const r = node.cornerRadius ?? 0;
       const uniform = typeof r === 'number' ? r : Array.isArray(r) ? r[0] : 0;
       if (uniform <= 0) return null;
-      const worldMat = nodeWorldTransform(state.document, node.id);
+      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
       const [wx, wy] = applyAffine(worldMat, [s.x + uniform, s.y]);
       return [wx, wy] as Point;
     }
@@ -405,7 +413,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
     const otherBounds: Array<{ x: number; y: number; w: number; h: number }> = [];
     for (const [id] of Object.entries(state.document.nodes)) {
       if (state.selection.includes(id)) continue;
-      const bounds = nodeWorldBounds(state.document, id);
+      const bounds = nodeWorldBounds(state.document, id, parentIndex);
       if (bounds) otherBounds.push(bounds);
     }
     return {
@@ -513,7 +521,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const sn = node as ShapeNode;
       const shape = sn.shape;
       if (shape.kind !== 'line' && shape.kind !== 'arrow') return;
-      const worldMat = nodeWorldTransform(state.document, node.id);
+      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
       const invMat = tryInvertAffine(worldMat);
       if (!invMat) return;
       beginTransaction();
@@ -556,7 +564,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
       const pointerScreenX = e.clientX - canvasOffsetX;
       const pointerScreenY = e.clientY - canvasOffsetY;
       const pw: Point = simpleScreenToWorld(pointerScreenX, pointerScreenY, state.zoom, state.pan);
-      const worldMat = nodeWorldTransform(state.document, node.id);
+      const worldMat = nodeWorldTransform(state.document, node.id, parentIndex);
       const invMat = tryInvertAffine(worldMat);
       if (!invMat) return;
       beginTransaction();
@@ -1115,7 +1123,7 @@ export function SelectionOverlay({ canvasRef }: SelectionOverlayProps = {}) {
 
       {sel.length === 1 &&
         (() => {
-          const world = nodeWorldBounds(state.document, node!.id);
+          const world = nodeWorldBounds(state.document, node!.id, parentIndex);
           if (!world) return null;
           const [sx, sy] = simpleWorldToScreen(world.x, world.y + world.h, state.zoom, state.pan);
           return (

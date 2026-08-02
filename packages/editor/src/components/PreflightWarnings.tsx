@@ -12,7 +12,7 @@
 import { getFontRegistry } from '@strata/engine';
 import type { CombinedPreflightIssue, CombinedPreflightSeverity } from '@strata/scene';
 import { runCombinedPreflight } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../context';
 
@@ -107,28 +107,31 @@ export function PreflightWarnings() {
 
   return (
     <div className="preflight-warnings" style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        type="button"
-        className="preflight-warnings__badge"
-        onClick={handleToggle}
-        aria-expanded={open}
-        aria-label={
-          clean
-            ? `Preflight: no issues found; ${unavailableChecks.length} check${unavailableChecks.length === 1 ? '' : 's'} unavailable`
-            : `Preflight: ${ec} errors, ${wc} warnings, ${ic} info`
-        }
-        style={{
-          color: highestSeverity ? severityColor(highestSeverity) : 'var(--color-text-muted)',
-        }}
-        title={
+      <Tooltip
+        label={
           clean
             ? `No issues found; ${unavailableChecks.length} check${unavailableChecks.length === 1 ? '' : 's'} could not be verified`
             : `${ec} errors, ${wc} warnings, ${ic} info`
         }
       >
-        <Icon name={clean ? 'FileCheck2' : 'FileWarning'} size={12} />
-        {!clean && <span className="preflight-warnings__count">{totalBadge}</span>}
-      </button>
+        <button
+          type="button"
+          className="preflight-warnings__badge"
+          onClick={handleToggle}
+          aria-expanded={open}
+          aria-label={
+            clean
+              ? `Preflight: no issues found; ${unavailableChecks.length} check${unavailableChecks.length === 1 ? '' : 's'} unavailable`
+              : `Preflight: ${ec} errors, ${wc} warnings, ${ic} info`
+          }
+          style={{
+            color: highestSeverity ? severityColor(highestSeverity) : 'var(--color-text-muted)',
+          }}
+        >
+          <Icon name={clean ? 'FileCheck2' : 'FileWarning'} size={12} />
+          {!clean && <span className="preflight-warnings__count">{totalBadge}</span>}
+        </button>
+      </Tooltip>
 
       {open && (
         <>
@@ -271,7 +274,6 @@ export function PreflightWarnings() {
                   <div
                     key={check.id}
                     className="preflight-warnings__check"
-                    title={check.reason}
                     style={{
                       padding: 'var(--space-1) var(--space-2)',
                       fontSize: 'var(--font-size-xs)',

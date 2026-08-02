@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '../../icons';
+import { Tooltip } from '../Tooltip';
 import type { Color } from './color-utils';
 import { hexToRgb } from './color-utils';
 
@@ -51,17 +52,21 @@ export function EyeDropperButton({ onPick }: EyeDropperButtonProps) {
   }, [available, onPick]);
 
   return (
-    <button
-      type="button"
-      aria-label={
-        available ? 'Pick color from screen' : 'Eyedropper unavailable (use native picker)'
-      }
-      title={available ? 'Pick color from screen' : 'Eyedropper unavailable (use native picker)'}
-      disabled={!available}
-      onClick={handleClick}
-      className="eye-dropper"
+    <Tooltip
+      label="Pick color from screen"
+      disabledReason={available ? undefined : 'Eyedropper unavailable (use native picker)'}
     >
-      <Icon name="Pipette" label={undefined} size="1em" />
-    </button>
+      <button
+        type="button"
+        aria-label={
+          available ? 'Pick color from screen' : 'Eyedropper unavailable (use native picker)'
+        }
+        disabled={!available}
+        onClick={handleClick}
+        className="eye-dropper"
+      >
+        <Icon name="Pipette" label={undefined} size="1em" />
+      </button>
+    </Tooltip>
   );
 }
