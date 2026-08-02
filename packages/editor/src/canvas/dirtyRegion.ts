@@ -17,7 +17,10 @@ import {
 import type { Rect } from '@strata/shared';
 import { nodeVisualWorldBounds } from './visualBounds';
 
-export type DirtyRegion = { kind: 'none' } | { kind: 'full' } | { kind: 'partial'; bounds: Rect };
+export type DirtyRegion =
+  | { kind: 'none' }
+  | { kind: 'full' }
+  | { kind: 'partial'; bounds: Rect; rectCount: number };
 
 function unionBounds(left: Rect | null, right: Rect): Rect {
   if (!left) return { ...right };
@@ -60,6 +63,7 @@ export function computeDocumentDirtyRegion(
   if (previous === next || forceFull) return { kind: forceFull ? 'full' : 'none' };
   const ids = new Set<NodeId>([...Object.keys(previous.nodes), ...Object.keys(next.nodes)]);
   let bounds: Rect | null = null;
+  let rectCount = 0;
   let changed = false;
   // getParent() is O(n) per call, so nodeWorldTransform/nodeWorldBounds walk
   // the ancestor chain in O(n) each. A per-document parent index drops that
@@ -89,6 +93,7 @@ export function computeDocumentDirtyRegion(
         if (tileRects.length === 0) continue;
         for (const tr of tileRects) {
           bounds = unionBounds(bounds, tr);
+          rectCount++;
         }
         continue;
       }
@@ -102,8 +107,14 @@ export function computeDocumentDirtyRegion(
       if (!beforeBounds && !afterBounds) {
         return { kind: 'full' };
       }
-      if (beforeBounds) bounds = unionBounds(bounds, beforeBounds);
-      if (afterBounds) bounds = unionBounds(bounds, afterBounds);
+      if (beforeBounds) {
+        bounds = unionBounds(bounds, beforeBounds);
+        rectCount++;
+      }
+      if (afterBounds) {
+        bounds = unionBounds(bounds, afterBounds);
+        rectCount++;
+      }
     } else {
       // Added or removed node: only one side has a bound to compute.
       const doc = after ? next : previous;
@@ -118,9 +129,81 @@ export function computeDocumentDirtyRegion(
       );
       if (!changedBounds) return { kind: 'full' };
       bounds = unionBounds(bounds, changedBounds);
+      rectCount++;
     }
   }
 
   if (!changed) return { kind: 'none' };
-  return bounds ? { kind: 'partial', bounds } : { kind: 'full' };
+  return bounds ? { kind: 'partial', bounds, rectCount } : { kind: 'full' };
+}
+
+/**
+ * Stable redraw-reason codes so every presented frame can be attributed. An
+ * unattributed frame is an 'unknown' and should be treated as technical debt.
+ */
+export type RedrawReason =
+  | 'clean'
+  | 'geometry-change'
+  | 'structural-change'
+  | 'camera-change'
+  | 'image-decode'
+  | 'font-load'
+  | 'variable-change'
+  | 'unknown';
+
+export interface RedrawAttributionInput {
+  /** Document identity changed since the last rendered document. */
+  docChanged: boolean;
+  dirtyKind: DirtyRegion['kind'];
+  /** Camera (zoom/pan/rotation) changed since the last rendered frame. */
+  cameraChanged: boolean;
+  imageCacheStampChanged: boolean;
+  fontLoadStampChanged: boolean;
+  variableOnlyChange: boolean;
+}
+
+/**
+ * Attribute why a frame is being redrawn. Document changes win (a dirty
+ * document is the frame's primary cause); a clean document with a moving
+ * camera is a camera change; otherwise decode/font-load stamps. A redraw with
+ * none of these signals is 'clean' — e.g. a worker-result present or overlay
+ * refresh — which is itself useful: it proves no document/camera invalidation
+ * was needed to present the frame.
+ */
+export function resolveRedrawReason(input: RedrawAttributionInput): RedrawReason {
+  if (input.docChanged) {
+    if (input.variableOnlyChange) return 'variable-change';
+    if (input.dirtyKind === 'partial') return 'geometry-change';
+    if (input.dirtyKind === 'full') return 'structural-change';
+  }
+  if (input.cameraChanged) return 'camera-change';
+  if (input.imageCacheStampChanged) return 'image-decode';
+  if (input.fontLoadStampChanged) return 'font-load';
+  return 'clean';
+}
+
+export type FullRedrawReason =
+  | 'structural'
+  | 'camera-rotation'
+  | 'profile-disabled'
+  | 'dirty-area-limit'
+  | 'no-dirty-rect';
+
+/**
+ * Attribute why a dirty frame fell back to a full redraw instead of a partial
+ * one. `null` means the frame was able to (or did not need to) do a partial
+ * redraw.
+ */
+export function resolveFullRedrawReason(opts: {
+  rotation: number;
+  profileEnablePartialRedraw: boolean;
+  dirtyRectArea: number;
+  viewportArea: number;
+  hasDirtyRect: boolean;
+}): FullRedrawReason | null {
+  if (!opts.hasDirtyRect) return 'no-dirty-rect';
+  if (opts.rotation !== 0) return 'camera-rotation';
+  if (!opts.profileEnablePartialRedraw) return 'profile-disabled';
+  if (opts.dirtyRectArea > opts.viewportArea * 0.6) return 'dirty-area-limit';
+  return null;
 }
