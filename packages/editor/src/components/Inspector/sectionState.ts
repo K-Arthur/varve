@@ -122,7 +122,7 @@ export function migrateLegacyDisclosureState(
     const result = { ...current };
     for (let i = 0; i < window.sessionStorage.length; i++) {
       const key = window.sessionStorage.key(i);
-      if (!key || !key.startsWith(LEGACY_STORAGE_PREFIX)) continue;
+      if (!key?.startsWith(LEGACY_STORAGE_PREFIX)) continue;
       const slug = key.slice(LEGACY_STORAGE_PREFIX.length);
       const raw = window.sessionStorage.getItem(key);
       if (raw !== '0' && raw !== '1') continue;

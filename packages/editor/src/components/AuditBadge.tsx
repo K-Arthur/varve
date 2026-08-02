@@ -14,7 +14,7 @@
 import { getFontRegistry } from '@strata/engine';
 import type { AuditContext } from '@strata/scene';
 import { runQuickStatus } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { useEditor } from '../context';
 
@@ -91,19 +91,22 @@ export function AuditBadge() {
   const hasErrors = status.errorCount > 0;
 
   return (
-    <button
-      type="button"
-      className={`audit-badge audit-badge--${hasErrors ? 'error' : 'warning'}`}
-      onClick={handleClick}
-      title={`${status.errorCount} error(s), ${status.warningCount} warning(s). Click to review.`}
-      aria-label={`Audit: ${status.errorCount} errors, ${status.warningCount} warnings`}
+    <Tooltip
+      label={`${status.errorCount} error(s), ${status.warningCount} warning(s). Click to review.`}
     >
-      <Icon
-        name={status.hasBlocking ? 'CircleX' : hasErrors ? 'TriangleAlert' : 'CircleAlert'}
-        label={undefined}
-        size="0.85em"
-      />
-      <span className="audit-badge__count">{status.errorCount + status.warningCount}</span>
-    </button>
+      <button
+        type="button"
+        className={`audit-badge audit-badge--${hasErrors ? 'error' : 'warning'}`}
+        onClick={handleClick}
+        aria-label={`Audit: ${status.errorCount} errors, ${status.warningCount} warnings`}
+      >
+        <Icon
+          name={status.hasBlocking ? 'CircleX' : hasErrors ? 'TriangleAlert' : 'CircleAlert'}
+          label={undefined}
+          size="0.85em"
+        />
+        <span className="audit-badge__count">{status.errorCount + status.warningCount}</span>
+      </button>
+    </Tooltip>
   );
 }

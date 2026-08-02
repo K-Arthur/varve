@@ -13,7 +13,6 @@
  *   GITHUB_TOKEN - PAT with repo scope (or GITHUB_TOKEN in workflow)
  */
 
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 const API_BASE = 'https://api.github.com';

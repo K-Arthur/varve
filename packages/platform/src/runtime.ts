@@ -290,3 +290,37 @@ export function isTauriRuntime(): boolean {
 export function isWebRuntime(): boolean {
   return detectRuntimeKind() === 'web';
 }
+
+/**
+ * Convenience: is the OS macOS?
+ *
+ * Calls `detectOs()` directly (not the memoised `getPlatformInfo()`)
+ * so the result always reflects the current `navigator` state. This
+ * matters in tests where `navigator.platform` / `navigator.userAgent`
+ * is overridden per-test — the memoised cache would leak across files.
+ * Replaces the 6+ duplicated `navigator.platform.includes('mac')`
+ * checks scattered across the editor package.
+ */
+export function isMac(): boolean {
+  return detectOs() === 'mac';
+}
+
+/**
+ * Convenience: is the WebView engine WebKitGTK (Linux Tauri)?
+ *
+ * WebKitGTK has specific input/clipboard/canvas quirks that require
+ * workarounds (pinch-zoom bridge, native clipboard fallback, canvas
+ * capability detection). This consolidates the duplicated
+ * `ua.includes('WebKit') && !ua.includes('Chrome')` checks.
+ */
+export function isWebKitGTK(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  // WebKitGTK UA contains "AppleWebKit" but not "Chrome" or "Mac"
+  return (
+    ua.includes('AppleWebKit') &&
+    !ua.includes('Chrome') &&
+    !ua.includes('Mac') &&
+    getPlatformInfo().os === 'linux'
+  );
+}

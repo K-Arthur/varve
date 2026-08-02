@@ -96,6 +96,52 @@ describe('bindingMatchesEvent', () => {
     const e = new KeyboardEvent('keydown', { key: 'z' });
     expect(bindingMatchesEvent(e, { key: 'z', ctrl: true })).toBe(false);
   });
+
+  it('matches Shift+1 fit-all on a real US layout where key is "!"', () => {
+    // Real US-layout Shift+1 reports key '!'; the binding is declared as
+    // { key: '1', shift: true }. Matching must resolve through the physical
+    // code (Digit1), not the printed key.
+    const e = new KeyboardEvent('keydown', {
+      key: '!',
+      code: 'Digit1',
+      shiftKey: true,
+    });
+    expect(bindingMatchesEvent(e, { key: '1', shift: true })).toBe(true);
+  });
+
+  it('matches Ctrl+= zoom-in and accepts the "+" physical-key alias', () => {
+    const eq = new KeyboardEvent('keydown', { key: '=', code: 'Equal', ctrlKey: true });
+    expect(bindingMatchesEvent(eq, { key: '=', ctrl: true })).toBe(true);
+
+    // Numpad + reports key '+' (code NumpadAdd); + is the same physical key
+    // family as = on most layouts.
+    const np = new KeyboardEvent('keydown', { key: '+', code: 'NumpadAdd', ctrlKey: true });
+    expect(bindingMatchesEvent(np, { key: '=', ctrl: true })).toBe(true);
+  });
+
+  it('matches numpad digit shortcuts with NumLock on', () => {
+    // NumLock on: the numpad reports the digit as the printed key.
+    const e = new KeyboardEvent('keydown', { key: '1', code: 'Numpad1' });
+    expect(bindingMatchesEvent(e, { key: '1' })).toBe(true);
+  });
+
+  it('does NOT treat NumLock-off numpad keys as digit shortcuts', () => {
+    // NumLock off: Numpad1 reports key 'End' — a navigation key, not the digit
+    // '1'. It must not trigger the zoom-50% shortcut.
+    const e = new KeyboardEvent('keydown', { key: 'End', code: 'Numpad1' });
+    expect(bindingMatchesEvent(e, { key: '1' })).toBe(false);
+  });
+
+  it('still requires the exact modifier set for shifted digits', () => {
+    const shifted = new KeyboardEvent('keydown', {
+      key: '!',
+      code: 'Digit1',
+      shiftKey: true,
+    });
+    // Plain (unshifted) zoom-to-50% binding must NOT match Shift+1.
+    expect(bindingMatchesEvent(shifted, { key: '1' })).toBe(false);
+    expect(bindingMatchesEvent(shifted, { key: '1', shift: true })).toBe(true);
+  });
 });
 
 describe('formatShortcut', () => {

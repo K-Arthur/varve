@@ -90,7 +90,7 @@ export function GamutWarning({ r, g, b, bitDepth, documentColorMode }: GamutWarn
     ? `Precision loss: ${bitDepth} exceeds document target`
     : 'Out of CMYK gamut';
   return (
-    <div className="gamut-warning" role="status" aria-live="polite" title={message}>
+    <div className="gamut-warning" role="status" aria-live="polite">
       <span aria-hidden className="gamut-warning__icon">
         !
       </span>

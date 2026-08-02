@@ -39,6 +39,8 @@ const FAILURE_PATTERNS = [
   /failed\s*with/i,
   /exited\s*with\s*code\s*(?:[1-9]\d*)/i,
   /::error::/,
+  /##\[error\]/,
+  /unable\s+to\s+(?:resolve|find|download)\s+/i,
   /panicked\s+at/i,
   /Caused\s+by:/i,
   /assert(?:ion)?\s+failed/i,

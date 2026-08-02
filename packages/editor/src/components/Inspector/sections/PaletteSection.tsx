@@ -1,6 +1,6 @@
 import { extractPalette as engineExtractPalette, type PaletteResult } from '@strata/engine';
 import { managedColorToCss } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import { Icon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -181,13 +181,13 @@ export function PaletteSection() {
               </p>
               <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                 {extraction.result.colors.map((color, i) => (
-                  <div
-                    key={`pal-${i}`}
-                    style={{ ...swatchStyle, background: managedColorToCss(color) }}
-                    title={managedColorToCss(color)}
-                    role="img"
-                    aria-label={`Color ${i + 1}: ${managedColorToCss(color)}`}
-                  />
+                  <Tooltip key={`pal-${i}`} label={managedColorToCss(color)}>
+                    <div
+                      style={{ ...swatchStyle, background: managedColorToCss(color) }}
+                      role="img"
+                      aria-label={`Color ${i + 1}: ${managedColorToCss(color)}`}
+                    />
+                  </Tooltip>
                 ))}
               </div>
             </>

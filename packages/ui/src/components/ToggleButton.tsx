@@ -9,22 +9,10 @@ export interface ToggleButtonProps
   icon?: IconName;
   label: string;
   size?: 'sm' | 'md' | 'lg';
-  /** Tooltip text; defaults to label. */
-  tooltip?: string;
 }
 
 export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(function ToggleButton(
-  {
-    pressed,
-    onPressedChange,
-    icon,
-    label,
-    size = 'md',
-    tooltip,
-    className = '',
-    disabled,
-    ...rest
-  },
+  { pressed, onPressedChange, icon, label, size = 'md', className = '', disabled, ...rest },
   ref,
 ) {
   const classes = [
@@ -44,7 +32,6 @@ export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(fun
       className={classes}
       aria-pressed={pressed}
       aria-label={label}
-      title={tooltip || label}
       disabled={disabled}
       onClick={() => onPressedChange(!pressed)}
       {...rest}

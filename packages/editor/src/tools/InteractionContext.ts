@@ -1,3 +1,5 @@
+import { isMac } from '@strata/platform';
+
 export type InputSource = 'mouse' | 'pen' | 'touch' | 'keyboard';
 export type AxisLock = 'none' | 'x' | 'y';
 export type OperationType = 'move' | 'resize' | 'rotate' | 'duplicate-drag' | 'nudge' | 'guides';
@@ -80,9 +82,7 @@ export class InteractionSession {
   }
 
   get cmdKey(): boolean {
-    const isMac =
-      typeof navigator !== 'undefined' ? /Mac|iPod|iPhone|iPad/.test(navigator.platform) : false;
-    return isMac ? this._metaKey : this._ctrlKey;
+    return isMac() ? this._metaKey : this._ctrlKey;
   }
 
   freeze(): InteractionSnapshot {

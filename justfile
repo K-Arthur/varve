@@ -129,8 +129,17 @@ ci-debug RUN_ID="":
 pin-actions:
     node scripts/pin-github-actions.mjs --check
 
+pin-actions-verify:
+    node scripts/pin-github-actions.mjs --verify
+
 pin-actions-fix:
     node scripts/pin-github-actions.mjs --pin
+
+# CI tooling regression tests (extractor + pin table integrity)
+ci-tools-test:
+    node scripts/ci-debug.test.mjs
+    node scripts/test-ci-debug.mjs
+    node scripts/pin-github-actions.test.mjs
 
 validate-workflows:
     node scripts/validate-workflows.mjs

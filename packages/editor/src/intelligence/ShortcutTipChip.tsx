@@ -9,7 +9,7 @@ interface ShortcutTipChipProps {
 
 export function ShortcutTipChip({ tip, onDismiss, onOpenPalette }: ShortcutTipChipProps) {
   return (
-    <span className="editor-status__tip-chip" role="status" aria-live="polite" title={tip.message}>
+    <span className="editor-status__tip-chip" role="status" aria-live="polite">
       <button
         type="button"
         className="editor-status__tip-chip-body"

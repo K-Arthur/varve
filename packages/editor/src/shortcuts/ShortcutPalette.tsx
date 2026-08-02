@@ -1,4 +1,4 @@
-import { Icon, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getActionRegistry } from '../actions/ActionRegistry';
@@ -248,31 +248,37 @@ export function ShortcutPalette({
             aria-label="Search commands"
             disabled={!!remappingId}
           />
-          <button
-            type="button"
-            className="shortcut-palette__btn"
-            onClick={handleExport}
-            title="Export keymap"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.download} />
-          </button>
-          <button
-            type="button"
-            className="shortcut-palette__btn"
-            onClick={() => fileRef.current?.click()}
-            title="Import keymap"
-          >
-            <SolidIcon name={SOLID_CHROME_ICONS.upload} />
-          </button>
-          {hasOverrides && (
+          <Tooltip label="Export keymap">
             <button
               type="button"
               className="shortcut-palette__btn"
-              onClick={handleResetAll}
-              title="Reset all to defaults"
+              onClick={handleExport}
+              aria-label="Export keymap"
             >
-              <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+              <SolidIcon name={SOLID_CHROME_ICONS.download} />
             </button>
+          </Tooltip>
+          <Tooltip label="Import keymap">
+            <button
+              type="button"
+              className="shortcut-palette__btn"
+              onClick={() => fileRef.current?.click()}
+              aria-label="Import keymap"
+            >
+              <SolidIcon name={SOLID_CHROME_ICONS.upload} />
+            </button>
+          </Tooltip>
+          {hasOverrides && (
+            <Tooltip label="Reset all to defaults">
+              <button
+                type="button"
+                className="shortcut-palette__btn"
+                onClick={handleResetAll}
+                aria-label="Reset all to defaults"
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+              </button>
+            </Tooltip>
           )}
           <input ref={fileRef} type="file" accept=".json" hidden onChange={handleImport} />
         </div>
@@ -331,9 +337,11 @@ export function ShortcutPalette({
                           </span>
                         )}
                     </span>
-                    <span className="shortcut-palette__usage" title={`Used ${useCount} times`}>
-                      {useCount > 0 ? `${useCount}x` : 'Not used'}
-                    </span>
+                    <Tooltip label={`Used ${useCount} times`}>
+                      <span className="shortcut-palette__usage">
+                        {useCount > 0 ? `${useCount}x` : 'Not used'}
+                      </span>
+                    </Tooltip>
                     {isRemapping ? (
                       <span className="shortcut-palette__combo shortcut-palette__combo--active">
                         Press key…
@@ -343,27 +351,36 @@ export function ShortcutPalette({
                         {binding?.key ? formatShortcut(binding) : '—'}
                       </span>
                     )}
-                    <button
-                      type="button"
-                      className="shortcut-palette__btn"
-                      onClick={(e) => handleRemapClick(id, e)}
-                      title="Remap shortcut"
-                      disabled={isRemapping}
+                    <Tooltip label="Remap shortcut">
+                      <button
+                        type="button"
+                        className="shortcut-palette__btn"
+                        onClick={(e) => handleRemapClick(id, e)}
+                        aria-label="Remap shortcut"
+                        disabled={isRemapping}
+                      >
+                        <Icon name="Keyboard" />
+                      </button>
+                    </Tooltip>
+                    <Tooltip
+                      label="Reset to default"
+                      disabledReason={
+                        isRemapping ? 'Wait until the current remap completes' : undefined
+                      }
                     >
-                      <Icon name="Keyboard" />
-                    </button>
-                    <button
-                      type="button"
-                      className="shortcut-palette__btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleResetOne(id);
-                      }}
-                      title="Reset to default"
-                      disabled={isRemapping}
-                    >
-                      <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
-                    </button>
+                      <button
+                        type="button"
+                        className="shortcut-palette__btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleResetOne(id);
+                        }}
+                        aria-label="Reset to default"
+                        disabled={isRemapping}
+                      >
+                        <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+                      </button>
+                    </Tooltip>
                   </div>
                 );
               })}

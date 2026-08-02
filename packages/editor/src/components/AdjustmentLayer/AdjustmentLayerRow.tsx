@@ -1,7 +1,7 @@
 import { filterKindDisplayName } from '@strata/engine';
 import type { AdjustmentNode, NodeId } from '@strata/scene';
 import { adjustmentEnabledCount } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import './adjustment.css';
 
@@ -141,32 +141,31 @@ export const AdjustmentLayerRow = memo(function AdjustmentLayerRow({
           aria-label={`Rename ${node.name}`}
         />
       ) : (
-        <span className="layers-row__name" title={node.name}>
-          {node.name}
-        </span>
+        <Tooltip label={node.name} truncationOnly>
+          <span className="layers-row__name">{node.name}</span>
+        </Tooltip>
       )}
 
-      <span
-        className="adj-layer-row__badge"
-        title={`${enabledCount} adjustment${enabledCount === 1 ? '' : 's'}`}
-      >
-        {enabledCount}
-      </span>
+      <Tooltip label={`${enabledCount} adjustment${enabledCount === 1 ? '' : 's'}`}>
+        <span className="adj-layer-row__badge">{enabledCount}</span>
+      </Tooltip>
 
       {adjustmentNames.length > 0 && (
-        <span
-          className="layers-row__name"
-          style={{
-            fontSize: 'var(--font-size-2xs)',
-            opacity: 0.6,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            maxWidth: 80,
-          }}
-        >
-          {adjustmentNames.join(', ')}
-        </span>
+        <Tooltip label={adjustmentNames.join(', ')} truncationOnly>
+          <span
+            className="layers-row__name"
+            style={{
+              fontSize: 'var(--font-size-2xs)',
+              opacity: 0.6,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              maxWidth: 80,
+            }}
+          >
+            {adjustmentNames.join(', ')}
+          </span>
+        </Tooltip>
       )}
 
       <button

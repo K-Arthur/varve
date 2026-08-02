@@ -12,7 +12,7 @@
 
 import type { SMTransitionTrigger, SMValidationIssue, StateMachine } from '@strata/scene';
 import type { EasingDefinition } from '@strata/shared';
-import { Button, Icon, NumberInput, Select } from '@strata/ui';
+import { Button, Icon, NumberInput, Select, Tooltip } from '@strata/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -172,9 +172,9 @@ export function StateMachineSection() {
                   >
                     <span className="insp-sm__state-name">{s.name}</span>
                     {isEntry && (
-                      <span className="insp-sm__badge insp-sm__badge--entry" title="Entry state">
-                        Entry
-                      </span>
+                      <Tooltip label="Entry state">
+                        <span className="insp-sm__badge insp-sm__badge--entry">Entry</span>
+                      </Tooltip>
                     )}
                     {issues.length > 0 && (
                       <Icon

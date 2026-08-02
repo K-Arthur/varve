@@ -1,4 +1,5 @@
 import type { Document, NodeId } from '@strata/scene';
+import { Tooltip } from '@strata/ui';
 import { useMemo } from 'react';
 import { computeCognitiveLoad } from '../../../intelligence/cognitiveLoad';
 
@@ -49,18 +50,21 @@ export function CognitiveLoadIndicator({ document, nodeId }: CognitiveLoadIndica
             }}
           />
         </div>
-        <span
-          className="insp-cognitive-load__score"
-          style={{
-            fontSize: '0.75em',
-            fontWeight: 600,
-            color: LEVEL_COLORS[report.level] ?? 'var(--color-text-muted)',
-            whiteSpace: 'nowrap',
-          }}
-          title={`Cognitive load: ${report.level} (${report.score}/100)`}
-        >
-          {report.score}
-        </span>
+        <Tooltip label={`Cognitive load: ${report.level} (${report.score}/100)`}>
+          <span
+            className="insp-cognitive-load__score"
+            style={{
+              fontSize: '0.75em',
+              fontWeight: 600,
+              color: LEVEL_COLORS[report.level] ?? 'var(--color-text-muted)',
+              whiteSpace: 'nowrap',
+            }}
+            role="img"
+            aria-label={`Cognitive load: ${report.level} (${report.score}/100)`}
+          >
+            {report.score}
+          </span>
+        </Tooltip>
       </div>
       {report.suggestions.length > 0 && (
         <ul
