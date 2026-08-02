@@ -250,6 +250,29 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
     [batchUpdate, announce],
   );
 
+  const duplicateEffect = useCallback(
+    (index: number) => {
+      setLastAddedIndex(index + 1);
+      batchUpdate((effects) => {
+        const source = effects[index];
+        if (!source) return effects;
+        const next = [...effects];
+        next.splice(index + 1, 0, { ...source, id: newEffectId() });
+        return next;
+      });
+      announce('Effect duplicated');
+    },
+    [batchUpdate, announce],
+  );
+
+  const resetEffect = useCallback(
+    (index: number) => {
+      updateEffect(index, (effect) => ({ ...defaultEffect(effect.type), id: effect.id }));
+      announce('Effect reset');
+    },
+    [updateEffect, announce],
+  );
+
   const reorderEffect = useCallback(
     (from: number, to: number) => {
       if (from === to) return;
@@ -284,6 +307,8 @@ export function EffectsSection({ nodes }: EffectsSectionProps) {
               nodes={effectNodes}
               onChange={(updater) => updateEffect(i, updater)}
               onRemove={() => removeEffect(i)}
+              onDuplicate={() => duplicateEffect(i)}
+              onReset={() => resetEffect(i)}
               onReorder={(dir: number) => reorderEffect(i, i + dir)}
               canMoveUp={i > 0}
               canMoveDown={i < minEffects - 1}
@@ -316,6 +341,8 @@ interface EffectRowProps {
   nodes: EffectNode[];
   onChange: (updater: (e: Effect) => Effect) => void;
   onRemove: () => void;
+  onDuplicate: () => void;
+  onReset: () => void;
   onReorder: (dir: number) => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
@@ -328,6 +355,8 @@ function EffectRow({
   nodes,
   onChange,
   onRemove,
+  onDuplicate,
+  onReset,
   onReorder,
   canMoveUp,
   canMoveDown,
@@ -379,6 +408,22 @@ function EffectRow({
             />
           </button>
         )}
+        <button
+          type="button"
+          className="insp-inline-btn"
+          aria-label="Reset effect"
+          onClick={onReset}
+        >
+          <Icon name="RotateCcw" label={undefined} size="0.85em" />
+        </button>
+        <button
+          type="button"
+          className="insp-inline-btn"
+          aria-label="Duplicate effect"
+          onClick={onDuplicate}
+        >
+          <Icon name="Copy" label={undefined} size="0.85em" />
+        </button>
         <button
           type="button"
           className="insp-inline-btn"
