@@ -655,6 +655,14 @@ export {
   patchRegion,
   spotHeal,
 } from './retouch';
+export {
+  itemNeedsAlphaShadow,
+  paintAlphaAwareDropShadow,
+  paintAlphaAwareInsetEffect,
+  paintGeometricDropShadow,
+  renderShadowSource,
+  type ShadowOps,
+} from './shadowSource';
 export type { ShapeRichTextInput, ShapeRunInput } from './shaping';
 // ── Text pipeline: shaping, BiDi, grapheme segmentation ──────────────────
 export { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
