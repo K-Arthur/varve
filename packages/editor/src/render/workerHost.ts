@@ -322,7 +322,7 @@ export function createRenderWorkerHost(
   worker = createWorker();
   if (!worker) return null;
 
-  return {
+  const host: RenderWorkerHost = {
     get permanentFailure() {
       return permanentFailure;
     },
@@ -398,6 +398,7 @@ export function createRenderWorkerHost(
       lastRenderCommand = null;
       lastRenderUsedTransfer = false;
       releaseAllReservations();
+      if (registeredHost === host) registerWorkerHostForDiagnostics(null);
     },
     getBitmapBudgetState() {
       return bitmapBudget.state;
@@ -406,6 +407,8 @@ export function createRenderWorkerHost(
       return bitmapBudget;
     },
   };
+  registerWorkerHostForDiagnostics(host);
+  return host;
 }
 
 /** Drop stale worker responses when any pixel-producing input advanced. */
@@ -414,6 +417,21 @@ export function isStaleRenderResponse(
   responseRevision: RenderRevision,
 ): boolean {
   return responseRevision < latestRevision;
+}
+
+// ── Diagnostics registry ────────────────────────────────────────────────────
+// The diagnostics handle reads worker-bitmap budget state without reaching
+// into a specific CanvasArea's host. Only the most recently created host is
+// tracked; it is cleared when that host terminates.
+
+let registeredHost: RenderWorkerHost | null = null;
+
+export function registerWorkerHostForDiagnostics(host: RenderWorkerHost | null): void {
+  registeredHost = host;
+}
+
+export function getRegisteredWorkerHost(): RenderWorkerHost | null {
+  return registeredHost;
 }
 
 /** @deprecated Prefer isStaleRenderResponse with the distinct render revision. */
