@@ -6,6 +6,7 @@ import {
   applyGlassMaterialBackdrop,
   clampByte,
   computeScreenBounds,
+  resolveGlitchChannelShift,
 } from './effectPipeline';
 
 describe('effectPipeline', () => {
@@ -172,6 +173,58 @@ describe('effectPipeline', () => {
     it('does not throw with large radius (>32 software path)', () => {
       const cc = makeCc(50, 50);
       expect(() => applyBackgroundBlurBackdrop(cc, 50, 50, 50)).not.toThrow();
+    });
+  });
+
+  describe('resolveGlitchChannelShift', () => {
+    const baseEffect = {
+      type: 'glitch' as const,
+      seed: 42,
+      strength: 8,
+      density: 0.3,
+      sliceHeight: 8,
+      blockCount: 5,
+      blockSize: 20,
+      blockStrength: 10,
+      noiseIntensity: 0.05,
+      scanlineIntensity: 0.15,
+      scanlineSpacing: 4,
+      direction: 'horizontal' as const,
+      channelShift: { redX: 12, redY: 8, greenX: 6, greenY: 4, blueX: 10, blueY: 2 },
+      channelShiftMode: 'static' as const,
+      blendMode: 'normal' as const,
+      opacity: 1,
+      visible: true,
+    };
+
+    it('preserves authored offsets in static mode', () => {
+      expect(resolveGlitchChannelShift(baseEffect)).toBe(baseEffect.channelShift);
+    });
+
+    it('produces deterministic seeded offsets within authored magnitudes', () => {
+      const effect = { ...baseEffect, channelShiftMode: 'seeded' as const };
+      const first = resolveGlitchChannelShift(effect);
+      const second = resolveGlitchChannelShift(effect);
+
+      expect(first).toEqual(second);
+      expect(first).not.toEqual(baseEffect.channelShift);
+      for (const key of Object.keys(first) as Array<keyof typeof first>) {
+        expect(Math.abs(first[key])).toBeLessThanOrEqual(Math.abs(baseEffect.channelShift[key]));
+      }
+    });
+
+    it('changes the deterministic displacement when the seed changes', () => {
+      const first = resolveGlitchChannelShift({
+        ...baseEffect,
+        channelShiftMode: 'seeded',
+        seed: 1,
+      });
+      const second = resolveGlitchChannelShift({
+        ...baseEffect,
+        channelShiftMode: 'seeded',
+        seed: 2,
+      });
+      expect(first).not.toEqual(second);
     });
   });
 });
