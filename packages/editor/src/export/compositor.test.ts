@@ -228,7 +228,7 @@ describe('assessNodeCapability', () => {
       expect(assessNodeCapability(node, doc, 'svg')).toBe(false);
     });
 
-    it('PDF supports dropShadow natively', () => {
+    it('PDF rasterizes dropShadow because the native writer cannot preserve blur and alpha', () => {
       const node = makeShapeNode(
         's1',
         { kind: 'rect' },
@@ -249,7 +249,7 @@ describe('assessNodeCapability', () => {
         },
       );
       const doc = makeDoc({ s1: node });
-      expect(assessNodeCapability(node, doc, 'pdf')).toBe(true);
+      expect(assessNodeCapability(node, doc, 'pdf')).toBe(false);
     });
 
     it('PDF rejects nodes with innerShadow', () => {
@@ -579,6 +579,33 @@ describe('findFlattenBoundaries', () => {
     expect(boundaries[0].boundary).toBe('node');
   });
 
+  it('creates a PDF raster boundary for a drop shadow instead of using the lossy native path', () => {
+    const node = makeShapeNode(
+      's1',
+      { kind: 'rect' },
+      {
+        effects: [
+          {
+            type: 'dropShadow',
+            visible: true,
+            x: 4,
+            y: 6,
+            blur: 12,
+            spread: 3,
+            color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
+            opacity: 0.5,
+            blendMode: 'multiply',
+          },
+        ],
+      },
+    );
+    const doc = makeDoc({ s1: node });
+
+    const boundaries = findFlattenBoundaries([node], doc, 'pdf');
+    expect(boundaries).toHaveLength(1);
+    expect(boundaries[0]).toMatchObject({ nodeId: 's1', boundary: 'node' });
+  });
+
   it('identifies nested unsupported children individually', () => {
     const s1 = makeShapeNode('s1', { kind: 'rect' });
     const s2 = makeShapeNode(
@@ -891,8 +918,8 @@ describe('capability table completeness', () => {
     expect(CAPABILITY.svg.nativeGradientTypes.has('diamond')).toBe(false);
   });
 
-  it('PDF supports dropShadow but not other effects', () => {
-    expect(CAPABILITY.pdf.nativeEffectTypes.has('dropShadow')).toBe(true);
+  it('PDF rasterizes every effect that the native writer cannot reproduce faithfully', () => {
+    expect(CAPABILITY.pdf.nativeEffectTypes.has('dropShadow')).toBe(false);
     expect(CAPABILITY.pdf.nativeEffectTypes.has('innerShadow')).toBe(false);
     expect(CAPABILITY.pdf.nativeEffectTypes.has('layerBlur')).toBe(false);
   });

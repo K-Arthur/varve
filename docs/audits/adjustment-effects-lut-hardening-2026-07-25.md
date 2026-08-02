@@ -197,7 +197,7 @@ Limits:
 | Curves/levels/selective colour | Software | Native replay | Raster subtree | Raster subtree | Warning/fallback |
 | LUT/gradient map/duotone/tritone | Software | Native replay | Raster subtree | Raster subtree | Warning/fallback |
 | Halftone/dither | Software; reduced preview path where applicable | Full replay | Raster subtree | Raster subtree | Warning/fallback |
-| Drop shadow | Canvas2D | Native replay | Raster subtree in structural compositor | Limited native approximation or raster | Native mapping only where equivalent |
+| Drop shadow | Canvas2D | Native replay | Raster subtree in structural compositor | Raster subtree; the basic native writer's hard-edged approximation is not authoritative | Native mapping only where equivalent |
 | Blur/glow/inner shadow | Canvas2D/offscreen | Native replay | Raster subtree | Raster subtree | Warning/fallback |
 | Clip/alpha/luminance mask | Structured Canvas2D | Native replay | Native SVG mask/clip where representable | Raster subtree | Target-specific warning/fallback |
 | Chromatic aberration/glitch/glass | Canvas2D/offscreen | Native replay | Raster subtree | Raster subtree | Warning/fallback |
