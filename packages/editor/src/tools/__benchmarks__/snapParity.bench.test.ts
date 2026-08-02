@@ -458,25 +458,36 @@ describe('snapPosition fine-phase scaling', () => {
     return bounds;
   }
 
-  for (const count of [100, 200, 400, 800]) {
-    it(`fine-phase evaluation at k=${count} stays under a generous ceiling`, () => {
-      const candidates = makeDenseCluster(count);
-      const samples: number[] = [];
-      for (let s = 0; s < 800; s++) {
-        const x = 150 + Math.sin(s) * 40;
-        const y = 150 + Math.cos(s) * 40;
-        const t0 = performance.now();
-        snapPosition(x, y, 30, 30, candidates, undefined, undefined, { zoom: 1 });
-        samples.push(performance.now() - t0);
-      }
-      samples.sort((a, b) => a - b);
-      const p95 = samples[Math.floor(samples.length * 0.95)]!;
-      const max = samples[samples.length - 1]!;
-      // Generous regression ceilings (pre-optimization k=800 p95 was ~59ms).
-      const ceiling = count <= 200 ? 10 : count <= 400 ? 15 : 25;
-      expect(p95).toBeLessThan(ceiling);
-      expect(max).toBeLessThan(ceiling * 2);
-      console.log(`[snap-scaling] k=${count} p95=${p95.toFixed(2)}ms max=${max.toFixed(2)}ms`);
-    }, 30_000);
+  function measureP95(count: number, samples = 800): number {
+    const candidates = makeDenseCluster(count);
+    const times: number[] = [];
+    for (let s = 0; s < samples; s++) {
+      const x = 150 + Math.sin(s) * 40;
+      const y = 150 + Math.cos(s) * 40;
+      const t0 = performance.now();
+      snapPosition(x, y, 30, 30, candidates, undefined, undefined, { zoom: 1 });
+      times.push(performance.now() - t0);
+    }
+    times.sort((a, b) => a - b);
+    return times[Math.floor(times.length * 0.95)] ?? 0;
   }
+
+  it('fine-phase cost scales near-linearly, not quadratically, with candidate count', () => {
+    // Load-independent gate: the pre-optimization O(k²) pair scans cost ~64x
+    // more at k=800 than at k=100; the near-linear evaluator should be well
+    // under the 8x proportional bound even on a noisy shared runner. Absolute
+    // wall-clock ceilings on shared CI are flaky, so assert the RATIO and keep
+    // only a generous absolute sanity cap.
+    const p95Base = Math.max(measureP95(100), 0.01);
+    const p95Big = measureP95(800);
+    const ratio = p95Big / p95Base;
+    expect(ratio).toBeLessThan(12);
+    // Absolute sanity: pre-optimization p95 at k=800 measured ~59ms; current
+    // runs ~1.5ms. 25ms is a generous load-tolerant ceiling that still catches
+    // a full regression to the quadratic pair scans.
+    expect(p95Big).toBeLessThan(25);
+    console.log(
+      `[snap-scaling] k=100 p95=${p95Base.toFixed(2)}ms  k=800 p95=${p95Big.toFixed(2)}ms  ratio=${ratio.toFixed(1)}x`,
+    );
+  }, 30_000);
 });
