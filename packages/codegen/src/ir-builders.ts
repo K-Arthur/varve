@@ -201,12 +201,16 @@ function buildEffectSpec(node: SceneNode): EffectSpec[] {
   const nodeEffects = (node as { effects?: Array<Record<string, unknown>> }).effects ?? [];
 
   for (const e of nodeEffects) {
+    if (e.visible === false) continue;
     if (e.type === 'dropShadow' || e.type === 'innerShadow') {
       effects.push({
         type: e.type === 'dropShadow' ? 'drop-shadow' : 'inner-shadow',
-        offsetX: (e.offsetX as number) ?? 0,
-        offsetY: (e.offsetY as number) ?? 0,
-        radius: (e.radius as number) ?? 0,
+        // The scene Effect schema stores offsets as x/y and blur radius as
+        // blur (matching the engine IR); the codegen spec normalises them to
+        // offsetX/offsetY/radius.
+        offsetX: (e.x as number) ?? 0,
+        offsetY: (e.y as number) ?? 0,
+        radius: (e.blur as number) ?? 0,
         spread: (e.spread as number) ?? 0,
         color: e.color
           ? managedColorToCss(e.color as import('@strata/scene').ManagedColor)
