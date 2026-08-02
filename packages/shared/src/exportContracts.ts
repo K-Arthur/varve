@@ -27,3 +27,20 @@ export type ResamplingAlgorithm =
  * 61966-2-1 EOTF first (physically additive).
  */
 export type ExportWorkingSpace = 'srgb' | 'linear-srgb';
+
+/** Output sharpening strategies for the canonical sharpen stage. */
+export type SharpenMode = 'none' | 'auto' | 'unsharp' | 'high-pass' | 'crisp';
+
+/** Technical bit-depth / palette dithering algorithms for the export stage. */
+export type DitherAlgorithm =
+  | 'none'
+  | 'floyd-steinberg'
+  | 'atkinson'
+  | 'jarvis-judice-ninke'
+  | 'stucki'
+  | 'bayer-2'
+  | 'bayer-4'
+  | 'bayer-8'
+  | 'blue-noise';
+
+export type DitherChannelMode = 'all' | 'luminance';
