@@ -7,6 +7,7 @@ import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState
 import { useEditor } from '../../context';
 import {
   createBufferedExportArchive,
+  createExportFolderSaveFile,
   createExportSaveFile,
   saveExportBytes,
 } from '../../exportSaveAdapter';
@@ -69,12 +70,16 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
       const engine = needsEngine ? await getExportEngine() : null;
       const useBrowserArchive = platform?.kind === 'web' && batch.jobs.length > 1;
       const archive = useBrowserArchive ? createBufferedExportArchive(platform) : null;
+      const folderSaveFile =
+        platform?.kind === 'tauri' && batch.destinationFolder
+          ? createExportFolderSaveFile(platform, batch.destinationFolder)
+          : null;
       const report = await ExportService.run(
         batch,
         {
           document: editor.state.document,
           engine,
-          saveFile: archive?.saveFile ?? saveExportFile,
+          saveFile: archive?.saveFile ?? folderSaveFile ?? saveExportFile,
           onProgress,
         },
         signal,
@@ -138,6 +143,9 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
         document={editor.state.document}
         selectionIds={editor.state.selection}
         platformKind={platform?.kind ?? 'web'}
+        onSelectDestination={
+          platform?.kind === 'tauri' ? () => platform.chooseExportFolder() : undefined
+        }
         onExport={handleExportBatch}
         onPackageExport={handlePackageExport}
         onExportMotion={handleExportMotion}

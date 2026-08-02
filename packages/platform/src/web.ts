@@ -1108,6 +1108,14 @@ export async function createWebPlatform(_options: WebPlatformOptions = {}): Prom
       URL.revokeObjectURL(url);
       return suggested;
     },
+    async chooseExportFolder() {
+      // Browser multi-file export is delivered as a single archive. Directory
+      // handles are intentionally not represented as fake filesystem paths.
+      return null;
+    },
+    async writeBinaryFileToFolder() {
+      throw new Error('Direct folder export is unavailable in this browser');
+    },
 
     async listPrinters() {
       return [] as PrinterInfo[];

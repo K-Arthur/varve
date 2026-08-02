@@ -258,6 +258,10 @@ export interface Platform {
     mimeType: string,
     extension: string,
   ): Promise<string | null>;
+  /** Choose one directory for a multi-file export. Unsupported runtimes return null. */
+  chooseExportFolder(): Promise<string | null>;
+  /** Atomically write a safe relative export path under a previously chosen folder. */
+  writeBinaryFileToFolder(folder: string, relativePath: string, data: Uint8Array): Promise<string>;
   revealInFileManager(path: string): Promise<void>;
   fileManagerLabel(): string;
 

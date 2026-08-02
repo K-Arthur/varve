@@ -80,4 +80,22 @@ describe('DestinationPicker', () => {
     expect(screen.getByText('Flat')).toBeTruthy();
     expect(screen.getByText('By node')).toBeTruthy();
   });
+
+  it('explains archive delivery when direct folder selection is unavailable', () => {
+    render(
+      <DestinationPicker
+        template="{name}.{ext}"
+        folderRule="flat"
+        jobs={[]}
+        onTemplateChange={() => {}}
+        onFolderRuleChange={() => {}}
+        onSelectDestination={() => {}}
+        destinationLabel=""
+        folderSelectionAvailable={false}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Browser download' })).toBeDisabled();
+    expect(screen.getByText('Multi-file exports download as one ZIP archive.')).toBeTruthy();
+  });
 });

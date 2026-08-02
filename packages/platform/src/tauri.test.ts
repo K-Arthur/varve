@@ -83,4 +83,35 @@ describe('createTauriPlatform', () => {
     expect(saveArgs.options).toBeDefined();
     expect((saveArgs.options as Record<string, unknown>).defaultPath).toBe('test.strata');
   });
+
+  it('chooses one export folder and writes safe relative files beneath it', async () => {
+    const invoke = vi.fn(async (cmd: string, _args?: unknown) => {
+      if (cmd === 'plugin:dialog|open') return '/tmp/exports';
+      return null;
+    });
+    globalWithTauri.__TAURI__ = {
+      core: { invoke },
+      event: { listen: async () => () => {} },
+    };
+
+    const platform = createTauriPlatform();
+    expect(await platform.chooseExportFolder()).toBe('/tmp/exports');
+    const path = await platform.writeBinaryFileToFolder(
+      '/tmp/exports',
+      'icons/logo.svg',
+      new Uint8Array([1, 2, 3]),
+    );
+
+    expect(path).toBe('/tmp/exports/icons/logo.svg');
+    expect(invoke).toHaveBeenCalledWith('plugin:dialog|open', {
+      options: { directory: true, multiple: false },
+    });
+    expect(invoke).toHaveBeenCalledWith('write_binary_file', {
+      path: '/tmp/exports/icons/logo.svg',
+      data: expect.any(ArrayBuffer),
+    });
+    await expect(
+      platform.writeBinaryFileToFolder('/tmp/exports', '../escape.svg', new Uint8Array()),
+    ).rejects.toThrow('safe relative path');
+  });
 });
