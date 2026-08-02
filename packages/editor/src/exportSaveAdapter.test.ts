@@ -4,6 +4,7 @@ import { unzipSync } from 'fflate';
 import { describe, expect, it, vi } from 'vitest';
 import {
   createBufferedExportArchive,
+  createExportFolderSaveFile,
   createExportSaveFile,
   extensionForExport,
 } from './exportSaveAdapter';
@@ -91,5 +92,27 @@ describe('export save adapter', () => {
 
     expect(await archive.flush('empty')).toBeNull();
     expect(saveBinaryFile).not.toHaveBeenCalled();
+  });
+
+  it('writes desktop batch entries beneath one chosen folder', async () => {
+    const writeBinaryFileToFolder = vi.fn<Platform['writeBinaryFileToFolder']>(
+      async () => '/exports/Logo.svg',
+    );
+    const platform = { kind: 'tauri', writeBinaryFileToFolder } as unknown as Platform;
+    const saveFile = createExportFolderSaveFile(platform, '/exports');
+
+    const saved = await saveFile(
+      '../Logo.svg',
+      new TextEncoder().encode('<svg />'),
+      'image/svg+xml',
+      job('svg'),
+    );
+
+    expect(saved).toBe('/exports/Logo.svg');
+    expect(writeBinaryFileToFolder).toHaveBeenCalledOnce();
+    const [folder, relativePath, bytes] = writeBinaryFileToFolder.mock.calls[0]!;
+    expect(folder).toBe('/exports');
+    expect(relativePath).toBe('Logo.svg');
+    expect(ArrayBuffer.isView(bytes)).toBe(true);
   });
 });

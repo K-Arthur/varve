@@ -15,6 +15,7 @@ export interface DestinationPickerProps {
   onFolderRuleChange: (rule: ExportBatch['folderRule']) => void;
   onSelectDestination: () => void;
   destinationLabel: string;
+  folderSelectionAvailable?: boolean;
 }
 
 const RULE_OPTIONS: { value: ExportBatch['folderRule']; label: string }[] = [
@@ -31,6 +32,7 @@ export function DestinationPicker({
   onFolderRuleChange,
   onSelectDestination,
   destinationLabel,
+  folderSelectionAvailable = true,
 }: DestinationPickerProps) {
   const previews = useMemo(() => {
     return jobs.slice(0, 3).map((job) => {
@@ -58,7 +60,12 @@ export function DestinationPicker({
         .replace('{name}', safeName)
         .replace('{suffix}', job.presetId ? `-${job.presetId.slice(0, 8)}` : '')
         .replace('{ext}', ext);
-      return { folder, file, full: `${folder}${file}` };
+      return {
+        key: `${job.nodeId}-${job.presetId}`,
+        folder,
+        file,
+        full: `${folder}${file}`,
+      };
     });
   }, [jobs, template, folderRule]);
 
@@ -70,10 +77,20 @@ export function DestinationPicker({
           type="button"
           className="destination-picker__folder-btn"
           onClick={onSelectDestination}
+          disabled={!folderSelectionAvailable}
+          aria-describedby={
+            !folderSelectionAvailable ? 'export-destination-browser-hint' : undefined
+          }
         >
-          {destinationLabel || 'Select folder\u2026'}
+          {destinationLabel ||
+            (folderSelectionAvailable ? 'Select folder\u2026' : 'Browser download')}
         </button>
       </div>
+      {!folderSelectionAvailable && (
+        <span id="export-destination-browser-hint" className="destination-picker__hints">
+          Multi-file exports download as one ZIP archive.
+        </span>
+      )}
 
       <div className="destination-picker__row">
         <span className="destination-picker__label">Filename</span>
@@ -111,8 +128,8 @@ export function DestinationPicker({
       {previews.length > 0 && (
         <div className="destination-picker__preview">
           <span className="destination-picker__preview-label">Preview:</span>
-          {previews.map((p, i) => (
-            <div key={i} className="destination-picker__preview-file">
+          {previews.map((p) => (
+            <div key={p.key} className="destination-picker__preview-file">
               {p.folder && <span className="destination-picker__preview-folder">{p.folder}</span>}
               {p.file}
             </div>

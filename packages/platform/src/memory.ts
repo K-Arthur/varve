@@ -958,6 +958,12 @@ export function createMemoryPlatform(options: MemoryPlatformOptions = {}): Platf
     async saveBinaryFile(name) {
       return `memory://${name}`;
     },
+    async chooseExportFolder() {
+      return 'memory://exports';
+    },
+    async writeBinaryFileToFolder(folder, relativePath) {
+      return `${folder.replace(/\/$/, '')}/${relativePath}`;
+    },
     async onNativeFileDrop() {
       return () => {};
     },

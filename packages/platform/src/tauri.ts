@@ -601,6 +601,28 @@ export function createTauriPlatform(): Platform {
         }
       });
     },
+    async chooseExportFolder() {
+      return withFocusRestore(async () => {
+        const selected = (await core().invoke('plugin:dialog|open', {
+          options: { directory: true, multiple: false },
+        })) as string | null;
+        return selected;
+      });
+    },
+    async writeBinaryFileToFolder(folder, relativePath, data) {
+      const normalized = relativePath.replaceAll('\\', '/');
+      if (
+        normalized.startsWith('/') ||
+        /^[a-zA-Z]:/.test(normalized) ||
+        normalized.split('/').some((part) => part === '' || part === '.' || part === '..')
+      ) {
+        throw new Error('Export path must be a safe relative path');
+      }
+      const separator = folder.includes('\\') && !folder.includes('/') ? '\\' : '/';
+      const path = `${folder.replace(/[\\/]$/, '')}${separator}${normalized.replaceAll('/', separator)}`;
+      await core().invoke('write_binary_file', { path, data: arrayBufferForBytes(data) });
+      return path;
+    },
 
     async listPrinters() {
       const c = core();
