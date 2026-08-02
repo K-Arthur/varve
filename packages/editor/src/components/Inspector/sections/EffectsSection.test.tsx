@@ -516,3 +516,55 @@ describe('EffectsSection — outerGlow color swatch', () => {
     expect(screen.getByRole('button', { name: /effect colour/i })).toBeTruthy();
   });
 });
+
+describe('EffectsSection — group-level effects', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('renders effects for group nodes so group shadows are editable', () => {
+    const group = {
+      id: 'g1',
+      kind: 'group' as const,
+      name: 'Group',
+      transform: [1, 0, 0, 1, 0, 0] as const,
+      opacity: 1,
+      blendMode: 'normal' as const,
+      rotation: 0,
+      visible: true,
+      locked: false,
+      order: 'a0',
+      children: ['n1'],
+      effects: [
+        {
+          type: 'dropShadow' as const,
+          x: 0,
+          y: 4,
+          blur: 8,
+          spread: 0,
+          color: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 76 },
+          opacity: 0.3,
+          blendMode: 'normal' as const,
+          visible: true,
+        },
+      ],
+    };
+    render(<EffectsSection nodes={[group]} />);
+    expect(screen.getByText('Drop Shadow')).toBeTruthy();
+    expect(screen.getByLabelText('Remove effect')).toBeTruthy();
+  });
+});

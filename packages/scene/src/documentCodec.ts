@@ -18,6 +18,7 @@ import {
 } from './assets';
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
+import { normalizeDocumentEffects } from './effects';
 import {
   getOwnRasterMaskAsset,
   validateMaskSource,
@@ -615,6 +616,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
+  document = normalizeDocumentEffects(document);
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
   }
