@@ -181,9 +181,11 @@ Other repeatability gaps:
     a restricted primitive subset, does a GPU-to-Canvas2D presentation copy,
     and is unavailable in the Linux WebKitGTK target. Correctness goldens and
     real hardware measurements are prerequisites for further adoption.
-11. **Benchmark discovery includes unrelated worktrees.** Exclude `.worktrees`
-    in the benchmark config before treating `pnpm bench` as a bounded,
-    reproducible gate.
+11. **Benchmark discovery included unrelated worktrees.** The shared Vitest
+    config now excludes `.worktrees`, which bounds both normal and benchmark
+    collection to the active checkout. A remaining runner-teardown hang is
+    tracked separately and prevents calling the complete `pnpm bench` command
+    green in this environment.
 
 ## Safe early cache corrections
 
@@ -205,6 +207,22 @@ These changes alter neither raster output nor interaction quality. They remove
 avoidable regeneration/churn and make low-memory settings remain a ceiling.
 They do not establish full 4 GiB support; the wider cache-ownership gaps remain
 open.
+
+## Benchmark discovery isolation
+
+The shared Vitest configuration now excludes `.worktrees` before either the
+normal or dedicated benchmark config applies its include patterns. Before this
+change, `pnpm bench` completed root spatial/snap work and then started another
+copy from `.worktrees/export-infrastructure`; even list-only benchmark
+collection failed to complete within 90 seconds. After the change, list-only
+collection completes in about one second and reports 891 normal files and 898
+benchmark-config files, with zero worktree paths in either result.
+
+The root-only `pnpm bench` rerun exposed a second harness issue: after benchmark
+CPU work stopped, the terminal remained attached without a matching Vitest
+worker process or completion result. Only the owned session was interrupted.
+That teardown defect remains open as P3-14; the discovery fix must not be
+misrepresented as a successful full benchmark run.
 
 The live status, risk, evidence, and commit reference for each finding are kept
 in [`../perf/findings.md`](../perf/findings.md).
