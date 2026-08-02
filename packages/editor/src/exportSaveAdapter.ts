@@ -97,6 +97,15 @@ export function createExportSaveFile(platform?: Platform): ExportRunContext['sav
   };
 }
 
+export function createExportFolderSaveFile(
+  platform: Platform,
+  folder: string,
+): NonNullable<ExportRunContext['saveFile']> {
+  return async (fileName, bytes) => {
+    return await platform.writeBinaryFileToFolder(folder, safeArchiveEntryPath(fileName), bytes);
+  };
+}
+
 export interface BufferedExportArchive {
   saveFile: NonNullable<ExportRunContext['saveFile']>;
   fileCount: () => number;

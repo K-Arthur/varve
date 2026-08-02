@@ -81,6 +81,8 @@ export interface ExportDialogProps {
   initialTemplate?: string;
   /** Active platform; drives capability-gated preflight and destination hints. */
   platformKind?: PlatformKind;
+  /** Native desktop folder picker. Browser batches use one ZIP destination. */
+  onSelectDestination?: () => Promise<string | null>;
 }
 
 function safeFilename(name: string): string {
@@ -258,6 +260,7 @@ export function ExportDialog({
   selectionIds = [],
   initialTemplate = loadSettings().export.defaultFilenameTemplate,
   platformKind = 'web',
+  onSelectDestination,
 }: ExportDialogProps) {
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
@@ -744,9 +747,11 @@ export function ExportDialog({
     });
   }, [jobs]);
 
-  const handleSelectDestination = useCallback(() => {
-    setDestinationLabel('/exports');
-  }, []);
+  const handleSelectDestination = useCallback(async () => {
+    if (!onSelectDestination) return;
+    const selected = await onSelectDestination();
+    if (selected) setDestinationLabel(selected);
+  }, [onSelectDestination]);
 
   if (!isOpen) return null;
 
@@ -827,8 +832,9 @@ export function ExportDialog({
                 jobs={jobs}
                 onTemplateChange={setTemplate}
                 onFolderRuleChange={setFolderRule}
-                onSelectDestination={handleSelectDestination}
+                onSelectDestination={() => void handleSelectDestination()}
                 destinationLabel={destinationLabel}
+                folderSelectionAvailable={!!onSelectDestination}
               />
             </section>
 
