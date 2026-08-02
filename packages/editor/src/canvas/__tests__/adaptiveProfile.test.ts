@@ -136,4 +136,46 @@ describe('platform capability detection', () => {
     expect(gl.getExtension).toHaveBeenCalledWith('WEBGL_lose_context');
     expect(loseContext).toHaveBeenCalledTimes(1);
   });
+
+  it('classifies WebKitGTK with its capability flags', () => {
+    _resetPlatformCapabilities();
+    Object.defineProperty(navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 Version/17.4 Safari/605.1.15 (CachyOS)',
+      configurable: true,
+    });
+    const caps = detectPlatformCapabilities();
+    expect(caps.isWebKitGTK).toBe(true);
+    expect(caps.engine).toBe('webkit');
+    expect(caps.webKitVersion).toBe('605.1.15');
+    expect(caps.hasOffscreenCanvas).toBe(typeof OffscreenCanvas !== 'undefined');
+    expect(caps.hasCreateImageBitmap).toBe(typeof createImageBitmap === 'function');
+  });
+
+  it('classifies Chromium as a non-WebKit engine', () => {
+    _resetPlatformCapabilities();
+    Object.defineProperty(navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+      configurable: true,
+    });
+    const caps = detectPlatformCapabilities();
+    expect(caps.isWebKitGTK).toBe(false);
+    expect(caps.engine).toBe('chromium');
+  });
+
+  it('worker rendering requires both Worker and OffscreenCanvas', () => {
+    _resetPlatformCapabilities();
+    Object.defineProperty(navigator, 'userAgent', {
+      value:
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+      configurable: true,
+    });
+    resetProfile();
+    _setCooldownFrames(1);
+    const profile = computeProfile(8, 0, 50);
+    expect(profile.enableWorker).toBe(
+      typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined',
+    );
+  });
 });

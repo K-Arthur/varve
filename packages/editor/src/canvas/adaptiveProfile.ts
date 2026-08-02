@@ -34,6 +34,14 @@ export interface PlatformCapabilities {
   isWebKitGTK: boolean;
   hasWebGL: boolean;
   hasWebGPU: boolean;
+  /** Explicit OffscreenCanvas support (WebKitGTK is unreliable across point releases). */
+  hasOffscreenCanvas: boolean;
+  /** Explicit createImageBitmap support. */
+  hasCreateImageBitmap: boolean;
+  /** Rendered engine family. */
+  engine: 'webkit' | 'chromium' | 'gecko' | 'unknown';
+  /** WebKit version string when the engine is WebKit, else undefined. */
+  webKitVersion?: string;
   deviceMemory?: number;
   hardwareConcurrency?: number;
 }
@@ -82,11 +90,23 @@ export function detectPlatformCapabilities(): PlatformCapabilities {
 
   const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
   const isWebKitGTK = ua.includes('WebKit') && !ua.includes('Chrome') && !ua.includes('Mac');
+  const engine: PlatformCapabilities['engine'] = isWebKitGTK
+    ? 'webkit'
+    : ua.includes('Chrome') || ua.includes('Chromium')
+      ? 'chromium'
+      : ua.includes('Firefox')
+        ? 'gecko'
+        : 'unknown';
+  const webKitMatch = ua.match(/AppleWebKit\/(\d+(?:\.\d+)*)/);
   cachedCapabilities = {
-    hasWorker: typeof OffscreenCanvas !== 'undefined',
+    hasWorker: typeof Worker !== 'undefined',
     isWebKitGTK,
     hasWebGL: probeWebGL(),
     hasWebGPU: typeof navigator !== 'undefined' && 'gpu' in navigator,
+    hasOffscreenCanvas: typeof OffscreenCanvas !== 'undefined',
+    hasCreateImageBitmap: typeof createImageBitmap === 'function',
+    engine,
+    webKitVersion: webKitMatch ? webKitMatch[1] : undefined,
     deviceMemory:
       typeof navigator !== 'undefined'
         ? (navigator as unknown as { deviceMemory?: number }).deviceMemory
@@ -129,7 +149,7 @@ function profileForTier(tier: ProfileTier, caps: PlatformCapabilities): Performa
         tier: 'quality',
         renderScale: 1,
         cacheMultiplier: 2,
-        enableWorker: caps.hasWorker && !caps.isWebKitGTK,
+        enableWorker: caps.hasWorker && caps.hasOffscreenCanvas && !caps.isWebKitGTK,
         enablePartialRedraw: true,
         enableCulling: true,
         backdropBlurQuality: 'high',
@@ -144,7 +164,7 @@ function profileForTier(tier: ProfileTier, caps: PlatformCapabilities): Performa
         tier: 'balanced',
         renderScale: 1,
         cacheMultiplier: 1,
-        enableWorker: caps.hasWorker && !caps.isWebKitGTK,
+        enableWorker: caps.hasWorker && caps.hasOffscreenCanvas && !caps.isWebKitGTK,
         enablePartialRedraw: true,
         enableCulling: true,
         backdropBlurQuality: 'medium',
