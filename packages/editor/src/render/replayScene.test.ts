@@ -53,6 +53,63 @@ describe('replayStructuredScene', () => {
     expect(lineTo).toHaveBeenCalledWith(300, 170);
   });
 
+  it('composites a group-level drop shadow from the flattened subtree', async () => {
+    let sceneDocument = createDocument('Group effect export', true);
+    const group = makeGroupNode('group', {
+      effects: [
+        {
+          type: 'dropShadow',
+          x: 5,
+          y: 5,
+          blur: 8,
+          spread: 0,
+          color: { space: 'rgb', r: 0, g: 0, b: 0, a: 128 },
+          opacity: 0.5,
+          blendMode: 'normal',
+          visible: true,
+        },
+      ],
+    });
+    const childA = makeShapeNode(
+      'childA',
+      { kind: 'rect', x: 0, y: 0, w: 50, h: 50 },
+      { transform: [1, 0, 0, 1, 10, 10] },
+    );
+    const childB = makeShapeNode(
+      'childB',
+      { kind: 'rect', x: 0, y: 0, w: 30, h: 30 },
+      { transform: [1, 0, 0, 1, 20, 40] },
+    );
+    sceneDocument = addNode(sceneDocument, group);
+    sceneDocument = addChild(sceneDocument, group.id, childA);
+    sceneDocument = addChild(sceneDocument, group.id, childB);
+
+    const flattened = flattenSceneToEngine(sceneDocument, [group.id]);
+    const engine = await createEngine('stub');
+    const items = await engine.buildIr({ nodes: flattened.nodes });
+    const canvas = document.createElement('canvas');
+    canvas.width = 300;
+    canvas.height = 200;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('test canvas unavailable');
+    if (typeof context.getTransform !== 'function') {
+      context.getTransform = () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }) as DOMMatrix;
+    }
+    const drawImage = vi.spyOn(context, 'drawImage');
+
+    replayStructuredScene(context, {
+      document: sceneDocument,
+      rootIds: [group.id],
+      flattenedIds: flattened.ids,
+      items,
+    });
+
+    // A group-level shadow must flatten the subtree and composite it (and its
+    // shadow-only scratch canvas) via drawImage — not be silently dropped.
+    expect(drawImage).toHaveBeenCalled();
+    expect(context.globalCompositeOperation).toBe('source-over');
+  });
+
   it('applies container opacity and blend mode after alpha-mask compositing', async () => {
     let sceneDocument = createDocument('Masked group export', true);
     const group = {
