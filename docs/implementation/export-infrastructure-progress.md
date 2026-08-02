@@ -339,7 +339,7 @@ Gate results per milestone:
 | M11b | 16 packages + E2E clean | Biome clean on touched files | **10,881/10,881** full suite before final cancel-case assertion; final focused export 31/31 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11c | 16 packages + E2E clean | Biome clean on touched files | **10,885/10,885** full suite; focused platform/export 30/30 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
 | M11d | 16 packages + E2E clean | Biome clean on touched files | **10,887/10,887** full suite; focused export UI 24/24 | audit:emoji clean; audit:tokens 123/123; architecture gate clean against baseline (5 known cycles, 0 layer violations) |
-| M12a | 16 packages + E2E clean | Biome clean | 95/95 focused scene/editor export tests | **export-settings + export-workspace E2E 7/7**; audit:emoji clean; audit:tokens 123/123; architecture audit clean against baseline (6 known cycles, 0 layer violations) |
+| M12a | 16 packages + E2E clean | Biome clean | **10,917/10,917** full suite; 95/95 focused scene/editor export tests | **export-settings + export-workspace E2E 7/7**; audit:emoji clean; audit:tokens 123/123; architecture audit clean against baseline (6 known cycles, 0 layer violations) |
 
 Pre-existing failures on the shared branch (proven pre-existing via stash check,
 not caused by this work): `ShortcutPalette.test.tsx` (8), `MasterPanel.test.tsx`
