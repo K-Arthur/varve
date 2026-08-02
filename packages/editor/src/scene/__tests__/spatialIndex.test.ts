@@ -211,6 +211,26 @@ describe('queryRect', () => {
     expect(candidates.size).toBe(1);
     expect(candidates.has('big')).toBe(true);
   });
+
+  it('scans occupied cells instead of materializing a much larger empty query grid', () => {
+    class CountingGrid extends Map<string, Set<NodeId>> {
+      getCount = 0;
+
+      override get(key: string): Set<NodeId> | undefined {
+        this.getCount++;
+        return super.get(key);
+      }
+    }
+
+    const grid = new CountingGrid([
+      ['0,0', new Set<NodeId>(['inside'])],
+      ['200,200', new Set<NodeId>(['outside'])],
+    ]);
+    const candidates = queryRect({ grid }, { x: 0, y: 0, w: 6400, h: 6400 });
+
+    expect(candidates).toEqual(new Set<NodeId>(['inside']));
+    expect(grid.getCount).toBeLessThanOrEqual(grid.size);
+  });
 });
 
 describe('getOrCreateSpatialIndex', () => {

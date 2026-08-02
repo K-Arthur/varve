@@ -282,3 +282,10 @@ zoom 0.01 rectangle queries at 7.72 s mean and 5K-candidate snapping at 1.75 s
 mean. Browser interaction budgets passed 4/5 under load; the 50-shape case hit
 its fixed 60-second wall timeout twice at host load 22, after passing in 28.2 s
 earlier under lower contention.
+
+The extreme-zoom spatial cliff was then removed without changing candidate
+semantics. `queryRect` now enumerates whichever is smaller: theoretical query
+cells or occupied index cells. A failing work-count test dropped from 10,201
+empty lookups to at most two occupied cells. A 200-iteration zoom-0.01 probe
+with 9.77M theoretical versus 4K occupied cells measures 1.55 ms mean; the
+focused spatial suite passes 30/30.
