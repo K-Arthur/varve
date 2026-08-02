@@ -173,8 +173,21 @@ export type {
   DitherAlgorithm,
   DitherChannelMode,
   ExportWorkingSpace,
+  MetadataFieldDecision,
+  MetadataFieldKey,
+  MetadataFieldOverrides,
+  MetadataPolicy,
+  MetadataPolicyKind,
   ResamplingAlgorithm,
   SharpenMode,
+} from './exportContracts';
+export {
+  createMetadataPolicy,
+  isMetadataFieldDecision,
+  isValidMetadataPolicyKind,
+  METADATA_OVERRIDE_KEYS,
+  METADATA_POLICY_KINDS,
+  resolveMetadataFieldDecision,
 } from './exportContracts';
 export type { PathPoint, SpatialTangents } from './interpolation';
 export {
