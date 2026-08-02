@@ -10,6 +10,7 @@ export * from './adapter';
 export * from './capabilities';
 export * from './model';
 export * from './naming';
+export * from './pipeline';
 export * from './plan';
 export * from './preflight';
 export * from './presets';
