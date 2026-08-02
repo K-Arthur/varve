@@ -14,6 +14,7 @@ export interface MemoryBudgets {
   workerImageBitmaps: number;
   thumbnailCacheEntries: number;
   engineNodeMemoEntries: number;
+  imageCacheBytes: number;
 }
 
 export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
@@ -24,6 +25,7 @@ export const DEFAULT_MEMORY_BUDGETS: MemoryBudgets = {
   workerImageBitmaps: 10,
   thumbnailCacheEntries: 200,
   engineNodeMemoEntries: 20000,
+  imageCacheBytes: 256 * 1024 * 1024,
 };
 
 export interface AdaptiveCacheLimits {
@@ -64,6 +66,7 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
         backdropCacheEntries: 5,
         transformCacheEntries: 2000,
         engineNodeMemoEntries: 4000,
+        imageCacheBytes: 64 * 1024 * 1024,
       };
     case 'medium':
       return {
@@ -74,6 +77,7 @@ export function getMemoryBudgets(memoryBudget?: 'low' | 'medium' | 'high'): Memo
       return {
         ...DEFAULT_MEMORY_BUDGETS,
         subtreeIrCacheBytes: 200 * 1024 * 1024,
+        imageCacheBytes: 512 * 1024 * 1024,
       };
     default:
       return DEFAULT_MEMORY_BUDGETS;

@@ -235,5 +235,19 @@ that identity is still current. Stale callers may still observe their promise
 settle, but stale work cannot repopulate the cache or change retained-byte
 accounting. All eleven image-cache tests pass.
 
+## Decoded-image budget ownership
+
+The shared canvas memory preset now owns the singleton decoded-image cache byte
+ceiling: 64 MiB for low, 256 MiB for medium/default, and 512 MiB for high. The
+cache exposes a live limit update that immediately performs LRU eviction, so
+switching to a lower preset does not wait for another insertion before memory
+is released. A failing-first test reduces an 800-byte synthetic cache to 400
+bytes and verifies one entry is evicted immediately; preset tests verify tier
+ordering. The focused image-cache and memory-budget suites pass 20/20.
+
+This is only partial progress on P3-07. Worker-transferred bitmaps, decoded mask
+surfaces, text shaping, scratch canvases, and GPU allocations still need common
+ownership and a real constrained-memory/reclamation run before any 4 GiB claim.
+
 The live status, risk, evidence, and commit reference for each finding are kept
 in [`../perf/findings.md`](../perf/findings.md).

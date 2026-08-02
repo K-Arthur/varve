@@ -164,6 +164,16 @@ describe('ImageCache memory budget', () => {
     expect(observedLoaded).toBe(true);
     expect(cache.has('large')).toBe(false);
   });
+
+  it('evicts immediately when the decoded-image byte limit is reduced', () => {
+    const cache = new ImageCache({ maxEntries: 10, maxBytes: 800 });
+    cache.setLoaded('first', image(10, 10));
+    cache.setLoaded('second', image(10, 10));
+
+    cache.setLimits({ maxBytes: 400 });
+
+    expect(cache.stats).toMatchObject({ entries: 1, bytes: 400, evictions: 1 });
+  });
 });
 
 describe('ImageCache pending-load invalidation', () => {
