@@ -28,6 +28,33 @@ impl PrintProfile {
             PrintProfile::SwopCoated => "SWOP Coated",
         }
     }
+
+    /// Parse a profile name (case-insensitive, tolerant of common spellings).
+    /// Unknown names return `None` so callers can warn rather than guess.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_lowercase().as_str() {
+            "fogra39" | "fogra" | "iso_coated_v2" | "iso coated v2" | "fogra39l" => {
+                Some(Self::Fogra39)
+            }
+            "gracol2006" | "gracol" | "gracol_2006" => Some(Self::Gracol2006),
+            "swop" | "swopcoated" | "swop_coated" | "swop v3" => Some(Self::SwopCoated),
+            _ => None,
+        }
+    }
+
+    /// PDF/X OutputConditionIdentifier for this profile.
+    pub fn output_condition_identifier(&self) -> &'static str {
+        match self {
+            PrintProfile::Fogra39 => "Fogra39",
+            PrintProfile::Gracol2006 => "GRACoL2006",
+            PrintProfile::SwopCoated => "SWOP Coated",
+        }
+    }
+
+    /// Bundled ICC profile bytes for this printing condition.
+    pub fn icc_bytes(&self) -> &'static [u8] {
+        bundled_cmyk()
+    }
 }
 
 /// Rendering intent for colour conversion.
@@ -386,6 +413,34 @@ pub fn bundled_cmyk() -> &'static [u8] {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── Profile parsing ─────────────────────────────────────────────
+
+    #[test]
+    fn print_profile_parse_is_case_insensitive() {
+        assert_eq!(PrintProfile::parse("Fogra39"), Some(PrintProfile::Fogra39));
+        assert_eq!(PrintProfile::parse("fogra39"), Some(PrintProfile::Fogra39));
+        assert_eq!(PrintProfile::parse("ISO Coated v2"), Some(PrintProfile::Fogra39));
+        assert_eq!(PrintProfile::parse("GRACoL2006"), Some(PrintProfile::Gracol2006));
+        assert_eq!(PrintProfile::parse("swop_coated"), Some(PrintProfile::SwopCoated));
+        assert_eq!(PrintProfile::parse("NoSuchProfile"), None);
+        assert_eq!(PrintProfile::parse(""), None);
+    }
+
+    #[test]
+    fn print_profile_icc_bytes_are_valid_profiles() {
+        for profile in [
+            PrintProfile::Fogra39,
+            PrintProfile::Gracol2006,
+            PrintProfile::SwopCoated,
+        ] {
+            assert!(
+                validate_icc_profile(profile.icc_bytes()).is_ok(),
+                "{} bundled profile must validate",
+                profile.name()
+            );
+        }
+    }
 
     // ── Profile data ────────────────────────────────────────────────
 

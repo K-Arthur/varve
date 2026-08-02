@@ -1763,28 +1763,32 @@ pub fn rgba_to_rgb(data: &[u8]) -> Vec<u8> {
 
 /// Legacy shape_to_pdf_content — maintained for backward compatibility
 /// with `build_pdfx_content` in cmyk.rs.
+/// Shape → PDF content stream. `use_cmyk`/`profile` control whether fills and
+/// strokes are emitted as ICC-aware CMYK operators (PDF/X-1a) or plain RGB.
 fn shape_to_pdf_content(
     node: &SceneNode,
     page_height: f64,
     image_state: Option<&mut ImageRenderState>,
     manifest: Option<&resources::ExportManifest>,
+    use_cmyk: bool,
+    profile: Option<PrintProfile>,
 ) -> Vec<u8> {
     let mut buf = Vec::new();
     buf.extend_from_slice(b"q\n");
-    let effects = render_effects(node, page_height, false, None);
+    let effects = render_effects(node, page_height, use_cmyk, profile);
     buf.extend(&effects);
     let fills = render_fills(
         node,
         page_height,
-        false,
+        use_cmyk,
         image_state,
         manifest,
-        None,
+        profile,
         None,
         false,
     );
     buf.extend(&fills);
-    let strokes = render_strokes(node, page_height, false, None);
+    let strokes = render_strokes(node, page_height, use_cmyk, profile);
     buf.extend(&strokes);
     buf.extend_from_slice(b"Q\n");
     buf
