@@ -213,6 +213,17 @@ export {
 } from './engine';
 export type { TileExportOpts } from './export';
 export { getCanvasSizeLimit, tiledExport } from './export';
+export type {
+  ResampleOptions,
+  ResampleResult,
+  SelectAlgorithmResult,
+} from './exportPipeline/resample';
+export {
+  computeResampleDimensions,
+  kernelFor,
+  resampleImageData,
+  selectResamplingAlgorithm,
+} from './exportPipeline/resample';
 export { exportRasterizedSubtree, exportRasterizedSubtreeSync } from './exportRasterizedSubtree';
 export { applyFilterWithCompositing, applySoftwareFilter } from './filterCompositor';
 export type {
