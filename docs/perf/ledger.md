@@ -233,3 +233,21 @@ renderer crash at ~2048 nodes, and the 4 GB low-memory profile.
 **Corrected claim:** routing snap targets through the transform cache was made
 while chasing `groupWorldBounds` and did **not** move it; it is recorded as a
 consistency fix, not a measured win.
+
+## Measured continuation and resource audit (2026-08-01, part 3)
+
+Full write-up: [`../audits/canvas-perf-2026-08-01-part3.md`](../audits/canvas-perf-2026-08-01-part3.md).
+The shared hypothesis/evidence tracker is [`findings.md`](findings.md).
+
+Five current real-browser replay runs produced median run p50 values of
+0.7/3.6/34.7/138.0 ms for 100/1K/10K/50K visible items. Current in-app drag
+frames were p50 1.4 ms at 128 nodes and 5.4 ms at 494 nodes, with the
+engine-node memo performing zero median conversions and at most one conversion
+per measured frame. These are SwiftShader Chromium results, not native
+WebKitGTK presentation measurements.
+
+The audit also records that the deterministic workload corpus, structured
+result collector, and soak harness are not connected to a real application
+runner; cache limits do not recover after an adaptive constrained tier;
+gradient cache hits do not refresh recency; and the current low-memory preset
+does not bound all decoded, worker, mask, shaping, scratch, or GPU resources.

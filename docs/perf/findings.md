@@ -1,0 +1,31 @@
+# Canvas Performance Findings
+
+Shared ledger for the current performance program. A finding is not marked
+fixed until a focused regression guard passes and the relevant real workload is
+remeasured. `pending` means evidence is sufficient to investigate, not that the
+proposed change has been approved.
+
+| ID | Hypothesis / finding | Evidence | Owner | Status | Proposed change | Risk | Benchmark result | Commit |
+|---|---|---|---|---|---|---|---|---|
+| P3-01 | Existing workload corpus and soak/collector are disconnected from real app runs | source and harness audit | benchmark/QA | pending | unified metadata-stamped runner | low | no real corpus result yet | — |
+| P3-02 | Full-document setup is the largest measured production phase near 1K nodes | production diagnostics and prior CPU profile | rendering | measuring | add phase/work counters, profile callers, then optimize highest caller | medium | setup p50 12.8 ms at 932 nodes | — |
+| P3-03 | Periodic work or allocation causes extreme tail stalls | production p95/p99 and GC profile share | input/frontend | measuring | correlate long frames, GC, revisions, React commits, and history | medium | p95 197.2 ms, p99 633.4 ms at 932 nodes | — |
+| P3-04 | Adaptive cache limits stay reduced after the profile recovers | direct control-flow audit | rendering | confirmed | always derive current bounded limits from configured budget and active multiplier | low | deterministic limit transition test required | — |
+| P3-05 | Gradient cache hits fail to refresh frame recency | direct cache audit | rendering | confirmed | refresh recency on `get` and add hot-entry/cold-entry tests | low | deterministic creation/retention count required | — |
+| P3-06 | Worker image bitmap creation churns decode/upload memory | one bitmap per source per render; unenforced declared budget | memory | pending measurement | count create/transfer/close and retain only if bounded evidence supports it | medium | no image stress run yet | — |
+| P3-07 | Low-memory preset does not bound the whole retained/scratch memory graph | cache ownership audit | memory | confirmed gap | inventory byte ownership, wire safe budgets, add pressure recovery | high | no 4 GiB run yet | — |
+| P3-08 | Partial redraw clips pixels but does not proportionally reduce production work | production code path vs simulated microbenchmark | rendering | pending measurement | add visited/built/replayed work counters for 1% dirty edits | high | no production dirty-work comparison yet | — |
+| P3-09 | Raster-layer replay reconstructs all tiles and full surface | direct replay-path audit | rendering | pending measurement | benchmark dirty/visible tiles before retained tile cache | medium | no raster tile benchmark yet | — |
+| P3-10 | React canvas subtree fan-out contributes to large-document drag cost | dev/prod comparison and prior CPU profile | input/frontend | pending measurement | record component commits/subscribers during drag | medium | dev 63.2 vs prod 33.2 ms p50 at 932 nodes | — |
+| P3-11 | Rapid duplication or its harness fails around 1K–2K nodes | prior renderer crash plus current 932-node no-frame run | QA | reproducing | isolate document/history/memory vs probe-selection failure | high | current 932 attempt emitted no drag frames | — |
+| P3-12 | Raw Canvas2D replay becomes the limit only at high visible counts | five current browser runs | rendering | measured | prioritize culling/work reduction before backend replacement | low | p50 0.7/3.6/34.7/138.0 ms at 100/1K/10K/50K | `ff4d5ea9` baseline |
+
+## Rejected or constrained hypotheses
+
+| Hypothesis | Finding |
+|---|---|
+| The host GPU is inherently too slow | Host GL/Vulkan acceleration is available; browser probes use SwiftShader, so the claim is unsupported |
+| Canvas2D is the primary moderate-document bottleneck | Raw 1K replay is 3.6 ms p50 while the prior 932-node app frame is 33.2 ms p50 |
+| A renderer rewrite is the next step | Remaining measured cost is setup, tail stalls, and UI/state orchestration; WebGPU lacks Linux WebKitGTK availability and full semantic coverage |
+| Existing microbenchmarks prove production dirty redraw | The benchmark replays a synthetic one-percent subset while production still prepares the full visible list |
+| Existing memory presets establish 4 GiB support | Major decoded, worker, mask, text, scratch, and GPU allocations are outside the shared budget |
