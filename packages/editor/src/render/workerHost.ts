@@ -4,6 +4,7 @@
 import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@strata/shared';
 import { closeImageBitmapMap } from './collectImageBitmaps';
+import { checkFault } from './faultInjection';
 import {
   type BitmapBudgetState,
   estimateImagesBytes,
@@ -170,6 +171,18 @@ export function createRenderWorkerHost(
     lastForwardedFrameBytes = 0;
   }
 
+  /** Single postMessage seam so failure injection hits every send path. */
+  function postToWorker(msg: WorkerCommand, transfer?: Transferable[]): void {
+    if (checkFault('post-message')) {
+      throw new DOMException('injected postMessage fault', 'DataCloneError');
+    }
+    if (transfer?.length) {
+      worker!.postMessage(msg, transfer);
+    } else {
+      worker!.postMessage(msg);
+    }
+  }
+
   function frameIdentityMatches(response: Extract<WorkerResponse, { type: 'frameRendered' }>) {
     return (
       latestFrameIdentity !== null &&
@@ -186,11 +199,7 @@ export function createRenderWorkerHost(
       return false;
     }
     try {
-      if (render.transfer?.length) {
-        worker.postMessage(render.command, render.transfer);
-      } else {
-        worker.postMessage(render.command);
-      }
+      postToWorker(render.command, render.transfer);
     } catch {
       closeCommandResources(render.command);
       bitmapBudget.releaseTransfer(render.transferBytes);
@@ -216,6 +225,10 @@ export function createRenderWorkerHost(
   }
 
   function createWorker(): Worker | null {
+    // Failure injection: a worker-startup fault is indistinguishable from an
+    // engine that cannot create workers — the host reports null and the
+    // caller falls back to main-thread rendering (never a retry loop).
+    if (checkFault('worker-start')) return null;
     const gen = ++workerGen;
     try {
       const w = new Worker(new URL('./renderWorker.ts', import.meta.url), { type: 'module' });
@@ -358,11 +371,7 @@ export function createRenderWorkerHost(
         return dispatchRender({ command: normalized, transfer, transferBytes });
       }
       try {
-        if (transfer?.length) {
-          worker.postMessage(command, transfer);
-        } else {
-          worker.postMessage(command);
-        }
+        postToWorker(command, transfer);
       } catch {
         closeCommandResources(command);
         markPermanentFailure();
