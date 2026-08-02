@@ -21,8 +21,14 @@ import {
   resetInteractionTraces,
   setSlowCaptureOnly,
   setSlowInteractionThreshold,
+  summarizeInteractionTraces,
 } from '../performance/interactionTrace';
-import { computeProfile, type PerformanceProfile } from './adaptiveProfile';
+import { getRegisteredWorkerHost } from '../render/workerHost';
+import {
+  computeProfile,
+  detectPlatformCapabilities,
+  type PerformanceProfile,
+} from './adaptiveProfile';
 import {
   recordFrame as drawDiagnosticsRecordFrame,
   enableDrawDiagnostics,
@@ -81,6 +87,43 @@ export function installPerfDiagnosticsHandle(): void {
     enableInteractionTraces(true);
   }
   installDrawDiagnosticsHandle();
+  augmentPerfDiagnosticsHandle();
+}
+
+/**
+ * Merge the snap, interaction, worker-budget, frame-budget and capability
+ * getters into the dev-only `window.__strataPerf` handle so probes and E2E
+ * tests can read every subsystem from one place. Inert unless ?perf=1.
+ */
+function augmentPerfDiagnosticsHandle(): void {
+  if (typeof window === 'undefined') return;
+  if (!window.location.search.includes('perf=1')) return;
+  const target = window as unknown as {
+    __strataPerf?: Record<string, unknown>;
+  };
+  if (!target.__strataPerf || typeof target.__strataPerf !== 'object') return;
+  target.__strataPerf = {
+    ...target.__strataPerf,
+    snap: {
+      getSamples: (n = 10) => getSnapMetrics(n),
+      count: () => getSnapMetricsCount(),
+      summary: () => summarizeSnapMetrics(getSnapMetrics(120)),
+      reset: resetSnapMetrics,
+    },
+    interactions: {
+      getTraces: (n = 10) => getRecentInteractionTraces(n),
+      count: () => getInteractionTraceCount(),
+      reset: resetInteractionTraces,
+      setSlowThreshold: setSlowInteractionThreshold,
+      setSlowOnly: setSlowCaptureOnly,
+    },
+    frameBudget: {
+      averageMs: () => getAverageFrameTime(),
+      overBudgetCount: () => getOverBudgetCount(),
+    },
+    capabilities: () => detectPlatformCapabilities(),
+    workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
+  };
 }
 
 /**
@@ -164,6 +207,60 @@ export function endFrame(args: EndFrameArgs): PerformanceProfile {
 /** Draw the dev-only HUD overlay. No-op unless setPerfHudEnabled(true) was called. */
 export function renderPerfHud(ctx: CanvasRenderingContext2D, canvasWidth: number): void {
   renderDrawDiagnostics(ctx, canvasWidth);
+  renderSecondaryPerfPanel(ctx, canvasWidth);
+}
+
+/**
+ * Second dev-only HUD panel: snap candidate counts, worker bitmap budget,
+ * interaction latency summary and capability flags. Drawn on the same overlay
+ * canvas below the frame panel; no-op when the frame ring buffer is disabled.
+ */
+function renderSecondaryPerfPanel(ctx: CanvasRenderingContext2D, canvasWidth: number): void {
+  const snapCount = getSnapMetricsCount();
+  const traceCount = getInteractionTraceCount();
+  if (snapCount === 0 && traceCount === 0) return;
+
+  const snap = summarizeSnapMetrics(getSnapMetrics(120));
+  const traces = getRecentInteractionTraces(120);
+  const summary = summarizeInteractionTraces(traces);
+  const budget = getRegisteredWorkerHost()?.getBitmapBudgetState();
+  const caps = detectPlatformCapabilities();
+
+  const lines: string[] = [];
+  if (snap.samples > 0) {
+    lines.push(
+      `snap: ${snap.samples} samples, broad ${snap.avgBroadPhase.toFixed(0)} / semantic ${snap.avgSemantic.toFixed(0)} / fine ${snap.avgFinePhase.toFixed(0)}, ${snap.avgEvalMs.toFixed(2)}ms`,
+    );
+  }
+  if (budget) {
+    const mb = (b: number) => (b / (1024 * 1024)).toFixed(1);
+    lines.push(
+      `worker: ${mb(budget.pendingBytes)} pend + ${mb(budget.inFlightBytes)} inflight + ${mb(budget.residentBytes)} res + ${mb(budget.workerCanvasBytes)} canvas / ${mb(budget.budgetBytes)} budget, reject ${budget.admissionRejections}`,
+    );
+  }
+  if (summary.count > 0) {
+    lines.push(
+      `interactions: ${summary.count} (${summary.slowCount} slow), p2p ${summary.avgPointerToPresentMs.toFixed(1)}ms avg, total p95 ${summary.p95TotalMs.toFixed(1)}ms`,
+    );
+  }
+  if (lines.length === 0) return;
+
+  lines.push(
+    `engine:${caps.engine}${caps.webKitVersion ? `/${caps.webKitVersion}` : ''} offscreen:${caps.hasOffscreenCanvas ? 'y' : 'n'} bitmap:${caps.hasCreateImageBitmap ? 'y' : 'n'} gpu:${caps.hasWebGPU ? 'webgpu' : caps.hasWebGL ? 'webgl' : 'none'}`,
+  );
+
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.font = '11px monospace';
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  const boxHeight = 8 + lines.length * 18;
+  ctx.fillRect(canvasWidth - 420, 168, 416, boxHeight);
+  ctx.fillStyle = '#0f0';
+  ctx.textAlign = 'right';
+  lines.forEach((line, i) => {
+    ctx.fillText(line, canvasWidth - 8, 186 + i * 18);
+  });
+  ctx.restore();
 }
 
 /** Resolve byte/entry budgets for a persisted 'low' | 'medium' | 'high' preference. */

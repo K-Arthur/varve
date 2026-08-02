@@ -17,9 +17,13 @@ import {
 } from '../scene/transformCache';
 import { applyEditorCameraToCtx } from './cameraState';
 import { resizeCanvasBackingStore } from './canvasSurface';
-import { renderDrawDiagnostics } from './drawDiagnostics';
 import { computeGridLines, renderGridOnCtx, resolveCanvasColor } from './gridRenderer';
-import { cancelCanvasFrame, createCanvasFrameKey, scheduleCanvasFrame } from './perfRuntime';
+import {
+  cancelCanvasFrame,
+  createCanvasFrameKey,
+  renderPerfHud,
+  scheduleCanvasFrame,
+} from './perfRuntime';
 
 export interface UseOverlayDrawOptions {
   overlayCanvasRef: MutableRefObject<HTMLCanvasElement | null>;
@@ -539,7 +543,7 @@ export function useOverlayDraw({
     }
 
     // Dev-only diagnostics overlay
-    renderDrawDiagnostics(ctx, canvas.width);
+    renderPerfHud(ctx, canvas.width);
   }, [
     overlayCanvasRef,
     stateRef,
