@@ -45,7 +45,11 @@ import {
 } from '@strata/scene/export';
 import { FocusTrap, Select } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { type ExportReport, runBatchPreflight } from '../../exportService';
+import {
+  type ExportProgressEvent,
+  type ExportReport,
+  runBatchPreflight,
+} from '../../exportService';
 import { createVideoFrameRenderer } from '../../motion/videoExportBridge';
 import { loadSettings } from '../../settings';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
@@ -64,7 +68,11 @@ export interface ExportDialogProps {
   nodes: SceneNode[];
   document?: Document;
   timelines?: Record<string, Timeline>;
-  onExport: (batch: ExportBatch, signal?: AbortSignal) => Promise<ExportReport | undefined>;
+  onExport: (
+    batch: ExportBatch,
+    signal?: AbortSignal,
+    onProgress?: (event: ExportProgressEvent) => void,
+  ) => Promise<ExportReport | undefined>;
   onPackageExport?: () => Promise<void>;
   onApplyBackgroundRemoval?: (nodeId: NodeId, state: BackgroundRemovalState) => void;
   onExportMotion?: (format: 'css' | 'lottie' | 'svg', fileName: string, content: string) => void;
@@ -254,6 +262,9 @@ export function ExportDialog({
   const [running, setRunning] = useState(false);
   const [packaging, setPackaging] = useState(false);
   const [progress, setProgress] = useState({ done: 0, errors: 0 });
+  const [progressDetail, setProgressDetail] = useState<
+    Pick<ExportProgressEvent, 'stage' | 'currentFile'>
+  >({ stage: 'preflight' });
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [template, setTemplate] = useState(initialTemplate);
   const [folderRule, setFolderRule] = useState<ExportBatch['folderRule']>('flat');
@@ -344,6 +355,7 @@ export function ExportDialog({
     if (isOpen) {
       setRunning(false);
       setProgress({ done: 0, errors: 0 });
+      setProgressDetail({ stage: 'preflight' });
       setAnnounceMsg('');
       setLastReport(null);
       const allIds = new Set(jobs.map((job) => `${job.nodeId}-${job.presetId}`));
@@ -379,6 +391,7 @@ export function ExportDialog({
   const handleExport = useCallback(async () => {
     setRunning(true);
     setProgress({ done: 0, errors: 0 });
+    setProgressDetail({ stage: 'preflight' });
     const selectedJobs = jobs.filter((job) => selectedIds.has(`${job.nodeId}-${job.presetId}`));
 
     if (removeBgBeforeExport) {
@@ -440,7 +453,10 @@ export function ExportDialog({
     const controller = new AbortController();
     batchAbortRef.current = controller;
     try {
-      const report = await onExport(exportBatch, controller.signal);
+      const report = await onExport(exportBatch, controller.signal, (event) => {
+        setProgress({ done: event.completed, errors: event.failed });
+        setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
+      });
       if (report) {
         setLastReport(report);
         setProgress({ done: report.successCount, errors: report.failureCount });
@@ -503,6 +519,7 @@ export function ExportDialog({
     void (async () => {
       setRunning(true);
       setProgress({ done: 0, errors: 0 });
+      setProgressDetail({ stage: 'preflight' });
       batchAbortRef.current?.abort();
       const controller = new AbortController();
       batchAbortRef.current = controller;
@@ -514,7 +531,10 @@ export function ExportDialog({
           destinationLabel || null,
           printSettings,
         );
-        const report = await onExport(retryBatch, controller.signal);
+        const report = await onExport(retryBatch, controller.signal, (event) => {
+          setProgress({ done: event.completed, errors: event.failed });
+          setProgressDetail({ stage: event.stage, currentFile: event.currentFile });
+        });
         if (report) {
           setLastReport(report);
           setProgress({ done: report.successCount, errors: report.failureCount });
@@ -984,6 +1004,8 @@ export function ExportDialog({
                   done={progress.done}
                   errors={progress.errors}
                   running={running}
+                  stage={progressDetail.stage}
+                  currentFile={progressDetail.currentFile}
                   onCancel={handleCancel}
                 />
               </section>

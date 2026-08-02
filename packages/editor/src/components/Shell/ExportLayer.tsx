@@ -6,7 +6,7 @@ import { isImageShape } from '@strata/scene';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { createExportSaveFile, saveExportBytes } from '../../exportSaveAdapter';
-import { ExportService } from '../../exportService';
+import { type ExportProgressEvent, ExportService } from '../../exportService';
 import { buildPackageExport } from '../../packageExport';
 import { BatchBgRemoveDialog } from '../BatchBgRemoveDialog';
 import { ExportDialog } from '../Export/ExportDialog';
@@ -56,7 +56,11 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
   }, []);
 
   const handleExportBatch = useCallback(
-    async (batch: ExportBatch, signal?: AbortSignal) => {
+    async (
+      batch: ExportBatch,
+      signal?: AbortSignal,
+      onProgress?: (event: ExportProgressEvent) => void,
+    ) => {
       const needsEngine = batch.jobs.some((job) => isRasterExport(job.format));
       const engine = needsEngine ? await getExportEngine() : null;
       return await ExportService.run(
@@ -65,6 +69,7 @@ export const ExportLayer = forwardRef<ExportLayerHandle, ExportLayerProps>(funct
           document: editor.state.document,
           engine,
           saveFile: saveExportFile,
+          onProgress,
         },
         signal,
         platform?.kind ?? 'web',

@@ -9,14 +9,27 @@ export interface ExportProgressBarProps {
   done: number;
   errors: number;
   running: boolean;
+  stage?: 'preflight' | 'rendering' | 'encoding' | 'writing' | 'completed' | 'failed';
+  currentFile?: string;
   onCancel: () => void;
 }
+
+const STAGE_LABELS = {
+  preflight: 'Checking export',
+  rendering: 'Rendering',
+  encoding: 'Encoding',
+  writing: 'Writing',
+  completed: 'Completed',
+  failed: 'Failed',
+} as const;
 
 export function ExportProgressBar({
   total,
   done,
   errors,
   running,
+  stage,
+  currentFile,
   onCancel,
 }: ExportProgressBarProps) {
   const completed = done + errors;
@@ -38,6 +51,12 @@ export function ExportProgressBar({
         {completed}/{total}
         {errors > 0 && <span className="export-progress__errors"> ({errors} errors)</span>}
       </span>
+      {running && stage && (
+        <span className="export-progress__stage" aria-live="polite">
+          {STAGE_LABELS[stage]}
+          {currentFile ? `: ${currentFile}` : ''}
+        </span>
+      )}
       {running && (
         <button type="button" className="export-progress__cancel" onClick={onCancel}>
           Cancel

@@ -43,4 +43,19 @@ describe('ExportProgressBar', () => {
     );
     expect(container.querySelector('[role="progressbar"]')).toBeTruthy();
   });
+
+  it('announces the real current stage and file while running', () => {
+    render(
+      <ExportProgressBar
+        total={2}
+        done={0}
+        errors={0}
+        running={true}
+        stage="writing"
+        currentFile="logo@2x.png"
+        onCancel={() => {}}
+      />,
+    );
+    expect(screen.getByText('Writing: logo@2x.png')).toHaveAttribute('aria-live', 'polite');
+  });
 });
