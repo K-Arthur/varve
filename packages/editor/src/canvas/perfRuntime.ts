@@ -28,12 +28,13 @@ import {
   initFrameBudget,
   startFrameTiming,
 } from './frameBudget';
-import { getMemoryBudgets, type MemoryBudgets } from './memoryBudget';
+import { getAdaptiveCacheLimits, getMemoryBudgets, type MemoryBudgets } from './memoryBudget';
 import type { SubtreeIrCache } from './subtreeIrCache';
 
 export {
   enableDrawDiagnostics,
   endFrameTiming,
+  getAdaptiveCacheLimits,
   getAverageFrameTime,
   getMemoryBudgets,
   getOverBudgetCount,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MEMORY_BUDGETS, getMemoryBudgets } from '../memoryBudget';
+import { DEFAULT_MEMORY_BUDGETS, getAdaptiveCacheLimits, getMemoryBudgets } from '../memoryBudget';
 
 describe('memoryBudget', () => {
   it('returns the default budgets when no preference is given', () => {
@@ -41,5 +41,26 @@ describe('memoryBudget', () => {
     expect(low.subtreeIrCacheBytes).toBeLessThan(medium.subtreeIrCacheBytes);
     expect(medium.subtreeIrCacheBytes).toBeLessThan(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes);
     expect(DEFAULT_MEMORY_BUDGETS.subtreeIrCacheBytes).toBeLessThan(high.subtreeIrCacheBytes);
+  });
+
+  it('restores configured cache limits when the adaptive profile recovers', () => {
+    const budgets = getMemoryBudgets('low');
+
+    expect(getAdaptiveCacheLimits(budgets, 0.25)).toEqual({
+      subtreeIrCacheBytes: 2.5 * 1024 * 1024,
+      engineNodeMemoEntries: 1000,
+    });
+    expect(getAdaptiveCacheLimits(budgets, 1)).toEqual({
+      subtreeIrCacheBytes: budgets.subtreeIrCacheBytes,
+      engineNodeMemoEntries: budgets.engineNodeMemoEntries,
+    });
+  });
+
+  it('treats the configured memory preset as a ceiling', () => {
+    const budgets = getMemoryBudgets('low');
+    expect(getAdaptiveCacheLimits(budgets, 2)).toEqual({
+      subtreeIrCacheBytes: budgets.subtreeIrCacheBytes,
+      engineNodeMemoEntries: budgets.engineNodeMemoEntries,
+    });
   });
 });

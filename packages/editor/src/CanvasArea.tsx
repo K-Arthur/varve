@@ -91,6 +91,7 @@ import {
   createCanvasFrameKey,
   enableDrawDiagnostics,
   endFrameTiming,
+  getAdaptiveCacheLimits,
   getAverageFrameTime,
   getMemoryBudgets,
   getOverBudgetCount,
@@ -2347,14 +2348,11 @@ export function CanvasArea({
       const budget = endFrameTiming(frameStart);
       frameBackend?.endFrame();
       compositorFrameOpen = false;
-      // Apply adaptive cache multiplier: shrink soft budget when struggling
-      if (cacheMultiplier < 1) {
-        const adjusted = Math.round(budgets.subtreeIrCacheBytes * cacheMultiplier);
-        subtreeIrCacheRef.current.setSoftBudget(adjusted);
-        engineNodeMemoRef.current.setMaxEntries(
-          Math.round(budgets.engineNodeMemoEntries * cacheMultiplier),
-        );
-      }
+      // Recompute both limits on every tier so recovery restores the user's
+      // configured budget. The preset remains a ceiling even in quality mode.
+      const adaptiveCacheLimits = getAdaptiveCacheLimits(budgets, cacheMultiplier);
+      subtreeIrCacheRef.current.setSoftBudget(adaptiveCacheLimits.subtreeIrCacheBytes);
+      engineNodeMemoRef.current.setMaxEntries(adaptiveCacheLimits.engineNodeMemoEntries);
       // Record frame diagnostics (dev-only ring buffer)
       const cacheDiag = subtreeIrCacheRef.current.diagnostics();
       recordFrame({
