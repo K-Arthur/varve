@@ -17,6 +17,7 @@ use crate::subset::{
 use crate::{ImageRenderState, PdfOptions};
 use lopdf::{dictionary, Document, Object, Stream};
 pub use strata_colour::{rgb_to_cmyk, rgb_to_cmyk_icc};
+use strata_colour::profiles::PrintProfile;
 use strata_core::SceneNode;
 
 /// Return default bleed/trim marks geometry as `(bleed_mm, trim_offset_mm, mark_length_mm)`.
@@ -40,6 +41,7 @@ fn build_pdfx_content(
     draw_color_bar: bool,
     mut image_state: Option<&mut ImageRenderState>,
     manifest: Option<&crate::resources::ExportManifest>,
+    profile: Option<PrintProfile>,
 ) -> Vec<u8> {
     let mut content = Vec::new();
     content.extend_from_slice(b"q\n");
@@ -54,7 +56,7 @@ fn build_pdfx_content(
 
     for node in nodes {
         let state = image_state.as_mut().map(|s| &mut **s);
-        let cmd = crate::shape_to_pdf_content(node, page_height, state, manifest);
+        let cmd = crate::shape_to_pdf_content(node, page_height, state, manifest, use_cmyk, profile);
         content.extend_from_slice(&cmd);
     }
 
@@ -185,6 +187,7 @@ fn build_pdfx_document(
             opts.color_bar,
             Some(&mut image_state),
             None,
+            opts.print_profile,
         );
         (std::mem::take(&mut image_state.refs), c)
     };
@@ -314,15 +317,28 @@ fn build_pdfx_document(
         "Resources" => resources,
         "Parent" => Object::Reference(pages_id),
     };
-    // OutputIntent for PDF/X
+    // OutputIntent for PDF/X — embed the actual destination ICC profile so a
+    // conforming viewer (and preflight tool) can perform real colour
+    // management. The chosen profile comes from `opts.print_profile`, defaulting
+    // to Fogra39 when the caller asked for CMYK but named no profile.
+    let dest_profile = opts.print_profile.or_else(|| use_cmyk.then_some(PrintProfile::Fogra39));
     let output_intent_id = doc.new_object_id();
-    let output_intent = dictionary! {
+    let mut output_intent = dictionary! {
         "Type" => "OutputIntent",
         "S" => "GTS_PDFX",
-        "OutputConditionIdentifier" => "Fogra39",
+        "OutputConditionIdentifier" => dest_profile
+            .map(|p| p.output_condition_identifier())
+            .unwrap_or("Fogra39"),
         "RegistryName" => "http://www.color.org",
         "Info" => "Fogra39 (ISO Coated v2)",
     };
+    if let Some(profile) = dest_profile {
+        let icc_bytes = profile.icc_bytes();
+        let icc_stream = Stream::new(dictionary! { "N" => 4, "Alternate" => "DeviceCMYK" }, icc_bytes.to_vec());
+        let icc_id = doc.new_object_id();
+        doc.objects.insert(icc_id, Object::Stream(icc_stream));
+        output_intent.set("DestOutputProfile", Object::Reference(icc_id));
+    }
     doc.objects
         .insert(output_intent_id, Object::Dictionary(output_intent));
     page_dict.set(
@@ -480,6 +496,66 @@ mod tests {
             content.contains("GTS_PDFX"),
             "should contain GTS_PDFX marker"
         );
+    }
+
+    #[test]
+    fn pdfx1a_emits_icc_cmyk_fill_when_profile_set() {
+        // Regression: PDF/X-1a used to hardcode RGB fills even though it
+        // declares a CMYK output intent. With a print profile wired through
+        // PdfOptions.print_profile, shape fills must be converted via the ICC
+        // path (`rgb_to_cmyk_icc`), not the naive subtractive formula.
+        let nodes = vec![rect_node(1, 0.0, 0.0, 100.0, 100.0)];
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            ..Default::default()
+        };
+        let bytes = export_pdfx1a(&nodes, &opts).expect("pdfx1a");
+
+        // Decompress every content stream and assert a CMYK fill operator.
+        let doc = Document::load_mem(&bytes).expect("parse pdfx1a");
+        let mut found_cmyk_fill = false;
+        let mut found_rgb_fill = false;
+        for obj in doc.objects.values() {
+            if let Object::Stream(stream) = obj {
+                if let Ok(content) = stream.decompressed_content() {
+                    let text = String::from_utf8_lossy(&content);
+                    // CMYK fill operator ends with " k\n"; RGB fill ends " rg\n".
+                    if text.contains(" k\n") {
+                        found_cmyk_fill = true;
+                    }
+                    if text.contains(" rg\n") {
+                        found_rgb_fill = true;
+                    }
+                }
+            }
+        }
+        assert!(found_cmyk_fill, "PDF/X-1a content must contain CMYK fill operators");
+        assert!(!found_rgb_fill, "PDF/X-1a content must not contain RGB fill operators");
+    }
+
+    #[test]
+    fn pdfx1a_embeds_destination_icc_profile() {
+        let nodes = vec![rect_node(1, 0.0, 0.0, 100.0, 100.0)];
+        let opts = PdfOptions {
+            print_profile: Some(PrintProfile::Fogra39),
+            ..Default::default()
+        };
+        let bytes = export_pdfx1a(&nodes, &opts).expect("pdfx1a");
+        // The OutputIntent must reference a stream whose decompressed bytes are
+        // a real ICC profile (lowercase 'acsp' magic at offset 36).
+        let doc = Document::load_mem(&bytes).expect("parse pdfx1a");
+        let mut embedded = false;
+        for obj in doc.objects.values() {
+            if let Object::Stream(stream) = obj {
+                if let Ok(content) = stream.decompressed_content() {
+                    if content.len() >= 40 && &content[36..40] == b"acsp" {
+                        embedded = true;
+                        break;
+                    }
+                }
+            }
+        }
+        assert!(embedded, "expected an embedded ICC profile ('acsp' magic)");
     }
 
     #[test]
