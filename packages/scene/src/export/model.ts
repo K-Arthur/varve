@@ -24,6 +24,25 @@
 
 import type { RenderingIntent } from '../colorManagement';
 import type { NodeId } from '../types';
+import type {
+  ColorConversionOptions,
+  DitherOptions,
+  MetadataPolicy,
+  ResizeOptions,
+  SharpenOptions,
+} from './pipeline';
+import {
+  createColorConversionOptions,
+  createDitherOptions,
+  createMetadataPolicy,
+  createResizeOptions,
+  createSharpenOptions,
+  validateColorConversionOptions,
+  validateDitherOptions,
+  validateMetadataPolicy,
+  validateResizeOptions,
+  validateSharpenOptions,
+} from './pipeline';
 
 /** Bump when the model shape changes. Persisted configs carry this version. */
 export const EXPORT_MODEL_VERSION = 1;
@@ -156,6 +175,16 @@ export interface RasterExportSettings {
   stripMetadata: boolean;
   /** Dithering for indexed/palette output where supported. */
   dithering: boolean;
+  /**
+   * Typed processing-stage contracts. Optional for backward compatibility with
+   * persisted v1 configurations; when absent the executor falls back to the
+   * flat legacy fields above (`resizeMode`, `sharpening`, `dithering`).
+   */
+  resize?: ResizeOptions;
+  sharpen?: SharpenOptions;
+  dither?: DitherOptions;
+  metadataPolicy?: MetadataPolicy;
+  colorConversion?: ColorConversionOptions;
 }
 
 export interface VectorExportSettings {
@@ -201,6 +230,8 @@ export interface ExportMetadataSettings {
   stripXmp: boolean;
   stripExif: boolean;
   stripLocalPaths: boolean;
+  /** Canonical metadata policy contract (supersedes the flat booleans). */
+  policy?: MetadataPolicy;
 }
 
 export interface ExportBackgroundSettings {
@@ -352,13 +383,19 @@ export function createExportColorSettings(
 export function createRasterExportSettings(
   partial?: Partial<RasterExportSettings>,
 ): RasterExportSettings {
+  const { resize, sharpen, dither, metadataPolicy, colorConversion, ...rest } = partial ?? {};
   return {
     transparency: true,
     bitDepth: 32,
     resizeMode: 'auto',
     stripMetadata: true,
     dithering: false,
-    ...partial,
+    ...rest,
+    ...(resize ? { resize: createResizeOptions(resize) } : {}),
+    ...(sharpen ? { sharpen: createSharpenOptions(sharpen) } : {}),
+    ...(dither ? { dither: createDitherOptions(dither) } : {}),
+    ...(metadataPolicy ? { metadataPolicy: createMetadataPolicy(metadataPolicy) } : {}),
+    ...(colorConversion ? { colorConversion: createColorConversionOptions(colorConversion) } : {}),
   };
 }
 
@@ -400,6 +437,7 @@ export function createPrintExportSettings(
 export function createExportMetadataSettings(
   partial?: Partial<ExportMetadataSettings>,
 ): ExportMetadataSettings {
+  const { policy, ...rest } = partial ?? {};
   return {
     preserveDocumentMetadata: false,
     preserveCopyright: false,
@@ -409,7 +447,8 @@ export function createExportMetadataSettings(
     stripXmp: true,
     stripExif: true,
     stripLocalPaths: true,
-    ...partial,
+    ...rest,
+    ...(policy ? { policy: createMetadataPolicy(policy) } : {}),
   };
 }
 
@@ -654,6 +693,53 @@ export function validateExportConfiguration(config: ExportConfiguration): void {
   if (config.version > EXPORT_MODEL_VERSION) {
     throw new ExportConfigurationError(
       `Export configuration version ${config.version} is newer than this app supports (${EXPORT_MODEL_VERSION})`,
+    );
+  }
+  validateConfigProcessingStages(config);
+}
+
+/**
+ * Validate the typed processing-stage contracts on a configuration. Legacy
+ * flat fields (`resizeMode`, `sharpening`, `dithering`) have no runtime
+ * constraints beyond their union types; the new contracts carry their own.
+ */
+function validateConfigProcessingStages(config: ExportConfiguration): void {
+  const raster = config.raster;
+  if (!raster) return;
+  const guard = (label: string, fn: () => void) => {
+    try {
+      fn();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      throw new ExportConfigurationError(`Invalid raster export option (${label}): ${message}`);
+    }
+  };
+  if (raster.resize)
+    guard('resize', () => validateResizeOptions(raster.resize as ResizeOptions, 'raster.resize'));
+  if (raster.sharpen) {
+    guard('sharpen', () =>
+      validateSharpenOptions(raster.sharpen as SharpenOptions, 'raster.sharpen'),
+    );
+  }
+  if (raster.dither)
+    guard('dither', () => validateDitherOptions(raster.dither as DitherOptions, 'raster.dither'));
+  if (raster.metadataPolicy) {
+    guard('metadataPolicy', () =>
+      validateMetadataPolicy(raster.metadataPolicy as MetadataPolicy, 'raster.metadataPolicy'),
+    );
+  }
+  if (raster.colorConversion) {
+    guard('colorConversion', () =>
+      validateColorConversionOptions(
+        raster.colorConversion as ColorConversionOptions,
+        'raster.colorConversion',
+      ),
+    );
+  }
+  const metadata = config.metadata;
+  if (metadata?.policy) {
+    guard('metadata.policy', () =>
+      validateMetadataPolicy(metadata.policy as MetadataPolicy, 'metadata.policy'),
     );
   }
 }
