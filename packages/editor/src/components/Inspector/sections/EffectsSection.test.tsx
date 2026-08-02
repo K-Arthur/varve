@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import type { Effect, ShapeNode } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -55,7 +56,9 @@ function nodeWithGlass(id: string, overrides: Record<string, unknown> = {}) {
   };
 }
 
-function nodeWithShadow(id: string) {
+type DropShadowEffect = Extract<Effect, { type: 'dropShadow' }>;
+
+function nodeWithShadow(id: string): ShapeNode & { effects: [DropShadowEffect] } {
   return {
     id,
     kind: 'shape' as const,
@@ -549,6 +552,7 @@ describe('EffectsSection — group-level effects', () => {
       locked: false,
       order: 'a0',
       children: ['n1'],
+      fill: { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 0 },
       effects: [
         {
           type: 'dropShadow' as const,
@@ -566,5 +570,71 @@ describe('EffectsSection — group-level effects', () => {
     render(<EffectsSection nodes={[group]} />);
     expect(screen.getByText('Drop Shadow')).toBeTruthy();
     expect(screen.getByLabelText('Remove effect')).toBeTruthy();
+  });
+});
+
+describe('EffectsSection — stack actions', () => {
+  const updateNode = vi.fn();
+  const beginTransaction = vi.fn();
+  const commitTransaction = vi.fn();
+  const announce = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockedUseEditor.mockReturnValue({
+      updateNode,
+      beginTransaction,
+      commitTransaction,
+      announce,
+      documentColorMode: 'rgb',
+    });
+  });
+
+  afterEach(cleanup);
+
+  it('duplicates an effect next to its source with a fresh stable id', () => {
+    const node = nodeWithShadow('n1');
+    node.effects[0] = { ...node.effects[0], id: 'source-effect' };
+    render(<EffectsSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate effect' }));
+
+    const updater = updateNode.mock.calls[0]?.[1] as (value: typeof node) => typeof node;
+    const updated = updater(node);
+    expect(updated.effects).toHaveLength(2);
+    expect(updated.effects[0]?.id).toBe('source-effect');
+    expect(updated.effects[1]?.id).toBeTypeOf('string');
+    expect(updated.effects[1]?.id).not.toBe('source-effect');
+    expect(updated.effects[1]?.type).toBe('dropShadow');
+    expect(announce).toHaveBeenCalledWith('Effect duplicated');
+  });
+
+  it('resets parameters while preserving the effect identity', () => {
+    const node = nodeWithShadow('n1');
+    node.effects[0] = {
+      ...node.effects[0],
+      id: 'stable-effect',
+      x: 30,
+      y: -12,
+      blur: 80,
+      opacity: 0.9,
+      visible: false,
+    };
+    render(<EffectsSection nodes={[node]} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Reset effect' }));
+
+    const updater = updateNode.mock.calls[0]?.[1] as (value: typeof node) => typeof node;
+    const updated = updater(node);
+    expect(updated.effects[0]).toMatchObject({
+      id: 'stable-effect',
+      type: 'dropShadow',
+      x: 0,
+      y: 4,
+      blur: 8,
+      opacity: 0.3,
+      visible: true,
+    });
+    expect(announce).toHaveBeenCalledWith('Effect reset');
   });
 });
