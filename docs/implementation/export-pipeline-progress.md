@@ -53,7 +53,7 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 | Metadata policies | none (canvas encodes metadata-free bytes) | `MetadataPolicy` resolution, PNG tEXt/iTXt/iCCP chunk writer/stripper, deterministic mode |
 | EXIF orientation | none | `parseExifOrientation` + `applyExifOrientation` with apply-once invariant |
 | PDF/X-1a actual CMYK | fills emitted RGB (hardcoded) | ICC profile threaded end-to-end; real `rgb_to_cmyk_icc` fills; embedded output-intent ICC stream |
-| Colour WASM | never built/deployed | built and deployed (see §7) |
+| Colour WASM | never built/deployed | still not deployed — `strata-colour` is wasm-ready and `just wasm-build-colour` documents the build; deployment deferred (see §10 item 9) |
 | SVG minify | option existed, ignored per-node | `exportNodeToSvg({ minify })` honored |
 | AVIF advertising | offered in Settings despite no encoder | removed from settings; persisted `avif` default sanitized |
 
@@ -192,6 +192,12 @@ silent gap — nothing here is presented in the UI as if it worked):
 7. **Exposure `^2.2` approximation** in `filterCompositor` (pre-existing,
    unrelated to export; tracked separately).
 8. **TIFF/AVIF encoders** — still absent; capability-gated off everywhere.
+9. **Colour WASM deployment** — `strata-colour` is wasm-ready (`just wasm-build-colour`
+   produces `apps/desktop/public/wasm/strata_colour_bg.wasm`), but the build tooling
+   (wasm-pack) was not installable on the dev machine during this session. The web
+   ICC path therefore still uses the analytical fallback; desktop print uses the
+   real tintbox engine. Deployment is a build/infra step, not a correctness gap in
+   the code.
 
 ## 11. Commit history (this effort)
 
