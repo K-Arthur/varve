@@ -793,16 +793,13 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
         { toolId: 'frame', groupStart: true },
         { toolId: 'rect' },
         { toolId: 'ellipse' },
-        { toolId: 'polygon' },
-        { toolId: 'star' },
         { toolId: 'line', groupStart: true },
         { toolId: 'arrow' },
         { toolId: 'scale', groupStart: true },
         { toolId: 'eyedropper' },
-        { toolId: 'inspect' },
       ],
       flyouts: [
-        { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
+        { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse'] },
         {
           id: 'boolean',
           label: 'Boolean',
