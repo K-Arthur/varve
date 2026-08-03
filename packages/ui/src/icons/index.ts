@@ -16,6 +16,25 @@ export { SolidIcon } from './SolidIcon';
 export type { StrataLogoProps } from './StrataLogo';
 export { StrataLogo } from './StrataLogo';
 
+/** Semantic icon registry — the canonical API for internal UI icons. */
+export type {
+  IconFamily,
+  IconSizeToken,
+  SemanticIconEntry,
+  SemanticIconName,
+  SemanticIconProps,
+  SemanticIconViolation,
+} from './semantic';
+export {
+  DIRECTIONAL_ICONS,
+  ICON_SIZE_TOKENS,
+  isDirectionalIcon,
+  resolveSemanticIcon,
+  SEMANTIC_ICONS,
+  SemanticIcon,
+  validateSemanticIconNames,
+} from './semantic';
+
 import type { IconName } from './Icon';
 import type { SolidIconName } from './SolidIcon';
 
