@@ -18,6 +18,7 @@ import { Button, EmptyState, Icon, Select, Tooltip } from '@strata/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { VectorizeWorkflow } from '../Vectorize/VectorizeWorkflow';
+import { ExportPackageSection } from './ExportPackageSection';
 import { LogoTypographySection } from './LogoTypographySection';
 import './logo-panel.css';
 
@@ -309,6 +310,11 @@ export function LogoPanel() {
                 Audit findings for logo-specific issues appear in the Inspector Audit tab.
               </p>
             </div>
+          </details>
+
+          <details className="logo-panel__section" open>
+            <summary className="logo-panel__section-heading">Export Package</summary>
+            <ExportPackageSection />
           </details>
         </div>
       )}

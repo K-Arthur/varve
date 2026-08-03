@@ -186,3 +186,45 @@
   font-size: var(--font-size-xs);
   color: var(--color-text-secondary);
 }
+
+/* Export package section */
+.logo-panel__code {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  background: var(--color-surface-field);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-1) var(--space-2);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+.logo-panel__tree {
+  margin: 0;
+  padding: var(--space-2);
+  background: var(--color-surface-field);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.logo-panel__report {
+  border: 1px solid var(--color-border-success, var(--color-border-subtle));
+  border-radius: var(--radius-sm);
+  padding: var(--space-2);
+  font-size: var(--font-size-xs);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.logo-panel__report p {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
