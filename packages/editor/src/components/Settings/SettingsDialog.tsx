@@ -194,7 +194,8 @@ function Divider() {
 function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void }) {
   const { settings, updateSection } = useSettings();
   const [preferWebGpu, setPreferWebGpu] = useState(() => loadSettings().render.preferWebGpu);
-  const { state, setCanvasBackground, documentColorMode } = useEditor();
+  const { state, setCanvasBackground, documentColorMode, beginTransaction, commitTransaction } =
+    useEditor();
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
   const canvasBgColor = state.document.canvasBackground ?? fallbackColor;
   const swatchBackground = useMemo(() => managedColorToCss(canvasBgColor), [canvasBgColor]);
@@ -226,6 +227,8 @@ function GeneralSection({ onOnboardingReset }: { onOnboardingReset?: () => void 
           swatchStyle={{ background: swatchBackground }}
           documentColorMode={documentColorMode}
           className="settings-color-swatch"
+          onEditStart={beginTransaction}
+          onEditEnd={commitTransaction}
         />
       </FieldRow>
       <p className="settings-hint">

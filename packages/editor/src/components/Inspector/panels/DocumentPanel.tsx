@@ -28,6 +28,8 @@ export function DocumentPanel() {
     setDocumentGrid,
     setPixelGridSnapEnabled,
     resetGridOrigin,
+    beginTransaction,
+    commitTransaction,
   } = useEditor();
   const doc = state.document;
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
@@ -47,6 +49,8 @@ export function DocumentPanel() {
                 onChange={setCanvasBackground}
                 swatchStyle={{ background: swatchBackground }}
                 documentColorMode={documentColorMode}
+                onEditStart={beginTransaction}
+                onEditEnd={commitTransaction}
               />
             </div>
           </div>

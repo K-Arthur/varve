@@ -138,11 +138,15 @@ function ChannelBars({
   gStops,
   bStops,
   onChange,
+  onEditStart,
+  onEditEnd,
 }: {
   rStops: GradientMapStop[];
   gStops: GradientMapStop[];
   bStops: GradientMapStop[];
   onChange: (ch: GradientMapChannelStops) => void;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }) {
   const channels: {
     key: 'r' | 'g' | 'b';
@@ -164,6 +168,8 @@ function ChannelBars({
           accent={accent}
           stops={channelStops}
           onChange={(next) => onChange({ [key]: next } as GradientMapChannelStops)}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
         />
       ))}
     </div>
@@ -175,11 +181,15 @@ function ChannelBar({
   accent,
   stops,
   onChange,
+  onEditStart,
+  onEditEnd,
 }: {
   label: string;
   accent: string;
   stops: GradientMapStop[];
   onChange: (stops: GradientMapStop[]) => void;
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }) {
   const barRef = useRef<HTMLDivElement>(null);
   const [selected, setSelected] = useState(0);
@@ -245,6 +255,8 @@ function ChannelBar({
           <ColorPicker
             value={colorToManaged(current.color)}
             onChange={(c) => updateStop(selected, { color: managedToColor(c) })}
+            onInteractionStart={onEditStart}
+            onInteractionEnd={onEditEnd}
           />
           <button
             type="button"
@@ -595,6 +607,8 @@ export function GradientMapEditor({
           gStops={gStops}
           bStops={bStops}
           onChange={(ch) => onChange({ channelStops: ch })}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
         />
       )}
       <div
@@ -686,6 +700,8 @@ export function GradientMapEditor({
           <ColorPicker
             value={colorToManaged(currentStop.color)}
             onChange={(c) => updateStop(selectedStop, { color: managedToColor(c) })}
+            onInteractionStart={onEditStart}
+            onInteractionEnd={onEditEnd}
           />
         </div>
       )}

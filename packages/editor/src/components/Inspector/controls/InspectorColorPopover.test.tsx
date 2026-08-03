@@ -136,4 +136,53 @@ describe('InspectorColorPopover', () => {
     fireEvent.click(cmykBtn);
     expect(screen.getByRole('dialog')).toBeTruthy();
   });
+
+  it('wraps one pointer gesture in a single onEditStart/onEditEnd pair', async () => {
+    const onEditStart = vi.fn();
+    const onEditEnd = vi.fn();
+    render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={() => {}}
+        swatchStyle={{ background: '#fff' }}
+        onEditStart={onEditStart}
+        onEditEnd={onEditEnd}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog');
+    const dialog = screen.getByRole('dialog');
+    // One continuous gesture: repeated pointerdowns must not re-begin.
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerDown(dialog);
+    expect(onEditStart).toHaveBeenCalledTimes(1);
+    fireEvent.pointerUp(dialog);
+    expect(onEditEnd).toHaveBeenCalledTimes(1);
+    // A second gesture begins a fresh pair.
+    fireEvent.pointerDown(dialog);
+    fireEvent.pointerUp(dialog);
+    expect(onEditStart).toHaveBeenCalledTimes(2);
+    expect(onEditEnd).toHaveBeenCalledTimes(2);
+  });
+
+  it('commits a pending gesture when the dialog is dismissed', async () => {
+    const onEditEnd = vi.fn();
+    render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={() => {}}
+        swatchStyle={{ background: '#fff' }}
+        onEditStart={() => {}}
+        onEditEnd={onEditEnd}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog');
+    fireEvent.pointerDown(screen.getByRole('dialog'));
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+    expect(onEditEnd).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 });
