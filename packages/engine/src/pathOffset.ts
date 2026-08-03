@@ -20,19 +20,11 @@ function normalize(dx: number, dy: number): [number, number] {
   return [dx / len, dy / len];
 }
 
-function _cross(ax: number, ay: number, bx: number, by: number): number {
-  return ax * by - ay * bx;
-}
-
 function dot(ax: number, ay: number, bx: number, by: number): number {
   return ax * bx + ay * by;
 }
 
 // ── Point helpers ───────────────────────────────────────────────────────────
-
-function _ptSub(a: { x: number; y: number }, b: { x: number; y: number }): [number, number] {
-  return [a.x - b.x, a.y - b.y];
-}
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -400,31 +392,4 @@ function lineIntersection(
   if (Math.abs(denom) < 1e-12) return null;
   const t = ((cx - ax) * (dy - cy) - (cy - ay) * (dx - cx)) / denom;
   return [ax + t * (bx - ax), ay + t * (by - ay)];
-}
-
-/**
- * Sample a cubic bezier segment between two path points at N steps.
- */
-function _sampleBezierSegment(
-  a: PathPoint,
-  b: PathPoint,
-  steps: number,
-): { x: number; y: number }[] {
-  const result: { x: number; y: number }[] = [];
-
-  // Compute control points
-  const c1 = a.handleOut
-    ? { x: a.x + a.handleOut[0], y: a.y + a.handleOut[1] }
-    : { x: a.x, y: a.y };
-  const c2 = b.handleIn ? { x: b.x + b.handleIn[0], y: b.y + b.handleIn[1] } : { x: b.x, y: b.y };
-
-  for (let s = 0; s <= steps; s++) {
-    const t = s / steps;
-    const u = 1 - t;
-    const x = u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x;
-    const y = u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y;
-    result.push({ x, y });
-  }
-
-  return result;
 }

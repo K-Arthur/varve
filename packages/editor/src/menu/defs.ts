@@ -1073,7 +1073,7 @@ export function getObjectMenu(runAction: (id: string) => void): MenuItemDef[] {
     {
       id: 'simplifyPath',
       labelKey: 'menu.object.simplifyPath',
-      accelerator: a('p', true, true),
+      accelerator: a('w', true, true),
       kind: 'command',
       group: 'path',
       workspaces: ['design', 'print', 'drawing', 'logo'],
