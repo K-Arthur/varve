@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import type { ManagedColor } from '@strata/scene';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CmykColorFields } from './CmykColorFields';
 import { ColorFields } from './ColorFields';
@@ -280,5 +280,164 @@ describe('SpotColorBrowser', () => {
     render(<SpotColorBrowser onSelect={() => {}} />);
     expect(screen.getByRole('textbox', { name: /search/i })).toBeTruthy();
     expect(screen.getAllByRole('option').length).toBeGreaterThan(0);
+  });
+});
+
+describe('ColorPicker — emission space (display mode never changes storage)', () => {
+  it('keeps an RGB value in RGB when editing in CMYK display mode', () => {
+    const color: ManagedColor = { space: 'rgb', r: 100, g: 150, b: 200, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      screen.getAllByRole('radio', { name: 'CMYK' })[0]?.click();
+    });
+    onChange.mockClear();
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('rgb');
+  });
+
+  it('keeps native CMYK values in CMYK when editing in RGB display mode', () => {
+    const color: ManagedColor = { space: 'cmyk', c: 0, m: 128, y: 255, k: 0, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      screen.getAllByRole('radio', { name: 'RGB' })[0]?.click();
+    });
+    onChange.mockClear();
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('cmyk');
+  });
+
+  it('converts CMYK field edits back to RGB when the stored value is RGB', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      screen.getAllByRole('radio', { name: 'CMYK' })[0]?.click();
+    });
+    onChange.mockClear();
+    const cField = screen.getByRole('spinbutton', { name: 'C' });
+    act(() => {
+      fireEvent.change(cField, { target: { value: '50' } });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('rgb');
+  });
+
+  it('authors CMYK when the document is in CMYK mode and the value is RGB', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} documentColorMode="cmyk" />);
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('cmyk');
+  });
+
+  it('preserves alpha and profile across edits', () => {
+    const color: ManagedColor = {
+      space: 'rgb',
+      r: 100,
+      g: 150,
+      b: 200,
+      a: 128,
+      profile: 'srgb',
+    };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('rgb');
+    expect(emitted.a).toBe(128);
+    expect(emitted.profile).toBe('srgb');
+  });
+});
+
+describe('ColorPicker — draft sync on external value change', () => {
+  it('resyncs the 2D area thumb when the value changes externally', () => {
+    const color: ManagedColor = { space: 'rgb', r: 100, g: 150, b: 200, a: 255 };
+    const { rerender } = render(<ColorPicker value={color} onChange={() => {}} />);
+    const thumb = () =>
+      screen
+        .getByRole('slider', { name: 'Color' })
+        .querySelector('.color-area__thumb') as HTMLElement;
+    // hsv(210, 50, 78) → left 50%, top 22%
+    expect(thumb().style.left).toBe('50%');
+    expect(thumb().style.top).toBe('22%');
+    // External change (undo / selection switch) to hsv(20, 75, 78)
+    rerender(
+      <ColorPicker value={{ space: 'rgb', r: 200, g: 100, b: 50, a: 255 }} onChange={() => {}} />,
+    );
+    expect(thumb().style.left).toBe('75%');
+    expect(thumb().style.top).toBe('22%');
+  });
+
+  it('does not fight the user during a drag (self-echo keeps drafts)', () => {
+    const color: ManagedColor = { space: 'rgb', r: 100, g: 150, b: 200, a: 255 };
+    const onChange = vi.fn((c: ManagedColor) => c);
+    const { rerender } = render(<ColorPicker value={color} onChange={onChange} />);
+    // Simulate a drag: move the hue slider right, then echo the emitted
+    // value back as the new prop (controlled-parent behavior).
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    rerender(<ColorPicker value={emitted} onChange={onChange} />);
+    // Draft must follow the user's drag, not snap back to the original color.
+    const thumb = screen
+      .getByRole('slider', { name: 'Color' })
+      .querySelector('.color-area__thumb') as HTMLElement;
+    expect(thumb.style.left).toBe('50%');
+  });
+});
+
+describe('ColorPicker — bit-depth-aware alpha', () => {
+  it('shows normalized alpha for float32 values', () => {
+    const color: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 1,
+      g: 0,
+      b: 0,
+      a: 0.5,
+    };
+    render(<ColorPicker value={color} onChange={() => {}} />);
+    const alpha = screen.getByRole('slider', { name: 'Alpha' });
+    expect(alpha).toHaveAttribute('aria-valuenow', '50');
+  });
+
+  it('emits float32 alpha without quantizing through uint8', () => {
+    const color: ManagedColor = {
+      space: 'rgb',
+      bitDepth: 'float32',
+      r: 1,
+      g: 0,
+      b: 0,
+      a: 0.5,
+    };
+    const onChange = vi.fn();
+    render(<ColorPicker value={color} onChange={onChange} />);
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Alpha' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('rgb');
+    expect(emitted.bitDepth).toBe('float32');
+    expect(emitted.a).toBeCloseTo(0.51, 5);
   });
 });
