@@ -14,7 +14,7 @@ import {
 
 describe('Document Versioning', () => {
   it('uses the native raster-mask schema version', () => {
-    expect(CURRENT_DOCUMENT_VERSION).toBe('2.12');
+    expect(CURRENT_DOCUMENT_VERSION).toBe('2.14');
     expect(SUPPORTED_VERSIONS).toContain('2.4');
   });
   it('stamps current version on new documents', () => {
@@ -72,7 +72,7 @@ describe('Legacy background removal migration', () => {
         unknown
       >
     ).rasterMask as Record<string, unknown>;
-    expect(migrated.formatVersion).toBe('2.12');
+    expect(migrated.formatVersion).toBe('2.14');
     expect(rasterMask.sourceIdentity).toEqual({
       kind: 'source-metadata',
       locator: 'asset/image.png',
@@ -171,7 +171,7 @@ describe('Legacy background removal migration', () => {
     const rasterMask = mask.rasterMask as Record<string, unknown>;
     const assets = migrated.rasterMaskAssets as Record<string, Record<string, unknown>>;
 
-    expect(migrated.formatVersion).toBe('2.12');
+    expect(migrated.formatVersion).toBe('2.14');
     expect(mask.type).toBe('alpha');
     expect(mask.feather).toBe(2);
     expect(rasterMask.assetId).toBe('raster-mask:legacy:1');
@@ -203,7 +203,7 @@ describe('Legacy background removal migration', () => {
     };
     const encoded = serializeDocument(doc);
     expect(encoded).not.toContain('backgroundRemoval');
-    expect(JSON.parse(encoded).formatVersion).toBe('2.12');
+    expect(JSON.parse(encoded).formatVersion).toBe('2.14');
   });
 
   it('suffixes colliding legacy asset IDs without breaking existing references', () => {
@@ -319,7 +319,7 @@ describe('Document Migration', () => {
     };
     const result = migrateDocument(raw);
     expect(result).not.toBeNull();
-    expect((result as Record<string, unknown>).formatVersion).toBe('2.12');
+    expect((result as Record<string, unknown>).formatVersion).toBe('2.14');
   });
 
   it('migrates v2.4 → v2.5: bakes rotation into transform', () => {
@@ -341,7 +341,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.12');
+    expect(result.formatVersion).toBe('2.14');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     // n1: rotation 90 baked into transform
     expect(nodes.n1!.rotation).toBe(0);
@@ -369,7 +369,7 @@ describe('Document Migration', () => {
       },
     };
     const result = migrateDocument(raw) as Record<string, unknown>;
-    expect(result.formatVersion).toBe('2.12');
+    expect(result.formatVersion).toBe('2.14');
     const nodes = result.nodes as Record<string, Record<string, unknown>>;
     const fills = nodes.n1!.fills as Record<string, unknown>[];
     const image = fills[0]!.image as Record<string, unknown>;
@@ -867,7 +867,7 @@ describe('v2.7 migration (image crop + transform fields)', () => {
       formatVersion: '2.6',
       nodes: {},
     });
-    expect(migrated!.formatVersion).toBe('2.12');
+    expect(migrated!.formatVersion).toBe('2.14');
   });
 
   it('normalizes an out-of-bounds crop rect', () => {
@@ -1011,5 +1011,85 @@ describe('v2.7 migration (image crop + transform fields)', () => {
     expect(fill.crop).toEqual({ x: 10, y: 20, w: 50, h: 60 });
     expect(fill.rotation).toBe(45);
     expect(fill.flipH).toBe(true);
+  });
+});
+
+describe('v2.13 migration (glyph-level typography)', () => {
+  it('normalizes kerningMode to auto for unknown values', () => {
+    const raw = {
+      formatVersion: '2.12',
+      nodes: {
+        n1: { id: 'n1', kind: 'text', text: 'Hi', kerningMode: 'optical' },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    expect(nodes.n1!.kerningMode).toBe('auto');
+  });
+
+  it('keeps valid kerningMode values', () => {
+    const raw = {
+      formatVersion: '2.12',
+      nodes: {
+        n1: { id: 'n1', kind: 'text', text: 'Hi', kerningMode: 'none' },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    expect(nodes.n1!.kerningMode).toBe('none');
+  });
+
+  it('drops malformed glyph adjustment entries and keeps valid ones', () => {
+    const raw = {
+      formatVersion: '2.12',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'text',
+          text: 'Hi',
+          glyphAdjustments: {
+            0: { dx: 1, dy: 2, advance: 3, rotation: 0, scaleX: 1, scaleY: 1 },
+            1: { dx: 'nope' },
+            2: null,
+          },
+        },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    const glyphs = nodes.n1!.glyphAdjustments as Record<string, unknown>;
+    expect(Object.keys(glyphs)).toEqual(['0']);
+    expect(glyphs['0']).toEqual({ dx: 1, dy: 2, advance: 3, rotation: 0, scaleX: 1, scaleY: 1 });
+  });
+
+  it('drops non-numeric pair adjustments', () => {
+    const raw = {
+      formatVersion: '2.12',
+      nodes: {
+        n1: {
+          id: 'n1',
+          kind: 'text',
+          text: 'Hi',
+          pairAdjustments: { 0: 4, 1: 'x', 2: NaN },
+        },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    const pairs = nodes.n1!.pairAdjustments as Record<string, unknown>;
+    expect(Object.keys(pairs)).toEqual(['0']);
+    expect(pairs['0']).toBe(4);
+  });
+
+  it('leaves non-text nodes untouched', () => {
+    const raw = {
+      formatVersion: '2.12',
+      nodes: {
+        n1: { id: 'n1', kind: 'shape', kerningMode: 'bogus' },
+      },
+    };
+    const result = migrateDocument(raw) as Record<string, unknown>;
+    const nodes = result.nodes as Record<string, Record<string, unknown>>;
+    expect(nodes.n1!.kerningMode).toBe('bogus');
   });
 });

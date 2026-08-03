@@ -807,3 +807,57 @@ export const migrations = [
   { from: '2.5', to: '2.6', migrate: migrateV25ToV26 },
   { from: '2.6', to: '2.7', migrate: migrateV26ToV27 },
 ];
+
+/**
+ * 2.12 → 2.13: glyph-level typography fields (kerningMode, per-cluster
+ * glyphAdjustments, pairAdjustments). All optional; malformed entries are
+ * dropped so readers can assume well-typed values.
+ */
+export function migrateV212ToV213(raw: Record<string, unknown>): Record<string, unknown> {
+  const result = { ...raw, formatVersion: '2.13' } as Record<string, unknown>;
+  const nodes = result.nodes as Record<string, unknown> | undefined;
+  if (nodes) {
+    for (const node of Object.values(nodes)) {
+      if (!node || typeof node !== 'object') continue;
+      const n = node as Record<string, unknown>;
+      if (n.kind !== 'text') continue;
+      if (n.kerningMode !== undefined && n.kerningMode !== 'auto' && n.kerningMode !== 'none') {
+        n.kerningMode = 'auto';
+      }
+      const glyphs = n.glyphAdjustments;
+      if (glyphs && typeof glyphs === 'object') {
+        const map = glyphs as Record<string, unknown>;
+        for (const key of Object.keys(map)) {
+          const adj = map[key];
+          if (!adj || typeof adj !== 'object') {
+            delete map[key];
+            continue;
+          }
+          const a = adj as Record<string, unknown>;
+          if (
+            typeof a.dx !== 'number' ||
+            typeof a.dy !== 'number' ||
+            typeof a.advance !== 'number' ||
+            typeof a.rotation !== 'number' ||
+            typeof a.scaleX !== 'number' ||
+            typeof a.scaleY !== 'number'
+          ) {
+            delete map[key];
+          }
+        }
+      } else if (glyphs !== undefined) {
+        n.glyphAdjustments = undefined;
+      }
+      const pairs = n.pairAdjustments;
+      if (pairs && typeof pairs === 'object') {
+        const map = pairs as Record<string, unknown>;
+        for (const key of Object.keys(map)) {
+          if (typeof map[key] !== 'number' || !Number.isFinite(map[key])) delete map[key];
+        }
+      } else if (pairs !== undefined) {
+        n.pairAdjustments = undefined;
+      }
+    }
+  }
+  return result;
+}
