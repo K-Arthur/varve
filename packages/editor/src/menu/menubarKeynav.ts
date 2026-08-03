@@ -52,6 +52,22 @@ export interface MenubarKeyContext<MenuIdDef extends string = string> {
 
 const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
+/**
+ * Translate a filtered item index (separators removed, used by roving
+ * navigation) into the config index (separators present, used by the
+ * submenu-open comparison `openSubmenu === itemIdx` in the render).
+ */
+function filteredToConfigIndex(items: readonly MenuItemDef[], filteredIdx: number): number {
+  let seen = -1;
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i];
+    if (!item || item.label === '---') continue;
+    seen += 1;
+    if (seen === filteredIdx) return i;
+  }
+  return filteredIdx;
+}
+
 export function handleMenubarKey<MenuIdDef extends string = string>(
   e: React.KeyboardEvent,
   ctx: MenubarKeyContext<MenuIdDef>,
@@ -83,9 +99,22 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
   // this guard keeps future siblings (rename input, radios, zoom field,
   // undo/redo buttons) from being hijacked by menu navigation.
   const target = e.target as HTMLElement;
+  console.log(
+    '[dbg-kd]',
+    e.key,
+    'open',
+    openMenu,
+    'sub',
+    openSubmenu,
+    'idx',
+    activeItemIndex,
+    'tgt',
+    target.textContent?.slice(0, 8),
+  );
   if (target !== menuRef.current && !target.getAttribute('role')?.startsWith('menuitem')) {
     return;
   }
+  console.log('[dbg-kd] PASS-GUARD');
 
   const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
 
@@ -196,7 +225,7 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
         e.preventDefault();
         const item = items[activeItemIndex];
         if (item?.items) {
-          setOpenSubmenu(activeItemIndex);
+          setOpenSubmenu(filteredToConfigIndex(menu.items, activeItemIndex));
           setActiveSubmenuIndex(0);
         } else if (item?.action && !item.disabled) {
           handleAction(item.action);
@@ -207,7 +236,7 @@ export function handleMenubarKey<MenuIdDef extends string = string>(
         e.preventDefault();
         const item = items[activeItemIndex];
         if (item?.items) {
-          setOpenSubmenu(activeItemIndex);
+          setOpenSubmenu(filteredToConfigIndex(menu.items, activeItemIndex));
           setActiveSubmenuIndex(0);
         } else {
           const next = (openIdx + 1) % menus.length;

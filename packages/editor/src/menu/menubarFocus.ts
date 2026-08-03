@@ -5,14 +5,17 @@
  * - Dropdown/submenu roving focus: moves focus into the portaled menus one
  *   frame after open (FloatingPortal keeps its layer visibility:hidden until
  *   the positioning layout effect lands; focus() on hidden elements is a
- *   no-op).
+ *   no-op). Never lands on a disabled item — focus() on disabled buttons
+ *   silently no-ops, stranding focus outside the menu.
+ * - Focusin sync: pointer or programmatic focus on a menu item updates the
+ *   roving index, so Enter/ArrowRight act on the focused item.
  * - Focus restoration: captures the element focused before the dropdown
  *   opened and restores it on close, unless focus moved elsewhere
  *   deliberately (Escape already refocused the trigger, outside click
  *   focused the clicked target, Tab walked the tab order past the trigger).
  */
 
-import { walkFocus } from '@strata/ui/utils/focusMovement';
+import { firstEnabledIndex, walkFocus } from '@strata/ui/utils/focusMovement';
 import type React from 'react';
 import { useEffect } from 'react';
 
@@ -29,6 +32,8 @@ export interface MenubarFocusDeps {
   restoreFocusRef: React.MutableRefObject<HTMLElement | null>;
   prevOpenMenuRef: React.MutableRefObject<string | null>;
   tabWalkDirRef: React.MutableRefObject<1 | -1 | null>;
+  setActiveItemIndex: React.Dispatch<React.SetStateAction<number>>;
+  setActiveSubmenuIndex: React.Dispatch<React.SetStateAction<number>>;
 }
 
 export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
@@ -43,24 +48,60 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
     restoreFocusRef,
     prevOpenMenuRef,
     tabWalkDirRef,
+    setActiveItemIndex,
+    setActiveSubmenuIndex,
   } = deps;
 
   // Dropdown roving focus: focus the item at the active index when the
-  // dropdown opens or the index moves (keyboard navigation).
+  // dropdown opens or the index moves (keyboard navigation). Skips disabled
+  // items, which focus() silently refuses.
   useEffect(() => {
     if (!openMenu) return;
     const menu = dropdownMenuRef.current;
     if (!menu) return;
     const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
     const target = items[activeItemIndex];
+    if (target?.hasAttribute('disabled')) {
+      const next = firstEnabledIndex(
+        items.length,
+        (i) => items[i]?.hasAttribute('disabled') ?? true,
+      );
+      if (next >= 0 && next !== activeItemIndex) {
+        setActiveItemIndex(next);
+      }
+      return;
+    }
     if (!target) return;
+    // FloatingPortal keeps its layer visibility:hidden until the positioning
+    // layout effect lands one render later; focus() on hidden elements is a
+    // no-op, so defer to the next frame.
     const raf = requestAnimationFrame(() => target.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(raf);
   }, [openMenu, activeItemIndex, dropdownMenuRef]);
 
+  // Keep the dropdown roving index in sync with the focused item, so
+  // pointer or programmatic focus on an item is what Enter/ArrowRight act
+  // on (the ui/Toolbar has the same focusin-sync contract).
+  useEffect(() => {
+    if (!openMenu) return;
+    const menu = dropdownMenuRef.current;
+    if (!menu) return;
+    const handleFocusIn = () => {
+      const active = document.activeElement;
+      if (!active || !menu.contains(active)) return;
+      const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
+      const idx = Array.from(items).indexOf(active as HTMLButtonElement);
+      if (idx >= 0 && idx !== activeItemIndex) {
+        setActiveItemIndex(idx);
+      }
+    };
+    menu.addEventListener('focusin', handleFocusIn);
+    return () => menu.removeEventListener('focusin', handleFocusIn);
+  }, [openMenu, dropdownMenuRef, activeItemIndex]);
+
   // Submenu roving focus: move focus into the submenu only when the user is
   // navigating by keyboard (focus is already inside the dropdown/submenu) —
-  // mouse hover must not yank focus out of the dropdown.
+  // mouse hover must not yank focus out of the dropdown. Skips disabled.
   useEffect(() => {
     if (openSubmenu === null) return;
     const menu = submenuRef.current;
@@ -71,6 +112,16 @@ export function useMenubarFocusEffects(deps: MenubarFocusDeps): void {
     }
     const items = menu.querySelectorAll<HTMLButtonElement>(MENU_ITEM_SELECTOR);
     const target = items[activeSubmenuIndex];
+    if (target?.hasAttribute('disabled')) {
+      const next = firstEnabledIndex(
+        items.length,
+        (i) => items[i]?.hasAttribute('disabled') ?? true,
+      );
+      if (next >= 0 && next !== activeSubmenuIndex) {
+        setActiveSubmenuIndex(next);
+      }
+      return;
+    }
     if (!target) return;
     const raf = requestAnimationFrame(() => target.focus({ preventScroll: true }));
     return () => cancelAnimationFrame(raf);

@@ -271,8 +271,8 @@ export function PageNav() {
   if (pages.length === 0) return null;
 
   return (
-    <div className="page-nav" ref={stripRef} role="tablist" aria-label="Page navigation">
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <div className="page-nav" ref={stripRef} role="tablist" aria-label="Page navigation">
         <SortableContext items={pages.map((p) => p.id)} strategy={horizontalListSortingStrategy}>
           {pages.map((page) => (
             <SortablePageTab
@@ -286,7 +286,7 @@ export function PageNav() {
             />
           ))}
         </SortableContext>
-      </DndContext>
+      </div>
       <button
         type="button"
         className="page-nav__add-btn"
@@ -301,6 +301,6 @@ export function PageNav() {
         onClose={closeContextMenu}
         label="Page context menu"
       />
-    </div>
+    </DndContext>
   );
 }
