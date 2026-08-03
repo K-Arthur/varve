@@ -10,10 +10,12 @@
  * Call `registerBuiltinRules()` once on editor startup to populate the registry.
  */
 
+import type { WorkspaceMode } from '@strata/shared';
 import type { AuditContext, AuditRuleDef } from './auditEngine';
 import { registerRule } from './auditEngine';
 import type { AuditSeverity, FindingCategory } from './auditFinding';
 import { createFinding } from './auditFinding';
+import { walkNodes } from './document';
 import { runIntelligenceAudit } from './intelligence/audit';
 import { runDebtScan } from './intelligence/debtScanner';
 import { runGovernanceRules } from './intelligence/governanceRules';
@@ -84,6 +86,9 @@ function createBuiltinRules(): AuditRuleDef[] {
 
     // ---- Governance Rules ----
     ...createGovernanceRules(),
+
+    // ---- Logo Rules ----
+    ...createLogoRules(),
   ];
 }
 
@@ -343,6 +348,182 @@ function createGovernanceRules(): AuditRuleDef[] {
       );
     },
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Logo rules (advisory)
+// ---------------------------------------------------------------------------
+
+/**
+ * Logo-specific advisory rules. These are technical checks for logo
+ * deliverables: they never block export and never pretend to score design
+ * quality. Each finding explains the risk, names the affected nodes, and
+ * suggests a fix. Rules only fire when the document carries a logo project
+ * (doc.logoProject) or when the user is in the logo workspace.
+ */
+function createLogoRules(): AuditRuleDef[] {
+  const logoWorkspaces: WorkspaceMode[] = ['logo', 'design', 'print', 'drawing'];
+  return [
+    {
+      id: 'logo/text-left-editable',
+      label: 'Editable text in logo artwork',
+      category: 'typography',
+      source: 'logo',
+      defaultSeverity: 'advisory',
+      cost: 'cheap',
+      stage: 'debounced',
+      workspaces: logoWorkspaces,
+      nodeKinds: ['text'],
+      blocking: false,
+      contextDependent: false,
+      confidenceFloor: 0.8,
+      suppressible: true,
+      run: (ctx) => {
+        if (!ctx.doc.logoProject) return [];
+        return [...walkNodes(ctx.doc).values()]
+          .filter((entry) => {
+            const node = entry.node;
+            return node.kind === 'text' && node.text !== undefined && node.text.length > 0;
+          })
+          .map((entry) =>
+            createFinding({
+              ruleId: 'logo/text-left-editable',
+              category: 'typography',
+              severity: 'advisory',
+              message:
+                'Text is still editable in the logo artwork. Outline the text before final delivery so exports never depend on the font.',
+              nodeId: entry.nodeId,
+              source: 'logo',
+              cost: 'cheap',
+              contextDependent: false,
+              confidence: 0.9,
+            }),
+          );
+      },
+    },
+    {
+      id: 'logo/thin-strokes',
+      label: 'Very thin strokes',
+      category: 'vector',
+      source: 'logo',
+      defaultSeverity: 'warning',
+      cost: 'cheap',
+      stage: 'debounced',
+      workspaces: logoWorkspaces,
+      nodeKinds: ['shape'],
+      blocking: false,
+      contextDependent: false,
+      confidenceFloor: 0.8,
+      suppressible: true,
+      run: (ctx) => {
+        if (!ctx.doc.logoProject) return [];
+        return [...walkNodes(ctx.doc).values()]
+          .filter((entry) => {
+            const node = entry.node;
+            if (node.kind !== 'shape') return false;
+            const stroke = node.strokes?.find((s) => s.visible);
+            return stroke !== undefined && stroke.weight > 0 && stroke.weight < 2;
+          })
+          .map((entry) =>
+            createFinding({
+              ruleId: 'logo/thin-strokes',
+              category: 'vector',
+              severity: 'warning',
+              message:
+                'Stroke thinner than 2px may disappear at small sizes or when printed. Expand the stroke or thicken it for the small variant.',
+              nodeId: entry.nodeId,
+              source: 'logo',
+              cost: 'cheap',
+              contextDependent: false,
+              confidence: 0.85,
+            }),
+          );
+      },
+    },
+    {
+      id: 'logo/excessive-points',
+      label: 'Excessively complex path',
+      category: 'vector',
+      source: 'logo',
+      defaultSeverity: 'advisory',
+      cost: 'moderate',
+      stage: 'on-demand',
+      workspaces: logoWorkspaces,
+      nodeKinds: ['shape'],
+      blocking: false,
+      contextDependent: false,
+      confidenceFloor: 0.8,
+      suppressible: true,
+      run: (ctx) => {
+        if (!ctx.doc.logoProject) return [];
+        const MAX_POINTS = 2000;
+        return [...walkNodes(ctx.doc).values()]
+          .filter((entry) => {
+            const node = entry.node;
+            return (
+              node.kind === 'shape' &&
+              node.shape.kind === 'path' &&
+              node.shape.points.length > MAX_POINTS
+            );
+          })
+          .map((entry) => {
+            const node = entry.node;
+            return createFinding({
+              ruleId: 'logo/excessive-points',
+              category: 'vector',
+              severity: 'advisory',
+              message:
+                'Path has ' +
+                (node.kind === 'shape' && node.shape.kind === 'path'
+                  ? String(node.shape.points.length)
+                  : 'many') +
+                ' anchor points — this hurts editing, export, and small-size rendering. Run Object → Simplify Path.',
+              nodeId: entry.nodeId,
+              source: 'logo',
+              cost: 'moderate',
+              contextDependent: false,
+              confidence: 0.9,
+            });
+          });
+      },
+    },
+    {
+      id: 'logo/missing-monochrome-variant',
+      label: 'Missing monochrome variant',
+      category: 'export',
+      source: 'logo',
+      defaultSeverity: 'advisory',
+      cost: 'cheap',
+      stage: 'debounced',
+      workspaces: logoWorkspaces,
+      nodeKinds: [],
+      blocking: false,
+      contextDependent: false,
+      confidenceFloor: 0.8,
+      suppressible: true,
+      run: (ctx) => {
+        const project = ctx.doc.logoProject;
+        if (!project || project.concepts.length === 0) return [];
+        const hasMonochrome = project.variants.some(
+          (v) => v.kind === 'monochrome' || v.kind === 'reversed',
+        );
+        if (hasMonochrome) return [];
+        return [
+          createFinding({
+            ruleId: 'logo/missing-monochrome-variant',
+            category: 'export',
+            severity: 'advisory',
+            message:
+              'The logo project has no monochrome or reversed variant. Add one (File → Create Monochrome Variant) for fax, engraving, and one-color print.',
+            source: 'logo',
+            cost: 'cheap',
+            contextDependent: false,
+            confidence: 0.95,
+          }),
+        ];
+      },
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
