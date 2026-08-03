@@ -742,6 +742,12 @@ function buildMenus(
           ariaKeyshortcut: ks('openFontsPanel'),
           action: 'openFontsPanel',
         },
+        {
+          label: 'Logo Panel',
+          shortcut: formatShortcut(SHORTCUT_DEFS.toggleLogoPanel.binding),
+          ariaKeyshortcut: ks('toggleLogoPanel'),
+          action: 'toggleLogoPanel',
+        },
         { label: '---' },
         // Workspace
         {
