@@ -25,10 +25,11 @@ test.describe('Logo panel', () => {
   });
 
   test('View menu shows the Logo Panel item only in the Logo workspace', async ({ page }) => {
+    const logoItem = page.getByRole('menuitemcheckbox', { name: /Logo Panel/i });
     // Design workspace: the item must be absent from the View menu.
     await page.getByRole('menuitem', { name: /^View/i }).click();
     await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toBeVisible();
-    await expect(page.getByRole('menuitem', { name: /Logo Panel/i })).toHaveCount(0);
+    await expect(logoItem).toHaveCount(0);
     await page.keyboard.press('Escape');
     await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toHaveCount(0);
 
@@ -36,10 +37,9 @@ test.describe('Logo panel', () => {
     await page.getByRole('radio', { name: 'Logo' }).click({ force: true });
     await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
     await page.getByRole('menuitem', { name: /^View/i }).click();
-    const item = page.getByRole('menuitem', { name: /Logo Panel/i });
-    await expect(item).toBeVisible();
-    await expect(item).toHaveAttribute('aria-checked', 'true');
-    await item.click();
+    await expect(logoItem).toBeVisible();
+    await expect(logoItem).toHaveAttribute('aria-checked', 'true');
+    await logoItem.click();
     await expect(page.getByTestId('logo-panel')).toHaveCount(0);
   });
 
