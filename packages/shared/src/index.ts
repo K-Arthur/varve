@@ -100,6 +100,7 @@ export {
   gamutMapToSrgb,
   labToLch,
   labToRgb,
+  labToXyz,
   lchToLab,
   lchToRgb,
   linearSrgbToOklab,
@@ -119,6 +120,7 @@ export {
   rgbToLch,
   roundTo,
   srgbToLinear,
+  xyzD65ToLinearRgb,
 } from './colorConversion';
 export type {
   GradientInterpolationSpace,

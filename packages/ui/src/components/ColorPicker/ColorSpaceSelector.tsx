@@ -1,9 +1,11 @@
-export type ColorSpace = 'rgb' | 'cmyk' | 'gray' | 'spot';
+export type ColorSpace = 'rgb' | 'cmyk' | 'gray' | 'spot' | 'lab' | 'lch';
 
 const SPACES: { key: ColorSpace; label: string }[] = [
   { key: 'rgb', label: 'RGB' },
   { key: 'cmyk', label: 'CMYK' },
   { key: 'gray', label: 'Grayscale' },
+  { key: 'lab', label: 'Lab' },
+  { key: 'lch', label: 'LCH' },
   { key: 'spot', label: 'Spot' },
 ];
 

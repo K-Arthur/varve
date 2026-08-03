@@ -6,11 +6,13 @@ import { ColorSpaceSelector } from './ColorSpaceSelector';
 afterEach(cleanup);
 
 describe('ColorSpaceSelector', () => {
-  it('renders all four space buttons', () => {
+  it('renders all space buttons', () => {
     render(<ColorSpaceSelector active="rgb" onChange={() => {}} />);
     expect(screen.getByRole('radio', { name: 'RGB' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'CMYK' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Grayscale' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'Lab' })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: 'LCH' })).toBeTruthy();
     expect(screen.getByRole('radio', { name: 'Spot' })).toBeTruthy();
   });
 
