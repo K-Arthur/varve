@@ -9,8 +9,15 @@
  * Research basis: Figma multi-run text editing, ARIA textbox + activedescendant.
  */
 
-import type { CharacterFormat, RichSelection, RichText, TextRun } from '@strata/scene';
+import type {
+  CharacterFormat,
+  ManagedColor,
+  RichSelection,
+  RichText,
+  TextRun,
+} from '@strata/scene';
 import { applyFormatToSelection, mergeAdjacentRuns } from '@strata/scene';
+import { managedColorToCss } from '@strata/shared';
 import { useCallback, useMemo, useRef } from 'react';
 import { useEditor } from '../../../context';
 import { InspectorColorPopover } from './InspectorColorPopover';
@@ -22,7 +29,30 @@ export interface RichTextSpanEditorProps {
 
 const EMPTY_FORMAT: CharacterFormat = {};
 
-const DEFAULT_COLOR = { space: 'rgb' as const, r: 0, g: 0, b: 0, a: 255 };
+const DEFAULT_COLOR: ManagedColor = { space: 'rgb', r: 0, g: 0, b: 0, a: 255 };
+
+/** True when the given value is a legacy [r,g,b,a] tuple (pre-2.14 docs). */
+function isLegacyTuple(c: unknown): c is readonly [number, number, number, number] {
+  return Array.isArray(c) && c.length === 4 && c.every((n) => typeof n === 'number');
+}
+
+/** Reduce a run color (ManagedColor or legacy tuple) to ManagedColor. */
+function runColorToManaged(c: unknown): ManagedColor {
+  if (isLegacyTuple(c)) return { space: 'rgb', r: c[0], g: c[1], b: c[2], a: c[3] };
+  if (c && typeof c === 'object' && 'space' in c) return c as ManagedColor;
+  return DEFAULT_COLOR;
+}
+
+/** Reduce a run color to a CSS string for the span style. */
+function runColorToCss(c: unknown): string | undefined {
+  if (isLegacyTuple(c)) {
+    return `rgba(${c[0]},${c[1]},${c[2]},${c[3] / 255})`;
+  }
+  if (c && typeof c === 'object' && 'space' in c) {
+    return managedColorToCss(c as ManagedColor);
+  }
+  return undefined;
+}
 
 function runKey(run: TextRun, i: number): string {
   return `${i}:${run.text}`;
@@ -76,6 +106,26 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
     onChange(merged);
   }, [richText, onChange]);
 
+  // Color of the run at the selection start (ManagedColor since 2.14;
+  // legacy tuples are reduced on read). When the selection spans runs with
+  // differing colors, the popover opens on the first run's color; applying
+  // a new color replaces every selected run (defined policy, see M5).
+  const selectionColor = useMemo(() => {
+    const range = editor.state.selectionRange;
+    if (!range) return undefined;
+    const para = richText.paragraphs[range.start.paragraphIndex];
+    if (!para) return undefined;
+    let offset = 0;
+    for (const run of para.runs) {
+      const next = offset + run.text.length;
+      if (range.start.offset < next) {
+        return run.format?.color ? runColorToManaged(run.format.color) : undefined;
+      }
+      offset = next;
+    }
+    return undefined;
+  }, [richText, editor.state.selectionRange]);
+
   return (
     <div className="rich-span-editor">
       {/*
@@ -112,9 +162,7 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
                 fontStyle: fmt.fontStyle,
                 fontSize: fmt.fontSize,
                 fontFamily: fmt.fontFamily,
-                color: fmt.color
-                  ? `rgba(${fmt.color[0]},${fmt.color[1]},${fmt.color[2]},${fmt.color[3] / 255})`
-                  : undefined,
+                color: runColorToCss(fmt.color),
               }}
             >
               {run.text || '​'}
@@ -149,10 +197,9 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
         </button>
         <InspectorColorPopover
           label="Text color"
-          value={DEFAULT_COLOR}
+          value={selectionColor ?? DEFAULT_COLOR}
           onChange={(color) => {
-            const c = color as { space: 'rgb'; r: number; g: number; b: number; a: number };
-            applyFormat({ color: [c.r, c.g, c.b, c.a] });
+            applyFormat({ color });
           }}
           onEditStart={editor.beginTransaction}
           onEditEnd={editor.commitTransaction}

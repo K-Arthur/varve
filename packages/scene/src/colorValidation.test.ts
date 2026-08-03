@@ -134,24 +134,38 @@ describe('normalizeManagedColor', () => {
 
 describe('managedColorEquals', () => {
   it('compares within tolerance', () => {
-    const a = { space: 'lch', l: 50, c: 20, h: 30, a: 255 };
-    expect(managedColorEquals(a, { space: 'lch', l: 50.0000000001, c: 20, h: 30, a: 255 })).toBe(
-      true,
+    const a = { space: 'lch' as const, l: 50, c: 20, h: 30, a: 255 };
+    expect(
+      managedColorEquals(a, { space: 'lch' as const, l: 50.0000000001, c: 20, h: 30, a: 255 }),
+    ).toBe(true);
+    expect(managedColorEquals(a, { space: 'lch' as const, l: 51, c: 20, h: 30, a: 255 })).toBe(
+      false,
     );
-    expect(managedColorEquals(a, { space: 'lch', l: 51, c: 20, h: 30, a: 255 })).toBe(false);
   });
 
   it('distinguishes spaces and nested fallbacks', () => {
-    const a = { space: 'rgb', r: 1, g: 2, b: 3, a: 255 };
-    expect(managedColorEquals(a, { space: 'cmyk', c: 1, m: 2, y: 3, k: 0, a: 255 })).toBe(false);
-    const u1 = { space: 'unresolved', source: 'x', fallback: { r: 1, g: 1, b: 1 }, a: 255 };
-    const u2 = { space: 'unresolved', source: 'x', fallback: { r: 2, g: 1, b: 1 }, a: 255 };
+    const a = { space: 'rgb' as const, r: 1, g: 2, b: 3, a: 255 };
+    expect(managedColorEquals(a, { space: 'cmyk' as const, c: 1, m: 2, y: 3, k: 0, a: 255 })).toBe(
+      false,
+    );
+    const u1 = {
+      space: 'unresolved' as const,
+      source: 'x',
+      fallback: { r: 1, g: 1, b: 1 },
+      a: 255,
+    };
+    const u2 = {
+      space: 'unresolved' as const,
+      source: 'x',
+      fallback: { r: 2, g: 1, b: 1 },
+      a: 255,
+    };
     expect(managedColorEquals(u1, u2)).toBe(false);
   });
 
   it('treats undefined and missing as equal', () => {
-    const a = { space: 'rgb', r: 1, g: 2, b: 3, a: 255, profile: undefined };
-    expect(managedColorEquals(a, { space: 'rgb', r: 1, g: 2, b: 3, a: 255 })).toBe(true);
+    const a = { space: 'rgb' as const, r: 1, g: 2, b: 3, a: 255, profile: undefined };
+    expect(managedColorEquals(a, { space: 'rgb' as const, r: 1, g: 2, b: 3, a: 255 })).toBe(true);
   });
 });
 
