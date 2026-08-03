@@ -3,6 +3,7 @@ import {
   createPerformanceWorkload,
   createPerformanceWorkloadCorpus,
   PERFORMANCE_WORKLOAD_IDS,
+  type PerformanceWorkloadId,
 } from './workloadCorpus';
 
 describe('performance workload corpus', () => {
@@ -41,5 +42,65 @@ describe('performance workload corpus', () => {
     ).toHaveLength(240);
     expect(createPerformanceWorkload('extreme-zoom').viewports).toHaveLength(3);
     expect(createPerformanceWorkload('document-switching').documentSequence).toHaveLength(3);
+  });
+
+  it('provides the required deterministic scale fixtures', () => {
+    expect(createPerformanceWorkload('vector-100').expected.nodeCount).toBe(100);
+    expect(createPerformanceWorkload('vector-500').expected.nodeCount).toBe(500);
+    expect(createPerformanceWorkload('vector-1k').expected.nodeCount).toBe(1_000);
+    expect(createPerformanceWorkload('vector-5k').expected.nodeCount).toBe(5_000);
+    for (const id of ['vector-100', 'vector-500', 'vector-1k', 'vector-5k'] as const) {
+      const workload = createPerformanceWorkload(id);
+      expect(Object.values(workload.document.nodes)).toHaveLength(workload.expected.nodeCount);
+      expect(new Set(Object.keys(workload.document.nodes)).size).toBe(workload.expected.nodeCount);
+    }
+  });
+
+  it('covers the required rendering-category fixtures deterministically', () => {
+    const cases: Array<[PerformanceWorkloadId, number]> = [
+      ['dense-overlap', 300],
+      ['wide-spread', 400],
+      ['many-small', 1_000],
+      ['few-large', 8],
+      ['clipped-frames', 160],
+      ['masked-content', 120],
+      ['rotated-skewed', 200],
+      ['thick-strokes', 64],
+      ['effects-heavy', 150],
+      ['blend-modes', 240],
+      ['mixed-raster-vector', 224],
+      ['hidden-locked', 400],
+      ['offscreen-mixed', 300],
+      ['boundary-crossing', 160],
+      ['multi-page', 183],
+    ];
+    for (const [id, count] of cases) {
+      const workload = createPerformanceWorkload(id);
+      expect(workload.expected.nodeCount).toBe(count);
+      expect(Object.values(workload.document.nodes)).toHaveLength(count);
+      expect(
+        Object.keys(workload.document.nodes).every(
+          (nodeId) => nodeId === workload.document.nodes[nodeId]?.id,
+        ),
+      ).toBe(true);
+    }
+    const masked = createPerformanceWorkload('masked-content');
+    expect(
+      Object.values(masked.document.nodes).some(
+        (node) => node.kind === 'frame' && node.mask?.sourceNodeId,
+      ),
+    ).toBe(true);
+    const multi = createPerformanceWorkload('multi-page');
+    expect(multi.document.pages).toHaveLength(3);
+    expect(multi.document.activePageId).toBe('multipage-page-0');
+  });
+
+  it('produces a stable checksum for every fixture across independent calls', () => {
+    for (const id of PERFORMANCE_WORKLOAD_IDS) {
+      const first = createPerformanceWorkload(id);
+      const second = createPerformanceWorkload(id);
+      expect(first.fixtureChecksum, id).toBe(second.fixtureChecksum);
+      expect(first.document, id).toEqual(second.document);
+    }
   });
 });
