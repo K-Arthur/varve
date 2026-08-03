@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
+import { graphemeTracking, hitTestCaret, scriptCodeToTag, shapeRun, shapeText } from './shaping';
 import { analyzeParagraph } from './unicode/bidi';
 
 // ── Canvas context mock ────────────────────────────────────────────────────
@@ -242,5 +242,21 @@ describe('hitTestCaret', () => {
     };
     const pos = hitTestCaret(emptyShaping, 10);
     expect(pos).toBe(0);
+  });
+});
+
+describe('graphemeTracking', () => {
+  it('adds fontSize * tracking / 1000 between graphemes', () => {
+    expect(graphemeTracking(100, 20, 0, 3)).toBeCloseTo(2);
+    expect(graphemeTracking(-50, 20, 1, 3)).toBeCloseTo(-1);
+  });
+
+  it('never applies tracking after the last grapheme', () => {
+    expect(graphemeTracking(100, 20, 2, 3)).toBe(0);
+    expect(graphemeTracking(100, 20, 0, 1)).toBe(0);
+  });
+
+  it('returns zero for zero tracking', () => {
+    expect(graphemeTracking(0, 20, 0, 3)).toBe(0);
   });
 });

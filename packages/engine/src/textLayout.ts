@@ -22,6 +22,8 @@ export interface RichTextRun {
     fontWeight?: number;
     fontStyle?: 'normal' | 'italic';
     textDecoration?: 'none' | 'underline' | 'line-through';
+    letterSpacing?: number;
+    tracking?: number;
     openTypeFeatures?: OpenTypeFeatureMap;
     variableFontSettings?: VariableFontSettings;
     maxLines?: number;
@@ -198,9 +200,11 @@ export function layoutRichText(
       const variationSettings = buildVariationSettings(run.format?.variableFontSettings);
 
       const words = splitIntoBreakUnits(run.text);
+      const runTracking = run.format?.tracking ?? 0;
       for (const word of words) {
         if (word === '') continue;
-        const wordWidth = measureRunWidth(word, font, fontSize);
+        const trackingWidth = (runTracking * fontSize * Math.max(word.length - 1, 0)) / 1000;
+        const wordWidth = measureRunWidth(word, font, fontSize) + trackingWidth;
 
         if (currentLineWidth + wordWidth > maxWidth && currentLine.length > 0) {
           if (lineCount >= maxLines - 1) {

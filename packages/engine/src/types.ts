@@ -34,6 +34,8 @@ export interface PathTextSettings {
 }
 
 export interface CharacterFormat {
+  /** Typographic tracking in 1/1000 em units, added between glyphs. */
+  tracking?: number;
   fontFamily?: string;
   fontWeight?: number;
   fontStyle?: 'normal' | 'italic';
@@ -321,6 +323,8 @@ export interface SceneNode {
   textAlignVertical?: 'top' | 'middle' | 'bottom';
   /** Letter spacing in px. */
   letterSpacing?: number;
+  /** Typographic tracking in 1/1000 em units, added between glyphs. */
+  tracking?: number;
   /** Line height multiplier. */
   lineHeight?: number;
   /** Paragraph spacing in px. */
@@ -518,6 +522,9 @@ export type Primitive =
       textAlign: 'left' | 'center' | 'right' | 'justify';
       textAlignVertical: 'top' | 'middle' | 'bottom';
       letterSpacing: number;
+      /** Typographic tracking in 1/1000 em units (fontSize * tracking / 1000
+       *  added between glyphs). Parallel to letterSpacing; adds on top. */
+      tracking?: number;
       lineHeight: number;
       paragraphSpacing: number;
       paragraphIndent?: number;

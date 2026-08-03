@@ -42,6 +42,8 @@ export interface ShapeRunInput {
   fontStyle?: 'normal' | 'italic';
   /** Letter spacing in px. */
   letterSpacing?: number;
+  /** Typographic tracking in 1/1000 em units, added between glyphs. */
+  tracking?: number;
   /** Direction override ('ltr' | 'rtl' | 'auto'). */
   direction?: 'ltr' | 'rtl' | 'auto';
   /** ISO language tag. */
@@ -59,11 +61,24 @@ export interface ShapeRichTextInput {
     fontWeight?: number;
     fontStyle?: 'normal' | 'italic';
     letterSpacing?: number;
+    tracking?: number;
     direction?: 'ltr' | 'rtl' | 'auto';
     language?: string;
     textAlign?: 'left' | 'center' | 'right' | 'justify';
   }>;
   ctx: CanvasRenderingContext2D;
+}
+
+/** Pure tracking advance for one grapheme: (fontSize * tracking / 1000)
+ *  applied between graphemes (never after the last one). */
+export function graphemeTracking(
+  tracking: number,
+  fontSize: number,
+  graphemeIndex: number,
+  graphemeCount: number,
+): number {
+  if (tracking === 0 || graphemeIndex >= graphemeCount - 1) return 0;
+  return (fontSize * tracking) / 1000;
 }
 
 function buildFontString(
@@ -131,6 +146,7 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
     fontWeight,
     fontStyle,
     letterSpacing = 0,
+    tracking = 0,
     direction = 'auto',
     ctx,
   } = input;
@@ -177,17 +193,19 @@ export function shapeRun(input: ShapeRunInput): ShapedRun[] {
 
       // Measure the grapheme width.
       const metrics = ctx.measureText(g);
-      const advance = metrics.width + (gi < graphemes.length - 1 ? letterSpacing : 0);
+      const spacing =
+        (gi < graphemes.length - 1 ? letterSpacing : 0) +
+        graphemeTracking(tracking, fontSize, gi, graphemes.length);
 
       glyphs.push({
         glyphId: 0, // 0 = unknown (browser path); native path fills real IDs
-        xAdvance: advance,
+        xAdvance: metrics.width + spacing,
         yAdvance: 0,
         xOffset: 0,
         yOffset: 0,
         clusterUtf16,
       });
-      cursorX += advance;
+      cursorX += metrics.width + spacing;
     }
 
     const fontSizeNum = fontSize;
