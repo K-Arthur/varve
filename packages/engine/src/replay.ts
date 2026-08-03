@@ -43,6 +43,7 @@ import {
 } from './shadowSource';
 import { layoutRichText } from './textLayout';
 import type { ArrowheadStyle, EngineColor, FillIR, RenderItem, Stroke } from './types';
+import { splitGraphemes } from './unicode/grapheme';
 
 type GlassMaterialEffect = Extract<import('./types').Effect, { type: 'glassMaterial' }>;
 
@@ -2080,8 +2081,10 @@ function paintRichText(
 
     for (const run of line.runs) {
       target.font = run.font;
-      const runFormat = run.format as { color?: readonly [number, number, number, number] };
-      if (runFormat.color && runFormat.color[3] > 0) {
+      const runFormat = run.format;
+      // Run color is ManagedColor since schema 2.14; legacy tuples still
+      // render (clipboard fragments, external IR). rgba() handles both.
+      if (runFormat?.color) {
         target.fillStyle = rgba(runFormat.color);
       }
       if (wordSpacingAdjust > 0 && /\s/.test(run.text)) {
@@ -2159,6 +2162,59 @@ function paintPathText(
   }
 
   target.fillStyle = originalFillStyle;
+}
+
+/**
+ * Per-cluster text drawing for kerning-off and glyph-level wordmark editing.
+ *
+ * Each grapheme cluster is drawn as its own fillText call, which disables
+ * cross-cluster pair kerning (the browser only applies kerning within a
+ * single text run) while keeping intra-cluster shaping for combining marks.
+ * Per-cluster transforms (dx/dy/rotation/scale) and advance overrides are
+ * applied from the IR glyphAdjustments; pairAdjustments add extra space
+ * between cluster i and cluster i+1 (affecting the next cluster's position).
+ * Only used when the display line maps 1:1 onto the source text (no case
+ * transform, list prefix, tabs, wrapping, or RTL), so cluster indices stay
+ * globally stable.
+ */
+/** Exported for tests: per-cluster drawing with injected measure stub. */
+export function drawClusters(
+  target: ReplayTarget,
+  line: string,
+  x: number,
+  y: number,
+  letterSpacing: number,
+  trackingAdvance: number,
+  p: Extract<RenderItem['primitive'], { kind: 'text' }>,
+  measure: (text: string) => number = (text) => measureTextAdvance(target, text),
+): void {
+  const clusters = splitGraphemes(line);
+  let cursorX = x;
+  for (let ci = 0; ci < clusters.length; ci += 1) {
+    const cluster = clusters[ci] as string;
+    const adjustment = p.glyphAdjustments?.[ci];
+    const advance = measure(cluster) + letterSpacing + trackingAdvance;
+    if (
+      adjustment &&
+      (adjustment.dx !== 0 ||
+        adjustment.dy !== 0 ||
+        adjustment.rotation !== 0 ||
+        adjustment.scaleX !== 1 ||
+        adjustment.scaleY !== 1)
+    ) {
+      target.save();
+      target.translate(cursorX + adjustment.dx, y + adjustment.dy);
+      if (adjustment.rotation !== 0) target.rotate(adjustment.rotation);
+      if (adjustment.scaleX !== 1 || adjustment.scaleY !== 1) {
+        target.scale(adjustment.scaleX, adjustment.scaleY);
+      }
+      target.fillText(cluster, 0, 0);
+      target.restore();
+    } else {
+      target.fillText(cluster, cursorX, y);
+    }
+    cursorX += advance + (adjustment?.advance ?? 0) + (p.pairAdjustments?.[ci] ?? 0);
+  }
 }
 
 /** Paint a text primitive via Canvas2D `fillText` with full typography support. */
@@ -2368,8 +2424,32 @@ function paintText(
 
     // Draw text with letter spacing if needed
     const drawOriginX = xOrigin + lineIndent;
-    if ((ls !== 0 || extraWordSpacing > 0) && displayLine.length > 1) {
-      // Per-character or per-word rendering for custom spacing
+    const hasGlyphAdjustments =
+      p.glyphAdjustments !== undefined && Object.keys(p.glyphAdjustments).length > 0;
+    const hasPairAdjustments =
+      p.pairAdjustments !== undefined && Object.keys(p.pairAdjustments).length > 0;
+    const glyphControlled = p.kerningMode === 'none' || hasGlyphAdjustments || hasPairAdjustments;
+    // Cluster drawing needs a 1:1 display line -> source text mapping so
+    // cluster indices remain globally stable (no case transform, list
+    // prefix, tabs, wrapping, RTL, or justify word-spacing).
+    const clusterSafe =
+      glyphControlled &&
+      lines.length === 1 &&
+      lines[0] === text &&
+      !isRTL &&
+      p.textAlign !== 'justify' &&
+      extraWordSpacing === 0;
+    if (clusterSafe) {
+      drawClusters(target, displayLine, drawOriginX, y, ls, tr, p);
+    } else if (
+      (ls !== 0 ||
+        tr !== 0 ||
+        extraWordSpacing > 0 ||
+        (p.kerningMode === 'none' && glyphControlled)) &&
+      displayLine.length > 1
+    ) {
+      // Per-character or per-word rendering for custom spacing. Also used as
+      // the kerning-off fallback when the cluster path is unavailable.
       const words = displayLine.split(/(\s+)/);
       let cursorX = drawOriginX;
       for (const word of words) {

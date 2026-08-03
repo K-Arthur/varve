@@ -770,7 +770,11 @@ export interface CharacterFormat {
   letterSpacing?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   textDecoration?: 'none' | 'underline' | 'line-through';
-  color?: readonly [number, number, number, number];
+  /**
+   * Run text color. ManagedColor since schema 2.13; older documents stored
+   * `[r, g, b, a]` sRGB tuples (migrated at load).
+   */
+  color?: ManagedColor;
   openTypeFeatures?: OpenTypeFeatureMap;
   variableFontSettings?: VariableFontSettings;
   fontVariant?: 'normal' | 'small-caps' | 'all-small-caps';
@@ -817,7 +821,8 @@ export interface ParagraphFormat {
   columnCount?: number;
   columnGap?: number;
   columnRuleWidth?: number;
-  columnRuleColor?: readonly [number, number, number, number];
+  /** Column-rule color. ManagedColor since schema 2.13 (was an sRGB tuple). */
+  columnRuleColor?: ManagedColor;
   tabStops?: TabStop[];
   tabSize?: number;
 }
@@ -837,6 +842,32 @@ export interface Paragraph {
 export interface RichText {
   paragraphs: Paragraph[];
 }
+
+/**
+ * Per-cluster glyph adjustment for wordmark-level typography.
+ *
+ * Keyed by grapheme-cluster index (UAX #29, via Intl.Segmenter) in the
+ * node's text — NOT by shaped-glyph id or UTF-16 code unit — so adjustments
+ * survive font/size/kerning/ligature changes deterministically. Text
+ * content edits invalidate the map (policy enforced by the editor).
+ */
+export interface GlyphAdjustment {
+  /** Horizontal offset in px (local space). */
+  dx: number;
+  /** Vertical offset in px (local space). */
+  dy: number;
+  /** Advance override in px (adds to the measured cluster advance). */
+  advance: number;
+  /** Rotation in radians around the cluster origin. */
+  rotation: number;
+  /** Horizontal scale factor. */
+  scaleX: number;
+  /** Vertical scale factor. */
+  scaleY: number;
+}
+
+/** Kerning modes that are actually implemented by the render pipeline. */
+export type KerningMode = 'auto' | 'none';
 
 export type TextMode = 'point' | 'area' | 'path' | 'auto';
 
@@ -1016,6 +1047,24 @@ export interface TextNode extends NodeBase {
   textResizing?: 'autoWidth' | 'autoHeight' | 'fixed';
   /** F6: OpenType feature flags (stub — e.g. { liga: true, kern: true }). */
   openTypeFeatures?: Record<string, boolean>;
+  /**
+   * Kerning mode. 'auto' uses font pair kerning (browser/rustybuzz default).
+   * 'none' disables pair kerning between clusters while tracking, manual
+   * pair adjustments, and ligature behavior remain independent.
+   */
+  kerningMode?: KerningMode;
+  /**
+   * Per-cluster glyph adjustments keyed by grapheme-cluster index. When
+   * present, the renderer draws cluster-by-cluster so offsets, rotations,
+   * and scales apply without corrupting ordinary text behavior.
+   */
+  glyphAdjustments?: Record<number, GlyphAdjustment>;
+  /**
+   * Manual pair spacing: px of extra space between cluster i and cluster
+   * i+1, keyed by the index of the preceding cluster. Applies in both
+   * kerning modes.
+   */
+  pairAdjustments?: Record<number, number>;
   /** Variable font axis values (e.g. { wght: 500, wdth: 75 }). */
   variableAxes?: Record<string, number>;
   /** Rich text content (paragraphs with runs). When set, overrides `text`. */

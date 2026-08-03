@@ -155,6 +155,9 @@ export function sceneNodeToEngineNode(
       pathTextSettings: node.pathTextSettings,
       direction: node.direction ?? 'auto',
       language: node.language,
+      kerningMode: node.kerningMode,
+      glyphAdjustments: node.glyphAdjustments,
+      pairAdjustments: node.pairAdjustments,
       w: width,
       h: height,
     };
