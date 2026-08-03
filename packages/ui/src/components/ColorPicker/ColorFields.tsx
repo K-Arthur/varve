@@ -1,6 +1,6 @@
 import { useCallback, useId, useState } from 'react';
 import type { Color } from './color-utils';
-import { hexToRgb, hsbToRgb, hslToRgb, rgbToHex, rgbToHsb, rgbToHsl } from './color-utils';
+import { hexToRgba, hsbToRgb, hslToRgb, rgbToHex, rgbToHsb, rgbToHsl } from './color-utils';
 import { SpinbuttonRow } from './SpinbuttonRow';
 
 export interface ColorFieldsProps {
@@ -17,22 +17,53 @@ const MODES: { key: ColorMode; label: string }[] = [
   { key: 'hsb', label: 'HSB' },
 ];
 
+/** Prefix-length check: is this draft a plausible partial hex value? */
+function isHexPrefix(raw: string): boolean {
+  return /^#?[0-9a-fA-F]{0,8}$/.test(raw);
+}
+
 export function ColorFields({ color, onChange }: ColorFieldsProps) {
   const [mode, setMode] = useState<ColorMode>('hex');
   const [hexDraft, setHexDraft] = useState('');
+  const [hexError, setHexError] = useState(false);
   const hexId = useId();
 
   const alphaPct = Math.round((color[3] / 255) * 100);
 
   const commitHex = useCallback(
     (raw: string) => {
-      const parsed = hexToRgb(raw);
+      const trimmed = raw.trim();
+      if (trimmed === '') {
+        // Focusing then leaving with no edit is not an error — keep the
+        // previous valid color.
+        setHexDraft('');
+        setHexError(false);
+        return;
+      }
+      const parsed = hexToRgba(trimmed);
       if (parsed) {
-        onChange([parsed[0], parsed[1], parsed[2], color[3]]);
+        // 8-/4-digit forms carry alpha; 6-/3-digit forms keep the current
+        // alpha so entering a plain hex value never silently resets opacity.
+        const [, , , hexAlpha] = parsed;
+        onChange([parsed[0], parsed[1], parsed[2], hexAlpha ?? color[3]]);
+        setHexError(false);
+      } else {
+        setHexError(true);
       }
       setHexDraft('');
     },
     [color, onChange],
+  );
+
+  const handleHexChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const next = e.target.value;
+      setHexDraft(next);
+      if (hexError && isHexPrefix(next)) {
+        setHexError(false);
+      }
+    },
+    [hexError],
   );
 
   const handleHexKeyDown = useCallback(
@@ -42,6 +73,7 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
         commitHex(hexDraft);
       } else if (e.key === 'Escape') {
         setHexDraft('');
+        setHexError(false);
       }
     },
     [hexDraft, commitHex],
@@ -148,14 +180,25 @@ export function ColorFields({ color, onChange }: ColorFieldsProps) {
             <input
               id={hexId}
               type="text"
-              className={`insp-num__input color-fields__input-full`}
+              className={`insp-num__input color-fields__input-full${
+                hexError ? ' color-fields__input--invalid' : ''
+              }`}
               value={hexDraft || currentHex}
               aria-label="Hex color"
-              onChange={(e) => setHexDraft(e.target.value)}
+              aria-invalid={hexError}
+              aria-describedby={hexError ? `${hexId}-error` : undefined}
+              spellCheck={false}
+              autoComplete="off"
+              onChange={handleHexChange}
               onBlur={() => commitHex(hexDraft)}
               onKeyDown={handleHexKeyDown}
             />
           </div>
+          {hexError && (
+            <span id={`${hexId}-error`} className="color-fields__error" role="status">
+              Enter a valid hex color (#RGB, #RRGGBB, #RGBA, or #RRGGBBAA)
+            </span>
+          )}
         </div>
       )}
 

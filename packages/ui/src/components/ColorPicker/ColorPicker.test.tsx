@@ -129,6 +129,80 @@ describe('ColorFields', () => {
   });
 });
 
+describe('ColorFields — hex input forms', () => {
+  const hexInput = () => screen.getByRole('textbox', { name: 'Hex color' });
+
+  function commitWith(raw: string) {
+    act(() => {
+      fireEvent.change(hexInput(), { target: { value: raw } });
+      fireEvent.keyDown(hexInput(), { key: 'Enter' });
+    });
+  }
+
+  it('accepts 6-digit hex without leading # and keeps alpha', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[100, 150, 200, 128]} onChange={onChange} />);
+    commitWith('6496c8');
+    const emitted = onChange.mock.calls[0]?.[0] as Color;
+    expect(emitted).toEqual([100, 150, 200, 128]);
+  });
+
+  it('accepts case-insensitive input', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[0, 0, 0, 255]} onChange={onChange} />);
+    commitWith('#AB12CD');
+    const emitted = onChange.mock.calls[0]?.[0] as Color;
+    expect(emitted[0]).toBe(0xab);
+    expect(emitted[1]).toBe(0x12);
+    expect(emitted[2]).toBe(0xcd);
+  });
+
+  it('accepts 8-digit hex and sets alpha', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[0, 0, 0, 255]} onChange={onChange} />);
+    commitWith('#ff000080');
+    const emitted = onChange.mock.calls[0]?.[0] as Color;
+    expect(emitted).toEqual([255, 0, 0, 128]);
+  });
+
+  it('accepts 3-digit hex and expands it', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[0, 0, 0, 255]} onChange={onChange} />);
+    commitWith('#f06');
+    const emitted = onChange.mock.calls[0]?.[0] as Color;
+    expect(emitted).toEqual([255, 0, 102, 255]);
+  });
+
+  it('rejects invalid input with an error and keeps the document color', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[10, 20, 30, 255]} onChange={onChange} />);
+    commitWith('not-a-color');
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByRole('status')).toHaveTextContent(/valid hex color/);
+    expect(hexInput()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('clears the error once a valid prefix is typed again', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[10, 20, 30, 255]} onChange={onChange} />);
+    commitWith('zzzz');
+    expect(screen.getByRole('status')).toBeTruthy();
+    act(() => {
+      fireEvent.change(hexInput(), { target: { value: '#f' } });
+    });
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(hexInput()).toHaveAttribute('aria-invalid', 'false');
+  });
+
+  it('keeps the previous valid color when invalid input is committed', () => {
+    const onChange = vi.fn();
+    render(<ColorFields color={[10, 20, 30, 255]} onChange={onChange} />);
+    commitWith('xyz');
+    // The field falls back to the canonical display value.
+    expect(hexInput()).toHaveValue('#0a141e');
+  });
+});
+
 describe('EyeDropperButton', () => {
   it('renders even when EyeDropper API is unsupported', () => {
     render(<EyeDropperButton onPick={() => {}} />);
