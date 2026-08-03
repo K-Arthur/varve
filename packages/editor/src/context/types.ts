@@ -1014,7 +1014,18 @@ export interface EditorContextValue {
 
   // Color mode
   documentColorMode: ColorMode;
-  switchColorMode: (mode: ColorMode) => void;
+  /**
+   * Assign a working mode without rewriting stored values. Existing colors
+   * keep their space and are interpreted under the new mode at read
+   * boundaries (render/export). Non-destructive to values.
+   */
+  assignDocumentColorMode: (mode: ColorMode) => void;
+  /**
+   * Rewrite stored process colors into the target mode. Analytical in the
+   * browser (reported as approximate); ICC-accurate conversion requires
+   * the desktop engine.
+   */
+  convertDocumentColors: (mode: ColorMode) => void;
 
   // Color blindness simulation
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
