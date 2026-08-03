@@ -20,114 +20,36 @@
  */
 
 import { deepCloneSubtree } from '../clone';
-import { nodeWorldBounds } from '../coordinateService';
 import type { Document } from '../document';
 import { addGuide, resolveGuidePageId } from '../document';
 import { addNode } from '../document-nodes';
 import { cryptoId } from '../document-utils';
-import type { ManagedColor, NodeId } from '../types';
+import { nodeLocalBounds } from '../nodeBounds';
+import type {
+  LogoBrief,
+  LogoConcept,
+  LogoConceptStatus,
+  LogoPaletteColor,
+  LogoProject,
+  LogoProvenance,
+  LogoVariant,
+  LogoVariantKind,
+  NodeId,
+} from '../types';
 
-export type LogoConceptStatus = 'active' | 'pinned' | 'rejected' | 'archived';
+export type {
+  LogoBrief,
+  LogoConcept,
+  LogoConceptStatus,
+  LogoPalette,
+  LogoPaletteColor,
+  LogoProject,
+  LogoProvenance,
+  LogoVariant,
+  LogoVariantKind,
+} from '../types';
 
-export type LogoVariantKind =
-  | 'primary'
-  | 'horizontal'
-  | 'vertical'
-  | 'stacked'
-  | 'compact'
-  | 'icon'
-  | 'wordmark'
-  | 'monochrome'
-  | 'reversed'
-  | 'small'
-  | 'favicon'
-  | 'app-icon'
-  | 'avatar'
-  | 'watermark'
-  | 'custom';
-
-export type LogoProvenance =
-  | 'user-created'
-  | 'imported'
-  | 'template-derived'
-  | 'generated-locally'
-  | 'generated-remotely'
-  | 'vectorized'
-  | 'reconstructed'
-  | 'derived';
-
-/** Editable brand brief. Every field is optional — no facts are invented. */
-export interface LogoBrief {
-  brandName?: string;
-  tagline?: string;
-  industry?: string;
-  audience?: string;
-  /** Free-form keywords (e.g. "minimal", "geometric", "handmade"). */
-  keywords: string[];
-  /** Preferred color descriptions or values (free-form, e.g. "#0f766e"). */
-  preferredColors: string[];
-  /** Prohibited colors (free-form). */
-  prohibitedColors: string[];
-  /** Free-form notes (targets, cultural considerations, legal notes). */
-  notes?: string;
-  updatedAt: number;
-}
-
-export interface LogoConcept {
-  id: string;
-  name: string;
-  /** Artboard frame that holds this concept's artwork. Null while the
-   *  concept has no dedicated artboard yet. */
-  artboardId: NodeId | null;
-  status: LogoConceptStatus;
-  rationale?: string;
-  provenance: LogoProvenance;
-  createdAt: number;
-  updatedAt: number;
-  /** Generation metadata (provider, prompt, settings) when applicable. */
-  sourcePrompt?: string;
-}
-
-export interface LogoVariant {
-  id: string;
-  name: string;
-  kind: LogoVariantKind;
-  artboardId: NodeId | null;
-  /** Concept this variant belongs to (null when standalone). */
-  sourceConceptId: string | null;
-  /** Variant this was derived from (null for roots). */
-  derivedFromVariantId: string | null;
-  notes?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
-export interface LogoPaletteColor {
-  id: string;
-  name?: string;
-  color: ManagedColor;
-  /** Optional role label, e.g. "Primary", "Accent", "Neutral". */
-  role?: string;
-}
-
-export interface LogoPalette {
-  colors: LogoPaletteColor[];
-  updatedAt: number;
-}
-
-export interface LogoProject {
-  version: 1;
-  id: string;
-  name: string;
-  createdAt: number;
-  updatedAt: number;
-  brief: LogoBrief;
-  concepts: LogoConcept[];
-  variants: LogoVariant[];
-  palette?: LogoPalette;
-}
-
-export function emptyBrief(): LogoBrief {
+export function emptyBrief(): import('../types').LogoBrief {
   return {
     keywords: [],
     preferredColors: [],
@@ -417,8 +339,54 @@ export function setLogoPalette(doc: Document, colors: LogoPaletteColor[]): Docum
  * given gap from the artboard's world bounds. Returns the document unchanged
  * when the node has no bounds.
  */
+/** World-space bounds of a node: local bounds transformed by its own
+ *  transform and rotation (parent chains are identity at root level; logo
+ *  artboards are root-level frames). Computed locally to avoid a
+ *  coordinateService → document → logo dependency cycle. */
+function worldBoundsOf(
+  doc: Document,
+  nodeId: NodeId,
+): { x: number; y: number; w: number; h: number } | null {
+  const node = doc.nodes[nodeId];
+  if (!node) return null;
+  const local = nodeLocalBounds(node, doc);
+  if (!local) return null;
+  const t = node.transform as [number, number, number, number, number, number];
+  const rot = node.rotation ?? 0;
+  const cos = Math.cos((rot * Math.PI) / 180);
+  const sin = Math.sin((rot * Math.PI) / 180);
+  // world = rotate(rot) * transform * local, using the same composition as
+  // coordinateService.nodeWorldTransform for root-level nodes.
+  const m: [number, number, number, number, number, number] = [
+    cos * t[0] - sin * t[1],
+    sin * t[0] + cos * t[1],
+    cos * t[2] - sin * t[3],
+    sin * t[2] + cos * t[3],
+    cos * t[4] - sin * t[5],
+    sin * t[4] + cos * t[5],
+  ];
+  const apply = (px: number, py: number): [number, number] => [
+    m[0] * px + m[2] * py + m[4],
+    m[1] * px + m[3] * py + m[5],
+  ];
+  const corners = [
+    apply(local.x, local.y),
+    apply(local.x + local.w, local.y),
+    apply(local.x, local.y + local.h),
+    apply(local.x + local.w, local.y + local.h),
+  ];
+  const xs = corners.map((c) => c[0]);
+  const ys = corners.map((c) => c[1]);
+  return {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    w: Math.max(...xs) - Math.min(...xs),
+    h: Math.max(...ys) - Math.min(...ys),
+  };
+}
+
 export function addClearSpaceGuides(doc: Document, nodeId: NodeId, gap: number): Document {
-  const bounds = nodeWorldBounds(doc, nodeId);
+  const bounds = worldBoundsOf(doc, nodeId);
   if (!bounds || !Number.isFinite(gap) || gap < 0) return doc;
   const pageId = resolveGuidePageId(doc);
   const opts = { pageId, locked: true };

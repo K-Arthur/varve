@@ -338,7 +338,13 @@ Five task-focused modes over the same document/scene/rendering/command/history s
 | **Draw** | `Ctrl+Shift+3` | paint | Raster painting, vector freehand, brushes |
 | **Photo** | `Ctrl+Shift+4` | preserve | Nondestructive photo editing, adjustments |
 | **Motion** | `Ctrl+Shift+5` | select | Timeline animation, keyframes, easing |
+| **Logo** | `Ctrl+Shift+6` | select | Wordmarks, marks, monograms, badges, brand systems |
 | **Codegen** | `Ctrl+Shift+9` | select | Code export |
+
+Logo workflow docs: `docs/architecture/logo-system.md`,
+`docs/plans/logo-system-progress.md`. New commands must register in
+`ShortcutManager` + `createActionHandlers` + both menus; project state
+lives in `Document.logoProject` (scene `logo/logoProject.ts`).
 
 The bindings above come from the shortcut registry (`workspaceDesign` … in
 `packages/editor/src/shortcuts/ShortcutManager.ts`). Older docs may show
