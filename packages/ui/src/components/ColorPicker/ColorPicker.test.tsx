@@ -349,6 +349,22 @@ describe('ColorPicker — mode switch lifecycle', () => {
   });
 });
 
+describe('ColorPicker — previous color preview', () => {
+  it('shows a previous-color swatch when it differs from the current value', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    render(<ColorPicker value={color} onChange={() => {}} previousColor={[0, 0, 255, 255]} />);
+    const pair = screen.getByRole('img', { name: /current and previous color/i });
+    expect(pair.querySelector('.color-picker__preview--previous')).toBeTruthy();
+  });
+
+  it('hides the previous-color swatch when nothing changed', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    render(<ColorPicker value={color} onChange={() => {}} previousColor={[255, 0, 0, 255]} />);
+    const pair = screen.getByRole('img', { name: /current and previous color/i });
+    expect(pair.querySelector('.color-picker__preview--previous')).toBeNull();
+  });
+});
+
 describe('ColorPicker — CMYK profile context', () => {
   it('labels converted CMYK values as approximate with the profile name', () => {
     const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
