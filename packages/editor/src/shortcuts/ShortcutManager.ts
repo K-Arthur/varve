@@ -322,6 +322,41 @@ export const SHORTCUT_DEFS = {
     label: 'Boolean Exclude',
     category: 'Object',
   },
+  expandStroke: {
+    binding: { key: 'e', ctrl: true, alt: true },
+    label: 'Expand Stroke to Outline',
+    category: 'Object',
+  },
+  offsetPath: {
+    binding: { key: 'o', ctrl: true, alt: true },
+    label: 'Offset Path',
+    category: 'Object',
+  },
+  roundCorners: {
+    binding: { key: 'c', ctrl: true, alt: true },
+    label: 'Round Path Corners',
+    category: 'Object',
+  },
+  simplifyPath: {
+    binding: { key: 'w', ctrl: true, alt: true },
+    label: 'Simplify Path',
+    category: 'Object',
+  },
+  mirrorDuplicateHorizontal: {
+    binding: { key: 'h', ctrl: true, alt: true, shift: true },
+    label: 'Mirror Duplicate Horizontal',
+    category: 'Object',
+  },
+  mirrorDuplicateVertical: {
+    binding: { key: 'v', ctrl: true, alt: true, shift: true },
+    label: 'Mirror Duplicate Vertical',
+    category: 'Object',
+  },
+  radialDuplicate: {
+    binding: { key: 'r', ctrl: true, alt: true },
+    label: 'Radial Duplicate',
+    category: 'Object',
+  },
   quickActions: {
     binding: { key: ';', ctrl: true, shift: true },
     label: 'Quick Actions',

@@ -787,6 +787,15 @@ export interface EditorContextValue {
   // Boolean operations
   booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
 
+  // Logo geometry operations (expand stroke, offset, round, simplify,
+  // mirror duplicate, radial duplicate) — see useLogoGeometry.
+  expandStrokeSelected: () => void;
+  offsetPathSelected: (distance: number, joinStyle?: 'miter' | 'round' | 'bevel') => void;
+  roundCornersSelected: (radius: number) => void;
+  simplifyPathSelected: (tolerance: number) => void;
+  mirrorDuplicateSelected: (axis: 'horizontal' | 'vertical') => void;
+  radialDuplicateSelected: (count: number, totalAngleDeg?: number) => void;
+
   // Background removal
   removeBackground: (method: BackgroundRemovalMethod) => Promise<void>;
   removeBackgroundWithOptions: (
