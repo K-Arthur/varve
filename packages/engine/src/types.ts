@@ -560,6 +560,12 @@ export type Primitive =
       height: number;
       pixelMode: boolean;
       tiles: Record<string, { pixels: number[]; version: number }>;
+      /**
+       * Stable scene-node id, used to key the persistent backing surface that
+       * lets replay upload only changed tiles. Optional: without it replay
+       * falls back to rebuilding the whole layer, which is always correct.
+       */
+      layerId?: string;
     };
 
 export type EngineRasterLayerPrimitive = Extract<Primitive, { kind: 'rasterLayer' }>;
