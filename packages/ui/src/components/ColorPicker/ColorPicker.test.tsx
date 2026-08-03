@@ -349,6 +349,57 @@ describe('ColorPicker — mode switch lifecycle', () => {
   });
 });
 
+describe('ColorPicker — CMYK profile context', () => {
+  it('labels converted CMYK values as approximate with the profile name', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    render(
+      <ColorPicker
+        value={color}
+        onChange={() => {}}
+        cmykProfile={{ id: 'fogra39', name: 'Fogra39 (ISO Coated v2 300%)' }}
+      />,
+    );
+    act(() => {
+      screen.getAllByRole('radio', { name: 'CMYK' })[0]?.click();
+    });
+    expect(screen.getByRole('note')).toHaveTextContent(/approximate conversion for fogra39/i);
+  });
+
+  it('shows the profile of native CMYK values', () => {
+    const color: ManagedColor = {
+      space: 'cmyk',
+      c: 0,
+      m: 255,
+      y: 255,
+      k: 0,
+      a: 255,
+      profile: 'swop-coated',
+    };
+    render(<ColorPicker value={color} onChange={() => {}} />);
+    expect(screen.getByRole('note')).toHaveTextContent(/profile: swop coated v2/i);
+  });
+
+  it('tags authored CMYK values with the document profile in CMYK documents', () => {
+    const color: ManagedColor = { space: 'rgb', r: 255, g: 0, b: 0, a: 255 };
+    const onChange = vi.fn();
+    render(
+      <ColorPicker
+        value={color}
+        onChange={onChange}
+        documentColorMode="cmyk"
+        cmykProfile={{ id: 'fogra39', name: 'Fogra39 (ISO Coated v2 300%)' }}
+      />,
+    );
+    act(() => {
+      fireEvent.keyDown(screen.getByRole('slider', { name: 'Hue' }), { key: 'ArrowRight' });
+    });
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    expect(emitted).toBeDefined();
+    expect(emitted.space).toBe('cmyk');
+    expect(emitted.space === 'cmyk' && emitted.profile).toBe('fogra39');
+  });
+});
+
 describe('SpotColorBrowser', () => {
   it('renders search and options', () => {
     render(<SpotColorBrowser onSelect={() => {}} />);
@@ -437,7 +488,7 @@ describe('ColorPicker — emission space (display mode never changes storage)', 
     expect(emitted).toBeDefined();
     expect(emitted.space).toBe('rgb');
     expect(emitted.a).toBe(128);
-    expect(emitted.profile).toBe('srgb');
+    expect(emitted.space === 'rgb' && emitted.profile).toBe('srgb');
   });
 });
 
@@ -511,7 +562,7 @@ describe('ColorPicker — bit-depth-aware alpha', () => {
     const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
     expect(emitted).toBeDefined();
     expect(emitted.space).toBe('rgb');
-    expect(emitted.bitDepth).toBe('float32');
+    expect(emitted.space === 'rgb' && emitted.bitDepth).toBe('float32');
     expect(emitted.a).toBeCloseTo(0.51, 5);
   });
 });

@@ -247,3 +247,10 @@
   color: var(--color-feedback-danger);
   margin-top: var(--space-1);
 }
+
+/* CMYK profile context note */
+.color-picker__profile-note {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  margin-top: var(--space-1);
+}
