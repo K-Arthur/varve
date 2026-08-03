@@ -8,16 +8,31 @@ import { canvasBackingSize } from '../canvas/canvasSurface';
 import { closeImageBitmapMap, replaceImageBitmapMap } from './collectImageBitmaps';
 import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 import { applyWorkerCamera } from './workerCamera';
-import type { WorkerCommand, WorkerResponse } from './workerHost';
+import type { WorkerCommand, WorkerRenderTiming, WorkerResponse } from './workerHost';
 
 let canvas: OffscreenCanvas | null = null;
 let ctx: OffscreenCanvasRenderingContext2D | null = null;
 let activeRenderRevision = asRenderRevision(0);
 /** Image fill bitmaps keyed by src URL, received via Structured Clone. */
 let imageMap: Record<string, ImageBitmap> = {};
+/**
+ * Per-render timing is only collected while the host has tracing on, so the
+ * untraced hot path keeps its original three `performance.now()`-free shape.
+ * Flipped by the host's clock-calibration ping, which it only sends when
+ * interaction tracing is enabled.
+ */
+let timingEnabled = false;
 
 self.onmessage = (e: MessageEvent<WorkerCommand>) => {
   const msg = e.data;
+  const receivedAt = timingEnabled || msg.type === 'clockPing' ? performance.now() : 0;
+  if (msg.type === 'clockPing') {
+    timingEnabled = true;
+    // t2 is read as late as possible so the reported worker interval covers
+    // the whole time the message spent in this handler.
+    post({ type: 'clockPong', seq: msg.seq, t0: msg.t0, t1: receivedAt, t2: performance.now() });
+    return;
+  }
   if (msg.type === 'cancel') {
     activeRenderRevision = msg.renderRevision ?? asRenderRevision(msg.docVersion);
     return;
@@ -37,12 +52,14 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
       return;
     }
     activeRenderRevision = renderRevision;
+    const surfaceStart = timingEnabled ? performance.now() : 0;
     const backingWidth = canvasBackingSize(msg.viewport.width, msg.dpr);
     const backingHeight = canvasBackingSize(msg.viewport.height, msg.dpr);
     if (!canvas || !ctx || canvas.width !== backingWidth || canvas.height !== backingHeight) {
       canvas = new OffscreenCanvas(backingWidth, backingHeight);
       ctx = canvas.getContext('2d');
     }
+    const surfaceMs = timingEnabled ? performance.now() - surfaceStart : 0;
     if (!ctx) {
       post({
         type: 'error',
@@ -55,14 +72,30 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
     // Update image map from Structured Clone transport
     if (msg.images) imageMap = replaceImageBitmapMap(imageMap, msg.images);
     try {
+      const renderStartedAt = timingEnabled ? performance.now() : 0;
       ctx.setTransform(msg.dpr, 0, 0, msg.dpr, 0, 0);
       ctx.clearRect(0, 0, msg.viewport.width, msg.viewport.height);
       ctx.save();
       applyWorkerCamera(ctx, msg.camera, msg.dpr, msg.viewport);
       replayIr(ctx as unknown as ReplayTarget, msg.ir as RenderItem[], (src) => imageMap[src]);
       ctx.restore();
+      const renderEndedAt = timingEnabled ? performance.now() : 0;
       if (shouldTransferRenderedFrame(renderRevision, activeRenderRevision)) {
         const bitmap = canvas.transferToImageBitmap();
+        const postedAt = timingEnabled ? performance.now() : 0;
+        const timing: WorkerRenderTiming | undefined = timingEnabled
+          ? {
+              receivedAt,
+              renderStartedAt,
+              renderEndedAt,
+              postedAt,
+              surfaceMs,
+              replayMs: renderEndedAt - renderStartedAt,
+              bitmapMs: postedAt - renderEndedAt,
+              irCount: msg.ir.length,
+              imageCount: Object.keys(imageMap).length,
+            }
+          : undefined;
         post(
           {
             type: 'frameRendered',
@@ -72,6 +105,7 @@ self.onmessage = (e: MessageEvent<WorkerCommand>) => {
             viewport: msg.viewport,
             dpr: msg.dpr,
             bitmap,
+            ...(timing ? { timing } : {}),
           },
           [bitmap],
         );

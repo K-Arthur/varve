@@ -214,6 +214,23 @@ export function recordInteractionSpan(
 }
 
 /**
+ * Record a span whose start time is already known in the main-thread domain.
+ *
+ * Unlike `recordInteractionSpan`, this does not assume the span ended "now" —
+ * required for work whose timing was measured elsewhere (a worker's own clock,
+ * translated through calibration) and reported after the fact.
+ */
+export function recordInteractionSpanAt(
+  name: string,
+  startTimeMs: number,
+  durationMs: number,
+  attributes?: InteractionSpan['attributes'],
+): void {
+  if (!tracingEnabled || !current || durationMs < 0) return;
+  appendSpan(current, name, startTimeMs, durationMs, attributes);
+}
+
+/**
  * Start an async-safe phase span. The returned one-shot completion closure
  * retains the originating trace, so queue/worker work can finish after the
  * pointer gesture closes without being attributed to a newer gesture.

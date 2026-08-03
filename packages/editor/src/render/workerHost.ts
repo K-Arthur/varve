@@ -3,6 +3,11 @@
  */
 import type { SceneNode as EngineNode, RenderItem } from '@strata/engine';
 import { asRenderRevision, type Camera, type RenderRevision, type Viewport } from '@strata/shared';
+import {
+  isInteractionTracingEnabled,
+  recordInteractionSpanAt,
+} from '../performance/interactionTrace';
+import { type ClockCalibration, WorkerClockCalibrator } from '../performance/workerClock';
 import { closeImageBitmapMap } from './collectImageBitmaps';
 import { checkFault } from './faultInjection';
 import {
@@ -11,6 +16,7 @@ import {
   estimateRgbaBytes,
   RenderBitmapBudget,
 } from './renderBitmapBudget';
+import { buildWorkerRenderSpan } from './workerRenderSpan';
 
 /** Default byte budget for main-thread-visible render-worker bitmaps. */
 export const DEFAULT_WORKER_BITMAP_BUDGET_BYTES = 128 * 1024 * 1024;
@@ -35,7 +41,35 @@ export type WorkerCommand =
   | WorkerRenderCommand
   | { type: 'hitTest'; worldX: number; worldY: number; docVersion: number }
   | { type: 'resize'; width: number; height: number; dpr: number }
-  | { type: 'cancel'; docVersion: number; renderRevision?: RenderRevision };
+  | { type: 'cancel'; docVersion: number; renderRevision?: RenderRevision }
+  /** Clock-calibration ping; `t0` is main.performance.now() before posting. */
+  | { type: 'clockPing'; seq: number; t0: number };
+
+/**
+ * Worker-side timing for one render, in the *worker's* `performance.now()`
+ * domain. Never subtract these from main-thread timestamps without the
+ * calibrated offset (see `performance/workerClock.ts`).
+ */
+export interface WorkerRenderTiming {
+  /** Worker clock on message receipt. */
+  receivedAt: number;
+  /** Worker clock when replay began (after any canvas (re)allocation). */
+  renderStartedAt: number;
+  /** Worker clock when replay finished, before bitmap creation. */
+  renderEndedAt: number;
+  /** Worker clock after transferToImageBitmap, immediately before posting. */
+  postedAt: number;
+  /** Time spent allocating or resizing the OffscreenCanvas backing store. */
+  surfaceMs: number;
+  /** Time spent in replayIr. */
+  replayMs: number;
+  /** Time spent in transferToImageBitmap. */
+  bitmapMs: number;
+  /** IR item count actually replayed. */
+  irCount: number;
+  /** Image bitmaps resident in the worker's image map after this render. */
+  imageCount: number;
+}
 
 export type WorkerResponse =
   | {
@@ -46,9 +80,13 @@ export type WorkerResponse =
       viewport: Viewport;
       dpr: number;
       bitmap?: ImageBitmap;
+      /** Present only while interaction tracing is enabled. */
+      timing?: WorkerRenderTiming;
     }
   | { type: 'hitTestResult'; nodeId: number | null; docVersion: number }
-  | { type: 'error'; message: string; docVersion?: number; renderRevision?: RenderRevision };
+  | { type: 'error'; message: string; docVersion?: number; renderRevision?: RenderRevision }
+  /** Clock-calibration pong; `t1`/`t2` are worker.performance.now(). */
+  | { type: 'clockPong'; seq: number; t0: number; t1: number; t2: number };
 
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
@@ -67,6 +105,8 @@ export interface RenderWorkerHost {
   readonly pendingRenderRevision: RenderRevision | null;
   readonly bitmapBudget: RenderBitmapBudget;
   getBitmapBudgetState(): BitmapBudgetState;
+  /** Current main<->worker clock calibration, or null before the first exchange. */
+  getClockCalibration(): ClockCalibration | null;
 }
 
 export interface RenderWorkerHostOptions {
@@ -133,7 +173,28 @@ export function createRenderWorkerHost(
   let latestRequestedRevision: RenderRevision | null = null;
   let latestFrameIdentity: { viewport: Viewport; dpr: number } | null = null;
   let restartTimeout: ReturnType<typeof setTimeout> | null = null;
+  let inFlightDispatchedAtMs = 0;
+  let clockPingSeq = 0;
+  const clockCalibrator = new WorkerClockCalibrator();
   const maxRestarts = 5;
+
+  /**
+   * Send a calibration exchange when tracing is on and the current estimate is
+   * stale. Sending it before the render command means the worker's timing flag
+   * is already set by the time the first traced frame arrives.
+   */
+  function maybeCalibrateClock(): void {
+    if (!worker || permanentFailure) return;
+    if (!isInteractionTracingEnabled()) return;
+    const now = performance.now();
+    if (!clockCalibrator.needsRecalibration(now)) return;
+    try {
+      postToWorker({ type: 'clockPing', seq: ++clockPingSeq, t0: performance.now() });
+    } catch {
+      // Calibration is diagnostics-only: a failed ping must never mark the
+      // render worker as permanently failed.
+    }
+  }
   const bitmapBudget = new RenderBitmapBudget(
     options.budgetBytes ?? DEFAULT_WORKER_BITMAP_BUDGET_BYTES,
   );
@@ -201,6 +262,35 @@ export function createRenderWorkerHost(
     }
   }
 
+  /**
+   * Emit `render.worker` for a completed frame. `disposition` distinguishes a
+   * frame that reached the canvas from one that was superseded before it could
+   * — without it, discarded worker work would look like presented latency.
+   */
+  function recordWorkerSpan(
+    msg: Extract<WorkerResponse, { type: 'frameRendered' }>,
+    receivedAtMs: number,
+    disposition: 'presented' | 'discarded' | 'unmatched',
+  ): void {
+    if (!msg.timing) return;
+    const span = buildWorkerRenderSpan(clockCalibrator, {
+      timing: msg.timing,
+      dispatchedAtMs: inFlightDispatchedAtMs,
+      receivedAtMs,
+    });
+    recordInteractionSpanAt('render.worker', span.startTimeMs, span.durationMs, {
+      ...span.attributes,
+      disposition,
+      renderRevision: msg.renderRevision,
+      viewportWidth: msg.viewport.width,
+      viewportHeight: msg.viewport.height,
+      dpr: msg.dpr,
+      bitmapWidth: msg.bitmap?.width ?? 0,
+      bitmapHeight: msg.bitmap?.height ?? 0,
+      bitmapBytes: msg.bitmap ? estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height) : 0,
+    });
+  }
+
   function frameIdentityMatches(response: Extract<WorkerResponse, { type: 'frameRendered' }>) {
     return (
       latestFrameIdentity !== null &&
@@ -216,6 +306,8 @@ export function createRenderWorkerHost(
       bitmapBudget.releaseTransfer(render.transferBytes);
       return false;
     }
+    maybeCalibrateClock();
+    inFlightDispatchedAtMs = performance.now();
     try {
       postToWorker(render.command, render.transfer);
     } catch {
@@ -256,9 +348,24 @@ export function createRenderWorkerHost(
           closeResponseResources(msg);
           return;
         }
+        if (msg.type === 'clockPong') {
+          clockCalibrator.addExchange({
+            t0: msg.t0,
+            t1: msg.t1,
+            t2: msg.t2,
+            t3: performance.now(),
+          });
+          return;
+        }
         if (msg.type === 'frameRendered') {
+          // The span is emitted for discarded frames too — a drag that renders
+          // ten frames and presents two is exactly the case worth seeing — so
+          // the timing is captured here and recorded once the disposition is
+          // known below.
+          const spanReceivedAtMs = msg.timing ? performance.now() : 0;
           const responseRevision = msg.renderRevision ?? asRenderRevision(msg.docVersion);
           if (inFlightRenderRevision === null || responseRevision !== inFlightRenderRevision) {
+            recordWorkerSpan(msg, spanReceivedAtMs, 'unmatched');
             closeResponseResources(msg);
             return;
           }
@@ -266,6 +373,7 @@ export function createRenderWorkerHost(
             (latestRequestedRevision !== null && responseRevision < latestRequestedRevision) ||
             lastRenderResizeGeneration !== resizeGeneration ||
             !frameIdentityMatches(msg);
+          recordWorkerSpan(msg, spanReceivedAtMs, obsolete ? 'discarded' : 'presented');
           inFlightRenderRevision = null;
           // The completed render's outbound ImageBitmaps are now worker-held;
           // release the main-thread reservation so a long drag cannot accrue
@@ -313,6 +421,10 @@ export function createRenderWorkerHost(
         worker?.terminate();
         inFlightRenderRevision = null;
         clearRestartTimeout();
+        // A replacement worker has a fresh timeOrigin, so the previous offset
+        // is meaningless. Resetting bumps the calibration generation, which
+        // marks every later span as belonging to a new calibration epoch.
+        clockCalibrator.reset();
         worker = createWorker();
         if (!worker) {
           markPermanentFailure();
@@ -428,6 +540,9 @@ export function createRenderWorkerHost(
     },
     getBitmapBudgetState() {
       return bitmapBudget.state;
+    },
+    getClockCalibration() {
+      return clockCalibrator.calibration;
     },
     get bitmapBudget() {
       return bitmapBudget;
