@@ -46,6 +46,68 @@ describe('computeDocumentDirtyRegion', () => {
     expect(computeDocumentDirtyRegion(before, after)).toEqual({ kind: 'full' });
   });
 
+  it('produces a partial region for a top-level z-order reorder', () => {
+    let before = createDocument('Dirty', true);
+    before = addNode(
+      before,
+      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
+    );
+    before = addNode(
+      before,
+      makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
+    );
+    // Reorder: b moves in front of a (paint order swap).
+    const after = { ...before, rootChildren: ['b', 'a'] };
+    const dirty = computeDocumentDirtyRegion(before, after);
+    // Both nodes' bounds repaint: the overlap pixels change (order) and each
+    // node's non-overlap pixels are unchanged but covered by the union.
+    expect(dirty.kind).toBe('partial');
+    if (dirty.kind === 'partial') {
+      // Both nodes changed paint position; each contributes old+new bounds.
+      expect(dirty.bounds).toEqual({ x: 0, y: 0, w: 20, h: 10 });
+      expect(dirty.rectCount).toBe(4);
+    }
+  });
+
+  it('covers old and new positions when a reorder moves a node between positions', () => {
+    let before = createDocument('Dirty', true);
+    for (let i = 0; i < 4; i++) {
+      before = addNode(
+        before,
+        makeShapeNode(`n${i}`, { kind: 'rect', x: i * 100, y: 0, w: 20, h: 10 }),
+      );
+    }
+    // Move n0 to the end.
+    const after = { ...before, rootChildren: ['n1', 'n2', 'n3', 'n0'] };
+    const dirty = computeDocumentDirtyRegion(before, after);
+    expect(dirty.kind).toBe('partial');
+    if (dirty.kind === 'partial') {
+      // All four nodes shifted position; old+new bounds cover 0..320.
+      expect(dirty.bounds.x).toBe(0);
+      expect(dirty.bounds.w).toBe(320);
+      expect(dirty.rectCount).toBe(8);
+    }
+  });
+
+  it('keeps z-order changes partial even when combined with a leaf edit', () => {
+    let before = createDocument('Dirty', true);
+    before = addNode(
+      before,
+      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
+    );
+    before = addNode(
+      before,
+      makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
+    );
+    const a = before.nodes.a!;
+    const after = {
+      ...before,
+      rootChildren: ['b', 'a'],
+      nodes: { ...before.nodes, a: { ...a, transform: [1, 0, 0, 1, 40, 0] as const } },
+    };
+    expect(computeDocumentDirtyRegion(before, after).kind).toBe('partial');
+  });
+
   it('unions the complete old and new shadow footprint for a moved leaf', () => {
     let before = createDocument('Dirty effects', true);
     const shape = makeShapeNode(

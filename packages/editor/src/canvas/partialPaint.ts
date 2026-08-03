@@ -15,14 +15,17 @@ export function openMultiRectPartialClip(
   applyCam: () => void,
 ): void {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
+  // The dirty rects already carry a 40px anti-aliasing margin, so the clear
+  // region and the clip region are exactly the same rects — no extra margin
+  // that would clear retained pixels the clip cannot repaint (a 1px seam).
   for (const sr of screenRects) {
     const dx = sr.x * dpr;
     const dy = sr.y * dpr;
     const dw = sr.w * dpr;
     const dh = sr.h * dpr;
-    ctx.clearRect(dx - 1, dy - 1, dw + 2, dh + 2);
+    ctx.clearRect(dx, dy, dw, dh);
     ctx.fillStyle = boardColor;
-    ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
+    ctx.fillRect(dx, dy, dw, dh);
   }
   ctx.save();
   ctx.beginPath();
@@ -46,9 +49,9 @@ export function openUnionPartialClip(
   const dw = rect.w * dpr;
   const dh = rect.h * dpr;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(dx - 1, dy - 1, dw + 2, dh + 2);
+  ctx.clearRect(dx, dy, dw, dh);
   ctx.fillStyle = boardColor;
-  ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
+  ctx.fillRect(dx, dy, dw, dh);
   ctx.save();
   ctx.beginPath();
   ctx.rect(dx, dy, dw, dh);
