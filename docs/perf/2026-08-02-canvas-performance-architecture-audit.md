@@ -127,6 +127,14 @@ tighter latency gates belong to platform-keyed benchmark hardware.
 
 ## Evidence status and remaining gaps
 
+> **Superseded in part (2026-08-03).** Gaps 1, 2, 4 and 5 below have been
+> addressed or measured; see
+> [`2026-08-03-interaction-observability-report.md`](2026-08-03-interaction-observability-report.md).
+> In particular gap 5's raster trigger has been **met** and the estimate in
+> `raster-tiling-decision.md` was four times too permissive. Gaps 3 and 6
+> remain open: the runners exist but the multi-hour soak, production corpus,
+> and native samples have not been collected.
+
 1. `pointer.input`, `snap.prefilter`, `snap.evaluate`, `render.queue`, and
    `render.main` are correlated inside one bounded interaction trace.
    `interaction.dispatch`, `render.worker`, and OS-level `composite.present`

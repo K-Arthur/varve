@@ -289,3 +289,32 @@ cells or occupied index cells. A failing work-count test dropped from 10,201
 empty lookups to at most two occupied cells. A 200-iteration zoom-0.01 probe
 with 9.77M theoretical versus 4K occupied cells measures 1.55 ms mean; the
 focused spatial suite passes 30/30.
+
+## Interaction observability and raster measurement (2026-08-03)
+
+Instrumentation, calibration and measurement pass. Full evidence in
+[`2026-08-03-interaction-observability-report.md`](2026-08-03-interaction-observability-report.md).
+
+No app-wide speedup is claimed: this session added evidence, not optimization.
+One hot path (raster reconstruction) was measured and its optimization approved
+by a gate; it was deliberately not implemented in the same pass.
+
+| Workload | Before | After / measured | Environment | Confidence | Notes |
+|---|---|---|---|---|---|
+| Raster reconstruction, 512² (16 tiles) | unmeasured | p50 1.58 ms, p95 4.35 ms, 1.0 MiB intermediate | CachyOS 7.1.5, Node 26.4, 8 cores, perf governor | medium | Node memory-traffic model; lower bound on in-browser cost |
+| Raster reconstruction, 1024² (64 tiles) | unmeasured | p50 5.93 ms, p95 10.57 ms, 4.0 MiB | Same | medium | Under the 16.7 ms budget |
+| Raster reconstruction, 2048² (256 tiles) | unmeasured | p50 28.57 ms, p95 58.67 ms, 16.0 MiB | Same | medium | **Trigger met** — 3.5x over budget |
+| Raster reconstruction, 4096² (1024 tiles) | unmeasured | p50 204.15 ms, p95 252.84 ms, 64.0 MiB | Same | medium | ~12 frame budgets per replay |
+| Raster reconstruction, 8192² (4096 tiles) | unmeasured | p50 855.57 ms, p95 968.37 ms, 256.0 MiB | Same | medium | Intermediate exceeds the whole 128 MiB worker budget |
+| Tile-replay share of reconstruction | unmeasured | 94.3% – 99.8% across all sizes | Same | high | Dirty-tile replay attacks the right term; allocation reuse alone addresses <6% |
+| `interaction.dispatch` span | absent | distinct bounded span | jsdom/Vitest | high | Separable from `pointer.input` handler cost |
+| `render.worker` span | absent | distinct span, calibrated, with disposition | jsdom/Vitest | high | Chromium/WebView2/WKWebView only — worker disabled on WebKitGTK |
+| Main↔worker clock | assumed identical timeOrigin | NTP-style calibration, uncertainty recorded | jsdom/Vitest | high | Min-RTT sample; 250 ms discontinuity detection |
+| Presentation timing | absent | `present.feedback` (±8 ms) / `composite.estimated` (lower bound) | jsdom/Vitest | high | Never named `composite.present` — no OS evidence exists |
+| Pre-merge dirty rectangles | merged bound only | individual rects with source + node id, capped at 64 | jsdom/Vitest | high | Fixture: two 20px contributions merge to a 60px bound |
+| Nodes rejected by dirty region | unmeasured | structurally 0 — visible list is built before clipping | jsdom/Vitest | high | `prunableByDirty` measures the headroom without changing the pipeline |
+| Frame-disposal invariants | untested | 200-trial randomized state machine + 7 host-level paths | jsdom/Vitest | high | Found and fixed a residency leak on context-loss-out-of-installed |
+
+Reproduce the raster figures with `node scripts/perf/bench-raster-reconstruction.mjs`.
+Native WebKitGTK samples were **not** collected: `perf` is absent and
+`ptrace_scope = 1` blocks attaching to a running session.
