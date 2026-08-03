@@ -131,6 +131,51 @@ export function computeDocumentDirtyRegion(
   let previousParents: Map<NodeId, NodeId> | undefined;
   let nextParents: Map<NodeId, NodeId> | undefined;
 
+  // Top-level z-order change (reorder): no node identity changed, but the
+  // paint order did — every pixel where the moved node overlaps a neighbor
+  // whose relative order changed is visually different. Those pixels are all
+  // inside the moved nodes' bounds, so the moved nodes' old+new render bounds
+  // are a complete dirty set (the vacated and newly covered regions both
+  // repaint). Nested reorders change a container's children array, which the
+  // loop below already treats as structural.
+  if (previous.rootChildren !== next.rootChildren) {
+    const movedIds = new Set<NodeId>();
+    const maxLen = Math.max(previous.rootChildren.length, next.rootChildren.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (previous.rootChildren[i] !== next.rootChildren[i]) {
+        if (previous.rootChildren[i]) movedIds.add(previous.rootChildren[i]!);
+        if (next.rootChildren[i]) movedIds.add(next.rootChildren[i]!);
+      }
+    }
+    if (movedIds.size > 0) {
+      const parents = buildParentIndexMap(next);
+      for (const id of movedIds) {
+        const node = next.nodes[id];
+        if (!node || node.visible === false) continue;
+        const beforeNode = previous.nodes[id];
+        // Identity-changed nodes are handled by the main loop below.
+        if (beforeNode === undefined || beforeNode !== node) continue;
+        const afterBounds = nodeVisualWorldBounds(next, id, nextStyles, parents);
+        if (!afterBounds) continue;
+        changed = true;
+        recorder?.add(afterBounds, 'node-after', id);
+        bounds = unionBounds(bounds, afterBounds);
+        rectCount++;
+        const beforeBounds = nodeVisualWorldBounds(
+          previous,
+          id,
+          previousStyles,
+          buildParentIndexMap(previous),
+        );
+        if (beforeBounds) {
+          recorder?.add(beforeBounds, 'node-before', id);
+          bounds = unionBounds(bounds, beforeBounds);
+          rectCount++;
+        }
+      }
+    }
+  }
+
   for (const id of ids) {
     const before = previous.nodes[id];
     const after = next.nodes[id];
