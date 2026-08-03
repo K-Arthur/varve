@@ -60,6 +60,32 @@ export { createTauriPlatform } from './tauri';
 export * from './types';
 export type { WebPlatformOptions } from './web';
 export { createWebPlatform } from './web';
+export {
+  DB_NAME,
+  DB_VERSION,
+  KV_VIEW_STATE,
+  openHomeDb,
+  STORE_ACTIVITY,
+  STORE_ASSET_FOLDERS,
+  STORE_ASSETS,
+  STORE_BRANCHES,
+  STORE_COLLECTION_ENTRIES,
+  STORE_COLLECTIONS,
+  STORE_FILE_TAGS,
+  STORE_FILES,
+  STORE_FOLDERS,
+  STORE_KV,
+  STORE_LIBRARIES,
+  STORE_PROJECTS,
+  STORE_RECENT_FILES,
+  STORE_SAVED_SEARCHES,
+  STORE_TAGS,
+  STORE_TEMPLATES,
+  STORE_THUMBS,
+  STORE_VERSION_CONTENT,
+  STORE_VERSIONS,
+  STORE_WORKSPACES,
+} from './web-db';
 export type {
   ButtonLayout,
   ControlsPosition,
