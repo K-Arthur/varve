@@ -206,6 +206,40 @@ describe('InspectorColorPopover', () => {
     expect(parsed[0]).toMatchObject({ space: 'rgb', r: 20, g: 184, b: 166, a: 255 });
   });
 
+  it('records a recent color even when the parent echoes committed values', async () => {
+    // Regression: a `[open, value]` effect re-captured the open-time value on
+    // every edit, so the dismissal diff always compared equal and nothing was
+    // recorded. The open-time snapshot must be taken once, at open.
+    sessionStorage.clear();
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={onChange}
+        swatchStyle={{ background: '#fff' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog');
+    // Simulate a controlled parent: echo each emitted color back as the value.
+    fireEvent.click(screen.getByRole('option', { name: /teal 500/i }));
+    const emitted = onChange.mock.calls[0]?.[0] as ManagedColor;
+    rerender(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={emitted}
+        onChange={onChange}
+        swatchStyle={{ background: '#fff' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+    const raw = sessionStorage.getItem('strata:recent-colors');
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!) as ManagedColor[];
+    expect(parsed[0]).toMatchObject({ space: 'rgb', r: 20, g: 184, b: 166, a: 255 });
+  });
+
   it('does not record a recent color when nothing changed', async () => {
     sessionStorage.clear();
     render(
