@@ -6,10 +6,23 @@
  *
  * Research basis: APG Dialog (Modal); Floating UI placement; WCAG 2.2 target size.
  */
-import type { ColorMode, ManagedColor } from '@strata/scene';
+import type { ColorMode, ColorProfileRef, ManagedColor } from '@strata/scene';
 import { FloatingPortal, FocusTrap, Icon } from '@strata/ui';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useEditor } from '../../../context';
+
+/**
+ * Document CMYK working profile, when rendered inside EditorProvider.
+ * Standalone renders (unit tests) fall back to null.
+ */
+function useDocCmykProfile(): ColorProfileRef | null {
+  try {
+    return useEditor().state.document.colorConfig?.cmykProfile ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export interface InspectorColorPopoverProps {
   /** Accessible name for the swatch trigger (e.g. "Fill colour"). */
@@ -48,6 +61,7 @@ export function InspectorColorPopover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogId = useId();
   const titleId = useId();
+  const cmykProfile = useDocCmykProfile();
 
   const gestureActiveRef = useRef(false);
 
@@ -146,7 +160,12 @@ export function InspectorColorPopover({
                 <Icon name="X" label={undefined} size="0.85em" />
               </button>
             </div>
-            <ColorPicker value={value} onChange={onChange} documentColorMode={documentColorMode} />
+            <ColorPicker
+              value={value}
+              onChange={onChange}
+              documentColorMode={documentColorMode}
+              cmykProfile={cmykProfile}
+            />
             <button type="button" onClick={close} className="insp-picker-done">
               Done
             </button>

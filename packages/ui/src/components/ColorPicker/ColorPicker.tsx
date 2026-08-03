@@ -1,4 +1,4 @@
-import type { BitDepth, ColorMode, ManagedColor } from '@strata/scene';
+import type { BitDepth, ColorMode, ColorProfileRef, ManagedColor } from '@strata/scene';
 import { isCmykColor, isGrayColor, isSpotColor } from '@strata/scene';
 import {
   cmykToRgb,
@@ -48,11 +48,25 @@ export interface ColorPickerProps {
   documentColors?: Color[];
   /** Recently used colors shown in the picker's swatch section. */
   recentColors?: Color[];
+  /**
+   * Document CMYK working profile. Shown as context in the CMYK view and
+   * attached to newly authored CMYK values in CMYK-mode documents.
+   */
+  cmykProfile?: ColorProfileRef | null;
 }
 
 function managedColorToRgbTuple(c: ManagedColor): Color {
   return managedColorToRgba(c) as unknown as Color;
 }
+
+const CMYK_PROFILE_NAMES: Record<string, string> = {
+  fogra39: 'Fogra39 (ISO Coated v2 300%)',
+  fogra51: 'Fogra51 (PSO Coated v3)',
+  gracol2006: 'GRACoL 2006',
+  'swop-coated': 'SWOP Coated v2',
+  'swop-uncoated': 'SWOP Uncoated v2',
+  'japan-color-2011': 'Japan Color 2011 Coated',
+};
 
 function initialSpace(c: ManagedColor, documentColorMode?: ColorMode): ColorSpace {
   if (isCmykColor(c)) return 'cmyk';
@@ -161,6 +175,7 @@ export function ColorPicker({
   onInteractionEnd,
   documentColors,
   recentColors,
+  cmykProfile,
 }: ColorPickerProps) {
   const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value, documentColorMode));
 
@@ -215,11 +230,18 @@ export function ColorPicker({
   );
 
   // `alpha` is 0-1 normalized; RGB/CMYK/gray channels are 0-255 uint8 scale.
+  const authorProfile = useMemo(
+    () =>
+      spotProfile ??
+      (documentColorMode === 'cmyk' && authoringSpace === 'cmyk' ? cmykProfile?.id : undefined),
+    [spotProfile, documentColorMode, authoringSpace, cmykProfile],
+  );
+
   const emitRgb = useCallback(
     (r: number, g: number, b: number, alpha: number) => {
       if (authoringSpace === 'cmyk') {
         const [c, m, y, k] = rgbToCmyk(r, g, b);
-        emit(buildColor('cmyk', [c, m, y, k], alpha, bitDepthEffective, spotProfile));
+        emit(buildColor('cmyk', [c, m, y, k], alpha, bitDepthEffective, authorProfile));
       } else if (authoringSpace === 'gray') {
         const lum = Math.round(r * 0.299 + g * 0.587 + b * 0.114);
         emit(buildColor('gray', [lum, 0, 0, 0], alpha, bitDepthEffective, spotProfile));
@@ -227,7 +249,7 @@ export function ColorPicker({
         emit(buildColor('rgb', [r, g, b, 0], alpha, bitDepthEffective, spotProfile));
       }
     },
-    [authoringSpace, bitDepthEffective, spotProfile, emit],
+    [authoringSpace, bitDepthEffective, authorProfile, spotProfile, emit],
   );
 
   const setDraftsFromRgb = useCallback((r: number, g: number, b: number) => {
@@ -399,6 +421,18 @@ export function ColorPicker({
     ) as ManagedColor & { space: 'cmyk' };
   }, [value, rgbTuple, bitDepthEffective, spotProfile]);
 
+  const cmykProfileNote = useMemo(() => {
+    if (isCmykColor(value)) {
+      const label = value.profile
+        ? (CMYK_PROFILE_NAMES[value.profile] ?? value.profile)
+        : cmykProfile?.name;
+      return label ? `Profile: ${label}` : null;
+    }
+    return cmykProfile
+      ? `Approximate conversion for ${cmykProfile.name}`
+      : 'Approximate conversion (no profile assigned)';
+  }, [value, cmykProfile]);
+
   const grayDisplayValue = useMemo<ManagedColor & { space: 'gray' }>(() => {
     if (isGrayColor(value)) return value;
     const lum = Math.round(rgbTuple[0] * 0.299 + rgbTuple[1] * 0.587 + rgbTuple[2] * 0.114);
@@ -486,7 +520,14 @@ export function ColorPicker({
 
       {space === 'rgb' && <ColorFields color={rgbTuple} onChange={handleFieldsChange} />}
 
-      {space === 'cmyk' && <CmykColorFields value={cmykDisplayValue} onChange={handleCmykChange} />}
+      {space === 'cmyk' && (
+        <>
+          <CmykColorFields value={cmykDisplayValue} onChange={handleCmykChange} />
+          <div className="color-picker__profile-note" role="note">
+            {cmykProfileNote}
+          </div>
+        </>
+      )}
 
       {space === 'gray' && <GrayColorFields value={grayDisplayValue} onChange={handleGrayChange} />}
 
