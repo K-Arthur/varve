@@ -25,10 +25,16 @@ test.describe('Logo panel', () => {
   });
 
   test('View menu shows the Logo Panel item only in the Logo workspace', async ({ page }) => {
+    // Design workspace: the item must be absent from the View menu.
     await page.getByRole('menuitem', { name: /^View/i }).click();
+    await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toBeVisible();
     await expect(page.getByRole('menuitem', { name: /Logo Panel/i })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    await page.keyboard.press('Control+Shift+6');
+    await expect(page.getByRole('menuitem', { name: 'Fonts Panel' })).toHaveCount(0);
+
+    // Switch via the workspace radio (deterministic), then reopen View.
+    await page.getByRole('radio', { name: 'Logo' }).click({ force: true });
+    await expect(page.getByTestId('logo-panel')).toBeVisible({ timeout: 15000 });
     await page.getByRole('menuitem', { name: /^View/i }).click();
     const item = page.getByRole('menuitem', { name: /Logo Panel/i });
     await expect(item).toBeVisible();
