@@ -236,3 +236,14 @@
   color: var(--color-text-muted);
   padding: var(--space-2);
 }
+
+/* Invalid hex input */
+.color-fields__input--invalid {
+  border-color: var(--color-feedback-danger);
+}
+.color-fields__error {
+  display: block;
+  font-size: var(--font-size-xs);
+  color: var(--color-feedback-danger);
+  margin-top: var(--space-1);
+}

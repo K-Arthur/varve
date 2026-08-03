@@ -104,14 +104,53 @@ export function rgbToHex(r: number, g: number, b: number): string {
   return `#${h(r)}${h(g)}${h(b)}`;
 }
 
-export function hexToRgb(hex: string): [number, number, number] | null {
+/**
+ * Parse a hex color string, supporting:
+ *
+ * - `#RGB` / `RGB`        (no alpha — caller keeps current alpha)
+ * - `#RGBA` / `RGBA`      (alpha included)
+ * - `#RRGGBB` / `RRGGBB`  (no alpha — caller keeps current alpha)
+ * - `#RRGGBBAA` / `RRGGBBAA` (alpha included)
+ *
+ * Case-insensitive; optional leading `#`; surrounding whitespace tolerated.
+ * Returns `[r, g, b]` in 0-255 plus `alpha: number | null` — alpha is only
+ * present when the input form includes it (4- or 8-digit).
+ */
+export function hexToRgba(hex: string): [number, number, number, number | null] | null {
   const raw = hex.replace('#', '').trim();
-  const m = /^([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/.exec(raw);
-  if (!m) return null;
-  const r = Number.parseInt(m[1] as string, 16);
-  const g = Number.parseInt(m[2] as string, 16);
-  const b = Number.parseInt(m[3] as string, 16);
-  return [r, g, b];
+  if (raw.length === 3 || raw.length === 4) {
+    const m = /^([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F])([0-9a-fA-F]?)$/.exec(raw);
+    if (!m) return null;
+    const d = (c: string) => Number.parseInt(c, 16) * 17;
+    return [d(m[1]!), d(m[2]!), d(m[3]!), m[4] ? d(m[4]!) : null];
+  }
+  if (raw.length === 6 || raw.length === 8) {
+    const m = /^([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$/.exec(raw);
+    if (!m) return null;
+    return [
+      Number.parseInt(m[1]!, 16),
+      Number.parseInt(m[2]!, 16),
+      Number.parseInt(m[3]!, 16),
+      m[4] ? Number.parseInt(m[4]!, 16) : null,
+    ];
+  }
+  return null;
+}
+
+/** 3- or 6-digit RGB hex only (no alpha) — legacy signature kept for callers. */
+export function hexToRgb(hex: string): [number, number, number] | null {
+  const parsed = hexToRgba(hex);
+  if (!parsed) return null;
+  return [parsed[0], parsed[1], parsed[2]];
+}
+
+/**
+ * Format an RGBA color as hex: `#RRGGBB` when opaque, `#RRGGBBAA` otherwise.
+ */
+export function rgbToHexA(r: number, g: number, b: number, a: number): string {
+  if (a >= 255) return rgbToHex(r, g, b);
+  const h = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${h(r)}${h(g)}${h(b)}${h(a)}`;
 }
 
 export function rgbToHsb(r: number, g: number, b: number): [number, number, number] {
