@@ -996,6 +996,8 @@ export interface TextNode extends NodeBase {
   lineHeight?: number;
   /** F6: letter-spacing in px. */
   letterSpacing?: number;
+  /** Typographic tracking in 1/1000 em units, added between glyphs. */
+  tracking?: number;
   /** F6: paragraph spacing in px. */
   paragraphSpacing?: number;
   /** F6: text alignment. */
