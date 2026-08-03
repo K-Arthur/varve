@@ -19,6 +19,7 @@ describe('Inspector feature ownership', () => {
       'align-distribute',
       'position-size',
       'component',
+      'icon',
       'corner-radius',
       'constraints',
       'layout',

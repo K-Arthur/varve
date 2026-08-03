@@ -153,6 +153,16 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     status: 'functional',
     rationale: 'Presets configure frame creation or resizing, not document appearance.',
   },
+  icon: {
+    surface: 'properties',
+    scope: 'selection',
+    frequency: 'occasional',
+    complexity: 'compact',
+    status: 'functional',
+    rationale:
+      'Selected-icon provenance (licence, attribution), replace, and detach are selection properties.',
+    duplicates: 'Icon browser dialog offers replace and insert for non-icon selections.',
+  },
   'image-placement': {
     surface: 'properties',
     scope: 'selection',
