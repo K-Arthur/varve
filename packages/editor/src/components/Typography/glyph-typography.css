@@ -1,0 +1,41 @@
+/* Glyph typography controls — shared by Inspector and Logo panel. */
+
+.glyph-typography {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.glyph-typography__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.glyph-typography__label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.glyph-typography__hint {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.glyph-typography__hint--muted {
+  color: var(--color-text-tertiary, var(--color-text-secondary));
+}
+
+.glyph-typography__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-2);
+}
+
+.glyph-typography__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
