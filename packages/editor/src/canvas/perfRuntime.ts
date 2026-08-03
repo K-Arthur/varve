@@ -40,6 +40,7 @@ import {
   detectPlatformCapabilities,
   type PerformanceProfile,
 } from './adaptiveProfile';
+import type { DirtyRegionRecorder } from './dirtyRegion';
 import {
   recordFrame as drawDiagnosticsRecordFrame,
   enableDrawDiagnostics,
@@ -57,6 +58,13 @@ import {
 } from './frameBudget';
 import { getAdaptiveCacheLimits, getMemoryBudgets, type MemoryBudgets } from './memoryBudget';
 import {
+  createNodeWorkCounters,
+  type NodeWorkCounters,
+  NodeWorkRing,
+  nodeWorkRatios,
+  rectsIntersect,
+} from './nodeWorkAccounting';
+import {
   enableSnapMetrics,
   getSnapMetrics,
   getSnapMetricsCount,
@@ -69,6 +77,7 @@ import type { SubtreeIrCache } from './subtreeIrCache';
 
 export {
   beginInteractionSpan,
+  createNodeWorkCounters,
   enableDrawDiagnostics,
   endFrameTiming,
   getAdaptiveCacheLimits,
@@ -81,6 +90,7 @@ export {
   getSnapMetricsCount,
   isSnapMetricsEnabled,
   recordSnapMetrics,
+  rectsIntersect,
   renderDrawDiagnostics,
   resetInteractionTraces,
   resetSnapMetrics,
@@ -90,6 +100,63 @@ export {
   startFrameTiming,
   summarizeSnapMetrics,
 };
+
+// ── Node-work accounting ────────────────────────────────────────────────────
+// Recording is opt-in so the production render loop pays only the integer
+// increments already inlined in it, and never allocates a rectangle recorder.
+
+const nodeWorkRing = new NodeWorkRing();
+let lastDirtyRects: DirtyRegionRecorder | null = null;
+
+export function isNodeWorkRecordingEnabled(): boolean {
+  return isInteractionTracingEnabled();
+}
+
+/**
+ * Record one frame's node-work counters and the individual pre-merge dirty
+ * rectangles that produced them. Both are bounded rings/caps; a long drag
+ * cannot grow either without limit.
+ */
+export function recordNodeWork(
+  counters: NodeWorkCounters,
+  recorder?: DirtyRegionRecorder | null,
+): void {
+  if (!isNodeWorkRecordingEnabled()) return;
+  nodeWorkRing.record(counters);
+  if (recorder) lastDirtyRects = recorder;
+  recordInteractionSpan('render.nodework', 0, {
+    total: counters.totalSceneNodes,
+    candidates: counters.candidates,
+    tested: counters.visibilityTested,
+    rejectedByViewport: counters.rejectedByViewport,
+    rejectedByDirty: counters.rejectedByDirty,
+    prunableByDirty: counters.prunableByDirty,
+    accepted: counters.acceptedForReplay,
+    fullFallback: counters.fullFallback,
+  });
+}
+
+/** Latest node-work samples plus derived ratios, for probes and the HUD. */
+export function getNodeWorkSamples(n = 30): {
+  samples: NodeWorkCounters[];
+  latestRatios: ReturnType<typeof nodeWorkRatios> | null;
+  dirtyRects: { rects: unknown[]; truncated: number } | null;
+} {
+  const samples = nodeWorkRing.recent(n);
+  const latest = samples[samples.length - 1];
+  return {
+    samples,
+    latestRatios: latest ? nodeWorkRatios(latest) : null,
+    dirtyRects: lastDirtyRects
+      ? { rects: [...lastDirtyRects.rects], truncated: lastDirtyRects.truncated }
+      : null,
+  };
+}
+
+export function resetNodeWork(): void {
+  nodeWorkRing.reset();
+  lastDirtyRects = null;
+}
 
 let disposePresentationObserver: (() => void) | null = null;
 
@@ -153,6 +220,12 @@ function augmentPerfDiagnosticsHandle(): void {
     workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
     // Presentation evidence is reported with its class and limits so a probe
     // cannot mistake the rAF lower bound for a measured presentation time.
+    // Node work and the individual pre-merge dirty rectangles behind it, so a
+    // probe can compare dirty-area reduction against actual scene work.
+    nodeWork: {
+      getSamples: (n = 30) => getNodeWorkSamples(n),
+      reset: resetNodeWork,
+    },
     presentation: () => ({
       capabilities: detectPresentationCapabilities(),
       evidenceByRuntime: PRESENTATION_EVIDENCE_BY_RUNTIME,
