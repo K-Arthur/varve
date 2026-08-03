@@ -765,6 +765,100 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
     },
   },
 
+  // ─── Logo Mode (wordmarks, marks, monograms, brand systems) ─────────────
+  logo: {
+    version: 1,
+    panels: {
+      layers: { visible: true, collapsed: false, order: 0 },
+      inspector: { visible: true, collapsed: false, order: 0 },
+      timeline: { visible: false, collapsed: false, order: 2 },
+      pagenav: { visible: false, collapsed: false, order: 3 },
+      library: { visible: false, collapsed: false, order: 4 },
+      codegen: { visible: false, collapsed: false, order: 5 },
+    },
+    defaultTool: 'select',
+    floatingToolbar: true,
+    statusBar: true,
+    tabStrip: true,
+    toolbar: {
+      tools: [
+        { toolId: 'select', groupStart: true },
+        { toolId: 'lasso' },
+        { toolId: 'hand' },
+        { toolId: 'zoom' },
+        { toolId: 'pen', groupStart: true },
+        { toolId: 'pencil' },
+        { toolId: 'nodeEdit' },
+        { toolId: 'text', groupStart: true },
+        { toolId: 'frame', groupStart: true },
+        { toolId: 'rect' },
+        { toolId: 'ellipse' },
+        { toolId: 'polygon' },
+        { toolId: 'star' },
+        { toolId: 'line', groupStart: true },
+        { toolId: 'arrow' },
+        { toolId: 'scale', groupStart: true },
+        { toolId: 'eyedropper' },
+        { toolId: 'inspect' },
+      ],
+      flyouts: [
+        { id: 'shapes', label: 'Shapes', tools: ['rect', 'ellipse', 'polygon', 'star'] },
+        {
+          id: 'boolean',
+          label: 'Boolean',
+          tools: ['booleanUnion', 'booleanSubtract', 'booleanIntersect', 'booleanExclude'],
+        },
+      ],
+    },
+    inspectorTabs: [
+      {
+        id: 'properties',
+        label: 'Properties',
+        visible: true,
+        default: true,
+        group: 'primary',
+        overflowPriority: 0,
+      },
+      { id: 'appearance', label: 'Appearance & Effects', visible: true, group: 'workflow' },
+      { id: 'export', label: 'Export', visible: true, group: 'output' },
+      { id: 'audit', label: 'Audit', visible: true, group: 'output', overflowPriority: 5 },
+      { id: 'fonts', label: 'Fonts', visible: true, group: 'workflow' },
+    ],
+    statusSections: [
+      { id: 'toolName', visible: true, order: 0 },
+      { id: 'cursorPos', visible: true, order: 10 },
+      { id: 'layoutScore', visible: true, order: 11 },
+      { id: 'unit', visible: true, order: 20 },
+      { id: 'debt', visible: true, order: 21 },
+      { id: 'shortcutTip', visible: true, order: 25 },
+      { id: 'zoom', visible: true, order: 30 },
+      { id: 'selectionInfo', visible: true, order: 40 },
+    ],
+    canvasOverlays: {
+      rulers: true,
+      guides: true,
+      pixelGrid: false,
+      dotGrid: true,
+      bleedGuides: false,
+      layoutGrid: false,
+      baselineGrid: false,
+    },
+    shortcuts: { extra: {}, disabled: [] },
+    performance: { ...COMMON_PERFORMANCE },
+    onboarding: {
+      description:
+        'Logo design: wordmarks, marks, monograms, badges, clear-space, and brand systems on a transparent canvas.',
+      shortcutHint: 'Ctrl+Shift+6',
+      tips: [
+        'Logo canvases start transparent — export keeps alpha.',
+        'Use Convert Text to Outlines (Text menu) before delivering final wordmarks.',
+        'Boolean tools (Ctrl+Alt+U/S/I/X) combine shapes into a single mark.',
+        'Generate clear-space guides from Object menu to protect the logo.',
+        'Audit tab flags thin strokes, unclosed paths, and small-size risks.',
+      ],
+    },
+  },
+
   motion: {
     version: 2,
     panels: {
@@ -886,6 +980,7 @@ export const WORKSPACE_LABELS: Record<WorkspaceMode, string> = {
   image: 'Photo',
   motion: 'Motion',
   codegen: 'Codegen & Audit',
+  logo: 'Logo',
 };
 
 export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
@@ -895,6 +990,7 @@ export const WORKSPACE_ICONS: Record<WorkspaceMode, IconName> = {
   image: 'Image',
   motion: 'Play',
   codegen: 'Code',
+  logo: 'Stamp',
 };
 
 /** All available workspace modes. */
@@ -905,6 +1001,7 @@ export const ALL_WORKSPACE_MODES: readonly WorkspaceMode[] = [
   'image',
   'motion',
   'codegen',
+  'logo',
 ] as const;
 
 /** Mode-specific keyboard shortcuts for switching. */
@@ -915,6 +1012,7 @@ export const WORKSPACE_SHORTCUTS: Record<WorkspaceMode, string> = {
   image: 'Ctrl+Shift+I',
   motion: 'Ctrl+Shift+M',
   codegen: 'Ctrl+Shift+9',
+  logo: 'Ctrl+Shift+6',
 };
 
 // ---------------------------------------------------------------------------

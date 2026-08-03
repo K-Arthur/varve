@@ -80,7 +80,14 @@ export type EditorMode =
 /**
  * Workspace mode.
  */
-export type WorkspaceMode = 'design' | 'drawing' | 'image' | 'print' | 'motion' | 'codegen';
+export type WorkspaceMode =
+  | 'design'
+  | 'drawing'
+  | 'image'
+  | 'print'
+  | 'motion'
+  | 'codegen'
+  | 'logo';
 
 /**
  * Node kind this finding applies to.
