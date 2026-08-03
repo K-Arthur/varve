@@ -141,6 +141,61 @@ Inspector → Timeline/status → Menubar (wraps via Shift+Tab)
 10. E2E focus-order suite + axe + visual regression.
 11. Docs + final report.
 
+## Completion status (2026-08-03)
+
+All milestones implemented and committed to `master` (see the milestone
+commit list in the final report). E2E verification: 50 tests green
+(`tests/e2e/a11y/focus-order.spec.ts`, `tests/e2e/canvas/keyboard-nav.spec.ts`,
+`tests/e2e/menus/keyboard-nav.spec.ts` — including a scoped axe scan).
+Unit suites green: ui 385, Menubar 18, TabStrip 7, PageNav 19,
+ShortcutPalette 17, LayersPanel 234, PropertiesPanel 14, Toolbar 6,
+focusMovement 14, ui Menu 36.
+
+### Resolved root causes
+
+| RC | Resolution | Evidence |
+|----|-----------|----------|
+| RC-1/2 | ui/Menu restores focus on every close path (capture-on-open, focusin tracking, restore on unmount); Tab walks the tab order past the trigger | Menu.test.tsx focus-lifecycle suite; menu E2E Escape/trigger tests |
+| RC-3 | Toolbar roves only when focus is already inside; disabled skipped; focusin sync | Toolbar.test.tsx (6) |
+| RC-4 | Combobox options are not tab stops; highlight clamps on filter change | Combobox tests |
+| RC-5 | Palette: FocusTrap + aria-modal, activedescendant roving, focus restore, remap capture fix (input no longer disabled), Alt+Enter/Alt+Backspace | ShortcutPalette.test.tsx (17) |
+| RC-6 | Menubar: APG top-level keys, roving tabindex in dropdown/submenu, disabled skipping + initial-focus skip, submenu focus return, focus restore, Tab walk, non-menuitem hijack guard, index-space fix for submenu open, focusin sync | Menubar E2E (27) — full keyboard-nav suite green |
+| RC-7 | PageNav arrows/Home/End with wrap + automatic activation | PageNav.test.tsx (19) |
+| RC-8 | TabStrip roving follows focus; close/new focus management; scrollIntoView | TabStrip.test.tsx (7) |
+| RC-9 | Layers: Shift+F10 context menu, focus retarget after delete/filter/collapse, rename return, aria-setsize/posinset | LayersPanel suite (234) |
+| RC-10/15 | Canvas Tab exits when no selection (trap removed); selection cycling preserved | focus-order spec canvas test (flipped), canvas keyboard-nav (18) |
+| RC-11 | Focus-visible rings everywhere (zoom input, rename inputs, floating toolbar, menu items, layers/timeline buttons, inspector inputs) | style(a11y) commit; axe scoped scan |
+| RC-12 | Export sub-tabs: roving, arrows, Home/End, aria wiring | PropertiesPanel.test.tsx (14) |
+| RC-13 | FocusTrap restores on unmount; Popover fallback Escape/outside-click + role=dialog | Popover/FocusTrap tests |
+| RC-14 | Not addressed this pass — the contextual-help panel's ~40 offscreen tab stops remain (translateX(100%) without visibility:hidden). Tracked below. | — |
+
+### Remaining limitations (documented, with severity)
+
+| Limitation | Severity | Impact | Follow-up |
+|-----------|----------|--------|-----------|
+| ContextualHelp panel (RC-14): closed panel is transform-hidden but its buttons stay in the tab order | Medium | ~40 tab stops after the status bar for keyboard users | Add `visibility: hidden` (or inert) to `.contextual-help-panel` when closed; E2E guard |
+| Tab close button inside `role="tab"` (nested-interactive, axe-excluded) | Low | Screen readers may announce the nested button oddly; keyboard path is Delete/Backspace | Restructure tab markup into a presentation wrapper; re-enable the axe rule |
+| `role="region"`-with-name on DisclosureSection + inspector contrast/landmark/h1 axe baseline | Low | axe full-suite not zero-violation (pre-existing, app-wide) | Separate app-wide axe remediation track |
+| Drag reorder is pointer-only (layers tree, page nav) | Medium | Keyboard users cannot reorder layers/pages | dnd-kit KeyboardSensor + documented keys |
+| Layers row action buttons (visibility/lock/checkbox) are pointer-only | Low | Keyboard path is the (now keyboard-openable) context menu | Document per-row key shortcuts |
+| Inspector color picker: plain buttons (eyedropper, Done) not covered by the shortcut-ignore selector | Medium | Canvas tool shortcuts can fire while the picker is open | Extend `SHORTCUT_IGNORE_SELECTOR` or add data-shortcut-ignore to picker buttons |
+| Platform matrix (Windows WebView2, macOS WKWebView, Orca/NVDA/VoiceOver) | — | Not tested in this environment | Run the E2E suites on each platform; add a screen-reader pass |
+
+### Verification evidence
+
+- Focus-order traces: `tests/e2e/a11y/focus-order.spec.ts` (Tab from the
+  first menubar item reaches canvas then panels; reverse traversal; canvas
+  single-stop exit; positive-tabindex and aria-hidden guards).
+- Canvas trap baseline → fixed: keydown instrumentation showed
+  `defaultPrevented=true` with no focusin (RC-15); the flipped spec now
+  requires the next stop after the canvas to be a real region.
+- Menu suite: the previously-failing spec (`menus/keyboard-nav.spec.ts`,
+  added concurrently, never green) now passes 27/27, including submenu
+  keyboard traversal, disabled-item skipping, typeahead, and axe.
+- The dev-server stale-transform issue (the source of most "Cannot read
+  properties of undefined (reading 'binding')" boot crashes) was diagnosed
+  and worked around by restarting vite; it is environmental, not code.
+
 ## Evidence
 
 - Focus-order trace: see `tests/e2e/canvas/keyboard-nav.spec.ts` (existing
