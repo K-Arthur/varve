@@ -698,6 +698,85 @@ const ICON_ASSET_GROUP: PresetGroup = {
   ],
 };
 
+const LOGO_GROUP: PresetGroup = {
+  category: 'logo',
+  label: 'Logo',
+  presets: [
+    definePreset({
+      id: 'logo-blank-square',
+      name: 'Logo Canvas (Square 1024×1024)',
+      category: 'logo',
+      width: 1024,
+      height: 1024,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'transparent',
+      tags: ['logo', 'primary'],
+      workflowHint: 'Transparent canvas — design a square primary logo',
+    }),
+    definePreset({
+      id: 'logo-horizontal',
+      name: 'Logo Canvas (Horizontal 2400×800)',
+      category: 'logo',
+      width: 2400,
+      height: 800,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'transparent',
+      tags: ['logo', 'horizontal', 'wordmark'],
+      workflowHint: 'Wide canvas for horizontal/stacked wordmarks',
+    }),
+    definePreset({
+      id: 'logo-vertical',
+      name: 'Logo Canvas (Vertical 800×1400)',
+      category: 'logo',
+      width: 800,
+      height: 1400,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'transparent',
+      tags: ['logo', 'vertical'],
+      workflowHint: 'Tall canvas for stacked locks and badges',
+    }),
+    definePreset({
+      id: 'logo-badge',
+      name: 'Logo Badge (Seal 1200×1200)',
+      category: 'logo',
+      width: 1200,
+      height: 1200,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'transparent',
+      tags: ['logo', 'badge', 'emblem'],
+      workflowHint: 'Circular emblem, crest, or seal',
+    }),
+    definePreset({
+      id: 'logo-mark',
+      name: 'Logo Mark (Icon 512×512)',
+      category: 'logo',
+      width: 512,
+      height: 512,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'transparent',
+      tags: ['logo', 'icon', 'mark'],
+      workflowHint: 'Compact icon-only mark',
+    }),
+    definePreset({
+      id: 'logo-favicon',
+      name: 'Logo Favicon (32×32)',
+      category: 'logo',
+      width: 32,
+      height: 32,
+      unit: 'px',
+      colorMode: 'rgb',
+      background: 'transparent',
+      tags: ['logo', 'favicon'],
+      workflowHint: 'Small-size variant canvas',
+    }),
+  ],
+};
+
 /**
  * All built-in preset groups, in the order they should be presented in the
  * picker UI. Extending the app's presets should only ever mean adding to (or
@@ -714,6 +793,7 @@ export const BUILTIN_PRESET_GROUPS: PresetGroup[] = [
   PRESENTATION_GROUP,
   PAPER_GROUP,
   ICON_ASSET_GROUP,
+  LOGO_GROUP,
 ];
 
 /** Flatten every built-in preset (excluding the standalone blank preset) into

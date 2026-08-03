@@ -704,6 +704,10 @@ function buildMenus(
           action: 'workspaceMotion',
         },
         {
+          label: 'Workspace: Logo',
+          action: 'workspaceLogo',
+        },
+        {
           label: 'Reset Workspace to Default',
           action: 'resetWorkspace',
         },
@@ -1189,19 +1193,19 @@ function itemAriaChecked(
  */
 const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   // Text menu — hidden in codegen
-  textBold: ['design', 'print', 'drawing', 'image', 'motion'],
-  textItalic: ['design', 'print', 'drawing', 'image', 'motion'],
-  textUnderline: ['design', 'print', 'drawing', 'image', 'motion'],
-  textIncreaseSize: ['design', 'print', 'drawing', 'image', 'motion'],
-  textDecreaseSize: ['design', 'print', 'drawing', 'image', 'motion'],
-  textAlignLeft: ['design', 'print', 'drawing', 'image', 'motion'],
-  textAlignCenter: ['design', 'print', 'drawing', 'image', 'motion'],
-  textAlignRight: ['design', 'print', 'drawing', 'image', 'motion'],
-  textAlignJustify: ['design', 'print', 'drawing', 'image', 'motion'],
-  textToOutlines: ['design', 'print', 'drawing'],
+  textBold: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textItalic: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textUnderline: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textIncreaseSize: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textDecreaseSize: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textAlignLeft: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textAlignCenter: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textAlignRight: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textAlignJustify: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
+  textToOutlines: ['design', 'print', 'drawing', 'logo'],
 
   // View menu — mode-specific panels
-  inspectMode: ['design', 'print', 'drawing', 'image', 'motion'],
+  inspectMode: ['design', 'print', 'drawing', 'image', 'motion', 'logo'],
   toggleTimelinePanel: ['design', 'motion'],
   toggleGraphEditor: ['design', 'motion'],
   toggleStateMachinePanel: ['design', 'motion'],
@@ -1209,24 +1213,24 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
 
   // Object menu — mode-specific
   newAdjustmentLayer: ['design', 'print', 'image'],
-  createClippingMask: ['design', 'print', 'drawing', 'image'],
-  releaseClippingMask: ['design', 'print', 'drawing', 'image'],
+  createClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  releaseClippingMask: ['design', 'print', 'drawing', 'image', 'logo'],
   batchBgRemove: ['design', 'image'],
   toolCrop: ['design', 'print', 'image'],
   extractPalette: ['design', 'drawing', 'image'],
-  addAlphaMask: ['design', 'print', 'drawing', 'image'],
-  addClipMask: ['design', 'print', 'drawing', 'image'],
-  addLuminanceMask: ['design', 'print', 'drawing', 'image'],
-  removeMask: ['design', 'print', 'drawing', 'image'],
-  toggleMask: ['design', 'print', 'drawing', 'image'],
-  invertMask: ['design', 'print', 'drawing', 'image'],
-  flattenSelection: ['design', 'print', 'drawing', 'image'],
-  rasterizeSelection: ['design', 'print', 'drawing', 'image'],
-  mergeSelected: ['design', 'print', 'drawing', 'image'],
-  booleanUnion: ['design', 'print', 'drawing'],
-  booleanSubtract: ['design', 'print', 'drawing'],
-  booleanIntersect: ['design', 'print', 'drawing'],
-  booleanExclude: ['design', 'print', 'drawing'],
+  addAlphaMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  addClipMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  addLuminanceMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  removeMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  toggleMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  invertMask: ['design', 'print', 'drawing', 'image', 'logo'],
+  flattenSelection: ['design', 'print', 'drawing', 'image', 'logo'],
+  rasterizeSelection: ['design', 'print', 'drawing', 'image', 'logo'],
+  mergeSelected: ['design', 'print', 'drawing', 'image', 'logo'],
+  booleanUnion: ['design', 'print', 'drawing', 'logo'],
+  booleanSubtract: ['design', 'print', 'drawing', 'logo'],
+  booleanIntersect: ['design', 'print', 'drawing', 'logo'],
+  booleanExclude: ['design', 'print', 'drawing', 'logo'],
 
   // Page menu — multi-page only
   createMaster: ['design', 'print'],
@@ -2230,6 +2234,7 @@ export function Menubar({
               image: 'image',
               motion: 'play',
               codegen: 'code',
+              logo: 'stamp',
             };
             const solidIcon = WORKSPACE_SOLID_ICONS[mode];
             return (

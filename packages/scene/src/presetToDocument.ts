@@ -34,7 +34,10 @@ export function createDocumentOptionsFromPreset(preset: Preset): CreateDocumentO
 /** Create a Document from a Preset, additionally resolving any recommended
  *  color profile into the document's colorConfig. */
 export function createDocumentFromPreset(preset: Preset, name?: string): Document {
-  const doc = createDocument(name ?? preset.name, createDocumentOptionsFromPreset(preset));
+  let doc = createDocument(name ?? preset.name, createDocumentOptionsFromPreset(preset));
+  if (preset.background === 'transparent' && doc.canvasBackground) {
+    doc = { ...doc, canvasBackground: { space: 'rgb', r: 0, g: 0, b: 0, a: 0 } };
+  }
   if (!preset.colorProfileId || !doc.colorConfig) return doc;
   const profile = resolveColorProfileRef(preset.colorProfileId);
   if (!profile) return doc;
