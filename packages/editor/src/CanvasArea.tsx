@@ -125,6 +125,7 @@ import {
   registerRedrawCoordinator,
   resolveDirtyScreenRect,
   scheduleCanvasFrame,
+  setApplyFixtureHandler,
   startFrameTiming,
 } from './canvas/perfRuntime';
 import { tryPresentWorkerFrame } from './canvas/presentWorkerFrame';
@@ -736,7 +737,26 @@ export function CanvasArea({
 
   useEffect(() => {
     registerRedrawCoordinator(redrawCoordinatorRef.current);
-    return () => registerRedrawCoordinator(null);
+    setApplyFixtureHandler(async (id) => {
+      try {
+        const { createPerformanceWorkload } = await import('./performance/workloadCorpus');
+        const workload = createPerformanceWorkload(id as never);
+        editorRef.current.updateDoc(() => workload.document);
+        requestContentDrawRef.current?.('fixture-apply', 'scene-mutation');
+        return {
+          ok: true,
+          id: workload.document.id,
+          nodeCount: workload.expected.nodeCount,
+          fixtureChecksum: workload.fixtureChecksum,
+        };
+      } catch {
+        return { ok: false };
+      }
+    });
+    return () => {
+      registerRedrawCoordinator(null);
+      setApplyFixtureHandler(null);
+    };
   }, []);
 
   useEffect(() => {

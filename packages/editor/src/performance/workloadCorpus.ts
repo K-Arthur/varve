@@ -2,21 +2,43 @@ import {
   addMask,
   createDocument,
   type Document,
+  type Effect,
   makeFrameNode,
+  makeGroupNode,
   makeImageShapeNode,
   makePathNode,
   makeShapeNode,
   makeTextNode,
+  type Page,
   type SceneNode,
 } from '@strata/scene';
 
-export const PERFORMANCE_WORKLOAD_VERSION = 1 as const;
+export const PERFORMANCE_WORKLOAD_VERSION = 2 as const;
 
 export type PerformanceWorkloadId =
   | 'small'
+  | 'vector-100'
+  | 'vector-500'
+  | 'vector-1k'
+  | 'vector-5k'
   | 'flat-10k'
   | 'deep-nesting'
+  | 'dense-overlap'
+  | 'wide-spread'
+  | 'many-small'
+  | 'few-large'
+  | 'clipped-frames'
+  | 'masked-content'
+  | 'rotated-skewed'
+  | 'thick-strokes'
+  | 'effects-heavy'
+  | 'blend-modes'
   | 'raster-heavy'
+  | 'mixed-raster-vector'
+  | 'hidden-locked'
+  | 'offscreen-mixed'
+  | 'boundary-crossing'
+  | 'multi-page'
   | 'vector-heavy'
   | 'text-heavy'
   | 'effects-masks'
@@ -125,6 +147,403 @@ function small(): PerformanceWorkload {
 
 function flat10k(): PerformanceWorkload {
   return finish('flat-10k', gridShapes('flat', 10_000));
+}
+
+/** Simple spread vector fixture at a named scale — the dirty-pruning bench. */
+function vectorScale(id: PerformanceWorkloadId, count: number, spacing = 140): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  const cols = Math.ceil(Math.sqrt(count * 1.6));
+  for (let index = 0; index < count; index++) {
+    nodes.push(
+      makeShapeNode(
+        `${id}-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 64, h: 48 },
+        {
+          transform: [1, 0, 0, 1, (index % cols) * spacing, Math.floor(index / cols) * spacing],
+        },
+      ),
+    );
+  }
+  return finish(id, appendNodes(workloadDocument(id), nodes));
+}
+
+function vector100(): PerformanceWorkload {
+  return vectorScale('vector-100', 100);
+}
+
+function vector500(): PerformanceWorkload {
+  return vectorScale('vector-500', 500);
+}
+
+function vector1k(): PerformanceWorkload {
+  return vectorScale('vector-1k', 1_000);
+}
+
+function vector5k(): PerformanceWorkload {
+  return vectorScale('vector-5k', 5_000);
+}
+
+function denseOverlap(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 300; index++) {
+    nodes.push(
+      makeShapeNode(
+        `dense-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 120, h: 120 },
+        {
+          transform: [1, 0, 0, 1, (index % 15) * 24, Math.floor(index / 15) * 24],
+          fill: { space: 'rgb', r: (index * 7) % 255, g: 90, b: 160, a: 180 },
+        },
+      ),
+    );
+  }
+  return finish('dense-overlap', appendNodes(workloadDocument('dense-overlap'), nodes));
+}
+
+function wideSpread(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 400; index++) {
+    const col = index % 40;
+    const row = Math.floor(index / 40);
+    nodes.push(
+      makeShapeNode(
+        `spread-${index}`,
+        { kind: 'ellipse', cx: 0, cy: 0, rx: 18, ry: 18 },
+        { transform: [1, 0, 0, 1, col * 700, row * 700] },
+      ),
+    );
+  }
+  return finish('wide-spread', appendNodes(workloadDocument('wide-spread'), nodes));
+}
+
+function manySmall(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 1_000; index++) {
+    nodes.push(
+      makeShapeNode(
+        `many-small-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 8, h: 8 },
+        { transform: [1, 0, 0, 1, (index % 50) * 12, Math.floor(index / 50) * 12] },
+      ),
+    );
+  }
+  return finish('many-small', appendNodes(workloadDocument('many-small'), nodes));
+}
+
+function fewLarge(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 8; index++) {
+    nodes.push(
+      makeShapeNode(
+        `few-large-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 3000, h: 3000 },
+        { transform: [1, 0, 0, 1, (index % 4) * 4200, Math.floor(index / 4) * 4200] },
+      ),
+    );
+  }
+  return finish('few-large', appendNodes(workloadDocument('few-large'), nodes));
+}
+
+function clippedFrames(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  const roots: string[] = [];
+  for (let index = 0; index < 80; index++) {
+    const frameId = `clip-frame-${index}`;
+    const childId = `clip-child-${index}`;
+    roots.push(frameId);
+    nodes.push(
+      makeFrameNode(frameId, {
+        w: 160,
+        h: 120,
+        children: [childId],
+        transform: [1, 0, 0, 1, (index % 10) * 180, Math.floor(index / 10) * 160],
+      }),
+      makeShapeNode(childId, { kind: 'rect', x: -80, y: -60, w: 320, h: 240 }),
+    );
+  }
+  return finish('clipped-frames', appendNodes(workloadDocument('clipped-frames'), nodes, roots));
+}
+
+function maskedContent(): PerformanceWorkload {
+  let document = workloadDocument('masked-content');
+  const nodes: SceneNode[] = [];
+  const roots: string[] = [];
+  for (let index = 0; index < 40; index++) {
+    const frameId = `mask-frame-${index}`;
+    const childId = `mask-child-${index}`;
+    const maskId = `mask-src-${index}`;
+    roots.push(frameId);
+    nodes.push(
+      makeFrameNode(frameId, {
+        w: 200,
+        h: 200,
+        children: [childId, maskId],
+        transform: [1, 0, 0, 1, (index % 8) * 240, Math.floor(index / 8) * 240],
+      }),
+      makeShapeNode(childId, { kind: 'rect', x: 0, y: 0, w: 200, h: 200 }),
+      makeShapeNode(
+        maskId,
+        { kind: 'ellipse', cx: 100, cy: 100, rx: 90 + index, ry: 90 },
+        { rotation: index * 11 },
+      ),
+    );
+  }
+  document = appendNodes(document, nodes, roots);
+  for (let index = 0; index < 40; index++) {
+    document = addMask(document, `mask-frame-${index}`, `mask-src-${index}`, 'alpha');
+  }
+  return finish('masked-content', document);
+}
+
+function rotatedSkewed(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 200; index++) {
+    const skewX = 0.15 + (index % 3) * 0.1;
+    nodes.push(
+      makeShapeNode(
+        `rot-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 90, h: 60 },
+        {
+          rotation: (index * 37) % 360,
+          transform: [1, skewX, 0, 1, (index % 14) * 130, Math.floor(index / 14) * 130],
+        },
+      ),
+    );
+  }
+  return finish('rotated-skewed', appendNodes(workloadDocument('rotated-skewed'), nodes));
+}
+
+function thickStrokes(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 64; index++) {
+    nodes.push(
+      makePathNode(`stroke-path-${index}`, {
+        closed: index % 2 === 0,
+        transform: [1, 0, 0, 1, (index % 8) * 240, Math.floor(index / 8) * 240],
+        points: [
+          { x: 20, y: 120, handleIn: null, handleOut: null },
+          { x: 60, y: 20, handleIn: null, handleOut: null },
+          { x: 140, y: 160, handleIn: null, handleOut: null },
+          { x: 180, y: 60, handleIn: null, handleOut: null },
+        ],
+        strokes: [
+          {
+            color: { space: 'rgb', r: 20 + index, g: 120, b: 200, a: 255 },
+            weight: 18 + (index % 5) * 8,
+            align: 'center',
+            dashPattern: [],
+            dashOffset: 0,
+            cap: 'round',
+            join: 'miter',
+            miterLimit: 8,
+            visible: true,
+            arrowStart: index % 3 === 0 ? 'arrow' : 'none',
+            arrowEnd: index % 3 === 1 ? 'diamond' : 'none',
+          },
+        ],
+      }),
+    );
+  }
+  return finish('thick-strokes', appendNodes(workloadDocument('thick-strokes'), nodes));
+}
+
+function effectsHeavy(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 150; index++) {
+    const effects: Effect[] = [];
+    effects.push({
+      type: 'dropShadow',
+      x: 8,
+      y: 10,
+      blur: 24 + (index % 20),
+      spread: 4,
+      color: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
+      opacity: 0.5,
+      blendMode: 'normal',
+      visible: true,
+    });
+    if (index % 3 === 0) {
+      effects.push({ type: 'layerBlur', radius: 2 + (index % 6), visible: true });
+    }
+    if (index % 4 === 0) {
+      effects.push({
+        type: 'outerGlow',
+        blur: 18,
+        spread: 2,
+        color: { space: 'rgb', r: 255, g: 120, b: 40, a: 255 },
+        opacity: 0.7,
+        blendMode: 'normal',
+        visible: true,
+      });
+    }
+    nodes.push(
+      makeShapeNode(
+        `fx-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 140, h: 100 },
+        {
+          transform: [1, 0, 0, 1, (index % 12) * 160, Math.floor(index / 12) * 140],
+          effects,
+        },
+      ),
+    );
+  }
+  return finish('effects-heavy', appendNodes(workloadDocument('effects-heavy'), nodes));
+}
+
+function blendModes(): PerformanceWorkload {
+  const modes = [
+    'multiply',
+    'screen',
+    'darken',
+    'lighten',
+    'overlay',
+    'colorBurn',
+    'difference',
+  ] as const;
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 240; index++) {
+    nodes.push(
+      makeShapeNode(
+        `blend-${index}`,
+        { kind: 'ellipse', cx: 0, cy: 0, rx: 60, ry: 60 },
+        {
+          blendMode: modes[index % modes.length]!,
+          transform: [1, 0, 0, 1, (index % 12) * 130 + 40, Math.floor(index / 12) * 130 + 40],
+          fill: { space: 'rgb', r: (index * 13) % 255, g: 70, b: 200, a: 200 },
+        },
+      ),
+    );
+  }
+  return finish('blend-modes', appendNodes(workloadDocument('blend-modes'), nodes));
+}
+
+function mixedRasterVector(): PerformanceWorkload {
+  const images = Array.from({ length: 24 }, (_, index) =>
+    makeImageShapeNode(`mix-image-${index}`, {
+      src: `asset://mix-${index}.png`,
+      imageWidth: 1024,
+      imageHeight: 1024,
+      w: 300,
+      h: 300,
+      transform: [1, 0, 0, 1, (index % 6) * 340, Math.floor(index / 6) * 340],
+    }),
+  );
+  const vectors = Array.from({ length: 200 }, (_, index) =>
+    makeShapeNode(
+      `mix-vec-${index}`,
+      { kind: 'rect', x: 0, y: 0, w: 60, h: 40 },
+      { transform: [1, 0, 0, 1, (index % 12) * 160 + 60, Math.floor(index / 12) * 140 + 60] },
+    ),
+  );
+  return finish(
+    'mixed-raster-vector',
+    appendNodes(workloadDocument('mixed-raster-vector'), [...images, ...vectors]),
+  );
+}
+
+function hiddenLocked(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 400; index++) {
+    nodes.push(
+      makeShapeNode(
+        `hl-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 70, h: 50 },
+        {
+          transform: [1, 0, 0, 1, (index % 20) * 90, Math.floor(index / 20) * 80],
+          visible: index % 4 !== 0,
+          locked: index % 8 === 0,
+        },
+      ),
+    );
+  }
+  return finish('hidden-locked', appendNodes(workloadDocument('hidden-locked'), nodes));
+}
+
+function offscreenMixed(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  for (let index = 0; index < 300; index++) {
+    const offscreen = index % 2 === 0;
+    nodes.push(
+      makeShapeNode(
+        `off-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 80, h: 60 },
+        {
+          transform: [
+            1,
+            0,
+            0,
+            1,
+            (index % 15) * 110,
+            offscreen ? -4000 + (index % 3) * 40 : Math.floor(index / 15) * 90,
+          ],
+        },
+      ),
+    );
+  }
+  return finish('offscreen-mixed', appendNodes(workloadDocument('offscreen-mixed'), nodes));
+}
+
+function boundaryCrossing(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  const positions = [
+    [-140, 60],
+    [-90, -110],
+    [20, -80],
+    [1380, 60],
+    [1440, 860],
+    [1350, -120],
+    [-60, 840],
+    [1360, 40],
+  ] as const;
+  for (let index = 0; index < 160; index++) {
+    const [ox, oy] = positions[index % positions.length]!;
+    nodes.push(
+      makeShapeNode(
+        `bc-${index}`,
+        { kind: 'rect', x: 0, y: 0, w: 160, h: 120 },
+        { transform: [1, 0, 0, 1, ox + (index % 8) * 220, oy + Math.floor(index / 8) * 140] },
+      ),
+    );
+  }
+  return finish('boundary-crossing', appendNodes(workloadDocument('boundary-crossing'), nodes));
+}
+
+function multiPage(): PerformanceWorkload {
+  const nodes: SceneNode[] = [];
+  const roots: string[] = [];
+  const pages: Page[] = [];
+  for (let page = 0; page < 3; page++) {
+    const rootId = `multipage-root-${page}`;
+    const childIds: string[] = [];
+    for (let index = 0; index < 60; index++) {
+      const id = `multipage-${page}-${index}`;
+      childIds.push(id);
+      nodes.push(
+        makeShapeNode(
+          id,
+          { kind: 'rect', x: 0, y: 0, w: 60, h: 40 },
+          { transform: [1, 0, 0, 1, (index % 10) * 90, Math.floor(index / 10) * 70] },
+        ),
+      );
+    }
+    nodes.push(makeGroupNode(rootId, { name: `Page ${page + 1} content`, children: childIds }));
+    roots.push(rootId);
+    pages.push({
+      id: `multipage-page-${page}`,
+      name: `Page ${page + 1}`,
+      order: `p${page}`,
+      width: 960,
+      height: 600,
+      backgrounds: [],
+      contentRoot: rootId,
+    });
+  }
+  const document = {
+    ...appendNodes(workloadDocument('multi-page'), nodes, roots),
+    activePageId: 'multipage-page-0',
+    pages,
+  } as Document;
+  return finish('multi-page', document);
 }
 
 function deepNesting(): PerformanceWorkload {
@@ -312,9 +731,28 @@ function documentSwitching(): PerformanceWorkload {
 
 const FACTORIES: Record<PerformanceWorkloadId, () => PerformanceWorkload> = {
   small,
+  'vector-100': vector100,
+  'vector-500': vector500,
+  'vector-1k': vector1k,
+  'vector-5k': vector5k,
   'flat-10k': flat10k,
   'deep-nesting': deepNesting,
+  'dense-overlap': denseOverlap,
+  'wide-spread': wideSpread,
+  'many-small': manySmall,
+  'few-large': fewLarge,
+  'clipped-frames': clippedFrames,
+  'masked-content': maskedContent,
+  'rotated-skewed': rotatedSkewed,
+  'thick-strokes': thickStrokes,
+  'effects-heavy': effectsHeavy,
+  'blend-modes': blendModes,
   'raster-heavy': rasterHeavy,
+  'mixed-raster-vector': mixedRasterVector,
+  'hidden-locked': hiddenLocked,
+  'offscreen-mixed': offscreenMixed,
+  'boundary-crossing': boundaryCrossing,
+  'multi-page': multiPage,
   'vector-heavy': vectorHeavy,
   'text-heavy': textHeavy,
   'effects-masks': effectsMasks,
