@@ -11,7 +11,7 @@
  * Research basis: Clipboard API (W3C), custom MIME types for structured data.
  */
 import type { Platform } from '@strata/platform';
-import type { DocumentAsset, RasterMaskAsset, SceneNode } from '@strata/scene';
+import type { DocumentAsset, DocumentIconAsset, RasterMaskAsset, SceneNode } from '@strata/scene';
 
 const STRATA_MIME = 'application/vnd.strata+json';
 
@@ -19,6 +19,7 @@ export interface ClipboardData {
   nodes: SceneNode[];
   rasterMaskAssets?: Record<string, RasterMaskAsset>;
   assets?: Record<string, DocumentAsset>;
+  iconAssets?: Record<string, DocumentIconAsset>;
 }
 
 export interface ClipboardImportItem {
@@ -36,12 +37,14 @@ export async function writeClipboard(
   nodes: SceneNode[],
   rasterMaskAssets?: Record<string, RasterMaskAsset>,
   assets?: Record<string, DocumentAsset>,
+  iconAssets?: Record<string, DocumentIconAsset>,
 ): Promise<boolean> {
   try {
     const data: ClipboardData = {
       nodes,
       ...(rasterMaskAssets && Object.keys(rasterMaskAssets).length > 0 ? { rasterMaskAssets } : {}),
       ...(assets && Object.keys(assets).length > 0 ? { assets } : {}),
+      ...(iconAssets && Object.keys(iconAssets).length > 0 ? { iconAssets } : {}),
     };
     const json = JSON.stringify(data);
     const blob = new Blob([json], { type: STRATA_MIME });

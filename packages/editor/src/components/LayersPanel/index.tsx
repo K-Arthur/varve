@@ -33,6 +33,7 @@ import type { LayerFilterSpec } from './layerFilterTypes';
 import { DEFAULT_FILTER, isFiltering, nodeMatchesFilter } from './layerFilterTypes';
 import './layers.css';
 import { VariablePanel } from '../../VariablePanel';
+import { IconBrowserDialog } from '../IconBrowser/IconBrowserDialog';
 import { SelectionSetsSection } from './SelectionSetsSection';
 
 export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHandle | null> }) {
@@ -349,6 +350,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     Object.values(state.document.components).some((c) => c.masterRootId === contextMenu.id);
 
   const layerSettings = loadSettings().layers;
+  const [iconBrowserOpen, setIconBrowserOpen] = useState(false);
 
   return (
     <div className="editor-layers layers-panel">
@@ -406,9 +408,21 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
                 <SolidIcon name={SOLID_CHROME_ICONS.collapseAll} size="0.85em" />
               </button>
             </Tooltip>
+            <Tooltip label="Insert icon">
+              <button
+                type="button"
+                className="layers-panel__collapse-all-btn"
+                onClick={() => setIconBrowserOpen(true)}
+                aria-label="Insert icon from library"
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.image} size="0.85em" />
+              </button>
+            </Tooltip>
           </div>
         </TooltipProvider>
       </div>
+
+      <IconBrowserDialog open={iconBrowserOpen} onClose={() => setIconBrowserOpen(false)} />
 
       {isolatedNode && (
         <div className="layers-panel__isolation-breadcrumb" role="status">
