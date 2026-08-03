@@ -318,3 +318,28 @@ by a gate; it was deliberately not implemented in the same pass.
 Reproduce the raster figures with `node scripts/perf/bench-raster-reconstruction.mjs`.
 Native WebKitGTK samples were **not** collected: `perf` is absent and
 `ptrace_scope = 1` blocks attaching to a running session.
+
+## Gate D evidence and dirty-tile raster replay (2026-08-03)
+
+Production build (`vite preview`, Chromium), 121-node spatially-spread scene,
+commit `176de9df`, CachyOS 8 cores `performance` governor. Full detail in
+[`2026-08-03-interaction-observability-report.md`](2026-08-03-interaction-observability-report.md).
+
+| Workload | Before | After / measured | Confidence | Notes |
+|---|---|---|---|---|
+| Single-node drag, dirty area | unmeasured | 2.7% of viewport p50, 8.1% p95 | high | 64/120 frames partial redraw |
+| Single-node drag, replayed nodes | unmeasured | 121 of 161, unchanged by dirty area | high | **Gate D satisfied** |
+| Single-node drag, replays missing the dirty region | unmeasured | 48.5 p50, 108 max (40%–89%) | high | Dirty-area reduction buys ~0 node-work reduction |
+| Drag frames with no invalidation reason | unmeasured | 56 of 120 report `redrawReason: clean` | high | Full redraw of 121 nodes for no recorded cause |
+| Raster reconstruction 2048², 4 dirty tiles | 89.08 ms p95 | **1.224 ms p95** | medium | 73x; Node traffic model, lower bound |
+| Raster reconstruction 4096², 4 dirty tiles | 238.52 ms p95 | **0.203 ms p95** | medium | 1176x; removes 64 MiB per-replay allocation |
+| Raster reconstruction 8192², 4 dirty tiles | 979.08 ms p95 | **0.623 ms p95** | medium | 1572x; removes 256 MiB per-replay allocation |
+| Frame disposal over 150 drag iterations | untested at scale | 2,321 disposals, 1 frame resident, peak 1.03x resident | high | Exactly-once accounting holds under sustained load |
+| Interaction trace retention over 150 gestures | untested at scale | held at the 50-trace cap | high | Bounded retention confirmed under real load |
+| JS heap over 150 iterations | unmeasured | flat at 45.2 MB, slope 0.0 MB/iter | low | Chromium quantizes `performance.memory`; coarse |
+
+Reproduce: `node scripts/perf/run-production-workload.mjs` and
+`node scripts/perf/bench-dirty-tile-replay.mjs`.
+
+Known gap found by this run: wheel, keyboard and hover interactions produce no
+traces at all — `beginInteraction` fires only on pointerdown.
