@@ -17,13 +17,25 @@
  *   node scripts/perf/run-production-workload.mjs --duplications=7   # ~512 nodes
  *   node scripts/perf/run-production-workload.mjs --allow-dev-build  # explicit opt-in
  *   node scripts/perf/run-production-workload.mjs --out=results.json
+ *   node scripts/perf/run-production-workload.mjs --fixture=vector-1k
+ *   node scripts/perf/run-production-workload.mjs --fixture=vector-5k \
+ *       --workloads=single-drag,zoom,undo-redo,nudge
+ *
+ * `--fixture` seeds a deterministic corpus fixture (vector-100/500/1k/5k,
+ * dense-overlap, wide-spread, effects-heavy, raster-heavy, ...) through the
+ * app itself and opens it from the home screen; the fixture checksum and node
+ * count are recorded with the results. Every workload record carries the
+ * machine state captured around it and a `validity` classification
+ * (valid/contended/thermally_suspect/background_activity/
+ * insufficient_samples/instrumentation_error); only `valid` runs may be used
+ * as authoritative regression evidence.
  *
  * Workloads are driven with real CDP pointer and keyboard input rather than an
  * in-page hook, so the measured path includes the browser's own event
  * dispatch, coalescing and hit-testing.
  */
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { chromium } from '@playwright/test';
 
@@ -41,6 +53,8 @@ const WARMUP = Number(args.get('warmup') ?? 4);
 const ALLOW_DEV = args.get('allow-dev-build') === 'true';
 const OUT = args.get('out') ?? null;
 const DUPLICATIONS = Number(args.get('duplications') ?? 5);
+const FIXTURE = args.get('fixture') ?? null;
+const FIXTURE_DRAG = args.get('fixture-drag') ?? 'auto';
 /**
  * Attach to an already-serving production build instead of building and
  * serving one. The dev-build signal check still runs against the served
@@ -51,6 +65,111 @@ const WORKLOADS = (
   args.get('workloads') ??
   'pointer-move-idle,single-drag,multi-drag,marquee-select,pan,zoom,undo-redo'
 ).split(',');
+
+const CPU_COUNT = Number(run('nproc', [], '4') ?? 4);
+
+// ── Machine state and benchmark validity ─────────────────────────────────────
+// Wall-clock numbers from a contended host are not evidence. Every workload
+// result carries the state captured around it, and a run whose state fails the
+// thresholds below is classified rather than silently accepted.
+
+function readProc(path, fallback = null) {
+  try {
+    return readFileSync(path, 'utf8').trim();
+  } catch {
+    return fallback;
+  }
+}
+
+function loadAverages() {
+  const raw = readProc('/proc/loadavg');
+  if (!raw) return [NaN, NaN, NaN];
+  const parts = raw.split(/\s+/).map(Number);
+  return [parts[0] ?? NaN, parts[1] ?? NaN, parts[2] ?? NaN];
+}
+
+function thermalMaxC() {
+  try {
+    const zones = execFileSync('sh', ['-c', 'ls /sys/class/thermal/thermal_zone*'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    })
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+    let max = NaN;
+    for (const zone of zones) {
+      const temp = readProc(`${zone}/temp`);
+      if (temp && !Number.isNaN(Number(temp))) {
+        // Most drivers report milli-degrees; some report degrees.
+        const milli = Number(temp) > 1000;
+        max = Math.max(max, milli ? Number(temp) / 1000 : Number(temp));
+      }
+    }
+    return max;
+  } catch {
+    return NaN;
+  }
+}
+
+/** Other processes touching this repo or running repo-adjacent tooling. */
+function backgroundActivity(myPids) {
+  try {
+    const lines = execFileSync('sh', ['-c', 'ps -eo pid=,args='], { cwd: ROOT, encoding: 'utf8' })
+      .trim()
+      .split('\n');
+    const mine = new Set(myPids.map(String));
+    const suspicious = /(vitest|tsx |ts-node|esbuild|tsc |vite|webpack|next dev|madge)/;
+    const hits = [];
+    for (const line of lines) {
+      const pid = line.trim().split(/\s+/)[0];
+      if (!pid || mine.has(pid)) continue;
+      const rest = line.slice(pid.length);
+      if (!rest.includes('Strata') && !suspicious.test(rest)) continue;
+      if (rest.includes('grep') || rest.includes('run-production-workload')) continue;
+      hits.push(rest.trim().slice(0, 90));
+    }
+    return hits;
+  } catch {
+    return null;
+  }
+}
+
+function captureMachineState(myPids = []) {
+  const [load1, load5, load15] = loadAverages();
+  const memAvailableKb = Number(
+    readProc('/proc/meminfo')?.match(/MemAvailable:\s+(\d+)/)?.[1] ?? NaN,
+  );
+  const thermal = thermalMaxC();
+  const activity = backgroundActivity(myPids);
+  return {
+    load1,
+    load5,
+    load15,
+    cpuCount: CPU_COUNT,
+    memAvailableKb: Number.isFinite(memAvailableKb) ? memAvailableKb : null,
+    thermalMaxC: Number.isFinite(thermal) ? thermal : null,
+    governor: readProc('/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor', 'unknown'),
+    backgroundActivity: activity,
+  };
+}
+
+/**
+ * Benchmark validity classification. Contended/thermal/background runs are
+ * retained for diagnostics but must not be used as authoritative regression
+ * evidence; `insufficient_samples` and `instrumentation_error` mark the run
+ * itself as unreliable.
+ */
+function classifyRun(state) {
+  if (!state || state.instrumentationError) return 'instrumentation_error';
+  const loadOK = Number.isFinite(state.load1) && state.load1 > CPU_COUNT * 1.5;
+  if (loadOK) return 'contended';
+  if (Array.isArray(state.backgroundActivity) && state.backgroundActivity.length > 0) {
+    return 'background_activity';
+  }
+  if (state.thermalMaxC !== null && state.thermalMaxC > 90) return 'thermally_suspect';
+  return 'valid';
+}
 
 function run(cmd, cmdArgs, fallback = null) {
   try {
@@ -154,8 +273,64 @@ async function openEditorCanvas(page) {
 }
 
 /**
+ * Seed a deterministic corpus fixture through the app itself and open it from
+ * the home screen. The fixture documents live in the editor's workload corpus
+ * (single source of truth), so the seeded file, its checksum and the node
+ * count all come from the same code the unit tests exercise.
+ */
+async function openFixtureEditor(page, fixtureId) {
+  // The perf handle (and therefore the fixture seeder) is installed by
+  // CanvasArea on mount, so an editor page must exist before seeding.
+  await openEditorCanvas(page);
+  await page.waitForFunction(() => Boolean(window.__strataPerf), { timeout: 30_000 });
+  const seeded = await page.evaluate(async (id) => {
+    const perf = window.__strataPerf;
+    if (!perf?.fixtures?.seed) return { ok: false, error: 'fixtures.seed missing' };
+    return perf.fixtures.seed(id);
+  }, fixtureId);
+  if (!seeded?.ok) {
+    throw new Error(`fixture seed failed for '${fixtureId}' (${seeded?.error ?? 'unknown'})`);
+  }
+  // Return to home and open the fixture card.
+  await page.goto(`${page.url().split('?')[0]}?perf=1`, {
+    timeout: 60_000,
+    waitUntil: 'domcontentloaded',
+  });
+  const card = page.getByText(fixtureId, { exact: true }).first();
+  await card.waitFor({ state: 'visible', timeout: 30_000 });
+  await card.click({ force: true });
+  await page.locator('.layers-panel').waitFor({ timeout: 30_000 });
+  const canvas = page.locator('canvas.editor-canvas__content-layer');
+  await canvas.waitFor({ state: 'visible', timeout: 15_000 });
+  const box = await canvas.boundingBox();
+  return { seeded, box };
+}
+
+/**
+ * Where the fixture-drag workload should start. Grid fixtures have a known
+ * layout (rects at `spacing` apart, first cell at 0,0) so the click point is
+ * computable; dense fixtures fall back to the viewport centre, which reliably
+ * hits *something*. `--fixture-drag=x,y` overrides everything.
+ */
+function fixtureDragPoint(seeded, box, gridSpacing = 140, cell = { w: 64, h: 48 }) {
+  const explicit = FIXTURE_DRAG;
+  if (explicit !== 'auto') {
+    const [x, y] = explicit.split(',').map(Number);
+    if (Number.isFinite(x) && Number.isFinite(y)) return { x: x + box.x, y: y + box.y };
+  }
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const id = seeded?.id ?? '';
+  if (/^perf-vector-/.test(id)) {
+    const col = Math.max(0, Math.floor((cx - box.x - cell.w / 2) / gridSpacing));
+    const row = Math.max(0, Math.floor((cy - box.y - cell.h / 2) / gridSpacing));
+    return { x: box.x + col * gridSpacing + cell.w / 2, y: box.y + row * gridSpacing + cell.h / 2 };
+  }
+  return { x: cx, y: cy };
+}
+
+/**
  * Draw a seed grid, then double it `duplications` times.
- *
  * Each duplicated batch is nudged well clear of its source. Without that the
  * copies land essentially on top of each other, and every node then falls
  * inside any single node's dirty region — which makes `prunableByDirty`
@@ -322,6 +497,131 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
       return;
     }
 
+    // ── Extended interactions (Phase 2 corpus) ─────────────────────────────
+
+    case 'resize': {
+      await page.keyboard.press('v');
+      await page.mouse.click(dragTarget.x, dragTarget.y);
+      await page.waitForTimeout(80);
+      // The bottom-right selection handle sits just past the node corner; the
+      // drag target rect is 120x80 centred on dragTarget.
+      const hx = dragTarget.x + 62;
+      const hy = dragTarget.y + 42;
+      await page.mouse.move(hx, hy);
+      await page.mouse.down();
+      for (let i = 0; i < 16; i++) {
+        await page.mouse.move(hx + i * 3 + jitter, hy + i * 2);
+        await page.waitForTimeout(8);
+      }
+      await page.mouse.up();
+      await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'rotate': {
+      await page.keyboard.press('v');
+      await page.mouse.click(dragTarget.x, dragTarget.y);
+      await page.waitForTimeout(80);
+      // The rotate handle floats above the selection box's top edge.
+      const rx = dragTarget.x;
+      const ry = dragTarget.y - 64;
+      await page.mouse.move(rx, ry);
+      await page.mouse.down();
+      for (let i = 0; i < 16; i++) {
+        await page.mouse.move(rx + i * 3 + jitter, ry - i * 1.5);
+        await page.waitForTimeout(8);
+      }
+      await page.mouse.up();
+      // Undo the rotation so iterations stay comparable.
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'alt-drag': {
+      await page.keyboard.press('v');
+      await page.mouse.click(dragTarget.x, dragTarget.y);
+      await page.waitForTimeout(80);
+      await page.mouse.move(dragTarget.x, dragTarget.y);
+      await page.keyboard.down('Alt');
+      await page.mouse.down();
+      for (let i = 0; i < 14; i++) {
+        await page.mouse.move(dragTarget.x + i * 6 + jitter, dragTarget.y + i * 4);
+        await page.waitForTimeout(8);
+      }
+      await page.mouse.up();
+      await page.keyboard.up('Alt');
+      await page.waitForTimeout(120);
+      // Remove the duplicate so iterations stay comparable.
+      await page.keyboard.press('Control+z');
+      await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'nudge': {
+      await page.keyboard.press('v');
+      await page.mouse.click(dragTarget.x, dragTarget.y);
+      await page.waitForTimeout(80);
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press('ArrowRight');
+        await page.waitForTimeout(12);
+        await page.keyboard.press('ArrowDown');
+        await page.waitForTimeout(12);
+      }
+      // Return the node to its origin.
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press('ArrowLeft');
+        await page.waitForTimeout(12);
+        await page.keyboard.press('ArrowUp');
+        await page.waitForTimeout(12);
+      }
+      await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'tool-switch': {
+      // Rapid switching between select / rectangle / pen across one canvas.
+      const tools = ['v', 'r', 'p', 'e', 'v'];
+      for (const key of tools) {
+        await page.keyboard.press(key);
+        await page.waitForTimeout(40);
+      }
+      await page.mouse.move(cx, cy);
+      await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'layer-visibility': {
+      await page.keyboard.press('v');
+      await page.mouse.click(dragTarget.x, dragTarget.y);
+      await page.waitForTimeout(80);
+      const toggle = page
+        .locator('.layers-panel [role="treeitem"]')
+        .last()
+        .getByRole('button', { name: /eye|visibility|hide|show/i })
+        .first();
+      for (let i = 0; i < 4; i++) {
+        if (await toggle.isVisible({ timeout: 500 }).catch(() => false)) {
+          await toggle.click({ force: true });
+          await page.waitForTimeout(60);
+        }
+      }
+      await page.waitForTimeout(80);
+      return;
+    }
+
+    case 'canvas-resize': {
+      for (const [w, h] of [
+        [1600, 1000],
+        [1200, 800],
+        [1600, 1000],
+      ]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(150);
+      }
+      return;
+    }
+
     default:
       throw new Error(`unknown workload '${workload}'`);
   }
@@ -470,15 +770,40 @@ try {
 
   // The perf handle is installed by CanvasArea on mount, so it cannot exist on
   // the home screen — the document has to be open before it is waited on.
-  const box = await openEditorCanvas(page);
-  await page.waitForFunction(() => Boolean(window.__strataPerf), { timeout: 30_000 });
-  partial.sceneSpread = args.get('no-spread') !== 'true';
-  const scene = await buildScene(page, box, DUPLICATIONS, partial.sceneSpread);
-  partial.sceneNodeCount = scene.nodeCount;
-  console.log(`Scene built: ${scene.nodeCount} nodes`);
+  let box;
+  let scene;
+  if (FIXTURE) {
+    const opened = await openFixtureEditor(page, FIXTURE);
+    box = opened.box;
+    await page.waitForFunction(() => Boolean(window.__strataPerf), { timeout: 30_000 });
+    partial.fixture = {
+      id: FIXTURE,
+      documentId: opened.seeded?.id,
+      nodeCount: opened.seeded?.nodeCount,
+      fixtureChecksum: opened.seeded?.fixtureChecksum,
+    };
+    partial.fixtureDragPoint = fixtureDragPoint(opened.seeded, box);
+    scene = { dragTarget: partial.fixtureDragPoint };
+    partial.sceneNodeCount = opened.seeded?.nodeCount ?? null;
+    console.log(`Fixture opened: ${FIXTURE} (${opened.seeded?.nodeCount} nodes)`);
+  } else {
+    box = await openEditorCanvas(page);
+    await page.waitForFunction(() => Boolean(window.__strataPerf), { timeout: 30_000 });
+    partial.sceneSpread = args.get('no-spread') !== 'true';
+    scene = await buildScene(page, box, DUPLICATIONS, partial.sceneSpread);
+    partial.sceneNodeCount = scene.nodeCount;
+    console.log(`Scene built: ${scene.nodeCount} nodes`);
+  }
 
   for (const workload of WORKLOADS) {
-    const record = { workload, warmupIterations: WARMUP, measuredIterations: ITERATIONS };
+    const beforeState = captureMachineState([process.pid, server?.pid]);
+    const record = {
+      workload,
+      warmupIterations: WARMUP,
+      measuredIterations: ITERATIONS,
+      machineBefore: beforeState,
+      validity: classifyRun(beforeState),
+    };
     try {
       // Warm-up is separated from measurement: JIT, font and shader
       // initialisation are one-time costs and must not enter the distribution.
@@ -519,6 +844,8 @@ try {
         };
       });
       Object.assign(record, measured, { heapSamples, status: 'ok' });
+      record.machineAfter = captureMachineState([process.pid, server?.pid]);
+      record.validity = classifyRun(record.machineAfter);
 
       // A workload that produced no traces measured nothing; recording it as a
       // success would be worse than recording a failure.
