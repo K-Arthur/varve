@@ -367,6 +367,11 @@ function buildMenus(
           action: 'exportSvg',
         },
         {
+          label: 'Export Logo Package\u2026',
+          action: 'exportLogoPackage',
+          disabled: dis('exportLogoPackage'),
+        },
+        {
           label: 'Export\u2026',
           shortcut: formatShortcut(SHORTCUT_DEFS.export.binding),
           ariaKeyshortcut: ks('export'),
@@ -787,11 +792,6 @@ function buildMenus(
           ariaKeyshortcut: ks('logoPreview'),
           action: 'logoPreview',
           disabled: dis('logoPreview'),
-        },
-        {
-          label: 'Export Logo Package…',
-          action: 'exportLogoPackage',
-          disabled: dis('exportLogoPackage'),
         },
         { label: '---' },
         // Color Blindness
@@ -1591,6 +1591,8 @@ export function Menubar({
     restoreFocusRef,
     prevOpenMenuRef,
     tabWalkDirRef,
+    setActiveItemIndex,
+    setActiveSubmenuIndex,
   });
 
   useEffect(() => {
