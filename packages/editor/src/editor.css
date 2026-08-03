@@ -285,11 +285,15 @@
   transition: background var(--duration-fast) var(--ease-default);
 }
 
-.editor-menubar__menu-item:hover,
+.editor-menubar__menu-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
 .editor-menubar__menu-item:focus-visible {
   background: var(--color-surface-hover);
   color: var(--color-text-primary);
-  outline: none;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .editor-menubar__menu-item--active,
@@ -755,6 +759,10 @@
   cursor: text;
   padding: 0 var(--space-1);
   outline: none;
+}
+.editor-status__zoom-value:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .editor-status__unit-select {

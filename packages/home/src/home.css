@@ -681,6 +681,10 @@
   color: var(--color-text-primary);
   outline: none;
 }
+.project-view__rename-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 
 /* Empty states illustration */
 .empty-states__illustration {
