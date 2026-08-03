@@ -86,15 +86,51 @@ palette) layered over regular artboard frames.
 - `packages/engine/src/shaping.test.ts` — `graphemeTracking` math.
 - `packages/scene/src/version.test.ts` — migration chain to 2.12.
 
-## Known limitations
+## Known limitations (2026-08-03 update)
 
-- No AI-assisted concept generation, vectorization UI, or sketch-to-logo
-  pipeline (provider-neutral interfaces are not yet defined).
-- No per-glyph positioning UI (per-grapheme shaping is browser-driven);
-  kerning disable (`'none'`) is not implemented in the canvas shaper.
-- `monochrome` preview uses canvas filters (grayscale + contrast), not a
-  true palette substitution.
-- Package export renders PNG/SVG only; ICO/ICNS/favicon sets and PDF are
-  not part of the package yet.
-- The Logo panel (concepts grid, brief editor) is command/menu-driven only.
+Implemented since the original release:
+
+- **Visual Logo panel** (`packages/editor/src/components/LogoPanel/`):
+  Project (brand/concept status/notes), Create (concept/variant actions),
+  Vectorize (shared workflow), Typography (wordmark + glyph controls),
+  Variants, Validation, Export Package. Workspace-config-backed visibility
+  (logo mode only), persisted, command/menu/shortcut integrated.
+- **Vectorization** (`packages/editor/src/logo/vectorization/` + shared
+  `components/Vectorize/`): presets (8), source prep (grayscale/invert/
+  contrast/brightness/denoise/threshold), live preview with diagnostics,
+  stale-result/cancel protection, single-undo Apply inserting native paths
+  beside the source via the existing tracer chain and insertTraceGroup.
+  Available in the Logo panel and the Inspector Image & Vector dialog;
+  the QuickBar keeps instant one-click tracing.
+- **Per-glyph typography**: document 2.13 — `TextNode.kerningMode`
+  (`auto`/`none`), per-grapheme-cluster `glyphAdjustments`
+  (dx/dy/advance/rotation/scale) and `pairAdjustments`. Kerning-off is
+  implemented in the canvas renderer (per-cluster drawing) and stays
+  independent of ligature toggles and tracking. Editor surfaces: Logo
+  panel Typography section + Inspector Typography section, with explicit
+  disabled reasons for unsupported text (rich text, RTL, multi-line,
+  case/list/path transforms).
+- **Text-to-outline parity**: outlined output applies cluster adjustments
+  (offsets, advance, pair spacing, rotation/scale around the cluster
+  origin) so canvas placement and outlines agree.
+- **Package export**: SVG, PNG ladder, vector PDF (raster fallback in
+  browser), multi-size ICO (16-256), Retina ICNS (icp4-ic15); naming
+  preview, folder-tree preview, file-count estimate, structured report.
+  Deterministic encoders (`packages/scene/src/export/ico.ts`, `icns.ts`)
+  with structural validators.
+
+Remaining limitations:
+
+- No AI-assisted concept generation; vectorization is local-only
+  (TS/WASM/native providers, no remote processing).
+- `monochrome` preview uses canvas filters, not true palette substitution.
 - Variants are registrations over artboards, not live-linked instances.
+- Optical kerning is not offered (no genuine optical algorithm); only
+  `auto` (font kerning) and `none` are selectable.
+- Kerning-off and glyph rendering constrain to single-line plain LTR text
+  without case/list transforms; complex scripts fall back with an
+  explanation rather than corrupting shaping.
+- ICO/ICNS encode the modern PNG-based containers only (Vista+/10.7+).
+- Playwright e2e for the panel is written and green for the core flows;
+  full-suite runs are currently blocked by concurrent dev-server churn in
+  the shared workspace (mid-test reloads), not by assertion failures.

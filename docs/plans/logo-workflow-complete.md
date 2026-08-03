@@ -113,19 +113,21 @@ exist after an edit are retained — documented limitation for prefix-only edits
 
 | # | Milestone | Commit | Status |
 |---|---|---|---|
-| 1 | Repository audit + architecture plan | — | in progress |
-| 2 | Logo workspace tool curation (specific tools per workspace pattern) | — | pending |
-| 3 | Logo panel shell + workspace/command/persistence integration | — | pending |
-| 4 | Vectorization session model, source prep, presets, preview, apply, stale/cancel safety | — | pending |
+| 1 | Repository audit + architecture plan | `affcd3ae` | done |
+| 2 | Logo workspace tool curation (specific tools per workspace pattern) | `39f577c4` | done |
+| 3 | Logo panel shell + workspace/command/persistence integration | `9dc4826e` | done |
+| 4 | Vectorization session model, source prep, presets, preview, apply, stale/cancel safety | `4aa8e393` + `3629c21d` | done |
 | 5 | Glyph adjustment + kerning-mode data model, migration, replay integration | — | pending |
-| 6 | Per-glyph editing UI (panel + inspector) and kerning-off behavior | — | pending |
+| 6 | Per-glyph editing UI (panel + inspector) and kerning-off behavior | `8600c0e8` | done |
 | 7 | Text-to-outline parity (adjustments applied) | — | pending |
-| 8 | ICO encoder + validation | — | pending |
-| 9 | ICNS encoder + validation | — | pending |
-| 10 | PDF package integration | — | pending |
-| 11 | Package-export frontend (variants/formats/naming/preview/report) | — | pending |
-| 12 | Unit/integration/Playwright tests + fixtures | — | pending |
-| 13 | Documentation (logo-system.md update) + final verification | — | pending |
+| 8 | ICO encoder + validation | `5618c1c5` | done |
+| 9 | ICNS encoder + validation | `5618c1c5` | done |
+| 10 | PDF package integration | `711314ed` | done |
+| 11 | Package-export frontend (variants/formats/naming/preview/report) | `711314ed` | done |
+| 12 | Unit/integration/Playwright tests + fixtures | `ee3fe699`, `b81b9976`, `a2a875be` | done* |
+
+* Playwright suite runs green for panel visibility, workspace scoping, and the View menu toggle; full-suite green is blocked by the concurrent dev-server churn (mid-test app reloads), documented in §5.
+| 13 | Documentation (logo-system.md update) + final verification | next | in progress |
 
 ## 4. Logo workspace tool curation decision
 
