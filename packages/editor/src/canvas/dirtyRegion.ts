@@ -22,6 +22,61 @@ export type DirtyRegion =
   | { kind: 'full' }
   | { kind: 'partial'; bounds: Rect; rectCount: number };
 
+/**
+ * Why an individual rectangle was contributed, before merging. Recording the
+ * source is what makes "the dirty area is large" answerable — a move
+ * contributes an old and a new bound, whereas a brush dab contributes tiles.
+ */
+export type DirtyRectReason =
+  | 'node-before'
+  | 'node-after'
+  | 'node-added'
+  | 'node-removed'
+  | 'raster-tile';
+
+export interface DirtyRectRecord {
+  rect: Rect;
+  reason: DirtyRectReason;
+  /** Stable diagnostic node id. Never a name or any document content. */
+  nodeId: string;
+}
+
+/**
+ * Bounded recorder for individual pre-merge rectangles.
+ *
+ * A drag over a large selection can contribute thousands of rectangles per
+ * frame, so retention is capped and truncation is reported rather than
+ * silently dropping evidence. Passing no recorder keeps the analysis
+ * allocation-free, which is the production path.
+ */
+export class DirtyRegionRecorder {
+  static readonly MAX_RECORDED_RECTS = 64;
+  private readonly records: DirtyRectRecord[] = [];
+  private truncatedCount = 0;
+
+  add(rect: Rect, reason: DirtyRectReason, nodeId: string): void {
+    if (this.records.length >= DirtyRegionRecorder.MAX_RECORDED_RECTS) {
+      this.truncatedCount++;
+      return;
+    }
+    this.records.push({ rect: { ...rect }, reason, nodeId });
+  }
+
+  get rects(): readonly DirtyRectRecord[] {
+    return this.records;
+  }
+
+  /** Rectangles observed but not retained, so a truncated overlay says so. */
+  get truncated(): number {
+    return this.truncatedCount;
+  }
+
+  reset(): void {
+    this.records.length = 0;
+    this.truncatedCount = 0;
+  }
+}
+
 function unionBounds(left: Rect | null, right: Rect): Rect {
   if (!left) return { ...right };
   const x = Math.min(left.x, right.x);
@@ -59,6 +114,8 @@ export function computeDocumentDirtyRegion(
   next: Document,
   forceFull?: boolean,
   nextParentIndex?: Map<NodeId, NodeId>,
+  /** Optional bounded collector for individual pre-merge rectangles. */
+  recorder?: DirtyRegionRecorder,
 ): DirtyRegion {
   if (previous === next || forceFull) return { kind: forceFull ? 'full' : 'none' };
   const ids = new Set<NodeId>([...Object.keys(previous.nodes), ...Object.keys(next.nodes)]);
@@ -92,6 +149,7 @@ export function computeDocumentDirtyRegion(
         const tileRects = changedRasterTileBounds(rBefore, rAfter);
         if (tileRects.length === 0) continue;
         for (const tr of tileRects) {
+          recorder?.add(tr, 'raster-tile', id);
           bounds = unionBounds(bounds, tr);
           rectCount++;
         }
@@ -108,10 +166,12 @@ export function computeDocumentDirtyRegion(
         return { kind: 'full' };
       }
       if (beforeBounds) {
+        recorder?.add(beforeBounds, 'node-before', id);
         bounds = unionBounds(bounds, beforeBounds);
         rectCount++;
       }
       if (afterBounds) {
+        recorder?.add(afterBounds, 'node-after', id);
         bounds = unionBounds(bounds, afterBounds);
         rectCount++;
       }
@@ -128,6 +188,7 @@ export function computeDocumentDirtyRegion(
         after ? nextParents : previousParents,
       );
       if (!changedBounds) return { kind: 'full' };
+      recorder?.add(changedBounds, after ? 'node-added' : 'node-removed', id);
       bounds = unionBounds(bounds, changedBounds);
       rectCount++;
     }
