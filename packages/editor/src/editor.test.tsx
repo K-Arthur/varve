@@ -18,8 +18,9 @@ describe('Shell', () => {
     expect(screen.getByRole('toolbar')).toBeTruthy();
     // Canvas region present
     expect(screen.getByRole('region', { name: /canvas/i })).toBeTruthy();
-    // Layers tree present
-    expect(screen.getByRole('tree')).toBeTruthy();
+    // Layers panel present (its tree renders only when layers exist; the
+    // empty state is deliberately not a role=tree)
+    expect(document.querySelector('.layers-panel')).toBeTruthy();
     // Inspector region present
     expect(screen.getByRole('region', { name: /inspector/i })).toBeTruthy();
   });
