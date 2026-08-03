@@ -65,6 +65,11 @@ import {
   rectsIntersect,
 } from './nodeWorkAccounting';
 import {
+  beginContentFrame,
+  createRedrawCoordinator,
+  type RedrawCoordinator,
+} from './redrawCoordinator';
+import {
   enableSnapMetrics,
   getSnapMetrics,
   getSnapMetricsCount,
@@ -75,9 +80,17 @@ import {
 } from './snapDiagnostics';
 import type { SubtreeIrCache } from './subtreeIrCache';
 
+export type {
+  FrameInvalidation,
+  FrameStateSnapshot,
+  RedrawCoordinator,
+  RedrawReason,
+} from './redrawCoordinator';
 export {
+  beginContentFrame,
   beginInteractionSpan,
   createNodeWorkCounters,
+  createRedrawCoordinator,
   enableDrawDiagnostics,
   endFrameTiming,
   getAdaptiveCacheLimits,
@@ -100,6 +113,21 @@ export {
   startFrameTiming,
   summarizeSnapMetrics,
 };
+
+// ── Redraw coordinator registry ─────────────────────────────────────────────
+// The coordinator instance is owned by CanvasArea (one per mount); the
+// diagnostics handle needs to read it, so it is registered here — mirroring
+// the worker-host registry pattern.
+
+let registeredCoordinator: RedrawCoordinator | null = null;
+
+export function registerRedrawCoordinator(coordinator: RedrawCoordinator | null): void {
+  registeredCoordinator = coordinator;
+}
+
+export function getRegisteredRedrawCoordinator(): RedrawCoordinator | null {
+  return registeredCoordinator;
+}
 
 // ── Node-work accounting ────────────────────────────────────────────────────
 // Recording is opt-in so the production render loop pays only the integer
@@ -230,6 +258,8 @@ function augmentPerfDiagnosticsHandle(): void {
       getSamples: (n = 30) => getNodeWorkSamples(n),
       reset: resetNodeWork,
     },
+    scheduler: () =>
+      registeredCoordinator?.getDiagnostics() ?? { error: 'no coordinator registered' },
     presentation: () => ({
       capabilities: detectPresentationCapabilities(),
       evidenceByRuntime: PRESENTATION_EVIDENCE_BY_RUNTIME,
