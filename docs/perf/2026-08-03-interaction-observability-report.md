@@ -204,10 +204,47 @@ detects system sleep by comparing wall-clock against monotonic elapsed time.
 Warm-up iterations are excluded from the growth slope so JIT and cache
 stabilisation are not reported as a leak.
 
-**Not yet run to completion.** These runners are implemented and unit-tested
-(26 tests), but a multi-hour native soak and a full production-build corpus run
-have not been executed in this session. Their results sections are therefore
-empty, and no long-run growth figures are claimed.
+### Production corpus: run
+
+Executed against the production `vite preview` bundle. Results in §13–15 and
+§12. Five defects were found *by running it*, not by inspection — recorded in
+full in commit `e873a27a`, and worth listing because each would have produced
+plausible-looking but wrong evidence:
+
+1. The runner called `perf.runWorkload?.(…)`, **a hook that never existed**.
+   Optional chaining made every iteration a silent no-op, so the runner would
+   have recorded zero-work iterations as successful measurements.
+2. The perf handle is installed by `CanvasArea` on mount and cannot exist on
+   the home screen; it was awaited before the document was opened.
+3. `vite preview` binds the loopback *name* (::1 on a dual-stack host);
+   probing the IPv4 literal reported a phantom 90 s startup timeout.
+4. Co-located `Ctrl+D` duplicates made `prunableByDirty` structurally zero.
+5. A fixed drag coordinate missed every node, turning the drag into a marquee.
+
+A workload producing no traces is now reported as `no-evidence` rather than
+`ok`. That guard fired immediately and correctly on three workloads — see the
+instrumentation gap below.
+
+### Instrumentation gap found by the corpus
+
+`pointer-move-idle`, `zoom` and `undo-redo` produced **zero traces**.
+`beginInteraction` is only called from `handlePointerDown`, so hover, wheel and
+keyboard interactions are never traced at all — even though `InteractionKind`
+declares `'wheel'`, `'pinch'` and `'keyboard'`. Any latency in those paths is
+currently invisible to the tracing system. Not fixed in this pass; recorded as
+a known gap.
+
+### Native multi-hour soak: still not run
+
+Blocked on a release binary — `target/release/strata` does not exist, and a
+Rust release build would contend with other agents on `target/`. The runner is
+implemented and unit-tested but no native RSS figures are claimed. To collect
+them:
+
+```bash
+pnpm --dir apps/desktop tauri build --release
+node scripts/perf/native-soak.mjs --duration=4h --checkpoint=soak.json
+```
 
 ---
 
@@ -253,10 +290,42 @@ visible-list cost; `lostPruningRatio` is the share of replayed nodes a query
 could have skipped; `comparePartialRedraw` reports how much of a dirty-area
 reduction actually became a replayed-node reduction.
 
-**Gate D status: instrumented, not yet satisfied.** The counters exist and are
-exercised by unit tests, but the production-corpus run that would populate them
-across representative workloads has not been executed. The spatial-query
-restructure is therefore **not** approved.
+### Gate D: satisfied (measured 2026-08-03)
+
+Production build, `vite preview`, Chromium, 121-node spatially-spread scene,
+single-node drag, 10 iterations after 3 warm-up, 30 node-work samples,
+120 frames. Commit `176de9df`. CachyOS, 8 cores, `performance` governor.
+
+| Metric | Value |
+|---|---:|
+| dirty area, share of viewport (p50 / p95) | **2.7% / 8.1%** |
+| nodes accepted for replay (p50) | **121** of 161 |
+| nodes replayed that miss the dirty region (p50 / max) | **48.5 / 108** |
+| lost-pruning ratio (p50 / max) | **0.40 / 0.89** |
+| tested-per-candidate (p50) | 0.78 |
+| frames using partial redraw | 64 / 120 |
+| frame total ms (p50 / p95) | 2.5 / 5.1 |
+
+Dirty area collapses to **2.7%** of the viewport while the replayed-node count
+stays at **121** — every visible node. Between 40% and 89% of those nodes do
+not intersect the dirty region at all. The dirty-area reduction buys
+essentially **zero** node-work reduction, which is exactly the condition Gate D
+was defined to detect. The spatial-query restructure is now **evidence-backed**.
+
+A second finding from the same run: **56 of 120 drag frames report
+`redrawReason: 'clean'`** — no document change, no camera change, no decode —
+yet still fully redraw all 121 nodes. Roughly every other frame during a drag
+is a full redraw with no invalidation reason at all. That is a separate and
+possibly cheaper win than the spatial-query work.
+
+Two fixture defects had to be fixed before these numbers meant anything, both
+found by running rather than by inspection. `Ctrl+D` duplicates land on top of
+each other, so every node fell inside any single node's dirty region and
+`prunableByDirty` was structurally zero. And a fixed drag coordinate missed
+every node after the spread nudge, silently turning the drag into a marquee
+that never mutates the document — which makes every frame report `clean` and
+looks exactly like partial redraw being broken. The first version of this
+section drew that wrong conclusion; the corrected fixture disproved it.
 
 ---
 
@@ -296,11 +365,41 @@ bound — the real path cannot be cheaper.
 
 **Gate E: satisfied for layers ≥ 2048².** Tile replay dominates at every size
 (94–99.8%), so dirty-tile replay attacks the right term; persistent-surface
-allocation reuse alone would address under 6%. The optimization is deliberately
-not implemented in the pass that measured it — it needs its own milestone with
-the raster correctness corpus (rotation, blend modes, masks, fractional
-translation, colour profiles, missing/stale tiles, context loss mid-rebuild)
-attached and pixel-diffed against current output.
+allocation reuse alone would address under 6%.
+
+### Implemented (commit `30b99305`)
+
+`rasterLayerCache.ts` keeps a per-layer backing surface and re-uploads only
+tiles whose version changed. Measured with
+`node scripts/perf/bench-dirty-tile-replay.mjs`, 4 changed tiles (the brush-dab
+case), same traffic model and lower-bound caveat:
+
+| Layer | Tiles | full rebuild p95 | dirty-tile p95 | speedup |
+|---|---:|---:|---:|---:|
+| 512² | 16 | 4.50 ms | 2.273 ms | 2× |
+| 1024² | 64 | 3.98 ms | 0.503 ms | 8× |
+| 2048² | 256 | 89.08 ms | 1.224 ms | **73×** |
+| 4096² | 1024 | 238.52 ms | 0.203 ms | **1176×** |
+| 8192² | 4096 | 979.08 ms | 0.623 ms | **1572×** |
+
+2048² was 5× over the 16.7 ms frame budget and is now well inside it.
+
+Correctness contract: the change alters *when* tile pixels are written, never
+what is written or how the surface is composited. `putImageData` ignores
+transform, clip, `globalAlpha` and `globalCompositeOperation`, and tile writes
+never overlap, so a partial upload is pixel-identical to a full one. The
+composite step is untouched — the whole surface is still drawn as one image, so
+transform, rotation, scale, fractional translation, opacity, blend mode, masks,
+clips and filters continue to apply to the finished layer, and no per-tile
+drawing happens at composite time so no seams can appear. Removed tiles are
+explicitly cleared: that is the one hazard a retained surface has which a
+per-frame rebuild cannot, and it has its own test. Missing layer identity, a
+resize, or any doubt falls back to the original full rebuild. Surfaces are
+byte-budgeted with LRU eviction, so the allocation spike removed is not traded
+for unbounded residency.
+
+20 correctness tests; existing replay and raster suites pass unchanged
+(3,493 tests across engine, canvas and render).
 
 ---
 
@@ -401,36 +500,58 @@ timing ceilings on contended shared runners produce noise, not signal.
 ## 23. Limitations
 
 - **No native samples.** Blocked by missing `perf` and `ptrace_scope = 1`.
-- **No multi-hour soak result.** Runner implemented and unit-tested; not run.
-- **No production-corpus result.** Same.
-- **Raster figures are a Node lower bound**, not in-browser measurements.
+- **No native RSS soak.** Blocked on a release binary that is not built.
+- **Raster figures are a Node lower bound**, not in-browser measurements. This
+  applies to both the problem measurement and the after figures; the *ratio*
+  is the load-bearing number, and both arms pay the same per-tile cost.
+- **Latency distributions from the corpus are not budgets.** The driver's
+  deliberate inter-event waits and off-canvas pointer releases inflate
+  `totalMs` and `pointerToPresentMs`. The deterministic work counts
+  (node-work, redraw reasons, dirty ratios) are load-independent and are the
+  trustworthy output of that run; the timing distributions are not.
+- **Wheel, keyboard and hover interactions are untraced** — `beginInteraction`
+  fires only on pointerdown.
 - **`render.worker` does not apply to WebKitGTK**, where the worker is disabled.
-- **Gate D not satisfied.** Node-work counters exist but lack production-corpus
-  data, so the spatial-query restructure is not approved.
 - **Display scan-out is unobservable** from JS on every target.
+- **The production bundle was built with the workspace typecheck gate
+  bypassed** (`vite build` directly), because unrelated in-flight type errors
+  elsewhere in the tree block `tsc --noEmit`. The bundle is production-mode;
+  the results record `typecheckGateBypassed: true`.
 - Concurrent agents were editing this tree throughout; `useIconAssets.ts`,
-  `vectorOps.ts` and `pathOffset.ts` had typecheck errors that are not mine and
-  were left untouched.
+  `vectorOps.ts`, `featureOwnership.ts`, `useLogoGeometry.ts`, `vectorOps.ts`
+  and `pathOffset.ts` had typecheck errors that are not mine and were left
+  untouched. A dev server on port 1420 was returning HTTP 500 from another
+  agent's in-flight code and was not disturbed.
 
 ---
 
 ## 24. Recommended next optimization, ranked by evidence
 
-1. **Dirty-tile-only raster replay onto a persistent per-layer backing
-   surface.** The only item here with a satisfied gate and hard numbers. A
-   brush dab changes 1–4 tiles out of 256+; the current path composites all of
-   them. At 2048² that is ~59 ms p95 against a 16.7 ms budget, and it is a
-   lower bound. Also the strongest constrained-memory win: it removes a
-   per-replay 16–256 MiB allocation, which is the most direct 4 GB risk found.
-2. **Visible-tile-only replay** for pan/zoom over layers larger than the
-   viewport. Same mechanism, second-order benefit; ship with (1).
-3. **Collect the missing evidence** — production corpus and multi-hour native
-   soak — before anything else. Both runners exist; only execution is missing,
-   and the node-work data they would produce is what Gate D is waiting on.
-4. **Dirty-region-driven visible-list construction.** Structurally the biggest
-   possible win on large documents, and the counters to justify it are in
-   place, but it stays unapproved until (3) supplies `prunableByDirty` and
-   `testedPerCandidate` across real workloads.
+**Done in this pass:** dirty-tile raster replay (Gate E) — 73× at 2048²,
+1176× at 4096², and it removes the per-replay 16–256 MiB allocation that was
+the most direct 4 GB memory-pressure risk found.
+
+Ranked remaining work:
+
+1. **Eliminate the `clean` full redraws during drags.** 56 of 120 drag frames
+   redraw all 121 visible nodes with *no* document change, camera change or
+   decode to justify them. This is roughly half the drag frames doing full
+   work for no recorded reason, and it is likely far cheaper to fix than the
+   spatial-query restructure below. Root-cause it first: the frames are
+   already attributed, so the question is what schedules them.
+2. **Dirty-region-driven visible-list construction (Gate D — now approved).**
+   Dirty area falls to 2.7% of the viewport while replayed nodes stay at 121
+   of 161, with 40–89% of them missing the dirty region entirely. The
+   dirty-area reduction currently buys no node-work reduction. Correctness
+   fixtures for nested transforms and effect bounds are the prerequisite.
+3. **Trace wheel, keyboard and hover interactions.** `beginInteraction` fires
+   only on pointerdown, so zoom, undo/redo and hover latency are invisible.
+   Cheap to add, and until it exists those paths cannot be ranked at all.
+4. **Visible-tile-only raster replay** for pan/zoom over layers larger than
+   the viewport. Second-order now that dirty-tile replay has landed.
+5. **Collect native evidence** — release binary, then `perf` or a
+   `ptrace_scope=0` session. Still the largest blind spot, and the primary
+   Linux target is the one where the render worker is disabled entirely.
 
 Explicitly **not** recommended on current evidence: tile atlases,
 multi-resolution pyramids, GPU texture residency, and any renderer rewrite.
