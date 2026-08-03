@@ -68,6 +68,7 @@ export type ExportFormat =
   | 'tiff'
   | 'bmp'
   | 'ico'
+  | 'icns'
   | 'eps'
   | 'psd'
   | 'json'

@@ -30,6 +30,7 @@ export const CANONICAL_EXTENSIONS: Record<ExportFormat, string> = {
   tiff: '.tiff',
   bmp: '.bmp',
   ico: '.ico',
+  icns: '.icns',
   eps: '.eps',
   psd: '.psd',
   json: '.json',
