@@ -2828,6 +2828,10 @@ export function EditorProvider({
         patch({ codegenPanelVisible: next });
       },
       toggleLogoPanel: () => {
+        if (state.workspaceMode !== 'logo') {
+          announcerRef.current?.announce('Switch to the Logo workspace to use the Logo panel');
+          return;
+        }
         const next = !state.logoPanelVisible;
         patch({ logoPanelVisible: next });
         updateSettings({ panel: { logoPanelVisible: next } });
