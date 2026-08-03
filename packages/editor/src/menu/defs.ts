@@ -730,7 +730,7 @@ export function getViewMenu(
       accelerator: a('l', true, true, true),
       kind: 'command',
       group: 'panels',
-      workspaces: ['design', 'logo'],
+      workspaces: ['logo'],
       run: () => runAction('toggleLogoPanel'),
     },
     {

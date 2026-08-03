@@ -1338,7 +1338,7 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   toggleTimelinePanel: ['design', 'motion'],
   toggleGraphEditor: ['design', 'motion'],
   toggleStateMachinePanel: ['design', 'motion'],
-  toggleLogoPanel: ['design', 'logo'],
+  toggleLogoPanel: ['logo'],
   toggleBeforeAfterCompare: ['design', 'print', 'drawing', 'image'],
 
   // Object menu — mode-specific

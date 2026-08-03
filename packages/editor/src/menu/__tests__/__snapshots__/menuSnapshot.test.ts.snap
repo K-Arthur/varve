@@ -3945,13 +3945,6 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "onAction": [Function],
       },
       {
-        "badge": undefined,
-        "disabled": false,
-        "id": "toggleLogoPanel",
-        "label": "Logo Panel",
-        "onAction": [Function],
-      },
-      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -5325,13 +5318,6 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "disabled": false,
         "id": "toggleStateMachinePanel",
         "label": "State Machine Panel",
-        "onAction": [Function],
-      },
-      {
-        "badge": undefined,
-        "disabled": false,
-        "id": "toggleLogoPanel",
-        "label": "Logo Panel",
         "onAction": [Function],
       },
       {
@@ -18529,13 +18515,6 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "onAction": [Function],
       },
       {
-        "badge": undefined,
-        "disabled": false,
-        "id": "toggleLogoPanel",
-        "label": "Logo Panel",
-        "onAction": [Function],
-      },
-      {
         "id": "sep-after-panels",
         "separator": true,
       },
@@ -19909,13 +19888,6 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "disabled": false,
         "id": "toggleStateMachinePanel",
         "label": "State Machine Panel",
-        "onAction": [Function],
-      },
-      {
-        "badge": undefined,
-        "disabled": false,
-        "id": "toggleLogoPanel",
-        "label": "Logo Panel",
         "onAction": [Function],
       },
       {
