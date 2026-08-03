@@ -228,6 +228,12 @@ export interface SvgExportOptions {
    * an `<image>` element instead of silently dropping the node.
    */
   rasterAssets?: Record<string, import('./types').RasterAsset>;
+  /**
+   * Background handling for the exported SVG. 'white' (default) keeps the
+   * historical opaque white backdrop; 'transparent' omits the backdrop
+   * rect entirely — required for logo marks, favicons, and overlays.
+   */
+  background?: 'white' | 'transparent';
 }
 
 /**
@@ -1122,10 +1128,14 @@ export function exportNodeToSvg(
     opts?.preserveColorSpace ?? false,
     rasterAssets,
   );
+  const backdrop =
+    opts?.background === 'transparent'
+      ? ''
+      : '  <rect width="100%" height="100%" fill="#ffffff" />';
   const svg = [
     `<?xml version="1.0" encoding="UTF-8"?>`,
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${pos.x} ${pos.y} ${pos.w} ${pos.h}" width="${pos.w}" height="${pos.h}">`,
-    `  <rect width="100%" height="100%" fill="#ffffff" />`,
+    backdrop,
     defsSection,
     inner,
     `</svg>`,
