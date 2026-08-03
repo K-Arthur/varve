@@ -427,11 +427,15 @@
   text-align: left;
   white-space: nowrap;
 }
-.strata-menu__item:hover,
+.strata-menu__item:hover {
+  background: var(--color-interactive-default);
+  color: var(--color-text-on-accent);
+}
 .strata-menu__item:focus-visible {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  outline: none;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .strata-menu__item:disabled,
 .strata-menu__item[aria-disabled="true"] {
@@ -1254,6 +1258,10 @@
 .strata-number-input:focus {
   border-color: var(--color-interactive-default);
 }
+.strata-number-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
 
 /* ── Slider (APG linear slider with fieldset) ───── */
 .strata-slider {
@@ -1840,6 +1848,10 @@
 }
 .strata-combobox__input:focus {
   border-color: var(--color-interactive-default);
+}
+.strata-combobox__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .strata-combobox--error .strata-combobox__input {
   border-color: var(--color-feedback-danger);
