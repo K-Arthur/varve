@@ -25,6 +25,10 @@
     "./utils/menuTypeAhead": {
       "types": "./src/utils/menuTypeAhead.ts",
       "default": "./src/utils/menuTypeAhead.ts"
+    },
+    "./utils/focusMovement": {
+      "types": "./src/utils/focusMovement.ts",
+      "default": "./src/utils/focusMovement.ts"
     }
   },
   "scripts": {

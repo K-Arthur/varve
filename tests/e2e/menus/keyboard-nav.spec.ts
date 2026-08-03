@@ -159,12 +159,14 @@ test.describe('Menu keyboard navigation', () => {
   // ─── Submenu navigation ─────────────────────────────────────────
 
   test('ArrowRight opens submenu, ArrowLeft closes it', async ({ page }) => {
-    await openMenu(page, 'File');
-    const exportItem = page.locator('[role="menu"] [role="menuitem"]', { hasText: 'Export' });
-    await exportItem.focus();
+    await openMenu(page, 'Arrange');
+    const alignItem = page.locator('[role="menu"] [role="menuitem"][aria-haspopup]', {
+      hasText: 'Align',
+    });
+    await alignItem.focus();
 
     await page.keyboard.press('ArrowRight');
-    const submenu = page.locator('[role="menu"][aria-label="Export"]');
+    const submenu = page.locator('[role="menu"][aria-label="Align"]');
     await expect(submenu).toBeVisible({ timeout: 2000 });
 
     await page.keyboard.press('ArrowLeft');
@@ -173,23 +175,27 @@ test.describe('Menu keyboard navigation', () => {
   });
 
   test('Enter on submenu item opens submenu', async ({ page }) => {
-    await openMenu(page, 'File');
-    const exportItem = page.locator('[role="menu"] [role="menuitem"]', { hasText: 'Export' });
-    await exportItem.focus();
+    await openMenu(page, 'Arrange');
+    const alignItem = page.locator('[role="menu"] [role="menuitem"][aria-haspopup]', {
+      hasText: 'Align',
+    });
+    await alignItem.focus();
 
     await page.keyboard.press('Enter');
-    const submenu = page.locator('[role="menu"][aria-label="Export"]');
+    const submenu = page.locator('[role="menu"][aria-label="Align"]');
     await expect(submenu).toBeVisible({ timeout: 2000 });
   });
 
   test('submenu ArrowDown/ArrowUp cycles submenu items', async ({ page }) => {
-    await openMenu(page, 'File');
+    await openMenu(page, 'Arrange');
 
-    const exportItem = page.locator('[role="menu"] [role="menuitem"]', { hasText: 'Export' });
-    await exportItem.focus();
+    const alignItem = page.locator('[role="menu"] [role="menuitem"][aria-haspopup]', {
+      hasText: 'Align',
+    });
+    await alignItem.focus();
     await page.keyboard.press('ArrowRight');
 
-    const submenu = page.locator('[role="menu"][aria-label="Export"]');
+    const submenu = page.locator('[role="menu"][aria-label="Align"]');
     await expect(submenu).toBeVisible({ timeout: 2000 });
 
     const subItems = submenu.locator('[role="menuitem"]');

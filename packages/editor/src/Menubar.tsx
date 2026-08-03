@@ -9,17 +9,15 @@ import {
   Tooltip,
 } from '@strata/ui';
 import { getTheme, setTheme, type Theme } from '@strata/ui/tokens';
-import {
-  getTypeAheadResetMs,
-  isResetKey,
-  matchMenuTypeAhead,
-  shouldTypeAhead,
-} from '@strata/ui/utils/menuTypeAhead';
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
+import { useMenubarFocusEffects } from './menu/menubarFocus';
+import { handleMenubarKey } from './menu/menubarKeynav';
+import { MenubarSubmenu } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
@@ -32,7 +30,7 @@ import {
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
-interface MenuItem {
+export interface MenuItem {
   label: string;
   shortcut?: string;
   action?: string;
@@ -192,6 +190,14 @@ function buildMenus(
       case 'booleanIntersect':
       case 'booleanExclude':
         return !hasMultipleSelection;
+      case 'expandStroke':
+      case 'offsetPath':
+      case 'roundCorners':
+      case 'simplifyPath':
+      case 'mirrorDuplicateHorizontal':
+      case 'mirrorDuplicateVertical':
+      case 'radialDuplicate':
+        return !hasSelection;
       case 'bringFront':
       case 'bringForward':
       case 'sendBackward':
@@ -895,6 +901,59 @@ function buildMenus(
           disabled: dis('booleanExclude'),
         },
         { label: '---' },
+        // Path operations
+        {
+          label: 'Expand Stroke to Outline',
+          shortcut: formatShortcut(SHORTCUT_DEFS.expandStroke.binding),
+          ariaKeyshortcut: ks('expandStroke'),
+          action: 'expandStroke',
+          disabled: dis('expandStroke'),
+        },
+        {
+          label: 'Offset Path…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.offsetPath.binding),
+          ariaKeyshortcut: ks('offsetPath'),
+          action: 'offsetPath',
+          disabled: dis('offsetPath'),
+        },
+        {
+          label: 'Round Path Corners…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.roundCorners.binding),
+          ariaKeyshortcut: ks('roundCorners'),
+          action: 'roundCorners',
+          disabled: dis('roundCorners'),
+        },
+        {
+          label: 'Simplify Path…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.simplifyPath.binding),
+          ariaKeyshortcut: ks('simplifyPath'),
+          action: 'simplifyPath',
+          disabled: dis('simplifyPath'),
+        },
+        { label: '---' },
+        // Duplicate transforms
+        {
+          label: 'Mirror Duplicate — Horizontal',
+          shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateHorizontal.binding),
+          ariaKeyshortcut: ks('mirrorDuplicateHorizontal'),
+          action: 'mirrorDuplicateHorizontal',
+          disabled: dis('mirrorDuplicateHorizontal'),
+        },
+        {
+          label: 'Mirror Duplicate — Vertical',
+          shortcut: formatShortcut(SHORTCUT_DEFS.mirrorDuplicateVertical.binding),
+          ariaKeyshortcut: ks('mirrorDuplicateVertical'),
+          action: 'mirrorDuplicateVertical',
+          disabled: dis('mirrorDuplicateVertical'),
+        },
+        {
+          label: 'Radial Duplicate…',
+          shortcut: formatShortcut(SHORTCUT_DEFS.radialDuplicate.binding),
+          ariaKeyshortcut: ks('radialDuplicate'),
+          action: 'radialDuplicate',
+          disabled: dis('radialDuplicate'),
+        },
+        { label: '---' },
         // Intelligence
         { label: 'Audit', action: 'runAudit', disabled: dis('runAudit') },
         { label: 'Scan for Debt', action: 'scanDebt', disabled: dis('scanDebt') },
@@ -1413,6 +1472,13 @@ export function Menubar({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Element focused before the dropdown opened; restored on close.
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const prevOpenMenuRef = useRef<MenuId | null>(null);
+  // Non-null when Tab/Shift+Tab closed the menu: restore must walk the tab
+  // order past the anchor instead of returning focus to it.
+  const tabWalkDirRef = useRef<1 | -1 | null>(null);
+  const MENU_ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]';
 
   useEffect(() => {
     const saved = localStorage.getItem('strata-theme') as Theme | null;
@@ -1440,17 +1506,6 @@ export function Menubar({
   }, [editingName]);
 
   useEffect(() => {
-    if (openMenu) {
-      const menu = dropdownMenuRef.current;
-      if (!menu) return;
-      const items = menu.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]',
-      );
-      items[activeItemIndex]?.focus();
-    }
-  }, [openMenu, activeItemIndex]);
-
-  useEffect(() => {
     return () => {
       if (typeaheadTimerRef.current !== null) {
         clearTimeout(typeaheadTimerRef.current);
@@ -1458,6 +1513,18 @@ export function Menubar({
       }
     };
   }, []);
+  useMenubarFocusEffects({
+    openMenu,
+    openSubmenu,
+    activeItemIndex,
+    activeSubmenuIndex,
+    menuRef,
+    dropdownMenuRef,
+    submenuRef,
+    restoreFocusRef,
+    prevOpenMenuRef,
+    tabWalkDirRef,
+  });
 
   useEffect(() => {
     if (openMenu) {
@@ -1800,200 +1867,27 @@ export function Menubar({
 
   const handleMenuKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const openIdx = openMenu ? menus.findIndex((m) => m.id === openMenu) : -1;
-
-      if (openSubmenu !== null) {
-        // Submenu is open
-        const subItems = currentSubmenuItems.filter((i) => i.label !== '---');
-
-        switch (e.key) {
-          case 'ArrowDown':
-          case 'ArrowUp': {
-            e.preventDefault();
-            const dir = e.key === 'ArrowDown' ? 1 : -1;
-            setActiveSubmenuIndex((prev) => {
-              const next = prev + dir;
-              if (next < 0) return subItems.length - 1;
-              if (next >= subItems.length) return 0;
-              return next;
-            });
-            return;
-          }
-          case 'Enter':
-          case ' ': {
-            e.preventDefault();
-            const item = subItems[activeSubmenuIndex];
-            if (item?.action) handleAction(item.action);
-            return;
-          }
-          case 'ArrowLeft':
-          case 'Escape': {
-            e.preventDefault();
-            setOpenSubmenu(null);
-            setActiveSubmenuIndex(0);
-            return;
-          }
-        }
-        return;
-      }
-
-      if (openIdx >= 0 && openMenu) {
-        // Dropdown is open — navigate items
-        const menu = menus[openIdx];
-        if (!menu) return;
-        const items = menu.items.filter((i) => i.label !== '---');
-
-        function resetTypeahead() {
-          typeaheadRef.current = '';
-          if (typeaheadTimerRef.current !== null) {
-            clearTimeout(typeaheadTimerRef.current);
-            typeaheadTimerRef.current = null;
-          }
-        }
-
-        if (shouldTypeAhead(e, typeaheadRef.current)) {
-          clearTimeout(typeaheadTimerRef.current ?? undefined);
-          typeaheadRef.current += e.key;
-          typeaheadTimerRef.current = setTimeout(() => {
-            typeaheadRef.current = '';
-          }, getTypeAheadResetMs());
-
-          const matchIdx = matchMenuTypeAhead(
-            typeaheadRef.current,
-            items.map((item) => ({
-              label: item.label,
-              disabled: item.disabled ?? false,
-            })),
-            activeItemIndex,
-          );
-          if (matchIdx !== null) {
-            e.preventDefault();
-            setActiveItemIndex(matchIdx);
-            setTimeout(() => {
-              const menuEl = dropdownMenuRef.current;
-              if (!menuEl) return;
-              const targetItems = menuEl.querySelectorAll<HTMLButtonElement>(
-                '[role="menuitem"],[role="menuitemradio"],[role="menuitemcheckbox"]',
-              );
-              targetItems[matchIdx]?.scrollIntoView({ block: 'nearest' });
-            }, 0);
-          }
-          return;
-        }
-
-        if (isResetKey(e)) {
-          resetTypeahead();
-        }
-
-        switch (e.key) {
-          case 'ArrowDown':
-          case 'ArrowUp': {
-            e.preventDefault();
-            const dir = e.key === 'ArrowDown' ? 1 : -1;
-            setActiveItemIndex((prev) => {
-              const next = prev + dir;
-              if (next < 0) return items.length - 1;
-              if (next >= items.length) return 0;
-              return next;
-            });
-            return;
-          }
-          case 'Enter':
-          case ' ': {
-            e.preventDefault();
-            const item = items[activeItemIndex];
-            if (item?.items) {
-              setOpenSubmenu(activeItemIndex);
-              setActiveSubmenuIndex(0);
-            } else if (item?.action) {
-              handleAction(item.action);
-            }
-            return;
-          }
-          case 'ArrowRight': {
-            e.preventDefault();
-            const item = items[activeItemIndex];
-            if (item?.items) {
-              setOpenSubmenu(activeItemIndex);
-              setActiveSubmenuIndex(0);
-            } else {
-              const next = (openIdx + 1) % menus.length;
-              setOpenMenu(menus[next]?.id ?? null);
-              setActiveItemIndex(0);
-              setFocusedIndex(next);
-            }
-            return;
-          }
-          case 'ArrowLeft': {
-            e.preventDefault();
-            if (openSubmenu === null) {
-              const prev = (openIdx - 1 + menus.length) % menus.length;
-              setOpenMenu(menus[prev]?.id ?? null);
-              setActiveItemIndex(0);
-              setFocusedIndex(prev);
-            }
-            return;
-          }
-          case 'Escape': {
-            e.preventDefault();
-            setOpenMenu(null);
-            setOpenSubmenu(null);
-            setActiveItemIndex(0);
-            setActiveSubmenuIndex(0);
-            topLevelRefs.current[openIdx]?.focus();
-            return;
-          }
-          case 'Home': {
-            e.preventDefault();
-            setActiveItemIndex(0);
-            return;
-          }
-          case 'End': {
-            e.preventDefault();
-            setActiveItemIndex(items.length - 1);
-            return;
-          }
-        }
-      } else {
-        // Top-level navigation
-        switch (e.key) {
-          case 'ArrowRight':
-          case 'ArrowDown': {
-            e.preventDefault();
-            const next = (focusedIndex + 1) % menus.length;
-            setFocusedIndex(next);
-            topLevelRefs.current[next]?.focus();
-            return;
-          }
-          case 'ArrowLeft':
-          case 'ArrowUp': {
-            e.preventDefault();
-            const prev = (focusedIndex - 1 + menus.length) % menus.length;
-            setFocusedIndex(prev);
-            topLevelRefs.current[prev]?.focus();
-            return;
-          }
-          case 'Enter':
-          case ' ': {
-            e.preventDefault();
-            setOpenMenu(menus[focusedIndex]?.id ?? null);
-            setActiveItemIndex(0);
-            return;
-          }
-          case 'Home': {
-            e.preventDefault();
-            setFocusedIndex(0);
-            topLevelRefs.current[0]?.focus();
-            return;
-          }
-          case 'End': {
-            e.preventDefault();
-            setFocusedIndex(menus.length - 1);
-            topLevelRefs.current[menus.length - 1]?.focus();
-            return;
-          }
-        }
-      }
+      handleMenubarKey(e, {
+        menuRef,
+        dropdownMenuRef,
+        topLevelRefs,
+        openMenu,
+        openSubmenu,
+        focusedIndex,
+        activeItemIndex,
+        activeSubmenuIndex,
+        menus,
+        currentSubmenuItems,
+        tabWalkDirRef,
+        typeaheadRef,
+        typeaheadTimerRef,
+        handleAction,
+        setOpenMenu,
+        setOpenSubmenu,
+        setFocusedIndex,
+        setActiveItemIndex,
+        setActiveSubmenuIndex,
+      });
     },
     [
       openMenu,
@@ -2003,29 +1897,29 @@ export function Menubar({
       openSubmenu,
       activeSubmenuIndex,
       currentSubmenuItems,
+      menus,
     ],
   );
 
   return (
-    <div
-      className="editor-menubar"
-      role="menubar"
-      aria-label="Application"
-      ref={menuRef}
-      data-testid="menubar"
-      onKeyDown={handleMenuKeyDown}
-    >
-      <div className="editor-menubar__left">
-        <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
-          <button
-            type="button"
-            className="editor-menubar__home"
-            aria-label="Home"
-            onClick={() => onBackToHome?.()}
-          >
-            <StrataLogo size={16} />
-          </button>
-        </Tooltip>
+    <div className="editor-menubar" data-testid="menubar">
+      <Tooltip label="Home" shortcut={formatShortcut(getEffectiveBinding('home'))}>
+        <button
+          type="button"
+          className="editor-menubar__home"
+          aria-label="Home"
+          onClick={() => onBackToHome?.()}
+        >
+          <StrataLogo size={16} />
+        </button>
+      </Tooltip>
+      <div
+        className="editor-menubar__left"
+        role="menubar"
+        aria-label="Application"
+        ref={menuRef}
+        onKeyDown={handleMenuKeyDown}
+      >
         {menus.map((menu, i) => (
           <button
             key={menu.id}
@@ -2055,142 +1949,114 @@ export function Menubar({
             {menu.id}
           </button>
         ))}
-      </div>
-
-      {openMenu && openMenuIndex >= 0 && (
-        <FloatingPortal
-          anchorRef={openMenuAnchorRef}
-          open
-          onClose={() => {
-            setOpenMenu(null);
-            setOpenSubmenu(null);
-            setActiveItemIndex(0);
-            setActiveSubmenuIndex(0);
-          }}
-          className="editor-menubar__menu"
-        >
-          <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
-            {menus[openMenuIndex]?.items.map((item, itemIdx) => {
-              if (item.label === '---') {
+        {openMenu && openMenuIndex >= 0 && (
+          <FloatingPortal
+            anchorRef={openMenuAnchorRef}
+            open
+            onClose={() => {
+              setOpenMenu(null);
+              setOpenSubmenu(null);
+              setActiveItemIndex(0);
+              setActiveSubmenuIndex(0);
+            }}
+            className="editor-menubar__menu"
+          >
+            <div ref={dropdownMenuRef} role="menu" aria-label={openMenu}>
+              {menus[openMenuIndex]?.items.map((item, itemIdx) => {
+                if (item.label === '---') {
+                  return (
+                    <hr
+                      key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
+                      className="editor-menubar__menu-sep"
+                      tabIndex={-1}
+                    />
+                  );
+                }
+                const role = itemRole(item);
+                const isChecked = itemAriaChecked(item, state);
+                const isActive =
+                  (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
+                  isChecked;
+                const hasSubmenu = !!item.items;
+                const isSubmenuOpen = openSubmenu === itemIdx;
                 return (
-                  <hr
-                    key={separatorKey(menus[openMenuIndex]?.items ?? [], item, openMenu)}
-                    className="editor-menubar__menu-sep"
-                    tabIndex={-1}
-                  />
-                );
-              }
-              const role = itemRole(item);
-              const isChecked = itemAriaChecked(item, state);
-              const isActive =
-                (item.action?.startsWith('theme:') && currentTheme === item.action.slice(6)) ||
-                isChecked;
-              const hasSubmenu = !!item.items;
-              const isSubmenuOpen = openSubmenu === itemIdx;
-              return (
-                <div
-                  key={item.label}
-                  role="none"
-                  className="editor-menubar__menu-item-wrapper"
-                  onMouseEnter={() => {
-                    if (hasSubmenu) {
-                      setOpenSubmenu(itemIdx);
-                      setActiveSubmenuIndex(0);
-                    }
-                  }}
-                >
-                  {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
-                  <button
-                    role={hasSubmenu ? 'menuitem' : role}
-                    type="button"
-                    aria-haspopup={hasSubmenu ? true : undefined}
-                    aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
-                    aria-checked={
-                      !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
-                        ? isChecked
-                        : undefined
-                    }
-                    aria-keyshortcuts={item.ariaKeyshortcut}
-                    disabled={item.disabled && !hasSubmenu}
-                    className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
-                    onClick={() => {
+                  <div
+                    key={item.label}
+                    role="none"
+                    className="editor-menubar__menu-item-wrapper"
+                    onMouseEnter={() => {
                       if (hasSubmenu) {
-                        setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                        setOpenSubmenu(itemIdx);
                         setActiveSubmenuIndex(0);
-                      } else {
-                        handleAction(item.action ?? '');
                       }
                     }}
                   >
-                    <span className="editor-menubar__menu-label">{item.label}</span>
-                    {hasSubmenu && (
-                      <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
-                    )}
-                    {!hasSubmenu && item.shortcut && (
-                      <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
-                    )}
-                  </button>
-                  {hasSubmenu && isSubmenuOpen && item.items && (
-                    <FloatingPortal
-                      anchorRef={dropdownMenuRef}
-                      open
-                      onClose={() => {
-                        setOpenSubmenu(null);
-                        setActiveSubmenuIndex(0);
+                    {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox */}
+                    <button
+                      role={hasSubmenu ? 'menuitem' : role}
+                      type="button"
+                      aria-haspopup={hasSubmenu ? true : undefined}
+                      aria-expanded={hasSubmenu ? isSubmenuOpen : undefined}
+                      aria-checked={
+                        !hasSubmenu && (role === 'menuitemradio' || role === 'menuitemcheckbox')
+                          ? isChecked
+                          : undefined
+                      }
+                      aria-keyshortcuts={item.ariaKeyshortcut}
+                      disabled={item.disabled && !hasSubmenu}
+                      tabIndex={activeItemIndex === itemIdx ? 0 : -1}
+                      className={`editor-menubar__menu-item${isActive ? ' editor-menubar__menu-item--active' : ''}${hasSubmenu ? ' editor-menubar__menu-item--submenu' : ''}`}
+                      onClick={() => {
+                        if (hasSubmenu) {
+                          setOpenSubmenu(isSubmenuOpen ? null : itemIdx);
+                          setActiveSubmenuIndex(0);
+                        } else {
+                          handleAction(item.action ?? '');
+                        }
                       }}
-                      className="editor-menubar__submenu"
                     >
-                      <div ref={submenuRef} role="menu" aria-label={item.label}>
-                        {item.items.map((subItem) => {
-                          if (subItem.label === '---') {
-                            return (
-                              <hr
-                                key={separatorKey(item.items ?? [], subItem, item.label)}
-                                className="editor-menubar__menu-sep"
-                                tabIndex={-1}
-                              />
-                            );
+                      <span className="editor-menubar__menu-label">{item.label}</span>
+                      {hasSubmenu && (
+                        <span className="editor-menubar__menu-submenu-arrow">&#9654;</span>
+                      )}
+                      {!hasSubmenu && item.shortcut && (
+                        <span className="editor-menubar__menu-shortcut">{item.shortcut}</span>
+                      )}
+                    </button>
+                    {hasSubmenu && isSubmenuOpen && item.items && (
+                      <MenubarSubmenu
+                        items={item.items}
+                        parentLabel={item.label}
+                        open
+                        activeSubmenuIndex={activeSubmenuIndex}
+                        anchorRef={dropdownMenuRef}
+                        submenuRef={submenuRef}
+                        currentTheme={currentTheme}
+                        state={state}
+                        onClose={() => {
+                          setOpenSubmenu(null);
+                          setActiveSubmenuIndex(0);
+                          // Return focus to the parent item when the submenu
+                          // had it (outside-click close).
+                          const active = document.activeElement;
+                          if (active && submenuRef.current?.contains(active)) {
+                            const parentItems =
+                              dropdownMenuRef.current?.querySelectorAll<HTMLButtonElement>(
+                                MENU_ITEM_SELECTOR,
+                              );
+                            parentItems?.[activeItemIndex]?.focus();
                           }
-                          const subRole = itemRole(subItem);
-                          const subChecked = itemAriaChecked(subItem, state);
-                          const subActive =
-                            (subItem.action?.startsWith('theme:') &&
-                              currentTheme === subItem.action.slice(6)) ||
-                            subChecked;
-                          return (
-                            // biome-ignore lint/a11y/useAriaPropsSupportedByRole: aria-checked is emitted only when the runtime role is menuitemradio/menuitemcheckbox
-                            <button
-                              key={subItem.label}
-                              role={subRole}
-                              type="button"
-                              aria-checked={
-                                subRole === 'menuitemradio' || subRole === 'menuitemcheckbox'
-                                  ? subChecked
-                                  : undefined
-                              }
-                              aria-keyshortcuts={subItem.ariaKeyshortcut}
-                              disabled={subItem.disabled}
-                              className={`editor-menubar__menu-item${subActive ? ' editor-menubar__menu-item--active' : ''}`}
-                              onClick={() => handleAction(subItem.action ?? '')}
-                            >
-                              <span className="editor-menubar__menu-label">{subItem.label}</span>
-                              {subItem.shortcut && (
-                                <span className="editor-menubar__menu-shortcut">
-                                  {subItem.shortcut}
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </FloatingPortal>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </FloatingPortal>
-      )}
+                        }}
+                        handleAction={handleAction}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </FloatingPortal>
+        )}
+      </div>
 
       {/* ── Center: Document name ── */}
       <div className="editor-menubar__center">
