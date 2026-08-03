@@ -11,8 +11,6 @@ vi.mock('../../context', () => ({
 
 const mockedUseEditor = vi.mocked(useEditor);
 
-const SVG = '<svg viewBox="0 0 24 24"><path d="M2 2h20v20H2z"/></svg>';
-
 function editorMock() {
   const insertIconAsset = vi.fn().mockResolvedValue('n9');
   const replaceIconAsset = vi.fn().mockResolvedValue('n9');
