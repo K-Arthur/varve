@@ -10,7 +10,7 @@ import {
   reorderPages,
 } from '@strata/scene';
 import { ContextMenu, type MenuEntry } from '@strata/ui';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { usePageThumbnail } from './usePageThumbnail';
 import './pagenav.css';
@@ -45,13 +45,17 @@ export function computeReorderedPageIds(
 function SortablePageTab({
   page,
   isActive,
+  isFocused,
   onSelect,
   onContextMenu,
+  onNavigate,
 }: {
   page: Page;
   isActive: boolean;
+  isFocused: boolean;
   onSelect: (id: NodeId) => void;
   onContextMenu: (e: React.MouseEvent, id: NodeId) => void;
+  onNavigate: (dir: 'next' | 'prev' | 'home' | 'end') => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: page.id,
@@ -72,16 +76,37 @@ function SortablePageTab({
       className={`page-nav__item${isActive ? ' page-nav__item--active' : ''}`}
       aria-selected={isActive}
       aria-label={`Page: ${page.name}`}
+      data-page-id={page.id}
       onClick={() => onSelect(page.id)}
       onContextMenu={(e) => onContextMenu(e, page.id)}
       {...attributes}
       {...listeners}
       role="tab"
-      tabIndex={isActive ? 0 : -1}
+      tabIndex={isFocused ? 0 : -1}
       onKeyDown={(e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        e.preventDefault();
-        onSelect(page.id);
+        switch (e.key) {
+          case 'ArrowRight':
+            e.preventDefault();
+            onNavigate('next');
+            break;
+          case 'ArrowLeft':
+            e.preventDefault();
+            onNavigate('prev');
+            break;
+          case 'Home':
+            e.preventDefault();
+            onNavigate('home');
+            break;
+          case 'End':
+            e.preventDefault();
+            onNavigate('end');
+            break;
+          case 'Enter':
+          case ' ':
+            e.preventDefault();
+            onSelect(page.id);
+            break;
+        }
       }}
     >
       <div className="page-nav__thumbnail" style={pageThumbnailStyle(page)}>
@@ -104,6 +129,30 @@ export function PageNav() {
   const [ctxPos, setCtxPos] = useState<{ x: number; y: number } | null>(null);
   const [ctxPageId, setCtxPageId] = useState<string | null>(null);
   const stripRef = useRef<HTMLDivElement>(null);
+  // Roving focus index: the page tab that owns tabindex=0. Follows focus
+  // moves; initialised to the active page.
+  const [focusId, setFocusId] = useState<string | null>(currentId);
+  // Focus destination after a page-list change: 'active' (delete fallback)
+  // or 'last' (new page).
+  const pendingFocusRef = useRef<'active' | 'last' | null>(null);
+
+  const pageEl = useCallback(
+    (id: string): HTMLElement | null =>
+      stripRef.current?.querySelector<HTMLElement>(`[data-page-id="${id}"]`) ?? null,
+    [],
+  );
+
+  const focusPage = useCallback(
+    (id: string, opts?: { scroll?: boolean }) => {
+      setFocusId(id);
+      const el = pageEl(id);
+      if (el) {
+        el.focus({ preventScroll: true });
+        if (opts?.scroll !== false) el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      }
+    },
+    [pageEl],
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -115,6 +164,7 @@ export function PageNav() {
     const count = pages.length + 1;
     updateDoc((doc) => addPageFn(doc, { name: `Page ${count}` }));
     setCurrentPageId(null);
+    pendingFocusRef.current = 'last';
   }, [pages.length, updateDoc, setCurrentPageId]);
 
   const handleSelectPage = useCallback(
@@ -124,6 +174,52 @@ export function PageNav() {
     },
     [setActivePage, setCurrentPageId],
   );
+
+  const handleNavigate = useCallback(
+    (dir: 'next' | 'prev' | 'home' | 'end') => {
+      if (pages.length === 0) return;
+      const idx = pages.findIndex((p) => p.id === focusId);
+      const base =
+        idx < 0
+          ? Math.max(
+              0,
+              pages.findIndex((p) => p.id === currentId),
+            )
+          : idx;
+      let target: number;
+      if (dir === 'home') target = 0;
+      else if (dir === 'end') target = pages.length - 1;
+      else target = (base + (dir === 'next' ? 1 : -1) + pages.length) % pages.length;
+      const page = pages[target];
+      if (!page) return;
+      // Automatic activation: arrows switch the page (platform convention).
+      handleSelectPage(page.id);
+      focusPage(page.id);
+    },
+    [pages, focusId, currentId, handleSelectPage, focusPage],
+  );
+
+  // After a page-list change with a pending destination, move focus to the
+  // replacement tab (delete fallback) or the new last tab (add).
+  useEffect(() => {
+    if (pendingFocusRef.current === null) return;
+    const mode = pendingFocusRef.current;
+    pendingFocusRef.current = null;
+    if (mode === 'last') {
+      const last = pages[pages.length - 1];
+      if (last) focusPage(last.id);
+    } else if (mode === 'active') {
+      const id = currentId ?? pages[0]?.id;
+      if (id) focusPage(id);
+    }
+  }, [pages, currentId, focusPage]);
+
+  // Keep the roving index valid when pages disappear through other paths.
+  useEffect(() => {
+    if (focusId && !pages.some((p) => p.id === focusId)) {
+      setFocusId(currentId ?? pages[0]?.id ?? null);
+    }
+  }, [pages, focusId, currentId]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -151,6 +247,7 @@ export function PageNav() {
   const handleDeletePage = useCallback(() => {
     if (!ctxPageId) return;
     if (pages.length <= 1) return;
+    pendingFocusRef.current = 'active';
     updateDoc((doc) => removePage(doc, ctxPageId));
     closeContextMenu();
   }, [ctxPageId, pages.length, updateDoc, closeContextMenu]);
@@ -182,8 +279,10 @@ export function PageNav() {
               key={page.id}
               page={page}
               isActive={page.id === currentId}
+              isFocused={(focusId ?? currentId) === page.id}
               onSelect={handleSelectPage}
               onContextMenu={handleContextMenu}
+              onNavigate={handleNavigate}
             />
           ))}
         </SortableContext>

@@ -4,6 +4,12 @@
  * APG Tabs pattern: role=tablist / role=tab / aria-selected / roving tabindex
  * Arrow keys move focus (not selection); Enter/Space select; Delete closes.
  *
+ * Focus contract (docs/audits/focus-navigation-audit-2026-08-02.md):
+ * - The roving tabindex follows FOCUS, not selection: the focused tab keeps
+ *   tabindex=0, so Tab exits the widget from the focused tab (APG).
+ * - Closing a tab moves focus to the replacement tab; creating a tab moves
+ *   focus to the new tab; arrow focus scrolls the strip.
+ *
  * Each tab is a <div role="tab"> (not a <button>) so the inner close <button>
  * is valid HTML (interactive elements can't be nested inside <button>).
  *
@@ -12,7 +18,7 @@
  */
 
 import { AlertDialog, Tooltip } from '@strata/ui';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useEditor } from './context';
 
 function CloseIcon() {
@@ -38,20 +44,58 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   const { sessions, activeId } = state;
   const tabRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [confirmCloseId, setConfirmCloseId] = useState<string | null>(null);
+  // Roving focus index: the tab that currently owns tabindex=0. Follows
+  // focus moves; initialised to the active tab.
+  const [focusId, setFocusId] = useState<string | null>(activeId);
+  // Non-null when the session list is about to change and focus must move to
+  // a specific position afterwards: the index of the tab being closed, or
+  // Number.MAX_SAFE_INTEGER for the newly created (last) tab.
+  const pendingFocusRef = useRef<number | null>(null);
 
   function getTabIds(): string[] {
     return sessions.map((s) => s.id);
   }
 
   function focusById(id: string) {
-    tabRefs.current.get(id)?.focus();
+    const el = tabRefs.current.get(id);
+    if (!el) return;
+    setFocusId(id);
+    el.focus({ preventScroll: true });
+    el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   }
 
   function requestClose(id: string) {
+    const idx = getTabIds().indexOf(id);
+    pendingFocusRef.current = idx;
     if (!closeTab(id)) {
       setConfirmCloseId(id);
     }
   }
+
+  // After the session list changes with a pending focus target, move focus
+  // to the replacement position: the tab occupying the closed index (or the
+  // last tab for a freshly created document).
+  useEffect(() => {
+    if (pendingFocusRef.current === null) return;
+    const tabIds = getTabIds();
+    const target = Math.min(pendingFocusRef.current, tabIds.length - 1);
+    pendingFocusRef.current = null;
+    if (target >= 0) {
+      const el = tabRefs.current.get(tabIds[target]!);
+      if (el) {
+        setFocusId(tabIds[target]!);
+        el.focus({ preventScroll: true });
+        el.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+      }
+    }
+  }, [sessions]);
+
+  // Keep the roving index valid when tabs disappear through other paths.
+  useEffect(() => {
+    if (focusId && !sessions.some((s) => s.id === focusId)) {
+      setFocusId(activeId);
+    }
+  }, [sessions, focusId, activeId]);
 
   function handleTabKeyDown(e: React.KeyboardEvent, id: string) {
     const tabIds = getTabIds();
@@ -94,10 +138,18 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
     }
   }
 
+  const handleNewTab = () => {
+    pendingFocusRef.current = Number.MAX_SAFE_INTEGER;
+    newTab();
+  };
+
+  const rovingId = focusId ?? activeId;
+
   return (
     <div className="editor-tabs" role="tablist" aria-label="Open documents">
       {sessions.map((sess) => {
         const isActive = sess.id === activeId;
+        const isFocused = sess.id === rovingId;
         return (
           <Tooltip key={sess.id} label={sess.filePath ?? sess.name}>
             <div
@@ -107,9 +159,12 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
               }}
               role="tab"
               aria-selected={isActive}
-              tabIndex={isActive ? 0 : -1}
+              tabIndex={isFocused ? 0 : -1}
               className={`editor-tabs__tab${isActive ? ' editor-tabs__tab--active' : ''}`}
-              onClick={() => switchTab(sess.id)}
+              onClick={() => {
+                setFocusId(sess.id);
+                switchTab(sess.id);
+              }}
               onKeyDown={(e) => handleTabKeyDown(e, sess.id)}
               onAuxClick={(e) => handleAuxClick(e, sess.id)}
             >
@@ -135,7 +190,7 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
         <button
           type="button"
           className="editor-tabs__new"
-          onClick={newTab}
+          onClick={handleNewTab}
           aria-label="New document (Ctrl+T)"
         >
           <PlusIcon />
@@ -149,7 +204,10 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
         return (
           <AlertDialog
             open={true}
-            onClose={() => setConfirmCloseId(null)}
+            onClose={() => {
+              pendingFocusRef.current = null;
+              setConfirmCloseId(null);
+            }}
             onConfirm={() => {
               closeTab(confirmCloseId, true);
               setConfirmCloseId(null);
