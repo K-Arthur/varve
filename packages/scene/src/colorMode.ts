@@ -1,3 +1,33 @@
+/**
+ * Document color-mode operations.
+ *
+ * The historical `switchColorMode` conflated two operations with different
+ * semantics:
+ *
+ * 1. **Assignment** — changes the document's working mode/intent. Stored
+ *    values keep their space and are reinterpreted under the new mode at
+ *    read boundaries (rendering, export). Non-destructive to values; may
+ *    change appearance. See `assignDocumentColorMode`.
+ *
+ * 2. **Conversion** — rewrites stored process colors through the source →
+ *    destination space so appearance is preserved as closely as the chosen
+ *    algorithm allows. Destructive to values; undoable. See
+ *    `convertDocumentColors`.
+ *
+ * `switchColorMode` is retained only as a deprecated alias for the
+ * conversion operation; new callers MUST pick the explicit operation.
+ *
+ * Conversion algorithms:
+ * - `analytical` (default, browser-safe): formula-based RGB-to-CMYK-to-gray
+ *   (0-255 scale). Honest but NOT an ICC conversion — UIs must label it
+ *   "approximate" and never present it as profile-accurate.
+ * - `icc`: profile-aware conversion via the native/WASM engine. The scene
+ *   package cannot perform ICC conversion itself; callers must supply a
+ *   converter function, otherwise an `'icc-unavailable'` warning is
+ *   emitted and the conversion is skipped.
+ */
+
+import { labToRgb, lchToRgb } from '@strata/shared';
 import {
   type ColorConfig,
   type ColorMode,
@@ -6,6 +36,28 @@ import {
 } from './colorManagement';
 import type { Document } from './document';
 import type { Effect, Fill, GradientStop, SceneNode, Stroke } from './types';
+
+export type ColorConversionAlgorithm = 'analytical' | 'icc';
+
+/** Per-color ICC converter supplied by a runtime engine (desktop/WASM). */
+export type IccColorConverter = (color: ManagedColor, destMode: ColorMode) => ManagedColor | null;
+
+export interface ConvertColorModeOptions {
+  algorithm?: ColorConversionAlgorithm;
+  /** Required when algorithm === 'icc'. Returns null when unconvertible. */
+  iccConverter?: IccColorConverter;
+}
+
+/** Structured report of a document color conversion. */
+export interface ColorConversionReport {
+  /** Process colors rewritten by the conversion. */
+  converted: number;
+  /** Spot references preserved untouched (spot inks are not converted). */
+  spotsPreserved: number;
+  /** Values left as-is (registration, unresolved, unsupported ICC). */
+  unsupported: number;
+  warnings: string[];
+}
 
 function rgbToCmyk(
   r: number,
@@ -39,16 +91,39 @@ function luminance(r: number, g: number, b: number): number {
   return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
 }
 
-function convertColor(color: ManagedColor, newMode: ColorMode): ManagedColor {
-  if (color.space === 'spot') return color;
+/**
+ * Analytical conversion of a single color into `newMode`. Spot, registration,
+ * and unresolved colors are never rewritten.
+ */
+function convertColorAnalytical(
+  color: ManagedColor,
+  newMode: ColorMode,
+  report: ColorConversionReport,
+): ManagedColor {
+  if (color.space === 'spot') {
+    report.spotsPreserved++;
+    return color;
+  }
+  if (color.space === 'registration' || color.space === 'unresolved') {
+    report.unsupported++;
+    return color;
+  }
+
+  // Lab/LCH reduce to sRGB first so every mode conversion has one entry point.
+  if (color.space === 'lab' || color.space === 'lch') {
+    return convertColorAnalytical(rgbFromLabOrLch(color), newMode, report);
+  }
+
   if (newMode === 'rgb') {
     if (color.space === 'rgb') return color;
     if (color.space === 'cmyk') {
       const { r, g, b } = cmykToRgb(color.c, color.m, color.y, color.k);
+      report.converted++;
       return withProfile({ space: 'rgb', r, g, b, a: color.a }, color);
     }
     if (color.space === 'gray') {
-      const v = (color.v / 255) * 255;
+      const v = color.v;
+      report.converted++;
       return withProfile({ space: 'rgb', r: v, g: v, b: v, a: color.a }, color);
     }
   }
@@ -56,10 +131,12 @@ function convertColor(color: ManagedColor, newMode: ColorMode): ManagedColor {
     if (color.space === 'cmyk') return color;
     if (color.space === 'rgb') {
       const { c, m, y, k } = rgbToCmyk(color.r, color.g, color.b);
+      report.converted++;
       return withProfile({ space: 'cmyk', c, m, y, k, a: color.a }, color);
     }
     if (color.space === 'gray') {
       const k = Math.round((1 - color.v / 255) * 255);
+      report.converted++;
       return withProfile({ space: 'cmyk', c: 0, m: 0, y: 0, k, a: color.a }, color);
     }
   }
@@ -67,6 +144,7 @@ function convertColor(color: ManagedColor, newMode: ColorMode): ManagedColor {
     if (color.space === 'gray') return color;
     if (color.space === 'rgb') {
       const v = luminance(color.r, color.g, color.b);
+      report.converted++;
       return withProfile({ space: 'gray', v, a: color.a }, color);
     }
     if (color.space === 'cmyk') {
@@ -74,32 +152,56 @@ function convertColor(color: ManagedColor, newMode: ColorMode): ManagedColor {
       const r = Math.round(255 * (1 - c / 255) * (1 - k / 255));
       const g = Math.round(255 * (1 - m / 255) * (1 - k / 255));
       const b = Math.round(255 * (1 - y / 255) * (1 - k / 255));
-      const v = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      const v = luminance(r, g, b);
+      report.converted++;
       return withProfile({ space: 'gray', v, a: color.a }, color);
     }
   }
   return color;
 }
 
+/** Lab/LCH → rgb ManagedColor via the canonical shared conversion. */
+function rgbFromLabOrLch(color: ManagedColor): ManagedColor {
+  let rgb: [number, number, number];
+  if (color.space === 'lab') {
+    rgb = labToRgb(color.l, color.av, color.b);
+  } else if (color.space === 'lch') {
+    rgb = lchToRgb(color.l, color.c, color.h);
+  } else {
+    throw new Error(`expected lab or lch, got ${color.space}`);
+  }
+  const profile = 'profile' in color ? color.profile : undefined;
+  const profileFingerprint = 'profileFingerprint' in color ? color.profileFingerprint : undefined;
+  return {
+    space: 'rgb',
+    r: rgb[0],
+    g: rgb[1],
+    b: rgb[2],
+    a: color.a,
+    profile,
+    profileFingerprint,
+  };
+}
+
 function withProfile<T extends { a: number }>(result: T, source: ManagedColor): T {
   if ('profile' in source && source.profile) {
-    return { ...result, profile: source.profile };
+    return { ...result, profile: source.profile } as T;
   }
   return result;
 }
 
 function updateColorConfig(config: ColorConfig | undefined, newMode: ColorMode): ColorConfig {
-  // A document created without an explicit colorMode has no colorConfig at
-  // all (see document.ts) — that's the normal case, not an edge case.
-  // defaultColorConfig() only branches on 'cmyk' vs everything else, so it
-  // can't be trusted to set .mode to 'grayscale'; set it explicitly here.
   if (!config) return { ...defaultColorConfig(newMode), mode: newMode };
-  // Preserve bitDepth and workingSpace — color mode switch is not a
-  // precision or blending change.
+  // Preserve bitDepth and workingSpace — mode change is not a precision or
+  // blending change.
   return { ...config, mode: newMode };
 }
 
-function walkAndConvert(node: SceneNode, newMode: ColorMode): SceneNode {
+function walkAndConvert(
+  node: SceneNode,
+  newMode: ColorMode,
+  convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor,
+): SceneNode {
   let updated = { ...node, fill: convertColor(node.fill, newMode) };
 
   if ('strokes' in updated && updated.strokes) {
@@ -146,12 +248,58 @@ function walkAndConvert(node: SceneNode, newMode: ColorMode): SceneNode {
   return updated;
 }
 
-export function switchColorMode(doc: Document, newMode: ColorMode): Document {
+/**
+ * Assign a color mode without rewriting stored values. Existing colors keep
+ * their space and are interpreted under the new mode at read boundaries.
+ * This is a document-intent change; it may alter appearance.
+ */
+export function assignDocumentColorMode(doc: Document, newMode: ColorMode): Document {
   if (doc.colorConfig?.mode === newMode) return doc;
+  return { ...doc, colorConfig: updateColorConfig(doc.colorConfig, newMode) };
+}
+
+/**
+ * Convert stored process colors into `newMode`. Explicit, cancellable (by
+ * caller), and undoable through the normal transaction system.
+ *
+ * - Analytical algorithm is the honest browser fallback (approximate).
+ * - ICC algorithm requires `options.iccConverter`; without it the conversion
+ *   is skipped with an 'icc-unavailable' warning rather than silently
+ *   degrading to formulas.
+ */
+export function convertDocumentColors(
+  doc: Document,
+  newMode: ColorMode,
+  options: ConvertColorModeOptions = {},
+): { doc: Document; report: ColorConversionReport } {
+  const algorithm = options.algorithm ?? 'analytical';
+  const report: ColorConversionReport = {
+    converted: 0,
+    spotsPreserved: 0,
+    unsupported: 0,
+    warnings: [],
+  };
+
+  if (doc.colorConfig?.mode === newMode) {
+    report.warnings.push('document is already in the target mode');
+    return { doc, report };
+  }
+
+  if (algorithm === 'icc' && !options.iccConverter) {
+    report.warnings.push(
+      'icc conversion requested but no ICC converter is available; conversion skipped',
+    );
+    return { doc, report };
+  }
+
+  const convertColor: (c: ManagedColor, mode: ColorMode) => ManagedColor =
+    algorithm === 'icc'
+      ? (c, mode) => options.iccConverter!(c, mode) ?? c
+      : (c, mode) => convertColorAnalytical(c, mode, report);
 
   const nodes: Record<string, SceneNode> = {};
   for (const [id, node] of Object.entries(doc.nodes)) {
-    nodes[id] = walkAndConvert(node, newMode);
+    nodes[id] = walkAndConvert(node, newMode, convertColor);
   }
 
   let swatches = doc.swatches;
@@ -164,11 +312,31 @@ export function switchColorMode(doc: Document, newMode: ColorMode): Document {
     canvasBackground = convertColor(canvasBackground, newMode);
   }
 
+  if (algorithm === 'analytical') {
+    report.warnings.push(
+      'analytical conversion is approximate; profile-accurate conversion requires the ICC engine (desktop/WASM)',
+    );
+  }
+
   return {
-    ...doc,
-    nodes,
-    swatches,
-    canvasBackground,
-    colorConfig: updateColorConfig(doc.colorConfig, newMode),
+    doc: {
+      ...doc,
+      nodes,
+      swatches,
+      canvasBackground,
+      colorConfig: updateColorConfig(doc.colorConfig, newMode),
+    },
+    report,
   };
+}
+
+/**
+ * @deprecated Ambiguous: this performs ANALYTICAL CONVERSION of stored
+ * values. Call `assignDocumentColorMode` when the intent is to change the
+ * document's working mode without rewriting values, or
+ * `convertDocumentColors` when rewriting values is intended. Kept for
+ * backward compatibility with callers and tests predating the split.
+ */
+export function switchColorMode(doc: Document, newMode: ColorMode): Document {
+  return convertDocumentColors(doc, newMode).doc;
 }
