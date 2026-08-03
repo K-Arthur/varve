@@ -4,9 +4,10 @@ Continues `2026-08-02-canvas-performance-architecture-audit.md`. That document
 mapped the architecture and listed six evidence gaps. This one records what was
 instrumented, what was measured, and what the measurements changed.
 
-**Scope discipline.** Instrumentation first. One hot path was measured and its
-optimization approved by a gate (raster reconstruction); it was deliberately
-not implemented in the same pass. No other hot path was modified.
+**Scope discipline.** Instrumentation first, then measurement, then — only where
+a gate was satisfied — optimization. Two gates were satisfied by measurement in
+this pass. Gate E's optimization (dirty-tile raster replay) is implemented;
+Gate D's is approved but not implemented, and is ranked in §24.
 
 ---
 
@@ -233,6 +234,33 @@ keyboard interactions are never traced at all — even though `InteractionKind`
 declares `'wheel'`, `'pinch'` and `'keyboard'`. Any latency in those paths is
 currently invisible to the tracing system. Not fixed in this pass; recorded as
 a known gap.
+
+### Browser soak: run (150 iterations)
+
+Production build, 150 single-drag iterations after 10 warm-up, forced GC and a
+heap sample after every iteration.
+
+| Metric | Result |
+|---|---|
+| JS heap, first / last / min / max | 45.2 / 45.2 / 45.2 / 45.2 MB |
+| growth slope | 0.0 MB/iteration |
+| frame disposals over the run | **2,321** |
+| resident bytes at end | 3,059,328 (≈2.9 MB — **exactly one frame**) |
+| peak total bytes | 3,146,624 (1.03× resident) |
+| admission rejections | 0 |
+| retained interaction traces | 50 (the ring cap) |
+
+**The heap figure is weaker than it looks.** Chromium quantizes
+`performance.memory.usedJSHeapSize` to coarse buckets to limit fingerprinting,
+so an exactly-constant reading across 150 samples is consistent with the
+quantization floor rather than proving byte-level stability. It is evidence of
+no *gross* growth, nothing finer.
+
+**The resource accounting is the load-bearing result.** After 2,321 disposals,
+exactly one frame remains resident and peak never exceeded 1.03× resident.
+That is the exactly-once disposal invariant from §8 holding over a sustained
+run rather than only in unit tests. Trace retention also held at its 50-trace
+cap across 150 gestures, confirming §7's bounds under real load.
 
 ### Native multi-hour soak: still not run
 
@@ -500,7 +528,11 @@ timing ceilings on contended shared runners produce noise, not signal.
 ## 23. Limitations
 
 - **No native samples.** Blocked by missing `perf` and `ptrace_scope = 1`.
-- **No native RSS soak.** Blocked on a release binary that is not built.
+- **No native RSS soak.** Blocked on a release binary that is not built. The
+  150-iteration browser soak covers the JS/renderer side only; process RSS,
+  native WebView memory and GPU memory remain unmeasured.
+- **The soak's flat heap reading is coarse.** Chromium quantizes
+  `performance.memory`, so it evidences no gross growth, not byte stability.
 - **Raster figures are a Node lower bound**, not in-browser measurements. This
   applies to both the problem measurement and the after figures; the *ratio*
   is the load-bearing number, and both arms pay the same per-tile cost.
