@@ -123,7 +123,11 @@ export function recordNodeWork(
 ): void {
   if (!isNodeWorkRecordingEnabled()) return;
   nodeWorkRing.record(counters);
-  if (recorder) lastDirtyRects = recorder;
+  // Keep the last recording that actually captured rectangles. Overwriting
+  // unconditionally means a trailing clean frame — which has no dirty region —
+  // erases the evidence from the frames that did, and the diagnostic then
+  // always reports zero rectangles.
+  if (recorder && recorder.rects.length > 0) lastDirtyRects = recorder;
   recordInteractionSpan('render.nodework', 0, {
     total: counters.totalSceneNodes,
     candidates: counters.candidates,
