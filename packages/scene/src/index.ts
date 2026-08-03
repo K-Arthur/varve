@@ -86,6 +86,7 @@ export * from './property-path';
 export * from './rasterLayer';
 export * from './richTextOps';
 export * from './selectionSet';
+export * from './spotLibraries';
 export * from './state-machine';
 export * from './state-machine-runtime';
 export * from './state-machine-types';
