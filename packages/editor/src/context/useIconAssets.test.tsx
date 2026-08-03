@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { ImportService } from '@strata/import';
+import type { Document, SceneNode } from '@strata/scene';
 import { addNode, createDocument, makeShapeNode } from '@strata/scene';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -34,10 +35,10 @@ function artifactDoc(): ReturnType<typeof createDocument> {
 function setup() {
   const state = makeState();
   const stateRef = { current: state } as React.MutableRefObject<EditorState>;
-  const updateDoc = vi.fn((fn: (doc: unknown) => unknown) => {
+  const updateDoc = vi.fn<(fn: (doc: Document) => Document) => void>((fn) => {
     stateRef.current = {
       ...stateRef.current,
-      document: fn(stateRef.current.document) as EditorState['document'],
+      document: fn(stateRef.current.document),
     };
   });
   const patch = vi.fn((partial: Partial<EditorState>) => {
@@ -49,7 +50,7 @@ function setup() {
       targetDoc: ReturnType<typeof createDocument>,
       sourceDoc: ReturnType<typeof createDocument>,
       rootId: string,
-      adjustRoot?: (node: ReturnType<typeof makeShapeNode>) => ReturnType<typeof makeShapeNode>,
+      adjustRoot?: (node: SceneNode) => SceneNode,
     ) => {
       const node = sourceDoc.nodes[rootId];
       if (!node) return null;
@@ -285,7 +286,7 @@ describe('useIconAssets — replaceIconAsset', () => {
     const { stateRef, api } = setup();
     const oldNode = {
       ...makeShapeNode('old-icon', { kind: 'rect', x: 0, y: 0, w: 48, h: 48 }, { name: 'old' }),
-      transform: [1, 0, 0, 1, 10, 20] as number[],
+      transform: [1, 0, 0, 1, 10, 20] as unknown as SceneNode['transform'],
     };
     stateRef.current = {
       ...stateRef.current,
@@ -329,7 +330,7 @@ describe('useIconAssets — replaceIconAsset', () => {
     expect(doc.nodes['icon-root']?.iconAssetId).toBeTruthy();
     expect(doc.rootChildren).not.toContain('old-icon');
     // The replacement lands at the old node's position.
-    const placed = doc.nodes['icon-root'] as { transform?: number[] };
+    const placed = doc.nodes['icon-root'] as unknown as { transform?: number[] };
     expect(placed.transform?.[4]).toBe(10);
     expect(placed.transform?.[5]).toBe(20);
   });
