@@ -146,46 +146,70 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
   const rovingId = focusId ?? activeId;
 
   return (
-    <div className="editor-tabs" role="tablist" aria-label="Open documents">
-      {sessions.map((sess) => {
-        const isActive = sess.id === activeId;
-        const isFocused = sess.id === rovingId;
-        return (
-          <Tooltip key={sess.id} label={sess.filePath ?? sess.name}>
-            <div
-              ref={(el) => {
-                if (el) tabRefs.current.set(sess.id, el);
-                else tabRefs.current.delete(sess.id);
-              }}
-              role="tab"
-              aria-selected={isActive}
-              tabIndex={isFocused ? 0 : -1}
-              className={`editor-tabs__tab${isActive ? ' editor-tabs__tab--active' : ''}`}
-              onClick={() => {
-                setFocusId(sess.id);
-                switchTab(sess.id);
-              }}
-              onKeyDown={(e) => handleTabKeyDown(e, sess.id)}
-              onAuxClick={(e) => handleAuxClick(e, sess.id)}
-            >
-              {sess.dirty && <span className="editor-tabs__dirty-dot" aria-hidden="true" />}
-              <span className="editor-tabs__name">{sess.name}</span>
-              <button
-                type="button"
-                className="editor-tabs__close"
-                aria-label={`Close ${sess.name}`}
-                tabIndex={-1}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  requestClose(sess.id);
+    <>
+      <div className="editor-tabs" role="tablist" aria-label="Open documents">
+        {sessions.map((sess) => {
+          const isActive = sess.id === activeId;
+          const isFocused = sess.id === rovingId;
+          return (
+            <Tooltip key={sess.id} label={sess.filePath ?? sess.name}>
+              <div
+                ref={(el) => {
+                  if (el) tabRefs.current.set(sess.id, el);
+                  else tabRefs.current.delete(sess.id);
                 }}
+                role="tab"
+                aria-selected={isActive}
+                tabIndex={isFocused ? 0 : -1}
+                className={`editor-tabs__tab${isActive ? ' editor-tabs__tab--active' : ''}`}
+                onClick={() => {
+                  setFocusId(sess.id);
+                  switchTab(sess.id);
+                }}
+                onKeyDown={(e) => handleTabKeyDown(e, sess.id)}
+                onAuxClick={(e) => handleAuxClick(e, sess.id)}
               >
-                <CloseIcon />
-              </button>
-            </div>
-          </Tooltip>
-        );
-      })}
+                {sess.dirty && <span className="editor-tabs__dirty-dot" aria-hidden="true" />}
+                <span className="editor-tabs__name">{sess.name}</span>
+                <button
+                  type="button"
+                  className="editor-tabs__close"
+                  aria-label={`Close ${sess.name}`}
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    requestClose(sess.id);
+                  }}
+                >
+                  <CloseIcon />
+                </button>
+              </div>
+            </Tooltip>
+          );
+        })}
+        {(() => {
+          if (!confirmCloseId) return null;
+          const closeSess = sessions.find((s) => s.id === confirmCloseId);
+          if (!closeSess) return null;
+          return (
+            <AlertDialog
+              open={true}
+              onClose={() => {
+                pendingFocusRef.current = null;
+                setConfirmCloseId(null);
+              }}
+              onConfirm={() => {
+                closeTab(confirmCloseId, true);
+                setConfirmCloseId(null);
+              }}
+              title="Close document"
+              description={`Close "${closeSess.name}"? Unsaved changes will be lost.`}
+              confirmLabel="Close"
+              variant="danger"
+            />
+          );
+        })()}
+      </div>
       <Tooltip label="New document" shortcut="Ctrl+T">
         <button
           type="button"
@@ -196,29 +220,6 @@ export function TabStrip({ onBackToHome: _onBackToHome }: { onBackToHome?: () =>
           <PlusIcon />
         </button>
       </Tooltip>
-
-      {(() => {
-        if (!confirmCloseId) return null;
-        const closeSess = sessions.find((s) => s.id === confirmCloseId);
-        if (!closeSess) return null;
-        return (
-          <AlertDialog
-            open={true}
-            onClose={() => {
-              pendingFocusRef.current = null;
-              setConfirmCloseId(null);
-            }}
-            onConfirm={() => {
-              closeTab(confirmCloseId, true);
-              setConfirmCloseId(null);
-            }}
-            title="Close document"
-            description={`Close "${closeSess.name}"? Unsaved changes will be lost.`}
-            confirmLabel="Close"
-            variant="danger"
-          />
-        );
-      })()}
-    </div>
+    </>
   );
 }

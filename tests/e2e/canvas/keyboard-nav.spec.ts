@@ -33,7 +33,15 @@ test.describe('Canvas keyboard navigation', () => {
 
   // ─── Tab / Shift+Tab cycling ────────────────────────────────────
 
-  test('Tab cycles selection to next node', async ({ page }) => {
+  async function selectedNodeIds(page: import('@playwright/test').Page): Promise<string[]> {
+    return page.evaluate(() =>
+      Array.from(document.querySelectorAll('[role="treeitem"][aria-selected="true"]')).map((el) =>
+        el.getAttribute('data-node-id'),
+      ),
+    );
+  }
+
+  test('Tab cycles selection to next node while keeping canvas focus', async ({ page }) => {
     await seedLayers(page, 3);
     const treeItems = page.getByRole('treeitem');
     await expect(treeItems).toHaveCount(3, { timeout: 5000 });
@@ -41,10 +49,15 @@ test.describe('Canvas keyboard navigation', () => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await canvas.focus();
 
+    // Canvas Tab contract: with a selection, Tab cycles selection through
+    // the design objects (including the artboard) and keeps DOM focus on
+    // the canvas; the selection must change.
+    const before = await selectedNodeIds(page);
     await page.keyboard.press('Tab');
     await page.waitForTimeout(200);
-    const firstSel = await page.evaluate(() => document.activeElement?.getAttribute('role') ?? '');
-    expect(firstSel).toBe('treeitem');
+    const after = await selectedNodeIds(page);
+    expect(after).not.toEqual(before);
+    expect(await canvas.evaluate((el) => document.activeElement === el)).toBe(true);
 
     await assertFocusNotOnBody(page);
   });
@@ -56,9 +69,13 @@ test.describe('Canvas keyboard navigation', () => {
     const canvas = page.locator('canvas.editor-canvas__content-layer');
     await canvas.focus();
 
-    await page.keyboard.press('Tab');
+    const before = await selectedNodeIds(page);
     await page.keyboard.press('Shift+Tab');
     await page.waitForTimeout(200);
+    const after = await selectedNodeIds(page);
+    // Cycles backward: selection must change and focus stays on the canvas.
+    expect(after).not.toEqual(before);
+    expect(await canvas.evaluate((el) => document.activeElement === el)).toBe(true);
 
     await assertFocusNotOnBody(page);
   });

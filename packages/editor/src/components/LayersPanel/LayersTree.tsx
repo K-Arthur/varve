@@ -1280,7 +1280,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   if (entries.length === 0 && !isFiltering) {
     return (
-      <div className="layers-panel__empty" role="tree" aria-label="Layers">
+      <div className="layers-panel__empty">
         <EmptyState
           illustration={
             <svg
@@ -1307,7 +1307,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   if (entries.length === 0 && isFiltering) {
     return (
-      <div className="layers-panel__empty" role="tree" aria-label="Layers">
+      <div className="layers-panel__empty">
         <EmptyState
           illustration={
             <svg
