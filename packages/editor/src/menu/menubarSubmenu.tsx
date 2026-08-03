@@ -8,7 +8,6 @@
 
 import { FloatingPortal } from '@strata/ui';
 import type React from 'react';
-import type { MenuItem } from '../Menubar';
 
 interface SubmenuDef {
   label: string;
@@ -37,7 +36,7 @@ interface MenubarSubmenuProps {
   handleAction: (action: string) => void;
 }
 
-function itemRole(item: MenuItem | SubmenuDef): string {
+function itemRole(item: SubmenuDef): string {
   if (item.action?.startsWith('theme:')) return 'menuitemradio';
   if (
     item.action === 'canvasModeOutline' ||
@@ -64,7 +63,7 @@ function separatorKey(items: SubmenuDef[], current: SubmenuDef, parentLabel: str
 
 /** Compute aria-checked for a menu item based on current state. */
 function itemAriaChecked(
-  item: MenuItem | SubmenuDef,
+  item: SubmenuDef,
   state: MenubarSubmenuProps['state'],
 ): boolean | undefined {
   if (item.action?.startsWith('theme:')) {
