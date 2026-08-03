@@ -59,3 +59,30 @@ node scripts/perf/probe-duplication.mjs
 ## Baseline files
 
 - `.replay-browser-baseline.json` — ratio baselines for `bench-replay-browser.mjs`.
+
+### `run-production-workload.mjs`
+
+Deterministic workload corpus against a production build, driven with real CDP
+pointer/keyboard input. Records commit, build mode, machine state (load,
+memory, governor, thermal, background repo activity) and a per-workload
+validity classification with every result; only `valid` runs are authoritative
+regression evidence.
+
+```bash
+node scripts/perf/run-production-workload.mjs --fixture=vector-1k \
+    --workloads=single-drag,nudge,zoom --out=results.json
+node scripts/perf/run-production-workload.mjs --duplications=10  # ~2048-node scene
+```
+
+`--fixture` seeds a deterministic corpus fixture (see
+`packages/editor/src/performance/workloadCorpus.ts`: vector-100/500/1k/5k,
+dense-overlap, wide-spread, many-small, few-large, clipped-frames,
+masked-content, rotated-skewed, thick-strokes, effects-heavy, blend-modes,
+raster-heavy, mixed-raster-vector, hidden-locked, offscreen-mixed,
+boundary-crossing, multi-page, text-heavy, deep-nesting, ...) through the
+app's own fixture seeder (`window.__strataPerf.fixtures.seed`), so the file,
+checksum and node count all come from the corpus code under test.
+
+Workloads include: `pointer-move-idle`, `single-drag`, `multi-drag`,
+`marquee-select`, `pan`, `zoom`, `undo-redo`, `resize`, `rotate`, `alt-drag`,
+`nudge`, `tool-switch`, `layer-visibility`, `canvas-resize`.
