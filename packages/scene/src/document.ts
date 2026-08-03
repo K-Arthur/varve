@@ -212,8 +212,10 @@ export interface Document {
   slug?: SlugConfig;
   /** Global color swatches. */
   swatches?: ColorSwatch[];
-  /** Spot color definitions. */
+  /** Spot color definitions (legacy flat list; new documents use libraries). */
   spotColors?: SpotColorDef[];
+  /** Named spot-color libraries (project/imported/user-global/builtin). */
+  spotLibraries?: import('./colorManagement').SpotLibrary[];
   /** Soft-proof configuration (persisted print intent; never mutates colors). */
   proofConfig?: import('./proof').ProofConfig;
 

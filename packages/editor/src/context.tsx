@@ -133,6 +133,7 @@ import {
   addSMInput,
   addSMState,
   addSMTransition,
+  addSpotToLibrary as addSpotToLibraryDoc,
   addToSelectionSet as addToSelectionSetDoc,
   addVariableToDocument,
   advanceSMTransition,
@@ -156,6 +157,7 @@ import {
   createGuideId,
   createMaster as createMasterDoc,
   createSelectionSet as createSelectionSetDoc,
+  createSpotLibrary as createSpotLibraryDoc,
   createStateMachine,
   createTextChain as createTextChainDoc,
   createVariableStore,
@@ -167,6 +169,7 @@ import {
   defaultProofConfig,
   deleteMaster as deleteMasterDoc,
   deleteSelectionSet as deleteSelectionSetDoc,
+  deleteSpotLibrary as deleteSpotLibraryDoc,
   deleteTextChain as deleteTextChainDoc,
   deleteVariableFromDocument as deleteVariableFromDocumentDoc,
   detachInstance as detachInstanceDoc,
@@ -221,11 +224,13 @@ import {
   removeSMInput,
   removeSMState,
   removeSMTransition,
+  removeSpotFromLibrary as removeSpotFromLibraryDoc,
   removeStateMachine,
   renameMaster as renameMasterDoc,
   renameNode,
   renameSelectionSet as renameSelectionSetDoc,
   renameSMState,
+  renameSpotLibrary as renameSpotLibraryDoc,
   reparentNode as reparentNodeDoc,
   replaceNodesWithFlattened,
   resetInstanceOverrides as resetInstanceOverridesDoc,
@@ -280,6 +285,7 @@ import {
   ungroupNode as ungroupNodeDoc,
   updateInteraction as updateInteractionDoc,
   updateSelectionSetNodes as updateSelectionSetNodesDoc,
+  updateSpotDef as updateSpotDefDoc,
   updateTrack as updateTrackDoc,
   updateVariableInDocument,
   type Variable,
@@ -1445,6 +1451,18 @@ export interface EditorContextValue {
   proofEnabled: boolean;
   setProofEnabled: (enabled: boolean) => void;
   setProofConfig: (config: import('@strata/scene').ProofConfig) => void;
+
+  // Spot-color libraries
+  createSpotLibrary: (name: string) => void;
+  addSpotToLibrary: (libraryId: string, def: import('@strata/scene').SpotColorDef) => void;
+  updateSpotDef: (
+    libraryId: string,
+    spotId: string,
+    patch: Partial<Omit<import('@strata/scene').SpotColorDef, 'id'>>,
+  ) => void;
+  removeSpotFromLibrary: (libraryId: string, spotId: string) => void;
+  renameSpotLibrary: (libraryId: string, name: string) => void;
+  deleteSpotLibrary: (libraryId: string) => void;
 
   // Quick-mask mode
   /** Enter quick-mask mode: paint-based selection editing. */
@@ -6982,6 +7000,30 @@ export function EditorProvider({
       setProofEnabled: setProofEnabledState,
       setProofConfig: (config: import('@strata/scene').ProofConfig) => {
         updateDoc((doc) => setDocumentProofConfigDoc(doc, config));
+      },
+
+      // Spot-color libraries ----------------------------------------------
+      createSpotLibrary: (name: string) => {
+        updateDoc((doc) => createSpotLibraryDoc(doc, name).doc);
+      },
+      addSpotToLibrary: (libraryId: string, def: import('@strata/scene').SpotColorDef) => {
+        updateDoc((doc) => addSpotToLibraryDoc(doc, libraryId, def).doc);
+      },
+      updateSpotDef: (
+        libraryId: string,
+        spotId: string,
+        patch: Partial<Omit<import('@strata/scene').SpotColorDef, 'id'>>,
+      ) => {
+        updateDoc((doc) => updateSpotDefDoc(doc, libraryId, spotId, patch).doc);
+      },
+      removeSpotFromLibrary: (libraryId: string, spotId: string) => {
+        updateDoc((doc) => removeSpotFromLibraryDoc(doc, libraryId, spotId).doc);
+      },
+      renameSpotLibrary: (libraryId: string, name: string) => {
+        updateDoc((doc) => renameSpotLibraryDoc(doc, libraryId, name).doc);
+      },
+      deleteSpotLibrary: (libraryId: string) => {
+        updateDoc((doc) => deleteSpotLibraryDoc(doc, libraryId).doc);
       },
 
       // Assign: change document working mode WITHOUT rewriting stored
