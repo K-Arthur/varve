@@ -9,10 +9,13 @@ text color, Lab/LCH picker, soft proofing, spot-color authoring).
 |---|---|---|---|---|
 | 0 | Repository color-architecture audit + implementation map | Done | `0778a8d7` | `docs/plans/color-management-implementation-map.md` |
 | 1 | Canonical managed-color model | Done | `b094ee1a` | Lab/LCH/registration/unresolved variants, spotId/library refs, profileFingerprint, `colorValidation.ts` invariants, Lab/LCH (D50) conversions in shared, `EngineColor = ManagedColorShim` |
+| 2 | Per-run text color migration | Done | `bf80aa0b` | `CharacterFormat.color`/`columnRuleColor` → ManagedColor; schema 2.13→2.14; `colorMigration.ts` (outside version.ts hub); fixed latent textLayout bug that dropped run color before rendering |
+| 3 | Explicit assign/convert mode operations | Done | `939280a2` | `assignDocumentColorMode` (intent-only) vs `convertDocumentColors` (rewrites + report); `switchColorMode` deprecated alias; DocumentPanel assigns with note; dialog has distinct Assign/Convert actions |
+| 4 | Shared conversion service consolidation | Done | `4ff26031` | Duplicated RGB<->CMYK formulas removed from colorMode; precision/determinism conventions (equality tolerance, serialization precision, display-only rounding) |
 
 ## In progress
 
-- M2 Legacy text-color tuple migration (`CharacterFormat.color` → ManagedColor, schema 2.13).
+- M5 Lab/LCH picker modes (`@strata/ui` ColorPicker).
 
 ## Affected packages
 
