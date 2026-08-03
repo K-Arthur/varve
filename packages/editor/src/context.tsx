@@ -390,6 +390,7 @@ import { useDialogState } from './context/useDialogState';
 import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
 import { useLogoGeometry } from './context/useLogoGeometry';
+import { useLogoProject } from './context/useLogoProject';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
@@ -1140,12 +1141,25 @@ export interface EditorContextValue {
   /** Duplicate the selection mirrored across an axis through its center. */
   mirrorDuplicateSelected: (axis: 'horizontal' | 'vertical') => void;
   /** Duplicate the selection in a circle around its center. */
-  radialDuplicateSelected: (count: number, totalAngleDeg?: number) => void /**
+  radialDuplicateSelected: (count: number, totalAngleDeg?: number) => void;
+  // Logo project (concepts/variants/brief) — see useLogoProject.
+  newLogoProject: (name?: string) => void;
+  createLogoConcept: () => void;
+  duplicateActiveConcept: () => void;
+  setConceptStatus: (
+    conceptId: import('@strata/scene').NodeId,
+    status: import('@strata/scene').LogoConceptStatus,
+  ) => void;
+  createLogoVariant: (name: string, kind: import('@strata/scene').LogoVariantKind) => void;
+  patchBrief: (
+    patch: Parameters<import('./context/useLogoProject').LogoProjectAPI['patchBrief']>[0],
+  ) => void;
+  /**
    * Apply a boolean operation between raster image nodes (ShapeNodes with
    * image fills) and vector ShapeNodes. Extracts alpha contours from each
    * raster node, converts to ShapeNodes, combines with vector nodes, and
    * applies the boolean operation. Replaces all operand nodes with the result.
-   */;
+   */
   booleanOpRaster: (
     kind: import('@strata/scene').BooleanOpKind,
     rasterNodeIds: import('@strata/scene').NodeId[],
@@ -2605,6 +2619,8 @@ export function EditorProvider({
     redoSelStackRef,
     inTransactionRef,
   );
+
+  const logoProject = useLogoProject(setState, stateRef, updateDoc, announcerRef);
 
   const workspaceModeCtx = useWorkspaceMode(
     state,
@@ -7778,6 +7794,8 @@ export function EditorProvider({
 
       // Logo geometry operations
       ...logoGeometry,
+      // Logo project operations
+      ...logoProject,
 
       // SAM2 segmentation
       applySam2Segmentation: sam2Seg.applySam2Segmentation,
@@ -8226,6 +8244,7 @@ export function EditorProvider({
       dialogState.setShowArchiveDialog,
       protoValue,
       bgRemoval,
+      logoProject,
       platform,
       motionValue,
       newDocument,

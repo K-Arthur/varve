@@ -198,6 +198,13 @@ function buildMenus(
       case 'mirrorDuplicateVertical':
       case 'radialDuplicate':
         return !hasSelection;
+      case 'duplicateLogoConcept':
+      case 'createLogoVariant':
+      case 'createMonochromeVariant':
+      case 'createReversedVariant':
+      case 'createIconVariant':
+      case 'createSmallVariant':
+        return !('logoProject' in (state.document ?? {})) || !hasSelection;
       case 'bringFront':
       case 'bringForward':
       case 'sendBackward':
@@ -263,6 +270,44 @@ function buildMenus(
           shortcut: formatShortcut(SHORTCUT_DEFS.newDocument.binding),
           ariaKeyshortcut: ks('newDocument'),
           action: 'new',
+        },
+        {
+          label: 'New Logo Project',
+          shortcut: formatShortcut(SHORTCUT_DEFS.newLogoProject.binding),
+          ariaKeyshortcut: ks('newLogoProject'),
+          action: 'newLogoProject',
+        },
+        {
+          label: 'Create Logo Concept',
+          shortcut: formatShortcut(SHORTCUT_DEFS.createLogoConcept.binding),
+          ariaKeyshortcut: ks('createLogoConcept'),
+          action: 'createLogoConcept',
+        },
+        {
+          label: 'Duplicate Logo Concept',
+          shortcut: formatShortcut(SHORTCUT_DEFS.duplicateLogoConcept.binding),
+          ariaKeyshortcut: ks('duplicateLogoConcept'),
+          action: 'duplicateLogoConcept',
+          disabled: dis('duplicateLogoConcept'),
+        },
+        {
+          label: 'Create Logo Variant…',
+          action: 'createLogoVariant',
+          disabled: dis('createLogoVariant'),
+        },
+        {
+          label: 'Create Monochrome Variant',
+          shortcut: formatShortcut(SHORTCUT_DEFS.createMonochromeVariant.binding),
+          ariaKeyshortcut: ks('createMonochromeVariant'),
+          action: 'createMonochromeVariant',
+          disabled: dis('createMonochromeVariant'),
+        },
+        {
+          label: 'Create Reversed Variant',
+          shortcut: formatShortcut(SHORTCUT_DEFS.createReversedVariant.binding),
+          ariaKeyshortcut: ks('createReversedVariant'),
+          action: 'createReversedVariant',
+          disabled: dis('createReversedVariant'),
         },
         {
           label: 'Open\u2026',

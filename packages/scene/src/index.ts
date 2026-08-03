@@ -69,6 +69,7 @@ export * from './interaction-types';
 export * from './interactions';
 export * from './library';
 export * from './liveTrace';
+export * from './logo/logoProject';
 export * from './maskCapability';
 export * from './masks';
 export * from './motion';

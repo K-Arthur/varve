@@ -157,6 +157,11 @@ export interface Document {
   /** Per-document export defaults (optional — falls back to ExportSettings globals). */
   exportDefaults?: Partial<ExportSettings>;
   /**
+   * Logo project (v2.12+): concepts, variants, brief, and palette metadata
+   * over ordinary artboard frames. Optional — plain documents have none.
+   */
+  logoProject?: import('./logo/logoProject').LogoProject;
+  /**
    * V1.8+: Reusable Paint entities keyed by paint id.
    * Each Paint wraps a Fill with identity so multiple nodes can reference
    * the same visual content via paintRefs. Paints are the mechanism for
