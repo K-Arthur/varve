@@ -157,11 +157,9 @@ test.describe('Focus-order baseline trace', () => {
     }
   });
 
-  // BASELINE (milestone 1): a fresh document always contains an artboard node,
-  // so the canvas Tab handler (inputPipeline.ts:623) always consumes Tab and
-  // cycles selection — focus cannot leave the canvas via Tab. This is the
-  // documented RC-10 defect; milestone 4 (canvas Tab exit) flips this test to
-  // expect the next stop in the panels region.
+  // Milestone 4 (canvas Tab exit): with no selection, Tab must leave the
+  // canvas for the next region (previously the canvas always consumed Tab
+  // because fresh documents always contain an artboard node — RC-15).
   test('canvas region is a single tab stop with no stray focusable overlays between it and the panels', async ({
     page,
   }) => {
@@ -171,9 +169,10 @@ test.describe('Focus-order baseline trace', () => {
 
     const next = await traceTab(page, 1);
     const regions = next.map(regionOf);
-    // TODO(a11y): flip to 'layers' in milestone 4 when Tab exits the canvas
-    // with no selection.
-    expect(regions[0]).toBe('canvas');
+    // No selection on a fresh document: Tab exits the canvas (previously
+    // it cycled selection and focus stayed on the canvas).
+    expect(regions[0], `next stop after canvas; got ${regions.join(' → ')}`).not.toBe('canvas');
+    expect(next[0].tag).not.toBe('body');
   });
 });
 
