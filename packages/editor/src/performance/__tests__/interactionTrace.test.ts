@@ -4,11 +4,13 @@ import {
   beginInteractionSpan,
   enableInteractionTraces,
   endInteraction,
+  getActiveInteractionIdentity,
   getInteractionTraceCount,
   getRecentInteractionTraces,
   isInteractionTracingEnabled,
   MAX_INTERACTION_FRAMES,
   MAX_INTERACTION_SPANS,
+  nextPointerSequenceId,
   notifyFrameCommit,
   recordInteractionSpan,
   resetInteractionTraces,
@@ -51,7 +53,8 @@ describe('interactionTrace', () => {
     expect(trace.pointerToPresentMs).not.toBeNull();
     expect(trace.totalMs).toBeGreaterThanOrEqual(0);
     expect(trace.id).toBeGreaterThan(0);
-    expect(trace.schemaVersion).toBe(1);
+    expect(trace.schemaVersion).toBe(2);
+    expect(trace.sessionId).toMatch(/^s[0-9a-z]+-[0-9a-z]+$/);
     expect(trace.droppedSpanCount).toBe(0);
     expect(trace.droppedFrameCount).toBe(0);
   });
@@ -210,5 +213,49 @@ describe('interactionTrace', () => {
     expect(summary.total.p99).toBeGreaterThanOrEqual(summary.total.p95);
     expect(summary.pointerToPresent.count).toBe(5);
     expect(summary.pointerToPresent.max).toBeGreaterThanOrEqual(summary.pointerToPresent.p99);
+  });
+
+  describe('interaction identity', () => {
+    it('exposes no identity when tracing is disabled', () => {
+      beginInteraction('pointer-drag');
+      expect(getActiveInteractionIdentity()).toBeNull();
+      expect(nextPointerSequenceId()).toBe(0);
+    });
+
+    it('advances the pointer sequence within one interaction', () => {
+      enableInteractionTraces(true);
+      beginInteraction('pointer-drag');
+      expect(nextPointerSequenceId()).toBe(1);
+      expect(nextPointerSequenceId()).toBe(2);
+      const identity = getActiveInteractionIdentity();
+      expect(identity).toMatchObject({ pointerSequenceId: 2, kind: 'pointer-drag' });
+      const trace = endInteraction();
+      expect(trace?.pointerSequenceId).toBe(2);
+    });
+
+    it('restarts the pointer sequence but not the interaction id per gesture', () => {
+      enableInteractionTraces(true);
+      beginInteraction('pointer-drag');
+      nextPointerSequenceId();
+      const first = endInteraction();
+      beginInteraction('pointer-drag');
+      expect(nextPointerSequenceId()).toBe(1);
+      const second = endInteraction();
+      expect(second?.id).toBe((first?.id ?? 0) + 1);
+      expect(second?.sessionId).toBe(first?.sessionId);
+    });
+  });
+
+  it('records frame disposition and render revision when supplied', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag');
+    notifyFrameCommit(performance.now(), 4, { disposition: 'caused', renderRevision: 7 });
+    notifyFrameCommit(performance.now(), 3, { disposition: 'background' });
+    const trace = endInteraction();
+    expect(trace?.frames).toEqual([
+      expect.objectContaining({ disposition: 'caused', renderRevision: 7 }),
+      expect.objectContaining({ disposition: 'background' }),
+    ]);
+    expect(trace?.frames[1]).not.toHaveProperty('renderRevision');
   });
 });

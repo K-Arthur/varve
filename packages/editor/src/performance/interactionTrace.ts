@@ -21,18 +21,45 @@ export interface InteractionSpan {
   attributes?: Record<string, string | number | boolean>;
 }
 
+/**
+ * Why a frame exists relative to the interaction it is recorded against.
+ * Distinguishing these keeps "the gesture produced 12 frames" from silently
+ * counting background decodes or superseded work as interaction latency.
+ */
+export type FrameDisposition =
+  | 'caused' // produced by this interaction's invalidation
+  | 'coalesced' // several interaction events merged into one frame
+  | 'superseded' // a newer revision replaced this frame before presentation
+  | 'cancelled' // the interaction ended before the frame committed
+  | 'dropped' // admission/budget refused the frame
+  | 'replaced' // presented, then immediately replaced by a newer frame
+  | 'reused' // served from cache without new replay work
+  | 'background'; // unrelated work (decode, font load, autosave) during the gesture
+
+export interface InteractionFrameSample {
+  committedAt: number;
+  totalMs: number;
+  disposition?: FrameDisposition;
+  /** Pixel identity of the frame, when the render path reported one. */
+  renderRevision?: number;
+}
+
 export interface InteractionTrace {
-  schemaVersion: 1;
+  schemaVersion: 2;
+  /** Stable per-page-load identity; distinguishes traces across reloads. */
+  sessionId: string;
   /** Monotonic correlation ID connecting input events to presented frames. */
   id: number;
   kind: InteractionKind;
+  /** Monotonic per-interaction pointer sample counter (last assigned value). */
+  pointerSequenceId: number;
   /** performance.now() of the first event. */
   startedAt: number;
   endedAt: number;
   eventCount: number;
   frameCount: number;
   /** Frame commit times (performance.now()) and durations during the gesture. */
-  frames: Array<{ committedAt: number; totalMs: number }>;
+  frames: InteractionFrameSample[];
   spans: InteractionSpan[];
   /** First presented frame after the gesture started (ms), or null. */
   pointerToPresentMs: number | null;
@@ -52,6 +79,12 @@ export const MAX_INTERACTION_FRAMES = 240;
 const DEFAULT_SLOW_THRESHOLD_MS = 50;
 const MAX_PRESENTATION_WAIT_MS = 250;
 const ring: InteractionTrace[] = [];
+/**
+ * Per-page-load identity. Derived from the load time and a random suffix
+ * rather than crypto.randomUUID so the module stays usable in workers, jsdom,
+ * and non-secure contexts where randomUUID is absent.
+ */
+const sessionId = `s${Date.now().toString(36)}-${Math.floor(Math.random() * 0xffffff).toString(36)}`;
 let tracingEnabled = false;
 let slowOnly = false;
 let slowThresholdMs = DEFAULT_SLOW_THRESHOLD_MS;
@@ -97,9 +130,11 @@ export function beginInteraction(kind: InteractionKind): void {
   if (!tracingEnabled) return;
   if (current) endInteraction();
   current = {
-    schemaVersion: 1,
+    schemaVersion: 2,
+    sessionId,
     id: nextId++,
     kind,
+    pointerSequenceId: 0,
     startedAt: performance.now(),
     endedAt: 0,
     eventCount: 0,
@@ -113,6 +148,39 @@ export function beginInteraction(kind: InteractionKind): void {
     droppedSpanCount: 0,
     droppedFrameCount: 0,
   };
+}
+
+/**
+ * Identity of the interaction currently being traced, for propagation into the
+ * render/worker path. Null when tracing is off or no gesture is open, so
+ * callers can skip identity work entirely on the disabled path.
+ */
+export interface InteractionIdentity {
+  sessionId: string;
+  interactionId: number;
+  pointerSequenceId: number;
+  kind: InteractionKind;
+}
+
+export function getActiveInteractionIdentity(): InteractionIdentity | null {
+  if (!tracingEnabled || !current) return null;
+  return {
+    sessionId: current.sessionId,
+    interactionId: current.id,
+    pointerSequenceId: current.pointerSequenceId,
+    kind: current.kind,
+  };
+}
+
+/**
+ * Advance and return the pointer sample counter for the open interaction.
+ * Coalesced samples share one dispatch, so this counts dispatched samples
+ * rather than browser-delivered events.
+ */
+export function nextPointerSequenceId(): number {
+  if (!tracingEnabled || !current) return 0;
+  current.pointerSequenceId += 1;
+  return current.pointerSequenceId;
 }
 
 function appendSpan(
@@ -169,7 +237,12 @@ export function beginInteractionSpan(
   };
 }
 
-function recordFrameOnTrace(trace: InteractionTrace, committedAt: number, totalMs: number): void {
+function recordFrameOnTrace(
+  trace: InteractionTrace,
+  committedAt: number,
+  totalMs: number,
+  meta?: FrameCommitMeta,
+): void {
   trace.frameCount++;
   if (trace.pointerToPresentMs === null) {
     trace.pointerToPresentMs = Math.max(0, committedAt - trace.startedAt);
@@ -182,17 +255,33 @@ function recordFrameOnTrace(trace: InteractionTrace, committedAt: number, totalM
     trace.droppedFrameCount++;
     return;
   }
-  trace.frames.push({ committedAt, totalMs });
+  trace.frames.push({
+    committedAt,
+    totalMs,
+    ...(meta?.disposition ? { disposition: meta.disposition } : {}),
+    ...(meta?.renderRevision !== undefined ? { renderRevision: meta.renderRevision } : {}),
+  });
+}
+
+export interface FrameCommitMeta {
+  disposition?: FrameDisposition;
+  renderRevision?: number;
 }
 
 /** Called for every presented frame (see perfRuntime.recordFrame). */
-export function notifyFrameCommit(committedAt: number, totalMs: number): void {
+export function notifyFrameCommit(
+  committedAt: number,
+  totalMs: number,
+  meta?: FrameCommitMeta,
+): void {
   if (!tracingEnabled) return;
-  if (current) recordFrameOnTrace(current, committedAt, totalMs);
+  if (current) recordFrameOnTrace(current, committedAt, totalMs, meta);
   if (!pendingPresentation) return;
   const waitMs = committedAt - pendingPresentation.endedAt;
   if (waitMs >= 0 && waitMs <= MAX_PRESENTATION_WAIT_MS) {
-    recordFrameOnTrace(pendingPresentation, committedAt, totalMs);
+    // The gesture already closed: this frame landed after pointerup, so it is
+    // the presentation of already-dispatched work rather than new causation.
+    recordFrameOnTrace(pendingPresentation, committedAt, totalMs, meta);
   }
   if (waitMs >= 0) pendingPresentation = null;
 }

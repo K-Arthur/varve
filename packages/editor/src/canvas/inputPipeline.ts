@@ -17,6 +17,7 @@ import {
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { CanvasMode, EditorState } from '../context/types';
 import { physicalDigit } from '../input/physicalKey';
+import { dispatchToTool, documentComplexityBucket } from '../performance/dispatchSpan';
 import {
   beginInteraction,
   endInteraction,
@@ -157,10 +158,26 @@ export function useCanvasInputs({
   const snapSessionForPointer = externalSnapSessionRef ?? internalSnapSessionRef;
   const snapIndexForPointer = externalSnapIndexRef ?? internalSnapIndexRef;
   const lastCursorUpdate = useRef(0);
+  // Document size is O(n) to measure, so it is sampled once per gesture (only
+  // while tracing) and reused for every event's dispatch attributes rather
+  // than recomputed per pointermove.
+  const gestureComplexity = useRef('unknown');
+
+  const dispatchAttributes = useCallback(
+    () => ({
+      tool: stateRef.current.tool,
+      docComplexity: gestureComplexity.current,
+      selectionCount: stateRef.current.selection.length,
+    }),
+    [stateRef],
+  );
 
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       beginInteraction('pointer-drag');
+      gestureComplexity.current = isInteractionTracingEnabled()
+        ? documentComplexityBucket(Object.keys(stateRef.current.document.nodes).length)
+        : 'unknown';
       const ne = e.nativeEvent as PointerEvent;
       const tmInst = tmRef.current;
       if (!tmInst) return;
@@ -200,9 +217,11 @@ export function useCanvasInputs({
 
       snapSessionForPointer.current = createSnapSession();
       snapIndexForPointer.current = null;
-      tmInst.handlePointerDown(ne, ctx);
+      dispatchToTool('down', ne, dispatchAttributes(), () => {
+        tmInst.handlePointerDown(ne, ctx);
+      });
     },
-    [tmRef, buildToolCtx, snapSessionForPointer, snapIndexForPointer],
+    [tmRef, buildToolCtx, snapSessionForPointer, snapIndexForPointer, stateRef, dispatchAttributes],
   );
 
   const handlePointerMove = useCallback(
@@ -282,7 +301,9 @@ export function useCanvasInputs({
         setHoveredNode(hit?.node ?? null);
       }
 
-      tmInst.handlePointerMove(ne, ctx);
+      dispatchToTool('move', ne, dispatchAttributes(), () => {
+        tmInst.handlePointerMove(ne, ctx);
+      });
 
       if (e.buttons !== 0) {
         const rect = contentCanvasRef.current?.getBoundingClientRect();
@@ -325,6 +346,7 @@ export function useCanvasInputs({
       buildToolCtx,
       setHoveredNode,
       stopAutoPan,
+      dispatchAttributes,
     ],
   );
 
@@ -349,10 +371,13 @@ export function useCanvasInputs({
         endInteraction();
         return;
       }
-      tmInst.handlePointerUp(ne, buildToolCtx(ne));
+      const upCtx = buildToolCtx(ne);
+      dispatchToTool('up', ne, dispatchAttributes(), () => {
+        tmInst.handlePointerUp(ne, upCtx);
+      });
       endInteraction();
     },
-    [tmRef, stopAutoPan, setSnapGuides, buildToolCtx],
+    [tmRef, stopAutoPan, setSnapGuides, buildToolCtx, dispatchAttributes],
   );
 
   const handlePointerCancel = useCallback(
