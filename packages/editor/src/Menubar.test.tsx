@@ -5,6 +5,9 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Menubar } from './components/Menubar';
 
+let mockWorkspaceMode = 'design';
+let mockLogoPanelVisible = false;
+
 vi.mock('./context', () => ({
   useEditor: () => ({
     state: {
@@ -19,7 +22,8 @@ vi.mock('./context', () => ({
       softProofEnabled: false,
       tool: 'select',
       selection: [],
-      workspaceMode: 'design',
+      workspaceMode: mockWorkspaceMode,
+      logoPanelVisible: mockLogoPanelVisible,
       colorBlindnessView: 'none',
       rulerMode: 'global',
       timelinePanelVisible: false,
@@ -369,6 +373,40 @@ describe('Menubar menu structure', () => {
     expect(labels.some((t) => t.startsWith('Import'))).toBe(true);
     expect(labels.some((t) => t.startsWith('Export'))).toBe(true);
     expect(labels.some((t) => t.startsWith('Settings'))).toBe(true);
+  });
+
+  it('View menu shows the Logo Panel toggle only in the Logo workspace', async () => {
+    const user = userEvent.setup();
+    const viewMenuItems = async (): Promise<string[]> => {
+      render(<Menubar />);
+      await user.click(within(screen.getByRole('menubar')).getByRole('menuitem', { name: 'View' }));
+      // The logo toggle renders as menuitemcheckbox; match all item roles.
+      const menu = await screen.findByRole('menu');
+      const labels = within(menu)
+        .getAllByRole('menuitem')
+        .concat(within(menu).queryAllByRole('menuitemcheckbox'))
+        .concat(within(menu).queryAllByRole('menuitemradio'))
+        .map((el) => el.textContent ?? '');
+      cleanup();
+      return labels;
+    };
+
+    try {
+      mockWorkspaceMode = 'design';
+      mockLogoPanelVisible = false;
+      const designLabels = await viewMenuItems();
+      expect(designLabels.some((t) => t.includes('Logo Panel'))).toBe(false);
+
+      mockWorkspaceMode = 'logo';
+      mockLogoPanelVisible = true;
+      const logoLabels = await viewMenuItems();
+      const item = logoLabels.find((t) => t.includes('Logo Panel'));
+      expect(item).toBeTruthy();
+    } finally {
+      // Restore defaults for subsequent tests even on assertion failure.
+      mockWorkspaceMode = 'design';
+      mockLogoPanelVisible = false;
+    }
   });
 
   it('Edit menu contains Undo, Redo, Cut, Copy, Paste, Duplicate, Delete', async () => {
