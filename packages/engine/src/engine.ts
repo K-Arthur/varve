@@ -66,6 +66,7 @@ function shapeToPrimitive(
       height: node.rasterLayerData.height,
       pixelMode: node.rasterLayerData.pixelMode,
       tiles: node.rasterLayerData.tiles,
+      layerId: node.id,
     };
   }
   if (node.kind === 'text' || (node.shape as { kind?: string } | undefined)?.kind === 'text') {
