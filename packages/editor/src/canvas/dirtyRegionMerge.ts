@@ -21,7 +21,11 @@
  */
 
 import type { Rect } from '@strata/shared';
-import type { DirtyRegion, DirtyRegionRecorder } from './dirtyRegion';
+import {
+  computeDocumentDirtyRegion,
+  type DirtyRegion,
+  type DirtyRegionRecorder,
+} from './dirtyRegion';
 
 /**
  * Compute the bounded merged dirty-rect set for a dirty region, using the
@@ -41,6 +45,63 @@ export function computeMergedDirtyRegion(
     {},
     { width: viewportW, height: viewportH },
   );
+}
+
+/**
+ * One-call frame dirty-region computation: the document diff, the merged
+ * bounded rect set, and the viewport-clamped screen rect for the paint path.
+ * `fullFallback` reports whether the region analysis fell back to a full
+ * redraw (caller records it on the node-work counters).
+ */
+export function computeFrameDirtyRegion(opts: {
+  previous: import('@strata/scene').Document;
+  next: import('@strata/scene').Document;
+  recorder: DirtyRegionRecorder;
+  parentIndex?: Map<string, string>;
+  worldToScreen: (wx: number, wy: number) => readonly [number, number];
+  viewportW: number;
+  viewportH: number;
+}): {
+  dirty: DirtyRegion;
+  mergedDirty: DirtyMergeResult | null;
+  dirtyScreenRect: { x: number; y: number; w: number; h: number } | null;
+  fullFallback: boolean;
+} {
+  const { previous, next, recorder, parentIndex, worldToScreen, viewportW, viewportH } = opts;
+  recorder.reset();
+  const dirty = computeDocumentDirtyRegion(previous, next, undefined, parentIndex, recorder);
+  const mergedDirty = computeMergedDirtyRegion(dirty, recorder, viewportW, viewportH);
+  let dirtyScreenRect: { x: number; y: number; w: number; h: number } | null = null;
+  let fullFallback = false;
+  if (dirty.kind === 'full') {
+    fullFallback = true;
+  } else if (dirty.kind === 'partial') {
+    const dirtyWorld = dirty.bounds;
+    const corners: Array<readonly [number, number]> = [
+      [dirtyWorld.x, dirtyWorld.y],
+      [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y],
+      [dirtyWorld.x, dirtyWorld.y + dirtyWorld.h],
+      [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y + dirtyWorld.h],
+    ];
+    let minSx = Number.POSITIVE_INFINITY;
+    let minSy = Number.POSITIVE_INFINITY;
+    let maxSx = Number.NEGATIVE_INFINITY;
+    let maxSy = Number.NEGATIVE_INFINITY;
+    for (const [wx, wy] of corners) {
+      const [px, py] = worldToScreen(wx, wy);
+      minSx = Math.min(minSx, px);
+      minSy = Math.min(minSy, py);
+      maxSx = Math.max(maxSx, px);
+      maxSy = Math.max(maxSy, py);
+    }
+    dirtyScreenRect = {
+      x: Math.max(0, minSx - 40),
+      y: Math.max(0, minSy - 40),
+      w: Math.min(viewportW, maxSx - minSx + 80),
+      h: Math.min(viewportH, maxSy - minSy + 80),
+    };
+  }
+  return { dirty, mergedDirty, dirtyScreenRect, fullFallback };
 }
 
 /** Maximum individual rectangles collected from the document diff. */
