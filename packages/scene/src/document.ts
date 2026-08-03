@@ -160,7 +160,7 @@ export interface Document {
    * Logo project (v2.12+): concepts, variants, brief, and palette metadata
    * over ordinary artboard frames. Optional — plain documents have none.
    */
-  logoProject?: import('./logo/logoProject').LogoProject;
+  logoProject?: import('./types').LogoProject;
   /**
    * V1.8+: Reusable Paint entities keyed by paint id.
    * Each Paint wraps a Fill with identity so multiple nodes can reference
