@@ -31,6 +31,7 @@ import {
 } from './imagePlacement';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
+import { getRasterLayerCache } from './rasterLayerCache';
 import { emitRasterReplaySample, isRasterReplayMeasured } from './rasterReplayMetrics';
 import { createRasterSurface } from './rasterSurface';
 import {
@@ -1821,39 +1822,66 @@ function paintRasterLayer(
   const measured = isRasterReplayMeasured();
   const startedAt = measured ? performance.now() : 0;
 
-  const offscreen =
-    typeof OffscreenCanvas !== 'undefined'
-      ? new OffscreenCanvas(width, height)
-      : typeof document !== 'undefined'
-        ? document.createElement('canvas')
-        : null;
-  if (!offscreen) return;
-  offscreen.width = width;
-  offscreen.height = height;
-
-  const ctx = offscreen.getContext('2d') as
-    | (CanvasRenderingContext2D & OffscreenCanvasRenderingContext2D)
-    | null;
-  if (!ctx) return;
-  const surfaceEndedAt = measured ? performance.now() : 0;
-
   const TILE = 128;
-  let compositedTiles = 0;
-  for (const [key, tile] of Object.entries(tiles)) {
-    const [colStr, rowStr] = key.split(':');
-    const col = Number(colStr);
-    const row = Number(rowStr);
-    if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
-    const pixels = new Uint8ClampedArray(tile.pixels);
-    const imageData = ctx.createImageData(TILE, TILE);
-    imageData.data.set(pixels);
-    ctx.putImageData(imageData, col * TILE, row * TILE);
-    compositedTiles++;
-  }
-  const tilesEndedAt = measured ? performance.now() : 0;
+  const cache = getRasterLayerCache();
+  // A stable identity for the layer. `layerId` is set by the IR builder where
+  // available; without one the cache is bypassed entirely rather than risking
+  // two different layers sharing a surface.
+  const layerKey = (p as { layerId?: string }).layerId ?? null;
 
-  if (target.drawImage) {
-    target.drawImage(offscreen as unknown as CanvasImageSource, 0, 0, width, height);
+  let surfaceCanvas: CanvasImageSource | null = null;
+  let compositedTiles = 0;
+  let surfaceEndedAt = 0;
+  let tilesEndedAt = 0;
+
+  const acquired = layerKey ? cache.acquire(layerKey, width, height, tiles, TILE) : null;
+  if (acquired) {
+    // Dirty-tile path: only tiles whose version changed were re-uploaded.
+    // `putImageData` ignores transform/clip/alpha/blend, and tile writes never
+    // overlap, so a partial upload is pixel-identical to a full one.
+    surfaceEndedAt = measured ? performance.now() : 0;
+    tilesEndedAt = surfaceEndedAt;
+    compositedTiles = acquired.plan.changed.length;
+    surfaceCanvas = acquired.surface.canvas as unknown as CanvasImageSource;
+  } else {
+    // Fallback: no layer identity, or no canvas backend. Rebuild in full,
+    // exactly as before.
+    const offscreen =
+      typeof OffscreenCanvas !== 'undefined'
+        ? new OffscreenCanvas(width, height)
+        : typeof document !== 'undefined'
+          ? document.createElement('canvas')
+          : null;
+    if (!offscreen) return;
+    offscreen.width = width;
+    offscreen.height = height;
+
+    const ctx = offscreen.getContext('2d') as
+      | (CanvasRenderingContext2D & OffscreenCanvasRenderingContext2D)
+      | null;
+    if (!ctx) return;
+    surfaceEndedAt = measured ? performance.now() : 0;
+
+    for (const [key, tile] of Object.entries(tiles)) {
+      const [colStr, rowStr] = key.split(':');
+      const col = Number(colStr);
+      const row = Number(rowStr);
+      if (!Number.isFinite(col) || !Number.isFinite(row)) continue;
+      const pixels = new Uint8ClampedArray(tile.pixels);
+      const imageData = ctx.createImageData(TILE, TILE);
+      imageData.data.set(pixels);
+      ctx.putImageData(imageData, col * TILE, row * TILE);
+      compositedTiles++;
+    }
+    tilesEndedAt = measured ? performance.now() : 0;
+    surfaceCanvas = offscreen as unknown as CanvasImageSource;
+  }
+
+  // The composite step is unchanged on both paths: the finished surface is
+  // drawn as one image, so transform, opacity, blend mode, masks and filters
+  // continue to apply to the whole layer and no per-tile seams can appear.
+  if (target.drawImage && surfaceCanvas) {
+    target.drawImage(surfaceCanvas, 0, 0, width, height);
   }
 
   if (measured) {
