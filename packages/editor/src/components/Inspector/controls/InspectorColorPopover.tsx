@@ -66,12 +66,23 @@ export function InspectorColorPopover({
   const titleId = useId();
   const doc = useDocDocument();
   const cmykProfile = useMemo(() => doc?.colorConfig?.cmykProfile ?? null, [doc]);
-  // Swatches display the process-color equivalent; native space identity is
-  // re-established by the picker's authoring-space emission on selection.
-  const documentColors = useMemo(
-    () => (doc ? extractDocumentColors(doc).map((c) => managedColorToRgba(c) as Color) : []),
-    [doc],
-  );
+  // Document swatches are snapshotted when the picker opens — extracting
+  // walks every node, so recomputing per document change during a drag would
+  // add O(nodes) work to every pointer event. The snapshot updates on reopen.
+  const [documentColors, setDocumentColors] = useState<Color[]>([]);
+
+  const toggle = useCallback(() => {
+    if (disabled) return;
+    if (!open) {
+      // Snapshot document swatches at open time — extracting walks every
+      // node, so recomputing during a drag would add O(nodes) work to each
+      // pointer event. Refreshed on the next open.
+      setDocumentColors(
+        doc ? extractDocumentColors(doc).map((c) => managedColorToRgba(c) as Color) : [],
+      );
+    }
+    setOpen((v) => !v);
+  }, [disabled, open, doc]);
   const recentColors = useMemo(
     () => getRecentColors().map((c) => managedColorToRgba(c) as Color),
     // Re-read when the picker opens so recently used colors from other
@@ -130,11 +141,6 @@ export function InspectorColorPopover({
     gestureActiveRef.current = false;
     onEditEnd?.();
   }, [onEditEnd]);
-
-  const toggle = useCallback(() => {
-    if (disabled) return;
-    setOpen((v) => !v);
-  }, [disabled]);
 
   useEffect(() => {
     if (!open) return;
