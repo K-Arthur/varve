@@ -37,7 +37,15 @@ export type { BitDepth, ColorMode };
 // ── Color Space ─────────────────────────────────────────────────────────────
 
 /** Color space identifiers for individual colors. */
-export type ColorSpace = 'rgb' | 'cmyk' | 'gray' | 'spot';
+export type ColorSpace =
+  | 'rgb'
+  | 'cmyk'
+  | 'gray'
+  | 'spot'
+  | 'lab'
+  | 'lch'
+  | 'registration'
+  | 'unresolved';
 
 // ── Rendering Intent ────────────────────────────────────────────────────────
 
@@ -106,6 +114,12 @@ export interface RgbColor {
   a: number;
   /** ICC profile id for this color (defaults to document profile). */
   profile?: string;
+  /**
+   * Fingerprint (hash) of the ICC profile bytes this color was authored or
+   * converted under. Detects profile-version drift; distinct from `profile`
+   * (an id/name that can be reused across profile revisions).
+   */
+  profileFingerprint?: string;
 }
 
 /**
@@ -125,6 +139,8 @@ export interface CmykColor {
   a: number;
   /** ICC profile id for this color (defaults to document output intent). */
   profile?: string;
+  /** Fingerprint of the ICC profile bytes (see `RgbColor.profileFingerprint`). */
+  profileFingerprint?: string;
 }
 
 /**
@@ -140,12 +156,112 @@ export interface GrayColor {
   v: number;
   a: number;
   profile?: string;
+  /** Fingerprint of the ICC profile bytes (see `RgbColor.profileFingerprint`). */
+  profileFingerprint?: string;
+}
+
+/**
+ * CIELAB color value (D50 reference white by default).
+ *
+ * Channels are float-valued and independent of `bitDepth` (L 0–100, a/b
+ * signed, typically -128..128 but not restricted). `bitDepth` only scales
+ * the alpha channel, matching the other color variants.
+ *
+ * Naming note: the CIELAB a-channel is stored as `av` so that `a` keeps its
+ * union-wide meaning (alpha). The picker labels it "a".
+ *
+ * Lab is an authoring-first space: values may be out of the display or
+ * output gamut and MUST NOT be silently clamped by renderers. Display paths
+ * clip for preview; authoritative values stay in the document.
+ */
+export interface LabColor {
+  space: 'lab';
+  /** Lightness, 0–100 (float). */
+  l: number;
+  /** a channel (green–red axis, signed float). */
+  av: number;
+  /** b channel (blue–yellow axis, signed float). */
+  b: number;
+  /** Alpha, bit-depth scaled (default uint8 → 0-255). */
+  a: number;
+  /** Alpha bit depth (defaults to 'uint8'). Only scales alpha. */
+  bitDepth?: BitDepth;
+  /** ICC profile id of the reference white / encoding context. */
+  profile?: string;
+  /** Fingerprint of the ICC profile bytes (see `RgbColor.profileFingerprint`). */
+  profileFingerprint?: string;
+}
+
+/**
+ * CIELCH color value (polar form of CIELAB).
+ *
+ * Channels are float-valued and independent of `bitDepth` (L 0–100, C ≥ 0,
+ * H in degrees 0–360). Hue is always serialized normalized to [0, 360);
+ * editing continuity for achromatic colors is a picker concern, not a
+ * storage concern. `a` is alpha, matching every other union member.
+ */
+export interface LchColor {
+  space: 'lch';
+  /** Lightness, 0–100 (float). */
+  l: number;
+  /** Chroma ≥ 0 (float). Negative input is normalized to |c|. */
+  c: number;
+  /** Hue in degrees, wrapped to [0, 360). */
+  h: number;
+  /** Alpha, bit-depth scaled (default uint8 → 0-255). */
+  a: number;
+  /** Alpha bit depth (defaults to 'uint8'). Only scales alpha. */
+  bitDepth?: BitDepth;
+  /** ICC profile id of the reference white / encoding context. */
+  profile?: string;
+  /** Fingerprint of the ICC profile bytes (see `RgbColor.profileFingerprint`). */
+  profileFingerprint?: string;
+}
+
+/**
+ * Registration color — prints on every plate (process + spot). Used for
+ * printer marks and annotations. Rendered as black on screen.
+ */
+export interface RegistrationColor {
+  space: 'registration';
+  /** Alpha, bit-depth scaled (default uint8 → 0-255). */
+  a: number;
+}
+
+/**
+ * Unresolved imported color — a value whose color-space interpretation is
+ * unknown (missing profile, unknown ICC class, ambiguous metadata). The
+ * original serialization is retained in `source` and never silently
+ * reinterpreted. `fallback` (when present) is a DISPLAY-ONLY approximation
+ * and can never replace the authoritative source.
+ */
+export interface UnresolvedColor {
+  space: 'unresolved';
+  /** Alpha, bit-depth scaled (default uint8 → 0-255). */
+  a: number;
+  /** Original serialized representation (e.g. ICC tag bytes, PDF string). */
+  source: string;
+  /** Human-readable reason the color is unresolved. */
+  reason?: string;
+  /** Display-only approximation. Non-authoritative. */
+  fallback?: { r: number; g: number; b: number };
 }
 
 /** Spot color reference. */
 export interface SpotColorRef {
   space: 'spot';
-  /** Spot color name (e.g., "Pantone 185 C"). */
+  /**
+   * Stable spot-ink identifier. When set, this reference points at a
+   * `SpotColorDef` with the same id (document or library scope); `name` is
+   * then a denormalized display copy. When absent (legacy documents), the
+   * ref is resolved by `name` and a spotId is synthesized on migration.
+   * Two spots with identical names from different libraries are never
+   * merged — identity is `spotId`/`library`, not `name`.
+   */
+  spotId?: string;
+  /** Library identifier the spot belongs to (empty = project-local). */
+  library?: string;
+  /** Spot color name (e.g., "Pantone 185 C"). Display copy when spotId set. */
   name: string;
   /** Tint percentage (0-100). 100 = full strength. */
   tint: number;
@@ -160,8 +276,26 @@ export interface SpotColorRef {
  * This is the professional color type. The existing `Color` type
  * (readonly [number, number, number, number]) remains for backward
  * compatibility and is treated as sRGB RGBA.
+ *
+ * Invariants (enforced by `packages/scene/src/colorValidation.ts`):
+ * - Channel values are normalized per-space; NaN/Infinity are rejected.
+ * - Alpha has one canonical storage scale: the color's `bitDepth`
+ *   (default uint8 → 0-255). The normalized 0-1 range is a boundary
+ *   convention, produced by `normalizeChannel`.
+ * - LCH hue wraps deterministically to [0, 360); chroma is always ≥ 0.
+ * - Spot tints are within [0, 100].
+ * - `UnresolvedColor.fallback` is display-only and never authoritative.
+ * - Conversions never mutate their source object.
  */
-export type ManagedColor = RgbColor | CmykColor | GrayColor | SpotColorRef;
+export type ManagedColor =
+  | RgbColor
+  | CmykColor
+  | GrayColor
+  | SpotColorRef
+  | LabColor
+  | LchColor
+  | RegistrationColor
+  | UnresolvedColor;
 
 // ── Spot Color Definition ───────────────────────────────────────────────────
 
@@ -175,18 +309,59 @@ export type ManagedColor = RgbColor | CmykColor | GrayColor | SpotColorRef;
  * ISO 2846 (ink color standards).
  */
 export interface SpotColorDef {
-  /** Unique id within the document. */
+  /** Unique id within the document (or library). */
   id: string;
   /** Spot color name (e.g., "Pantone 185 C", "RAL 3000"). */
   name: string;
-  /** Color book/library identifier. */
+  /** Export name (PDF Separation ink name). Defaults to `name`. */
+  exportName?: string;
+  /** Color book/library identifier (empty = project-local). */
   library: string;
+  /** Display name of the owning library (denormalized). */
+  libraryName?: string;
   /** CMYK process fallback (used when spot ink is unavailable). */
   processFallback: { c: number; m: number; y: number; k: number };
   /** Lab values for color-accurate display and soft proofing. */
   lab?: { l: number; a: number; b: number };
   /** Whether this spot color is available on the output device. */
   available?: boolean;
+  /** Manufacturer or system name (e.g., "Pantone LLC"). */
+  manufacturer?: string;
+  /** Optional ink code (e.g., "185 C"). */
+  code?: string;
+  /** Free-form notes. */
+  notes?: string;
+  /** Provenance: how this definition entered the document. */
+  provenance?: 'user' | 'import' | 'library' | 'migration';
+  /** Aliases (alternate names) for resolution on import. */
+  aliases?: string[];
+  /** Creation time (ISO 8601). */
+  createdAt?: string;
+  /** Last modification time (ISO 8601). */
+  modifiedAt?: string;
+}
+
+/**
+ * A named spot-color library. Libraries group spot definitions with a stable
+ * identity. `kind` distinguishes behavior:
+ * - `builtin`: read-only, bundled with the app (display-only catalog).
+ * - `user-global`: shared across documents on this machine.
+ * - `project`: embedded in the document and travels with it.
+ * - `imported`: came in via import; may be missing its external source.
+ */
+export interface SpotLibrary {
+  /** Stable library id (e.g., 'pantone-c' or a generated project id). */
+  id: string;
+  /** Display name (e.g., "Pantone C"). */
+  name: string;
+  kind: 'builtin' | 'user-global' | 'project' | 'imported';
+  /** Spot definitions owned by this library. */
+  spots: SpotColorDef[];
+  /** For user-global libraries: filesystem location (desktop only). */
+  sourcePath?: string;
+  /** Timestamps for imported/user libraries. */
+  createdAt?: string;
+  modifiedAt?: string;
 }
 
 // ── Global Color Swatch ─────────────────────────────────────────────────────
@@ -455,6 +630,26 @@ export function isSpotColor(c: ManagedColor): c is SpotColorRef {
   return c.space === 'spot';
 }
 
+/** Check if a ManagedColor is CIELAB. */
+export function isLabColor(c: ManagedColor): c is LabColor {
+  return c.space === 'lab';
+}
+
+/** Check if a ManagedColor is CIELCH. */
+export function isLchColor(c: ManagedColor): c is LchColor {
+  return c.space === 'lch';
+}
+
+/** Check if a ManagedColor is the registration color. */
+export function isRegistrationColor(c: ManagedColor): c is RegistrationColor {
+  return c.space === 'registration';
+}
+
+/** Check if a ManagedColor is an unresolved imported color. */
+export function isUnresolvedColor(c: ManagedColor): c is UnresolvedColor {
+  return c.space === 'unresolved';
+}
+
 /** Create an RGB ManagedColor from a legacy Color tuple [r, g, b, a]. */
 export function rgbFromTuple(
   rgba: readonly [number, number, number, number],
@@ -487,7 +682,9 @@ export function withDefaultBitDepth<T extends ManagedColor>(
   color: T,
   fallback: BitDepth = DEFAULT_BIT_DEPTH,
 ): T {
-  if (color.space === 'spot') return color;
+  if (color.space === 'spot' || color.space === 'registration' || color.space === 'unresolved') {
+    return color;
+  }
   if (color.bitDepth) return color;
   return { ...color, bitDepth: fallback } as T;
 }

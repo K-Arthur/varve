@@ -89,7 +89,14 @@ function reinterpretBitDepth(color: ManagedColor, newBitDepth: BitDepth): Manage
   const toTarget = (v: number, toDepth: BitDepth) => denormalizeChannel(v, toDepth);
 
   // Spot colors don't have bit depth — return unchanged
-  if (color.space === 'spot') return color;
+  if (color.space === 'spot' || color.space === 'registration' || color.space === 'unresolved') {
+    return color;
+  }
+
+  // Lab/LCH: bit depth only scales alpha; channels stay float.
+  if (color.space === 'lab' || color.space === 'lch') {
+    return { ...color, bitDepth: newBitDepth };
+  }
 
   const sourceDepth: BitDepth = color.bitDepth ?? 'uint8';
 

@@ -285,7 +285,15 @@ function managedColorFingerprint(c: ManagedColor): string {
     case 'gray':
       return `gray:${c.v}:${c.a}`;
     case 'spot':
-      return `spot:${c.name}:${c.tint}:${c.a}`;
+      return `spot:${c.spotId ?? c.name}:${c.tint}:${c.a}`;
+    case 'lab':
+      return `lab:${c.l}:${c.av}:${c.b}:${c.a}`;
+    case 'lch':
+      return `lch:${c.l}:${c.c}:${c.h}:${c.a}`;
+    case 'registration':
+      return `registration:${c.a}`;
+    case 'unresolved':
+      return `unresolved:${c.a}:${c.source}`;
   }
 }
 

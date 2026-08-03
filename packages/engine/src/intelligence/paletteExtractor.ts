@@ -1,50 +1,18 @@
 import {
   gamutMapToSrgb,
   linearSrgbToOklab,
+  type ManagedColorShim,
   managedColorToRgba,
   oklabToOkLch,
   srgbToLinear,
 } from '@strata/shared';
 
 /**
- * Local ManagedColor type matching scene's discriminated union
- * (RgbColor r,g,b,a in 0-255 range).
+ * Local ManagedColor alias matching scene's discriminated union. The union
+ * itself lives in @strata/shared (ManagedColorShim) so palette extraction
+ * accepts every variant the scene model can store.
  */
-interface RgbColor {
-  space: 'rgb';
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-  profile?: string;
-}
-
-interface CmykColor {
-  space: 'cmyk';
-  c: number;
-  m: number;
-  y: number;
-  k: number;
-  a: number;
-  profile?: string;
-}
-
-interface GrayColor {
-  space: 'gray';
-  v: number;
-  a: number;
-  profile?: string;
-}
-
-interface SpotColorRef {
-  space: 'spot';
-  name: string;
-  tint: number;
-  a: number;
-  processFallback?: { c: number; m: number; y: number; k: number };
-}
-
-type ManagedColor = RgbColor | CmykColor | GrayColor | SpotColorRef;
+type ManagedColor = ManagedColorShim;
 
 export interface PaletteResult {
   colors: ManagedColor[];
@@ -349,7 +317,7 @@ function managedColorToOklch(color: ManagedColor): [number, number, number] {
 }
 
 function getAlpha(color: ManagedColor): number {
-  if ('a' in color) return (color as RgbColor | CmykColor | GrayColor).a;
+  if ('a' in color) return (color as ManagedColorShim).a;
   return 255;
 }
 
