@@ -10,6 +10,8 @@
  * (2020), ISO 12647 (print), Bruce Lindbloom matrices, ICC.1:2010.
  */
 
+import { cssStringToManagedColor } from './cssColorParser';
+
 // ── Bit depth ────────────────────────────────────────────────────────────────
 
 /**
@@ -120,13 +122,62 @@ interface GrayColorShim {
 /** Spot color reference. */
 interface SpotColorRefShim {
   space: 'spot';
+  spotId?: string;
+  library?: string;
   name: string;
   tint: number;
   a: number;
   processFallback?: { c: number; m: number; y: number; k: number };
 }
 
-export type ManagedColorShim = RgbColorShim | CmykColorShim | GrayColorShim | SpotColorRefShim;
+/** CIELAB color (D50 reference white by default; float channels). */
+interface LabColorShim {
+  space: 'lab';
+  l: number;
+  av: number;
+  b: number;
+  a: number;
+  bitDepth?: BitDepth;
+  profile?: string;
+  profileFingerprint?: string;
+}
+
+/** CIELCH color (polar CIELAB; hue in degrees). */
+interface LchColorShim {
+  space: 'lch';
+  l: number;
+  c: number;
+  h: number;
+  a: number;
+  bitDepth?: BitDepth;
+  profile?: string;
+  profileFingerprint?: string;
+}
+
+/** Registration color — prints on every plate. */
+interface RegistrationColorShim {
+  space: 'registration';
+  a: number;
+}
+
+/** Unresolved imported color — source retained, display-only fallback. */
+interface UnresolvedColorShim {
+  space: 'unresolved';
+  a: number;
+  source: string;
+  reason?: string;
+  fallback?: { r: number; g: number; b: number };
+}
+
+export type ManagedColorShim =
+  | RgbColorShim
+  | CmykColorShim
+  | GrayColorShim
+  | SpotColorRefShim
+  | LabColorShim
+  | LchColorShim
+  | RegistrationColorShim
+  | UnresolvedColorShim;
 
 /** Engine RGBA tuple (0-255 per channel). */
 type ColorShim = readonly [number, number, number, number];
@@ -532,6 +583,37 @@ export function managedColorToRgba(color: ManagedColorShim): [number, number, nu
       }
       return [0, 0, 0, a];
     }
+    case 'lab': {
+      const [r, g, b] = labToRgb(color.l, color.av, color.b);
+      return [
+        r,
+        g,
+        b,
+        denormalizeChannel(normalizeChannel(color.a, color.bitDepth ?? 'uint8'), 'uint8'),
+      ];
+    }
+    case 'lch': {
+      const [r, g, b] = lchToRgb(color.l, color.c, color.h);
+      return [
+        r,
+        g,
+        b,
+        denormalizeChannel(normalizeChannel(color.a, color.bitDepth ?? 'uint8'), 'uint8'),
+      ];
+    }
+    case 'registration': {
+      // Registration prints on every plate; on screen it is black.
+      return [0, 0, 0, denormalizeChannel(normalizeChannel(color.a, 'uint8'), 'uint8')];
+    }
+    case 'unresolved': {
+      const a = denormalizeChannel(normalizeChannel(color.a, 'uint8'), 'uint8');
+      if (color.fallback) return [color.fallback.r, color.fallback.g, color.fallback.b, a];
+      // Best-effort display parse of the retained source; the authoritative
+      // value is never rewritten.
+      const parsed = cssStringToManagedColor(color.source);
+      if (parsed && parsed.space === 'rgb') return [parsed.r, parsed.g, parsed.b, a];
+      return [0, 0, 0, a];
+    }
   }
 }
 
@@ -598,8 +680,22 @@ export function managedColorKey(color: ManagedColorShim): string {
     case 'gray':
       return `gray:${color.bitDepth ?? 'uint8'}:${color.v},${color.a}:${color.profile ?? ''}`;
     case 'spot':
-      return `spot:${color.name}:${color.tint}:${color.a}:${
-        color.processFallback ? JSON.stringify(color.processFallback) : ''
+      return `spot:${color.spotId ?? ''}:${color.library ?? ''}:${color.name}:${color.tint}:${
+        color.a
+      }:${color.processFallback ? JSON.stringify(color.processFallback) : ''}`;
+    case 'lab':
+      return `lab:${color.l},${color.av},${color.b},${color.a}:${color.profile ?? ''}:${
+        color.profileFingerprint ?? ''
+      }`;
+    case 'lch':
+      return `lch:${color.l},${color.c},${color.h},${color.a}:${color.profile ?? ''}:${
+        color.profileFingerprint ?? ''
+      }`;
+    case 'registration':
+      return `registration:${color.a}`;
+    case 'unresolved':
+      return `unresolved:${color.a}:${color.source}:${
+        color.fallback ? JSON.stringify(color.fallback) : ''
       }`;
   }
 }
@@ -620,6 +716,83 @@ export function oklabToOkLch(lab: [number, number, number]): [number, number, nu
 export function oklchToOkLab(lch: [number, number, number]): [number, number, number] {
   const [L, C, H] = lch;
   return [L, C * Math.cos(H), C * Math.sin(H)];
+}
+
+// ── CIELAB / CIELCH (D50, degrees hue) ─────────────────────────────────────
+
+const DEG2RAD = Math.PI / 180;
+const RAD2DEG = 180 / Math.PI;
+
+/** Normalize a hue angle to [0, 360). Deterministic; NaN → 0. */
+export function normalizeHueDegrees(h: number): number {
+  if (Number.isNaN(h) || !Number.isFinite(h)) return 0;
+  let v = h % 360;
+  if (v < 0) v += 360;
+  return v;
+}
+
+/**
+ * CIELab [L, a, b] → CIELCH [L, C, H] with hue in degrees wrapped to
+ * [0, 360). Achromatic colors (C ≈ 0) keep the previous hue convention of
+ * 0 — pickers maintain editing continuity separately (see the picker's
+ * last-meaningful-hue state).
+ */
+export function labToLch(lab: [number, number, number]): [number, number, number] {
+  const [L, a, b] = lab;
+  const C = Math.sqrt(a * a + b * b);
+  const H = C < 1e-12 ? 0 : normalizeHueDegrees(Math.atan2(b, a) * RAD2DEG);
+  return [L, C, H];
+}
+
+/**
+ * CIELCH [L, C, H] (hue degrees) → CIELab [L, a, b].
+ * Chroma is normalized to |C| and hue is wrapped before conversion, so
+ * negative chroma or unwrapped hue cannot leak through.
+ */
+export function lchToLab(lch: [number, number, number]): [number, number, number] {
+  const [L, C, H] = lch;
+  const c = Math.abs(C);
+  const h = normalizeHueDegrees(H) * DEG2RAD;
+  return [L, c * Math.cos(h), c * Math.sin(h)];
+}
+
+/** 0-255 sRGB → CIELab (D50), matching `xyzToLab`'s white point. */
+export function rgbToLab(r: number, g: number, b: number): [number, number, number] {
+  return xyzToLab(linearRgbToXyzD65(rgbToLinearRgb([r, g, b])));
+}
+
+/** CIELab (D50) → 0-255 sRGB, clamped to display range (preview only). */
+export function labToRgb(l: number, a: number, b: number): [number, number, number] {
+  const linear = xyzD65ToLinearRgb(labToXyz([l, a, b]));
+  return linearRgbToRgb([clamp01(linear[0]), clamp01(linear[1]), clamp01(linear[2])]);
+}
+
+/** 0-255 sRGB → CIELCH (D50, hue degrees). */
+export function rgbToLch(r: number, g: number, b: number): [number, number, number] {
+  return labToLch(rgbToLab(r, g, b));
+}
+
+/** CIELCH (D50, hue degrees) → 0-255 sRGB, clamped to display range. */
+export function lchToRgb(l: number, c: number, h: number): [number, number, number] {
+  const lab = lchToLab([l, c, h]);
+  return labToRgb(lab[0], lab[1], lab[2]);
+}
+
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+/**
+ * Deterministic rounding for picker display and serialization. Rounding the
+ * AUTHORITATIVE stored value repeatedly while switching picker modes is
+ * forbidden — use this only for display formatting and cache keys.
+ */
+export function roundTo(value: number, digits: number): number {
+  const f = 10 ** digits;
+  // Round half away from zero, with an epsilon break in the correct
+  // direction for the value's sign (Math.round(-0.5) is -0 otherwise).
+  const sign = value < 0 ? -1 : 1;
+  return Math.round(value * f + sign * Number.EPSILON) / f;
 }
 
 // ── Gamut mapping ───────────────────────────────────────────────────────────

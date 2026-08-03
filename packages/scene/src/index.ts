@@ -20,6 +20,7 @@ export * from './clippingMask';
 export * from './clone';
 export * from './colorManagement';
 export * from './colorMode';
+export * from './colorValidation';
 export * from './component';
 export * from './component-sync';
 export * from './constraints';
