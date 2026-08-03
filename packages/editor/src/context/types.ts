@@ -1036,6 +1036,18 @@ export interface EditorContextValue {
   /** Replace the proof configuration (never touches colors). */
   setProofConfig: (config: import('@strata/scene').ProofConfig) => void;
 
+  // Spot-color libraries
+  createSpotLibrary: (name: string) => void;
+  addSpotToLibrary: (libraryId: string, def: import('@strata/scene').SpotColorDef) => void;
+  updateSpotDef: (
+    libraryId: string,
+    spotId: string,
+    patch: Partial<Omit<import('@strata/scene').SpotColorDef, 'id'>>,
+  ) => void;
+  removeSpotFromLibrary: (libraryId: string, spotId: string) => void;
+  renameSpotLibrary: (libraryId: string, name: string) => void;
+  deleteSpotLibrary: (libraryId: string) => void;
+
   // Color blindness simulation
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
 
