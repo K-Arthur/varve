@@ -1,47 +1,37 @@
 {
-  "version": "2026-07-30",
-  "cycles": {
-    "scene": {
-      "count": 4,
-      "cycles": [
-        "component-sync.ts → document-components.ts → document-nodes.ts → document.ts",
-        "document-components.ts → document-nodes.ts → document.ts",
-        "document-components.ts → document.ts",
-        "document-pages.ts → document.ts"
-      ]
-    }
-  },
+  "version": "2026-08-03",
+  "cycles": {},
   "layerViolations": [],
   "hubFiles": {
     "packages/editor/src/Shell.tsx": {
-      "lines": 954,
-      "imports": 48,
-      "overBudget": false
-    },
-    "packages/editor/src/CanvasArea.tsx": {
-      "lines": 2882,
-      "imports": 44,
+      "lines": 1006,
+      "imports": 50,
       "overBudget": true
     },
-    "packages/editor/src/Menubar.tsx": {
-      "lines": 2352,
-      "imports": 12,
+    "packages/editor/src/CanvasArea.tsx": {
+      "lines": 3077,
+      "imports": 40,
       "overBudget": false
     },
+    "packages/editor/src/Menubar.tsx": {
+      "lines": 2307,
+      "imports": 15,
+      "overBudget": true
+    },
     "packages/home/src/HomeShell.tsx": {
-      "lines": 1104,
+      "lines": 1101,
       "imports": 31,
       "overBudget": false
     },
     "packages/editor/src/context.tsx": {
-      "lines": 8149,
-      "imports": 65,
-      "overBudget": false
+      "lines": 8595,
+      "imports": 66,
+      "overBudget": true
     }
   },
   "complexity": {},
   "global": {
-    "max_cycles": 6,
+    "max_cycles": 9,
     "max_unstable": 5,
     "max_layer_violations": 0,
     "max_unused_exports": 10
