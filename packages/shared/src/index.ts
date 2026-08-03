@@ -96,6 +96,7 @@ export {
   gamutMapToSrgb,
   linearSrgbToOklab,
   linearToSrgb,
+  managedColorKey,
   managedColorToCss,
   managedColorToNormalized,
   managedColorToRgba,

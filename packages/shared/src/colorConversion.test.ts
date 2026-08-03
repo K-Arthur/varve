@@ -8,6 +8,7 @@ import {
   linearRgbToXyzD65,
   linearSrgbToOklab,
   linearToSrgb,
+  managedColorKey,
   managedColorToCss,
   managedColorToEngineColor,
   managedColorToRgba,
@@ -414,5 +415,21 @@ describe('gamutMapToSrgb', () => {
     expect(g).toBeLessThanOrEqual(255);
     expect(b).toBeGreaterThanOrEqual(0);
     expect(b).toBeLessThanOrEqual(255);
+  });
+});
+
+describe('managedColorKey', () => {
+  it('distinguishes colors by space, channels, depth, and profile', () => {
+    const a = { space: 'rgb', r: 100, g: 150, b: 200, a: 255 };
+    const b = { space: 'rgb', r: 100, g: 150, b: 200, a: 255 };
+    const c = { space: 'rgb', r: 101, g: 150, b: 200, a: 255 };
+    const d = { space: 'cmyk', c: 100, m: 150, y: 200, k: 0, a: 255 };
+    const e = { space: 'rgb', bitDepth: 'float32', r: 0.5, g: 0.5, b: 0.5, a: 1 };
+    const f = { space: 'rgb', r: 100, g: 150, b: 200, a: 255, profile: 'srgb' };
+    expect(managedColorKey(a)).toBe(managedColorKey(b));
+    expect(managedColorKey(a)).not.toBe(managedColorKey(c));
+    expect(managedColorKey(a)).not.toBe(managedColorKey(d));
+    expect(managedColorKey(a)).not.toBe(managedColorKey(e));
+    expect(managedColorKey(a)).not.toBe(managedColorKey(f));
   });
 });
