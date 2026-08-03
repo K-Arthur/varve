@@ -1,4 +1,4 @@
-import { Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import { FocusTrap, Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getActionRegistry } from '../actions/ActionRegistry';
@@ -53,9 +53,12 @@ export function ShortcutPalette({
   const [remappingId, setRemappingId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const paletteRef = useRef<HTMLDivElement>(null);
+  // Element focused before the palette opened; restored on close.
+  const restoreRef = useRef<HTMLElement | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -105,6 +108,10 @@ export function ShortcutPalette({
 
   useEffect(() => {
     if (open) {
+      const prior = document.activeElement;
+      if (prior instanceof HTMLElement && prior !== document.body) {
+        restoreRef.current = prior;
+      }
       setRemappingId(null);
       setReloadKey((k) => k + 1);
       if (focusShortcutId) {
@@ -114,46 +121,17 @@ export function ShortcutPalette({
         setQuery('');
       }
       setTimeout(() => inputRef.current?.focus(), 0);
+    } else if (restoreRef.current) {
+      // Restore focus to the invoking control on every close path (Escape,
+      // selection, outside click, unmount) — unless the user deliberately
+      // moved focus elsewhere (e.g. clicked a toolbar button).
+      const active = document.activeElement;
+      if (active === document.body || paletteRef.current?.contains(active)) {
+        restoreRef.current.focus({ preventScroll: true });
+      }
+      restoreRef.current = null;
     }
   }, [open, focusShortcutId]);
-
-  const handleKey = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (remappingId) {
-        if (e.key === 'Escape') {
-          e.preventDefault();
-          e.stopPropagation();
-          setRemappingId(null);
-          return;
-        }
-        e.preventDefault();
-        e.stopPropagation();
-        const binding = captureKeyCombo(e.nativeEvent);
-        if (binding?.key) {
-          clearOverride(remappingId);
-          setOverride(remappingId, binding);
-          setRemappingId(null);
-          showToast(`Remapped to ${formatShortcut(binding)}`);
-          setReloadKey((k) => k + 1);
-        }
-        return;
-      }
-
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onClose();
-      }
-      if (e.key === 'Enter' && !remappingId && Object.keys(filtered).length > 0) {
-        const firstGroup = Object.values(filtered)[0];
-        const first = firstGroup?.[0];
-        if (first) {
-          onSelect(first.id);
-          onClose();
-        }
-      }
-    },
-    [filtered, onClose, onSelect, remappingId, showToast],
-  );
 
   const handleExport = useCallback(() => {
     const data = exportKeymap();
@@ -219,6 +197,140 @@ export function ShortcutPalette({
 
   const allActionIds = useMemo(() => Object.keys(SHORTCUT_DEFS), []);
   const usage = useShortcutUsage(allActionIds);
+  // Flat list of visible option ids in render order (for roving highlight).
+  const visibleIds = useMemo(() => {
+    const seen = new Set<string>();
+    const ids: string[] = [];
+    for (const [, items] of Object.entries(filtered)) {
+      for (const { id } of items) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          ids.push(id);
+        }
+      }
+    }
+    if (query === '') {
+      for (const id of usage.neverUsed.slice(0, 20)) {
+        if (!seen.has(id)) {
+          seen.add(id);
+          ids.push(id);
+        }
+      }
+    }
+    return ids;
+  }, [filtered, query, usage.neverUsed]);
+
+  // Roving highlight: reset to the first visible option when the filtered
+  // set changes or the palette opens.
+  useEffect(() => {
+    setHighlightId(visibleIds[0] ?? null);
+  }, [visibleIds]);
+
+  const scrollHighlightIntoView = useCallback(() => {
+    if (!highlightId) return;
+    const el = paletteRef.current?.querySelector<HTMLElement>(
+      `[id="palette-option-${highlightId}"]`,
+    );
+    el?.scrollIntoView?.({ block: 'nearest' });
+  }, [highlightId]);
+
+  const moveHighlight = useCallback(
+    (dir: 1 | -1) => {
+      if (visibleIds.length === 0) return;
+      setHighlightId((current) => {
+        const idx = visibleIds.indexOf(current ?? '');
+        const base = idx < 0 ? 0 : idx;
+        const next = (base + dir + visibleIds.length) % visibleIds.length;
+        return visibleIds[next] ?? null;
+      });
+      scrollHighlightIntoView();
+    },
+    [visibleIds, scrollHighlightIntoView],
+  );
+
+  const handleKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (remappingId) {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setRemappingId(null);
+          return;
+        }
+        e.preventDefault();
+        e.stopPropagation();
+        const binding = captureKeyCombo(e.nativeEvent);
+        if (binding?.key) {
+          clearOverride(remappingId);
+          setOverride(remappingId, binding);
+          setRemappingId(null);
+          showToast(`Remapped to ${formatShortcut(binding)}`);
+          setReloadKey((k) => k + 1);
+        }
+        return;
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          onClose();
+          return;
+        case 'ArrowDown':
+          e.preventDefault();
+          moveHighlight(1);
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          moveHighlight(-1);
+          return;
+        case 'Home':
+          e.preventDefault();
+          setHighlightId(visibleIds[0] ?? null);
+          return;
+        case 'End':
+          e.preventDefault();
+          setHighlightId(visibleIds[visibleIds.length - 1] ?? null);
+          return;
+        case 'Enter': {
+          if (e.altKey) break;
+          const targetId = highlightId ?? visibleIds[0];
+          if (targetId) {
+            e.preventDefault();
+            getActionRegistry().recordUsage(targetId);
+            onSelect(targetId);
+            onClose();
+          }
+          return;
+        }
+      }
+
+      // Alt+Enter: remap the highlighted shortcut; Alt+Backspace: reset it.
+      if (e.altKey && e.key === 'Enter') {
+        const targetId = highlightId ?? visibleIds[0];
+        if (targetId) {
+          e.preventDefault();
+          setRemappingId(targetId);
+        }
+      } else if (e.altKey && e.key === 'Backspace') {
+        const targetId = highlightId ?? visibleIds[0];
+        if (targetId) {
+          e.preventDefault();
+          handleResetOne(targetId);
+        }
+      }
+    },
+    [
+      filtered,
+      onClose,
+      onSelect,
+      remappingId,
+      showToast,
+      visibleIds,
+      highlightId,
+      moveHighlight,
+      handleResetOne,
+    ],
+  );
 
   if (!open) return null;
 
@@ -226,208 +338,212 @@ export function ShortcutPalette({
   const groupEntries = Object.entries(filtered);
 
   return createPortal(
-    <div
-      role="dialog"
-      aria-label="Command palette"
-      className="shortcut-palette"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !remappingId) onClose();
-      }}
-      onKeyDown={handleKey}
-      ref={paletteRef}
-    >
-      <div className="shortcut-palette__panel">
-        <div className="shortcut-palette__toolbar">
-          <input
-            ref={inputRef}
-            type="text"
-            className="shortcut-palette__search"
-            placeholder="Search commands\u2026"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            aria-label="Search commands"
-            disabled={!!remappingId}
-          />
-          <Tooltip label="Export keymap">
-            <button
-              type="button"
-              className="shortcut-palette__btn"
-              onClick={handleExport}
-              aria-label="Export keymap"
-            >
-              <SolidIcon name={SOLID_CHROME_ICONS.download} />
-            </button>
-          </Tooltip>
-          <Tooltip label="Import keymap">
-            <button
-              type="button"
-              className="shortcut-palette__btn"
-              onClick={() => fileRef.current?.click()}
-              aria-label="Import keymap"
-            >
-              <SolidIcon name={SOLID_CHROME_ICONS.upload} />
-            </button>
-          </Tooltip>
-          {hasOverrides && (
-            <Tooltip label="Reset all to defaults">
+    <FocusTrap active initialFocus=".shortcut-palette__search">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
+        className="shortcut-palette"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !remappingId) onClose();
+        }}
+        onKeyDown={handleKey}
+        ref={paletteRef}
+      >
+        <div className="shortcut-palette__panel">
+          <div className="shortcut-palette__toolbar">
+            <input
+              ref={inputRef}
+              type="text"
+              className="shortcut-palette__search"
+              placeholder="Search commands\u2026"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              aria-label="Search commands"
+              role="combobox"
+              aria-expanded="true"
+              aria-autocomplete="list"
+              aria-controls="shortcut-palette-listbox"
+              aria-activedescendant={highlightId ? `palette-option-${highlightId}` : undefined}
+            />
+            <Tooltip label="Export keymap">
               <button
                 type="button"
                 className="shortcut-palette__btn"
-                onClick={handleResetAll}
-                aria-label="Reset all to defaults"
+                onClick={handleExport}
+                aria-label="Export keymap"
               >
-                <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+                <SolidIcon name={SOLID_CHROME_ICONS.download} />
               </button>
             </Tooltip>
-          )}
-          <input ref={fileRef} type="file" accept=".json" hidden onChange={handleImport} />
-        </div>
-
-        {toast && (
-          <div className="shortcut-palette__toast" role="status" aria-live="polite">
-            {toast}
+            <Tooltip label="Import keymap">
+              <button
+                type="button"
+                className="shortcut-palette__btn"
+                onClick={() => fileRef.current?.click()}
+                aria-label="Import keymap"
+              >
+                <SolidIcon name={SOLID_CHROME_ICONS.upload} />
+              </button>
+            </Tooltip>
+            {hasOverrides && (
+              <Tooltip label="Reset all to defaults">
+                <button
+                  type="button"
+                  className="shortcut-palette__btn"
+                  onClick={handleResetAll}
+                  aria-label="Reset all to defaults"
+                >
+                  <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+                </button>
+              </Tooltip>
+            )}
+            <input ref={fileRef} type="file" accept=".json" hidden onChange={handleImport} />
           </div>
-        )}
 
-        {remappingId && (
-          <div className="shortcut-palette__remap-hint">
-            Press new shortcut for &quot;
-            {SHORTCUT_DEFS[remappingId as keyof typeof SHORTCUT_DEFS]?.label ?? remappingId}&quot;
-            (Esc to cancel)
-          </div>
-        )}
-
-        <div className="shortcut-palette__list">
-          {groupEntries.length === 0 && (
-            <div className="shortcut-palette__empty">No commands match</div>
-          )}
-          {groupEntries.map(([group, items]) => (
-            <div key={group}>
-              <div className="shortcut-palette__group-header">{group}</div>
-              {items.map(({ id, def }) => {
-                const isRemapping = remappingId === id;
-                const binding = getEffectiveBinding(id);
-                const usageInfo = usage.usages.get(id);
-                const useCount = usageInfo?.count ?? 0;
-
-                return (
-                  <div
-                    key={id}
-                    role="option"
-                    aria-selected={false}
-                    tabIndex={0}
-                    className={`shortcut-palette__row${isRemapping ? ' shortcut-palette__row--remapping' : ''}`}
-                    onClick={() => handleRowClick(id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleRowClick(id);
-                      }
-                    }}
-                  >
-                    <span className="shortcut-palette__row-label">
-                      {def.label}
-                      {workspaceMode &&
-                        SHORTCUT_WORKSPACE_TAGS[id] &&
-                        !SHORTCUT_WORKSPACE_TAGS[id].includes(workspaceMode) && (
-                          <span className="shortcut-palette__workspace-tag">
-                            {SHORTCUT_WORKSPACE_TAGS[id]
-                              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-                              .join(', ')}
-                          </span>
-                        )}
-                    </span>
-                    <Tooltip label={`Used ${useCount} times`}>
-                      <span className="shortcut-palette__usage">
-                        {useCount > 0 ? `${useCount}x` : 'Not used'}
-                      </span>
-                    </Tooltip>
-                    {isRemapping ? (
-                      <span className="shortcut-palette__combo shortcut-palette__combo--active">
-                        Press key…
-                      </span>
-                    ) : (
-                      <span className="shortcut-palette__combo">
-                        {binding?.key ? formatShortcut(binding) : '—'}
-                      </span>
-                    )}
-                    <Tooltip label="Remap shortcut">
-                      <button
-                        type="button"
-                        className="shortcut-palette__btn"
-                        onClick={(e) => handleRemapClick(id, e)}
-                        aria-label="Remap shortcut"
-                        disabled={isRemapping}
-                      >
-                        <Icon name="Keyboard" />
-                      </button>
-                    </Tooltip>
-                    <Tooltip
-                      label="Reset to default"
-                      disabledReason={
-                        isRemapping ? 'Wait until the current remap completes' : undefined
-                      }
-                    >
-                      <button
-                        type="button"
-                        className="shortcut-palette__btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleResetOne(id);
-                        }}
-                        aria-label="Reset to default"
-                        disabled={isRemapping}
-                      >
-                        <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
-                      </button>
-                    </Tooltip>
-                  </div>
-                );
-              })}
+          {toast && (
+            <div className="shortcut-palette__toast" role="status" aria-live="polite">
+              {toast}
             </div>
-          ))}
+          )}
 
-          {query === '' && usage.neverUsed.length > 0 && (
-            <div className="shortcut-palette__not-used">
-              <details>
-                <summary className="shortcut-palette__group-header">
-                  Not used ({usage.neverUsed.length})
-                </summary>
-                {usage.neverUsed.slice(0, 20).map((id) => {
-                  const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
+          {remappingId && (
+            <div className="shortcut-palette__remap-hint">
+              Press new shortcut for &quot;
+              {SHORTCUT_DEFS[remappingId as keyof typeof SHORTCUT_DEFS]?.label ?? remappingId}&quot;
+              (Esc to cancel)
+            </div>
+          )}
+
+          <div
+            className="shortcut-palette__list"
+            id="shortcut-palette-listbox"
+            role="listbox"
+            aria-label="Commands"
+          >
+            {groupEntries.length === 0 && (
+              <div className="shortcut-palette__empty">No commands match</div>
+            )}
+            {groupEntries.map(([group, items]) => (
+              <div key={group}>
+                <div className="shortcut-palette__group-header">{group}</div>
+                {items.map(({ id, def }) => {
+                  const isRemapping = remappingId === id;
                   const binding = getEffectiveBinding(id);
+                  const usageInfo = usage.usages.get(id);
+                  const useCount = usageInfo?.count ?? 0;
+
                   return (
                     <div
                       key={id}
+                      id={`palette-option-${id}`}
                       role="option"
-                      aria-selected={false}
-                      tabIndex={0}
-                      className="shortcut-palette__row shortcut-palette__row--unused"
+                      aria-selected={highlightId === id}
+                      className={`shortcut-palette__row${isRemapping ? ' shortcut-palette__row--remapping' : ''}${highlightId === id ? ' shortcut-palette__row--highlighted' : ''}`}
+                      onMouseEnter={() => setHighlightId(id)}
                       onClick={() => handleRowClick(id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleRowClick(id);
-                        }
-                      }}
                     >
-                      <span className="shortcut-palette__row-label">{def?.label ?? id}</span>
-                      <span className="shortcut-palette__usage">Not used</span>
-                      <span className="shortcut-palette__combo">
-                        {binding?.key ? formatShortcut(binding) : '—'}
+                      <span className="shortcut-palette__row-label">
+                        {def.label}
+                        {workspaceMode &&
+                          SHORTCUT_WORKSPACE_TAGS[id] &&
+                          !SHORTCUT_WORKSPACE_TAGS[id].includes(workspaceMode) && (
+                            <span className="shortcut-palette__workspace-tag">
+                              {SHORTCUT_WORKSPACE_TAGS[id]
+                                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                                .join(', ')}
+                            </span>
+                          )}
                       </span>
+                      <Tooltip label={`Used ${useCount} times`}>
+                        <span className="shortcut-palette__usage">
+                          {useCount > 0 ? `${useCount}x` : 'Not used'}
+                        </span>
+                      </Tooltip>
+                      {isRemapping ? (
+                        <span className="shortcut-palette__combo shortcut-palette__combo--active">
+                          Press key…
+                        </span>
+                      ) : (
+                        <span className="shortcut-palette__combo">
+                          {binding?.key ? formatShortcut(binding) : '—'}
+                        </span>
+                      )}
+                      <Tooltip label="Remap shortcut">
+                        <button
+                          type="button"
+                          className="shortcut-palette__btn"
+                          onClick={(e) => handleRemapClick(id, e)}
+                          aria-label="Remap shortcut"
+                          aria-keyshortcuts="Alt+Enter"
+                          tabIndex={-1}
+                        >
+                          <Icon name="Keyboard" />
+                        </button>
+                      </Tooltip>
+                      <Tooltip
+                        label="Reset to default"
+                        disabledReason={
+                          isRemapping ? 'Wait until the current remap completes' : undefined
+                        }
+                      >
+                        <button
+                          type="button"
+                          className="shortcut-palette__btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleResetOne(id);
+                          }}
+                          aria-label="Reset to default"
+                          aria-keyshortcuts="Alt+Backspace"
+                          tabIndex={-1}
+                        >
+                          <SolidIcon name={SOLID_CHROME_ICONS.rotateCcw} />
+                        </button>
+                      </Tooltip>
                     </div>
                   );
                 })}
-                {usage.neverUsed.length > 20 && (
-                  <div className="shortcut-palette__more">+{usage.neverUsed.length - 20} more</div>
-                )}
-              </details>
-            </div>
-          )}
+              </div>
+            ))}
+
+            {query === '' && usage.neverUsed.length > 0 && (
+              <div className="shortcut-palette__not-used">
+                <details>
+                  <summary className="shortcut-palette__group-header">
+                    Not used ({usage.neverUsed.length})
+                  </summary>
+                  {usage.neverUsed.slice(0, 20).map((id) => {
+                    const def = SHORTCUT_DEFS[id as keyof typeof SHORTCUT_DEFS];
+                    const binding = getEffectiveBinding(id);
+                    return (
+                      <div
+                        key={`unused-${id}`}
+                        role="option"
+                        aria-selected={false}
+                        className="shortcut-palette__row shortcut-palette__row--unused"
+                        onClick={() => handleRowClick(id)}
+                      >
+                        <span className="shortcut-palette__row-label">{def?.label ?? id}</span>
+                        <span className="shortcut-palette__usage">Not used</span>
+                        <span className="shortcut-palette__combo">
+                          {binding?.key ? formatShortcut(binding) : '—'}
+                        </span>
+                      </div>
+                    );
+                  })}
+                  {usage.neverUsed.length > 20 && (
+                    <div className="shortcut-palette__more">
+                      +{usage.neverUsed.length - 20} more
+                    </div>
+                  )}
+                </details>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-    </div>,
+    </FocusTrap>,
     document.body,
   );
 }
