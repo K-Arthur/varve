@@ -212,3 +212,38 @@ describe('PropertiesPanel empty selection', () => {
     expect(screen.queryByRole('button', { name: 'State Machine' })).toBeNull();
   });
 });
+
+describe('PropertiesPanel export sub-tabs keyboard', () => {
+  it('uses roving tabindex and arrow keys with automatic activation', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    const formatTab = screen.getByRole('tab', { name: 'Format' });
+    const codeTab = screen.getByRole('tab', { name: 'Code' });
+
+    // Roving: only the active sub-tab is in the tab order.
+    expect(formatTab).toHaveAttribute('tabindex', '0');
+    expect(codeTab).toHaveAttribute('tabindex', '-1');
+
+    // ArrowRight activates and focuses Code; roving index follows.
+    fireEvent.keyDown(formatTab, { key: 'ArrowRight' });
+    expect(codeTab).toHaveAttribute('tabindex', '0');
+    expect(formatTab).toHaveAttribute('tabindex', '-1');
+    expect(screen.getByText(/Select a node to export/i)).toBeTruthy();
+
+    // ArrowLeft wraps back to Format.
+    fireEvent.keyDown(codeTab, { key: 'ArrowLeft' });
+    expect(formatTab).toHaveAttribute('tabindex', '0');
+  });
+
+  it('Home/End jump to first/last sub-tab', () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole('tab', { name: 'Export' }));
+    const formatTab = screen.getByRole('tab', { name: 'Format' });
+    const codeTab = screen.getByRole('tab', { name: 'Code' });
+
+    fireEvent.keyDown(formatTab, { key: 'End' });
+    expect(codeTab).toHaveAttribute('tabindex', '0');
+    fireEvent.keyDown(codeTab, { key: 'Home' });
+    expect(formatTab).toHaveAttribute('tabindex', '0');
+  });
+});

@@ -13,7 +13,7 @@
  */
 import { isImageShape, type SceneNode } from '@strata/scene';
 import { EmptyState } from '@strata/ui';
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { setInspectorTabHandler, useEditor } from '../../context';
 import type { InspectorTab, IntelligenceTab } from '../../context/types';
 import { docVariableStore } from '../../docVariableStore';
@@ -137,6 +137,40 @@ export function PropertiesPanel() {
   });
 
   const [exportSubTab, setExportSubTab] = useState<ExportSubTab>('format');
+  const exportSubTabListRef = useRef<HTMLDivElement>(null);
+
+  // APG Tabs for the Export sub-tabs: roving tabindex, arrow keys with wrap,
+  // Home/End, automatic activation, focus follows the active tab.
+  const handleExportSubTabKey = useCallback(
+    (e: React.KeyboardEvent) => {
+      const order: ExportSubTab[] = ['format', 'code'];
+      const idx = order.indexOf(exportSubTab);
+      let next: ExportSubTab | null = null;
+      switch (e.key) {
+        case 'ArrowRight':
+          next = order[(idx + 1) % order.length] ?? 'format';
+          break;
+        case 'ArrowLeft':
+          next = order[(idx - 1 + order.length) % order.length] ?? 'format';
+          break;
+        case 'Home':
+          next = 'format';
+          break;
+        case 'End':
+          next = 'code';
+          break;
+      }
+      if (!next || next === exportSubTab) return;
+      e.preventDefault();
+      setExportSubTab(next);
+      requestAnimationFrame(() => {
+        exportSubTabListRef.current
+          ?.querySelector<HTMLElement>(`[data-export-sub-tab="${next}"]`)
+          ?.focus({ preventScroll: true });
+      });
+    },
+    [exportSubTab],
+  );
 
   useEffect(() => {
     setInspectorTabHandler(({ tab: nextTab, subTab }) => {
@@ -255,12 +289,22 @@ export function PropertiesPanel() {
           role="tabpanel"
           aria-labelledby="insp-tab-export"
         >
-          <div className="insp-panel__sub-tabs" role="tablist" aria-label="Export options">
+          <div
+            className="insp-panel__sub-tabs"
+            role="tablist"
+            aria-label="Export options"
+            ref={exportSubTabListRef}
+            onKeyDown={handleExportSubTabKey}
+          >
             <button
               type="button"
               role="tab"
+              id="insp-sub-tab-format"
               className="insp-panel__sub-tab"
               aria-selected={exportSubTab === 'format'}
+              aria-controls="insp-tabpanel-export-sub"
+              tabIndex={exportSubTab === 'format' ? 0 : -1}
+              data-export-sub-tab="format"
               onClick={() => setExportSubTab('format')}
             >
               Format
@@ -268,14 +312,23 @@ export function PropertiesPanel() {
             <button
               type="button"
               role="tab"
+              id="insp-sub-tab-code"
               className="insp-panel__sub-tab"
               aria-selected={exportSubTab === 'code'}
+              aria-controls="insp-tabpanel-export-sub"
+              tabIndex={exportSubTab === 'code' ? 0 : -1}
+              data-export-sub-tab="code"
               onClick={() => setExportSubTab('code')}
             >
               Code
             </button>
           </div>
-          <div className="insp-panel__sub-content">
+          <div
+            className="insp-panel__sub-content"
+            id="insp-tabpanel-export-sub"
+            role="tabpanel"
+            aria-labelledby={`insp-sub-tab-${exportSubTab}`}
+          >
             {exportSubTab === 'format' && selNodes.length > 0 ? (
               <AssetExportControls
                 node={selNodes[0] as SceneNode}
