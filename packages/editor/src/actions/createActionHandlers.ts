@@ -300,6 +300,20 @@ export function createActionHandlers(
     createReversedVariant: () => e.createLogoVariant('Reversed', 'reversed'),
     createIconVariant: () => e.createLogoVariant('Icon', 'icon'),
     createSmallVariant: () => e.createLogoVariant('Small', 'small'),
+    logoPreview: () => e.patch({ logoPreviewDialogOpen: !e.state.logoPreviewDialogOpen }),
+    addClearSpaceGuides: async () => {
+      const { promptDialog } = await import('../components/PromptDialog');
+      const artboardId = e.state.selection.find(
+        (id) => e.state.document.nodes[id]?.kind === 'frame',
+      );
+      const artboard = artboardId ? e.state.document.nodes[artboardId] : undefined;
+      const size = artboard && 'w' in artboard ? (artboard.w ?? 1024) : 1024;
+      const raw = await promptDialog('Clear-space gap (px)', String(Math.round(size / 4)));
+      if (raw === null) return;
+      const gap = Number.parseFloat(raw);
+      if (!Number.isFinite(gap) || gap < 0) return;
+      e.addClearSpaceGuides(gap);
+    },
     upscaleImage: () => {
       const imageNode = e.state.selection
         .map((id) => e.state.document.nodes[id])

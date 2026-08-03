@@ -22,6 +22,7 @@ import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LibraryPanel } from './components/LibraryPanel/LibraryPanel';
+import { LogoPreviewDialog } from './components/LogoPreview/LogoPreviewDialog';
 import { MasterPanel } from './components/MasterPanel/MasterPanel';
 import { Menubar } from './components/Menubar';
 import { MinimapPanel } from './components/Minimap/MinimapPanel';
@@ -768,6 +769,9 @@ function ShellInner({
           onClose={() => editorHelp.setHelpCenterOpen(false)}
         />
         <PromptDialog />
+
+        {/* Logo small-size preview */}
+        <LogoPreviewDialog />
 
         {/* Upscale dialog */}
         {editor.upscaleDialogOpen && (

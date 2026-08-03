@@ -20,7 +20,9 @@
  */
 
 import { deepCloneSubtree } from '../clone';
+import { nodeWorldBounds } from '../coordinateService';
 import type { Document } from '../document';
+import { addGuide, resolveGuidePageId } from '../document';
 import { addNode } from '../document-nodes';
 import { cryptoId } from '../document-utils';
 import type { ManagedColor, NodeId } from '../types';
@@ -404,6 +406,28 @@ export function setLogoPalette(doc: Document, colors: LogoPaletteColor[]): Docum
     updatedAt: Date.now(),
     palette: { colors, updatedAt: Date.now() },
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Clear-space guides
+// ---------------------------------------------------------------------------
+
+/**
+ * Add clear-space guides around a logo artboard: four locked guides at a
+ * given gap from the artboard's world bounds. Returns the document unchanged
+ * when the node has no bounds.
+ */
+export function addClearSpaceGuides(doc: Document, nodeId: NodeId, gap: number): Document {
+  const bounds = nodeWorldBounds(doc, nodeId);
+  if (!bounds || !Number.isFinite(gap) || gap < 0) return doc;
+  const pageId = resolveGuidePageId(doc);
+  const opts = { pageId, locked: true };
+  let d = doc;
+  d = addGuide(d, 'vertical', bounds.x - gap, opts);
+  d = addGuide(d, 'vertical', bounds.x + bounds.w + gap, opts);
+  d = addGuide(d, 'horizontal', bounds.y - gap, opts);
+  d = addGuide(d, 'horizontal', bounds.y + bounds.h + gap, opts);
+  return d;
 }
 
 // ---------------------------------------------------------------------------

@@ -382,6 +382,11 @@ export const SHORTCUT_DEFS = {
     label: 'Create Reversed Variant',
     category: 'File',
   },
+  logoPreview: {
+    binding: { key: 'p', ctrl: true, alt: true, shift: true },
+    label: 'Test Logo at Small Sizes',
+    category: 'View',
+  },
   quickActions: {
     binding: { key: ';', ctrl: true, shift: true },
     label: 'Quick Actions',
