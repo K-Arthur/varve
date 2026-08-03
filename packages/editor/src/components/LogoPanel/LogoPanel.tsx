@@ -17,7 +17,7 @@ import type { LogoConceptStatus, LogoVariantKind } from '@strata/scene';
 import { Button, EmptyState, Icon, Select, Tooltip } from '@strata/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
-import { VectorizeSection } from './VectorizeSection';
+import { VectorizeWorkflow } from '../Vectorize/VectorizeWorkflow';
 import './logo-panel.css';
 
 const VARIANT_KINDS: ReadonlyArray<{ value: LogoVariantKind; label: string }> = [
@@ -249,7 +249,7 @@ export function LogoPanel() {
 
           <details className="logo-panel__section" open>
             <summary className="logo-panel__section-heading">Vectorize</summary>
-            <VectorizeSection />
+            <VectorizeWorkflow emptyStateNote="Select an image layer to vectorize it. Sketch scans, screenshots, and raster logos all work here — the result is inserted beside the source as editable paths." />
           </details>
 
           <details className="logo-panel__section" open>

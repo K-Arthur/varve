@@ -4,6 +4,7 @@ import { isImageShape } from '@strata/scene';
 import { Button, Select } from '@strata/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { VectorizeDialog } from '../../Vectorize/VectorizeDialog';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';
 
@@ -16,6 +17,7 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
     flattenSelectedLiveTrace,
     clearSelectedLiveTrace,
   } = useEditor();
+  const [vectorizeDialogOpen, setVectorizeDialogOpen] = useState(false);
   const node = nodes[0];
   const thresholdId = useId();
   const colorsId = useId();
@@ -169,6 +171,21 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
 
       <div className="insp-field-group">
         <p className="insp-subsection__label">Vectorize</p>
+
+        <p className="insp-hint">
+          Convert the image to editable vector paths. Use the vectorize dialog for presets, source
+          preparation, and a live preview.
+        </p>
+        <div className="insp-actions">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setVectorizeDialogOpen(true)}
+          >
+            Open Vectorize Dialog…
+          </Button>
+        </div>
 
         <FieldRow label="Auto trace">
           <label className="insp-field__control insp-field__control--inline">
@@ -394,6 +411,8 @@ export function ImageEnhancementSection({ nodes }: { nodes: SceneNode[] }) {
           {error}
         </p>
       )}
+
+      <VectorizeDialog open={vectorizeDialogOpen} onClose={() => setVectorizeDialogOpen(false)} />
     </DisclosureSection>
   );
 }
