@@ -59,6 +59,16 @@ export function Combobox({
     return options.filter((o) => o.label.toLowerCase().includes(lower));
   }, [options, inputValue]);
 
+  // Clamp the highlighted index when filtering shrinks the option list so
+  // aria-activedescendant never references a missing option.
+  useEffect(() => {
+    if (highlightedIdx >= filteredOptions.length) {
+      setHighlightedIdx(filteredOptions.length - 1);
+    } else if (filteredOptions.length > 0 && highlightedIdx < 0) {
+      setHighlightedIdx(0);
+    }
+  }, [filteredOptions.length, highlightedIdx]);
+
   const close = useCallback(() => {
     setOpen(false);
     setHighlightedIdx(-1);
@@ -198,11 +208,11 @@ export function Combobox({
             className="strata-combobox__listbox"
           >
             {filteredOptions.map((opt, idx) => (
+              // biome-ignore lint/a11y/useFocusableInteractive: APG combobox pattern — options are non-focusable in an aria-activedescendant listbox; the input owns keyboard navigation.
               <div
                 key={opt.value}
                 id={`${listboxId}-option-${idx}`}
                 role="option"
-                tabIndex={0}
                 aria-selected={opt.label === inputValue}
                 aria-disabled={opt.disabled}
                 className={`strata-combobox__option${

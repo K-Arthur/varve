@@ -10,6 +10,11 @@
  * - Active/inactive toggle
  * - Fallback to container when no focusable children
  *
+ * Focus restoration contract: the element focused before the trap activated
+ * receives focus back when the trap deactivates OR unmounts — provided focus
+ * was still inside the trap at that moment (so a newly opened surface never
+ * loses focus to the restore).
+ *
  * Research basis: APG Dialog Modal pattern
  */
 import { type ReactNode, useEffect, useRef } from 'react';
@@ -30,12 +35,14 @@ function getFocusable(container: HTMLElement): HTMLElement[] {
   );
 }
 
+function isFocusable(el: HTMLElement): boolean {
+  return el.matches(FOCUSABLE_SELECTOR) || el.getAttribute('tabindex') !== null;
+}
+
 export function FocusTrap({ children, active = true, initialFocus, onClose }: FocusTrapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onCloseRef = useRef(onClose);
-  const activeRef = useRef(active);
   onCloseRef.current = onClose;
-  activeRef.current = active;
 
   useEffect(() => {
     if (!active) return;
@@ -90,8 +97,14 @@ export function FocusTrap({ children, active = true, initialFocus, onClose }: Fo
     return () => {
       cancelAnimationFrame(focusTimer);
       container.removeEventListener('keydown', handleKeyDown);
-      if (savedActive && document.contains(savedActive) && !activeRef.current) {
-        savedActive.focus({ preventScroll: true });
+
+      // Restore focus to the element focused before the trap activated —
+      // on deactivate AND on unmount — only while focus is still inside
+      // the trap (never steal focus from a surface that took it).
+      if (container.contains(document.activeElement) && savedActive) {
+        if (savedActive.isConnected && isFocusable(savedActive)) {
+          savedActive.focus({ preventScroll: true });
+        }
       }
     };
   }, [active, initialFocus]);

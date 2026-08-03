@@ -516,6 +516,122 @@ describe('ContextMenu', () => {
 // MenuButton tests
 // ---------------------------------------------------------------------------
 
+describe('Menu focus lifecycle', () => {
+  function ControlledMenu({ initiallyOpen = false }: { initiallyOpen?: boolean }) {
+    const ref = useRef<HTMLButtonElement>(null);
+    const [open, setOpen] = useState(initiallyOpen);
+    const items: MenuEntry[] = [
+      { id: 'open', label: 'Open', onAction: vi.fn() },
+      { id: 'delete', label: 'Delete', onAction: vi.fn(), dialog: true },
+    ];
+    return (
+      <>
+        <button type="button" ref={ref}>
+          trigger
+        </button>
+        <button type="button">after</button>
+        <Menu
+          items={items}
+          triggerRef={ref}
+          open={open}
+          onClose={() => setOpen(false)}
+          label="test"
+        />
+      </>
+    );
+  }
+
+  function ItemsMenu({ items }: { items: MenuEntry[] }) {
+    const ref = useRef<HTMLButtonElement>(null);
+    return (
+      <>
+        <button type="button" ref={ref}>
+          trigger
+        </button>
+        <Menu items={items} triggerRef={ref} open onClose={vi.fn()} label="test" />
+      </>
+    );
+  }
+
+  it('moves focus to the first item when it opens', async () => {
+    render(<ControlledMenu initiallyOpen />);
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0]).toHaveFocus();
+  });
+
+  it('skips a disabled first item for initial focus', async () => {
+    render(
+      <ItemsMenu
+        items={[
+          { id: 'd', label: 'Disabled', onAction: vi.fn(), disabled: true },
+          { id: 'ok', label: 'OK', onAction: vi.fn() },
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole('menuitem');
+    expect(items[1]).toHaveFocus();
+  });
+
+  it('restores focus to the previously focused element when closed by Escape', async () => {
+    const user = userEvent.setup();
+    render(<ControlledMenu initiallyOpen />);
+    const trigger = screen.getByRole('button', { name: 'trigger' });
+    await user.keyboard('{Escape}');
+    expect(trigger).toHaveFocus();
+  });
+
+  it('restores focus to the trigger when closed by activating an item', async () => {
+    const user = userEvent.setup();
+    render(<ControlledMenu initiallyOpen />);
+    const trigger = screen.getByRole('button', { name: 'trigger' });
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Enter}');
+    expect(trigger).toHaveFocus();
+  });
+
+  it('restores focus to the trigger when closed by outside click', async () => {
+    const user = userEvent.setup();
+    render(<ControlledMenu initiallyOpen />);
+    await user.click(document.body);
+    await user.click(screen.getByRole('button', { name: 'after' }));
+    // Outside click moved focus to the clicked element (a button); the menu
+    // must not yank it back.
+    expect(screen.getByRole('button', { name: 'after' })).toHaveFocus();
+  });
+
+  it('Tab closes the menu and moves focus to the element after the trigger', async () => {
+    const user = userEvent.setup();
+    render(<ControlledMenu initiallyOpen />);
+    const after = screen.getByRole('button', { name: 'after' });
+    await user.keyboard('{Tab}');
+    expect(after).toHaveFocus();
+  });
+
+  it('Shift+Tab closes the menu and moves focus to the element before the trigger', async () => {
+    const user = userEvent.setup();
+    render(<ControlledMenu initiallyOpen />);
+    await user.keyboard('{Shift>}{Tab}{/Shift}');
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it('arrow navigation skips disabled items', async () => {
+    const user = userEvent.setup();
+    render(
+      <ItemsMenu
+        items={[
+          { id: 'a', label: 'A', onAction: vi.fn() },
+          { id: 'b', label: 'B', onAction: vi.fn(), disabled: true },
+          { id: 'c', label: 'C', onAction: vi.fn() },
+        ]}
+      />,
+    );
+    const items = screen.getAllByRole('menuitem');
+    expect(items[0]).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(items[2]).toHaveFocus();
+  });
+});
+
 describe('MenuButton', () => {
   it('renders with aria attributes', () => {
     render(<MenuButton label="File" menuId="file-menu" expanded={false} onClick={vi.fn()} />);
