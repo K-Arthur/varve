@@ -24,6 +24,19 @@ export type VariableFontSettings = Record<string, number>;
 
 export type TextMode = 'point' | 'area' | 'path' | 'auto';
 
+/**
+ * Per-cluster glyph adjustment in render IR (mirrors @strata/scene
+ * GlyphAdjustment; engine intentionally does not depend on scene).
+ */
+export interface GlyphAdjustmentIR {
+  dx: number;
+  dy: number;
+  advance: number;
+  rotation: number;
+  scaleX: number;
+  scaleY: number;
+}
+
 export interface PathTextSettings {
   pathNodeId: string;
   startOffset?: number;
@@ -44,7 +57,8 @@ export interface CharacterFormat {
   letterSpacing?: number;
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   textDecoration?: 'none' | 'underline' | 'line-through';
-  color?: readonly [number, number, number, number];
+  /** Run color; mirrors scene's ManagedColor (legacy tuples also render). */
+  color?: import('@strata/shared').ManagedColorShim;
   openTypeFeatures?: OpenTypeFeatureMap;
   variableFontSettings?: VariableFontSettings;
   baselineShift?: number;
@@ -541,6 +555,12 @@ export type Primitive =
       language?: string;
       /** Pre-computed shaping result (set by engine/wasm). */
       shaping?: TextShaping;
+      /** Kerning mode: 'auto' (font pair kerning) or 'none' (per-cluster draw). */
+      kerningMode?: 'auto' | 'none';
+      /** Per-cluster adjustments keyed by grapheme-cluster index. */
+      glyphAdjustments?: Record<number, GlyphAdjustmentIR>;
+      /** Manual pair spacing: px added to the advance of cluster i+1. */
+      pairAdjustments?: Record<number, number>;
     }
   | {
       kind: 'rasterLayer';

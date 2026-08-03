@@ -92,6 +92,7 @@ export * from './state-machine-validation';
 export * from './styles';
 export * from './suppressions';
 export * from './swatches';
+export * from './text/grapheme';
 export * from './textFlow';
 export * from './textToOutlines';
 export * from './textWarp';
