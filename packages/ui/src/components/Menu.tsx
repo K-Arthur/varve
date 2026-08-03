@@ -9,6 +9,12 @@ import {
   useState,
 } from 'react';
 import { Icon } from '../icons/Icon';
+import {
+  firstEnabledIndex,
+  nextEnabledIndex,
+  TABBABLE_SELECTOR,
+  walkFocus,
+} from '../utils/focusMovement';
 import { getTypeAheadResetMs, matchMenuTypeAhead, shouldTypeAhead } from '../utils/menuTypeAhead';
 import { FloatingPortal } from './FloatingPortal';
 
@@ -155,6 +161,12 @@ interface MenuInternalProps {
   menuStyle?: React.CSSProperties;
   containerRef?: React.RefObject<HTMLDivElement | null>;
   maxVisibleItems?: number;
+  /**
+   * Top-level Tab handler: closes the whole tree and walks the tab order
+   * from the top-level anchor. Submenus delegate Tab to it so the anchor is
+   * always the element focused before the menu tree opened.
+   */
+  topTabHandler?: (shift: boolean) => void;
 }
 
 const MENU_PERF_ENABLED = typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
@@ -183,6 +195,7 @@ function MenuInternal({
   menuStyle,
   containerRef: externalRef,
   maxVisibleItems = 30,
+  topTabHandler,
 }: MenuInternalProps) {
   const internalRef = useRef<HTMLDivElement>(null);
   const menuRef = externalRef ?? internalRef;
@@ -190,42 +203,112 @@ function MenuInternal({
   const [openSubmenu, setOpenSubmenu] = useState<string | null>(null);
   const typeaheadRef = useRef('');
   const typeaheadTimerRef = useRef<number | null>(null);
-  const prevOpenRef = useRef(open);
+  // Element focused before this menu took focus; restored on close/unmount.
+  const restoreRef = useRef<HTMLElement | null>(null);
+  // True while focus has been inside this menu — the restore may only run
+  // when the menu owned focus at close time. The focused element is removed
+  // from the DOM before effect cleanups run, so the check cannot rely on
+  // document.activeElement at cleanup time.
+  const focusInsideRef = useRef(false);
+  // Non-null when Tab/Shift+Tab closed the menu: restore must walk the tab
+  // order past the anchor instead of returning focus to it.
+  const tabDirectionRef = useRef<1 | -1 | null>(null);
 
   const flatItems = useMemo(
     () => items.filter((i): i is Exclude<MenuEntry, MenuSeparator> => !isSeparator(i)),
     [items],
   );
 
+  const isItemDisabled = useCallback(
+    (i: number) => {
+      const item = flatItems[i];
+      return !item || ('disabled' in item && item.disabled === true);
+    },
+    [flatItems],
+  );
+
+  // Top-level Tab handler shared with submenus: close the tree, then walk
+  // the tab order from the element focused before the tree opened.
+  const handleTopTab = useCallback(
+    (shift: boolean) => {
+      tabDirectionRef.current = shift ? -1 : 1;
+      closeAll();
+    },
+    [closeAll],
+  );
+
+  // Navigation range: only rendered items are reachable by arrow keys.
+  const navLength = Math.min(flatItems.length, maxVisibleItems);
+
   useEffect(() => {
-    if (open && !prevOpenRef.current) {
-      if (MENU_PERF_ENABLED && typeof performance !== 'undefined' && performance.mark) {
-        performance.mark(`menu:open:${label}`);
-        performance.mark(`menu:open:${label}:state-updated`);
-      }
-      setFocusIdx(0);
-      setOpenSubmenu(null);
-      const timer = setTimeout(() => {
-        const el = menuRef.current?.querySelector<HTMLElement>('[data-focusable-idx="0"]');
-        el?.focus();
-      }, 0);
-      prevOpenRef.current = true;
-      capturePostPaint(`menu:open:${label}:painted`);
-      return () => {
-        window.clearTimeout(timer);
-      };
+    if (!open) return;
+
+    // Capture the previously focused element so every close path can restore
+    // it. Runs on first mount too (ContextMenu mounts with open=true).
+    const prior = document.activeElement;
+    if (
+      prior instanceof HTMLElement &&
+      prior !== document.body &&
+      !menuRef.current?.contains(prior)
+    ) {
+      restoreRef.current = prior;
+    } else if (triggerRef?.current && !menuRef.current?.contains(triggerRef.current)) {
+      // Nothing focused before open (e.g. mouse-open in Firefox) — fall back
+      // to the trigger so Escape/action/Tab still restore predictably.
+      restoreRef.current = triggerRef.current;
     }
-    if (!open && prevOpenRef.current) {
+
+    // Track whether focus has been inside the menu (see focusInsideRef).
+    const menuEl = menuRef.current;
+    const handleFocusIn = () => {
+      focusInsideRef.current = true;
+    };
+    menuEl?.addEventListener('focusin', handleFocusIn);
+
+    const initialIdx = firstEnabledIndex(navLength, isItemDisabled);
+    const safeIdx = Math.max(0, initialIdx);
+    setFocusIdx(safeIdx);
+    setOpenSubmenu(null);
+
+    const timer = setTimeout(() => {
+      const el = menuRef.current?.querySelector<HTMLElement>(`[data-focusable-idx="${safeIdx}"]`);
+      el?.focus();
+    }, 0);
+
+    if (MENU_PERF_ENABLED && typeof performance !== 'undefined' && performance.mark) {
+      performance.mark(`menu:open:${label}`);
+      performance.mark(`menu:open:${label}:state-updated`);
+    }
+    capturePostPaint(`menu:open:${label}:painted`);
+
+    return () => {
+      window.clearTimeout(timer);
+      menuEl?.removeEventListener('focusin', handleFocusIn);
+      const target = restoreRef.current ?? (triggerRef?.current as HTMLElement | null) ?? null;
+      const active = document.activeElement;
+      const focusWasInside = focusInsideRef.current;
+      // Only restore when this menu owned focus at close time and no other
+      // surface took it afterwards (activeElement is body when the focused
+      // element was removed with the menu).
+      if (!focusWasInside || (active !== document.body && !menuEl?.contains(active))) return;
+      if (!target || !target.isConnected) return;
+
+      // Tab closed the menu: walk the global tab order from the anchor.
+      if (tabDirectionRef.current !== null) {
+        const next = walkFocus(target, tabDirectionRef.current);
+        tabDirectionRef.current = null;
+        next?.focus({ preventScroll: true });
+        return;
+      }
+
       if (MENU_PERF_ENABLED && typeof performance !== 'undefined' && performance.mark) {
         performance.mark(`menu:close:${label}`);
       }
-      setOpenSubmenu(null);
-      if (triggerRef && level === 0) {
-        triggerRef.current?.focus();
+      if (target.matches(TABBABLE_SELECTOR) || target.hasAttribute('tabindex')) {
+        target.focus({ preventScroll: true });
       }
-    }
-    prevOpenRef.current = open;
-  }, [open, triggerRef, level, menuRef, label]);
+    };
+  }, [open, menuRef, triggerRef, label, navLength, isItemDisabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -265,10 +348,10 @@ function MenuInternal({
         if (matchIdx !== null) {
           e.preventDefault();
           e.stopPropagation();
-          setFocusIdx(matchIdx);
+          setFocusIdx(Math.min(matchIdx, navLength - 1));
           setTimeout(() => {
             const el = menuRef.current?.querySelector<HTMLElement>(
-              `[data-focusable-idx="${matchIdx}"]`,
+              `[data-focusable-idx="${Math.min(matchIdx, navLength - 1)}"]`,
             );
             el?.scrollIntoView({ block: 'nearest' });
           }, 0);
@@ -286,25 +369,30 @@ function MenuInternal({
           e.preventDefault();
           e.stopPropagation();
           resetTypeahead();
-          setFocusIdx((i) => Math.min(i + 1, flatItems.length - 1));
+          setFocusIdx((i) => nextEnabledIndex(navLength, i, 1, isItemDisabled));
           break;
         case 'ArrowUp':
           e.preventDefault();
           e.stopPropagation();
           resetTypeahead();
-          setFocusIdx((i) => Math.max(i - 1, 0));
+          setFocusIdx((i) => nextEnabledIndex(navLength, i, -1, isItemDisabled));
           break;
         case 'Home':
           e.preventDefault();
           e.stopPropagation();
           resetTypeahead();
-          setFocusIdx(0);
+          setFocusIdx(Math.max(0, firstEnabledIndex(navLength, isItemDisabled)));
           break;
         case 'End':
           e.preventDefault();
           e.stopPropagation();
           resetTypeahead();
-          setFocusIdx(flatItems.length - 1);
+          setFocusIdx((i) => {
+            for (let k = navLength - 1; k >= 0; k -= 1) {
+              if (!isItemDisabled(k)) return k;
+            }
+            return i;
+          });
           break;
         case 'ArrowRight': {
           const item = flatItems[focusIdx];
@@ -352,11 +440,29 @@ function MenuInternal({
         case 'Tab':
           e.preventDefault();
           resetTypeahead();
-          closeAll();
+          // APG: Tab closes the menu and moves focus to the next/previous
+          // element in the tab order after the anchor (the element focused
+          // before the menu opened, i.e. the trigger for keyboard users).
+          if (topTabHandler) {
+            topTabHandler(e.shiftKey);
+          } else {
+            handleTopTab(e.shiftKey);
+          }
           break;
       }
     },
-    [flatItems, focusIdx, onClose, closeAll, level, menuRef],
+    [
+      flatItems,
+      focusIdx,
+      onClose,
+      closeAll,
+      level,
+      menuRef,
+      navLength,
+      isItemDisabled,
+      topTabHandler,
+      handleTopTab,
+    ],
   );
 
   let focusableCounter = -1;
@@ -392,7 +498,7 @@ function MenuInternal({
             if (!entry.disabled) entry.onToggle();
           }}
           onMouseEnter={() => {
-            setFocusIdx(idx);
+            if (!entry.disabled) setFocusIdx(idx);
           }}
         >
           <span className="strata-menu__indicator">
@@ -420,7 +526,7 @@ function MenuInternal({
             if (!entry.disabled) entry.onToggle();
           }}
           onMouseEnter={() => {
-            setFocusIdx(idx);
+            if (!entry.disabled) setFocusIdx(idx);
           }}
         >
           <span className="strata-menu__indicator">
@@ -469,9 +575,11 @@ function MenuInternal({
             tabIndex={isCurrent ? 0 : -1}
             data-focusable-idx={idx}
             onMouseEnter={() => {
-              setFocusIdx(idx);
-              if (openSubmenu && openSubmenu !== entry.id) {
-                setOpenSubmenu(entry.id);
+              if (!entry.disabled) {
+                setFocusIdx(idx);
+                if (openSubmenu && openSubmenu !== entry.id) {
+                  setOpenSubmenu(entry.id);
+                }
               }
             }}
             onClick={() => {
@@ -488,19 +596,12 @@ function MenuInternal({
             <MenuInternal
               items={entry.submenu}
               open
-              onClose={() => {
-                setOpenSubmenu(null);
-                setTimeout(() => {
-                  const el = menuRef.current?.querySelector<HTMLElement>(
-                    `[data-focusable-idx="${idx}"]`,
-                  );
-                  el?.focus();
-                }, 0);
-              }}
+              onClose={() => setOpenSubmenu(null)}
               closeAll={closeAll}
               label={`${itemLabel(entry)} submenu`}
               level={level + 1}
               menuClassName="strata-menu strata-menu__submenu"
+              topTabHandler={handleTopTab}
             />
           )}
         </div>
@@ -524,7 +625,7 @@ function MenuInternal({
           }
         }}
         onMouseEnter={() => {
-          setFocusIdx(idx);
+          if (!entry.disabled) setFocusIdx(idx);
         }}
       >
         <span>{entry.label}</span>
@@ -533,6 +634,10 @@ function MenuInternal({
       </button>
     );
   });
+
+  // The "Show all" button occupies the next focusable slot after the last
+  // rendered item; separators do not consume a slot, so count focusables.
+  const showMoreIdx = focusableCounter + 1;
 
   const containerStyle = shouldLimitItems ? { ...menuStyle, ...scrollStyle } : menuStyle;
 
@@ -551,8 +656,9 @@ function MenuInternal({
           type="button"
           role="menuitem"
           className="strata-menu__item strata-menu__show-more"
-          tabIndex={renderedItems.length === 0 ? 0 : -1}
-          data-focusable-idx={renderedItems.length}
+          tabIndex={showMoreIdx === focusIdx ? 0 : -1}
+          data-focusable-idx={showMoreIdx}
+          onMouseEnter={() => setFocusIdx(showMoreIdx)}
           onClick={() => closeAll()}
         >
           <span>Show all ({items.length} items)&hellip;</span>

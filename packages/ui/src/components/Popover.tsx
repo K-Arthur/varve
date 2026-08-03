@@ -17,6 +17,8 @@ export interface PopoverProps {
   placement?: 'bottom' | 'top' | 'left' | 'right';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Accessible name for the popover panel; also enables role="dialog". */
+  label?: string;
 }
 
 /** True if the browser implements the native Popover API. */
@@ -29,6 +31,7 @@ export function Popover({
   placement = 'bottom',
   open: controlledOpen,
   onOpenChange,
+  label,
 }: PopoverProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
@@ -96,6 +99,41 @@ export function Popover({
     }
   }, [isOpen]);
 
+  // Fallback dismissal for browsers without the native popover API:
+  // native `popover="auto"` handles Escape and outside-click, the fallback
+  // must replicate both.
+  useEffect(() => {
+    if (HAS_POPOVER_API || !isOpen) return;
+
+    const close = () => {
+      if (isControlled) {
+        onOpenChange?.(false);
+      } else {
+        setInternalOpen(false);
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close();
+      }
+    };
+    const handlePointerDown = (e: PointerEvent) => {
+      const popoverEl = popoverRef.current;
+      if (!popoverEl || popoverEl.contains(e.target as Node)) return;
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      close();
+    };
+
+    document.addEventListener('keydown', handleKeyDown, true);
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown, true);
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [isOpen, isControlled, onOpenChange]);
+
   // ── Positioning ──────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -146,7 +184,18 @@ export function Popover({
     if (prevOpenRef.current && !isOpen) {
       const trigger = triggerRef.current;
       if (trigger) {
-        (trigger.querySelector('button') ?? trigger).focus();
+        // Restore focus to the actual trigger control: the first focusable
+        // descendant (button/input/select/[tabindex]) or the span itself.
+        const focusable = trigger.querySelector<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        if (focusable) {
+          focusable.focus();
+        } else {
+          trigger.setAttribute('tabindex', '-1');
+          trigger.focus();
+          trigger.removeAttribute('tabindex');
+        }
       }
     }
     prevOpenRef.current = isOpen;
@@ -266,6 +315,7 @@ export function Popover({
         {...(HAS_POPOVER_API ? { popover: 'auto' } : {})}
         className="strata-popover"
         style={popoverStyle}
+        {...(label ? { role: 'dialog' as const, 'aria-label': label } : {})}
       >
         {popover}
         <div
