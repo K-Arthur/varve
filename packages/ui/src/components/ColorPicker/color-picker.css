@@ -254,3 +254,48 @@
   color: var(--color-text-muted);
   margin-top: var(--space-1);
 }
+
+/* Focus visibility: every interactive picker control needs a :focus-visible
+   ring in all themes (WCAG 2.4.7, 2.4.11, 2.4.13). */
+.color-picker .color-fields__mode-btn:focus-visible,
+.color-picker .insp-slider__thumb:focus-visible,
+.color-picker .color-area:focus-visible,
+.color-picker .insp-num__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
+
+/* Forced-colors mode: ensure swatches and thumbs stay distinguishable when
+   the OS overrides colors (forced-colors / high-contrast on Windows). */
+@media (forced-colors: active) {
+  .color-picker .color-picker__preview,
+  .color-picker .swatch-palette__swatch,
+  .color-picker .insp-slider__thumb,
+  .color-picker .color-area__thumb {
+    border: 1px solid CanvasText;
+  }
+  .color-picker .color-area__gradient,
+  .color-picker .color-slider__gradient {
+    forced-color-adjust: none;
+  }
+}
+
+/* Current + previous color preview */
+.color-picker__preview-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background-image: conic-gradient(
+    var(--color-surface-sunken) 0 25%,
+    var(--color-surface-overlay) 0 50%,
+    var(--color-surface-sunken) 0 75%,
+    var(--color-surface-overlay) 0
+  );
+  background-size: 8px 8px;
+  border-radius: var(--radius-sm);
+  padding: 1px;
+  flex-shrink: 0;
+}
+.color-picker__preview--previous {
+  border-left: 1px solid var(--color-border-subtle);
+}

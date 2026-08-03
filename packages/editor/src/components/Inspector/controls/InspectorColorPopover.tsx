@@ -211,6 +211,7 @@ export function InspectorColorPopover({
               cmykProfile={cmykProfile}
               documentColors={documentColors}
               recentColors={recentColorsState}
+              previousColor={openValueRef.current ?? undefined}
             />
             <button type="button" onClick={close} className="insp-picker-done">
               Done
