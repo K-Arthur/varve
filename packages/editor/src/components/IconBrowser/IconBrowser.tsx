@@ -2,7 +2,7 @@
  * IconBrowser — searchable icon browser with online/local/favourites filters.
  */
 
-import type { IconProviderResult } from '@strata/engine';
+import { getIconProviderRegistry, type IconStyle } from '@strata/engine';
 import { Icon, SolidIcon, Tooltip } from '@strata/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -16,6 +16,7 @@ export interface IconInsertPayload {
   name: string;
   svg: string;
   prefix: string;
+  providerId?: string;
   styles?: string[];
   licence?: string;
 }
@@ -25,6 +26,7 @@ interface IconGridItem {
   name: string;
   source: 'online' | 'local';
   prefix: string;
+  providerId?: string;
   styles: string[];
   category?: string;
   licence?: string;
@@ -74,6 +76,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
   const [selectedId, setSelectedId] = useState<string | undefined>(selectedIconId);
   const [previewIcon, setPreviewIcon] = useState<IconGridItem | null>(null);
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const [viewBox, setViewBox] = useState('0 0 24 24');
 
   const gridRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +99,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
         name: local.name,
         source: 'local',
         prefix: local.prefix,
+        providerId: local.providerId,
         styles: local.styles ?? [],
         category: local.category,
         licence: local.licence,
@@ -149,6 +153,7 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
         name: item.name,
         svg: item.svg,
         prefix: item.prefix,
+        providerId: item.providerId,
         styles: item.styles,
         licence: item.licence,
       });
@@ -225,31 +230,32 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
     if (item.svg) return;
     setDownloadingIds((prev) => new Set(prev).add(item.id));
     const manager = getIconDownloadManager();
-    await manager.downloadIcon(
+    const record = await manager.downloadIcon(
       {
         id: item.id,
         name: item.name,
         prefix: item.prefix,
-        styles: item.styles,
         category: item.category ?? '',
+        styles: item.styles as IconStyle[],
         license: {
           name: item.licence ?? 'unknown',
-          spdxId: 'unknown',
-          url: '',
           commercial: false,
           modification: false,
-          redistribution: false,
           attributionRequired: false,
-          attributionText: '',
         },
-      } as unknown as IconProviderResult,
-      async () => null,
+      },
+      (id) => getIconProviderRegistry().getSvg(id),
     );
     setDownloadingIds((prev) => {
       const next = new Set(prev);
       next.delete(item.id);
       return next;
     });
+    if (!record) {
+      setDownloadError(`Could not download "${item.name}" — check the connection and try again`);
+      return;
+    }
+    setDownloadError(null);
     listStoredIcons().then(setLocalIcons);
   }, []);
 
@@ -295,6 +301,12 @@ export function IconBrowser({ onInsert, selectedIconId, maxHeight = 600 }: IconB
       <div className="icon-browser__status">
         {isLoading ? 'Searching...' : `${filteredItems.length} icons`}
       </div>
+
+      {downloadError && (
+        <div className="icon-browser__error" role="alert">
+          {downloadError}
+        </div>
+      )}
 
       <div className="icon-browser__grid" ref={gridRef} onKeyDown={handleKeyDown} role="listbox">
         {filteredItems.length === 0 && (

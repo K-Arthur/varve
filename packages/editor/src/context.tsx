@@ -387,7 +387,9 @@ import {
 } from './context/types';
 import { useBackgroundRemoval } from './context/useBackgroundRemoval';
 import { useDialogState } from './context/useDialogState';
+import { useIconAssets } from './context/useIconAssets';
 import { useInteractionState } from './context/useInteractionState';
+import { useLogoGeometry } from './context/useLogoGeometry';
 import { usePersistence } from './context/usePersistence';
 import { useSam2Segmentation } from './context/useSam2Segmentation';
 import { useSelectionCommands } from './context/useSelectionCommands';
@@ -516,6 +518,9 @@ function insertImportedSubtree(
   const mergedImageAssets = sourceDoc.assets
     ? { ...(targetDoc.assets ?? {}), ...sourceDoc.assets }
     : targetDoc.assets;
+  const mergedIconAssets = sourceDoc.iconAssets
+    ? { ...(targetDoc.iconAssets ?? {}), ...sourceDoc.iconAssets }
+    : targetDoc.iconAssets;
 
   // For paged documents, add to the active page's contentRoot so the node
   // is visible to the page-scoped renderer (activePageNodes). Adding to
@@ -544,6 +549,7 @@ function insertImportedSubtree(
           ? { rasterMaskAssets: mergedRasterAssets }
           : {}),
         ...(mergedImageAssets !== targetDoc.assets ? { assets: mergedImageAssets } : {}),
+        ...(mergedIconAssets !== targetDoc.iconAssets ? { iconAssets: mergedIconAssets } : {}),
       },
     };
   }
@@ -559,6 +565,7 @@ function insertImportedSubtree(
         ? { rasterMaskAssets: mergedRasterAssets }
         : {}),
       ...(mergedImageAssets !== targetDoc.assets ? { assets: mergedImageAssets } : {}),
+      ...(mergedIconAssets !== targetDoc.iconAssets ? { iconAssets: mergedIconAssets } : {}),
     },
   };
 }
@@ -862,6 +869,21 @@ export interface EditorContextValue {
   serializeDocument: () => string;
   /** Apply a pure transformation to the document (one undo step). */
   updateDoc: (fn: (doc: Document) => Document) => void;
+  /** Insert a sanitized icon asset into the active page; returns the node id. */
+  insertIconAsset: (
+    request: import('./context/useIconAssets').IconInsertRequest,
+  ) => Promise<NodeId | null>;
+  /** Replace icon nodes with a new icon, preserving their layout bounds. */
+  replaceIconAsset: (
+    nodeIds: NodeId[],
+    request: import('./context/useIconAssets').IconInsertRequest,
+  ) => Promise<NodeId | null>;
+  /** Detach icon nodes into plain editable nodes (clears icon provenance). */
+  detachIconNodes: (nodeIds: NodeId[]) => void;
+  /** Look up a document icon asset by id. */
+  getIconAsset: (assetId: string) => import('@strata/scene').DocumentIconAsset | undefined;
+  /** Look up the icon asset referenced by a node, if any. */
+  getIconAssetForNode: (nodeId: NodeId) => import('@strata/scene').DocumentIconAsset | undefined;
   /** Load a document from a JSON string. */
   loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
   /** Save the current document via the platform. */
@@ -1107,12 +1129,23 @@ export interface EditorContextValue {
   removePreset: (nodeId: NodeId, presetId: string) => void;
   /** Apply a boolean operation to all selected nodes; replaces selection with result. */
   booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
-  /**
+  /** Expand the selected nodes' strokes into filled outline geometry. */
+  expandStrokeSelected: () => void;
+  /** Offset the selected paths' outlines by `distance` (negative contracts). */
+  offsetPathSelected: (distance: number, joinStyle?: 'miter' | 'round' | 'bevel') => void;
+  /** Round path corners of the selected nodes with a fixed radius. */
+  roundCornersSelected: (radius: number) => void;
+  /** Simplify selected paths with a tolerance (larger = more aggressive). */
+  simplifyPathSelected: (tolerance: number) => void;
+  /** Duplicate the selection mirrored across an axis through its center. */
+  mirrorDuplicateSelected: (axis: 'horizontal' | 'vertical') => void;
+  /** Duplicate the selection in a circle around its center. */
+  radialDuplicateSelected: (count: number, totalAngleDeg?: number) => void /**
    * Apply a boolean operation between raster image nodes (ShapeNodes with
    * image fills) and vector ShapeNodes. Extracts alpha contours from each
    * raster node, converts to ShapeNodes, combines with vector nodes, and
    * applies the boolean operation. Replaces all operand nodes with the result.
-   */
+   */;
   booleanOpRaster: (
     kind: import('@strata/scene').BooleanOpKind,
     rasterNodeIds: import('@strata/scene').NodeId[],
@@ -2369,6 +2402,16 @@ export function EditorProvider({
     });
   }, []);
 
+  /** Icon asset operations (insert/replace/detach) — see useIconAssets.ts. */
+  const iconAssets = useIconAssets({
+    stateRef,
+    updateDoc,
+    patch,
+    announce: (message: string) => announcerRef.current?.announce(message),
+    insertSubtree: insertImportedSubtree,
+    viewportCenterWorld,
+  });
+
   /** Poll prototype delays and advance state machines while presenting. */
   useEffect(() => {
     if (!state.isPresenting && !state.prototypeMode) return;
@@ -2552,6 +2595,17 @@ export function EditorProvider({
 
   const sam2Seg = useSam2Segmentation(state, stateRef, setState, updateDoc, announcerRef);
 
+  const logoGeometry = useLogoGeometry(
+    setState,
+    stateRef,
+    announcerRef,
+    undoStackRef,
+    undoSelStackRef,
+    redoStackRef,
+    redoSelStackRef,
+    inTransactionRef,
+  );
+
   const workspaceModeCtx = useWorkspaceMode(
     state,
     patch,
@@ -2566,6 +2620,11 @@ export function EditorProvider({
       platform,
       updateDoc,
       patch,
+      insertIconAsset: iconAssets.insertIconAsset,
+      replaceIconAsset: iconAssets.replaceIconAsset,
+      detachIconNodes: iconAssets.detachIconNodes,
+      getIconAsset: iconAssets.getIconAsset,
+      getIconAssetForNode: iconAssets.getIconAssetForNode,
       setTool: (t) => applyToolChange(t, toolRef, patch),
       setCamera,
       setZoom: (z) => {
@@ -6293,7 +6352,7 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets);
+        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets, closure.iconAssets);
         announcerRef.current?.announce(`Copied ${sel.length} layer${sel.length > 1 ? 's' : ''}`);
       },
 
@@ -6304,7 +6363,7 @@ export function EditorProvider({
         if (nodes.length === 0) return;
         const nodeIds = nodes.map((n) => n.id);
         const closure = DocumentCodec.collectNodeClosure(state.document, nodeIds);
-        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets);
+        writeToClipboard(nodes, closure.rasterMaskAssets, closure.assets, closure.iconAssets);
         updateDoc((doc) => {
           let d = doc;
           for (const id of sel) d = removeNode(d, id);
@@ -6399,6 +6458,7 @@ export function EditorProvider({
                 ? { rasterMaskAssets: strataData.rasterMaskAssets }
                 : {}),
               ...(strataData.assets ? { assets: strataData.assets } : {}),
+              ...(strataData.iconAssets ? { iconAssets: strataData.iconAssets } : {}),
             };
             // copySelected()/cutSelected() serialize each selected node plus
             // its full descendant subtree (gatherSubtreeNodes), so a node
@@ -7715,6 +7775,9 @@ export function EditorProvider({
       getTrimapData: bgRemoval.getTrimapData,
 
       setTrimapData: bgRemoval.setTrimapData,
+
+      // Logo geometry operations
+      ...logoGeometry,
 
       // SAM2 segmentation
       applySam2Segmentation: sam2Seg.applySam2Segmentation,
