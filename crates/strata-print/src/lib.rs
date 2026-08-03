@@ -28,6 +28,8 @@ pub mod subset;
 /// duplicating Linux-only font paths (which broke macOS/Windows CI).
 pub mod test_fonts;
 
+use strata_colour::engine_color_rgba;
+
 pub use outline::{
     commands_to_svg_path, outline_text, outline_text_multi, GlyphOutline, PathCommand,
 };
@@ -94,46 +96,6 @@ impl Default for PdfOptions {
             embedding_restriction_handling: EmbeddingRestriction::Warn,
             manifest: None,
             lossy: false,
-        }
-    }
-}
-
-fn engine_color_rgba(color: &EngineColor) -> (u8, u8, u8, u8) {
-    match color {
-        EngineColor::Rgb { r, g, b, a, .. } => (*r as u8, *g as u8, *b as u8, *a as u8),
-        EngineColor::Cmyk { c, m, y, k, a, .. } => {
-            let rc = 1.0 - (c / 255.0);
-            let rm = 1.0 - (m / 255.0);
-            let ry = 1.0 - (y / 255.0);
-            let rk = 1.0 - (k / 255.0);
-            (
-                (255.0 * rc * rk) as u8,
-                (255.0 * rm * rk) as u8,
-                (255.0 * ry * rk) as u8,
-                *a as u8,
-            )
-        }
-        EngineColor::Gray { v, a, .. } => (*v as u8, *v as u8, *v as u8, *a as u8),
-        EngineColor::Spot {
-            process_fallback,
-            tint,
-            a,
-            ..
-        } => {
-            if let Some(fb) = process_fallback {
-                let rc = 1.0 - (fb.c / 255.0);
-                let rm = 1.0 - (fb.m / 255.0);
-                let ry = 1.0 - (fb.y / 255.0);
-                let rk = 1.0 - (fb.k / 255.0);
-                (
-                    (255.0 * rc * rk) as u8,
-                    (255.0 * rm * rk) as u8,
-                    (255.0 * ry * rk) as u8,
-                    ((*a * tint / 100.0) as u8),
-                )
-            } else {
-                (0, 0, 0, *a as u8)
-            }
         }
     }
 }
