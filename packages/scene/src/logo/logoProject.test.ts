@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { Document } from '../document';
 import { createDocument } from '../document';
 import {
+  addClearSpaceGuides,
   addLogoConcept,
   addLogoVariant,
   createLogoArtboard,
@@ -182,5 +183,30 @@ describe('artboards', () => {
     expect(doc.rootChildren).toContain(artboardId);
     // Logo artboards default to a transparent fill.
     expect(frame.fill).toEqual({ space: 'rgb', r: 255, g: 255, b: 255, a: 0 });
+  });
+});
+
+describe('clear-space guides', () => {
+  it('adds four locked guides around the artboard bounds', () => {
+    const { doc, artboardId } = createLogoArtboard(baseDoc(), {
+      name: 'Mark',
+      width: 400,
+      height: 200,
+      x: 100,
+      y: 50,
+    });
+    const result = addClearSpaceGuides(doc, artboardId, 100);
+    const guides = result.guides ?? [];
+    expect(guides).toHaveLength(4);
+    const verticals = guides.filter((g) => g.axis === 'vertical');
+    const horizontals = guides.filter((g) => g.axis === 'horizontal');
+    expect(verticals.map((g) => g.position).sort((a, b) => a - b)).toEqual([0, 600]);
+    expect(horizontals.map((g) => g.position).sort((a, b) => a - b)).toEqual([-50, 350]);
+    expect(guides.every((g) => g.locked === true)).toBe(true);
+  });
+
+  it('returns the document unchanged for a missing node', () => {
+    const doc = baseDoc();
+    expect(addClearSpaceGuides(doc, 'nope', 100)).toBe(doc);
   });
 });

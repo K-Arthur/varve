@@ -130,6 +130,8 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.workspaceImage': 'Workspace: Photo',
   'menu.view.workspaceMotion': 'Workspace: Motion',
   'menu.view.workspaceLogo': 'Workspace: Logo',
+  'menu.view.logoPreview': 'Test Logo at Small Sizes',
+  'menu.object.addClearSpaceGuides': 'Generate Clear-Space Guides…',
 
   // ── Object ─────────────────────────────────────────────────────────────────
   'menu.object.group': 'Group Selection',

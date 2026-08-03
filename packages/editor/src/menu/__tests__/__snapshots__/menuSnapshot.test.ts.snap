@@ -3999,6 +3999,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
       },
       {
         "badge": undefined,
+        "disabled": true,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
@@ -4237,6 +4244,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "disabled": true,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -5347,6 +5361,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
       {
         "badge": undefined,
         "disabled": false,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -5584,6 +5605,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "disabled": false,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -6668,6 +6696,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
       },
       {
         "badge": undefined,
+        "disabled": true,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
@@ -6881,6 +6916,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "disabled": true,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -7928,6 +7970,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
       {
         "badge": undefined,
         "disabled": false,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -8140,6 +8189,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "disabled": false,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -13740,6 +13796,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
       },
       {
         "badge": undefined,
+        "disabled": true,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
@@ -13964,6 +14027,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "disabled": true,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -15067,6 +15137,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
       {
         "badge": undefined,
         "disabled": false,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -15290,6 +15367,13 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "disabled": false,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -18329,6 +18413,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
       },
       {
         "badge": undefined,
+        "disabled": true,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
@@ -18567,6 +18658,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "disabled": true,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -19677,6 +19775,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
       {
         "badge": undefined,
         "disabled": false,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -19914,6 +20019,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "disabled": false,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -20998,6 +21110,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
       },
       {
         "badge": undefined,
+        "disabled": true,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
@@ -21211,6 +21330,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "disabled": true,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -22258,6 +22384,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
       {
         "badge": undefined,
         "disabled": false,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -22470,6 +22603,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "disabled": false,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -28070,6 +28210,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
       },
       {
         "badge": undefined,
+        "disabled": true,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
@@ -28294,6 +28441,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "disabled": true,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": true,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {
@@ -29397,6 +29551,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
       {
         "badge": undefined,
         "disabled": false,
+        "id": "logoPreview",
+        "label": "Test Logo at Small Sizes",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -29620,6 +29781,13 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "disabled": false,
         "id": "mergeSelected",
         "label": "Merge Selected",
+        "onAction": [Function],
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "addClearSpaceGuides",
+        "label": "Generate Clear-Space Guides…",
         "onAction": [Function],
       },
       {

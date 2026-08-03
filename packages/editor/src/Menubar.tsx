@@ -205,6 +205,9 @@ function buildMenus(
       case 'createIconVariant':
       case 'createSmallVariant':
         return !('logoProject' in (state.document ?? {})) || !hasSelection;
+      case 'logoPreview':
+      case 'addClearSpaceGuides':
+        return !hasSelection;
       case 'bringFront':
       case 'bringForward':
       case 'sendBackward':
@@ -776,6 +779,13 @@ function buildMenus(
           ariaKeyshortcut: ks('toggleBeforeAfterCompare'),
           action: 'toggleBeforeAfterCompare',
         },
+        {
+          label: 'Test Logo at Small Sizes',
+          shortcut: formatShortcut(SHORTCUT_DEFS.logoPreview.binding),
+          ariaKeyshortcut: ks('logoPreview'),
+          action: 'logoPreview',
+          disabled: dis('logoPreview'),
+        },
         { label: '---' },
         // Color Blindness
         {
@@ -914,6 +924,11 @@ function buildMenus(
           label: 'Merge Selected Layers',
           action: 'mergeSelected',
           disabled: dis('mergeSelected'),
+        },
+        {
+          label: 'Generate Clear-Space Guides…',
+          action: 'addClearSpaceGuides',
+          disabled: dis('addClearSpaceGuides'),
         },
         { label: '---' },
         // Boolean
