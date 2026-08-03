@@ -217,3 +217,63 @@ describe('computeReorderedPageIds', () => {
     expect(computeReorderedPageIds(pages, 'p1', 'missing')).toBeNull();
   });
 });
+
+describe('PageNav keyboard navigation', () => {
+  it('ArrowRight moves focus and activates the next page', () => {
+    const setActivePage = vi.fn();
+    const setCurrentPageId = vi.fn();
+    const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2'), makePage('p3', 'Page 3')];
+    mockEditor({ pages, currentPageId: 'p1', setActivePage, setCurrentPageId });
+
+    render(<PageNav />);
+    const tabs = screen.getAllByRole('tab');
+    expect(tabs[0]).toHaveAttribute('tabindex', '0');
+    expect(tabs[1]).toHaveAttribute('tabindex', '-1');
+
+    fireEvent.keyDown(tabs[0]!, { key: 'ArrowRight' });
+    expect(setActivePage).toHaveBeenCalledWith('p2');
+    expect(tabs[1]).toHaveFocus();
+    expect(tabs[1]).toHaveAttribute('tabindex', '0');
+    expect(tabs[0]).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('ArrowLeft wraps to the last page', () => {
+    const setActivePage = vi.fn();
+    const setCurrentPageId = vi.fn();
+    const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')];
+    mockEditor({ pages, currentPageId: 'p2', setActivePage, setCurrentPageId });
+
+    render(<PageNav />);
+    const tabs = screen.getAllByRole('tab');
+    fireEvent.keyDown(tabs[1]!, { key: 'ArrowLeft' });
+    expect(setActivePage).toHaveBeenCalledWith('p1');
+    expect(tabs[0]).toHaveFocus();
+  });
+
+  it('Home and End jump to first and last page', () => {
+    const setActivePage = vi.fn();
+    const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2'), makePage('p3', 'Page 3')];
+    mockEditor({ pages, currentPageId: 'p3', setActivePage, setCurrentPageId: vi.fn() });
+
+    render(<PageNav />);
+    const tabs = screen.getAllByRole('tab');
+    fireEvent.keyDown(tabs[2]!, { key: 'Home' });
+    expect(tabs[0]).toHaveFocus();
+    fireEvent.keyDown(tabs[0]!, { key: 'End' });
+    expect(tabs[2]).toHaveFocus();
+  });
+
+  it('focus follows the roving tabindex after arrow moves', () => {
+    const pages = [makePage('p1', 'Page 1'), makePage('p2', 'Page 2')];
+    mockEditor({ pages, currentPageId: 'p2', setActivePage: vi.fn(), setCurrentPageId: vi.fn() });
+
+    render(<PageNav />);
+    const tabs = screen.getAllByRole('tab');
+    // Active page owns tabindex=0 initially.
+    expect(tabs[1]).toHaveAttribute('tabindex', '0');
+    fireEvent.keyDown(tabs[1]!, { key: 'ArrowRight' });
+    // Wrap to first page; roving index follows focus.
+    expect(tabs[0]).toHaveAttribute('tabindex', '0');
+    expect(tabs[1]).toHaveAttribute('tabindex', '-1');
+  });
+});
