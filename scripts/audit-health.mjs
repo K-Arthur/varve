@@ -212,6 +212,71 @@ if (!UPDATE && existsSync(ARCH_BASELINE_PATH)) {
   }
 }
 
+// ── Check 5: Positive tabindex gate ─────────────────────────────────────────
+// Positive tabindex values force an artificial focus order that diverges from
+// DOM order and breaks screen-reader/keyboard coherence. Reject them unless
+// explicitly allowlisted in POSITIVE_TABINDEX_ALLOWLIST with a documented
+// justification. See docs/audits/focus-navigation-audit-2026-08-02.md.
+const POSITIVE_TABINDEX_ALLOWLIST = new Map([
+  // 'packages/editor/src/foo.tsx': 'justification',
+]);
+
+function findPositiveTabIndex(content) {
+  const hits = [];
+  // JSX: tabIndex={1..9...} — matches positive numeric literals only
+  const jsxRe = /tabIndex\s*=\s*\{\s*([1-9][0-9]*)\s*\}/g;
+  // Plain: tabindex="1".."9" and tabindex={1} non-JSX (rare)
+  const attrRe = /\btabindex\s*=\s*"([1-9][0-9]*)"/g;
+  for (let m = jsxRe.exec(content); m !== null; m = jsxRe.exec(content)) {
+    hits.push(`tabIndex={${m[1]}} (col ${m.index})`);
+  }
+  for (let m = attrRe.exec(content); m !== null; m = attrRe.exec(content)) {
+    hits.push(`tabindex="${m[1]}" (col ${m.index})`);
+  }
+  return hits;
+}
+
+if (!UPDATE) {
+  const candidates = [];
+  if (STAGED) {
+    for (const f of stagedFiles) {
+      if (/\.(tsx?|jsx?|vue|svelte)$/.test(f) && !f.includes('.test.')) candidates.push(f);
+    }
+  } else {
+    const all = execSync(
+      'git ls-files "packages/**/*.{ts,tsx,js,jsx}" "apps/**/*.{ts,tsx,js,jsx}"',
+      {
+        encoding: 'utf-8',
+      },
+    )
+      .trim()
+      .split('\n')
+      .filter(Boolean);
+    for (const f of all) {
+      if (!f.includes('.test.') && !f.includes('.stories.')) candidates.push(f);
+    }
+  }
+
+  for (const filePath of candidates) {
+    const absPath = `${ROOT}${filePath}`;
+    if (!existsSync(absPath)) continue;
+    const content = readFileSync(absPath, 'utf-8');
+    const hits = findPositiveTabIndex(content);
+    for (const hit of hits) {
+      const allowed = POSITIVE_TABINDEX_ALLOWLIST.get(filePath);
+      if (allowed) {
+        console.log(`  ℹ ${filePath}: ${hit} — allowlisted: ${allowed}`);
+      } else {
+        errors.push(
+          `TABINDEX: ${filePath} uses ${hit}. Positive tabindex forces an artificial focus ` +
+            `order — restructure DOM order instead. To allowlist, add to ` +
+            `POSITIVE_TABINDEX_ALLOWLIST with a justification.`,
+        );
+      }
+    }
+  }
+}
+
 if (UPDATE) {
   writeFileSync(BASELINE_PATH, `${JSON.stringify(updatedBaseline, null, 2)}\n`);
   console.log('\naudit-health: baseline updated at .health-baseline.json');
