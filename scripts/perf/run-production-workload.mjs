@@ -273,33 +273,44 @@ async function openEditorCanvas(page) {
 }
 
 /**
- * Seed a deterministic corpus fixture through the app itself and open it from
- * the home screen. The fixture documents live in the editor's workload corpus
- * (single source of truth), so the seeded file, its checksum and the node
- * count all come from the same code the unit tests exercise.
+ * Apply a deterministic corpus fixture as the open document. The fixture
+ * documents live in the editor's workload corpus (single source of truth),
+ * so the checksum and node count come from the same code the unit tests
+ * exercise. The apply path replaces the document in the open editor — the
+ * web build runs on the memory platform, so IndexedDB seeding cannot reach
+ * the home screen.
  */
 async function openFixtureEditor(page, fixtureId) {
-  // The perf handle (and therefore the fixture seeder) is installed by
-  // CanvasArea on mount, so an editor page must exist before seeding.
+  // The perf handle (and therefore the fixture applier) is installed by
+  // CanvasArea on mount, so an editor page must exist first.
   await openEditorCanvas(page);
   await page.waitForFunction(() => Boolean(window.__strataPerf), { timeout: 30_000 });
   const seeded = await page.evaluate(async (id) => {
     const perf = window.__strataPerf;
-    if (!perf?.fixtures?.seed) return { ok: false, error: 'fixtures.seed missing' };
-    return perf.fixtures.seed(id);
+    if (!perf?.fixtures?.apply) return { ok: false, error: 'fixtures.apply missing' };
+    return perf.fixtures.apply(id);
   }, fixtureId);
   if (!seeded?.ok) {
-    throw new Error(`fixture seed failed for '${fixtureId}' (${seeded?.error ?? 'unknown'})`);
+    throw new Error(`fixture apply failed for '${fixtureId}' (${seeded?.error ?? 'unknown'})`);
   }
-  // Return to home and open the fixture card.
-  await page.goto(`${page.url().split('?')[0]}?perf=1`, {
-    timeout: 60_000,
-    waitUntil: 'domcontentloaded',
-  });
-  const card = page.getByText(fixtureId, { exact: true }).first();
-  await card.waitFor({ state: 'visible', timeout: 30_000 });
-  await card.click({ force: true });
-  await page.locator('.layers-panel').waitFor({ timeout: 30_000 });
+  // Wait for the fixture to render before measuring.
+  await page.waitForTimeout(2500);
+  // Applying a document can re-open the welcome dialog over the canvas;
+  // dismiss any modal so pointer input reaches the canvas.
+  for (let i = 0; i < 4; i++) {
+    if ((await page.locator('dialog[open]').count()) === 0) break;
+    const close = page
+      .locator('dialog[open]')
+      .last()
+      .getByRole('button', { name: /close|get started/i })
+      .first();
+    if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
+      await close.click({ force: true });
+    } else {
+      await page.keyboard.press('Escape');
+    }
+    await page.waitForTimeout(50);
+  }
   const canvas = page.locator('canvas.editor-canvas__content-layer');
   await canvas.waitFor({ state: 'visible', timeout: 15_000 });
   const box = await canvas.boundingBox();
@@ -393,6 +404,74 @@ async function buildScene(page, box, duplications, spread = true) {
 }
 
 /**
+ * Dismiss any modal (welcome dialog can re-open asynchronously after a
+ * document apply) and verify the drag point still hits the content canvas,
+ * so a workload can never silently measure nothing.
+ */
+async function ensureCanvasHitTarget(page, dragTarget) {
+  // The welcome dialog can open a beat after the fixture apply; retry the
+  // dismissal + hit check so a late dialog cannot invalidate a workload.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    for (let i = 0; i < 4; i++) {
+      if ((await page.locator('dialog[open]').count()) === 0) break;
+      const close = page
+        .locator('dialog[open]')
+        .last()
+        .getByRole('button', { name: /close|get started/i })
+        .first();
+      if (await close.isVisible({ timeout: 500 }).catch(() => false)) {
+        await close.click({ force: true });
+      } else {
+        await page.keyboard.press('Escape');
+      }
+      await page.waitForTimeout(50);
+    }
+    const hit = await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return Boolean(el?.closest?.('.editor-canvas'));
+    }, dragTarget);
+    if (hit) return true;
+    await page.waitForTimeout(300);
+  }
+  return false;
+}
+
+/**
+ * Select the first node in the layers panel, then resolve a drag point clear
+ * of the selection handle grid. Every node centre carries its own 16px move
+ * handle (pointer-events:auto, stops propagation), and the corner handles
+ * extend 8px inward along each edge — so the safe point is 16px inside the
+ * left edge at the box's vertical centre.
+ */
+async function resolveDragTarget(page, seedPoint) {
+  await page.keyboard.press('v');
+  await page.waitForTimeout(150);
+  const row = page.getByRole('treeitem').first();
+  if (!(await row.isVisible({ timeout: 3000 }).catch(() => false))) return seedPoint;
+  await row.click({ force: true });
+  await page.waitForTimeout(400);
+  const target = await page.evaluate(() => {
+    const rects = [...document.querySelectorAll('.editor-canvas svg rect')]
+      .filter((r) => (r.getAttribute('style') || '').includes('resize'))
+      .map((r) => {
+        const b = r.getBoundingClientRect();
+        return { x: b.x, y: b.y };
+      });
+    if (rects.length < 4) return null;
+    const xs = rects.map((r) => r.x);
+    const ys = rects.map((r) => r.y);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    // 16px inside the left edge, vertically centred: clear of the corner
+    // handles (8px inward), the edge handles (centred on the edges) and the
+    // centre move handle.
+    return { x: minX + 16, y: (minY + maxY) / 2 };
+  });
+  return target ?? seedPoint;
+}
+
+/**
  * One iteration of a named workload. Each is a real gesture, so the resulting
  * traces cover the whole path from browser event dispatch to frame commit.
  */
@@ -400,6 +479,17 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
   const cx = box.x + box.width / 2;
   const cy = box.y + box.height / 2;
   const jitter = (iteration % 5) * 3;
+
+  // A drag workload that misses the canvas measures nothing (the previous
+  // failure mode: the welcome dialog re-opened over the canvas after the
+  // fixture apply and swallowed every pointer event).
+  const pointerWorkloads = new Set([
+    'single-drag', 'multi-drag', 'marquee-select', 'resize', 'rotate',
+    'alt-drag', 'nudge', 'layer-visibility', 'pan', 'zoom',
+  ]);
+  if (pointerWorkloads.has(workload) && !(await ensureCanvasHitTarget(page, dragTarget))) {
+    throw new Error(`drag target (${dragTarget.x}, ${dragTarget.y}) does not hit the content canvas`);
+  }
 
   switch (workload) {
     case 'pointer-move-idle':
@@ -486,6 +576,10 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
     }
 
     case 'undo-redo': {
+      // Focus the canvas so the keyboard shortcuts reach its handler (the
+      // global shortcut path is not traced).
+      await page.locator('canvas.editor-canvas__content-layer').click({ position: { x: 300, y: 200 } });
+      await page.waitForTimeout(80);
       for (let i = 0; i < 4; i++) {
         await page.keyboard.press('Control+z');
         await page.waitForTimeout(40);
@@ -782,8 +876,11 @@ try {
       nodeCount: opened.seeded?.nodeCount,
       fixtureChecksum: opened.seeded?.fixtureChecksum,
     };
-    partial.fixtureDragPoint = fixtureDragPoint(opened.seeded, box);
-    scene = { dragTarget: partial.fixtureDragPoint };
+    const seedPoint = fixtureDragPoint(opened.seeded, box);
+    partial.fixtureDragPoint = seedPoint;
+    const resolved = await resolveDragTarget(page, seedPoint);
+    partial.fixtureDragTarget = resolved;
+    scene = { dragTarget: resolved };
     partial.sceneNodeCount = opened.seeded?.nodeCount ?? null;
     console.log(`Fixture opened: ${FIXTURE} (${opened.seeded?.nodeCount} nodes)`);
   } else {
@@ -809,6 +906,14 @@ try {
       // initialisation are one-time costs and must not enter the distribution.
       for (let i = 0; i < WARMUP; i++)
         await driveWorkload(page, box, workload, i, scene.dragTarget);
+      // A drag settles the node's selection box with its centre at the drag
+      // point; the measured iterations re-resolve the drag target from the
+      // current box so a drag never starts on a selection handle.
+      if (FIXTURE) {
+        const settled = await resolveDragTarget(page, scene.dragTarget);
+        scene.dragTarget = settled;
+        partial.fixtureDragTarget = settled;
+      }
 
       await page.evaluate(() => {
         const perf = window.__strataPerf;
@@ -819,6 +924,12 @@ try {
 
       const heapSamples = [];
       for (let i = 0; i < ITERATIONS; i++) {
+        // Re-resolve from the settled selection box right before each drag so
+        // the pointer never starts on a selection handle (a drag moves the
+        // node's centre to the click point).
+        if (FIXTURE && workload !== 'zoom') {
+          scene.dragTarget = await resolveDragTarget(page, scene.dragTarget);
+        }
         await driveWorkload(page, box, workload, i, scene.dragTarget);
         // Forced GC is a benchmark-only capability (--expose-gc) and is never
         // available in production; sampling after it isolates retained heap
