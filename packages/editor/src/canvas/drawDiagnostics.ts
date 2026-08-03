@@ -66,6 +66,22 @@ export interface FrameDiagnostics {
    * Optional so pre-existing frame records stay valid.
    */
   redrawReason?: string;
+  /**
+   * All contributing invalidation reasons for this frame, in merge order
+   * (structural diffs first, then explicit invalidations). A frame that both
+   * panned and decoded an image records both, unlike `redrawReason`.
+   */
+  invalidationReasons?: string[];
+  /**
+   * Explicit trigger identity for imperative frames (worker reply, context
+   * restore, engine init); undefined for reactive frames.
+   */
+  frameSource?: string;
+  /**
+   * When a content frame ran with no attributable invalidation, why suppression
+   * did not apply (diagnostics — see redrawCoordinator.ts).
+   */
+  unsuppressedCause?: string;
   /** Fraction of the viewport covered by the dirty region (0 none, 1 full). */
   dirtyAreaRatio?: number;
   /**
@@ -206,10 +222,15 @@ export function renderDrawDiagnostics(ctx: CanvasRenderingContext2D, canvasWidth
     last.dirtyAreaRatio === undefined ? '?' : `${Math.round(last.dirtyAreaRatio * 100)}%`;
   const reason = last.redrawReason ?? '?';
   const fullReason = last.fullRedrawReason ? ` full:${last.fullRedrawReason}` : '';
+  const invalidationReasons = last.invalidationReasons?.length
+    ? ` invalidation:${last.invalidationReasons.join('+')}`
+    : '';
+  const source = last.frameSource ? ` source:${last.frameSource}` : '';
   const lines = [
     `F#${last.frameIndex}  dv#${last.docVersion}  rc#${last.redrawCount}  tier:${last.profileTier}`,
     `path:${last.renderPath}  ${last.wasDirty ? 'dirty' : 'clean'}  ${last.partialRedraw ? 'partial' : 'full'}`,
     `reason:${reason}  dirty:${dirtyArea}${fullReason}`,
+    `${invalidationReasons || ''}${source}`.trim(),
     `nodes:${last.nodeCount}  culled:${last.culledCount}  cache:${last.cacheHitCount}`,
     `cache: ${last.cacheEntries} entries, ${(last.cacheBytes / 1024).toFixed(0)} KB`,
     `hash:${hashMs.toFixed(1)}ms  build:${last.buildIrMs.toFixed(1)}ms  replay:${last.replayMs.toFixed(1)}ms  other:${otherMs.toFixed(1)}ms`,
