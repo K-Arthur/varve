@@ -199,3 +199,41 @@ All modules under `packages/engine/src/icon/` with tests:
 - `packages/engine/src/icon` targeted: 6 files / 74 tests — pass.
 - Working tree carried concurrent staged + unstaged changes (color picker,
   print, Menubar focus) — untouched by this work.
+
+## 9. Implementation outcomes (2026-08-02, post-change)
+
+Commits (all on `master`, pushed-able):
+
+| Commit | Scope |
+|---|---|
+| `5a6a7a77` | This audit note |
+| `dc8282b0` | Semantic icon registry (`@strata/ui/icons/semantic.tsx`) — 96 concepts × outline/filled, validation, RTL mirror, size tokens; `SolidIconName` union extended with 14 verified Phosphor names |
+| `5d9a7f35` | `Document.iconAssets` + `NodeBase.iconAssetId` + codec validation/pruning/closure; 9 tests |
+| `8745f323` | Editor insertion pipeline: `useIconAssets` (insert/replace/detach), `IconBrowserDialog`, Layers-panel trigger, clipboard icon-asset provenance, IconBrowser download fix |
+| `4c3e5619` | Restore scene icon model after concurrent `feat(logo)` commit clobbered it |
+| `d8c74335` (concurrent) | Inspector `Icon` section + registry/ownership entries landed inside the concurrent canvas-fix commit (index race) |
+
+Verification after implementation:
+
+- `@strata/ui`: 385 tests pass (incl. 26 icon tests).
+- `@strata/scene`: 1799 pass, 1 skipped (incl. 9 icon-asset tests).
+- `@strata/editor`: 4221 pass. Remaining failures are concurrent-agent WIP
+  (`Menubar.test` — focus work, `workspaceMode.test` — logo mode label,
+  `FloatingTextBar.test` — color work) plus two perf tests that pass in
+  isolation (load noise).
+- `packages/engine/src/icon`: 74/74 pass.
+- pre-commit hooks (biome, audit-emoji, audit-health) pass on every commit.
+
+### Known limitations (honest status)
+
+- IconBrowser is not yet virtualized (Iconify caps at 50 results/query, so
+  current DOM cost is bounded; local-store growth is unbounded).
+- No pack-level download/update/repair UI; cache has no eviction policy yet.
+- `IconifyProvider` still reports `commercial: true` +
+  `attributionRequired: true` for every collection (conservative, not
+  per-collection accurate); no licence filter in the browser yet.
+- `iconExport`/`iconAudit` engine modules have no UI surfaces yet.
+- The sanitizer keeps inline `style` values verbatim and does not strip
+  external gradient `href`s — flagged for a follow-up.
+- Icon creation workspace, provider settings, export dialog, and semantic
+  search remain deferred (Phase 4).

@@ -1,6 +1,9 @@
 # ADR-0006 — Icon System Architecture
 
-## Status: Accepted (Phase 1 implementation 2026-07-27)
+## Status: Accepted (Phase 1 implemented 2026-07-27; Phases 2–3 implemented 2026-08-02)
+
+See `docs/architecture/icon-system-audit-2026-08-02.md` for the full
+2026-08-02 audit, gap analysis, and verification evidence.
 
 ## Context
 
@@ -166,6 +169,50 @@ The existing `Variant` model on `ComponentDefinition` supports icon variants
    controls.
 4. **Phase 4**: Icon creation tools, audit panel, export presets, code
    generation for icon components.
+
+## Implementation status (2026-08-02)
+
+| Phase | Deliverable | Status |
+|---|---|---|
+| 1 | `svgSanitize.ts`, `iconProviders.ts`, `iconifyProvider.ts`, `iconLicence.ts`, `iconAudit.ts`, `iconExport.ts`, `iconVariants.ts` | **Done** (2026-07-27) |
+| 2 | `IconBrowser.tsx` + IndexedDB cache + download manager + debounced search; icon browser dialog; Layers-panel trigger | **Done** (2026-08-02) — browser now reachable from Layers header; downloads fixed to use the provider registry |
+| 3 | `Document.iconAssets` + `NodeBase.iconAssetId` + codec validation/pruning; `useIconAssets` insert/replace/detach; inspector Icon section; clipboard provenance | **Done** (2026-08-02) |
+| 4 | Icon creation workspace, audit panel UI, export dialog, pack manager, provider settings, virtualized browser | **Deferred** — see the audit doc for scope |
+
+### Canonical internal UI icon API (Phase 2 addition)
+
+`packages/ui/src/icons/semantic.tsx` adds the semantic registry on top of
+`<Icon>` / `<SolidIcon>`:
+
+- `SemanticIconName` — typed action/concept names (`Delete`, `Union`,
+  `AlignLeft`), PascalCase, no `Alt`/numeric suffixes.
+- `SEMANTIC_ICONS` — one table mapping each semantic name to an outline
+  (Lucide) and filled (Phosphor) implementation; TypeScript validates both
+  names exist.
+- `SemanticIcon` component with `label`/decorative contract, `family`
+  switch, `size` tokens (`xs`–`xl`), and `mirror` for directional (RTL)
+  icons. `DIRECTIONAL_ICONS` lists only meaning-directional icons.
+- `validateSemanticIconNames()` — dev/test gate for naming rules.
+
+**Rule:** new feature code should prefer `SemanticIcon`; keep using the
+existing curated maps (`TOOL_ICONS` etc.) where already wired. Do not import
+`lucide-react` or `@phosphor-icons/react` directly in feature code.
+
+### Document icon asset model (Phase 3 implementation)
+
+- `Document.iconAssets: Record<string, DocumentIconAsset>` — sanitized SVG
+  plus provenance (provider, prefix, licence, attribution, tags, viewBox).
+  Embedded by default: the vector data travels with the document, so
+  provider outages, cache clears, and offline opens never break rendering.
+- `NodeBase.iconAssetId` — reference from the inserted scene subtree root.
+- `DocumentCodec` validates and prunes unreferenced/invalid icon assets on
+  decode; closures carry `iconAssets` for copy/paste and clipboard.
+- Editor flows in `packages/editor/src/context/useIconAssets.ts`:
+  `insertIconAsset` (sanitize → import pipeline → single undo transaction),
+  `replaceIconAsset` (fits the new icon into the old bounds, removes the
+  old nodes), `detachIconNodes` (clears provenance, geometry unchanged).
+- UI: `IconBrowserDialog` (Insert/Replace modes), Layers panel header
+  trigger, inspector `Icon` section (provenance, replace, detach).
 
 ## Package boundaries
 
