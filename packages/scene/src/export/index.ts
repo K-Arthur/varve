@@ -8,6 +8,8 @@
 
 export * from './adapter';
 export * from './capabilities';
+export * from './icns';
+export * from './ico';
 export * from './model';
 export * from './naming';
 export * from './pipeline';
