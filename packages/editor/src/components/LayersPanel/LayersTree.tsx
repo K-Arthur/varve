@@ -334,6 +334,8 @@ export function expandToDepth1(
 export interface LayersTreeProps {
   filterSpec?: LayerFilterSpec;
   onContextMenu?: (e: React.MouseEvent, id: NodeId) => void;
+  /** Keyboard-triggered context menu (Shift+F10 / Menu key) for the focused row. */
+  onContextMenuKeyboard?: (id: NodeId) => void;
 }
 
 /** Handlers exposed to the parent DndContext and LayersPanel via ref. */
@@ -351,7 +353,7 @@ export interface LayersDnDHandle {
 }
 
 export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function LayersTree(
-  { filterSpec = DEFAULT_FILTER, onContextMenu },
+  { filterSpec = DEFAULT_FILTER, onContextMenu, onContextMenuKeyboard },
   ref,
 ) {
   const {
@@ -383,6 +385,42 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   });
   const [renamingId, setRenamingId] = useState<NodeId | null>(null);
   const [activeId, setActiveId] = useState<NodeId | null>(null);
+  // True while DOM focus is inside the tree (or was dropped to body by a
+  // focused row being removed) — drives focus retargeting after deletes,
+  // filtering, and collapse.
+  const treeHadFocusRef = useRef(false);
+
+  useEffect(() => {
+    const tree = treeRef.current;
+    if (!tree) return;
+    const handleFocusIn = () => {
+      treeHadFocusRef.current = true;
+    };
+    const handleFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null;
+      if (!next || !tree.contains(next)) treeHadFocusRef.current = false;
+    };
+    tree.addEventListener('focusin', handleFocusIn);
+    tree.addEventListener('focusout', handleFocusOut);
+    return () => {
+      tree.removeEventListener('focusin', handleFocusIn);
+      tree.removeEventListener('focusout', handleFocusOut);
+    };
+  }, []);
+
+  // Return focus to a row after its inline rename ends (the rename input
+  // unmounts and drops focus to body otherwise).
+  const prevRenamingRef = useRef<NodeId | null>(null);
+  useEffect(() => {
+    const prev = prevRenamingRef.current;
+    prevRenamingRef.current = renamingId;
+    if (prev && !renamingId) {
+      requestAnimationFrame(() => {
+        rowRefs.current.get(prev)?.focus({ preventScroll: true });
+      });
+    }
+  }, [renamingId]);
+
   const [dropIndicator, setDropIndicator] = useState<{
     nodeId: NodeId;
     zone: 'before' | 'after' | 'into';
@@ -468,9 +506,13 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
   }, []);
 
   useEffect(() => {
-    if (!treeRef.current?.contains(document.activeElement)) return;
+    if (!treeHadFocusRef.current) return;
     if (!focusedNodeId) return;
-    rowRefs.current.get(focusedNodeId)?.focus();
+    // Only move focus when the tree owns it, or the focused row was removed
+    // and focus fell to body (delete/filter/collapse retarget).
+    const active = document.activeElement;
+    if (active !== document.body && !treeRef.current?.contains(active)) return;
+    rowRefs.current.get(focusedNodeId)?.focus({ preventScroll: true });
     // Depends on the focused id itself, not the whole `entries` array —
     // useFlatTree's property-only fast path allocates a new `entries`
     // reference on any single-node edit (rename, recolor, ...) even when the
@@ -713,6 +755,15 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+        e.preventDefault();
+        const focused = entries[focusIdx];
+        if (focused) {
+          onContextMenuKeyboard?.(focused.node.id);
+        }
+        return;
+      }
+
       // Escape exits isolation/focus view regardless of filter state.
       if (e.key === 'Escape' && state.isolatedNodeId) {
         e.preventDefault();
@@ -922,6 +973,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       reparentNode,
       announce,
       virtualizer,
+      onContextMenuKeyboard,
     ],
   );
 
@@ -1020,7 +1072,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
       const rect = overEl.getBoundingClientRect();
       const relativeY = (lastPointerRef.current.y - rect.top) / rect.height;
       const doc = state.document;
-      const overNode = doc.nodes[overId];
+      const overNode = doc.nodes[overId as NodeId];
       const overIsContainer = overNode && isContainer(overNode);
 
       const isDescendant =
@@ -1387,6 +1439,7 @@ export const LayersTree = forwardRef<LayersDnDHandle, LayersTreeProps>(function 
               focused={false}
               expanded={false}
               editing={false}
+              totalRows={1}
               doc={state.document}
               maskRole={
                 activeEntry.parentId &&
@@ -1481,6 +1534,7 @@ function SortableVirtualRow({
   rowRefs,
   selectedIds,
 }: SortableVirtualRowProps) {
+  const totalRows = virtualizer.options.count;
   const { state: editorState, revealSelection } = useEditor();
   const presences = usePresence(node.id);
   const {
@@ -1578,6 +1632,7 @@ function SortableVirtualRow({
         onToggleSelectionCheckbox={onToggleSelectionCheckbox}
         onFocus={onFocus}
         idx={idx}
+        totalRows={totalRows}
         dragListeners={isDragging ? undefined : listeners}
         dragAttributes={isDragging ? undefined : attributes}
         variantName={variantName}
