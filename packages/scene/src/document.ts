@@ -214,6 +214,8 @@ export interface Document {
   swatches?: ColorSwatch[];
   /** Spot color definitions. */
   spotColors?: SpotColorDef[];
+  /** Soft-proof configuration (persisted print intent; never mutates colors). */
+  proofConfig?: import('./proof').ProofConfig;
 
   /** Document-local gradient presets (v2.11+). Gradients used by gradient-map
    * effects are snapshotted here (or embedded on the effect) so documents stay

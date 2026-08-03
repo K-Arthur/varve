@@ -81,6 +81,7 @@ export * from './preflight';
 export * from './presetToDocument';
 export * from './printPreflight';
 export * from './profiles';
+export * from './proof';
 export * from './property-path';
 export * from './rasterLayer';
 export * from './richTextOps';
