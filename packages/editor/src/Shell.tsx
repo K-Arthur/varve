@@ -22,6 +22,7 @@ import { PropertiesPanel } from './components/Inspector/PropertiesPanel';
 import type { LayersDnDHandle } from './components/LayersPanel/LayersTree';
 import { PresenceIndicator } from './components/LayersPanel/PresenceIndicator';
 import { LibraryPanel } from './components/LibraryPanel/LibraryPanel';
+import { LogoPanel } from './components/LogoPanel/LogoPanel';
 import { LogoPreviewDialog } from './components/LogoPreview/LogoPreviewDialog';
 import { MasterPanel } from './components/MasterPanel/MasterPanel';
 import { Menubar } from './components/Menubar';
@@ -393,6 +394,11 @@ function ShellInner({
         {codegenPanelVisible && !distractionFreeMode && (
           <div className="editor__codegen-panel" data-panel="codegen">
             <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
+          </div>
+        )}
+        {editor.state.logoPanelVisible && !distractionFreeMode && (
+          <div className="editor__logo-panel" data-panel="logo" data-testid="logo-panel">
+            <LogoPanel />
           </div>
         )}
         {editor.state.timelinePanelVisible && !distractionFreeMode && (

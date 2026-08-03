@@ -37,7 +37,14 @@ export type { WorkspaceMode };
 // Panel configuration
 // ---------------------------------------------------------------------------
 
-export type PanelId = 'layers' | 'inspector' | 'timeline' | 'pagenav' | 'library' | 'codegen';
+export type PanelId =
+  | 'layers'
+  | 'inspector'
+  | 'timeline'
+  | 'pagenav'
+  | 'library'
+  | 'codegen'
+  | 'logo';
 
 export interface PanelConfig {
   /** Whether this panel is visible by default in this mode. */
@@ -278,6 +285,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
+      logo: { visible: false, collapsed: false, order: 6 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -371,6 +379,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
+      logo: { visible: false, collapsed: false, order: 6 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -471,6 +480,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: false, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
+      logo: { visible: false, collapsed: false, order: 6 },
     },
     defaultTool: 'paint',
     floatingToolbar: true,
@@ -568,6 +578,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: false, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
+      logo: { visible: false, collapsed: false, order: 6 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -677,6 +688,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: true, collapsed: false, order: 4 },
       codegen: { visible: true, collapsed: false, order: 5, preferredWidth: '100%' },
+      logo: { visible: false, collapsed: false, order: 6 },
     },
     floatingToolbar: true,
     statusBar: true,
@@ -775,6 +787,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: false, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
+      logo: { visible: true, collapsed: false, order: 6 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -865,6 +878,7 @@ export const WORKSPACE_CONFIGS: Record<WorkspaceMode, WorkspaceConfig> = {
       pagenav: { visible: true, collapsed: false, order: 3 },
       library: { visible: false, collapsed: false, order: 4 },
       codegen: { visible: false, collapsed: false, order: 5 },
+      logo: { visible: false, collapsed: false, order: 6 },
     },
     defaultTool: 'select',
     floatingToolbar: true,
@@ -1197,6 +1211,7 @@ export function migrateWorkspaceConfig(
       // Didn't exist in the pre-v1 format (like bleedGuides/layoutGrid/baselineGrid below) --
       // fall back to the target mode's own default rather than inventing a literal.
       codegen: base.panels.codegen,
+      logo: base.panels.logo,
     };
 
     return {

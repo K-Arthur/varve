@@ -603,6 +603,8 @@ export interface EditorContextValue {
   toggleLibraryPanel: () => void;
   /** Toggle codegen panel visibility; follows workspace config defaults. */
   toggleCodegenPanel: () => void;
+  /** Toggle Logo panel visibility; persists to editor settings. */
+  toggleLogoPanel: () => void;
   /** Toggle distraction-free canvas mode (hides chrome, keeps canvas/toolbar). */
   toggleDistractionFreeMode: () => void;
   /** Toggle before/after comparison for the selected image. */
@@ -2027,6 +2029,9 @@ export function EditorProvider({
       libraryPanelVisible: getWorkspaceConfig('design').panels.library.visible,
       // Codegen panel visibility follows the current workspace config default.
       codegenPanelVisible: getWorkspaceConfig('design').panels.codegen.visible,
+      // Logo panel visibility follows the persisted preference (defaults to
+      // the design config default; the logo workspace opens it on switch).
+      logoPanelVisible: loadSettings().panel.logoPanelVisible,
       motion: createInitialMotionState(),
       canvasMode: 'full',
       workspaceMode: 'design' as WorkspaceMode,
@@ -2821,6 +2826,11 @@ export function EditorProvider({
       toggleCodegenPanel: () => {
         const next = !state.codegenPanelVisible;
         patch({ codegenPanelVisible: next });
+      },
+      toggleLogoPanel: () => {
+        const next = !state.logoPanelVisible;
+        patch({ logoPanelVisible: next });
+        updateSettings({ panel: { logoPanelVisible: next } });
       },
       toggleDistractionFreeMode: () => {
         const next = !state.distractionFreeMode;

@@ -725,6 +725,15 @@ export function getViewMenu(
       run: () => runAction('toggleStateMachinePanel'),
     },
     {
+      id: 'toggleLogoPanel',
+      labelKey: 'menu.view.toggleLogoPanel',
+      accelerator: a('l', true, true, true),
+      kind: 'command',
+      group: 'panels',
+      workspaces: ['design', 'logo'],
+      run: () => runAction('toggleLogoPanel'),
+    },
+    {
       id: 'workspaceDesign',
       labelKey: 'menu.view.workspaceDesign',
       accelerator: a('d', true, true),

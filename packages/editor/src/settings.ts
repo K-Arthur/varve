@@ -36,6 +36,8 @@ export interface PanelSettingsStore {
   rightPanelVisible: boolean;
   leftPanelWidth: number | null;
   rightPanelWidth: number | null;
+  /** Logo panel visibility (persisted across sessions). */
+  logoPanelVisible: boolean;
 }
 
 export interface AppearanceSettingsStore {
@@ -149,6 +151,7 @@ export const DEFAULT_PANEL_SETTINGS: PanelSettingsStore = {
   rightPanelVisible: true,
   leftPanelWidth: null,
   rightPanelWidth: null,
+  logoPanelVisible: false,
 };
 
 export const DEFAULT_RENDER_SETTINGS: RenderSettingsStore = {

@@ -201,6 +201,8 @@ export interface EditorState {
   logoPreviewDialogOpen: boolean;
   timelinePanelVisible: boolean;
   codegenPanelVisible: boolean;
+  /** Logo panel visibility (persisted; follows the workspace config on switch). */
+  logoPanelVisible: boolean;
   /** Active workspace mode (design / print / drawing / motion). */
   workspaceMode: WorkspaceMode;
   /** Whether the graph editor panel is visible in the timeline area. */
@@ -402,6 +404,8 @@ export interface EditorContextValue {
   toggleRightPanel: () => void;
   toggleLibraryPanel: () => void;
   toggleCodegenPanel: () => void;
+  /** Toggle the Logo panel (workspace-config-backed, persisted). */
+  toggleLogoPanel: () => void;
   toggleDistractionFreeMode: () => void;
   __setWorkspaceModeUnsafe: (mode: WorkspaceMode) => void;
   requestWorkspaceSwitch: (mode: WorkspaceMode, options?: { force?: boolean }) => Promise<boolean>;
