@@ -1951,6 +1951,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen e
       {
         "badge": undefined,
         "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -2911,6 +2922,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: codegen w
       },
       {
         "id": "sep-after-workspace",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
         "separator": true,
       },
       {
@@ -4003,6 +4025,21 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design em
         "id": "logoPreview",
         "label": "Test Logo at Small Sizes",
         "onAction": [Function],
+      },
+      {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
       },
       {
         "badge": undefined,
@@ -5366,6 +5403,21 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: design wi
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -6702,6 +6754,21 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing e
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -7975,6 +8042,21 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: drawing w
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -9243,6 +9325,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -10433,6 +10526,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: image wit
       },
       {
         "id": "sep-after-workspace",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
         "separator": true,
       },
       {
@@ -11647,6 +11751,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion em
       {
         "badge": undefined,
         "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -12715,6 +12830,17 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: motion wi
       },
       {
         "id": "sep-after-workspace",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
         "separator": true,
       },
       {
@@ -13800,6 +13926,21 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print emp
         "id": "logoPreview",
         "label": "Test Logo at Small Sizes",
         "onAction": [Function],
+      },
+      {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
       },
       {
         "badge": undefined,
@@ -15142,6 +15283,21 @@ exports[`menu snapshot — menubar tree > platform: tauri > workspace: print wit
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -16365,6 +16521,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen emp
       {
         "badge": undefined,
         "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -17325,6 +17492,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: codegen wit
       },
       {
         "id": "sep-after-workspace",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
         "separator": true,
       },
       {
@@ -18417,6 +18595,21 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design empt
         "id": "logoPreview",
         "label": "Test Logo at Small Sizes",
         "onAction": [Function],
+      },
+      {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
       },
       {
         "badge": undefined,
@@ -19780,6 +19973,21 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: design with
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -21116,6 +21324,21 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing emp
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -22389,6 +22612,21 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: drawing wit
         "onAction": [Function],
       },
       {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
         "badge": undefined,
         "disabled": false,
         "id": "toggleDistractionFree",
@@ -23657,6 +23895,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image empty
       {
         "badge": undefined,
         "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -24847,6 +25096,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: image with 
       },
       {
         "id": "sep-after-workspace",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
         "separator": true,
       },
       {
@@ -26061,6 +26321,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion empt
       {
         "badge": undefined,
         "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
         "id": "toggleDistractionFree",
         "label": "Distraction-Free Mode",
         "onAction": [Function],
@@ -27129,6 +27400,17 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: motion with
       },
       {
         "id": "sep-after-workspace",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
         "separator": true,
       },
       {
@@ -28214,6 +28496,21 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print empty
         "id": "logoPreview",
         "label": "Test Logo at Small Sizes",
         "onAction": [Function],
+      },
+      {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
       },
       {
         "badge": undefined,
@@ -29554,6 +29851,21 @@ exports[`menu snapshot — menubar tree > platform: web > workspace: print with 
         "id": "logoPreview",
         "label": "Test Logo at Small Sizes",
         "onAction": [Function],
+      },
+      {
+        "id": "sep-after-focus",
+        "separator": true,
+      },
+      {
+        "badge": undefined,
+        "disabled": false,
+        "id": "exportLogoPackage",
+        "label": "Export Logo Package…",
+        "onAction": [Function],
+      },
+      {
+        "id": "sep-after-file",
+        "separator": true,
       },
       {
         "badge": undefined,

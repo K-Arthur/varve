@@ -301,6 +301,27 @@ export function createActionHandlers(
     createIconVariant: () => e.createLogoVariant('Icon', 'icon'),
     createSmallVariant: () => e.createLogoVariant('Small', 'small'),
     logoPreview: () => e.patch({ logoPreviewDialogOpen: !e.state.logoPreviewDialogOpen }),
+    exportLogoPackage: async () => {
+      const { buildLogoPackage, saveLogoPackage } = await import('../logo/logoPackageExport');
+      const doc = e.state.document;
+      if (!doc.logoProject) {
+        e.announce?.('Create a logo project first (File → New Logo Project)');
+        return;
+      }
+      e.announce?.('Building logo package…');
+      try {
+        const result = await buildLogoPackage(doc, {
+          brandName: doc.logoProject.name,
+          includeVariants: true,
+          scales: [1, 2],
+        });
+        const saved = await saveLogoPackage(e.platform, result);
+        e.announce?.(saved ? 'Logo package exported' : 'Logo package ready to download');
+      } catch (error) {
+        console.error('Logo package export failed', error);
+        e.announce?.('Logo package export failed — check the console for details');
+      }
+    },
     addClearSpaceGuides: async () => {
       const { promptDialog } = await import('../components/PromptDialog');
       const artboardId = e.state.selection.find(
