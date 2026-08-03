@@ -1,8 +1,10 @@
 import type { BitDepth, ColorMode, ColorProfileRef, ManagedColor } from '@strata/scene';
 import { isCmykColor, isGrayColor, isLabColor, isLchColor, isSpotColor } from '@strata/scene';
 import {
+  applyProofToRgba,
   cmykToRgb,
   denormalizeChannel,
+  isColorOutOfProofGamut,
   labToLch,
   labToXyz,
   lchToLab,
@@ -66,6 +68,11 @@ export interface ColorPickerProps {
    * value the picker opened with so users can compare before/after edits.
    */
   previousColor?: Color;
+  /** Display-only proof configuration (soft proofing). */
+  proofConfig?: import('@strata/shared').ProofTransformConfig | null;
+  /** Session-scoped proof toggle. */
+  proofEnabled?: boolean;
+  onProofToggle?: (enabled: boolean) => void;
 }
 
 function managedColorToRgbTuple(c: ManagedColor): Color {
@@ -199,6 +206,9 @@ export function ColorPicker({
   recentColors,
   cmykProfile,
   previousColor,
+  proofConfig,
+  proofEnabled = false,
+  onProofToggle,
 }: ColorPickerProps) {
   const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value, documentColorMode));
 
@@ -545,6 +555,23 @@ export function ColorPicker({
     return linear.some((v) => v < -1e-3 || v > 1 + 1e-3);
   }, [space, draftLab, draftLch]);
 
+  // Soft-proof preview: display-only transform of the current color under
+  // the proof condition. Never mutates the selected color.
+  const proofResult = useMemo(() => {
+    if (!proofEnabled || !proofConfig) return null;
+    return applyProofToRgba(
+      [rgbTuple[0], rgbTuple[1], rgbTuple[2], Math.round(alphaVal * 255)],
+      proofConfig,
+    );
+  }, [proofEnabled, proofConfig, rgbTuple, alphaVal]);
+
+  // Proof-condition gamut status (replaces the heuristic warning when a
+  // profile converter is registered).
+  const proofGamutStatus = useMemo(() => {
+    if (!proofConfig) return null;
+    return isColorOutOfProofGamut([rgbTuple[0], rgbTuple[1], rgbTuple[2], 255], proofConfig);
+  }, [proofConfig, rgbTuple]);
+
   const bitDepthOptions: SegmentedOption<BitDepth>[] = [
     { value: 'uint8', label: '8-bit' },
     { value: 'uint16', label: '16-bit' },
@@ -658,14 +685,57 @@ export function ColorPicker({
             {alphaVal < 1 ? ` (${Math.round(alphaVal * 100)}%)` : ''}
           </span>
         </div>
-        {space !== 'gray' && space !== 'spot' && space !== 'lab' && space !== 'lch' && (
-          <GamutWarning
-            r={rgbTuple[0]}
-            g={rgbTuple[1]}
-            b={rgbTuple[2]}
-            bitDepth={bitDepth}
-            documentColorMode={documentColorMode}
-          />
+        {proofResult && (
+          <div
+            className="color-picker__proof"
+            title={
+              proofResult.kind === 'unavailable'
+                ? 'Accurate soft proofing is unavailable in this runtime'
+                : `Proofed for ${proofConfig?.profileName ?? proofConfig?.profileId}`
+            }
+          >
+            <span
+              className="color-picker__proof-swatch"
+              style={{
+                background: `rgba(${proofResult.rgba[0]},${proofResult.rgba[1]},${proofResult.rgba[2]},${(
+                  proofResult.rgba[3] / 255
+                ).toFixed(2)})`,
+              }}
+            />
+            <span className="color-picker__proof-label">
+              {proofResult.kind === 'unavailable'
+                ? 'Proof unavailable'
+                : `Proof: ${proofConfig?.profileName ?? proofConfig?.profileId}`}
+            </span>
+          </div>
+        )}
+        {proofConfig && onProofToggle && (
+          <button
+            type="button"
+            className={`color-picker__proof-toggle${proofEnabled ? ' color-picker__proof-toggle--active' : ''}`}
+            aria-pressed={proofEnabled}
+            onClick={() => onProofToggle(!proofEnabled)}
+          >
+            Proof
+          </button>
+        )}
+        {space !== 'gray' &&
+          space !== 'spot' &&
+          space !== 'lab' &&
+          space !== 'lch' &&
+          proofConfig == null && (
+            <GamutWarning
+              r={rgbTuple[0]}
+              g={rgbTuple[1]}
+              b={rgbTuple[2]}
+              bitDepth={bitDepth}
+              documentColorMode={documentColorMode}
+            />
+          )}
+        {proofConfig != null && proofGamutStatus === true && (
+          <span className="color-picker__proof-gamut" role="note">
+            Out of proof gamut
+          </span>
         )}
         <EyeDropperButton onPick={handleEyeDropper} />
       </div>

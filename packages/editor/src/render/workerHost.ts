@@ -36,6 +36,8 @@ export interface WorkerRenderCommand {
   dpr: number;
   /** Pre-decoded ImageBitmaps keyed by image src URL (Structured Clone transport). */
   images?: Record<string, ImageBitmap>;
+  /** Display-only proof transform applied inside the worker before replay. */
+  proof?: import('@strata/shared').ProofTransformConfig | null;
 }
 
 export type WorkerCommand =

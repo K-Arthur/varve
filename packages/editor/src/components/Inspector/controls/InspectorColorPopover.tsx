@@ -27,6 +27,31 @@ function useDocDocument(): Document | null {
   }
 }
 
+/** Soft-proof session state from the editor (standalone renders: off). */
+function useProofState(): {
+  enabled: boolean;
+  config: import('@strata/shared').ProofTransformConfig;
+  toggle: (enabled: boolean) => void;
+} | null {
+  try {
+    const editor = useEditor();
+    return {
+      enabled: editor.proofEnabled,
+      config: {
+        profileId: editor.proofConfig.profileId,
+        profileName: editor.proofConfig.profileName,
+        renderingIntent: editor.proofConfig.renderingIntent,
+        blackPointCompensation: editor.proofConfig.blackPointCompensation,
+        simulatePaperColor: editor.proofConfig.simulatePaperColor,
+        simulateBlackInk: editor.proofConfig.simulateBlackInk,
+      },
+      toggle: editor.setProofEnabled,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface InspectorColorPopoverProps {
   /** Accessible name for the swatch trigger (e.g. "Fill colour"). */
   label: string;
@@ -65,6 +90,7 @@ export function InspectorColorPopover({
   const dialogId = useId();
   const titleId = useId();
   const doc = useDocDocument();
+  const proof = useProofState();
   const cmykProfile = useMemo(() => doc?.colorConfig?.cmykProfile ?? null, [doc]);
   // Document swatches are snapshotted when the picker opens — extracting
   // walks every node, so recomputing per document change during a drag would
@@ -225,6 +251,9 @@ export function InspectorColorPopover({
                   ? (managedColorToRgba(openValueRef.current) as Color)
                   : undefined
               }
+              proofConfig={proof?.config ?? null}
+              proofEnabled={proof?.enabled ?? false}
+              onProofToggle={proof?.toggle}
             />
             <button type="button" onClick={close} className="insp-picker-done">
               Done

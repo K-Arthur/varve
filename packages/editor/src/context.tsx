@@ -164,6 +164,7 @@ import {
   DocumentCodec,
   deepCloneSubtree,
   defaultConstraints,
+  defaultProofConfig,
   deleteMaster as deleteMasterDoc,
   deleteSelectionSet as deleteSelectionSetDoc,
   deleteTextChain as deleteTextChainDoc,
@@ -245,6 +246,7 @@ import {
   setActivePage as setActivePageDoc,
   setActiveTimeline as setActiveTimelineDoc,
   setAllGuidesLocked,
+  setDocumentProofConfig as setDocumentProofConfigDoc,
   setFacingPagesEnabled as setFacingPagesEnabledDoc,
   setLiveTraceError as setLiveTraceErrorDoc,
   setLiveTraceParams as setLiveTraceParamsDoc,
@@ -1436,6 +1438,14 @@ export interface EditorContextValue {
   /** Rewrite stored process colors into the target mode. */
   convertDocumentColors: (mode: ColorMode) => void;
 
+  // Soft proofing
+  /** Persisted proof configuration (document print intent). */
+  proofConfig: import('@strata/scene').ProofConfig;
+  /** Session-scoped proof toggle. Never persisted into documents. */
+  proofEnabled: boolean;
+  setProofEnabled: (enabled: boolean) => void;
+  setProofConfig: (config: import('@strata/scene').ProofConfig) => void;
+
   // Quick-mask mode
   /** Enter quick-mask mode: paint-based selection editing. */
   enterQuickMask: () => void;
@@ -2605,6 +2615,8 @@ export function EditorProvider({
   const [protoValue, setProtoValue] = useState<
     import('./context/PrototypeContext').PrototypeContextValue | null
   >(null);
+  /** Session-scoped soft-proof toggle (never persisted into documents). */
+  const [proofEnabledState, setProofEnabledState] = useState(false);
   const bgRemoval = useBackgroundRemoval(
     state,
     patch,
@@ -6962,6 +6974,15 @@ export function EditorProvider({
       },
 
       documentColorMode: state.document.colorConfig?.mode ?? 'rgb',
+
+      // Soft proofing: config is document state (print intent); the toggle
+      // is session state and never persists into portable documents.
+      proofConfig: state.document.proofConfig ?? defaultProofConfig(),
+      proofEnabled: proofEnabledState,
+      setProofEnabled: setProofEnabledState,
+      setProofConfig: (config: import('@strata/scene').ProofConfig) => {
+        updateDoc((doc) => setDocumentProofConfigDoc(doc, config));
+      },
 
       // Assign: change document working mode WITHOUT rewriting stored
       // values (non-destructive interpretation change).
