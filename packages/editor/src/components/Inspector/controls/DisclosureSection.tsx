@@ -165,7 +165,7 @@ function RegistryDisclosure({
   };
 
   return (
-    <section className="insp-disclosure" onContextMenu={handleContextMenu} role="region">
+    <section className="insp-disclosure" onContextMenu={handleContextMenu}>
       <button
         type="button"
         className="insp-disclosure__trigger"
