@@ -2457,11 +2457,11 @@ export function CanvasArea({
               const posted = host.post(
                 {
                   type: 'render',
-                  nodes: flatNodes,
                   ir,
                   camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
                   viewport: { width: VP_W, height: VP_H },
                   docVersion,
+                  proof: editor.proofEnabled ? editor.proofConfig : null,
                   dpr,
                   images: collected.images,
                 },
@@ -2659,8 +2659,8 @@ export function CanvasArea({
     displayDpr,
     canvasSize.width,
     canvasSize.height,
-    precomputedStyles,
     precomputedVariantCaches,
+    editor.proofEnabled,
   ]);
 
   // ── requestRedraw: defence-in-depth redraw trigger ────────────────────

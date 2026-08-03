@@ -37,6 +37,10 @@ export interface NodeWorkCounters {
   rejectedByContainer: number;
   /** Accepted into the replay list. */
   acceptedForReplay: number;
+  /** Ancestors pulled into the replay set (clips, masks, blend contexts). */
+  ancestorsIncluded: number;
+  /** Subtree members pulled in by included flatten groups / masks. */
+  compositingDependencies: number;
   /** Accepted nodes that are raster layers. */
   rasterRepainted: number;
   /** Accepted nodes that are vector/text primitives. */
@@ -77,6 +81,8 @@ export function createNodeWorkCounters(): NodeWorkCounters {
     prunableByDirty: 0,
     rejectedByContainer: 0,
     acceptedForReplay: 0,
+    ancestorsIncluded: 0,
+    compositingDependencies: 0,
     rasterRepainted: 0,
     vectorRepainted: 0,
     effectExpanded: 0,
