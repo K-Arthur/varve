@@ -42,7 +42,7 @@ Pointer, wheel, key, touch, or pen input
 | Snap fine phase | Webview main thread | valid anchors/guides -> deterministic winning X/Y + guides | gesture hysteresis session | modifier bypass; gesture end resets session | once per snapped move/resize | fine count and evaluation duration | O(k log k) after sorted midpoint/spacing optimization |
 | Preview / scene mutation | Webview main thread / React state | tool result -> immutable document or preview state | transaction/history state | transaction abort; later state wins | once per accepted tool update | interaction wall/busy time; document revision | selected-node count, ancestor updates, React subscriber fan-out |
 | Invalidation | Webview main thread | previous/current document -> partial bounds or full reason | resolved styles, parent index, visual bounds, tile versions | new document diff supersedes old plan | once per changed render | redraw reason, full-redraw reason, dirty rectangle count/ratio | O(n) identity diff; bounds work for changed nodes and ancestors |
-| Render scheduling | Webview main thread | keyed lane job -> one animation-frame callback | per-key pending job map | key replacement; explicit cancel; interaction lane priority | at most one queued job per key per frame | queue itself is unit-tested; queue wait is not yet in interaction spans | O(number of scheduled keys), bounded by keyed replacement |
+| Render scheduling | Webview main thread | keyed lane job -> one animation-frame callback | per-key pending job map | key replacement; explicit cancel; interaction lane priority | at most one queued job per key per frame | correlated `render.queue` span under `?perf=1` | O(number of scheduled keys), bounded by keyed replacement |
 | Frame setup | Webview main thread | document + camera -> active/visible node list | parent/frame indexes, styles, variants, transform cache | draw-in-flight coalesces to one pending follow-up | once per rendered frame | `setupMs`, node and culled counts | O(n); current largest measured phase near 1K nodes |
 | Node preparation / IR | Webview main thread plus native/WASM engine facade | visible scene nodes -> cached or newly built IR | engine-node memo, node hash memo, subtree IR cache | render revision and draw-in-flight generation | once per rendered frame; builds only for misses | `preLoopMs`, `hashMs`, build time, memo computes/hits | O(visible nodes + cache misses); native IPC can add serialization/queue delay |
 | Main-thread replay | Webview main thread | IR + resources -> canvas backing store | image/font/gradient/subtree replay caches | newer frame replaces pixels; no mid-replay interrupt | once per non-worker frame | replay and total frame duration | O(drawn items); effects and raster-layer reconstruction add intermediates |
@@ -102,7 +102,7 @@ requires a trace-backed decision record, not an implicit fallback.
 | worker render queue | <= 1 in flight + 1 pending | same | deterministic test |
 | worker bitmap transfer budget | 128 MiB default | 64 MiB stress-4gb; 32 MiB stress-2gb | admission test |
 | decoded image cache | 256 MiB balanced | 64 MiB low | byte-accounting test |
-| trace retention | <= 50 interactions, bounded spans per trace required | same | deterministic test |
+| trace retention | <= 50 interactions, 512 spans and 240 frames per interaction | same | deterministic test |
 | snap retention | <= 120 samples | same | deterministic test |
 | frame retention | <= 120 samples | same | deterministic test |
 
@@ -125,17 +125,22 @@ tighter latency gates belong to platform-keyed benchmark hardware.
 - Image and font completion: independent stamps request a new render and are
   separately attributed.
 
-## Open evidence gaps
+## Evidence status and remaining gaps
 
-1. `interaction.dispatch`, `snap.prefilter`, `snap.evaluate`, `render.queue`,
-   `render.worker`, and `composite.present` are not yet all correlated as named
-   spans inside one interaction trace.
-2. The worker host can transiently overcount a retained frame if CanvasArea
-   closes it after context loss or a host-current/document-stale response.
-3. The deterministic workload corpus and soak harness are not yet wired to a
-   production browser runner, so no long-duration plateau result exists.
-4. Production partial redraw still prepares the visible list before clipping;
-   dirty-area reduction does not yet prove proportional node-work reduction.
+1. `pointer.input`, `snap.prefilter`, `snap.evaluate`, `render.queue`, and
+   `render.main` are correlated inside one bounded interaction trace.
+   `interaction.dispatch`, `render.worker`, and OS-level `composite.present`
+   still need separate spans or calibrated cross-process timing.
+2. The worker host and CanvasArea now share an identity-aware frame-disposal
+   boundary, so context-loss, stale-response, replacement, and duplicate-close
+   paths release resident accounting exactly once.
+3. A 24-iteration real-pointer Chromium soak now records forced-GC heap and
+   bounded application-resource samples, but the full deterministic workload
+   corpus is not yet wired to a production build or multi-hour native runner.
+4. Production partial redraw now records and can freeze/visualize the merged
+   backing-store dirty rectangle, but it still prepares the visible list before
+   clipping; dirty-area reduction does not yet prove proportional node-work
+   reduction or expose individual pre-merge rectangles/repainted node IDs.
 5. Raster layers are tiled in the scene model, but replay reconstructs a full
    layer-sized intermediate from all tiles. This requires a measured trigger
    before changing the per-node hot path.
