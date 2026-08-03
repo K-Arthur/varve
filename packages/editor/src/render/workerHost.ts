@@ -10,6 +10,7 @@ import {
 import { type ClockCalibration, WorkerClockCalibrator } from '../performance/workerClock';
 import { closeImageBitmapMap } from './collectImageBitmaps';
 import { checkFault } from './faultInjection';
+import { FrameLedger, type FrameLedgerCounters } from './frameLifecycle';
 import {
   type BitmapBudgetState,
   estimateImagesBytes,
@@ -107,6 +108,8 @@ export interface RenderWorkerHost {
   getBitmapBudgetState(): BitmapBudgetState;
   /** Current main<->worker clock calibration, or null before the first exchange. */
   getClockCalibration(): ClockCalibration | null;
+  /** Exactly-once frame accounting counters (see `frameLifecycle.ts`). */
+  getFrameLedgerState(): FrameLedgerCounters;
 }
 
 export interface RenderWorkerHostOptions {
@@ -169,6 +172,8 @@ export function createRenderWorkerHost(
   let inFlightTransferBytes = 0;
   let lastForwardedFrame: ImageBitmap | null = null;
   let lastForwardedFrameBytes = 0;
+  let lastForwardedFrameId: number | null = null;
+  const ledger = new FrameLedger();
   let pendingRender: PendingRender | null = null;
   let latestRequestedRevision: RenderRevision | null = null;
   let latestFrameIdentity: { viewport: Viewport; dpr: number } | null = null;
@@ -248,6 +253,10 @@ export function createRenderWorkerHost(
     if (lastForwardedFrameBytes > 0) bitmapBudget.releaseResident(lastForwardedFrameBytes);
     lastForwardedFrame = null;
     lastForwardedFrameBytes = 0;
+    lastForwardedFrameId = null;
+    // Bumps the ledger generation too, so a response that arrives after
+    // teardown cannot match an id issued before it.
+    ledger.reclaimAll('teardown');
   }
 
   /** Single postMessage seam so failure injection hits every send path. */
@@ -382,13 +391,34 @@ export function createRenderWorkerHost(
             bitmapBudget.releaseTransfer(inFlightTransferBytes);
             inFlightTransferBytes = 0;
           }
-          if (obsolete) closeResponseResources(msg);
-          else {
+          if (obsolete) {
+            if (msg.bitmap) {
+              // Record the discard so a drag that renders ten frames and
+              // presents two shows up as a stale rate rather than as nothing.
+              const staleId = ledger.allocate(
+                estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height),
+              );
+              ledger.transition(staleId, 'stale');
+              ledger.close(staleId);
+            }
+            closeResponseResources(msg);
+          } else {
             if (msg.bitmap) {
               const frameBytes = estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height);
               bitmapBudget.accountResidentFrame(frameBytes, lastForwardedFrameBytes);
+              // The outgoing frame is released at the same boundary that
+              // accounts the new one, so the two can never disagree.
+              if (lastForwardedFrameId !== null) {
+                ledger.transition(lastForwardedFrameId, 'replaced');
+                ledger.close(lastForwardedFrameId);
+              }
+              const frameId = ledger.allocate(frameBytes);
+              ledger.transition(frameId, 'transferred');
+              ledger.transition(frameId, 'received');
+              ledger.transition(frameId, 'installed');
               lastForwardedFrame = msg.bitmap;
               lastForwardedFrameBytes = frameBytes;
+              lastForwardedFrameId = frameId;
             }
             onResponse(msg);
           }
@@ -518,10 +548,17 @@ export function createRenderWorkerHost(
       return true;
     },
     releaseFrame(bitmap) {
-      if (bitmap !== lastForwardedFrame) return false;
+      if (bitmap !== lastForwardedFrame) {
+        // A duplicate or stale release: harmless, but recorded so a caller
+        // that double-disposes is visible in diagnostics rather than silent.
+        ledger.close(-1);
+        return false;
+      }
       bitmapBudget.releaseResident(lastForwardedFrameBytes);
+      if (lastForwardedFrameId !== null) ledger.close(lastForwardedFrameId);
       lastForwardedFrame = null;
       lastForwardedFrameBytes = 0;
+      lastForwardedFrameId = null;
       return true;
     },
     terminate() {
@@ -543,6 +580,9 @@ export function createRenderWorkerHost(
     },
     getClockCalibration() {
       return clockCalibrator.calibration;
+    },
+    getFrameLedgerState() {
+      return ledger.state;
     },
     get bitmapBudget() {
       return bitmapBudget;
