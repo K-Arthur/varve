@@ -154,6 +154,8 @@ export function RichTextSpanEditor({ richText, onChange }: RichTextSpanEditorPro
             const c = color as { space: 'rgb'; r: number; g: number; b: number; a: number };
             applyFormat({ color: [c.r, c.g, c.b, c.a] });
           }}
+          onEditStart={editor.beginTransaction}
+          onEditEnd={editor.commitTransaction}
         />
       </div>
     </div>

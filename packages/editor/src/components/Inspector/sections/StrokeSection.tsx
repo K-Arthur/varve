@@ -287,6 +287,8 @@ function StrokeRow({
             borderColor: isMixed(colorRaw) ? 'var(--color-border-strong)' : undefined,
           }}
           documentColorMode={editor.documentColorMode}
+          onEditStart={editor.beginTransaction}
+          onEditEnd={editor.commitTransaction}
         />
         <NumberField
           label={label}

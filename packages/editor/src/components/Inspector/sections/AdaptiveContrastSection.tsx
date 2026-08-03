@@ -312,6 +312,8 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
             label="Light candidate color"
             value={common.lightColor === 'mixed' ? DEFAULT_LIGHT : common.lightColor}
             onChange={handleLightColorChange}
+            onEditStart={editor.beginTransaction}
+            onEditEnd={editor.commitTransaction}
           />
         </FieldRow>
 
@@ -320,6 +322,8 @@ function AdaptiveContrastSectionInner({ nodes }: { nodes: TextNode[] }) {
             label="Dark candidate color"
             value={common.darkColor === 'mixed' ? DEFAULT_DARK : common.darkColor}
             onChange={handleDarkColorChange}
+            onEditStart={editor.beginTransaction}
+            onEditEnd={editor.commitTransaction}
           />
         </FieldRow>
 

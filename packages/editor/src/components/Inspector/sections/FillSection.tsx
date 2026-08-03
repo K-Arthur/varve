@@ -336,6 +336,8 @@ function FillRow({
               border: '2px solid var(--color-border-strong)',
             }}
             documentColorMode={editor.documentColorMode}
+            onEditStart={onEditStart}
+            onEditEnd={onEditEnd}
           />
         ) : (
           <button

@@ -384,6 +384,8 @@ export function GradientEditor({
             value={currentStop.color}
             onChange={(c) => updateStop(selectedStop, { color: c as ManagedColor })}
             documentColorMode={documentColorMode}
+            onInteractionStart={onEditStart}
+            onInteractionEnd={onEditEnd}
           />
         </div>
       )}
