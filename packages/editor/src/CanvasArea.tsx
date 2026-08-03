@@ -96,6 +96,7 @@ import {
   beginContentFrame,
   beginInteractionSpan,
   cancelCanvasFrame,
+  computeMergedDirtyRegion,
   createCanvasFrameKey,
   createNodeWorkCounters,
   createRedrawCoordinator,
@@ -107,11 +108,11 @@ import {
   getMemoryBudgets,
   getOverBudgetCount,
   installPerfDiagnosticsHandle,
-  isNodeWorkRecordingEnabled,
   isSnapMetricsEnabled,
   type RedrawCoordinator,
   type RedrawReason as RedrawCoordinatorReason,
   recordFrame,
+  recordMergedDirty,
   recordNodeWork,
   recordSnapMetrics,
   rectsIntersect,
@@ -442,8 +443,7 @@ export function CanvasArea({
   // any scene traversal and attributes every frame with its reasons.
   const redrawCoordinatorRef = useRef<RedrawCoordinator | null>(null);
   if (!redrawCoordinatorRef.current) redrawCoordinatorRef.current = createRedrawCoordinator();
-  // True while a worker bitmap awaits compositing; the present path consumes it.
-  const pendingPresentRef = useRef(false);
+  const pendingPresentRef = useRef(false); // worker bitmap awaiting compositing
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const settings = loadSettings();
   const budgets = getMemoryBudgets(settings.render.memoryBudget);
@@ -587,6 +587,8 @@ export function CanvasArea({
   // B-04: Dirty-rect tracking for partial redraw. Populated by draw()
   // diffing old vs current node world bounds.
   const dirtyRectRef = useRef<{ x: number; y: number; w: number; h: number } | null>(null);
+  // Persistent bounded collector for pre-merge dirty rectangles.
+  const dirtyRecorderRef = useRef(new DirtyRegionRecorder());
 
   // Redraw attribution: the previous camera / decode / font stamps let the
   // diagnostics record WHY a frame is being drawn (see resolveRedrawReason).
@@ -1308,10 +1310,8 @@ export function CanvasArea({
     }
     drawInFlightRef.current = true;
 
-    // Centralized invalidation decision, before any scene traversal: a frame
-    // whose state matches the last completed frame and has no pending worker
-    // bitmap is a suppressed clean frame — previously such frames re-walked
-    // the entire visible list with redrawReason 'clean'.
+    // Suppressed-clean decision, before any scene traversal (was a full
+    // visible-list pass with redrawReason 'clean').
     const entry = beginContentFrame({
       coordinator: redrawCoordinatorRef.current!,
       getState: () => stateRef.current,
@@ -1357,8 +1357,7 @@ export function CanvasArea({
         }
       }
 
-      // Present-only path: composite the freshly arrived worker bitmap —
-      // no traversal, no IR build, no replay (was a full clean redraw).
+      // Present-only path: composite the worker bitmap, nothing else.
       if (frameDecision.kind === 'present') {
         const presented = tryPresentWorkerFrame({
           ctx,
@@ -1371,7 +1370,6 @@ export function CanvasArea({
           dpr,
           docVersion: docVersionRef.current,
           frameStart,
-          identityTransform: [1, 0, 0, 1, 0, 0],
           coordinator,
           decision: frameDecision,
           snapshot: frameSnapshot,
@@ -1381,7 +1379,6 @@ export function CanvasArea({
           pendingPresentRef.current = false;
           return;
         }
-        // Bitmap raced stale since the decision — fall through to content.
       }
 
       const entries = walkNodes(doc, activePageNodes(doc));
@@ -1435,15 +1432,17 @@ export function CanvasArea({
       nodeWork.rejectedByContainer = hiddenByContainer.size;
       nodeWork.traversalMs = performance.now() - frameStart;
 
-      // Individual pre-merge rectangles are only collected while diagnostics
-      // are on; the production path passes no recorder and allocates nothing.
-      const dirtyRecorder = isNodeWorkRecordingEnabled() ? new DirtyRegionRecorder() : undefined;
+      const dirtyRecorder = dirtyRecorderRef.current;
+      dirtyRecorder.reset();
       const dirty = computeDocumentDirtyRegion(
         lastRenderedDocRef.current,
         doc,
         undefined,
         parentIndex,
         dirtyRecorder,
+      );
+      const mergedDirty = recordMergedDirty(
+        computeMergedDirtyRegion(dirty, dirtyRecorder, VP_W, VP_H),
       );
       // The world-space dirty bounds, retained so the node loop below can
       // measure how many replayed nodes a dirty-region query could have
@@ -2606,6 +2605,9 @@ export function CanvasArea({
         unsuppressedCause: frameDecision.unsuppressedCause ?? undefined,
         dirtyAreaRatio,
         dirtyRects: dirty.kind === 'partial' ? dirty.rectCount : 0,
+        dirtyRectsAfter: mergedDirty?.afterCount,
+        dirtyAmplification: mergedDirty?.amplification,
+        dirtyMergeFallback: mergedDirty?.fallback === 'none' ? undefined : mergedDirty?.fallback,
         fullRedrawReason,
         dirtyScreenRect: resolveDirtyScreenRect(!!usePartialRedraw, dirtyRect, dpr),
       });
@@ -2632,11 +2634,9 @@ export function CanvasArea({
       drawInFlightRef.current = false;
       if (drawPendingRef.current) {
         drawPendingRef.current = false;
-        // A trigger arrived while this draw was in flight — schedule one more
-        // pass via the frame scheduler to reflect the latest state. Uses the
-        // single shared content key so it coalesces with any reactive/imperative
-        // draw already queued for the same frame. The coordinator decides
-        // whether that pass actually needs to render.
+        // A trigger arrived during the in-flight draw — schedule one more pass
+        // (coalesced on the shared content key); the coordinator decides
+        // whether it actually needs to render.
         redrawCoordinatorRef.current?.noteRescheduledDuringRender();
         const pendingKey = contentDrawFrameKey.current;
         if (pendingKey) scheduleCanvasFrame(pendingKey, 'canvas', () => drawContent());
