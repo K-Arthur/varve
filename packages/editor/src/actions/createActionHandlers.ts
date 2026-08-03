@@ -252,6 +252,41 @@ export function createActionHandlers(
     booleanSubtract: () => e.booleanOp('subtract'),
     booleanIntersect: () => e.booleanOp('intersect'),
     booleanExclude: () => e.booleanOp('exclude'),
+    expandStroke: () => e.expandStrokeSelected(),
+    offsetPath: async () => {
+      const { promptDialog } = await import('../components/PromptDialog');
+      const raw = await promptDialog('Offset path distance (px)', '-8');
+      if (raw === null) return;
+      const distance = Number.parseFloat(raw);
+      if (!Number.isFinite(distance)) return;
+      e.offsetPathSelected(distance);
+    },
+    roundCorners: async () => {
+      const { promptDialog } = await import('../components/PromptDialog');
+      const raw = await promptDialog('Round path corners (radius px)', '8');
+      if (raw === null) return;
+      const radius = Number.parseFloat(raw);
+      if (!Number.isFinite(radius) || radius <= 0) return;
+      e.roundCornersSelected(radius);
+    },
+    simplifyPath: async () => {
+      const { promptDialog } = await import('../components/PromptDialog');
+      const raw = await promptDialog('Simplify path (tolerance px)', '2');
+      if (raw === null) return;
+      const tolerance = Number.parseFloat(raw);
+      if (!Number.isFinite(tolerance) || tolerance <= 0) return;
+      e.simplifyPathSelected(tolerance);
+    },
+    mirrorDuplicateHorizontal: () => e.mirrorDuplicateSelected('horizontal'),
+    mirrorDuplicateVertical: () => e.mirrorDuplicateSelected('vertical'),
+    radialDuplicate: async () => {
+      const { promptDialog } = await import('../components/PromptDialog');
+      const raw = await promptDialog('Radial duplicate count', '8');
+      if (raw === null) return;
+      const count = Number.parseInt(raw, 10);
+      if (!Number.isFinite(count) || count < 2) return;
+      e.radialDuplicateSelected(count);
+    },
     upscaleImage: () => {
       const imageNode = e.state.selection
         .map((id) => e.state.document.nodes[id])
