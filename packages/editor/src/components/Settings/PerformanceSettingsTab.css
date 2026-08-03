@@ -28,3 +28,76 @@
 [data-theme="high-contrast"] .performance-settings__stat {
   border: 1px solid var(--color-border-strong);
 }
+
+/* ── Interaction trace waterfall ──────────────────────── */
+.interaction-trace__actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.interaction-trace__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-xs);
+  /* Wide content scrolls inside its own container rather than pushing the
+     settings dialog into horizontal scroll. */
+  display: block;
+  overflow-x: auto;
+  max-height: 24rem;
+  overflow-y: auto;
+}
+.interaction-trace__caption {
+  text-align: left;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  padding-bottom: var(--space-1);
+}
+.interaction-trace__table th,
+.interaction-trace__table td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  white-space: nowrap;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.interaction-trace__table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--elevation-surface-raised);
+  color: var(--color-text-muted);
+}
+.interaction-trace__table tbody th {
+  font-family: monospace;
+  font-weight: var(--font-weight-regular);
+}
+.interaction-trace__track {
+  display: block;
+  min-width: 12rem;
+  height: 0.75rem;
+  background: var(--elevation-surface-sunken);
+  border-radius: var(--radius-sm);
+}
+.interaction-trace__bar {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-sm);
+  background: var(--color-accent);
+}
+/* Estimated spans are hatched as well as recoloured, so the distinction
+   survives greyscale, high contrast and colour-vision deficiency. */
+.interaction-trace__bar--estimated {
+  background: repeating-linear-gradient(
+    45deg,
+    var(--color-text-muted) 0,
+    var(--color-text-muted) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+[data-theme="high-contrast"] .interaction-trace__table th,
+[data-theme="high-contrast"] .interaction-trace__table td {
+  border-bottom: 1px solid var(--color-border-strong);
+}
+[data-theme="high-contrast"] .interaction-trace__bar {
+  outline: 1px solid var(--color-border-strong);
+}

@@ -15,6 +15,7 @@ import {
   type RenderSettingsStore,
   updateSettings,
 } from '../../settings';
+import { InteractionTracePanel } from './InteractionTracePanel';
 
 import './PerformanceSettingsTab.css';
 
@@ -172,6 +173,10 @@ export function PerformanceSettingsTab() {
       <Button variant="secondary" size="sm" onClick={handleCopyDiagnostics}>
         {copied ? 'Copied' : 'Copy performance diagnostics'}
       </Button>
+
+      <div className="settings-divider" />
+
+      <InteractionTracePanel />
 
       <div className="settings-divider" />
 
