@@ -35,6 +35,7 @@ export type SectionId =
   | 'typography'
   | 'interaction'
   | 'component'
+  | 'icon'
   | 'frame-presets'
   | 'adjustment'
   | 'align-distribute'
@@ -329,6 +330,17 @@ export const SECTION_DEFINITIONS: SectionDefinition[] = [
     order: 105,
     category: 'content',
     isAvailable: (ctx) => isSingleSelection(ctx) && isComponentInstance(ctx.selectedNodes),
+  },
+  {
+    id: 'icon',
+    title: 'Icon',
+    defaultExpanded: true,
+    canHide: true,
+    essential: false,
+    order: 108,
+    category: 'content',
+    // Single node carrying a document icon asset reference.
+    isAvailable: (ctx) => isSingleSelection(ctx) && Boolean(ctx.selectedNodes[0]?.iconAssetId),
   },
   {
     id: 'adjustment',

@@ -646,7 +646,13 @@ export function useCanvasInputs({
       const idx = firstSel ? nodes.findIndex((n) => n.id === firstSel) : -1;
 
       if (e.key === 'Tab') {
-        if (nodes.length === 0) return;
+        // Canvas Tab contract (docs/audits/focus-navigation-audit-2026-08-02.md):
+        // with a selection, Tab/Shift+Tab cycle selection through the design
+        // objects (industry-standard for design tools). With no selection,
+        // Tab falls through to normal focus navigation so the canvas is
+        // never a hard keyboard trap — Escape clears selection, then Tab
+        // leaves the canvas for the next region.
+        if (selArr.length === 0) return;
         e.preventDefault();
         if (e.shiftKey) {
           const prev = nodes[(idx <= 0 ? nodes.length : idx) - 1];
