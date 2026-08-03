@@ -14,10 +14,13 @@ import {
 } from '../performance/editorFrameRuntime';
 import type { FrameJob, FrameLane } from '../performance/frameScheduler';
 import {
+  beginInteractionSpan,
   enableInteractionTraces,
   getInteractionTraceCount,
   getRecentInteractionTraces,
+  isInteractionTracingEnabled,
   notifyFrameCommit,
+  recordInteractionSpan,
   resetInteractionTraces,
   setSlowCaptureOnly,
   setSlowInteractionThreshold,
@@ -35,6 +38,7 @@ import {
   type FrameDiagnostics,
   installPerfDiagnosticsHandle as installDrawDiagnosticsHandle,
   renderDrawDiagnostics,
+  resolveDirtyScreenRect,
 } from './drawDiagnostics';
 import {
   endFrameTiming,
@@ -56,6 +60,7 @@ import {
 import type { SubtreeIrCache } from './subtreeIrCache';
 
 export {
+  beginInteractionSpan,
   enableDrawDiagnostics,
   endFrameTiming,
   getAdaptiveCacheLimits,
@@ -71,6 +76,7 @@ export {
   renderDrawDiagnostics,
   resetInteractionTraces,
   resetSnapMetrics,
+  resolveDirtyScreenRect,
   setSlowCaptureOnly,
   setSlowInteractionThreshold,
   startFrameTiming,
@@ -113,6 +119,7 @@ function augmentPerfDiagnosticsHandle(): void {
     interactions: {
       getTraces: (n = 10) => getRecentInteractionTraces(n),
       count: () => getInteractionTraceCount(),
+      summary: () => summarizeInteractionTraces(getRecentInteractionTraces(50)),
       reset: resetInteractionTraces,
       setSlowThreshold: setSlowInteractionThreshold,
       setSlowOnly: setSlowCaptureOnly,
@@ -132,6 +139,11 @@ function augmentPerfDiagnosticsHandle(): void {
  */
 export function recordFrame(frame: FrameDiagnostics): void {
   drawDiagnosticsRecordFrame(frame);
+  recordInteractionSpan('render.main', frame.totalMs, {
+    renderPath: frame.renderPath,
+    nodeCount: frame.nodeCount,
+    partialRedraw: frame.partialRedraw,
+  });
   notifyFrameCommit(performance.now(), frame.totalMs);
 }
 
@@ -140,6 +152,14 @@ export function createCanvasFrameKey(scope: string): string {
 }
 
 export function scheduleCanvasFrame(key: string, lane: FrameLane, job: FrameJob): void {
+  if (isInteractionTracingEnabled()) {
+    const finishQueue = beginInteractionSpan('render.queue', { lane });
+    requestEditorFrame(key, lane, (frameTimeMs) => {
+      finishQueue();
+      job(frameTimeMs);
+    });
+    return;
+  }
   requestEditorFrame(key, lane, job);
 }
 
@@ -240,7 +260,7 @@ function renderSecondaryPerfPanel(ctx: CanvasRenderingContext2D, canvasWidth: nu
   }
   if (summary.count > 0) {
     lines.push(
-      `interactions: ${summary.count} (${summary.slowCount} slow), p2p ${summary.avgPointerToPresentMs.toFixed(1)}ms avg, total p95 ${summary.p95TotalMs.toFixed(1)}ms`,
+      `interactions: ${summary.count} (${summary.slowCount} slow), p2p p95/p99 ${summary.pointerToPresent.p95.toFixed(1)}/${summary.pointerToPresent.p99.toFixed(1)}ms, total p95 ${summary.p95TotalMs.toFixed(1)}ms`,
     );
   }
   if (lines.length === 0) return;

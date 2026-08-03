@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   beginInteraction,
+  beginInteractionSpan,
   enableInteractionTraces,
   endInteraction,
   getInteractionTraceCount,
   getRecentInteractionTraces,
   isInteractionTracingEnabled,
+  MAX_INTERACTION_FRAMES,
+  MAX_INTERACTION_SPANS,
   notifyFrameCommit,
   recordInteractionSpan,
   resetInteractionTraces,
@@ -48,6 +51,26 @@ describe('interactionTrace', () => {
     expect(trace.pointerToPresentMs).not.toBeNull();
     expect(trace.totalMs).toBeGreaterThanOrEqual(0);
     expect(trace.id).toBeGreaterThan(0);
+    expect(trace.schemaVersion).toBe(1);
+    expect(trace.droppedSpanCount).toBe(0);
+    expect(trace.droppedFrameCount).toBe(0);
+  });
+
+  it('counts input events independently from named phase spans', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag');
+    recordInteractionSpan('pointer.input', 3);
+    recordInteractionSpan('snap.prefilter', 1);
+    recordInteractionSpan('snap.evaluate', 2);
+    endInteraction();
+
+    const trace = getRecentInteractionTraces(1)[0]!;
+    expect(trace.eventCount).toBe(1);
+    expect(trace.spans.map((span) => span.name)).toEqual([
+      'pointer.input',
+      'snap.prefilter',
+      'snap.evaluate',
+    ]);
   });
 
   it('composes nested interactions by closing the previous one', () => {
@@ -70,6 +93,33 @@ describe('interactionTrace', () => {
     expect(trace.frames).toHaveLength(2);
   });
 
+  it('attributes the first frame that arrives just after a fast gesture ends', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag');
+    recordInteractionSpan('pointer.input', 1);
+    const trace = endInteraction()!;
+    expect(trace.pointerToPresentMs).toBeNull();
+
+    notifyFrameCommit(trace.endedAt + 10, 4);
+
+    expect(trace.pointerToPresentMs).toBeGreaterThanOrEqual(0);
+    expect(trace.frameCount).toBe(1);
+  });
+
+  it('lets an async phase finish against its originating interaction', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag');
+    const finish = beginInteractionSpan('render.queue', { lane: 'canvas' });
+    const trace = endInteraction()!;
+
+    finish({ replaced: false });
+
+    expect(trace.spans.at(-1)).toMatchObject({
+      name: 'render.queue',
+      attributes: { lane: 'canvas', replaced: false },
+    });
+  });
+
   it('slow-only capture retains only gestures above the threshold', () => {
     enableInteractionTraces(true);
     setSlowCaptureOnly(true);
@@ -85,6 +135,22 @@ describe('interactionTrace', () => {
     expect(getInteractionTraceCount()).toBe(1); // still just the slow one
   });
 
+  it('slow-only capture can qualify a fast gesture from its delayed presentation', () => {
+    enableInteractionTraces(true);
+    setSlowCaptureOnly(true);
+    setSlowInteractionThreshold(5);
+    beginInteraction('pointer-drag');
+    recordInteractionSpan('pointer.input', 1);
+    const trace = endInteraction()!;
+    expect(getInteractionTraceCount()).toBe(0);
+
+    notifyFrameCommit(trace.endedAt + 10, 4);
+
+    expect(trace.slow).toBe(true);
+    expect(getInteractionTraceCount()).toBe(1);
+    expect(getRecentInteractionTraces(1)[0]?.id).toBe(trace.id);
+  });
+
   it('keeps a bounded ring buffer', () => {
     enableInteractionTraces(true);
     setSlowCaptureOnly(true);
@@ -94,6 +160,25 @@ describe('interactionTrace', () => {
       endInteraction();
     }
     expect(getInteractionTraceCount()).toBe(50);
+  });
+
+  it('bounds frames and spans inside a single long interaction', () => {
+    enableInteractionTraces(true);
+    beginInteraction('pointer-drag');
+    for (let i = 0; i < MAX_INTERACTION_SPANS + 25; i++) {
+      recordInteractionSpan('pointer.input', 1);
+    }
+    for (let i = 0; i < MAX_INTERACTION_FRAMES + 25; i++) {
+      notifyFrameCommit(performance.now(), 4);
+    }
+    const trace = endInteraction()!;
+
+    expect(trace.eventCount).toBe(MAX_INTERACTION_SPANS + 25);
+    expect(trace.spans).toHaveLength(MAX_INTERACTION_SPANS);
+    expect(trace.droppedSpanCount).toBe(25);
+    expect(trace.frameCount).toBe(MAX_INTERACTION_FRAMES + 25);
+    expect(trace.frames).toHaveLength(MAX_INTERACTION_FRAMES);
+    expect(trace.droppedFrameCount).toBe(25);
   });
 
   it('clears state when disabled', () => {
@@ -121,5 +206,9 @@ describe('interactionTrace', () => {
     expect(summary.avgPointerToPresentMs).toBeGreaterThanOrEqual(0);
     expect(summary.p95TotalMs).toBeGreaterThanOrEqual(summary.maxTotalMs * 0.9);
     expect(summary.maxTotalMs).toBeGreaterThanOrEqual(0);
+    expect(summary.total.count).toBe(5);
+    expect(summary.total.p99).toBeGreaterThanOrEqual(summary.total.p95);
+    expect(summary.pointerToPresent.count).toBe(5);
+    expect(summary.pointerToPresent.max).toBeGreaterThanOrEqual(summary.pointerToPresent.p99);
   });
 });
