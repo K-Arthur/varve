@@ -11,7 +11,7 @@
  * committed while the interaction is open belongs to it), so no id needs to
  * thread through the render path.
  */
-export type InteractionKind = 'pointer-drag' | 'wheel' | 'pinch' | 'keyboard' | 'unknown';
+export type InteractionKind = 'pointer-drag' | 'wheel' | 'pinch' | 'keyboard' | 'hover' | 'unknown';
 
 export interface InteractionSpan {
   /** Stable span name, e.g. 'pointer.input', 'interaction.dispatch'. */

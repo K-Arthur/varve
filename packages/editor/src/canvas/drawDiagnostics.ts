@@ -127,6 +127,8 @@ const MAX_DIAG_FRAMES = 120;
 const diagRing: FrameDiagnostics[] = [];
 let diagEnabled = false;
 let diagFrozen = false;
+let overlayPruneScreenRects: readonly { x: number; y: number; w: number; h: number }[] | null =
+  null;
 
 export function enableDrawDiagnostics(force?: boolean): void {
   diagEnabled = force === true;
@@ -187,6 +189,28 @@ export function installPerfDiagnosticsHandle(): void {
 
 export function resetDiagnostics(): void {
   diagRing.length = 0;
+  overlayPruneScreenRects = null;
+}
+
+/**
+ * Viewport-space merged dirty rects for the overlay. Stored here (not in the
+ * perf runtime) so the HUD renderer needs no extra import.
+ */
+export function recordPruneScreenRects(
+  rects: readonly { x: number; y: number; w: number; h: number }[] | null,
+): void {
+  if (diagEnabled) overlayPruneScreenRects = rects;
+}
+
+export function getPruneScreenRectsForOverlay():
+  | readonly {
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }[]
+  | null {
+  return overlayPruneScreenRects;
 }
 
 export function recordFrame(frame: FrameDiagnostics): void {
@@ -254,6 +278,18 @@ export function renderDrawDiagnostics(ctx: CanvasRenderingContext2D, canvasWidth
     ctx.strokeStyle = ctx.fillStyle;
     ctx.lineWidth = 2;
     ctx.strokeRect(dirty.x, dirty.y, dirty.w, dirty.h);
+  }
+  // Individual merged dirty rects (the pruned paint regions) — drawn when the
+  // frame was pruned, so the empty gaps between them are visible.
+  if (last.partialRedraw && last.dirtyRectsAfter && last.dirtyRectsAfter > 0) {
+    ctx.strokeStyle = '#0ff';
+    ctx.lineWidth = 1;
+    const screen = getPruneScreenRectsForOverlay();
+    if (screen && screen.length > 0) {
+      for (const rect of screen) {
+        ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+      }
+    }
   }
   ctx.restore();
 }
