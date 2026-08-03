@@ -152,6 +152,23 @@ export const WORKSPACE_AUDIT_PROFILES: Record<WorkspaceMode, WorkspaceAuditProfi
     statusBadgeCategories: ['codegen', 'structure'],
     overlayCategories: ['codegen'],
   },
+
+  logo: {
+    workspace: 'logo',
+    primaryCategories: ['vector', 'color', 'typography', 'export'],
+    secondaryCategories: ['structure', 'accessibility', 'layout', 'spacing', 'layer-hygiene'],
+    hiddenCategories: ['print', 'prototype', 'raster', 'codegen', 'performance', 'governance'],
+    defaultStage: 'on-demand',
+    maxFindings: 60,
+    contextualSummaryRules: [
+      'vector/open-path',
+      'vector/self-intersection',
+      'vector/unnecessary-anchors',
+      'contrast/aa-fail',
+    ],
+    statusBadgeCategories: ['vector', 'color', 'export'],
+    overlayCategories: ['vector', 'color'],
+  },
 };
 
 // ---------------------------------------------------------------------------

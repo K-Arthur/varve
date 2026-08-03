@@ -123,6 +123,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.view.workspaceDrawing': 'Workspace: Draw',
   'menu.view.workspaceImage': 'Workspace: Photo',
   'menu.view.workspaceMotion': 'Workspace: Motion',
+  'menu.view.workspaceLogo': 'Workspace: Logo',
 
   // ── Object ─────────────────────────────────────────────────────────────────
   'menu.object.group': 'Group Selection',

@@ -403,6 +403,11 @@ export const SHORTCUT_DEFS = {
     label: 'Workspace: Codegen',
     category: 'View',
   },
+  workspaceLogo: {
+    binding: { key: '6', ctrl: true, shift: true },
+    label: 'Workspace: Logo',
+    category: 'View',
+  },
   toggleDistractionFree: {
     binding: { key: '.', ctrl: true, shift: true },
     label: 'Toggle Distraction-Free Mode',

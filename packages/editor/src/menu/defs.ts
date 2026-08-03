@@ -723,6 +723,15 @@ export function getViewMenu(
       run: () => runAction('workspaceMotion'),
     },
     {
+      id: 'workspaceLogo',
+      labelKey: 'menu.view.workspaceLogo',
+      accelerator: a('6', true, true),
+      kind: 'radio',
+      group: 'workspace',
+      radioGroup: 'workspace',
+      run: () => runAction('workspaceLogo'),
+    },
+    {
       id: 'resetWorkspace',
       labelKey: 'menu.view.resetWorkspace',
       kind: 'command',

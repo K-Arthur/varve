@@ -25,6 +25,7 @@ export type PresetCategory =
   | 'presentation'
   | 'paper'
   | 'icon-asset'
+  | 'logo'
   | 'blank'
   | 'custom';
 

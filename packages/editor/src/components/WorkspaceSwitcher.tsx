@@ -51,6 +51,7 @@ function ModeButton({
     image: 'image',
     motion: 'play',
     codegen: 'code',
+    logo: 'stamp',
   };
   const solidIcon = WORKSPACE_SOLID_ICONS[mode];
 
