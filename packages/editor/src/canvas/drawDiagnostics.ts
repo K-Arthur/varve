@@ -75,18 +75,48 @@ export interface FrameDiagnostics {
   dirtyRects?: number;
   /** Why a dirty frame fell back to a full redraw (null when partial is fine). */
   fullRedrawReason?: string;
+  /**
+   * Merged partial-redraw rectangle in canvas backing-store pixels. Keeping
+   * this in screen space lets the diagnostics overlay draw it without scene
+   * traversal or camera math.
+   */
+  dirtyScreenRect?: { x: number; y: number; w: number; h: number };
+}
+
+export function resolveDirtyScreenRect(
+  partialRedraw: boolean,
+  dirtyRect: { x: number; y: number; w: number; h: number } | null,
+  dpr: number,
+): FrameDiagnostics['dirtyScreenRect'] {
+  if (!partialRedraw || !dirtyRect) return undefined;
+  return {
+    x: dirtyRect.x * dpr,
+    y: dirtyRect.y * dpr,
+    w: dirtyRect.w * dpr,
+    h: dirtyRect.h * dpr,
+  };
 }
 
 const MAX_DIAG_FRAMES = 120;
 const diagRing: FrameDiagnostics[] = [];
 let diagEnabled = false;
+let diagFrozen = false;
 
 export function enableDrawDiagnostics(force?: boolean): void {
   diagEnabled = force === true;
+  if (!diagEnabled) diagFrozen = false;
 }
 
 export function isDiagnosticsEnabled(): boolean {
   return diagEnabled;
+}
+
+export function setDiagnosticsFrozen(frozen: boolean): void {
+  diagFrozen = frozen;
+}
+
+export function isDiagnosticsFrozen(): boolean {
+  return diagFrozen;
 }
 
 /**
@@ -106,6 +136,8 @@ export function installPerfDiagnosticsHandle(): void {
       getFrames: (n: number) => FrameDiagnostics[];
       getLast: () => FrameDiagnostics | null;
       isEnabled: () => boolean;
+      freeze: (frozen: boolean) => void;
+      isFrozen: () => boolean;
     };
   };
   if (globalThisAny.__strataPerf) {
@@ -122,6 +154,8 @@ export function installPerfDiagnosticsHandle(): void {
     getFrames: getRecentFrames,
     getLast: getLastFrame,
     isEnabled: isDiagnosticsEnabled,
+    freeze: setDiagnosticsFrozen,
+    isFrozen: isDiagnosticsFrozen,
   };
 }
 
@@ -130,7 +164,7 @@ export function resetDiagnostics(): void {
 }
 
 export function recordFrame(frame: FrameDiagnostics): void {
-  if (!diagEnabled) return;
+  if (!diagEnabled || diagFrozen) return;
   diagRing.push({ ...frame, committedAt: performance.now() });
   if (diagRing.length > MAX_DIAG_FRAMES) diagRing.shift();
 }
@@ -184,5 +218,11 @@ export function renderDrawDiagnostics(ctx: CanvasRenderingContext2D, canvasWidth
   lines.forEach((line, i) => {
     ctx.fillText(line, canvasWidth - 8, 20 + i * 18);
   });
+  if (last.partialRedraw && last.dirtyScreenRect) {
+    const dirty = last.dirtyScreenRect;
+    ctx.strokeStyle = ctx.fillStyle;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(dirty.x, dirty.y, dirty.w, dirty.h);
+  }
   ctx.restore();
 }
