@@ -145,6 +145,7 @@ export function createActionHandlers(
     toggleRightPanel: () => e.toggleRightPanel(),
     toggleLibraryPanel: () => e.toggleLibraryPanel(),
     toggleCodegenPanel: () => e.toggleCodegenPanel(),
+    toggleLogoPanel: () => e.toggleLogoPanel(),
     toggleTimelinePanel: () => e.toggleTimelinePanel(),
     toggleGraphEditor: () => e.toggleGraphEditor(),
     toggleStateMachinePanel: () => e.toggleStateMachinePanel(),

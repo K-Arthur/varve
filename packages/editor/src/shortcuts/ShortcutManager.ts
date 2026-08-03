@@ -282,6 +282,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Codegen Panel',
     category: 'View',
   },
+  toggleLogoPanel: {
+    binding: { key: 'l', ctrl: true, alt: true, shift: true },
+    label: 'Toggle Logo Panel',
+    category: 'View',
+  },
   toggleTimelinePanel: {
     binding: { key: 't', ctrl: true, alt: true },
     label: 'Toggle Timeline Panel',

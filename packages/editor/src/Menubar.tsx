@@ -1257,6 +1257,7 @@ function itemRole(item: MenuItem): string {
     return 'menuitemcheckbox';
   if (item.action?.startsWith('colorBlindness')) return 'menuitemradio';
   if (item.action?.startsWith('workspace')) return 'menuitemradio';
+  if (item.action === 'toggleLogoPanel') return 'menuitemcheckbox';
   if (item.action === 'rulerModeArtboard' || item.action === 'rulerModeGlobal')
     return 'menuitemradio';
   if (item.action?.startsWith('applyMaster')) return 'menuitemradio';
@@ -1280,9 +1281,11 @@ function itemAriaChecked(
     workspaceMode: string;
     colorBlindnessView: string;
     rulerMode: string;
+    logoPanelVisible: boolean;
     document?: { activePageId?: string; pages?: Array<{ id: string; masterPageId?: string }> };
   },
 ): boolean | undefined {
+  if (item.action === 'toggleLogoPanel') return state.logoPanelVisible;
   if (item.action?.startsWith('theme:')) {
     return getTheme() === item.action.slice(6);
   }
@@ -1335,6 +1338,7 @@ const WORKSPACE_ITEM_FILTER: Record<string, WorkspaceMode[]> = {
   toggleTimelinePanel: ['design', 'motion'],
   toggleGraphEditor: ['design', 'motion'],
   toggleStateMachinePanel: ['design', 'motion'],
+  toggleLogoPanel: ['design', 'logo'],
   toggleBeforeAfterCompare: ['design', 'print', 'drawing', 'image'],
 
   // Object menu — mode-specific
