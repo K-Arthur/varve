@@ -220,6 +220,7 @@ export function FloatingTextBar({ node, onUpdate, onClose, textScreenRect }: Flo
         placement="top"
         open={colorOpen}
         onOpenChange={setColorOpen}
+        label="Text color"
         popover={<ColorPicker value={fillColor} onChange={handleColorChange} />}
       >
         <button
