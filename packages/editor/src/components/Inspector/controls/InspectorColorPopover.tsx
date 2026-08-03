@@ -6,19 +6,22 @@
  *
  * Research basis: APG Dialog (Modal); Floating UI placement; WCAG 2.2 target size.
  */
-import type { ColorMode, ColorProfileRef, ManagedColor } from '@strata/scene';
+import type { ColorMode, Document, ManagedColor } from '@strata/scene';
+import { managedColorKey, managedColorToRgba } from '@strata/shared';
 import { FloatingPortal, FocusTrap, Icon } from '@strata/ui';
+import type { Color } from '@strata/ui/components/ColorPicker';
 import { ColorPicker } from '@strata/ui/components/ColorPicker';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
+import { addRecentColor, extractDocumentColors, getRecentColors } from '../color/colorCollections';
 
 /**
- * Document CMYK working profile, when rendered inside EditorProvider.
- * Standalone renders (unit tests) fall back to null.
+ * Current document, when rendered inside EditorProvider. Standalone renders
+ * (unit tests) fall back to null.
  */
-function useDocCmykProfile(): ColorProfileRef | null {
+function useDocDocument(): Document | null {
   try {
-    return useEditor().state.document.colorConfig?.cmykProfile ?? null;
+    return useEditor().state.document;
   } catch {
     return null;
   }
@@ -61,11 +64,52 @@ export function InspectorColorPopover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogId = useId();
   const titleId = useId();
-  const cmykProfile = useDocCmykProfile();
+  const doc = useDocDocument();
+  const cmykProfile = useMemo(() => doc?.colorConfig?.cmykProfile ?? null, [doc]);
+  // Swatches display the process-color equivalent; native space identity is
+  // re-established by the picker's authoring-space emission on selection.
+  const documentColors = useMemo(
+    () => (doc ? extractDocumentColors(doc).map((c) => managedColorToRgba(c) as Color) : []),
+    [doc],
+  );
+  const recentColors = useMemo(
+    () => getRecentColors().map((c) => managedColorToRgba(c) as Color),
+    // Re-read when the picker opens so recently used colors from other
+    // pickers show up.
+    [open],
+  );
+  const [recentColorsState, setRecentColorsState] = useState<Color[]>(() => recentColors);
 
   const gestureActiveRef = useRef(false);
+  const openValueRef = useRef<ManagedColor | null>(null);
+  const lastEmittedRef = useRef<ManagedColor | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      openValueRef.current = value;
+      lastEmittedRef.current = null;
+    }
+  }, [open, value]);
+
+  const handleChange = useCallback(
+    (c: ManagedColor) => {
+      lastEmittedRef.current = c;
+      onChange(c);
+    },
+    [onChange],
+  );
 
   const close = useCallback(() => {
+    // Record a recent color when a committed edit changed the value since the
+    // picker opened. Tracked from emitted changes (not the echoed prop) so the
+    // record survives parents that update asynchronously. Recorded on
+    // dismissal (not per preview event) so slider drags do not flood the list
+    // with intermediate steps.
+    const opened = openValueRef.current;
+    const emitted = lastEmittedRef.current;
+    if (opened && emitted && managedColorKey(opened) !== managedColorKey(emitted)) {
+      setRecentColorsState(addRecentColor(emitted).map((c) => managedColorToRgba(c) as Color));
+    }
     // Commit any in-flight gesture when the dialog is dismissed (Esc, Done,
     // outside click) so its changes land in exactly one undo entry.
     if (gestureActiveRef.current) {
@@ -162,9 +206,11 @@ export function InspectorColorPopover({
             </div>
             <ColorPicker
               value={value}
-              onChange={onChange}
+              onChange={handleChange}
               documentColorMode={documentColorMode}
               cmykProfile={cmykProfile}
+              documentColors={documentColors}
+              recentColors={recentColorsState}
             />
             <button type="button" onClick={close} className="insp-picker-done">
               Done
