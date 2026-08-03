@@ -185,4 +185,40 @@ describe('InspectorColorPopover', () => {
     expect(onEditEnd).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  it('records a recent color when a committed edit is dismissed', async () => {
+    sessionStorage.clear();
+    render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={() => {}}
+        swatchStyle={{ background: '#fff' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('option', { name: /teal 500/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+    const raw = sessionStorage.getItem('strata:recent-colors');
+    expect(raw).toBeTruthy();
+    const parsed = JSON.parse(raw!) as ManagedColor[];
+    expect(parsed[0]).toMatchObject({ space: 'rgb', r: 20, g: 184, b: 166, a: 255 });
+  });
+
+  it('does not record a recent color when nothing changed', async () => {
+    sessionStorage.clear();
+    render(
+      <InspectorColorPopover
+        label="Fill colour"
+        value={WHITE}
+        onChange={() => {}}
+        swatchStyle={{ background: '#fff' }}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /fill colour/i }));
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: /^done$/i }));
+    expect(sessionStorage.getItem('strata:recent-colors')).toBeNull();
+  });
 });
