@@ -1,3 +1,4 @@
+import { managedColorToRgba } from '@strata/shared';
 import type { ColorSwatch, ManagedColor, RgbColor } from './colorManagement';
 import type { Document } from './document';
 
@@ -89,33 +90,19 @@ export function reorderSwatches(doc: Document, fromIndex: number, toIndex: numbe
 
 /**
  * Convert a ManagedColor to a hex string (#rrggbb).
- * Only works for RGB colors — other spaces are converted via
- * approximate sRGB fallback.
+ * RGB passes through; every other space is reduced via the canonical
+ * display reduction (managedColorToRgba), so Lab/LCH/spot/registration/
+ * unresolved colors produce the same preview values as the renderer.
  */
 export function managedColorToHex(color: ManagedColor): string {
-  switch (color.space) {
-    case 'rgb': {
-      const r = Math.round(color.r);
-      const g = Math.round(color.g);
-      const b = Math.round(color.b);
-      return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-    }
-    case 'cmyk': {
-      // Approximate CMYK → sRGB
-      const r = Math.round(255 * (1 - color.c / 255) * (1 - color.k / 255));
-      const g = Math.round(255 * (1 - color.m / 255) * (1 - color.k / 255));
-      const b = Math.round(255 * (1 - color.y / 255) * (1 - color.k / 255));
-      return `#${Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0')}`;
-    }
-    case 'gray': {
-      const v = Math.round(color.v);
-      return `#${v.toString(16).padStart(2, '0')}${v.toString(16).padStart(2, '0')}${v.toString(16).padStart(2, '0')}`;
-    }
-    case 'spot': {
-      // Spot colors don't have a direct hex representation; return a placeholder
-      return '#808080';
-    }
+  if (color.space === 'rgb') {
+    const r = Math.round(color.r);
+    const g = Math.round(color.g);
+    const b = Math.round(color.b);
+    return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
+  const [r, g, b] = managedColorToRgba(color);
+  return `#${Math.max(0, Math.min(255, r)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, g)).toString(16).padStart(2, '0')}${Math.max(0, Math.min(255, b)).toString(16).padStart(2, '0')}`;
 }
 
 /**

@@ -55,7 +55,11 @@ function colorKey(c: ManagedColor): string {
   if (c.space === 'rgb') return `rgb:${c.r},${c.g},${c.b},${c.a}`;
   if (c.space === 'cmyk') return `cmyk:${c.c},${c.m},${c.y},${c.k},${c.a}`;
   if (c.space === 'gray') return `gray:${c.v},${c.a}`;
-  return `spot:${c.name ?? ''},${c.tint}`;
+  if (c.space === 'spot') return `spot:${c.spotId ?? ''},${c.name},${c.tint}`;
+  if (c.space === 'lab') return `lab:${c.l},${c.av},${c.b},${c.a}`;
+  if (c.space === 'lch') return `lch:${c.l},${c.c},${c.h},${c.a}`;
+  if (c.space === 'registration') return `registration:${c.a}`;
+  return `unresolved:${c.source}`;
 }
 
 export function computeFingerprint(doc: Document): DesignFingerprint {

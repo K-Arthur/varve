@@ -82,42 +82,23 @@ export type Color = readonly [number, number, number, number];
 
 // ── Engine Color type (mirrors @strata/scene ManagedColor) ──────────────────
 
-/** Engine color that mirrors ManagedColor but is self-contained. */
-export interface EngineRgbColor {
-  space: 'rgb';
-  r: number;
-  g: number;
-  b: number;
-  a: number;
-  profile?: string;
-}
+/**
+ * Engine color: structurally identical to `@strata/scene` `ManagedColor`
+ * (the union lives in `@strata/shared` as `ManagedColorShim` so the engine
+ * does not depend on the scene package). All render paths reduce any member
+ * to RGBA via `managedColorToRgba`, so adding variants is a reducer change,
+ * not a wire change.
+ */
+export type EngineColor = import('@strata/shared').ManagedColorShim;
 
-export interface EngineCmykColor {
-  space: 'cmyk';
-  c: number;
-  m: number;
-  y: number;
-  k: number;
-  a: number;
-  profile?: string;
-}
-
-export interface EngineGrayColor {
-  space: 'gray';
-  v: number;
-  a: number;
-  profile?: string;
-}
-
-export interface EngineSpotColor {
-  space: 'spot';
-  name: string;
-  tint: number;
-  a: number;
-  processFallback?: { c: number; m: number; y: number; k: number };
-}
-
-export type EngineColor = EngineRgbColor | EngineCmykColor | EngineGrayColor | EngineSpotColor;
+/** RGB member of the engine color union (backward-compatible alias). */
+export type EngineRgbColor = import('@strata/shared').ManagedColorShim & { space: 'rgb' };
+/** CMYK member of the engine color union (backward-compatible alias). */
+export type EngineCmykColor = import('@strata/shared').ManagedColorShim & { space: 'cmyk' };
+/** Grayscale member of the engine color union (backward-compatible alias). */
+export type EngineGrayColor = import('@strata/shared').ManagedColorShim & { space: 'gray' };
+/** Spot member of the engine color union (backward-compatible alias). */
+export type EngineSpotColor = import('@strata/shared').ManagedColorShim & { space: 'spot' };
 
 export type BlendMode =
   | 'passThrough'
