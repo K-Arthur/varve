@@ -27,7 +27,7 @@ import {
 function sampleImageData(size: number): ImageData {
   const data = new Uint8ClampedArray(size * size * 4);
   for (let i = 0; i < size * size; i += 1) {
-    const v = (i * 7) % 256;
+    const v = ((i * 7) % 256) as number;
     data[i * 4] = v;
     data[i * 4 + 1] = (i * 3) % 256;
     data[i * 4 + 2] = (i * 5) % 256;
@@ -95,29 +95,29 @@ describe('source preparation', () => {
     input.data[1] = 0;
     input.data[2] = 0;
     const out = grayscale(input);
-    expect(out.data[0]).toBe(out.data[1]);
-    expect(out.data[1]).toBe(out.data[2]);
-    expect(out.data[3]).toBe(input.data[3]);
+    expect(out.data[0] as number).toBe(out.data[1] as number);
+    expect(out.data[1] as number).toBe(out.data[2] as number);
+    expect(out.data[3] as number).toBe(input.data[3] as number);
   });
 
   it('invert complements channels but not alpha', () => {
     const input = sampleImageData(4);
     const out = invert(input);
-    expect(out.data[0]).toBe(255 - input.data[0]);
-    expect(out.data[3]).toBe(input.data[3]);
+    expect(out.data[0] as number).toBe(255 - (input.data[0] as number));
+    expect(out.data[3] as number).toBe(input.data[3] as number);
   });
 
   it('contrast clamps to byte range', () => {
     const input = sampleImageData(4);
     input.data[0] = 200;
     const out = contrast(input, 3);
-    expect(out.data[0]).toBe(255);
+    expect(out.data[0] as number).toBe(255);
   });
 
   it('brightness shifts within range', () => {
     const input = sampleImageData(4);
     const out = brightness(input, 40);
-    expect(out.data[0]).toBe(Math.min(255, input.data[0] + 40));
+    expect(out.data[0] as number).toBe(Math.min(255, (input.data[0] as number) + 40));
   });
 
   it('threshold produces binary output', () => {
@@ -175,14 +175,14 @@ describe('vectorization session', () => {
 
   it('cancelAll aborts in-flight work and bumps the generation', () => {
     const session = new VectorizationSession();
-    const handle = session.beginRequest();
+    const { handle } = session.beginRequest();
     session.cancelAll();
     expect(session.isCurrent(handle)).toBe(false);
   });
 
   it('dispose permanently invalidates', () => {
     const session = new VectorizationSession();
-    const handle = session.beginRequest();
+    const { handle } = session.beginRequest();
     session.dispose();
     expect(session.isDisposed).toBe(true);
     expect(session.isCurrent(handle)).toBe(false);

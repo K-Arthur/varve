@@ -1,16 +1,17 @@
 /**
- * VectorizeSection — visual vectorization controls for the Logo panel.
+ * VectorizeWorkflow — host-agnostic vectorization controls.
  *
- * Non-destructive workflow: settings + source preparation are previewed on a
- * panel canvas at bounded resolution (never written to the document, no undo
- * pollution). Apply re-runs the same settings at final resolution and inserts
- * native editable Strata paths via the shared insertTraceGroup op in a single
- * undo transaction, with the source preserved beside the result.
+ * Used by the Logo panel (vectorization stage of the logo workflow) and the
+ * Inspector Image & Vector section (design/image workspaces) so every surface
+ * offers the same key features: presets, source preparation, live preview
+ * with diagnostics, and a single-undo Apply that inserts native editable
+ * Strata paths beside the source.
  *
- * Stale-result protection: every preview request is correlated through a
- * VectorizationSession (request id + abort signal + generation); newer
- * requests cancel older ones, and Apply verifies the source node is still
- * selected and identity-unchanged before committing.
+ * Non-destructive by design: previews run on a panel canvas at bounded
+ * resolution and never touch the document; Apply re-runs the same settings at
+ * final resolution and commits through the shared insertTraceGroup op.
+ * Stale results are rejected via VectorizationSession (request id +
+ * generation + abort), so newer previews cancel older ones.
  */
 
 import type { RasterTracePath, RasterTraceResult } from '@strata/engine';
@@ -35,6 +36,7 @@ import {
   type VectorizationSettings,
   validateVectorizationSettings,
 } from '../../logo/vectorization/settings';
+import './vectorize.css';
 
 const MODE_OPTIONS = [
   { value: 'monochrome', label: 'B&W' },
@@ -66,6 +68,11 @@ interface PreviewState {
   diagnostics?: TraceDiagnostics;
 }
 
+export interface VectorizeWorkflowProps {
+  /** Copy shown when no single image layer is selected. */
+  emptyStateNote?: string;
+}
+
 /** The selected node when it is exactly one image-filled shape. */
 function selectedImageNode(
   selection: string[],
@@ -80,7 +87,7 @@ function sliderProps(label: string, value: number, min: number, max: number, ste
   return { label, value, min, max, step };
 }
 
-export function VectorizeSection() {
+export function VectorizeWorkflow({ emptyStateNote }: VectorizeWorkflowProps) {
   const editor = useEditor();
   const { document: doc, selection } = editor.state;
   const node = useMemo(() => selectedImageNode(selection, doc), [doc, selection]);
@@ -91,7 +98,6 @@ export function VectorizeSection() {
   const [applying, setApplying] = useState(false);
   const sessionRef = useRef<VectorizationSession | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const lastPreviewNodeRef = useRef<string | null>(null);
 
   const nodeId = node?.id ?? null;
   const settingsHash = hashVectorizationSettings(settings);
@@ -101,7 +107,6 @@ export function VectorizeSection() {
   useEffect(() => {
     const session = new VectorizationSession();
     sessionRef.current = session;
-    lastPreviewNodeRef.current = nodeId;
     return () => session.dispose();
   }, [nodeId]);
 
@@ -209,9 +214,8 @@ export function VectorizeSection() {
 
   const cancelPreview = useCallback(() => {
     sessionRef.current?.cancelAll();
-    lastPreviewNodeRef.current = nodeId;
     setPreview({ status: 'idle' });
-  }, [nodeId]);
+  }, []);
 
   const setPreset = useCallback(
     (id: string) => {
@@ -240,16 +244,16 @@ export function VectorizeSection() {
     node !== null && Math.max(node.shape.kind === 'rect' ? node.shape.w : 0, 0) > MAX_PREVIEW_DIM;
 
   const controlPanel = (
-    <div className="logo-panel__section-body">
-      <div className="logo-panel__field">
-        <span className="logo-panel__field-label">Preset</span>
+    <div className="vectorize__body">
+      <div className="vectorize__field">
+        <span className="vectorize__field-label">Preset</span>
         <Select
           label="Vectorization preset"
           value={settings.presetId ?? ''}
           onChange={setPreset}
           options={VECTORIZATION_PRESETS.map((p) => ({ value: p.id, label: p.label }))}
         />
-        <p className="logo-panel__muted">
+        <p className="vectorize__muted">
           {getVectorizationPreset(settings.presetId)?.description ??
             'Custom settings (select a preset to start from).'}
         </p>
@@ -308,8 +312,8 @@ export function VectorizeSection() {
         </>
       )}
 
-      <div className="logo-panel__field">
-        <span className="logo-panel__field-label">Ink color</span>
+      <div className="vectorize__field">
+        <span className="vectorize__field-label">Ink color</span>
         <SegmentedControl
           label="Foreground ink"
           value={settings.foreground}
@@ -318,9 +322,9 @@ export function VectorizeSection() {
         />
       </div>
 
-      <details className="logo-panel__subsection">
-        <summary className="logo-panel__subsection-heading">Source preparation</summary>
-        <div className="logo-panel__subsection-body">
+      <details className="vectorize__subsection">
+        <summary className="vectorize__subsection-heading">Source preparation</summary>
+        <div className="vectorize__subsection-body">
           <Checkbox
             label="Grayscale first"
             checked={settings.prep.grayscale}
@@ -362,10 +366,10 @@ export function VectorizeSection() {
 
   if (!node) {
     return (
-      <div className="logo-panel__section-body">
-        <p className="logo-panel__muted">
-          Select an image layer to vectorize it. Sketch scans, screenshots, and raster logos all
-          work here — the result is inserted beside the source as editable paths.
+      <div className="vectorize__body">
+        <p className="vectorize__muted">
+          {emptyStateNote ??
+            'Select an image layer to vectorize it. The result is inserted beside the source as editable paths.'}
         </p>
       </div>
     );
@@ -374,7 +378,7 @@ export function VectorizeSection() {
   const diagnostics = preview.diagnostics;
 
   return (
-    <div className="logo-panel__section-body">
+    <div className="vectorize__body">
       <SegmentedControl
         label="Trace type"
         value={settings.mode}
@@ -385,36 +389,36 @@ export function VectorizeSection() {
       {controlPanel}
 
       {validation.warnings.length > 0 && (
-        <div className="logo-panel__warning" role="alert">
+        <div className="vectorize__warning" role="alert">
           {validation.warnings.join(' ')}
         </div>
       )}
 
-      <div className="logo-panel__preview" role="img" aria-label="Vectorization preview">
-        <canvas ref={canvasRef} className="logo-panel__preview-canvas" />
+      <div className="vectorize__preview" role="img" aria-label="Vectorization preview">
+        <canvas ref={canvasRef} className="vectorize__preview-canvas" />
         {preview.status === 'running' && (
-          <span className="logo-panel__preview-badge" role="status">
+          <span className="vectorize__preview-badge" role="status">
             Tracing preview…
           </span>
         )}
         {preview.status === 'error' && preview.error && (
-          <span className="logo-panel__preview-badge logo-panel__preview-badge--error" role="alert">
+          <span className="vectorize__preview-badge vectorize__preview-badge--error" role="alert">
             {preview.error}
           </span>
         )}
         {preview.status === 'idle' && (
-          <span className="logo-panel__preview-badge">Preview appears here</span>
+          <span className="vectorize__preview-badge">Preview appears here</span>
         )}
       </div>
 
       {previewIsDownsampled && preview.status !== 'idle' && (
-        <p className="logo-panel__muted">
+        <p className="vectorize__muted">
           Preview is downsampled for responsiveness; Apply traces at full resolution.
         </p>
       )}
 
       {diagnostics && (
-        <dl className="logo-panel__diagnostics">
+        <dl className="vectorize__diagnostics">
           <div>
             <dt>Paths</dt>
             <dd>{diagnostics.pathCount}</dd>
@@ -434,7 +438,7 @@ export function VectorizeSection() {
         </dl>
       )}
 
-      <div className="logo-panel__button-row">
+      <div className="vectorize__button-row">
         <Tooltip
           label="Insert the traced paths beside the source (undoable)"
           disabledReason={preview.status !== 'ready' ? 'Run a preview first' : undefined}
@@ -457,7 +461,7 @@ export function VectorizeSection() {
           Cancel
         </Button>
       </div>
-      <p className="logo-panel__muted">
+      <p className="vectorize__muted">
         {sourceIsLarge
           ? 'Large source — final trace may take a moment.'
           : 'The source image is preserved; only the new paths are inserted.'}
