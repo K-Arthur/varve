@@ -21,11 +21,19 @@ import {
   isInteractionTracingEnabled,
   notifyFrameCommit,
   recordInteractionSpan,
+  recordInteractionSpanAt,
   resetInteractionTraces,
   setSlowCaptureOnly,
   setSlowInteractionThreshold,
   summarizeInteractionTraces,
 } from '../performance/interactionTrace';
+import {
+  detectPresentationCapabilities,
+  estimateCompositeFromRaf,
+  observePresentation,
+  PRESENTATION_EVIDENCE_BY_RUNTIME,
+  RefreshIntervalEstimator,
+} from '../performance/presentationTiming';
 import { getRegisteredWorkerHost } from '../render/workerHost';
 import {
   computeProfile,
@@ -83,6 +91,14 @@ export {
   summarizeSnapMetrics,
 };
 
+let disposePresentationObserver: (() => void) | null = null;
+
+/** Detach the Event Timing observer (canvas teardown / tracing disabled). */
+export function stopPresentationObserver(): void {
+  disposePresentationObserver?.();
+  disposePresentationObserver = null;
+}
+
 export function installPerfDiagnosticsHandle(): void {
   // The draw-diagnostics handle also flips snap metrics and interaction
   // tracing on so interaction probes reading window.__strataPerf see frame,
@@ -91,6 +107,11 @@ export function installPerfDiagnosticsHandle(): void {
   if (typeof window !== 'undefined' && window.location.search.includes('perf=1')) {
     enableSnapMetrics(true);
     enableInteractionTraces(true);
+    // Real presentation evidence where the runtime exposes it (Event Timing
+    // reports input → next paint). No-op on engines that do not, which fall
+    // back to the rAF lower bound recorded per frame.
+    disposePresentationObserver?.();
+    disposePresentationObserver = observePresentation();
   }
   installDrawDiagnosticsHandle();
   augmentPerfDiagnosticsHandle();
@@ -130,8 +151,18 @@ function augmentPerfDiagnosticsHandle(): void {
     },
     capabilities: () => detectPlatformCapabilities(),
     workerBitmapBudget: () => getRegisteredWorkerHost()?.getBitmapBudgetState() ?? null,
+    // Presentation evidence is reported with its class and limits so a probe
+    // cannot mistake the rAF lower bound for a measured presentation time.
+    presentation: () => ({
+      capabilities: detectPresentationCapabilities(),
+      evidenceByRuntime: PRESENTATION_EVIDENCE_BY_RUNTIME,
+      refreshIntervalMs: refreshEstimator.intervalMs,
+    }),
+    clockCalibration: () => getRegisteredWorkerHost()?.getClockCalibration() ?? null,
   };
 }
+
+const refreshEstimator = new RefreshIntervalEstimator();
 
 /**
  * Record a frame into the diagnostics ring and correlate it with any active
@@ -144,7 +175,32 @@ export function recordFrame(frame: FrameDiagnostics): void {
     nodeCount: frame.nodeCount,
     partialRedraw: frame.partialRedraw,
   });
-  notifyFrameCommit(performance.now(), frame.totalMs);
+  const committedAt = performance.now();
+  notifyFrameCommit(committedAt, frame.totalMs);
+  scheduleCompositeEstimate(committedAt);
+}
+
+/**
+ * Bound when the browser composited this frame using the next animation-frame
+ * callback. This is a lower bound, not a presentation timestamp — see
+ * `presentationTiming.ts` for why nothing here is called `composite.present`.
+ * Skipped entirely when tracing is off, so production pays nothing.
+ */
+function scheduleCompositeEstimate(committedAtMs: number): void {
+  if (!isInteractionTracingEnabled()) return;
+  if (typeof requestAnimationFrame !== 'function') return;
+  requestAnimationFrame((rafTimestampMs) => {
+    refreshEstimator.sample(rafTimestampMs);
+    const sample = estimateCompositeFromRaf(
+      committedAtMs,
+      rafTimestampMs,
+      refreshEstimator.intervalMs,
+    );
+    recordInteractionSpanAt(sample.name, sample.startTimeMs, sample.durationMs, {
+      ...sample.attributes,
+      uncertaintyMs: sample.uncertaintyMs,
+    });
+  });
 }
 
 export function createCanvasFrameKey(scope: string): string {
