@@ -82,6 +82,7 @@ import {
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
 import {
   computeDocumentDirtyRegion,
+  DirtyRegionRecorder,
   type RedrawReason,
   resolveFullRedrawReason,
   resolveRedrawReason,
@@ -95,6 +96,7 @@ import {
   beginInteractionSpan,
   cancelCanvasFrame,
   createCanvasFrameKey,
+  createNodeWorkCounters,
   enableDrawDiagnostics,
   endFrameTiming,
   getAdaptiveCacheLimits,
@@ -102,9 +104,12 @@ import {
   getMemoryBudgets,
   getOverBudgetCount,
   installPerfDiagnosticsHandle,
+  isNodeWorkRecordingEnabled,
   isSnapMetricsEnabled,
   recordFrame,
+  recordNodeWork,
   recordSnapMetrics,
+  rectsIntersect,
   resolveDirtyScreenRect,
   scheduleCanvasFrame,
   startFrameTiming,
@@ -1309,6 +1314,9 @@ export function CanvasArea({
       }
 
       const entries = walkNodes(doc, activePageNodes(doc));
+      const nodeWork = createNodeWorkCounters();
+      nodeWork.totalSceneNodes = Object.keys(doc.nodes).length;
+      nodeWork.candidates = entries.size;
       const cache = transformCacheRef.current;
       // Use parent client dimensions (cssW/cssH) instead of getBoundingClientRect()
       // to avoid forcing a layout recalc on every frame. The canvas is sized to
@@ -1353,14 +1361,26 @@ export function CanvasArea({
         }
       }
 
+      nodeWork.rejectedByContainer = hiddenByContainer.size;
+      nodeWork.traversalMs = performance.now() - frameStart;
+
+      // Individual pre-merge rectangles are only collected while diagnostics
+      // are on; the production path passes no recorder and allocates nothing.
+      const dirtyRecorder = isNodeWorkRecordingEnabled() ? new DirtyRegionRecorder() : undefined;
       const dirty = computeDocumentDirtyRegion(
         lastRenderedDocRef.current,
         doc,
         undefined,
         parentIndex,
+        dirtyRecorder,
       );
+      // The world-space dirty bounds, retained so the node loop below can
+      // measure how many replayed nodes a dirty-region query could have
+      // pruned. Measurement only — the loop's behaviour is unchanged.
+      const dirtyWorldBounds = dirty.kind === 'partial' ? dirty.bounds : null;
       if (dirty.kind === 'full') {
         dirtyRectRef.current = null;
+        nodeWork.fullFallback = true;
       } else if (dirty.kind === 'partial') {
         const dirtyWorld = dirty.bounds;
         // Use the canonical camera transform so rotated views produce the
@@ -1429,10 +1449,21 @@ export function CanvasArea({
         // this padding is identical to the post-conversion value it replaces —
         // offscreen nodes now skip the conversion entirely.
         const appearance = applyStyleOverrides(n, styleOverrides);
-        const visualBounds = worldBounds
-          ? expandRect(worldBounds, appearancePaddingWorld(appearance, world))
-          : null;
-        if (visualBounds && !isWorldRectInViewport(cam, vp, visualBounds)) continue;
+        const padding = appearancePaddingWorld(appearance, world);
+        const visualBounds = worldBounds ? expandRect(worldBounds, padding) : null;
+        nodeWork.visibilityTested++;
+        if (padding > 0) nodeWork.effectExpanded++;
+        if (visualBounds && !isWorldRectInViewport(cam, vp, visualBounds)) {
+          nodeWork.rejectedByViewport++;
+          continue;
+        }
+        // The visible list is built before dirty clipping, so no node is
+        // rejected here by the dirty region. Counting the nodes that *could*
+        // have been is what turns "the rectangle got smaller" into evidence
+        // about node work — see nodeWorkAccounting.ts.
+        if (dirtyWorldBounds && visualBounds && !rectsIntersect(visualBounds, dirtyWorldBounds)) {
+          nodeWork.prunableByDirty++;
+        }
 
         let engineNode = canMemoEngineNodes ? engineMemo.get(id, n, world) : undefined;
         if (!engineNode) {
@@ -1456,10 +1487,16 @@ export function CanvasArea({
             engineMemo.set(id, n, world, engineNode);
           }
         }
+        nodeWork.acceptedForReplay++;
+        if (n.kind === 'rasterLayer') nodeWork.rasterRepainted++;
+        else nodeWork.vectorRepainted++;
         nodeIds.push(id);
         flatNodes.push(engineNode);
       }
       const preLoopMs = performance.now() - preLoopStart;
+      nodeWork.visibilityMs = preLoopMs;
+      nodeWork.cacheReused = engineMemo.hits - engineMemoHitsAtStart;
+      recordNodeWork(nodeWork, dirtyRecorder);
 
       if (s.motion.activeTimelineId) {
         const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
