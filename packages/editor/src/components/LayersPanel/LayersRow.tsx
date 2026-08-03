@@ -51,6 +51,8 @@ export interface LayersRowProps {
   onToggleSelectionCheckbox?: (id: NodeId) => void;
   onFocus: (idx: number) => void;
   idx: number;
+  /** Total visible rows (for aria-setsize on virtualized trees). */
+  totalRows: number;
   style?: React.CSSProperties;
   dragListeners?: DraggableSyntheticListeners;
   dragAttributes?: DraggableAttributes;
@@ -135,6 +137,7 @@ export const LayersRow = memo(function LayersRow({
   onToggleSelectionCheckbox,
   onFocus,
   idx,
+  totalRows,
   style,
   dragListeners,
   dragAttributes,
@@ -288,6 +291,8 @@ export const LayersRow = memo(function LayersRow({
         aria-selected={selected}
         aria-expanded={container ? expanded : undefined}
         aria-level={depth + 1}
+        aria-setsize={totalRows}
+        aria-posinset={idx + 1}
         className={rowClass}
         tabIndex={focused ? 0 : -1}
         onClick={handleClick}

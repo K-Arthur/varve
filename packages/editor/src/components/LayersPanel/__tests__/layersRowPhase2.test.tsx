@@ -58,6 +58,7 @@ function renderRow(props?: Partial<React.ComponentProps<typeof LayersRow>>) {
     focused: false,
     expanded: false,
     editing: false,
+    totalRows: 1,
     onToggleExpand: vi.fn(),
     onSelect: vi.fn(),
     onRename: vi.fn(),

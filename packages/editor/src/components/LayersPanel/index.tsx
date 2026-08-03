@@ -109,6 +109,24 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
     [state.selection, setSelection],
   );
 
+  // Keyboard-triggered context menu (Shift+F10 / Menu key on the focused
+  // row): position the menu at the row instead of a pointer location.
+  const handleContextMenuKeyboard = useCallback(
+    (id: NodeId) => {
+      if (!state.selection.includes(id)) {
+        setSelection(id);
+      }
+      const rowEl = document.querySelector<HTMLElement>(`[data-node-id="${id}"]`);
+      const rect = rowEl?.getBoundingClientRect();
+      setContextMenu({
+        x: rect ? rect.left + 16 : 320,
+        y: rect ? rect.top + 16 : 160,
+        id,
+      });
+    },
+    [state.selection, setSelection],
+  );
+
   const closeMenu = useCallback(() => setContextMenu(null), []);
 
   const handleRenameFromMenu = useCallback(() => {
@@ -440,7 +458,12 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
         totalCount={totalCount}
       />
 
-      <LayersTree ref={dndRef} filterSpec={filterSpec} onContextMenu={handleContextMenu} />
+      <LayersTree
+        ref={dndRef}
+        filterSpec={filterSpec}
+        onContextMenu={handleContextMenu}
+        onContextMenuKeyboard={handleContextMenuKeyboard}
+      />
 
       {state.selection.length >= 2 && !isFiltering(filterSpec) && (
         <LayerBulkBar
