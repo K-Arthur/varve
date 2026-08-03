@@ -197,6 +197,8 @@ export interface EditorState {
    *  selected, overlays its original source pixels for visual comparison.
    *  A transient view flag, not a document mutation. */
   beforeAfterCompare: boolean;
+  /** Logo preview dialog (small-size / surface / mode preview) visibility. */
+  logoPreviewDialogOpen: boolean;
   timelinePanelVisible: boolean;
   codegenPanelVisible: boolean;
   /** Active workspace mode (design / print / drawing / motion). */

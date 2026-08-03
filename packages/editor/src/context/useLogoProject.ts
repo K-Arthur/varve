@@ -10,6 +10,7 @@
  */
 import type { LogoConceptStatus, LogoVariantKind, NodeId } from '@strata/scene';
 import {
+  addClearSpaceGuides as addClearSpaceGuidesOp,
   addLogoConcept,
   addLogoVariant,
   createLogoArtboard,
@@ -48,6 +49,8 @@ export interface LogoProjectAPI {
       notes: string;
     }>,
   ) => void;
+  /** Add clear-space guides around the active artboard. */
+  addClearSpaceGuides: (gap: number) => void;
 }
 
 /** Find the concept whose artboard is the given node (or an ancestor frame). */
@@ -235,6 +238,19 @@ export function useLogoProject(
     [updateDoc],
   );
 
+  const addClearSpaceGuides = useCallback(
+    (gap: number) => {
+      const artboardId = activeArtboardId(stateRef.current);
+      if (!artboardId) {
+        announce('Select artwork inside a concept artboard first');
+        return;
+      }
+      updateDoc((doc) => addClearSpaceGuidesOp(doc, artboardId, gap));
+      announce('Added clear-space guides');
+    },
+    [announce, stateRef, updateDoc],
+  );
+
   return {
     newLogoProject,
     createLogoConcept,
@@ -242,5 +258,6 @@ export function useLogoProject(
     setConceptStatus,
     createLogoVariant,
     patchBrief,
+    addClearSpaceGuides,
   };
 }

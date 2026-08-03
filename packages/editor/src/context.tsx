@@ -1154,6 +1154,7 @@ export interface EditorContextValue {
   patchBrief: (
     patch: Parameters<import('./context/useLogoProject').LogoProjectAPI['patchBrief']>[0],
   ) => void;
+  addClearSpaceGuides: (gap: number) => void;
   /**
    * Apply a boolean operation between raster image nodes (ShapeNodes with
    * image fills) and vector ShapeNodes. Extracts alpha contours from each
@@ -2017,6 +2018,7 @@ export function EditorProvider({
       // chrome visible rather than silently reopening into a hidden-panel state.
       distractionFreeMode: false,
       beforeAfterCompare: false,
+      logoPreviewDialogOpen: false,
       // Hidden by default — motion/timeline editing is an opt-in workflow the
       // user reaches via its own toggle, not something every document should
       // open into.
