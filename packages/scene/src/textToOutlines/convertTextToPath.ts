@@ -1,4 +1,5 @@
 import { type TextOutlineOptions, textToOutlines } from '@strata/engine';
+import { managedColorToRgba } from '@strata/shared';
 import type { Document } from '../document';
 import { getParent, makeGroupNode, makeShapeNode } from '../document';
 import type {
@@ -11,6 +12,18 @@ import type {
   Stroke,
   TextNode,
 } from '../types';
+import { applyGlyphAdjustmentsToOutlines } from './glyphAdjust';
+
+/** Reduce a run color (ManagedColor or legacy tuple) to an rgb ManagedColor. */
+function legacyOrManagedToRgb(
+  c: ManagedColor | readonly [number, number, number, number],
+): ManagedColor {
+  if (!('space' in c)) {
+    return { space: 'rgb', r: c[0], g: c[1], b: c[2], a: c[3] };
+  }
+  const [r, g, b, a] = managedColorToRgba(c);
+  return { space: 'rgb', r, g, b, a };
+}
 
 export interface ConvertTextToPathOptions {
   fontData?: ArrayBuffer;
@@ -170,15 +183,7 @@ export function convertTextNodeToPath(
         if (!runText.trim()) continue;
 
         const runFontSize = run.format?.fontSize ?? fontSize;
-        const runFill = run.format?.color
-          ? {
-              space: 'rgb' as const,
-              r: run.format.color[0]!,
-              g: run.format.color[1]!,
-              b: run.format.color[2]!,
-              a: run.format.color[3]!,
-            }
-          : fillColor;
+        const runFill = run.format?.color ? legacyOrManagedToRgb(run.format.color) : fillColor;
 
         const outlineOptions: TextOutlineOptions = {
           fontSize: runFontSize,
@@ -289,6 +294,7 @@ export function convertTextNodeToPath(
       return { document: doc, warnings, hadRichText: hasRichText };
     }
 
+    const shapeIndexByGlyph: (number | null)[] = result.glyphs.map(() => null);
     for (let i = 0; i < result.glyphs.length; i++) {
       const glyph = result.glyphs[i]!;
       const char = glyph.char;
@@ -320,14 +326,31 @@ export function convertTextNodeToPath(
         shapeNode.strokes = cloneStrokes(textNode.strokes);
       }
 
+      shapeIndexByGlyph[i] = allGlyphShapes.length;
       allGlyphShapes.push(shapeNode);
+    }
+
+    // Glyph-level parity: apply per-cluster adjustments to the outlined
+    // shapes so canvas placement and outline output agree.
+    let outlinedWidthDelta = 0;
+    if (textNode.glyphAdjustments || textNode.pairAdjustments) {
+      const adjustmentResult = applyGlyphAdjustmentsToOutlines(
+        rawText,
+        result.glyphs,
+        allGlyphShapes,
+        shapeIndexByGlyph,
+        textNode.glyphAdjustments,
+        textNode.pairAdjustments,
+      );
+      warnings.push(...adjustmentResult.warnings);
+      outlinedWidthDelta = adjustmentResult.widthDelta;
     }
 
     // Generate decorations for flat text
     if (opts.includeDecorations) {
       const decoration = textNode.textDecoration;
       if (decoration && decoration !== 'none') {
-        const totalWidth = result.bounds.w;
+        const totalWidth = result.bounds.w + outlinedWidthDelta;
         if (decoration === 'underline') {
           const deco = makeDecorationShape(
             `${nodeId}-underline`,
