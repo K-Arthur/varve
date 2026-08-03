@@ -217,7 +217,11 @@ export function InspectorColorPopover({
               cmykProfile={cmykProfile}
               documentColors={documentColors}
               recentColors={recentColorsState}
-              previousColor={openValueRef.current ?? undefined}
+              previousColor={
+                openValueRef.current
+                  ? (managedColorToRgba(openValueRef.current) as Color)
+                  : undefined
+              }
             />
             <button type="button" onClick={close} className="insp-picker-done">
               Done
