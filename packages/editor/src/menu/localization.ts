@@ -42,6 +42,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.file.createLogoVariant': 'Create Logo Variant…',
   'menu.file.createMonochromeVariant': 'Create Monochrome Variant',
   'menu.file.createReversedVariant': 'Create Reversed Variant',
+  'menu.file.exportLogoPackage': 'Export Logo Package…',
   'menu.file.open': 'Open\u2026',
   'menu.file.save': 'Save',
   'menu.file.saveAs': 'Save As\u2026',

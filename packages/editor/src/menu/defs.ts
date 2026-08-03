@@ -796,6 +796,13 @@ export function getViewMenu(
       run: () => runAction('logoPreview'),
     },
     {
+      id: 'exportLogoPackage',
+      labelKey: 'menu.file.exportLogoPackage',
+      kind: 'command',
+      group: 'file',
+      run: () => runAction('exportLogoPackage'),
+    },
+    {
       id: 'toggleDistractionFree',
       labelKey: 'menu.view.distractionFree',
       accelerator: a('.', true, true),

@@ -208,6 +208,8 @@ function buildMenus(
       case 'logoPreview':
       case 'addClearSpaceGuides':
         return !hasSelection;
+      case 'exportLogoPackage':
+        return !('logoProject' in (state.document ?? {}));
       case 'bringFront':
       case 'bringForward':
       case 'sendBackward':
@@ -785,6 +787,11 @@ function buildMenus(
           ariaKeyshortcut: ks('logoPreview'),
           action: 'logoPreview',
           disabled: dis('logoPreview'),
+        },
+        {
+          label: 'Export Logo Package…',
+          action: 'exportLogoPackage',
+          disabled: dis('exportLogoPackage'),
         },
         { label: '---' },
         // Color Blindness
