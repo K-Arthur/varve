@@ -41,6 +41,7 @@ import {
   type PerformanceProfile,
 } from './adaptiveProfile';
 import type { DirtyRegionRecorder } from './dirtyRegion';
+import { computeMergedDirtyRegion, mergeDirtyRects } from './dirtyRegionMerge';
 import {
   recordFrame as drawDiagnosticsRecordFrame,
   enableDrawDiagnostics,
@@ -89,6 +90,7 @@ export type {
 export {
   beginContentFrame,
   beginInteractionSpan,
+  computeMergedDirtyRegion,
   createNodeWorkCounters,
   createRedrawCoordinator,
   enableDrawDiagnostics,
@@ -102,6 +104,7 @@ export {
   getSnapMetrics,
   getSnapMetricsCount,
   isSnapMetricsEnabled,
+  mergeDirtyRects,
   recordSnapMetrics,
   rectsIntersect,
   renderDrawDiagnostics,
@@ -135,6 +138,7 @@ export function getRegisteredRedrawCoordinator(): RedrawCoordinator | null {
 
 const nodeWorkRing = new NodeWorkRing();
 let lastDirtyRects: DirtyRegionRecorder | null = null;
+let lastMergedDirty: import('./dirtyRegionMerge').DirtyMergeResult | null = null;
 
 export function isNodeWorkRecordingEnabled(): boolean {
   return isInteractionTracingEnabled();
@@ -173,6 +177,7 @@ export function getNodeWorkSamples(n = 30): {
   samples: NodeWorkCounters[];
   latestRatios: ReturnType<typeof nodeWorkRatios> | null;
   dirtyRects: { rects: unknown[]; truncated: number } | null;
+  mergedDirty: import('./dirtyRegionMerge').DirtyMergeResult | null;
 } {
   const samples = nodeWorkRing.recent(n);
   const latest = samples[samples.length - 1];
@@ -182,12 +187,26 @@ export function getNodeWorkSamples(n = 30): {
     dirtyRects: lastDirtyRects
       ? { rects: [...lastDirtyRects.rects], truncated: lastDirtyRects.truncated }
       : null,
+    mergedDirty: lastMergedDirty,
   };
+}
+
+/**
+ * Record the per-frame merged dirty-region result (bounded rect set). The
+ * merge itself runs in production (it feeds the partial-redraw query); only
+ * the retention is gated on tracing.
+ */
+export function recordMergedDirty(
+  result: import('./dirtyRegionMerge').DirtyMergeResult | null,
+): import('./dirtyRegionMerge').DirtyMergeResult | null {
+  if (isNodeWorkRecordingEnabled()) lastMergedDirty = result;
+  return result;
 }
 
 export function resetNodeWork(): void {
   nodeWorkRing.reset();
   lastDirtyRects = null;
+  lastMergedDirty = null;
 }
 
 let disposePresentationObserver: (() => void) | null = null;

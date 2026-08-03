@@ -89,6 +89,16 @@ export interface FrameDiagnostics {
    * partial frame this is the count of contributed old/new bounds.
    */
   dirtyRects?: number;
+  /** Rectangles retained after merging (bounded set). */
+  dirtyRectsAfter?: number;
+  /**
+   * Bounding-box union of the merged set / sum of pre-merge areas. 1 means no
+   * amplification; a large value means the single-union clip would clear
+   * mostly empty space (the reason the merge keeps separate rects).
+   */
+  dirtyAmplification?: number;
+  /** Why the merged set fell back to one viewport-sized rect, if it did. */
+  dirtyMergeFallback?: string;
   /** Why a dirty frame fell back to a full redraw (null when partial is fine). */
   fullRedrawReason?: string;
   /**
