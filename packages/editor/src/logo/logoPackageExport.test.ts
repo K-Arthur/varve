@@ -55,17 +55,19 @@ describe('collectPalette', () => {
 });
 
 describe('buildReadme', () => {
-  it('documents concepts, variants, palette, and licensing notes', () => {
+  it('documents concepts, variants, palette, formats, and licensing notes', () => {
     const readme = buildReadme(
       'Acme',
       [{ name: 'Primary', folders: ['Primary.png', 'Primary@2x.png', 'Primary.svg'] }],
       [{ name: 'Mono', kind: 'monochrome', folders: ['Mono.png'] }],
       2,
+      ['SVG', 'PNG', 'PDF', 'ICO', 'ICNS'],
     );
     expect(readme).toContain('# Acme — Logo Package');
     expect(readme).toContain('- Primary: Primary.png, Primary@2x.png, Primary.svg');
     expect(readme).toContain('- Mono (monochrome): Mono.png');
     expect(readme).toContain('2 brand color(s)');
+    expect(readme).toContain('Formats: SVG, PNG, PDF, ICO, ICNS');
     expect(readme).toContain('monochrome or reversed variant');
     expect(readme).toContain('does not grant or assert trademark rights');
   });

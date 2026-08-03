@@ -2,21 +2,30 @@
  * Logo package export — a deterministic, production-ready deliverable set
  * for a logo project.
  *
- * Builds a ZIP (or folder set on desktop) containing:
- * - One subfolder per included concept/variant, each with transparent PNG
- *   (1x/2x) and transparent SVG files.
- * - Palette/brand-palette.json (project palette or document swatches).
- * - README.md with brand, concept, variant, clear-space, and license notes.
- * - manifest.json (deterministic content manifest).
+ * Builds a ZIP (or folder set on desktop) containing, per included concept
+ * and variant:
+ * - SVG/<name>/<name>.svg — transparent vector
+ * - PNG/<name>/<name>@1x.png, @2x.png — transparent raster ladder
+ * - PDF/Print/<name>/<name>.pdf — vector PDF (raster fallback in browser)
+ * - ICO/<name>.ico — multi-size Windows icon (16-256px, PNG-compressed)
+ * - ICNS/<name>.icns — macOS Retina icon set (icp4..ic15)
+ * plus Palette/, Source/, README.md, and a deterministic manifest.json.
  *
  * Everything is derived from the live document at export time; the source
  * artwork is never modified. File naming is deterministic and sanitized for
- * Windows/macOS/Linux (see @strata/scene export naming helpers).
+ * Windows/macOS/Linux. All encoders are pure TS or reuse the existing export
+ * pipeline, so browser and desktop runtimes produce identical bytes.
  */
 
 import type { Platform } from '@strata/platform';
 import type { Document, NodeId } from '@strata/scene';
-import { sanitizeSegment } from '@strata/scene/export';
+import {
+  buildIcns,
+  buildIco,
+  ICNS_REPRESENTATIONS,
+  ICO_SUPPORTED_SIZES,
+  sanitizeSegment,
+} from '@strata/scene/export';
 
 export interface LogoPackageEntry {
   fileName: string;
@@ -25,14 +34,28 @@ export interface LogoPackageEntry {
 }
 
 export interface LogoPackageOptions {
-  /** Brand name used for the package folder and README. */
-  brandName: string;
+  /** Brand name used for the package folder and README (defaults to project/doc name). */
+  brandName?: string;
   /** Concept ids to include (defaults to all concepts with artboards). */
   conceptIds?: string[];
   /** Also export registered variants (default true). */
   includeVariants?: boolean;
-  /** Raster scale factors (default [1, 2]). */
+  /** PNG scale factors (default [1, 2]). */
   scales?: number[];
+  /** Include SVG (default true). */
+  includeSvg?: boolean;
+  /** Include PNG (default true). */
+  includePng?: boolean;
+  /** Include a vector PDF per variant (default true). */
+  includePdf?: boolean;
+  /** Include a multi-size ICO per variant (default true). */
+  includeIco?: boolean;
+  /** ICO sizes (default [16, 32, 48, 256]). */
+  icoSizes?: number[];
+  /** Include a Retina ICNS per variant (default true). */
+  includeIcns?: boolean;
+  /** ICNS representation types (default: full modern set). */
+  icnsTypes?: string[];
   /** Include the document's palette (default true). */
   includePalette?: boolean;
   /** Include the source document (default true). */
@@ -44,14 +67,21 @@ export interface LogoPackageOptions {
 export interface LogoPackageResult {
   fileName: string;
   entries: string[];
+  /** Per-folder file counts for the completion report. */
+  counts: Record<string, number>;
   bytes: Uint8Array;
 }
 
 const PNG_MIME = 'image/png';
 const SVG_MIME = 'image/svg+xml';
+const PDF_MIME = 'application/pdf';
+const ICO_MIME = 'image/x-icon';
+const ICNS_MIME = 'image/icns';
 
-/** Render a node to a transparent PNG blob at the given scale. */
-async function renderPng(
+export const DEFAULT_ICO_SIZES = [16, 32, 48, 256] as const;
+
+/** Render a node to a transparent PNG blob at the given scale factor. */
+async function renderPngBytes(
   node: import('@strata/scene').SceneNode,
   doc: Document,
   scale: number,
@@ -67,13 +97,38 @@ async function renderPng(
   return new Uint8Array(await result.blob.arrayBuffer());
 }
 
-/** Render a node to a transparent SVG string. */
+/** Render a node to a transparent PNG at an exact pixel size (for icons). */
+async function renderPngAtSize(
+  node: import('@strata/scene').SceneNode,
+  doc: Document,
+  size: number,
+): Promise<Uint8Array> {
+  const { worldBBox } = await import('../components/SpecPanel/measurement');
+  const bbox = worldBBox(node, doc);
+  const worldSize = Math.max(bbox.w, bbox.h, 1);
+  const scale = size / worldSize;
+  return renderPngBytes(node, doc, scale);
+}
+
+/** Render a node to an SVG string (transparent background). */
 async function renderSvg(node: import('@strata/scene').SceneNode, doc: Document): Promise<string> {
   const { exportNodeToSvg } = await import('@strata/codegen');
   return exportNodeToSvg(node, doc, {
     background: 'transparent',
     minify: false,
   });
+}
+
+/** Render a node to a PDF (vector on desktop, raster fallback in browser). */
+async function renderPdf(
+  node: import('@strata/scene').SceneNode,
+  doc: Document,
+): Promise<Uint8Array> {
+  const { exportNodeAsPdf } = await import('../components/SpecPanel/export');
+  const { createEngine } = await import('@strata/engine');
+  const engine = await createEngine('auto');
+  const result = await exportNodeAsPdf(node, doc, 1, engine);
+  return result.bytes;
 }
 
 export function collectPalette(doc: Document): Record<string, string> {
@@ -121,6 +176,7 @@ export function buildReadme(
   concepts: { name: string; folders: string[] }[],
   variants: { name: string; kind: string; folders: string[] }[],
   paletteCount: number,
+  formats: string[],
 ): string {
   const conceptLines = concepts.map((c) => `- ${c.name}: ${c.folders.join(', ')}`).join('\n');
   const variantLines =
@@ -134,7 +190,7 @@ export function buildReadme(
     '',
     '## Contents',
     '',
-    '- `Primary/` and per-concept folders: transparent PNG (1x/2x) and SVG.',
+    `- Formats: ${formats.join(', ')}.`,
     `- \`Palette/\`: ${paletteCount} brand color(s) as JSON (hex).`,
     '- `Source/`: the editable Strata document.',
     '',
@@ -163,6 +219,50 @@ export function buildReadme(
   ].join('\n');
 }
 
+interface RenderTarget {
+  id: string;
+  name: string;
+  kind?: string;
+  nodeId: NodeId | null;
+}
+
+/** Collect the render targets (concepts + variants) for a package. */
+export function collectRenderTargets(
+  doc: Document,
+  options: LogoPackageOptions = {},
+): { concepts: RenderTarget[]; variants: RenderTarget[] } {
+  const project = doc.logoProject;
+  const concepts = (project?.concepts ?? [])
+    .filter((c) =>
+      options.conceptIds ? options.conceptIds.includes(c.id) : c.status !== 'rejected',
+    )
+    .map((c) => ({ id: c.id, name: c.name, nodeId: c.artboardId }));
+  const variants =
+    (options.includeVariants ?? true)
+      ? (project?.variants ?? []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          kind: v.kind,
+          nodeId: v.artboardId,
+        }))
+      : [];
+  return { concepts, variants };
+}
+
+/** Estimate the number of files a package will contain (for the UI). */
+export function estimatePackageFileCount(options: LogoPackageOptions, targetCount: number): number {
+  let count = 0;
+  if (options.includePng ?? true) count += (options.scales ?? [1, 2]).length * targetCount;
+  if (options.includeSvg ?? true) count += targetCount;
+  if (options.includePdf ?? true) count += targetCount;
+  if (options.includeIco ?? true) count += targetCount;
+  if (options.includeIcns ?? true) count += targetCount;
+  count += 2; // README + manifest
+  if (options.includePalette ?? true) count += 1;
+  if (options.includeSource ?? true) count += 1;
+  return count;
+}
+
 /** Build the deterministic logo package ZIP. */
 export async function buildLogoPackage(
   doc: Document,
@@ -171,113 +271,141 @@ export async function buildLogoPackage(
   const project = doc.logoProject;
   const brandName = options.brandName || project?.name || doc.name || 'Brand';
   const scales = options.scales ?? [1, 2];
+  const icoSizes = options.icoSizes ?? [...DEFAULT_ICO_SIZES];
+  const icnsTypes = options.icnsTypes ?? ICNS_REPRESENTATIONS.map((r) => r.type);
   const entries: LogoPackageEntry[] = [];
+  const counts: Record<string, number> = {};
   const folder = sanitizeSegment(brandName);
 
-  const concepts = project?.concepts ?? [];
-  const selectedConcepts = options.conceptIds
-    ? concepts.filter((c) => options.conceptIds!.includes(c.id))
-    : concepts.filter((c) => c.status !== 'rejected');
-  const conceptFolders: { name: string; folders: string[] }[] = [];
+  const push = (fileName: string, bytes: Uint8Array, mimeType: string): void => {
+    entries.push({ fileName, bytes, mimeType });
+    const section = fileName.split('/')[1] ?? 'other';
+    counts[section] = (counts[section] ?? 0) + 1;
+  };
 
-  for (const concept of selectedConcepts) {
-    const artboardId: NodeId | null = concept.artboardId;
-    if (!artboardId) continue;
-    const node = doc.nodes[artboardId];
-    if (!node) continue;
-    const conceptFolder = `${folder}/${sanitizeSegment(concept.name)}`;
+  const renderTargetEntries = async (
+    target: RenderTarget,
+    targetFolder: string,
+  ): Promise<string[]> => {
+    const node = target.nodeId ? doc.nodes[target.nodeId] : undefined;
+    if (!node) return [];
     const files: string[] = [];
-    for (const scale of scales) {
-      const suffix = scale === 1 ? '' : `@${scale}x`;
-      const png = await renderPng(node, doc, scale);
-      const fileName = `${sanitizeSegment(concept.name)}${suffix}.png`;
-      entries.push({ fileName: `${conceptFolder}/${fileName}`, bytes: png, mimeType: PNG_MIME });
-      files.push(fileName);
+    if (options.includePng ?? true) {
+      for (const scale of scales) {
+        const suffix = scale === 1 ? '' : `@${scale}x`;
+        const png = await renderPngBytes(node, doc, scale);
+        const fileName = `${sanitizeSegment(target.name)}${suffix}.png`;
+        push(`${folder}/PNG/${targetFolder}/${fileName}`, png, PNG_MIME);
+        files.push(fileName);
+      }
     }
-    const svg = await renderSvg(node, doc);
-    const svgName = `${sanitizeSegment(concept.name)}.svg`;
-    entries.push({
-      fileName: `${conceptFolder}/${svgName}`,
-      bytes: new TextEncoder().encode(svg),
-      mimeType: SVG_MIME,
-    });
-    files.push(svgName);
-    conceptFolders.push({ name: concept.name, folders: files });
+    if (options.includeSvg ?? true) {
+      const svg = await renderSvg(node, doc);
+      const svgName = `${sanitizeSegment(target.name)}.svg`;
+      push(`${folder}/SVG/${targetFolder}/${svgName}`, new TextEncoder().encode(svg), SVG_MIME);
+      files.push(svgName);
+    }
+    if (options.includePdf ?? true) {
+      const pdf = await renderPdf(node, doc);
+      const pdfName = `${sanitizeSegment(target.name)}.pdf`;
+      push(`${folder}/PDF/Print/${targetFolder}/${pdfName}`, pdf, PDF_MIME);
+      files.push(pdfName);
+    }
+    if (options.includeIco ?? true) {
+      const validSizes = icoSizes.filter((size) => ICO_SUPPORTED_SIZES.includes(size as never));
+      const pngs = await Promise.all(validSizes.map((size) => renderPngAtSize(node, doc, size)));
+      const ico = buildIco(validSizes.map((size, index) => ({ size, png: pngs[index]! })));
+      const icoName = `${sanitizeSegment(target.name)}.ico`;
+      push(`${folder}/ICO/${icoName}`, ico.bytes, ICO_MIME);
+      files.push(icoName);
+    }
+    if (options.includeIcns ?? true) {
+      const types = icnsTypes.filter((type) =>
+        ICNS_REPRESENTATIONS.some((rep) => rep.type === type),
+      );
+      const pngs = await Promise.all(
+        types.map((type) => {
+          const rep = ICNS_REPRESENTATIONS.find((r) => r.type === type);
+          return renderPngAtSize(node, doc, rep?.pixelSize ?? 256);
+        }),
+      );
+      const icns = buildIcns(types.map((type, index) => ({ type, png: pngs[index]! })));
+      const icnsName = `${sanitizeSegment(target.name)}.icns`;
+      push(`${folder}/ICNS/${icnsName}`, icns.bytes, ICNS_MIME);
+      files.push(icnsName);
+    }
+    return files;
+  };
+
+  const { concepts, variants } = collectRenderTargets(doc, options);
+  const conceptFolders: { name: string; folders: string[] }[] = [];
+  for (const concept of concepts) {
+    const sub = sanitizeSegment(concept.name);
+    const files = await renderTargetEntries(concept, sub);
+    if (files.length > 0) conceptFolders.push({ name: concept.name, folders: files });
   }
 
   const variantFolders: { name: string; kind: string; folders: string[] }[] = [];
-  if (options.includeVariants ?? true) {
-    for (const variant of project?.variants ?? []) {
-      if (!variant.artboardId) continue;
-      const node = doc.nodes[variant.artboardId];
-      if (!node) continue;
-      const variantFolder = `${folder}/${sanitizeSegment(variant.name)}`;
-      const files: string[] = [];
-      for (const scale of scales) {
-        const suffix = scale === 1 ? '' : `@${scale}x`;
-        const png = await renderPng(node, doc, scale);
-        const fileName = `${sanitizeSegment(variant.name)}${suffix}.png`;
-        entries.push({ fileName: `${variantFolder}/${fileName}`, bytes: png, mimeType: PNG_MIME });
-        files.push(fileName);
-      }
-      const svg = await renderSvg(node, doc);
-      const svgName = `${sanitizeSegment(variant.name)}.svg`;
-      entries.push({
-        fileName: `${variantFolder}/${svgName}`,
-        bytes: new TextEncoder().encode(svg),
-        mimeType: SVG_MIME,
-      });
-      files.push(svgName);
-      variantFolders.push({ name: variant.name, kind: variant.kind, folders: files });
+  for (const variant of variants) {
+    const sub = sanitizeSegment(variant.name);
+    const files = await renderTargetEntries(variant, sub);
+    if (files.length > 0) {
+      variantFolders.push({ name: variant.name, kind: variant.kind ?? 'custom', folders: files });
     }
   }
 
   const palette: Record<string, string> =
     (options.includePalette ?? true) ? collectPalette(doc) : {};
   const paletteJson = JSON.stringify({ name: brandName, colors: palette }, null, 2);
-  entries.push({
-    fileName: `${folder}/Palette/brand-palette.json`,
-    bytes: new TextEncoder().encode(paletteJson),
-    mimeType: 'application/json',
-  });
+  push(
+    `${folder}/Palette/brand-palette.json`,
+    new TextEncoder().encode(paletteJson),
+    'application/json',
+  );
+
+  const formats: string[] = [];
+  if (options.includeSvg ?? true) formats.push('SVG');
+  if (options.includePng ?? true) formats.push('PNG');
+  if (options.includePdf ?? true) formats.push('PDF');
+  if (options.includeIco ?? true) formats.push('ICO');
+  if (options.includeIcns ?? true) formats.push('ICNS');
 
   const readme = buildReadme(
     brandName,
     conceptFolders,
     variantFolders,
     Object.keys(palette).length,
+    formats,
   );
-  entries.push({
-    fileName: `${folder}/README.md`,
-    bytes: new TextEncoder().encode(readme),
-    mimeType: 'text/markdown',
-  });
+  push(`${folder}/README.md`, new TextEncoder().encode(readme), 'text/markdown');
 
   if (options.includeSource ?? true) {
     const sourceJson = options.sourceJson ?? JSON.stringify(doc, null, 2);
-    entries.push({
-      fileName: `${folder}/Source/project.strata`,
-      bytes: new TextEncoder().encode(sourceJson),
-      mimeType: 'application/json',
-    });
+    push(
+      `${folder}/Source/project.strata`,
+      new TextEncoder().encode(sourceJson),
+      'application/json',
+    );
   }
 
   const manifest = {
     name: brandName,
     generatedBy: 'strata-logo-package',
-    version: 1,
+    version: 2,
     generatedAt: new Date().toISOString(),
     concepts: conceptFolders.map((c) => c.name),
     variants: variantFolders.map((v) => v.name),
     scales,
-    formats: ['png', 'svg'],
+    formats,
+    icoSizes: (options.includeIco ?? true) ? icoSizes : undefined,
+    icnsTypes: (options.includeIcns ?? true) ? icnsTypes : undefined,
     palette: Object.keys(palette),
   };
-  entries.push({
-    fileName: `${folder}/manifest.json`,
-    bytes: new TextEncoder().encode(JSON.stringify(manifest, null, 2)),
-    mimeType: 'application/json',
-  });
+  push(
+    `${folder}/manifest.json`,
+    new TextEncoder().encode(JSON.stringify(manifest, null, 2)),
+    'application/json',
+  );
 
   // Deterministic zip: sort entries by path, then compress.
   const sorted = [...entries].sort((a, b) => (a.fileName < b.fileName ? -1 : 1));
@@ -290,6 +418,7 @@ export async function buildLogoPackage(
   return {
     fileName: `${folder}-Logo-Package.zip`,
     entries: sorted.map((e) => e.fileName),
+    counts,
     bytes: zipped,
   };
 }
