@@ -109,6 +109,7 @@ describe('WorkspaceConfig', () => {
       'design',
       'drawing',
       'image',
+      'logo',
       'motion',
       'print',
     ]);
