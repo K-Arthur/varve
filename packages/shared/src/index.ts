@@ -88,6 +88,10 @@ export type { ColorBlindnessType } from './colorBlindness';
 export { simulateColorBlindness, simulateColorBlindnessCss } from './colorBlindness';
 export type { BitDepth, ManagedColorShim } from './colorConversion';
 export {
+  COLOR_DISPLAY_DECIMALS,
+  COLOR_EQUALITY_TOLERANCE,
+  COLOR_HUE_DISPLAY_DECIMALS,
+  COLOR_SERIALIZATION_PRECISION,
   channelMax,
   clampChannel,
   cmykToRgb,
