@@ -27,6 +27,8 @@ export interface RichTextRun {
     openTypeFeatures?: OpenTypeFeatureMap;
     variableFontSettings?: VariableFontSettings;
     maxLines?: number;
+    /** Run color (ManagedColor since schema 2.14; legacy tuples accepted). */
+    color?: import('@strata/shared').ManagedColorShim | readonly [number, number, number, number];
   };
 }
 
@@ -53,6 +55,8 @@ export interface LayoutRun {
     fontWeight?: number;
     fontStyle?: string;
     textDecoration?: 'none' | 'underline' | 'line-through';
+    /** Run color carried through layout; applied by the renderer. */
+    color?: import('@strata/shared').ManagedColorShim | readonly [number, number, number, number];
   };
   font: string;
   featureSettings: string;
@@ -236,6 +240,7 @@ export function layoutRichText(
             fontWeight,
             fontStyle: fontStyle ?? 'normal',
             textDecoration,
+            color: run.format?.color,
           },
           font,
           featureSettings,

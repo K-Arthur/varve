@@ -5,9 +5,10 @@
  * Research basis: Adobe InDesign preflight, Figma font resolution.
  */
 
+import { managedColorToRgba } from '@strata/shared';
 import type { Document } from './document';
 import { DEFAULT_ARTWORK_FONT_FAMILY } from './fontDefaults';
-import type { NodeId } from './types';
+import type { ManagedColor, NodeId } from './types';
 import type { RichText } from './typography';
 
 export type PreflightSeverity = 'error' | 'warning' | 'info';
@@ -182,11 +183,11 @@ export function validateRichText(rich: RichText, availableFonts: Set<string>): T
 }
 
 export function validateContrast(
-  textColor: readonly [number, number, number, number],
-  backgroundColor: readonly [number, number, number, number],
+  textColor: ManagedColor | readonly [number, number, number, number],
+  backgroundColor: ManagedColor | readonly [number, number, number, number],
 ): { ratio: number; passes: boolean; level: 'AA' | 'AAA' | 'fail' } {
-  const lum = (c: readonly [number, number, number, number]) => {
-    const [r, g, b] = c;
+  const lum = (c: ManagedColor | readonly [number, number, number, number]) => {
+    const [r, g, b] = !('space' in c) ? c : managedColorToRgba(c);
     const rs = r / 255;
     const gs = g / 255;
     const bs = b / 255;
