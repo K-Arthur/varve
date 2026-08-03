@@ -235,6 +235,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
   const letterSpacingRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.letterSpacing ?? 0),
   );
+  const trackingRaw = commonValue(textNodes, (n) => getTextValue(n, (t) => t.tracking ?? 0));
   const paraSpacingRaw = commonValue(textNodes, (n) =>
     getTextValue(n, (t) => t.paragraphSpacing ?? 0),
   );
@@ -363,6 +364,16 @@ export function TypographySection({ nodes }: TypographySectionProps) {
           onChange={(v) => batchUpdate((n) => ({ ...n, letterSpacing: v }))}
         />
         <NumberField
+          label="Tracking"
+          unit="‰"
+          value={isMixed(trackingRaw) ? 0 : trackingRaw}
+          mixed={isMixed(trackingRaw)}
+          step={10}
+          fieldName="tracking"
+          onShiftClick={() => setBindingField('tracking')}
+          onChange={(v) => batchUpdate((n) => ({ ...n, tracking: v }))}
+        />
+        <NumberField
           label="Para spacing"
           unit="px"
           value={isMixed(paraSpacingRaw) ? 0 : paraSpacingRaw}
@@ -461,7 +472,7 @@ export function TypographySection({ nodes }: TypographySectionProps) {
         />
         {/* Binding menu for typography numeric fields */}
         {bindingField &&
-          ['fontSize', 'lineHeight', 'letterSpacing', 'paragraphSpacing'].includes(
+          ['fontSize', 'lineHeight', 'letterSpacing', 'tracking', 'paragraphSpacing'].includes(
             bindingField,
           ) && (
             <BindingMenu

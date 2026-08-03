@@ -2037,6 +2037,7 @@ function paintRichText(
     fontWeight: p.fontWeight,
     fontStyle: p.fontStyle,
     letterSpacing: p.letterSpacing,
+    tracking: p.tracking ?? 0,
     lineHeight: p.lineHeight,
     textCase: p.textCase,
     textDecoration: p.textDecoration,
@@ -2197,11 +2198,12 @@ function paintText(
   // Apply text case transform
   const displayText = applyTextCase(p.text, p.textCase);
 
+  const trackingAdvance = ((p.tracking ?? 0) * p.fontSize) / 1000;
   const measureLine = (value: string): number => {
     let width = 0;
     for (let index = 0; index < value.length; index++) {
       width += measureTextAdvance(target, value[index] ?? '');
-      if (index < value.length - 1) width += p.letterSpacing;
+      if (index < value.length - 1) width += p.letterSpacing + trackingAdvance;
     }
     return width;
   };
@@ -2304,6 +2306,7 @@ function paintText(
   const lh = p.fontSize * p.lineHeight;
   const ps = p.paragraphSpacing;
   const ls = p.letterSpacing;
+  const tr = ((p.tracking ?? 0) * p.fontSize) / 1000;
 
   // Compute text overflow: visible text
   const visibleLines: Array<{ text: string; y: number }> = [];
@@ -2377,12 +2380,12 @@ function paintText(
           cursorX += measureTextAdvance(target, word) + extraWordSpacing;
           continue;
         }
-        if (ls !== 0 && word.length > 1) {
-          // Letter spacing per character
+        if ((ls !== 0 || tr !== 0) && word.length > 1) {
+          // Letter spacing / tracking per character
           for (let ci = 0; ci < word.length; ci++) {
             const char = word[ci] ?? '';
             target.fillText(char, cursorX, y);
-            cursorX += measureTextAdvance(target, char) + ls;
+            cursorX += measureTextAdvance(target, char) + ls + tr;
           }
         } else {
           target.fillText(word, cursorX, y);
