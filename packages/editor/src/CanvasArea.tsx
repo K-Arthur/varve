@@ -93,12 +93,15 @@ import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { useOverlayDraw } from './canvas/overlayManager';
 import {
+  beginContentFrame,
   beginInteractionSpan,
   cancelCanvasFrame,
   createCanvasFrameKey,
   createNodeWorkCounters,
+  createRedrawCoordinator,
   enableDrawDiagnostics,
   endFrameTiming,
+  type FrameInvalidation,
   getAdaptiveCacheLimits,
   getAverageFrameTime,
   getMemoryBudgets,
@@ -106,14 +109,18 @@ import {
   installPerfDiagnosticsHandle,
   isNodeWorkRecordingEnabled,
   isSnapMetricsEnabled,
+  type RedrawCoordinator,
+  type RedrawReason as RedrawCoordinatorReason,
   recordFrame,
   recordNodeWork,
   recordSnapMetrics,
   rectsIntersect,
+  registerRedrawCoordinator,
   resolveDirtyScreenRect,
   scheduleCanvasFrame,
   startFrameTiming,
 } from './canvas/perfRuntime';
+import { tryPresentWorkerFrame } from './canvas/presentWorkerFrame';
 import { NodeHashMemo, SubtreeIrCache } from './canvas/subtreeIrCache';
 import { getToolManager } from './canvas/toolDispatcher';
 import { appearancePaddingWorld, expandRect, nodeVisualWorldBounds } from './canvas/visualBounds';
@@ -423,12 +430,20 @@ export function CanvasArea({
     viewport: { width: number; height: number };
     dpr: number;
   } | null>(null);
-  const requestContentDrawRef = useRef<(() => void) | null>(null);
+  const requestContentDrawRef = useRef<
+    ((source: string, reason: RedrawCoordinatorReason) => void) | null
+  >(null);
   const docVersionRef = useRef(0);
   const stateRef = useRef<EditorState>(state);
   stateRef.current = state;
   const editorRef = useRef(editor);
   editorRef.current = editor;
+  // Centralized frame invalidation: decides (skip / present / content) before
+  // any scene traversal and attributes every frame with its reasons.
+  const redrawCoordinatorRef = useRef<RedrawCoordinator | null>(null);
+  if (!redrawCoordinatorRef.current) redrawCoordinatorRef.current = createRedrawCoordinator();
+  // True while a worker bitmap awaits compositing; the present path consumes it.
+  const pendingPresentRef = useRef(false);
   const transformCacheRef = useRef<TransformCache>(createTransformCache());
   const settings = loadSettings();
   const budgets = getMemoryBudgets(settings.render.memoryBudget);
@@ -658,7 +673,7 @@ export function CanvasArea({
       },
       onRestored: () => {
         editorRef.current.announce('Canvas rendering restored.');
-        requestContentDrawRef.current?.();
+        requestContentDrawRef.current?.('context-restore', 'backing-store-recovery');
       },
     });
   }, []);
@@ -670,7 +685,7 @@ export function CanvasArea({
       // nothing else re-triggers a draw once this async engine init resolves —
       // force one now so the canvas doesn't stay blank waiting for an
       // unrelated state change (pan/zoom/doc edit) to happen to redraw it.
-      requestContentDrawRef.current?.();
+      requestContentDrawRef.current?.('engine-init', 'backing-store-recovery');
     });
   }, []);
 
@@ -701,7 +716,7 @@ export function CanvasArea({
       // The backend resolves asynchronously; drawContent() may have already run
       // (and silently no-op'd via optional chaining) with compositorRef still null.
       // Force one redraw now that a backend is actually available.
-      requestContentDrawRef.current?.();
+      requestContentDrawRef.current?.('compositor-init', 'backing-store-recovery');
     });
     return () => {
       backend?.destroy();
@@ -712,10 +727,16 @@ export function CanvasArea({
   const workerFailedRef = useRef(false);
 
   useEffect(() => {
+    registerRedrawCoordinator(redrawCoordinatorRef.current);
+    return () => registerRedrawCoordinator(null);
+  }, []);
+
+  useEffect(() => {
     renderWorkerRef.current = createRenderWorkerHost(
       (msg) => {
         if (msg.type === 'frameRendered') {
           if (isStaleResponse(docVersionRef.current, msg.docVersion)) {
+            redrawCoordinatorRef.current?.noteStaleWorkerResponse();
             disposeWorkerFrame(renderWorkerRef.current, msg.bitmap);
             return;
           }
@@ -728,19 +749,20 @@ export function CanvasArea({
               viewport: msg.viewport,
               dpr: msg.dpr,
             };
-            requestContentDrawRef.current?.();
+            pendingPresentRef.current = true;
+            requestContentDrawRef.current?.('worker-reply', 'worker-present');
           }
         } else if (msg.type === 'error' && !workerFailedRef.current) {
           workerFailedRef.current = true;
           console.warn('[Strata] Render worker failed, falling back to main-thread:', msg.message);
-          requestContentDrawRef.current?.();
+          requestContentDrawRef.current?.('worker-error', 'backing-store-recovery');
         }
       },
       () => {
         if (!workerFailedRef.current) {
           workerFailedRef.current = true;
           console.warn('[Strata] Render worker stopped permanently; using main-thread Canvas 2D.');
-          requestContentDrawRef.current?.();
+          requestContentDrawRef.current?.('worker-stop', 'backing-store-recovery');
         }
       },
       // Byte-budget the main-thread-visible worker bitmap pipeline: outbound
@@ -1285,6 +1307,28 @@ export function CanvasArea({
       return;
     }
     drawInFlightRef.current = true;
+
+    // Centralized invalidation decision, before any scene traversal: a frame
+    // whose state matches the last completed frame and has no pending worker
+    // bitmap is a suppressed clean frame — previously such frames re-walked
+    // the entire visible list with redrawReason 'clean'.
+    const entry = beginContentFrame({
+      coordinator: redrawCoordinatorRef.current!,
+      getState: () => stateRef.current,
+      imageCacheStamp,
+      fontLoadStamp,
+      cssW,
+      cssH,
+      dpr,
+      hasPendingPresent: pendingPresentRef.current,
+    });
+    if (!entry) {
+      // The async IIFE never runs for a skipped frame; release the guard.
+      drawInFlightRef.current = false;
+      return;
+    }
+    const { coordinator, snapshot: frameSnapshot, decision: frameDecision } = entry;
+
     const frameStart = startFrameTiming();
     let frameBackend: CompositorBackend | null = null;
     let compositorFrameOpen = false;
@@ -1311,6 +1355,33 @@ export function CanvasArea({
             }
           }
         }
+      }
+
+      // Present-only path: composite the freshly arrived worker bitmap —
+      // no traversal, no IR build, no replay (was a full clean redraw).
+      if (frameDecision.kind === 'present') {
+        const presented = tryPresentWorkerFrame({
+          ctx,
+          canvas,
+          boardColor,
+          wb: workerBitmapRef.current,
+          compositor: compositorRef.current,
+          camera: { zoom: s.zoom, pan: s.pan, rotation: s.cameraRotation ?? 0 },
+          viewport: { width: cssW, height: cssH },
+          dpr,
+          docVersion: docVersionRef.current,
+          frameStart,
+          identityTransform: [1, 0, 0, 1, 0, 0],
+          coordinator,
+          decision: frameDecision,
+          snapshot: frameSnapshot,
+          cacheDiag: subtreeIrCacheRef.current.diagnostics(),
+        });
+        if (presented) {
+          pendingPresentRef.current = false;
+          return;
+        }
+        // Bitmap raced stale since the decision — fall through to content.
       }
 
       const entries = walkNodes(doc, activePageNodes(doc));
@@ -2399,7 +2470,7 @@ export function CanvasArea({
               );
               if (!posted && !workerFailedRef.current) {
                 workerFailedRef.current = true;
-                requestContentDrawRef.current?.();
+                requestContentDrawRef.current?.('worker-admission', 'backing-store-recovery');
               }
             },
           );
@@ -2507,7 +2578,7 @@ export function CanvasArea({
       recordFrame({
         frameIndex: docVersionRef.current,
         docVersion,
-        redrawCount: s.motion.isPlaying ? -1 : redrawCount,
+        redrawCount: s.motion.isPlaying ? -1 : coordinator.getDiagnostics().submittedFrames,
         nodeCount: nodeIds.length,
         culledCount: hiddenByContainer.size,
         cacheHitCount: cacheHitsInFrame,
@@ -2530,10 +2601,18 @@ export function CanvasArea({
         cacheEntries: cacheDiag.entries,
         profileTier: profile.tier,
         redrawReason,
+        invalidationReasons: [...frameDecision.reasons],
+        frameSource: frameDecision.explicit[0]?.source,
+        unsuppressedCause: frameDecision.unsuppressedCause ?? undefined,
         dirtyAreaRatio,
         dirtyRects: dirty.kind === 'partial' ? dirty.rectCount : 0,
         fullRedrawReason,
         dirtyScreenRect: resolveDirtyScreenRect(!!usePartialRedraw, dirtyRect, dpr),
+      });
+      pendingPresentRef.current = false;
+      coordinator.completeFrame(frameDecision, frameSnapshot, {
+        contentDrawn: true,
+        fullRedraw: dirty.kind === 'full' || (dirty.kind !== 'none' && !usePartialRedraw),
       });
       const diag = compositorRef.current?.getDiagnostics?.();
       if (diag) setCompositorDiagnostics(diag);
@@ -2556,7 +2635,9 @@ export function CanvasArea({
         // A trigger arrived while this draw was in flight — schedule one more
         // pass via the frame scheduler to reflect the latest state. Uses the
         // single shared content key so it coalesces with any reactive/imperative
-        // draw already queued for the same frame.
+        // draw already queued for the same frame. The coordinator decides
+        // whether that pass actually needs to render.
+        redrawCoordinatorRef.current?.noteRescheduledDuringRender();
         const pendingKey = contentDrawFrameKey.current;
         if (pendingKey) scheduleCanvasFrame(pendingKey, 'canvas', () => drawContent());
       }
@@ -2583,31 +2664,35 @@ export function CanvasArea({
   ]);
 
   // ── requestRedraw: defence-in-depth redraw trigger ────────────────────
-  // In addition to the drawContent-dependency-based RAF scheduling (which
-  // works when state changes cause a React re-render that changes one of the
-  // deps), provide a direct callback that bumps redrawCount to guarantee a
-  // drawContent identity change. This covers edge cases such as:
-  //   - engine/compositor init resolving outside the React commit phase
-  //   - worker responses arriving during a React batch
-  //   - lifecycle events (visibility change, context restored)
-  //   - any other path where a direct drawContent call occurs
+  // Bumps redrawCount to guarantee a drawContent identity change whenever a
+  // subscription fires outside the normal state paths (image cache, font
+  // registry). The stamps those subscriptions also bump would trigger the
+  // reactive effect on their own; the count is belt-and-braces for batching
+  // edge cases. The coordinator decides whether the resulting frame actually
+  // renders.
   const requestRedraw = useCallback(() => {
     setRedrawCount((n) => n + 1);
   }, []);
   const requestRedrawRef = useRef<() => void>(requestRedraw);
   requestRedrawRef.current = requestRedraw;
 
-  // Imperative redraw trigger for non-React draw sources — engine/compositor
-  // init resolving in a microtask, worker frame replies, context-restore. It
-  // schedules a draw immediately (so those get onto the current frame without
-  // waiting for a React commit) AND bumps redrawCount so the reactive
-  // RAF-scheduling effect below re-fires for good measure. Both use the single
-  // `contentDrawFrameKey`, so the scheduler coalesces them into one RAF job.
+  // Imperative redraw trigger for non-React draw sources (engine/compositor
+  // init, worker frame replies, context-restore), each carrying structured
+  // invalidation metadata — the old redrawCount bump forced an extra full
+  // clean redraw per call (the measured 56/120 `clean` drag frames). The
+  // single `contentDrawFrameKey` coalesces with reactive draws.
   useEffect(() => {
-    requestContentDrawRef.current = () => {
+    requestContentDrawRef.current = (source: string, reason: RedrawCoordinatorReason) => {
       const key = contentDrawFrameKey.current;
-      if (key) scheduleCanvasFrame(key, 'canvas', () => drawContent());
-      requestRedrawRef.current();
+      if (!key) return;
+      const invalidation: FrameInvalidation = {
+        reason,
+        source,
+        contentChanged: reason !== 'worker-present',
+        timestamp: performance.now(),
+      };
+      redrawCoordinatorRef.current?.request(invalidation);
+      scheduleCanvasFrame(key, 'canvas', () => drawContent());
     };
   }, [drawContent]);
 
