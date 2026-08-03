@@ -1286,6 +1286,21 @@
   z-index: var(--elevation-z-raised);
 }
 
+/* ── Logo panel ── */
+.editor__logo-panel {
+  grid-area: canvas;
+  position: relative;
+  justify-self: end;
+  width: 340px;
+  max-width: 60vw;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  background: var(--color-surface-raised);
+  border-left: 1px solid var(--color-border-subtle);
+  z-index: var(--elevation-z-raised);
+}
+
 /* ── Panel overlays (responsive) ── */
 @media (max-width: 899px) {
   .editor-shell {

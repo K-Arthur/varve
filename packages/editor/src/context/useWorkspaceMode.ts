@@ -22,6 +22,7 @@ export function useWorkspaceMode(
         timelinePanelVisible: config.panels.timeline.visible,
         libraryPanelVisible: config.panels.library.visible,
         codegenPanelVisible: config.panels.codegen.visible,
+        logoPanelVisible: config.panels.logo.visible,
       };
       if (config.defaultTool && config.defaultTool !== state.tool) {
         patchObj.tool = config.defaultTool as ToolId;
@@ -31,6 +32,7 @@ export function useWorkspaceMode(
         panel: {
           leftPanelVisible: config.panels.layers.visible,
           rightPanelVisible: config.panels.inspector.visible,
+          logoPanelVisible: config.panels.logo.visible,
         },
       });
       announcerRef.current?.announce(`Switched to ${mode} workspace`);
@@ -61,6 +63,7 @@ export function useWorkspaceMode(
           timelinePanelVisible: config.panels.timeline.visible,
           libraryPanelVisible: config.panels.library.visible,
           codegenPanelVisible: config.panels.codegen.visible,
+          logoPanelVisible: config.panels.logo.visible,
         };
         if (config.defaultTool && config.defaultTool !== state.tool) {
           patchObj.tool = config.defaultTool as ToolId;
@@ -70,6 +73,7 @@ export function useWorkspaceMode(
           panel: {
             leftPanelVisible: config.panels.layers.visible,
             rightPanelVisible: config.panels.inspector.visible,
+            logoPanelVisible: config.panels.logo.visible,
           },
         });
         announcerRef.current?.announce(`Switched to ${mode} workspace`);
@@ -90,6 +94,7 @@ export function useWorkspaceMode(
       timelinePanelVisible: config.panels.timeline.visible,
       libraryPanelVisible: config.panels.library.visible,
       codegenPanelVisible: config.panels.codegen.visible,
+      logoPanelVisible: config.panels.logo.visible,
     };
     if (config.defaultTool) {
       patchObj.tool = config.defaultTool as ToolId;
