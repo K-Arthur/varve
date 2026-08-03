@@ -19,6 +19,7 @@ import {
 import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { normalizeDocumentEffects } from './effects';
+import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
 import {
   getOwnRasterMaskAsset,
   validateMaskSource,
@@ -58,6 +59,8 @@ export interface DocumentClosure {
   rasterMaskAssets?: Document['rasterMaskAssets'];
   /** Image assets (v2.6+) referenced by the closure's nodes — see ./assets.ts. */
   assets?: Document['assets'];
+  /** Icon assets referenced by the closure's nodes — see ./iconAsset.ts. */
+  iconAssets?: Document['iconAssets'];
 }
 
 function warning(
@@ -99,6 +102,12 @@ function validateRuntimeCollections(raw: Record<string, unknown>): string | null
     if (!isRecord(raw.assets)) return 'Document assets must be an object';
     for (const [assetId, asset] of Object.entries(raw.assets)) {
       if (!isRecord(asset)) return `Document asset ${assetId} must be an object`;
+    }
+  }
+  if (raw.iconAssets !== undefined) {
+    if (!isRecord(raw.iconAssets)) return 'Document iconAssets must be an object';
+    for (const [assetId, asset] of Object.entries(raw.iconAssets)) {
+      if (!isRecord(asset)) return `Icon asset ${assetId} must be an object`;
     }
   }
   return null;
@@ -197,6 +206,34 @@ function sanitizeRasterMaskState(doc: Document, warnings: DocumentCodecWarning[]
     ...doc,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
+  };
+}
+
+/**
+ * Sanitize Document.iconAssets: drop structurally invalid entries with a
+ * warning, then prune entries no longer referenced by any node's
+ * `iconAssetId`. Unreferenced assets are safe to drop because the icon's
+ * vector data already lives in the node subtree (the asset is provenance
+ * metadata, not the payload).
+ */
+function sanitizeIconAssetState(doc: Document, warnings: DocumentCodecWarning[]): Document {
+  if (!doc.iconAssets) return doc;
+  const validAssets = Object.fromEntries(
+    Object.entries(doc.iconAssets).filter(([assetId, asset]) => {
+      const error = validateIconAsset(asset);
+      if (!error) return true;
+      warnings.push(
+        warning('document.invalid-icon-asset', error, 'error', `iconAssets.${assetId}`),
+      );
+      return false;
+    }),
+  );
+  const referenced = Object.fromEntries(
+    Object.entries(validAssets).filter(([assetId]) => isIconAssetReferenced(doc, assetId)),
+  );
+  return {
+    ...doc,
+    iconAssets: Object.keys(referenced).length > 0 ? referenced : undefined,
   };
 }
 
@@ -616,6 +653,7 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = sanitizeStructuralMaskState(document, warnings);
   document = sanitizeRasterMaskState(document, warnings);
   document = sanitizeImageAssetState(document, warnings);
+  document = sanitizeIconAssetState(document, warnings);
   document = normalizeDocumentEffects(document);
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
@@ -653,11 +691,18 @@ function collectNodeClosure(doc: Document, rootIds: NodeId[]): DocumentClosure {
       if (assetId && asset) assets[assetId] = asset;
     }
   }
+  const iconAssets: NonNullable<Document['iconAssets']> = {};
+  for (const node of Object.values(nodes)) {
+    const assetId = node.iconAssetId;
+    const asset = assetId ? doc.iconAssets?.[assetId] : undefined;
+    if (assetId && asset) iconAssets[assetId] = asset;
+  }
   return {
     nodeIds,
     nodes,
     rasterMaskAssets: Object.keys(rasterMaskAssets).length > 0 ? rasterMaskAssets : undefined,
     assets: Object.keys(assets).length > 0 ? assets : undefined,
+    iconAssets: Object.keys(iconAssets).length > 0 ? iconAssets : undefined,
   };
 }
 

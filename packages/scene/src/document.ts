@@ -258,6 +258,15 @@ export interface Document {
   rasterMaskAssets?: Record<string, import('./types').RasterMaskAsset>;
 
   /**
+   * Icon assets keyed by asset id (v2.x icon system). Each entry stores the
+   * sanitized SVG and provenance (provider, licence, attribution) for icons
+   * inserted from the icon browser or provider. Nodes reference entries via
+   * `NodeBase.iconAssetId`. Embedded icons travel with the document, so a
+   * provider outage can never break an existing document.
+   */
+  iconAssets?: Record<string, import('./iconAsset').DocumentIconAsset>;
+
+  /**
    * Content-addressed image assets keyed by asset id (v2.6+).
    * Referenced from `ImageFillData.assetId` on any node's `fills[]` or a
    * shared `Paint`. See `DocumentAsset` doc comment in ./types.
