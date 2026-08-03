@@ -795,6 +795,29 @@ export function roundTo(value: number, digits: number): number {
   return Math.round(value * f + sign * Number.EPSILON) / f;
 }
 
+// ── Precision and determinism conventions ───────────────────────────────────
+
+/**
+ * Canonical precision conventions (Phase 4 of the color-management program).
+ *
+ * - `COLOR_EQUALITY_TOLERANCE`: default per-channel tolerance for managed
+ *   color comparisons (`managedColorEquals`).
+ * - `COLOR_SERIALIZATION_PRECISION`: relative magnitude retained when
+ *   serializing float channels (Lab/LCH). Values are never rounded on
+ *   storage; this is the tolerance used when comparing serialized floats.
+ * - Picker display precision: Lab L/a/b and LCH L/C to 1 decimal, LCH hue
+ *   to 0.1°. Display formatting is presentation-only; it is never written
+ *   back to the authoritative value.
+ *
+ * Determinism: for identical inputs, profile versions, and options, all
+ * conversions in this module produce bit-identical results on a given
+ * runtime (no Math.random, no Date, no platform-dependent rounding).
+ */
+export const COLOR_EQUALITY_TOLERANCE = 1e-9;
+export const COLOR_SERIALIZATION_PRECISION = 1e-6;
+export const COLOR_DISPLAY_DECIMALS = 1;
+export const COLOR_HUE_DISPLAY_DECIMALS = 1;
+
 // ── Gamut mapping ───────────────────────────────────────────────────────────
 
 /**

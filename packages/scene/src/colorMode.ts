@@ -27,7 +27,7 @@
  *   emitted and the conversion is skipped.
  */
 
-import { labToRgb, lchToRgb } from '@strata/shared';
+import { cmykToRgb, labToRgb, lchToRgb, rgbToCmyk } from '@strata/shared';
 import {
   type ColorConfig,
   type ColorMode,
@@ -59,36 +59,28 @@ export interface ColorConversionReport {
   warnings: string[];
 }
 
-function rgbToCmyk(
+function luminance(r: number, g: number, b: number): number {
+  return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+}
+
+/** Analytical RGB<->CMYK (0-255 scale) — single source: @strata/shared. */
+function rgbToCmykChannels(
   r: number,
   g: number,
   b: number,
 ): { c: number; m: number; y: number; k: number } {
-  const rr = r / 255;
-  const gg = g / 255;
-  const bb = b / 255;
-  const k = 1 - Math.max(rr, gg, bb);
-  if (k === 1) return { c: 0, m: 0, y: 0, k: 255 };
-  const c = ((1 - rr - k) / (1 - k)) * 255;
-  const m = ((1 - gg - k) / (1 - k)) * 255;
-  const y = ((1 - bb - k) / (1 - k)) * 255;
-  return { c: Math.round(c), m: Math.round(m), y: Math.round(y), k: Math.round(k * 255) };
+  const [c, m, y, k] = rgbToCmyk(r, g, b);
+  return { c, m, y, k };
 }
 
-function cmykToRgb(
+function cmykToRgbChannels(
   c: number,
   m: number,
   y: number,
   k: number,
 ): { r: number; g: number; b: number } {
-  const r = 255 * (1 - c / 255) * (1 - k / 255);
-  const g = 255 * (1 - m / 255) * (1 - k / 255);
-  const b = 255 * (1 - y / 255) * (1 - k / 255);
-  return { r: Math.round(r), g: Math.round(g), b: Math.round(b) };
-}
-
-function luminance(r: number, g: number, b: number): number {
-  return Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  const [r, g, b] = cmykToRgb(c, m, y, k);
+  return { r, g, b };
 }
 
 /**
@@ -117,7 +109,7 @@ function convertColorAnalytical(
   if (newMode === 'rgb') {
     if (color.space === 'rgb') return color;
     if (color.space === 'cmyk') {
-      const { r, g, b } = cmykToRgb(color.c, color.m, color.y, color.k);
+      const { r, g, b } = cmykToRgbChannels(color.c, color.m, color.y, color.k);
       report.converted++;
       return withProfile({ space: 'rgb', r, g, b, a: color.a }, color);
     }
@@ -130,7 +122,7 @@ function convertColorAnalytical(
   if (newMode === 'cmyk') {
     if (color.space === 'cmyk') return color;
     if (color.space === 'rgb') {
-      const { c, m, y, k } = rgbToCmyk(color.r, color.g, color.b);
+      const { c, m, y, k } = rgbToCmykChannels(color.r, color.g, color.b);
       report.converted++;
       return withProfile({ space: 'cmyk', c, m, y, k, a: color.a }, color);
     }
