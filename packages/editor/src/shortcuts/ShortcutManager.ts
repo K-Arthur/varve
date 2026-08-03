@@ -357,6 +357,31 @@ export const SHORTCUT_DEFS = {
     label: 'Radial Duplicate',
     category: 'Object',
   },
+  newLogoProject: {
+    binding: { key: 'n', ctrl: true, alt: true },
+    label: 'New Logo Project',
+    category: 'File',
+  },
+  createLogoConcept: {
+    binding: { key: '1', ctrl: true, alt: true },
+    label: 'Create Logo Concept',
+    category: 'File',
+  },
+  duplicateLogoConcept: {
+    binding: { key: '2', ctrl: true, alt: true },
+    label: 'Duplicate Logo Concept',
+    category: 'File',
+  },
+  createMonochromeVariant: {
+    binding: { key: 'm', ctrl: true, alt: true, shift: true },
+    label: 'Create Monochrome Variant',
+    category: 'File',
+  },
+  createReversedVariant: {
+    binding: { key: 'q', ctrl: true, alt: true },
+    label: 'Create Reversed Variant',
+    category: 'File',
+  },
   quickActions: {
     binding: { key: ';', ctrl: true, shift: true },
     label: 'Quick Actions',

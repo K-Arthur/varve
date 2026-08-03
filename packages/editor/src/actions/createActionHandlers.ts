@@ -287,6 +287,19 @@ export function createActionHandlers(
       if (!Number.isFinite(count) || count < 2) return;
       e.radialDuplicateSelected(count);
     },
+    newLogoProject: () => e.newLogoProject(),
+    createLogoConcept: () => e.createLogoConcept(),
+    duplicateLogoConcept: () => e.duplicateActiveConcept(),
+    createLogoVariant: async () => {
+      const { promptDialog } = await import('../components/PromptDialog');
+      const raw = await promptDialog('Variant name', 'Icon');
+      if (raw === null) return;
+      e.createLogoVariant(raw || 'Variant', 'custom');
+    },
+    createMonochromeVariant: () => e.createLogoVariant('Monochrome', 'monochrome'),
+    createReversedVariant: () => e.createLogoVariant('Reversed', 'reversed'),
+    createIconVariant: () => e.createLogoVariant('Icon', 'icon'),
+    createSmallVariant: () => e.createLogoVariant('Small', 'small'),
     upscaleImage: () => {
       const imageNode = e.state.selection
         .map((id) => e.state.document.nodes[id])
