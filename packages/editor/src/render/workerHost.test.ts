@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WorkerCommand } from './workerHost';
 import {
   createRenderWorkerHost,
+  disposeWorkerFrame,
   getRegisteredWorkerHost,
   registerWorkerHostForDiagnostics,
 } from './workerHost';
@@ -431,6 +432,34 @@ describe('render worker host restarts', () => {
     );
     expect(host.getBitmapBudgetState().residentBytes).toBe(4);
     expect(host.getBitmapBudgetState().inFlightBytes).toBe(0);
+  });
+
+  it('releases resident accounting when the canvas disposes the forwarded frame', () => {
+    const host = createRenderWorkerHost(vi.fn(), undefined, {
+      budgetBytes: 1_000_000,
+    })!;
+    expect(host.post(renderCommand())).toBe(true);
+    const frame = mockBitmap();
+    mockWorkers[0]!.onmessage!(
+      new MessageEvent('message', {
+        data: {
+          type: 'frameRendered',
+          docVersion: 1,
+          renderRevision: asRenderRevision(1),
+          camera: { pan: { x: 0, y: 0 }, zoom: 1 },
+          viewport: { width: 100, height: 100 },
+          dpr: 1,
+          bitmap: frame,
+        },
+      }),
+    );
+    expect(host.getBitmapBudgetState().residentBytes).toBe(4);
+
+    disposeWorkerFrame(host, frame);
+    expect(frame.close).toHaveBeenCalledTimes(1);
+    expect(host.getBitmapBudgetState().residentBytes).toBe(0);
+    expect(host.releaseFrame(frame)).toBe(false);
+    expect(host.getBitmapBudgetState().residentBytes).toBe(0);
   });
 
   it('releases in-flight and resident accounting on terminate', () => {

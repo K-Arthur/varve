@@ -53,6 +53,12 @@ export type WorkerResponse =
 export interface RenderWorkerHost {
   /** Returns false when the host refused the command or postMessage failed. */
   post(command: WorkerCommand, transfer?: Transferable[]): boolean;
+  /**
+   * Release accounting for a forwarded frame when its canvas owner disposes
+   * it before another worker frame replaces it. Returns true only for the
+   * currently accounted frame, making duplicate/stale releases harmless.
+   */
+  releaseFrame(bitmap: ImageBitmap): boolean;
   terminate(): void;
   readonly permanentFailure: boolean;
   readonly restartCount: number;
@@ -66,6 +72,16 @@ export interface RenderWorkerHost {
 export interface RenderWorkerHostOptions {
   /** Byte budget for main-thread-visible worker bitmaps (0 disables admission). */
   budgetBytes?: number;
+}
+
+/** Close a frame and release host accounting at the same ownership boundary. */
+export function disposeWorkerFrame(
+  host: RenderWorkerHost | null,
+  bitmap: ImageBitmap | null | undefined,
+): void {
+  if (!bitmap) return;
+  host?.releaseFrame(bitmap);
+  bitmap.close();
 }
 
 type NormalizedRenderCommand = WorkerRenderCommand & { renderRevision: RenderRevision };
@@ -111,6 +127,7 @@ export function createRenderWorkerHost(
   let lastRenderUsedTransfer = false;
   let inFlightRenderRevision: RenderRevision | null = null;
   let inFlightTransferBytes = 0;
+  let lastForwardedFrame: ImageBitmap | null = null;
   let lastForwardedFrameBytes = 0;
   let pendingRender: PendingRender | null = null;
   let latestRequestedRevision: RenderRevision | null = null;
@@ -168,6 +185,7 @@ export function createRenderWorkerHost(
     if (inFlightTransferBytes > 0) bitmapBudget.releaseTransfer(inFlightTransferBytes);
     inFlightTransferBytes = 0;
     if (lastForwardedFrameBytes > 0) bitmapBudget.releaseResident(lastForwardedFrameBytes);
+    lastForwardedFrame = null;
     lastForwardedFrameBytes = 0;
   }
 
@@ -261,6 +279,7 @@ export function createRenderWorkerHost(
             if (msg.bitmap) {
               const frameBytes = estimateRgbaBytes(msg.bitmap.width, msg.bitmap.height);
               bitmapBudget.accountResidentFrame(frameBytes, lastForwardedFrameBytes);
+              lastForwardedFrame = msg.bitmap;
               lastForwardedFrameBytes = frameBytes;
             }
             onResponse(msg);
@@ -384,6 +403,13 @@ export function createRenderWorkerHost(
           estimateRgbaBytes(command.width * command.dpr, command.height * command.dpr),
         );
       }
+      return true;
+    },
+    releaseFrame(bitmap) {
+      if (bitmap !== lastForwardedFrame) return false;
+      bitmapBudget.releaseResident(lastForwardedFrameBytes);
+      lastForwardedFrame = null;
+      lastForwardedFrameBytes = 0;
       return true;
     },
     terminate() {
