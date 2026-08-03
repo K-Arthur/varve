@@ -398,11 +398,13 @@ function ShellInner({
             <CodePanel doc={editor.state.document} selection={editor.selectedNodes()} />
           </div>
         )}
-        {editor.state.logoPanelVisible && !distractionFreeMode && (
-          <div className="editor__logo-panel" data-panel="logo" data-testid="logo-panel">
-            <LogoPanel />
-          </div>
-        )}
+        {editor.state.logoPanelVisible &&
+          editor.state.workspaceMode === 'logo' &&
+          !distractionFreeMode && (
+            <div className="editor__logo-panel" data-panel="logo" data-testid="logo-panel">
+              <LogoPanel />
+            </div>
+          )}
         {editor.state.timelinePanelVisible && !distractionFreeMode && (
           <div className="editor__timeline-panel" data-panel="timeline">
             <ErrorBoundary>
