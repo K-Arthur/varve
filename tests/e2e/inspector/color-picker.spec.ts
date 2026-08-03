@@ -124,8 +124,8 @@ test.describe('Color picker workflow', () => {
 
   test('rejects invalid hex without corrupting the document color', async ({ page }) => {
     await createRect(page);
-    await openFillPicker(page);
-    const hexInput = page.getByRole('textbox', { name: 'Hex color' });
+    const dialog = await openFillPicker(page);
+    const hexInput = dialog.getByRole('textbox', { name: 'Hex color' });
 
     await hexInput.click();
     await hexInput.fill('zzz-not-hex');
