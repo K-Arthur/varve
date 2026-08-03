@@ -1,7 +1,7 @@
 // COMPLEXITY: 214 cyclo — see docs/plans/architecture-health-remediation-2026-07-26.md
 import { createEmbeddedAsset, mimeTypeFromDataUrl } from './assets';
 
-export const CURRENT_DOCUMENT_VERSION = '2.11';
+export const CURRENT_DOCUMENT_VERSION = '2.12';
 
 export const SUPPORTED_VERSIONS = [
   '1.0',
@@ -27,6 +27,7 @@ export const SUPPORTED_VERSIONS = [
   '2.9',
   '2.10',
   '2.11',
+  '2.12',
 ];
 
 export interface DocumentMigration {
@@ -685,6 +686,55 @@ const migrations: DocumentMigration[] = [
       const result = { ...raw, formatVersion: '2.11' } as Record<string, unknown>;
       if (!Array.isArray(result.gradientPresets)) {
         result.gradientPresets = [];
+      }
+      return result;
+    },
+  },
+  {
+    from: '2.11',
+    to: '2.12',
+    migrate: (raw) => {
+      // Logo project metadata (concepts/variants/brief/palette) is optional;
+      // existing documents simply have none. The migration normalizes any
+      // malformed logoProject payload into a safe shape.
+      const result = { ...raw, formatVersion: '2.12' } as Record<string, unknown>;
+      if (result.logoProject !== undefined) {
+        const p = result.logoProject as Record<string, unknown>;
+        const concepts = Array.isArray(p.concepts) ? p.concepts : [];
+        const variants = Array.isArray(p.variants) ? p.variants : [];
+        const conceptIds = new Set(
+          concepts
+            .filter((c) => typeof c === 'object' && c !== null)
+            .map((c) => (c as { id?: unknown }).id),
+        );
+        result.logoProject = {
+          version: 1,
+          id: typeof p.id === 'string' ? p.id : `logo-${Date.now()}`,
+          name: typeof p.name === 'string' ? p.name : 'Logo Project',
+          createdAt: typeof p.createdAt === 'number' ? p.createdAt : Date.now(),
+          updatedAt: typeof p.updatedAt === 'number' ? p.updatedAt : Date.now(),
+          brief: {
+            keywords: [],
+            preferredColors: [],
+            prohibitedColors: [],
+            updatedAt: Date.now(),
+            ...(typeof p.brief === 'object' && p.brief !== null ? (p.brief as object) : {}),
+          },
+          concepts,
+          variants: variants.map((v) => {
+            const vv = v as Record<string, unknown>;
+            return {
+              ...vv,
+              sourceConceptId:
+                typeof vv.sourceConceptId === 'string' && conceptIds.has(vv.sourceConceptId)
+                  ? vv.sourceConceptId
+                  : null,
+            };
+          }),
+          palette: Array.isArray(p.palette)
+            ? { colors: p.palette, updatedAt: Date.now() }
+            : p.palette,
+        };
       }
       return result;
     },

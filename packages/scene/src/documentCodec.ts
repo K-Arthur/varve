@@ -20,6 +20,7 @@ import type { Document } from './document';
 import { isContainer, makeGroupNode } from './document';
 import { normalizeDocumentEffects } from './effects';
 import { isIconAssetReferenced, validateIconAsset } from './iconAsset';
+import { normalizeLogoProject } from './logo/logoProject';
 import {
   getOwnRasterMaskAsset,
   validateMaskSource,
@@ -657,6 +658,9 @@ function normalizeDocument(doc: Document): DocumentNormalizeResult {
   document = normalizeDocumentEffects(document);
   if (!document.selectionSets) {
     document = { ...document, selectionSets: createEmptySelectionSetsData() };
+  }
+  if (document.logoProject !== undefined) {
+    document = { ...document, logoProject: normalizeLogoProject(document.logoProject) };
   }
   return { document, warnings };
 }
