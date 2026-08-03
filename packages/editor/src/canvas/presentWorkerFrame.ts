@@ -39,7 +39,8 @@ export interface PresentWorkerFrameArgs {
   dpr: number;
   docVersion: number;
   frameStart: number;
-  identityTransform: Affine;
+  /** Identity transform for the composited bitmap; defaults to identity. */
+  identityTransform?: Affine;
   coordinator: RedrawCoordinator;
   decision: FrameBeginDecision;
   snapshot: FrameStateSnapshot;
@@ -63,7 +64,7 @@ export function tryPresentWorkerFrame(args: PresentWorkerFrameArgs): boolean {
     viewport,
     dpr,
     docVersion,
-    identityTransform,
+    identityTransform = [1, 0, 0, 1, 0, 0],
   } = args;
   if (!wb || !compositor) return false;
   const bitmapIsCurrent =
