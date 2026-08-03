@@ -44,6 +44,7 @@ import type { DirtyRegionRecorder } from './dirtyRegion';
 import { computeMergedDirtyRegion, mergeDirtyRects } from './dirtyRegionMerge';
 import {
   recordFrame as drawDiagnosticsRecordFrame,
+  recordPruneScreenRects as drawDiagnosticsRecordPruneScreenRects,
   enableDrawDiagnostics,
   type FrameDiagnostics,
   installPerfDiagnosticsHandle as installDrawDiagnosticsHandle,
@@ -139,6 +140,7 @@ export function getRegisteredRedrawCoordinator(): RedrawCoordinator | null {
 const nodeWorkRing = new NodeWorkRing();
 let lastDirtyRects: DirtyRegionRecorder | null = null;
 let lastMergedDirty: import('./dirtyRegionMerge').DirtyMergeResult | null = null;
+let lastPruneScreenRects: readonly { x: number; y: number; w: number; h: number }[] | null = null;
 
 export function isNodeWorkRecordingEnabled(): boolean {
   return isInteractionTracingEnabled();
@@ -188,6 +190,7 @@ export function getNodeWorkSamples(n = 30): {
       ? { rects: [...lastDirtyRects.rects], truncated: lastDirtyRects.truncated }
       : null,
     mergedDirty: lastMergedDirty,
+    pruneScreenRects: lastPruneScreenRects,
   };
 }
 
@@ -203,10 +206,20 @@ export function recordMergedDirty(
   return result;
 }
 
+/** Record the viewport-space merged rects for the diagnostics overlay. */
+export function recordPruneScreenRects(
+  rects: readonly { x: number; y: number; w: number; h: number }[] | null,
+): void {
+  if (!isNodeWorkRecordingEnabled()) return;
+  lastPruneScreenRects = rects;
+  drawDiagnosticsRecordPruneScreenRects(rects);
+}
+
 export function resetNodeWork(): void {
   nodeWorkRing.reset();
   lastDirtyRects = null;
   lastMergedDirty = null;
+  lastPruneScreenRects = null;
 }
 
 let disposePresentationObserver: (() => void) | null = null;

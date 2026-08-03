@@ -80,23 +80,29 @@ import {
   subscribeToDevicePixelRatio,
 } from './canvas/canvasSurface';
 import { canCullDescendantsWithContainerBounds } from './canvas/containerCulling';
+import { computeDirtyPruneDecision, rectsIntersectAny } from './canvas/dirtyQuery';
 import {
-  computeDocumentDirtyRegion,
   DirtyRegionRecorder,
   type RedrawReason,
   resolveFullRedrawReason,
   resolveRedrawReason,
 } from './canvas/dirtyRegion';
+import { computeFrameDirtyRegion } from './canvas/dirtyRegionMerge';
+import { expandReplayList } from './canvas/dirtyReplay';
 import { EngineNodeMemo } from './canvas/engineNodeMemo';
 import { parseGridTemplate } from './canvas/gridTemplate';
 import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { useOverlayDraw } from './canvas/overlayManager';
 import {
+  openFullRedraw,
+  openMultiRectPartialClip,
+  openUnionPartialClip,
+} from './canvas/partialPaint';
+import {
   beginContentFrame,
   beginInteractionSpan,
   cancelCanvasFrame,
-  computeMergedDirtyRegion,
   createCanvasFrameKey,
   createNodeWorkCounters,
   createRedrawCoordinator,
@@ -114,8 +120,8 @@ import {
   recordFrame,
   recordMergedDirty,
   recordNodeWork,
+  recordPruneScreenRects,
   recordSnapMetrics,
-  rectsIntersect,
   registerRedrawCoordinator,
   resolveDirtyScreenRect,
   scheduleCanvasFrame,
@@ -1434,52 +1440,19 @@ export function CanvasArea({
 
       const dirtyRecorder = dirtyRecorderRef.current;
       dirtyRecorder.reset();
-      const dirty = computeDocumentDirtyRegion(
-        lastRenderedDocRef.current,
-        doc,
-        undefined,
+      const frameDirty = computeFrameDirtyRegion({
+        previous: lastRenderedDocRef.current,
+        next: doc,
+        recorder: dirtyRecorderRef.current,
         parentIndex,
-        dirtyRecorder,
-      );
-      const mergedDirty = recordMergedDirty(
-        computeMergedDirtyRegion(dirty, dirtyRecorder, VP_W, VP_H),
-      );
-      // The world-space dirty bounds, retained so the node loop below can
-      // measure how many replayed nodes a dirty-region query could have
-      // pruned. Measurement only — the loop's behaviour is unchanged.
-      const dirtyWorldBounds = dirty.kind === 'partial' ? dirty.bounds : null;
-      if (dirty.kind === 'full') {
-        dirtyRectRef.current = null;
-        nodeWork.fullFallback = true;
-      } else if (dirty.kind === 'partial') {
-        const dirtyWorld = dirty.bounds;
-        // Use the canonical camera transform so rotated views produce the
-        // same dirty bounds as the pixels painted by the compositor.
-        const origin = computeFloatingOrigin(cam, vp);
-        const corners: Array<[number, number]> = [
-          [dirtyWorld.x, dirtyWorld.y],
-          [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y],
-          [dirtyWorld.x, dirtyWorld.y + dirtyWorld.h],
-          [dirtyWorld.x + dirtyWorld.w, dirtyWorld.y + dirtyWorld.h],
-        ];
-        let minSx = Infinity;
-        let minSy = Infinity;
-        let maxSx = -Infinity;
-        let maxSy = -Infinity;
-        for (const [wx, wy] of corners) {
-          const [px, py] = worldToScreen(cam, wx, wy, vp, origin);
-          minSx = Math.min(minSx, px);
-          minSy = Math.min(minSy, py);
-          maxSx = Math.max(maxSx, px);
-          maxSy = Math.max(maxSy, py);
-        }
-        dirtyRectRef.current = {
-          x: Math.max(0, minSx - 40),
-          y: Math.max(0, minSy - 40),
-          w: Math.min(VP_W, maxSx - minSx + 80),
-          h: Math.min(VP_H, maxSy - minSy + 80),
-        };
-      }
+        worldToScreen: (wx, wy) => worldToScreen(cam, wx, wy, vp, computeFloatingOrigin(cam, vp)),
+        viewportW: VP_W,
+        viewportH: VP_H,
+      });
+      const dirty = frameDirty.dirty;
+      const mergedDirty = recordMergedDirty(frameDirty.mergedDirty);
+      dirtyRectRef.current = dirty.kind === 'full' ? null : frameDirty.dirtyScreenRect;
+      if (frameDirty.fullFallback) nodeWork.fullFallback = true;
 
       const variantCaches =
         doc === state.document ? precomputedVariantCaches : buildAllVariantCaches(doc);
@@ -1487,6 +1460,36 @@ export function CanvasArea({
 
       const setupMs = performance.now() - frameStart;
       const preLoopStart = performance.now();
+
+      // One profile per frame (pre-loop) so pruning, worker and paint agree.
+      const profile = computeProfile(getAverageFrameTime(), getOverBudgetCount(), entries.size);
+      const cacheMultiplier = profile.cacheMultiplier;
+      const profileCanUseWorker = profile.enableWorker;
+
+      // Pruning is only safe when the paint path uses a partial redraw and
+      // pointless when the worker draws the whole frame anyway.
+      const workerWillRender =
+        Boolean(renderWorkerRef.current) &&
+        !workerFailedRef.current &&
+        profileCanUseWorker &&
+        sceneCanUseWorkerRenderer(doc, (src) => getImageCache().isLoaded(src)) &&
+        !sceneNeedsStructuralCompositing(doc);
+      const pruneDecision = computeDirtyPruneDecision({
+        dirtyKind: dirty.kind,
+        merged: mergedDirty,
+        profileEnablePartialRedraw: profile.enablePartialRedraw,
+        rotation: s.cameraRotation ?? 0,
+        dirtyScreenRect: dirtyRectRef.current,
+        viewportW: VP_W,
+        viewportH: VP_H,
+        workerWillRender,
+        worldToScreen: (wx: number, wy: number) =>
+          worldToScreen(cam, wx, wy, vp, computeFloatingOrigin(cam, vp)),
+      });
+      const dirtyWorldRects = pruneDecision.worldRects;
+      const pruneScreenRects = pruneDecision.screenRects;
+      recordPruneScreenRects(pruneScreenRects);
+
       const nodeIds: string[] = [];
       const flatNodes: EngineNode[] = [];
       const engineMemo = engineNodeMemoRef.current;
@@ -1527,12 +1530,14 @@ export function CanvasArea({
           nodeWork.rejectedByViewport++;
           continue;
         }
-        // The visible list is built before dirty clipping, so no node is
-        // rejected here by the dirty region. Counting the nodes that *could*
-        // have been is what turns "the rectangle got smaller" into evidence
-        // about node work — see nodeWorkAccounting.ts.
-        if (dirtyWorldBounds && visualBounds && !rectsIntersect(visualBounds, dirtyWorldBounds)) {
+        // Dirty-region-driven visible-list construction: a node whose world
+        // render bounds miss every merged dirty rect is rejected outright —
+        // the per-rect clip means its pixels cannot change, so replaying it
+        // is pure waste (this was the measured 40-89% of replayed nodes).
+        if (dirtyWorldRects && visualBounds && !rectsIntersectAny(visualBounds, dirtyWorldRects)) {
           nodeWork.prunableByDirty++;
+          nodeWork.rejectedByDirty++;
+          continue;
         }
 
         let engineNode = canMemoEngineNodes ? engineMemo.get(id, n, world) : undefined;
@@ -1566,7 +1571,31 @@ export function CanvasArea({
       const preLoopMs = performance.now() - preLoopStart;
       nodeWork.visibilityMs = preLoopMs;
       nodeWork.cacheReused = engineMemo.hits - engineMemoHitsAtStart;
-      recordNodeWork(nodeWork, dirtyRecorder);
+
+      // Replay-set expansion: ancestors, mask sources and full flatten-group
+      // subtrees replay too; their IR is appended (order is irrelevant).
+      let replaySet: Set<string> | null = null;
+      if (dirtyWorldRects && nodeIds.length > 0) {
+        parentIndex ??= buildParentIndexMap(doc);
+        const expanded = expandReplayList({
+          doc,
+          appendIds: nodeIds,
+          parentIndex,
+          cache,
+          variantCaches,
+          variableStore,
+          resolvedStyles,
+          engineMemo,
+          canMemoEngineNodes,
+          showOriginalBgNodeId: s.showOriginalBgNodeId ?? '',
+        });
+        replaySet = expanded.replaySet;
+        nodeWork.ancestorsIncluded = expanded.ancestorsIncluded;
+        nodeWork.compositingDependencies = expanded.compositingDependencies;
+        nodeIds.push(...expanded.nodeIds);
+        flatNodes.push(...expanded.flatNodes);
+      }
+      recordNodeWork(nodeWork, dirtyRecorderRef.current);
 
       if (s.motion.activeTimelineId) {
         const sample = sampleTimelineAt(doc, s.motion.activeTimelineId, s.motion.currentTime);
@@ -1587,13 +1616,6 @@ export function CanvasArea({
 
       const docVersion = docVersionRef.current;
       const animatedNodeIds = new Set<string>();
-
-      // Adaptive quality profile based on frameBudget's rolling frame timings
-      const avgFrameTime = getAverageFrameTime();
-      const overBudgetCount = getOverBudgetCount();
-      const profile = computeProfile(avgFrameTime, overBudgetCount, nodeIds.length);
-      const cacheMultiplier = profile.cacheMultiplier;
-      const profileCanUseWorker = profile.enableWorker;
 
       if (s.motion.activeTimelineId) {
         const activeTl = doc.timelines?.[s.motion.activeTimelineId];
@@ -1757,26 +1779,17 @@ export function CanvasArea({
         dirtyRect.h > 0 &&
         dirtyRect.w * dirtyRect.h < VP_W * VP_H * 0.6;
 
-      if (usePartialRedraw) {
-        const dx = dirtyRect.x * dpr;
-        const dy = dirtyRect.y * dpr;
-        const dw = dirtyRect.w * dpr;
-        const dh = dirtyRect.h * dpr;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.clearRect(dx - 1, dy - 1, dw + 2, dh + 2);
-        ctx.fillStyle = boardColor;
-        ctx.fillRect(dx - 1, dy - 1, dw + 2, dh + 2);
-        ctx.save();
+      // Multi-rect partial: clear/fill each merged rect; the clip covers
+      // exactly those rects, never the gaps (retained pixels stay valid).
+      const multiRectPartial = usePartialRedraw && pruneScreenRects !== null;
+      if (multiRectPartial) {
+        openMultiRectPartialClip(ctx, pruneScreenRects, dpr, boardColor, () => applyCam(ctx));
         dirtyClipOpen = true;
-        ctx.beginPath();
-        ctx.rect(dx, dy, dw, dh);
-        ctx.clip();
-        applyCam(ctx);
+      } else if (usePartialRedraw) {
+        openUnionPartialClip(ctx, dirtyRect, dpr, boardColor, () => applyCam(ctx));
+        dirtyClipOpen = true;
       } else {
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.fillStyle = boardColor;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        applyCam(ctx);
+        openFullRedraw(ctx, canvas.width, canvas.height, boardColor, () => applyCam(ctx));
       }
 
       dirtyRectRef.current = null;
@@ -1789,7 +1802,11 @@ export function CanvasArea({
         }
       };
 
+      // Pruned replay: skip nodes outside the set; `replayForceAll` disables
+      // the check inside mask/flatten rendering (whole subtrees required).
+      let replayForceAll = false;
       function replaySubtreeToCtx(nodeId: string, targetCtx: CanvasRenderingContext2D): void {
+        if (replaySet && !replayForceAll && !replaySet.has(nodeId)) return;
         const n = doc.nodes[nodeId];
         if (!n || n.visible === false) return;
         const item = irByNodeId.get(nodeId);
@@ -1799,6 +1816,7 @@ export function CanvasArea({
         const maskChild = maskSrcId ? doc.nodes[maskSrcId] : null;
         if (mask && (maskSrcId || (mask.vectorMask && mask.vectorMask.points.length > 0))) {
           const baseTransform = targetCtx.getTransform();
+          replayForceAll = true;
           const compositeMaskedSurface = (surface: HTMLCanvasElement): void => {
             targetCtx.save();
             try {
@@ -2044,6 +2062,9 @@ export function CanvasArea({
             (n.opacity !== undefined && n.opacity < 1) ||
             visibleGroupEffects.length > 0;
           if (needsFlatten && n.children.length > 0) {
+            // The flatten surface re-renders the whole subtree — the dirty
+            // candidate set does not apply inside it.
+            replayForceAll = true;
             let minX = Infinity,
               minY = Infinity,
               maxX = -Infinity,
@@ -2393,6 +2414,9 @@ export function CanvasArea({
       }
 
       function replaySubtree(nodeId: string): void {
+        // The force flag set by mask/flatten subtrees must not leak into the
+        // next root's pruning decision.
+        replayForceAll = false;
         replaySubtreeToCtx(nodeId, ctxNN);
       }
 

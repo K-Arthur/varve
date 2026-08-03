@@ -99,6 +99,11 @@ export function useCanvasInputs({
   snapIndexRef: externalSnapIndexRef,
 }: UseCanvasInputsOptions): UseCanvasInputsResult {
   const touchPointers = useRef(new Map<number, { x: number; y: number }>());
+  // Rate limiters for the expanded interaction traces (wheel / keyboard /
+  // hover bursts) so instrumentation never alters behaviour.
+  const lastWheelTraceAt = useRef(0);
+  const lastKeyboardTraceAt = useRef(0);
+  const lastHoverTraceAt = useRef(0);
   const pinchRef = useRef<{
     lastDist: number;
     lastCentroid: { x: number; y: number };
@@ -201,6 +206,7 @@ export function useCanvasInputs({
           tmInst.handlePointerCancel(ne, ctx);
           const geo = pinchGeometry();
           if (geo) pinchRef.current = { lastDist: geo.dist, lastCentroid: geo.centroid };
+          if (isInteractionTracingEnabled()) beginInteraction('pinch');
           return;
         }
         if (touchPointers.current.size > 2) return;
@@ -269,6 +275,12 @@ export function useCanvasInputs({
 
       const traceOn = isInteractionTracingEnabled();
       const traceStart = traceOn ? performance.now() : 0;
+      // Hover-only movement is sampled at 800 ms so idle pointer motion does
+      // not churn the trace ring while hover latency stays measurable.
+      if (traceOn && e.buttons === 0 && traceStart - lastHoverTraceAt.current > 800) {
+        lastHoverTraceAt.current = traceStart;
+        beginInteraction('hover');
+      }
       const traceFinish = () => {
         if (traceOn) {
           recordInteractionSpan('pointer.input', performance.now() - traceStart, {
@@ -446,6 +458,10 @@ export function useCanvasInputs({
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const started = performance.now();
+      if (isInteractionTracingEnabled() && started - lastWheelTraceAt.current > 150) {
+        beginInteraction('wheel');
+      }
+      lastWheelTraceAt.current = started;
       const s = stateRef.current;
       const action = resolveWheelAction({
         deltaX: e.deltaX,
@@ -508,6 +524,7 @@ export function useCanvasInputs({
     const onGestureStart = (e: Event) => {
       e.preventDefault();
       gestureBaseZoom = stateRef.current.zoom;
+      if (isInteractionTracingEnabled()) beginInteraction('pinch');
     };
     const onGestureChange = (e: Event) => {
       e.preventDefault();
@@ -603,6 +620,11 @@ export function useCanvasInputs({
     (e: React.KeyboardEvent<HTMLCanvasElement>) => {
       const ne = e.nativeEvent as KeyboardEvent;
       const tmInst = tmRef.current;
+      const keyNow = performance.now();
+      if (isInteractionTracingEnabled() && keyNow - lastKeyboardTraceAt.current > 150) {
+        beginInteraction('keyboard');
+      }
+      lastKeyboardTraceAt.current = keyNow;
 
       if (e.key === ' ') {
         e.preventDefault();
