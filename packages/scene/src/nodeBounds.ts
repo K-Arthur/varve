@@ -116,6 +116,30 @@ export function nodeLocalBounds(
       }
     }
   }
+  if (node.kind === 'path') {
+    if (node.points.length === 0) return null;
+    const pts = node.points;
+    const allX = pts.flatMap((p) => {
+      const vals = [p.x];
+      if (p.handleIn) vals.push(p.x + p.handleIn[0]);
+      if (p.handleOut) vals.push(p.x + p.handleOut[0]);
+      return vals;
+    });
+    const allY = pts.flatMap((p) => {
+      const vals = [p.y];
+      if (p.handleIn) vals.push(p.y + p.handleIn[1]);
+      if (p.handleOut) vals.push(p.y + p.handleOut[1]);
+      return vals;
+    });
+    const minX = Math.min(...allX);
+    const minY = Math.min(...allY);
+    return {
+      x: minX,
+      y: minY,
+      w: Math.max(...allX) - minX || 4,
+      h: Math.max(...allY) - minY || 4,
+    };
+  }
   if (node.kind === 'text') {
     const fs = node.fontSize ?? 16;
     const measured = measureText(node.text, {
