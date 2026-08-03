@@ -32,6 +32,7 @@ import { ComponentSection } from './sections/ComponentSection';
 import { ConstraintSection } from './sections/ConstraintSection';
 import { CornerRadiusSection } from './sections/CornerRadiusSection';
 import { FillSection } from './sections/FillSection';
+import { IconSection } from './sections/IconSection';
 import { ImagePlacementSection } from './sections/ImagePlacementSection';
 import { LayoutSection } from './sections/LayoutSection';
 import { PositionSizeSection } from './sections/PositionSizeSection';
@@ -442,6 +443,7 @@ function SingleSelectionPanel({ nodes }: { nodes: SceneNode[] }) {
 
     if (isComponentInstance)
       add('component', <ComponentSection node={node as import('@strata/scene').FrameNode} />);
+    if (node.iconAssetId) add('icon', <IconSection node={node} />);
     add('position-size', <PositionSizeSection nodes={nodes} />);
     add('constraints', <ConstraintSection nodes={nodes} />);
     if (isRect || isFrame) add('corner-radius', <CornerRadiusSection nodes={nodes} />);
