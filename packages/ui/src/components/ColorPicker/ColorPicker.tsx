@@ -1,12 +1,18 @@
 import type { BitDepth, ColorMode, ColorProfileRef, ManagedColor } from '@strata/scene';
-import { isCmykColor, isGrayColor, isSpotColor } from '@strata/scene';
+import { isCmykColor, isGrayColor, isLabColor, isLchColor, isSpotColor } from '@strata/scene';
 import {
   cmykToRgb,
   denormalizeChannel,
+  labToLch,
+  labToXyz,
+  lchToLab,
   managedColorKey,
   managedColorToRgba,
   normalizeChannel,
+  normalizeHueDegrees,
   rgbToCmyk,
+  rgbToLab,
+  xyzD65ToLinearRgb,
 } from '@strata/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SegmentedOption } from '../SegmentedControl';
@@ -23,6 +29,8 @@ import { contrastRatio, formatContrast, relativeLuminance, wcagLevel } from './c
 import { EyeDropperButton } from './EyeDropperButton';
 import { GamutWarning } from './GamutWarning';
 import { GrayColorFields } from './GrayColorFields';
+import { type LabChannelValues, LabColorFields } from './LabColorFields';
+import { type LchChannelValues, LchColorFields } from './LchColorFields';
 import { SpotColorBrowser } from './SpotColorBrowser';
 import { SwatchPalette } from './SwatchPalette';
 
@@ -77,6 +85,8 @@ function initialSpace(c: ManagedColor, documentColorMode?: ColorMode): ColorSpac
   if (isCmykColor(c)) return 'cmyk';
   if (isGrayColor(c)) return 'gray';
   if (isSpotColor(c)) return 'spot';
+  if (isLabColor(c)) return 'lab';
+  if (isLchColor(c)) return 'lch';
   // Default to document colour mode when the value is plain RGB
   if (documentColorMode === 'cmyk') return 'cmyk';
   if (documentColorMode === 'grayscale') return 'gray';
@@ -201,6 +211,43 @@ export function ColorPicker({
   const [draftVal, setDraftVal] = useState(v);
   const [draftHue, setDraftHue] = useState(h);
 
+  // Lab/LCH draft values. Seeded from the canonical value without a
+  // round-trip when the value is already Lab/LCH; otherwise derived from
+  // the sRGB preview. The alpha channel is percent (0-100) display form.
+  const [draftLab, setDraftLab] = useState<LabChannelValues>(() => {
+    if (isLabColor(value)) {
+      return {
+        l: value.l,
+        av: value.av,
+        b: value.b,
+        alpha: normalizeChannel(value.a, value.bitDepth ?? 'uint8') * 100,
+      };
+    }
+    const [lr, lg, lb] = rgbToLab(rgbTuple[0], rgbTuple[1], rgbTuple[2]);
+    return { l: lr, av: lg, b: lb, alpha: normalizeChannel(rgbTuple[3], 'uint8') * 100 };
+  });
+  const [draftLch, setDraftLch] = useState<LchChannelValues>(() => {
+    if (isLchColor(value)) {
+      return {
+        l: value.l,
+        c: value.c,
+        h: value.h,
+        alpha: normalizeChannel(value.a, value.bitDepth ?? 'uint8') * 100,
+      };
+    }
+    const [lr, lg, lb] = isLabColor(value)
+      ? [value.l, value.av, value.b]
+      : rgbToLab(rgbTuple[0], rgbTuple[1], rgbTuple[2]);
+    const [cl, cc, ch] = labToLch([lr, lg, lb]);
+    return { l: cl, c: cc, h: ch, alpha: normalizeChannel(rgbTuple[3], 'uint8') * 100 };
+  });
+
+  // Achromatic hue memory: while chroma is (near) zero the hue is
+  // perceptually undefined, but the LAST meaningful hue is retained so
+  // users can re-add chroma without a hue jump.
+  const lastHueRef = useRef<number>(draftLch.h);
+  if (draftLch.c > 0.1) lastHueRef.current = draftLch.h;
+
   const sat = draftSat;
   const val = draftVal;
   const hue = draftHue;
@@ -233,6 +280,25 @@ export function ColorPicker({
     setDraftSat(ns);
     setDraftVal(nv);
   }, [valueKey, rgbTuple]);
+
+  // Same resync for Lab/LCH drafts. Values that ARE Lab/LCH seed directly
+  // (no sRGB round trip) so external edits do not accumulate drift.
+  useEffect(() => {
+    if (lastEmittedRef.current === valueKey) return;
+    const [nr, ng, nb, na] = rgbTuple;
+    let labSeed: [number, number, number];
+    if (isLabColor(value)) {
+      labSeed = [value.l, value.av, value.b];
+    } else if (isLchColor(value)) {
+      labSeed = lchToLab([value.l, value.c, value.h]);
+    } else {
+      labSeed = rgbToLab(nr, ng, nb);
+    }
+    const alpha = normalizeChannel(na, 'uint8') * 100;
+    setDraftLab({ l: labSeed[0], av: labSeed[1], b: labSeed[2], alpha });
+    const [cl, cc, ch] = labToLch(labSeed);
+    setDraftLch({ l: cl, c: cc, h: ch, alpha });
+  }, [valueKey, rgbTuple, value]);
 
   const emit = useCallback(
     (c: ManagedColor) => {
@@ -297,14 +363,6 @@ export function ColorPicker({
     [sat, val, rgbTuple, applyColor],
   );
 
-  const handleAlphaChange = useCallback(
-    (newAlpha: number) => {
-      const [r, g, b] = hsvToRgb(hue, sat, val);
-      emitRgb(r, g, b, newAlpha);
-    },
-    [hue, sat, val, emitRgb],
-  );
-
   const handleFieldsChange = useCallback(
     (newColor: Color) => {
       setDraftsFromRgb(newColor[0], newColor[1], newColor[2]);
@@ -357,6 +415,63 @@ export function ColorPicker({
       }
     },
     [authoringSpace, emit, emitRgb],
+  );
+
+  // Lab authoring: emit a canonical LabColor (device-independent; valid in
+  // any document mode). Alpha is scaled to the color's bit depth. Lab values
+  // may be out of the display gamut — they are stored unclipped and only
+  // the preview clips.
+  const handleLabChange = useCallback(
+    (next: LabChannelValues) => {
+      const alpha = denormalizeChannel(next.alpha / 100, bitDepthEffective);
+      const bitDepth = bitDepthEffective !== 'uint8' ? bitDepthEffective : undefined;
+      emit({
+        space: 'lab',
+        l: next.l,
+        av: next.av,
+        b: next.b,
+        a: alpha,
+        ...(bitDepth ? { bitDepth } : {}),
+        ...(spotProfile ? { profile: spotProfile } : {}),
+      });
+    },
+    [bitDepthEffective, spotProfile, emit],
+  );
+
+  // LCH authoring: chroma normalized to >= 0, hue wrapped to [0, 360).
+  // Achromatic drafts keep the last meaningful hue for editing continuity
+  // but the serialized value is valid at any chroma.
+  const handleLchChange = useCallback(
+    (next: LchChannelValues) => {
+      const alpha = denormalizeChannel(next.alpha / 100, bitDepthEffective);
+      const bitDepth = bitDepthEffective !== 'uint8' ? bitDepthEffective : undefined;
+      emit({
+        space: 'lch',
+        l: next.l,
+        c: Math.max(0, next.c),
+        h: normalizeHueDegrees(next.h),
+        a: alpha,
+        ...(bitDepth ? { bitDepth } : {}),
+        ...(spotProfile ? { profile: spotProfile } : {}),
+      });
+    },
+    [bitDepthEffective, spotProfile, emit],
+  );
+
+  const handleAlphaChange = useCallback(
+    (newAlpha: number) => {
+      if (space === 'lab') {
+        handleLabChange({ ...draftLab, alpha: newAlpha * 100 });
+        return;
+      }
+      if (space === 'lch') {
+        handleLchChange({ ...draftLch, alpha: newAlpha * 100 });
+        return;
+      }
+      const [r, g, b] = hsvToRgb(hue, sat, val);
+      emitRgb(r, g, b, newAlpha);
+    },
+    [space, draftLab, draftLch, hue, sat, val, handleLabChange, handleLchChange, emitRgb],
   );
 
   const handleSpotSelect = useCallback(
@@ -413,7 +528,22 @@ export function ColorPicker({
     return { ratio, level, text: `${formatContrast(ratio)} ${level.toUpperCase()}` };
   }, [rgbTuple, bgColor]);
 
-  const showAreaAndSliders = space !== 'gray' && space !== 'spot';
+  const showAreaAndSliders = space === 'rgb' || space === 'cmyk';
+
+  // Lab/LCH gamut status vs the sRGB display space: true when the
+  // authoritative value falls outside the display gamut. The preview is
+  // clipped but the stored value is never touched. Text-based notice, not
+  // color-only. Tolerance 1e-3 absorbs round-trip noise at the gamut
+  // boundary (colors exactly on the boundary must not be flagged).
+  const labLchOutOfGamut = useMemo(() => {
+    if (space !== 'lab' && space !== 'lch') return false;
+    const lab: [number, number, number] =
+      space === 'lab'
+        ? [draftLab.l, draftLab.av, draftLab.b]
+        : lchToLab([draftLch.l, draftLch.c, draftLch.h]);
+    const linear = xyzD65ToLinearRgb(labToXyz(lab));
+    return linear.some((v) => v < -1e-3 || v > 1 + 1e-3);
+  }, [space, draftLab, draftLch]);
 
   const bitDepthOptions: SegmentedOption<BitDepth>[] = [
     { value: 'uint8', label: '8-bit' },
@@ -528,7 +658,7 @@ export function ColorPicker({
             {alphaVal < 1 ? ` (${Math.round(alphaVal * 100)}%)` : ''}
           </span>
         </div>
-        {space !== 'gray' && space !== 'spot' && (
+        {space !== 'gray' && space !== 'spot' && space !== 'lab' && space !== 'lch' && (
           <GamutWarning
             r={rgbTuple[0]}
             g={rgbTuple[1]}
@@ -564,6 +694,47 @@ export function ColorPicker({
       )}
 
       {space === 'gray' && <GrayColorFields value={grayDisplayValue} onChange={handleGrayChange} />}
+
+      {space === 'lab' && (
+        <>
+          <div className="color-picker__sliders">
+            <ColorSlider
+              channel="alpha"
+              value={alphaVal}
+              baseColor={overlayColor}
+              onChange={handleAlphaChange}
+            />
+          </div>
+          <LabColorFields
+            value={draftLab}
+            onChange={handleLabChange}
+            outOfGamut={labLchOutOfGamut}
+          />
+        </>
+      )}
+
+      {space === 'lch' && (
+        <>
+          <div className="color-picker__sliders">
+            <ColorSlider
+              channel="hue"
+              value={draftLch.h}
+              onChange={(h) => handleLchChange({ ...draftLch, h })}
+            />
+            <ColorSlider
+              channel="alpha"
+              value={alphaVal}
+              baseColor={overlayColor}
+              onChange={handleAlphaChange}
+            />
+          </div>
+          <LchColorFields
+            value={draftLch}
+            onChange={handleLchChange}
+            outOfGamut={labLchOutOfGamut}
+          />
+        </>
+      )}
 
       {space === 'spot' && <SpotColorBrowser onSelect={handleSpotSelect} />}
 
