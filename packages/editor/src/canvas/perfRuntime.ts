@@ -263,6 +263,13 @@ function augmentPerfDiagnosticsHandle(): void {
   if (!target.__strataPerf || typeof target.__strataPerf !== 'object') return;
   target.__strataPerf = {
     ...target.__strataPerf,
+    fixtures: {
+      /** Seed a deterministic corpus fixture into the home database. */
+      seed: seedCorpusFixture,
+      /** Replace the open document with a corpus fixture (memory platform). */
+      apply: applyFixtureForPerf,
+      list: listCorpusFixtureIds,
+    },
     snap: {
       getSamples: (n = 10) => getSnapMetrics(n),
       count: () => getSnapMetricsCount(),
@@ -303,6 +310,102 @@ function augmentPerfDiagnosticsHandle(): void {
 }
 
 const refreshEstimator = new RefreshIntervalEstimator();
+
+/**
+ * Seed a deterministic corpus fixture into the home database (`strata-home`
+ * `files` + `recentFiles` stores) so production workloads can open an exact
+ * fixture through the normal home-screen flow. Deterministic by construction:
+ * the corpus fixtures have stable ids, node ids and checksums.
+ *
+ * Dev-only (the handle that exposes this is gated behind `?perf=1`).
+ */
+export async function seedCorpusFixture(
+  workloadId: string,
+): Promise<{ ok: boolean; id?: string; nodeCount?: number; fixtureChecksum?: string }> {
+  try {
+    const [{ createPerformanceWorkload, PERFORMANCE_WORKLOAD_IDS }, { openHomeDb }] =
+      await Promise.all([import('../performance/workloadCorpus'), import('@strata/platform')]);
+    if (!(PERFORMANCE_WORKLOAD_IDS as readonly string[]).includes(workloadId)) {
+      return { ok: false };
+    }
+    const workload = createPerformanceWorkload(
+      workloadId as (typeof PERFORMANCE_WORKLOAD_IDS)[number],
+    );
+    const json = JSON.stringify(workload.document);
+    const now = Date.now();
+    const entry = {
+      id: workload.document.id,
+      name: workloadId,
+      kind: 'design',
+      projectId: null,
+      createdAt: now,
+      updatedAt: now,
+      openedAt: now,
+      size: json.length,
+      pinned: false,
+      trashedAt: null,
+      ordering: '',
+      contentHash: workload.fixtureChecksum,
+    };
+    const db = await openHomeDb();
+    await db.put('files', { entry, json });
+    if (db.objectStoreNames.contains('recentFiles')) {
+      await db.put('recentFiles', {
+        id: workload.document.id,
+        name: workloadId,
+        lastOpenedAt: now,
+        openedCount: 1,
+        pinned: false,
+        hidden: false,
+        workspaceRelevance: [],
+        userWorkspaceTag: null,
+        encrypted: false,
+        missing: false,
+        version: 1,
+      });
+    }
+    return {
+      ok: true,
+      id: workload.document.id,
+      nodeCount: workload.expected.nodeCount,
+      fixtureChecksum: workload.fixtureChecksum,
+    };
+  } catch {
+    return { ok: false };
+  }
+}
+
+export async function listCorpusFixtureIds(): Promise<string[]> {
+  try {
+    const { PERFORMANCE_WORKLOAD_IDS } = await import('../performance/workloadCorpus');
+    return [...PERFORMANCE_WORKLOAD_IDS];
+  } catch {
+    return [];
+  }
+}
+
+// ── Fixture application ──────────────────────────────────────────────────────
+// The web build runs on the memory platform (createWebPlatform is not wired),
+// so IndexedDB seeding cannot reach the home screen. Instead the editor
+// registers a handler (CanvasArea) that replaces the open document with a
+// corpus fixture — the same path a real document switch takes.
+
+type ApplyFixtureHandler = (
+  id: string,
+) => Promise<{ ok: boolean; id?: string; nodeCount?: number; fixtureChecksum?: string }>;
+
+let applyFixtureHandler: ApplyFixtureHandler | null = null;
+
+export function setApplyFixtureHandler(handler: ApplyFixtureHandler | null): void {
+  applyFixtureHandler = handler;
+}
+
+export async function applyFixtureForPerf(
+  workloadId: string,
+): Promise<{ ok: boolean; id?: string; nodeCount?: number; fixtureChecksum?: string }> {
+  if (!applyFixtureHandler) return { ok: false };
+  return applyFixtureHandler(workloadId);
+}
 
 /**
  * Record a frame into the diagnostics ring and correlate it with any active
