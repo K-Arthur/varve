@@ -137,14 +137,86 @@ back to no profile.
 profile-based. It is intentionally conservative: pure process colors and
 dark/desaturated colors are never flagged. It is a UX fallback, not a
 colorimetric assertion — see the ICC path above for profile-truthful checks.
+When a proof configuration with a registered profile converter is active,
+the picker replaces the heuristic with proof-condition gamut status
+(`isColorOutOfProofGamut`); when no converter is registered it reports the
+limitation instead of claiming a result.
+
+## Colour-Mode Semantics (2026-08-03)
+
+`switchColorMode` historically conflated two operations. It is deprecated and
+delegates to the conversion operation; new callers use the explicit pair:
+
+- **`assignDocumentColorMode(doc, mode)`** — changes `colorConfig.mode` only.
+  Stored values keep their space and are reinterpreted under the new mode at
+  read boundaries (render/export). Non-destructive to values; may change
+  appearance. The DocumentPanel mode buttons use this and explain it.
+- **`convertDocumentColors(doc, mode, opts)`** — rewrites stored process
+  colors (fills, strokes, effects, gradient stops, swatches, canvas
+  background) into the target mode and returns a structured report
+  (converted / spotsPreserved / unsupported / warnings). Spot, registration,
+  and unresolved colors are never rewritten. The `analytical` algorithm is
+  reported as approximate; `icc` requires a runtime converter and is refused
+  honestly with an `icc-unavailable` warning when none is supplied.
+
+The ColorConversionDialog offers distinct **Assign mode** and **Convert
+colors** actions. Conversion is one undo transaction.
+
+## Managed Color Model (2026-08-03)
+
+`ManagedColor` (schema 2.14) is an eight-variant tagged union:
+
+- `rgb` / `cmyk` / `gray` — process colors, `bitDepth`-scaled channels,
+  optional `profile` id + `profileFingerprint`.
+- `lab` / `lch` — float channels (L 0–100; a/b signed; C ≥ 0; hue degrees,
+  wrapped to [0, 360)); `a` is alpha (bit-depth scaled) on every member;
+  the Lab a-channel is stored as `av`.
+- `spot` — stable `spotId`/`library` identity (name is a display copy);
+  tint stored on the ref, never duplicated as fake swatches.
+- `registration` — prints on every plate; rendered black on screen.
+- `unresolved` — imported value with retained `source` and display-only
+  `fallback`; never silently reinterpreted.
+
+Invariants are enforced centrally in `packages/scene/src/colorValidation.ts`
+(NaN/Infinity rejection, hue wrapping, non-negative chroma, tint bounds,
+alpha finitude, tolerance-aware equality). Lab/LCH values may be outside the
+display gamut: previews clip, authoritative values are never clamped.
+
+### Text colour
+`CharacterFormat.color` and `ParagraphFormat.columnRuleColor` are
+`ManagedColor` since schema 2.14 (migration in `colorMigration.ts`: legacy
+`[r,g,b,a]` sRGB tuples converted at load, alpha preserved, no profile
+attached, idempotent, never dependent on installed profiles). Text rendering
+uses the same conversion path as node fills (`managedColorToRgba`); the
+layout pipeline carries run color through to the renderer (previously it was
+dropped when runs split into words).
+
+### Soft proofing
+Proof CONFIG (`Document.proofConfig`) is document state: profile, rendering
+intent, black-point compensation, paper/ink simulation, gamut-warning prefs.
+The proof TOGGLE is session state and never persists into portable
+documents. The transform is display-only (`applyProofToRgba` in shared):
+`icc` with a runtime-registered profile converter, `unavailable` otherwise —
+browser canvases have no monitor-profile hook, so the UI discloses the
+limitation rather than faking a proofed preview. The canvas applies the
+proof to the IR frame (fills, gradient stops, strokes, effects, text run
+colors) inside the render worker; exports never pass through it.
+
+### Spot libraries
+`Document.spotLibraries` (builtin / user-global / project / imported) with
+stable ids. Operations in `packages/scene/src/spotLibraries.ts`: library
+CRUD, spot add/update/remove, deterministic import conflict resolution
+(id-based, name collisions keep distinct inks), search, tint preview.
+`stabilizeSpotRef` embeds unknown inks as project definitions so imported
+artwork stays visible. Missing external libraries never destroy embedded
+definitions.
 
 ### Known limitations
-- Document-level `switchColorMode` still uses analytical conversion
-  (`scene/src/colorMode.ts`); profile-managed conversion is applied at
-  print/export time. Converting an RGB document to CMYK mode reinterprets
-  values analytically and is labeled accordingly in the picker.
-- Per-run text color (`CharacterFormat.color`) remains a legacy RGBA tuple
-  while node-level text fill is `ManagedColor`.
-- Spot colors are identity-preserving in the model (name/tint/fallback) but
-  the picker exposes only the bundled browser; library-backed spot color
-  authoring is future work.
+- Browser analytical conversion is approximate and labeled as such;
+  profile-accurate conversion requires the desktop ICC engine.
+- Accurate monitor-profile soft proofing is unavailable in browser canvases
+  — the proof transform reports `unavailable` and UIs disclose it.
+- PDF spot (Separation/DeviceN) export is deferred until `strata-print`
+  supports it; unsupported formats must warn before converting spots to
+  process colors.
+- Registration color renders as black on screen (all plates).
