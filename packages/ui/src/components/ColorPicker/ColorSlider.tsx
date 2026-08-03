@@ -68,7 +68,9 @@ export function ColorSlider({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const step = channel === 'hue' ? (e.shiftKey ? 10 : 1) : e.shiftKey ? 0.1 : 0.01;
+      const coarse = channel === 'hue' ? 10 : 0.1;
+      const fine = channel === 'hue' ? 1 : 0.01;
+      const step = e.shiftKey ? coarse : fine;
       let newValue = value;
       switch (e.key) {
         case 'ArrowRight':
@@ -78,6 +80,12 @@ export function ColorSlider({
         case 'ArrowLeft':
         case 'ArrowDown':
           newValue = clamp(value - step);
+          break;
+        case 'PageUp':
+          newValue = clamp(value + coarse);
+          break;
+        case 'PageDown':
+          newValue = clamp(value - coarse);
           break;
         case 'Home':
           newValue = min;

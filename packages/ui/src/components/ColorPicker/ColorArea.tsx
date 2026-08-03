@@ -64,6 +64,22 @@ export function ColorArea({ hue, saturation, value, onChange, label = 'Color' }:
         case 'ArrowDown':
           newVal = clamp(value - step);
           break;
+        case 'PageUp':
+          newVal = clamp(value + 10);
+          break;
+        case 'PageDown':
+          newVal = clamp(value - 10);
+          break;
+        case 'Home':
+          // White: no saturation at full value.
+          newSat = 0;
+          newVal = 100;
+          break;
+        case 'End':
+          // Full saturation and value: the pure hue.
+          newSat = 100;
+          newVal = 100;
+          break;
         default:
           return;
       }
@@ -80,7 +96,9 @@ export function ColorArea({ hue, saturation, value, onChange, label = 'Color' }:
       role="slider"
       aria-roledescription="2D Slider"
       aria-label={label}
-      aria-valuenow={Math.round((saturation + value) / 2)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(saturation)}
       aria-valuetext={`Saturation ${Math.round(saturation)}%, Value ${Math.round(value)}%`}
       tabIndex={0}
       style={{ background: `hsl(${hue}, 100%, 50%)` }}

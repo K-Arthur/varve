@@ -53,6 +53,11 @@ export interface ColorPickerProps {
    * attached to newly authored CMYK values in CMYK-mode documents.
    */
   cmykProfile?: ColorProfileRef | null;
+  /**
+   * Color shown in the previous-color half of the preview. Hosts pass the
+   * value the picker opened with so users can compare before/after edits.
+   */
+  previousColor?: Color;
 }
 
 function managedColorToRgbTuple(c: ManagedColor): Color {
@@ -176,6 +181,7 @@ export function ColorPicker({
   documentColors,
   recentColors,
   cmykProfile,
+  previousColor,
 }: ColorPickerProps) {
   const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value, documentColorMode));
 
@@ -483,11 +489,32 @@ export function ColorPicker({
 
       <div className="color-picker__preview-row">
         <div
-          className="color-picker__preview"
-          style={{
-            background: `rgba(${rgbTuple[0]},${rgbTuple[1]},${rgbTuple[2]},${alphaVal.toFixed(2)})`,
-          }}
-        />
+          className="color-picker__preview-pair"
+          role="img"
+          aria-label="Current and previous color"
+        >
+          <div
+            className="color-picker__preview color-picker__preview--current"
+            style={{
+              background: `rgba(${rgbTuple[0]},${rgbTuple[1]},${rgbTuple[2]},${alphaVal.toFixed(2)})`,
+            }}
+          />
+          {previousColor &&
+            (previousColor[0] !== rgbTuple[0] ||
+              previousColor[1] !== rgbTuple[1] ||
+              previousColor[2] !== rgbTuple[2] ||
+              previousColor[3] !== rgbTuple[3]) && (
+              <div
+                className="color-picker__preview color-picker__preview--previous"
+                title="Previous color"
+                style={{
+                  background: `rgba(${previousColor[0]},${previousColor[1]},${previousColor[2]},${(
+                    previousColor[3] / 255
+                  ).toFixed(2)})`,
+                }}
+              />
+            )}
+        </div>
         <div style={{ flex: 1 }}>
           <span className="color-picker__hex">
             {rgbToHex(rgbTuple[0], rgbTuple[1], rgbTuple[2])}
