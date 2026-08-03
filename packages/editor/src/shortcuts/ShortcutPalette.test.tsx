@@ -48,7 +48,7 @@ describe('ShortcutPalette', () => {
 
   it('filters shortcuts by label', async () => {
     renderPalette();
-    const inputs = screen.getAllByRole('textbox', { name: /search/i });
+    const inputs = screen.getAllByRole('combobox', { name: /search/i });
     const input = inputs[0];
     if (!input) throw new Error('search input not found');
     await userEvent.type(input, 'undo');
@@ -68,7 +68,7 @@ describe('ShortcutPalette', () => {
 
   it('calls onClose on Escape', async () => {
     const { onClose } = renderPalette();
-    const inputs = screen.getAllByRole('textbox', { name: /search/i });
+    const inputs = screen.getAllByRole('combobox', { name: /search/i });
     const input = inputs[0];
     if (!input) throw new Error('search input not found');
     await userEvent.type(input, '{Escape}');
@@ -183,5 +183,57 @@ describe('export/import', () => {
   it('import button opens file picker', () => {
     renderPalette();
     expect(screen.getByRole('button', { name: 'Import keymap' })).toBeTruthy();
+  });
+});
+
+describe('ShortcutPalette focus behavior', () => {
+  it('arrows move the roving highlight and Enter selects the highlighted row', async () => {
+    const user = userEvent.setup();
+    const { onSelect } = renderPalette();
+    const input = screen.getByRole('combobox', { name: /search/i });
+    await user.click(input);
+
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{ArrowDown}');
+    const highlighted = screen
+      .getAllByRole('option')
+      .filter((o) => o.getAttribute('aria-selected') === 'true');
+    expect(highlighted).toHaveLength(1);
+
+    await user.keyboard('{Enter}');
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    const selectedId = highlighted[0]!.id.replace('palette-option-', '');
+    expect(onSelect).toHaveBeenCalledWith(selectedId);
+  });
+
+  it('restores focus to the previously focused element on close', async () => {
+    // Focus an outside control BEFORE the palette mounts so the open effect
+    // captures it as the restore target.
+    const outside = document.createElement('button');
+    outside.textContent = 'outside';
+    document.body.appendChild(outside);
+    outside.focus();
+
+    const { onClose, rerender } = renderPalette();
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /search/i })).toBeTruthy();
+    });
+    fireEvent.keyDown(screen.getByRole('combobox', { name: /search/i }), { key: 'Escape' });
+    expect(onClose).toHaveBeenCalled();
+    rerender(<ShortcutPalette open={false} onClose={onClose} onSelect={vi.fn()} />);
+    await waitFor(() => {
+      expect(document.activeElement).toBe(outside);
+    });
+    document.body.removeChild(outside);
+  });
+
+  it('Alt+Enter starts remap capture for the highlighted row', async () => {
+    const user = userEvent.setup();
+    renderPalette();
+    const input = screen.getByRole('combobox', { name: /search/i });
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
+    await user.keyboard('{Alt>}{Enter}{/Alt}');
+    expect(screen.getByText(/Press new shortcut for/i)).toBeTruthy();
   });
 });

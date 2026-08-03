@@ -126,6 +126,12 @@
   background: var(--color-accent-subtle);
 }
 
+.shortcut-palette__row--highlighted {
+  background: var(--color-surface-hover);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
+
 .shortcut-palette__row-label {
   flex: 1;
   overflow: hidden;
