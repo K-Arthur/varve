@@ -80,6 +80,7 @@ export type FindingSource =
   | 'codegen'
   | 'prototype'
   | 'spacing-harmonizer'
+  | 'logo'
   | 'manual';
 
 /** A fix that can be applied to resolve a finding. */
