@@ -1,14 +1,21 @@
 /**
  * Document Color Conversion Dialog.
  *
- * Lets the user convert the document's color mode and bit depth, with
- * options to preserve appearance (ICC conversion) or reassign the profile.
- * Warns when the target cannot preserve the source precision.
+ * Two explicit, non-conflated operations:
+ *
+ * 1. **Assign mode** — changes the document's working mode/intent. Stored
+ *    color values keep their space and are reinterpreted under the new mode
+ *    at read boundaries (render/export). Non-destructive to values.
+ *
+ * 2. **Convert colors** — rewrites stored process colors into the target
+ *    mode. In the browser this uses analytical formulas and is reported as
+ *    approximate; ICC-accurate conversion is provided by the desktop engine
+ *    and is never claimed here.
  *
  * Research basis: ADR-0009 document color architecture, ICC.1:2010.
  */
 
-import type { BitDepth, ColorMode } from '@strata/scene';
+import type { ColorMode } from '@strata/scene';
 import { Dialog } from '@strata/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
@@ -25,62 +32,52 @@ const MODE_OPTIONS: { value: ColorMode; label: string }[] = [
   { value: 'grayscale', label: 'Grayscale' },
 ];
 
-const BIT_DEPTH_OPTIONS: { value: BitDepth; label: string }[] = [
-  { value: 'uint8', label: '8-bit' },
-  { value: 'uint16', label: '16-bit' },
-  { value: 'float16', label: '16-bit float' },
-  { value: 'float32', label: '32-bit float' },
-];
-
-const PRECISION_ORDER: Record<BitDepth, number> = {
-  uint8: 0,
-  uint16: 1,
-  float16: 2,
-  float32: 3,
-};
-
 export function ColorConversionDialog({ open, onClose }: ColorConversionDialogProps) {
-  const { documentColorMode, switchColorMode, beginTransaction, commitTransaction } = useEditor();
+  const {
+    documentColorMode,
+    assignDocumentColorMode,
+    convertDocumentColors,
+    beginTransaction,
+    commitTransaction,
+  } = useEditor();
 
   const [targetMode, setTargetMode] = useState<ColorMode>(documentColorMode);
-  const [targetBitDepth, setTargetBitDepth] = useState<BitDepth>('uint8');
-  const [preserveAppearance, setPreserveAppearance] = useState(true);
 
-  const currentBitDepth: BitDepth = 'uint8'; // Would come from document colorConfig in full impl
-  const precisionLoss = PRECISION_ORDER[targetBitDepth] < PRECISION_ORDER[currentBitDepth];
+  const run = useCallback(
+    (action: () => void) => {
+      beginTransaction();
+      try {
+        action();
+      } finally {
+        commitTransaction();
+      }
+      onClose();
+    },
+    [beginTransaction, commitTransaction, onClose],
+  );
 
-  const handleConvert = useCallback(() => {
-    if (targetMode === documentColorMode && targetBitDepth === currentBitDepth) {
+  const handleAssign = useCallback(() => {
+    if (targetMode === documentColorMode) {
       onClose();
       return;
     }
-    beginTransaction();
-    try {
-      switchColorMode(targetMode);
-      commitTransaction();
-    } catch {
-      // Transaction would be aborted by the engine on failure
+    run(() => assignDocumentColorMode(targetMode));
+  }, [targetMode, documentColorMode, assignDocumentColorMode, run, onClose]);
+
+  const handleConvert = useCallback(() => {
+    if (targetMode === documentColorMode) {
+      onClose();
+      return;
     }
-    onClose();
-  }, [
-    targetMode,
-    targetBitDepth,
-    currentBitDepth,
-    documentColorMode,
-    switchColorMode,
-    beginTransaction,
-    commitTransaction,
-    onClose,
-  ]);
+    run(() => convertDocumentColors(targetMode));
+  }, [targetMode, documentColorMode, convertDocumentColors, run, onClose]);
 
   return (
-    <Dialog open={open} onClose={onClose} title="Convert Document Color Space">
+    <Dialog open={open} onClose={onClose} title="Document Color Mode">
       <div className="color-conversion-dialog">
         <div className="color-conversion__section">
           <span className="color-conversion__label">Current</span>
-          <span className="color-conversion__value">
-            {documentColorMode.toUpperCase()} / {currentBitDepth}
-          </span>
+          <span className="color-conversion__value">{documentColorMode.toUpperCase()}</span>
         </div>
 
         <div className="color-conversion__section">
@@ -105,45 +102,17 @@ export function ColorConversionDialog({ open, onClose }: ColorConversionDialogPr
           </div>
         </div>
 
-        <div className="color-conversion__section">
-          <span className="color-conversion__label">Target bit depth</span>
-          <div
-            className="color-conversion__options"
-            role="radiogroup"
-            aria-label="Target bit depth"
-          >
-            {BIT_DEPTH_OPTIONS.map((opt) => (
-              <label key={opt.value} className="color-conversion__radio">
-                <input
-                  type="radio"
-                  name="targetBitDepth"
-                  value={opt.value}
-                  checked={targetBitDepth === opt.value}
-                  onChange={() => setTargetBitDepth(opt.value)}
-                />
-                <span>{opt.label}</span>
-              </label>
-            ))}
-          </div>
+        <div className="color-conversion__section" role="note">
+          <p className="color-conversion__explain">
+            <strong>Assign mode</strong> changes document intent only. Existing colors keep their
+            values and are converted at render and export time. Appearance may change.
+          </p>
+          <p className="color-conversion__explain">
+            <strong>Convert colors</strong> rewrites every process color into the target mode as a
+            single undoable operation. The browser uses approximate analytical conversion;
+            profile-accurate ICC conversion is provided by the desktop app.
+          </p>
         </div>
-
-        <div className="color-conversion__section">
-          <label className="color-conversion__checkbox">
-            <input
-              type="checkbox"
-              checked={preserveAppearance}
-              onChange={(e) => setPreserveAppearance(e.target.checked)}
-            />
-            <span>Preserve appearance (ICC conversion)</span>
-          </label>
-        </div>
-
-        {precisionLoss && (
-          <div className="color-conversion__warning" role="alert">
-            Warning: target bit depth ({targetBitDepth}) is lower than source ({currentBitDepth}).
-            Precision will be lost.
-          </div>
-        )}
 
         <div className="color-conversion__actions">
           <button type="button" className="color-conversion__btn" onClick={onClose}>
@@ -151,10 +120,19 @@ export function ColorConversionDialog({ open, onClose }: ColorConversionDialogPr
           </button>
           <button
             type="button"
+            className="color-conversion__btn"
+            onClick={handleAssign}
+            disabled={targetMode === documentColorMode}
+          >
+            Assign mode
+          </button>
+          <button
+            type="button"
             className="color-conversion__btn color-conversion__btn--primary"
             onClick={handleConvert}
+            disabled={targetMode === documentColorMode}
           >
-            Convert
+            Convert colors
           </button>
         </div>
       </div>

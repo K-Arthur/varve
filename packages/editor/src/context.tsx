@@ -140,12 +140,14 @@ import {
   applyConstraints,
   applyFormatToSelection as applyFormatToSelectionOp,
   arrangeNode as arrangeNodeDoc,
+  assignDocumentColorMode as assignDocumentColorModeDoc,
   assignMasterToPage as assignMasterToPageDoc,
   type BleedConfig,
   buildParentIndexMap,
   canBeClipMaskSource,
   clearGuides,
   clearLiveTrace as clearLiveTraceDoc,
+  convertDocumentColors as convertDocumentColorsDoc,
   createClippingMask as createClippingMaskDoc,
   createComponent,
   createDefaultIsometricGrid,
@@ -269,7 +271,6 @@ import {
   shapeHeight,
   shapeWidth,
   swapInstance as swapInstanceDoc,
-  switchColorMode as switchColorModeDoc,
   syncAllInstances as syncAllInstancesDoc,
   syncInstance as syncInstanceDoc,
   toggleFacingPages as toggleFacingPagesDoc,
@@ -1430,8 +1431,10 @@ export interface EditorContextValue {
 
   /** Document color mode (rgb / cmyk / grayscale). */
   documentColorMode: ColorMode;
-  /** Switch the document color mode, converting all colors. */
-  switchColorMode: (mode: ColorMode) => void;
+  /** Assign the document color mode without rewriting stored values. */
+  assignDocumentColorMode: (mode: ColorMode) => void;
+  /** Rewrite stored process colors into the target mode. */
+  convertDocumentColors: (mode: ColorMode) => void;
 
   // Quick-mask mode
   /** Enter quick-mask mode: paint-based selection editing. */
@@ -6960,10 +6963,20 @@ export function EditorProvider({
 
       documentColorMode: state.document.colorConfig?.mode ?? 'rgb',
 
-      switchColorMode: (mode: ColorMode) => {
+      // Assign: change document working mode WITHOUT rewriting stored
+      // values (non-destructive interpretation change).
+      assignDocumentColorMode: (mode: ColorMode) => {
         const current = state.document.colorConfig?.mode;
         if (current === mode) return;
-        updateDoc((doc) => switchColorModeDoc(doc, mode));
+        updateDoc((doc) => assignDocumentColorModeDoc(doc, mode));
+      },
+
+      // Convert: rewrite stored process colors into the target mode
+      // (analytical in browser, explicitly reported as approximate).
+      convertDocumentColors: (mode: ColorMode) => {
+        const current = state.document.colorConfig?.mode;
+        if (current === mode) return;
+        updateDoc((doc) => convertDocumentColorsDoc(doc, mode).doc);
       },
 
       // F2/A8 — session (tab) management -----------------------------------

@@ -23,7 +23,7 @@ export function DocumentPanel() {
   const {
     state,
     setCanvasBackground,
-    switchColorMode,
+    assignDocumentColorMode,
     documentColorMode,
     setDocumentGrid,
     setPixelGridSnapEnabled,
@@ -65,13 +65,29 @@ export function DocumentPanel() {
                 key={mode}
                 type="button"
                 className={`insp-panel__color-mode-btn${documentColorMode === mode ? ' insp-panel__color-mode-btn--active' : ''}`}
-                onClick={() => switchColorMode(mode)}
+                onClick={() => {
+                  if (documentColorMode === mode) return;
+                  beginTransaction();
+                  // Assignment semantics: mode intent changes; stored color
+                  // values are NOT rewritten. Convert explicitly to rewrite.
+                  assignDocumentColorMode(mode);
+                  commitTransaction();
+                }}
                 aria-pressed={documentColorMode === mode}
+                title={
+                  documentColorMode === mode
+                    ? `Current mode: ${mode}`
+                    : `Assign ${mode} mode (keeps color values; converts at export)`
+                }
               >
                 {mode === 'rgb' ? 'RGB' : mode === 'cmyk' ? 'CMYK' : 'Grayscale'}
               </button>
             ))}
           </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Assigning a mode changes document intent only — existing colors keep their values and
+            are converted at export. Use Convert to rewrite document colors now.
+          </p>
         </div>
       </DisclosureSection>
       <DisclosureSection title="Document Grid" sectionId="document-grid" defaultExpanded={false}>
