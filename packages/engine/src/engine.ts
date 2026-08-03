@@ -139,6 +139,9 @@ function shapeToPrimitive(
       pathShape: resolvePathShape(node, nodeMap),
       direction: (node.direction as 'ltr' | 'rtl' | 'auto' | undefined) ?? 'auto',
       language: node.language,
+      kerningMode: node.kerningMode,
+      glyphAdjustments: node.glyphAdjustments,
+      pairAdjustments: node.pairAdjustments,
     };
   }
   // V1.8+: shapeless nodes derive geometry from their paint

@@ -18,6 +18,7 @@ import { Button, EmptyState, Icon, Select, Tooltip } from '@strata/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { VectorizeWorkflow } from '../Vectorize/VectorizeWorkflow';
+import { LogoTypographySection } from './LogoTypographySection';
 import './logo-panel.css';
 
 const VARIANT_KINDS: ReadonlyArray<{ value: LogoVariantKind; label: string }> = [
@@ -250,6 +251,24 @@ export function LogoPanel() {
           <details className="logo-panel__section" open>
             <summary className="logo-panel__section-heading">Vectorize</summary>
             <VectorizeWorkflow emptyStateNote="Select an image layer to vectorize it. Sketch scans, screenshots, and raster logos all work here — the result is inserted beside the source as editable paths." />
+          </details>
+
+          <details className="logo-panel__section" open>
+            <summary className="logo-panel__section-heading">Typography</summary>
+            {(() => {
+              const selected = selection[0] ? doc.nodes[selection[0]] : undefined;
+              if (selected?.kind === 'text') {
+                return <LogoTypographySection node={selected} />;
+              }
+              return (
+                <div className="logo-panel__section-body">
+                  <p className="logo-panel__muted">
+                    Select a text layer to refine a wordmark: kerning mode, per-glyph positioning,
+                    pair spacing, and outline conversion.
+                  </p>
+                </div>
+              );
+            })()}
           </details>
 
           <details className="logo-panel__section" open>

@@ -22,6 +22,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';
 import { FontSelector } from '../../FontBrowser/FontSelector';
+import { GlyphTypographySection } from '../../Typography/GlyphTypographySection';
 import { BindingMenu } from '../controls/BindingMenu';
 import { ContrastIndicator } from '../controls/ContrastIndicator';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -487,6 +488,11 @@ export function TypographySection({ nodes }: TypographySectionProps) {
             />
           )}
       </div>
+      {textNodes.length === 1 && (
+        <div className="insp-field-group">
+          <GlyphTypographySection node={textNodes[0]!} />
+        </div>
+      )}
     </DisclosureSection>
   );
 }

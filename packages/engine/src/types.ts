@@ -346,6 +346,12 @@ export interface SceneNode {
   direction?: 'ltr' | 'rtl' | 'auto';
   /** ISO language tag for language-specific shaping. */
   language?: string;
+  /** Kerning mode: 'auto' (font pair kerning) or 'none' (per-cluster draw). */
+  kerningMode?: 'auto' | 'none';
+  /** Per-cluster adjustments keyed by grapheme-cluster index. */
+  glyphAdjustments?: Record<number, GlyphAdjustmentIR>;
+  /** Manual pair spacing: px between cluster i and cluster i+1. */
+  pairAdjustments?: Record<number, number>;
   /** Uniform or per-corner radius for rect-anchored shapes. */
   cornerRadius?: number | [number, number, number, number];
   /** 0–1 squircle smoothing applied on top of cornerRadius (iOS continuous-corner style). */
