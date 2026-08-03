@@ -1,5 +1,10 @@
 import type { ColorMode, IsometricAxis, ManagedColor } from '@strata/scene';
-import { ISOMETRIC_PRESETS, normaliseAngle, validateIsometricAxes } from '@strata/scene';
+import {
+  CMYK_PROFILES,
+  ISOMETRIC_PRESETS,
+  normaliseAngle,
+  validateIsometricAxes,
+} from '@strata/scene';
 import { cssStringToManagedColor, managedColorToCss } from '@strata/shared';
 import { Select } from '@strata/ui';
 import { useCallback, useMemo } from 'react';
@@ -30,6 +35,10 @@ export function DocumentPanel() {
     resetGridOrigin,
     beginTransaction,
     commitTransaction,
+    proofConfig,
+    proofEnabled,
+    setProofEnabled,
+    setProofConfig,
   } = useEditor();
   const doc = state.document;
   const fallbackColor = useMemo(() => whiteForMode(documentColorMode), [documentColorMode]);
@@ -87,6 +96,93 @@ export function DocumentPanel() {
           <p className="insp-panel__color-mode-note" role="note">
             Assigning a mode changes document intent only — existing colors keep their values and
             are converted at export. Use Convert to rewrite document colors now.
+          </p>
+        </div>
+      </DisclosureSection>
+      <DisclosureSection title="Soft Proof" sectionId="document-proof" defaultExpanded={false}>
+        <div className="insp-canvas-props">
+          <div className="insp-field">
+            <span className="insp-field__label">Preview</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={proofEnabled}
+                  onChange={(e) => setProofEnabled(e.target.checked)}
+                  aria-label={`Soft proof ${proofEnabled ? 'enabled' : 'disabled'}`}
+                />
+                Simulate output condition
+              </label>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Proof profile</span>
+            <div className="insp-field__control">
+              <Select
+                label="Proof profile"
+                aria-label="Proof profile"
+                value={proofConfig.profileId}
+                options={Object.entries(CMYK_PROFILES).map(([id, p]) => ({
+                  value: id,
+                  label: p.name,
+                }))}
+                onChange={(id) =>
+                  setProofConfig({
+                    ...proofConfig,
+                    profileId: id,
+                    profileName: CMYK_PROFILES[id as keyof typeof CMYK_PROFILES]?.name,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Simulation</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={proofConfig.simulatePaperColor}
+                  onChange={(e) =>
+                    setProofConfig({ ...proofConfig, simulatePaperColor: e.target.checked })
+                  }
+                />
+                Paper color
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={proofConfig.simulateBlackInk}
+                  onChange={(e) =>
+                    setProofConfig({ ...proofConfig, simulateBlackInk: e.target.checked })
+                  }
+                />
+                Black ink
+              </label>
+            </div>
+          </div>
+          <div className="insp-field">
+            <span className="insp-field__label">Gamut warning</span>
+            <div className="insp-field__control insp-field__control--inline">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={proofConfig.gamutWarning.enabled}
+                  onChange={(e) =>
+                    setProofConfig({
+                      ...proofConfig,
+                      gamutWarning: { ...proofConfig.gamutWarning, enabled: e.target.checked },
+                    })
+                  }
+                />
+                Show out-of-gamut colors
+              </label>
+            </div>
+          </div>
+          <p className="insp-panel__color-mode-note" role="note">
+            Soft proofing is a display-only preview: document colors are never modified and export
+            stays authoritative. Accurate proofing requires a profile-aware runtime; the browser
+            shows the source color and reports when proofing is unavailable.
           </p>
         </div>
       </DisclosureSection>

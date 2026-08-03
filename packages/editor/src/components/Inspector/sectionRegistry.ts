@@ -44,6 +44,7 @@ export type SectionId =
   | 'brush-settings'
   | 'canvas-background'
   | 'document-color'
+  | 'document-proof'
   | 'document-grid'
   | 'isometric-grid'
   | 'ai-denoise'

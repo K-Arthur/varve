@@ -353,6 +353,15 @@ export const FEATURE_OWNERSHIP: Record<SectionId, FeatureOwnership> = {
     rationale:
       'Color mode conversion is document-wide and potentially destructive. Shown inline in Properties empty state.',
   },
+  'document-proof': {
+    surface: 'properties',
+    scope: 'document',
+    frequency: 'occasional',
+    complexity: 'moderate',
+    status: 'functional',
+    rationale:
+      'Display-only output-condition simulation; never mutates colors and never affects export.',
+  },
   'document-grid': {
     surface: 'properties',
     scope: 'document',

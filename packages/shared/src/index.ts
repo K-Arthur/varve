@@ -320,6 +320,20 @@ export type {
   PresetOrientation,
   PresetSafeArea,
 } from './presetTypes';
+export type {
+  ProfileProofConverter,
+  ProofRenderingIntent,
+  ProofTransformConfig,
+  ProofTransformResult,
+} from './proofTransform';
+export {
+  applyProofToRgba,
+  clearProofConverters,
+  isColorOutOfProofGamut,
+  isProofingAvailable,
+  proofConfigKey,
+  registerProfileProofConverter,
+} from './proofTransform';
 export type { BoxCandidate, ResizeHandle, ResizeOptions, SelectionBox } from './selectionBox';
 export {
   boxDeltaMatrix,

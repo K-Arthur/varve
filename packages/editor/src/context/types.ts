@@ -1027,6 +1027,15 @@ export interface EditorContextValue {
    */
   convertDocumentColors: (mode: ColorMode) => void;
 
+  // Soft proofing
+  /** Persisted proof configuration (document print intent). */
+  proofConfig: import('@strata/scene').ProofConfig;
+  /** Session-scoped proof toggle. Never persisted into documents. */
+  proofEnabled: boolean;
+  setProofEnabled: (enabled: boolean) => void;
+  /** Replace the proof configuration (never touches colors). */
+  setProofConfig: (config: import('@strata/scene').ProofConfig) => void;
+
   // Color blindness simulation
   setColorBlindnessView: (type: 'none' | 'protanopia' | 'deuteranopia' | 'tritanopia') => void;
 
