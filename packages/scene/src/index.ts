@@ -63,7 +63,6 @@ export * from './fontDefaults';
 export * from './governance';
 export * from './gradientPresets';
 export * from './gridTypes';
-export * from './iconAsset';
 export * from './intelligence';
 export * from './interaction-types';
 export * from './interactions';
