@@ -1,4 +1,5 @@
-import type { ManagedColor } from '@strata/scene';
+import type { BitDepth, ManagedColor } from '@strata/scene';
+import { denormalizeChannel, normalizeChannel } from '@strata/shared';
 import { useCallback } from 'react';
 import { SpinbuttonRow } from './SpinbuttonRow';
 
@@ -8,8 +9,9 @@ export interface CmykColorFieldsProps {
 }
 
 export function CmykColorFields({ value, onChange }: CmykColorFieldsProps) {
-  const toPct = (v: number) => Math.round((v / 255) * 100);
-  const fromPct = (pct: number) => Math.round((pct / 100) * 255);
+  const bitDepth: BitDepth = value.bitDepth ?? 'uint8';
+  const toPct = (v: number) => Math.round(normalizeChannel(v, bitDepth) * 100);
+  const fromPct = (pct: number) => denormalizeChannel(pct / 100, bitDepth);
 
   const emit = useCallback(
     (partial: Partial<{ c: number; m: number; y: number; k: number; a: number }>) => {
@@ -57,10 +59,10 @@ export function CmykColorFields({ value, onChange }: CmykColorFieldsProps) {
       />
       <SpinbuttonRow
         label="A"
-        value={Math.round((value.a / 255) * 100)}
+        value={toPct(value.a)}
         min={0}
         max={100}
-        onChange={(v) => emit({ a: Math.round((v / 100) * 255) })}
+        onChange={(v) => emit({ a: fromPct(v) })}
         unit="%"
       />
     </div>

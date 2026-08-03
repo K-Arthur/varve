@@ -575,6 +575,35 @@ export function managedColorToEngineColor(color: ManagedColorShim): ColorShim {
   return managedColorToRgba(color);
 }
 
+/**
+ * Stable canonical identity key for a ManagedColor.
+ *
+ * Used to detect whether an incoming `value` prop is the picker's own echo of
+ * a just-emitted color (equal key) or an external change (different key) such
+ * as undo, redo, selection change, or gradient-stop switch. Comparing a
+ * structural key avoids both object-identity false negatives (immutable
+ * documents produce fresh objects every edit) and value-equality false
+ * positives (byte-equal colors from different sources).
+ */
+export function managedColorKey(color: ManagedColorShim): string {
+  switch (color.space) {
+    case 'rgb':
+      return `rgb:${color.bitDepth ?? 'uint8'}:${color.r},${color.g},${color.b},${color.a}:${
+        color.profile ?? ''
+      }`;
+    case 'cmyk':
+      return `cmyk:${color.bitDepth ?? 'uint8'}:${color.c},${color.m},${color.y},${color.k},${
+        color.a
+      }:${color.profile ?? ''}`;
+    case 'gray':
+      return `gray:${color.bitDepth ?? 'uint8'}:${color.v},${color.a}:${color.profile ?? ''}`;
+    case 'spot':
+      return `spot:${color.name}:${color.tint}:${color.a}:${
+        color.processFallback ? JSON.stringify(color.processFallback) : ''
+      }`;
+  }
+}
+
 // ── Oklab <-> Oklch ─────────────────────────────────────────────────────────
 
 /**

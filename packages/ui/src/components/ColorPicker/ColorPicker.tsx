@@ -1,12 +1,14 @@
 import type { BitDepth, ColorMode, ManagedColor } from '@strata/scene';
-import { isCmykColor, isGrayColor, isRgbColor, isSpotColor } from '@strata/scene';
+import { isCmykColor, isGrayColor, isSpotColor } from '@strata/scene';
 import {
+  cmykToRgb,
   denormalizeChannel,
+  managedColorKey,
   managedColorToRgba,
   normalizeChannel,
   rgbToCmyk,
 } from '@strata/shared';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SegmentedOption } from '../SegmentedControl';
 import { SegmentedControl } from '../SegmentedControl';
 import { CmykColorFields } from './CmykColorFields';
@@ -34,6 +36,18 @@ export interface ColorPickerProps {
   bitDepth?: BitDepth;
   /** Called when the user changes the bit depth. */
   onBitDepthChange?: (bitDepth: BitDepth) => void;
+  /**
+   * Optional gesture hooks. When provided, `onInteractionStart` fires on the
+   * first pointerdown inside the picker and `onInteractionEnd` fires when the
+   * gesture completes (pointerup / pointercancel / dialog dismissal). Hosts
+   * use these to group a continuous drag into a single undo transaction.
+   */
+  onInteractionStart?: () => void;
+  onInteractionEnd?: () => void;
+  /** Document swatches shown in the picker's swatch section. */
+  documentColors?: Color[];
+  /** Recently used colors shown in the picker's swatch section. */
+  recentColors?: Color[];
 }
 
 function managedColorToRgbTuple(c: ManagedColor): Color {
@@ -86,6 +100,56 @@ function reinterpretBitDepth(color: ManagedColor, newBitDepth: BitDepth): Manage
 
   return color;
 }
+
+/**
+ * Convert 0-255 uint8-scale channels into the storage range of `bitDepth`.
+ * uint8 passes through; uint16 scales to 0-65535; float depths keep 0-1.
+ */
+function toStorageDepth(v: number, bitDepth: BitDepth): number {
+  if (bitDepth === 'uint8') return Math.round(v);
+  return denormalizeChannel(v / 255, bitDepth);
+}
+
+/**
+ * Build an rgb/cmyk/gray ManagedColor with channels written in the given
+ * bit depth. `channels` are 0-255 uint8-scale [c0, c1, c2, c3] where the
+ * fourth channel is K for CMYK (unused otherwise); `alpha` is 0-1 normalized.
+ */
+function buildColor(
+  space: 'rgb' | 'cmyk' | 'gray',
+  channels: [number, number, number, number],
+  alpha: number,
+  bitDepth: BitDepth,
+  profile?: string,
+): ManagedColor {
+  const [c0, c1, c2, c3] = channels;
+  const base = {
+    a: denormalizeChannel(alpha, bitDepth),
+    profile,
+    ...(bitDepth !== 'uint8' ? { bitDepth } : {}),
+  };
+  if (space === 'cmyk') {
+    return {
+      space: 'cmyk',
+      c: toStorageDepth(c0, bitDepth),
+      m: toStorageDepth(c1, bitDepth),
+      y: toStorageDepth(c2, bitDepth),
+      k: toStorageDepth(c3, bitDepth),
+      ...base,
+    };
+  }
+  if (space === 'gray') {
+    return { space: 'gray', v: toStorageDepth(c0, bitDepth), ...base };
+  }
+  return {
+    space: 'rgb',
+    r: toStorageDepth(c0, bitDepth),
+    g: toStorageDepth(c1, bitDepth),
+    b: toStorageDepth(c2, bitDepth),
+    ...base,
+  };
+}
+
 export function ColorPicker({
   value,
   onChange,
@@ -93,8 +157,15 @@ export function ColorPicker({
   documentColorMode,
   bitDepth,
   onBitDepthChange,
+  onInteractionStart,
+  onInteractionEnd,
+  documentColors,
+  recentColors,
 }: ColorPickerProps) {
   const [space, setSpace] = useState<ColorSpace>(() => initialSpace(value, documentColorMode));
+
+  const bitDepthEffective =
+    bitDepth ?? ('bitDepth' in value ? value.bitDepth : undefined) ?? 'uint8';
 
   const rgbTuple = useMemo(() => managedColorToRgbTuple(value), [value]);
   const [h, s, v] = useMemo(() => rgbToHsv(rgbTuple[0], rgbTuple[1], rgbTuple[2]), [rgbTuple]);
@@ -106,17 +177,65 @@ export function ColorPicker({
   const val = draftVal;
   const hue = draftHue;
 
+  // Authoring space: the space in which edits are stored. Display space is a
+  // view only. Edits are stored in the color's native space (CMYK stays CMYK),
+  // unless the document working mode is CMYK/grayscale, in which case RGB
+  // values are authored in that working space (intentional document-level
+  // conversion, not a display-mode side effect).
+  const authoringSpace = useMemo<ColorSpace>(() => {
+    if (isCmykColor(value)) return 'cmyk';
+    if (isGrayColor(value)) return 'gray';
+    if (documentColorMode === 'cmyk') return 'cmyk';
+    if (documentColorMode === 'grayscale') return 'gray';
+    return 'rgb';
+  }, [value, documentColorMode]);
+
+  const spotProfile = 'profile' in value ? value.profile : undefined;
+  const valueKey = useMemo(() => managedColorKey(value), [value]);
+  const lastEmittedRef = useRef<string | null>(null);
+
+  // Resync draft HSV when the canonical value changes externally (undo, redo,
+  // selection change, gradient-stop switch). If the incoming value is our own
+  // echo of a just-emitted color (same canonical key), keep the user's drafts.
+  useEffect(() => {
+    if (lastEmittedRef.current === valueKey) return;
+    const [nr, ng, nb] = rgbTuple;
+    const [nh, ns, nv] = rgbToHsv(nr, ng, nb);
+    setDraftHue(nh);
+    setDraftSat(ns);
+    setDraftVal(nv);
+  }, [valueKey, rgbTuple]);
+
+  const emit = useCallback(
+    (c: ManagedColor) => {
+      lastEmittedRef.current = managedColorKey(c);
+      onChange(c);
+    },
+    [onChange],
+  );
+
+  // `alpha` is 0-1 normalized; RGB/CMYK/gray channels are 0-255 uint8 scale.
   const emitRgb = useCallback(
-    (r: number, g: number, b: number, a: number) => {
-      if (space === 'cmyk') {
+    (r: number, g: number, b: number, alpha: number) => {
+      if (authoringSpace === 'cmyk') {
         const [c, m, y, k] = rgbToCmyk(r, g, b);
-        onChange({ space: 'cmyk', c, m, y, k, a } as ManagedColor);
+        emit(buildColor('cmyk', [c, m, y, k], alpha, bitDepthEffective, spotProfile));
+      } else if (authoringSpace === 'gray') {
+        const lum = Math.round(r * 0.299 + g * 0.587 + b * 0.114);
+        emit(buildColor('gray', [lum, 0, 0, 0], alpha, bitDepthEffective, spotProfile));
       } else {
-        onChange({ space: 'rgb', r, g, b, a } as ManagedColor);
+        emit(buildColor('rgb', [r, g, b, 0], alpha, bitDepthEffective, spotProfile));
       }
     },
-    [space, onChange],
+    [authoringSpace, bitDepthEffective, spotProfile, emit],
   );
+
+  const setDraftsFromRgb = useCallback((r: number, g: number, b: number) => {
+    const [nh, ns, nv] = rgbToHsv(r, g, b);
+    setDraftHue(nh);
+    setDraftSat(ns);
+    setDraftVal(nv);
+  }, []);
 
   const applyColor = useCallback(
     (hue: number, sat: number, val: number, alpha: number) => {
@@ -130,85 +249,87 @@ export function ColorPicker({
     (newSat: number, newVal: number) => {
       setDraftSat(newSat);
       setDraftVal(newVal);
-      applyColor(hue, newSat, newVal, value.a);
+      applyColor(hue, newSat, newVal, normalizeChannel(rgbTuple[3], 'uint8'));
     },
-    [hue, value, applyColor],
+    [hue, rgbTuple, applyColor],
   );
 
   const handleHueChange = useCallback(
     (newHue: number) => {
       setDraftHue(newHue);
-      applyColor(newHue, sat, val, value.a);
+      applyColor(newHue, sat, val, normalizeChannel(rgbTuple[3], 'uint8'));
     },
-    [sat, val, value, applyColor],
+    [sat, val, rgbTuple, applyColor],
   );
 
   const handleAlphaChange = useCallback(
     (newAlpha: number) => {
       const [r, g, b] = hsvToRgb(hue, sat, val);
-      emitRgb(r, g, b, Math.round(newAlpha * 255));
+      emitRgb(r, g, b, newAlpha);
     },
     [hue, sat, val, emitRgb],
   );
 
   const handleFieldsChange = useCallback(
     (newColor: Color) => {
-      const [nh, ns, nv] = rgbToHsv(newColor[0], newColor[1], newColor[2]);
-      setDraftHue(nh);
-      setDraftSat(ns);
-      setDraftVal(nv);
-      emitRgb(newColor[0], newColor[1], newColor[2], newColor[3]);
+      setDraftsFromRgb(newColor[0], newColor[1], newColor[2]);
+      emitRgb(newColor[0], newColor[1], newColor[2], normalizeChannel(newColor[3], 'uint8'));
     },
-    [emitRgb],
+    [setDraftsFromRgb, emitRgb],
   );
 
   const handleSwatchSelect = useCallback(
     (c: Color) => {
-      const [nh, ns, nv] = rgbToHsv(c[0], c[1], c[2]);
-      setDraftHue(nh);
-      setDraftSat(ns);
-      setDraftVal(nv);
-      emitRgb(c[0], c[1], c[2], c[3]);
+      setDraftsFromRgb(c[0], c[1], c[2]);
+      emitRgb(c[0], c[1], c[2], normalizeChannel(c[3], 'uint8'));
     },
-    [emitRgb],
+    [setDraftsFromRgb, emitRgb],
   );
 
   const handleEyeDropper = useCallback(
     (c: Color) => {
-      const [nh, ns, nv] = rgbToHsv(c[0], c[1], c[2]);
-      setDraftHue(nh);
-      setDraftSat(ns);
-      setDraftVal(nv);
-      emitRgb(c[0], c[1], c[2], c[3]);
+      setDraftsFromRgb(c[0], c[1], c[2]);
+      emitRgb(c[0], c[1], c[2], normalizeChannel(c[3], 'uint8'));
     },
-    [emitRgb],
+    [setDraftsFromRgb, emitRgb],
   );
 
   const handleCmykChange = useCallback(
     (c: ManagedColor) => {
       const tuple = managedColorToRgba(c);
-      const [nh, ns, nv] = rgbToHsv(tuple[0], tuple[1], tuple[2]);
-      setDraftHue(nh);
-      setDraftSat(ns);
-      setDraftVal(nv);
-      onChange(c);
+      setDraftsFromRgb(tuple[0], tuple[1], tuple[2]);
+      if (authoringSpace === 'cmyk') {
+        emit(c);
+      } else if (c.space === 'cmyk') {
+        // Display-only CMYK: convert back to the canonical space so the
+        // stored color is not silently reinterpreted as native CMYK.
+        const to255 = (v: number) =>
+          denormalizeChannel(normalizeChannel(v, c.bitDepth ?? 'uint8'), 'uint8');
+        const [r, g, b] = cmykToRgb(to255(c.c), to255(c.m), to255(c.y), to255(c.k));
+        emitRgb(r, g, b, normalizeChannel(tuple[3], 'uint8'));
+      }
     },
-    [onChange],
+    [authoringSpace, setDraftsFromRgb, emit, emitRgb],
   );
 
   const handleGrayChange = useCallback(
     (c: ManagedColor) => {
-      onChange(c);
+      if (authoringSpace === 'gray') {
+        emit(c);
+      } else {
+        const tuple = managedColorToRgba(c);
+        emitRgb(tuple[0], tuple[0], tuple[0], normalizeChannel(tuple[3], 'uint8'));
+      }
     },
-    [onChange],
+    [authoringSpace, emit, emitRgb],
   );
 
   const handleSpotSelect = useCallback(
     (c: ManagedColor) => {
       setSpace('spot');
-      onChange(c);
+      emit(c);
     },
-    [onChange],
+    [emit],
   );
 
   const handleSpaceChange = useCallback((newSpace: ColorSpace) => {
@@ -226,13 +347,27 @@ export function ColorPicker({
       onBitDepthChange?.(newBitDepth);
       // Reinterpret the current color at the new precision
       const reinterpreted = reinterpretBitDepth(value, newBitDepth);
-      onChange(reinterpreted);
+      emit(reinterpreted);
     },
-    [value, onChange, onBitDepthChange],
+    [value, emit, onBitDepthChange],
   );
 
+  // Gesture lifecycle: hosts wrap a continuous drag in one undo transaction.
+  const gestureActiveRef = useRef(false);
+  const handleRootPointerDown = useCallback(() => {
+    if (gestureActiveRef.current) return;
+    gestureActiveRef.current = true;
+    onInteractionStart?.();
+  }, [onInteractionStart]);
+  const endGesture = useCallback(() => {
+    if (!gestureActiveRef.current) return;
+    gestureActiveRef.current = false;
+    onInteractionEnd?.();
+  }, [onInteractionEnd]);
+  const handleRootPointerUp = useCallback(() => endGesture(), [endGesture]);
+
   const overlayColor: Color = [rgbTuple[0], rgbTuple[1], rgbTuple[2], 255];
-  const alphaVal = value.a / 255;
+  const alphaVal = normalizeChannel(value.a, bitDepthEffective);
 
   const contrastInfo = useMemo(() => {
     if (!bgColor) return null;
@@ -252,8 +387,37 @@ export function ColorPicker({
     { value: 'float32', label: '32f' },
   ];
 
+  const cmykDisplayValue = useMemo<ManagedColor & { space: 'cmyk' }>(() => {
+    if (isCmykColor(value)) return value;
+    const [c, m, y, k] = rgbToCmyk(rgbTuple[0], rgbTuple[1], rgbTuple[2]);
+    return buildColor(
+      'cmyk',
+      [c, m, y, k],
+      normalizeChannel(rgbTuple[3], 'uint8'),
+      bitDepthEffective,
+      spotProfile,
+    ) as ManagedColor & { space: 'cmyk' };
+  }, [value, rgbTuple, bitDepthEffective, spotProfile]);
+
+  const grayDisplayValue = useMemo<ManagedColor & { space: 'gray' }>(() => {
+    if (isGrayColor(value)) return value;
+    const lum = Math.round(rgbTuple[0] * 0.299 + rgbTuple[1] * 0.587 + rgbTuple[2] * 0.114);
+    return buildColor(
+      'gray',
+      [lum, 0, 0, 0],
+      normalizeChannel(rgbTuple[3], 'uint8'),
+      bitDepthEffective,
+      spotProfile,
+    ) as ManagedColor & { space: 'gray' };
+  }, [value, rgbTuple, bitDepthEffective, spotProfile]);
+
   return (
-    <div className="color-picker">
+    <div
+      className="color-picker"
+      onPointerDownCapture={handleRootPointerDown}
+      onPointerUpCapture={handleRootPointerUp}
+      onPointerCancelCapture={handleRootPointerUp}
+    >
       <ColorSpaceSelector active={space} onChange={handleSpaceChange} />
 
       {showAreaAndSliders && (
@@ -296,17 +460,14 @@ export function ColorPicker({
             {alphaVal < 1 ? ` (${Math.round(alphaVal * 100)}%)` : ''}
           </span>
         </div>
-        {isRgbColor(value) && (
+        {space !== 'gray' && space !== 'spot' && (
           <GamutWarning
-            r={value.r}
-            g={value.g}
-            b={value.b}
+            r={rgbTuple[0]}
+            g={rgbTuple[1]}
+            b={rgbTuple[2]}
             bitDepth={bitDepth}
             documentColorMode={documentColorMode}
           />
-        )}
-        {!isRgbColor(value) && space !== 'gray' && space !== 'spot' && (
-          <GamutWarning r={rgbTuple[0]} g={rgbTuple[1]} b={rgbTuple[2]} />
         )}
         <EyeDropperButton onPick={handleEyeDropper} />
       </div>
@@ -325,40 +486,19 @@ export function ColorPicker({
 
       {space === 'rgb' && <ColorFields color={rgbTuple} onChange={handleFieldsChange} />}
 
-      {space === 'cmyk' && (
-        <CmykColorFields
-          value={
-            isCmykColor(value)
-              ? value
-              : (() => {
-                  const [c, m, y, k] = rgbToCmyk(rgbTuple[0], rgbTuple[1], rgbTuple[2]);
-                  return { space: 'cmyk' as const, c, m, y, k, a: value.a };
-                })()
-          }
-          onChange={handleCmykChange}
-        />
-      )}
+      {space === 'cmyk' && <CmykColorFields value={cmykDisplayValue} onChange={handleCmykChange} />}
 
-      {space === 'gray' && (
-        <GrayColorFields
-          value={
-            isGrayColor(value)
-              ? value
-              : {
-                  space: 'gray' as const,
-                  v: Math.round((rgbTuple[0] + rgbTuple[1] + rgbTuple[2]) / 3),
-                  a: value.a,
-                }
-          }
-          onChange={handleGrayChange}
-        />
-      )}
+      {space === 'gray' && <GrayColorFields value={grayDisplayValue} onChange={handleGrayChange} />}
 
       {space === 'spot' && <SpotColorBrowser onSelect={handleSpotSelect} />}
 
       {space !== 'spot' && (
         <div className="color-picker__swatch-section">
-          <SwatchPalette onSelect={handleSwatchSelect} />
+          <SwatchPalette
+            onSelect={handleSwatchSelect}
+            documentColors={documentColors}
+            recentColors={recentColors}
+          />
         </div>
       )}
 
