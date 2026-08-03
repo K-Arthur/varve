@@ -17,6 +17,7 @@ import type { LogoConceptStatus, LogoVariantKind } from '@strata/scene';
 import { Button, EmptyState, Icon, Select, Tooltip } from '@strata/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
+import { VectorizeSection } from './VectorizeSection';
 import './logo-panel.css';
 
 const VARIANT_KINDS: ReadonlyArray<{ value: LogoVariantKind; label: string }> = [
@@ -92,7 +93,7 @@ export function LogoPanel() {
   const previewDisabledReason = selection.length > 0 ? undefined : 'Select a layer first';
 
   return (
-    <div className="logo-panel" role="region" aria-label="Logo panel">
+    <section className="logo-panel" aria-label="Logo panel">
       <header className="logo-panel__header">
         <div className="logo-panel__title-row">
           <Icon name="Stamp" size={16} />
@@ -247,6 +248,11 @@ export function LogoPanel() {
           </details>
 
           <details className="logo-panel__section" open>
+            <summary className="logo-panel__section-heading">Vectorize</summary>
+            <VectorizeSection />
+          </details>
+
+          <details className="logo-panel__section" open>
             <summary className="logo-panel__section-heading">Variants</summary>
             <div className="logo-panel__section-body">
               {project.variants.length === 0 ? (
@@ -287,6 +293,6 @@ export function LogoPanel() {
           </details>
         </div>
       )}
-    </div>
+    </section>
   );
 }

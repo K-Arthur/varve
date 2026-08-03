@@ -278,7 +278,9 @@ function ShellInner({
   return (
     <DnDShell layersDndRef={layersDndRef}>
       <div
-        className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}`}
+        className={`editor-shell${distractionFreeMode ? ' editor-shell--distraction-free' : ''}${
+          editor.state.logoPanelVisible ? ' editor-shell--logo-open' : ''
+        }`}
         style={gridStyle}
       >
         {!distractionFreeMode && (

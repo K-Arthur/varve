@@ -99,14 +99,20 @@
    * status) instead of being confined to it. */
   position: relative;
   grid-template-areas:
-    "menubar  menubar   menubar"
-    "tabs     tabs      tabs"
-    "layers   canvas    inspector"
-    "timeline timeline  timeline"
-    "pagenav  pagenav   pagenav"
-    "selinfo  selinfo   selinfo"
-    "status   status    status";
-  grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width);
+    "menubar  menubar   menubar   logoarea"
+    "tabs     tabs      tabs      logoarea"
+    "layers   canvas    inspector logoarea"
+    "timeline timeline  timeline  logoarea"
+    "pagenav  pagenav   pagenav   logoarea"
+    "selinfo  selinfo   selinfo   logoarea"
+    "status   status    status    logoarea";
+  /* Fourth column is the Logo panel: a reserved 0-width track unless the
+   * panel is open, so the logo panel can never overlay or block canvas
+   * tools or other panels (it docks like layers/inspector instead). */
+  grid-template-columns: var(--sidebar-width) 1fr var(--inspector-width) var(
+      --logo-panel-width,
+      0px
+    );
   grid-template-rows: var(--topbar-height) 32px 1fr auto auto auto var(--statusbar-height);
   flex: 1;
   min-height: 0;
@@ -117,6 +123,19 @@
   font-size: var(--font-size-sm);
   transition: grid-template-columns var(--duration-base) var(--ease-out);
 }
+
+/* Logo panel open: reserve its column. */
+.editor-shell--logo-open {
+  --logo-panel-width: 340px;
+}
+
+@media (max-width: 899px) {
+  .editor-shell--logo-open {
+    /* Narrow layouts: the panel becomes a fixed overlay, so keep the column zeroed. */
+    --logo-panel-width: 0px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .editor-shell {
     transition: none;
@@ -1286,19 +1305,19 @@
   z-index: var(--elevation-z-raised);
 }
 
-/* ── Logo panel ── */
+/* ── Logo panel ──
+ * Docked in a reserved grid column (grid-template-areas `logoarea`) so it
+ * never overlays or blocks canvas tools, floating toolbar, minimap, or other
+ * panels. The column is 0-width unless .editor-shell--logo-open is set. */
 .editor__logo-panel {
-  grid-area: canvas;
+  grid-area: logoarea;
   position: relative;
-  justify-self: end;
-  width: 340px;
-  max-width: 60vw;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
   background: var(--color-surface-raised);
   border-left: 1px solid var(--color-border-subtle);
-  z-index: var(--elevation-z-raised);
+  z-index: var(--elevation-z-sticky);
 }
 
 /* ── Panel overlays (responsive) ── */
@@ -1309,7 +1328,8 @@
 
   .editor__layers-panel,
   .editor__inspector-panel,
-  .editor__library-panel {
+  .editor__library-panel,
+  .editor__logo-panel {
     position: fixed;
     inset-block: 0;
     grid-area: unset;
@@ -1328,6 +1348,13 @@
     width: var(--inspector-width);
     transform: translateX(100%);
   }
+  .editor__logo-panel {
+    left: auto;
+    right: 0;
+    width: 340px;
+    max-width: 90vw;
+    transform: translateX(100%);
+  }
   .editor__layers-panel {
     left: 0;
     right: auto;
@@ -1340,7 +1367,8 @@
   }
   .editor__layers-panel[data-visible],
   .editor__inspector-panel[data-visible],
-  .editor__library-panel[data-visible] {
+  .editor__library-panel[data-visible],
+  .editor__logo-panel {
     transform: translateX(0);
   }
 
