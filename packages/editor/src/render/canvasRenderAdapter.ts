@@ -10,6 +10,7 @@ export { sceneNodeToEngineNode } from './sceneToEngine';
 export { workerBitmapDelta } from './workerCamera';
 export {
   createRenderWorkerHost,
+  disposeWorkerFrame,
   isStaleResponse,
   type RenderWorkerHost,
   type RenderWorkerHostOptions,

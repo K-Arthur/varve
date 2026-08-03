@@ -127,6 +127,7 @@ import {
   closeImageBitmapMap,
   collectImageBitmaps,
   createRenderWorkerHost,
+  disposeWorkerFrame,
   isStaleResponse,
   type RenderWorkerHost,
   sceneCanUseWorkerRenderer,
@@ -644,7 +645,7 @@ export function CanvasArea({
     if (!canvas) return;
     return subscribeToCanvasContextLifecycle(canvas, {
       onLost: () => {
-        workerBitmapRef.current?.bitmap.close();
+        disposeWorkerFrame(renderWorkerRef.current, workerBitmapRef.current?.bitmap);
         workerBitmapRef.current = null;
         editorRef.current.announce('Canvas rendering context lost. Waiting to restore rendering.');
       },
@@ -708,11 +709,11 @@ export function CanvasArea({
       (msg) => {
         if (msg.type === 'frameRendered') {
           if (isStaleResponse(docVersionRef.current, msg.docVersion)) {
-            msg.bitmap?.close();
+            disposeWorkerFrame(renderWorkerRef.current, msg.bitmap);
             return;
           }
           if (msg.bitmap) {
-            workerBitmapRef.current?.bitmap.close();
+            disposeWorkerFrame(renderWorkerRef.current, workerBitmapRef.current?.bitmap);
             workerBitmapRef.current = {
               bitmap: msg.bitmap,
               docVersion: msg.docVersion,
