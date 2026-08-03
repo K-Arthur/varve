@@ -104,7 +104,10 @@ reservations for outbound transfers (pending + in-flight), resident returned
 frame, worker OffscreenCanvas backing store, peak high-water, admission
 rejections, disposals. Owner = the render worker host; the retained frame is
 owned by CanvasArea; every transfer/resident is released on close/supersede/
-terminate/failure. `collectImageBitmaps` enforces a per-transfer entry cap.
+terminate/failure. Canvas-side disposal calls the host's identity-aware
+`releaseFrame` before `ImageBitmap.close()`, including context loss, stale
+responses, replacement and duplicate disposal. `collectImageBitmaps` enforces
+a per-transfer entry cap.
 Budget presets: 128 MiB default, 64 MiB low / stress-4gb, 32 MiB stress-2gb.
 
 ## 11. Worker queue and cancellation design
@@ -126,6 +129,9 @@ variable-change), `dirtyAreaRatio`, `dirtyRects` (rect count before merge) and
 `fullRedrawReason` (structural / camera-rotation / profile-disabled /
 dirty-area-limit / no-dirty-rect). DirtyRegion.partial carries `rectCount`.
 The dev HUD shows reason + dirty-area %.
+It also records the merged partial dirty rectangle in backing-store pixels and
+draws that rectangle over the canvas. The diagnostics ring can be frozen and
+resumed through the opt-in `__strataPerf` handle without mutating document state.
 
 ## 13. Full-redraw reasons discovered
 
@@ -193,20 +199,34 @@ backpressure on the interaction path.
 interaction traces + slow-capture controls, frame budget, capabilities
 (incl. WebKitGTK flags), and the live worker bitmap budget via a host
 registry. The on-canvas HUD gained a second panel with the same data. All
-disabled by default.
+disabled by default. Interaction summaries now expose p50/p75/p90/p95/p99/max
+distributions for total and pointer-to-present latency. Traces use schema
+version 1, retain at most 50 interactions, 512 spans and 240 frames per
+interaction, and count dropped samples after those caps. The real-browser
+diagnostics probe can freeze the current frame for inspection.
 
 ## 22. Memory high-water marks
 
 Worker bitmap pipeline peak is now tracked (`peakTotalBytes`); admission
 refusals prevent unbounded growth. Stress-2gb profile caps outbound transfers
-at 32 MiB. ImageCache / IR caches remain byte-bounded. No long-duration
-leak run was performed this session (tooling exists via `soakHarness.ts`).
+at 32 MiB. A deterministic ownership test confirms resident accounting returns
+from 4 bytes to zero when CanvasArea closes a forwarded 1x1 frame, and a second
+release is harmless. In the 24-iteration Chromium interaction soak, the worker
+budget settled at zero pending/in-flight bytes, 1,440,384 resident bytes, and a
+1,500,400-byte high-water mark against a 134,217,728-byte budget. ImageCache /
+IR caches remain byte-bounded.
 
 ## 23. Long-duration leak-test results
 
-Not run this session; deferred. The budget/accounting unit tests assert
-reservations never go negative and are released on terminate, supersede and
-failure, which is the deterministic pre-condition for leak safety.
+A real-browser bounded soak ran 24 alternating middle-button pans over 12
+canvas nodes and sampled Chromium's JS heap after forced collection every four
+iterations. The previous-window median was 75,264,924 bytes and the final-window
+median was 75,914,468 bytes: +649,544 bytes (0.62 MiB). The run retained 86/120
+frame records and 25/50 interaction traces; the largest trace had eight spans
+and three frame records. Worker pending and in-flight bytes both returned to
+zero. This 26-second smoke rejects gross application-resource growth but is not
+a claim of a multi-hour native RSS plateau; allocator/GPU/OS retention still
+needs a headed WebKitGTK release soak.
 
 ## 24. Tests and benchmark fixtures added
 
@@ -217,29 +237,56 @@ failure, which is the deterministic pre-condition for leak safety.
   extended `workerHost.test.ts`, `collectImageBitmaps.test.ts`,
   `memoryBudget.test.ts`, `dirtyRegion.test.ts`, `adaptiveProfile.test.ts`.
 - `scripts/perf/capture-webkit-env.mjs`.
+- `canvas/__tests__/perfRuntimeTracing.test.ts` (one interaction ID across
+  render queue, main render, and frame commit).
+- Extended interaction-trace tests for schema/caps, dropped-sample counts,
+  async completion, delayed presentation, slow-only retention, and percentile
+  distributions.
+- Extended draw-diagnostics tests for dirty-rectangle DPR conversion,
+  visualization, freeze, and resume.
+- `tests/e2e/canvas/performance-diagnostics.spec.ts` drives a real Chromium
+  drag and verifies snap spans, bounded trace data, partial dirty-region
+  capture, distribution ordering, and frame freeze.
+- `tests/e2e/canvas/performance-soak.spec.ts` drives 24 real pointer pans,
+  forces/samples Chromium garbage collection through CDP, asserts trace/frame
+  caps and settled worker reservations, and attaches a versioned JSON sample.
 
 ## 25. Commands run and results
 
-`npx vitest run` (editor 4090 passed, shared/scene 2501, engine 3062),
-`pnpm --filter @strata/editor typecheck` (clean), `biome check` on touched
-files (clean), `node scripts/audit-render-perf.mjs` (no regression),
-`node scripts/perf/capture-webkit-env.mjs` (verified). Full `pnpm test` was
-not run end-to-end because `packages/engine` is being edited concurrently by
-another agent; the flaky snap scaling gate was reworked (median + best-of-N)
-and re-verified.
+Earlier milestone checks: `npx vitest run` (editor 4090 passed, shared/scene
+2501, engine 3062), `node scripts/audit-render-perf.mjs` (no regression), and
+`node scripts/perf/capture-webkit-env.mjs` (verified). The bitmap-disposal
+milestone then passed the full `pnpm test` suite: 904 files passed, one skipped;
+11,091 tests passed, three skipped. The correlated-trace/dirty-overlay
+milestone passed 31 focused Vitest tests and the real Chromium Playwright spec
+(one passed, 12.9 s), plus scoped Biome, emoji, diff-integrity, editor
+typecheck, and the architecture/pre-commit health gate. `pnpm audit:tokens`
+passed 123/123 checks across all themes. The repository has no
+`pnpm format-check` command, so touched files were formatted and checked with
+scoped Biome. A final whole-worktree `pnpm typecheck` was blocked by active,
+unrelated `packages/shared/src/colorConversion.test.ts` literal-widening errors
+at lines 429–433. `pnpm lint` was likewise blocked by active Menubar debug code
+and existing repository warnings; the touched performance files were clean.
+The existing 50-shape create/delete Chromium pressure test passed. The new
+24-iteration Chromium soak passed in 25.9 s (a repeat used to extract the JSON
+sample passed in 23.5 s). A Playwright WebKit run was attempted but could not
+start because the WebKit browser binary is not installed on this host; this is
+separate from the native WebKitGTK environment capture/runbook.
 
 ## 26. Known limitations
 
 - One stale worker frame can still complete (synchronous replay is not
   interruptible); it is dropped pre-presentation and released.
-- Context-loss frame closure on the CanvasArea side is not reflected in the
-  host resident accounting until the next forward or terminate (single-frame
-  transient over-count during a rare recovery path).
-- Pointer-to-present is measured by time-window correlation; a frame commit
-  in a different rAF cycle near the gesture boundary can be attributed to an
-  adjacent interaction.
+- Pointer-to-present accepts the first frame committed up to 250 ms after an
+  interaction ends. This covers pointer-up before the next rAF, but the single
+  pending slot can be superseded by a newer rapidly completed interaction.
+- Worker processing and OS compositor presentation do not yet have calibrated
+  cross-process spans; `render.queue` and `render.main` are correlated on the
+  webview main thread.
+- The dirty overlay shows the merged region, not every pre-merge region or the
+  exact repainted-node set.
 - No spatial tile renderer (deferred, see §14).
-- No long-duration leak run this session.
+- No multi-hour native RSS/allocator leak run this session.
 
 ## 27. Deferred improvements and rationale
 
@@ -249,7 +296,9 @@ and re-verified.
   the stale frame is already discarded before presentation.
 - Full diagnostics React panel — the `__strataPerf` handle + on-canvas HUD
   cover probes/E2E with less surface and zero overhead when closed.
-- Long-duration leak soak — needs a GUI/headed session.
+- Multi-hour native RSS/allocator soak — the new Chromium test covers a short,
+  deterministic application-level plateau only and the native run needs a
+  GUI/headed release session.
 
 ## 28. Commit hashes and pushed milestone summary
 
@@ -258,17 +307,19 @@ export work), `3c7468c0` (worker bitmap budget), `0818d96b` (redraw
 attribution), `af0df423` + `84434f23` (snap scaling gates), `7374fd18`
 (interaction tracing), `a3d6eed9` (pressure profiles + failure injection),
 `e2b14162` (WebKitGTK profiling support), `ee3008de` (diagnostics surface),
-plus `docs/perf/raster-tiling-decision.md` (this session). Not pushed to
-origin (18 commits ahead); pushing is left to the maintainer's workflow.
-Several commits interleave with the other agent's export milestones due to
+`7acc9007` (tiling decision/report), `84434f23` (stable scaling gate),
+`9ba1083f` (architecture map/budgets), `697cf59a` (disposed-frame accounting),
+`734f9821` (bounded correlated traces and dirty-region overlay/E2E), and
+`c4af7a21` (bounded real-browser interaction soak). `9ba1083f` was pushed to
+`origin/master`. The later performance commits remain local because unrelated
+collaborators' commits are ancestors on the shared `master`; pushing them would
+also publish work outside this task.
+Several earlier commits interleave with other agents' milestones due to
 concurrent committing and pre-commit ref-lock races.
 
 ## 29. Confirmation that unrelated work was preserved
 
-The other agent's in-progress work (`packages/engine/src/exportPipeline/*`,
-`packages/scene/src/export/*`, `packages/shared/src/exportContracts.ts`,
-`docs/architecture/alpha-aware-shadows.md`, `tests/e2e/effects/...`) was never
-modified, reverted or committed by this session except where a concurrent
-`git commit -am` swept staged editor files into one of their commits; the
-editor files' content was verified intact in HEAD. All editor-only changes
-were committed via explicit path lists.
+Concurrent accessibility, color-picker, focus-navigation, and editor UI work
+was not modified, reverted, cleaned, stashed, or included in the performance
+commits. Performance commits used explicit path lists. The shared branch's
+unrelated staged and unstaged work remained present after each milestone.
