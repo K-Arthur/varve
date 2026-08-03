@@ -931,14 +931,6 @@ export interface NodeBase {
   snapExcluded?: boolean;
   /** Native non-destructive mask. Leaf image shapes may own raster masks. */
   mask?: Mask;
-  /**
-   * Reference to a `Document.iconAssets` entry (v2.x icon system). When set,
-   * the node is an icon instance: its visual content was derived from the
-   * asset's sanitized SVG and the node carries icon provenance (provider,
-   * licence, attribution, variant). Clearing the reference (detach) turns
-   * the node into a plain editable group with no icon semantics.
-   */
-  iconAssetId?: string;
 }
 
 export interface ShapeNode extends NodeBase {
