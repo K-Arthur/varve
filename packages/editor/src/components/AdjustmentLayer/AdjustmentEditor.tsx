@@ -107,7 +107,14 @@ export function AdjustmentEditor({
       );
 
     case 'selectiveColor':
-      return <SelectiveColorEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <SelectiveColorEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'colorBalance':
       return <ColorBalanceEditor adjustment={adjustment} onChange={onChange} />;
@@ -392,7 +399,14 @@ export function AdjustmentEditor({
       return <ChannelMixerEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'photoFilter':
-      return <PhotoFilterEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <PhotoFilterEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'halftone':
       return <HalftoneEditor adjustment={adjustment} onChange={onChange} />;
@@ -410,16 +424,44 @@ export function AdjustmentEditor({
     }
 
     case 'tritone':
-      return <TritoneEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <TritoneEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'colorHalftone':
-      return <ColorHalftoneEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <ColorHalftoneEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'duotone':
-      return <DuotoneEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <DuotoneEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'blackAndWhite':
-      return <BlackAndWhiteEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <BlackAndWhiteEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     case 'posterize':
       return <PosterizeEditor adjustment={adjustment} onChange={onChange} />;
@@ -428,7 +470,14 @@ export function AdjustmentEditor({
       return <ThresholdEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'lut':
-      return <LutEditor adjustment={adjustment} onChange={onChange} />;
+      return (
+        <LutEditor
+          adjustment={adjustment}
+          onChange={onChange}
+          onEditStart={onEditStart}
+          onEditEnd={onEditEnd}
+        />
+      );
 
     default:
       return (
@@ -1134,7 +1183,12 @@ function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
-function ColorHalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function ColorHalftoneEditor({
+  adjustment,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/engine').ColorHalftoneAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
@@ -1266,6 +1320,8 @@ function ColorHalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
             onChange={(c) =>
               onChange({ inkColor: managedToColor(c) } as unknown as Partial<Adjustment>)
             }
+            onInteractionStart={onEditStart}
+            onInteractionEnd={onEditEnd}
           />
         </>
       )}
@@ -1273,7 +1329,12 @@ function ColorHalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
-function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function PhotoFilterEditor({
+  adjustment,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').PhotoFilterAdjustment;
   const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
@@ -1304,6 +1365,8 @@ function PhotoFilterEditor({ adjustment, onChange }: AdjustmentEditorProps) {
         onChange={(color) =>
           onChange({ color: managedToColor(color) } as unknown as Partial<Adjustment>)
         }
+        onInteractionStart={onEditStart}
+        onInteractionEnd={onEditEnd}
       />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Preserve Luminosity</span>
@@ -1330,7 +1393,7 @@ function managedToColor(c: ManagedColor): Color {
   return [r, g, b, a] as Color;
 }
 
-function DuotoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').DuotoneAdjustment;
   const handleColor = (key: 'shadowColor' | 'highlightColor') => (c: ManagedColor) => {
     onChange({ [key]: managedToColor(c) } as unknown as Partial<Adjustment>);
@@ -1405,6 +1468,8 @@ function DuotoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
             } as ManagedColor
           }
           onChange={handleColor('shadowColor')}
+          onInteractionStart={onEditStart}
+          onInteractionEnd={onEditEnd}
         />
       </div>
       <div className="adj-editor__color-row">
@@ -1420,6 +1485,8 @@ function DuotoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
             } as ManagedColor
           }
           onChange={handleColor('highlightColor')}
+          onInteractionStart={onEditStart}
+          onInteractionEnd={onEditEnd}
         />
       </div>
       <label className="adj-editor__checkbox-row">
@@ -1452,7 +1519,12 @@ function DuotoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
-function BlackAndWhiteEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function BlackAndWhiteEditor({
+  adjustment,
+  onChange,
+  onEditStart,
+  onEditEnd,
+}: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').BlackAndWhiteAdjustment;
   const channels: { key: keyof import('@strata/scene').BlackAndWhiteAdjustment; label: string }[] =
     [
@@ -1530,6 +1602,8 @@ function BlackAndWhiteEditor({ adjustment, onChange }: AdjustmentEditorProps) {
           onChange={(color) =>
             onChange({ tintColor: managedToColor(color) } as unknown as Partial<Adjustment>)
           }
+          onInteractionStart={onEditStart}
+          onInteractionEnd={onEditEnd}
         />
       )}
     </div>
@@ -1582,7 +1656,7 @@ function ThresholdEditor({ adjustment, onChange }: AdjustmentEditorProps) {
   );
 }
 
-function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
+function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
   const adj = adjustment as import('@strata/scene').TritoneAdjustment;
   const handleColor =
     (key: 'shadowColor' | 'midtoneColor' | 'highlightColor') => (c: ManagedColor) => {
@@ -1635,13 +1709,20 @@ function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       <div className="adj-editor__row">
         <span className="adj-editor__label">Shadow Color</span>
       </div>
-      <ColorPicker value={colorToManaged(adj.shadowColor)} onChange={handleColor('shadowColor')} />
+      <ColorPicker
+        value={colorToManaged(adj.shadowColor)}
+        onChange={handleColor('shadowColor')}
+        onInteractionStart={onEditStart}
+        onInteractionEnd={onEditEnd}
+      />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Midtone Color</span>
       </div>
       <ColorPicker
         value={colorToManaged(adj.midtoneColor)}
         onChange={handleColor('midtoneColor')}
+        onInteractionStart={onEditStart}
+        onInteractionEnd={onEditEnd}
       />
       <div className="adj-editor__row">
         <span className="adj-editor__label">Highlight Color</span>
@@ -1649,6 +1730,8 @@ function TritoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
       <ColorPicker
         value={colorToManaged(adj.highlightColor)}
         onChange={handleColor('highlightColor')}
+        onInteractionStart={onEditStart}
+        onInteractionEnd={onEditEnd}
       />
       <div className="adj-editor__slider-row">
         <div className="adj-editor__slider-label">

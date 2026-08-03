@@ -23,6 +23,14 @@ export interface InspectorColorPopoverProps {
   disabled?: boolean;
   /** Document colour mode — ColorPicker defaults initial space to match. */
   documentColorMode?: ColorMode;
+  /**
+   * Transaction hooks: when provided, a continuous pointer gesture inside the
+   * picker (one drag on the 2D area, hue, or alpha slider) is wrapped in one
+   * begin/end pair so the host's undo history records a single entry per
+   * gesture instead of one entry per pointer event.
+   */
+  onEditStart?: () => void;
+  onEditEnd?: () => void;
 }
 
 export function InspectorColorPopover({
@@ -33,15 +41,37 @@ export function InspectorColorPopover({
   className = 'insp-swatch',
   disabled = false,
   documentColorMode,
+  onEditStart,
+  onEditEnd,
 }: InspectorColorPopoverProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dialogId = useId();
   const titleId = useId();
 
+  const gestureActiveRef = useRef(false);
+
   const close = useCallback(() => {
+    // Commit any in-flight gesture when the dialog is dismissed (Esc, Done,
+    // outside click) so its changes land in exactly one undo entry.
+    if (gestureActiveRef.current) {
+      gestureActiveRef.current = false;
+      onEditEnd?.();
+    }
     setOpen(false);
-  }, []);
+  }, [onEditEnd]);
+
+  const handlePointerDownCapture = useCallback(() => {
+    if (gestureActiveRef.current) return;
+    gestureActiveRef.current = true;
+    onEditStart?.();
+  }, [onEditStart]);
+
+  const handlePointerUpCapture = useCallback(() => {
+    if (!gestureActiveRef.current) return;
+    gestureActiveRef.current = false;
+    onEditEnd?.();
+  }, [onEditEnd]);
 
   const toggle = useCallback(() => {
     if (disabled) return;
@@ -99,6 +129,9 @@ export function InspectorColorPopover({
             aria-labelledby={titleId}
             data-insp-color-dialog=""
             className="insp-picker-dialog"
+            onPointerDownCapture={handlePointerDownCapture}
+            onPointerUpCapture={handlePointerUpCapture}
+            onPointerCancelCapture={handlePointerUpCapture}
           >
             <div className="insp-picker-dialog__header">
               <h2 id={titleId} className="insp-picker-dialog__title">

@@ -514,7 +514,7 @@ function EffectColorSwatch({
   index: number;
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
-  const { documentColorMode } = useEditor();
+  const { documentColorMode, beginTransaction, commitTransaction } = useEditor();
   const colorRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e) return getEffectColor(e);
@@ -530,6 +530,8 @@ function EffectColorSwatch({
       onChange={(c) => onChange((e) => setEffectColor(e, c as ManagedColor))}
       swatchStyle={{ background: swatchBg }}
       documentColorMode={documentColorMode}
+      onEditStart={beginTransaction}
+      onEditEnd={commitTransaction}
     />
   );
 }
@@ -1118,7 +1120,7 @@ function GlassTintSwatch({
   index: number;
   onChange: (updater: (e: Effect) => Effect) => void;
 }) {
-  const { documentColorMode } = useEditor();
+  const { documentColorMode, beginTransaction, commitTransaction } = useEditor();
   const tintRaw = commonValue(nodes, (n) => {
     const e = getEffect(n, index);
     if (e && e.type === 'glassMaterial') return e.tint;
@@ -1136,6 +1138,8 @@ function GlassTintSwatch({
       }
       swatchStyle={{ background: swatchBg }}
       documentColorMode={documentColorMode}
+      onEditStart={beginTransaction}
+      onEditEnd={commitTransaction}
     />
   );
 }
