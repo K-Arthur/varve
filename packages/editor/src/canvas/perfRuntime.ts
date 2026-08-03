@@ -180,6 +180,7 @@ export function getNodeWorkSamples(n = 30): {
   latestRatios: ReturnType<typeof nodeWorkRatios> | null;
   dirtyRects: { rects: unknown[]; truncated: number } | null;
   mergedDirty: import('./dirtyRegionMerge').DirtyMergeResult | null;
+  pruneScreenRects: readonly { x: number; y: number; w: number; h: number }[] | null;
 } {
   const samples = nodeWorkRing.recent(n);
   const latest = samples[samples.length - 1];
