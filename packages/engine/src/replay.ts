@@ -31,6 +31,7 @@ import {
 } from './imagePlacement';
 import { pathFillRule, pathRings } from './pathCompound';
 import { placeGlyphsOnPath } from './pathText';
+import { emitRasterReplaySample, isRasterReplayMeasured } from './rasterReplayMetrics';
 import { createRasterSurface } from './rasterSurface';
 import {
   itemNeedsAlphaShadow,
@@ -1815,6 +1816,11 @@ function paintRasterLayer(
   const { width, height, tiles } = p;
   if (width <= 0 || height <= 0) return;
 
+  // Measurement is opt-in: with no sink installed the timing calls below are
+  // skipped entirely and this path keeps its original shape.
+  const measured = isRasterReplayMeasured();
+  const startedAt = measured ? performance.now() : 0;
+
   const offscreen =
     typeof OffscreenCanvas !== 'undefined'
       ? new OffscreenCanvas(width, height)
@@ -1829,8 +1835,10 @@ function paintRasterLayer(
     | (CanvasRenderingContext2D & OffscreenCanvasRenderingContext2D)
     | null;
   if (!ctx) return;
+  const surfaceEndedAt = measured ? performance.now() : 0;
 
   const TILE = 128;
+  let compositedTiles = 0;
   for (const [key, tile] of Object.entries(tiles)) {
     const [colStr, rowStr] = key.split(':');
     const col = Number(colStr);
@@ -1840,10 +1848,27 @@ function paintRasterLayer(
     const imageData = ctx.createImageData(TILE, TILE);
     imageData.data.set(pixels);
     ctx.putImageData(imageData, col * TILE, row * TILE);
+    compositedTiles++;
   }
+  const tilesEndedAt = measured ? performance.now() : 0;
 
   if (target.drawImage) {
     target.drawImage(offscreen as unknown as CanvasImageSource, 0, 0, width, height);
+  }
+
+  if (measured) {
+    const endedAt = performance.now();
+    emitRasterReplaySample({
+      width,
+      height,
+      totalTiles: Object.keys(tiles).length,
+      compositedTiles,
+      intermediateBytes: width * height * 4,
+      surfaceMs: surfaceEndedAt - startedAt,
+      tileReplayMs: tilesEndedAt - surfaceEndedAt,
+      drawMs: endedAt - tilesEndedAt,
+      totalMs: endedAt - startedAt,
+    });
   }
 }
 
