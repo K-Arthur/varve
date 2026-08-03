@@ -74,6 +74,10 @@ export function InspectorColorPopover({
   const toggle = useCallback(() => {
     if (disabled) return;
     if (!open) {
+      // Capture the open-time value ONCE here — a `[open, value]` effect would
+      // re-capture on every edit, making the recent-color diff always equal.
+      openValueRef.current = value;
+      lastEmittedRef.current = null;
       // Snapshot document swatches at open time — extracting walks every
       // node, so recomputing during a drag would add O(nodes) work to each
       // pointer event. Refreshed on the next open.
@@ -82,7 +86,7 @@ export function InspectorColorPopover({
       );
     }
     setOpen((v) => !v);
-  }, [disabled, open, doc]);
+  }, [disabled, open, doc, value]);
   const recentColors = useMemo(
     () => getRecentColors().map((c) => managedColorToRgba(c) as Color),
     // Re-read when the picker opens so recently used colors from other
@@ -97,10 +101,9 @@ export function InspectorColorPopover({
 
   useEffect(() => {
     if (open) {
-      openValueRef.current = value;
       lastEmittedRef.current = null;
     }
-  }, [open, value]);
+  }, [open]);
 
   const handleChange = useCallback(
     (c: ManagedColor) => {
