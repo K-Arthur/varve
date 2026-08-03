@@ -105,20 +105,8 @@ vi.mock('./context', () => ({
   }),
 }));
 
-vi.mock('./shortcuts', () => ({
-  formatShortcut: () => 'Ctrl+S',
-  getEffectiveBinding: (id: string) => {
-    const defs: Record<string, { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }> = {
-      import: { key: 'i', ctrl: true },
-      present: { key: 'p', ctrl: true, shift: true },
-      delete: { key: 'Backspace' },
-      toggleGrid: { key: 'g', ctrl: true, shift: true },
-      openHelp: { key: 'F1' },
-      openHelpCenter: { key: 'F1', ctrl: true, shift: true },
-    };
-    return defs[id] ?? { key: '' };
-  },
-  SHORTCUT_DEFS: {
+vi.mock('./shortcuts', () => {
+  const shortcutDefs = {
     save: { binding: { key: 's', ctrl: true }, label: 'Save' },
     newDocument: { binding: { key: 'n', ctrl: true }, label: 'New' },
     open: { binding: { key: 'o', ctrl: true }, label: 'Open' },
@@ -276,8 +264,33 @@ vi.mock('./shortcuts', () => ({
     nudgeRight: { binding: { key: 'ArrowRight' }, label: 'Nudge Right' },
     nudgeUp: { binding: { key: 'ArrowUp' }, label: 'Nudge Up' },
     nudgeDown: { binding: { key: 'ArrowDown' }, label: 'Nudge Down' },
-  },
-}));
+  };
+  // Any def the menu references but this mock does not spell out resolves
+  // to a synthetic binding (the agent menu system grows new commands that
+  // this harness should not need to chase).
+  return {
+    formatShortcut: () => 'Ctrl+S',
+    getEffectiveBinding: (id: string) => {
+      const defs: Record<string, { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean }> =
+        {
+          import: { key: 'i', ctrl: true },
+          present: { key: 'p', ctrl: true, shift: true },
+          delete: { key: 'Backspace' },
+          toggleGrid: { key: 'g', ctrl: true, shift: true },
+          openHelp: { key: 'F1' },
+          openHelpCenter: { key: 'F1', ctrl: true, shift: true },
+        };
+      return defs[id] ?? { key: '' };
+    },
+    SHORTCUT_DEFS: new Proxy(shortcutDefs, {
+      get: (target, prop) =>
+        Reflect.get(target, prop) ?? {
+          binding: { key: String(prop), ctrl: true },
+          label: String(prop),
+        },
+    }),
+  };
+});
 
 vi.mock('@strata/codegen', () => ({
   exportDocumentToSvg: () => '<svg/>',

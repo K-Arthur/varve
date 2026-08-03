@@ -327,6 +327,11 @@
 .layers-row__disclosure:hover {
   opacity: 1;
 }
+.layers-row__disclosure:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
+}
 
 .layers-row__disclosure-spacer {
   width: 1em;
@@ -437,6 +442,10 @@
 .layers-row__name-input::placeholder {
   color: var(--color-text-muted);
   opacity: 0.7;
+}
+.layers-row__name-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* ─── Instance badge ────────────────────────────────────────── */
@@ -659,6 +668,11 @@
   font-size: var(--font-size-sm);
   outline: none;
   padding: var(--space-1) 0;
+}
+.layers-filter-bar__input:focus-visible,
+.layers-panel__filter-input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .layers-filter-bar__input::placeholder {
   color: var(--color-text-muted);

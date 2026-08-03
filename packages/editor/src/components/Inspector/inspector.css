@@ -673,9 +673,10 @@
 .insp-num__input:hover {
   border-color: var(--color-border-subtle);
 }
-.insp-num__input:focus-visible,
 .insp-num__input:focus-visible {
   border-color: var(--color-border-focus);
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 .insp-num__input[aria-invalid="true"] {
   border-color: var(--color-feedback-danger);
@@ -715,10 +716,10 @@
 .insp-select:hover {
   border-color: var(--color-border-subtle);
 }
-.insp-select:focus-visible,
 .insp-select:focus-visible {
   border-color: var(--color-border-focus);
-  outline: none;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 .insp-inline-btn {
@@ -927,10 +928,10 @@
 .insp-per-side:hover {
   border-color: var(--color-border-subtle);
 }
-.insp-per-side:focus-visible,
 .insp-per-side:focus-visible {
   border-color: var(--color-border-focus);
-  outline: none;
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* High-contrast: transparent-border controls need visible affordances. */
