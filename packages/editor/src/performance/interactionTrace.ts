@@ -22,6 +22,7 @@ export interface InteractionSpan {
 }
 
 export interface InteractionTrace {
+  schemaVersion: 1;
   /** Monotonic correlation ID connecting input events to presented frames. */
   id: number;
   kind: InteractionKind;
@@ -39,21 +40,42 @@ export interface InteractionTrace {
   /** Sum of recorded span durations (work actually spent in the gesture). */
   busyMs: number;
   slow: boolean;
+  /** Samples dropped after the per-interaction span cap was reached. */
+  droppedSpanCount: number;
+  /** Samples dropped after the per-interaction frame cap was reached. */
+  droppedFrameCount: number;
 }
 
 const MAX_INTERACTION_TRACES = 50;
+export const MAX_INTERACTION_SPANS = 512;
+export const MAX_INTERACTION_FRAMES = 240;
 const DEFAULT_SLOW_THRESHOLD_MS = 50;
+const MAX_PRESENTATION_WAIT_MS = 250;
 const ring: InteractionTrace[] = [];
 let tracingEnabled = false;
 let slowOnly = false;
 let slowThresholdMs = DEFAULT_SLOW_THRESHOLD_MS;
 let nextId = 1;
 let current: InteractionTrace | null = null;
+let pendingPresentation: InteractionTrace | null = null;
+const NOOP_SPAN_END = () => undefined;
+
+function refreshSlow(trace: InteractionTrace): void {
+  trace.slow =
+    Math.max(trace.totalMs, trace.busyMs, trace.pointerToPresentMs ?? 0) >= slowThresholdMs;
+}
+
+function retainTrace(trace: InteractionTrace): void {
+  if (ring.includes(trace)) return;
+  ring.push(trace);
+  if (ring.length > MAX_INTERACTION_TRACES) ring.shift();
+}
 
 export function enableInteractionTraces(force?: boolean): void {
   tracingEnabled = force === true;
   if (!tracingEnabled) {
     current = null;
+    pendingPresentation = null;
     ring.length = 0;
   }
 }
@@ -75,6 +97,7 @@ export function beginInteraction(kind: InteractionKind): void {
   if (!tracingEnabled) return;
   if (current) endInteraction();
   current = {
+    schemaVersion: 1,
     id: nextId++,
     kind,
     startedAt: performance.now(),
@@ -87,7 +110,29 @@ export function beginInteraction(kind: InteractionKind): void {
     totalMs: 0,
     busyMs: 0,
     slow: false,
+    droppedSpanCount: 0,
+    droppedFrameCount: 0,
   };
+}
+
+function appendSpan(
+  trace: InteractionTrace,
+  name: string,
+  startTimeMs: number,
+  durationMs: number,
+  attributes?: InteractionSpan['attributes'],
+): void {
+  if (name.endsWith('.input')) trace.eventCount++;
+  trace.busyMs += durationMs;
+  if (trace.endedAt > 0) {
+    refreshSlow(trace);
+    if (!slowOnly || trace.slow) retainTrace(trace);
+  }
+  if (trace.spans.length >= MAX_INTERACTION_SPANS) {
+    trace.droppedSpanCount++;
+    return;
+  }
+  trace.spans.push({ name, startTimeMs, durationMs, attributes });
 }
 
 /** Record a per-event span (e.g. the pointermove handler duration). */
@@ -97,21 +142,59 @@ export function recordInteractionSpan(
   attributes?: InteractionSpan['attributes'],
 ): void {
   if (!tracingEnabled || !current || durationMs < 0) return;
-  current.eventCount++;
-  current.busyMs += durationMs;
-  current.spans.push({
-    name,
-    startTimeMs: performance.now() - durationMs,
-    durationMs,
-    attributes,
-  });
+  appendSpan(current, name, performance.now() - durationMs, durationMs, attributes);
+}
+
+/**
+ * Start an async-safe phase span. The returned one-shot completion closure
+ * retains the originating trace, so queue/worker work can finish after the
+ * pointer gesture closes without being attributed to a newer gesture.
+ */
+export function beginInteractionSpan(
+  name: string,
+  attributes?: InteractionSpan['attributes'],
+): (attributes?: InteractionSpan['attributes']) => void {
+  if (!tracingEnabled || !current) return NOOP_SPAN_END;
+  const trace = current;
+  const startedAt = performance.now();
+  let finished = false;
+  return (endAttributes) => {
+    if (finished) return;
+    finished = true;
+    const endedAt = performance.now();
+    appendSpan(trace, name, startedAt, Math.max(0, endedAt - startedAt), {
+      ...attributes,
+      ...endAttributes,
+    });
+  };
+}
+
+function recordFrameOnTrace(trace: InteractionTrace, committedAt: number, totalMs: number): void {
+  trace.frameCount++;
+  if (trace.pointerToPresentMs === null) {
+    trace.pointerToPresentMs = Math.max(0, committedAt - trace.startedAt);
+  }
+  if (trace.endedAt > 0) {
+    refreshSlow(trace);
+    if (!slowOnly || trace.slow) retainTrace(trace);
+  }
+  if (trace.frames.length >= MAX_INTERACTION_FRAMES) {
+    trace.droppedFrameCount++;
+    return;
+  }
+  trace.frames.push({ committedAt, totalMs });
 }
 
 /** Called for every presented frame (see perfRuntime.recordFrame). */
 export function notifyFrameCommit(committedAt: number, totalMs: number): void {
-  if (!tracingEnabled || !current) return;
-  current.frames.push({ committedAt, totalMs });
-  current.frameCount++;
+  if (!tracingEnabled) return;
+  if (current) recordFrameOnTrace(current, committedAt, totalMs);
+  if (!pendingPresentation) return;
+  const waitMs = committedAt - pendingPresentation.endedAt;
+  if (waitMs >= 0 && waitMs <= MAX_PRESENTATION_WAIT_MS) {
+    recordFrameOnTrace(pendingPresentation, committedAt, totalMs);
+  }
+  if (waitMs >= 0) pendingPresentation = null;
 }
 
 /** Close the current interaction and retain it (unless slow-only discards it). */
@@ -119,18 +202,14 @@ export function endInteraction(): InteractionTrace | null {
   if (!tracingEnabled || !current) return null;
   current.endedAt = performance.now();
   current.totalMs = Math.max(0, current.endedAt - current.startedAt);
-  const firstFrame = current.frames[0];
-  if (firstFrame)
-    current.pointerToPresentMs = Math.max(0, firstFrame.committedAt - current.startedAt);
-  // A gesture is "slow" if it wall-clocked past the threshold OR spent that
-  // much time in event handlers (a single heavy move can be slow while the
-  // wall time between down and up is tiny).
-  current.slow = Math.max(current.totalMs, current.busyMs) >= slowThresholdMs;
+  // A gesture is "slow" if wall time, recorded work, or presentation latency
+  // crosses the threshold. Presentation can arrive just after pointerup; that
+  // path refreshes this flag and retains a slow-only trace in notifyFrameCommit.
+  refreshSlow(current);
   const finished = current;
   current = null;
-  if (slowOnly && !finished.slow) return finished;
-  ring.push(finished);
-  if (ring.length > MAX_INTERACTION_TRACES) ring.shift();
+  if (!slowOnly || finished.slow) retainTrace(finished);
+  pendingPresentation = finished.pointerToPresentMs === null ? finished : null;
   return finished;
 }
 
@@ -145,6 +224,36 @@ export function getInteractionTraceCount(): number {
 export function resetInteractionTraces(): void {
   ring.length = 0;
   current = null;
+  pendingPresentation = null;
+}
+
+export interface LatencyDistribution {
+  count: number;
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+  p99: number;
+  max: number;
+}
+
+function percentile(sorted: number[], percentileValue: number): number {
+  if (sorted.length === 0) return 0;
+  const rank = Math.max(0, Math.ceil((percentileValue / 100) * sorted.length) - 1);
+  return sorted[Math.min(sorted.length - 1, rank)] ?? 0;
+}
+
+function distribution(values: number[]): LatencyDistribution {
+  const sorted = [...values].sort((a, b) => a - b);
+  return {
+    count: sorted.length,
+    p50: percentile(sorted, 50),
+    p75: percentile(sorted, 75),
+    p90: percentile(sorted, 90),
+    p95: percentile(sorted, 95),
+    p99: percentile(sorted, 99),
+    max: sorted[sorted.length - 1] ?? 0,
+  };
 }
 
 /** Roll up distribution of pointer-to-present + total interaction latency. */
@@ -155,9 +264,13 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
   avgTotalMs: number;
   p95TotalMs: number;
   maxTotalMs: number;
+  pointerToPresent: LatencyDistribution;
+  total: LatencyDistribution;
 } {
   const withPresent = samples.filter((t) => t.pointerToPresentMs !== null);
-  const totals = samples.map((t) => t.totalMs).sort((a, b) => a - b);
+  const pointerToPresentValues = withPresent.map((trace) => trace.pointerToPresentMs ?? 0);
+  const totals = samples.map((t) => t.totalMs);
+  const totalDistribution = distribution(totals);
   return {
     count: samples.length,
     slowCount: samples.filter((t) => t.slow).length,
@@ -167,7 +280,9 @@ export function summarizeInteractionTraces(samples: InteractionTrace[]): {
         : 0,
     avgTotalMs:
       samples.length > 0 ? samples.reduce((s, t) => s + t.totalMs, 0) / samples.length : 0,
-    p95TotalMs: totals.length > 0 ? (totals[Math.floor(totals.length * 0.95)] ?? 0) : 0,
-    maxTotalMs: totals.length > 0 ? (totals[totals.length - 1] ?? 0) : 0,
+    p95TotalMs: totalDistribution.p95,
+    maxTotalMs: totalDistribution.max,
+    pointerToPresent: distribution(pointerToPresentValues),
+    total: totalDistribution,
   };
 }

@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FrameDiagnostics } from '../drawDiagnostics';
 import {
   enableDrawDiagnostics,
@@ -7,9 +7,12 @@ import {
   getLastFrame,
   getRecentFrames,
   isDiagnosticsEnabled,
+  isDiagnosticsFrozen,
   recordFrame,
   renderDrawDiagnostics,
   resetDiagnostics,
+  resolveDirtyScreenRect,
+  setDiagnosticsFrozen,
 } from '../drawDiagnostics';
 
 function makeFrame(overrides?: Partial<FrameDiagnostics>): FrameDiagnostics {
@@ -32,6 +35,7 @@ function makeFrame(overrides?: Partial<FrameDiagnostics>): FrameDiagnostics {
 
 beforeEach(() => {
   resetDiagnostics();
+  setDiagnosticsFrozen(false);
 });
 
 describe('drawDiagnostics', () => {
@@ -135,6 +139,49 @@ describe('drawDiagnostics', () => {
     expect(getFrameCount()).toBe(0);
     recordFrame(makeFrame());
     expect(getFrameCount()).toBe(1);
+  });
+
+  it('freezes and resumes the current diagnostics frame', () => {
+    enableDrawDiagnostics(true);
+    recordFrame(makeFrame({ frameIndex: 1 }));
+    setDiagnosticsFrozen(true);
+    expect(isDiagnosticsFrozen()).toBe(true);
+    recordFrame(makeFrame({ frameIndex: 2 }));
+    expect(getLastFrame()?.frameIndex).toBe(1);
+
+    setDiagnosticsFrozen(false);
+    recordFrame(makeFrame({ frameIndex: 3 }));
+    expect(getLastFrame()?.frameIndex).toBe(3);
+  });
+
+  it('draws the merged dirty screen rectangle for a partial frame', () => {
+    enableDrawDiagnostics(true);
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext('2d')!;
+    const strokeRect = vi.spyOn(ctx, 'strokeRect');
+    recordFrame(
+      makeFrame({
+        partialRedraw: true,
+        dirtyScreenRect: { x: 10, y: 20, w: 120, h: 80 },
+      }),
+    );
+
+    renderDrawDiagnostics(ctx, canvas.width);
+
+    expect(strokeRect).toHaveBeenCalledWith(10, 20, 120, 80);
+  });
+
+  it('converts CSS-pixel dirty bounds to backing-store pixels only for partial redraw', () => {
+    expect(resolveDirtyScreenRect(true, { x: 5, y: 10, w: 20, h: 30 }, 2)).toEqual({
+      x: 10,
+      y: 20,
+      w: 40,
+      h: 60,
+    });
+    expect(resolveDirtyScreenRect(false, { x: 5, y: 10, w: 20, h: 30 }, 2)).toBeUndefined();
+    expect(resolveDirtyScreenRect(true, null, 2)).toBeUndefined();
   });
 
   // Regression guard for the diagnostics blind spot that hid the image-src

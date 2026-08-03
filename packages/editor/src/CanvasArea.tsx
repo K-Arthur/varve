@@ -92,6 +92,7 @@ import { useCanvasInputs } from './canvas/inputPipeline';
 import { computeInvalidationPlan } from './canvas/invalidationPlan';
 import { useOverlayDraw } from './canvas/overlayManager';
 import {
+  beginInteractionSpan,
   cancelCanvasFrame,
   createCanvasFrameKey,
   enableDrawDiagnostics,
@@ -104,6 +105,7 @@ import {
   isSnapMetricsEnabled,
   recordFrame,
   recordSnapMetrics,
+  resolveDirtyScreenRect,
   scheduleCanvasFrame,
   startFrameTiming,
 } from './canvas/perfRuntime';
@@ -1004,6 +1006,7 @@ export function CanvasArea({
         }
         const snapMetricsOn = isSnapMetricsEnabled();
         const snapStart = snapMetricsOn ? performance.now() : 0;
+        const finishSnapPrefilter = beginInteractionSpan('snap.prefilter');
 
         // D-02: Spatial + hierarchical filtering of snap targets
         const doc = stateRef.current.document;
@@ -1056,6 +1059,11 @@ export function CanvasArea({
           // both wastes evaluation and produces incorrect guides.
           selection.length > 1 ? new Set(selection) : undefined,
         );
+        finishSnapPrefilter({
+          indexedCandidates: snapIndex.indexedNodeCount,
+          broadPhaseCandidates: nearbyIds.size,
+          semanticCandidates: filtered.length,
+        });
 
         const pageBoundsTargets: Array<{ x: number; y: number; w: number; h: number }> = [];
         const activePageId = doc.activePageId;
@@ -1112,6 +1120,7 @@ export function CanvasArea({
           })) ?? [];
         const gridConfig =
           s.snapEnabled && s.documentGrid?.snapEnabled ? s.documentGrid : undefined;
+        const finishSnapEvaluate = beginInteractionSpan('snap.evaluate');
         const result = snapPosition(
           bounds.x,
           bounds.y,
@@ -1130,6 +1139,11 @@ export function CanvasArea({
         );
         snapSessionRef.current = result.session;
         setSnapGuides(result.guides);
+        finishSnapEvaluate({
+          finePhaseCandidates: allTargets.length,
+          winningX: result.x !== bounds.x,
+          winningY: result.y !== bounds.y,
+        });
         if (snapMetricsOn) {
           recordSnapMetrics({
             ts: performance.now(),
@@ -2482,6 +2496,7 @@ export function CanvasArea({
         dirtyAreaRatio,
         dirtyRects: dirty.kind === 'partial' ? dirty.rectCount : 0,
         fullRedrawReason,
+        dirtyScreenRect: resolveDirtyScreenRect(!!usePartialRedraw, dirtyRect, dpr),
       });
       const diag = compositorRef.current?.getDiagnostics?.();
       if (diag) setCompositorDiagnostics(diag);

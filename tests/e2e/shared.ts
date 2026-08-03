@@ -7,11 +7,11 @@ import type { Page } from '@playwright/test';
  * Sequence:
  *   / → [New] → dialog → [Create] → wait for .layers-panel → dismiss welcome
  */
-export async function navigateToEditor(page: Page) {
+export async function navigateToEditor(page: Page, path = '/') {
   // Generous timeouts: under heavy concurrent dev-server load (many watched
   // files recompiling at once), first paint can take much longer than a
   // quiet dev server without indicating any real problem.
-  await page.goto('/', { timeout: 45000, waitUntil: 'domcontentloaded' });
+  await page.goto(path, { timeout: 45000, waitUntil: 'domcontentloaded' });
   const newBtn = page.getByRole('button', { name: /^new$/i });
   await newBtn.waitFor({ state: 'visible', timeout: 45000 });
   await newBtn.click({ force: true, timeout: 15000 });
