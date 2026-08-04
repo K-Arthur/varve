@@ -116,7 +116,7 @@ retry button. This removes the failure class instead of adding a timeout to it.
 | ⬜ P1-8 | Make the perf-budget test contention-proof | `packages/editor/src/**` | — | No flaky failure under parallel load | Low | 2 h | No |
 | ⬜ P1-9 | Configure the `release-publish` environment + reviewer | GitHub settings | P0-11 | Publish job actually pauses | Low | 15 min | No |
 | ⬜ P1-10 | Dependency/vulnerability scanning in CI | `.github/workflows/` | — | `cargo audit` + `pnpm audit` run and report | Low | 3 h | No |
-| ⬜ P1-11 | Decide repository visibility | — | — | If public: Actions become free and `NOTICE` becomes accurate | Low | — | **Saves** money |
+| ✅ P1-11 | Repository visibility | — | — | Public since 2026-08-04, after a full-history secret audit. Actions free; `NOTICE` now accurate | Low | — | **Saved** money |
 
 ---
 
