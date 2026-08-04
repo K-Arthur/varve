@@ -69,11 +69,36 @@ const themes = [
   { name: 'hc', colorScheme: 'light', contrast: 'more' },
 ];
 
+function oklchToSrgb(l, c, h) {
+  const hRad = (h * Math.PI) / 180;
+  const a = c * Math.cos(hRad);
+  const b = c * Math.sin(hRad);
+  const l1 = l + 0.3963377774 * a + 0.2158037573 * b;
+  const m1 = l - 0.1055613458 * a - 0.0638541728 * b;
+  const s1 = l - 0.0894841775 * a - 1.291485548 * b;
+  const l3 = l1 ** 3;
+  const m3 = m1 ** 3;
+  const s3 = s1 ** 3;
+  const clamp = (v) => Math.min(1, Math.max(0, v));
+  return [
+    clamp(4.0767416621 * l3 - 3.3077115913 * m3 + 0.2309699292 * s3),
+    clamp(-1.2684380046 * l3 + 2.6097574011 * m3 - 0.3413193965 * s3),
+    clamp(-0.0041960863 * l3 - 0.7034186147 * m3 + 1.707614701 * s3),
+  ];
+}
+
 function parseColor(c) {
   if (c.startsWith('oklch')) {
-    // oklch(L C H / A) — approximate L* for contrast purposes.
+    // oklch(L C H / A)
     const m = c.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?/);
-    if (m) return { okLch: parseFloat(m[1]), alpha: m[4] ? parseFloat(m[4]) : 1, raw: c };
+    if (m)
+      return {
+        okLch: parseFloat(m[1]),
+        chroma: parseFloat(m[2]),
+        hue: parseFloat(m[3]),
+        alpha: m[4] ? parseFloat(m[4]) : 1,
+        raw: c,
+      };
   }
   const m = c.match(/rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
   if (m) return { r: +m[1], g: +m[2], b: +m[3], alpha: m[4] ? parseFloat(m[4]) : 1, raw: c };
@@ -88,14 +113,22 @@ function luminance(r, g, b) {
   return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
 }
 
-function approxL(ch) {
-  // oklch L is close to a perceptual lightness; approximate Y for contrast.
-  return ch <= 0.08 ? ch / 0.08 : ((ch + 0.16) / 1.16) ** 3;
+function linearize(v) {
+  return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+}
+
+function luminanceOf(color) {
+  if (color.okLch !== undefined) {
+    const [r, g, b] = oklchToSrgb(color.okLch, color.chroma, color.hue);
+    return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+  }
+  if (color.r !== undefined) return luminance(color.r, color.g, color.b);
+  return 0.5;
 }
 
 function contrast(a, b) {
-  const l1 = a.okLch !== undefined ? approxL(a.okLch) : luminance(a.r, a.g, a.b);
-  const l2 = b.okLch !== undefined ? approxL(b.okLch) : luminance(b.r, b.g, b.b);
+  const l1 = luminanceOf(a);
+  const l2 = luminanceOf(b);
   const hi = Math.max(l1, l2);
   const lo = Math.min(l1, l2);
   return (hi + 0.05) / (lo + 0.05);
@@ -201,7 +234,7 @@ for (const route of routes) {
         if (el.closest('.site-header, .site-footer, .skip-link')) continue;
         const text = (el.textContent || '').trim();
         if (!text) continue;
-        const key = el.tagName + '|' + String(el.className) + '|' + text.slice(0, 40);
+        const key = `${el.tagName}|${String(el.className)}|${text.slice(0, 40)}`;
         if (seen.has(key)) continue;
         seen.add(key);
         const cs = getComputedStyle(el);
