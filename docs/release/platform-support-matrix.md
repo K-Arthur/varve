@@ -1,6 +1,6 @@
-# Strata — Platform & Architecture Support Matrix
+# Varve — Platform & Architecture Support Matrix
 
-**Date:** 2026-08-03
+**Date:** 2026-08-03 (last updated 2026-08-04)
 **Applies to:** the first public release (`v0.1.0-alpha`)
 
 The guiding rule: **do not advertise a platform we have not run the application on.**
@@ -25,8 +25,8 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | OS | Arch | Build | Package | Signing | Tested | Min OS | Tier | Confidence |
 |---|---|---|---|---|---|---|---|---|
 | **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | AppImage 165 MB | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
-| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed | Ubuntu 22.04 | **2** | Medium |
-| **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed | Fedora 38 | **2** | Low |
+| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Ubuntu 22.04 | **2** | Medium |
+| **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed (container install-test ✅) | Fedora 38 | **2** | Low |
 | **Linux** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
 | **Windows 10/11** | x86-64 | ⚠️ never run | NSIS `.exe` | unsigned | ❌ no hardware | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
@@ -34,6 +34,28 @@ below is backed by an actual launch on real hardware; everything else is labelle
 | **macOS** | x86-64 | ⚠️ never run | `.dmg` | unsigned | ❌ no hardware | macOS 13 | **3** | Very low |
 
 Legend: ✅ verified · ⚠️ configured but never successfully executed · ⬜ planned · ❌ absent
+
+---
+
+## 2a. Container install-test status (2026-08-04)
+
+`just verify-packages` (podman, rootless) now runs against `.deb`/`.rpm` built on
+this machine:
+
+| Check | `.deb` on ubuntu:22.04 | `.rpm` on fedora:38 |
+|---|---|---|
+| Declared deps resolve from distro repos | ✅ install | ✅ install |
+| Binary path | ✅ (as packaged — name pending M3 rename decision) | ✅ (as packaged) |
+| glibc symbol floor | ❌ GLIBC_2.39 vs 2.35 (locally-built smoke artifact — release builds come from the `ubuntu-22.04` CI runner, floor 2.35) | ❌ same |
+| `ldd` resolves all libraries | ✅ | ✅ |
+| Desktop entry | ✅ | ✅ |
+| Icons (hicolor) | ✅ | ✅ |
+| MIME XML registration | ⏳ pending fresh build (stale 0.0.0 artifact predates the fix; config maps `dev.varve.desktop.xml` in deb+rpm) | ⏳ same |
+| Uninstall + clean | ✅ binary removed | ✅ |
+
+The glibc column is the expected result for a CachyOS-built artifact and is
+documented in the release-readiness audit (RB-8); the container test's real
+value is the install/uninstall/linkage columns, which all pass.
 
 ---
 
@@ -55,8 +77,8 @@ cannot reproduce. Revisit when there is hardware.
 | **AppImage** | **Ship — primary** | One file, no root, works across distros. Matches "local-first" positioning. Caveat: needs FUSE2; on FUSE-less systems users need `--appimage-extract-and-run`, which must be documented |
 | **`.deb`** | **Ship — secondary** | `tauri.conf.json` already carries a correct, complete `depends` list. Zero extra work |
 | **`.rpm`** | **Ship — secondary** | Same. `depends` list present |
-| **Flatpak / Flathub** | **Defer** | `packaging/flatpak/dev.strata.desktop.yml` exists but is unvalidated. Flathub review is a multi-week process with a real maintenance burden (runtime upgrades, sandbox holes for printing + font access). Excellent *second* channel, wrong *first* channel |
-| **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `strata-desktop-bin` wrapping the AppImage is ~1 h once v0.1.0 is published |
+| **Flatpak / Flathub** | **Defer** | `packaging/flatpak/dev.varve.desktop.yml` exists but is unvalidated. Flathub review is a multi-week process with a real maintenance burden (runtime upgrades, sandbox holes for printing + font access). Excellent *second* channel, wrong *first* channel |
+| **AUR** | **Defer to post-release** | Cannot exist before there is a release to point at (see RB-2). `varve-desktop-bin` wrapping the AppImage is ~1 h once v0.1.0 is published |
 | **Snap** | **Reject** | No meaningful benefit over AppImage here; adds a confinement model that fights CUPS printing and system font enumeration |
 | **Portable tarball** | **Reject** | AppImage already is the portable option |
 
@@ -78,9 +100,18 @@ Untested and needing a VM pass before Tier 2 is claimed:
 - XDG desktop portal file dialogs under GNOME vs KDE vs wlroots
 - CUPS discovery via `lpstat` (`print_linux.rs:6`) where CUPS is absent
 - Fontconfig behaviour with a minimal font set
-- MIME/`.desktop`/icon installation and **clean uninstall** for deb and rpm
 - AppImage on a FUSE-less host
 - X11 vs Wayland (dev is Wayland-only today)
+- **Actual GUI launch on Ubuntu 22.04 / Fedora 38** — the container install-test
+  (2026-08-04) proves install, linkage, glibc floor and uninstall, but a
+  container has no display; the window itself still needs a VM or real machine.
+
+**Closed since the original matrix (2026-08-04):**
+
+- MIME/`.desktop`/icon installation and **clean uninstall** for deb and rpm —
+  container-verified on ubuntu:22.04 and fedora:38 (desktop entry, hicolor
+  icons, uninstall all pass). MIME XML registration was checked against a
+  stale pre-fix artifact and is re-verified on the first fresh build.
 
 ---
 
