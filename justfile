@@ -153,19 +153,41 @@ validate-workflows-staged:
     node scripts/validate-workflows.mjs --staged
 
 # --- Packaging ---
+#
+# NO_STRIP=1 is required for AppImage builds on Arch/CachyOS.
+#
+# linuxdeploy ships its own binutils `strip` (1-alpha, built 2024-07-26) which
+# does not understand the SHT_RELR section type that modern toolchains emit:
+#
+#   ERROR: Strip call failed: strip: libzstd.so.1: unknown type [0x13] section `.relr.dyn'
+#
+# Every bundled system library on a current Arch host has `.relr.dyn`, so the
+# strip step fails for all of them and linuxdeploy aborts with the unhelpful
+# "failed to run linuxdeploy". Skipping the strip costs almost nothing: the
+# Strata binary is already stripped by [profile.release] strip = true, and
+# distro libraries ship stripped.
+#
+# IMPORTANT: an AppImage built here is for local smoke-testing only. It bundles
+# this host's libraries, including glibc 2.44, so it will NOT run on the
+# Ubuntu 22.04 (glibc 2.35) compatibility baseline. Release AppImages must come
+# from the ubuntu-latest runner in release.yml.
 
 # Build all Linux bundles (AppImage + deb + rpm). Requires Linux + Tauri deps.
 package-linux:
-    cd apps/desktop && pnpm tauri build --bundles appimage,deb,rpm --ci --features ai
+    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage,deb,rpm --ci --features ai
     @echo "Bundles written to apps/desktop/src-tauri/target/release/bundle/"
 
 # Build deb only (faster; useful for quick install testing on Debian/Ubuntu).
 package-deb:
     cd apps/desktop && pnpm tauri build --bundles deb --ci --features ai
 
-# Build AppImage only.
+# Build rpm only.
+package-rpm:
+    cd apps/desktop && pnpm tauri build --bundles rpm --ci --features ai
+
+# Build AppImage only. Local smoke-test artifact — see the note above.
 package-appimage:
-    cd apps/desktop && pnpm tauri build --bundles appimage --ci --features ai
+    cd apps/desktop && NO_STRIP=1 pnpm tauri build --bundles appimage --ci --features ai
 
 # Build macOS dmg (run on macOS only).
 package-dmg:
