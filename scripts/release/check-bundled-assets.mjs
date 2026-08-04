@@ -119,6 +119,24 @@ function main() {
     }
   }
 
+  // Any model the app can fetch at runtime must be checksum-pinned. The download
+  // path in lib.rs verifies against `checksum_sha256` only `if let Some(expected)`
+  // — a model with a null checksum is downloaded and used unverified, silently.
+  // All 18 downloadable models are pinned today; this keeps the 19th honest.
+  for (const model of models) {
+    if (model.remoteUrl && !model.sha256) {
+      problems.push(
+        `Model '${model.id}' has a remoteUrl but no sha256.\n` +
+          `      ${model.remoteUrl}\n` +
+          '      The runtime download only verifies a checksum when one is present, so this\n' +
+          '      model would be fetched over the network and used without verification.',
+      );
+    }
+    if (model.remoteUrl && !/^https:\/\//.test(model.remoteUrl)) {
+      problems.push(`Model '${model.id}' has a non-HTTPS remoteUrl: ${model.remoteUrl}`);
+    }
+  }
+
   const roots = [PUBLIC_MODELS, ...(checkDist ? [DIST_MODELS] : [])];
 
   for (const root of roots) {
