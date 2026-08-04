@@ -44,6 +44,16 @@ jobs:
         run: node scripts/models/validate-manifest.mjs --check-files
 
       - name: Verify quantized artifact reports exist
+        # Two bugs kept this from ever checking anything real, and neither
+        # surfaced because the manifest step above always failed first:
+        #
+        #   1. It required `source_hash`. quantize_model.py has always written
+        #      `source_sha256` (see its QuantizationReport dataclass), so the
+        #      field it demanded did not exist on any report ever generated.
+        #   2. `endsWith('-report.json')` also matches `*-validation-report.json`,
+        #      which validate_model.py writes with a completely different schema
+        #      (MAE/PSNR/speedup metrics). Those are quality results, not
+        #      quantization provenance, and have no weight_type to report.
         run: |
           node -e "
           const fs = require('fs');
@@ -53,17 +63,26 @@ jobs:
             console.log('No quantized directory — skipping report check');
             process.exit(0);
           }
-          
-          const entries = fs.readdirSync(quantizedDir);
-          const reports = entries.filter(f => f.endsWith('-report.json'));
-          
+
+          const required = ['source_sha256', 'output_sha256', 'ort_version', 'weight_type'];
+          const reports = fs.readdirSync(quantizedDir)
+            .filter(f => f.endsWith('-report.json') && !f.endsWith('-validation-report.json'));
+
+          if (reports.length === 0) {
+            console.error('ERROR: no quantization reports found in', quantizedDir);
+            process.exit(1);
+          }
+
+          let errors = 0;
           for (const report of reports) {
             const data = JSON.parse(fs.readFileSync(path.join(quantizedDir, report), 'utf-8'));
-            if (!data.source_hash || !data.ort_version || !data.weight_type) {
-              console.error('ERROR: report', report, 'missing required provenance fields');
-              process.exit(1);
+            const missing = required.filter(f => !data[f]);
+            if (missing.length > 0) {
+              console.error('ERROR:', report, 'missing provenance field(s):', missing.join(', '));
+              errors++;
             }
           }
+          if (errors > 0) process.exit(1);
           console.log(reports.length, 'quantization reports OK');
           "
 
