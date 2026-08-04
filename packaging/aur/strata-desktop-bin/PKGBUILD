@@ -1,0 +1,104 @@
+# Maintainer: Kevin Arthur <hello@kevinarthur.design>
+#
+# Binary package: extracts the released AppImage rather than running it in
+# place. Extracting gives real .desktop/icon/MIME integration, avoids the FUSE
+# dependency entirely, and lets pacman own every installed file so uninstall is
+# clean — none of which an AppImage wrapper script provides.
+#
+# NOTE: `sha256sums` must be updated on every release. Get the value from the
+# published SHA256SUMS.txt, which the release pipeline generates:
+#   curl -sL https://github.com/K-Arthur/Strata/releases/download/v$pkgver/SHA256SUMS.txt
+
+pkgname=strata-desktop-bin
+_appname=strata-desktop
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Local-first design suite for vector, layout, typography, motion and print"
+arch=('x86_64')
+url="https://github.com/K-Arthur/Strata"
+license=('LicenseRef-FSL-1.1-MIT')
+# Runtime libraries the Tauri binary links against. Deliberately not the full
+# AppImage payload: on Arch these are all present as system packages, and using
+# them keeps the install small and patched by the distro.
+depends=(
+  'webkit2gtk-4.1'
+  'gtk3'
+  'glib2'
+  'libsoup3'
+  'librsvg'
+  'openssl'
+  'gdk-pixbuf2'
+  'cairo'
+  'pango'
+  'fontconfig'
+)
+optdepends=(
+  'cups: printing support'
+  'xdg-desktop-portal: native file dialogs under Wayland'
+)
+provides=("${_appname}")
+conflicts=("${_appname}" "${_appname}-git")
+options=('!strip' '!debug')
+
+source=("Strata-${pkgver}-linux-x86_64.AppImage::${url}/releases/download/v${pkgver}/Strata-${pkgver}-linux-x86_64.AppImage")
+sha256sums=('SKIP')  # replace with the value from SHA256SUMS.txt before publishing
+noextract=("Strata-${pkgver}-linux-x86_64.AppImage")
+
+prepare() {
+  cd "${srcdir}"
+  chmod +x "Strata-${pkgver}-linux-x86_64.AppImage"
+  # --appimage-extract does not need FUSE, so this works in a clean chroot and
+  # in CI containers where /dev/fuse is unavailable.
+  "./Strata-${pkgver}-linux-x86_64.AppImage" --appimage-extract >/dev/null
+}
+
+package() {
+  cd "${srcdir}/squashfs-root"
+
+  install -Dm755 "usr/bin/${_appname}" "${pkgdir}/usr/bin/${_appname}"
+
+  # The AppImage bundles copies of system libraries so it can run anywhere.
+  # On Arch those come from `depends` above, so they are intentionally dropped —
+  # keeping them would ship stale, unpatched duplicates of distro libraries.
+
+  # Tauri resources (bundled ONNX Runtime) must be kept: they are not in any repo.
+  if [[ -d "usr/lib/Strata Desktop" ]]; then
+    install -dm755 "${pkgdir}/usr/lib/${_appname}"
+    cp -a "usr/lib/Strata Desktop/." "${pkgdir}/usr/lib/${_appname}/"
+  fi
+
+  # Desktop entry, normalised to the packaged binary path.
+  local _desktop
+  _desktop="$(find usr/share/applications -name '*.desktop' | head -1)"
+  if [[ -n "${_desktop}" ]]; then
+    install -Dm644 "${_desktop}" "${pkgdir}/usr/share/applications/dev.strata.desktop.desktop"
+  fi
+
+  # Icons — every size the AppImage carries.
+  if [[ -d usr/share/icons/hicolor ]]; then
+    cp -a usr/share/icons "${pkgdir}/usr/share/icons"
+  fi
+
+  # MIME type for .strata documents, so double-click opens the app.
+  install -Dm644 /dev/stdin "${pkgdir}/usr/share/mime/packages/dev.strata.desktop.xml" <<'MIME'
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-strata">
+    <comment>Strata design document</comment>
+    <glob pattern="*.strata"/>
+    <icon name="dev.strata.desktop"/>
+  </mime-type>
+</mime-info>
+MIME
+
+  install -Dm644 /dev/stdin "${pkgdir}/usr/share/doc/${pkgname}/README" <<'DOC'
+Strata stores documents as .strata files and keeps everything on your machine.
+
+This build is not code-signed. Verify your download against the published
+SHA256SUMS.txt at https://github.com/K-Arthur/Strata/releases
+
+Optional AI models (colorization, font identification, depth, denoise) are
+downloaded on demand from within the app and verified by SHA-256. They are not
+included in this package.
+DOC
+}
