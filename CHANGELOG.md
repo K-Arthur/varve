@@ -30,9 +30,6 @@ The application, repository, and packaging have been renamed from **Strata** to
 - If you installed a pre-rename build, your data is copied (never moved) to the new
   application-data directory on first launch.
 
-
-## [Unreleased]
-
 ### Added
 
 - Release engineering foundation: version single-sourcing, artifact collection with predictable

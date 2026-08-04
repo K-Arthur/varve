@@ -105,13 +105,18 @@ jobs:
         run: node scripts/release/version.mjs verify "${{ steps.resolve.outputs.tag }}"
 
       - name: Verify changelog has an entry for this version
+        # Uses the same extractor that generates the notes, so the gate cannot
+        # pass on something the generator would choke on. A plain grep matched
+        # the commented-out `## [0.1.0]` template at the bottom of the file and
+        # would have shipped bare "### Added" headings — and a stray "-->" — as
+        # the public release notes.
         run: |
           if [[ ! -f CHANGELOG.md ]]; then
             echo "::error::CHANGELOG.md is missing. Release notes are generated from it."
             exit 1
           fi
-          if ! grep -q "## \[${{ steps.resolve.outputs.version }}\]" CHANGELOG.md; then
-            echo "::error::CHANGELOG.md has no '## [${{ steps.resolve.outputs.version }}]' section."
+          if ! node scripts/release/release-notes.mjs --check "${{ steps.resolve.outputs.version }}"; then
+            echo "::error::CHANGELOG.md has no usable '## [${{ steps.resolve.outputs.version }}]' section."
             echo "Add one before tagging — release notes are generated from the changelog,"
             echo "not from commit messages."
             exit 1

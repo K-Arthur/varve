@@ -30,28 +30,51 @@ function parseArgs(argv) {
 }
 
 /**
+ * Read CHANGELOG.md with every HTML comment removed.
+ *
+ * Comments are stripped from the *whole file before anything is located*, not
+ * from a section after it is extracted. The changelog carries a commented-out
+ * `## [0.1.0] - 2026-MM-DD` template for maintainers to copy. Searching the raw
+ * text finds that heading, and because the opening `<!--` sits above the match
+ * it never appears in the extracted body — so a later comment-strip has nothing
+ * to remove and the empty-section guard sees `### Added ... -->` as real
+ * content. Tagging v0.1.0 would then publish the blank template, trailing `-->`
+ * and all, as the release notes.
+ *
+ * Blanking comments out (rather than deleting them) keeps line numbers intact
+ * so any future line-based reporting still points at the right place.
+ */
+function changelogWithoutComments() {
+  const text = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf-8');
+  return text.replace(/<!--[\s\S]*?-->/g, (block) => block.replace(/[^\n]/g, ''));
+}
+
+/**
  * Extract the `## [version]` section from CHANGELOG.md, excluding the heading.
  *
- * Stops at the next `##` heading *or* a horizontal rule, and strips HTML
- * comments. Without this, the trailing `<!-- template -->` block at the bottom
- * of the changelog gets swept into the notes of whichever version happens to be
- * last — which is how maintainer scaffolding ends up on a public release page.
+ * Stops at the next `##` heading *or* a horizontal rule. Templates and other
+ * commented-out scaffolding are invisible here — see `changelogWithoutComments`.
  */
 function changelogSection(version) {
-  const text = readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf-8');
-  const lines = text.split('\n');
+  const lines = changelogWithoutComments().split('\n');
   const start = lines.findIndex((l) => l.startsWith(`## [${version}]`));
   if (start === -1) {
-    throw new Error(`CHANGELOG.md has no '## [${version}]' section.`);
+    throw new Error(
+      `CHANGELOG.md has no '## [${version}]' section. ` +
+        'A commented-out template does not count — write a real one.',
+    );
   }
   const rest = lines.slice(start + 1);
   const end = rest.findIndex((l) => l.startsWith('## ') || /^-{3,}\s*$/.test(l));
   const body = (end === -1 ? rest : rest.slice(0, end)).join('\n');
 
-  const cleaned = body.replace(/<!--[\s\S]*?-->/g, '').trim();
-  if (!cleaned) {
+  // Bare `### Added`-style headings with nothing under them are scaffolding,
+  // not notes; a section containing only those is as empty as a blank one.
+  const cleaned = body.trim();
+  const hasProse = cleaned.split('\n').some((l) => l.trim() !== '' && !/^#{2,6}\s/.test(l.trim()));
+  if (!cleaned || !hasProse) {
     throw new Error(
-      `CHANGELOG.md section '## [${version}]' is empty. Release notes need real content — ` +
+      `CHANGELOG.md section '## [${version}]' has no content. Release notes need real prose — ` +
         'describe what changed for someone deciding whether to install this update.',
     );
   }
@@ -76,6 +99,18 @@ const INSTALL_HINT = {
 function main() {
   const args = parseArgs(process.argv.slice(2));
   const version = args.version;
+
+  // `--check <version>` validates the changelog alone, with no manifest and no
+  // output. The release workflow used `grep -q "## [$VERSION]"` for this, which
+  // happily matched the commented-out template and let a tag through with blank
+  // release notes. Sharing this code means the gate and the generator can never
+  // disagree about what counts as a usable section.
+  if (args.check) {
+    changelogSection(args.check);
+    console.log(`CHANGELOG.md has a usable '## [${args.check}]' section.`);
+    return;
+  }
+
   const manifest = JSON.parse(readFileSync(resolve(repoRoot, args.manifest), 'utf-8'));
   const outPath = resolve(repoRoot, args.out ?? 'RELEASE_NOTES.md');
 
