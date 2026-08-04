@@ -12,23 +12,26 @@ update, not for someone reading the commit log.
 
 ## [Unreleased]
 
-### Renamed — Strata is now Varve
+## [0.1.0] - 2026-08-04
 
-The application, repository, and packaging have been renamed from **Strata** to
-**Varve**. Historical releases and documents keep the old name.
+The first public release of Varve, and an alpha in the honest sense: it has been
+built and run, but it has not been lived with. Treat it as something to try, not
+something to trust with work you cannot afford to lose.
 
-- Repository: `K-Arthur/Strata` → `K-Arthur/varve` (GitHub redirects the old URL).
-- npm workspace scope: `@strata/*` → `@varve/*`; cargo crates `strata-*` → `varve-*`.
-- Tauri app identifier, Linux desktop/app-id, Flatpak and AUR package names now use
-  `varve` (installers built before this change keep working; see below for what is
-  deliberately unchanged).
-- **Document format is unchanged**: files still use the `.strata` extension and the
-  `application/x-strata` MIME type, and existing documents, settings, backups, recent
-  files and preferences are migrated on first launch. Clipboard and drag-and-drop
-  payloads accept both old and new MIME identifiers.
-- The three-layer logo mark is unchanged; wordmark artwork is being regenerated.
-- If you installed a pre-rename build, your data is copied (never moved) to the new
-  application-data directory on first launch.
+### Platform support
+
+Varve is published for the platforms it can actually stand behind, and labelled
+where it cannot.
+
+| Platform | Status | What that means |
+|---|---|---|
+| Linux x86-64 (AppImage, `.deb`, `.rpm`) | **Supported** | Built, installed into clean Ubuntu 22.04 and Fedora 38 containers, and launched. Bugs get triaged. |
+| Windows 10/11 x86-64 (NSIS) | **Experimental** | Compiles and packages in CI. **Nobody has run it on a Windows machine.** Published so it can be tested, not because it has been. |
+| macOS | Not published | No Mac available to verify on. A build nobody has launched is not a release. |
+
+The Linux minimum is glibc 2.35, which covers Ubuntu 22.04, Debian 12 and
+Fedora 38 upward. The AppImage needs FUSE2; on systems without it, run with
+`--appimage-extract-and-run`.
 
 ### Added
 
@@ -37,11 +40,26 @@ The application, repository, and packaging have been renamed from **Strata** to
   release pipeline (`scripts/release/`, `.github/workflows/release.yml`).
 - Build-time guard that fails when a bundled AI model is a Git LFS pointer rather than real
   weights (`scripts/release/check-bundled-assets.mjs`).
+- Optional AI models are downloaded on demand rather than bundled, each pinned to a SHA-256
+  that is verified before the file is used. The installer stays around 56 MB as a result.
 
 ### Fixed
 
 - The release workflow could never publish: its release job depended on an AUR validation job
   that referenced a `dist/aur` directory which does not exist and is gitignored.
+- The packaged application did not reach its user interface. A static import of an
+  `eval`-using module in the entry chunk stopped the frontend mounting inside the packaged
+  WebView, and a splash screen that only closed on a signal from that frontend turned the
+  failure into a window that could never be dismissed.
+
+### About the name
+
+The project was developed under the name **Strata** and renamed to **Varve** before
+this, its first release. No Strata release was ever published, so there is nothing to
+migrate from and no older version to be compatible with.
+
+Documents use the `.strata` extension and the `application/x-strata` MIME type. That is
+deliberate for now and unrelated to the rename.
 
 ---
 
