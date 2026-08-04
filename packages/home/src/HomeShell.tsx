@@ -7,8 +7,13 @@ import {
   type SavedSearch,
   type TemplateLibrary,
 } from '@varve/platform';
-import { createDocumentFromPreset, serializeDocument } from '@varve/scene';
-import { generateKeyBetween, type Preset } from '@varve/shared';
+import { createNewDocument, serializeDocument } from '@varve/scene';
+import {
+  BLANK_DOCUMENT_PRESET,
+  generateKeyBetween,
+  nextUntitledName,
+  type Preset,
+} from '@varve/shared';
 import { ContentSkeleton, Dialog, Icon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityFeed } from './ActivityFeed';
@@ -474,16 +479,30 @@ export function HomeShell({
   );
 
   // Create a document from a preset (blank or print) and open it. Shared by the
-  // New File dialog and the home quick-start row.
+  // New File dialog and the home quick-start row. Runs through the canonical
+  // creation service (@varve/scene createNewDocument): presets become an
+  // initial frame on an unbounded document; the blank preset stays empty.
   const createFromPreset = useCallback(
-    async (preset: Preset) => {
+    async (preset: Preset, documentName?: string) => {
       const id = crypto.randomUUID();
       const now = Date.now();
-      const doc = createDocumentFromPreset(preset);
+      const name =
+        documentName?.trim() ||
+        nextUntitledName(
+          view.files.map((f) => f.name),
+          'Untitled',
+        );
+      const created = createNewDocument({
+        documentName: name,
+        startMode: preset.id === BLANK_DOCUMENT_PRESET.id ? 'empty' : 'framePreset',
+        preset,
+      });
+      if (!created.ok) return;
+      const doc = created.result.document;
       const docJson = serializeDocument(doc);
       const entry: FileEntry = {
         id,
-        name: preset.name,
+        name,
         kind: 'strata',
         projectId: null,
         createdAt: now,
@@ -502,7 +521,7 @@ export function HomeShell({
       generateThumbnail(platform, entry, docJson);
       onOpenFile(entry);
     },
-    [platform, onOpenFile],
+    [platform, onOpenFile, view.files],
   );
 
   const handleBreadcrumbNavigate = useCallback(

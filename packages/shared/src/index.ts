@@ -385,6 +385,13 @@ export {
   remToPx,
   UNIT_TO_PX,
 } from './units';
+export {
+  DEFAULT_UNTITLED_BASE,
+  isValidFileName,
+  nextUntitledName,
+  sanitizeFileName,
+  stripExtension,
+} from './untitledName';
 export type { Camera, Viewport } from './viewport';
 export {
   animateCamera,

@@ -5,13 +5,22 @@ import {
   resolveManifestAgainstCatalog,
 } from '@varve/engine/font';
 import { type Platform, upsertPreservingMeta } from '@varve/platform';
-import { createDocument, type Document, DocumentCodec, validateDocument } from '@varve/scene';
+import {
+  createDocument,
+  createNewDocument,
+  type Document,
+  DocumentCodec,
+  validateDocument,
+} from '@varve/scene';
 import type { Viewport } from '@varve/shared';
 import { useCallback } from 'react';
 import type { RecoveryManager } from '../recovery';
 import { persistProjectThumbnail } from '../thumbnail/thumbnailManager';
 import type { EditorState } from './types';
 import { getCanvasViewport } from './viewportOps';
+
+// Canonical empty-document fallback (never fails; guard keeps TS narrow).
+const EMPTY_DOCUMENT_FACTORY = (): Document => createDocument('Untitled', true);
 
 export interface PersistenceAPI {
   newDocument: () => void;
@@ -42,7 +51,13 @@ export function usePersistence(
   const newDocument = useCallback(() => {
     snapshotSession();
     resetUndo();
-    patch({ document: createDocument('Untitled', true), selection: [] });
+    // Canonical creation service: an empty, infinite-canvas (flat, page-less)
+    // document — no default page geometry, no initial frame.
+    const created = createNewDocument({});
+    patch({
+      document: created.ok ? created.result.document : EMPTY_DOCUMENT_FACTORY(),
+      selection: [],
+    });
   }, [patch, snapshotSession, resetUndo]);
 
   const serializeDocument = useCallback(() => {
