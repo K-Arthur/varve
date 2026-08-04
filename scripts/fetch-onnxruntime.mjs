@@ -207,6 +207,22 @@ async function main() {
     );
     const archiveBuffer = await downloadToBuffer(platform.url);
 
+    // Verify BEFORE extracting. The previous order downloaded, ran tar/unzip on
+    // the bytes, wrote the library to disk, and only then compared checksums —
+    // so an attacker able to substitute the archive got a decompressor invoked
+    // on their input before anything was checked. Archive parsers are exactly
+    // the kind of C code you do not want reached by unverified data, and the
+    // check costs nothing where it is now.
+    const archiveSha256 = createHash('sha256').update(archiveBuffer).digest('hex');
+    if (archiveSha256 !== platform.sha256) {
+      console.error(
+        `[fetch-onnxruntime] CHECKSUM MISMATCH for ${key} archive.\n` +
+          `  expected: ${platform.sha256}\n  actual:   ${archiveSha256}\n` +
+          `Refusing to extract an archive that doesn't match the pinned checksum.`,
+      );
+      process.exit(1);
+    }
+
     mkdirSync(stageDir, { recursive: true });
     const extracted =
       platform.kind === 'zip'
@@ -217,17 +233,6 @@ async function main() {
     writeFileSync(destFile, extracted);
 
     const actualSha256 = await sha256OfFile(destFile);
-    const archiveSha256 = createHash('sha256').update(archiveBuffer).digest('hex');
-    if (archiveSha256 !== platform.sha256) {
-      rmSync(destFile);
-      console.error(
-        `[fetch-onnxruntime] CHECKSUM MISMATCH for ${key} archive.\n` +
-          `  expected: ${platform.sha256}\n  actual:   ${archiveSha256}\n` +
-          `Refusing to stage a library that doesn't match the pinned checksum. ` +
-          `Staged file deleted to prevent use of a corrupt library.`,
-      );
-      process.exit(1);
-    }
 
     console.log(
       `[fetch-onnxruntime] ${key}: staged ${destFile} (extracted sha256=${actualSha256})`,
