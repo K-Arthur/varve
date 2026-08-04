@@ -19,7 +19,7 @@ All workflows live in `.github/workflows/` and share the following hardening rul
 |---|---|---|
 | `build.yml` | push, PR, manual | Build + package on Linux/macOS/Windows. |
 | `ci.yml` | push, PR, manual | Rust, JS, Playwright E2E matrix, plus `pipeline-validate` guard job. |
-| `publish.yml` | tag, manual | Quality gate, platform bundles, AUR validation, release. |
+| `release.yml` | tag, manual | Draft-then-approve release pipeline (replaced `publish.yml`); checksums, SBOM, artifact verification. |
 | `website-deploy.yml` | push to `apps/website/**`, manual | Astro build to GitHub Pages. |
 | `ci-debug.yml` | `workflow_run` after any workflow fails | Generates a consolidated debug report. |
 | `model-validation.yml` | push/PR on model paths, weekly | Manifest v3 + contract verification, ONNX graph inspection. |
@@ -63,16 +63,58 @@ The script:
 
 In CI, every workflow runs `scripts/ci-debug.mjs` on failure and uploads `ci-debug-report.md`. A separate `ci-debug.yml` workflow also triggers on `workflow_run` events to produce a single consolidated report. `ci-debug.yml` is intentionally dependency-free (no `pnpm install`) — the script uses only Node builtins, so a broken dependency tree cannot prevent the debug report from being produced.
 
+## Infrastructure blocks: billing / runner outages
+
+The 2026-08-01..04 outage was not a code failure: GitHub refused to start any
+job because the account's payment had failed. Every run failed in ~3s with
+*"The job was not started because recent account payments have failed or your
+spending limit needs to be increased."*
+
+A job that never starts has **zero recorded steps** in the jobs API. `ci-debug.mjs`
+and `ci-health.mjs` classify every failed job as one of:
+
+| Class | Meaning |
+|---|---|
+| `billing-block` | Zero steps + check-run annotation matching the billing message. Not a code failure. |
+| `never-started` | Zero steps, no billing annotation (runner outage / infra). Not a code failure. |
+| `real-failure` | At least one step ran and failed. Needs log analysis. |
+
+`ci-debug.mjs` fetches check-run annotations for failed jobs and, on a billing
+block, emits an **Infrastructure block detected** section at the top of the
+report with the exact remediation (resolve billing at
+https://github.com/settings/billing) — instead of the misleading
+"no log text downloaded".
+
+`ci-health.mjs` is the one-command pipeline health check:
+
+```bash
+just ci-health              # classify failures across the last 10 runs
+just ci-health --runs 25
+just ci-health --workflow CI
+just ci-health --strict     # exit 1 when any infra block is found
+just ci-health --json       # machine-readable
+```
+
+Every run of the health check classifies failed runs and prints a one-line
+verdict per run (`BILLING` / `INFRA` / `OK-CODE` / `OK`). The pre-push hook
+runs `ci-health --quiet` and prints an informational warning when remote CI is
+blocked, so a red push is never a surprise.
+
 ## Local runner parity with `act`
 
-Install `act` (full job execution requires Docker):
+Install `act` (full job execution requires a container engine — Docker or podman):
 
 ```bash
 # Arch / CachyOS
-yay -S act
+yay -S act docker      # or paru; podman is an alternative to docker
 
 # Or grab the latest binary from https://github.com/nektos/act/releases
 ```
+
+`act --list` and `act -n` (dry-run) work **without** a container engine — they
+only parse the workflows and print the job graph. So `just act-list` and
+`just act-dry` are usable even while Docker is unavailable; only `just act-run`
+needs a running engine.
 
 List workflows/jobs:
 
@@ -106,12 +148,19 @@ EOF
 
 `.act-secrets` is gitignored; never commit real tokens.
 
+Check whether the local container engine is missing before a `just act-run`:
+
+```bash
+bash scripts/install-ci-tooling.sh --check
+```
+
 ## CI tooling regression tests
 
 The pipeline tooling is covered by TDD assertions that run as part of `pnpm test` (via `test:ci:tools`) and the `pipeline-validate` job:
 
-- `node scripts/ci-debug.test.mjs` — failure-line detection + extraction ranking.
+- `node scripts/ci-debug.test.mjs` — failure-line detection + extraction ranking + job classification (`billing-block` / `never-started` / `real-failure`).
 - `node scripts/test-ci-debug.mjs` — simulated log-scenario extraction.
+- `node scripts/ci-health.test.mjs` — pipeline-health classifier aggregates.
 - `node scripts/pin-github-actions.test.mjs` — pin-table integrity + fabricated-SHA regression.
 - `bash scripts/test-ci-shell-scripts.sh` — 20 assertions on `ci-local-run.sh` dispatch, act-missing detection, secrets stub, and `bash -n` syntax for every CI shell script and git hook.
 
@@ -165,6 +214,27 @@ The local environment matches CI closely:
 - `gh` is required for the debug tools; install with `bash scripts/install-ci-tooling.sh` (also installs `act` and Docker).
 
 ## Troubleshooting
+
+### Every job fails in 3-5s with `The job was not started because recent account payments have failed...`
+
+This is a GitHub account **billing block** — no job ever starts, so no code
+change can fix it. Diagnose:
+
+```bash
+just ci-health        # every run shows BILLING
+```
+
+Fix: resolve the payment at https://github.com/settings/billing, then re-run
+the workflow. While blocked, validate everything locally:
+
+```bash
+just gate            # full Cascade Review gate, no GitHub minutes
+just act-dry .github/workflows/ci.yml   # job graph + YAML sanity
+```
+
+The pre-push hook warns about the block automatically. Do not chase red runs
+as if they were code failures — the `ci-debug` report's "Infrastructure block
+detected" section says so explicitly.
 
 ### `Resource not accessible by integration` on artifact upload/download
 

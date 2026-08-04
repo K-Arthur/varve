@@ -5,7 +5,7 @@ on:
     workflows:
       - CI
       - Build + Package
-      - Publish
+      - Release
       - Website Deploy
       - Model Supply Chain Validation
       - Model Quantization & Validation

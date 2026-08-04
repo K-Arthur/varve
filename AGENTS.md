@@ -182,14 +182,27 @@ cleanup tooling, codemods).
 
 ### CI/CD Commands
 - `just install-ci-tooling` — install GitHub CLI, act, and Docker for local CI/CD
+- `just install-ci-tooling` (with `bash scripts/install-ci-tooling.sh --check`) — verify act/container-engine parity for local runs
 - `just pin-actions` — check for unpinned GitHub Actions (supply chain security)
 - `just pin-actions-fix` — pin all GitHub Actions to commit SHAs
 - `just validate-workflows` — validate all workflow YAML files
 - `just validate-workflows-staged` — validate only staged workflow files
-- `just act-list` — list available GitHub Actions jobs for local testing
-- `just act-run <job>` — run a specific GitHub Actions job locally
-- `just act-dry <workflow>` — dry-run a workflow to check execution plan
-- `just ci-debug <run-id>` — fetch and analyze CI failure logs
+- `just act-list` — list available GitHub Actions jobs for local testing (no container engine needed)
+- `just act-dry <workflow>` — dry-run a workflow to check execution plan (no container engine needed)
+- `just act-run <job>` — run a specific GitHub Actions job locally (requires docker/podman running)
+- `just ci-debug <run-id>` — generate the automated failure-debug report for a run
+- `just ci-health` — classify recent run failures (billing-block / never-started / real-failure)
+- `just ci-tools-test` — regression tests for the CI tooling itself
+
+### Remote CI health (billing blocks and runner outages)
+
+GitHub can block job startup for account-level reasons (failed payments,
+spending limits) — every run fails in ~3s with zero steps recorded and
+*"The job was not started because recent account payments have failed..."*.
+This is NOT a code failure; no workflow edit fixes it. Diagnose with
+`just ci-health` (prints `BILLING` per run) and resolve at
+https://github.com/settings/billing. `ci-debug.mjs` classifies such jobs as
+`billing-block` / `never-started` / `real-failure` (see `docs/CI_CD_RESILIENCE.md`).
 
 ## Automated UI/canvas testing
 
@@ -267,6 +280,7 @@ git log --oneline -3
 | Packaging (0.11) | `docs/plans/session-04-packaging.md` |
 | Loading Experience System | `docs/architecture/loading-system.md`, `docs/audits/loading-experience-audit.md` |
 | Marketing Website | `apps/website/` - Astro 5 static site, 42 pages, GitHub Pages deploy. See `docs/plans/website-progress-tracker.md` |
+| CI/CD pipeline memory (local, gitignored) | `GITHUB_PIPELINE_MEMORY.md` — session-survivable tracker for billing blocks, run classifications, and tooling state |
 
 ## Application Icon (cross-platform)
 
