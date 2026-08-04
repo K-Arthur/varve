@@ -182,9 +182,11 @@ jobs:
           const manifest = JSON.parse(fs.readFileSync('apps/desktop/public/models/manifest.json', 'utf-8'));
           const crypto = require('crypto');
           
-          // Check that quantized artifacts match manifest entries
+          // Check that quantized artifacts match manifest entries. Only
+          // in-repo (bundled) int8 entries have staged files; upstream int8
+          // models are runtime downloads and are never written here.
           for (const entry of manifest.models) {
-            if (entry.precision === 'int8') {
+            if (entry.precision === 'int8' && entry.bundled) {
               const filePath = 'apps/desktop/public/models' + entry.localPath;
               if (!fs.existsSync(filePath)) {
                 console.error('ERROR: quantized artifact missing:', filePath);
