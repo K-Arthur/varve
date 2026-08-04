@@ -14,7 +14,7 @@
  * generations when PageNav re-renders multiple times.
  */
 
-import { hasAnyCanvas, hasImageEncoding } from '@strata/engine';
+import { hasAnyCanvas, hasImageEncoding } from '@varve/engine';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { generateDocThumbnail } from '../../thumbnail';

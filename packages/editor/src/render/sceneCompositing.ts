@@ -2,8 +2,8 @@
  * Detect scenes that require structural compositing (masks, isolated groups).
  * Flat worker replay cannot handle these — main-thread replaySubtree is required.
  */
-import type { Document, NodeId } from '@strata/scene';
-import { isInIsolatedSubtree } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { isInIsolatedSubtree } from '@varve/scene';
 
 let _prevDoc: Document | null = null;
 let _prevResult = false;

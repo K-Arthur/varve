@@ -1,8 +1,8 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { addChild, addNode, createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
 import { cleanup, render, waitFor } from '@testing-library/react';
+import { addChild, addNode, createDocument, makeGroupNode, makeShapeNode } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorProvider, useEditor } from '../context';
 import { sceneNeedsStructuralCompositing } from '../render/sceneCompositing';
@@ -46,7 +46,7 @@ describe('group backgroundBlur effect', () => {
     expect(group).toBeDefined();
     expect(group.kind).toBe('group');
     if (group.kind === 'group') {
-      const g = group as import('@strata/scene').GroupNode;
+      const g = group as import('@varve/scene').GroupNode;
       const eff = g.effects[0]!;
       expect(eff.type).toBe('backgroundBlur');
       expect(eff.visible).toBe(true);
@@ -59,7 +59,7 @@ describe('group backgroundBlur effect', () => {
     const group = doc.nodes.g1!;
     expect(group).toBeDefined();
     if (group.kind === 'group') {
-      const g = group as import('@strata/scene').GroupNode;
+      const g = group as import('@varve/scene').GroupNode;
       const visibleEffects = g.effects.filter((e) => e.visible);
       const blurEff = visibleEffects.find((e) => e.type === 'backgroundBlur');
       expect(blurEff).toBeDefined();

@@ -1,7 +1,7 @@
-import type { FileEntry, SortDirection, SortKey } from '@strata/platform';
-import { formatBytes, formatRelativeTime } from '@strata/platform';
-import { Icon } from '@strata/ui';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import type { FileEntry, SortDirection, SortKey } from '@varve/platform';
+import { formatBytes, formatRelativeTime } from '@varve/platform';
+import { Icon } from '@varve/ui';
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 export interface FileListProps {

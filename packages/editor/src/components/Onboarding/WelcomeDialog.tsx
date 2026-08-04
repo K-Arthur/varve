@@ -1,4 +1,4 @@
-import { Button, Dialog, Icon } from '@strata/ui';
+import { Button, Dialog, Icon } from '@varve/ui';
 
 export interface WelcomeDialogProps {
   open: boolean;

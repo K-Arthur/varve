@@ -9,16 +9,16 @@
  * APG textbox pattern, CJK IME composition lifecycle.
  */
 
-import type { Affine } from '@strata/engine';
-import { splitGraphemes } from '@strata/engine';
-import type { RichSelection, TextNode } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import { splitGraphemes } from '@varve/engine';
+import type { RichSelection, TextNode } from '@varve/scene';
 import {
   buildWorldToScreenAffine,
   computeFloatingOrigin,
   DEFAULT_ARTWORK_FONT_FAMILY,
   measureText,
   multiplyAffine,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor } from '../context';

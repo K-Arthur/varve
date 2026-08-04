@@ -6,7 +6,7 @@
 
 ## Context
 
-Strata's UI is built on `@strata/ui`, a shared component library consumed by
+Strata's UI is built on `@varve/ui`, a shared component library consumed by
 the editor, home, settings, and export surfaces. Until now, no formal process
 governed how components are added, matured, deprecated, or removed. This created
 duplicate implementations, inconsistent prop APIs, and unchecked token bypasses.
@@ -18,7 +18,7 @@ introducing regressions or drift.
 
 ### 1. Component maturity states
 
-Every component in `@strata/ui` has an explicit maturity, encoded in its source
+Every component in `@varve/ui` has an explicit maturity, encoded in its source
 file as a `/** @maturity */` JSDoc tag:
 
 | State | Meaning | Consumers may depend on it? |
@@ -36,7 +36,7 @@ in `docs/design/component-status.md`.
 
 To add a new component or token:
 
-1. **Check for duplicates first.** Search `@strata/ui`, `packages/editor`, and
+1. **Check for duplicates first.** Search `@varve/ui`, `packages/editor`, and
    `packages/home` for existing implementations. If a similar component exists,
    extend it rather than creating a new one.
 2. **Use semantic tokens.** No hardcoded hex, rgb, hsl, or palette-step values
@@ -133,7 +133,7 @@ to `[data-density="compact"]`. It never reduces touch targets below 24×24px.
 
 ## Consequences
 
-- All new UI routes through `@strata/ui` — no one-off components.
+- All new UI routes through `@varve/ui` — no one-off components.
 - Token drift is caught by CI within one commit.
 - Deprecations are explicit, tracked, and reversible.
 - The 39-call-site `--color-surface-default` migration can proceed incrementally

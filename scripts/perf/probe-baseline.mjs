@@ -124,7 +124,7 @@ async function measureInteraction(name, action, settleMs = 400) {
   await page.evaluate(() => {
     window.__frameTimes.length = 0;
     window.__frameTimes._last = undefined;
-    if (window.__strataPerf) window.__strataPerf.reset();
+    if (window.__varvePerf) window.__varvePerf.reset();
   });
   const before = await page.evaluate(() => ({
     heap: performance.memory ? performance.memory.usedJSHeapSize : 0,
@@ -135,7 +135,7 @@ async function measureInteraction(name, action, settleMs = 400) {
     frames: [...window.__frameTimes],
     longTasks: [...window.__longTasks],
     heap: performance.memory ? performance.memory.usedJSHeapSize : 0,
-    perfFrames: window.__strataPerf ? window.__strataPerf.getFrames(200) : [],
+    perfFrames: window.__varvePerf ? window.__varvePerf.getFrames(200) : [],
   }));
   const frames = result.frames.filter((f) => f > 0 && f < 500);
   const interactive = frames.filter((f) => f <= 100);

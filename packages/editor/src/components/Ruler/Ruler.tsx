@@ -1,4 +1,4 @@
-import { formatCoordForRuler, type RulerMode } from '@strata/shared';
+import { formatCoordForRuler, type RulerMode } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
 import {
   leftRulerScreenToWorld,

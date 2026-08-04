@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ImportValidation } from '@strata/import';
 import { cleanup, fireEvent, render } from '@testing-library/react';
+import type { ImportValidation } from '@varve/import';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ImportPreview } from './ImportPreview';
 

@@ -9,7 +9,7 @@
  *
  * Research basis: Figma/Sketch corner radius panel; APG Spinbutton.
  */
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { docVariableStore } from '../../../docVariableStore';

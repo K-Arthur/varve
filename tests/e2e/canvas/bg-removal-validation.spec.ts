@@ -7,7 +7,7 @@
  * ground-truth masks.
  *
  * For IoU/Dice/mask-quality metrics, see background-removal-quality.spec.ts
- * which requires STRATA_BGREMOVAL_BENCH_DIR with ground-truth masks.
+ * which requires VARVE_BGREMOVAL_BENCH_DIR with ground-truth masks.
  */
 
 import fs from 'node:fs';

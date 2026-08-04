@@ -44,7 +44,7 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 
 | Capability | Before | After |
 | --- | --- | --- |
-| Typed processing-stage contracts | none | `ResizeOptions` / `SharpenOptions` / `DitherOptions` / `MetadataPolicy` / `ColorConversionOptions` in `@strata/shared` (engine-safe), re-exported from `@strata/scene/export` |
+| Typed processing-stage contracts | none | `ResizeOptions` / `SharpenOptions` / `DitherOptions` / `MetadataPolicy` / `ColorConversionOptions` in `@varve/shared` (engine-safe), re-exported from `@varve/scene/export` |
 | Raster resize engine | no downscale filter (browser `drawImage` only) | `resampleImageData`: nearest, bilinear, Catmull-Rom, Mitchell–Netravali, Lanczos2/3, area box, pixel-art; alpha-safe; linear-light; tiled |
 | Auto algorithm selection | none | deterministic `selectResamplingAlgorithm` with rationale logging |
 | Output sharpening | effect-layer only, not export | `sharpenImageData`: unsharp mask (amount/radius/threshold), luminance-only, alpha-protect, linear-light |
@@ -63,30 +63,30 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 
 | Module | Package | Purpose |
 | --- | --- | --- |
-| `src/export/pipeline.ts` | @strata/scene | typed stage contracts + validation + factories (types live in @strata/shared, re-exported) |
-| `src/export/pipeline.test.ts` | @strata/scene | contract validation, defaults, policy resolution |
-| `src/export/model.ts` | @strata/scene | `RasterExportSettings` extended with the typed contracts; config validation |
-| `src/export/adapter.ts` | @strata/scene | legacy↔canonical round-trip of the new fields |
-| `src/export-types.ts` | @strata/scene | legacy `RasterOptions` carries the bridge fields |
-| `src/exportPipeline/resample.ts` + `.test.ts` + `.bench.ts` | @strata/engine | resampling engine (kernels, area, linear-light, auto-selection, tiling) |
-| `src/exportPipeline/sharpen.ts` | @strata/engine | unsharp mask export stage |
-| `src/exportPipeline/dither.ts` | @strata/engine | error diffusion + ordered + blue-noise dithering |
-| `src/exportPipeline/palette.ts` | @strata/engine | median-cut palette quantization |
-| `src/exportPipeline/pipeline.ts` + `.test.ts` | @strata/engine | stage orchestrator (order above), abort, diagnostics |
-| `src/exportPipeline/stages.test.ts` | @strata/engine | sharpen/dither/palette behaviour tests |
-| `src/metadata/png.ts` | @strata/engine | PNG chunk parse/insert/strip, iCCP embed, CRC32 |
-| `src/metadata/exif.ts` | @strata/engine | JPEG/TIFF EXIF orientation parse + pixel transform |
-| `src/metadata/policy.ts` | @strata/engine | policy → metadata content resolution, PNG entries |
-| `src/metadata/metadata.test.ts` | @strata/engine | metadata/EXIF/PNG tests |
+| `src/export/pipeline.ts` | @varve/scene | typed stage contracts + validation + factories (types live in @varve/shared, re-exported) |
+| `src/export/pipeline.test.ts` | @varve/scene | contract validation, defaults, policy resolution |
+| `src/export/model.ts` | @varve/scene | `RasterExportSettings` extended with the typed contracts; config validation |
+| `src/export/adapter.ts` | @varve/scene | legacy↔canonical round-trip of the new fields |
+| `src/export-types.ts` | @varve/scene | legacy `RasterOptions` carries the bridge fields |
+| `src/exportPipeline/resample.ts` + `.test.ts` + `.bench.ts` | @varve/engine | resampling engine (kernels, area, linear-light, auto-selection, tiling) |
+| `src/exportPipeline/sharpen.ts` | @varve/engine | unsharp mask export stage |
+| `src/exportPipeline/dither.ts` | @varve/engine | error diffusion + ordered + blue-noise dithering |
+| `src/exportPipeline/palette.ts` | @varve/engine | median-cut palette quantization |
+| `src/exportPipeline/pipeline.ts` + `.test.ts` | @varve/engine | stage orchestrator (order above), abort, diagnostics |
+| `src/exportPipeline/stages.test.ts` | @varve/engine | sharpen/dither/palette behaviour tests |
+| `src/metadata/png.ts` | @varve/engine | PNG chunk parse/insert/strip, iCCP embed, CRC32 |
+| `src/metadata/exif.ts` | @varve/engine | JPEG/TIFF EXIF orientation parse + pixel transform |
+| `src/metadata/policy.ts` | @varve/engine | policy → metadata content resolution, PNG entries |
+| `src/metadata/metadata.test.ts` | @varve/engine | metadata/EXIF/PNG tests |
 | `crates/strata-colour/src/profiles.rs` | strata-colour | `PrintProfile::parse`, `icc_bytes`, `output_condition_identifier` |
 | `crates/strata-print/src/cmyk.rs` | strata-print | profile threading, embedded output-intent profile, new tests |
 | `crates/strata-print/src/lib.rs` | strata-print | `shape_to_pdf_content` accepts use_cmyk/profile |
 | `apps/desktop/src-tauri/src/lib.rs` | desktop | `PdfXOptions.to_pdf_options` resolves the ICC profile |
-| `src/components/SpecPanel/export.ts` | @strata/editor | raster export honors pipeline + metadata |
-| `src/exportService.ts` | @strata/editor | executor maps legacy raster options → canonical pipeline |
-| `src/components/Settings/ExportSettingsTab.tsx` | @strata/editor | AVIF removed from format list |
-| `src/settings.ts` | @strata/editor | persisted `avif` default sanitized |
-| `packages/codegen/src/svg.ts` | @strata/codegen | `minify` option on the per-node SVG emitter |
+| `src/components/SpecPanel/export.ts` | @varve/editor | raster export honors pipeline + metadata |
+| `src/exportService.ts` | @varve/editor | executor maps legacy raster options → canonical pipeline |
+| `src/components/Settings/ExportSettingsTab.tsx` | @varve/editor | AVIF removed from format list |
+| `src/settings.ts` | @varve/editor | persisted `avif` default sanitized |
+| `packages/codegen/src/svg.ts` | @varve/codegen | `minify` option on the per-node SVG emitter |
 
 ---
 
@@ -164,7 +164,7 @@ Rationale (also documented in `packages/engine/src/exportPipeline/pipeline.ts`):
 | `cargo test -p strata-print` | 134 passed |
 | `cargo test -p strata-colour` | 72 passed |
 | `cargo clippy -p strata-print -p strata-colour -- -D warnings` | clean |
-| `pnpm --filter @strata/{scene,engine,shared,editor,codegen} typecheck` | 0 errors |
+| `pnpm --filter @varve/{scene,engine,shared,editor,codegen} typecheck` | 0 errors |
 | `npx biome check` on all touched files | clean |
 | `pnpm audit:emoji` | clean |
 
@@ -180,7 +180,7 @@ silent gap — nothing here is presented in the UI as if it worked):
 2. **Soft proofing / gamut warning display path** — the `ColorConversionOptions`
    contract and proof hook exist in the pipeline, but no profile-aware display
    transform is wired into the preview. Deferred (Phase 6 follow-up).
-3. **`@strata/print` dead facade** — zero-import package with a placeholder
+3. **`@varve/print` dead facade** — zero-import package with a placeholder
    stub; superseded by the editor's direct IPC. To be deleted or re-wired.
 4. **Per-node SVG `precision` option** — per-node SVG emits fixed 4-decimal
    coordinates (already high fidelity); a configurable `precision` formatter

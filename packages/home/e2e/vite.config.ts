@@ -8,12 +8,12 @@ export default defineConfig({
   server: { port: 1421, strictPort: true },
   resolve: {
     alias: {
-      '@strata/home': resolve(__dirname, '..'),
-      '@strata/platform': resolve(__dirname, '../../platform/src'),
-      '@strata/engine': resolve(__dirname, '../../engine/src'),
-      '@strata/scene': resolve(__dirname, '../../scene/src'),
-      '@strata/ui': resolve(__dirname, '../../ui/src'),
-      '@strata/shared': resolve(__dirname, '../../shared/src'),
+      '@varve/home': resolve(__dirname, '..'),
+      '@varve/platform': resolve(__dirname, '../../platform/src'),
+      '@varve/engine': resolve(__dirname, '../../engine/src'),
+      '@varve/scene': resolve(__dirname, '../../scene/src'),
+      '@varve/ui': resolve(__dirname, '../../ui/src'),
+      '@varve/shared': resolve(__dirname, '../../shared/src'),
     },
   },
   esbuild: { tsconfigRaw: { compilerOptions: { jsx: 'react-jsx' } } },

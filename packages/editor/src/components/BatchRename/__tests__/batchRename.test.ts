@@ -50,7 +50,7 @@ function makeDoc(nodes: Array<{ id: string; name: string }>) {
       fill: { space: 'rgb' as const, r: 200, g: 200, b: 200, a: 255 },
     };
   }
-  return doc as unknown as import('@strata/scene').Document;
+  return doc as unknown as import('@varve/scene').Document;
 }
 
 describe('computeBatchRenamePreview', () => {

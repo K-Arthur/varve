@@ -2,14 +2,14 @@
  * FontBrowser — dedicated font browser panel for the inspector sidebar.
  *
  * Lists all registered font families with live preview, source filtering,
- * and search. Works directly with FontRegistry from @strata/engine for
+ * and search. Works directly with FontRegistry from @varve/engine for
  * font enumeration, load state, and variable-font detection.
  *
  * Research basis: Figma font menu, FontBase/FontBook catalog UX patterns.
  */
 
-import { type FontMetadata, getFontRegistry } from '@strata/engine';
-import { Icon, Tooltip } from '@strata/ui';
+import { type FontMetadata, getFontRegistry } from '@varve/engine';
+import { Icon, Tooltip } from '@varve/ui';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { FontLicenseDetails } from './FontLicenseDetails';
 import './FontBrowser.css';

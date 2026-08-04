@@ -1,5 +1,5 @@
-import type { Document, NodeId } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { getParent } from '@varve/scene';
 import { nodeWorldBounds } from '../scene/world';
 
 export interface LayoutIssue {

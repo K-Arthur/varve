@@ -297,7 +297,7 @@ export function createLibraryPackage(library: Library, sourceDocId?: string): Li
     source: sourceDocId
       ? {
           documentId: sourceDocId,
-          generator: '@strata/scene/library',
+          generator: '@varve/scene/library',
           generatorVersion: '1.0',
         }
       : undefined,

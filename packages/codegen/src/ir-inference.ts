@@ -5,7 +5,7 @@
  * Inference rules and scene analysis for IR conversion.
  */
 
-import type { Document, FrameNode, NodeId, SceneNode } from '@strata/scene';
+import type { Document, FrameNode, NodeId, SceneNode } from '@varve/scene';
 import { buildAutoLayoutSpec, buildLayoutSpec, managedColorToCss } from './ir-builders';
 import type {
   ComponentRef,

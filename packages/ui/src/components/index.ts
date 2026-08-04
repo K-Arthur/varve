@@ -101,4 +101,4 @@ export type { TooltipProps, TooltipProviderProps } from './Tooltip';
 export { Tooltip, TooltipProvider } from './Tooltip';
 export type { ViewModeOption, ViewModeSwitcherProps } from './ViewModeSwitcher';
 export { ViewModeSwitcher } from './ViewModeSwitcher';
-// contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @strata/ui tokens
+// contrastRatio/formatContrast/relativeLuminance/wcagLevel are exported via @varve/ui tokens

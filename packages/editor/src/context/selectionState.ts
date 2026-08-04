@@ -1,4 +1,4 @@
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 
 export type SelectionOrigin = 'canvas' | 'layers' | 'keyboard' | 'command' | 'api' | 'navigation';
 

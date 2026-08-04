@@ -6,7 +6,7 @@
  *
  * Research basis: Photoshop Clone Stamp tool, GIMP Clone tool.
  */
-import { clonePixels, createBrushMask } from '@strata/engine';
+import { clonePixels, createBrushMask } from '@varve/engine';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 

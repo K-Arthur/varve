@@ -12,7 +12,7 @@
  * act as a performance budget, because wall-clock on a loaded machine is noisy.
  */
 
-import type { RenderItem } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { SubtreeIrCache } from './subtreeIrCache';
 

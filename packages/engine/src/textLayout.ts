@@ -28,7 +28,7 @@ export interface RichTextRun {
     variableFontSettings?: VariableFontSettings;
     maxLines?: number;
     /** Run color (ManagedColor since schema 2.14; legacy tuples accepted). */
-    color?: import('@strata/shared').ManagedColorShim | readonly [number, number, number, number];
+    color?: import('@varve/shared').ManagedColorShim | readonly [number, number, number, number];
   };
 }
 
@@ -56,7 +56,7 @@ export interface LayoutRun {
     fontStyle?: string;
     textDecoration?: 'none' | 'underline' | 'line-through';
     /** Run color carried through layout; applied by the renderer. */
-    color?: import('@strata/shared').ManagedColorShim | readonly [number, number, number, number];
+    color?: import('@varve/shared').ManagedColorShim | readonly [number, number, number, number];
   };
   font: string;
   featureSettings: string;

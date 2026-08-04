@@ -6,14 +6,14 @@
  * component instance via componentId).
  *
  * Layering note: the primitive geometry types (Affine, Color, Point, Shape) are
- * imported from @strata/engine for now. A later refactor moves them to
- * @strata/shared so scene does not depend on the renderer package.
+ * imported from @varve/engine for now. A later refactor moves them to
+ * @varve/shared so scene does not depend on the renderer package.
  *
  * F6 (Inspector): extended with Stroke, Effect, BlendMode, opacity, rotation,
  * per-corner radius, and stacked-fill type enums. All new fields have safe
  * defaults so existing documents deserialize correctly.
  */
-import type { Adjustment, Affine, PathPoint, Shape } from '@strata/engine';
+import type { Adjustment, Affine, PathPoint, Shape } from '@varve/engine';
 import type { BleedConfig, ManagedColor, SafeAreaConfig, SlugConfig } from './colorManagement';
 import type { ExportPreset } from './export-types';
 
@@ -452,7 +452,7 @@ export interface GradientFill {
   /** Full 2x3 fill transform matrix. When set, overrides rotation.
    *  Maps fill-internal [0,0]×[1,1] space to the node's local space.
    *  Backward-compat: rotation field auto-applies as rotate transform. */
-  transform?: import('@strata/engine').Affine;
+  transform?: import('@varve/engine').Affine;
   /** How the gradient tiles beyond its [0,1] stop range (default: none). */
   tilingMode?: GradientTilingMode;
 }

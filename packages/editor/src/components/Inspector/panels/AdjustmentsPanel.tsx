@@ -1,5 +1,5 @@
-import { isImageShape } from '@strata/scene';
-import { EmptyState } from '@strata/ui';
+import { isImageShape } from '@varve/scene';
+import { EmptyState } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { AdjustmentPanel } from '../../AdjustmentLayer/AdjustmentPanel';
 import { AIDenoiseSection } from '../sections/AIDenoiseSection';

@@ -1,5 +1,5 @@
-import type { BrushDab, BrushPreset, StrokePoint } from '@strata/scene';
-import { generateDabs, seedJitter, smoothStrokePoints, strokeBounds } from '@strata/scene';
+import type { BrushDab, BrushPreset, StrokePoint } from '@varve/scene';
+import { generateDabs, seedJitter, smoothStrokePoints, strokeBounds } from '@varve/scene';
 import type { BrushWorkerCommand, BrushWorkerResponse } from './brushWorker';
 
 export interface DabResult {

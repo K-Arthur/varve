@@ -15,8 +15,8 @@
  *     4. NormalizedInputEvent → CapturedPoint (for vector freehand)
  */
 
-import { isWebKitGTK } from '@strata/platform';
-import type { StrokePoint } from '@strata/scene';
+import { isWebKitGTK } from '@varve/platform';
+import type { StrokePoint } from '@varve/scene';
 
 /**
  * Canonical normalized input event from a single pointer sample.

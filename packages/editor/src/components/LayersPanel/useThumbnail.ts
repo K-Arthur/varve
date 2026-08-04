@@ -14,10 +14,10 @@
  * Research basis: OffscreenCanvas (WICG), idle-until-urgent pattern.
  */
 
-import { getImageCache } from '@strata/engine';
-import type { Document, SceneNode, ShapeNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import { getImageCache } from '@varve/engine';
+import type { Document, SceneNode, ShapeNode } from '@varve/scene';
+import { isImageShape } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ThumbnailCache, thumbnailCacheKey } from './thumbnailCache';
 
@@ -163,7 +163,7 @@ async function renderNodeToCanvas(
         const st = stroke as Record<string, unknown>;
         if (st.type === 'solid' && st.color) {
           const [r, g, b, a] = managedColorToRgba(
-            st.color as import('@strata/shared').ManagedColorShim,
+            st.color as import('@varve/shared').ManagedColorShim,
           );
           ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${(a / 255).toFixed(3)})`;
           ctx.lineWidth = typeof st.weight === 'number' ? Math.max(1, st.weight * 2) : 1;

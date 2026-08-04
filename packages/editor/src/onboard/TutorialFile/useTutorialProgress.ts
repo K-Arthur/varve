@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { useCallback, useMemo, useState } from 'react';
 import { TUTORIAL_DOCUMENT_ID } from '../../samples/tutorial-document';
 import { checkChecklistItem, loadOnboardingState, saveOnboardingState } from '../onboardingStore';

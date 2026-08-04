@@ -1,8 +1,8 @@
-import type { PathPoint } from '@strata/engine';
-import { applyAffine } from '@strata/engine';
-import type { ShapeNode } from '@strata/scene';
-import type { Affine } from '@strata/shared';
-import { computeFloatingOrigin, worldToScreen } from '@strata/shared';
+import type { PathPoint } from '@varve/engine';
+import { applyAffine } from '@varve/engine';
+import type { ShapeNode } from '@varve/scene';
+import type { Affine } from '@varve/shared';
+import { computeFloatingOrigin, worldToScreen } from '@varve/shared';
 import { getEditorViewport } from '../canvas/cameraState';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';
 

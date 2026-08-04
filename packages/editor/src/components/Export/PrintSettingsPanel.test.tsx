@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { PrintOptions } from '@strata/scene';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { PrintOptions } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PrintSettingsPanel } from './PrintSettingsPanel';
 

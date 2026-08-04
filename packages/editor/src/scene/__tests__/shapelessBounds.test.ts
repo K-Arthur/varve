@@ -6,8 +6,8 @@
  * derived geometry instead of the stale shape field.
  */
 
-import type { Shape } from '@strata/engine';
-import type { ShapeNode } from '@strata/scene';
+import type { Shape } from '@varve/engine';
+import type { ShapeNode } from '@varve/scene';
 import {
   addNode,
   addPaintToDocument,
@@ -15,7 +15,7 @@ import {
   type Document,
   makeShapeNode,
   type Paint,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { HitTestEngine } from '../../hitTest/HitTestEngine';
 import { nodeLocalBounds } from '../nodeBounds';

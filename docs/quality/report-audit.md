@@ -514,7 +514,7 @@ defensible answers to "what's this function's complexity" — neither is *the* n
 
 ### 7.5 Bundle size / build time — **could not be measured: the production build is broken**
 
-`pnpm --filter @strata/desktop build` fails:
+`pnpm --filter @varve/desktop build` fails:
 ```
 Rollup failed to resolve import "@tauri-apps/api/core" from packages/editor/src/Menubar.tsx
 ```

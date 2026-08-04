@@ -1,6 +1,6 @@
 # Strata Canvas System Audit
 
-**Date:** 2026-07-06 | **Implementation:** 2026-07-06 (Phases A–F) | **Scope:** `@strata/editor`, `@strata/engine`, `@strata/scene`, `@strata/shared`, `@strata/compositor`, `@strata/collab`, ADR-0001/0003
+**Date:** 2026-07-06 | **Implementation:** 2026-07-06 (Phases A–F) | **Scope:** `@varve/editor`, `@varve/engine`, `@varve/scene`, `@varve/shared`, `@varve/compositor`, `@varve/collab`, ADR-0001/0003
 
 > **Staleness note (2026-07-12):** Section 1.5 below ("Existing problems") predates several fixes landed in the six days since this audit was written. Verified against current code this session: **view rotation is implemented** (`viewport.ts:496` composes real rotation; the `_cam` passthrough stub quoted at 1.5-P0 no longer exists), **zoom range is `[0.001, 64]`** (`viewport.ts:32,34`, not the audited 10%–1000%), **sticky/hysteresis snapping is implemented** (`snapping.ts:24-35`), **artboard-local coordinates exist** (`packages/shared/src/coordinates.ts`, `RulerMode`, tested), and **floating origin is wired through Canvas2D, the render worker, and the WebGPU camera uniform**. Don't action the P0–P3 items below without re-checking current code first. See `docs/architecture/render-pipeline.md`'s "Known Gaps" and "Canvas 2D Export Determinism & Size Limits" sections for the current, maintained gap list.
 
@@ -28,7 +28,7 @@ Phases A–F from Section 7 are **implemented** in the working tree:
 | **C** | Done | Floating origin in `applyCameraTransform`, precision-safe replay |
 | **D** | Done | `SubtreeIrCache`, `SubtreeReplayCache` rename, `canvas10k.bench.test.ts` |
 | **E** | Done | Layout grid snap, baseline/isometric `DocumentGridOverlay` |
-| **F** | Done | `PresenceIndicator` in Shell, `CollabCursorOverlay`, `@strata/collab` stub wired |
+| **F** | Done | `PresenceIndicator` in Shell, `CollabCursorOverlay`, `@varve/collab` stub wired |
 
 **Remaining deferred (explicit):** spatial tile renderer, WebGPU production on Linux, real-time transport / CRDT merge.
 
@@ -115,7 +115,7 @@ See `docs/architecture/render-pipeline.md` for the live draw path. **Next canvas
 ### 1.2 Rendering pipeline (as implemented)
 
 ```
-Document (@strata/scene)
+Document (@varve/scene)
   -> activePageNodes / walkNodes
   -> viewport cull (isWorldRectInViewport)
   -> world transforms (nodeWorldTransform + parentIndex)
@@ -146,7 +146,7 @@ There is no `CoordinateSystem` enum or conversion layer equivalent to Illustrato
 
 - **Clean camera/document separation** (ADR-0001): Rust emits world-space IR; webview owns pan/zoom/DPR.
 - **Immutable scene + ephemeral overrides**: Motion and prototype sampling do not mutate document during playback.
-- **Deduped coordinate math** (Session 36): 19 duplicate `worldToScreen` sites eliminated; canonical `@strata/shared/viewport`.
+- **Deduped coordinate math** (Session 36): 19 duplicate `worldToScreen` sites eliminated; canonical `@varve/shared/viewport`.
 - **Interaction acceleration without GPU**: Spatial + parent indexes make hit-test and snap target filtering cheap at 10k nodes (benchmarked).
 - **Incremental render optimizations started**: Viewport culling, dirty-rect clip, compositor tile cache for static subtrees, optional OffscreenCanvas worker path (documented in render-pipeline.md).
 
@@ -209,7 +209,7 @@ Professional tools: Figma ~1%–6400%+, Illustrator extreme zoom for fine path w
 
 #### P2 — Collaboration scaffolding unintegrated
 
-`PresenceIndicator` has tests but `Shell.tsx` imports only `MinimapPanel` and `PageNav` — no presence UI. `@strata/collab` returns stub users after 100ms delay.
+`PresenceIndicator` has tests but `Shell.tsx` imports only `MinimapPanel` and `PageNav` — no presence UI. `@varve/collab` returns stub users after 100ms delay.
 
 #### P2 — Deep selection / nested pick
 
@@ -315,7 +315,7 @@ Figma multiplayer architecture (2019–2025 publications):
 - **Presence** — cursor, selection, viewport rect; **ephemeral**, same WebSocket, ~30Hz coalesced, not persisted; 200 cursor cap.
 - **Not pure peer CRDT** — server is privileged replica; per-property versioning.
 
-Strata alignment: `@strata/collab` transaction hooks + stub presence types are the right seam; Yjs/CRDT deferred to Phase 2 plan. Presence should not touch document undo stack.
+Strata alignment: `@varve/collab` transaction hooks + stub presence types are the right seam; Yjs/CRDT deferred to Phase 2 plan. Presence should not touch document undo stack.
 
 Sources: [Figma — Making multiplayer more reliable](https://www.figma.com/blog/making-multiplayer-more-reliable/), [Sujeet Jaiswal — Figma multiplayer infrastructure](https://sujeet.pro/articles/figma-multiplayer-infrastructure), [ML Systems Review — Figma CRDT deep dive](https://mlsystemsreview.com/figma-crdt-deep-dive/)
 
@@ -459,7 +459,7 @@ flowchart TB
 ### 5.2 Artboard-local coordinates (additive)
 
 1. Add `getActiveArtboardBounds(doc, editorState): Rect | null` — active page content root or selected frame.
-2. Add `worldToArtboard(point, artboardRect): Point` and inverse in `@strata/shared/coordinates.ts`.
+2. Add `worldToArtboard(point, artboardRect): Point` and inverse in `@varve/shared/coordinates.ts`.
 3. Extend `Ruler` tick origin: `effectiveOrigin = rulerMode === 'artboard' ? artboardRect.topLeft : {0,0}`.
 4. Inspector position fields: show world internally; label toggles artboard-relative readout.
 5. Optional `Page.rulerOrigin?: Point` for print imposition workflows.
@@ -515,9 +515,9 @@ Replace pure magnetic model:
 
 ### 5.8 Collaboration readiness
 
-1. **Mount** `PresenceIndicator` in `Shell` status area when `@strata/collab` active.
+1. **Mount** `PresenceIndicator` in `Shell` status area when `@varve/collab` active.
 2. Define `PresenceFrame { cursor, selection, viewport, userId, seq }` — broadcast at 20–30Hz, coalesced.
-3. Keep `@strata/collab.registerTransactionHooks` as Yjs seam; document ops remain authoritative via future sync server.
+3. Keep `@varve/collab.registerTransactionHooks` as Yjs seam; document ops remain authoritative via future sync server.
 4. **Do not** store camera in `Document`; follow-mode copies presenter viewport locally.
 5. Cap visible cursors (Figma: 200) for perf.
 
@@ -542,7 +542,7 @@ Ordered by ROI, dependency, and alignment with existing seams. Each phase ends w
 
 | Task | Files | Outcome |
 |---|---|---|
-| `worldToArtboard` helpers | `@strata/shared/coordinates.ts` | Display layer |
+| `worldToArtboard` helpers | `@varve/shared/coordinates.ts` | Display layer |
 | Ruler mode toggle | `Ruler.tsx`, Menubar View | Illustrator parity |
 | Inspector coord readout | PositionSizeSection | Artboard-relative labels |
 | Optional `Page.rulerOrigin` | `scene/types.ts`, migration | Print imposition |
@@ -640,7 +640,7 @@ Ordered by ROI, dependency, and alignment with existing seams. Each phase ends w
 2. **Artboard type:** Promote `FrameNode` with `role: 'artboard'` or add distinct `ArtboardNode` kind?
 3. **Page vs artboard:** Should `Page` gain explicit world-space `x/y` for spread imposition?
 4. **View rotation scope:** Ship desktop only first (Wacom ergonomics) or defer until tablet QA?
-5. **Collaboration model:** Server-authoritative (Figma) vs Yjs CRDT (`@strata/collab` hooks) — needs ADR before Phase F.
+5. **Collaboration model:** Server-authoritative (Figma) vs Yjs CRDT (`@varve/collab` hooks) — needs ADR before Phase F.
 6. **Benchmark SLO:** Target 60fps (16.6ms) or 120fps for Wayland high-refresh dev machines?
 
 ---

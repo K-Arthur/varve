@@ -1,4 +1,4 @@
-import type { Platform } from '@strata/platform';
+import type { Platform } from '@varve/platform';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from 'react';
 import { useEditor } from '../../context';
 import { getActionTracker } from '../../intelligence/actionTracker';

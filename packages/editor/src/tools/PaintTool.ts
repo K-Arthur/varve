@@ -1,4 +1,4 @@
-import type { BrushDab, BrushPreset, RasterLayerNode } from '@strata/scene';
+import type { BrushDab, BrushPreset, RasterLayerNode } from '@varve/scene';
 import {
   compositeDabOnNode,
   defaultBrushPreset,
@@ -7,7 +7,7 @@ import {
   smoothStrokePoints,
   strokePoint,
   tilesForBounds,
-} from '@strata/scene';
+} from '@varve/scene';
 import { BrushWorkerHost } from '../render/brushWorkerHost';
 import { BaseTool } from './BaseTool';
 import { collectSourceEvents } from './inputNormalizer';
@@ -18,8 +18,8 @@ export class PaintTool extends BaseTool {
 
   private preset: BrushPreset;
   private eraserMode: boolean;
-  private strokePoints: import('@strata/scene').StrokePoint[] = [];
-  private lastSmoothedPoint: import('@strata/scene').StrokePoint | null = null;
+  private strokePoints: import('@varve/scene').StrokePoint[] = [];
+  private lastSmoothedPoint: import('@varve/scene').StrokePoint | null = null;
   private rasterNodeId: string | null = null;
   private strokeGeneration = 0;
   private transactionOpen = false;
@@ -280,7 +280,7 @@ export class PaintTool extends BaseTool {
   /** Worker-thread dab generation with synchronous compositing on main thread. */
   private flushDabsWorker(
     ctx: ToolContext,
-    pts: import('@strata/scene').StrokePoint[],
+    pts: import('@varve/scene').StrokePoint[],
     color: [number, number, number, number],
   ): void {
     const rasterNodeId = this.rasterNodeId;
@@ -318,7 +318,7 @@ export class PaintTool extends BaseTool {
   /** Synchronous fallback for when the worker is unavailable. */
   private flushDabsSync(
     ctx: ToolContext,
-    pts: import('@strata/scene').StrokePoint[],
+    pts: import('@varve/scene').StrokePoint[],
     color: [number, number, number, number],
   ): void {
     const rasterNodeId = this.rasterNodeId;

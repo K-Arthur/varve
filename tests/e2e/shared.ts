@@ -83,7 +83,7 @@ export async function navigateToEditor(page: Page, path = '/') {
  */
 export async function navigateToHome(page: Page) {
   await page.goto('/');
-  await page.waitForSelector('.strata-home');
+  await page.waitForSelector('.varve-home');
 }
 
 /**

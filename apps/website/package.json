@@ -1,5 +1,5 @@
 {
-  "name": "@strata/website",
+  "name": "@varve/website",
   "version": "0.0.0",
   "private": true,
   "description": "Strata marketing website - static site for product documentation, downloads, and community",
@@ -15,7 +15,7 @@
   "dependencies": {
     "@astrojs/react": "^4.0.0",
     "@astrojs/tailwind": "^6.0.0",
-    "@strata/ui": "workspace:*",
+    "@varve/ui": "workspace:*",
     "astro": "^5.0.0",
     "clsx": "^2.1.0",
     "lucide-react": "^0.468.0",

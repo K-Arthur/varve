@@ -1,6 +1,6 @@
-import type { ManagedColor, NodeId, TextNode } from '@strata/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@strata/shared';
-import { ColorPicker, Icon, Popover, Select } from '@strata/ui';
+import type { ManagedColor, NodeId, TextNode } from '@varve/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY, managedColorToRgba } from '@varve/shared';
+import { ColorPicker, Icon, Popover, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { FontSelector } from '../FontBrowser/FontSelector';

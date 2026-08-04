@@ -1,5 +1,5 @@
-import type { SceneNode } from '@strata/scene';
 import { act, renderHook } from '@testing-library/react';
+import type { SceneNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { thumbnailCacheKey } from './thumbnailCache';
 import { sharedThumbnailCache, useThumbnail } from './useThumbnail';

@@ -19,9 +19,9 @@
  * priority inversion protection (Browser idle scheduling).
  */
 
-import { hasAnyCanvas, hasImageEncoding } from '@strata/engine';
-import type { Platform, VersionEntry } from '@strata/platform';
-import type { Document } from '@strata/scene';
+import { hasAnyCanvas, hasImageEncoding } from '@varve/engine';
+import type { Platform, VersionEntry } from '@varve/platform';
+import type { Document } from '@varve/scene';
 import { generateDocThumbnail } from './thumbnailSource';
 
 // ─── Types ────────────────────────────────────────────────────────────

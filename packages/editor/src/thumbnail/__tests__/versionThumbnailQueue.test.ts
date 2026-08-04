@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createMemoryPlatform, type Platform } from '@strata/platform';
+import { createMemoryPlatform, type Platform } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { VersionThumbnailQueue } from '../versionThumbnailQueue';
 

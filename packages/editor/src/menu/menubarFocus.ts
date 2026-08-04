@@ -15,7 +15,7 @@
  *   focused the clicked target, Tab walked the tab order past the trigger).
  */
 
-import { firstEnabledIndex, walkFocus } from '@strata/ui/utils/focusMovement';
+import { firstEnabledIndex, walkFocus } from '@varve/ui/utils/focusMovement';
 import type React from 'react';
 import { useEffect } from 'react';
 

@@ -3,9 +3,9 @@
  * navigation (roving tabindex), and the shared context-menu system. Pure
  * props: no editor context required, so it is unit-testable.
  */
-import type { GradientPreset } from '@strata/scene';
-import { displayName } from '@strata/scene';
-import { ContextMenu, IconButton, SearchField, ToggleButton } from '@strata/ui';
+import type { GradientPreset } from '@varve/scene';
+import { displayName } from '@varve/scene';
+import { ContextMenu, IconButton, SearchField, ToggleButton } from '@varve/ui';
 import { type KeyboardEvent, useMemo, useRef, useState } from 'react';
 import { gradientPresetToCss } from '../../../gradientPresets/thumbnail';
 import { useRovingTabIndex } from '../../../hooks';
@@ -73,10 +73,10 @@ export function GradientMapPresetBrowser({
     }
   };
 
-  const contextItems = useMemo<import('@strata/ui').MenuEntry[]>(() => {
+  const contextItems = useMemo<import('@varve/ui').MenuEntry[]>(() => {
     if (!context) return [];
     const id = context.preset.id;
-    const items: import('@strata/ui').MenuEntry[] = [];
+    const items: import('@varve/ui').MenuEntry[] = [];
     if (onToggleFavorite) {
       items.push({
         id: 'favorite',

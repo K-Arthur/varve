@@ -6,7 +6,7 @@
 
 **Architecture:** A new `kind: 'rasterLayer'` SceneNode variant that stores pixel data as 128×128 RGBA tiles. Tiles are lazily allocated — only tiles with painted content exist. Serialized as base64 in document JSON.
 
-**Tech Stack:** TypeScript, @strata/scene package
+**Tech Stack:** TypeScript, @varve/scene package
 
 ---
 

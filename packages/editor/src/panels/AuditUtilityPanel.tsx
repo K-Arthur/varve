@@ -7,8 +7,8 @@
  * @module AuditUtilityPanel
  */
 
-import type { AuditFinding, AuditSeverity } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import type { AuditFinding, AuditSeverity } from '@varve/shared';
+import { Icon } from '@varve/ui';
 import { useState } from 'react';
 
 interface AuditUtilityPanelProps {

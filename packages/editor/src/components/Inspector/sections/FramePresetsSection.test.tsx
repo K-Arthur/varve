@@ -1,16 +1,16 @@
 /** @vitest-environment jsdom */
 
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 /**
  * FramePresetsSection tests — the wiring between the shared preset registry
- * (@strata/shared), the PresetPicker UI (@strata/ui), and the editor's
+ * (@varve/shared), the PresetPicker UI (@varve/ui), and the editor's
  * applyFramePreset/presetLibrary. PresetPicker's own search/keyboard-nav/
- * grouping behavior is covered exhaustively in @strata/ui; these tests focus
+ * grouping behavior is covered exhaustively in @varve/ui; these tests focus
  * on: unit conversion into applyFramePreset, mode="create" vs "resize"
  * differences, and the save-current-size-as-custom-preset flow.
  */
-import { createMemoryPlatform } from '@strata/platform';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { createMemoryPlatform } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../../context';
 import { PromptDialog } from '../../PromptDialog';

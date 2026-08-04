@@ -5,15 +5,15 @@
  * here instead of managing ~200 lines of inline state-machine logic.
  */
 
-import type { NodeId, SceneNode } from '@strata/scene';
-import type { Camera } from '@strata/shared';
+import type { NodeId, SceneNode } from '@varve/scene';
+import type { Camera } from '@varve/shared';
 import {
   clampZoom,
   computeFloatingOrigin,
   fitBoundsCamera,
   screenToWorld,
   zoomAboutPoint,
-} from '@strata/shared';
+} from '@varve/shared';
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react';
 import type { CanvasMode, EditorState } from '../context/types';
 import { physicalDigit } from '../input/physicalKey';
@@ -564,7 +564,7 @@ export function useCanvasInputs({
      */
     let disposePinchBridge: (() => void) | undefined;
     let pinchBridgeCancelled = false;
-    void import('@strata/platform')
+    void import('@varve/platform')
       .then(({ isTauriRuntime }) => {
         if (!isTauriRuntime() || pinchBridgeCancelled) return;
         return import('@tauri-apps/api/event').then(({ listen }) =>

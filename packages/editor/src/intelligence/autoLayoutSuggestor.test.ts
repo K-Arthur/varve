@@ -2,13 +2,13 @@
 import { describe, expect, it } from 'vitest';
 import { suggestAutoLayout } from './autoLayoutSuggestor';
 
-function makeFrame(id: string): import('@strata/scene').FrameNode {
+function makeFrame(id: string): import('@varve/scene').FrameNode {
   return {
     id,
     name: 'Frame',
     kind: 'frame',
     fill: { space: 'rgb', r: 255, g: 255, b: 255, a: 255 },
-    transform: [1, 0, 0, 1, 0, 0] as import('@strata/shared').Affine,
+    transform: [1, 0, 0, 1, 0, 0] as import('@varve/shared').Affine,
     visible: true,
     locked: false,
     children: [],
@@ -24,23 +24,20 @@ function makeShape(
   y: number,
   w: number,
   h: number,
-): import('@strata/scene').SceneNode {
+): import('@varve/scene').SceneNode {
   return {
     id,
     name: 'Rect',
     kind: 'shape',
     fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
-    transform: [1, 0, 0, 1, x, y] as import('@strata/shared').Affine,
+    transform: [1, 0, 0, 1, x, y] as import('@varve/shared').Affine,
     visible: true,
     locked: false,
     shape: { kind: 'rect', x: 0, y: 0, w, h },
-  } as import('@strata/scene').SceneNode;
+  } as import('@varve/scene').SceneNode;
 }
 
-function buildDoc(
-  nodes: Record<string, import('@strata/scene').SceneNode>,
-  rootChildren: string[],
-) {
+function buildDoc(nodes: Record<string, import('@varve/scene').SceneNode>, rootChildren: string[]) {
   return {
     name: 'test',
     canvasWidth: 1920,
@@ -51,7 +48,7 @@ function buildDoc(
     components: {},
     interactions: [],
     interactionsVersion: 0,
-  } as unknown as import('@strata/scene').Document;
+  } as unknown as import('@varve/scene').Document;
 }
 
 describe('suggestAutoLayout', () => {

@@ -13,7 +13,7 @@
  * @module auditPipeline
  */
 
-import type { AuditFinding } from '@strata/shared';
+import type { AuditFinding } from '@varve/shared';
 import type { AuditCache } from './auditCache';
 
 // ============================================================================

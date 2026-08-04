@@ -1,4 +1,4 @@
-import { linearToSrgb, srgbToLinear } from '@strata/shared';
+import { linearToSrgb, srgbToLinear } from '@varve/shared';
 
 function clampByte(v: number): number {
   return Math.max(0, Math.min(255, Math.round(v)));

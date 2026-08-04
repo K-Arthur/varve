@@ -18,7 +18,7 @@
  * Sketch .sketch archive format.
  */
 
-import { type Document, DocumentCodec } from '@strata/scene';
+import { type Document, DocumentCodec } from '@varve/scene';
 import { strToU8, zipSync } from 'fflate';
 import type {
   ArchiveBuildOptions,

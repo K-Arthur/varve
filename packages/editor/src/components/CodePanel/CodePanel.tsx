@@ -23,9 +23,9 @@ import {
   runCodegenReadiness,
   runDesignAudit,
   type TargetAnalysisResult,
-} from '@strata/codegen';
-import type { Document, SceneNode } from '@strata/scene';
-import { CopyButton, Icon, type IconName, type Tab, Tabs } from '@strata/ui';
+} from '@varve/codegen';
+import type { Document, SceneNode } from '@varve/scene';
+import { CopyButton, Icon, type IconName, type Tab, Tabs } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { buildFilename, downloadBlob } from '../SpecPanel/export';
 import { highlight } from '../SpecPanel/syntax';
@@ -348,7 +348,7 @@ const READINESS_FORMATS: { value: CodeTarget; label: string }[] = [
   { value: 'svg', label: 'SVG' },
 ];
 
-const FORMAT_TO_CODEEXPORT: Record<CodeTarget, import('@strata/codegen').CodeExportFormat> = {
+const FORMAT_TO_CODEEXPORT: Record<CodeTarget, import('@varve/codegen').CodeExportFormat> = {
   css: 'css',
   tailwind: 'react-tailwind',
   vue: 'css',

@@ -54,7 +54,7 @@ broken architecture baselines.
 - [ ] Delete `scripts/diagnostics/*.mjs` (untracked/gitignored scratch — verified safe)
 - [ ] **Do NOT touch** `apps/desktop/public/models/quantized/*` (model reports are
   CI-consumed provenance artifacts, not dead code)
-- [ ] Verify: `pnpm typecheck && pnpm test --filter @strata/editor` passes
+- [ ] Verify: `pnpm typecheck && pnpm test --filter @varve/editor` passes
 - [ ] Gate: `pnpm format && pnpm typecheck && pnpm lint && pnpm test && pnpm audit:emoji && pnpm audit:tokens`
 
 **Files Modified:**
@@ -92,7 +92,7 @@ submodules; they value-import helpers back (`cryptoId`, `makeGroupNode`, `devVal
 
 - [x] Create `packages/scene/src/document-utils.ts`
 - [x] Update `document-components.ts`, `document-nodes.ts`, `document-pages.ts` imports
-- [x] Verify: `pnpm typecheck && pnpm test --filter @strata/scene` + madge scene
+- [x] Verify: `pnpm typecheck && pnpm test --filter @varve/scene` + madge scene
 - [x] Run `node scripts/audit-architecture.mjs --cycles --update` to shrink allowlist
 - [x] Full gate passes (format + typecheck + scene tests + audit)
 
@@ -125,7 +125,7 @@ extractions; `onReady` pattern for sub-context extractions), one extraction per 
 2. Create hook in `context/useX.ts` or sub-context in `context/XContext.tsx`
 3. Add to `context/index.ts` barrel
 4. Move return values into `value` useMemo deps
-5. Gate: `pnpm typecheck && pnpm test --filter @strata/editor`
+5. Gate: `pnpm typecheck && pnpm test --filter @varve/editor`
 6. If sub-context: follow the `onReady` pattern from MotionContext.tsx
 
 **Remaining candidates (next largest clusters):**
@@ -187,7 +187,7 @@ ActionRegistry delegation is complete (handleAction residual switch fully migrat
 
 - [ ] Verify/extract dialog or menu-section module
 - [ ] Verify ActionRegistry covers all handles
-- [ ] Gate: `pnpm test --filter @strata/editor` (Menubar.test.tsx)
+- [ ] Gate: `pnpm test --filter @varve/editor` (Menubar.test.tsx)
 - [ ] Run `--update` to shrink baseline (imports ≤13, overBudget=false)
 
 **Files Modified:**

@@ -1,5 +1,5 @@
-import type { Document, Effect, Fill, NodeId, SceneNode, Stroke } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import type { Document, Effect, Fill, NodeId, SceneNode, Stroke } from '@varve/scene';
+import { getParent } from '@varve/scene';
 
 export interface VariantCandidateMemberDetail {
   nodeId: NodeId;

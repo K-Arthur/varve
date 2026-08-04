@@ -1,5 +1,5 @@
 /**
- * WASM colour conversion module using strata-colour via wasm-bindgen.
+ * WASM colour conversion module using varve-colour via wasm-bindgen.
  * Provides ICC-based colour transforms for preview and export.
  */
 

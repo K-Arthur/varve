@@ -10,8 +10,8 @@
  * (periodic snapshots + backup rotation).
  */
 
-import type { Document } from '@strata/scene';
-import { serializeDocument } from '@strata/scene';
+import type { Document } from '@varve/scene';
+import { serializeDocument } from '@varve/scene';
 
 export interface AutoSaveConfig {
   intervalMs: number;

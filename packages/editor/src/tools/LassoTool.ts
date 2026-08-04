@@ -11,7 +11,7 @@
  * Research basis: Figma, Photoshop, GIMP lasso selection tools.
  */
 
-import { isInIsolatedSubtree, walkNodes } from '@strata/scene';
+import { isInIsolatedSubtree, walkNodes } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { type Point2D, polygonIntersectsBounds, simplifyPolygon } from './lassoGeometry';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
@@ -240,7 +240,7 @@ export class LassoTool extends BaseTool {
     ctx.announceSelection(
       intersectingIds
         .map((id) => ctx.getNode(id))
-        .filter((n): n is import('@strata/scene').SceneNode => n !== undefined),
+        .filter((n): n is import('@varve/scene').SceneNode => n !== undefined),
     );
   }
 

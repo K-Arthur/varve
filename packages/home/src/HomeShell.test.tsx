@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import { createMemoryPlatform } from '@strata/platform';
 import { render, screen, waitFor } from '@testing-library/react';
+import { createMemoryPlatform } from '@varve/platform';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeShell } from './HomeShell';
 

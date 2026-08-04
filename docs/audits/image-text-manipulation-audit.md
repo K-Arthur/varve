@@ -26,7 +26,7 @@
 ### 1.2 Architecture strengths
 
 - **IR-replay seam (ADR-0001).** Native Rust computes a compact render IR; the webview replays it to Canvas2D/WebGPU. This is the correct strategic split for performance and cross-platform parity.
-- **Immutable document model.** `@strata/scene` returns new documents per operation, which simplifies undo, time-travel, and SSR/export.
+- **Immutable document model.** `@varve/scene` returns new documents per operation, which simplifies undo, time-travel, and SSR/export.
 - **Stacked fills & effects.** The model already supports multi-fill, multi-stroke, and multi-effect stacks with per-item opacity and blend mode.
 - **Mask scaffolding.** Group/Frame can designate a child as a clip mask; the canvas renderer already applies it via `clip()`.
 
@@ -115,7 +115,7 @@ Key findings:
 ### 4.6 Rendering
 
 - Evolve the IR to include `RenderLayer` records that indicate offscreen composite scopes.
-- Add a `Compositor` package (`@strata/compositor`) that consumes IR and either replays to Canvas2D or WebGPU.
+- Add a `Compositor` package (`@varve/compositor`) that consumes IR and either replays to Canvas2D or WebGPU.
 - Benchmark: keep IR <100 KB/frame for typical scenes, 60 fps preview, and streaming export.
 
 ## 5. Rendering recommendations
@@ -151,7 +151,7 @@ Key findings:
 | P0 | Fix image fill fit/tile/stretch and add image node fit | working image fill modes + tests |
 | P1 | Raster layer backing + brush stroke model | `RasterLayerNode`, `BrushStroke`, tests |
 | P1 | Text path / warp foundation + glyph-run layout | `textToPath`, `shapeTextRuns`, tests |
-| P1 | WebGPU compositor scaffolding | `@strata/compositor` package |
+| P1 | WebGPU compositor scaffolding | `@varve/compositor` package |
 | P2 | Alpha/luminance masks + selection system | `MaskSource`, `PixelSelection` |
 | P2 | Smart object / asset catalog | `Document.assets`, relink, replace |
 | P2 | Text-to-shape conversion | `textToShapes` + export |
@@ -173,10 +173,10 @@ Key findings:
 
 ## 12. Foundation implemented in this session
 
-- `AdjustmentLayerNode` and adjustment stack model in `@strata/scene`.
-- `FilterIR` primitive and Canvas2D replay support in `@strata/engine`.
-- Text-path foundation (`shapeTextRuns`, `textToPath`) in `@strata/scene`.
-- Brush stroke model and stroke smoothing in `@strata/scene`.
+- `AdjustmentLayerNode` and adjustment stack model in `@varve/scene`.
+- `FilterIR` primitive and Canvas2D replay support in `@varve/engine`.
+- Text-path foundation (`shapeTextRuns`, `textToPath`) in `@varve/scene`.
+- Brush stroke model and stroke smoothing in `@varve/scene`.
 - Unit tests for all of the above.
 
 See `docs/plans/image-text-manipulation-roadmap.md` for the detailed continuation plan and remaining work.

@@ -5,9 +5,9 @@
  * dialog state. All document mutations flow through the parent `onChange`
  * patch (so they participate in the existing undo/transaction system).
  */
-import type { GradientMapAdjustment } from '@strata/engine';
-import { encodeGradientPresets } from '@strata/import';
-import type { Document, GradientPreset } from '@strata/scene';
+import type { GradientMapAdjustment } from '@varve/engine';
+import { encodeGradientPresets } from '@varve/import';
+import type { Document, GradientPreset } from '@varve/scene';
 import {
   addGradientPresetsToDocument,
   displayName,
@@ -17,7 +17,7 @@ import {
   gradientPresetToEmbeddedGradient,
   gradientPresetToGradientMapStops,
   makeGradientPreset,
-} from '@strata/scene';
+} from '@varve/scene';
 import { useCallback, useState } from 'react';
 
 import { useEditor } from '../../../context';

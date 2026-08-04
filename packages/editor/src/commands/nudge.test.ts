@@ -1,4 +1,4 @@
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import type { NudgeContext } from './nudge';
 import { canNudge, executeNudge, getNudgeDisabledReason, getNudgeStep } from './nudge';

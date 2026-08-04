@@ -15,10 +15,10 @@ import type {
   NodeId,
   SceneNode,
   ShapeNode,
-} from '@strata/scene';
-import { isContainer, isImageShape, nodeHasStyle } from '@strata/scene';
-import type { SolidIconName } from '@strata/ui';
-import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+} from '@varve/scene';
+import { isContainer, isImageShape, nodeHasStyle } from '@varve/scene';
+import type { SolidIconName } from '@varve/ui';
+import { SOLID_CHROME_ICONS, SOLID_TOOL_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { autoName } from '../../intelligence/autoNamer';
 import type { PresenceData } from './PresenceIndicator';

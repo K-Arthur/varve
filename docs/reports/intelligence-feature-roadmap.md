@@ -348,10 +348,10 @@ All three Sprint 1-2 features follow Strata's established patterns:
 
 ### No new dependencies
 All features use existing infrastructure:
-- `@strata/scene` (document model, scanners)
-- `@strata/shared` (color math, contrast)
-- `@strata/ui` (ColorPicker, Dialog, Button)
-- `@strata/engine` (palette extraction)
+- `@varve/scene` (document model, scanners)
+- `@varve/shared` (color math, contrast)
+- `@varve/ui` (ColorPicker, Dialog, Button)
+- `@varve/engine` (palette extraction)
 
 ---
 

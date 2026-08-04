@@ -1,8 +1,8 @@
 // @ts-nocheck
 // @vitest-environment jsdom
 
-import { createDocument } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createDocument } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildJobs, ExportDialog } from './ExportDialog';
 

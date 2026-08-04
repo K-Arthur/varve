@@ -2,11 +2,11 @@
  * BackgroundRemovalSection — image cutout controls in the Properties panel.
  *
  * Layout / chrome match Appearance/Fill: DisclosureSection, FieldRow,
- * insp-select, NumberField, @strata/ui Button (replacing unstyled button--*).
+ * insp-select, NumberField, @varve/ui Button (replacing unstyled button--*).
  *
  * Research basis: Figma generative fill panel density; APG form disclosure.
  */
-import type { RemovalMethod } from '@strata/engine';
+import type { RemovalMethod } from '@varve/engine';
 import {
   DEFAULT_PREVIEW_MAX_DIMENSION,
   getEnvironmentCapabilities,
@@ -14,10 +14,10 @@ import {
   getModelLoaderReady,
   isWasmModelSafe,
   workerModelIdForMethod,
-} from '@strata/engine';
-import type { SceneNode, ShapeNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button, Select } from '@strata/ui';
+} from '@varve/engine';
+import type { SceneNode, ShapeNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { removeRasterMaskFromNode } from '../../../backgroundRemoval/commitRasterMask';
 import { useEditor } from '../../../context';

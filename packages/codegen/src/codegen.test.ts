@@ -1,4 +1,4 @@
-import type { Document as SceneDoc } from '@strata/scene';
+import type { Document as SceneDoc } from '@varve/scene';
 import {
   addNode,
   createDocument,
@@ -9,7 +9,7 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToCss } from './css';
 import { exportNodeToCssModules } from './css-modules';
@@ -462,7 +462,7 @@ describe('legacy exports', () => {
         { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
         { name: 'GradBox' },
       );
-      const fill: import('@strata/scene').Fill = {
+      const fill: import('@varve/scene').Fill = {
         type: 'gradient',
         gradient: {
           type: 'linear',
@@ -488,7 +488,7 @@ describe('legacy exports', () => {
         { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
         { name: 'RadialBox' },
       );
-      const fill: import('@strata/scene').Fill = {
+      const fill: import('@varve/scene').Fill = {
         type: 'gradient',
         gradient: {
           type: 'radial',
@@ -515,7 +515,7 @@ describe('legacy exports', () => {
         { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
         { name: 'AngularBox' },
       );
-      const fill: import('@strata/scene').Fill = {
+      const fill: import('@varve/scene').Fill = {
         type: 'gradient',
         gradient: {
           type: 'angular',
@@ -542,7 +542,7 @@ describe('legacy exports', () => {
         { kind: 'rect', x: 0, y: 0, w: 200, h: 100 },
         { name: 'AngularBox' },
       );
-      const fill: import('@strata/scene').Fill = {
+      const fill: import('@varve/scene').Fill = {
         type: 'gradient',
         gradient: {
           type: 'angular',

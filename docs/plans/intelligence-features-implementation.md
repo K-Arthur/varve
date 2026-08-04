@@ -19,7 +19,7 @@ Run `just gate` after every completed phase. Do not proceed to next phase if gat
 
 ## Phase 0: Wire the Existing AI Scaffold (Priority: CRITICAL, Effort: 3 days)
 
-**Goal:** The `@strata/ai` package and `AIPanel.tsx` already exist with mock responses. Replace mocks with real intelligence dispatch that calls Phase 1-3 modules. This makes the chat panel actually useful immediately.
+**Goal:** The `@varve/ai` package and `AIPanel.tsx` already exist with mock responses. Replace mocks with real intelligence dispatch that calls Phase 1-3 modules. This makes the chat panel actually useful immediately.
 
 ### 0.1 Replace mock chat() with real dispatch
 
@@ -282,7 +282,7 @@ Run `just gate` after every completed phase. Do not proceed to next phase if gat
 | `text/html` | Rich text | Strip tags, preserve bold/italic as TextNode properties |
 | `text/csv` | CSV data | Convert to Auto-layout Frame with TextNode children |
 | `text/plain` | Tab-separated values | Same as CSV |
-| `image/svg+xml` | SVG content | Parse via existing `@strata/import` SVG parser |
+| `image/svg+xml` | SVG content | Parse via existing `@varve/import` SVG parser |
 | `image/png` | Small (<64px), low color count | Offer "Trace to vector?" toast |
 | `image/*` | Any image | Standard ImageNode paste (already exists) |
 
@@ -291,7 +291,7 @@ Run `just gate` after every completed phase. Do not proceed to next phase if gat
 2. Paste text/html with `<b>bold</b> and <i>italic</i>` → creates TextNode with fontWeight=bold and fontStyle=italic spans
 3. Paste CSV "a,b,c\n1,2,3" → creates Frame with 2×3 grid of TextNodes
 4. Paste tab-separated "a\tb\n1\t2" → same as CSV
-5. Paste SVG string → delegates to @strata/import SVG parser, returns SceneNode[]
+5. Paste SVG string → delegates to @varve/import SVG parser, returns SceneNode[]
 6. Paste small PNG (32×32, 4 colors) → shows "Trace to vector?" toast, pastes as ImageNode if declined
 7. Paste large PNG (1024×1024) → pastes as ImageNode directly (no trace offer)
 8. Paste text/plain single line → creates TextNode with content

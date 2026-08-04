@@ -9,8 +9,8 @@ Complete overhaul of the Projects, Home Directory, Workspace Hub, File Browser, 
 ## Implemented Phases
 
 ### Phase 0 — Bug Fixes (5 bugs fixed)
-- **BUG-01/02/03:** `formatVersion` was hardcoded to `'1.0'` in 4 serialization paths — now uses `CURRENT_DOCUMENT_VERSION` via centralized `serializeDocument()` in `@strata/scene`
-- **BUG-04:** `createFromPreset()` created hand-rolled Document missing 10+ required fields — now uses `createDocument()` from `@strata/scene`
+- **BUG-01/02/03:** `formatVersion` was hardcoded to `'1.0'` in 4 serialization paths — now uses `CURRENT_DOCUMENT_VERSION` via centralized `serializeDocument()` in `@varve/scene`
+- **BUG-04:** `createFromPreset()` created hand-rolled Document missing 10+ required fields — now uses `createDocument()` from `@varve/scene`
 - **BUG-05:** `newDocument()` didn't snapshot current session — now saves to `sessionStoreRef` before clearing
 - **BUG-06:** File ID used `file-${Date.now()}` (collision risk) — now uses `crypto.randomUUID()`
 - **BUG-07:** `BulkImportDialog.tsx` hardcoded `'__drafts__'` — now imports `DRAFTS_ID`

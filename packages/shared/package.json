@@ -1,5 +1,5 @@
 {
-  "name": "@strata/shared",
+  "name": "@varve/shared",
   "version": "0.0.0",
   "private": true,
   "description": "Cross-cutting types, geometry primitives, and fractional-index ordering.",

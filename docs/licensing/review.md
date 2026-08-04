@@ -529,17 +529,17 @@ paid tier is hard to replicate without the company's infrastructure.
 
 ```
 Strata Community (free)              Strata Pro (paid)
-├── @strata/scene                    ├── @strata/scene
-├── @strata/engine                   ├── @strata/engine (with Pro features)
-├── @strata/editor (community)       ├── @strata/editor-pro (extended)
-├── @strata/ui                       ├── @strata/ui
-├── @strata/shared                   ├── @strata/shared
-├── @strata/platform                 ├── @strata/platform
-├── @strata/codegen                  ├── @strata/codegen (extended)
-├── @strata/import                   ├── @strata/import
-├── @strata/prototype                ├── @strata/prototype (extended)
-├── @strata/ai                       ├── @strata/ai
-├── @strata/collab (stub)            ├── @strata/collab (full)
+├── @varve/scene                    ├── @varve/scene
+├── @varve/engine                   ├── @varve/engine (with Pro features)
+├── @varve/editor (community)       ├── @varve/editor-pro (extended)
+├── @varve/ui                       ├── @varve/ui
+├── @varve/shared                   ├── @varve/shared
+├── @varve/platform                 ├── @varve/platform
+├── @varve/codegen                  ├── @varve/codegen (extended)
+├── @varve/import                   ├── @varve/import
+├── @varve/prototype                ├── @varve/prototype (extended)
+├── @varve/ai                       ├── @varve/ai
+├── @varve/collab (stub)            ├── @varve/collab (full)
 ├── crates/strata-core               ├── crates/strata-core
 ├── crates/strata-engine             ├── crates/strata-engine
 ├── crates/strata-print (basic)      ├── crates/strata-print (full PDF/X)
@@ -715,7 +715,7 @@ trademark licence.
 
 The name "Strata" is used for:
 - GitHub repository: `K-Arthur/Strata`
-- npm packages: `@strata/*`
+- npm packages: `@varve/*`
 - Rust crates: `strata-*`
 - Application: `Strata`
 - Website: `strata.app` (or similar)

@@ -4,7 +4,7 @@ import { Canvas2DBackend } from './canvas2d/backend';
 import { TileCache } from './canvas2d/tileCache';
 import { createCompositorBackend } from './router';
 
-describe('@strata/compositor', () => {
+describe('@varve/compositor', () => {
   it('Canvas2DBackend initializes and draws', async () => {
     const canvas = document.createElement('canvas');
     canvas.width = 100;

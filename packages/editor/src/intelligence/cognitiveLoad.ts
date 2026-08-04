@@ -15,7 +15,7 @@
  * Research basis: Miller's Law (7±2 chunks), Hick's Law (decision complexity),
  * WCAG 2.2 Focus Order (SC 2.4.3), and Gestalt perceptual grouping theory.
  */
-import type { Document, Fill, NodeId, SceneNode } from '@strata/scene';
+import type { Document, Fill, NodeId, SceneNode } from '@varve/scene';
 
 export interface CognitiveLoadConfig {
   /** Max nodes before "high" load (default 50). */

@@ -1,5 +1,5 @@
-import type { SelectiveColorParams } from '@strata/engine';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { SelectiveColorParams } from '@varve/engine';
 import { afterEach, describe, expect, it } from 'vitest';
 import { SelectiveColorGrid } from './SelectiveColorGrid';
 

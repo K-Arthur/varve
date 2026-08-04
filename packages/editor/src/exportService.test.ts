@@ -1,4 +1,4 @@
-import { createDocument, type ExportBatch, type ExportJob, makeShapeNode } from '@strata/scene';
+import { createDocument, type ExportBatch, type ExportJob, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { type ExportRunContext, ExportService, rasterScaleForJob } from './exportService';
 

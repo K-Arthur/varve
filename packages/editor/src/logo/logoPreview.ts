@@ -11,7 +11,7 @@
  * (original/monochrome/grayscale/reversed) so users can check legibility,
  * contrast, and monochrome recognizability without touching the artwork.
  */
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 
 export type LogoPreviewMode = 'original' | 'monochrome' | 'grayscale' | 'reversed';
 export type LogoSurfaceKind = 'light' | 'dark' | 'checker';

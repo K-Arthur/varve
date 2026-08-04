@@ -11,17 +11,17 @@ import {
   exportNodeToSvg,
   exportNodeToSwiftUI,
   exportNodeToTailwind,
-} from '@strata/codegen';
-import type { Engine } from '@strata/engine';
-import { getFontRegistry } from '@strata/engine';
-import type { Document, ExportBatch, ExportFormat, ExportJob } from '@strata/scene';
+} from '@varve/codegen';
+import type { Engine } from '@varve/engine';
+import { getFontRegistry } from '@varve/engine';
+import type { Document, ExportBatch, ExportFormat, ExportJob } from '@varve/scene';
 import {
   capabilitiesForFormat,
   type ExportFinding,
   legacyBatchToRequest,
   type PlatformKind,
   runExportPreflight,
-} from '@strata/scene/export';
+} from '@varve/scene/export';
 import {
   exportNodeAsPdf,
   exportNodeAsPdfX,
@@ -366,14 +366,14 @@ export function runBatchPreflight(
  */
 function buildRasterPipeline(
   raster: ExportJob['raster'],
-): import('@strata/engine').RasterPipelineOptions | undefined {
+): import('@varve/engine').RasterPipelineOptions | undefined {
   const resize = raster?.resize;
   const sharpen = raster?.sharpen;
   const dither = raster?.dither;
   if (!resize && !sharpen && !dither) return undefined;
   return {
     ...(resize
-      ? { resize: resize as import('@strata/engine').RasterPipelineOptions['resize'] }
+      ? { resize: resize as import('@varve/engine').RasterPipelineOptions['resize'] }
       : {}),
     ...(sharpen ? { sharpen } : {}),
     ...(dither ? { dither } : {}),
@@ -382,8 +382,8 @@ function buildRasterPipeline(
 
 function buildRasterMetadata(raster: ExportJob['raster']):
   | {
-      policy: import('@strata/scene/export').MetadataPolicy;
-      content?: import('@strata/engine').MetadataContent;
+      policy: import('@varve/scene/export').MetadataPolicy;
+      content?: import('@varve/engine').MetadataContent;
     }
   | undefined {
   if (!raster?.metadataPolicy) return undefined;

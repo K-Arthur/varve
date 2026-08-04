@@ -14,8 +14,8 @@ import {
   adjustmentsToFilters,
   applyStyleOverrides,
   type SceneNode as EngineNode,
-} from '@strata/engine';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+} from '@varve/engine';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
   applyBindingsToNode,
   buildAllVariantCaches,
@@ -24,8 +24,8 @@ import {
   resolveAllStyles,
   resolveNodePaints,
   resolveRasterMaskAsset,
-} from '@strata/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY } from '@strata/shared';
+} from '@varve/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { maskRenderUrl } from '../backgroundRemoval/maskRenderCache';
 import { nodeWorldTransform } from '../scene/world';
 
@@ -43,7 +43,7 @@ export interface SceneNodeConversionOptions {
  */
 function resolvePaintRefs(
   node: SceneNode,
-  doc?: { paints?: Record<string, import('@strata/scene').Paint> },
+  doc?: { paints?: Record<string, import('@varve/scene').Paint> },
 ): SceneNode {
   if (!node.paintRefs || node.paintRefs.length === 0 || !doc?.paints) return node;
   const resolvedFills = resolveNodePaints(

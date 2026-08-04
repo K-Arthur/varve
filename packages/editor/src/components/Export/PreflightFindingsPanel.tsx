@@ -11,8 +11,8 @@
  * This component renders findings only; it never mutates the document.
  */
 
-import type { ExportFinding, ExportFindingSeverity } from '@strata/scene/export';
-import { Icon } from '@strata/ui';
+import type { ExportFinding, ExportFindingSeverity } from '@varve/scene/export';
+import { Icon } from '@varve/ui';
 import { useMemo, useState } from 'react';
 
 import './PreflightFindingsPanel.css';

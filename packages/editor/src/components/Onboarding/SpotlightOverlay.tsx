@@ -1,4 +1,4 @@
-import { Button } from '@strata/ui';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { TourStep } from './tourSteps';
 

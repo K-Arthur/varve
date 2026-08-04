@@ -11,7 +11,7 @@ evidence, and honest remaining limitations.
 See the audit doc for the full inventory. Highlights:
 
 - **Sources:** Lucide (outline) and Phosphor (filled) via exactly two wrapper
-  files in `@strata/ui`; Iconify public API; IndexedDB local cache; scene
+  files in `@varve/ui`; Iconify public API; IndexedDB local cache; scene
   icon-asset model file was dead code.
 - **Duplicate systems:** `<Icon>` / `<SolidIcon>` duplicated the accessibility
   contract; no semantic name layer (feature code used raw third-party names);
@@ -70,10 +70,10 @@ all icon code is platform-neutral TypeScript.
 
 | Gate | Result |
 |---|---|
-| `@strata/ui` tests | 385/385 pass (incl. 26 icon tests: naming validation, both-family render, size tokens, RTL mirror, a11y contract) |
-| `@strata/scene` tests | 1799 pass, 1 skipped (incl. 9 icon-asset tests: validation, codec round-trip, pruning, invalid-drop) |
-| `@strata/engine` icon suite | 74/74 pass (sanitizer, providers, licence, audit, export, variants) |
-| `@strata/editor` tests | 4221 pass; 24 failures all in concurrent-agent files: `Menubar.test` (their focus work), `workspaceMode.test` (their logo mode), `FloatingTextBar.test` (their color work) — all pass on their pre-concurrent state; two perf tests pass in isolation (load noise) |
+| `@varve/ui` tests | 385/385 pass (incl. 26 icon tests: naming validation, both-family render, size tokens, RTL mirror, a11y contract) |
+| `@varve/scene` tests | 1799 pass, 1 skipped (incl. 9 icon-asset tests: validation, codec round-trip, pruning, invalid-drop) |
+| `@varve/engine` icon suite | 74/74 pass (sanitizer, providers, licence, audit, export, variants) |
+| `@varve/editor` tests | 4221 pass; 24 failures all in concurrent-agent files: `Menubar.test` (their focus work), `workspaceMode.test` (their logo mode), `FloatingTextBar.test` (their color work) — all pass on their pre-concurrent state; two perf tests pass in isolation (load noise) |
 | New tests written | `semantic.test.tsx` (26), `iconAsset.test.ts` (9), `useIconAssets.test.tsx` (5), `IconBrowserDialog.test.tsx` (2), `IconSection.test.tsx` (4) |
 | typecheck | My files: 0 errors under both package-local and root tsconfig. Remaining repo errors are all concurrent WIP files (`vectorOps.ts`, `useLogoGeometry.ts`, `workerHost.ts`, `CanvasArea.tsx`, `Menubar.tsx`, `pathOffset.ts`) or pre-existing (`InspectorColorPopover.tsx`) |
 | lint (biome) | clean on all touched files |

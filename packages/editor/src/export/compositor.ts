@@ -10,7 +10,7 @@
  * - Capability rules are deterministic: same input → same output.
  * - The live document is never mutated; all work operates on a snapshot.
  * - Rasterization delegates to `createRasterSurface` / `encodeRasterSurface`
- *   from `@strata/engine`, reusing the existing render-to-canvas pipeline.
+ *   from `@varve/engine`, reusing the existing render-to-canvas pipeline.
  * - Unsupported subtrees are rasterized at the smallest enclosing boundary
  *   to minimise pixel output and preserve editable siblings.
  *
@@ -19,7 +19,7 @@
  * groups, and the existing `flattenForExport.ts` adjustment-only flattener.
  */
 
-import type { RasterAsset } from '@strata/codegen';
+import type { RasterAsset } from '@varve/codegen';
 import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
@@ -28,9 +28,9 @@ import {
   type Engine,
   encodeRasterSurface,
   type RasterSurface,
-} from '@strata/engine';
-import type { Document, Effect, Fill, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { findCommonAncestor, resolveAdjustmentScope } from '@strata/scene';
+} from '@varve/engine';
+import type { Document, Effect, Fill, NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import { findCommonAncestor, resolveAdjustmentScope } from '@varve/scene';
 import { replayStructuredScene } from '../render/replayScene';
 import { flattenSceneToEngine } from '../render/sceneToEngine';
 
@@ -770,7 +770,7 @@ function widenAdjustmentBoundaries(
 
     const adjNode = entry.node as unknown as {
       id: string;
-      scope?: import('@strata/scene').AdjustmentScope;
+      scope?: import('@varve/scene').AdjustmentScope;
     };
     const targets = resolveAdjustmentScope(doc, adjNode.scope, adjNode.id);
     if (targets.length === 0) continue; // no-op adjustment — nothing to flatten

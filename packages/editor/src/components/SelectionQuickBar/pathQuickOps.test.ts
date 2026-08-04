@@ -2,7 +2,7 @@
 /**
  * Tests for path quick ops.
  */
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { setPathClosed, simplifyPathNode } from './pathQuickOps';
 

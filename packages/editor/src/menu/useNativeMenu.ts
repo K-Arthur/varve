@@ -1,5 +1,5 @@
-import { getPlatformInfo, shouldUseNativeMenu } from '@strata/platform';
-import type { Document } from '@strata/scene';
+import { getPlatformInfo, shouldUseNativeMenu } from '@varve/platform';
+import type { Document } from '@varve/scene';
 import { useEffect, useMemo, useRef } from 'react';
 import { getActionRegistry } from '../actions/ActionRegistry';
 import type { WorkspaceMode } from '../workspace/workspaceTypes';

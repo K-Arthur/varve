@@ -7,7 +7,7 @@
  * state; the workflow inside it drives the same commands as every other
  * vectorization surface.
  */
-import { Dialog } from '@strata/ui';
+import { Dialog } from '@varve/ui';
 import { VectorizeWorkflow } from './VectorizeWorkflow';
 
 export interface VectorizeDialogProps {

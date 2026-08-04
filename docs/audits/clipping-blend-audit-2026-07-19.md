@@ -30,14 +30,14 @@ References:
 
 ## Existing foundations
 
-- `@strata/scene` already persists clip, alpha, luminance, vector, and raster masks.
+- `@varve/scene` already persists clip, alpha, luminance, vector, and raster masks.
   Clipping groups use one direct child as the source and retain any number of content
   children.
 - `CanvasArea` and structured raster export traverse the scene graph and apply masks,
   clipping, group opacity, and creative group modes.
 - SVG codegen emits `clipPath`/`mask` definitions. PDF preflight rejects most structural
   mask/blend cases instead of silently changing appearance.
-- `@strata/engine` contains a strict blend catalog and canonical W3C separable and
+- `@varve/engine` contains a strict blend catalog and canonical W3C separable and
   non-separable formulas.
 - Undo/redo uses document snapshots; the shared subtree clone correctly remaps masks.
 

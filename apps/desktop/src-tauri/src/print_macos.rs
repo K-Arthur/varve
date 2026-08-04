@@ -80,7 +80,7 @@ pub fn print_pdf(
 ) -> PrintJobResult {
     let temp_dir = std::env::temp_dir();
     let safe_title: String = job_title.chars().map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' }).collect();
-    let pdf_path = temp_dir.join(format!("strata_print_{}.pdf", safe_title));
+    let pdf_path = temp_dir.join(format!("varve_print_{}.pdf", safe_title));
 
     if let Err(e) = std::fs::write(&pdf_path, pdf_bytes) {
         return PrintJobResult {

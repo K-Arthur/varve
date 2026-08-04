@@ -1,5 +1,5 @@
-import type { AnimationTrack, Timeline } from '@strata/scene';
-import { Icon, Select, Tooltip } from '@strata/ui';
+import type { AnimationTrack, Timeline } from '@varve/scene';
+import { Icon, Select, Tooltip } from '@varve/ui';
 import { type FC, useCallback, useRef, useState } from 'react';
 
 export interface TrackRowProps {

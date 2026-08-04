@@ -16,7 +16,7 @@
  * migration paths can rely on it.
  */
 
-import { DEFAULT_BIT_DEPTH } from '@strata/shared';
+import { DEFAULT_BIT_DEPTH } from '@varve/shared';
 import type { BitDepth, LabColor, LchColor, ManagedColor } from './colorManagement';
 
 /** Spot tint bounds (percent). */

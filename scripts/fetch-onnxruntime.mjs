@@ -3,8 +3,8 @@
  * Fetch the native ONNX Runtime shared library for the current platform and
  * stage it where the desktop app's Tauri build bundles it as a resource.
  *
- * strata-bgremove's `ai` Cargo feature uses `ort` with `load-dynamic`
- * (dlopen at runtime, no compile-time linkage — see crates/strata-bgremove/
+ * varve-bgremove's `ai` Cargo feature uses `ort` with `load-dynamic`
+ * (dlopen at runtime, no compile-time linkage — see crates/varve-bgremove/
  * Cargo.toml). WASM inference of BiRefNet is bound by the wasm32 4 GiB
  * linear-memory ceiling and can crash with std::bad_alloc with no GPU
  * available (docs/audits/background-removal-wasm-memory-hardening-2026-07-18.md);

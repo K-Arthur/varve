@@ -25,9 +25,9 @@
  * covered because the dirty region includes both old and new bounds.
  */
 
-import type { Document, NodeId, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
-import type { Rect } from '@strata/shared';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
+import type { Rect } from '@varve/shared';
 import type { DirtyRegion, SurfaceMatch } from './dirtyRegion';
 import type { DirtyMergeResult } from './dirtyRegionMerge';
 

@@ -1,7 +1,7 @@
 /**
  * Tests for colorCollections — document color extraction and recent color management.
  */
-import { createDocument, type Document, makeShapeNode, nextNodeId, solidFill } from '@strata/scene';
+import { createDocument, type Document, makeShapeNode, nextNodeId, solidFill } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { addRecentColor, extractDocumentColors, getRecentColors } from './colorCollections';
 

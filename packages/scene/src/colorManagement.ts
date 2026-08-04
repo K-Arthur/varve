@@ -4,23 +4,23 @@
  *
  * This module provides the type system for professional color management.
  * The actual conversion engine lives in the Rust print crate (strata-print)
- * and the TS rendering pipeline (@strata/engine).
+ * and the TS rendering pipeline (@varve/engine).
  *
  * Research basis: ICC.1:2010 (Profile Version 4.3), ISO 12647 (printing
  * conditions), LittleCMS architecture, Adobe ACE color engine model,
  * OpenEXR / half-float convention.
  */
 
-import type { BitDepth, ColorMode, DocumentUnit, RenderingIntent } from '@strata/shared';
-import { DEFAULT_BIT_DEPTH } from '@strata/shared';
+import type { BitDepth, ColorMode, DocumentUnit, RenderingIntent } from '@varve/shared';
+import { DEFAULT_BIT_DEPTH } from '@varve/shared';
 
 // ── Color Mode + Bit Depth ─────────────────────────────────────────────────
 
-export { DEFAULT_BIT_DEPTH } from '@strata/shared';
+export { DEFAULT_BIT_DEPTH } from '@varve/shared';
 /**
  * Bit depth determines channel storage precision and value range. Canonical
- * definition lives in @strata/shared (so the conversion engine can use it
- * without a circular dep on @strata/scene); re-exported here.
+ * definition lives in @varve/shared (so the conversion engine can use it
+ * without a circular dep on @varve/scene); re-exported here.
  *
  * | bitDepth | range    | notes |
  * |----------|----------|-------|
@@ -29,9 +29,9 @@ export { DEFAULT_BIT_DEPTH } from '@strata/shared';
  * | float16  | 0.0–1.0  | half-float intent; stored as JS number. |
  * | float32  | 0.0–1.0  | single-precision; HDR can exceed 1.0. */
 /** Document-level color mode. Determines default color space for new colors.
- *  Canonical definition lives in @strata/shared (used by the preset system
+ *  Canonical definition lives in @varve/shared (used by the preset system
  *  as well); re-exported here so existing `import type { ColorMode } from
- *  '@strata/scene'` call sites keep working unchanged. */
+ *  '@varve/scene'` call sites keep working unchanged. */
 export type { BitDepth, ColorMode };
 
 // ── Color Space ─────────────────────────────────────────────────────────────
@@ -57,7 +57,7 @@ export type ColorSpace =
  * - Absolute: simulate source paper color on target (proofing).
  * - Saturation: preserve saturation (charts, business graphics).
  */
-export type { RenderingIntent } from '@strata/shared';
+export type { RenderingIntent } from '@varve/shared';
 
 // ── ICC Profile Reference ───────────────────────────────────────────────────
 

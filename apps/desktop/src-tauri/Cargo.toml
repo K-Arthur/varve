@@ -23,16 +23,16 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = "0.4"
-strata-core = { path = "../../../crates/strata-core" }
-strata-engine = { path = "../../../crates/strata-engine" }
+varve-core = { path = "../../../crates/strata-core" }
+varve-engine = { path = "../../../crates/strata-engine" }
 notify = "6"
 font-enumeration = "0.9"
-strata-sync = { path = "../../../crates/strata-sync" }
-strata-print = { path = "../../../crates/strata-print" }
-strata-bridge = { path = "../../../crates/strata-bridge" }
-strata-bgremove = { path = "../../../crates/strata-bgremove" }
-strata-trace = { path = "../../../crates/strata-trace" }
-strata-upscale = { path = "../../../crates/strata-upscale" }
+varve-sync = { path = "../../../crates/strata-sync" }
+varve-print = { path = "../../../crates/strata-print" }
+varve-bridge = { path = "../../../crates/strata-bridge" }
+varve-bgremove = { path = "../../../crates/strata-bgremove" }
+varve-trace = { path = "../../../crates/strata-trace" }
+varve-upscale = { path = "../../../crates/strata-upscale" }
 image = "0.25"
 arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"

@@ -14,7 +14,7 @@ import {
   isContainer,
   type NodeId,
   type SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 
 /** All node ids visible on the active page, recursively (matches tree rows). */
 export function collectActivePageNodeIds(doc: Document): NodeId[] {

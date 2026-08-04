@@ -195,7 +195,7 @@ export function executeAction(action: Action, state: PrototypeState): ActionResu
       };
 
     case 'startAnimation':
-      // animationId references Document.timelines[id] — see @strata/scene motion model
+      // animationId references Document.timelines[id] — see @varve/scene motion model
       return {
         kind: 'startAnimation',
         targetId: action.targetId,

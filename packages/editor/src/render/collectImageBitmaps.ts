@@ -1,8 +1,8 @@
 /**
  * Pre-decode image fills on the main thread for Structured Clone worker transport.
  */
-import type { RenderItem } from '@strata/engine';
-import { getImageCache } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
+import { getImageCache } from '@varve/engine';
 import { checkFault } from './faultInjection';
 import { estimateRgbaBytes } from './renderBitmapBudget';
 

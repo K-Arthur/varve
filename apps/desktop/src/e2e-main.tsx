@@ -1,5 +1,5 @@
-import { HomeShell } from '@strata/home';
-import { createMemoryPlatform, makeFileEntry, makeProject, uuid } from '@strata/platform';
+import { HomeShell } from '@varve/home';
+import { createMemoryPlatform, makeFileEntry, makeProject, uuid } from '@varve/platform';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 

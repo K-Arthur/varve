@@ -11,8 +11,8 @@
  * Figma auto-layout cycle guards, token alias cycle detection in color engines.
  */
 
-import type { Document, NodeId } from '@strata/scene';
-import { getParent } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { getParent } from '@varve/scene';
 
 export type LayoutCycleVerdict = 'no_cycle' | 'cycle_detected';
 

@@ -731,8 +731,8 @@ Focus on the 6 primitives + text + frames. Output JSX with Tailwind classes.
 
 ```ts
 // packages/codegen/src/emitters/react-tailwind.ts
-import type { Document, NodeId, SceneNode, CodeOptions, TargetGap } from '@strata/scene';
-import type { Affine } from '@strata/engine';
+import type { Document, NodeId, SceneNode, CodeOptions, TargetGap } from '@varve/scene';
+import type { Affine } from '@varve/engine';
 
 export function emitReactTailwind(doc: Document, options: CodeOptions): string {
   const children = doc.rootChildren
@@ -793,7 +793,7 @@ export function targetGaps(doc: Document): TargetGap[] {
 ```ts
 // packages/codegen/src/emitters/react-tailwind.test.ts
 import { describe, expect, it } from 'vitest';
-import { createDocument, addNode, makeShapeNode, makeTextNode, nextNodeId } from '@strata/scene';
+import { createDocument, addNode, makeShapeNode, makeTextNode, nextNodeId } from '@varve/scene';
 import { emitReactTailwind, targetGaps } from './react-tailwind';
 
 describe('emitReactTailwind', () => {
@@ -1083,7 +1083,7 @@ describe('ExportDialog', () => {
 
 ```ts
 // packages/editor/src/settings.ts
-import type { ExportSettings } from '@strata/scene';
+import type { ExportSettings } from '@varve/scene';
 
 const SETTINGS_KEY = 'strata-editor-settings';
 
@@ -1294,10 +1294,10 @@ The biggest gap — the import system — was also addressed:
 
 | Package | What was built |
 |---|---|
-| `@strata/import` (new) | SVG parser (recursive descent, 8 primitive types + groups + text + paths + transforms), Image importer, Format registry, Bitmap dimension detection (PNG/JPEG/WebP), 20 tests |
-| `@strata/scene` | `ImageNode` type added (kind: 'image') with src/w/h/imageFit |
-| `@strata/engine` | `ImageCache` singleton for async image loading, caching, preloading |
-| `@strata/editor` | Canvas drag-drop (images/SVG), clipboard paste (images/SVG from system clipboard), Import menu item, `importNode` context action |
+| `@varve/import` (new) | SVG parser (recursive descent, 8 primitive types + groups + text + paths + transforms), Image importer, Format registry, Bitmap dimension detection (PNG/JPEG/WebP), 20 tests |
+| `@varve/scene` | `ImageNode` type added (kind: 'image') with src/w/h/imageFit |
+| `@varve/engine` | `ImageCache` singleton for async image loading, caching, preloading |
+| `@varve/editor` | Canvas drag-drop (images/SVG), clipboard paste (images/SVG from system clipboard), Import menu item, `importNode` context action |
 
 ### Gate Results
 | Metric | Result |

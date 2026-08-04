@@ -1,4 +1,4 @@
-import { applyAffine, invertAffine, rectContains } from '@strata/engine';
+import { applyAffine, invertAffine, rectContains } from '@varve/engine';
 import {
   buildParentIndexMap,
   type Document,
@@ -6,8 +6,8 @@ import {
   activePageNodes as getActivePageNodes,
   type NodeId,
   walkNodes,
-} from '@strata/scene';
-import { type Affine, transformRect } from '@strata/shared';
+} from '@varve/scene';
+import { type Affine, transformRect } from '@varve/shared';
 import type { FrameSpatialIndex } from './spatialIndex';
 import { nodeLocalBounds, nodeWorldTransform } from './world';
 

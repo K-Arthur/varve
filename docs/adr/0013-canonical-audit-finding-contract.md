@@ -2,15 +2,15 @@
 
 **Status:** Accepted
 **Date:** 2026-07-27
-**Decisions:** `@strata/scene` `AuditFinding` is the canonical type
+**Decisions:** `@varve/scene` `AuditFinding` is the canonical type
 
 ## Context
 
 Two incompatible `AuditFinding` types coexisted:
 
-1. `@strata/scene` `AuditFinding` (`auditFinding.ts`) — used by the audit engine,
+1. `@varve/scene` `AuditFinding` (`auditFinding.ts`) — used by the audit engine,
    IntelligencePanel, AuditOverlayHost, finding navigation
-2. `@strata/shared` `AuditFinding` (`auditTypes.ts`) — used by the intelligence
+2. `@varve/shared` `AuditFinding` (`auditTypes.ts`) — used by the intelligence
    subsystem (scheduler, overlay manager, cache, pipeline, suppression)
 
 Key incompatibilities: `nodeId` vs `nodeIds`, `ruleVersion` as number vs string,
@@ -19,21 +19,21 @@ one could not interoperate with the other without a mapping layer.
 
 ## Decision
 
-Enhance `@strata/scene`'s `AuditFinding` as the canonical contract. Add the fields
+Enhance `@varve/scene`'s `AuditFinding` as the canonical contract. Add the fields
 that were unique to the shared version (lifecycle, suppression, region, metadata)
-while keeping the existing scene fields. Mark `@strata/shared`'s `AuditFinding` as
+while keeping the existing scene fields. Mark `@varve/shared`'s `AuditFinding` as
 `@deprecated` and provide bridge converters:
 
 - `sceneFindingToShared()` — converts scene → shared (for the intelligence subsystem)
 - `sharedFindingToSceneShape()` — converts shared → scene shape (returns `Record`)
 
-The scene type can't be imported from `@strata/shared` because that would create a
+The scene type can't be imported from `@varve/shared` because that would create a
 circular dependency (`scene → shared`, `shared` is lower level). The bridge functions
 accept/return plain objects to avoid the import cycle.
 
 ## Consequences
 
-- **One canonical type** — new code imports `AuditFinding` from `@strata/scene`
+- **One canonical type** — new code imports `AuditFinding` from `@varve/scene`
 - **Backward compatible** — shared type still exists with deprecation notice
 - **Bridge converters** — intelligence subsystem can convert at its boundary
 - **Forward-compat** — `metadata?: Record<string, unknown>` on scene type absorbs

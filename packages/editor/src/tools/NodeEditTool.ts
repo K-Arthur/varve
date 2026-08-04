@@ -5,9 +5,9 @@
  * Manages per-anchor selection, drag-move, delete, and corner/smooth toggle.
  * Exits back to 'select' on Escape or V.
  */
-import type { PathPoint } from '@strata/engine';
-import { applyAffine, invertAffine } from '@strata/engine';
-import type { ShapeNode } from '@strata/scene';
+import type { PathPoint } from '@varve/engine';
+import { applyAffine, invertAffine } from '@varve/engine';
+import type { ShapeNode } from '@varve/scene';
 import { nodeWorldTransform } from '../scene/world';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';

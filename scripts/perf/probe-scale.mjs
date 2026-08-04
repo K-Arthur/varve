@@ -82,7 +82,7 @@ await page.waitForTimeout(1500);
 // Steady-state frame cost (idle redraws).
 await page.waitForTimeout(800);
 const idle = await page.evaluate(() => {
-  const f = window.__strataPerf ? window.__strataPerf.getFrames(60) : [];
+  const f = window.__varvePerf ? window.__varvePerf.getFrames(60) : [];
   return {
     total: f.map((x) => x.totalMs),
     build: f.map((x) => x.buildIrMs),
@@ -105,7 +105,7 @@ console.log('  otherMs  ', JSON.stringify(summary(idle.other)));
 
 // Zoom interaction via real CDP wheel.
 const zoom = await page.evaluate(async () => {
-  const perf = window.__strataPerf;
+  const perf = window.__varvePerf;
   if (!perf) return { err: 'no-perf' };
   const c = document.querySelector('canvas.editor-canvas__content-layer');
   const rect = c.getBoundingClientRect();
@@ -158,7 +158,7 @@ if (zoom.frameTotal) {
 // Pan via CDP drag (space+move).
 console.log('\nPAN via CDP drag...');
 await page.evaluate(async () => {
-  const perf = window.__strataPerf;
+  const perf = window.__varvePerf;
   if (perf) perf.reset();
 });
 const panStart = Date.now();
@@ -174,7 +174,7 @@ await page.keyboard.up('Space');
 const panMs = Date.now() - panStart;
 await page.waitForTimeout(600);
 const panDiag = await page.evaluate(() => {
-  const f = window.__strataPerf ? window.__strataPerf.getFrames(40) : [];
+  const f = window.__varvePerf ? window.__varvePerf.getFrames(40) : [];
   return {
     total: f.map((x) => x.totalMs),
     build: f.map((x) => x.buildIrMs),

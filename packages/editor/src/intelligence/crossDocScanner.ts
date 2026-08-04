@@ -1,5 +1,5 @@
-import type { Platform } from '@strata/platform';
-import type { Document } from '@strata/scene';
+import type { Platform } from '@varve/platform';
+import type { Document } from '@varve/scene';
 
 export interface CrossDocIssue {
   fileId: string;

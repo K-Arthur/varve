@@ -11,7 +11,7 @@ import {
   primaryColor,
   resolveNodeFills,
   solidFill,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 describe('solidFill', () => {

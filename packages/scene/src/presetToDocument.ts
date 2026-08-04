@@ -1,11 +1,11 @@
 /**
  * Maps a shared, framework-agnostic Preset into scene's CreateDocumentOptions
  * / Document. This is the one place a Preset's plain-string colorProfileId
- * becomes a real ColorProfileRef — @strata/shared can't depend on
- * @strata/scene (scene depends on shared, not the reverse), so the preset
+ * becomes a real ColorProfileRef — @varve/shared can't depend on
+ * @varve/scene (scene depends on shared, not the reverse), so the preset
  * only carries an id; resolving it to an actual profile happens here.
  */
-import type { Preset } from '@strata/shared';
+import type { Preset } from '@varve/shared';
 import { CMYK_PROFILES, type ColorProfileRef, RGB_PROFILES, uniformBleed } from './colorManagement';
 import { type CreateDocumentOptions, createDocument, type Document } from './document';
 

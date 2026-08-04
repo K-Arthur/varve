@@ -1,4 +1,4 @@
-import { Button, Dialog, Icon } from '@strata/ui';
+import { Button, Dialog, Icon } from '@varve/ui';
 import { useState } from 'react';
 
 export interface FormatMigrationResult {

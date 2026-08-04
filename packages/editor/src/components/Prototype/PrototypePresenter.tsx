@@ -1,6 +1,6 @@
-import { prefersReducedMotion } from '@strata/prototype';
-import type { Document, NodeId } from '@strata/scene';
-import { Icon } from '@strata/ui';
+import { prefersReducedMotion } from '@varve/prototype';
+import type { Document, NodeId } from '@varve/scene';
+import { Icon } from '@varve/ui';
 import { type CSSProperties, useCallback, useEffect, useMemo } from 'react';
 import { computeSmartAnimateHotspotOverrides } from '../../motion/smartAnimateBridge';
 import { DeviceFrame } from './DeviceFrame';

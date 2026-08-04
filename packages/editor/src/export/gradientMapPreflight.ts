@@ -5,7 +5,7 @@
  * rasterized. That preserves appearance but loses editability — surface this
  * to the user before/during export rather than silently flattening.
  */
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 
 /** True when the node (or its subtree) carries a gradient-map adjustment. */
 export function subtreeHasGradientMap(node: SceneNode, doc: Document): boolean {

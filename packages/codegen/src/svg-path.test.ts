@@ -1,5 +1,5 @@
-import type { Document } from '@strata/scene';
-import { addChild, createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
+import type { Document } from '@varve/scene';
+import { addChild, createDocument, makeGroupNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeDocumentBounds, exportDocumentToSvg } from './index';
 import { exportNodeToSvg } from './svg';

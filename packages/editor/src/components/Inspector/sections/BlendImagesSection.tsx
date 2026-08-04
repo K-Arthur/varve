@@ -10,10 +10,10 @@
  * to plug into. This is an honest scoping of what RIFE actually does
  * (blend two real bitmaps) rather than a forced Motion-mode tie-in.
  */
-import { decodeRifeOutput, getInferenceWorkerHost, getModelLoader } from '@strata/engine';
-import type { NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button, Select } from '@strata/ui';
+import { decodeRifeOutput, getInferenceWorkerHost, getModelLoader } from '@varve/engine';
+import type { NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { pickSoleOutputTensor } from '../../../inferenceOutputs';

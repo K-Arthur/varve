@@ -67,7 +67,7 @@ All intelligence features can be implemented as pure TypeScript functions operat
 | Design fingerprinting (64-dimensional) | ghost | **High** — Strata's design fingerprint feature (S11) uses a similar approach | Proven: ghost ships 64-dimensional fingerprints with temporal tracking |
 | Epsilon-greedy / contextual bandits for adaptive UI | AIDE (billion-user scale), Dionysys, academic papers | **High** — Strata's adaptive toolbar uses recency-weighted frequency | Proven: AIDE shows 34% crash reduction, 41% faster TTI at 2.4B devices |
 | Median-cut color extraction | ImageMagick/Photoshop | **High** — fits OKLCH pipeline, ~200 lines of JS | Proven algorithm, decades of production use |
-| WCAG contrast checking | axe-core/Stark, OPTIK | **High** — math already exists in `@strata/ui/tokens/contrast.ts` | Proven: Strata already has 93/93 WCAG-AA token pairs |
+| WCAG contrast checking | axe-core/Stark, OPTIK | **High** — math already exists in `@varve/ui/tokens/contrast.ts` | Proven: Strata already has 93/93 WCAG-AA token pairs |
 | Constraint solving (Cassowary) | iOS Auto Layout | **Medium** — extends existing flex layout | Proven but complex; defer to Phase 8 |
 | RDP path simplification | Photoshop, Illustrator | **High** — `simplifyPoints()` already in PencilTool | Proven algorithm |
 | Token compliance enforcement | DriftGuard, subpixel, lyse | **High** — Strata's debt scanner covers hardcoded fill/stroke/effect detection | Proven: 3+ dedicated tools do this |
@@ -109,7 +109,7 @@ All intelligence features can be implemented as pure TypeScript functions operat
 | **TDD Guard** | 12 tests: solid/gradient/transparent/text/edge cases, auto-fix DEok bounds, AA vs AAA thresholds |
 | **Gimmick Check** | PASS — genuinely useful (legal compliance + time saved), defensible (integrated, not plugin), cost-effective (pure math), faster than external tools, users will rely on it |
 
-**Existing infrastructure:** `colorConversion.ts` (sRGB to OKLCH), `@strata/ui/tokens/contrast.ts` (WCAG 2.2 contrast math), `audit:tokens` (93 WCAG-AA pairs), `ManagedColor` type system.
+**Existing infrastructure:** `colorConversion.ts` (sRGB to OKLCH), `@varve/ui/tokens/contrast.ts` (WCAG 2.2 contrast math), `audit:tokens` (93 WCAG-AA pairs), `ManagedColor` type system.
 
 ---
 
@@ -139,15 +139,15 @@ All intelligence features can be implemented as pure TypeScript functions operat
 | **Problem Solved** | Pencil/freehand drawing produces thousands of jagged points. Paths are heavy, uneditable, and visually rough. |
 | **User Benefit** | Post-draw RDP simplification reduces point count while preserving shape. Bezier curve fitting converts freehand strokes into smooth, editable curves. User-controlled threshold via slider. |
 | **Investor Narrative** | "Strata's pencil tool produces production-ready vector paths, not rough sketches. Competing tools require manual point reduction in a separate app." |
-| **Technical Approach** | RDP (Ramer-Douglas-Peucker) for simplification: O(N log N). Least-squares cubic bezier fitting for smoothing: O(N) tridiagonal solve. Both are proven, deterministic algorithms. Existing `simplifyPoints()` in `@strata/editor/tools/fitting.ts` is the integration point. |
+| **Technical Approach** | RDP (Ramer-Douglas-Peucker) for simplification: O(N log N). Least-squares cubic bezier fitting for smoothing: O(N) tridiagonal solve. Both are proven, deterministic algorithms. Existing `simplifyPoints()` in `@varve/editor/tools/fitting.ts` is the integration point. |
 | **Estimated Complexity** | Low (2 days) |
-| **Cost Profile** | $0 — pure math, existing bezier infrastructure in `@strata/shared/bezier.ts` |
+| **Cost Profile** | $0 — pure math, existing bezier infrastructure in `@varve/shared/bezier.ts` |
 | **Scalability** | O(N log N) for RDP, O(N) for bezier fit. <2ms for 1000-point path. |
 | **Risks & Edge Cases** | Over-simplification destroys intentional detail: user-controlled epsilon threshold is mandatory. Sharp corners: detect angle threshold before simplifying across them. Complex silhouettes: offer preview before committing. |
 | **TDD Guard** | 8 tests: simple path simplification, bezier fitting accuracy, sharp corner preservation, threshold bounds |
 | **Gimmick Check** | PASS — solves real pain (jagged paths), defensible (integrated post-draw), cost-effective, faster than external cleanup, users rely on it |
 
-**Existing infrastructure:** `simplifyPoints` in `@strata/editor/tools/fitting.ts`, `cubicBezierPoint`/`cubicBezierSplit` in `@strata/shared/bezier.ts`.
+**Existing infrastructure:** `simplifyPoints` in `@varve/editor/tools/fitting.ts`, `cubicBezierPoint`/`cubicBezierSplit` in `@varve/shared/bezier.ts`.
 
 ---
 

@@ -7,7 +7,7 @@
  * @module AuditKeyboardNav
  */
 
-import type { AuditFinding } from '@strata/shared';
+import type { AuditFinding } from '@varve/shared';
 import { useCallback, useEffect, useRef } from 'react';
 
 interface AuditKeyboardNavOptions {

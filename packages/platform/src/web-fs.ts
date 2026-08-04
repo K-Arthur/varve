@@ -1,5 +1,5 @@
 /**
- * @strata/platform — browser DOM helpers for file-system access and clipboard.
+ * @varve/platform — browser DOM helpers for file-system access and clipboard.
  *
  * Bridges the WICG File System Access API (Chromium) with a fallback to
  * `<input type=file>` / Blob download for Firefox and Safari. Clipboard
@@ -25,7 +25,7 @@ export function getWindow(): (Window & WindowWithFsAccess) | undefined {
   return typeof window !== 'undefined' ? (window as Window & WindowWithFsAccess) : undefined;
 }
 
-export const STRATA_ACCEPT = [
+export const VARVE_ACCEPT = [
   { description: 'Strata document', accept: { 'application/json': ['.strata'] } },
 ];
 

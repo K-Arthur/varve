@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import {
   addChild,
   addNode,
@@ -9,8 +9,8 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-} from '@strata/scene';
-import { DEFAULT_ARTWORK_FONT_FAMILY } from '@strata/shared';
+} from '@varve/scene';
+import { DEFAULT_ARTWORK_FONT_FAMILY } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   computeDocumentBounds,
@@ -40,7 +40,7 @@ function sceneWithText(): Document {
 
 describe('PACKAGE', () => {
   it('exposes package marker', () => {
-    expect(PACKAGE).toBe('@strata/codegen');
+    expect(PACKAGE).toBe('@varve/codegen');
   });
 });
 

@@ -2,7 +2,7 @@
  * Destination picker — folder selection and filename template with preview.
  */
 
-import type { ExportBatch, ExportJob } from '@strata/scene';
+import type { ExportBatch, ExportJob } from '@varve/scene';
 import { useMemo } from 'react';
 import { applyExportBatchPaths } from '../../exportBatchPaths';
 

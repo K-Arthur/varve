@@ -1,4 +1,4 @@
-import type { Timeline } from '@strata/scene';
+import type { Timeline } from '@varve/scene';
 
 function formatValues(keyframes: { value: unknown }[]): string {
   return keyframes.map((k) => String(k.value)).join(';');

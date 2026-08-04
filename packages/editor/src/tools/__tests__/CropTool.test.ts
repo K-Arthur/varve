@@ -1,7 +1,7 @@
 /**
  * CropTool tests — activation, Esc cancel, Enter commit.
  */
-import { createDocument, makeImageShapeNode, makeShapeNode } from '@strata/scene';
+import { createDocument, makeImageShapeNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { CropTool } from '../CropTool';
 

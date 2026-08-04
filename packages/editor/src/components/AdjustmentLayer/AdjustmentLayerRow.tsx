@@ -1,7 +1,7 @@
-import { filterKindDisplayName } from '@strata/engine';
-import type { AdjustmentNode, NodeId } from '@strata/scene';
-import { adjustmentEnabledCount } from '@strata/scene';
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import { filterKindDisplayName } from '@varve/engine';
+import type { AdjustmentNode, NodeId } from '@varve/scene';
+import { adjustmentEnabledCount } from '@varve/scene';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import './adjustment.css';
 

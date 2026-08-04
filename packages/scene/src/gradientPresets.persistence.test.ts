@@ -3,7 +3,7 @@
  * 2.10 -> 2.11 migration.
  */
 
-import { makeAdjustment } from '@strata/engine';
+import { makeAdjustment } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { createDocument } from './document';
 import { DocumentCodec } from './documentCodec';

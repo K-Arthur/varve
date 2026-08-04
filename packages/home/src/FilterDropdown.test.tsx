@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import type { FileKind } from '@strata/platform';
 import { fireEvent, render } from '@testing-library/react';
+import type { FileKind } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { FilterDropdown } from './FilterDropdown';
 

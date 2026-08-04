@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
 import '@testing-library/jest-dom/vitest';
-import type { Platform } from '@strata/platform';
 import { render, screen, waitFor } from '@testing-library/react';
+import type { Platform } from '@varve/platform';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HomeShell } from './HomeShell';
 

@@ -7,7 +7,7 @@
  * @module preflightAudit
  */
 
-import type { AuditFinding, AuditSeverity } from '@strata/shared';
+import type { AuditFinding, AuditSeverity } from '@varve/shared';
 import type { AuditCache } from './auditCache';
 import type { AuditPipeline, PipelineOptions } from './auditPipeline';
 

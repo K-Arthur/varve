@@ -1,5 +1,5 @@
 {
-  "name": "@strata/compositor",
+  "name": "@varve/compositor",
   "version": "0.0.0",
   "private": true,
   "description": "Pluggable render compositor: Canvas2D baseline, WebGPU when available.",
@@ -16,8 +16,8 @@
     "test": "cd ../.. && vitest run packages/compositor"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/shared": "workspace:*"
+    "@varve/engine": "workspace:*",
+    "@varve/shared": "workspace:*"
   },
   "devDependencies": {
     "@webgpu/types": "^0.1.71"

@@ -1,6 +1,6 @@
-import type { ManagedColor } from '@strata/scene';
-import { managedColorToCss } from '@strata/shared';
-import { Dialog, Select, Tooltip } from '@strata/ui';
+import type { ManagedColor } from '@varve/scene';
+import { managedColorToCss } from '@varve/shared';
+import { Dialog, Select, Tooltip } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import type { MappingMode, MappingResult } from '../intelligence/paletteMapper';
 

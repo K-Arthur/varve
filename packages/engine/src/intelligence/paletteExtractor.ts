@@ -5,11 +5,11 @@ import {
   managedColorToRgba,
   oklabToOkLch,
   srgbToLinear,
-} from '@strata/shared';
+} from '@varve/shared';
 
 /**
  * Local ManagedColor alias matching scene's discriminated union. The union
- * itself lives in @strata/shared (ManagedColorShim) so palette extraction
+ * itself lives in @varve/shared (ManagedColorShim) so palette extraction
  * accepts every variant the scene model can store.
  */
 type ManagedColor = ManagedColorShim;

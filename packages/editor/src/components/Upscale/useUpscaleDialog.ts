@@ -10,7 +10,7 @@ import type {
   PixelArtAlgorithm,
   UpscaleModeId,
   UpscaleProgressFn,
-} from '@strata/engine';
+} from '@varve/engine';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 

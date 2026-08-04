@@ -7,7 +7,7 @@
  *
  * Timelines are stored on Document.timelines as Record<string, Timeline>.
  */
-import type { EasingDefinition } from '@strata/shared';
+import type { EasingDefinition } from '@varve/shared';
 import type { Document } from './document';
 import type { AnimationKeyframe, AnimationTrack, Timeline } from './motion-types';
 import { makeTimelineObject } from './motion-types';

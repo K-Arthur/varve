@@ -3,12 +3,12 @@ import type {
   GradientMapLuminanceMode,
   GradientMapOpacityStop,
   GradientMapStop,
-} from '@strata/engine';
-import type { GradientInterpolationSpace, ManagedColor } from '@strata/scene';
-import { rgbFromTuple } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
-import { Select } from '@strata/ui';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
+} from '@varve/engine';
+import type { GradientInterpolationSpace, ManagedColor } from '@varve/scene';
+import { rgbFromTuple } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { Select } from '@varve/ui';
+import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 
 function colorToManaged(c: Color): ManagedColor {

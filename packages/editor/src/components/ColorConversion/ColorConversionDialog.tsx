@@ -15,8 +15,8 @@
  * Research basis: ADR-0009 document color architecture, ICC.1:2010.
  */
 
-import type { ColorMode } from '@strata/scene';
-import { Dialog } from '@strata/ui';
+import type { ColorMode } from '@varve/scene';
+import { Dialog } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import { useEditor } from '../../context';
 import './color-conversion.css';

@@ -1,4 +1,4 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 
 export interface SmartDefaults {
   frameSize: { w: number; h: number };

@@ -1,4 +1,4 @@
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import {
   getParent,
   imageShapeH,
@@ -6,7 +6,7 @@ import {
   isImageShape,
   shapeHeight,
   shapeWidth,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export interface NamingSuggestion {
   name: string;

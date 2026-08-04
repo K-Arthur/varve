@@ -6,14 +6,14 @@ import type {
   BackupStorageInfo,
   BackupType,
   RetentionConfig,
-} from '@strata/engine';
+} from '@varve/engine';
 import {
   BackupEngine,
   type BackupStore,
   createBackupStore,
   DEFAULT_RETENTION,
-} from '@strata/engine';
-import { isTauriRuntime } from '@strata/platform';
+} from '@varve/engine';
+import { isTauriRuntime } from '@varve/platform';
 
 export type IncludeAssetsPolicy = 'none' | 'used' | 'all';
 

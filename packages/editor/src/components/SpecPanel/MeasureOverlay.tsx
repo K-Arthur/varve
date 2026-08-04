@@ -9,8 +9,8 @@
  * Research basis: Figma Dev Mode redline measurements; Zeplin dimension overlays.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
-import { computeFloatingOrigin, worldToScreen as sharedWorldToScreen } from '@strata/shared';
+import type { Document, SceneNode } from '@varve/scene';
+import { computeFloatingOrigin, worldToScreen as sharedWorldToScreen } from '@varve/shared';
 import { useMemo } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
 import { edgeDistance, worldBBox } from './measurement';

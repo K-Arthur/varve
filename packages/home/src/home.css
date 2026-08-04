@@ -1,4 +1,4 @@
-.strata-home {
+.varve-home {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
   grid-template-rows: auto auto 1fr;
@@ -9,21 +9,21 @@
   color: var(--color-text-primary);
   container-type: inline-size;
 }
-.strata-home--collapsed {
+.varve-home--collapsed {
   grid-template-columns: 0 1fr;
 }
-.strata-home--drag-over {
+.varve-home--drag-over {
   outline: 3px dashed var(--color-accent-primary);
   outline-offset: -3px;
   background: var(--color-accent-subtle);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .strata-home__sidebar {
+  .varve-home__sidebar {
     transition: none;
   }
 }
-.strata-home__sidebar {
+.varve-home__sidebar {
   grid-row: 1 / 4;
   grid-column: 1;
   display: flex;
@@ -37,15 +37,15 @@
   --color-text-muted: var(--color-text-muted-on-raised);
   --color-text-subtle: var(--color-text-subtle-on-raised);
 }
-.strata-home--collapsed .strata-home__sidebar {
+.varve-home--collapsed .varve-home__sidebar {
   width: 0;
   overflow: hidden;
 }
-.strata-home__sidebar-toggle {
+.varve-home__sidebar-toggle {
   display: none;
 }
 
-.strata-home__toolbar {
+.varve-home__toolbar {
   grid-row: 1;
   grid-column: 2;
   display: flex;
@@ -57,20 +57,20 @@
   background: var(--color-surface-app);
   min-height: 40px;
 }
-.strata-home__toolbar-left {
+.varve-home__toolbar-left {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   flex-shrink: 0;
 }
-.strata-home__toolbar-right {
+.varve-home__toolbar-right {
   display: flex;
   align-items: center;
   gap: var(--space-05);
   flex-shrink: 0;
 }
 
-.strata-home__content {
+.varve-home__content {
   grid-row: 3;
   grid-column: 2;
   overflow-y: auto;
@@ -552,7 +552,7 @@
     var(--color-surface-sunken) 70%
   );
   background-size: 200% 100%;
-  /* keyframes defined in @strata/ui ContentSkeleton.css */
+  /* keyframes defined in @varve/ui ContentSkeleton.css */
   animation: skeleton-shimmer 1.5s ease-in-out infinite;
 }
 .file-card__body {
@@ -831,7 +831,7 @@
   letter-spacing: 0.06em;
   color: var(--color-text-muted);
 }
-/* Print/device/social presets now render via @strata/ui's PresetPicker/
+/* Print/device/social presets now render via @varve/ui's PresetPicker/
  * PresetTile (preset-picker.css) — see NewFileDialog.tsx. */
 .new-file__save-preset-row {
   display: flex;
@@ -1066,13 +1066,13 @@
 }
 
 @container (max-width: 48rem) {
-  .strata-home {
+  .varve-home {
     grid-template-columns: 1fr;
   }
-  .strata-home__sidebar {
+  .varve-home__sidebar {
     display: none;
   }
-  .strata-home__sidebar--open {
+  .varve-home__sidebar--open {
     display: flex;
     position: fixed;
     inset: 0;
@@ -1082,7 +1082,7 @@
   .drawer-overlay--visible {
     display: block;
   }
-  .strata-home__sidebar-toggle {
+  .varve-home__sidebar-toggle {
     display: flex;
   }
 }
@@ -2673,7 +2673,7 @@
 }
 
 /* ─── Batch Actions Bar ─────────────────────────────── */
-.strata-home__batch-bar {
+.varve-home__batch-bar {
   grid-row: 2;
   grid-column: 2;
 }

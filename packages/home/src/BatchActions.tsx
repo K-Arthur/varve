@@ -1,5 +1,5 @@
-import type { Project } from '@strata/platform';
-import { Button, Icon, Tooltip } from '@strata/ui';
+import type { Project } from '@varve/platform';
+import { Button, Icon, Tooltip } from '@varve/ui';
 
 export interface BatchActionsProps {
   selectedCount: number;

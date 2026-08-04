@@ -4,8 +4,8 @@
  * Research basis: Canva / Figma contextual action bars — sparse, kind-specific
  * actions only where near-canvas affordances beat the inspector.
  */
-import type { Document, NodeId, SceneNode, ShapeNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import type { Document, NodeId, SceneNode, ShapeNode } from '@varve/scene';
+import { isImageShape } from '@varve/scene';
 
 export type QuickBarKind = 'image' | 'path' | 'text' | 'multi';
 

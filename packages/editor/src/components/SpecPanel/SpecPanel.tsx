@@ -7,9 +7,9 @@
  * scene graph with zero network round-trips.
  */
 
-import type { Engine } from '@strata/engine';
-import type { Platform } from '@strata/platform';
-import type { Document, SceneNode, VariableStore } from '@strata/scene';
+import type { Engine } from '@varve/engine';
+import type { Platform } from '@varve/platform';
+import type { Document, SceneNode, VariableStore } from '@varve/scene';
 import { useCallback, useRef, useState } from 'react';
 import { type Annotation, AnnotationsDisplay } from './AnnotationsDisplay';
 import { AssetExportControls } from './AssetExportControls';

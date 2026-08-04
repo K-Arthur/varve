@@ -7,7 +7,7 @@
  * workflow without GPL Potrace).
  */
 
-import { linearSrgbToOklab, srgbToLinear } from '@strata/shared';
+import { linearSrgbToOklab, srgbToLinear } from '@varve/shared';
 
 export interface RasterTracePoint {
   x: number;

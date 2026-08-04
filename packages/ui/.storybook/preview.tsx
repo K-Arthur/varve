@@ -1,6 +1,6 @@
 import type { Preview } from '@storybook/react';
 
-import '@strata/ui/tokens.css';
+import '@varve/ui/tokens.css';
 import '@fontsource-variable/geist/index.css';
 import '@fontsource-variable/ibm-plex-sans/index.css';
 

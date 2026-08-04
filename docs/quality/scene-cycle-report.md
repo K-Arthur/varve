@@ -67,16 +67,16 @@ artifact: `auditFinding.ts` re-exported `suppressions.ts`'s public API as a barr
 
 - Removed the re-export from `auditFinding.ts` (it had zero internal use — pure facade).
 - Added `export * from './suppressions';` to `packages/scene/src/index.ts` (the package's real
-  public barrel) so `@strata/scene`'s external surface is unchanged.
+  public barrel) so `@varve/scene`'s external surface is unchanged.
 - Repointed the one internal consumer that relied on the barrel path —
   `auditEngine.ts` imported `isSuppressed` and the `SuppressionEntry` type from `./auditFinding`;
   both now come from `./suppressions` directly.
 - Grepped the whole repo for other consumers of `SuppressionEntry`/`applySuppressions`/
   `buildSuppression`/`isSuppressed`: `packages/editor/src/panels/IntelligencePanel.tsx` imports
-  `SuppressionEntry` from `@strata/scene` (the package barrel, unaffected by this change) — no
+  `SuppressionEntry` from `@varve/scene` (the package barrel, unaffected by this change) — no
   other internal or cross-package consumer existed.
 
-`madge --circular` on scene: 7 → 6. Verified: `pnpm --filter @strata/scene typecheck` shows zero
+`madge --circular` on scene: 7 → 6. Verified: `pnpm --filter @varve/scene typecheck` shows zero
 new errors (pre-existing errors are all in `findReplace.test.ts`, unrelated WIP, confirmed absent
 from this diff's files); `auditFinding.test.ts` (21), `suppressions.test.ts` (32),
 `auditEngine.test.ts` (30) — 83/83 passing; full scene suite — 1579/1583 passing, the 3 failures in

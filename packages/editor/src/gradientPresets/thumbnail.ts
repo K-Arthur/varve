@@ -5,8 +5,8 @@
  * interpolation space so the thumbnail matches the renderer). Opacity stops
  * are composited into the sampled alpha so previews are faithful.
  */
-import type { GradientPreset } from '@strata/scene';
-import { expandGradientStops } from '@strata/shared';
+import type { GradientPreset } from '@varve/scene';
+import { expandGradientStops } from '@varve/shared';
 
 function rgba(r: number, g: number, b: number, a: number): string {
   return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${Number(a).toFixed(3)})`;

@@ -1,6 +1,6 @@
-import { exportDocumentToSvg } from '@strata/codegen';
-import { extractPalette as engineExtractPalette } from '@strata/engine';
-import type { TextNode } from '@strata/scene';
+import { exportDocumentToSvg } from '@varve/codegen';
+import { extractPalette as engineExtractPalette } from '@varve/engine';
+import type { TextNode } from '@varve/scene';
 import { executeNudge, getNudgeStep } from '../commands/nudge';
 import type { EditorContextValue, ToolId } from '../context';
 import { startTextEditing } from '../context';

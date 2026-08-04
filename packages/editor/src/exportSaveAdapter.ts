@@ -5,9 +5,9 @@
  * binary Blob/Uint8Array flows over text/data-URL round trips for large assets.
  */
 
-import type { Platform } from '@strata/platform';
-import type { ExportFormat, ExportJob } from '@strata/scene';
-import { sanitizeSegment } from '@strata/scene/export';
+import type { Platform } from '@varve/platform';
+import type { ExportFormat, ExportJob } from '@varve/scene';
+import { sanitizeSegment } from '@varve/scene/export';
 import { zipSync } from 'fflate';
 import type { ExportRunContext } from './exportService';
 

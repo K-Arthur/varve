@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ExportJob } from '@strata/scene';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ExportJob } from '@varve/scene';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BatchJobList } from './BatchJobList';
 

@@ -1,13 +1,13 @@
 // @vitest-environment jsdom
 
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import {
   addInteraction,
   addNode,
   createDocument,
   makeFrameNode,
   makeShapeNode,
-} from '@strata/scene';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+} from '@varve/scene';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from '../../context';
 import { PrototypeFlowView } from './PrototypeFlowView';
@@ -34,7 +34,7 @@ function buildFlowDoc() {
     rootChildren: ['f1', 'f2'],
     nodes: {
       ...doc.nodes,
-      f1: { ...(doc.nodes.f1 as import('@strata/scene').FrameNode), children: ['btn1'] },
+      f1: { ...(doc.nodes.f1 as import('@varve/scene').FrameNode), children: ['btn1'] },
     },
   };
   const { doc: withIx, id: interactionId } = addInteraction(doc, 'btn1', {

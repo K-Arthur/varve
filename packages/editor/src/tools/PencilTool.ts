@@ -9,8 +9,8 @@
  *                 Schneider, P. Graphics Gems (1990).
  */
 
-import type { PathPoint } from '@strata/engine';
-import { OneEuroFilter, oneEuroFilterPoint, strokePoint } from '@strata/scene';
+import type { PathPoint } from '@varve/engine';
+import { OneEuroFilter, oneEuroFilterPoint, strokePoint } from '@varve/scene';
 import {
   cancelEditorFrame,
   createEditorFrameKey,

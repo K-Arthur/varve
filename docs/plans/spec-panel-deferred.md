@@ -87,8 +87,8 @@ The current `CodeGenView` uses plain `<pre><code>` without syntax highlighting.
 ### Tree-shaken Prism (lightweight)
 
 ```bash
-pnpm add prismjs --filter @strata/editor
-pnpm add -D @types/prismjs --filter @strata/editor
+pnpm add prismjs --filter @varve/editor
+pnpm add -D @types/prismjs --filter @varve/editor
 ```
 
 Create `packages/editor/src/components/SpecPanel/syntax.ts`:
@@ -179,7 +179,7 @@ tauri::Builder::default()
 "permissions": ["core:default", "dialog:default", "fs:default"]
 ```
 
-4. Create `saveBlob` on `@strata/platform` `Platform` interface and implement in `tauri.ts` using the dialog plugin + `plugin:fs|write_file`.
+4. Create `saveBlob` on `@varve/platform` `Platform` interface and implement in `tauri.ts` using the dialog plugin + `plugin:fs|write_file`.
 
 ---
 

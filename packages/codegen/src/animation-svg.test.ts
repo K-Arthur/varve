@@ -1,4 +1,4 @@
-import { createKeyframe, makeTimelineObject } from '@strata/scene';
+import { createKeyframe, makeTimelineObject } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { timelineToSVGAnimations } from './animation-svg';
 

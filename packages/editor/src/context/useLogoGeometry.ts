@@ -8,7 +8,7 @@
  * ../geometry/vectorOps.ts (pure, unit-tested); this hook only owns
  * selection/undo/announce orchestration.
  */
-import type { ShapeNode } from '@strata/scene';
+import type { ShapeNode } from '@varve/scene';
 import { useCallback } from 'react';
 import type { CanvasAnnouncer } from '../canvas/CanvasAnnouncer';
 import {

@@ -1,4 +1,4 @@
-import type { Document, ManagedColor } from '@strata/scene';
+import type { Document, ManagedColor } from '@varve/scene';
 
 export interface DesignFingerprint {
   colors: Array<{ color: ManagedColor; count: number }>;

@@ -1,4 +1,4 @@
-import { createDocument, makeImageShapeNode } from '@strata/scene';
+import { createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { insertDerivedImageShape, insertTraceGroup, selectedImageShape } from './imageOperations';
 

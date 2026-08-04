@@ -149,8 +149,8 @@ complete web *and* print pipeline, even though nothing user-reachable broke
       Tauri commands `export_pdfx1a` / `export_pdfx4` (Rust
       `strata_print::cmyk::*`) with the camelCase `PdfXOptions` payload the
       command deserializes. Mirrors `exportNodeAsPdf`'s bridge rather than
-      taking a new `@strata/print` dependency in the editor — and deliberately
-      does *not* fall back to the `@strata/print` stub, which emits a
+      taking a new `@varve/print` dependency in the editor — and deliberately
+      does *not* fall back to the `@varve/print` stub, which emits a
       placeholder rather than a real PDF.
 - [x] Still desktop-only by capability contract: on web it throws with the
       format label instead of writing an invalid press file.

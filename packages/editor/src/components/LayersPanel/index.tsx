@@ -5,8 +5,8 @@
  * Research basis: W3C APG Tree View, Menu pattern (for context menu).
  */
 
-import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
+import type { ContainerNode, LayerColor, NodeId, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
 import {
   ContextMenu,
   type MenuEntry,
@@ -14,7 +14,7 @@ import {
   SolidIcon,
   Tooltip,
   TooltipProvider,
-} from '@strata/ui';
+} from '@varve/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
@@ -162,7 +162,7 @@ export function LayersPanel({ dndRef }: { dndRef?: React.RefObject<LayersDnDHand
       const node = state.document.nodes[id];
       if (node) {
         const current = node.snapExcluded === true;
-        updateNode(id, (n: import('@strata/scene').SceneNode) => ({
+        updateNode(id, (n: import('@varve/scene').SceneNode) => ({
           ...n,
           snapExcluded: !current,
         }));

@@ -6,8 +6,8 @@
  * hand-written literals instead of importing from a registry).
  */
 
-import { activePageNodes } from '@strata/scene';
 import { render, waitFor } from '@testing-library/react';
+import { activePageNodes } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { EditorProvider, useEditor } from './context';
 

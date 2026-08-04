@@ -20,7 +20,7 @@
  * O(n²) over at most `maxInputs` rectangles.
  */
 
-import type { Rect } from '@strata/shared';
+import type { Rect } from '@varve/shared';
 import {
   computeDocumentDirtyRegion,
   type DirtyRegion,
@@ -54,8 +54,8 @@ export function computeMergedDirtyRegion(
  * redraw (caller records it on the node-work counters).
  */
 export function computeFrameDirtyRegion(opts: {
-  previous: import('@strata/scene').Document;
-  next: import('@strata/scene').Document;
+  previous: import('@varve/scene').Document;
+  next: import('@varve/scene').Document;
   recorder: DirtyRegionRecorder;
   parentIndex?: Map<string, string>;
   worldToScreen: (wx: number, wy: number) => readonly [number, number];

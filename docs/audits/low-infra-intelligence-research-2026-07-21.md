@@ -38,7 +38,7 @@ server cost."*
 |---|---|
 | **Research Origin** | WCAG 2.2 contrast algorithms + OKLCH perceptual uniformity (already prototyped in Strata's `contrast.ts` / `audit.ts`). Gap: existing fixes change one swatch at a time, breaking brand color harmony across a document. |
 | **Practical Value** | One click that recolors *every* failing text/UI element across all three themes simultaneously, locking the **perceptual delta** (ΔEOK < 5) so brand colors remain visually identical post-fix. Eliminates the #1 WCAG failure class in shipped design files. |
-| **Data Sources** | **None.** Pure deterministic math. Relative luminance (IEC 61966-2-1), OKLCH→sRGB conversion, binary-search lightness adjustment. Already in Strata's `@strata/engine`. |
+| **Data Sources** | **None.** Pure deterministic math. Relative luminance (IEC 61966-2-1), OKLCH→sRGB conversion, binary-search lightness adjustment. Already in Strata's `@varve/engine`. |
 | **Infrastructure** | 0 KB network, 0 API keys, <2ms per node on a 1000-node document. |
 
 **How it works:**
@@ -138,11 +138,11 @@ ownership, each is a single subagent's two-day slice.
 
 ### Feature 1 — Accessibility Batch Recoloring
 
-- [ ] **Task 1.1:** Implement `recolorAllFailingPairs(doc, opts): { doc, changes }[]` pure function in `@strata/scene`. Input: doc. Output: per-node recoloring batch + ΔEOK deltas. No UI, no framework.
+- [ ] **Task 1.1:** Implement `recolorAllFailingPairs(doc, opts): { doc, changes }[]` pure function in `@varve/scene`. Input: doc. Output: per-node recoloring batch + ΔEOK deltas. No UI, no framework.
 - [ ] **Task 1.2:** Add `batchRecolorForContrast()` to `EditorContextValue` + `context.tsx` provider. Wraps 1.1, applies via `updateDoc`, single undo step.
 - [ ] **Task 1.3:** Add "Harmonize Accessibility" button to `IntelligencePanel` `AuditTab`. Calls 1.2. Shows count of fixes applied with "Undo" link.
 - [ ] **Task 1.4:** Wire to `ActionRegistry` + `Menubar` Object menu + `QuickActionsBar`. Keyword: "harmonize contrast".
-- [ ] **Task 1.5:** Write `recolorBatch.test.ts` — 7 tests from §3 above. Run `pnpm test` on `@strata/scene`. Gate before commit.
+- [ ] **Task 1.5:** Write `recolorBatch.test.ts` — 7 tests from §3 above. Run `pnpm test` on `@varve/scene`. Gate before commit.
 
 ### Feature 2 — Idle-Time Asset Variant Pre-computation
 

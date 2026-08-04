@@ -3,13 +3,13 @@
  * creation, frame resizing, and new-document creation alike. Consumers read
  * only the fields relevant to their workflow: frame create/resize never
  * reads colorMode/dpi/bleed, since frames have no color mode (only documents
- * do — see @strata/scene's Document.colorConfig).
+ * do — see @varve/scene's Document.colorConfig).
  *
- * Lives in @strata/shared (the dependency-free leaf package) so it can be
- * consumed by @strata/editor and @strata/home without either depending on
+ * Lives in @varve/shared (the dependency-free leaf package) so it can be
+ * consumed by @varve/editor and @varve/home without either depending on
  * the other. Color profile recommendations are kept as a plain string id
- * here (colorProfileId) rather than @strata/scene's rich ColorProfileRef,
- * since scene depends on shared and not the reverse — @strata/scene resolves
+ * here (colorProfileId) rather than @varve/scene's rich ColorProfileRef,
+ * since scene depends on shared and not the reverse — @varve/scene resolves
  * the id to a real profile at document-creation time.
  */
 import type { DocumentUnit } from './units';
@@ -37,7 +37,7 @@ export type PresetCategory =
  */
 export type PresetOrientation = 'portrait' | 'landscape' | 'square' | 'any';
 
-/** RGB/CMYK/grayscale — canonical definition. @strata/scene re-exports this
+/** RGB/CMYK/grayscale — canonical definition. @varve/scene re-exports this
  *  rather than defining its own, to remove a prior duplicate type. */
 export type ColorMode = 'rgb' | 'cmyk' | 'grayscale';
 
@@ -76,7 +76,7 @@ export interface Preset {
   /** Document-level color mode recommendation. Not applicable to frames. */
   colorMode?: ColorMode;
   /** Recommended color profile id (e.g. 'srgb', 'fogra39') — matches an id in
-   *  @strata/scene's RGB_PROFILES/CMYK_PROFILES registry. */
+   *  @varve/scene's RGB_PROFILES/CMYK_PROFILES registry. */
   colorProfileId?: string;
   /** Bit depth, where the application genuinely supports more than 8bpc. */
   bitDepth?: 8 | 16 | 32;

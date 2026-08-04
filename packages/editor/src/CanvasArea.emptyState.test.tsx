@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { EmptyState } from '@strata/ui';
 import { render, screen } from '@testing-library/react';
+import { EmptyState } from '@varve/ui';
 import { describe, expect, it } from 'vitest';
 
 describe('CanvasArea empty state', () => {

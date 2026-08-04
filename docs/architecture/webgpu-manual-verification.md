@@ -57,7 +57,7 @@ is adopted.
 The script:
 1. Checks prerequisites (`npx`, Playwright).
 2. Checks if `navigator.gpu` is exposed in headless Chromium with SwiftShader.
-3. Starts the dev server (`pnpm --filter @strata/desktop dev`).
+3. Starts the dev server (`pnpm --filter @varve/desktop dev`).
 4. Runs the Playwright WebGPU smoke test (`tests/e2e/webgpu/webgpu-smoke.spec.ts`).
 5. Captures a screenshot of the editor with the compositor diagnostics overlay.
 6. Prints the manual verification checklist from this doc.

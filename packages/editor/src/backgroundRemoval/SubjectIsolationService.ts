@@ -133,7 +133,7 @@ export class SubjectIsolationService {
   private async getEngine(): Promise<SubjectIsolationEngine> {
     if (this.engine) return this.engine;
     if (!this.enginePromise) {
-      this.enginePromise = import('@strata/engine').then((m) => ({
+      this.enginePromise = import('@varve/engine').then((m) => ({
         removeBackground: m.removeBackground as SubjectIsolationEngine['removeBackground'],
       }));
     }

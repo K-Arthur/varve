@@ -1,4 +1,4 @@
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import {
   addChild,
   addNode,
@@ -7,8 +7,8 @@ import {
   makeGroupNode,
   makeImageShapeNode,
   makeShapeNode,
-} from '@strata/scene';
-import { multiplyAffine, rotateDeg } from '@strata/shared';
+} from '@varve/scene';
+import { multiplyAffine, rotateDeg } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   createTransformCache,
@@ -263,7 +263,7 @@ describe('nodeLocalBounds', () => {
         },
       ],
     };
-    const b = nodeLocalBounds(updatedNode as import('@strata/scene').SceneNode);
+    const b = nodeLocalBounds(updatedNode as import('@varve/scene').SceneNode);
     expect(b).not.toBeNull();
     if (!b) return;
     // Should derive from updated fills, not the stale shape
@@ -650,7 +650,7 @@ describe('transformCache getWorldBounds group handling', () => {
       ...d,
       nodes: {
         ...d.nodes,
-        [gId]: { ...d.nodes[gId], children: ['s1', 's2'] } as import('@strata/scene').SceneNode,
+        [gId]: { ...d.nodes[gId], children: ['s1', 's2'] } as import('@varve/scene').SceneNode,
       },
     };
     const cache = createTransformCache();

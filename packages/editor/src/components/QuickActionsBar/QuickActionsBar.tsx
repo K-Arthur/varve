@@ -7,7 +7,7 @@
  *
  * Research basis: Figma ⌘/ palette, VS Code Ctrl+Shift+P, Penpot shortcuts.
  */
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   useCallback,

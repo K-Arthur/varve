@@ -1,5 +1,5 @@
-import type { Document, NodeId } from '@strata/scene';
-import { renameNode } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { renameNode } from '@varve/scene';
 
 export interface BatchRenameOptions {
   find: string;

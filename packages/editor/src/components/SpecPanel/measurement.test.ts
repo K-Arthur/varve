@@ -1,4 +1,4 @@
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import {
   addChild,
   addNode,
@@ -7,7 +7,7 @@ import {
   makeGroupNode,
   makeShapeNode,
   makeTextNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   type AABB,

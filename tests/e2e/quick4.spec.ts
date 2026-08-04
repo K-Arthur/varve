@@ -13,6 +13,6 @@ test('quick check with errors', async ({ page }) => {
   await page.waitForTimeout(15000);
   console.log('Errors during load:', JSON.stringify(errors, null, 2));
   const html = await page.content();
-  console.log('Has strata-home:', html.includes('strata-home'));
+  console.log('Has varve-home:', html.includes('varve-home'));
   console.log('HTML length:', html.length);
 });

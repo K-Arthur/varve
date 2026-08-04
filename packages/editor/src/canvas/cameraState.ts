@@ -1,7 +1,7 @@
 /**
  * Editor camera helpers — maps EditorState viewport fields to shared Camera type.
  */
-import type { Camera, Point, Rect, Viewport } from '@strata/shared';
+import type { Camera, Point, Rect, Viewport } from '@varve/shared';
 import {
   applyCameraTransform,
   computeFloatingOrigin,
@@ -10,7 +10,7 @@ import {
   rotateAboutScreenPoint,
   screenToWorld,
   worldToScreen,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export interface EditorCameraState {
   zoom: number;

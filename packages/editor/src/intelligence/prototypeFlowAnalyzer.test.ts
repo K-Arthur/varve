@@ -1,6 +1,6 @@
 // @ts-nocheck
-import type { Document, NodeId } from '@strata/scene';
-import { addInteraction, addNode, createDocument, makeFrameNode } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
+import { addInteraction, addNode, createDocument, makeFrameNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { analyzePrototypeFlow } from './prototypeFlowAnalyzer';
 

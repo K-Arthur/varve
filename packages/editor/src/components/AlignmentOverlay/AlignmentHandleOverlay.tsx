@@ -1,4 +1,4 @@
-import { computeFloatingOrigin } from '@strata/shared';
+import { computeFloatingOrigin } from '@varve/shared';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
 import { useEditor } from '../../context';

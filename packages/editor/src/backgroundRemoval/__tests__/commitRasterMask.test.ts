@@ -2,14 +2,14 @@
  * Tests for the native mask commit service.
  *
  * Research basis: immutability contract of addRasterMaskAsset /
- * updateRasterMaskAsset / removeRasterMaskAsset from @strata/scene.
+ * updateRasterMaskAsset / removeRasterMaskAsset from @varve/scene.
  *
  * NOTE: The mask asset dimensions must match the source image fill
  * dimensions per validateSourcePixelDimensions. All test PNGs are 1x1.
  */
 
-import type { Document } from '@strata/scene';
-import { addNode, createDocument, makeImageShapeNode } from '@strata/scene';
+import type { Document } from '@varve/scene';
+import { addNode, createDocument, makeImageShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   commitRasterMask,

@@ -187,7 +187,7 @@ environmental or concurrent-work related, none caused by these changes:
 ## Remaining
 
 - 41 `noArrayIndexKey` warnings — documented deferred
-  (`docs/audits/deferred-lint-debt.md`); need stable IDs in the `@strata/scene`
+  (`docs/audits/deferred-lint-debt.md`); need stable IDs in the `@varve/scene`
   data model or per-site suppression for positional lists.
 - `lint:css` — 4 pre-existing BEM warnings in
   `packages/ui/src/components/components.css` (not in CI).

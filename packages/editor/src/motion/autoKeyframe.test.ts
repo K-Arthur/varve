@@ -8,7 +8,7 @@ import {
   makeShapeNode,
   type NodeId,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { type AutoKeyframeContext, applyAutoKeyframes, shouldAutoKeyframe } from './autoKeyframe';
 

@@ -11,7 +11,7 @@ type Page = {
   contentRoot: string;
 };
 
-vi.mock('@strata/scene', () => ({
+vi.mock('@varve/scene', () => ({
   addPage: vi.fn((doc: unknown) => doc),
   duplicatePage: vi.fn((doc: unknown) => doc),
   removePage: vi.fn((doc: unknown) => doc),

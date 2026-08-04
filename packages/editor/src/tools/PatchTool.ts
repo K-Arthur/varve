@@ -7,7 +7,7 @@
  *
  * Research basis: Photoshop Patch tool, GIMP Clone tool (perspective).
  */
-import { patchRegion } from '@strata/engine';
+import { patchRegion } from '@varve/engine';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 

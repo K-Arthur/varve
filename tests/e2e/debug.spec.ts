@@ -7,7 +7,7 @@ test('debug page load', async ({ page }) => {
   await page.waitForTimeout(5000);
   const html = await page.content();
   console.log('Page HTML length:', html.length);
-  console.log('Has .strata-home:', html.includes('strata-home'));
+  console.log('Has .varve-home:', html.includes('varve-home'));
   console.log('Has new button:', html.includes('New'));
   console.log('Has loading:', html.includes('Loading Strata'));
   await page.screenshot({ path: '/tmp/debug-screenshot.png' });

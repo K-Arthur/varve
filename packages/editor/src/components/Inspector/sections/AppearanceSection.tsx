@@ -7,9 +7,9 @@
  * Research basis: Figma/Sketch opacity slider + blend mode dropdown;
  * APG Spinbutton + Combobox.
  */
-import type { BlendMode } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
-import { Select } from '@strata/ui';
+import type { BlendMode } from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
+import { Select } from '@varve/ui';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
 import { FieldRow } from '../controls/FieldRow';

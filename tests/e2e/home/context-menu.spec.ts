@@ -3,7 +3,7 @@ import { expect, test } from '@playwright/test';
 test.describe('Home context menu', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await page.waitForSelector('.strata-home');
+    await page.waitForSelector('.varve-home');
   });
 
   test('right-click opens context menu on file card', async ({ page }) => {
@@ -62,7 +62,7 @@ test.describe('Home context menu', () => {
     const ctxMenu = page.locator('.strata-ctxmenu[role="menu"]');
     await expect(ctxMenu).toBeVisible();
 
-    await page.locator('.strata-home__toolbar').click();
+    await page.locator('.varve-home__toolbar').click();
     await page.waitForTimeout(200);
     await expect(ctxMenu).not.toBeVisible();
   });

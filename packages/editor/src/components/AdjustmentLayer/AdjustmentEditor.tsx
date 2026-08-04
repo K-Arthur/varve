@@ -1,16 +1,16 @@
-import type { Color, CurvePoint } from '@strata/engine';
+import type { Color, CurvePoint } from '@varve/engine';
 import {
   COLOR_HALFTONE_PRESETS,
   LUT_INPUT_SPACE_LABELS,
   parseLutFile,
   serializeLutForDocument,
   TRITONE_PRESETS,
-} from '@strata/engine';
-import type { Adjustment, ManagedColor } from '@strata/scene';
-import { rgbFromTuple } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
-import { Select } from '@strata/ui';
-import { ColorPicker } from '@strata/ui/components/ColorPicker';
+} from '@varve/engine';
+import type { Adjustment, ManagedColor } from '@varve/scene';
+import { rgbFromTuple } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { Select } from '@varve/ui';
+import { ColorPicker } from '@varve/ui/components/ColorPicker';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { CurveEditor } from '../Inspector/controls/CurveEditor';
 import { GradientMapAdjustmentSection } from '../Inspector/controls/GradientMapAdjustmentSection';
@@ -412,7 +412,7 @@ export function AdjustmentEditor({
       return <HalftoneEditor adjustment={adjustment} onChange={onChange} />;
 
     case 'gradientMap': {
-      const adj = adjustment as import('@strata/scene').GradientMapAdjustment;
+      const adj = adjustment as import('@varve/scene').GradientMapAdjustment;
       return (
         <GradientMapAdjustmentSection
           adjustment={adj}
@@ -490,7 +490,7 @@ export function AdjustmentEditor({
   }
 
   function LutEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-    const adj = adjustment as import('@strata/engine').LutAdjustment;
+    const adj = adjustment as import('@varve/engine').LutAdjustment;
     const fileRef = useRef<HTMLInputElement>(null);
     const [status, setStatus] = useState<string | null>(null);
     const [lutMeta, setLutMeta] = useState<{ name: string; format: string; size: number } | null>(
@@ -668,8 +668,8 @@ export function AdjustmentEditor({
 // gamma/inputWhite/outputBlack/outputWhite) are the same five concepts under
 // different names — no unit/space conversion, just a field-rename adapter.
 function levelsAdjustmentToParams(
-  adj: import('@strata/scene').LevelsAdjustment,
-): import('@strata/engine').LevelParams {
+  adj: import('@varve/scene').LevelsAdjustment,
+): import('@varve/engine').LevelParams {
   return {
     inputBlack: adj.inputShadows,
     gamma: adj.inputMidtones,
@@ -680,8 +680,8 @@ function levelsAdjustmentToParams(
 }
 
 function paramsToLevelsAdjustmentPatch(
-  params: import('@strata/engine').LevelParams,
-): Partial<import('@strata/scene').LevelsAdjustment> {
+  params: import('@varve/engine').LevelParams,
+): Partial<import('@varve/scene').LevelsAdjustment> {
   return {
     inputShadows: params.inputBlack,
     inputMidtones: params.gamma,
@@ -692,7 +692,7 @@ function paramsToLevelsAdjustmentPatch(
 }
 
 function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').LevelsAdjustment;
+  const adj = adjustment as import('@varve/scene').LevelsAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
@@ -730,14 +730,14 @@ function LevelsEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustme
 // moves one point doesn't reshuffle the others; CurveEditor already sorts by
 // x internally for rendering/hit-testing.
 export function curvesPointsToCurvePoints(
-  points: import('@strata/scene').CurvesPoint[],
+  points: import('@varve/scene').CurvesPoint[],
 ): CurvePoint[] {
   return points.map((p) => ({ x: p.input / 255, y: p.output / 255 }));
 }
 
 export function curvePointsToCurvesPoints(
   points: CurvePoint[],
-): import('@strata/scene').CurvesPoint[] {
+): import('@varve/scene').CurvesPoint[] {
   return points.map((p) => ({
     input: Math.round(Math.max(0, Math.min(1, p.x)) * 255),
     output: Math.round(Math.max(0, Math.min(1, p.y)) * 255),
@@ -745,7 +745,7 @@ export function curvePointsToCurvesPoints(
 }
 
 function CurvesEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').CurvesAdjustment;
+  const adj = adjustment as import('@varve/scene').CurvesAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
@@ -767,7 +767,7 @@ function CurvesEditor({ adjustment, onChange, onEditStart, onEditEnd }: Adjustme
 }
 
 function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').SelectiveColorAdjustment;
+  const adj = adjustment as import('@varve/scene').SelectiveColorAdjustment;
   const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
   };
@@ -829,7 +829,7 @@ function SelectiveColorEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 }
 
 function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').ColorBalanceAdjustment;
+  const adj = adjustment as import('@varve/scene').ColorBalanceAdjustment;
   const handleTriplet =
     (range: 'shadows' | 'midtones' | 'highlights', key: string) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -925,7 +925,7 @@ function ColorBalanceEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 }
 
 function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').ChannelMixerAdjustment;
+  const adj = adjustment as import('@varve/scene').ChannelMixerAdjustment;
   const handleNumber = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const v = Number.parseFloat(e.target.value);
     if (!Number.isNaN(v)) {
@@ -1011,7 +1011,7 @@ function ChannelMixerEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 }
 
 function HalftoneEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').HalftoneAdjustment;
+  const adj = adjustment as import('@varve/scene').HalftoneAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
@@ -1189,7 +1189,7 @@ function ColorHalftoneEditor({
   onEditStart,
   onEditEnd,
 }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/engine').ColorHalftoneAdjustment;
+  const adj = adjustment as import('@varve/engine').ColorHalftoneAdjustment;
   const handleSelect = (key: string) => (value: string) => {
     onChange({ [key]: value } as unknown as Partial<Adjustment>);
   };
@@ -1335,7 +1335,7 @@ function PhotoFilterEditor({
   onEditStart,
   onEditEnd,
 }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').PhotoFilterAdjustment;
+  const adj = adjustment as import('@varve/scene').PhotoFilterAdjustment;
   const handleSlider = (key: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     onChange({ [key]: Number(e.target.value) } as unknown as Partial<Adjustment>);
   };
@@ -1394,7 +1394,7 @@ function managedToColor(c: ManagedColor): Color {
 }
 
 function DuotoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').DuotoneAdjustment;
+  const adj = adjustment as import('@varve/scene').DuotoneAdjustment;
   const handleColor = (key: 'shadowColor' | 'highlightColor') => (c: ManagedColor) => {
     onChange({ [key]: managedToColor(c) } as unknown as Partial<Adjustment>);
   };
@@ -1525,16 +1525,15 @@ function BlackAndWhiteEditor({
   onEditStart,
   onEditEnd,
 }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').BlackAndWhiteAdjustment;
-  const channels: { key: keyof import('@strata/scene').BlackAndWhiteAdjustment; label: string }[] =
-    [
-      { key: 'reds', label: 'Reds' },
-      { key: 'yellows', label: 'Yellows' },
-      { key: 'greens', label: 'Greens' },
-      { key: 'cyans', label: 'Cyans' },
-      { key: 'blues', label: 'Blues' },
-      { key: 'magentas', label: 'Magentas' },
-    ];
+  const adj = adjustment as import('@varve/scene').BlackAndWhiteAdjustment;
+  const channels: { key: keyof import('@varve/scene').BlackAndWhiteAdjustment; label: string }[] = [
+    { key: 'reds', label: 'Reds' },
+    { key: 'yellows', label: 'Yellows' },
+    { key: 'greens', label: 'Greens' },
+    { key: 'cyans', label: 'Cyans' },
+    { key: 'blues', label: 'Blues' },
+    { key: 'magentas', label: 'Magentas' },
+  ];
 
   return (
     <div className="adj-editor__group">
@@ -1611,7 +1610,7 @@ function BlackAndWhiteEditor({
 }
 
 function PosterizeEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').PosterizeAdjustment;
+  const adj = adjustment as import('@varve/scene').PosterizeAdjustment;
   return (
     <div className="adj-editor__slider-row">
       <div className="adj-editor__slider-label">
@@ -1634,7 +1633,7 @@ function PosterizeEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 }
 
 function ThresholdEditor({ adjustment, onChange }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').ThresholdAdjustment;
+  const adj = adjustment as import('@varve/scene').ThresholdAdjustment;
   return (
     <div className="adj-editor__slider-row">
       <div className="adj-editor__slider-label">
@@ -1657,7 +1656,7 @@ function ThresholdEditor({ adjustment, onChange }: AdjustmentEditorProps) {
 }
 
 function TritoneEditor({ adjustment, onChange, onEditStart, onEditEnd }: AdjustmentEditorProps) {
-  const adj = adjustment as import('@strata/scene').TritoneAdjustment;
+  const adj = adjustment as import('@varve/scene').TritoneAdjustment;
   const handleColor =
     (key: 'shadowColor' | 'midtoneColor' | 'highlightColor') => (c: ManagedColor) => {
       onChange({ [key]: managedToColor(c) } as unknown as Partial<Adjustment>);

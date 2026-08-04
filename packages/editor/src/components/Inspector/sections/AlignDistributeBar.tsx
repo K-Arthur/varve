@@ -7,7 +7,7 @@
  * Research basis: Figma/Sketch align toolbar; APG Toolbar pattern; pill-chip pattern.
  */
 
-import { Tooltip, TooltipProvider } from '@strata/ui';
+import { Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { showAlignmentGuidesFromSelection } from '../../AlignmentOverlay/AlignmentGuideOverlay';

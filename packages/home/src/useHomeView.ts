@@ -11,7 +11,7 @@ import type {
   SortKey,
   ViewMode,
   Workspace,
-} from '@strata/platform';
+} from '@varve/platform';
 import {
   compareBy,
   DEFAULT_RECENT_WORKSPACE_FILTER,
@@ -21,7 +21,7 @@ import {
   fuzzyScore,
   mergeViewState,
   recentFileSections,
-} from '@strata/platform';
+} from '@varve/platform';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface HomeView {

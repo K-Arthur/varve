@@ -18,7 +18,7 @@
  * capped stroke variants beyond the one shipped, motion/bound-property
  * fixtures, GPU-vs-software or per-platform separate baselines.
  */
-import type { RenderItem } from '@strata/engine';
+import type { RenderItem } from '@varve/engine';
 
 export interface VisualFixture {
   name: string;

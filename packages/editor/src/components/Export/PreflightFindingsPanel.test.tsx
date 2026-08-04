@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ExportFinding } from '@strata/scene/export';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import type { ExportFinding } from '@varve/scene/export';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PreflightFindingsPanel } from './PreflightFindingsPanel';
 

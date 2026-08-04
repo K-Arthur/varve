@@ -1,5 +1,5 @@
-import { createDocument, makeShapeNode } from '@strata/scene';
-import type { Viewport } from '@strata/shared';
+import { createDocument, makeShapeNode } from '@varve/scene';
+import type { Viewport } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import type { EditorCameraState } from '../canvas/cameraState';
 import { computeFitAllCamera, computeZoomStep, computeZoomTo } from './viewportOps';

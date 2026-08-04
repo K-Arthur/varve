@@ -1,4 +1,4 @@
-import { createDocument } from '@strata/scene';
+import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { getAllMenuDefs } from '../defs';
 import { buildIntelFacts, buildMenuContext, detectPlatformFacts } from '../facts';

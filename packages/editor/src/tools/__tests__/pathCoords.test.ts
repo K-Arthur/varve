@@ -28,7 +28,7 @@ describe('pathCoords', () => {
         handleOut: [5, 0] as [number, number],
       },
     ];
-    const wm: import('@strata/shared').Affine = [1, 0, 0, 1, 100, 200];
+    const wm: import('@varve/shared').Affine = [1, 0, 0, 1, 100, 200];
     const world = pathPointsLocalToWorld(local, wm);
     expect(world[0]).toMatchObject({ x: 100, y: 200 });
     expect(world[1]).toMatchObject({ x: 150, y: 230 });

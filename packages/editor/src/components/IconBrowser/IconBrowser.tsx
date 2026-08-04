@@ -2,8 +2,8 @@
  * IconBrowser — searchable icon browser with online/local/favourites filters.
  */
 
-import { getIconProviderRegistry, type IconStyle } from '@strata/engine';
-import { Icon, SolidIcon, Tooltip } from '@strata/ui';
+import { getIconProviderRegistry, type IconStyle } from '@varve/engine';
+import { Icon, SolidIcon, Tooltip } from '@varve/ui';
 import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getIconDownloadManager } from './iconDownloadManager';

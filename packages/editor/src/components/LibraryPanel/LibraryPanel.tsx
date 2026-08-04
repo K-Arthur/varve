@@ -7,8 +7,8 @@
  * Research basis: Figma Team Libraries, Penpot shared libraries.
  */
 
-import type { Document, Library } from '@strata/scene';
-import { Button } from '@strata/ui';
+import type { Document, Library } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useState } from 'react';
 import './LibraryPanel.css';
 

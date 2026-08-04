@@ -10,7 +10,7 @@
  *   Adobe Fresco stabilization, LazyNexus stabilization algorithm.
  */
 
-import type { BrushDab, StrokePoint } from '@strata/scene';
+import type { BrushDab, StrokePoint } from '@varve/scene';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -415,7 +415,7 @@ export class MirrorAssist {
     if (!this.config.enabled) return [dab];
 
     const { axisX, axisY, angle, radialSymmetry } = this.config;
-    const dabs: import('@strata/scene').BrushDab[] = [dab];
+    const dabs: import('@varve/scene').BrushDab[] = [dab];
     const step = radialSymmetry > 1 ? (2 * Math.PI) / radialSymmetry : Math.PI;
 
     for (let i = 1; i < radialSymmetry; i++) {

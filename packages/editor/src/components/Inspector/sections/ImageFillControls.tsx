@@ -6,8 +6,8 @@
  *
  * Research basis: Figma image fill controls; APG file input patterns.
  */
-import type { EmbeddedAssetInput, ImageFillData, ImageFit } from '@strata/scene';
-import { Icon, Select, Tooltip, TooltipProvider } from '@strata/ui';
+import type { EmbeddedAssetInput, ImageFillData, ImageFit } from '@varve/scene';
+import { Icon, Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useId, useRef } from 'react';
 import { FieldRow } from '../controls/FieldRow';
 

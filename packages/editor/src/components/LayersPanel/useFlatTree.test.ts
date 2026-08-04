@@ -1,3 +1,4 @@
+import { renderHook } from '@testing-library/react';
 import {
   addChild,
   addNode,
@@ -7,8 +8,7 @@ import {
   makeShapeNode,
   nextNodeId,
   renameNode,
-} from '@strata/scene';
-import { renderHook } from '@testing-library/react';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_FILTER, type LayerFilterSpec } from './layerFilterTypes';
 import { computeDocumentDiff, flattenTree, setsEqual, useFlatTree } from './useFlatTree';

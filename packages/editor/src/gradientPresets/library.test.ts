@@ -2,10 +2,11 @@
  * Gradient preset library tests — pure store helpers + the hook with a memory
  * platform (persistence round-trip, dedup, favorites, recents).
  */
-import { createMemoryPlatform } from '@strata/platform';
-import type { GradientPreset } from '@strata/scene';
-import { makeGradientPreset } from '@strata/scene';
+
 import { act, renderHook } from '@testing-library/react';
+import { createMemoryPlatform } from '@varve/platform';
+import type { GradientPreset } from '@varve/scene';
+import { makeGradientPreset } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 import { useGradientPresetLibrary } from './library';

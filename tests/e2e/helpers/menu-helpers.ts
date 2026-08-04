@@ -46,13 +46,13 @@ export async function assertActiveElementRole(page: Page, role: string) {
 
 export async function setTypeAheadTimeout(page: Page, ms: number) {
   await page.evaluate((val) => {
-    (window as unknown as Record<string, number>).__STRATA_TYPEAHEAD_MS = val;
+    (window as unknown as Record<string, number>).__VARVE_TYPEAHEAD_MS = val;
   }, ms);
 }
 
 export async function resetTypeAheadTimeout(page: Page) {
   await page.evaluate(() => {
-    delete (window as unknown as Record<string, number>).__STRATA_TYPEAHEAD_MS;
+    delete (window as unknown as Record<string, number>).__VARVE_TYPEAHEAD_MS;
   });
 }
 

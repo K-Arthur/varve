@@ -1,4 +1,4 @@
-import { Button } from '@strata/ui';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface PromptDialogState {

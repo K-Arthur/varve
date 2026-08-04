@@ -1,5 +1,5 @@
 {
-  "name": "@strata/prototype",
+  "name": "@varve/prototype",
   "version": "0.0.0",
   "private": true,
   "description": "Strata prototype engine: interactions, animations, state, presentation.",
@@ -16,9 +16,9 @@
     "test": "cd ../.. && vitest run packages/prototype"
   },
   "dependencies": {
-    "@strata/engine": "workspace:*",
-    "@strata/scene": "workspace:*",
-    "@strata/shared": "workspace:*"
+    "@varve/engine": "workspace:*",
+    "@varve/scene": "workspace:*",
+    "@varve/shared": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

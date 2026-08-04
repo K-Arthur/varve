@@ -1,5 +1,5 @@
-import type { Effect, ShapeNode } from '@strata/scene';
-import { makeShapeNode } from '@strata/scene';
+import type { Effect, ShapeNode } from '@varve/scene';
+import { makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildEffectSpec } from '../ir-builders';
 

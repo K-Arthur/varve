@@ -440,7 +440,7 @@ export function applySoftwareFilter(
         intensity?: number;
         luminanceMode?: import('./gradientMap').GradientMapLuminanceMode;
         preserveSourceAlpha?: boolean;
-        interpolation?: import('@strata/shared').GradientInterpolationSpace;
+        interpolation?: import('@varve/shared').GradientInterpolationSpace;
         lutSize?: number;
       };
       applyGradientMapFilter(imageData, {

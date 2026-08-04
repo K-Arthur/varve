@@ -32,7 +32,7 @@ test.describe('Home trash flow', () => {
     await cta.click();
     await page.waitForTimeout(150);
 
-    await expect(page.locator('.strata-home')).toBeVisible();
+    await expect(page.locator('.varve-home')).toBeVisible();
   });
 
   test('trash section with files shows Restore and Delete buttons', async ({ page }) => {

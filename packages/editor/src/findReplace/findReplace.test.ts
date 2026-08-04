@@ -1,4 +1,4 @@
-import { addNode, createDocument, type TextNode } from '@strata/scene';
+import { addNode, createDocument, type TextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { graphemeClusterOffsets, snapToGraphemeBoundary } from './grapheme';
 import { replaceAll } from './replace';

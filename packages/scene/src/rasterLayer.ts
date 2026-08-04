@@ -1,4 +1,4 @@
-import type { Affine } from '@strata/engine';
+import type { Affine } from '@varve/engine';
 import type { BrushDab } from './brush';
 import type { RasterLayerNode, RasterTile } from './types';
 

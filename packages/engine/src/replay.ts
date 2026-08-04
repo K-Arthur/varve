@@ -11,7 +11,7 @@
  * and effects, plus arrow/path/image primitive rendering.
  */
 
-import { expandGradientStops, managedColorToRgba } from '@strata/shared';
+import { expandGradientStops, managedColorToRgba } from '@varve/shared';
 import { CompositeCanvas, mapBlendMode } from './compositeCanvas';
 import {
   applyChromaticAberration,

@@ -2,7 +2,7 @@
  * Tests for the flattening analysis module.
  */
 
-import { createDocument, makeShapeNode } from '@strata/scene';
+import { createDocument, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   analyzeFlattening,
@@ -22,7 +22,7 @@ describe('analyzeNodeFlattening', () => {
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       transform: [1, 0, 0, 1, 0, 0] as const,
       visible: true,
-    } as import('@strata/scene').SceneNode;
+    } as import('@varve/scene').SceneNode;
     const spec = analyzeNodeFlattening(adj, doc);
     expect(spec.mustFlatten).toBe(true);
     expect(spec.reasons).toContain('adjustment-layer');
@@ -99,7 +99,7 @@ describe('canEmitAsHtml', () => {
       fill: { space: 'rgb', r: 0, g: 0, b: 0, a: 255 },
       transform: [1, 0, 0, 1, 0, 0] as const,
       visible: true,
-    } as import('@strata/scene').SceneNode;
+    } as import('@varve/scene').SceneNode;
     const result = canEmitAsHtml(adj, doc);
     expect(result.emitAs).toBe('image');
   });

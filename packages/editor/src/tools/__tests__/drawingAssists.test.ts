@@ -1,4 +1,4 @@
-import type { StrokePoint } from '@strata/scene';
+import type { StrokePoint } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_ASSIST_CONFIG,

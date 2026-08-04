@@ -12,7 +12,7 @@
  * icon + label buttons in the toolbar area, not text-only tabs.
  */
 
-import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import { SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback } from 'react';
 import { useEditor } from '../context';
 import {

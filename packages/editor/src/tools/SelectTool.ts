@@ -13,7 +13,7 @@
  * Research basis: Figma Move tool (V), Illustrator selection, Affinity Designer.
  */
 
-import { applyAffine, invertAffine, rectContains } from '@strata/engine';
+import { applyAffine, invertAffine, rectContains } from '@varve/engine';
 import {
   activePageNodes,
   buildParentIndexMap,
@@ -21,13 +21,13 @@ import {
   isInIsolatedSubtree,
   type NodeId,
   walkNodes,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   cubicBezierClosestPoint,
   managedColorToRgba,
   pathPointToBezier,
   pointToSegmentDistSq,
-} from '@strata/shared';
+} from '@varve/shared';
 import { executeNudge, type NudgeDirection } from '../commands/nudge';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { loadSettings } from '../settings';
@@ -233,7 +233,7 @@ export class SelectTool extends BaseTool {
         ctx.setSelection(hit.nodeId);
       }
       const effectiveNodes = ctx.selection.map((id) => ctx.getNode(id)).filter(Boolean);
-      ctx.announceSelection(effectiveNodes as import('@strata/scene').SceneNode[]);
+      ctx.announceSelection(effectiveNodes as import('@varve/scene').SceneNode[]);
       this.marqueeActive = false;
       this.isMoveGesture = true;
       // Begin transaction for move gesture (undo coherence)
@@ -464,7 +464,7 @@ export class SelectTool extends BaseTool {
         }
         const marqueeSelectedNodes = marqueeIds
           .map((id) => ctx.getNode(id))
-          .filter((n): n is import('@strata/scene').SceneNode => Boolean(n));
+          .filter((n): n is import('@varve/scene').SceneNode => Boolean(n));
         ctx.announceSelection(marqueeSelectedNodes);
       }
     } else {
@@ -724,7 +724,7 @@ export class SelectTool extends BaseTool {
     world: { x: number; y: number },
     ctx: ToolContext,
     policyName?: import('../hitTest').HitTestPolicyName,
-  ): { nodeId: string; node: import('@strata/scene').SceneNode } | null {
+  ): { nodeId: string; node: import('@varve/scene').SceneNode } | null {
     const hit =
       policyName && ctx.hitTestWithPolicy
         ? ctx.hitTestWithPolicy(world, policyName)
@@ -762,8 +762,8 @@ export class SelectTool extends BaseTool {
   private findNodesAtPoint(
     world: { x: number; y: number },
     ctx: ToolContext,
-  ): Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> {
-    const results: Array<{ nodeId: string; node: import('@strata/scene').SceneNode }> = [];
+  ): Array<{ nodeId: string; node: import('@varve/scene').SceneNode }> {
+    const results: Array<{ nodeId: string; node: import('@varve/scene').SceneNode }> = [];
     const entries = walkNodes(ctx.document, activePageNodes(ctx.document));
     // Screen-pixel threshold for path hit-testing (world units at current zoom).
     const pathThresh = 6 / Math.max(0.001, ctx.zoom);
@@ -855,11 +855,11 @@ export class SelectTool extends BaseTool {
 }
 
 /** Check if a node has transparent fill or no fills (stroke-only). */
-function isTransparentOrEmptyFill(node: import('@strata/scene').SceneNode): boolean {
+function isTransparentOrEmptyFill(node: import('@varve/scene').SceneNode): boolean {
   if (node.kind !== 'shape') return false;
   // Check fills array first, fall back to legacy `fill` field
   if (node.fills && node.fills.length > 0) {
-    return node.fills.every((f: import('@strata/scene').Fill) => {
+    return node.fills.every((f: import('@varve/scene').Fill) => {
       if (f.type === 'solid' && f.color) {
         const [, , , a] = managedColorToRgba(f.color);
         return a === 0;
@@ -889,9 +889,9 @@ function rectsIntersect(
 /** F: Check if a world-space point is near any segment of a path node. */
 function isPointNearPath(
   world: { x: number; y: number },
-  node: import('@strata/scene').SceneNode,
+  node: import('@varve/scene').SceneNode,
   nodeId: string,
-  doc: import('@strata/scene').Document,
+  doc: import('@varve/scene').Document,
   threshold: number,
 ): boolean {
   if (node.kind !== 'shape' || node.shape.kind !== 'path') return false;

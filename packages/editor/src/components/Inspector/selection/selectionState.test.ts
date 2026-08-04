@@ -1,4 +1,4 @@
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { commonValue, isMixed, MIXED, summarize } from './selectionState';
 

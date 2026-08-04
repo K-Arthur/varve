@@ -1,6 +1,6 @@
-import type { Affine } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
-import { addNode, createDocument, nextNodeId } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
+import { addNode, createDocument, nextNodeId } from '@varve/scene';
 import { getBitmapInfo, importImageAsFill } from './image';
 import { getParser, getParserForData, getParserForExtension } from './registry';
 import type { ImportOptions, ImportResult } from './types';

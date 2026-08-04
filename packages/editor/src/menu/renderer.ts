@@ -4,7 +4,7 @@ import type {
   MenuItemRadio,
   SubmenuItem,
   MenuItem as UiMenuItem,
-} from '@strata/ui';
+} from '@varve/ui';
 import { formatLabel as defaultFormatLabel } from './localization';
 import { timeMenuOperation } from './perfFlags';
 import type { MenuContext, MenuContextId, MenuItemDef } from './types';

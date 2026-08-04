@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
-import type { TemplateLibrary } from '@strata/platform';
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { TemplateLibrary } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { TemplatesGallery } from './TemplatesGallery';
 

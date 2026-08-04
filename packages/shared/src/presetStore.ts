@@ -4,13 +4,13 @@
  * and pure CRUD reducers.
  *
  * Typed against a structural {getAppSetting, setAppSetting} interface rather
- * than importing @strata/platform's concrete Platform type, so @strata/shared
- * doesn't gain a new workspace dependency — @strata/editor and @strata/home
+ * than importing @varve/platform's concrete Platform type, so @varve/shared
+ * doesn't gain a new workspace dependency — @varve/editor and @varve/home
  * each pass their own `platform` instance, which satisfies this shape
  * structurally (see platform.ts's getAppSetting/setAppSetting).
  *
  * Load/save follow the same try/catch + default-merge idiom as
- * onboardingStore.ts; schema migration follows @strata/scene's
+ * onboardingStore.ts; schema migration follows @varve/scene's
  * version.ts {from,to,migrate} shape at a much smaller scale.
  */
 import { validateDimensions } from './presetAspectRatio';

@@ -10,7 +10,7 @@
  *
  * Research basis: Figma section visibility, Sketch Inspector组织, APG Disclosure.
  */
-import { isImageShape, type SceneNode } from '@strata/scene';
+import { isImageShape, type SceneNode } from '@varve/scene';
 import type { WorkspaceMode } from '../../workspace/workspaceTypes';
 import type { SelectionKind } from './selection/selectionState';
 

@@ -3,7 +3,7 @@
 **Last updated:** 2026-07-27
 **See:** ADR-0011 (governance), `docs/design/component-status.md`
 
-Tracks surfaces not yet migrated to canonical `@strata/ui` primitives and tokens.
+Tracks surfaces not yet migrated to canonical `@varve/ui` primitives and tokens.
 Each entry has: current state, target state, blocker, and status.
 
 ---

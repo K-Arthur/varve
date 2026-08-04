@@ -7,8 +7,8 @@
  * full glyph-refinement workflow is available visually in the Logo panel.
  */
 
-import type { TextNode } from '@strata/scene';
-import { NumberInput } from '@strata/ui';
+import type { TextNode } from '@varve/scene';
+import { NumberInput } from '@varve/ui';
 import { useMemo } from 'react';
 import { useEditor } from '../../context';
 import { GlyphTypographySection } from '../Typography/GlyphTypographySection';

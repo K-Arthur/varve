@@ -1,6 +1,6 @@
-import type { Document, NodeId } from '@strata/scene';
-import { addNode, createDocument, makeShapeNode } from '@strata/scene';
-import { translate } from '@strata/shared';
+import type { Document, NodeId } from '@varve/scene';
+import { addNode, createDocument, makeShapeNode } from '@varve/scene';
+import { translate } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { suggestHarmonization } from './spacingHarmonizer';
 

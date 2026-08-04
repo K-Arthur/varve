@@ -9,7 +9,7 @@
  *
  * Research basis: Figma / Affinity multi-select inspector behaviour.
  */
-import type { SceneNode } from '@strata/scene';
+import type { SceneNode } from '@varve/scene';
 
 export type SelectionKind = 'empty' | 'single' | 'multi';
 

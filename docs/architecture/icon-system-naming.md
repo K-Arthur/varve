@@ -1,7 +1,7 @@
 # Strata Icon Naming Conventions and Visual Standards
 
 Canonical source of truth for internal UI icons. Feature code references
-semantic names (via `SemanticIcon` from `@strata/ui`); the registry maps each
+semantic names (via `SemanticIcon` from `@varve/ui`); the registry maps each
 name to a concrete Lucide (outline) or Phosphor (filled) implementation.
 
 ## 1. Semantic naming rules

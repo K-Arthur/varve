@@ -36,7 +36,7 @@ Providers (private functions within the module):
   - Cached by mask asset checksum
 - `computeVectorMaskBounds(node, doc)` → Bounds | null
   - Reads `node.mask.vectorMask.points` (PathPoint[])
-  - Uses `cubicBezierBBox` from `@strata/shared` for each segment
+  - Uses `cubicBezierBBox` from `@varve/shared` for each segment
   - Composes bounds of all segments
   - Applies mask transform if `linked === false`
 - `computeClipMaskBounds(node, doc)` → Bounds | null
@@ -115,7 +115,7 @@ For images > 4MP, use an OffscreenCanvas in a dedicated Web Worker:
 
 ### 3.1 Vector Mask Bounds (`computeVectorMaskBounds`)
 
-Uses existing `cubicBezierBBox` from `@strata/shared`:
+Uses existing `cubicBezierBBox` from `@varve/shared`:
 
 ```typescript
 function computeVectorMaskBounds(

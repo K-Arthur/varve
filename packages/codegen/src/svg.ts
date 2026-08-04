@@ -10,7 +10,7 @@ import {
   computeImagePlacement,
   type ImagePlacement,
   type ImagePlacementRect,
-} from '@strata/engine';
+} from '@varve/engine';
 import type {
   ImageFillData,
   Mask,
@@ -18,9 +18,9 @@ import type {
   SceneNode,
   TextNode,
   VectorMaskData,
-} from '@strata/scene';
-import { isImageShape, resolveMask } from '@strata/scene';
-import { applyAffine, multiplyAffine } from '@strata/shared';
+} from '@varve/scene';
+import { isImageShape, resolveMask } from '@varve/scene';
+import { applyAffine, multiplyAffine } from '@varve/shared';
 import {
   adjustmentStackTargetGaps,
   affineToSvg,
@@ -33,7 +33,7 @@ import {
 } from './shared';
 import type { TargetGap } from './types';
 
-function shapeBounds(shape: import('@strata/engine').Shape): {
+function shapeBounds(shape: import('@varve/engine').Shape): {
   x: number;
   y: number;
   width: number;
@@ -169,17 +169,17 @@ export function svgRect(rect: ImagePlacementRect): string {
   return `x="${rect.x.toFixed(4)}" y="${rect.y.toFixed(4)}" width="${rect.w.toFixed(4)}" height="${rect.h.toFixed(4)}"`;
 }
 
-function pathToData(shape: Extract<import('@strata/engine').Shape, { kind: 'path' }>): string {
+function pathToData(shape: Extract<import('@varve/engine').Shape, { kind: 'path' }>): string {
   const ringToCommands = (
-    points: import('@strata/engine').PathPoint[],
+    points: import('@varve/engine').PathPoint[],
     closed: boolean,
   ): string[] => {
     const first = points[0];
     if (!first) return [];
     const commands = [`M ${first.x} ${first.y}`];
     for (let index = 1; index < points.length; index += 1) {
-      const previous = points[index - 1] as import('@strata/engine').PathPoint;
-      const current = points[index] as import('@strata/engine').PathPoint;
+      const previous = points[index - 1] as import('@varve/engine').PathPoint;
+      const current = points[index] as import('@varve/engine').PathPoint;
       if (previous.handleOut || current.handleIn) {
         const c1x = previous.x + (previous.handleOut?.[0] ?? 0);
         const c1y = previous.y + (previous.handleOut?.[1] ?? 0);

@@ -1,6 +1,6 @@
-import type { ModelAcquisition } from '@strata/engine';
-import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@strata/engine';
-import { Button, RegionLoader } from '@strata/ui';
+import type { ModelAcquisition } from '@varve/engine';
+import { getModelLoaderReady, listAllModels, resolveAcquisition } from '@varve/engine';
+import { Button, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useState } from 'react';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';
 
