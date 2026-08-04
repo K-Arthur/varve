@@ -83,7 +83,7 @@ describe('document-local preset helpers', () => {
       embeddedGradient?: { id: string };
     };
     adjustment.presetId = 'gpreset-1';
-    (doc.nodes as Record<string, { kind?: string; adjustments?: unknown[] }>)['n1'] = {
+    (doc.nodes as Record<string, { kind?: string; adjustments?: unknown[] }>).n1 = {
       kind: 'adjustment',
       adjustments: [adjustment],
     };

@@ -194,8 +194,8 @@ function removeNodesPure(
   const nodes: Record<string, SceneNode> = {};
   for (const [id, node] of Object.entries(doc.nodes)) {
     if (idsToRemove.has(id)) continue;
-    const children = (node as { children?: string[] }).children;
-    if (children && children.some((c) => idsToRemove.has(c))) {
+    const children = (node as { children?: string[] }).children ?? [];
+    if (children.some((c) => idsToRemove.has(c))) {
       nodes[id] = {
         ...node,
         children: children.filter((c) => !idsToRemove.has(c)),
