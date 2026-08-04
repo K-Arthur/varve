@@ -80,6 +80,7 @@ export type ActionCategory =
   | 'component'
   | 'canvas'
   | 'panel'
+  | 'insert'
   | 'help';
 
 export interface ActionDef {

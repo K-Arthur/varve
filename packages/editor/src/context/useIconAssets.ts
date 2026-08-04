@@ -11,7 +11,7 @@
  * provider outage, cache clear, or offline open can never break rendering.
  */
 
-import { type SanitizeError, type Shape, sanitizeSvg } from '@varve/engine';
+import { rewriteSvgIds, type SanitizeError, type Shape, sanitizeSvg } from '@varve/engine';
 import { ImportService } from '@varve/import';
 import {
   createDocumentIconAsset,
@@ -42,6 +42,23 @@ export interface IconInsertRequest {
   style?: IconVariantStyle;
   /** World-space position; defaults to viewport centre. */
   position?: { x: number; y: number };
+  // -------------------------------------------------------------------------
+  // Provenance (retained in the document asset)
+  // -------------------------------------------------------------------------
+  /** SPDX identifier of the pack licence, when known. */
+  spdxId?: string;
+  /** URL of the full licence text. */
+  licenceUrl?: string;
+  /** Attribution text required by the licence. */
+  attributionText?: string;
+  /** Pack author name. */
+  author?: string;
+  /** URL to the icon source. */
+  sourceUrl?: string;
+  /** Pack version at retrieval time. */
+  sourceVersion?: string;
+  /** monotone vs multicolor. */
+  paletteType?: 'monotone' | 'multicolor';
 }
 
 export interface IconAssetsAPI {
@@ -94,9 +111,16 @@ interface UseIconAssetsDeps {
   }) => { x: number; y: number };
 }
 
-function sanitizeIconSvg(svg: string): string | null {
+function sanitizeIconSvg(svg: string, prefix?: string): string | null {
   try {
-    return sanitizeSvg(svg).svg;
+    const sanitized = sanitizeSvg(svg);
+    // Rewrite fragment ids with a stable per-pack prefix so multiple icons
+    // inserted into one document never collide on <use>/gradient/mask refs.
+    if (prefix) {
+      const rewritten = rewriteSvgIds(sanitized.svg, `i-${prefix}`);
+      return rewritten.svg;
+    }
+    return sanitized.svg;
   } catch (err) {
     const code = err instanceof Error ? ((err as SanitizeError).code ?? 'error') : 'error';
     if (typeof console !== 'undefined') {
@@ -269,6 +293,21 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
         licence: request.licence,
         attribution: request.attribution,
         viewBox: extractViewBox(sanitized),
+        provenance: {
+          spdxId: request.spdxId,
+          licenceUrl: request.licenceUrl,
+          attributionText: request.attributionText,
+          author: request.author,
+          sourceUrl: request.sourceUrl,
+          sourceVersion: request.sourceVersion,
+          retrievedAt: Date.now(),
+          sanitizerVersion: '2.0.0',
+          canonicalId:
+            request.providerId && request.prefix
+              ? `${request.providerId}:${request.prefix}:${request.name}`
+              : undefined,
+          paletteType: request.paletteType,
+        },
       });
       asset.id = iconAssetIdFor(request.prefix, asset.hash);
 
@@ -290,7 +329,7 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
 
   const insertIconAsset = useCallback(
     async (request: IconInsertRequest): Promise<NodeId | null> => {
-      const sanitized = sanitizeIconSvg(request.svg);
+      const sanitized = sanitizeIconSvg(request.svg, request.prefix);
       if (!sanitized) {
         announce(`Icon "${request.name}" failed security checks and was not inserted`);
         return null;
@@ -319,7 +358,7 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
       if (!targetNode) return null;
       const bounds = nodeBoundsOf(targetNode);
 
-      const sanitized = sanitizeIconSvg(request.svg);
+      const sanitized = sanitizeIconSvg(request.svg, request.prefix);
       if (!sanitized) {
         announce(`Icon "${request.name}" failed security checks and was not replaced`);
         return null;
@@ -334,18 +373,22 @@ export function useIconAssets(deps: UseIconAssetsDeps): IconAssetsAPI {
       );
       if (!computed) return null;
 
-      // Scale the replacement to fit the previous bounds (preserving aspect,
-      // anchored at the previous top-left) — pure, before the transaction.
+      // Scale the replacement to fit the previous bounds (contain policy:
+      // preserve aspect, center within the previous visual box) — pure,
+      // before the transaction.
       let rootNode = computed.doc.nodes[computed.rootId]!;
       let nextDoc = computed.doc;
       if (bounds) {
         const insertedBounds = nodeBoundsOf(rootNode);
         if (insertedBounds && insertedBounds.w > 0 && insertedBounds.h > 0) {
           const scale = Math.min(bounds.w / insertedBounds.w, bounds.h / insertedBounds.h);
-          if (scale > 0 && scale < 1) {
-            rootNode = applyDropPosition(scaleNodeAroundOrigin(rootNode, scale), {
-              x: bounds.x,
-              y: bounds.y,
+          if (scale > 0 && Number.isFinite(scale)) {
+            const scaledW = insertedBounds.w * scale;
+            const scaledH = insertedBounds.h * scale;
+            rootNode = scaleNodeAroundOrigin(rootNode, scale);
+            rootNode = applyDropPosition(rootNode, {
+              x: bounds.x + (bounds.w - scaledW) / 2,
+              y: bounds.y + (bounds.h - scaledH) / 2,
             });
             nextDoc = { ...nextDoc, nodes: { ...nextDoc.nodes, [computed.rootId]: rootNode } };
           }

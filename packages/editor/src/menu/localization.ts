@@ -47,6 +47,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.file.save': 'Save',
   'menu.file.saveAs': 'Save As\u2026',
   'menu.file.import': 'Import\u2026',
+  'menu.file.insertIcon': 'Insert Icon\u2026',
   'menu.file.exportSvg': 'Export SVG\u2026',
   'menu.file.export': 'Export\u2026',
   'menu.file.archiveBackup': 'Backup Archive\u2026',
