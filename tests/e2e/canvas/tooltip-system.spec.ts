@@ -32,8 +32,8 @@ test.describe('Tooltip system', () => {
     const tooltip = page.locator('[role="tooltip"]');
     await expect(tooltip).toBeVisible({ timeout: 1000 });
 
-    // The shortcut badge is a span with class strata-tip__shortcut
-    const shortcutBadge = tooltip.locator('.strata-tip__shortcut');
+    // The shortcut badge is a span with class varve-tip__shortcut
+    const shortcutBadge = tooltip.locator('.varve-tip__shortcut');
     // Not all tool buttons have shortcuts, so this may or may not exist
     if ((await shortcutBadge.count()) > 0) {
       await expect(shortcutBadge).toBeVisible();

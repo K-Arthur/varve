@@ -89,7 +89,7 @@ test('open CAF dialog via React dispatch', async ({ page }) => {
   console.log('Dispatch result:', JSON.stringify(result));
   await page.waitForTimeout(1000);
 
-  const dialog = page.locator('dialog.strata-dialog--caf[open]');
+  const dialog = page.locator('dialog.varve-dialog--caf[open]');
   console.log('Dialog visible:', await dialog.isVisible().catch(() => false));
   if (await dialog.isVisible().catch(() => false)) {
     console.log('Title:', await dialog.locator('#caf-dialog-title').textContent());

@@ -293,7 +293,7 @@ test.describe('Content-Aware Fill dialog', () => {
     await expect(dialog.getByRole('button', { name: /remove && fill/i })).toBeVisible();
     await expect(dialog.getByRole('button', { name: /^cancel$/i })).toBeVisible();
     await expect(dialog.getByRole('button', { name: /^apply$/i })).toBeVisible();
-    await expect(dialog.locator('.strata-dialog__close')).toBeVisible();
+    await expect(dialog.locator('.varve-dialog__close')).toBeVisible();
     await expect(dialog.locator('canvas.caf-dialog__preview-canvas')).toBeVisible();
   });
 
@@ -349,7 +349,7 @@ test.describe('Content-Aware Fill dialog', () => {
     const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await expect(dialog).toBeVisible();
 
-    await dialog.locator('.strata-dialog__close').click();
+    await dialog.locator('.varve-dialog__close').click();
     await page.waitForTimeout(200);
     await expect(dialog).not.toBeVisible();
   });
