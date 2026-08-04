@@ -11,7 +11,7 @@
  *   const result = await runAuditScan(input, { onProgress, signal });
  */
 
-import { type AuditContext, type AuditRuleDef, getAllRules } from '@strata/scene';
+import { type AuditContext, type AuditRuleDef, getAllRules } from '@varve/scene';
 import type { ScanProgress, ScanResult, SerialisableScanInput } from './auditScanTypes';
 
 export interface ScanExecutorOptions {

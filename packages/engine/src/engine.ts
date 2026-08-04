@@ -10,8 +10,8 @@
  * The desktop build MUST select native (asserted) — that is the strategic wedge
  * (no WASM memory ceiling). The web build selects wasm.
  */
-import type { MeasureTextFn } from '@strata/shared';
-import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@strata/shared';
+import type { MeasureTextFn } from '@varve/shared';
+import { DEFAULT_ARTWORK_FONT_FAMILY, measureText } from '@varve/shared';
 import { hitTest } from './geometry';
 import type { Backend, Engine, EngineFill, FillIR, RenderItem, SceneNode } from './types';
 import type { WasmEngineModule } from './wasmLoader';
@@ -19,7 +19,7 @@ import { loadWasmEngineModule } from './wasmLoader';
 
 /**
  * Derive a rect primitive from paint fills for shapeless nodes.
- * Mirrors the logic in @strata/scene/src/paint.ts deriveGeometryFromPaints
+ * Mirrors the logic in @varve/scene/src/paint.ts deriveGeometryFromPaints
  * but operates on engine-level FillIRs.
  */
 function derivePrimitiveFromPaints(node: SceneNode): import('./types').Primitive {
@@ -449,7 +449,7 @@ export async function createEngine(preferred: Backend | 'auto' = 'auto'): Promis
 /**
  * Apply resolved style overrides to a scene node.
  * Returns a new node with overrides merged in (no mutation).
- * This is the wiring point for `resolveAllStyles` from @strata/scene.
+ * This is the wiring point for `resolveAllStyles` from @varve/scene.
  *
  * Usage:
  *   const resolved = resolveAllStyles(doc);

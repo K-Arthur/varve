@@ -1,4 +1,4 @@
-import type { SelectionBox } from '@strata/shared';
+import type { SelectionBox } from '@varve/shared';
 
 export interface SnapGuide {
   axis: 'horizontal' | 'vertical';

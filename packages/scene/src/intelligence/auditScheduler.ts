@@ -7,7 +7,7 @@
  * @module auditScheduler
  */
 
-import type { AuditFinding, ExecutionCost } from '@strata/shared';
+import type { AuditFinding, ExecutionCost } from '@varve/shared';
 
 // ============================================================================
 // Types

@@ -95,7 +95,7 @@ process.exitCode = 1;
 // for a NEW frame, measure the gap. Run several iterations.
 const latency = await page.evaluate(
   async (startXY) => {
-    const perf = window.__strataPerf;
+    const perf = window.__varvePerf;
     const canvas = document.querySelector('canvas.editor-canvas__content-layer');
     if (!perf || !canvas) return { err: 'no handle/canvas' };
     const rect = canvas.getBoundingClientRect();
@@ -136,7 +136,7 @@ console.log('pointermove->frame latency:', JSON.stringify(summary(latency.sample
 // Now a real drag inside the page: pointerdown + series of pointermove.
 const dragLatency = await page.evaluate(
   async (startXY) => {
-    const perf = window.__strataPerf;
+    const perf = window.__varvePerf;
     const canvas = document.querySelector('canvas.editor-canvas__content-layer');
     if (!perf || !canvas) return { err: 'no handle/canvas' };
     const rect = canvas.getBoundingClientRect();
@@ -185,7 +185,7 @@ console.log('drag first-frame latency:', JSON.stringify(summary(dragLatency.samp
 
 // Pan via wheel: measure time to first frame after wheel event.
 const wheelLatency = await page.evaluate(async () => {
-  const perf = window.__strataPerf;
+  const perf = window.__varvePerf;
   const canvas = document.querySelector('canvas.editor-canvas__content-layer');
   if (!perf || !canvas) return { err: 'no handle/canvas' };
   const rect = canvas.getBoundingClientRect();
@@ -219,7 +219,7 @@ console.log('wheel->frame latency:', JSON.stringify(summary(wheelLatency.samples
 
 // Frame cost at this scale: read the ring after a settled idle.
 const diag = await page.evaluate(() => {
-  const frames = window.__strataPerf ? window.__strataPerf.getFrames(60) : [];
+  const frames = window.__varvePerf ? window.__varvePerf.getFrames(60) : [];
   return {
     total: frames.map((f) => f.totalMs),
     build: frames.map((f) => f.buildIrMs),

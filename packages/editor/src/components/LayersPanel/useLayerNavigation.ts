@@ -1,4 +1,4 @@
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 import { useCallback, useEffect, useRef } from 'react';
 import { useEditor } from '../../context';
 import { getParentFast, type ParentIndexCache } from '../../scene/parentIndexCache';

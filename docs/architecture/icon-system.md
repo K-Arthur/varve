@@ -35,7 +35,7 @@ This ADR documents the architecture that addresses these gaps incrementally.
 The `<Icon>` (Lucide) and `<SolidIcon>` (Phosphor) wrappers in
 `packages/ui/src/icons/` remain the only graphics path for UI affordances.
 
-- All feature code imports from `@strata/ui` — never directly from
+- All feature code imports from `@varve/ui` — never directly from
   `lucide-react` or `@phosphor-icons/react`.
 - `<Icon>` enforces the accessible-name contract: `label` → `role="img"`
   + `aria-label`; no `label` → `aria-hidden` (decorative).
@@ -218,11 +218,11 @@ existing curated maps (`TOOL_ICONS` etc.) where already wired. Do not import
 
 | Package | Responsibility |
 |---------|---------------|
-| `@strata/engine/svgSanitize` | SVG security sanitization |
-| `@strata/engine/iconProviders` | Provider abstraction + registry |
-| `@strata/engine/iconifyProvider` | Iconify API integration |
-| `@strata/ui/icons` | `<Icon>`, `<SolidIcon>`, curated maps |
-| `@strata/scene` | Document icon component model |
-| `@strata/editor` | Icon browser UI, icon creation tools |
-| `@strata/import` | SVG import (uses sanitization) |
-| `@strata/codegen` | Icon code generation |
+| `@varve/engine/svgSanitize` | SVG security sanitization |
+| `@varve/engine/iconProviders` | Provider abstraction + registry |
+| `@varve/engine/iconifyProvider` | Iconify API integration |
+| `@varve/ui/icons` | `<Icon>`, `<SolidIcon>`, curated maps |
+| `@varve/scene` | Document icon component model |
+| `@varve/editor` | Icon browser UI, icon creation tools |
+| `@varve/import` | SVG import (uses sanitization) |
+| `@varve/codegen` | Icon code generation |

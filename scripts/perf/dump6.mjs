@@ -28,7 +28,7 @@ await page.mouse.move(box.x + 200, box.y + 160);
 await page.mouse.up();
 await page.waitForTimeout(1200);
 const frames = await page.evaluate(() =>
-  window.__strataPerf ? window.__strataPerf.getFrames(30) : [],
+  window.__varvePerf ? window.__varvePerf.getFrames(30) : [],
 );
 console.log('FRAMES:', JSON.stringify(frames.slice(-8), null, 1));
 console.log('ERRS:', errs.slice(0, 3));

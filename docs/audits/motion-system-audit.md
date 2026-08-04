@@ -79,7 +79,7 @@ Completed:
 - **IR-replay rendering**: The engine already uses a compact IR-replay pipeline
   (ADR-0001), so animation can be injected before IR build without touching
   the renderer.
-- **Shared easing module**: `@strata/shared` provides a reusable easing function
+- **Shared easing module**: `@varve/shared` provides a reusable easing function
   registry used by both the timeline sampler and prototype transitions.
 
 ### 1.3 Existing Problems
@@ -257,7 +257,7 @@ the core data model.
 
 ### 5.3 Keyframe & Tweening
 
-- Extend `interpolateValue` in `@strata/shared` to support colors (OKLCH),
+- Extend `interpolateValue` in `@varve/shared` to support colors (OKLCH),
 affines, and discrete steps.
 - Implement spatial bezier interpolation for position/path tracks using
   `spatialTangents`.
@@ -325,7 +325,7 @@ The recommended incremental path is:
    `TimelineSampler`.
 2. Fix `TimelineEngine` loop, iteration, and reverse playback.
 3. Fix `CanvasArea` motion application (time 0, fill mode, property paths).
-4. Add color interpolation to `@strata/shared`.
+4. Add color interpolation to `@varve/shared`.
 5. Add tests for all of the above.
 
 ### Phase 2: Interpolation & Integration

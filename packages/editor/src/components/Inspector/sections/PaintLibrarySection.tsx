@@ -9,10 +9,10 @@
  * - Detach paint back to inline fills
  * - Drag-to-apply via HTML5 drag and drop
  */
-import type { Fill, Paint, SceneNode } from '@strata/scene';
-import { addPaintToDocument, removePaintFromDocument } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
-import { Icon, Tooltip, TooltipProvider } from '@strata/ui';
+import type { Fill, Paint, SceneNode } from '@varve/scene';
+import { addPaintToDocument, removePaintFromDocument } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
+import { Icon, Tooltip, TooltipProvider } from '@varve/ui';
 import { useCallback, useMemo, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

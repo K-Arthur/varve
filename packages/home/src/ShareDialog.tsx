@@ -1,5 +1,5 @@
-import type { Permission, Platform } from '@strata/platform';
-import { Button, Dialog, InlineActivityIndicator, Select } from '@strata/ui';
+import type { Permission, Platform } from '@varve/platform';
+import { Button, Dialog, InlineActivityIndicator, Select } from '@varve/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface ShareDialogProps {

@@ -2,9 +2,9 @@
  * PrototypeFlowView — BFS flow graph of frame screens and navigation connections.
  */
 
-import { createFlowData, findEntryPoint, getOutgoingConnections } from '@strata/prototype';
-import type { Document, NodeId } from '@strata/scene';
-import { getInteractionsForNode, getParent } from '@strata/scene';
+import { createFlowData, findEntryPoint, getOutgoingConnections } from '@varve/prototype';
+import type { Document, NodeId } from '@varve/scene';
+import { getInteractionsForNode, getParent } from '@varve/scene';
 import { useMemo } from 'react';
 
 export interface PrototypeFlowViewProps {

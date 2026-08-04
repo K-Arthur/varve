@@ -5,15 +5,15 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { GraphEditor } from './GraphEditor';
 
-vi.mock('@strata/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@strata/shared')>();
+vi.mock('@varve/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@varve/shared')>();
   return {
     ...actual,
     getEasingFn: () => (t: number) => t,
   };
 });
 
-const makeTimeline = (tracks: import('@strata/scene').AnimationTrack[] = []) => ({
+const makeTimeline = (tracks: import('@varve/scene').AnimationTrack[] = []) => ({
   id: 'tl-1',
   name: 'Test Timeline',
   duration: 5000,

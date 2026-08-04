@@ -133,7 +133,7 @@ Plus: **assert native backend on desktop** for any task that added a facade meth
    - `crates/strata-layout/src/breakpoints.rs`: `Breakpoint { id, minWidth, overlap }`, `validateBreakpoints()` detects overlap conflicts.
    - Tests (cargo): flex row, grid 2x2, gap, wrap, clamp, breakpoint overlap rejection.
 3. **TS facade + IR**
-   - `@strata/engine` facade: `computeLayout(scene, frameId)` -> behind native (Tauri IPC `compute_layout`) + stub (pure-TS mirror) + wasm.
+   - `@varve/engine` facade: `computeLayout(scene, frameId)` -> behind native (Tauri IPC `compute_layout`) + stub (pure-TS mirror) + wasm.
    - Extend render IR with `LayoutItem` (resolved rect per child) so the canvas can preview without re-implementing Taffy in TS.
 4. **Scene model**
    - `FrameNode`: add `layout?: { mode: 'flex'|'grid', gap, wrap, ... }`, `constraints?: { minW, maxW, fluid }`.
@@ -160,7 +160,7 @@ Plus: **assert native backend on desktop** for any task that added a facade meth
    - Depend on `printpdf` + `ab_glyph` (or `cosmic-text`). `outline_text(font, text, size) -> Vec<BezierPath>`, `export_pdf(scene, opts) -> Vec<u8>` (RGB, text outlined).
    - Tests: round-trip a doc with a text node -> PDF bytes contain path operators, no `Tj` text operators.
 3. **TS facade + Tauri**
-   - `@strata/engine` / new `@strata/print` facade: `exportPdf(scene, opts)` behind native + stub (stub returns a minimal SVG-wrapped-in-PDF for tests).
+   - `@varve/engine` / new `@varve/print` facade: `exportPdf(scene, opts)` behind native + stub (stub returns a minimal SVG-wrapped-in-PDF for tests).
    - Tauri command `export_pdf`.
 4. **Editor UI**
    - Export panel (Frontend Rework section 15) — tabbed: React/Tailwind | Flutter | SwiftUI | SVG | **PDF (outlined)**. Copy button, syntax highlight.
@@ -223,7 +223,7 @@ Plus: **assert native backend on desktop** for any task that added a facade meth
    - `trace_contours(raster, opts) -> Vec<Path>` (Potrace-class), `trace_centerline(...)` (vtracer-class), color quantization, threshold. Multi-threaded.
    - Tests: known bitmap -> expected path topology (not exact float match).
 3. **Facade + Tauri**
-   - `@strata/engine`: `autoTrace(raster, opts)` behind native + stub.
+   - `@varve/engine`: `autoTrace(raster, opts)` behind native + stub.
    - Tauri command `auto_trace`.
 4. **Editor UI**
    - Toolbar "Trace" entry (or Image tool follow-on). Drop an image, adjust sliders, preview, "Convert to paths" inserts `ShapeNode`s.

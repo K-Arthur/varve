@@ -1,7 +1,7 @@
-import { afterFirstVisiblePaint, type OpenFileRequest, Shell, useStartup } from '@strata/editor';
-import { HomeShell } from '@strata/home';
-import { detectPlatform, type FileEntry } from '@strata/platform';
-import { StartupLoader, TooltipProvider } from '@strata/ui';
+import { afterFirstVisiblePaint, type OpenFileRequest, Shell, useStartup } from '@varve/editor';
+import { HomeShell } from '@varve/home';
+import { detectPlatform, type FileEntry } from '@varve/platform';
+import { StartupLoader, TooltipProvider } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TitleBar } from './chrome/TitleBar';
 import { revealMainWindow } from './startup/revealMainWindow';
@@ -42,7 +42,7 @@ export function App() {
     // advance, then record readiness only after a paint opportunity.
     void revealMainWindow();
     pendingHomeMilestone.current?.();
-    pendingHomeMilestone.current = afterFirstVisiblePaint('.strata-home', () => {
+    pendingHomeMilestone.current = afterFirstVisiblePaint('.varve-home', () => {
       setHomeReady(true);
       onHomeReady();
       measure('strata-startup', 'app_mount');

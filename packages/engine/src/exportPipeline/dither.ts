@@ -15,7 +15,7 @@
  * user intended as voids). Dithering never touches the alpha channel.
  */
 
-import type { DitherAlgorithm, DitherChannelMode } from '@strata/shared';
+import type { DitherAlgorithm, DitherChannelMode } from '@varve/shared';
 
 export interface DitherImageOptions {
   algorithm?: DitherAlgorithm;

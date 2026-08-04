@@ -1,5 +1,5 @@
-import type { IsometricAxis, IsometricGrid } from '@strata/scene';
-import { normaliseAngle } from '@strata/scene';
+import type { IsometricAxis, IsometricGrid } from '@varve/scene';
+import { normaliseAngle } from '@varve/scene';
 import { useMemo } from 'react';
 import type { GridOverlayMode } from '../../context/types';
 import './DocumentGridOverlay.css';

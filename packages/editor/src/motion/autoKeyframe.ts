@@ -13,7 +13,7 @@ import {
   getNestedValue,
   type NodeId,
   type SceneNode,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export interface AutoKeyframeContext {
   autoKeyframe: boolean;

@@ -7,7 +7,7 @@
  * Research basis: Photoshop Spot Healing Brush, GIMP Heal selection.
  *                 Content-aware fill (PatchMatch algorithm).
  */
-import { spotHeal } from '@strata/engine';
+import { spotHeal } from '@varve/engine';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
 

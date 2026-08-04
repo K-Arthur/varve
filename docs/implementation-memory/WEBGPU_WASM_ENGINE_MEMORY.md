@@ -56,7 +56,7 @@
 
 | Suite | Result |
 |-------|--------|
-| `@strata/compositor` | **11/11 pass** (1 skipped native GPU) |
+| `@varve/compositor` | **11/11 pass** (1 skipped native GPU) |
 | Compositor typecheck | **0 errors** |
 | Editor typecheck | pending |
 
@@ -171,7 +171,7 @@ guarantee, in ADR-0003.
 
 **Verification:** scoped to files actually touched, since the working tree had
 unrelated concurrent changes landing throughout this session (confirmed via repeated
-`git status` — not this feature's concern). `@strata/compositor` typecheck clean,
+`git status` — not this feature's concern). `@varve/compositor` typecheck clean,
 12/13 tests pass (1 correctly skipped without real GPU). `packages/editor`
 typecheck shows no new errors from `StatusBar.tsx`. `cargo check --target
 wasm32-unknown-unknown -p strata-wasm` clean. Both CI YAML files validated with

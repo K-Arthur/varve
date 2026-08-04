@@ -1,4 +1,4 @@
-import type { BitDepth, ColorMode } from '@strata/scene';
+import type { BitDepth, ColorMode } from '@varve/scene';
 import { useMemo } from 'react';
 
 export interface GamutWarningProps {

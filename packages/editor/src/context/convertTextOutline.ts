@@ -1,6 +1,6 @@
-import { getFontRegistry } from '@strata/engine';
-import type { Document } from '@strata/scene';
-import { convertTextNodeToPath } from '@strata/scene';
+import { getFontRegistry } from '@varve/engine';
+import type { Document } from '@varve/scene';
+import { convertTextNodeToPath } from '@varve/scene';
 
 export interface ConvertTextOutlineCallbacks {
   onWarn: (msg: string) => void;

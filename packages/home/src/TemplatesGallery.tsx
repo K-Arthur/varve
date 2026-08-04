@@ -1,5 +1,5 @@
-import type { TemplateLibrary, TemplateSource } from '@strata/platform';
-import { Icon, type IconName, Tooltip } from '@strata/ui';
+import type { TemplateLibrary, TemplateSource } from '@varve/platform';
+import { Icon, type IconName, Tooltip } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { EmptyStates } from './EmptyStates';
 

@@ -1,4 +1,4 @@
-import type { Document as SceneDocument, SceneNode } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { adjustmentStackTargetGaps } from '../shared';
 import { exportNodeToSvg, svgTargetGaps } from '../svg';
@@ -29,7 +29,7 @@ function makeAdjustmentNode(
       ],
     },
     clipping: false,
-    adjustments: adjustments as unknown as import('@strata/engine').Adjustment[],
+    adjustments: adjustments as unknown as import('@varve/engine').Adjustment[],
     ...overrides,
   } as unknown as SceneNode;
 }

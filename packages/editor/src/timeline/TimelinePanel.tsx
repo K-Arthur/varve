@@ -1,6 +1,6 @@
-import type { Timeline } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
-import { Select, Tooltip, TooltipProvider } from '@strata/ui';
+import type { Timeline } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
+import { Select, Tooltip, TooltipProvider } from '@varve/ui';
 import { type FC, useCallback, useMemo, useRef, useState } from 'react';
 import { GraphEditor } from './GraphEditor';
 import { PlaybackControls } from './PlaybackControls';

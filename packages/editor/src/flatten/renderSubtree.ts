@@ -12,15 +12,15 @@ import {
   encodeRasterSurface,
   fitRasterDimensions,
   type RasterSurface,
-} from '@strata/engine';
-import type { Document, NodeId } from '@strata/scene';
+} from '@varve/engine';
+import type { Document, NodeId } from '@varve/scene';
 import {
   computeFlattenBounds,
   createEmbeddedAsset,
   findCommonAncestor,
   nodeWorldTransform,
-} from '@strata/scene';
-import type { Affine } from '@strata/shared';
+} from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import type { FlattenOptions, FlattenResult, FlattenWarning } from './types';
 
 const MAX_FLATTEN_DIMENSION = 16_384;
@@ -190,15 +190,15 @@ function renderNodeToContext(
   );
 
   if (node.kind === 'shape') {
-    renderShapeNode(surface, node as import('@strata/scene').ShapeNode);
+    renderShapeNode(surface, node as import('@varve/scene').ShapeNode);
   } else if (node.kind === 'text') {
-    renderTextNode(surface, node as import('@strata/scene').TextNode, warnings, nodeId);
+    renderTextNode(surface, node as import('@varve/scene').TextNode, warnings, nodeId);
   }
 
   surface.context.restore();
 }
 
-function renderShapeNode(surface: RasterSurface, node: import('@strata/scene').ShapeNode): void {
+function renderShapeNode(surface: RasterSurface, node: import('@varve/scene').ShapeNode): void {
   const ctx = surface.context;
   const shape = node.shape;
   const fills = node.fills ?? [];
@@ -284,7 +284,7 @@ function renderShapeNode(surface: RasterSurface, node: import('@strata/scene').S
 
 function renderTextNode(
   surface: RasterSurface,
-  node: import('@strata/scene').TextNode,
+  node: import('@varve/scene').TextNode,
   _warnings: FlattenWarning[],
   _nodeId: NodeId,
 ): void {

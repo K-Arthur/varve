@@ -1,4 +1,4 @@
-import { asRenderRevision } from '@strata/shared';
+import { asRenderRevision } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { shouldTransferRenderedFrame } from './renderWorkerGuards';
 

@@ -14,7 +14,7 @@
  * not trustworthy on a contended host.
  */
 
-import { buildParentIndexMap, type Document, nodeWorldBounds, walkNodes } from '@strata/scene';
+import { buildParentIndexMap, type Document, nodeWorldBounds, walkNodes } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { createPerformanceWorkload } from '../../performance/workloadCorpus';
 

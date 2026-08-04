@@ -7,9 +7,9 @@
  *
  * Research basis: Photoshop Levels panel histogram display.
  */
-import type { Histogram, LevelParams } from '@strata/engine';
-import { autoLevelsParams } from '@strata/engine';
-import { Icon } from '@strata/ui';
+import type { Histogram, LevelParams } from '@varve/engine';
+import { autoLevelsParams } from '@varve/engine';
+import { Icon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 const WIDTH = 300;

@@ -6,7 +6,7 @@
  *
  * Research basis: Figma layer panel options, VS Code panel header menus.
  */
-import { Icon } from '@strata/ui';
+import { Icon } from '@varve/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { FEATURE_OWNERSHIP, type InspectorSurface } from './featureOwnership';

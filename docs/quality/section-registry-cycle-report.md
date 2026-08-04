@@ -80,7 +80,7 @@ packages/editor/src/workspace/workspaceTypes.ts:25
 ```
 
 The editor's version added `'codegen'`; the other two didn't get updated. This is **already
-causing live typecheck failures** — confirmed via `pnpm --filter @strata/editor typecheck`:
+causing live typecheck failures** — confirmed via `pnpm --filter @varve/editor typecheck`:
 
 ```
 src/components/AuditBadge.tsx(54,7): Type '...workspaceTypes".WorkspaceMode' is not assignable to
@@ -123,12 +123,12 @@ be this canonical source, it had just drifted. Added `'codegen'` there (matching
 which was the more complete/current one), then:
 
 - `packages/scene/src/auditFinding.ts`: replaced the local `WorkspaceMode` declaration with
-  `import type { WorkspaceMode } from '@strata/shared'; ... export type { WorkspaceMode };` (needed
+  `import type { WorkspaceMode } from '@varve/shared'; ... export type { WorkspaceMode };` (needed
   both — a bare `export type { X } from 'y'` re-export does **not** also bring `X` into local scope
   for the file's own internal use, which broke two of `auditFinding.ts`'s own interface fields on
-  the first attempt; caught by `pnpm --filter @strata/scene typecheck`, fixed immediately).
+  the first attempt; caught by `pnpm --filter @varve/scene typecheck`, fixed immediately).
 - `packages/editor/src/workspace/workspaceTypes.ts`: same pattern, re-exporting from
-  `@strata/shared` instead of declaring locally.
+  `@varve/shared` instead of declaring locally.
 - `packages/scene/src/auditProfiles.ts`: `WORKSPACE_AUDIT_PROFILES` is a
   `Record<WorkspaceMode, WorkspaceAuditProfile>` — adding `'codegen'` to the type immediately
   surfaced (via typecheck) that this record was missing the sixth entry. Added one, designed to
@@ -146,12 +146,12 @@ which was the more complete/current one), then:
   the same typecheck sweep and mis-attributed to the triplication in the original report above —
   its `applicableModes: WorkspaceMode[]` field is populated with values like `'prototype-linking'`
   and `'export-preflight'`, which are `EditorMode` values (a different type in
-  `@strata/shared/auditTypes.ts`), not `WorkspaceMode` values, in any of the three declarations that
+  `@varve/shared/auditTypes.ts`), not `WorkspaceMode` values, in any of the three declarations that
   ever existed. Confirmed this component is dead code (`grep` finds zero importers anywhere in the
   repo). Widened the field to `Array<WorkspaceMode | EditorMode>`, matching what the data already
   intentionally mixes, rather than redesigning or wiring up an unused component.
 
-**Verified:** `pnpm --filter @strata/shared|@strata/scene|@strata/editor typecheck` — zero
+**Verified:** `pnpm --filter @varve/shared|@varve/scene|@varve/editor typecheck` — zero
 `WorkspaceMode`/`EditorMode`-related errors remain (was 14 error lines across `AuditBadge.tsx`,
 `IntelligencePanel.tsx` ×4, `AuditProfileSwitcher.tsx` ×8, `WorkspaceSwitcher.tsx` ×1). Full
 `auditFinding.test.ts` (21), `auditProfiles.test.ts` (22, added a `codegen`-profile test + widened

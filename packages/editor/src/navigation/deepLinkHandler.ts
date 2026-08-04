@@ -1,5 +1,5 @@
-import { isTauriRuntime } from '@strata/platform';
-import type { AuditFinding } from '@strata/scene';
+import { isTauriRuntime } from '@varve/platform';
+import type { AuditFinding } from '@varve/scene';
 import type { EditorContextValue } from '../context/types';
 
 export type DeepLinkType = 'finding' | 'unknown';

@@ -11,7 +11,7 @@ import type {
   PixelArtAlgorithm,
   UpscaleModeId,
   UpscaleProgressFn,
-} from '@strata/engine';
+} from '@varve/engine';
 import {
   DEFAULT_UPSCALE_MODE,
   detectUpscaleCapabilities,
@@ -20,8 +20,8 @@ import {
   getUpscaleMode,
   UPSCALE_MODES,
   upscalePreviewRegion,
-} from '@strata/engine';
-import { Button, FocusTrap, SegmentedControl, Select } from '@strata/ui';
+} from '@varve/engine';
+import { Button, FocusTrap, SegmentedControl, Select } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { ModelDownloadDialog } from '../BackgroundRemoval/ModelDownloadDialog';

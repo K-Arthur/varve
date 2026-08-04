@@ -19,7 +19,7 @@
  * Run: pnpm vitest run packages/editor/src/canvas/__benchmarks__/hashLoop.bench.ts
  */
 
-import type { SceneNode as EngineNode } from '@strata/engine';
+import type { SceneNode as EngineNode } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { cacheContentParts, SubtreeIrCache } from '../subtreeIrCache';
 

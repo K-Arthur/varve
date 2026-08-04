@@ -8,7 +8,7 @@
  * `version`). Optional preview metadata may be carried but is never treated as
  * authoritative — rendering always derives from the stop data.
  */
-import { type GradientPreset, type GradientPresetLike, makeGradientPreset } from '@strata/scene';
+import { type GradientPreset, type GradientPresetLike, makeGradientPreset } from '@varve/scene';
 
 export const NATIVE_GRADIENT_FORMAT = 'strata-gradient';
 export const NATIVE_GRADIENT_VERSION = 1;

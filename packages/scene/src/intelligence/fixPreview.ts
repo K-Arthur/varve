@@ -7,7 +7,7 @@
  * @module fixPreview
  */
 
-import type { AuditFinding, AuditFix } from '@strata/shared';
+import type { AuditFinding, AuditFix } from '@varve/shared';
 
 // ============================================================================
 // Types

@@ -1,4 +1,4 @@
-import type { RasterAsset } from '@strata/codegen';
+import type { RasterAsset } from '@varve/codegen';
 import {
   adjustmentsToFilters,
   anyRequiresRasterExport,
@@ -6,8 +6,8 @@ import {
   createRasterSurface,
   encodeRasterSurface,
   totalEffectExpansion,
-} from '@strata/engine';
-import type { Document, SceneNode, ShapeNode } from '@strata/scene';
+} from '@varve/engine';
+import type { Document, SceneNode, ShapeNode } from '@varve/scene';
 
 export interface FlattenForExportOptions {
   scale: number;

@@ -8,8 +8,8 @@
  * friendly via aria-live for updates. respects prefers-reduced-motion.
  */
 
-import type { InferenceDiagnosticEvent } from '@strata/engine';
-import { getInferenceDiagnostics, subscribeInferenceDiagnostics } from '@strata/engine';
+import type { InferenceDiagnosticEvent } from '@varve/engine';
+import { getInferenceDiagnostics, subscribeInferenceDiagnostics } from '@varve/engine';
 import { useEffect, useState } from 'react';
 
 function formatDuration(ms: number): string {
@@ -97,7 +97,7 @@ export function AIPerformancePanel() {
               .slice()
               .reverse()
               .slice(0, 10)
-              .map((e: import('@strata/engine').InferenceDiagnosticEvent) => (
+              .map((e: import('@varve/engine').InferenceDiagnosticEvent) => (
                 <li key={e.seq} className="ai-perf__list-item">
                   <span className="ai-perf__time">{formatTimestamp(e.timestamp)}</span>
                   <span className="ai-perf__model">{e.modelId}</span>

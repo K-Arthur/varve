@@ -1,11 +1,11 @@
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import {
   activePageNodes,
   flatToRichSelection,
   plainTextToRichText,
   richTextToPlainText,
   walkNodes,
-} from '@strata/scene';
+} from '@varve/scene';
 import type { MatchResult, SearchOptions, TextNodeContent } from './types';
 
 export function hasCatastrophicBacktracking(pattern: string): boolean {
@@ -165,7 +165,7 @@ function flatSearch(
 function getTextNodeContent(doc: Document, nodeId: string): TextNodeContent | null {
   const node = doc.nodes[nodeId];
   if (node?.kind !== 'text') return null;
-  const textNode = node as import('@strata/scene').TextNode;
+  const textNode = node as import('@varve/scene').TextNode;
   const rt = textNode.richText ?? plainTextToRichText(textNode.text);
   const plain = richTextToPlainText(rt);
 
@@ -185,11 +185,11 @@ function getTextNodeContent(doc: Document, nodeId: string): TextNodeContent | nu
   };
 }
 
-function findParentFrame(doc: Document, nodeId: string): import('@strata/scene').FrameNode | null {
+function findParentFrame(doc: Document, nodeId: string): import('@varve/scene').FrameNode | null {
   const entries = walkNodes(doc);
   for (const [, entry] of entries) {
     if (entry.node.kind === 'frame' && entry.node.children?.includes(nodeId)) {
-      return entry.node as import('@strata/scene').FrameNode;
+      return entry.node as import('@varve/scene').FrameNode;
     }
   }
   return null;

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { RenderItem } from '@strata/engine';
-import { applyAffine } from '@strata/shared';
+import type { RenderItem } from '@varve/engine';
+import { applyAffine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { Canvas2DBackend } from '../canvas2d/backend';
 import { applyItemAffine, lineTessellationVertexCount, WebGPUBackend } from './backend';
@@ -82,7 +82,7 @@ describe('WebGPU golden diff vs Canvas2D', () => {
     expect(lineTessellationVertexCount(LINE_ITEM)).toBe(6);
   });
 
-  it('applyItemAffine matches @strata/shared applyAffine (a·x+c·y+e)', () => {
+  it('applyItemAffine matches @varve/shared applyAffine (a·x+c·y+e)', () => {
     const t = [2, 0.5, -0.25, 3, 10, -4] as const;
     const p = [4, 6] as const;
     expect(applyItemAffine(p, t)).toEqual(applyAffine(t, p));

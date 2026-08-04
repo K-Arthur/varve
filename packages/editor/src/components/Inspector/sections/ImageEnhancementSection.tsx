@@ -1,7 +1,7 @@
-import type { RasterTraceMode } from '@strata/engine';
-import type { LiveTraceParams, SceneNode } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
-import { Button, Select } from '@strata/ui';
+import type { RasterTraceMode } from '@varve/engine';
+import type { LiveTraceParams, SceneNode } from '@varve/scene';
+import { isImageShape } from '@varve/scene';
+import { Button, Select } from '@varve/ui';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { VectorizeDialog } from '../../Vectorize/VectorizeDialog';

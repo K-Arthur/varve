@@ -2,7 +2,7 @@
  * Auto-arrange selected nodes within a bounding area.
  * Delegates to existing layout engines (flex, grid, circle, force).
  */
-import type { Document, NodeId, SceneNode } from '@strata/scene';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
 import { computeCircleLayout } from './computeCircleLayout';
 import { computeForceLayout } from './computeForceLayout';
 

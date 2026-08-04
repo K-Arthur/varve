@@ -1,4 +1,4 @@
-import type { Document, NodeId } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
 import { detectVariantCandidates } from './componentVariantDetector';
 
 export interface VariantGenerationResult {

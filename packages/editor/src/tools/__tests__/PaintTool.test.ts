@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { makeRasterLayerNode } from '@strata/scene';
+import { makeRasterLayerNode } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { normalizeInputEvent } from '../inputNormalizer';
 import { PaintTool } from '../PaintTool';

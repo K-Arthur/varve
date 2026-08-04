@@ -1,5 +1,5 @@
-import type { Document, SceneNode } from '@strata/scene';
-import { getImageFill, isImageShape } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
+import { getImageFill, isImageShape } from '@varve/scene';
 import { nodeWorldBounds } from '../scene/world';
 
 export interface ImageCompareOverlayProps {
@@ -28,7 +28,7 @@ export function ImageCompareOverlay({
   if (!active || selection.length !== 1) return null;
   const node = selection[0]!;
   if (!isImageShape(node)) return null;
-  const fill = getImageFill(node as import('@strata/scene').ShapeNode);
+  const fill = getImageFill(node as import('@varve/scene').ShapeNode);
   const src = fill?.image?.src;
   if (!src) return null;
 

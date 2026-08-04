@@ -12,8 +12,8 @@
  *   - Memory/test: no-op (no storage available)
  */
 
-import { getFontRegistry } from '@strata/engine';
-import { FontLoader } from '@strata/engine/font';
+import { getFontRegistry } from '@varve/engine';
+import { FontLoader } from '@varve/engine/font';
 import { listStoredFonts } from './fontStorage';
 
 export async function restoreStoredFonts(): Promise<{

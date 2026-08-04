@@ -7,7 +7,7 @@
  *
  * Research basis: SVG 1.1 (W3C Recommendation), Adobe Illustrator SVG export.
  */
-import { createDocument } from '@strata/scene';
+import { createDocument } from '@varve/scene';
 import { registerParser } from './registry';
 import { convertElement } from './svg/elements';
 import { collectDefs, parseSingleElement, parseUnit } from './svg/shared';

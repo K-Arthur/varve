@@ -1,5 +1,5 @@
 {
-  "name": "@strata/collab",
+  "name": "@varve/collab",
   "version": "0.0.0",
   "private": true,
   "description": "Local-first CRDT awareness and reconnect over the strata-sync SQLite core.",
@@ -16,7 +16,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@strata/scene": "workspace:*"
+    "@varve/scene": "workspace:*"
   },
   "license": "FSL-1.1-MIT"
 }

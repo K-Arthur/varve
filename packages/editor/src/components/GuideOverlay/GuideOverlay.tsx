@@ -1,4 +1,4 @@
-import type { Guide } from '@strata/scene';
+import type { Guide } from '@varve/scene';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../../canvas/cameraState';
 import {

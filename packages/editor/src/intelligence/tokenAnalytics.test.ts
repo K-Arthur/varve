@@ -1,4 +1,4 @@
-import type { Document, FrameNode, ShapeNode, TextNode } from '@strata/scene';
+import type { Document, FrameNode, ShapeNode, TextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeTokenCoverage } from './tokenAnalytics';
 

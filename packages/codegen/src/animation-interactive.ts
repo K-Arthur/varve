@@ -14,7 +14,7 @@
  * WAI-ARIA Authoring Practices for interactive components.
  */
 
-import type { Shape } from '@strata/engine';
+import type { Shape } from '@varve/engine';
 import type {
   Document,
   FrameNode,
@@ -23,8 +23,8 @@ import type {
   SMState,
   SMTransition,
   StateMachine,
-} from '@strata/scene';
-import { isRgbColor } from '@strata/scene';
+} from '@varve/scene';
+import { isRgbColor } from '@varve/scene';
 
 export interface InteractiveExportOptions {
   /** Emit CSS animation-timeline scroll bindings where supported. */

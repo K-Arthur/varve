@@ -5,7 +5,7 @@
  * guard, and lifecycle management.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type AutoSaveConfig, AutoSaveService } from './autoSaveService';
 

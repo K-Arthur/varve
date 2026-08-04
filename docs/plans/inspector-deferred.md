@@ -46,7 +46,7 @@
 - Fill becomes `Fill[]` (stacked, reorderable)
 - Types: solid, linear/radial/angular/diamond gradient, image, pattern
 - Gradient stop editor: draggable stops on a slider, add/move/delete, per-stop color + position
-- Requires `Fill` type from `@strata/scene/types.ts` to be wired into node model
+- Requires `Fill` type from `@varve/scene/types.ts` to be wired into node model
 
 ### Gradient stop interaction on canvas
 - On-canvas gradient annotation handles (Figma/Sketch style)

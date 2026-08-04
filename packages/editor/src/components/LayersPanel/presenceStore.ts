@@ -1,4 +1,4 @@
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 import { useEffect, useState } from 'react';
 import type { PresenceData } from './PresenceIndicator';
 

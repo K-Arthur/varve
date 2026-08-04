@@ -11,11 +11,11 @@
  * Results are presented as ranked candidates with honest confidence language.
  */
 
-import type { FontDetectionResult } from '@strata/engine';
-import { detectFont, getModelLoader, loadFullLabelMap } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+import type { FontDetectionResult } from '@varve/engine';
+import { detectFont, getModelLoader, loadFullLabelMap } from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';
@@ -67,7 +67,7 @@ export function FontDetectSection({ nodes }: { nodes: SceneNode[] }) {
   });
 
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
 
   useEffect(() => {

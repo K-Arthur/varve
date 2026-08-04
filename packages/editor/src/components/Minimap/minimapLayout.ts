@@ -16,8 +16,8 @@
  *   a immutable snapshot that the renderer consumes.
  */
 
-import { buildParentIndexMap, type Document, type NodeId, type SceneNode } from '@strata/scene';
-import type { Rect } from '@strata/shared';
+import { buildParentIndexMap, type Document, type NodeId, type SceneNode } from '@varve/scene';
+import type { Rect } from '@varve/shared';
 import { nodeWorldBounds } from '../../scene/world';
 
 /* -------------------------------------------------------------------------- */

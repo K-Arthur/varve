@@ -14,7 +14,7 @@
 
 export type Point = readonly [number, number];
 
-// ── Local typography IR types (mirrors @strata/scene without the dependency) ──
+// ── Local typography IR types (mirrors @varve/scene without the dependency) ──
 
 export type OpenTypeFeatureMap = Record<string, boolean | Record<string, boolean> | undefined> & {
   custom?: Record<string, boolean>;
@@ -25,7 +25,7 @@ export type VariableFontSettings = Record<string, number>;
 export type TextMode = 'point' | 'area' | 'path' | 'auto';
 
 /**
- * Per-cluster glyph adjustment in render IR (mirrors @strata/scene
+ * Per-cluster glyph adjustment in render IR (mirrors @varve/scene
  * GlyphAdjustment; engine intentionally does not depend on scene).
  */
 export interface GlyphAdjustmentIR {
@@ -58,7 +58,7 @@ export interface CharacterFormat {
   textCase?: 'none' | 'uppercase' | 'lowercase' | 'capitalize';
   textDecoration?: 'none' | 'underline' | 'line-through';
   /** Run color; mirrors scene's ManagedColor (legacy tuples also render). */
-  color?: import('@strata/shared').ManagedColorShim;
+  color?: import('@varve/shared').ManagedColorShim;
   openTypeFeatures?: OpenTypeFeatureMap;
   variableFontSettings?: VariableFontSettings;
   baselineShift?: number;
@@ -94,25 +94,25 @@ export type Affine = readonly [number, number, number, number, number, number];
 /** RGBA fill, 0-255 per channel. */
 export type Color = readonly [number, number, number, number];
 
-// ── Engine Color type (mirrors @strata/scene ManagedColor) ──────────────────
+// ── Engine Color type (mirrors @varve/scene ManagedColor) ──────────────────
 
 /**
- * Engine color: structurally identical to `@strata/scene` `ManagedColor`
- * (the union lives in `@strata/shared` as `ManagedColorShim` so the engine
+ * Engine color: structurally identical to `@varve/scene` `ManagedColor`
+ * (the union lives in `@varve/shared` as `ManagedColorShim` so the engine
  * does not depend on the scene package). All render paths reduce any member
  * to RGBA via `managedColorToRgba`, so adding variants is a reducer change,
  * not a wire change.
  */
-export type EngineColor = import('@strata/shared').ManagedColorShim;
+export type EngineColor = import('@varve/shared').ManagedColorShim;
 
 /** RGB member of the engine color union (backward-compatible alias). */
-export type EngineRgbColor = import('@strata/shared').ManagedColorShim & { space: 'rgb' };
+export type EngineRgbColor = import('@varve/shared').ManagedColorShim & { space: 'rgb' };
 /** CMYK member of the engine color union (backward-compatible alias). */
-export type EngineCmykColor = import('@strata/shared').ManagedColorShim & { space: 'cmyk' };
+export type EngineCmykColor = import('@varve/shared').ManagedColorShim & { space: 'cmyk' };
 /** Grayscale member of the engine color union (backward-compatible alias). */
-export type EngineGrayColor = import('@strata/shared').ManagedColorShim & { space: 'gray' };
+export type EngineGrayColor = import('@varve/shared').ManagedColorShim & { space: 'gray' };
 /** Spot member of the engine color union (backward-compatible alias). */
-export type EngineSpotColor = import('@strata/shared').ManagedColorShim & { space: 'spot' };
+export type EngineSpotColor = import('@varve/shared').ManagedColorShim & { space: 'spot' };
 
 export type BlendMode =
   | 'passThrough'
@@ -369,7 +369,7 @@ export interface SceneNode {
   };
 }
 
-/** P2: Fill type for the engine (mirrors @strata/scene Fill). */
+/** P2: Fill type for the engine (mirrors @varve/scene Fill). */
 export type GradientInterpolationSpace = 'srgb' | 'oklab' | 'oklch' | 'hsl';
 
 export type GradientTilingMode = 'none' | 'repeat' | 'reflect';
@@ -939,7 +939,7 @@ export type FilterIR =
       intensity?: number;
       luminanceMode?: import('./filters').GradientMapLuminanceMode;
       preserveSourceAlpha?: boolean;
-      interpolation?: import('@strata/shared').GradientInterpolationSpace;
+      interpolation?: import('@varve/shared').GradientInterpolationSpace;
       lutSize?: number;
       opacity: number;
       blendMode: string;

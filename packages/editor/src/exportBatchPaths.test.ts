@@ -1,4 +1,4 @@
-import type { ExportJob } from '@strata/scene';
+import type { ExportJob } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { applyExportBatchPaths } from './exportBatchPaths';
 

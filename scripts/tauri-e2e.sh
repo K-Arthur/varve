@@ -8,5 +8,5 @@ if ! command -v tauri-driver >/dev/null 2>&1; then
   exit 1
 fi
 
-export STRATA_TAURI_E2E=1
+export VARVE_TAURI_E2E=1
 exec pnpm exec playwright test tests/e2e/tauri --project=tauri --reporter=list

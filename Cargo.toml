@@ -4,17 +4,17 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/strata-core",
-    "crates/strata-engine",
-    "crates/strata-layout",
-    "crates/strata-sync",
-    "crates/strata-trace",
-    "crates/strata-print",
-    "crates/strata-upscale",
-    "crates/strata-bgremove",
-    "crates/strata-bridge",
-    "crates/strata-colour",
-    "crates/strata-wasm",
+    "crates/varve-core",
+    "crates/varve-engine",
+    "crates/varve-layout",
+    "crates/varve-sync",
+    "crates/varve-trace",
+    "crates/varve-print",
+    "crates/varve-upscale",
+    "crates/varve-bgremove",
+    "crates/varve-bridge",
+    "crates/varve-colour",
+    "crates/varve-wasm",
 ]
 
 [workspace.package]
@@ -23,7 +23,7 @@ edition = "2021"
 rust-version = "1.82"
 license = "FSL-1.1-MIT"
 authors = ["Strata"]
-repository = "https://github.com/K-Arthur/Strata"
+repository = "https://github.com/K-Arthur/varve"
 
 [workspace.lints.rust]
 unsafe_code = "deny"

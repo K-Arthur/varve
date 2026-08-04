@@ -5,8 +5,8 @@ export function getTypeAheadResetMs(): number {
     typeof window !== 'undefined'
       ? (window as unknown as Record<string, number | undefined>)
       : undefined;
-  if (win && win.__STRATA_TYPEAHEAD_MS !== undefined) {
-    return win.__STRATA_TYPEAHEAD_MS;
+  if (win && win.__VARVE_TYPEAHEAD_MS !== undefined) {
+    return win.__VARVE_TYPEAHEAD_MS;
   }
   return TYPEAHEAD_RESET_MS;
 }

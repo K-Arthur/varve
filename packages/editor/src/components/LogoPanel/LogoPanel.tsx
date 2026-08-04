@@ -13,8 +13,8 @@
  * open/closed state.
  */
 
-import type { LogoConceptStatus, LogoVariantKind } from '@strata/scene';
-import { Button, EmptyState, Icon, Select, Tooltip } from '@strata/ui';
+import type { LogoConceptStatus, LogoVariantKind } from '@varve/scene';
+import { Button, EmptyState, Icon, Select, Tooltip } from '@varve/ui';
 import { useMemo, useState } from 'react';
 import { useEditor } from '../../context';
 import { VectorizeWorkflow } from '../Vectorize/VectorizeWorkflow';

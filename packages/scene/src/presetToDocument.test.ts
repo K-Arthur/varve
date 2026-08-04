@@ -1,5 +1,5 @@
-import type { Preset } from '@strata/shared';
-import { physicalToPx } from '@strata/shared';
+import type { Preset } from '@varve/shared';
+import { physicalToPx } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { CMYK_PROFILES, RGB_PROFILES } from './colorManagement';
 import {

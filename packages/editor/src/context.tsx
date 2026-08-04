@@ -11,7 +11,7 @@
  * (toolbar, canvas, layers, inspector) can mutate the scene.
  */
 
-/** Module-level bridge injected by Shell to forward toasts to @strata/ui ToastProvider. */
+/** Module-level bridge injected by Shell to forward toasts to @varve/ui ToastProvider. */
 interface EditorToastOptions {
   message: string;
   type?: 'info' | 'success' | 'warning' | 'error';
@@ -79,7 +79,7 @@ export function getBackupService(): BackupService | null {
  *     Frame tool now correctly creates a FrameNode (container), not a ShapeNode.
  */
 
-import { getTransactionHooks } from '@strata/collab';
+import { getTransactionHooks } from '@varve/collab';
 import type {
   Adjustment,
   Affine,
@@ -87,7 +87,7 @@ import type {
   PixelArtAlgorithm,
   Shape,
   UpscaleMethod,
-} from '@strata/engine';
+} from '@varve/engine';
 import {
   analogousHarmony,
   applyAffine,
@@ -98,14 +98,14 @@ import {
   multiplyAffine,
   splitComplementaryHarmony,
   triadicHarmony,
-} from '@strata/engine';
-import { type ImportFileInput, ImportService } from '@strata/import';
-import { type Platform, upsertPreservingMeta } from '@strata/platform';
+} from '@varve/engine';
+import { type ImportFileInput, ImportService } from '@varve/import';
+import { type Platform, upsertPreservingMeta } from '@varve/platform';
 import {
   PrototypeDebugConsole,
   type PrototypeRuntime,
   processDelays as protoProcessDelays,
-} from '@strata/prototype';
+} from '@varve/prototype';
 import type {
   AdjustmentNode,
   ColorMode,
@@ -121,7 +121,7 @@ import type {
   NodeId,
   Slot,
   SyncResult,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   type ArrangeOp,
   addChild,
@@ -293,7 +293,7 @@ import {
   validateDocument,
   validateStateMachine as validateSM,
   walkNodes,
-} from '@strata/scene';
+} from '@varve/scene';
 import {
   alignBBox,
   animateCamera,
@@ -315,7 +315,7 @@ import {
   transformRect,
   type Viewport,
   zoomAboutPoint,
-} from '@strata/shared';
+} from '@varve/shared';
 import {
   createContext,
   type ReactNode,
@@ -713,9 +713,9 @@ export interface EditorContextValue {
   /** Compute world-space bounding box for a node. */
   nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
   /** Cached world transform — uses TransformCache for O(1) repeated lookups. */
-  getWorldTransform: (id: NodeId) => import('@strata/shared').Affine;
+  getWorldTransform: (id: NodeId) => import('@varve/shared').Affine;
   /** Cached world bounds — uses TransformCache for O(1) repeated lookups. */
-  getWorldBounds: (id: NodeId) => import('@strata/shared').Rect | null;
+  getWorldBounds: (id: NodeId) => import('@varve/shared').Rect | null;
   /** Convert canvas CSS-px coordinates to world coordinates. */
   canvasToWorld: (cx: number, cy: number) => { x: number; y: number };
   /** Convert world coordinates to canvas CSS-px coordinates. */
@@ -768,11 +768,11 @@ export interface EditorContextValue {
   /** Update the fill of all selected nodes. */
   setSelectedFill: (color: ManagedColor) => void;
   /** P2: Set the entire fill stack on all selected nodes. */
-  setSelectedFills: (fills: import('@strata/scene').Fill[]) => void;
+  setSelectedFills: (fills: import('@varve/scene').Fill[]) => void;
   /** P2: Update a single fill in the stack at a given index on all selected nodes. */
-  updateSelectedFillAt: (index: number, fill: import('@strata/scene').Fill) => void;
+  updateSelectedFillAt: (index: number, fill: import('@varve/scene').Fill) => void;
   /** P2: Add a fill to the stack on all selected nodes. */
-  addSelectedFill: (fill: import('@strata/scene').Fill) => void;
+  addSelectedFill: (fill: import('@varve/scene').Fill) => void;
   /** P2: Remove a fill at a given index from the stack on all selected nodes. */
   removeSelectedFillAt: (index: number) => void;
   /** P2: Reorder fills: move from one index to another on all selected nodes. */
@@ -796,7 +796,7 @@ export interface EditorContextValue {
   /** F6: batch-edit opacity on all selected nodes. */
   setSelectedOpacity: (value: number) => void;
   /** F6: batch-edit blend mode on all selected nodes. */
-  setSelectedBlendMode: (mode: import('@strata/engine').BlendMode) => void;
+  setSelectedBlendMode: (mode: import('@varve/engine').BlendMode) => void;
   /** F6: batch-edit rotation on all selected nodes. */
   setSelectedRotation: (value: number) => void;
   /** F6: batch-edit flip horizontal on all selected nodes. */
@@ -852,9 +852,9 @@ export interface EditorContextValue {
   /** P3: batch-set max height on all selected nodes. */
   setSelectedMaxHeight: (value: number) => void;
   /** P3: batch-set layout sizing mode on all selected nodes. */
-  setSelectedLayoutSizing: (value: import('@strata/scene').LayoutSizing) => void;
+  setSelectedLayoutSizing: (value: import('@varve/scene').LayoutSizing) => void;
   /** P3: batch-set grid item placement on all selected nodes. */
-  setSelectedGridPlacement: (value: import('@strata/scene').GridItemPlacement) => void;
+  setSelectedGridPlacement: (value: import('@varve/scene').GridItemPlacement) => void;
   /** P3: set the document canvas width. */
   setCanvasWidth: (value: number) => void;
   /** P3: set the document canvas height. */
@@ -864,7 +864,7 @@ export interface EditorContextValue {
   /** F6: batch-set a variable binding on all selected nodes. */
   setSelectedBinding: (
     target: string,
-    binding: import('@strata/scene').PropertyBinding | null,
+    binding: import('@varve/scene').PropertyBinding | null,
   ) => void;
   /** F6: transaction API — begin, commit, abort for single-undo scrubbing. */
   beginTransaction: () => void;
@@ -900,9 +900,9 @@ export interface EditorContextValue {
   /** Detach icon nodes into plain editable nodes (clears icon provenance). */
   detachIconNodes: (nodeIds: NodeId[]) => void;
   /** Look up a document icon asset by id. */
-  getIconAsset: (assetId: string) => import('@strata/scene').DocumentIconAsset | undefined;
+  getIconAsset: (assetId: string) => import('@varve/scene').DocumentIconAsset | undefined;
   /** Look up the icon asset referenced by a node, if any. */
-  getIconAssetForNode: (nodeId: NodeId) => import('@strata/scene').DocumentIconAsset | undefined;
+  getIconAssetForNode: (nodeId: NodeId) => import('@varve/scene').DocumentIconAsset | undefined;
   /** Load a document from a JSON string. */
   loadDocument: (json: string, meta?: { name?: string; filePath?: string }) => void;
   /** Save the current document via the platform. */
@@ -951,7 +951,7 @@ export interface EditorContextValue {
    */
   publishComponentToLibrary: (nodeId: NodeId) => boolean;
   /** Install a library from a library package into the document. */
-  installLibrary: (library: import('@strata/scene').Library) => void;
+  installLibrary: (library: import('@varve/scene').Library) => void;
   /** Uninstall a library by ID from the document. */
   uninstallLibrary: (libraryId: string) => void;
   /** Enter isolation/focus view scoped to a single container's subtree. */
@@ -965,15 +965,15 @@ export interface EditorContextValue {
   /** Toggle clipContent on a frame node. */
   setNodeClipContent: (id: NodeId, clipContent: boolean) => void;
   /** Set a layer color tag on a node (or null to remove). */
-  setLayerColor: (id: NodeId, color: import('@strata/scene').LayerColor) => void;
+  setLayerColor: (id: NodeId, color: import('@varve/scene').LayerColor) => void;
   /** Batch: lock/unlock multiple nodes in one undo step. */
   bulkSetNodeLocked: (ids: NodeId[], locked: boolean) => void;
   /** Batch: show/hide multiple nodes in one undo step. */
   bulkSetNodeVisible: (ids: NodeId[], visible: boolean) => void;
   /** Batch: set a layer color tag on multiple nodes in one undo step. */
-  bulkSetLayerColor: (ids: NodeId[], color: import('@strata/scene').LayerColor) => void;
+  bulkSetLayerColor: (ids: NodeId[], color: import('@varve/scene').LayerColor) => void;
   /** B2: set or update the layout style on a frame node. */
-  setNodeLayout: (id: NodeId, layout: import('@strata/scene').LayoutStyle | undefined) => void;
+  setNodeLayout: (id: NodeId, layout: import('@varve/scene').LayoutStyle | undefined) => void;
   /** B1: resolve a variable to its current value (throws on missing/cycle). */
   resolveVariable: (nameOrId: string) => VariableValue;
   /** B1: add a new variable to the active session's store. */
@@ -1009,7 +1009,7 @@ export interface EditorContextValue {
   /** Detach the first selected component instance. */
   detachSelected: () => void;
   /** Create a mask on the selected container from the node above it (or the first shape child). */
-  addMaskToSelected: (type?: import('@strata/scene').MaskType) => void;
+  addMaskToSelected: (type?: import('@varve/scene').MaskType) => void;
   /** Remove the mask from the selected container. Does NOT delete the mask source node. */
   removeMaskFromSelected: () => void;
   /** Toggle the selected container's mask visibility. */
@@ -1029,26 +1029,26 @@ export interface EditorContextValue {
   /** Change the mask source node (must be a child of the container). */
   setMaskSourceNode: (sourceNodeId: string) => void;
   /** Set the fill rule for a clip/vector mask ('nonzero' | 'evenodd'). */
-  setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
+  setMaskFillRule: (fillRule: import('@varve/scene').MaskFillRule) => void;
   /** Set a vector path mask on the selected container. */
-  setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
+  setMaskVectorPath: (points: import('@varve/engine').PathPoint[], closed: boolean) => void;
   /** Create a clipping mask group from selected nodes (mask shape + content). */
   createClippingMaskFromSelected: (selectionOverride?: NodeId[]) => void;
   /** Release a clipping mask, restoring original content and mask source. */
   releaseClippingMaskFromSelected: () => void;
   /** Create an adjustment layer node with optional initial adjustments and select it. */
-  createAdjustmentLayer: (initialAdjustments?: import('@strata/engine').Adjustment[]) => void;
+  createAdjustmentLayer: (initialAdjustments?: import('@varve/engine').Adjustment[]) => void;
   /** Append an adjustment to an adjustment layer node. */
-  addAdjustmentToLayer: (nodeId: NodeId, adjustment: import('@strata/engine').Adjustment) => void;
+  addAdjustmentToLayer: (nodeId: NodeId, adjustment: import('@varve/engine').Adjustment) => void;
   /** Create a new adjustment layer node with a LUT adjustment. */
-  addLutAdjustment: (lutAdjustment: import('@strata/engine').Adjustment) => void;
+  addLutAdjustment: (lutAdjustment: import('@varve/engine').Adjustment) => void;
   /** Remove an adjustment by id from an adjustment layer node. */
   removeAdjustmentFromLayer: (nodeId: NodeId, adjustmentId: string) => void;
   /** Patch properties on an existing adjustment by id. */
   updateAdjustmentInLayer: (
     nodeId: NodeId,
     adjustmentId: string,
-    patch: Partial<import('@strata/engine').Adjustment>,
+    patch: Partial<import('@varve/engine').Adjustment>,
   ) => void;
   /** Reorder an adjustment within the layer's adjustments array. */
   reorderAdjustmentInLayer: (nodeId: NodeId, adjustmentId: string, newIndex: number) => void;
@@ -1065,14 +1065,14 @@ export interface EditorContextValue {
   /** Import a node from an imported document (svg/image) into the current document. */
   importNode: (
     node: SceneNode,
-    sourceDoc: import('@strata/scene').Document,
+    sourceDoc: import('@varve/scene').Document,
     options?: { position?: { x: number; y: number } },
   ) => void;
   /** Batch-import multiple nodes in a single state update (for drag-and-drop). */
   batchImportNodes: (
     items: {
       node: SceneNode;
-      sourceDoc: import('@strata/scene').Document;
+      sourceDoc: import('@varve/scene').Document;
       position?: { x: number; y: number };
     }[],
     options?: { maskTargetId?: NodeId },
@@ -1088,13 +1088,13 @@ export interface EditorContextValue {
   /** F6: batch-edit corner smoothing on all selected shape nodes. */
   setSelectedCornerSmoothing: (value: number) => void;
   /** Report the selected grapheme range within the focused text node. */
-  setSelectionRange: (range: import('@strata/scene').RichSelection | null) => void;
+  setSelectionRange: (range: import('@varve/scene').RichSelection | null) => void;
   /** Set cursor position on canvas (null when pointer leaves). */
   setCursorPos: (pos: { x: number; y: number } | null) => void;
   /** Set the display unit type. */
   setUnitType: (t: 'px' | 'pt' | 'cm' | 'mm' | 'in' | '%') => void;
   /** Set the document's measurement unit (px, pt, mm, cm, in, pc). */
-  setDocumentUnit: (unit: import('@strata/shared').DocumentUnit) => void;
+  setDocumentUnit: (unit: import('@varve/shared').DocumentUnit) => void;
   /** Toggle soft proofing overlay. */
   setSoftProofEnabled: (v: boolean) => void;
   /** Set color blindness simulation view (protanopia/deuteranopia/tritanopia). */
@@ -1111,7 +1111,7 @@ export interface EditorContextValue {
   /** Set document grid settings (visible, subdivisions, color). */
   setDocumentGrid: (settings: import('./context/types').DocumentGridSettings) => void;
   /** Set isometric grid settings. */
-  setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => void;
+  setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => void;
   /** Set canvas rendering mode (full / outline / preview). */
   setCanvasMode: (mode: CanvasMode) => void;
   setCameraRotation: (radians: number) => void;
@@ -1147,7 +1147,7 @@ export interface EditorContextValue {
   /** Remove an export preset from a node. */
   removePreset: (nodeId: NodeId, presetId: string) => void;
   /** Apply a boolean operation to all selected nodes; replaces selection with result. */
-  booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
+  booleanOp: (op: import('@varve/scene').BooleanOpKind) => void;
   /** Expand the selected nodes' strokes into filled outline geometry. */
   expandStrokeSelected: () => void;
   /** Offset the selected paths' outlines by `distance` (negative contracts). */
@@ -1165,10 +1165,10 @@ export interface EditorContextValue {
   createLogoConcept: () => void;
   duplicateActiveConcept: () => void;
   setConceptStatus: (
-    conceptId: import('@strata/scene').NodeId,
-    status: import('@strata/scene').LogoConceptStatus,
+    conceptId: import('@varve/scene').NodeId,
+    status: import('@varve/scene').LogoConceptStatus,
   ) => void;
-  createLogoVariant: (name: string, kind: import('@strata/scene').LogoVariantKind) => void;
+  createLogoVariant: (name: string, kind: import('@varve/scene').LogoVariantKind) => void;
   patchBrief: (
     patch: Parameters<import('./context/useLogoProject').LogoProjectAPI['patchBrief']>[0],
   ) => void;
@@ -1180,16 +1180,16 @@ export interface EditorContextValue {
    * applies the boolean operation. Replaces all operand nodes with the result.
    */
   booleanOpRaster: (
-    kind: import('@strata/scene').BooleanOpKind,
-    rasterNodeIds: import('@strata/scene').NodeId[],
-    vectorNodeIds: import('@strata/scene').NodeId[],
+    kind: import('@varve/scene').BooleanOpKind,
+    rasterNodeIds: import('@varve/scene').NodeId[],
+    vectorNodeIds: import('@varve/scene').NodeId[],
   ) => Promise<void>;
 
   /** Remove background from the selected image node. */
-  removeBackground: (method: import('@strata/scene').BackgroundRemovalMethod) => Promise<void>;
+  removeBackground: (method: import('@varve/scene').BackgroundRemovalMethod) => Promise<void>;
   /** Remove background with custom feather and decontaminate options. */
   removeBackgroundWithOptions: (
-    method: import('@strata/scene').BackgroundRemovalMethod,
+    method: import('@varve/scene').BackgroundRemovalMethod,
     feather: number,
     decontaminate: boolean,
   ) => Promise<void>;
@@ -1200,7 +1200,7 @@ export interface EditorContextValue {
 
   /** SAM2 interactive segmentation — run point/box-prompted segmentation on an image node. */
   applySam2Segmentation: (params: {
-    nodeId: import('@strata/scene').NodeId;
+    nodeId: import('@varve/scene').NodeId;
     prompts: {
       points?: Array<{ x: number; y: number; label: 0 | 1 }>;
       box?: { x1: number; y1: number; x2: number; y2: number };
@@ -1211,13 +1211,13 @@ export interface EditorContextValue {
   cancelSam2Segmentation: () => void;
 
   /** Enlarge the selected image into a new editable image layer. */
-  upscaleSelectedImage: (options: import('@strata/engine').UpscaleOptions) => Promise<void>;
+  upscaleSelectedImage: (options: import('@varve/engine').UpscaleOptions) => Promise<void>;
   /** Trace the selected image into a new editable vector group. */
   traceSelectedImage: (
-    options: import('@strata/engine').RasterTraceOptions & { liveTrace?: boolean },
+    options: import('@varve/engine').RasterTraceOptions & { liveTrace?: boolean },
   ) => Promise<void>;
   /** Update live trace parameters on the first selected live-traced node (marks pending re-trace). */
-  setSelectedLiveTraceParams: (params: Partial<import('@strata/scene').LiveTraceParams>) => void;
+  setSelectedLiveTraceParams: (params: Partial<import('@varve/scene').LiveTraceParams>) => void;
   /** Flatten the first selected live-traced node to ordinary vector geometry. */
   flattenSelectedLiveTrace: () => void;
   /** Cancel the first selected live-traced node and restore the source image. */
@@ -1225,7 +1225,7 @@ export interface EditorContextValue {
   /** Cancel an in-progress image enlargement or trace job. */
   cancelImageProcessing: () => void;
   /** Toggle preview of original image (without background removal mask). */
-  setShowOriginalBg: (nodeId: import('@strata/scene').NodeId | null) => void;
+  setShowOriginalBg: (nodeId: import('@varve/scene').NodeId | null) => void;
   setMaskPreviewMode: (mode: import('./context/types').MaskPreviewMode) => void;
   setRefineMaskOptions: (opts: Partial<{ brushSize: number; hardness: number }>) => void;
   setTrimapEditOptions: (
@@ -1264,18 +1264,18 @@ export interface EditorContextValue {
   /** Navigate to a prototype screen */
   navigatePrototypeTo: (screenId: string) => void;
   /** Get interactions for a node from the document. */
-  getNodeInteractions: (nodeId: NodeId) => import('@strata/scene').DocumentInteraction[];
+  getNodeInteractions: (nodeId: NodeId) => import('@varve/scene').DocumentInteraction[];
   /** Add an interaction to a node. */
   addNodeInteraction: (
     nodeId: NodeId,
-    interaction: Omit<import('@strata/scene').DocumentInteraction, 'id' | 'nodeId'>,
+    interaction: Omit<import('@varve/scene').DocumentInteraction, 'id' | 'nodeId'>,
   ) => void;
   /** Remove an interaction by id. */
   removeNodeInteraction: (interactionId: string) => void;
   /** Update an interaction by id. */
   updateNodeInteraction: (
     interactionId: string,
-    updates: Partial<Omit<import('@strata/scene').DocumentInteraction, 'id' | 'nodeId'>>,
+    updates: Partial<Omit<import('@varve/scene').DocumentInteraction, 'id' | 'nodeId'>>,
   ) => void;
   /** Active screen transition during prototype navigation. */
   prototypeTransition: ActivePrototypeTransition | null;
@@ -1332,7 +1332,7 @@ export interface EditorContextValue {
     timelineId: string,
     trackId: string,
     progress: number,
-    easing: import('@strata/shared').EasingDefinition,
+    easing: import('@varve/shared').EasingDefinition,
   ) => void;
   setTrackMuted: (timelineId: string, trackId: string, muted: boolean) => void;
   setTrackSolo: (timelineId: string, trackId: string, solo: boolean) => void;
@@ -1429,9 +1429,9 @@ export interface EditorContextValue {
   /** Rebuild spread groupings, optionally with a facing-pages config override. */
   rebuildSpreads: (facingPages?: FacingPagesConfig) => void;
   /** Get the spread that contains the given page id. */
-  getSpreadForPage: (pageId: NodeId) => import('@strata/scene').Spread | undefined;
+  getSpreadForPage: (pageId: NodeId) => import('@varve/scene').Spread | undefined;
   /** Classify a page as left/right/none based on facing-pages mode. */
-  getPageSide: (pageId: NodeId) => import('@strata/scene').PageSide;
+  getPageSide: (pageId: NodeId) => import('@varve/scene').PageSide;
   /** True when the page sits on the left side of a spread. */
   isPageOnLeftSide: (pageId: NodeId) => boolean;
   /** Get the 1-indexed page number for a page id. */
@@ -1453,19 +1453,19 @@ export interface EditorContextValue {
 
   // Soft proofing
   /** Persisted proof configuration (document print intent). */
-  proofConfig: import('@strata/scene').ProofConfig;
+  proofConfig: import('@varve/scene').ProofConfig;
   /** Session-scoped proof toggle. Never persisted into documents. */
   proofEnabled: boolean;
   setProofEnabled: (enabled: boolean) => void;
-  setProofConfig: (config: import('@strata/scene').ProofConfig) => void;
+  setProofConfig: (config: import('@varve/scene').ProofConfig) => void;
 
   // Spot-color libraries
   createSpotLibrary: (name: string) => void;
-  addSpotToLibrary: (libraryId: string, def: import('@strata/scene').SpotColorDef) => void;
+  addSpotToLibrary: (libraryId: string, def: import('@varve/scene').SpotColorDef) => void;
   updateSpotDef: (
     libraryId: string,
     spotId: string,
-    patch: Partial<Omit<import('@strata/scene').SpotColorDef, 'id'>>,
+    patch: Partial<Omit<import('@varve/scene').SpotColorDef, 'id'>>,
   ) => void;
   removeSpotFromLibrary: (libraryId: string, spotId: string) => void;
   renameSpotLibrary: (libraryId: string, name: string) => void;
@@ -1505,15 +1505,15 @@ export interface EditorContextValue {
   ) => void;
 
   /** Extract a dominant color palette from image pixel data. */
-  extractPalette: (data: ImageData, colorCount?: number) => import('@strata/engine').PaletteResult;
+  extractPalette: (data: ImageData, colorCount?: number) => import('@varve/engine').PaletteResult;
   /** Generate a harmony palette (complementary, triadic, etc.) from a base color. */
   generateHarmony: (
-    color: import('@strata/scene').ManagedColor,
+    color: import('@varve/scene').ManagedColor,
     type: 'complementary' | 'triadic' | 'analogous' | 'splitComplementary' | 'monochromatic',
-  ) => import('@strata/engine').HarmonyPalette;
+  ) => import('@varve/engine').HarmonyPalette;
   /** Compute Miller's-Law/Hick's-Law cognitive load for a node (or the whole document if null). */
   getCognitiveLoad: (
-    nodeId: import('@strata/scene').NodeId | null,
+    nodeId: import('@varve/scene').NodeId | null,
   ) => import('./intelligence/cognitiveLoad').CognitiveLoadReport;
 
   /** Switch the inspector panel to a tab, optionally selecting an IntelligencePanel sub-tab. */
@@ -1530,7 +1530,7 @@ export interface EditorContextValue {
     masterNodeId: NodeId,
     properties: Array<{
       name: string;
-      type: import('@strata/scene').ComponentPropertyType;
+      type: import('@varve/scene').ComponentPropertyType;
       memberValues: Record<NodeId, string>;
     }>,
     variantAssignments: Array<{ nodeId: NodeId; variantName: string }>,
@@ -1553,7 +1553,7 @@ export interface EditorContextValue {
   restoreDefaultSectionState: () => void;
   restoreDefaultCollapsed: () => void;
   hideOptionalSections: () => void;
-  setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => void;
+  setSelectedConstraint: (constraint: import('@varve/scene').Constraints) => void;
   trimToSubject: (
     padding?: number,
     options?: import('./imageCrop').TrimToSubjectOptions,
@@ -1568,7 +1568,7 @@ export interface EditorContextValue {
   ) => void;
   resetImageBounds: () => void;
   // State machines (delegated to context/types.ts EditorContextValue)
-  getStateMachines: () => import('@strata/scene').StateMachine[];
+  getStateMachines: () => import('@varve/scene').StateMachine[];
   getPrimaryStateMachineId: () => string | null;
   createStateMachine: (name: string) => string;
   removeStateMachine: (smId: string) => void;
@@ -1582,13 +1582,13 @@ export interface EditorContextValue {
     smId: string,
     fromStateId: string,
     toStateId: string,
-    trigger: import('@strata/scene').SMTransitionTrigger,
+    trigger: import('@varve/scene').SMTransitionTrigger,
   ) => string;
   removeSMTransition: (smId: string, transitionId: string) => void;
   setSMTransitionTrigger: (
     smId: string,
     transitionId: string,
-    trigger: import('@strata/scene').SMTransitionTrigger,
+    trigger: import('@varve/scene').SMTransitionTrigger,
   ) => void;
   setSMTransitionTarget: (smId: string, transitionId: string, toStateId: string) => void;
   setSMTransitionCondition: (
@@ -1601,11 +1601,11 @@ export interface EditorContextValue {
   setSMTransitionEasing: (
     smId: string,
     transitionId: string,
-    easing: import('@strata/shared').EasingDefinition,
+    easing: import('@varve/shared').EasingDefinition,
   ) => void;
-  addSMInput: (smId: string, name: string, type: import('@strata/scene').SMInputType) => string;
+  addSMInput: (smId: string, name: string, type: import('@varve/scene').SMInputType) => string;
   removeSMInput: (smId: string, inputId: string) => void;
-  validateStateMachine: (smId: string) => import('@strata/scene').SMValidationResult;
+  validateStateMachine: (smId: string) => import('@varve/scene').SMValidationResult;
   selectedStateMachineId: string | null;
   selectStateMachine: (smId: string | null) => void;
   selectedSMStateId: string | null;
@@ -2429,7 +2429,7 @@ export function EditorProvider({
       processingImageNodeRef.current = null;
       autoSaveRef.current?.stop();
       void backupRef.current?.shutdown();
-      void import('@strata/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
+      void import('@varve/engine').then(({ terminateWorkerPool }) => terminateWorkerPool());
     };
   }, []);
 
@@ -2577,7 +2577,7 @@ export function EditorProvider({
   );
 
   // F6: transaction API — begin/commit/abort for single-undo scrubbing
-  // P5: Wired to @strata/collab transaction hooks for Yjs integration
+  // P5: Wired to @varve/collab transaction hooks for Yjs integration
   const beginTransaction = useCallback(() => {
     inTransactionRef.current = true;
     txSnapshotRef.current = state.document;
@@ -3033,7 +3033,7 @@ export function EditorProvider({
           const cam = fitBoundsCamera(bounds, viewportEst, padding);
           patch({ zoom: cam.zoom, pan: cam.pan });
         } else {
-          const current: import('@strata/shared').Camera = {
+          const current: import('@varve/shared').Camera = {
             pan: state.pan,
             zoom: state.zoom,
           };
@@ -3307,7 +3307,7 @@ export function EditorProvider({
           // Frame capture-on-draw: if we just created a frame, capture any
           // fully-contained sibling nodes into it
           if (isFrame) {
-            const frameNode = newDoc.nodes[id] as import('@strata/scene').FrameNode;
+            const frameNode = newDoc.nodes[id] as import('@varve/scene').FrameNode;
             // Compute true world-space AABB via nodeWorldTransform + transformRect
             // instead of using axis-aligned local dims at world click position.
             // This correctly handles rotated/scaled parent frames where the
@@ -3699,7 +3699,7 @@ export function EditorProvider({
               newChildIds.push(newChildId);
               idMap = { ...idMap, ...childMap };
             }
-            const clonedContainer = cloned as import('@strata/scene').ContainerNode;
+            const clonedContainer = cloned as import('@varve/scene').ContainerNode;
             clonedContainer.children = newChildIds;
 
             // Node-to-node references must follow the cloned subtree. Leaving
@@ -3841,7 +3841,7 @@ export function EditorProvider({
                 newChildIds.push(newChildId);
                 idMap = { ...idMap, ...childMap };
               }
-              const clonedContainer = cloned as import('@strata/scene').ContainerNode;
+              const clonedContainer = cloned as import('@varve/scene').ContainerNode;
               clonedContainer.children = newChildIds;
 
               if (clonedContainer.mask?.sourceNodeId) {
@@ -3958,7 +3958,7 @@ export function EditorProvider({
               newChildIds.push(newChildId);
               idMap = { ...idMap, ...childMap };
             }
-            const clonedContainer = cloned as import('@strata/scene').ContainerNode;
+            const clonedContainer = cloned as import('@varve/scene').ContainerNode;
             clonedContainer.children = newChildIds;
 
             if (clonedContainer.mask?.sourceNodeId) {
@@ -4525,7 +4525,7 @@ export function EditorProvider({
         });
       },
 
-      setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => {
+      setSelectedConstraint: (constraint: import('@varve/scene').Constraints) => {
         const sel = stateRef.current.selection;
         if (sel.length === 0) return;
         updateDoc((doc) => {
@@ -4545,7 +4545,7 @@ export function EditorProvider({
 
       // M5b: rich-text span formatting — apply a character format to the
       // selected range of the focused text node's rich text.
-      applyFormatToSelection: (format: import('@strata/scene').CharacterFormat) => {
+      applyFormatToSelection: (format: import('@varve/scene').CharacterFormat) => {
         const sel = stateRef.current.selection;
         if (sel.length === 0) return;
         const range = stateRef.current.selectionRange;
@@ -4563,7 +4563,7 @@ export function EditorProvider({
         });
       },
 
-      setPendingFormat: (format: import('@strata/scene').CharacterFormat | null) => {
+      setPendingFormat: (format: import('@varve/scene').CharacterFormat | null) => {
         setState((s) => ({ ...s, pendingFormat: format }));
       },
 
@@ -5490,7 +5490,7 @@ export function EditorProvider({
         return engineExtractPalette(data, colorCount);
       },
       generateHarmony: (
-        color: import('@strata/scene').ManagedColor,
+        color: import('@varve/scene').ManagedColor,
         type: 'complementary' | 'triadic' | 'analogous' | 'splitComplementary' | 'monochromatic',
       ) => {
         switch (type) {
@@ -5506,7 +5506,7 @@ export function EditorProvider({
             return monochromaticHarmony(color);
         }
       },
-      getCognitiveLoad: (nodeId: import('@strata/scene').NodeId | null) => {
+      getCognitiveLoad: (nodeId: import('@varve/scene').NodeId | null) => {
         return computeCognitiveLoad(state.document, nodeId);
       },
 
@@ -5880,14 +5880,14 @@ export function EditorProvider({
         updateDoc((doc) => setMaskSourceNodeDoc(doc, id, sourceNodeId as NodeId));
       },
 
-      setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => {
+      setMaskFillRule: (fillRule: import('@varve/scene').MaskFillRule) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
         updateDoc((doc) => setMaskFillRuleDoc(doc, id, fillRule));
       },
 
-      setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => {
+      setMaskVectorPath: (points: import('@varve/engine').PathPoint[], closed: boolean) => {
         const sel = state.selection;
         const id = sel[0];
         if (!id) return;
@@ -6212,7 +6212,7 @@ export function EditorProvider({
         const sel = state.selection;
         // Default scope: image-local when single eligible node selected,
         // explicit-targets for multi-selection, undefined (legacy) otherwise
-        let scope: import('@strata/scene').AdjustmentScope | undefined;
+        let scope: import('@varve/scene').AdjustmentScope | undefined;
         if (sel.length === 1) {
           const firstId = sel[0]!;
           const target = state.document.nodes[firstId];
@@ -6250,8 +6250,8 @@ export function EditorProvider({
         const contentRootId = activePage?.contentRoot;
         const doc =
           contentRootId && newDoc.nodes[contentRootId]
-            ? addChild(newDoc, contentRootId, withAdjustments as import('@strata/scene').SceneNode)
-            : addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
+            ? addChild(newDoc, contentRootId, withAdjustments as import('@varve/scene').SceneNode)
+            : addNode(newDoc, withAdjustments as import('@varve/scene').SceneNode);
         patch({ document: doc, selection: [id] });
         const scopeName =
           scope?.mode === 'image-local'
@@ -6295,7 +6295,7 @@ export function EditorProvider({
           },
         );
         const withLut = { ...node, adjustments: [lutAdjustment] };
-        const doc = addNode(newDoc, withLut as import('@strata/scene').SceneNode);
+        const doc = addNode(newDoc, withLut as import('@varve/scene').SceneNode);
         patch({ document: doc, selection: [id] });
         announcerRef.current?.announce('Created LUT adjustment layer');
       },
@@ -6346,8 +6346,8 @@ export function EditorProvider({
       },
 
       createLinkedAdjustment: (
-        targetIds: import('@strata/scene').NodeId[],
-        initialAdjustments: import('@strata/scene').Adjustment[] | undefined,
+        targetIds: import('@varve/scene').NodeId[],
+        initialAdjustments: import('@varve/scene').Adjustment[] | undefined,
       ) => {
         undoStackRef.current = [...undoStackRef.current.slice(-50), state.document];
         undoLabelsRef.current = [...undoLabelsRef.current.slice(-50), 'Edit'];
@@ -6378,7 +6378,7 @@ export function EditorProvider({
           },
         );
         const withAdjustments = { ...node, adjustments: adjs };
-        const doc = addNode(newDoc, withAdjustments as import('@strata/scene').SceneNode);
+        const doc = addNode(newDoc, withAdjustments as import('@varve/scene').SceneNode);
         patch({ document: doc, selection: [id] });
         announcerRef.current?.announce(
           `Created linked adjustment for ${targetIds.length} target(s)`,
@@ -6386,8 +6386,8 @@ export function EditorProvider({
       },
 
       copyEditsToSelected: (
-        sourceNodeId: import('@strata/scene').NodeId,
-        targetIds: import('@strata/scene').NodeId[],
+        sourceNodeId: import('@varve/scene').NodeId,
+        targetIds: import('@varve/scene').NodeId[],
         adjustmentIds: string[] | undefined,
       ) => {
         const sourceNode = state.document.nodes[sourceNodeId];
@@ -6434,7 +6434,7 @@ export function EditorProvider({
             ...node,
             adjustments: [...toCopy.map((a: Adjustment) => ({ ...a }))],
           };
-          doc = addNode(doc, withCopied as import('@strata/scene').SceneNode);
+          doc = addNode(doc, withCopied as import('@varve/scene').SceneNode);
           newIds.push(id);
         }
 
@@ -6443,8 +6443,8 @@ export function EditorProvider({
       },
 
       setAdjustmentScope: (
-        nodeId: import('@strata/scene').NodeId,
-        scope: import('@strata/scene').AdjustmentScope,
+        nodeId: import('@varve/scene').NodeId,
+        scope: import('@varve/scene').AdjustmentScope,
       ) => {
         updateNodeProp(nodeId, (n) => {
           if (n.kind !== 'adjustment') return n;
@@ -6699,7 +6699,7 @@ export function EditorProvider({
             doc = inserted.doc;
             const insertedNode = doc.nodes[inserted.rootId];
             if (insertedNode && isImageShape(insertedNode)) {
-              const shape = insertedNode as import('@strata/scene').ShapeNode;
+              const shape = insertedNode as import('@varve/scene').ShapeNode;
               const imageFill = shape.fills?.find((f) => f.type === 'image' && f.image)?.image;
               if (imageFill) {
                 const existingFit = imageFill.fit !== 'fill' ? imageFill.fit : undefined;
@@ -6854,7 +6854,7 @@ export function EditorProvider({
         patch({ documentGrid: grid });
         persistViewportPrefs({ ...stateRef.current, documentGrid: grid });
       },
-      setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => {
+      setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => {
         const g = { ...grid, id: grid.id ?? 'grid-isometric-default', type: 'isometric' as const };
         updateDoc((doc) => sceneSetIsometricGrid(doc, g.id, g));
         patch({ isometricGrid: g });
@@ -7052,7 +7052,7 @@ export function EditorProvider({
       proofConfig: state.document.proofConfig ?? defaultProofConfig(),
       proofEnabled: proofEnabledState,
       setProofEnabled: setProofEnabledState,
-      setProofConfig: (config: import('@strata/scene').ProofConfig) => {
+      setProofConfig: (config: import('@varve/scene').ProofConfig) => {
         updateDoc((doc) => setDocumentProofConfigDoc(doc, config));
       },
 
@@ -7060,13 +7060,13 @@ export function EditorProvider({
       createSpotLibrary: (name: string) => {
         updateDoc((doc) => createSpotLibraryDoc(doc, name).doc);
       },
-      addSpotToLibrary: (libraryId: string, def: import('@strata/scene').SpotColorDef) => {
+      addSpotToLibrary: (libraryId: string, def: import('@varve/scene').SpotColorDef) => {
         updateDoc((doc) => addSpotToLibraryDoc(doc, libraryId, def).doc);
       },
       updateSpotDef: (
         libraryId: string,
         spotId: string,
-        patch: Partial<Omit<import('@strata/scene').SpotColorDef, 'id'>>,
+        patch: Partial<Omit<import('@varve/scene').SpotColorDef, 'id'>>,
       ) => {
         updateDoc((doc) => updateSpotDefDoc(doc, libraryId, spotId, patch).doc);
       },
@@ -7430,7 +7430,7 @@ export function EditorProvider({
         setState((s) => {
           const shapeNodes = sel
             .map((id) => s.document.nodes[id])
-            .filter((n): n is import('@strata/scene').ShapeNode => n?.kind === 'shape');
+            .filter((n): n is import('@varve/scene').ShapeNode => n?.kind === 'shape');
           if (shapeNodes.length < 2) return s;
           if (!inTransactionRef.current) {
             undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -7442,7 +7442,7 @@ export function EditorProvider({
           let d = s.document;
           for (const id of sel) d = removeNode(d, id);
           const { id: newId, doc: d2 } = nextNodeId(d);
-          const newNode = { ...result, id: newId } as import('@strata/scene').ShapeNode;
+          const newNode = { ...result, id: newId } as import('@varve/scene').ShapeNode;
           d = addNode(d2, newNode);
           return { ...s, document: d, selection: [newId], dirty: true };
         });
@@ -7465,19 +7465,17 @@ export function EditorProvider({
         });
         announcerRef.current?.announce('Processing boolean operation...');
         try {
-          const { extractAlphaContours, alphaContoursToShapeNodes } = await import(
-            '@strata/engine'
-          );
-          const { getImageCache } = await import('@strata/engine');
+          const { extractAlphaContours, alphaContoursToShapeNodes } = await import('@varve/engine');
+          const { getImageCache } = await import('@varve/engine');
           const { isImageShape, imageShapeSrc, imageShapeW, imageShapeH } = await import(
-            '@strata/scene'
+            '@varve/scene'
           );
           const doc = stateRef.current.document;
 
           // Process raster nodes: extract alpha contours, convert to ShapeNodes
-          const rasterShapeNodes: import('@strata/scene').ShapeNode[] = [];
+          const rasterShapeNodes: import('@varve/scene').ShapeNode[] = [];
           for (const nodeId of rasterNodeIds) {
-            const node = doc.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
+            const node = doc.nodes[nodeId] as import('@varve/scene').ShapeNode | undefined;
             if (node?.kind !== 'shape' || !isImageShape(node)) continue;
             const src = imageShapeSrc(node);
             if (!src) continue;
@@ -7493,8 +7491,8 @@ export function EditorProvider({
             ctx.drawImage(img, 0, 0, w, h);
             const imageData = ctx.getImageData(0, 0, w, h);
             const contours = extractAlphaContours(imageData, { alphaThreshold: 1, minArea: 4 });
-            // alphaContoursToShapeNodes lives in @strata/engine, which can't depend on
-            // @strata/scene's ShapeNode/Stroke types (would create a package cycle), so
+            // alphaContoursToShapeNodes lives in @varve/engine, which can't depend on
+            // @varve/scene's ShapeNode/Stroke types (would create a package cycle), so
             // it returns a structurally-equivalent ContourShapeNodeData with loosened
             // fill/fills/strokes/effects typing. The values are passed straight through
             // from `node` (a real ShapeNode), so the runtime shape matches ShapeNode.
@@ -7502,14 +7500,14 @@ export function EditorProvider({
               contours,
               node.id,
               node as unknown as Parameters<typeof alphaContoursToShapeNodes>[2],
-            ) as unknown as import('@strata/scene').ShapeNode[];
+            ) as unknown as import('@varve/scene').ShapeNode[];
             rasterShapeNodes.push(...nodes);
           }
 
           // Collect vector nodes
-          const vectorShapeNodes: import('@strata/scene').ShapeNode[] = [];
+          const vectorShapeNodes: import('@varve/scene').ShapeNode[] = [];
           for (const nodeId of vectorNodeIds) {
-            const node = doc.nodes[nodeId] as import('@strata/scene').ShapeNode | undefined;
+            const node = doc.nodes[nodeId] as import('@varve/scene').ShapeNode | undefined;
             if (node?.kind !== 'shape') continue;
             vectorShapeNodes.push(node);
           }
@@ -7525,7 +7523,7 @@ export function EditorProvider({
             let d = s.document;
             for (const id of allIds) d = removeNode(d, id);
             const { id: newId, doc: d2 } = nextNodeId(d);
-            const newNode = { ...result, id: newId } as import('@strata/scene').ShapeNode;
+            const newNode = { ...result, id: newId } as import('@varve/scene').ShapeNode;
             d = addNode(d2, newNode);
             announcerRef.current?.announce('Boolean operation complete');
             return { ...s, document: d, selection: [newId], dirty: true };
@@ -7549,9 +7547,9 @@ export function EditorProvider({
         processingImageNodeRef.current = processingNodeId;
         announcerRef.current?.announce('Upscaling image...');
         try {
-          const engine = await import('@strata/engine');
+          const engine = await import('@varve/engine');
           const { imageShapeSrc, getImageFill, findOrCreateEmbeddedAsset, mimeTypeFromDataUrl } =
-            await import('@strata/scene');
+            await import('@varve/scene');
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await engine.getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
@@ -7569,7 +7567,7 @@ export function EditorProvider({
           // at render time, so these pixels are still the unmasked original.
           // Without baking it in, the upscaled layer comes back with the
           // removed background restored — the derived node carries no mask.
-          const { resolveRasterMaskAsset } = await import('@strata/scene');
+          const { resolveRasterMaskAsset } = await import('@varve/scene');
           const maskDataUrl =
             resolveRasterMaskAsset(stateRef.current.document, imageNode)?.dataUrl ??
             imageNode.backgroundRemoval?.maskDataUrl;
@@ -7772,8 +7770,8 @@ export function EditorProvider({
         processingImageNodeRef.current = processingNodeId;
         announcerRef.current?.announce('Tracing image...');
         try {
-          const { getImageCache, dispatchTrace } = await import('@strata/engine');
-          const { imageShapeSrc } = await import('@strata/scene');
+          const { getImageCache, dispatchTrace } = await import('@varve/engine');
+          const { imageShapeSrc } = await import('@varve/scene');
           const sourceSrc = imageShapeSrc(imageNode);
           const image = await getImageCache().load(sourceSrc);
           if (controller.signal.aborted) return;
@@ -8036,7 +8034,7 @@ export function EditorProvider({
         smId: string,
         fromStateId: string,
         toStateId: string,
-        trigger: import('@strata/scene').SMTransitionTrigger,
+        trigger: import('@varve/scene').SMTransitionTrigger,
       ) => {
         let newId = '';
         updateDoc((doc) => {
@@ -8056,7 +8054,7 @@ export function EditorProvider({
       setSMTransitionTrigger: (
         smId: string,
         transitionId: string,
-        trigger: import('@strata/scene').SMTransitionTrigger,
+        trigger: import('@varve/scene').SMTransitionTrigger,
       ) => {
         updateDoc((doc) => setSMTransitionTrigger(doc, smId, transitionId, trigger));
       },
@@ -8089,7 +8087,7 @@ export function EditorProvider({
       setSMTransitionEasing: (
         smId: string,
         transitionId: string,
-        easing: import('@strata/shared').EasingDefinition,
+        easing: import('@varve/shared').EasingDefinition,
       ) => {
         updateDoc((doc) => {
           const sm = doc.stateMachines?.[smId];
@@ -8103,7 +8101,7 @@ export function EditorProvider({
           };
         });
       },
-      addSMInput: (smId: string, name: string, type: import('@strata/scene').SMInputType) => {
+      addSMInput: (smId: string, name: string, type: import('@varve/scene').SMInputType) => {
         let newId = '';
         updateDoc((doc) => {
           const result = addSMInput(doc, smId, name, type);
@@ -8241,7 +8239,7 @@ export function EditorProvider({
 
       setSelectedGuideId: (id) => patch({ selectedGuideId: id }),
 
-      setSelectionRange: (range: import('@strata/scene').RichSelection | null) =>
+      setSelectionRange: (range: import('@varve/scene').RichSelection | null) =>
         patch({ selectionRange: range }),
 
       nudgeSelectedGuide: (dx, dy) => {

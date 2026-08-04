@@ -4,7 +4,7 @@
 
 **Goal:** Establish one standards-correct blend/alpha implementation and make Canvas software compositing and raster painting consume it.
 
-**Architecture:** `@strata/engine` remains the owner of artistic blend math. `blendModes.ts` exposes the authoritative straight-RGBA compositor and typed capability lookup; `compositeCanvas.ts` delegates software pixel blending to it; `@strata/scene` consumes that public engine API for raster brush dabs instead of maintaining a third formula set. The public API distinguishes unsupported modes from Normal and keeps Plus Lighter as an explicit composite operation.
+**Architecture:** `@varve/engine` remains the owner of artistic blend math. `blendModes.ts` exposes the authoritative straight-RGBA compositor and typed capability lookup; `compositeCanvas.ts` delegates software pixel blending to it; `@varve/scene` consumes that public engine API for raster brush dabs instead of maintaining a third formula set. The public API distinguishes unsupported modes from Normal and keeps Plus Lighter as an explicit composite operation.
 
 **Tech Stack:** TypeScript strict mode, Vitest, Canvas2D ImageData, W3C Compositing and Blending Level 1.
 
@@ -133,7 +133,7 @@ Export the catalog types and functions from `packages/engine/src/index.ts` witho
 
 - [ ] **Step 4: Run the catalog tests and typecheck**
 
-Run: `pnpm exec vitest run packages/engine/src/blendModeCatalog.test.ts && pnpm --filter @strata/engine typecheck`
+Run: `pnpm exec vitest run packages/engine/src/blendModeCatalog.test.ts && pnpm --filter @varve/engine typecheck`
 
 Expected: PASS.
 
@@ -417,7 +417,7 @@ Export `blend` from `packages/engine/src/index.ts`. In `rasterLayer.ts`, import 
 with `Affine`:
 
 ```ts
-import { blend, type Affine } from '@strata/engine';
+import { blend, type Affine } from '@varve/engine';
 ```
 
 Delete the local `blendPixel` function. Replace both Normal and advanced branches
@@ -473,8 +473,8 @@ Document:
 - future conformance consumers for Canvas2D, WebGPU, WASM/native, SVG, and PDF.
 
 Update the design specification's ownership statement to clarify that
-`@strata/engine` owns and publicly exports the blend core, while
-`@strata/scene` consumes it through its existing one-way dependency.
+`@varve/engine` owns and publicly exports the blend core, while
+`@varve/scene` consumes it through its existing one-way dependency.
 
 - [ ] **Step 2: Run the mandatory regression protocol**
 

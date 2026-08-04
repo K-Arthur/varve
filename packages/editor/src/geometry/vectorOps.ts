@@ -17,12 +17,12 @@
  *   selected nodes are duplicated; their descendants travel with them).
  */
 
-import type { Shape } from '@strata/engine';
-import { cubicBezierPoint, expandStroke, offsetPath, roundCorners } from '@strata/engine';
-import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@strata/scene';
-import { addNode } from '@strata/scene';
-import type { Affine, Point } from '@strata/shared';
-import { invertAffine, multiplyAffine, rotateDeg, scaleXY, translate } from '@strata/shared';
+import type { Shape } from '@varve/engine';
+import { cubicBezierPoint, expandStroke, offsetPath, roundCorners } from '@varve/engine';
+import type { Document, Fill, NodeId, SceneNode, ShapeNode, Stroke } from '@varve/scene';
+import { addNode } from '@varve/scene';
+import type { Affine, Point } from '@varve/shared';
+import { invertAffine, multiplyAffine, rotateDeg, scaleXY, translate } from '@varve/shared';
 import { nodeWorldBounds, nodeWorldTransform } from '../scene/world';
 import { fitPathToBeziers, simplifyPoints } from '../tools/fitting';
 

@@ -1,6 +1,6 @@
-import type { Platform } from '@strata/platform';
-import { formatRelativeTime } from '@strata/platform';
-import { Icon, InlineActivityIndicator, Tooltip } from '@strata/ui';
+import type { Platform } from '@varve/platform';
+import { formatRelativeTime } from '@varve/platform';
+import { Icon, InlineActivityIndicator, Tooltip } from '@varve/ui';
 import { Fragment, useCallback, useEffect, useState } from 'react';
 
 export interface ActivityFeedProps {

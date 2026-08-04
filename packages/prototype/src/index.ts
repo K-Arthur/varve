@@ -1,5 +1,5 @@
 /**
- * @strata/prototype — Strata prototype engine.
+ * @varve/prototype — Strata prototype engine.
  *
  * A complete, production-grade prototyping system: interaction engine,
  * animation system, state/variable management, navigation/flow system,

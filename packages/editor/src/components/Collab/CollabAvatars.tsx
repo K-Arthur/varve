@@ -1,4 +1,4 @@
-import { Tooltip } from '@strata/ui';
+import { Tooltip } from '@varve/ui';
 import { useCollab } from './CollabProvider';
 
 const MAX_VISIBLE = 3;

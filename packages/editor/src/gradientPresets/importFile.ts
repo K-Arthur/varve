@@ -2,13 +2,13 @@
  * Gradient preset file-picking + parsing bridge.
  *
  * Keeps the browser file picker thin: reads the file, then delegates to the
- * isolated `@strata/import` parser (never mutates document/library state).
+ * isolated `@varve/import` parser (never mutates document/library state).
  */
 import {
   type GradientImportResult,
   importGradientPresets,
   toGradientImportError,
-} from '@strata/import';
+} from '@varve/import';
 
 export interface PickedGradientFile {
   name: string;

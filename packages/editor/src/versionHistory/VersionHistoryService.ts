@@ -22,10 +22,10 @@ import type {
   VersionEntry,
   VersionOrigin,
   VersionStats,
-} from '@strata/platform';
-import { contentHash } from '@strata/platform';
-import type { Document } from '@strata/scene';
-import { serializeDocument } from '@strata/scene';
+} from '@varve/platform';
+import { contentHash } from '@varve/platform';
+import type { Document } from '@varve/scene';
+import { serializeDocument } from '@varve/scene';
 import { VersionThumbnailQueue } from '../thumbnail/versionThumbnailQueue';
 
 export interface VersionHistoryConfig {

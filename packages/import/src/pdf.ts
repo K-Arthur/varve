@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/engine';
-import { addNode, createDocument, makeShapeNode, makeTextNode, nextNodeId } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import { addNode, createDocument, makeShapeNode, makeTextNode, nextNodeId } from '@varve/scene';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 
 export function createPdfParser(): ImportParser {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { createEngine } from '@strata/engine';
+import { createEngine } from '@varve/engine';
 import {
   addChild,
   addNode,
@@ -8,7 +8,7 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { replayStructuredScene } from './replayScene';
 import { flattenSceneToEngine } from './sceneToEngine';

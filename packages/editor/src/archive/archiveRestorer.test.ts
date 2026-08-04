@@ -5,7 +5,7 @@
  * and restore application.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import { strToU8 } from 'fflate';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildArchive } from './archiveBuilder';
@@ -242,7 +242,7 @@ describe('archiveRestorer', () => {
   describe('extractArchiveDocument', () => {
     it('extracts document from archive files', async () => {
       const doc = makeTestDocument();
-      const { DocumentCodec } = await import('@strata/scene');
+      const { DocumentCodec } = await import('@varve/scene');
       const docJson = DocumentCodec.encode(doc);
 
       const manifest = makeManifest();

@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { expect, test } from '@playwright/test';
 
-const BENCH_DIR = process.env.STRATA_BGREMOVAL_BENCH_DIR;
+const BENCH_DIR = process.env.VARVE_BGREMOVAL_BENCH_DIR;
 const METHODS = ['quick', 'ai-balanced', 'ai-quality'] as const;
 const CASES = [
   { id: 'cat', image: 'cat.jpg' },
@@ -38,7 +38,7 @@ function fileDataUrl(filePath: string): string {
 }
 
 test.describe('real-image background-removal quality benchmark', () => {
-  test.skip(!BENCH_DIR, 'Set STRATA_BGREMOVAL_BENCH_DIR to an image/mask fixture directory');
+  test.skip(!BENCH_DIR, 'Set VARVE_BGREMOVAL_BENCH_DIR to an image/mask fixture directory');
   test.describe.configure({ mode: 'serial' });
 
   test.beforeEach(async ({ page }) => {

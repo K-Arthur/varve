@@ -7,7 +7,7 @@
  * @module suppression
  */
 
-import type { AuditFinding, SuppressionRecord } from '@strata/shared';
+import type { AuditFinding, SuppressionRecord } from '@varve/shared';
 
 // ============================================================================
 // Types

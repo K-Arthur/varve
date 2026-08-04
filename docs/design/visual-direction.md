@@ -28,7 +28,7 @@ were adopted, which were rejected, and why. Authored during Session 14
 ## Token additions
 
 All new tokens added to `packages/ui/src/tokens/color.ts` and regenerated via
-`pnpm --filter @strata/ui tokens:generate`. Drift-guard test enforces sync.
+`pnpm --filter @varve/ui tokens:generate`. Drift-guard test enforces sync.
 
 ### New ramps (12-step, Radix-informed scaling)
 - `BLUE` — frame layer type

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import type { Document, SceneNode } from '@strata/scene';
-import { createDocument } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
+import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { applyAutoArrange, computeAutoArrange } from '../autoArrange';
 

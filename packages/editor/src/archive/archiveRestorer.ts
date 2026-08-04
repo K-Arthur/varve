@@ -10,7 +10,7 @@
  * Chrome profile restore with conflict resolution.
  */
 
-import { type Document, DocumentCodec } from '@strata/scene';
+import { type Document, DocumentCodec } from '@varve/scene';
 import { unzipSync } from 'fflate';
 import type {
   ArchiveConflict,

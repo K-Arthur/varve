@@ -1,5 +1,5 @@
 /**
- * @strata/scene — document model, component slots, and variable store.
+ * @varve/scene — document model, component slots, and variable store.
  *
  * The editor manipulates this model (task 0.9+); the engine renders a
  * flattened projection of it. Slots (1.1) and variable math (1.2) extend these

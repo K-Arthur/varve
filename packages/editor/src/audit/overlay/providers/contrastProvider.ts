@@ -1,6 +1,6 @@
-import type { Document, NodeId, SceneNode, TextNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
-import { contrastRatio, isLargeText, relativeLuminance, wcagLevel } from '@strata/shared';
+import type { Document, NodeId, SceneNode, TextNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
+import { contrastRatio, isLargeText, relativeLuminance, wcagLevel } from '@varve/shared';
 import { BackgroundResolver } from '../../BackgroundResolver';
 import type { AuditSeverity, OverlayContext, OverlayPrimitive, OverlayProvider } from '../types';
 

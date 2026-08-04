@@ -1,9 +1,9 @@
-// COMPLEXITY: 49 imports (ceiling 49). Merged duplicate @strata/scene and @strata/ui imports.
+// COMPLEXITY: 49 imports (ceiling 49). Merged duplicate @varve/scene and @varve/ui imports.
 // Plan: Refactor to move SubjectPickerOverlay and other overlay imports to a dedicated overlay registry module.
-import { HelpBrowser } from '@strata/help';
-import type { Platform } from '@strata/platform';
-import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@strata/scene';
-import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@strata/ui';
+import { HelpBrowser } from '@varve/help';
+import type { Platform } from '@varve/platform';
+import { type Document, getAllRules, registerBuiltinRules, type SceneNode } from '@varve/scene';
+import { ContextMenu, Icon, type MenuEntry, ToastProvider, Tooltip, useToast } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { registerAllShortcuts, registerEditorActions } from './actions/registerAll';
 import { AuditOverlayHost } from './audit/overlay/AuditOverlayHost';
@@ -154,7 +154,7 @@ function ShellInner({
     // Expose a global function for E2E tests to call directly
     const win = window as unknown as Record<
       string,
-      (adj: import('@strata/engine').Adjustment) => void
+      (adj: import('@varve/engine').Adjustment) => void
     >;
     win.__importLut = (adj) => {
       editor.addLutAdjustment(adj);
@@ -612,7 +612,7 @@ function ShellInner({
               const lutFiles = files.filter((f) => /\.(cube|3dl|clf|ctf)$/i.test(f.name));
               if (lutFiles.length > 0) {
                 const { parseCubeData, parse3dlData, makeAdjustment } = await import(
-                  '@strata/engine'
+                  '@varve/engine'
                 );
                 for (const file of lutFiles) {
                   const text = await file.text();
@@ -655,7 +655,7 @@ function ShellInner({
                 }
                 // Fall through to normal import for remaining files
               }
-              const { ImportService } = await import('@strata/import');
+              const { ImportService } = await import('@varve/import');
               const report = await ImportService.importFiles(
                 await Promise.all(
                   files.map(async (file) => ({
@@ -971,7 +971,7 @@ function ShellInner({
   );
 }
 
-/** Bridges the @strata/ui Toast system into the editor context's showToast(). */
+/** Bridges the @varve/ui Toast system into the editor context's showToast(). */
 function ToastBridge() {
   const { toast } = useToast();
   useEffect(() => {

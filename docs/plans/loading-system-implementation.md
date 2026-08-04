@@ -85,7 +85,7 @@ describe('startup settings', () => {
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `pnpm test --filter @strata/editor -- settings.test.ts 2>&1 | head -30`
+Run: `pnpm test --filter @varve/editor -- settings.test.ts 2>&1 | head -30`
 Expected: FAIL — `startup` does not exist on `EditorSettings`.
 
 - [ ] **Step 3: Add `StartupSettingsStore` interface and defaults**
@@ -145,7 +145,7 @@ export interface EditorSettingsPatch {
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `pnpm test --filter @strata/editor -- settings.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- settings.test.ts 2>&1`
 Expected: PASS (3 new tests)
 
 - [ ] **Step 6: Write failing test for startup timing measurement**
@@ -205,7 +205,7 @@ describe('startupTimer', () => {
 
 - [ ] **Step 7: Run test — verify it fails**
 
-Run: `pnpm test --filter @strata/editor -- startupTimer.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- startupTimer.test.ts 2>&1`
 Expected: FAIL — `createStartupTimer` not exported
 
 - [ ] **Step 8: Implement `startupTimer.ts`**
@@ -246,7 +246,7 @@ export function createStartupTimer(): StartupTimer {
 
 - [ ] **Step 9: Run tests — verify they pass**
 
-Run: `pnpm test --filter @strata/editor -- startupTimer.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- startupTimer.test.ts 2>&1`
 Expected: PASS
 
 - [ ] **Step 10: Export startupTimer from package index**
@@ -318,7 +318,7 @@ describe('checkStartupCapabilities', () => {
 
 - [ ] **Step 2: Run test — verify it fails**
 
-Run: `pnpm test --filter @strata/editor -- capabilityCheck.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- capabilityCheck.test.ts 2>&1`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Implement `capabilityCheck.ts`**
@@ -375,7 +375,7 @@ export function checkStartupCapabilities(): StartupCapabilities {
 
 - [ ] **Step 4: Run tests — verify they pass**
 
-Run: `pnpm test --filter @strata/editor -- capabilityCheck.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- capabilityCheck.test.ts 2>&1`
 Expected: PASS
 
 - [ ] **Step 5: Export from index**
@@ -423,7 +423,7 @@ git commit -m "feat(loading): document performance budget constants"
 
 ### Phase 1 gate check
 
-- [ ] `pnpm test --filter @strata/editor` — all pass
+- [ ] `pnpm test --filter @varve/editor` — all pass
 - [ ] `pnpm typecheck` — clean
 - [ ] `pnpm lint` — 0 new errors on modified files
 - [ ] `pnpm format` — clean
@@ -517,7 +517,7 @@ describe('createBootManager', () => {
 
 - [ ] **Step 2: Run tests — verify they fail**
 
-Run: `pnpm test --filter @strata/editor -- bootManager.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- bootManager.test.ts 2>&1`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Implement `bootManager.ts`**
@@ -579,7 +579,7 @@ export function createBootManager(opts?: BootManagerOptions): BootManager {
 
 - [ ] **Step 4: Run tests — verify they pass**
 
-Run: `pnpm test --filter @strata/editor -- bootManager.test.ts 2>&1`
+Run: `pnpm test --filter @varve/editor -- bootManager.test.ts 2>&1`
 Expected: PASS
 
 - [ ] **Step 5: Export from index**
@@ -613,7 +613,7 @@ import { render, screen } from '@testing-library/react';
 import { App } from '../App';
 
 // Mock the platform module so it doesn't hit localStorage / IndexedDB
-vi.mock('@strata/platform', () => ({
+vi.mock('@varve/platform', () => ({
   detectPlatform: () => ({
     getViewState: vi.fn().mockResolvedValue({}),
     listFiles: vi.fn().mockResolvedValue([]),
@@ -626,7 +626,7 @@ vi.mock('@strata/platform', () => ({
 }));
 
 // Mock EditorSettings to default showBrandedLoader=true
-vi.mock('@strata/editor/settings', () => ({
+vi.mock('@varve/editor/settings', () => ({
   loadSettings: () => ({
     export: {},
     appearance: { reduceMotion: false, theme: 'light' },
@@ -744,7 +744,7 @@ describe('useStartup', () => {
 
 - [ ] **Step 2: Run test — verify it fails**
 
-Run: `pnpm test --filter @strata/editor -- useStartup.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/editor -- useStartup.test.tsx 2>&1`
 Expected: FAIL — `useStartup` not found
 
 - [ ] **Step 3: Implement `useStartup` hook**
@@ -829,7 +829,7 @@ export function useStartup(opts: UseStartupOptions): UseStartupResult {
 
 - [ ] **Step 4: Run tests — verify they pass**
 
-Run: `pnpm test --filter @strata/editor -- useStartup.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/editor -- useStartup.test.tsx 2>&1`
 Expected: PASS
 
 - [ ] **Step 5: Wire useStartup into App.tsx**
@@ -838,11 +838,11 @@ Modify `apps/desktop/src/App.tsx`:
 
 ```typescript
 import { useState, useCallback } from 'react';
-import { StartupLoader } from '@strata/ui';
-import { useStartup } from '@strata/editor';
-import { detectPlatform, type FileEntry } from '@strata/platform';
-import { Shell } from '@strata/editor';
-import { HomeShell } from '@strata/home';
+import { StartupLoader } from '@varve/ui';
+import { useStartup } from '@varve/editor';
+import { detectPlatform, type FileEntry } from '@varve/platform';
+import { Shell } from '@varve/editor';
+import { HomeShell } from '@varve/home';
 import { TitleBar } from './chrome/TitleBar';
 
 const platform = detectPlatform();
@@ -1011,7 +1011,7 @@ describe('HomeShell onReady', () => {
 
 - [ ] **Step 8: Verify tests pass**
 
-Run: `pnpm test --filter @strata/home -- HomeShell.startup.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/home -- HomeShell.startup.test.tsx 2>&1`
 Expected: PASS
 
 - [ ] **Step 9: Handle degraded capabilities**
@@ -1020,7 +1020,7 @@ In the `StartupLoader` usage, pass simplified styles when `capabilities.shouldSi
 
 ```typescript
 // In App.tsx, wrap StartupLoader:
-import { StartupLoader } from '@strata/ui';
+import { StartupLoader } from '@varve/ui';
 
 {showLoader && (
   <StartupLoader
@@ -1104,9 +1104,9 @@ describe('StartupLoader', () => {
 
 - [ ] **Step 12: Verify all tests pass**
 
-Run: `pnpm test --filter @strata/ui -- StartupLoader.test.tsx 2>&1`
-Run: `pnpm test --filter @strata/editor -- useStartup.test.tsx 2>&1`
-Run: `pnpm test --filter @strata/home -- HomeShell.startup.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/ui -- StartupLoader.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/editor -- useStartup.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/home -- HomeShell.startup.test.tsx 2>&1`
 Expected: All PASS
 
 - [ ] **Step 13: Handle rapid relaunch — enable skip animation on cache**
@@ -1228,7 +1228,7 @@ useEffect(() => {
 
 - [ ] **Step 3: Verify tests pass**
 
-Run: `pnpm test --filter @strata/ui -- StartupLoader.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/ui -- StartupLoader.test.tsx 2>&1`
 
 - [ ] **Step 4: Commit**
 
@@ -1310,7 +1310,7 @@ describe('ContentSkeleton', () => {
 
 - [ ] **Step 2: Run test — verify it fails**
 
-Run: `pnpm test --filter @strata/ui -- ContentSkeleton.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/ui -- ContentSkeleton.test.tsx 2>&1`
 Expected: FAIL — module not found
 
 - [ ] **Step 3: Implement `ContentSkeleton.tsx`**
@@ -1521,7 +1521,7 @@ export function ContentSkeleton({
 
 - [ ] **Step 5: Run tests — verify they pass**
 
-Run: `pnpm test --filter @strata/ui -- ContentSkeleton.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/ui -- ContentSkeleton.test.tsx 2>&1`
 Expected: PASS
 
 - [ ] **Step 6: Export ContentSkeleton from UI package**
@@ -1563,7 +1563,7 @@ it('renders ContentSkeleton when loading', () => {
 
 ```typescript
 // In HomeShell.tsx — import ContentSkeleton
-import { ContentSkeleton } from '@strata/ui';
+import { ContentSkeleton } from '@varve/ui';
 
 // Replace lines 483-490
 if (view.loading) {
@@ -1582,7 +1582,7 @@ if (view.loading) {
 
 - [ ] **Step 3: Verify tests pass**
 
-Run: `pnpm test --filter @strata/home -- HomeShell.startup.test.tsx 2>&1`
+Run: `pnpm test --filter @varve/home -- HomeShell.startup.test.tsx 2>&1`
 Expected: PASS
 
 - [ ] **Step 4: Commit**
@@ -1658,7 +1658,7 @@ export const LOADING_TOKENS = {
 
 - [ ] **Step 2: Run token generation**
 
-Run: `pnpm --filter @strata/ui tokens:generate`
+Run: `pnpm --filter @varve/ui tokens:generate`
 Expected: `tokens.css` regenerated with new loading tokens
 
 - [ ] **Step 3: Update local fallbacks in component CSS to use tokens**
@@ -1744,7 +1744,7 @@ test('startup completes within performance budget', async ({ page }) => {
 
 - [ ] **Step 2: Verify E2E test runs**
 
-Run: `pnpm test:e2e --filter @strata/home -- startup.spec.ts 2>&1` (or the equivalent E2E command)
+Run: `pnpm test:e2e --filter @varve/home -- startup.spec.ts 2>&1` (or the equivalent E2E command)
 Expected: PASS
 
 - [ ] **Step 3: Add timing assertion to CI config**
@@ -1790,7 +1790,7 @@ test.describe('Startup accessibility', () => {
 
 - [ ] **Step 2: Verify E2E tests pass**
 
-Run: `pnpm test:e2e --filter @strata/home -- axe.spec.ts 2>&1`
+Run: `pnpm test:e2e --filter @varve/home -- axe.spec.ts 2>&1`
 Expected: PASS (0 violations)
 
 - [ ] **Step 3: Commit**

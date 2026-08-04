@@ -4,7 +4,7 @@ Last updated: 2026-07-14
 
 ## Current Architecture
 
-The shared document model lives in `@strata/scene` and is target-agnostic. The editor, renderer, layers tree, hit tester, export code, recovery, and platform adapters all consume the same `Document` object.
+The shared document model lives in `@varve/scene` and is target-agnostic. The editor, renderer, layers tree, hit tester, export code, recovery, and platform adapters all consume the same `Document` object.
 
 ### Page Model v2.0
 
@@ -49,8 +49,8 @@ Editorial spreads for print layout:
 
 Shared model behavior should not diverge between desktop and web. The I/O adapters do diverge:
 
-- Web target: `@strata/platform/src/web.ts` stores home files in IndexedDB, uses File System Access API when available, and falls back to `<input type=file>` or Blob downloads.
-- Tauri target: `@strata/platform/src/tauri.ts` persists through Tauri IPC into the native SQLite store, uses `tauri-plugin-dialog` for native open/save dialogs, and uses native file writes.
+- Web target: `@varve/platform/src/web.ts` stores home files in IndexedDB, uses File System Access API when available, and falls back to `<input type=file>` or Blob downloads.
+- Tauri target: `@varve/platform/src/tauri.ts` persists through Tauri IPC into the native SQLite store, uses `tauri-plugin-dialog` for native open/save dialogs, and uses native file writes.
 - Drag and drop: browser code uses HTML5 `DataTransfer`; Tauri config currently does not set `dragDropEnabled`, so Tauri's default native file-drop handling can differ from browser drop behavior.
 - Clipboard: editor clipboard uses browser Clipboard API and DOM paste-event fallbacks. A dedicated Tauri clipboard adapter is not present in this slice.
 - Multi-document: current product behavior is in-app sessions/tabs in one JS heap. Browser cross-tab and Tauri multi-window shared-state semantics are not yet implemented.
@@ -107,8 +107,8 @@ Lower:
 Directly executed this session:
 
 - `pnpm vitest run packages/scene/src/documentCodec.test.ts packages/scene/src/__tests__/page.test.ts packages/editor/src/components/PageNav/PageNav.test.tsx packages/editor/src/__tests__/pageConfig.test.tsx packages/editor/src/layout/__tests__/cycleDetection.test.ts packages/editor/src/startup/bootManager.test.ts packages/editor/src/startup/startupTimer.test.ts --reporter=verbose`
-- `pnpm --filter @strata/scene typecheck`
-- `pnpm --filter @strata/editor typecheck`
+- `pnpm --filter @varve/scene typecheck`
+- `pnpm --filter @varve/editor typecheck`
 - `pnpm typecheck`
 - `pnpm exec biome check` on touched implementation and test files
 - `pnpm test`

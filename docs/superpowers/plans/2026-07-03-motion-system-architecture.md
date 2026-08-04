@@ -34,7 +34,7 @@ walkNodes → worldTransforms → TIMELINE_SAMPLING → buildIr → replaySubtre
 - `packages/shared/src/interpolation.ts`: interpolateValue, interpolateColor, interpolateAffine, interpolatePath, interpolateArray, interpolateObject
 
 ### Phase 2 — Easing Unification + Playback Engine
-- Fixed `@strata/prototype/src/animation.ts` to use `getEasingFn()` from `@strata/shared` (all 8 easing types)
+- Fixed `@varve/prototype/src/animation.ts` to use `getEasingFn()` from `@varve/shared` (all 8 easing types)
 - `packages/editor/src/timeline/TimelineEngine.ts`: RAF-based playback with play/pause/stop/seek/speed/direction/iteration
 - `packages/editor/src/timeline/TimelineSampler.ts`: Sampling timeline → per-node property overrides
 
@@ -85,11 +85,11 @@ walkNodes → worldTransforms → TIMELINE_SAMPLING → buildIr → replaySubtre
 
 | Package | Files |
 |---------|-------|
-| `@strata/scene` | motion-types.ts, motion.ts, motion.test.ts, property-path.ts, property-path.test.ts, state-machine-types.ts, state-machine.ts, state-machine.test.ts, document.ts, version.ts, index.ts |
-| `@strata/shared` | interpolation.ts, interpolation.test.ts, index.ts |
-| `@strata/prototype` | animation.ts, animation.test.ts, accessibility.test.ts, validation.ts, triggers.ts, variables.ts, runtime.ts, debug.ts |
-| `@strata/editor` | state/motion-state.ts, context.tsx, CanvasArea.tsx, timeline/TimelineEngine.ts, timeline/TimelineEngine.test.ts, timeline/TimelineSampler.ts, timeline/TimelineSampler.test.ts, timeline/TimelinePanel.tsx, timeline/TimelinePanel.css, timeline/TimelinePanel.test.tsx, timeline/PlaybackControls.tsx, timeline/TimelineRuler.tsx, timeline/TrackRow.tsx |
-| `@strata/codegen` | animation-css.ts, animation-svg.ts, animation-lottie.ts, animation-css.test.ts, animation-svg.test.ts, animation-lottie.test.ts |
+| `@varve/scene` | motion-types.ts, motion.ts, motion.test.ts, property-path.ts, property-path.test.ts, state-machine-types.ts, state-machine.ts, state-machine.test.ts, document.ts, version.ts, index.ts |
+| `@varve/shared` | interpolation.ts, interpolation.test.ts, index.ts |
+| `@varve/prototype` | animation.ts, animation.test.ts, accessibility.test.ts, validation.ts, triggers.ts, variables.ts, runtime.ts, debug.ts |
+| `@varve/editor` | state/motion-state.ts, context.tsx, CanvasArea.tsx, timeline/TimelineEngine.ts, timeline/TimelineEngine.test.ts, timeline/TimelineSampler.ts, timeline/TimelineSampler.test.ts, timeline/TimelinePanel.tsx, timeline/TimelinePanel.css, timeline/TimelinePanel.test.tsx, timeline/PlaybackControls.tsx, timeline/TimelineRuler.tsx, timeline/TrackRow.tsx |
+| `@varve/codegen` | animation-css.ts, animation-svg.ts, animation-lottie.ts, animation-css.test.ts, animation-svg.test.ts, animation-lottie.test.ts |
 
 ## Test Summary
 - **Scene tests**: 565 (28 pre-existing failures from cascade snapshot page system)

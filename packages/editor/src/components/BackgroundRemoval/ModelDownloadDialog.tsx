@@ -1,4 +1,4 @@
-import { AVAILABLE_MODELS, getModelById, getModelLoader, UPSCALE_MODELS } from '@strata/engine';
+import { AVAILABLE_MODELS, getModelById, getModelLoader, UPSCALE_MODELS } from '@varve/engine';
 import { useCallback, useRef, useState } from 'react';
 import { FocusTrap } from '../../onboard/FocusTrap';
 import './ModelDownloadDialog.css';

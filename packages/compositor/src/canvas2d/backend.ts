@@ -1,8 +1,8 @@
 /**
  * Canvas2D compositor backend — wraps replayIr.
  */
-import { type RenderItem, type ReplayTarget, replayIr } from '@strata/engine';
-import { computeFloatingOrigin } from '@strata/shared';
+import { type RenderItem, type ReplayTarget, replayIr } from '@varve/engine';
+import { computeFloatingOrigin } from '@varve/shared';
 import type { CompositorBackend, CompositorDiagnostics, CompositorFrame } from '../types';
 
 /** Canvas surface accepted by the 2D backend (main canvas or offscreen overlay). */

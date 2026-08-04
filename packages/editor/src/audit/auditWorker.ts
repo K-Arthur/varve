@@ -11,8 +11,8 @@
  *   workers are unavailable (e.g. file:// protocol, no Blob support).
  */
 
-import type { AuditContext, AuditFinding, AuditRuleDef } from '@strata/scene';
-import { getAllRules } from '@strata/scene';
+import type { AuditContext, AuditFinding, AuditRuleDef } from '@varve/scene';
+import { getAllRules } from '@varve/scene';
 import { runAuditScan } from './auditScanExecutor';
 import type { ScanResult, ScanResultChunk, SerialisableScanInput } from './auditScanTypes';
 

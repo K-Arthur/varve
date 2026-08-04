@@ -1,4 +1,4 @@
-import { FocusTrap, Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@strata/ui';
+import { FocusTrap, Icon, SOLID_CHROME_ICONS, SolidIcon, Tooltip } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getActionRegistry } from '../actions/ActionRegistry';

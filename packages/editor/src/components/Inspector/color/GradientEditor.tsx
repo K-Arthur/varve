@@ -15,10 +15,10 @@ import type {
   GradientTilingMode,
   GradientType,
   ManagedColor,
-} from '@strata/scene';
-import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@strata/shared';
-import { Icon, Select } from '@strata/ui';
-import { ColorPicker, rgbToHex } from '@strata/ui/components/ColorPicker';
+} from '@varve/scene';
+import { expandGradientStops, interpolateManagedColor, managedColorToRgba } from '@varve/shared';
+import { Icon, Select } from '@varve/ui';
+import { ColorPicker, rgbToHex } from '@varve/ui/components/ColorPicker';
 import { useCallback, useId, useRef, useState } from 'react';
 
 export interface GradientEditorProps {

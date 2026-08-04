@@ -1,12 +1,12 @@
-import type { Document, ManagedColor } from '@strata/scene';
-import { addSwatch } from '@strata/scene';
+import type { Document, ManagedColor } from '@varve/scene';
+import { addSwatch } from '@varve/scene';
 import {
   type ColorBlindnessType,
   contrastRatio,
   managedColorToRgba,
   relativeLuminance,
   simulateColorBlindness,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export interface PaletteBackground {
   name: string;

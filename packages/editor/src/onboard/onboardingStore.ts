@@ -1,4 +1,4 @@
-import type { Platform } from '@strata/platform';
+import type { Platform } from '@varve/platform';
 
 const STORAGE_KEY = 'strata:onboarding';
 const APP_SETTING_KEY = 'onboarding';

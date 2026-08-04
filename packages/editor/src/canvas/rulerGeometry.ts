@@ -2,7 +2,7 @@
  * Ruler tick projection under view rotation — maps world-axis ticks to screen
  * positions along the top/left ruler edges.
  */
-import type { Point, Viewport } from '@strata/shared';
+import type { Point, Viewport } from '@varve/shared';
 import { type EditorCameraState, editorScreenToWorld, editorWorldToScreen } from './cameraState';
 
 export type RulerStripAxis = 'horizontal' | 'vertical';

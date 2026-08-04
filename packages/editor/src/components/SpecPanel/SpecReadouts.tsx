@@ -6,10 +6,10 @@
  * with text (not color alone), contrast ratios shown numerically.
  */
 
-import { resolveTokenName } from '@strata/codegen';
-import type { Document, ManagedColor, SceneNode, VariableStore } from '@strata/scene';
-import { convertPx, formatValue, managedColorToRgba, type SpecUnit } from '@strata/shared';
-import { CopyButton } from '@strata/ui';
+import { resolveTokenName } from '@varve/codegen';
+import type { Document, ManagedColor, SceneNode, VariableStore } from '@varve/scene';
+import { convertPx, formatValue, managedColorToRgba, type SpecUnit } from '@varve/shared';
+import { CopyButton } from '@varve/ui';
 import { useMemo } from 'react';
 
 // ── Token reverse-lookup ───────────────────────────────────────────────────

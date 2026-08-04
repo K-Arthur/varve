@@ -2,7 +2,7 @@
  * Tests for scene-level adjustment layer helpers.
  */
 
-import type { Adjustment } from '@strata/engine';
+import type { Adjustment } from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { adjustmentEnabledCount, makeAdjustment, visibleAdjustments } from './adjustments';
 import { makeAdjustmentNode } from './document';

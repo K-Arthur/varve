@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { createMemoryPlatform, type FileEntry } from '@strata/platform';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { createMemoryPlatform, type FileEntry } from '@varve/platform';
 import { describe, expect, it, vi } from 'vitest';
 import { ThumbnailSourcePicker } from './ThumbnailSourcePicker';
 

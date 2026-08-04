@@ -3,7 +3,7 @@
  * than against the ledger in isolation — these are the paths that actually
  * decide whether a browser graphics resource is released.
  */
-import { asRenderRevision } from '@strata/shared';
+import { asRenderRevision } from '@varve/shared';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRenderWorkerHost, disposeWorkerFrame, type WorkerCommand } from './workerHost';
 

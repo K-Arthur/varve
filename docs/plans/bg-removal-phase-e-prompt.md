@@ -25,7 +25,7 @@ pnpm exec vitest run \
   packages/editor/src/components/BackgroundRemoval/ModelDownloadDialog.test.tsx \
   packages/editor/src/components/Inspector/controls/CurveEditor.test.tsx
 
-pnpm --filter @strata/engine typecheck
+pnpm --filter @varve/engine typecheck
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 pnpm test   # expect ~11 failures in uncommitted motion WIP — unrelated
@@ -36,7 +36,7 @@ pnpm test   # expect ~11 failures in uncommitted motion WIP — unrelated
 | Gate | Result |
 |---|---|
 | Focused bg-removal suite | **145/145** (18 files) |
-| `@strata/engine` typecheck | **0 errors** |
+| `@varve/engine` typecheck | **0 errors** |
 | `cargo clippy -D warnings` | clean |
 | `cargo test --workspace` | **166/166** |
 | Full `pnpm test` | **3731/3743** pass (11 motion WIP failures) |
@@ -99,7 +99,7 @@ Current state: `RefineMaskTool` (brush add/subtract), `maskOps.decontaminateMask
 Tasks:
 
 1. Research basis comment at top of new module (e.g. closed-form matting, KNN matting, or guided filter — pick one appropriate for on-device CPU).
-2. Add `refineHairMatting(imageData, mask, opts)` in `@strata/engine` (new file under `backgroundRemoval/`).
+2. Add `refineHairMatting(imageData, mask, opts)` in `@varve/engine` (new file under `backgroundRemoval/`).
 3. Inspector: "Refine edges (hair/fur)" action in `BackgroundRemovalSection` — runs matting pass, replaces mask, undoable via `updateDoc`.
 4. Optional: auto-suggest when confidence < threshold or user picks method after AI quality tier.
 5. TDD: golden mask comparison on small fixture images; no pixel-exact GPU dependence.
@@ -155,7 +155,7 @@ E.2 + E.3 deliver user-visible value without Rust/ADR work. E.1 is optional acce
 ## Regression protocol (after each sub-phase)
 
 ```bash
-pnpm format && pnpm --filter @strata/engine typecheck && pnpm lint
+pnpm format && pnpm --filter @varve/engine typecheck && pnpm lint
 pnpm exec vitest run packages/engine/src/backgroundRemoval \
   packages/editor/src/components/__tests__/BatchBgRemoveDialog.test.tsx \
   packages/editor/src/tools/__tests__/RefineMaskTool.test.ts \

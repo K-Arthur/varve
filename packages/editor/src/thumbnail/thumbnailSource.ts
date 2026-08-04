@@ -6,12 +6,12 @@
  * which only renders what it's given.
  */
 
-import type { Affine, SceneNode, ThumbnailResult, UnifiedThumbnailOptions } from '@strata/engine';
-import { generateThumbnail } from '@strata/engine';
-import { contentHash } from '@strata/platform';
-import type { Document, NodeId } from '@strata/scene';
-import { activePageNodes, getChildren } from '@strata/scene';
-import { multiplyAffine } from '@strata/shared';
+import type { Affine, SceneNode, ThumbnailResult, UnifiedThumbnailOptions } from '@varve/engine';
+import { generateThumbnail } from '@varve/engine';
+import { contentHash } from '@varve/platform';
+import type { Document, NodeId } from '@varve/scene';
+import { activePageNodes, getChildren } from '@varve/scene';
+import { multiplyAffine } from '@varve/shared';
 
 // ─── Source types ──────────────────────────────────────────────────────
 
@@ -98,7 +98,7 @@ function resolveWorldTransform(
 // ─── Build engine SceneNode array from doc ────────────────────────────
 
 /** Extract scene-node fields relevant to the engine's IR pipeline. */
-function toEngineNode(node: import('@strata/scene').SceneNode, transform: Affine): SceneNode {
+function toEngineNode(node: import('@varve/scene').SceneNode, transform: Affine): SceneNode {
   const base = {
     id: node.id,
     name: node.name,
@@ -111,7 +111,7 @@ function toEngineNode(node: import('@strata/scene').SceneNode, transform: Affine
   };
 
   if (node.kind === 'shape') {
-    const s = node as import('@strata/scene').ShapeNode;
+    const s = node as import('@varve/scene').ShapeNode;
     return {
       ...base,
       kind: 'shape',
@@ -121,7 +121,7 @@ function toEngineNode(node: import('@strata/scene').SceneNode, transform: Affine
   }
 
   if (node.kind === 'text') {
-    const t = node as import('@strata/scene').TextNode;
+    const t = node as import('@varve/scene').TextNode;
     return {
       ...base,
       kind: 'text',

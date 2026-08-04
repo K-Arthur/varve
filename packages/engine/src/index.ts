@@ -1,5 +1,5 @@
 /**
- * @strata/engine — dual-backend renderer facade (Strata plan §0.3, ADR-0001).
+ * @varve/engine — dual-backend renderer facade (Strata plan §0.3, ADR-0001).
  *
  * One TypeScript surface drives desktop (native Rust via Tauri IPC) and web
  * (wasm-pack of the same crates). Feature code never knows which backend it

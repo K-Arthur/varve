@@ -13,7 +13,7 @@
 - `packages/shared/src/cssColorParser.ts` (343 lines) — CSS color parser (hex/rgb/hsl/oklch/oklab/named)
 
 ### Gradient Rendering
-- **Backend**: Canvas2D only (`ReplayTarget` interface, `@strata/engine/replay.ts`). No WebGL/WebGPU.
+- **Backend**: Canvas2D only (`ReplayTarget` interface, `@varve/engine/replay.ts`). No WebGL/WebGPU.
 - **Gradient types**: linear, radial, angular (conic), diamond (radial fallback)
 - **Interpolation spaces**: sRGB, OKLab, OKLCH, HSL — all handled via `expandGradientStops` (16 subdivisions/segment)
 - **Tiling**: repeat/reflect via OffscreenCanvas + `createPattern`

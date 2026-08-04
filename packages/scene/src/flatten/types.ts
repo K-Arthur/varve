@@ -1,5 +1,5 @@
 /**
- * Shared flatten types for @strata/scene. These are pure data types
+ * Shared flatten types for @varve/scene. These are pure data types
  * with no canvas or engine dependencies.
  */
 

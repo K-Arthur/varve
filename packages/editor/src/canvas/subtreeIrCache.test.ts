@@ -6,7 +6,7 @@ import type {
   RenderItem,
   Shape,
   Stroke,
-} from '@strata/engine';
+} from '@varve/engine';
 import { describe, expect, it } from 'vitest';
 import { cacheContentParts, SubtreeIrCache } from './subtreeIrCache';
 

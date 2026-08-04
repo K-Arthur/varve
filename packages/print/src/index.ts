@@ -1,15 +1,15 @@
 /**
- * @strata/print — TS facade over the strata-print crate.
+ * @varve/print — TS facade over the strata-print crate.
  *
- * Mirrors the @strata/engine facade pattern: use `createPrintEngine('auto')`
+ * Mirrors the @varve/engine facade pattern: use `createPrintEngine('auto')`
  * to select the native engine when running in Tauri, falling back to the stub
  * for tests and browser-only environments.
  *
- * Research basis: same facade pattern as `createEngine()` in @strata/engine
+ * Research basis: same facade pattern as `createEngine()` in @varve/engine
  * (see packages/engine/src/engine.ts).
  */
 
-import { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@varve/platform';
 import { createStubPrintEngine } from './stub';
 import type { PrintEngine } from './types';
 
@@ -23,7 +23,7 @@ export { createNativePrintEngine } from './native';
 export { createStubPrintEngine } from './stub';
 export type { PdfExportOptions, PdfResult, PrintEngine } from './types';
 
-export const PACKAGE = '@strata/print' as const;
+export const PACKAGE = '@varve/print' as const;
 
 export async function createPrintEngine(
   backend: 'auto' | 'native' | 'stub' = 'auto',

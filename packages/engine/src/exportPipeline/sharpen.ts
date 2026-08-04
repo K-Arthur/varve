@@ -17,7 +17,7 @@
  *  - Optional linear-light working space for physically correct edge response.
  */
 
-import type { SharpenMode } from '@strata/shared';
+import type { SharpenMode } from '@varve/shared';
 import { gaussianBlurSeparable } from '../blur';
 
 export interface SharpenImageOptions {

@@ -9,8 +9,8 @@
  * spacing, typography, and fills without server round-trip.
  */
 
-import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
-import { managedColorToRgba } from '@strata/shared';
+import type { Document, ManagedColor, NodeId, SceneNode } from '@varve/scene';
+import { managedColorToRgba } from '@varve/shared';
 import { computeDocExportHash } from './diff';
 
 /** A resolved spacing token with its value and usage count. */

@@ -1,6 +1,6 @@
-import type { Document, Fill, GradientFill, NodeId } from '@strata/scene';
-import type { Affine } from '@strata/shared';
-import { computeFloatingOrigin, screenToWorld, worldToScreen } from '@strata/shared';
+import type { Document, Fill, GradientFill, NodeId } from '@varve/scene';
+import type { Affine } from '@varve/shared';
+import { computeFloatingOrigin, screenToWorld, worldToScreen } from '@varve/shared';
 import { useCallback, useRef, useState } from 'react';
 import { getEditorViewport } from '../canvas/cameraState';
 import { CANVAS_INTERACTIVE_OVERLAY_Z_INDEX } from '../canvas/overlayZIndex';

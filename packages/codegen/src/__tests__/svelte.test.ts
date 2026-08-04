@@ -2,7 +2,7 @@
  * Tests for the Svelte component emitter.
  */
 
-import { createDocument, makeShapeNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeShapeNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToSvelte, svelteTargetGaps } from '../svelte';
 

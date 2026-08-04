@@ -1,5 +1,5 @@
-import type { Shape } from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
+import type { Shape } from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
 import type { ToolId } from './types';
 
 // F4: default shape geometry per tool.

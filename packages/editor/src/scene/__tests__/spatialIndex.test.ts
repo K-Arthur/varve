@@ -1,4 +1,4 @@
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 import {
   addChild,
   addNode,
@@ -6,8 +6,8 @@ import {
   makeFrameNode,
   makeGroupNode,
   makeShapeNode,
-} from '@strata/scene';
-import type { Affine } from '@strata/shared';
+} from '@varve/scene';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import {
   buildFrameSpatialIndex,

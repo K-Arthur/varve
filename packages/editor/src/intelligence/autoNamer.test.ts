@@ -10,7 +10,7 @@ import {
   makeImageShapeNode,
   makeShapeNode,
   makeTextNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { autoName, renameSelected, suggestName } from './autoNamer';
 

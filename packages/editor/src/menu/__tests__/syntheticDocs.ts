@@ -5,7 +5,7 @@ import {
   makeShapeNode,
   type Page,
   type PageOrder,
-} from '@strata/scene';
+} from '@varve/scene';
 
 export interface SyntheticDocOptions {
   nodeCount: number;

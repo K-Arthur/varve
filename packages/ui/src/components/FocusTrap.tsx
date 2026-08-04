@@ -1,7 +1,7 @@
 /**
  * FocusTrap — wraps children in a focus-trapping container.
  *
- * Uses the editor hook under the hood; re-exported from @strata/ui for
+ * Uses the editor hook under the hood; re-exported from @varve/ui for
  * widgets that do not have access to the editor package.
  *
  * Supports:

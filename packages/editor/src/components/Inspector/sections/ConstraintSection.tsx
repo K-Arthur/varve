@@ -6,9 +6,9 @@
  *
  * Research basis: Figma Constraints dropdown, APG Combobox pattern.
  */
-import type { ConstraintAxis, Constraints, SceneNode } from '@strata/scene';
-import { getParent } from '@strata/scene';
-import { Select } from '@strata/ui';
+import type { ConstraintAxis, Constraints, SceneNode } from '@varve/scene';
+import { getParent } from '@varve/scene';
+import { Select } from '@varve/ui';
 import { useCallback, useMemo } from 'react';
 import { useEditor } from '../../../context';
 import { DisclosureSection } from '../controls/DisclosureSection';

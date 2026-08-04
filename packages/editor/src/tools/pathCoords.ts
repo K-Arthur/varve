@@ -8,9 +8,9 @@
  * transform origin; handles are relative offsets from each anchor.
  */
 
-import type { PathPoint } from '@strata/engine';
-import type { Affine } from '@strata/shared';
-import { applyAffine, invertAffine } from '@strata/shared';
+import type { PathPoint } from '@varve/engine';
+import type { Affine } from '@varve/shared';
+import { applyAffine, invertAffine } from '@varve/shared';
 
 /** Rebase world-space anchors to local space relative to `originWorld`. */
 export function rebasePathPointsToLocal(

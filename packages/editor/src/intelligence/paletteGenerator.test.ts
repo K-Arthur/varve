@@ -2,7 +2,7 @@
  * Tests for the accessible palette generator.
  */
 
-import { createDocument } from '@strata/scene';
+import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { applyPaletteAsSwatches, generateAccessiblePalette } from './paletteGenerator';
 

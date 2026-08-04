@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
  * yet was refused against a 50MB file budget, surfacing as "Model exceeds safe
  * WASM memory limit" and blocking denoise entirely.
  */
-vi.mock('@strata/platform', () => ({ isTauriRuntime: () => false }));
+vi.mock('@varve/platform', () => ({ isTauriRuntime: () => false }));
 
 describe('WASM safety budgets', () => {
   it('separates the peak-memory budget from the model-file budget', async () => {

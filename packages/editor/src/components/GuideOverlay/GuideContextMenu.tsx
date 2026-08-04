@@ -1,4 +1,4 @@
-import { ContextMenu, type MenuEntry } from '@strata/ui';
+import { ContextMenu, type MenuEntry } from '@varve/ui';
 import { useCallback } from 'react';
 import './GuideContextMenu.css';
 

@@ -4,7 +4,7 @@
  * Uses `application/vnd.strata+guides+json` alongside an in-memory fallback
  * for environments where custom MIME types are unavailable.
  */
-import type { Guide } from '@strata/scene';
+import type { Guide } from '@varve/scene';
 
 export const GUIDE_CLIPBOARD_MIME = 'application/vnd.strata+guides+json';
 

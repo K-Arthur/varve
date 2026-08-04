@@ -2,7 +2,7 @@
  * Video export — timeline frame loop + WebCodecs encode + MP4/WebM mux.
  *
  * Uses IR-replay via an injected frame renderer callback so this module
- * stays free of @strata/editor circular dependencies.
+ * stays free of @varve/editor circular dependencies.
  */
 
 export interface VideoTimelineRef {

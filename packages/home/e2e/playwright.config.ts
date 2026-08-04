@@ -20,7 +20,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'pnpm --filter @strata/desktop dev',
+    command: 'pnpm --filter @varve/desktop dev',
     url: 'http://localhost:1420',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

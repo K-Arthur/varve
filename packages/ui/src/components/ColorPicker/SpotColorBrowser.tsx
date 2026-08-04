@@ -1,4 +1,4 @@
-import type { ManagedColor } from '@strata/scene';
+import type { ManagedColor } from '@varve/scene';
 import { useMemo, useState } from 'react';
 import { Tooltip } from '../Tooltip';
 

@@ -4,7 +4,7 @@
  * Displays copyright, license, vendor, embedding rights, and format metadata
  * from the FontRegistry. Empty fields are omitted so the panel stays clean.
  */
-import { getFontRegistry } from '@strata/engine';
+import { getFontRegistry } from '@varve/engine';
 import { useMemo } from 'react';
 import './FontLicenseDetails.css';
 

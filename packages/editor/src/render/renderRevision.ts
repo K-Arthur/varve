@@ -1,4 +1,4 @@
-import { asRenderRevision, nextRenderRevision, type RenderRevision } from '@strata/shared';
+import { asRenderRevision, nextRenderRevision, type RenderRevision } from '@varve/shared';
 
 export interface RenderRevisionInputs {
   documentVersion: number;

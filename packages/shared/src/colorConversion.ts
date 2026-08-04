@@ -25,7 +25,7 @@ import { cssStringToManagedColor } from './cssColorParser';
  * | float32  | 0.0–1.0  | single-precision; HDR can exceed 1.0. |
  *
  * The same range applies to all channels (R G B A C M Y K V) for a given
- * bit depth. This is the canonical definition; @strata/scene re-exports it.
+ * bit depth. This is the canonical definition; @varve/scene re-exports it.
  */
 export type BitDepth = 'uint8' | 'uint16' | 'float16' | 'float32';
 
@@ -84,7 +84,7 @@ export function clampChannel(value: number, bitDepth: BitDepth): number {
 }
 
 // ── Type shims for ManagedColor helpers ─────────────────────────────────────
-// These mirror @strata/scene types to avoid circular deps. The actual type
+// These mirror @varve/scene types to avoid circular deps. The actual type
 // definitions are in packages/scene/src/colorManagement.ts.
 
 /** RGB color value (channel range depends on bitDepth). */

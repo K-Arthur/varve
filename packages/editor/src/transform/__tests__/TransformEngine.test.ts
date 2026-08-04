@@ -1,5 +1,5 @@
 // @ts-nocheck
-import type { Affine } from '@strata/shared';
+import type { Affine } from '@varve/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { TransformEngine } from '../TransformEngine';
 
@@ -140,7 +140,7 @@ describe('TransformEngine.resize — image aspect ratio', () => {
   it('bypasses selection-box snapping when the alternate transform modifier is active', () => {
     const img = makeRasterShape('img1', 'a.png', 100, 100);
     const doc = makeDoc({ img1: img });
-    const snapBox = vi.fn((box: import('@strata/shared').SelectionBox) => ({
+    const snapBox = vi.fn((box: import('@varve/shared').SelectionBox) => ({
       ...box,
       w: 500,
       h: 500,

@@ -1,4 +1,4 @@
-import type { AuditFinding } from '@strata/scene';
+import type { AuditFinding } from '@varve/scene';
 
 export interface SerialisableScanInput {
   document: unknown;

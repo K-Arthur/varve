@@ -1,4 +1,4 @@
-import type { CustomPreset, Preset, PresetGroup } from '@strata/shared';
+import type { CustomPreset, Preset, PresetGroup } from '@varve/shared';
 import {
   type KeyboardEvent,
   useCallback,
@@ -132,8 +132,8 @@ const EMPTY_FAVORITE_IDS = new Set<string>();
 
 /**
  * A searchable, grouped, favorites/recents-aware preset picker — shared by
- * frame creation/resizing (@strata/editor) and new-document creation
- * (@strata/home). Always rendered inline and already "open" (both real
+ * frame creation/resizing (@varve/editor) and new-document creation
+ * (@varve/home). Always rendered inline and already "open" (both real
  * consumers show it inside an already-visible panel), so this manages its
  * own roving aria-activedescendant listbox rather than a popover.
  */

@@ -1,5 +1,5 @@
-import { getTransactionHooks } from '@strata/collab';
-import type { Document, NodeId } from '@strata/scene';
+import { getTransactionHooks } from '@varve/collab';
+import type { Document, NodeId } from '@varve/scene';
 import { useCallback, useRef } from 'react';
 import type { EditorState } from './types';
 

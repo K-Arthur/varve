@@ -1,6 +1,6 @@
-import type { BooleanOpKind } from '@strata/scene';
-import type { IconName, MenuEntry } from '@strata/ui';
-import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip, TooltipProvider } from '@strata/ui';
+import type { BooleanOpKind } from '@varve/scene';
+import type { IconName, MenuEntry } from '@varve/ui';
+import { ContextMenu, Icon, TOOL_ICONS, Toolbar, Tooltip, TooltipProvider } from '@varve/ui';
 import { useState } from 'react';
 import { type ToolId, useEditor } from '../../context';
 import { toolShortcutLabel } from '../../shortcuts';

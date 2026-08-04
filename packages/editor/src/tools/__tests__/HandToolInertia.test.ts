@@ -1,4 +1,4 @@
-import { createDocument } from '@strata/scene';
+import { createDocument } from '@varve/scene';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetEditorFrameRuntimeForTests } from '../../performance/editorFrameRuntime';
 import { HandTool } from '../HandTool';

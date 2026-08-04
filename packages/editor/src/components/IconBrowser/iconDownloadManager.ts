@@ -2,8 +2,8 @@
  * Icon download manager — fetches and caches icon SVGs from online providers.
  */
 
-import type { IconProviderResult } from '@strata/engine';
-import { sanitizeSvg } from '@strata/engine';
+import type { IconProviderResult } from '@varve/engine';
+import { sanitizeSvg } from '@varve/engine';
 import { getStoredIcon, type IconStorageRecord, storeIcon } from './iconStorage';
 
 export type IconDownloadStatus =

@@ -1,4 +1,4 @@
-import type { FrameNode, ShapeNode } from '@strata/scene';
+import type { FrameNode, ShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { buildSmartAnimateValues, matchLayersByName } from './smartAnimate';
 

@@ -6,7 +6,7 @@
  * together, not just the row under the pointer.
  */
 
-import type { Document } from '@strata/scene';
+import type { Document } from '@varve/scene';
 import {
   addChild,
   addNode,
@@ -14,7 +14,7 @@ import {
   makeFrameNode,
   makeShapeNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeDropZone, computeMultiMoveSteps, resolveDragMoveIds } from './LayersTree';
 import type { FlatEntry } from './useFlatTree';

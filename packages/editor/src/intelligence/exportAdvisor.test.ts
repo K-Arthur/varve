@@ -1,5 +1,5 @@
-import type { NodeId, SceneNode } from '@strata/scene';
-import { createDocument } from '@strata/scene';
+import type { NodeId, SceneNode } from '@varve/scene';
+import { createDocument } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { suggestExportFormat } from './exportAdvisor';
 

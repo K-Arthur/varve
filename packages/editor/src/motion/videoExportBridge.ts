@@ -1,20 +1,20 @@
 /**
  * Video export bridge — document + timeline → per-frame IR replay on OffscreenCanvas.
  *
- * Keeps @strata/engine free of editor deps; wires sampleTimelineAt → buildIr → replayIr.
+ * Keeps @varve/engine free of editor deps; wires sampleTimelineAt → buildIr → replayIr.
  *
  * Research basis: ADR-0001 IR-replay, CanvasArea.drawContent motion path.
  */
 
-import { computeDocumentBounds } from '@strata/codegen';
+import { computeDocumentBounds } from '@varve/codegen';
 import {
   applyStyleOverrides,
   createEngine,
   type SceneNode as EngineNode,
   type ReplayTarget,
   replayIr,
-} from '@strata/engine';
-import type { Document, NodeId, Timeline } from '@strata/scene';
+} from '@varve/engine';
+import type { Document, NodeId, Timeline } from '@varve/scene';
 import {
   activePageNodes,
   applyBindingsToNode,
@@ -24,8 +24,8 @@ import {
   getEffectiveNode,
   resolveAllStyles,
   walkNodes,
-} from '@strata/scene';
-import { fitBoundsCamera, type Rect } from '@strata/shared';
+} from '@varve/scene';
+import { fitBoundsCamera, type Rect } from '@varve/shared';
 import { applyPropertyPath } from '../propertyPath';
 import { sceneNodeToEngineNode } from '../render/sceneToEngine';
 import { nodeWorldTransform } from '../scene/world';

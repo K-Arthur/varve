@@ -1,8 +1,8 @@
-import type { AdjustmentBlendMode, BlendMode } from '@strata/engine';
-import { filterKindDisplayName } from '@strata/engine';
-import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@strata/scene';
-import { makeAdjustment } from '@strata/scene';
-import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@strata/ui';
+import type { AdjustmentBlendMode, BlendMode } from '@varve/engine';
+import { filterKindDisplayName } from '@varve/engine';
+import type { Adjustment, AdjustmentKind, AdjustmentNode, SceneNode } from '@varve/scene';
+import { makeAdjustment } from '@varve/scene';
+import { Select, SOLID_CHROME_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../context';
 import { NumberField } from '../Inspector/controls/NumberField';

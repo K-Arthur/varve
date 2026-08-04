@@ -4,8 +4,8 @@
  * Research basis: Flutter Widget library (Container, Positioned, Row, Column, Text).
  */
 
-import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@strata/scene';
-import { isImageShape } from '@strata/scene';
+import type { Document as SceneDocument, SceneNode, TextNode, VariableStore } from '@varve/scene';
+import { isImageShape } from '@varve/scene';
 import { adjustmentStackTargetGaps, colorToHex, computeNodePos, getChildren } from './shared';
 import { resolveTokenName } from './tokens';
 import type { TargetGap } from './types';

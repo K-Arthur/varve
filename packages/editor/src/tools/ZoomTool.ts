@@ -8,7 +8,7 @@
  * Research basis: Figma Zoom tool (Z), Illustrator zoom (Z).
  */
 
-import { centerBoundsCamera, clampZoom, zoomAboutPoint } from '@strata/shared';
+import { centerBoundsCamera, clampZoom, zoomAboutPoint } from '@varve/shared';
 import { BaseTool } from './BaseTool';
 import type { CursorSpec, GestureResult, ToolContext, ToolCursorState } from './types';
 

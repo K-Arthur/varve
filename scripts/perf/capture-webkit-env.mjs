@@ -94,11 +94,7 @@ const env = {
   },
   acceleration: {
     webglInspection: run(
-      [
-        'bash',
-        '-c',
-        'echo "see runtime diagnostics: window.__strataPerf / PerformanceSettingsTab"',
-      ],
+      ['bash', '-c', 'echo "see runtime diagnostics: window.__varvePerf / PerformanceSettingsTab"'],
       'n/a',
     ),
   },
@@ -140,13 +136,13 @@ if (!jsonOnly) {
   }
   tips.push(
     'WebKit inspector (server-side): relaunch with\n' +
-      '  WEBKIT_INSPECTOR_SERVER=127.0.0.1:9222 STRATA_PERF_URL=... then attach Safari/WebKit inspector.',
+      '  WEBKIT_INSPECTOR_SERVER=127.0.0.1:9222 VARVE_PERF_URL=... then attach Safari/WebKit inspector.',
   );
   tips.push(
     'Structured Rust spans: run the Tauri app with RUST_LOG=trace and correlate monotonic timestamps;',
   );
   tips.push(
-    'capability fallbacks: see window.__strataPerf / PerformanceSettingsTab for hasOffscreenCanvas,',
+    'capability fallbacks: see window.__varvePerf / PerformanceSettingsTab for hasOffscreenCanvas,',
   );
   tips.push(
     'render worker is disabled on WebKitGTK by profileForTier (enableWorker requires OffscreenCanvas);',

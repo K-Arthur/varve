@@ -1,4 +1,4 @@
-import { createDocument } from '@strata/scene';
+import { createDocument } from '@varve/scene';
 import { getParser } from './registry';
 import type { ImportOptions, ImportParser, ImportResult } from './types';
 

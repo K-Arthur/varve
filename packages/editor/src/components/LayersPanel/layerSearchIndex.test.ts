@@ -6,7 +6,7 @@ import {
   makeTextNode,
   nextNodeId,
   renameNode,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { updateSearchIndexIncremental } from './LayersTree';
 import { createSearchIndex, removeFromIndex, searchIndex, updateIndex } from './layerSearchIndex';

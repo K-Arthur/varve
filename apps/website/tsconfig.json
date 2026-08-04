@@ -5,7 +5,7 @@
     "jsxImportSource": "react",
     "paths": {
       "@/*": ["./src/*"],
-      "@strata/ui": ["../../packages/ui/src"]
+      "@varve/ui": ["../../packages/ui/src"]
     }
   }
 }

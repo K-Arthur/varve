@@ -228,7 +228,7 @@ Record pre-existing failures separately from new failures.
 
 - [ ] **Step 3: Build test and release paths**
 
-Run: `pnpm --filter @strata/desktop build && pnpm --filter @strata/desktop tauri build --debug --config src-tauri/tauri.test.conf.json --features wdio && pnpm --filter @strata/desktop tauri build --debug --no-bundle`
+Run: `pnpm --filter @varve/desktop build && pnpm --filter @varve/desktop tauri build --debug --config src-tauri/tauri.test.conf.json --features wdio && pnpm --filter @varve/desktop tauri build --debug --no-bundle`
 
 - [ ] **Step 4: Commit final documentation corrections**
 

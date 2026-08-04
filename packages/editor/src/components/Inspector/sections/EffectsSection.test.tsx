@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { Effect, ShapeNode } from '@strata/scene';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import type { Effect, ShapeNode } from '@varve/scene';
 import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 

@@ -1,9 +1,10 @@
 /**
  * Gradient preset browser + import dialog tests.
  */
-import type { GradientPreset } from '@strata/scene';
-import { makeGradientPreset } from '@strata/scene';
+
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { GradientPreset } from '@varve/scene';
+import { makeGradientPreset } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { GradientImportDialog } from './GradientImportDialog';
 import { GradientMapPresetBrowser } from './GradientMapPresetBrowser';

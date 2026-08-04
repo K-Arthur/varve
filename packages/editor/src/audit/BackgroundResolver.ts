@@ -50,9 +50,9 @@
  *   }
  */
 
-import type { Document, ManagedColor, NodeId, SceneNode } from '@strata/scene';
-import { buildParentIndexMap, isContainer } from '@strata/scene';
-import type { Rect } from '@strata/shared';
+import type { Document, ManagedColor, NodeId, SceneNode } from '@varve/scene';
+import { buildParentIndexMap, isContainer } from '@varve/scene';
+import type { Rect } from '@varve/shared';
 
 export type Confidence = 'high' | 'medium' | 'low' | 'unknown';
 

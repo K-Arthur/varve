@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
-import type { Document, NodeId } from '@strata/scene';
-import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@strata/scene';
-import { translate } from '@strata/shared';
+import type { Document, NodeId } from '@varve/scene';
+import { addNode, createDocument, makeFrameNode, makeShapeNode, makeTextNode } from '@varve/scene';
+import { translate } from '@varve/shared';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   computeFingerprint,

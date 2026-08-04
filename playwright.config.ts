@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const e2ePort = process.env.STRATA_E2E_PORT ?? '1420';
+const e2ePort = process.env.VARVE_E2E_PORT ?? '1420';
 const e2eBaseUrl = `http://localhost:${e2ePort}`;
 
 export default defineConfig({
@@ -47,7 +47,7 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], deviceScaleFactor: 2 },
       testMatch: /visual\/replay\.spec\.ts/,
     },
-    ...(process.env.STRATA_VISUAL_3X
+    ...(process.env.VARVE_VISUAL_3X
       ? [
           {
             name: 'chromium-visual-3x',
@@ -76,7 +76,7 @@ export default defineConfig({
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
   ],
   webServer: {
-    command: `pnpm --filter @strata/desktop exec vite --port ${e2ePort}`,
+    command: `pnpm --filter @varve/desktop exec vite --port ${e2ePort}`,
     url: e2eBaseUrl,
     reuseExistingServer: true,
     timeout: 120000,

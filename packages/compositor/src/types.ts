@@ -1,8 +1,8 @@
 /**
  * Compositor types — backend router for mixed raster + vector replay.
  */
-import type { RenderItem } from '@strata/engine';
-import type { Affine, Camera, Viewport } from '@strata/shared';
+import type { RenderItem } from '@varve/engine';
+import type { Affine, Camera, Viewport } from '@varve/shared';
 
 export type CompositorBackendId = 'canvas2d' | 'webgpu' | 'native';
 

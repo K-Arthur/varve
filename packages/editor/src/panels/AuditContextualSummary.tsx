@@ -7,8 +7,8 @@
  * @module AuditContextualSummary
  */
 
-import type { AuditFinding } from '@strata/shared';
-import { Icon } from '@strata/ui';
+import type { AuditFinding } from '@varve/shared';
+import { Icon } from '@varve/ui';
 
 interface AuditContextualSummaryProps {
   /** Current finding */

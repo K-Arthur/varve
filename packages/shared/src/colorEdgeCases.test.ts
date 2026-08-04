@@ -10,10 +10,10 @@ import {
   denormalizeChannel,
   managedColorToRgba,
   normalizeChannel,
-} from '@strata/shared';
+} from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 
-// Use the shim types from @strata/shared for the color conversions
+// Use the shim types from @varve/shared for the color conversions
 type RgbColorShim = {
   space: 'rgb';
   r: number;
@@ -111,7 +111,7 @@ describe('denormalizeChannel', () => {
 describe('managedColorToRgba — transparent with hidden channels', () => {
   it('preserves non-zero RGB channels when alpha is 0', () => {
     const color: RgbColorShim = { space: 'rgb', r: 255, g: 128, b: 64, a: 0 };
-    const rgba = managedColorToRgba(color as never as import('@strata/shared').ManagedColorShim);
+    const rgba = managedColorToRgba(color as never as import('@varve/shared').ManagedColorShim);
     // The function's contract is to return the channels as-is (straight alpha)
     expect(rgba[0]).toBeGreaterThan(0);
   });
@@ -133,7 +133,7 @@ describe('managedColorToRgba — HDR extended range', () => {
   it('handles float32 color with r=1.5, g=2.0 (HDR extended)', () => {
     // WARNING: managedColorToRgba clamps to uint8, so values > 1 get clamped
     const color: RgbColorShim = { space: 'rgb', bitDepth: 'float32', r: 1.5, g: 2.0, b: 0.5, a: 1 };
-    const rgba = managedColorToRgba(color as never as import('@strata/shared').ManagedColorShim);
+    const rgba = managedColorToRgba(color as never as import('@varve/shared').ManagedColorShim);
     // The function clamps to 0-255, so 1.5 * 255 = 382.5 → 255
     expect(rgba[0]).toBe(255);
     expect(rgba[1]).toBe(255);

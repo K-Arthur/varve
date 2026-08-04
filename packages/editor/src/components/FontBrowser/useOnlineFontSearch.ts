@@ -1,12 +1,12 @@
-import { getFontRegistry } from '@strata/engine';
-import type { FontProviderResult } from '@strata/engine/font';
+import { getFontRegistry } from '@varve/engine';
+import type { FontProviderResult } from '@varve/engine/font';
 import {
   FontDownloadManager,
   FontLoader,
   FontProviderRegistry,
   FontsourceProvider,
   GoogleFontsProvider,
-} from '@strata/engine/font';
+} from '@varve/engine/font';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { storeFont } from './fontStorage';
 

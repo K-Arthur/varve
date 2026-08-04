@@ -1,4 +1,4 @@
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { flattenForExport } from '../flattenForExport';
 

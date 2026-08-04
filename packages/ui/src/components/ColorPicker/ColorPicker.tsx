@@ -1,5 +1,5 @@
-import type { BitDepth, ColorMode, ColorProfileRef, ManagedColor } from '@strata/scene';
-import { isCmykColor, isGrayColor, isLabColor, isLchColor, isSpotColor } from '@strata/scene';
+import type { BitDepth, ColorMode, ColorProfileRef, ManagedColor } from '@varve/scene';
+import { isCmykColor, isGrayColor, isLabColor, isLchColor, isSpotColor } from '@varve/scene';
 import {
   applyProofToRgba,
   cmykToRgb,
@@ -15,7 +15,7 @@ import {
   rgbToCmyk,
   rgbToLab,
   xyzD65ToLinearRgb,
-} from '@strata/shared';
+} from '@varve/shared';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { SegmentedOption } from '../SegmentedControl';
 import { SegmentedControl } from '../SegmentedControl';
@@ -69,7 +69,7 @@ export interface ColorPickerProps {
    */
   previousColor?: Color;
   /** Display-only proof configuration (soft proofing). */
-  proofConfig?: import('@strata/shared').ProofTransformConfig | null;
+  proofConfig?: import('@varve/shared').ProofTransformConfig | null;
   /** Session-scoped proof toggle. */
   proofEnabled?: boolean;
   onProofToggle?: (enabled: boolean) => void;

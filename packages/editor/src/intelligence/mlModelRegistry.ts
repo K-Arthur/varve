@@ -1,13 +1,13 @@
 /**
  * Intelligence ML model registry — wires the three strategic models
  * (layout-classifier, component-embedder, color-harmony) through the
- * generic inference core in @strata/engine.
+ * generic inference core in @varve/engine.
  *
  * A new model = a manifest entry + optional pre/post-processor only.
  */
 
-import type { ModelManifestEntry } from '@strata/engine';
-import { ModelRegistry, SessionManager } from '@strata/engine';
+import type { ModelManifestEntry } from '@varve/engine';
+import { ModelRegistry, SessionManager } from '@varve/engine';
 
 const MANIFEST: ModelManifestEntry[] = [
   {
@@ -64,7 +64,7 @@ export async function loadModel(modelId: string): Promise<boolean> {
 
   registry.setState(modelId, 'downloading');
   try {
-    const { getModelLoader } = await import('@strata/engine');
+    const { getModelLoader } = await import('@varve/engine');
     const loader = getModelLoader();
     const path = await loader.getModelPath(modelId);
     if (!path) {

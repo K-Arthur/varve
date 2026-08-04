@@ -3,7 +3,7 @@ import type {
   ModelManifestEntry,
   ModelState,
   RuntimeCapabilities,
-} from '@strata/engine';
+} from '@varve/engine';
 import {
   createDiagnosticsLabel,
   DownloadManager,
@@ -12,8 +12,8 @@ import {
   isInferenceError,
   listAllModels,
   resetRuntimeCapabilities,
-} from '@strata/engine';
-import { Button, Icon, RegionLoader } from '@strata/ui';
+} from '@varve/engine';
+import { Button, Icon, RegionLoader } from '@varve/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface ModelRow {

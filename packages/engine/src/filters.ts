@@ -2,8 +2,8 @@
  * Filter IR and Canvas2D/CSS fallback for nondestructive image adjustments.
  *
  * This module defines both the user-facing adjustment types and the portable
- * filter IR. It lives in @strata/engine so the IR contract and the Canvas2D
- * fallback stay together; @strata/scene re-exports/adapts these as needed.
+ * filter IR. It lives in @varve/engine so the IR contract and the Canvas2D
+ * fallback stay together; @varve/scene re-exports/adapts these as needed.
  *
  * Research basis: CSS filter functions, SVG filters, Photoshop adjustment layers.
  */
@@ -278,7 +278,7 @@ export interface EmbeddedGradientPreset {
   colorStops: EmbeddedGradientColorStop[];
   opacityStops: EmbeddedGradientOpacityStop[];
   smoothness?: number;
-  interpolation?: import('@strata/shared').GradientInterpolationSpace;
+  interpolation?: import('@varve/shared').GradientInterpolationSpace;
   source?: { origin: string; fileName?: string; originalName?: string };
   compatibility?: {
     status: 'ok' | 'approximated' | 'unsupported';
@@ -314,7 +314,7 @@ export interface GradientMapAdjustment extends AdjustmentBase {
   /** Keep source alpha untouched. Default true. */
   preserveSourceAlpha?: boolean;
   /** Interpolation space for stop blending. Legacy default: 'srgb'. */
-  interpolation?: import('@strata/shared').GradientInterpolationSpace;
+  interpolation?: import('@varve/shared').GradientInterpolationSpace;
   /** LUT resolution. Default 256. */
   lutSize?: number;
   /** Reference to a global preset (for diagnostics). Rendering uses

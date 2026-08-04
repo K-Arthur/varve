@@ -14,7 +14,7 @@ const { mockRemoveBackground, mockImageCache, mockIsModelAvailable } = vi.hoiste
   mockIsModelAvailable: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock('@strata/engine', () => ({
+vi.mock('@varve/engine', () => ({
   getImageCache: () => mockImageCache,
   removeBackground: mockRemoveBackground,
   DEFAULT_PREVIEW_MAX_DIMENSION: 2048,
@@ -45,13 +45,13 @@ vi.mock('@strata/engine', () => ({
 function imageNode(
   id: string,
   overrides: Record<string, unknown> = {},
-): import('@strata/scene').ShapeNode {
+): import('@varve/scene').ShapeNode {
   return {
     id,
     name: `Image ${id}`,
     kind: 'shape',
     shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 80 },
-    transform: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
+    transform: [1, 0, 0, 1, 0, 0] as import('@varve/engine').Affine,
     fills: [
       {
         type: 'image',
@@ -81,7 +81,7 @@ function shapeNode(id: string) {
     id,
     name: `Shape ${id}`,
     kind: 'shape' as const,
-    transform: [1, 0, 0, 1, 0, 0] as import('@strata/engine').Affine,
+    transform: [1, 0, 0, 1, 0, 0] as import('@varve/engine').Affine,
     visible: true,
     locked: false,
     opacity: 1,
@@ -136,7 +136,7 @@ function setupSuccessMocks() {
 }
 
 function renderDialog(
-  nodes: import('@strata/scene').SceneNode[] = [],
+  nodes: import('@varve/scene').SceneNode[] = [],
   overrides: Record<string, unknown> = {},
 ) {
   const onClose = vi.fn();

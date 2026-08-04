@@ -8,10 +8,10 @@ import {
   getInferenceWorkerHost,
   getModelLoader,
   padToStride,
-} from '@strata/engine';
-import type { SceneNode } from '@strata/scene';
-import { imageShapeSrc, isImageShape } from '@strata/scene';
-import { Button } from '@strata/ui';
+} from '@varve/engine';
+import type { SceneNode } from '@varve/scene';
+import { imageShapeSrc, isImageShape } from '@varve/scene';
+import { Button } from '@varve/ui';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useEditor } from '../../../context';
 import { pickSoleOutputTensor } from '../../../inferenceOutputs';
@@ -63,7 +63,7 @@ export function DetectTextSection({ nodes }: { nodes: SceneNode[] }) {
   });
 
   const isImage = Boolean(node && isImageShape(node));
-  const typedNode = isImage ? (node as import('@strata/scene').ShapeNode) : null;
+  const typedNode = isImage ? (node as import('@varve/scene').ShapeNode) : null;
   const imageSrc = typedNode ? imageShapeSrc(typedNode) : '';
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 
 export interface TokenCoverageReport {
   overall: number;

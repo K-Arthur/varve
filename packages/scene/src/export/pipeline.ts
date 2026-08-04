@@ -31,11 +31,11 @@ import type {
   RasterResizeOptions as ResizeOptions,
   SharpenMode,
   SharpenOptions,
-} from '@strata/shared';
+} from '@varve/shared';
 import type { RenderingIntent } from '../colorManagement';
 
-// The algorithm/working-space unions live in @strata/shared so @strata/engine
-// (which must not depend on @strata/scene) can import them without duplicating
+// The algorithm/working-space unions live in @varve/shared so @varve/engine
+// (which must not depend on @varve/scene) can import them without duplicating
 // the union definitions. Re-export here so scene consumers keep one import path.
 export type {
   DitherAlgorithm,
@@ -43,7 +43,7 @@ export type {
   ExportWorkingSpace,
   ResamplingAlgorithm,
   SharpenMode,
-} from '@strata/shared';
+} from '@varve/shared';
 
 // ── Resampling ───────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ export type {
   ProfileSource,
   RasterResizeOptions as ResizeOptions,
   SharpenOptions,
-} from '@strata/shared';
+} from '@varve/shared';
 export const RESAMPLING_ALGORITHMS: readonly ResamplingAlgorithm[] = [
   'auto',
   'nearest',
@@ -208,7 +208,7 @@ export function validateDitherOptions(value: DitherOptions, path: string): void 
 
 // ── Metadata policy ─────────────────────────────────────────────────────────
 //
-// The policy contract lives in @strata/shared (`exportContracts.ts`) so the
+// The policy contract lives in @varve/shared (`exportContracts.ts`) so the
 // engine's metadata writer can import it without a scene dependency. Scene
 // re-exports the shared names so config consumers keep a single import path;
 // `validateMetadataPolicy` adds configuration-time validation on top.
@@ -219,7 +219,7 @@ export type {
   MetadataFieldOverrides,
   MetadataPolicy,
   MetadataPolicyKind,
-} from '@strata/shared';
+} from '@varve/shared';
 export {
   createMetadataPolicy,
   isMetadataFieldDecision,
@@ -227,14 +227,14 @@ export {
   METADATA_OVERRIDE_KEYS,
   METADATA_POLICY_KINDS,
   resolveMetadataFieldDecision,
-} from '@strata/shared';
+} from '@varve/shared';
 
-import type { MetadataPolicy } from '@strata/shared';
+import type { MetadataPolicy } from '@varve/shared';
 import {
   isMetadataFieldDecision,
   isValidMetadataPolicyKind,
   METADATA_OVERRIDE_KEYS,
-} from '@strata/shared';
+} from '@varve/shared';
 
 export function validateMetadataPolicy(value: MetadataPolicy, path: string): void {
   if (!isValidMetadataPolicyKind(value.kind)) {

@@ -8,7 +8,7 @@ import {
   getNodesInTimeline,
   makeShapeNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { computeKeyframeCounts } from './LayersTree';
 

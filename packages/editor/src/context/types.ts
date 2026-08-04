@@ -1,6 +1,6 @@
-import type { Adjustment, BlendMode, PathPoint } from '@strata/engine';
-import type { Platform } from '@strata/platform';
-import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@strata/prototype';
+import type { Adjustment, BlendMode, PathPoint } from '@varve/engine';
+import type { Platform } from '@varve/platform';
+import type { PrototypeData, PrototypeDebugConsole, PrototypeRuntime } from '@varve/prototype';
 import type {
   AdjustmentScope,
   BackgroundRemovalMethod,
@@ -17,9 +17,9 @@ import type {
   NodeId,
   SceneNode,
   VariableValue,
-} from '@strata/scene';
-import { createDefaultDocumentGrid } from '@strata/scene';
-import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@strata/shared';
+} from '@varve/scene';
+import { createDefaultDocumentGrid } from '@varve/scene';
+import type { Camera, DistributeMode, DocumentUnit, Viewport } from '@varve/shared';
 import type { SectionVisibilityState } from '../components/Inspector/sectionState';
 import type { LayerNavigationCommands } from '../components/LayersPanel/layerNavigationCommands';
 import type { FrameSpatialIndex } from '../scene/spatialIndex';
@@ -221,13 +221,13 @@ export interface EditorState {
    * When set, grapheme input applies this format to the new run. Null when
    * unset (collapsed caret inherits the surrounding run's format).
    */
-  pendingFormat: import('@strata/scene').CharacterFormat | null;
+  pendingFormat: import('@varve/scene').CharacterFormat | null;
   /**
    * The selected grapheme range within the focused text node's rich text.
    * Used by the span editor to know which runs to format. Null when no
    * text editing is active.
    */
-  selectionRange: import('@strata/scene').RichSelection | null;
+  selectionRange: import('@varve/scene').RichSelection | null;
   motion: MotionState;
   canvasMode: CanvasMode;
   /** View rotation in radians (non-destructive canvas rotate). */
@@ -483,8 +483,8 @@ export interface EditorContextValue {
     frameIndex?: FrameSpatialIndex | null,
   ) => NodeId | null;
   nodeWorldBounds: (n: SceneNode) => { x: number; y: number; w: number; h: number } | null;
-  getWorldTransform: (id: NodeId) => import('@strata/shared').Affine;
-  getWorldBounds: (id: NodeId) => import('@strata/shared').Rect | null;
+  getWorldTransform: (id: NodeId) => import('@varve/shared').Affine;
+  getWorldBounds: (id: NodeId) => import('@varve/shared').Rect | null;
   hitTestNode: (world: { x: number; y: number }) => { nodeId: NodeId; node: SceneNode } | null;
   hitTestNodeWithPolicy: (
     world: { x: number; y: number },
@@ -516,7 +516,7 @@ export interface EditorContextValue {
   duplicateSelected: () => void;
   /** Repeat the last duplicate with the same offset (Cmd/Ctrl+D after initial duplicate). */
   repeatDuplicate: () => void;
-  setSelectedFill: (color: import('@strata/scene').ManagedColor) => void;
+  setSelectedFill: (color: import('@varve/scene').ManagedColor) => void;
   setSelectedFills: (fills: Fill[]) => void;
   updateSelectedFillAt: (index: number, fill: Fill) => void;
   addSelectedFill: (fill: Fill) => void;
@@ -534,23 +534,23 @@ export interface EditorContextValue {
    * rich text. Plain-text nodes are promoted to rich text automatically.
    * Requires a valid selectionRange on the focused text node.
    */
-  applyFormatToSelection: (format: import('@strata/scene').CharacterFormat) => void;
+  applyFormatToSelection: (format: import('@varve/scene').CharacterFormat) => void;
   /**
    * Store the format that new typing should inherit (collapsed caret with
    * a "pending" format state — grapheme input applies this format).
    */
-  setPendingFormat: (format: import('@strata/scene').CharacterFormat) => void;
+  setPendingFormat: (format: import('@varve/scene').CharacterFormat) => void;
   /** The pending character format for new typing (null when unset). */
-  pendingFormat: import('@strata/scene').CharacterFormat | null;
+  pendingFormat: import('@varve/scene').CharacterFormat | null;
   /** Report the selected grapheme range within the focused text node. */
-  setSelectionRange: (range: import('@strata/scene').RichSelection | null) => void;
+  setSelectionRange: (range: import('@varve/scene').RichSelection | null) => void;
   setSelectedOpacity: (value: number) => void;
   setSelectedBlendMode: (mode: BlendMode) => void;
   setSelectedRotation: (value: number) => void;
   setSelectedFlipH: () => void;
   setSelectedFlipV: () => void;
   setSelectedCornerRadius: (value: number | [number, number, number, number]) => void;
-  setSelectedConstraint: (constraint: import('@strata/scene').Constraints) => void;
+  setSelectedConstraint: (constraint: import('@varve/scene').Constraints) => void;
   alignSelected: (axis: 'left' | 'centerH' | 'right' | 'top' | 'centerV' | 'bottom') => void;
   distributeSelected: (axis: 'horizontal' | 'vertical') => void;
   distributeWithGap: (axis: 'horizontal' | 'vertical', gap: number) => void;
@@ -569,10 +569,10 @@ export interface EditorContextValue {
   setSelectedGridPlacement: (value: GridItemPlacement) => void;
   setCanvasWidth: (value: number) => void;
   setCanvasHeight: (value: number) => void;
-  setCanvasBackground: (value: import('@strata/scene').ManagedColor) => void;
+  setCanvasBackground: (value: import('@varve/scene').ManagedColor) => void;
   setSelectedBinding: (
     target: string,
-    binding: import('@strata/scene').PropertyBinding | null,
+    binding: import('@varve/scene').PropertyBinding | null,
   ) => void;
   /** Trim image bounds to the non-transparent alpha region of a background-removal mask. */
   trimToSubject: (padding?: number) => Promise<void>;
@@ -604,7 +604,7 @@ export interface EditorContextValue {
   ) => void;
   rootNodes: () => SceneNode[];
   reparentNode: (id: NodeId, newParentId: NodeId | null, toIndex: number) => void;
-  arrangeSelected: (op: import('@strata/scene').ArrangeOp) => void;
+  arrangeSelected: (op: import('@varve/scene').ArrangeOp) => void;
   groupSelected: () => void;
   ungroupSelected: () => void;
   detachSelected: () => void;
@@ -613,7 +613,7 @@ export interface EditorContextValue {
   createComponentFromFrame: (
     name: string,
     masterRootId: NodeId,
-    slots: import('@strata/scene').Slot[],
+    slots: import('@varve/scene').Slot[],
   ) => void;
   /** Turns a componentDetector.ts duplicate-structure group into a real
    *  component: the first node becomes the master definition, the rest are
@@ -626,7 +626,7 @@ export interface EditorContextValue {
     masterNodeId: NodeId,
     properties: Array<{
       name: string;
-      type: import('@strata/scene').ComponentPropertyType;
+      type: import('@varve/scene').ComponentPropertyType;
       memberValues: Record<NodeId, string>;
     }>,
     variantAssignments: Array<{ nodeId: NodeId; variantName: string }>,
@@ -635,10 +635,10 @@ export interface EditorContextValue {
   fillSlot: (instanceId: NodeId, slotId: string, fillNodeId: NodeId) => void;
   swapComponentInstance: (instanceId: NodeId, newComponentId: NodeId) => void;
   resetInstanceOverrides: (instanceId: NodeId) => void;
-  syncComponentInstances: (componentId: NodeId) => import('@strata/scene').SyncResult;
-  syncInstance: (instanceId: NodeId) => import('@strata/scene').InstanceStatus;
-  getInstanceStatus: (instanceId: NodeId) => import('@strata/scene').InstanceStatus;
-  syncAllInstances: () => import('@strata/scene').SyncResult;
+  syncComponentInstances: (componentId: NodeId) => import('@varve/scene').SyncResult;
+  syncInstance: (instanceId: NodeId) => import('@varve/scene').InstanceStatus;
+  getInstanceStatus: (instanceId: NodeId) => import('@varve/scene').InstanceStatus;
+  syncAllInstances: () => import('@varve/scene').SyncResult;
 
   // Flatten
   flattenSelected: (mode: import('../flatten/types').FlattenMode, scale?: number) => void;
@@ -656,7 +656,7 @@ export interface EditorContextValue {
   setLayerColor: (id: NodeId, color: LayerColor) => void;
 
   // Masks
-  addMaskToSelected: (type?: import('@strata/scene').MaskType) => void;
+  addMaskToSelected: (type?: import('@varve/scene').MaskType) => void;
   removeMaskFromSelected: () => void;
   toggleMask: () => void;
   invertMask: () => void;
@@ -664,10 +664,10 @@ export interface EditorContextValue {
   setMaskDensity: (density: number) => void;
   setMaskHideSource: (hidden: boolean) => void;
   setMaskLinked: (linked: boolean) => void;
-  setMaskType: (type: import('@strata/scene').MaskType) => void;
+  setMaskType: (type: import('@varve/scene').MaskType) => void;
   setMaskSourceNode: (sourceNodeId: string) => void;
-  setMaskFillRule: (fillRule: import('@strata/scene').MaskFillRule) => void;
-  setMaskVectorPath: (points: import('@strata/engine').PathPoint[], closed: boolean) => void;
+  setMaskFillRule: (fillRule: import('@varve/scene').MaskFillRule) => void;
+  setMaskVectorPath: (points: import('@varve/engine').PathPoint[], closed: boolean) => void;
 
   // ── Clipping masks (non-destructive) ──
   /** Create a clipping mask group from selected nodes (mask shape + content). */
@@ -684,11 +684,8 @@ export interface EditorContextValue {
 
   // Variables
   resolveVariable: (nameOrId: string) => VariableValue;
-  addVariable: (v: Omit<import('@strata/scene').Variable, 'id'>) => void;
-  updateVariable: (
-    id: string,
-    patch: Partial<Omit<import('@strata/scene').Variable, 'id'>>,
-  ) => void;
+  addVariable: (v: Omit<import('@varve/scene').Variable, 'id'>) => void;
+  updateVariable: (id: string, patch: Partial<Omit<import('@varve/scene').Variable, 'id'>>) => void;
   deleteVariable: (id: string) => void;
   setVariableMode: (mode: string) => void;
 
@@ -771,7 +768,7 @@ export interface EditorContextValue {
   setSnapEnabled: (v: boolean) => void;
   setSnapGrid: (v: number) => void;
   setDocumentGrid: (settings: DocumentGridSettings) => void;
-  setIsometricGrid: (grid: import('@strata/scene').IsometricGrid) => void;
+  setIsometricGrid: (grid: import('@varve/scene').IsometricGrid) => void;
   isSnapExcluded?: (id: string) => boolean;
 
   // Export
@@ -787,12 +784,12 @@ export interface EditorContextValue {
   showArchiveDialog: boolean;
   archiveDialogMode: 'backup' | 'restore';
   setShowArchiveDialog: (show: boolean, mode?: 'backup' | 'restore') => void;
-  addPreset: (nodeId: NodeId, preset: import('@strata/scene').ExportPreset) => void;
-  updatePreset: (nodeId: NodeId, preset: import('@strata/scene').ExportPreset) => void;
+  addPreset: (nodeId: NodeId, preset: import('@varve/scene').ExportPreset) => void;
+  updatePreset: (nodeId: NodeId, preset: import('@varve/scene').ExportPreset) => void;
   removePreset: (nodeId: NodeId, presetId: string) => void;
 
   // Boolean operations
-  booleanOp: (op: import('@strata/scene').BooleanOpKind) => void;
+  booleanOp: (op: import('@varve/scene').BooleanOpKind) => void;
 
   // Logo geometry operations (expand stroke, offset, round, simplify,
   // mirror duplicate, radial duplicate) — see useLogoGeometry.
@@ -855,7 +852,7 @@ export interface EditorContextValue {
   navigatePrototypeTo: (screenId: string) => void;
 
   // State machines
-  getStateMachines: () => import('@strata/scene').StateMachine[];
+  getStateMachines: () => import('@varve/scene').StateMachine[];
   getPrimaryStateMachineId: () => string | null;
   createStateMachine: (name: string) => string;
   removeStateMachine: (smId: string) => void;
@@ -869,13 +866,13 @@ export interface EditorContextValue {
     smId: string,
     fromStateId: string,
     toStateId: string,
-    trigger: import('@strata/scene').SMTransitionTrigger,
+    trigger: import('@varve/scene').SMTransitionTrigger,
   ) => string;
   removeSMTransition: (smId: string, transitionId: string) => void;
   setSMTransitionTrigger: (
     smId: string,
     transitionId: string,
-    trigger: import('@strata/scene').SMTransitionTrigger,
+    trigger: import('@varve/scene').SMTransitionTrigger,
   ) => void;
   setSMTransitionTarget: (smId: string, transitionId: string, toStateId: string) => void;
   setSMTransitionCondition: (
@@ -888,11 +885,11 @@ export interface EditorContextValue {
   setSMTransitionEasing: (
     smId: string,
     transitionId: string,
-    easing: import('@strata/shared').EasingDefinition,
+    easing: import('@varve/shared').EasingDefinition,
   ) => void;
-  addSMInput: (smId: string, name: string, type: import('@strata/scene').SMInputType) => string;
+  addSMInput: (smId: string, name: string, type: import('@varve/scene').SMInputType) => string;
   removeSMInput: (smId: string, inputId: string) => void;
-  validateStateMachine: (smId: string) => import('@strata/scene').SMValidationResult;
+  validateStateMachine: (smId: string) => import('@varve/scene').SMValidationResult;
   selectedStateMachineId: string | null;
   selectStateMachine: (smId: string | null) => void;
   selectedSMStateId: string | null;
@@ -936,7 +933,7 @@ export interface EditorContextValue {
     timelineId: string,
     trackId: string,
     progress: number,
-    easing: import('@strata/shared').EasingDefinition,
+    easing: import('@varve/shared').EasingDefinition,
   ) => void;
   addTrackToTimeline: (timelineId: string, nodeId: NodeId, property: string) => void;
   setTrackMuted: (timelineId: string, trackId: string, muted: boolean) => void;
@@ -980,9 +977,9 @@ export interface EditorContextValue {
   resolveVariantPropertiesForNode: (nodeId: NodeId) => Record<string, string | boolean | NodeId>;
 
   // Pages
-  setPageBleed: (pageId: string, bleed: import('@strata/scene').BleedConfig) => void;
-  setPageSafeArea: (pageId: string, safeArea: import('@strata/scene').SafeAreaConfig) => void;
-  setPageSlug: (pageId: string, slug: import('@strata/scene').SlugConfig) => void;
+  setPageBleed: (pageId: string, bleed: import('@varve/scene').BleedConfig) => void;
+  setPageSafeArea: (pageId: string, safeArea: import('@varve/scene').SafeAreaConfig) => void;
+  setPageSlug: (pageId: string, slug: import('@varve/scene').SlugConfig) => void;
   setActivePage: (pageId: NodeId) => void;
   setCurrentPageId: (id: string | null) => void;
   activePageNodes: () => NodeId[];
@@ -993,16 +990,13 @@ export interface EditorContextValue {
   renameMaster: (masterId: NodeId, name: string) => void;
   duplicateMaster: (masterId: NodeId) => void;
   assignMasterToPage: (pageId: NodeId, masterId: NodeId | null) => void;
-  setMasterAppliesTo: (
-    masterId: NodeId,
-    appliesTo: import('@strata/scene').MasterAppliesTo,
-  ) => void;
+  setMasterAppliesTo: (masterId: NodeId, appliesTo: import('@varve/scene').MasterAppliesTo) => void;
   activePageNodesWithMaster: () => NodeId[];
 
   // Spread methods
-  rebuildSpreads: (facingPages?: import('@strata/scene').FacingPagesConfig) => void;
-  getSpreadForPage: (pageId: NodeId) => import('@strata/scene').Spread | undefined;
-  getPageSide: (pageId: NodeId) => import('@strata/scene').PageSide;
+  rebuildSpreads: (facingPages?: import('@varve/scene').FacingPagesConfig) => void;
+  getSpreadForPage: (pageId: NodeId) => import('@varve/scene').Spread | undefined;
+  getPageSide: (pageId: NodeId) => import('@varve/scene').PageSide;
   isPageOnLeftSide: (pageId: NodeId) => boolean;
 
   // Page numbering
@@ -1030,20 +1024,20 @@ export interface EditorContextValue {
 
   // Soft proofing
   /** Persisted proof configuration (document print intent). */
-  proofConfig: import('@strata/scene').ProofConfig;
+  proofConfig: import('@varve/scene').ProofConfig;
   /** Session-scoped proof toggle. Never persisted into documents. */
   proofEnabled: boolean;
   setProofEnabled: (enabled: boolean) => void;
   /** Replace the proof configuration (never touches colors). */
-  setProofConfig: (config: import('@strata/scene').ProofConfig) => void;
+  setProofConfig: (config: import('@varve/scene').ProofConfig) => void;
 
   // Spot-color libraries
   createSpotLibrary: (name: string) => void;
-  addSpotToLibrary: (libraryId: string, def: import('@strata/scene').SpotColorDef) => void;
+  addSpotToLibrary: (libraryId: string, def: import('@varve/scene').SpotColorDef) => void;
   updateSpotDef: (
     libraryId: string,
     spotId: string,
-    patch: Partial<Omit<import('@strata/scene').SpotColorDef, 'id'>>,
+    patch: Partial<Omit<import('@varve/scene').SpotColorDef, 'id'>>,
   ) => void;
   removeSpotFromLibrary: (libraryId: string, spotId: string) => void;
   renameSpotLibrary: (libraryId: string, name: string) => void;
@@ -1072,15 +1066,15 @@ export interface EditorContextValue {
   recordAction: (actionId: string) => void;
 
   // Palette extraction
-  extractPalette: (data: ImageData, colorCount?: number) => import('@strata/engine').PaletteResult;
+  extractPalette: (data: ImageData, colorCount?: number) => import('@varve/engine').PaletteResult;
   generateHarmony: (
-    color: import('@strata/scene').ManagedColor,
+    color: import('@varve/scene').ManagedColor,
     type: 'complementary' | 'triadic' | 'analogous' | 'splitComplementary' | 'monochromatic',
-  ) => import('@strata/engine').HarmonyPalette;
+  ) => import('@varve/engine').HarmonyPalette;
 
   // Cognitive load
   getCognitiveLoad: (
-    nodeId: import('@strata/scene').NodeId | null,
+    nodeId: import('@varve/scene').NodeId | null,
   ) => import('../intelligence/cognitiveLoad').CognitiveLoadReport;
 
   // Inspector panel navigation (status-bar badges -> inspector tabs)

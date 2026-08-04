@@ -1,4 +1,4 @@
-import { isTauriRuntime } from '@strata/platform';
+import { isTauriRuntime } from '@varve/platform';
 import type { BackgroundRemovalOptions, BackgroundRemovalResult } from '../types';
 
 export { isTauriRuntime };

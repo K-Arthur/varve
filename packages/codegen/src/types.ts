@@ -5,7 +5,7 @@
  * creating a circular dependency through index.ts.
  */
 
-import type { Document, SceneNode } from '@strata/scene';
+import type { Document, SceneNode } from '@varve/scene';
 
 /** A feature that a node uses which the target format cannot represent faithfully. */
 export interface TargetGap {
@@ -20,7 +20,7 @@ export interface TargetGap {
  * A pre-rasterized image asset for embedding in vector export formats
  * (SVG, PDF) when the original node uses effects that cannot be
  * represented natively.  Created by the export-flattening pipeline in
- * `@strata/editor` and consumed by codegen.
+ * `@varve/editor` and consumed by codegen.
  *
  * The dataUrl is a base64-encoded PNG that the codegen emitter embeds
  * as an `<image>` element (SVG) or an Image XObject (PDF).  The

@@ -1,5 +1,5 @@
-import type { BitDepth, ManagedColor } from '@strata/scene';
-import { denormalizeChannel, normalizeChannel } from '@strata/shared';
+import type { BitDepth, ManagedColor } from '@varve/scene';
+import { denormalizeChannel, normalizeChannel } from '@varve/shared';
 import { useCallback } from 'react';
 import { SpinbuttonRow } from './SpinbuttonRow';
 

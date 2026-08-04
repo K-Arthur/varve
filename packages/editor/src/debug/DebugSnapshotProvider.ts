@@ -4,10 +4,10 @@
  * exposing mutable internal references to React.
  */
 
-import type { Document } from '@strata/scene';
-import { getParent } from '@strata/scene';
-import type { Affine, Point, Rect } from '@strata/shared';
-import { applyAffine, tryInvertAffine } from '@strata/shared';
+import type { Document } from '@varve/scene';
+import { getParent } from '@varve/scene';
+import type { Affine, Point, Rect } from '@varve/shared';
+import { applyAffine, tryInvertAffine } from '@varve/shared';
 import type { EditorState } from '../context/types';
 import type { HitTestEngine } from '../hitTest/HitTestEngine';
 import type { SpatialIndex } from '../scene/spatialIndex';

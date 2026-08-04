@@ -2,8 +2,8 @@
  * Flatten bounds calculation — computes world-space bounding boxes for
  * node selections, including effect overflow (blur, shadow, glow spread).
  *
- * Pure module: no canvas, engine, or DOM dependencies. Lives in @strata/scene
- * so both @strata/engine and @strata/editor can use it without circular deps.
+ * Pure module: no canvas, engine, or DOM dependencies. Lives in @varve/scene
+ * so both @varve/engine and @varve/editor can use it without circular deps.
  *
  * Research basis: bounding-box expansion for visual effects (Photoshop
  * canvas-size handles, Illustrator "Rasterize" bounds with effect padding).

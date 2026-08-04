@@ -2,8 +2,8 @@
 // handlers (30), applyStylesToNode (17). Plan: extract each handler to
 // svg/handlers/rect.ts etc.
 
-import type { Affine, PathPoint, Shape } from '@strata/engine';
-import type { Document, FrameNode, ManagedColor, SceneNode } from '@strata/scene';
+import type { Affine, PathPoint, Shape } from '@varve/engine';
+import type { Document, FrameNode, ManagedColor, SceneNode } from '@varve/scene';
 import {
   addMask,
   addNode,
@@ -11,7 +11,7 @@ import {
   makeShapeNode,
   makeTextNode,
   nextNodeId,
-} from '@strata/scene';
+} from '@varve/scene';
 import type { ImportOptions } from '../types';
 import {
   adjustNodePosition,

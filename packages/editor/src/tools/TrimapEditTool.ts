@@ -9,9 +9,9 @@
  *
  * Research basis: Levin closed-form matting trimap; Photoshop Select & Mask.
  */
-import { createBrushMask, TRIMap } from '@strata/engine';
-import type { ShapeNode } from '@strata/scene';
-import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@strata/scene';
+import { createBrushMask, TRIMap } from '@varve/engine';
+import type { ShapeNode } from '@varve/scene';
+import { getOwnRasterMaskAsset, isImageShape, resolveNodePaints } from '@varve/scene';
 import { BaseTool } from './BaseTool';
 import { prepareImageMaskMapper } from './imageMaskCoordinates';
 import type { CursorSpec, ToolContext, ToolCursorState } from './types';
@@ -224,7 +224,7 @@ export class TrimapEditTool extends BaseTool {
       for (let i = 0; i < mask.length; i++) {
         mask[i] = maskData.data[i * 4] ?? 0;
       }
-      import('@strata/engine').then(({ trimapFromMask }) => {
+      import('@varve/engine').then(({ trimapFromMask }) => {
         this.trimap = trimapFromMask(mask, img.width, img.height, 4);
         this.width = img.width;
         this.height = img.height;

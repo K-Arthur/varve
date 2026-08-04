@@ -1,4 +1,4 @@
-import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@strata/scene';
+import { addNode, createDocument, makeFrameNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { detectVariants } from '../variantGenerator';
 

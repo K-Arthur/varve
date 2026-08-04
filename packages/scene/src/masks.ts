@@ -15,7 +15,7 @@
  * Research basis: Figma mask model, Adobe Photoshop layer masks,
  * Affinity Designer pixel/vector masks, SVG <clipPath>/<mask> specs.
  */
-import type { Affine, PathPoint } from '@strata/engine';
+import type { Affine, PathPoint } from '@varve/engine';
 import type { Document } from './document';
 import { resolveNodePaints } from './paint';
 import type {

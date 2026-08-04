@@ -6,8 +6,8 @@
  * records, timing, size, and artifact metadata for UI/reporting surfaces.
  */
 
-import type { Document } from '@strata/scene';
-import { DocumentCodec } from '@strata/scene';
+import type { Document } from '@varve/scene';
+import { DocumentCodec } from '@varve/scene';
 import { createAiParser } from './ai';
 import { createEpsParser } from './eps';
 import { importFile } from './import';

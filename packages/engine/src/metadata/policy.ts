@@ -5,7 +5,7 @@
  * `resolveMetadataContent` turns a {@link MetadataPolicy} into the concrete
  * metadata fields that should be embedded, applying the policy's per-field
  * decisions to the source document metadata. The policy contract lives in
- * @strata/shared; this module is the engine-side *writer* logic.
+ * @varve/shared; this module is the engine-side *writer* logic.
  *
  * Privacy default: `privacy-strip` keeps authorship/copyright but drops GPS,
  * device identifiers, timestamps, and editing history — matching the task
@@ -13,8 +13,8 @@
  * location or machine metadata.
  */
 
-import type { MetadataFieldKey, MetadataPolicy } from '@strata/shared';
-import { createMetadataPolicy, resolveMetadataFieldDecision } from '@strata/shared';
+import type { MetadataFieldKey, MetadataPolicy } from '@varve/shared';
+import { createMetadataPolicy, resolveMetadataFieldDecision } from '@varve/shared';
 import type { PngTextEntry } from './png';
 
 export interface MetadataContent {

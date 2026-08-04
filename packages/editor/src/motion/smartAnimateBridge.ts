@@ -5,11 +5,11 @@
  * corner radius, fill colour, stroke weight) between two frame screens so
  * matched layers morph smoothly.
  */
-import type { LayerMatch, SmartAnimateLayerValues } from '@strata/prototype';
-import { buildSmartAnimateValues, matchLayersByName } from '@strata/prototype';
-import type { Document, NodeId, SceneNode } from '@strata/scene';
-import type { EasingDefinition } from '@strata/shared';
-import { getEasingFn, interpolateColor } from '@strata/shared';
+import type { LayerMatch, SmartAnimateLayerValues } from '@varve/prototype';
+import { buildSmartAnimateValues, matchLayersByName } from '@varve/prototype';
+import type { Document, NodeId, SceneNode } from '@varve/scene';
+import type { EasingDefinition } from '@varve/shared';
+import { getEasingFn, interpolateColor } from '@varve/shared';
 
 export interface SmartAnimateTransition {
   fromScreenId: NodeId;

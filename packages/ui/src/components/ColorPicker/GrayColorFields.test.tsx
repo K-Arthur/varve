@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import type { ManagedColor } from '@strata/scene';
 import { cleanup, render, screen } from '@testing-library/react';
+import type { ManagedColor } from '@varve/scene';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GrayColorFields } from './GrayColorFields';
 

@@ -10,7 +10,7 @@
  * Call `registerBuiltinRules()` once on editor startup to populate the registry.
  */
 
-import type { WorkspaceMode } from '@strata/shared';
+import type { WorkspaceMode } from '@varve/shared';
 import type { AuditContext, AuditRuleDef } from './auditEngine';
 import { registerRule } from './auditEngine';
 import type { AuditSeverity, FindingCategory } from './auditFinding';

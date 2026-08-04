@@ -2,7 +2,7 @@
 /**
  * Tests for selection → quick-bar profile resolution.
  */
-import { createDocument, makeImageShapeNode, makeShapeNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeImageShapeNode, makeShapeNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { type ResolveQuickBarInput, resolveQuickBarProfile } from './resolveQuickBarProfile';
 

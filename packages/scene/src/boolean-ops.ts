@@ -1,6 +1,6 @@
 // COMPLEXITY: 70 — boolean operation dispatch and clipPolygons main algorithm.
 
-import type { PathPoint } from '@strata/engine';
+import type { PathPoint } from '@varve/engine';
 import type { Point2D, Run } from './boolean-geometry';
 import {
   assembleContour,

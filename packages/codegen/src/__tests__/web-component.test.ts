@@ -2,7 +2,7 @@
  * Tests for the Web Component emitter.
  */
 
-import { createDocument, makeShapeNode, makeTextNode } from '@strata/scene';
+import { createDocument, makeShapeNode, makeTextNode } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 import { exportNodeToWebComponent, webComponentTargetGaps } from '../web-component';
 

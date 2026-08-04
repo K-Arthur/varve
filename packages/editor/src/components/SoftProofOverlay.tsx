@@ -1,4 +1,4 @@
-import { rgbToCmyk } from '@strata/shared';
+import { rgbToCmyk } from '@varve/shared';
 import type React from 'react';
 import { useEffect, useRef } from 'react';
 

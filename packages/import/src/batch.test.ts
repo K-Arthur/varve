@@ -1,5 +1,5 @@
-import type { Affine } from '@strata/engine';
-import { createDocument, makeGroupNode, makeShapeNode } from '@strata/scene';
+import type { Affine } from '@varve/engine';
+import { createDocument, makeGroupNode, makeShapeNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { batchImport } from './batch';
 import { registerParser, resetRegistry } from './registry';

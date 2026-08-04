@@ -2,8 +2,8 @@
 // XML parser (recursive descent). Plan: extract XML parser to its own module
 // (svg/xml.ts) and path parser to svg/path.ts.
 
-import type { Affine, PathPoint } from '@strata/engine';
-import type { Document, ManagedColor, SceneNode } from '@strata/scene';
+import type { Affine, PathPoint } from '@varve/engine';
+import type { Document, ManagedColor, SceneNode } from '@varve/scene';
 
 export interface ParsedElement {
   tag: string;

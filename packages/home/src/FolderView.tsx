@@ -1,5 +1,5 @@
-import type { FileEntry, Folder, Platform } from '@strata/platform';
-import { Icon } from '@strata/ui';
+import type { FileEntry, Folder, Platform } from '@varve/platform';
+import { Icon } from '@varve/ui';
 import { useCallback, useMemo, useRef } from 'react';
 
 export interface FolderViewProps {

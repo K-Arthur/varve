@@ -1,5 +1,5 @@
-import { createDocument, type ExportPreset, makeShapeNode, type SceneNode } from '@strata/scene';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { createDocument, type ExportPreset, makeShapeNode, type SceneNode } from '@varve/scene';
 import { describe, expect, it, vi } from 'vitest';
 import { AssetExportControls } from './AssetExportControls';
 

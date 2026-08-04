@@ -1,7 +1,7 @@
 /**
  * Icon asset model — types and helpers for icons inserted into documents.
  */
-import type { NodeId } from '@strata/scene';
+import type { NodeId } from '@varve/scene';
 
 export type IconStorageMode = 'embedded' | 'linked';
 

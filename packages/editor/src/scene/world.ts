@@ -5,7 +5,7 @@
  * coordinate space and the world coordinate space used by the renderer,
  * hit-tester, selection overlay, and reveal logic.
  *
- * Canonical implementations now live in @strata/scene's coordinateService.
+ * Canonical implementations now live in @varve/scene's coordinateService.
  * This file re-exports for backward compatibility.
  *
  * Research basis: scene-graph transform composition (standard affine chain).
@@ -13,18 +13,18 @@
  * product of all ancestor transforms left-multiplied by the node's own.
  */
 
-import type { Document, NodeId } from '@strata/scene';
+import type { Document, NodeId } from '@varve/scene';
 import {
   groupWorldBounds as sceneGroupWorldBounds,
   nodeWorldBounds as sceneNodeWorldBounds,
   nodeWorldTransform as sceneNodeWorldTransform,
-} from '@strata/scene';
-import type { Affine, Rect } from '@strata/shared';
+} from '@varve/scene';
+import type { Affine, Rect } from '@varve/shared';
 
 export { nodeLocalBounds } from './nodeBounds';
 
 /**
- * @deprecated Import from @strata/scene instead. This re-export is for
+ * @deprecated Import from @varve/scene instead. This re-export is for
  * backward compatibility during the phased migration.
  */
 export function nodeWorldTransform(
@@ -36,7 +36,7 @@ export function nodeWorldTransform(
 }
 
 /**
- * @deprecated Import from @strata/scene instead. This re-export is for
+ * @deprecated Import from @varve/scene instead. This re-export is for
  * backward compatibility during the phased migration.
  */
 export function groupWorldBounds(
@@ -48,7 +48,7 @@ export function groupWorldBounds(
 }
 
 /**
- * @deprecated Import from @strata/scene instead. This re-export is for
+ * @deprecated Import from @varve/scene instead. This re-export is for
  * backward compatibility during the phased migration.
  */
 export function nodeWorldBounds(

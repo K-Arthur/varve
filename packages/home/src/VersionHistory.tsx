@@ -1,6 +1,6 @@
-import type { Platform, VersionEntry } from '@strata/platform';
-import { formatAbsoluteTime, formatRelativeTime } from '@strata/platform';
-import { AlertDialog, Button, Dialog, Icon, InlineActivityIndicator } from '@strata/ui';
+import type { Platform, VersionEntry } from '@varve/platform';
+import { formatAbsoluteTime, formatRelativeTime } from '@varve/platform';
+import { AlertDialog, Button, Dialog, Icon, InlineActivityIndicator } from '@varve/ui';
 import { useCallback, useEffect, useId, useState } from 'react';
 
 export interface VersionHistoryProps {

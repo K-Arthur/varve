@@ -59,7 +59,7 @@ space is linear). Two helpers go between storage and internal form:
 - `normalizeChannel(value, bitDepth) → number` (0.0-1.0)
 - `denormalizeChannel(value, bitDepth) → number` (storage range)
 
-These live in `@strata/shared/colorConversion.ts` and are the single choke point. No other
+These live in `@varve/shared/colorConversion.ts` and are the single choke point. No other
 module should divide by 255 or guess a range.
 
 ### D3 — Working space on ColorConfig

@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
-import type { Document, NodeId } from '@strata/scene';
-import { addNode, createDocument, makeFrameNode, makeTextNode } from '@strata/scene';
-import { translate } from '@strata/shared';
+import type { Document, NodeId } from '@varve/scene';
+import { addNode, createDocument, makeFrameNode, makeTextNode } from '@varve/scene';
+import { translate } from '@varve/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ActionTracker } from './actionTracker';
 import { getSmartDefaults } from './smartDefaults';

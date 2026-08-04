@@ -1,6 +1,6 @@
-import type { NodeId, SceneNode } from '@strata/scene';
-import { isContainer } from '@strata/scene';
-import { SOLID_TOOL_ICONS, SolidIcon } from '@strata/ui';
+import type { NodeId, SceneNode } from '@varve/scene';
+import { isContainer } from '@varve/scene';
+import { SOLID_TOOL_ICONS, SolidIcon } from '@varve/ui';
 import { useCallback, useEffect, useRef } from 'react';
 
 interface Candidate {
@@ -142,7 +142,7 @@ export function TouchCandidateMenu({
               aria-label={`${kindLabel(node)}: ${node.name}${isCont ? '. Tap to enter container.' : ''}`}
             >
               <SolidIcon
-                name={kindIcon(node) as import('@strata/ui').SolidIconName}
+                name={kindIcon(node) as import('@varve/ui').SolidIconName}
                 size={16}
                 aria-hidden
               />

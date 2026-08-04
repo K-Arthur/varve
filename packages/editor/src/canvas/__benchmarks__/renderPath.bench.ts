@@ -23,7 +23,7 @@
 
 import { writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { createEngine } from '@strata/engine';
+import { createEngine } from '@varve/engine';
 import { describe, it } from 'vitest';
 import { SubtreeIrCache } from '../subtreeIrCache';
 
@@ -225,7 +225,7 @@ describe('render path perf harness', () => {
       const ir = await eng.buildIr({
         nodes: nodes as unknown as Parameters<typeof eng.buildIr>[0]['nodes'],
       });
-      const { replayIr } = await import('@strata/engine');
+      const { replayIr } = await import('@varve/engine');
 
       const canvas = document.createElement('canvas');
       canvas.width = 1920;

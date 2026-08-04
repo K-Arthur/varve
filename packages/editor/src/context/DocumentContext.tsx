@@ -1,4 +1,4 @@
-import type { Adjustment } from '@strata/engine';
+import type { Adjustment } from '@varve/engine';
 import type {
   ArrangeOp,
   BleedConfig,
@@ -20,8 +20,8 @@ import type {
   SyncResult,
   Variable,
   VariableValue,
-} from '@strata/scene';
-import type { DistributeMode } from '@strata/shared';
+} from '@varve/scene';
+import type { DistributeMode } from '@varve/shared';
 import type { ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 
@@ -30,7 +30,7 @@ export interface DocumentContextValue {
     world: { x: number; y: number },
     size?: { w: number; h: number },
     parentId?: NodeId | null,
-    pathPoints?: import('@strata/engine').PathPoint[],
+    pathPoints?: import('@varve/engine').PathPoint[],
     pathClosed?: boolean,
   ) => void;
   createTextNodeAt: (
@@ -55,7 +55,7 @@ export interface DocumentContextValue {
   setNodeSize: (id: NodeId, w: number, h: number) => void;
   updateNode: (id: NodeId, updater: (node: SceneNode) => SceneNode) => void;
   setSelectedOpacity: (value: number) => void;
-  setSelectedBlendMode: (mode: import('@strata/engine').BlendMode) => void;
+  setSelectedBlendMode: (mode: import('@varve/engine').BlendMode) => void;
   setSelectedRotation: (value: number) => void;
   setSelectedFlipH: () => void;
   setSelectedFlipV: () => void;

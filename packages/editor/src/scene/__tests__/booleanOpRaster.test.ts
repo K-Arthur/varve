@@ -9,14 +9,14 @@ import {
   alphaContoursToShapeNodes,
   type ContourShapeNodeData,
   extractAlphaContours,
-} from '@strata/engine';
-import type { BlendMode, Effect, Fill, ManagedColor, ShapeNode, Stroke } from '@strata/scene';
-import { booleanOp } from '@strata/scene';
+} from '@varve/engine';
+import type { BlendMode, Effect, Fill, ManagedColor, ShapeNode, Stroke } from '@varve/scene';
+import { booleanOp } from '@varve/scene';
 import { describe, expect, it } from 'vitest';
 
 /** Convert the loosely-typed contour output into a real, typed ShapeNode.
  *  ContourShapeNodeData types fill/fills/strokes/effects as Record<string,
- *  unknown> bags (to avoid @strata/engine depending on @strata/scene), but
+ *  unknown> bags (to avoid @varve/engine depending on @varve/scene), but
  *  the runtime values are always valid ManagedColor/Fill/Stroke/Effect data
  *  produced from the sourceNode passed into alphaContoursToShapeNodes. */
 function toShapeNode(c: ContourShapeNodeData): ShapeNode {

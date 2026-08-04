@@ -1,8 +1,8 @@
 /**
  * Canvas draw-path performance benchmarks — viewport culling + IR build at scale.
  */
-import { buildParentIndexMap, createDocument, makeShapeNode } from '@strata/scene';
-import { isWorldRectInViewport } from '@strata/shared';
+import { buildParentIndexMap, createDocument, makeShapeNode } from '@varve/scene';
+import { isWorldRectInViewport } from '@varve/shared';
 import { describe, expect, it } from 'vitest';
 import { nodeWorldBounds } from '../scene/world';
 

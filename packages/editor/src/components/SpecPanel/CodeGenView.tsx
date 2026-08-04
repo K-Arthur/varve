@@ -16,9 +16,9 @@ import {
   exportNodeToSvg,
   exportNodeToSwiftUI,
   exportNodeToTailwind,
-} from '@strata/codegen';
-import type { Document, SceneNode, VariableStore } from '@strata/scene';
-import { CopyButton, type Tab, Tabs } from '@strata/ui';
+} from '@varve/codegen';
+import type { Document, SceneNode, VariableStore } from '@varve/scene';
+import { CopyButton, type Tab, Tabs } from '@varve/ui';
 import { useMemo, useRef, useState } from 'react';
 import { highlight } from './syntax';
 

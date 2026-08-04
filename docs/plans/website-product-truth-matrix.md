@@ -289,7 +289,7 @@ Strata is a **local-first, cross-platform design suite** with a native Rust engi
 | Claim | Code Evidence | UI Evidence | Test Evidence | Production Ready? | Safe to Market? |
 |-------|---------------|-------------|---------------|------------------|-----------------|
 | **Design tokens (colors, spacing, typography)** | `packages/ui/src/tokens/` | Used throughout UI | ✅ 96/96 WCAG-AA token tests | ✅ Yes | ✅ Yes |
-| **Component library (@strata/ui)** | `packages/ui/src/components/` | Used in editor | ✅ 66 components with tests | ✅ Yes | ✅ Yes |
+| **Component library (@varve/ui)** | `packages/ui/src/components/` | Used in editor | ✅ 66 components with tests | ✅ Yes | ✅ Yes |
 | **APG patterns (accessible components)** | `ui/src/components/` following APG | Accessible UI patterns | ✅ axe-core Playwright tests | ✅ Yes | ✅ Yes |
 | **Light/Dark/High-Contrast themes** | `tokens/tokens.css`: 3 themes | Theme switcher in UI | ✅ 30 pairs × 3 themes = 90 checks | ✅ Yes | ✅ Yes |
 | **Zero emoji gate** | `scripts/audit-emoji.mjs` | Enforced in CI | ✅ 0 violations across 271+ files | ✅ Yes | ✅ Yes |
