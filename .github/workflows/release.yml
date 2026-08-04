@@ -278,6 +278,15 @@ jobs:
         if: matrix.enabled
         run: node scripts/release/check-bundled-assets.mjs --dist
 
+      # tauri.conf.json bundles onnxruntime-libs/** wholesale. A CI runner only
+      # fetches its own platform, so this is usually a no-op here — but it makes
+      # the bundle contents independent of what happens to be staged, which is
+      # what stops a 74 MB .deb from carrying 53.9 MB of macOS and Windows
+      # libraries the way a local build did.
+      - name: Prune foreign ONNX runtimes
+        if: matrix.enabled
+        run: node scripts/release/prune-foreign-runtimes.mjs
+
       - name: Tauri build
         if: matrix.enabled
         run: pnpm tauri build --bundles ${{ matrix.bundles }} --ci
