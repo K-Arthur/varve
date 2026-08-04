@@ -4986,7 +4986,7 @@ checksum = "6ce2be8dc25455e1f91df71bfa12ad37d7af1092ae736f3a6cd0e37bc7810596"
 
 [[package]]
 name = "strata-bgremove"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
  "dirs-next",
@@ -4999,7 +4999,7 @@ dependencies = [
 
 [[package]]
 name = "strata-bridge"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -5008,7 +5008,7 @@ dependencies = [
 
 [[package]]
 name = "strata-colour"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -5019,7 +5019,7 @@ dependencies = [
 
 [[package]]
 name = "strata-core"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "kurbo",
  "serde",
@@ -5028,7 +5028,7 @@ dependencies = [
 
 [[package]]
 name = "strata-desktop"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "arboard",
  "base64 0.22.1",
@@ -5061,7 +5061,7 @@ dependencies = [
 
 [[package]]
 name = "strata-engine"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "kurbo",
  "serde",
@@ -5071,7 +5071,7 @@ dependencies = [
 
 [[package]]
 name = "strata-print"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "ab_glyph",
  "font-subset",
@@ -5086,7 +5086,7 @@ dependencies = [
 
 [[package]]
 name = "strata-sync"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "rusqlite",
@@ -5094,7 +5094,7 @@ dependencies = [
 
 [[package]]
 name = "strata-trace"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "rayon",
  "serde",
@@ -5103,7 +5103,7 @@ dependencies = [
 
 [[package]]
 name = "strata-upscale"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "dirs-next",
  "image",

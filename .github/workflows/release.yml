@@ -215,18 +215,14 @@ jobs:
         if: matrix.enabled
         with:
           ref: ${{ needs.preflight.outputs.tag }}
-          # Deliberately NOT lfs: true. A blanket LFS fetch pulls 1.26 GB per
-          # runner (ddcolor.onnx alone is 980 MB), which would burn the 10 GB/mo
-          # free LFS bandwidth in ~3 runs. Only the genuinely-bundled model is
-          # fetched below.
+          # No LFS fetch is needed: every model that ships in the installer is a
+          # small, non-LFS file. The three large models (ddcolor 980 MB,
+          # ddcolor-tiny 220 MB, font-classify 64 MB) are downloaded on demand at
+          # runtime instead, so CI never touches the 10 GB/month LFS bandwidth
+          # allowance. If a bundled model is ever added to LFS, the guard below
+          # fails the build with instructions rather than silently shipping a
+          # 133-byte pointer.
           lfs: false
-
-      - name: Fetch bundled LFS models only
-        if: matrix.enabled
-        shell: bash
-        run: |
-          git lfs install --local
-          git lfs pull --include="apps/desktop/public/models/font-classify.onnx"
 
       - name: Verify no bundled asset is an LFS pointer
         if: matrix.enabled
