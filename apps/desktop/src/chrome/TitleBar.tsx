@@ -32,7 +32,17 @@ export function TitleBar({ title = 'Varve' }: { title?: string }) {
     <div className={className} data-window-chrome data-focused={isFocused || undefined}>
       {/* Drag region fills available space. Never contains focusable controls. */}
       <div className="title-bar__drag-region" data-tauri-drag-region>
-        <img src="/icons/varve-icon.svg" alt="" aria-hidden className="title-bar__icon" />
+        <img
+          src="/icons/varve-icon.svg"
+          alt=""
+          aria-hidden
+          className="title-bar__icon"
+          // Never show a broken-image glyph: hide the icon and keep the
+          // title bar usable if the asset is ever missing.
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+          }}
+        />
         <span className="title-bar__title">{title}</span>
       </div>
 

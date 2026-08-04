@@ -77,6 +77,11 @@ magick "$TMP/fav16.png" "$TMP/fav32.png" "$TMP/fav48.png" "$WEB_DIR/favicon.ico"
 # favicon.svg — mark only (browsers use this for tab/bookmarks)
 cp "$MARK_SVG" "$WEB_DIR/favicon.svg"
 
+# varve-icon.svg — canonical mark-only asset referenced by the app itself
+# (custom title bar, boot fallback, home header). Kept as a separate name
+# from favicon.svg so the app never depends on a favicon file.
+cp "$MARK_SVG" "$WEB_DIR/varve-icon.svg"
+
 # apple-touch-icon (180×180 — mark on bg, no transparency)
 rsvg-convert -w 180 -h 180 "$SRC_SVG" -o "$WEB_DIR/apple-touch-icon.png"
 

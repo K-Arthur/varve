@@ -48,7 +48,7 @@ export async function buildDiagnosticsReport(
 
 export function formatDiagnosticsReport(report: DiagnosticsReport): string {
   const lines: string[] = [];
-  lines.push('=== Strata AI Diagnostics Report ===');
+  lines.push('=== Varve AI Diagnostics Report ===');
   lines.push(`App Version: ${report.applicationVersion}`);
   lines.push(`ONNX Runtime: ${report.ortVersion}`);
   lines.push('');

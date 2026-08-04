@@ -12,6 +12,7 @@ import {
   SOLID_CHROME_ICONS,
   SolidIcon,
   Tooltip,
+  VarveLogo,
   ViewModeSwitcher,
 } from '@varve/ui';
 import { useCallback, useState } from 'react';
@@ -93,6 +94,9 @@ export function HomeToolbar({
   return (
     <>
       <div className="varve-home__toolbar-left">
+        <span className="varve-home__brand" aria-hidden>
+          <VarveLogo size={18} />
+        </span>
         <Button
           variant="ghost"
           onClick={onToggleSidebar}

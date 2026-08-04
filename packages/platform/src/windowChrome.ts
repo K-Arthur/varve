@@ -287,7 +287,7 @@ function getFallbackStrategy(platform: PlatformInfo): WindowChromeStrategy {
  */
 export function createInitialChromeState(
   strategy: WindowChromeStrategy,
-  title: string = 'Strata',
+  title: string = 'Varve',
 ): WindowChromeState {
   return {
     strategy,

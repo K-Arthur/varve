@@ -28,7 +28,7 @@ export interface ColourWasmModule {
 let cachedModule: ColourWasmModule | null = null;
 let initPromise: Promise<void> | null = null;
 
-const WASM_CANDIDATES = ['/wasm/strata_colour_bg.wasm'];
+const WASM_CANDIDATES = ['/wasm/varve_colour_bg.wasm'];
 
 function wasmUrlToJsUrl(wasmUrl: string): string {
   return wasmUrl.replace('_bg.wasm', '.js');

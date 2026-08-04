@@ -20,7 +20,7 @@ function formatLine(r: number, g: number, b: number): string {
 }
 
 export function exportLutToCube(transform: LutTransform, options: CubeExportOptions = {}): string {
-  const title = options.title ?? transform.metadata.title ?? 'Exported from Strata';
+  const title = options.title ?? transform.metadata.title ?? 'Exported from Varve';
   const lines: string[] = [];
 
   lines.push(`TITLE "${title}"`);
@@ -30,7 +30,7 @@ export function exportLutToCube(transform: LutTransform, options: CubeExportOpti
   if (transform.metadata.description) {
     lines.push(`# Description: ${transform.metadata.description}`);
   }
-  lines.push(`# Exported from Strata (format: ${transform.kind})`);
+  lines.push(`# Exported from Varve (format: ${transform.kind})`);
 
   if (transform.kind === '1d') {
     const lut = transform;
