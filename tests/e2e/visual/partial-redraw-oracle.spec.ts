@@ -251,4 +251,87 @@ test.describe('partial redraw oracle', () => {
     const result = await runOracle(page, scene, dirtyRects, subset.slice(1));
     expect(result.diffPixels, JSON.stringify(result)).toBeGreaterThan(0);
   });
+
+  /**
+   * Scrolling. A camera translation moves every painted pixel, so retained
+   * backing-store pixels are wrong the moment the camera moves — including
+   * the common case where the camera and the document change in the SAME
+   * frame (auto-pan while dragging a node toward the viewport edge).
+   *
+   * These two tests pin both halves of the contract that
+   * `surfaceMatchesBackingStore` enforces in production: a partial redraw
+   * across a pan is visibly wrong, and the full-redraw fallback it forces is
+   * correct.
+   */
+  test('partial redraw across a pan leaves stale pixels (why the camera gate exists)', async ({
+    page,
+  }) => {
+    await openHarness(page);
+    const PAN_X = 24;
+    const PAN_Y = 16;
+    const before = gridScene();
+    // The camera scrolled by (PAN_X, PAN_Y) and one node moved in the same
+    // frame — every node lands somewhere new, not just the edited one.
+    const after = before.map((item) => {
+      const b = rectBounds(item);
+      const moved = b.x === 20 && b.y === 20;
+      return rectItem(b.x + PAN_X + (moved ? 10 : 0), b.y + PAN_Y + (moved ? 5 : 0), 40, 40);
+    });
+    // The dirty region the document diff produces: only the edited node's old
+    // and new bounds. It knows nothing about the camera.
+    const dirtyRects: DirtyRect[] = [
+      { x: 20, y: 20, w: 40, h: 40 },
+      { x: 20 + PAN_X + 10, y: 20 + PAN_Y + 5, w: 40, h: 40 },
+    ];
+    const subset = after.filter((item) => intersects(rectBounds(item), dirtyRects));
+
+    // Reference: what the frame must look like — a full redraw after the pan.
+    await renderFull(page, after);
+    await page.evaluate(() =>
+      (window as unknown as { __capturePixels: () => number }).__capturePixels(),
+    );
+    // What partial redraw would produce: pre-pan pixels retained outside the
+    // dirty rects, freshly-panned content painted inside them.
+    await renderFull(page, before);
+    await renderPartial(page, subset, dirtyRects);
+    const result = await page.evaluate(() =>
+      (
+        window as unknown as {
+          __diffPixels: () => { diffPixels: number; maxDelta: number; total: number };
+        }
+      ).__diffPixels(),
+    );
+
+    // Every node outside the dirty rects is still drawn at the old scroll
+    // offset: a large, obvious corruption, not a rounding artifact.
+    expect(result.diffPixels, JSON.stringify(result)).toBeGreaterThan(1000);
+  });
+
+  test('full redraw after a pan matches the trusted render exactly', async ({ page }) => {
+    await openHarness(page);
+    const PAN_X = 24;
+    const PAN_Y = 16;
+    const before = gridScene();
+    const after = before.map((item) => {
+      const b = rectBounds(item);
+      return rectItem(b.x + PAN_X, b.y + PAN_Y, 40, 40);
+    });
+
+    await renderFull(page, after);
+    await page.evaluate(() =>
+      (window as unknown as { __capturePixels: () => number }).__capturePixels(),
+    );
+    // Simulate the production fallback: stale surface, then a full repaint.
+    await renderFull(page, before);
+    await renderFull(page, after);
+    const result = await page.evaluate(() =>
+      (
+        window as unknown as {
+          __diffPixels: () => { diffPixels: number; maxDelta: number; total: number };
+        }
+      ).__diffPixels(),
+    );
+
+    expect(result.diffPixels, JSON.stringify(result)).toBe(0);
+  });
 });
