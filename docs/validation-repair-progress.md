@@ -144,6 +144,22 @@ and git status stop tripping on it).
   `docs/audits/deferred-lint-debt.md` (rewritten with current inventory:
   reorderable model lists needing stable IDs, positional/line-numbered lists
   where index is identity, grouped findings with composite keys).
+- **Follow-up (0fadfd13)**: biome-ignore comments must name the exact rules
+  and sit directly above the flagged line — the group-level `lint/a11y` form
+  did not suppress `useFocusableInteractive`/`useKeyWithClickEvents`.
+  ExportPackageSection: `role="region"` on `<pre>` trips
+  `useSemanticElements`; the tree is plain text read in document order after
+  the visible Output label, so the redundant landmark was removed instead.
+
+## Commits (master, 2026-08-03)
+
+| Hash | Summary |
+|------|---------|
+| `299f77bd` | fix(e2e): resolve strict-null type errors in a11y specs (+ ignore `.boot-check.tmp.mjs`) |
+| `d6215aa7` | fix(a11y): keyboard-operable inspector context menu, labelled preview, palette listbox suppressions |
+| `a360af4b` | fix(lint): resolve useOptionalChain, useLiteralKeys, useTemplate and stable-key warnings |
+| `34acea3c` | docs: refresh deferred lint debt inventory and validation repair progress |
+| `0fadfd13` | fix(a11y): correct listbox suppression syntax; drop redundant pre landmark |
 
 ## Final verification (2026-08-03)
 
@@ -155,8 +171,18 @@ and git status stop tripping on it).
 | `just format-check` | PASS (cargo fmt + biome ci) |
 | Targeted vitest (ShortcutPalette, Menu, Toolbar, logo, gradient, scene presets, controls, icons, sections) | 16 files / 198 tests PASS |
 | `pnpm audit:tokens` / `pnpm audit:emoji` | PASS |
-| Full `pnpm test` | PASS |
+| Full `pnpm test` | 8 failures, all load/concurrency-induced (see below) |
 | Playwright E2E discovery | PASS |
+
+Full-suite note: the shared run reported 8 failures in 6 files. All were
+environmental or concurrent-work related, none caused by these changes:
+- 3 `ShortcutPalette.test.tsx` 5s timeouts (tests took 11-30s under load
+  avg 41 + concurrent vitest runs) — pass 17/17 in isolation.
+- 3 `.bench.test.ts` timing-threshold failures (cacheSystem, menuPerf,
+  shaping: e.g. 1010ms > 500ms) — pass 26/26 in isolation.
+- 1 `FloatingToolbar.test.tsx` "Brush" failure — pre-existing; concurrent
+  agent has an uncommitted WIP fix in the working tree (not touched).
+- 1 `__probe2__.test.tsx` — concurrent agent's untracked debug probe.
 
 ## Remaining
 
