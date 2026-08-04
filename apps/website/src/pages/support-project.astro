@@ -136,7 +136,7 @@ import Layout from '../layouts/Layout.astro';
   }
   
   .support-project-page h1 {
-    font-size: 2.5rem;
+    font-size: clamp(2rem, 5vw, 2.5rem);
     font-weight: 800;
     margin-bottom: 1rem;
     color: var(--text-primary);
@@ -189,7 +189,7 @@ import Layout from '../layouts/Layout.astro';
   
   .support-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr));
     gap: 1.5rem;
     margin-top: 1.5rem;
   }
@@ -215,7 +215,7 @@ import Layout from '../layouts/Layout.astro';
   
   .tier-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
     gap: 1.5rem;
     margin-top: 1.5rem;
   }

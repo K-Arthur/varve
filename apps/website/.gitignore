@@ -1,3 +1,6 @@
 .astro/
 dist/
+dist-root/
 node_modules/
+test-results/
+playwright-report/

@@ -223,7 +223,7 @@ import Layout from '../../layouts/Layout.astro';
   }
   
   .docs-page h1 {
-    font-size: 2.5rem;
+    font-size: clamp(2rem, 5vw, 2.5rem);
     font-weight: 800;
     margin-bottom: 1rem;
     color: var(--text-primary);
@@ -248,7 +248,7 @@ import Layout from '../../layouts/Layout.astro';
   
   .shortcuts-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr));
     gap: 1rem;
   }
   

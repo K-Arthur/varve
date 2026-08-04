@@ -10,7 +10,8 @@
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",
-    "typecheck": "astro check"
+    "typecheck": "astro check && tsc -p tests/e2e/tsconfig.json --noEmit",
+    "test:e2e": "playwright test -c ../../playwright.website.config.ts"
   },
   "dependencies": {
     "@astrojs/react": "^4.0.0",
