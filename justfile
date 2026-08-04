@@ -125,6 +125,10 @@ act-dry WORKFLOW=".github/workflows/build.yml":
 ci-debug RUN_ID="":
     node scripts/ci-debug.mjs --run-id "{{RUN_ID}}"
 
+# Pipeline health: classify recent run failures (billing block / never-started / real)
+ci-health ARGS="":
+    node scripts/ci-health.mjs {{ARGS}}
+
 # GitHub Actions supply chain security
 pin-actions:
     node scripts/pin-github-actions.mjs --check
@@ -135,10 +139,11 @@ pin-actions-verify:
 pin-actions-fix:
     node scripts/pin-github-actions.mjs --pin
 
-# CI tooling regression tests (extractor + pin table integrity)
+# CI tooling regression tests (extractor + classifier + pin table integrity)
 ci-tools-test:
     node scripts/ci-debug.test.mjs
     node scripts/test-ci-debug.mjs
+    node scripts/ci-health.test.mjs
     node scripts/pin-github-actions.test.mjs
 
 validate-workflows:

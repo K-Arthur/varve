@@ -15,7 +15,7 @@
     "test": "pnpm test:ci:tools && vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/pin-github-actions.test.mjs && bash scripts/test-ci-shell-scripts.sh",
+    "test:ci:tools": "node scripts/ci-debug.test.mjs && node scripts/ci-health.test.mjs && node scripts/pin-github-actions.test.mjs && bash scripts/test-ci-shell-scripts.sh",
     "bench:canvas": "vitest run --config vitest.bench.config.ts packages/engine/src/bench/replay.bench.ts",
     "bench": "vitest bench --run --pool=forks",
     "typecheck": "pnpm -r --filter \"./packages/*\" typecheck && pnpm typecheck:e2e",
@@ -33,6 +33,7 @@
     "test:wdio": "pnpm test:desktop:native",
     "desktop:preflight": "node scripts/desktop/preflight.mjs",
     "ci:debug": "node scripts/ci-debug.mjs",
+    "ci:health": "node scripts/ci-health.mjs",
     "ci:local": "bash scripts/ci-local-run.sh",
     "lint:css": "stylelint \"packages/ui/src/**/*.css\"",
     "lint:css:all": "stylelint \"**/*.css\""
