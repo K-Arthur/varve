@@ -10,8 +10,6 @@
 
 /// <reference path="./wawoff2.d.ts" />
 
-import { decompress as decompressBrotli } from 'wawoff2';
-
 import {
   type ColorFontFormat,
   computeFontHash,
@@ -138,8 +136,29 @@ async function parseWOFF2(data: ArrayBuffer): Promise<ParsedFontMetadata> {
   };
 }
 
+/**
+ * Decompress WOFF2 to SFNT.
+ *
+ * `wawoff2` is imported dynamically, and that is load-bearing rather than a
+ * style preference. It is an Emscripten module whose embind glue calls
+ * `new Function(...)` at module-evaluation time to build named functions for
+ * stack traces. Tauri's production CSP allows `'wasm-unsafe-eval'` but not
+ * `'unsafe-eval'`, so evaluating it throws:
+ *
+ *   EvalError: Refused to evaluate a string as JavaScript because 'unsafe-eval'
+ *   ... is not an allowed source of script in the following CSP directive
+ *
+ * As a *static* import it sat in the main chunk, so that throw happened before
+ * React mounted and took the entire application down — the packaged app opened
+ * and never reached its UI. Every other call site in the repo already imports
+ * it dynamically; this one did not.
+ *
+ * Dynamic import confines the failure to this function, which already degrades
+ * to header-only parsing. Do not convert this back to a static import.
+ */
 async function decompressWOFF2(data: ArrayBuffer): Promise<ArrayBuffer | null> {
   try {
+    const { decompress: decompressBrotli } = await import('wawoff2');
     const input = new Uint8Array(data);
     const result = await decompressBrotli(input);
     // wawoff2 returns a Uint8Array/Buffer of the decompressed SFNT data.
