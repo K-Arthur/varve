@@ -121,8 +121,8 @@ export function detectCapabilities() {
     valgrind: which('valgrind'),
   };
 
-  const release = `${ROOT}target/release/strata`;
-  const debugBinary = `${ROOT}target/debug/strata`;
+  const release = `${ROOT}target/release/varve-desktop`;
+  const debugBinary = `${ROOT}target/debug/varve-desktop`;
 
   return {
     capturedAt: new Date().toISOString(),
@@ -178,7 +178,7 @@ export function discoverProcesses() {
   return {
     // Costs land in the web process, not the Tauri host — profiling only the
     // host is the classic way to produce an empty-looking WebKitGTK profile.
-    host: find('target/(release|debug)/strata'),
+    host: find('target/(release|debug)/varve-desktop'),
     webProcess: find('WebKitWebProcess'),
     networkProcess: find('WebKitNetworkProcess'),
     gpuProcess: find('WebKitGPUProcess'),
@@ -291,7 +291,7 @@ if (!isMain) {
       console.error(
         'webkit-profile: no running Varve session found.\n' +
           'Launch the release GUI first (the workload must run in a real window):\n' +
-          '  ./target/release/strata\n' +
+          '  ./target/release/varve-desktop\n' +
           'then warm it up and re-run with --record.',
       );
       process.exit(4);
@@ -367,7 +367,7 @@ if (!isMain) {
     const target = processes.webProcess[0] ?? processes.host[0];
     if (!target) {
       console.error(
-        'webkit-profile: no running Varve session found. Launch ./target/release/strata first.',
+        'webkit-profile: no running Varve session found. Launch ./target/release/varve-desktop first.',
       );
       process.exit(4);
     }

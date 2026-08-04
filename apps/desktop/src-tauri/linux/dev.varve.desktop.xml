@@ -15,10 +15,10 @@
 -->
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/x-strata">
-    <comment>Strata design document</comment>
+    <comment>Varve design document</comment>
     <comment xml:lang="en-GB">Strata design document</comment>
     <glob pattern="*.strata"/>
-    <icon name="dev.strata.desktop"/>
+    <icon name="dev.varve.desktop"/>
     <generic-icon name="image-x-generic"/>
     <!--
       Documents are JSON (see packages/platform/src/tauri.ts — the save dialog

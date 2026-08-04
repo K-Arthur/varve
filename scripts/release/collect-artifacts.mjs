@@ -4,18 +4,18 @@
  * SHA-256 checksums, and a machine-readable manifest.
  *
  * Tauri names bundles inconsistently and by platform convention:
- *   Strata Desktop_0.1.0_amd64.deb        (space, Debian arch name)
- *   strata-desktop_0.1.0_amd64.AppImage
- *   Strata Desktop_0.1.0_x64-setup.exe
- *   Strata Desktop_0.1.0_aarch64.dmg
+ *   Varve_0.1.0_amd64.deb        (space, Debian arch name)
+ *   varve-desktop_0.1.0_amd64.AppImage
+ *   Varve_0.1.0_x64-setup.exe
+ *   Varve_0.1.0_aarch64.dmg
  *
  * Spaces in a download filename break naive shell pipelines and get percent-
  * encoded inconsistently by browsers; the arch names disagree across formats
  * (amd64 / x64 / x86_64). Releases need one scheme so the download page, the
  * checksum file, and the AUR PKGBUILD can all predict a URL:
  *
- *   Strata-<version>-<os>-<arch>.<ext>
- *   e.g. Strata-0.1.0-linux-x86_64.AppImage
+ *   Varve-<version>-<os>-<arch>.<ext>
+ *   e.g. Varve-0.1.0-linux-x86_64.AppImage
  *
  * Usage:
  *   node scripts/release/collect-artifacts.mjs \

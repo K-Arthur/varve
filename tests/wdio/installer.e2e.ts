@@ -18,15 +18,15 @@ import { expect } from '@wdio/globals';
 describe('Desktop: Platform installer validation', () => {
   before(async () => {
     // Skip entire suite if not running after a bundled build
-    const bundleDir = process.env.STRATA_BUNDLE_DIR;
+    const bundleDir = process.env.VARVE_BUNDLE_DIR;
     if (!bundleDir) {
-      console.log('STRATA_BUNDLE_DIR not set — skipping installer validation');
+      console.log('VARVE_BUNDLE_DIR not set — skipping installer validation');
     }
   });
 
-  if (!process.env.STRATA_BUNDLE_DIR) return;
+  if (!process.env.VARVE_BUNDLE_DIR) return;
 
-  const bundleDir = process.env.STRATA_BUNDLE_DIR;
+  const bundleDir = process.env.VARVE_BUNDLE_DIR;
 
   describe('macOS DMG', () => {
     before(function () {
@@ -51,7 +51,7 @@ describe('Desktop: Platform installer validation', () => {
       if (!mountPoint) throw new Error('Could not determine DMG mount point');
 
       try {
-        const binary = execSync(`find "${mountPoint}" -name "strata-desktop" -type f 2>/dev/null`, {
+        const binary = execSync(`find "${mountPoint}" -name "varve-desktop" -type f 2>/dev/null`, {
           encoding: 'utf8',
         }).trim();
         expect(binary).not.toBe('');
@@ -78,7 +78,7 @@ describe('Desktop: Platform installer validation', () => {
 
       try {
         const plistOutput = execSync(
-          `plutil -p "${mountPoint}/Strata.app/Contents/Info.plist" 2>/dev/null || true`,
+          `plutil -p "${mountPoint}/Varve.app/Contents/Info.plist" 2>/dev/null || true`,
           { encoding: 'utf8' },
         );
         expect(plistOutput).toContain('LSMinimumSystemVersion');
@@ -102,7 +102,7 @@ describe('Desktop: Platform installer validation', () => {
 
     it('should have an NSIS installer in the bundle directory', async () => {
       const entries = readdirSync(bundleDir);
-      const nsis = entries.find((f: string) => f.endsWith('.exe') && f !== 'strata-desktop.exe');
+      const nsis = entries.find((f: string) => f.endsWith('.exe') && f !== 'varve-desktop.exe');
       expect(nsis).toBeTruthy();
     });
   });

@@ -1,13 +1,28 @@
+import { migrateLegacyIndexedDb } from '@varve/platform';
 import type { BackupStore } from '../storage';
 import type { BackupManifest, BackupStorageInfo, ProjectBackupIndex } from '../types';
 import { computeChecksum } from '../verify';
 
-const DB_NAME = 'strata-backups';
+const DB_NAME = 'varve-backups';
+const LEGACY_DB_NAME = 'strata-backups';
 const DB_VERSION = 1;
 const BACKUPS_STORE = 'backups';
 const INDICES_STORE = 'indices';
 const MANIFESTS_STORE = 'manifests';
 const ASSETS_STORE = 'assets';
+
+let migrated = false;
+
+async function ensureMigrated(): Promise<void> {
+  if (migrated) return;
+  migrated = true;
+  await migrateLegacyIndexedDb(LEGACY_DB_NAME, DB_NAME, [
+    BACKUPS_STORE,
+    INDICES_STORE,
+    MANIFESTS_STORE,
+    ASSETS_STORE,
+  ]);
+}
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -37,7 +52,10 @@ export function createIndexedDbBackupStore(): BackupStore {
 
   async function db(): Promise<IDBDatabase> {
     if (!dbPromise) {
-      dbPromise = openDb();
+      dbPromise = openDb().then(async (database) => {
+        await ensureMigrated();
+        return database;
+      });
     }
     return dbPromise;
   }

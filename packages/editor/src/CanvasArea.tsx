@@ -142,6 +142,7 @@ import {
   setStartTextEditingHandler,
   useEditor,
 } from './context';
+import { LEGACY_FILE_MIME, VARVE_FILE_MIME } from './dnd-types';
 import { collectFilesFromDataTransfer } from './dropUtils';
 import { HitTestEngine } from './hitTest/HitTestEngine';
 import { useCollabPresence } from './hooks/useCollabPresence';
@@ -3005,8 +3006,11 @@ export function CanvasArea({
       maskDropTargetRef.current = null;
       setMaskDropTargetId(null);
 
-      // First check for dnd-kit native files (strata file type)
-      const strataFiles = e.dataTransfer.types?.includes('application/x-strata-file');
+      // First check for dnd-kit native files (varve file type, legacy strata
+      // type accepted for compatibility)
+      const fileMimeTypes = e.dataTransfer.types ?? [];
+      const strataFiles =
+        fileMimeTypes.includes(VARVE_FILE_MIME) || fileMimeTypes.includes(LEGACY_FILE_MIME);
       if (strataFiles) {
         // Handled by dnd-kit's onDragEnd instead
         return;
