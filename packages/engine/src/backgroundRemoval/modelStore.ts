@@ -5,8 +5,10 @@
  * (4.7MB u2netp up to 928MB birefnet-general). IndexedDB provides the
  * capacity needed for large binary blobs.
  */
+import { migrateLegacyIndexedDb } from '@varve/platform';
 
-const DB_NAME = 'strata-model-store';
+const DB_NAME = 'varve-model-store';
+const LEGACY_DB_NAME = 'strata-model-store';
 const DB_VERSION = 2;
 const STORE_NAME = 'models';
 const PARTIALS_STORE = 'partials';
@@ -41,7 +43,12 @@ function openDB(): Promise<IDBDatabase> {
         db.createObjectStore(PARTIALS_STORE);
       }
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      void migrateLegacyIndexedDb(LEGACY_DB_NAME, DB_NAME, [STORE_NAME, PARTIALS_STORE]).then(() =>
+        resolve(db),
+      );
+    };
     request.onerror = () => reject(new Error('Failed to open IndexedDB'));
   });
 }

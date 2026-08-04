@@ -1,4 +1,4 @@
-# Strata Rust workspace.
+# Varve Rust workspace.
 # The native engine is compiled per-OS for the Tauri desktop build, and the
 # same crates compile to wasm32 for the web fallback behind one TS facade.
 [workspace]
@@ -22,7 +22,7 @@ version = "0.1.0"
 edition = "2021"
 rust-version = "1.82"
 license = "FSL-1.1-MIT"
-authors = ["Strata"]
+authors = ["Varve"]
 repository = "https://github.com/K-Arthur/varve"
 
 [workspace.lints.rust]

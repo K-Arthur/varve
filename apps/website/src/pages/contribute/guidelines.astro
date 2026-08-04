@@ -102,7 +102,7 @@ import Layout from '../../layouts/Layout.astro';
         <p>All contributions must pass the following checks before they can be merged:</p>
         <ul>
           <li><strong><code>pnpm test</code></strong> — all TypeScript/JavaScript tests across all packages must pass</li>
-          <li><strong><code>cargo test --workspace</code></strong> — all Rust workspace tests must pass (75+ tests across strata-core, strata-engine, strata-layout, strata-print, strata-sync, strata-trace)</li>
+          <li><strong><code>cargo test --workspace</code></strong> — all Rust workspace tests must pass (75+ tests across varve-core, varve-engine, varve-layout, varve-print, varve-sync, varve-trace)</li>
           <li><strong><code>cargo test</code> (Tauri)</strong> — desktop-specific tests (currently 7+) must pass</li>
           <li><strong><code>pnpm typecheck</code></strong> — TypeScript type-checking must produce zero errors across all 15 packages</li>
           <li><strong><code>pnpm lint</code></strong> — Biome must report zero errors on new and modified files</li>

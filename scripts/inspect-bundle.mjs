@@ -209,7 +209,7 @@ function checkMsiArch(path) {
       // Try to extract architecture from MSI using msitools or Windows API
       try {
         const archOut = execSync(
-          `powershell -NoProfile "(Get-WmiObject -Class Win32_Product -Filter "Name like '%strata%'" 2>nul) -or (select-string 'Intel|ARM|x64|ARM64' <<< $(strings "${path}" | head -100))" 2>/dev/null || true`,
+          `powershell -NoProfile "(Get-WmiObject -Class Win32_Product -Filter "Name like '%varve%'" 2>nul) -or (select-string 'Intel|ARM|x64|ARM64' <<< $(strings "${path}" | head -100))" 2>/dev/null || true`,
           { encoding: 'utf8' },
         );
         if (archOut.includes('ARM64')) pass(`MSI arch = ARM64 (from strings): ${path}`);

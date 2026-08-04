@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Comprehensive architecture health audit for Strata.
+ * Comprehensive architecture health audit for Varve.
  *
  * Checks:
  *   1. Dependency cycles (via madge)
@@ -551,7 +551,7 @@ async function checkSize() {
 // ── Main ──────────────────────────────────────────────────────────────
 async function main() {
   console.log('══════════════════════════════════════════════════');
-  console.log('  Strata Architecture Health Audit');
+  console.log('  Varve Architecture Health Audit');
   console.log(`  ${new Date().toISOString().replace('T', ' ').slice(0, 19)}`);
   console.log('══════════════════════════════════════════════════\n');
 

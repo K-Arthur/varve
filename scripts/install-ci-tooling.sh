@@ -23,7 +23,7 @@ for arg in "$@"; do
   fi
 done
 
-echo "=== Strata CI/CD Tooling Installation ==="
+echo "=== Varve CI/CD Tooling Installation ==="
 echo "Repository root: $REPO_ROOT"
 echo ""
 
