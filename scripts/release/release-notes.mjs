@@ -19,6 +19,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { documentExtension, productSlug } from './product.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -85,7 +86,7 @@ function main() {
   const platforms = [...new Set(manifest.artifacts.map((a) => a.os))];
   const out = [];
 
-  out.push(`## Strata ${version}`);
+  out.push(`## ${productSlug()} ${version}`);
   out.push('');
   out.push(changelogSection(version));
   out.push('');
@@ -151,7 +152,8 @@ function main() {
   out.push('');
   out.push(
     '- **This is early software. Keep backups of anything you care about.** ' +
-      'The `.strata` document format may still change in ways that break older files.',
+      `The \`.${documentExtension()}\` document format may still change in ways that ` +
+      'break older files.',
   );
   out.push('- Updates are manual — there is no in-app updater yet.');
   if (!platforms.includes('macos')) {
@@ -163,7 +165,7 @@ function main() {
   out.push('');
   out.push(
     'A CycloneDX software bill of materials is attached as ' +
-      `\`strata-${version}-sbom.cdx.json\`.`,
+      `\`${productSlug().toLowerCase()}-${version}-sbom.cdx.json\`.`,
   );
 
   writeFileSync(outPath, `${out.join('\n')}\n`);
