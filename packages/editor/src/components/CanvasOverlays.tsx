@@ -494,14 +494,14 @@ export function CanvasOverlays({
       />
       <dialog
         ref={renameDialogRef}
-        className="strata-dialog strata-dialog--sm"
+        className="varve-dialog varve-dialog--sm"
         aria-labelledby="rename-dialog-title"
         onClose={() => setRenameDialog(null)}
         onKeyDown={(e) => {
           if (e.key === 'Escape') setRenameDialog(null);
         }}
       >
-        <h2 id="rename-dialog-title" className="strata-dialog__title">
+        <h2 id="rename-dialog-title" className="varve-dialog__title">
           Rename layer
         </h2>
         <form
@@ -522,15 +522,15 @@ export function CanvasOverlays({
             autoComplete="off"
             spellCheck={false}
           />
-          <div className="strata-dialog__actions">
+          <div className="varve-dialog__actions">
             <button
               type="button"
-              className="strata-btn strata-btn--ghost"
+              className="varve-btn varve-btn--ghost"
               onClick={() => setRenameDialog(null)}
             >
               Cancel
             </button>
-            <button type="submit" className="strata-btn strata-btn--primary">
+            <button type="submit" className="varve-btn varve-btn--primary">
               Rename
             </button>
           </div>

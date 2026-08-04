@@ -111,7 +111,7 @@ const env = {
 const report = { environment: env };
 
 if (!jsonOnly) {
-  console.log('=== Strata WebKitGTK environment report ===');
+  console.log('=== Varve WebKitGTK environment report ===');
   console.log(JSON.stringify(env, null, 2));
   console.log();
   console.log('=== Native profiling runbook (tools detected on this machine) ===');

@@ -23,16 +23,16 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 chrono = "0.4"
-varve-core = { path = "../../../crates/strata-core" }
-varve-engine = { path = "../../../crates/strata-engine" }
+varve-core = { path = "../../../crates/varve-core" }
+varve-engine = { path = "../../../crates/varve-engine" }
 notify = "6"
 font-enumeration = "0.9"
-varve-sync = { path = "../../../crates/strata-sync" }
-varve-print = { path = "../../../crates/strata-print" }
-varve-bridge = { path = "../../../crates/strata-bridge" }
-varve-bgremove = { path = "../../../crates/strata-bgremove" }
-varve-trace = { path = "../../../crates/strata-trace" }
-varve-upscale = { path = "../../../crates/strata-upscale" }
+varve-sync = { path = "../../../crates/varve-sync" }
+varve-print = { path = "../../../crates/varve-print" }
+varve-bridge = { path = "../../../crates/varve-bridge" }
+varve-bgremove = { path = "../../../crates/varve-bgremove" }
+varve-trace = { path = "../../../crates/varve-trace" }
+varve-upscale = { path = "../../../crates/varve-upscale" }
 image = "0.25"
 arboard = { version = "3", features = ["wayland-data-control"] }
 tauri-plugin-fs = "2"
@@ -55,12 +55,12 @@ webkit2gtk = { version = "=2.0.2", features = ["v2_38"] }
 default = ["ai"]
 custom-protocol = ["tauri/custom-protocol"]
 # Native ONNX inference (ort crate, load-dynamic — no compile-time linkage,
-# see crates/strata-bgremove/Cargo.toml). Default-on because it's the safer
+# see crates/varve-bgremove/Cargo.toml). Default-on because it's the safer
 # alternative to bare-WASM BiRefNet, which can crash with std::bad_alloc on
 # GPU-less hosts (docs/audits/background-removal-wasm-memory-hardening-
 # 2026-07-18.md). Safe to leave default even when the bundled onnxruntime
 # dylib (scripts/fetch-onnxruntime.mjs) is missing for a given platform:
 # nothing is linked at build time, and runtime.rs's native_ai_ready() will
 # correctly report unavailable so the app falls back to WASM/heuristic.
-ai = ["strata-bgremove/ai", "strata-upscale/ai"]
+ai = ["varve-bgremove/ai", "varve-upscale/ai"]
 wdio = ["dep:tauri-plugin-wdio", "dep:tauri-plugin-wdio-webdriver"]

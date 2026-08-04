@@ -294,13 +294,13 @@ export function PalettePreviewDialog({
             paddingTop: 'var(--space-2)',
           }}
         >
-          <button type="button" className="strata-btn strata-btn--ghost" onClick={onCancel}>
+          <button type="button" className="varve-btn varve-btn--ghost" onClick={onCancel}>
             Cancel
           </button>
           {onSaveAsSwatches && (
             <button
               type="button"
-              className="strata-btn strata-btn--secondary"
+              className="varve-btn varve-btn--secondary"
               onClick={onSaveAsSwatches}
             >
               Save as swatches
@@ -309,7 +309,7 @@ export function PalettePreviewDialog({
           {onRegenerate && (
             <button
               type="button"
-              className="strata-btn strata-btn--secondary"
+              className="varve-btn varve-btn--secondary"
               onClick={onRegenerate}
               disabled={loading}
             >
@@ -318,7 +318,7 @@ export function PalettePreviewDialog({
           )}
           <button
             type="button"
-            className="strata-btn strata-btn--primary"
+            className="varve-btn varve-btn--primary"
             onClick={handleApply}
             disabled={loading || !!error}
           >

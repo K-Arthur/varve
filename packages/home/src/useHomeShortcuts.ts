@@ -17,7 +17,7 @@ export function useHomeShortcuts(handlers: HomeShortcutHandlers, dialogOpen: boo
 
   const focusSearch = useCallback(() => {
     if (!searchInputRef.current) {
-      searchInputRef.current = document.querySelector<HTMLInputElement>('.strata-search__input');
+      searchInputRef.current = document.querySelector<HTMLInputElement>('.varve-search__input');
     }
     searchInputRef.current?.focus();
   }, []);

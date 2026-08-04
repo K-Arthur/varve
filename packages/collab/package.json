@@ -2,7 +2,7 @@
   "name": "@varve/collab",
   "version": "0.0.0",
   "private": true,
-  "description": "Local-first CRDT awareness and reconnect over the strata-sync SQLite core.",
+  "description": "Local-first CRDT awareness and reconnect over the varve-sync SQLite core.",
   "type": "module",
   "exports": {
     ".": {

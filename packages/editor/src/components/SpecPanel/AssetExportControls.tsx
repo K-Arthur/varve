@@ -635,7 +635,7 @@ export function AssetExportControls({
                     onChange={() => onUpdatePreset?.({ ...preset, enabled: !preset.enabled })}
                     aria-label={`Enable ${fileName} export`}
                   />
-                  <span className="strata-visually-hidden">Enabled</span>
+                  <span className="varve-visually-hidden">Enabled</span>
                 </label>
                 <div className="spec-export__preset-info">
                   <span className="spec-export__preset-summary">{presetSummary(preset)}</span>
@@ -737,7 +737,7 @@ export function AssetExportControls({
         </section>
       )}
 
-      <div ref={liveRef} role="status" aria-live="polite" className="strata-visually-hidden">
+      <div ref={liveRef} role="status" aria-live="polite" className="varve-visually-hidden">
         {message}
       </div>
       {message && <p className="spec-export__message">{message}</p>}

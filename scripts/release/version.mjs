@@ -2,7 +2,7 @@
 /**
  * Single-source the release version across every manifest that carries one.
  *
- * Strata's version lives in five places that must agree, or the installer lies
+ * Varve.s version lives in five places that must agree, or the installer lies
  * about what it is (audit RB-3: all five read `0.0.0`, and `publish.yml` never
  * compared them to the tag it was triggered by). Package managers key upgrade
  * decisions off these values, so a stale one makes deb/rpm/MSI upgrades

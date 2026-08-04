@@ -93,6 +93,6 @@ describe('CanvasArea empty state', () => {
     );
     const headline = screen.getByText('Test headline');
     expect(headline.tagName).toBe('H3');
-    expect(headline.className).toContain('strata-empty__headline');
+    expect(headline.className).toContain('varve-empty__headline');
   });
 });

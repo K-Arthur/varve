@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify Strata desktop icon assets: existence, dimensions, formats, and
+# Verify Varve desktop icon assets: existence, dimensions, formats, and
 # cross-reference with tauri.conf.json bundle.icon and Linux .desktop entry.
 # Run from repo root: bash apps/desktop/scripts/verify-icons.sh
 set -euo pipefail
@@ -14,7 +14,7 @@ red='\033[0;31m'; green='\033[0;32m'; nc='\033[0m'
 pass() { echo -e "  ${green}PASS${nc} $1"; }
 fail() { echo -e "  ${red}FAIL${nc} $1"; errors=$((errors + 1)); }
 
-echo "==> Strata icon asset verification"
+echo "==> Varve icon asset verification"
 echo ""
 
 # ── 1. bundle.icon entries from tauri.conf.json ─────────────────────────

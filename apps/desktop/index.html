@@ -3,16 +3,16 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Strata</title>
+    <title>Varve</title>
     <meta name="theme-color" content="#10151f" />
-    <meta name="application-name" content="Strata" />
-    <link rel="icon" type="image/svg+xml" href="/icons/strata-icon.svg" />
+    <meta name="application-name" content="Varve" />
+    <link rel="icon" type="image/svg+xml" href="/icons/varve-icon.svg" />
     <link rel="icon" type="image/x-icon" href="/icons/favicon.ico" sizes="16x16 32x32 48x48" />
     <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <script>
       if (typeof performance !== 'undefined' && performance.mark) {
-        performance.mark('strata-html-paint');
+        performance.mark('varve-html-paint');
       }
 
       // Surface startup failures on screen.
@@ -27,17 +27,17 @@
         function showBootError(kind, message, detail) {
           if (reported) return;
           reported = true;
-          var host = document.getElementById('strata-boot-fallback');
+          var host = document.getElementById('varve-boot-fallback');
           if (!host) return;
           var box = document.createElement('div');
           box.className = 'boot-error';
           box.setAttribute('role', 'alert');
           var text =
-            '<h1>Strata could not start</h1>' +
+            '<h1>Varve could not start</h1>' +
             '<p class="boot-error-kind"></p>' +
             '<pre class="boot-error-message"></pre>' +
             '<p class="boot-error-hint">Please report this with the text above at ' +
-            'github.com/K-Arthur/Strata/issues</p>';
+            'github.com/K-Arthur/varve/issues</p>';
           box.innerHTML = text;
           // textContent, not innerHTML — an error message can contain markup
           // from untrusted document content.
@@ -78,8 +78,8 @@
         }, 20000);
       })();
     </script>
-    <style id="strata-boot-fallback-style">
-      #strata-boot-fallback {
+    <style id="varve-boot-fallback-style">
+      #varve-boot-fallback {
         /* Brand-fixed dark splash — ignores in-app light/dark/HC theme. */
         color-scheme: dark;
         position: fixed;
@@ -90,13 +90,13 @@
         color: #ffffff;
         z-index: 2147483646;
       }
-      #strata-boot-fallback .boot-logo-wrap {
+      #varve-boot-fallback .boot-logo-wrap {
         position: relative;
         width: 136px;
         height: 136px;
         transform: translateY(6%);
       }
-      #strata-boot-fallback .boot-logo-wrap::before {
+      #varve-boot-fallback .boot-logo-wrap::before {
         content: '';
         position: absolute;
         inset: -36%;
@@ -104,9 +104,9 @@
         background: radial-gradient(circle, rgb(255 255 255 / 0.1) 0%, transparent 65%);
         pointer-events: none;
         z-index: 0;
-        animation: strata-logo-luminosity 3.6s ease-in-out infinite;
+        animation: varve-logo-luminosity 3.6s ease-in-out infinite;
       }
-      #strata-boot-fallback .boot-logo {
+      #varve-boot-fallback .boot-logo {
         position: relative;
         z-index: 1;
         display: block;
@@ -118,7 +118,7 @@
           drop-shadow(1.25px 0 0 rgb(255 110 140 / 0.55))
           drop-shadow(0 0 10px rgb(255 255 255 / 0.14));
       }
-      @keyframes strata-logo-luminosity {
+      @keyframes varve-logo-luminosity {
         0%,
         100% {
           opacity: 0.45;
@@ -127,7 +127,7 @@
           opacity: 0.9;
         }
       }
-      #strata-boot-fallback .boot-error {
+      #varve-boot-fallback .boot-error {
         max-width: 44rem;
         padding: 2rem;
         font:
@@ -135,17 +135,17 @@
           sans-serif;
         text-align: left;
       }
-      #strata-boot-fallback .boot-error h1 {
+      #varve-boot-fallback .boot-error h1 {
         margin: 0 0 0.5rem;
         font-size: 1.25rem;
         font-weight: 600;
       }
-      #strata-boot-fallback .boot-error-kind {
+      #varve-boot-fallback .boot-error-kind {
         margin: 0 0 1rem;
         color: #ff8fa3;
         font-weight: 500;
       }
-      #strata-boot-fallback .boot-error-message {
+      #varve-boot-fallback .boot-error-message {
         margin: 0 0 1rem;
         padding: 1rem;
         max-height: 40vh;
@@ -160,16 +160,16 @@
         -webkit-user-select: text;
         user-select: text;
       }
-      #strata-boot-fallback .boot-error-hint {
+      #varve-boot-fallback .boot-error-hint {
         margin: 0;
         color: rgb(255 255 255 / 0.65);
       }
       @media (prefers-reduced-motion: reduce) {
-        #strata-boot-fallback .boot-logo-wrap::before {
+        #varve-boot-fallback .boot-logo-wrap::before {
           animation: none;
           opacity: 0.55;
         }
-        #strata-boot-fallback .boot-logo {
+        #varve-boot-fallback .boot-logo {
           filter:
             drop-shadow(-1px 0 0 rgb(57 208 198 / 0.55))
             drop-shadow(1px 0 0 rgb(255 110 140 / 0.4))
@@ -179,7 +179,7 @@
     </style>
   </head>
   <body>
-    <div id="strata-boot-fallback" role="status" aria-live="polite" aria-label="Loading Strata">
+    <div id="varve-boot-fallback" role="status" aria-live="polite" aria-label="Loading Varve">
       <div class="boot-logo-wrap" aria-hidden="true">
         <svg class="boot-logo" viewBox="0 0 16 16" fill="currentColor">
           <polygon points="1,1.5 10,1.5 11,4.5 2,4.5" />

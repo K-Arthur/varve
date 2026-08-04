@@ -11,5 +11,5 @@ test('quick check 127', async ({ page }) => {
   console.log('varve-home count:', count);
   const html = await page.content();
   console.log('HTML length:', html.length);
-  console.log('Has Loading:', html.includes('Loading Strata'));
+  console.log('Has Loading:', html.includes('Loading Varve'));
 });

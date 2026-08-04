@@ -13,7 +13,7 @@ export interface PanelProps {
   label: string;
 }
 
-const STORAGE_PREFIX = 'strata-panel-';
+const STORAGE_PREFIX = 'varve-panel-';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -152,18 +152,18 @@ export function Panel({
   );
 
   const panelClasses = [
-    'strata-panel',
-    collapsed ? 'strata-panel--collapsed' : '',
-    reducedMotion ? 'strata-panel--reduced-motion' : '',
-    side === 'left' ? 'strata-panel--left' : 'strata-panel--right',
-    isDragging ? 'strata-panel--dragging' : '',
+    'varve-panel',
+    collapsed ? 'varve-panel--collapsed' : '',
+    reducedMotion ? 'varve-panel--reduced-motion' : '',
+    side === 'left' ? 'varve-panel--left' : 'varve-panel--right',
+    isDragging ? 'varve-panel--dragging' : '',
   ]
     .filter(Boolean)
     .join(' ');
 
   return (
     <div className={panelClasses} style={{ '--panel-width': `${width}px` } as React.CSSProperties}>
-      <div className="strata-panel__content">{children}</div>
+      <div className="varve-panel__content">{children}</div>
       {/* biome-ignore lint/a11y/useSemanticElements: draggable resize handle needs pointer/keyboard events */}
       <div
         role="separator"
@@ -173,7 +173,7 @@ export function Panel({
         aria-valuemax={maxWidth}
         aria-label={label}
         tabIndex={0}
-        className="strata-panel__handle"
+        className="varve-panel__handle"
         onKeyDown={handleKeyDown}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}

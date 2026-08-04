@@ -125,7 +125,7 @@ function backgroundActivity(myPids) {
       const pid = line.trim().split(/\s+/)[0];
       if (!pid || mine.has(pid)) continue;
       const rest = line.slice(pid.length);
-      if (!rest.includes('Strata') && !suspicious.test(rest)) continue;
+      if (!rest.includes('Varve') && !suspicious.test(rest)) continue;
       if (rest.includes('grep') || rest.includes('run-production-workload')) continue;
       hits.push(rest.trim().slice(0, 90));
     }

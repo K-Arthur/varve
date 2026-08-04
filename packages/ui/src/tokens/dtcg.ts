@@ -1,7 +1,7 @@
 /**
  * DTCG (Design Tokens Community Group) format export bridge.
  *
- * Converts Strata's internal design token system (SemanticToken map)
+ * Converts Varve's internal design token system (SemanticToken map)
  * to the W3C DTCG-compliant JSON format for interoperability with
  * Figma Tokens, Token Studio, Style Dictionary, and Supernova.
  *
@@ -61,7 +61,7 @@ function oklchToDtcg(c: Oklch): DTCGColorValue {
 }
 
 /**
- * CTI hierarchy mapping: maps Strata SemanticToken names to
+ * CTI hierarchy mapping: maps Varve SemanticToken names to
  * DTCG Category/Type/Item paths.
  *
  * Pattern:
@@ -95,7 +95,7 @@ function tokenToPath(token: SemanticToken): string[] {
 }
 
 /**
- * Build a nested DTCG JSON object from Strata's semantic tokens.
+ * Build a nested DTCG JSON object from Varve's semantic tokens.
  * Returns a DTCGGroup representing the `color` namespace with
  * CTI hierarchy.
  */
@@ -147,7 +147,7 @@ export function dtcgExport(): DTCGDocument {
 
   return {
     $version: '1.0',
-    $description: 'Strata Design Tokens — DTCG-compliant format',
+    $description: 'Varve Design Tokens — DTCG-compliant format',
     $extensions: {
       generated: new Date().toISOString(),
       source: 'packages/ui/src/tokens/color.ts',

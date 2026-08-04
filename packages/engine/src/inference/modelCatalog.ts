@@ -577,7 +577,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Fast AI colorization for grayscale photos and line art. ConvNeXt-tiny, 256x256 input. Bundled with the app (Apache-2.0).',
     sizeBytes: 220_524_460,
-    remoteUrl: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor-tiny.onnx',
+    remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
     checksum: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
     bundled: false,
     inputSpec: null,
@@ -599,7 +599,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       kind: 'remote',
       sources: [
         {
-          url: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor-tiny.onnx',
+          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor-tiny.onnx',
           sha256: 'cb8996efe193140d536d338cad429ac74330dda3d49d57aa53c5b6131c3a3aa8',
         },
       ],
@@ -612,7 +612,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
     description:
       'Photo-realistic AI colorization for grayscale photos. ConvNeXt-large, 512x512 input. Bundled with the app (Apache-2.0).',
     sizeBytes: 980_082_799,
-    remoteUrl: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor.onnx',
+    remoteUrl: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
     checksum: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
     bundled: false,
     inputSpec: null,
@@ -634,7 +634,7 @@ const FALLBACK_ENTRIES: ModelManifestEntry[] = [
       kind: 'remote',
       sources: [
         {
-          url: 'https://github.com/K-Arthur/Strata/releases/download/models-v1/ddcolor.onnx',
+          url: 'https://github.com/K-Arthur/varve/releases/download/models-v1/ddcolor.onnx',
           sha256: '69ba2e3d20ec79290d2056e46b1810e3518d4ba8707dd7e964d1518a18fec812',
         },
       ],

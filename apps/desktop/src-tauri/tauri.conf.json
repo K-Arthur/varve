@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Strata Desktop",
+  "productName": "Varve",
   "version": "0.1.0",
   "identifier": "dev.strata.desktop",
   "build": {
@@ -14,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Strata",
+        "title": "Varve",
         "width": 1280,
         "height": 800,
         "minWidth": 900,
@@ -90,18 +90,18 @@
     "fileAssociations": [
       {
         "ext": ["strata"],
-        "name": "Strata Document",
-        "description": "Strata design document",
+        "name": "Varve Document",
+        "description": "Varve design document",
         "mimeType": "application/x-strata",
         "role": "Editor"
       }
     ],
-    "publisher": "K-Arthur (Strata Founder)",
-    "homepage": "https://github.com/K-Arthur/Strata",
+    "publisher": "K-Arthur (Varve Founder)",
+    "homepage": "https://github.com/K-Arthur/varve",
     "copyright": "Copyright 2024-2026 K-Arthur — FSL-1.1-MIT",
     "category": "GraphicsAndDesign",
     "shortDescription": "Local-first design suite",
-    "longDescription": "Strata is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Runs natively on Linux, macOS, and Windows. Your designs stay on your machine. Source-available under FSL-1.1-MIT.",
+    "longDescription": "Varve is a local-first design suite for vector, layout, typography, motion, prototyping, and print production. Runs natively on Linux, macOS, and Windows. Your designs stay on your machine. Source-available under FSL-1.1-MIT.",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

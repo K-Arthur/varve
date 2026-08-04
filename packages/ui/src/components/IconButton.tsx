@@ -19,7 +19,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   return (
     <button
       ref={ref}
-      className={`strata-btn strata-btn--${variant} strata-btn--${size} strata-iconbtn`.trim()}
+      className={`varve-btn varve-btn--${variant} varve-btn--${size} varve-iconbtn`.trim()}
       aria-pressed={pressed ?? undefined}
       aria-label={label}
       {...rest}

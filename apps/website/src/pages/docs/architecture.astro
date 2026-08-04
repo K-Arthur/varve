@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Architecture Overview — Strata">
+<Layout title="Architecture Overview — Varve">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
@@ -11,13 +11,13 @@ import Layout from '../../layouts/Layout.astro';
 
       <h1>Architecture Overview</h1>
       <p class="docs-intro">
-        Strata is a local-first, cross-platform design suite with a native Rust engine powering the rendering pipeline. Desktop builds use Tauri 2, while the web version uses WebAssembly behind the same facade. This document describes the high-level architecture and data flow.
+        Varve is a local-first, cross-platform design suite with a native Rust engine powering the rendering pipeline. Desktop builds use Tauri 2, while the web version uses WebAssembly behind the same facade. This document describes the high-level architecture and data flow.
       </p>
 
       <section class="docs-section">
         <h2>Philosophy: Local-First by Default</h2>
         <p>
-          Strata is designed to work fully offline with no cloud dependency. Your designs never leave your machine unless you explicitly export them. This is a core architectural commitment:
+          Varve is designed to work fully offline with no cloud dependency. Your designs never leave your machine unless you explicitly export them. This is a core architectural commitment:
         </p>
         <ul>
           <li>All computation happens locally (native Rust engine or WASM in the browser)</li>
@@ -31,15 +31,15 @@ import Layout from '../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Technology Stack</h2>
         <p>
-          Strata uses a layered architecture with clear boundaries:
+          Varve uses a layered architecture with clear boundaries:
         </p>
         <ul>
           <li><strong>Frontend:</strong> TypeScript + React 19, running in a Tauri 2 WebView (desktop) or directly in the browser (web)</li>
-          <li><strong>Backend Engine:</strong> Rust crate <code>strata-engine</code>, compiled as native binary on desktop or as WASM for web</li>
+          <li><strong>Backend Engine:</strong> Rust crate <code>varve-engine</code>, compiled as native binary on desktop or as WASM for web</li>
           <li><strong>Desktop Shell:</strong> Tauri 2 with GTK/WebKitGTK on Linux, native frameworks on macOS/Windows</li>
           <li><strong>Image Decoding:</strong> Rust via <code>image</code> crate on desktop, browser APIs on web</li>
-          <li><strong>Persistence:</strong> SQLite via <code>strata-sync</code> crate for document storage, localStorage/IndexedDB for settings</li>
-          <li><strong>Print:</strong> Rust <code>strata-print</code> crate using <code>lopdf</code> for direct PDF generation</li>
+          <li><strong>Persistence:</strong> SQLite via <code>varve-sync</code> crate for document storage, localStorage/IndexedDB for settings</li>
+          <li><strong>Print:</strong> Rust <code>varve-print</code> crate using <code>lopdf</code> for direct PDF generation</li>
         </ul>
       </section>
 
@@ -51,11 +51,11 @@ import Layout from '../../layouts/Layout.astro';
 
         <h3>Rust Crates (<code>crates/</code>)</h3>
         <ul>
-          <li><code>strata-core</code> — Geometry primitives (Point, Rect, Affine), Shape enum with hit-testing, SceneNode types</li>
-          <li><code>strata-engine</code> — <code>build_render_ir()</code> that converts a scene into a compact render IR (Intermediate Representation)</li>
-          <li><code>strata-layout</code> — Taffy-backed flex/grid layout engine (stub, pure-TS version active in editor)</li>
-          <li><code>strata-sync</code> — SQLite-based DocumentStore for save/load/list operations</li>
-          <li><code>strata-print</code> — PDF generation with lopdf: path operators, font outlining, ICC profiles, crop marks, CMYK conversion</li>
+          <li><code>varve-core</code> — Geometry primitives (Point, Rect, Affine), Shape enum with hit-testing, SceneNode types</li>
+          <li><code>varve-engine</code> — <code>build_render_ir()</code> that converts a scene into a compact render IR (Intermediate Representation)</li>
+          <li><code>varve-layout</code> — Taffy-backed flex/grid layout engine (stub, pure-TS version active in editor)</li>
+          <li><code>varve-sync</code> — SQLite-based DocumentStore for save/load/list operations</li>
+          <li><code>varve-print</code> — PDF generation with lopdf: path operators, font outlining, ICC profiles, crop marks, CMYK conversion</li>
           <li><code>strata-trace</code> — Auto-trace (Potrace-class contour tracing, RDP simplification) for bitmap-to-vector</li>
           <li><code>strata-bridge</code> — Shared IPC types for Tauri command serialization between Rust and TypeScript</li>
           <li><code>strata-wasm</code> — WASM build target for in-browser engine execution</li>

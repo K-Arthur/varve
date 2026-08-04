@@ -18,7 +18,7 @@ import './title-bar.css';
 import { useWindowChrome } from './useWindowChrome';
 import { runWindowAction } from './windowActions';
 
-export function TitleBar({ title = 'Strata' }: { title?: string }) {
+export function TitleBar({ title = 'Varve' }: { title?: string }) {
   const chrome = useWindowChrome(title);
   const { strategy, isMaximized, isFocused, canMinimize, canMaximize, canClose } = chrome;
 
@@ -32,7 +32,7 @@ export function TitleBar({ title = 'Strata' }: { title?: string }) {
     <div className={className} data-window-chrome data-focused={isFocused || undefined}>
       {/* Drag region fills available space. Never contains focusable controls. */}
       <div className="title-bar__drag-region" data-tauri-drag-region>
-        <img src="/icons/strata-icon.svg" alt="" aria-hidden className="title-bar__icon" />
+        <img src="/icons/varve-icon.svg" alt="" aria-hidden className="title-bar__icon" />
         <span className="title-bar__title">{title}</span>
       </div>
 

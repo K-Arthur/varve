@@ -2,7 +2,7 @@
   "name": "@varve/desktop",
   "version": "0.1.0",
   "private": true,
-  "description": "Strata desktop app (Tauri 2) — Vite + React frontend.",
+  "description": "Varve desktop app (Tauri 2) — Vite + React frontend.",
   "type": "module",
   "scripts": {
     "predev": "node ../../scripts/copy-onnx-wasm.mjs",

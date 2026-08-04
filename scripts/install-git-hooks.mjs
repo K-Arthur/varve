@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Install Strata git hooks from .github/hooks into .git/hooks.
+ * Install Varve git hooks from .github/hooks into .git/hooks.
  *
  * Runs automatically during pnpm install via the `prepare` script.
  * Skips installation in CI environments.

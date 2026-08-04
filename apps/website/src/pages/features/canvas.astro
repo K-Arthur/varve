@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Canvas & Rendering - Strata Features">
+<Layout title="Canvas & Rendering - Varve Features">
   <div class="container-custom">
     <div class="feature-page">
       <nav class="breadcrumb">
@@ -17,7 +17,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="feature-section">
         <h2>What It Is</h2>
         <p>
-          Strata's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. This separation enables 86fps rendering on Wayland compared to 8.5fps with pixel-pushing approaches.
+          Varve's canvas system uses IR-replay architecture: the Rust engine computes the scene and emits a compact intermediate representation (~42 KB/frame for 600 shapes), which the webview replays to canvas2D. This separation enables 86fps rendering on Wayland compared to 8.5fps with pixel-pushing approaches.
         </p>
       </section>
 
@@ -60,13 +60,13 @@ import Layout from '../../layouts/Layout.astro';
         <ul>
           <li><a href="/docs/architecture">Architecture Overview</a> - IR-replay architecture details</li>
           <li><a href="/docs/rendering">Rendering Pipeline</a> - Canvas system internals</li>
-          <li><a href="https://github.com/K-Arthur/Strata/blob/main/docs/architecture/render-pipeline.md">Render Pipeline Documentation</a></li>
+          <li><a href="https://github.com/K-Arthur/varve/blob/main/docs/architecture/render-pipeline.md">Render Pipeline Documentation</a></li>
         </ul>
       </section>
 
       <div class="feature-cta">
         <h2>Ready to try it?</h2>
-        <a href="/download" class="btn-primary">Download Strata</a>
+        <a href="/download" class="btn-primary">Download Varve</a>
       </div>
     </div>
   </div>

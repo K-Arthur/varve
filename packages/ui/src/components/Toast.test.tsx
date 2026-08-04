@@ -66,7 +66,7 @@ describe('Toast', () => {
     renderWithProvider(<ToastTrigger toastItem={{ message: 'Hover', duration: 1000 }} />);
     const user = userEvent.setup();
     await user.click(screen.getByText('Show Toast'));
-    const toastEl = screen.getByText('Hover').closest('.strata-toast');
+    const toastEl = screen.getByText('Hover').closest('.varve-toast');
     expect(toastEl).toBeTruthy();
     if (!toastEl) return;
     fireEvent.mouseEnter(toastEl);

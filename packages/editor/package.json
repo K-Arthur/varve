@@ -2,7 +2,7 @@
   "name": "@varve/editor",
   "version": "0.0.0",
   "private": true,
-  "description": "Strata editor UI: app shell, toolbar, canvas, layers, inspector, status, shortcuts.",
+  "description": "Varve editor UI: app shell, toolbar, canvas, layers, inspector, status, shortcuts.",
   "type": "module",
   "exports": {
     ".": {

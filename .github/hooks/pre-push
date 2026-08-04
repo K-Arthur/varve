@@ -1,5 +1,5 @@
 #!/bin/sh
-# Strata pre-push hook.
+# Varve pre-push hook.
 # Installed by scripts/install-git-hooks.mjs (triggered from package.json prepare).
 
 set -e

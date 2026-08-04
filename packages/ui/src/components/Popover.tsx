@@ -313,14 +313,14 @@ export function Popover({
         ref={popoverRef}
         id={popoverId}
         {...(HAS_POPOVER_API ? { popover: 'auto' } : {})}
-        className="strata-popover"
+        className="varve-popover"
         style={popoverStyle}
         {...(label ? { role: 'dialog' as const, 'aria-label': label } : {})}
       >
         {popover}
         <div
           ref={arrowRef}
-          className="strata-popover__arrow"
+          className="varve-popover__arrow"
           style={{
             position: 'absolute',
             ...(arrowStyle ? { left: arrowStyle.left, top: arrowStyle.top } : {}),

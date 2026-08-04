@@ -117,7 +117,7 @@ export const NumberInput = forwardRef<HTMLInputElement, NumberInputProps>(functi
       ref={inputRef}
       id={id}
       type="text"
-      className="strata-number-input"
+      className="varve-number-input"
       value={dirty ?? String(value)}
       onChange={(e) => setDirty(e.target.value)}
       onBlur={() => {

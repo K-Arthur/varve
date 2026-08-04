@@ -178,7 +178,7 @@ export function BulkImportDialog({
             >
               <Icon name="Upload" label={undefined} className="bulk-import__dropzone-icon" />
               <p className="bulk-import__dropzone-text">Drag files here or click to browse</p>
-              <p className="bulk-import__dropzone-hint">Strata, SVG, PNG, JPG, PDF, AI, EPS, PSD</p>
+              <p className="bulk-import__dropzone-hint">Varve, SVG, PNG, JPG, PDF, AI, EPS, PSD</p>
               <Button variant="secondary" onClick={handlePick}>
                 Choose files
               </Button>

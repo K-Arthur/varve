@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Security — Strata">
+<Layout title="Security — Varve">
   <div class="container-custom">
     <div class="security-page">
       <h1>Security</h1>
@@ -10,7 +10,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="security-section">
         <h2>Reporting Vulnerabilities</h2>
         <p>
-          If you discover a security vulnerability in Strata, please report it privately through the <a href="https://github.com/K-Arthur/Strata/security/advisories" target="_blank" rel="noopener noreferrer">GitHub Security Advisory</a> system. This allows us to address the issue before it is publicly disclosed.
+          If you discover a security vulnerability in Varve, please report it privately through the <a href="https://github.com/K-Arthur/varve/security/advisories" target="_blank" rel="noopener noreferrer">GitHub Security Advisory</a> system. This allows us to address the issue before it is publicly disclosed.
         </p>
         <p>
           We aim to acknowledge receipt of vulnerability reports within <strong>48 hours</strong> and provide an initial assessment of severity and expected timeline for a fix. We follow coordinated disclosure practices and request that reporters allow reasonable time for a fix to be developed and released before public disclosure.
@@ -20,7 +20,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="security-section">
         <h2>Website Security</h2>
         <p>
-          The Strata website enforces the following security measures:
+          The Varve website enforces the following security measures:
         </p>
         <ul>
           <li><strong>HTTPS enforced</strong> — all connections use TLS encryption</li>
@@ -33,7 +33,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="security-section">
         <h2>Download Integrity</h2>
         <p>
-          Currently, Strata builds are <strong>not code-signed</strong>. This is a known limitation that will be addressed as the project matures. For stable releases, we plan to provide:
+          Currently, Varve builds are <strong>not code-signed</strong>. This is a known limitation that will be addressed as the project matures. For stable releases, we plan to provide:
         </p>
         <ul>
           <li>SHA256 checksums for all build artifacts</li>
@@ -41,14 +41,14 @@ import Layout from '../../layouts/Layout.astro';
           <li>Reproducible build verification instructions</li>
         </ul>
         <p>
-          Until code signing is implemented, we recommend verifying downloads by building from source or checking the GitHub release page for checksum information. Always download Strata from the official GitHub releases page, not from third-party mirrors.
+          Until code signing is implemented, we recommend verifying downloads by building from source or checking the GitHub release page for checksum information. Always download Varve from the official GitHub releases page, not from third-party mirrors.
         </p>
       </section>
 
       <section class="security-section">
         <h2>Dependency Management</h2>
         <p>
-          Strata takes dependency security seriously. The project uses multiple layers of automated dependency auditing:
+          Varve takes dependency security seriously. The project uses multiple layers of automated dependency auditing:
         </p>
         <ul>
           <li><strong>npm audit</strong> — scans JavaScript dependencies for known vulnerabilities</li>
@@ -63,7 +63,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="security-section">
         <h2>Code Review</h2>
         <p>
-          All pull requests to Strata must pass review before merge. The review process includes:
+          All pull requests to Varve must pass review before merge. The review process includes:
         </p>
         <ul>
           <li>Code quality and correctness review by maintainers</li>
@@ -77,7 +77,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="security-section">
         <h2>Supply Chain</h2>
         <p>
-          Strata implements several supply chain security measures:
+          Varve implements several supply chain security measures:
         </p>
         <ul>
           <li><strong>Lockfiles committed</strong> — both <code>pnpm-lock.yaml</code> and <code>Cargo.lock</code> are committed to the repository, ensuring deterministic dependency resolution</li>
@@ -89,7 +89,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="security-section">
         <h2>Data Security</h2>
         <p>
-          As a local-first application, Strata's security model is straightforward:
+          As a local-first application, Varve's security model is straightforward:
         </p>
         <ul>
           <li><strong>All design data stays on your machine</strong> — no cloud storage, no remote servers</li>
@@ -101,7 +101,7 @@ import Layout from '../../layouts/Layout.astro';
       </section>
 
       <div class="security-cta">
-        <a href="https://github.com/K-Arthur/Strata/security/advisories" class="btn-primary" target="_blank" rel="noopener noreferrer">
+        <a href="https://github.com/K-Arthur/varve/security/advisories" class="btn-primary" target="_blank" rel="noopener noreferrer">
           Report a Vulnerability
         </a>
         <a href="/about" class="btn-secondary">

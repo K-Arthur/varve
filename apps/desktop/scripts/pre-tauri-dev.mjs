@@ -1,5 +1,5 @@
 // Pre-hook for `pnpm tauri:dev`: installs FreeDesktop .desktop entry + hicolor
-// icons so the Wayland compositor resolves the Strata icon via app_id lookup.
+// icons so the Wayland compositor resolves the Varve icon via app_id lookup.
 // Non-fatal: development works without it (just shows a generic Wayland logo).
 import { execSync } from 'node:child_process';
 import { platform } from 'node:os';

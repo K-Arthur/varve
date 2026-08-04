@@ -2,17 +2,17 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Contribution Guidelines - Strata">
+<Layout title="Contribution Guidelines - Varve">
   <div class="container-custom">
     <div class="guidelines-page">
       <h1>Contribution Guidelines</h1>
       <p class="guidelines-intro">
-        <strong>Strata is not yet accepting external contributions.</strong> These guidelines describe the process
+        <strong>Varve is not yet accepting external contributions.</strong> These guidelines describe the process
         we intend to use once the project opens up, so it's transparent in advance — treat this page as a preview,
         not a live workflow.
       </p>
       <p class="guidelines-intro">
-        Thank you for considering a future contribution to Strata. These guidelines will help ensure a smooth,
+        Thank you for considering a future contribution to Varve. These guidelines will help ensure a smooth,
         collaborative process for everyone involved — whether you're fixing a bug, writing documentation, or
         designing a new feature.
       </p>
@@ -20,7 +20,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="guidelines-section">
         <h2>Code of Conduct</h2>
         <p>
-          Strata is committed to providing a welcoming, inclusive, and harassment-free experience for everyone.
+          Varve is committed to providing a welcoming, inclusive, and harassment-free experience for everyone.
           All participants — contributors, maintainers, and community members — are expected to:
         </p>
         <ul>
@@ -32,14 +32,14 @@ import Layout from '../../layouts/Layout.astro';
         <p>
           Harassment, trolling, personal attacks, and other disrespectful behavior will not be tolerated.
           If you experience or witness unacceptable behavior, please report it by opening a
-          <a href="https://github.com/K-Arthur/Strata/issues">GitHub issue</a> or reaching out directly.
+          <a href="https://github.com/K-Arthur/varve/issues">GitHub issue</a> or reaching out directly.
         </p>
       </section>
 
       <section class="guidelines-section">
         <h2>Getting Started</h2>
         <p>
-          Before making your first contribution, set up your development environment. Strata requires:
+          Before making your first contribution, set up your development environment. Varve requires:
         </p>
         <ul>
           <li><strong>Rust toolchain</strong> — rustc 1.96+ / cargo 1.96+, available at <code>~/.cargo/bin</code></li>
@@ -49,7 +49,7 @@ import Layout from '../../layouts/Layout.astro';
           <li><strong>System dependencies</strong> — WebKitGTK 2.52+, GTK 3.24+, librsvg, openssl, fontconfig, fuse2</li>
         </ul>
         <p>
-          Read <a href="https://github.com/K-Arthur/Strata/blob/main/AGENTS.md">AGENTS.md</a> for the complete
+          Read <a href="https://github.com/K-Arthur/varve/blob/main/AGENTS.md">AGENTS.md</a> for the complete
           environment setup guide, including toolchain verification, environment variables, and platform-specific notes.
           Run <code>just check-env</code> after setup to verify your toolchain is correct.
         </p>
@@ -63,7 +63,7 @@ import Layout from '../../layouts/Layout.astro';
         <ul>
           <li><strong>Good first issues</strong> — tagged with the <code>good first issue</code> label on GitHub, these are small, well-scoped tasks ideal for new contributors</li>
           <li><strong>Help wanted</strong> — issues labeled <code>help wanted</code> indicate the maintainer would appreciate community assistance</li>
-          <li><strong>Discussion threads</strong> — the <a href="https://github.com/K-Arthur/Strata/discussions">GitHub Discussions</a> board has ideas, feature requests, and architecture conversations seeking input</li>
+          <li><strong>Discussion threads</strong> — the <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a> board has ideas, feature requests, and architecture conversations seeking input</li>
           <li><strong>Documentation gaps</strong> — if you find something confusing or undocumented, improving it is always welcome</li>
         </ul>
         <p>
@@ -78,7 +78,7 @@ import Layout from '../../layouts/Layout.astro';
         <p>Follow this workflow for all contributions:</p>
         <ol>
           <li><strong>Create a branch</strong> — fork the repository and create a feature branch from <code>master</code>. Use a descriptive name like <code>fix/text-alignment</code> or <code>feat/gradient-picker</code></li>
-          <li><strong>Write tests first</strong> — Strata follows Test-Driven Development. Write failing tests before implementing your change. This applies to both Rust (<code>cargo test</code>) and TypeScript (<code>pnpm test</code>) code</li>
+          <li><strong>Write tests first</strong> — Varve follows Test-Driven Development. Write failing tests before implementing your change. This applies to both Rust (<code>cargo test</code>) and TypeScript (<code>pnpm test</code>) code</li>
           <li><strong>Follow existing patterns</strong> — read the surrounding code to understand conventions. Match the code style, use existing libraries and utilities, and follow the project's architectural patterns</li>
           <li><strong>Keep changes focused</strong> — each pull request should address a single concern. If you find yourself fixing multiple unrelated issues, split them into separate PRs</li>
           <li><strong>Run <code>just gate</code> before committing</strong> — this runs the full quality gate: format check, lint, tests, token audit, and emoji audit. All must pass for code to be accepted</li>
@@ -92,7 +92,7 @@ import Layout from '../../layouts/Layout.astro';
           <li><strong>Keep changes focused</strong> — a single PR should address one issue or feature. Smaller PRs are reviewed faster</li>
           <li><strong>Write a clear description</strong> — explain what the change does, why it's needed, and how it was tested. Include screenshots or recordings for UI changes</li>
           <li><strong>Reference related issues</strong> — use GitHub keywords like <code>Closes #123</code> or <code>Related to #456</code> in the description</li>
-          <li><strong>Be patient with review</strong> — Strata is developed by a solo developer. Review times may vary depending on availability. If you haven't received feedback in a week, feel free to politely bump the PR</li>
+          <li><strong>Be patient with review</strong> — Varve is developed by a solo developer. Review times may vary depending on availability. If you haven't received feedback in a week, feel free to politely bump the PR</li>
           <li><strong>Respond to feedback</strong> — when changes are requested, address them promptly. If you disagree with a suggestion, explain your reasoning</li>
         </ul>
       </section>
@@ -119,7 +119,7 @@ import Layout from '../../layouts/Layout.astro';
       <section class="guidelines-section">
         <h2>Commit Messages</h2>
         <p>
-          Strata follows the <a href="https://www.conventionalcommits.org/">Conventional Commits</a> format.
+          Varve follows the <a href="https://www.conventionalcommits.org/">Conventional Commits</a> format.
           This produces clear, structured commit history and enables automated changelog generation.
         </p>
         <pre><code>feat: add gradient fill support
@@ -147,7 +147,7 @@ chore: update dependencies to latest versions</code></pre>
       <section class="guidelines-section">
         <h2>Licensing & DCO</h2>
         <p>
-          Strata is licensed under the
+          Varve is licensed under the
           <a href="https://fsl.software/">Functional Source License, Version 1.1, MIT Future License</a>
           (FSL-1.1-MIT) with a change licence of MIT after two years. See the
           <a href="/about/license">license page</a> for full terms.
@@ -164,7 +164,7 @@ chore: update dependencies to latest versions</code></pre>
         </p>
         <p>
           If you have questions about licensing implications for your contribution, please ask in a
-          <a href="https://github.com/K-Arthur/Strata/discussions">discussion thread</a> before submitting.
+          <a href="https://github.com/K-Arthur/varve/discussions">discussion thread</a> before submitting.
         </p>
       </section>
 
@@ -174,7 +174,7 @@ chore: update dependencies to latest versions</code></pre>
           Code is only one way to contribute. Non-code contributions are equally valued and welcomed:
         </p>
         <ul>
-          <li><strong>Testing</strong> — test Strata on different platforms, file detailed bug reports with reproduction steps, verify fixes for regressions</li>
+          <li><strong>Testing</strong> — test Varve on different platforms, file detailed bug reports with reproduction steps, verify fixes for regressions</li>
           <li><strong>Documentation</strong> — improve existing docs, write tutorials, fix typos, add examples and screenshots</li>
           <li><strong>Design</strong> — create UI mockups, design icons, improve the website, design marketing materials</li>
           <li><strong>Accessibility review</strong> — audit the application for accessibility issues, test with screen readers, suggest improvements</li>
@@ -189,7 +189,7 @@ chore: update dependencies to latest versions</code></pre>
 
       <div class="guidelines-cta">
         <h2>Want to know when contributions open?</h2>
-        <a href="https://github.com/K-Arthur/Strata/discussions" class="btn-primary">Follow GitHub Discussions</a>
+        <a href="https://github.com/K-Arthur/varve/discussions" class="btn-primary">Follow GitHub Discussions</a>
       </div>
     </div>
   </div>

@@ -8,7 +8,7 @@ test('quick check', async ({ page }) => {
   await page.goto('http://localhost:1420/', { timeout: 120000, waitUntil: 'load' });
   await page.waitForTimeout(10000);
   const text = await page
-    .locator('#strata-boot-fallback h1')
+    .locator('#varve-boot-fallback h1')
     .textContent()
     .catch(() => 'none');
   console.log('Fallback text:', text);

@@ -16,7 +16,7 @@ export interface FlutterExportOptions {
 
 function tokenToFlutterColor(tokenName: string): string {
   const field = tokenName.replace(/[^a-zA-Z0-9_]/g, '_').replace(/^(\d)/, '_$1');
-  return `Theme.of(context).extension<StrataTokens>()!.${field}`;
+  return `Theme.of(context).extension<VarveTokens>()!.${field}`;
 }
 
 function colorValue(node: SceneNode, opts?: FlutterExportOptions): string {

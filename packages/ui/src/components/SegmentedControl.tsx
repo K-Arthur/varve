@@ -70,13 +70,13 @@ export function SegmentedControl<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="strata-segmented"
+      className="varve-segmented"
       data-disabled={disabled || undefined}
     >
       {options.map((opt, i) => {
         const checked = opt.value === value;
         return (
-          <label key={opt.value} className="strata-segmented__btn">
+          <label key={opt.value} className="varve-segmented__btn">
             <input
               id={`${groupId}-${i}`}
               type="radio"
@@ -85,7 +85,7 @@ export function SegmentedControl<T extends string>({
               disabled={disabled}
               onChange={() => onChange(opt.value)}
               onKeyDown={(e) => onKeyDown(e, i)}
-              className="strata-visually-hidden"
+              className="varve-visually-hidden"
             />
             {opt.icon &&
               (opt.solid ? (

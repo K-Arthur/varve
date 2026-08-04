@@ -38,7 +38,7 @@ async function bootstrap() {
   // Remove the pre-JS boot fallback before React paints (browser target).
   dismissBootFallback();
   if (typeof performance !== 'undefined' && performance.mark) {
-    performance.mark('strata-boot-dismissed');
+    performance.mark('varve-boot-dismissed');
   }
 
   // Restore persisted theme before first paint so both home and editor surfaces

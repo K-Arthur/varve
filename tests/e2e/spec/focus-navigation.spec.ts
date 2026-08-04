@@ -1,6 +1,6 @@
 /**
  * Focus-Navigation E2E — keyboard tab order, focus management, and
- * accessibility interaction tests for the Strata editor.
+ * accessibility interaction tests for the Varve editor.
  *
  * These tests drive real keyboard interactions through the application
  * to verify predictable tab order, focus trapping, focus restoration,

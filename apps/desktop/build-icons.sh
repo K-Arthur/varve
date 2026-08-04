@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Strata icon build script — deterministic platform asset generation.
-# Source: packages/ui/src/icons/strata-app-icon.svg (1024×1024 master)
+# Varve icon build script — deterministic platform asset generation.
+# Source: packages/ui/src/icons/varve-app-icon.svg (1024×1024 master)
 # Requires: rsvg-convert (librsvg), magick (ImageMagick ≥7), tauri CLI
 # Run from repo root: bash apps/desktop/build-icons.sh
 
@@ -9,13 +9,13 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ICON_DIR="$REPO_ROOT/apps/desktop/src-tauri/icons"
 HICOLOR_DIR="$ICON_DIR/hicolor"
-SRC_SVG="$REPO_ROOT/packages/ui/src/icons/strata-app-icon.svg"
-MARK_SVG="$REPO_ROOT/packages/ui/src/icons/strata-icon.svg"
-SYMBOLIC_SRC="$REPO_ROOT/packages/ui/src/icons/strata-icon-symbolic.svg"
+SRC_SVG="$REPO_ROOT/packages/ui/src/icons/varve-app-icon.svg"
+MARK_SVG="$REPO_ROOT/packages/ui/src/icons/varve-icon.svg"
+SYMBOLIC_SRC="$REPO_ROOT/packages/ui/src/icons/varve-icon-symbolic.svg"
 TAURI="$REPO_ROOT/apps/desktop/node_modules/.bin/tauri"
 TMP="$(mktemp -d)"
 
-echo "==> Strata icon build"
+echo "==> Varve icon build"
 echo "    Source: $SRC_SVG"
 echo "    Output: $ICON_DIR"
 echo ""

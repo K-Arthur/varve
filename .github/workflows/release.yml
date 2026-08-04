@@ -1,4 +1,4 @@
-# Strata release pipeline.
+# Varve release pipeline.
 #
 # Replaces publish.yml, which could never reach its `release` job: that job
 # declared `needs: [bundle, aur-validate]`, and `aur-validate` chowns `dist/aur`
@@ -435,7 +435,7 @@ jobs:
         uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda
         with:
           tag_name: ${{ needs.preflight.outputs.tag }}
-          name: Strata ${{ needs.preflight.outputs.tag }}
+          name: Varve ${{ needs.preflight.outputs.tag }}
           # Always a draft. Publication is a separate, human decision — see the
           # `publish` job below.
           draft: true

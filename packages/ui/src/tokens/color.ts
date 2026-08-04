@@ -1,5 +1,5 @@
 /**
- * Strata color tokens — single source of truth for color across the UI.
+ * Varve color tokens — single source of truth for color across the UI.
  *
  * Uses OKLCH color space (Björn Ottosson, 2020) for perceptually uniform
  * color representation. All tokens are stored as Oklch objects; the CSS
