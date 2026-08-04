@@ -22,13 +22,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const [focused, setFocused] = useState(false);
 
   const classes = [
-    'strata-input',
-    `strata-input--${size}`,
-    focused ? 'strata-input--focused' : '',
-    error ? 'strata-input--error' : '',
-    disabled ? 'strata-input--disabled' : '',
-    prefix ? 'strata-input--has-prefix' : '',
-    suffix ? 'strata-input--has-suffix' : '',
+    'varve-input',
+    `varve-input--${size}`,
+    focused ? 'varve-input--focused' : '',
+    error ? 'varve-input--error' : '',
+    disabled ? 'varve-input--disabled' : '',
+    prefix ? 'varve-input--has-prefix' : '',
+    suffix ? 'varve-input--has-suffix' : '',
     className,
   ]
     .filter(Boolean)
@@ -40,16 +40,16 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className={classes}>
       {label && (
-        <label className="strata-input__label" htmlFor={inputId}>
+        <label className="varve-input__label" htmlFor={inputId}>
           {label}
         </label>
       )}
-      <div className="strata-input__wrapper">
-        {prefix && <span className="strata-input__prefix">{prefix}</span>}
+      <div className="varve-input__wrapper">
+        {prefix && <span className="varve-input__prefix">{prefix}</span>}
         <input
           ref={ref}
           id={inputId}
-          className="strata-input__field"
+          className="varve-input__field"
           disabled={disabled}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
@@ -63,15 +63,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           }}
           {...rest}
         />
-        {suffix && <span className="strata-input__suffix">{suffix}</span>}
+        {suffix && <span className="varve-input__suffix">{suffix}</span>}
       </div>
       {error && (
-        <span className="strata-input__error" id={errorId} role="alert">
+        <span className="varve-input__error" id={errorId} role="alert">
           {error}
         </span>
       )}
       {hint && !error && (
-        <span className="strata-input__hint" id={hintId}>
+        <span className="varve-input__hint" id={hintId}>
           {hint}
         </span>
       )}

@@ -360,7 +360,7 @@ export function ContentAwareFillDialog({
   return (
     <dialog
       ref={dialogRef}
-      className="strata-dialog strata-dialog--caf"
+      className="varve-dialog varve-dialog--caf"
       aria-labelledby="caf-dialog-title"
       aria-modal="true"
       onCancel={(e) => {
@@ -374,13 +374,13 @@ export function ContentAwareFillDialog({
         if (e.key === 'Escape' && !isProcessing) onClose();
       }}
     >
-      <div className="strata-dialog__header">
-        <h2 id="caf-dialog-title" className="strata-dialog__title">
+      <div className="varve-dialog__header">
+        <h2 id="caf-dialog-title" className="varve-dialog__title">
           Content-Aware Fill
         </h2>
         <button
           type="button"
-          className="strata-dialog__close"
+          className="varve-dialog__close"
           aria-label="Close dialog"
           onClick={onClose}
           disabled={isProcessing}

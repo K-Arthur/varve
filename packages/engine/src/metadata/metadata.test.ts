@@ -47,7 +47,7 @@ describe('png chunk helpers', () => {
   it('inserts text chunks before IEND, preserving pixel chunks', () => {
     const png = minimalPng();
     const withText = insertPngTextChunks(png, [
-      { keyword: 'Title', text: 'Hello Strata', utf8: true },
+      { keyword: 'Title', text: 'Hello Varve', utf8: true },
       { keyword: 'Copyright', text: '\u00a9 2026', utf8: true },
     ]);
     const types = readPngChunks(withText).map((c) => c.type);
@@ -162,7 +162,7 @@ describe('metadata policy resolution', () => {
     title: 'Poster',
     author: 'Jane Doe',
     copyright: '\u00a9 2026 Jane Doe',
-    software: 'Strata 0.11',
+    software: 'Varve 0.11',
     gps: { latitude: 51.5, longitude: -0.12 },
     device: 'Camera Model X',
     timestamp: '2026-08-02T00:00:00Z',

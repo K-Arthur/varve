@@ -7,7 +7,7 @@ test.describe('Application startup', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     const loader = page.locator(
-      '#strata-boot-fallback, .startup-loader:not(.startup-loader--exiting)',
+      '#varve-boot-fallback, .startup-loader:not(.startup-loader--exiting)',
     );
     const sawLoader = await loader
       .first()
@@ -26,7 +26,7 @@ test.describe('Application startup', () => {
     await page.goto('/', { waitUntil: 'domcontentloaded', timeout: 60_000 });
     await page.getByRole('button', { name: /^new$/i }).waitFor({ timeout: 30_000 });
 
-    const warmFlag = await page.evaluate(() => sessionStorage.getItem('strata-session-started'));
+    const warmFlag = await page.evaluate(() => sessionStorage.getItem('varve-session-started'));
     expect(warmFlag).toBe('1');
   });
 

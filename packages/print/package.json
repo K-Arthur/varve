@@ -2,7 +2,7 @@
   "name": "@varve/print",
   "version": "0.0.0",
   "private": true,
-  "description": "TS facade for the strata-print Rust crate: font outlining, CMYK, PDF/X.",
+  "description": "TS facade for the varve-print Rust crate: font outlining, CMYK, PDF/X.",
   "type": "module",
   "exports": {
     ".": {

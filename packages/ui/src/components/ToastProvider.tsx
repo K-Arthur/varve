@@ -13,7 +13,7 @@ let toastCounter = 0;
 
 function generateId(): string {
   toastCounter += 1;
-  return `strata-toast-${toastCounter}-${Date.now()}`;
+  return `varve-toast-${toastCounter}-${Date.now()}`;
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -50,7 +50,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ toast: addToast }}>
       {children}
-      <div className="strata-toast-container">
+      <div className="varve-toast-container">
         {toasts.map((t) => (
           <Toast key={t.id} toast={t} onDismiss={dismissToast} />
         ))}

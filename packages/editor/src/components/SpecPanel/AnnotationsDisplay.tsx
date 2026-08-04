@@ -109,7 +109,7 @@ export function AnnotationsDisplay({
         </button>
       </div>
 
-      <div id={liveId} role="status" aria-live="polite" className="strata-visually-hidden">
+      <div id={liveId} role="status" aria-live="polite" className="varve-visually-hidden">
         {message}
       </div>
     </section>

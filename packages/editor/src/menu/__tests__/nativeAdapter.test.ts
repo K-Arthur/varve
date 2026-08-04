@@ -89,7 +89,7 @@ describe('buildNativeMenuSpec — App menu (macOS)', () => {
     const spec = buildNativeMenuSpec(getDefs(), ctx, 'mac');
     const appMenu = spec.submenus.find((s) => s.id === 'app');
     expect(appMenu).toBeTruthy();
-    expect(appMenu!.label).toBe('Strata');
+    expect(appMenu!.label).toBe('Varve');
     const kinds = appMenu!.items.map((i) => i.kind);
     expect(kinds).toEqual([
       'predefined',
@@ -378,7 +378,7 @@ describe('diffNativeMenuState', () => {
       submenus: [
         {
           id: 'app',
-          label: 'Strata',
+          label: 'Varve',
           items: [
             { kind: 'predefined', id: 'about', itemType: 'about' },
             { kind: 'separator', id: 'sep-1' },

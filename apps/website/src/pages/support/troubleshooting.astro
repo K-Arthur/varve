@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="Troubleshooting - Strata Support">
+<Layout title="Troubleshooting - Varve Support">
   <div class="container-custom">
     <div class="support-page">
       <nav class="breadcrumb">
@@ -11,7 +11,7 @@ import Layout from '../../layouts/Layout.astro';
 
       <h1>Troubleshooting</h1>
       <p class="support-intro">
-        Common issues and solutions for Strata.
+        Common issues and solutions for Varve.
       </p>
 
       <div class="troubleshooting-section">
@@ -20,9 +20,9 @@ import Layout from '../../layouts/Layout.astro';
         <div class="troubleshoot-item">
           <h3>AppImage won't run on Linux</h3>
           <p><strong>Solution:</strong> Make the AppImage executable:</p>
-          <code class="code-block">chmod +x Strata-*.AppImage</code>
+          <code class="code-block">chmod +x Varve-*.AppImage</code>
           <p>Then run it directly:</p>
-          <code class="code-block">./Strata-*.AppImage</code>
+          <code class="code-block">./Varve-*.AppImage</code>
         </div>
 
         <div class="troubleshoot-item">
@@ -43,7 +43,7 @@ import Layout from '../../layouts/Layout.astro';
         <h2>Performance Issues</h2>
         
         <div class="troubleshoot-item">
-          <h3>Strata is slow or laggy</h3>
+          <h3>Varve is slow or laggy</h3>
           <p><strong>Solution:</strong></p>
           <ul>
             <li>Check if you have many objects on canvas (viewport culling helps, but extreme counts may slow down)</li>
@@ -55,7 +55,7 @@ import Layout from '../../layouts/Layout.astro';
 
         <div class="troubleshoot-item">
           <h3>Canvas rendering is slow</h3>
-          <p><strong>Solution:</strong> Strata uses IR-replay for 86fps rendering. If you're experiencing slow rendering, check if you're using the WASM backend (web) vs native backend (desktop). Native Rust engine is significantly faster.</p>
+          <p><strong>Solution:</strong> Varve uses IR-replay for 86fps rendering. If you're experiencing slow rendering, check if you're using the WASM backend (web) vs native backend (desktop). Native Rust engine is significantly faster.</p>
         </div>
       </div>
 
@@ -82,7 +82,7 @@ import Layout from '../../layouts/Layout.astro';
         <h2>Crashes and Errors</h2>
         
         <div class="troubleshoot-item">
-          <h3>Strata crashes on startup</h3>
+          <h3>Varve crashes on startup</h3>
           <p><strong>Solution:</strong></p>
           <ul>
             <li>Check system requirements (4GB RAM minimum, 8GB recommended)</li>
@@ -94,13 +94,13 @@ import Layout from '../../layouts/Layout.astro';
 
         <div class="troubleshoot-item">
           <h3>Specific tool crashes</h3>
-          <p><strong>Solution:</strong> Report the issue with steps to reproduce, your OS, and Strata version. Include any error messages or crash logs if available.</p>
+          <p><strong>Solution:</strong> Report the issue with steps to reproduce, your OS, and Varve version. Include any error messages or crash logs if available.</p>
         </div>
       </div>
 
       <div class="troubleshoot-cta">
         <h2>Still need help?</h2>
-        <p>If your issue isn't covered here, <a href="/support/report-issue">report an issue</a> or ask in <a href="https://github.com/K-Arthur/Strata/discussions">GitHub Discussions</a>.</p>
+        <p>If your issue isn't covered here, <a href="/support/report-issue">report an issue</a> or ask in <a href="https://github.com/K-Arthur/varve/discussions">GitHub Discussions</a>.</p>
       </div>
     </div>
   </div>

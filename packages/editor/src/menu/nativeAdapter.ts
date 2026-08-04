@@ -224,7 +224,7 @@ function buildAppMenuSpec(formatLabel?: (key: string) => string): NativeSubmenuS
       kind: 'predefined',
       id: 'about',
       itemType: 'about',
-      label: formatLabel ? formatLabel('menu.help.about') : 'About Strata',
+      label: formatLabel ? formatLabel('menu.help.about') : 'About Varve',
     },
     { kind: 'separator', id: 'sep-app-1' },
     {
@@ -243,7 +243,7 @@ function buildAppMenuSpec(formatLabel?: (key: string) => string): NativeSubmenuS
     { kind: 'predefined', id: 'quit', itemType: 'quit' },
   ];
 
-  const appName = 'Strata';
+  const appName = 'Varve';
   return { id: 'app', label: appName, items };
 }
 
@@ -327,7 +327,7 @@ function buildHelpSpec(
         items.push({ kind: 'separator', id: 'sep-about' });
       }
     }
-    items.push({ kind: 'predefined', id: 'about', itemType: 'about', label: 'About Strata' });
+    items.push({ kind: 'predefined', id: 'about', itemType: 'about', label: 'About Varve' });
   }
 
   return items;

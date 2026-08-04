@@ -1,5 +1,5 @@
 /**
- * Strata `<ViewModeSwitcher>` — pill-shaped view mode toggle (design system refresh).
+ * Varve `<ViewModeSwitcher>` — pill-shaped view mode toggle (design system refresh).
  *
  * Built on the pill button variants. Provides a compact, accessible way to switch
  * between view modes (e.g., grid/list, day/week/month). Uses filled icons via SolidIcon.
@@ -73,13 +73,13 @@ export function ViewModeSwitcher<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="strata-view-mode-switcher"
+      className="varve-view-mode-switcher"
       data-disabled={disabled || undefined}
     >
       {options.map((opt, i) => {
         const checked = opt.value === value;
         return (
-          <label key={opt.value} className="strata-view-mode-switcher__btn">
+          <label key={opt.value} className="varve-view-mode-switcher__btn">
             <input
               id={`${groupId}-${i}`}
               type="radio"
@@ -88,10 +88,10 @@ export function ViewModeSwitcher<T extends string>({
               disabled={disabled}
               onChange={() => onChange(opt.value)}
               onKeyDown={(e) => onKeyDown(e, i)}
-              className="strata-visually-hidden"
+              className="varve-visually-hidden"
             />
             <SolidIcon name={opt.icon} label={undefined} size="1em" />
-            <span className="strata-view-mode-switcher__label">{opt.label}</span>
+            <span className="varve-view-mode-switcher__label">{opt.label}</span>
           </label>
         );
       })}

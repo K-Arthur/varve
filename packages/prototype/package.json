@@ -2,7 +2,7 @@
   "name": "@varve/prototype",
   "version": "0.0.0",
   "private": true,
-  "description": "Strata prototype engine: interactions, animations, state, presentation.",
+  "description": "Varve prototype engine: interactions, animations, state, presentation.",
   "type": "module",
   "exports": {
     ".": {

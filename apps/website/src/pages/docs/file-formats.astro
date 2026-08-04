@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 ---
 
-<Layout title="File Formats — Strata">
+<Layout title="File Formats — Varve">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
@@ -11,13 +11,13 @@ import Layout from '../../layouts/Layout.astro';
 
       <h1>File Formats</h1>
       <p class="docs-intro">
-        Strata supports a wide range of file formats for import and export. The native .strata format preserves the full document model including layers, effects, variables, and prototypes.
+        Varve supports a wide range of file formats for import and export. The native .strata format preserves the full document model including layers, effects, variables, and prototypes.
       </p>
 
       <section class="docs-section">
         <h2>Native Format: .strata</h2>
         <p>
-          The Strata native file format (<code>.strata</code>) is a JSON-based document that stores the complete design state. Each file contains:
+          The Varve native file format (<code>.strata</code>) is a JSON-based document that stores the complete design state. Each file contains:
         </p>
         <ul>
           <li><strong>Format version</strong> — Semver string for forward compatibility with document migration (<code>migrateDocument()</code> supports version upgrades)</li>
@@ -32,14 +32,14 @@ import Layout from '../../layouts/Layout.astro';
           <li><strong>Color mode</strong> — RGB, CMYK, or Grayscale with profile metadata</li>
         </ul>
         <p>
-          The .strata format is versioned. When opening an older file, Strata automatically migrates it to the current format version. The <code>Document.variableStore</code> field is the sole source of truth for all variable data.
+          The .strata format is versioned. When opening an older file, Varve automatically migrates it to the current format version. The <code>Document.variableStore</code> field is the sole source of truth for all variable data.
         </p>
       </section>
 
       <section class="docs-section">
         <h2>Import Formats</h2>
         <p>
-          Strata can import designs from a variety of formats through the <strong>File &gt; Import</strong> dialog (<code>Ctrl+I</code>). The import pipeline validates each file, estimates node count, detects unsupported features, and provides a preview before import.
+          Varve can import designs from a variety of formats through the <strong>File &gt; Import</strong> dialog (<code>Ctrl+I</code>). The import pipeline validates each file, estimates node count, detects unsupported features, and provides a preview before import.
         </p>
 
         <h3>SVG</h3>
@@ -64,7 +64,7 @@ import Layout from '../../layouts/Layout.astro';
         <ul>
           <li>Text content from BT...ET blocks</li>
           <li>Rectangle path operators</li>
-          <li>Multi-page conversion (each page becomes a Strata frame)</li>
+          <li>Multi-page conversion (each page becomes a Varve frame)</li>
         </ul>
 
         <h3>PSD (Photoshop)</h3>

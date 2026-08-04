@@ -16,10 +16,10 @@ export const ToggleButton = forwardRef<HTMLButtonElement, ToggleButtonProps>(fun
   ref,
 ) {
   const classes = [
-    'strata-toggle-btn',
-    `strata-toggle-btn--${size}`,
-    pressed ? 'strata-toggle-btn--pressed' : '',
-    disabled ? 'strata-toggle-btn--disabled' : '',
+    'varve-toggle-btn',
+    `varve-toggle-btn--${size}`,
+    pressed ? 'varve-toggle-btn--pressed' : '',
+    disabled ? 'varve-toggle-btn--disabled' : '',
     className,
   ]
     .filter(Boolean)

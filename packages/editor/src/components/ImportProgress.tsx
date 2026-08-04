@@ -31,7 +31,7 @@ export function ImportProgress({ current, total, fileName, onCancel }: ImportPro
           Cancel
         </button>
       )}
-      <div role="status" aria-live="polite" className="strata-visually-hidden">
+      <div role="status" aria-live="polite" className="varve-visually-hidden">
         Importing {fileName} — {current} of {total}
       </div>
     </fieldset>

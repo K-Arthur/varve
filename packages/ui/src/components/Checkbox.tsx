@@ -1,5 +1,5 @@
 /**
- * Strata `<Checkbox>` — accessible checkbox (design system refresh).
+ * Varve `<Checkbox>` — accessible checkbox (design system refresh).
  *
  * Uses filled icons via SolidIcon for the checkmark. Follows APG Checkbox pattern
  * with proper ARIA attributes and keyboard navigation. Supports indeterminate state.
@@ -21,20 +21,20 @@ export const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(function Che
   const checkboxId = id || generatedId;
 
   return (
-    <label className={`strata-checkbox${className ? ` ${className}` : ''}`}>
+    <label className={`varve-checkbox${className ? ` ${className}` : ''}`}>
       <input
         ref={ref}
         id={checkboxId}
         type="checkbox"
-        className="strata-checkbox__input"
+        className="varve-checkbox__input"
         data-indeterminate={indeterminate || undefined}
         {...rest}
       />
-      <span className="strata-checkbox__box">
-        <SolidIcon name="Check" className="strata-checkbox__check" />
-        <SolidIcon name="Minus" className="strata-checkbox__indeterminate" />
+      <span className="varve-checkbox__box">
+        <SolidIcon name="Check" className="varve-checkbox__check" />
+        <SolidIcon name="Minus" className="varve-checkbox__indeterminate" />
       </span>
-      {label && <span className="strata-checkbox__label">{label}</span>}
+      {label && <span className="varve-checkbox__label">{label}</span>}
     </label>
   );
 });

@@ -2,11 +2,11 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Strata, please report it
+If you discover a security vulnerability in Varve, please report it
 privately. Do not create a public GitHub issue.
 
 Contact: open a private advisory at
-https://github.com/K-Arthur/Strata/security/advisories
+https://github.com/K-Arthur/varve/security/advisories
 
 You should receive a response within 48 hours. If you do not, please
 follow up via the same channel.
@@ -21,7 +21,7 @@ follow up via the same channel.
 ## Scope
 
 The following are in scope:
-- The Strata application code (Rust, TypeScript)
+^- The Varve application code (Rust, TypeScript)
 - Build and distribution infrastructure
 - Authentication and authorisation mechanisms (if any)
 

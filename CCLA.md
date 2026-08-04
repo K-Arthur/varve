@@ -2,7 +2,7 @@
 
 **DRAFT — FOR LEGAL REVIEW. NOT YET IN EFFECT.**
 
-**Project:** Strata (https://github.com/K-Arthur/Strata)  
+**Project:** Varve (formerly Strata) (https://github.com/K-Arthur/varve)  
 **Project Owner:** K-Arthur  
 **Agreement Version:** 1.0-draft  
 **Effective Date:** [Date of acceptance]
@@ -10,11 +10,11 @@
 This Corporate Contributor Licence Agreement ("Agreement") is entered into
 between the entity identified below ("Corporation") and the Project Owner.
 The Corporation authorises its employees and contractors ("Contributors")
-to submit Contributions to the Strata project and grants the necessary
+to submit Contributions to the Varve project and grants the necessary
 licences in respect of those Contributions.
 
 *This Agreement covers all past and future Contributions by the
-Corporation's employees and contractors to the Strata project, unless
+Corporation's employees and contractors to the Varve project, unless
 the Corporation and the Project Owner agree otherwise in writing.*
 
 **Please read this document carefully. If you have questions, consult
@@ -37,7 +37,7 @@ shares or equivalent equity interest.
 **"Contribution"** means any original work of authorship, including any
 modifications or additions to an existing work, that is intentionally
 submitted on behalf of the Corporation to the Project Owner for inclusion
-in the Strata project. For the purposes of this definition,
+in the Varve project. For the purposes of this definition,
 **"submitted"** means any form of electronic, verbal, or written
 communication sent to the Project Owner or its representatives, including
 but not limited to communication on electronic mailing lists, source code
@@ -46,9 +46,9 @@ systems, that is clearly marked or otherwise designated in writing as a
 Contribution on behalf of the Corporation.
 
 **"Contributor"** means an employee or contractor of the Corporation who
-submits a Contribution to the Strata project.
+submits a Contribution to the Varve project.
 
-**"Project Owner"** means K-Arthur, the individual maintaining the Strata
+**"Project Owner"** means K-Arthur, the individual maintaining the Varve
 project repository.
 
 **"Strata Project"** means the Strata design application software and any
@@ -60,14 +60,14 @@ or any other licence.
 ## 2. Copyright Licence
 
 Subject to the terms and conditions of this Agreement, the Corporation
-hereby grants to the Project Owner and to recipients of the Strata Project
+hereby grants to the Project Owner and to recipients of the Varve Project
 a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable
 copyright licence to reproduce, prepare derivative works of, publicly
 display, publicly perform, sublicense, and distribute Contributions made
 by the Corporation's Contributors and such derivative works.
 
 This licence includes the right to licence Contributions under any
-licensing model the Project Owner chooses for the Strata Project,
+licensing model the Project Owner chooses for the Varve Project,
 including but not limited to:
 
 - open-source or source-available licences;
@@ -78,18 +78,18 @@ including but not limited to:
 ## 3. Patent Licence
 
 Subject to the terms and conditions of this Agreement, the Corporation
-hereby grants to the Project Owner and to recipients of the Strata Project
+hereby grants to the Project Owner and to recipients of the Varve Project
 a perpetual, worldwide, non-exclusive, no-charge, royalty-free, irrevocable
 (except as stated in this Section) patent licence to make, have made, use,
-offer to sell, sell, import, and otherwise transfer the Strata Project,
+offer to sell, sell, import, and otherwise transfer the Varve Project,
 where such licence applies only to those patent claims licensable by the
 Corporation that are necessarily infringed by Contributions made by the
 Corporation's Contributors alone or by combination of those Contributions
-with the Strata Project to which such Contributions were submitted.
+with the Varve Project to which such Contributions were submitted.
 
 If the Corporation institutes a patent litigation against any entity
 (including a cross-claim or counterclaim in a lawsuit) alleging that a
-Contribution, or the Strata Project to which the Corporation has
+Contribution, or the Varve Project to which the Corporation has
 contributed, constitutes direct or contributory patent infringement, then
 any patent licences granted to the Corporation under this Agreement shall
 terminate as of the date such litigation is filed.
@@ -157,7 +157,7 @@ CONTRACT, TORT, OR ANY OTHER LEGAL THEORY.
 ## 9. No Obligation
 
 The Project Owner is under no obligation to accept or use any Contribution.
-Decisions about which Contributions to include in the Strata Project are at
+Decisions about which Contributions to include in the Varve Project are at
 the sole discretion of the Project Owner.
 
 ## 10. Termination

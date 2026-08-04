@@ -795,10 +795,10 @@
   outline: none;
 }
 /* Compact Select inside status bar — override the 44px default */
-.editor-status .strata-select {
+.editor-status .varve-select {
   width: auto;
 }
-.editor-status .strata-select__trigger {
+.editor-status .varve-select__trigger {
   min-height: 22px;
   height: 22px;
   padding: 0 var(--space-2);
@@ -810,7 +810,7 @@
   min-width: 2.5rem;
   gap: var(--space-1);
 }
-.editor-status .strata-select__value {
+.editor-status .varve-select__value {
   font-size: var(--font-size-xs);
   color: var(--color-text-primary);
 }
@@ -1654,13 +1654,13 @@
    .settings-dialog__content scrolls — nav and footer stay put. Width and
    height are viewport-relative with fixed caps so the dialog never exceeds
    the usable window on small screens or grows unbounded on large ones. */
-/* `dialog.strata-dialog--settings` (not just `.strata-dialog--settings`) —
-   the base `.strata-dialog` width rule in components.css has equal
+/* `dialog.varve-dialog--settings` (not just `.varve-dialog--settings`) —
+   the base `.varve-dialog` width rule in components.css has equal
    specificity to a bare class selector, so a same-specificity tie is
    decided by cascade order, not which rule is "more specific" in intent.
    Adding the `dialog` type selector guarantees this wins regardless of
    stylesheet load order. */
-dialog.strata-dialog--settings {
+dialog.varve-dialog--settings {
   width: min(94vw, 920px);
   max-width: min(94vw, 920px);
 }
@@ -1677,13 +1677,13 @@ dialog.strata-dialog--settings {
    build this app actually ships on Linux). A definite height removes the
    ambiguity across engines instead of relying on content-based auto
    sizing to agree everywhere. */
-dialog.strata-dialog--settings[open] {
+dialog.varve-dialog--settings[open] {
   display: flex;
   flex-direction: column;
   height: min(88vh, 760px);
   max-height: min(88vh, 760px);
 }
-.strata-dialog--settings .strata-dialog__body {
+.varve-dialog--settings .varve-dialog__body {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -2876,7 +2876,7 @@ dialog.strata-dialog--settings[open] {
 /* ════════════════════════════════════════════════════════════
    Canvas Rename Dialog (replaces prompt() — WCAG 3.3.2)
    ════════════════════════════════════════════════════════════ */
-.strata-dialog--sm {
+.varve-dialog--sm {
   max-width: 20rem;
   width: min(90vw, 20rem);
   padding: var(--space-4);

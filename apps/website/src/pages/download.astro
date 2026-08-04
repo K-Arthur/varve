@@ -64,12 +64,12 @@ const first = available[0]?.id;
 ---
 
 <Layout
-  title="Download Strata"
-  description="Download Strata for Linux, macOS, or Windows. Source-available under FSL-1.1-MIT."
+  title="Download Varve"
+  description="Download Varve for Linux, macOS, or Windows. Source-available under FSL-1.1-MIT."
 >
   <div class="container-custom">
     <div class="download-page">
-      <h1>Download Strata</h1>
+      <h1>Download Varve</h1>
       <p class="download-intro">
         Source-available under FSL-1.1-MIT. Your designs stay on your machine.
       </p>
@@ -78,9 +78,9 @@ const first = available[0]?.id;
         <div class="prerelease-notice">
           <strong>There is no public release yet.</strong>
           <p>
-            Strata is still in development and no installer has been published. This page will
+            Varve is still in development and no installer has been published. This page will
             list downloads, sizes and SHA-256 checksums as soon as the first release is tagged.
-            Until then there is nothing to install — please do not download Strata-branded
+            Until then there is nothing to install — please do not download Varve-branded
             builds from anywhere else.
           </p>
           <p>
@@ -95,7 +95,7 @@ const first = available[0]?.id;
         <>
           <div class="prerelease-notice">
             <strong>
-              Strata {release.version} is {release.prerelease ? 'an early preview' : 'a young release'}.
+              Varve {release.version} is {release.prerelease ? 'an early preview' : 'a young release'}.
             </strong>
             <p>
               Expect bugs and incomplete tools. The <code>.strata</code> document format may still
@@ -109,7 +109,7 @@ const first = available[0]?.id;
             <div class="integrity-notice">
               <h3>These builds are not code-signed</h3>
               <p>
-                Strata does not yet have code-signing certificates, so your operating system
+                Varve does not yet have code-signing certificates, so your operating system
                 cannot verify who built these files. That is a statement about this project's
                 budget, not about the files — but you cannot tell the difference without
                 checking, so please check.
@@ -121,7 +121,7 @@ const first = available[0]?.id;
               <code class="code-block">sha256sum -c SHA256SUMS.txt</code>
               <p class="download-meta">
                 macOS: <code>shasum -a 256 -c SHA256SUMS.txt</code> &middot; Windows PowerShell:
-                <code>Get-FileHash .\Strata-*.exe -Algorithm SHA256</code>
+                <code>Get-FileHash .\Varve-*.exe -Algorithm SHA256</code>
               </p>
               <p>
                 <a href={release.checksumsUrl} target="_blank" rel="noopener noreferrer">

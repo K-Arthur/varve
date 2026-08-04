@@ -8,7 +8,7 @@ describe('chat', () => {
   it('dispatches to a real intelligence command when the message matches and context is given', async () => {
     const reply = await chat('s1', 'scan for debt', { document: doc });
     expect(reply.role).toBe('assistant');
-    expect(reply.content).not.toMatch(/Strata AI assistant/i);
+    expect(reply.content).not.toMatch(/Varve AI assistant/i);
   });
 
   it('falls back to the mock reply when no context is given', async () => {

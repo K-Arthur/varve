@@ -24,8 +24,8 @@ describe('Prototype variables', () => {
     });
 
     it('creates a string variable', () => {
-      const v = createVariable('name', 'string', 'Strata');
-      expect(v.value).toBe('Strata');
+      const v = createVariable('name', 'string', 'Varve');
+      expect(v.value).toBe('Varve');
     });
   });
 

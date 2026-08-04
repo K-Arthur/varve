@@ -18,7 +18,7 @@ export const Default: Story = {
       <>
         <button
           type="button"
-          className="strata-btn strata-btn--primary"
+          className="varve-btn varve-btn--primary"
           onClick={() => setOpen(true)}
         >
           Open Dialog
@@ -36,11 +36,7 @@ export const Alert: Story = {
     const [open, setOpen] = useState(false);
     return (
       <>
-        <button
-          type="button"
-          className="strata-btn strata-btn--danger"
-          onClick={() => setOpen(true)}
-        >
+        <button type="button" className="varve-btn varve-btn--danger" onClick={() => setOpen(true)}>
           Delete Item
         </button>
         <AlertDialog

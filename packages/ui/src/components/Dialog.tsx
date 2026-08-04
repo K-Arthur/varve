@@ -72,16 +72,16 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
       onCancel={handleCancel}
       onClick={handleBackdrop}
       onKeyDown={handleBackdropKey}
-      className={`strata-dialog ${className}`.trim()}
+      className={`varve-dialog ${className}`.trim()}
       {...rest}
     >
-      <div className="strata-dialog__header">
-        <h2 id={titleId} className="strata-dialog__title">
+      <div className="varve-dialog__header">
+        <h2 id={titleId} className="varve-dialog__title">
           {title}
         </h2>
         <button
           type="button"
-          className="strata-dialog__close"
+          className="varve-dialog__close"
           aria-label="Close dialog"
           onClick={onClose}
         >
@@ -101,7 +101,7 @@ export const Dialog = forwardRef<HTMLDialogElement, DialogProps>(function Dialog
           </svg>
         </button>
       </div>
-      <div className="strata-dialog__body">{open ? children : null}</div>
+      <div className="varve-dialog__body">{open ? children : null}</div>
     </dialog>
   );
 });
@@ -136,16 +136,16 @@ export function AlertDialog({
       role="alertdialog"
       aria-describedby="alert-desc"
     >
-      <p id="alert-desc" className="strata-dialog__desc">
+      <p id="alert-desc" className="varve-dialog__desc">
         {description}
       </p>
-      <div className="strata-dialog__actions">
-        <button type="button" className="strata-btn strata-btn--ghost" onClick={onClose}>
+      <div className="varve-dialog__actions">
+        <button type="button" className="varve-btn varve-btn--ghost" onClick={onClose}>
           {cancelLabel}
         </button>
         <button
           type="button"
-          className={`strata-btn strata-btn--${variant}`}
+          className={`varve-btn varve-btn--${variant}`}
           onClick={() => {
             onConfirm();
             onClose();

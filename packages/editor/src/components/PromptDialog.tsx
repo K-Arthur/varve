@@ -57,25 +57,25 @@ export function PromptDialog() {
   return (
     <dialog
       ref={dialogRef}
-      className="strata-dialog"
+      className="varve-dialog"
       aria-labelledby="prompt-title"
       onClose={handleCancel}
       onKeyDown={(e) => {
         if (e.key === 'Enter') handleConfirm();
       }}
     >
-      <div className="strata-dialog__content">
-        <h3 id="prompt-title" className="strata-dialog__title">
+      <div className="varve-dialog__content">
+        <h3 id="prompt-title" className="varve-dialog__title">
           {state.title}
         </h3>
         <input
           ref={inputRef}
           type="text"
-          className="strata-dialog__input"
+          className="varve-dialog__input"
           defaultValue={state.defaultValue}
           onKeyDown={(e) => e.stopPropagation()}
         />
-        <div className="strata-dialog__actions">
+        <div className="varve-dialog__actions">
           <Button variant="primary" onClick={handleConfirm}>
             Confirm
           </Button>

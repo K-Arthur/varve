@@ -30,7 +30,7 @@ describe('AIPanel — intelligence command dispatch', () => {
       () => {
         const bubbles = screen.getAllByText(/./, { selector: '.ai-panel__bubble-content' });
         const assistantReply = bubbles[bubbles.length - 1];
-        expect(assistantReply?.textContent).not.toMatch(/Strata AI assistant/i);
+        expect(assistantReply?.textContent).not.toMatch(/Varve AI assistant/i);
       },
       { timeout: 3000 },
     );

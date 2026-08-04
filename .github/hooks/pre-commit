@@ -1,5 +1,5 @@
 #!/bin/sh
-# Strata pre-commit hook.
+# Varve pre-commit hook.
 # Installed by scripts/install-git-hooks.mjs (triggered from package.json prepare).
 
 set -e
@@ -8,7 +8,7 @@ if [ -n "$CI" ]; then
   exit 0
 fi
 
-echo "=== Strata pre-commit checks ==="
+echo "=== Varve pre-commit checks ==="
 
 # 1. Format + lint (staged only)
 pnpm exec biome check --staged --no-errors-on-unmatched

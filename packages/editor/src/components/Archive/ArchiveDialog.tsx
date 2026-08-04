@@ -1325,7 +1325,7 @@ export function ArchiveDialog({
         )}
       </div>
 
-      <div role="status" aria-live="polite" className="strata-visually-hidden">
+      <div role="status" aria-live="polite" className="varve-visually-hidden">
         {createStatus || restoreStatus}
       </div>
     </Dialog>

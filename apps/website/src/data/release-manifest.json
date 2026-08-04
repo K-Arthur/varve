@@ -8,7 +8,7 @@
   "prerelease": true,
   "signed": false,
   "notarized": false,
-  "releaseUrl": "https://github.com/K-Arthur/Strata/releases",
+  "releaseUrl": "https://github.com/K-Arthur/varve/releases",
   "checksumsUrl": null,
   "sbomUrl": null,
   "platforms": {}

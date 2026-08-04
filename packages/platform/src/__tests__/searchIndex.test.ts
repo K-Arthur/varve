@@ -11,7 +11,7 @@ const SAMPLE_DOC = JSON.stringify({
   name: 'Test Design',
   nodes: {
     n1: { id: 'n1', name: 'Header', kind: 'frame', children: ['n2'] },
-    n2: { id: 'n2', name: 'Title', kind: 'text', text: 'Welcome to Strata' },
+    n2: { id: 'n2', name: 'Title', kind: 'text', text: 'Welcome to Varve' },
     n3: { id: 'n3', name: 'Button', kind: 'rect', text: 'Click Me' },
     n4: { id: 'n4', name: 'Icon placeholder', kind: 'rect' },
   },

@@ -1,4 +1,4 @@
-# Strata monorepo task runner. `just -l` lists recipes.
+# Varve monorepo task runner. `just -l` lists recipes.
 # Tooling is installed user-local; cargo/pnpm/just are expected on PATH.
 
 default: list

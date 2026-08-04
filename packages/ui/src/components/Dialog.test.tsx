@@ -22,7 +22,7 @@ describe('Dialog', () => {
         <p>content</p>
       </Dialog>,
     );
-    const closeBtn = container.querySelector('.strata-dialog__close') as HTMLButtonElement;
+    const closeBtn = container.querySelector('.varve-dialog__close') as HTMLButtonElement;
     expect(closeBtn).toBeDefined();
     fireEvent.click(closeBtn);
     expect(onClose).toHaveBeenCalledOnce();
