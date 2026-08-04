@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
   <!--
-    Strata mark — master icon (no background).
+    Varve mark — master icon (no background).
     Construction grid: 128×128 canvas, U=8px.
     Three parallelogram strata layers, all same tilt (shear +8px right, height 20px),
     cascading +8px right per layer. Shear = cascade so adjacent edges share x-coordinate,

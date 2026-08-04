@@ -63,6 +63,15 @@
   gap: var(--space-1);
   flex-shrink: 0;
 }
+.varve-home__brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--space-6);
+  height: var(--space-6);
+  color: var(--color-interactive-default);
+  margin-right: var(--space-1);
+}
 .varve-home__toolbar-right {
   display: flex;
   align-items: center;
