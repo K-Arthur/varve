@@ -4,7 +4,6 @@ import {
   FloatingPortal,
   IconButton,
   SOLID_CHROME_ICONS,
-  SolidIcon,
   Tooltip,
   VarveLogo,
 } from '@varve/ui';
@@ -13,6 +12,7 @@ import { getTheme, setTheme, type Theme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getActionRegistry } from './actions/ActionRegistry';
 import { ArchiveDialog, type ArchiveDialogProps } from './components/Archive/ArchiveDialog';
+import { WorkspaceTabs } from './components/WorkspaceTabs';
 import { bumpThemeRevision, useEditor } from './context';
 import { computeCapabilities, useNativeMenu } from './menu';
 import { useMenubarFocusEffects } from './menu/menubarFocus';
@@ -21,12 +21,7 @@ import { MenubarSubmenu } from './menu/menubarSubmenu';
 import { labelWithFallback, type RecentEntry, useRecentFiles } from './recentFiles';
 import { loadSettings } from './settings';
 import { formatShortcut, getEffectiveBinding, SHORTCUT_DEFS } from './shortcuts';
-import { workspaceShortcutLabel } from './workspace/workspaceShortcutLabel';
-import {
-  ALL_WORKSPACE_MODES,
-  WORKSPACE_LABELS,
-  type WorkspaceMode,
-} from './workspace/workspaceTypes';
+import type { WorkspaceMode } from './workspace/workspaceTypes';
 
 type MenuId = 'File' | 'Edit' | 'Text' | 'View' | 'Object' | 'Arrange' | 'Page' | 'Help';
 
@@ -2168,48 +2163,9 @@ export function Menubar({
         </div>
       </div>
 
-      {/* ── Right: Workspace switcher + Zoom + Undo/Redo ── */}
+      {/* ── Right: Workspace tabs + Zoom + Undo/Redo ── */}
       <div className="editor-menubar__controls">
-        <div className="editor-menubar__workspace" role="radiogroup" aria-label="Workspace">
-          {(ALL_WORKSPACE_MODES as readonly WorkspaceMode[]).map((mode, _idx) => {
-            // Direct mapping from workspace mode to SolidIcon name
-            const WORKSPACE_SOLID_ICONS: Record<WorkspaceMode, keyof typeof SOLID_CHROME_ICONS> = {
-              design: 'penTool',
-              print: 'printer',
-              drawing: 'paintBrush',
-              image: 'image',
-              motion: 'play',
-              codegen: 'code',
-              logo: 'stamp',
-            };
-            const solidIcon = WORKSPACE_SOLID_ICONS[mode];
-            return (
-              <Tooltip
-                key={mode}
-                label={`${WORKSPACE_LABELS[mode]} workspace`}
-                shortcut={workspaceShortcutLabel(mode)}
-              >
-                <label
-                  className={`editor-menubar__workspace-btn${state.workspaceMode === mode ? ' editor-menubar__workspace-btn--active' : ''}`}
-                >
-                  <input
-                    type="radio"
-                    name="workspace-mode"
-                    value={mode}
-                    checked={state.workspaceMode === mode}
-                    aria-checked={state.workspaceMode === mode}
-                    onChange={() => requestWorkspaceSwitch(mode)}
-                    className="sr-only"
-                  />
-                  <SolidIcon name={SOLID_CHROME_ICONS[solidIcon]} size={15} />
-                  <span className="editor-menubar__workspace-btn-label">
-                    {WORKSPACE_LABELS[mode]}
-                  </span>
-                </label>
-              </Tooltip>
-            );
-          })}
-        </div>
+        <WorkspaceTabs />
         <span aria-hidden className="editor-menubar__zoom-divider">
           |
         </span>
