@@ -21,6 +21,7 @@
     "@varve/codegen": "workspace:*",
     "@varve/collab": "workspace:*",
     "@varve/compositor": "workspace:*",
+    "@varve/crash": "workspace:*",
     "@varve/engine": "workspace:*",
     "@varve/help": "workspace:*",
     "@varve/import": "workspace:*",
