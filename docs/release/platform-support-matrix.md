@@ -24,9 +24,9 @@ below is backed by an actual launch on real hardware; everything else is labelle
 
 | OS | Arch | Build | Package | Signing | Tested | Min OS | Tier | Confidence |
 |---|---|---|---|---|---|---|---|---|
-| **Linux** (Arch/CachyOS) | x86-64 | ✅ local | AppImage | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
-| **Linux** (Debian/Ubuntu) | x86-64 | ✅ CI | `.deb` | unsigned | ⬜ VM needed | Ubuntu 22.04 | **2** | Medium |
-| **Linux** (Fedora/RHEL) | x86-64 | ✅ CI | `.rpm` | unsigned | ⬜ VM needed | Fedora 38 | **2** | Low |
+| **Linux** (Arch/CachyOS) | x86-64 | ✅ built + launched | AppImage 165 MB | unsigned | ✅ dev machine | glibc 2.35+ | **1** | High |
+| **Linux** (Debian/Ubuntu) | x86-64 | ✅ built locally | `.deb` 74 MB | unsigned | ⬜ VM needed | Ubuntu 22.04 | **2** | Medium |
+| **Linux** (Fedora/RHEL) | x86-64 | ✅ built locally | `.rpm` 74 MB | unsigned | ⬜ VM needed | Fedora 38 | **2** | Low |
 | **Linux** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |
 | **Windows 10/11** | x86-64 | ⚠️ never run | NSIS `.exe` | unsigned | ❌ no hardware | Win 10 1809 | **3** | Low |
 | **Windows** | ARM64 | ❌ not built | — | — | ❌ | — | **Not supported** | — |

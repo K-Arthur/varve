@@ -435,7 +435,27 @@ tauri-cli 2.11.3, webkit2gtk-4.1 2.52.5, glibc 2.44.
 | `pnpm lint` | **PASS** | 48 warnings, 0 errors, exit 0 |
 | `pnpm typecheck` | **PASS** | Exit 0 across all workspace packages + e2e tsconfig |
 | `pnpm test` | **1 failure** | `computes diff for 10,000 nodes quickly (<50ms)` → 114.86 ms under parallel `cargo build` load (M-5) |
-| `pnpm tauri build --bundles appimage,deb,rpm --ci` | see `docs/release/build-verification.md` | Cold Rust compile |
+| `cargo build --release` (via Tauri) | **PASS** | 38m 47s cold; 71 MB binary |
+| `pnpm tauri build --bundles appimage` | **FAILED → FIXED** | linuxdeploy `strip` cannot parse `.relr.dyn` (H-0). With `NO_STRIP=1`: **PASS**, 165 MB AppImage |
+| `pnpm tauri build --bundles deb,rpm` | **PASS** | 74 MB deb, 74 MB rpm. rpm compression alone took ~10 min single-threaded |
+| AppImage launch smoke test | **PASS** | Mounted, launched, stayed up 8 s with no error output (Wayland) |
+
+### Release tooling, verified against the real artifacts
+
+```
+Strata-0.1.0-linux-x86_64.AppImage   172.6 MB   f58af3b5565851a9…
+Strata-0.1.0-linux-x86_64.deb         73.9 MB   64984b3754fd01f1…
+Strata-0.1.0-linux-x86_64.rpm         73.9 MB   9f7a743794fc59d4…
+```
+
+`collect-artifacts` → `verify-artifacts` → `release-notes` all pass, and an
+independent `sha256sum -c SHA256SUMS.txt` reports OK for all three. SBOM
+generation produces 1,324 components.
+
+**All three Linux package formats now build, and the acceptance criterion "at
+least one viable Linux package can be generated and tested" is met** — with the
+standing caveat that these were built on glibc 2.44 and are therefore
+smoke-test artifacts, not release candidates.
 
 **Undocumented system dependencies discovered:** none for the Linux build on CachyOS —
 `webkit2gtk-4.1`, `gtk3`, `librsvg`, `openssl`, `fontconfig` were already present. The Ubuntu
