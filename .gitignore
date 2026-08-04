@@ -52,6 +52,7 @@ Thumbs.db
 
 # --- Build caches / tmp ---
 .tmp/
+.boot-check.tmp.mjs
 
 # --- Env / secrets ---
 .env
