@@ -56,46 +56,47 @@ import Layout from '../../layouts/Layout.astro';
       </section>
 
       <section class="license-section">
-        <h2>User Rights Summary</h2>
-        <table class="license-table">
+        <h2 id="user-rights-summary">User Rights Summary</h2>
+        <table class="license-table" aria-labelledby="user-rights-summary">
+          <caption class="sr-only">Summary of permitted and restricted uses under FSL-1.1-MIT</caption>
           <tr>
-            <td>Use for personal projects</td>
+            <th scope="row">Use for personal projects</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Use for commercial work (client designs)</td>
+            <th scope="row">Use for commercial work (client designs)</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Use within your organisation</td>
+            <th scope="row">Use within your organisation</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Modify source code</td>
+            <th scope="row">Modify source code</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Distribute official binaries</td>
+            <th scope="row">Distribute official binaries</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Distribute modified source code</td>
+            <th scope="row">Distribute modified source code</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Develop and sell plugins</td>
+            <th scope="row">Develop and sell plugins</th>
             <td class="allowed">Allowed</td>
           </tr>
           <tr>
-            <td>Competing use (substitute product or service)</td>
+            <th scope="row">Competing use (substitute product or service)</th>
             <td class="restricted">Requires license</td>
           </tr>
           <tr>
-            <td>Offering as a competing hosted service</td>
+            <th scope="row">Offering as a competing hosted service</th>
             <td class="restricted">Requires license</td>
           </tr>
           <tr>
-            <td>Removing Varve branding</td>
+            <th scope="row">Removing Varve branding</th>
             <td class="restricted">Requires license</td>
           </tr>
         </table>
@@ -163,7 +164,7 @@ import Layout from '../../layouts/Layout.astro';
     font-size: 2.5rem;
     font-weight: 800;
     margin-bottom: 2rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
   .license-section {
@@ -174,11 +175,11 @@ import Layout from '../../layouts/Layout.astro';
     font-size: 1.5rem;
     font-weight: 700;
     margin-bottom: 1rem;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
   .license-section p {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 1rem;
   }
@@ -189,7 +190,7 @@ import Layout from '../../layouts/Layout.astro';
   }
 
   .license-section li {
-    color: var(--color-neutral-600);
+    color: var(--text-secondary);
     line-height: 1.8;
     margin-bottom: 0.75rem;
     padding-left: 1.5rem;
@@ -200,24 +201,24 @@ import Layout from '../../layouts/Layout.astro';
     content: "•";
     position: absolute;
     left: 0;
-    color: var(--color-teal-400);
+    color: var(--text-link-hover);
     font-weight: bold;
   }
 
   .license-section strong {
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
   }
 
-  .license-section code {
-    background: var(--color-neutral-100);
+  .license-section code:not(.code-block) {
+    background: var(--surface-muted);
     padding: 0.125rem 0.375rem;
     border-radius: 0.25rem;
     font-size: 0.875rem;
   }
 
   .license-note {
-    background: var(--color-neutral-50);
-    border: 1px solid var(--color-neutral-200);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-default);
     border-radius: 0.75rem;
     padding: 1.5rem;
   }
@@ -233,27 +234,29 @@ import Layout from '../../layouts/Layout.astro';
   }
 
   .license-table tr {
-    border-bottom: 1px solid var(--color-neutral-200);
+    border-bottom: 1px solid var(--border-default);
   }
 
   .license-table td {
     padding: 0.75rem 0;
-    color: var(--color-neutral-700);
+    color: var(--text-secondary);
   }
 
-  .license-table td:first-child {
+  .license-table td:first-child,
+  .license-table th:first-child {
     font-weight: 500;
-    color: var(--color-neutral-900);
+    color: var(--text-primary);
+    text-align: left;
   }
 
   .license-table td.allowed {
-    color: #16a34a;
+    color: var(--text-success);
     font-weight: 600;
     text-align: right;
   }
 
   .license-table td.restricted {
-    color: #dc2626;
+    color: var(--text-danger);
     font-weight: 600;
     text-align: right;
   }
@@ -262,7 +265,7 @@ import Layout from '../../layouts/Layout.astro';
     display: flex;
     gap: 1rem;
     padding: 2rem 0;
-    border-top: 1px solid var(--color-neutral-200);
+    border-top: 1px solid var(--border-default);
   }
 
   @media (max-width: 768px) {
