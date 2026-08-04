@@ -2898,7 +2898,11 @@ export function CanvasArea({
       e.stopPropagation();
       if (
         e.dataTransfer.types.some(
-          (t) => t === 'Files' || t.startsWith('image/') || t === 'text/svg+xml',
+          (t) =>
+            t === 'Files' ||
+            t === 'application/x-varve-icon' ||
+            t.startsWith('image/') ||
+            t === 'text/svg+xml',
         )
       ) {
         e.dataTransfer.dropEffect = 'copy';
@@ -3017,6 +3021,36 @@ export function CanvasArea({
       }
 
       const dropWorld = computeDropWorld(e.clientX, e.clientY);
+
+      // Icon-panel drag-and-drop: the payload carries a sanitized SVG plus
+      // provenance; insert through the same command path as the icon browser.
+      const iconPayloadJson = e.dataTransfer.getData('application/x-varve-icon');
+      if (iconPayloadJson) {
+        try {
+          const payload = JSON.parse(iconPayloadJson) as {
+            name?: string;
+            packId?: string;
+            providerId?: string;
+            svg?: string;
+          };
+          if (payload.svg && payload.name) {
+            const inserted = await editor.insertIconAsset({
+              name: payload.name,
+              providerId: payload.providerId,
+              prefix: payload.packId ?? '',
+              svg: payload.svg,
+              position: dropWorld ? { x: dropWorld[0], y: dropWorld[1] } : undefined,
+            });
+            if (inserted) {
+              editor.announce(`Inserted icon "${payload.name}"`);
+            }
+            return;
+          }
+        } catch {
+          // fall through to file handling (unlikely payload shape)
+        }
+      }
+
       // Collect all OS files (including folders via FileSystemEntry API)
       const files = await collectFilesFromDataTransfer(e.dataTransfer);
       await importDroppedFiles(files, dropWorld, maskTargetId);

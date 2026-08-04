@@ -3,6 +3,7 @@ import {
   applyCurrentColor,
   isSvgSafe,
   normalizeViewBox,
+  rewriteSvgIds,
   SanitizeError,
   sanitizeSvg,
 } from './svgSanitize';
@@ -221,5 +222,101 @@ describe('applyCurrentColor', () => {
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2" stroke="blue" fill="none"/></svg>';
     const result = applyCurrentColor(input);
     expect(result.svg).toContain('stroke="currentColor"');
+  });
+});
+
+describe('sanitizeSvg hardening', () => {
+  it('rejects input larger than the size limit', () => {
+    const huge = `<svg xmlns="http://www.w3.org/2000/svg">${'<g/>'.repeat(400000)}</svg>`;
+    let code = '';
+    try {
+      sanitizeSvg(huge);
+    } catch (err) {
+      code = err instanceof SanitizeError ? err.code : '';
+    }
+    expect(code).toBe('input-too-large');
+  });
+
+  it('strips external url() references from clip-path and mask', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" clip-path="url(https://evil.com/defs#clip)"/></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).not.toContain('evil.com');
+  });
+
+  it('strips data: URLs from fill and stroke paint servers', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" fill="url(data:image/png;base64,AAAA)"/></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).not.toContain('data:');
+  });
+
+  it('removes dangerous and unknown inline style declarations', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="position:fixed;fill:red;-moz-binding:url(x);background:url(https://evil.com/x.png)"><path d="M0 0"/></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).not.toContain('position');
+    expect(result.svg).not.toContain('-moz-binding');
+    expect(result.svg).not.toContain('evil.com');
+    expect(result.svg).toContain('fill:red');
+  });
+
+  it('removes recursive <use> reference cycles', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><symbol id="a"><use href="#b"/></symbol><symbol id="b"><use href="#a"/></symbol></defs><use href="#a"/></svg>';
+    const result = sanitizeSvg(input);
+    const cycles = result.warnings.filter((w) => w.code === 'removed-use-cycle');
+    expect(cycles.length).toBeGreaterThan(0);
+  });
+
+  it('removes non-finite numbers from geometry attributes', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="NaN" y="Infinity" width="24" height="24"/></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).not.toContain('NaN');
+    expect(result.svg).not.toContain('Infinity');
+  });
+
+  it('rejects invalid viewBox values', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 NaN 24"><path d="M0 0"/></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).not.toContain('viewBox=');
+    expect(result.warnings.some((w) => w.code === 'removed-non-finite-number')).toBe(true);
+  });
+
+  it('keeps percentage gradient stops', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><linearGradient id="g"><stop offset="50%" stop-color="red"/></linearGradient></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).toContain('offset="50%"');
+  });
+
+  it('allows built-in filter functions and strips exotic ones', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M0 0" style="filter:blur(2px)"/><path d="M1 1" style="filter:url(https://evil.com/#f)"/></svg>';
+    const result = sanitizeSvg(input);
+    expect(result.svg).toContain('blur');
+    expect(result.svg).not.toContain('evil.com');
+  });
+});
+
+describe('rewriteSvgIds', () => {
+  it('rewrites ids and fragment references with a stable prefix', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><linearGradient id="g1"><stop offset="0" stop-color="red"/></linearGradient><path id="p1" d="M0 0"/></defs><use href="#p1"/><rect fill="url(#g1)" width="4" height="4"/></svg>';
+    const result = rewriteSvgIds(input, 'icon-abc');
+    expect(result.svg).toContain('id="icon-abc-1-g1"');
+    expect(result.svg).toContain('url(#icon-abc-1-g1)');
+    expect(result.svg).toContain('href="#icon-abc-2-p1"');
+    expect(result.svg).not.toContain('id="g1"');
+  });
+
+  it('is deterministic for the same input', () => {
+    const input =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><defs><path id="p1" d="M0 0"/></defs><use href="#p1"/></svg>';
+    const a = rewriteSvgIds(input, 'i').svg;
+    const b = rewriteSvgIds(input, 'i').svg;
+    expect(a).toBe(b);
   });
 });

@@ -1,34 +1,51 @@
 /**
  * Icon providers — provider-neutral discovery system for online icon
  * repositories. Each provider wraps a remote icon source behind a uniform
- * search/getDetails/getSvg interface so callers can query multiple sources in
- * parallel without coupling to any single API.
+ * interface so callers can query multiple sources in parallel without
+ * coupling to any single API.
  *
- * Research basis: Iconify API (public, 300k+ icons), Simple Icons (brand),
- * and self-hosted icon set patterns.
+ * Identifier rules:
+ * - `IconSourceDescriptor.canonicalId` is globally stable:
+ *       provider-id:pack-prefix:icon-name[:variant]
+ *   e.g. "iconify:mdi:home:outline"
+ * - A pack prefix is never used as the provider id.
+ *
+ * Provider lifecycle:
+ * - Registration is idempotent (re-registering the same provider id
+ *   replaces the entry).
+ * - `ensureProviders(callback)` runs the registration callback exactly once
+ *   per registry instance and is safe to call from any component before the
+ *   first search.
+ * - `reset()` clears the registry and provider state for tests and hot
+ *   reload. An empty registry produces a machine-readable diagnostic
+ *   (`registry-empty`) instead of silently returning zero results.
  */
+
+import type { IconLicenceSnapshot } from './iconLicence';
 
 // ---------------------------------------------------------------------------
 // Provider option/result types
 // ---------------------------------------------------------------------------
 
-/** Search options accepted by every icon provider. */
-export interface IconProviderSearchOptions {
-  /** Filter by category/tag. */
-  category?: string;
-  /** Filter by icon style (filled, outline, etc.). */
-  style?: IconStyle;
-  /** Max results to return (default 50). */
-  limit?: number;
-  /** Pagination offset (default 0). */
-  offset?: number;
-  /** Filter to a specific icon pack/prefix. */
-  prefix?: string;
-  /** Filter to free-only icons. */
-  freeOnly?: boolean;
-}
+/** Explicit capability flags — the UI tests capabilities, not optional methods. */
+export const ICON_PROVIDER_CAPABILITIES = [
+  'search',
+  'browse-collections',
+  'browse-collection',
+  'fetch-icon-data',
+  'fetch-svg',
+  'batch-retrieval',
+  'keyword-suggestions',
+  'update-checks',
+  'offline-packs',
+  'licence-metadata',
+  'style-variants',
+  'multicolor',
+] as const;
 
-/** Supported icon styles. */
+export type IconProviderCapability = (typeof ICON_PROVIDER_CAPABILITIES)[number];
+
+/** Style family of an icon (source-agnostic vocabulary). */
 export type IconStyle =
   | 'outline'
   | 'filled'
@@ -39,71 +56,149 @@ export type IconStyle =
   | 'regular'
   | 'bold';
 
-/** A single search-hit from an icon provider. */
-export interface IconProviderResult {
-  /** Stable icon identifier (provider-specific, e.g. "mdi:home"). */
-  id: string;
-  /** Human-readable icon name. */
+export type IconPaletteType = 'monotone' | 'multicolor';
+
+/** Search options accepted by every icon provider. */
+export interface IconProviderSearchOptions {
+  /** Filter by category/tag. */
+  category?: string;
+  /** Filter by icon style. */
+  style?: IconStyle;
+  /** Max results to return (default 50). */
+  limit?: number;
+  /** Pagination start index (default 0). */
+  start?: number;
+  /** Filter to a specific icon pack prefix. */
+  prefix?: string;
+  /** Monotone-only search. */
+  monotoneOnly?: boolean;
+  /** Abort signal — the provider must thread it into every fetch. */
+  signal?: AbortSignal;
+  /** Per-request timeout in ms. */
+  timeoutMs?: number;
+}
+
+/** Search result total + page from a provider (for correct pagination). */
+export interface IconSearchPage {
+  /** Results for the current page. */
+  items: IconSourceDescriptor[];
+  /** Server-reported total across all pages. */
+  total: number;
+  /** The start index the server applied. */
+  start: number;
+  /** True when the returned items cover the whole result set. */
+  exhausted: boolean;
+}
+
+/**
+ * Normalized descriptor for one icon from one provider. Providers MUST NOT
+ * leak their raw API objects here; the editor only sees this model.
+ */
+export interface IconSourceDescriptor {
+  /** Globally stable id: provider:prefix:name[:variant]. */
+  canonicalId: string;
+  /** Provider id (e.g. "iconify"). Never a pack prefix. */
+  providerId: string;
+  /** Pack/collection prefix (e.g. "mdi", "lucide"). */
+  packId: string;
+  /** Icon name within the pack (e.g. "home"). */
+  iconId: string;
+  /** Human-readable name (e.g. "home"). */
   name: string;
-  /** Icon pack/prefix (e.g. "mdi", "lucide", "phosphor"). */
-  prefix: string;
-  /** Category/tag for grouping. */
-  category: string;
-  /** Available styles for this icon. */
+  /** Display name (may include pack disambiguation). */
+  displayName: string;
+  /** Alias names (e.g. "house" for "home"). */
+  aliases: string[];
+  /** Keywords for local search. */
+  keywords: string[];
+  /** Categories/tags. */
+  categories: string[];
+  /** Available style families. */
   styles: IconStyle[];
-  /** License information. */
-  license: IconLicense;
-  /** Author/creator name. */
-  author?: string;
-  /** Icon version. */
-  version?: string;
-  /** Width of the icon in the source grid. */
+  paletteType: IconPaletteType;
+  /** Native grid width/height (viewport units), if known. */
   width?: number;
-  /** Height of the icon in the source grid. */
   height?: number;
-  /** Whether the icon is available offline (cached). */
-  isOfflineAvailable?: boolean;
-}
-
-/** Extended icon info returned by getDetails(). */
-export interface IconProviderIconDetails extends IconProviderResult {
-  /** Longer description, if available. */
-  description?: string;
-  /** Tags for search. */
-  tags: string[];
-  /** Source URL metadata. */
+  /** Licence snapshot (may be unknown). */
+  licence: IconLicenceSnapshot;
+  author?: string;
   sourceUrl?: string;
-  /** All available variants for this icon. */
-  variants: IconVariantInfo[];
-  /** Number of icons in the same pack. */
-  totalIconsInPack?: number;
-  /** Last updated date, if known. */
-  lastUpdated?: string;
+  version?: string;
+  lastModified?: number;
+  /** True when the icon is available from the offline cache. */
+  isOfflineAvailable?: boolean;
+  /** True when the icon is already embedded in the open document. */
+  isInDocument?: boolean;
 }
 
-/** Information about a specific variant of an icon. */
-export interface IconVariantInfo {
-  style: IconStyle;
-  /** SVG string for this variant (may be lazy-loaded). */
-  svg?: string;
-  /** Preview URL or data URL. */
-  preview?: string;
-}
-
-/** License metadata for an icon. */
-export interface IconLicense {
-  /** License name (e.g. "Apache 2.0", "MIT", "CC-BY 4.0"). */
+/** Information about an icon pack/collection. */
+export interface IconPackInfo {
+  /** Pack prefix (e.g. "mdi", "lucide"). */
+  prefix: string;
+  /** Pack name. */
   name: string;
-  /** URL to the full license text. */
-  url?: string;
-  /** Whether commercial use is permitted. */
-  commercial: boolean;
-  /** Whether modification is permitted. */
-  modification: boolean;
-  /** Whether attribution is required. */
-  attributionRequired: boolean;
-  /** Attribution text template, if required. */
-  attributionText?: string;
+  /** Number of icons in the pack. */
+  total: number;
+  /** Author info. */
+  author?: { name: string; url?: string };
+  /** Licence metadata. */
+  licence?: IconLicenceSnapshot;
+  /** Category. */
+  category?: string;
+  /** Version string if reported. */
+  version?: string;
+  /** Last-modified timestamp (unix seconds) if reported. */
+  lastModified?: number;
+  /** True when the pack is a brand/trademark collection. */
+  brand?: boolean;
+  /** True when the pack contains multicolor icons. */
+  hasPalette?: boolean;
+  /** True when the pack is hidden in Iconify's own listing. */
+  hidden?: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Structured provider errors
+// ---------------------------------------------------------------------------
+
+export type IconProviderErrorCode =
+  | 'network-error'
+  | 'timeout'
+  | 'cancelled'
+  | 'http-error'
+  | 'invalid-response'
+  | 'response-too-large'
+  | 'csp-blocked'
+  | 'provider-unavailable'
+  | 'icon-not-found'
+  | 'registry-empty'
+  | 'unsupported-operation';
+
+export class IconProviderError extends Error {
+  constructor(
+    message: string,
+    public readonly code: IconProviderErrorCode,
+    public readonly providerId: string,
+    public readonly detail?: string,
+  ) {
+    super(message);
+    this.name = 'IconProviderError';
+  }
+
+  /** Map a transport/API client error to a provider error code. */
+  static fromTransport(
+    providerId: string,
+    err: unknown,
+    fallbackMessage = 'Provider request failed',
+  ): IconProviderError {
+    if (err instanceof IconProviderError) return err;
+    const message = err instanceof Error ? err.message : fallbackMessage;
+    const code =
+      err instanceof Error && err.name === 'TimeoutError'
+        ? ('timeout' as const)
+        : ('network-error' as const);
+    return new IconProviderError(message, code, providerId);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -122,45 +217,55 @@ export interface IconProvider {
   enabled: boolean;
   /** Whether the provider requires network access. */
   requiresNetwork: boolean;
-  /** Search for icons matching a query. */
-  search(query: string, options?: IconProviderSearchOptions): Promise<IconProviderResult[]>;
-  /** Retrieve extended info about a specific icon. */
-  getDetails(iconId: string): Promise<IconProviderIconDetails | null>;
-  /** Fetch the SVG string for a specific icon. */
-  getSvg(iconId: string, style?: IconStyle): Promise<string | null>;
-  /** List available prefixes/packs. */
-  getPrefixes?(): Promise<IconPackInfo[]>;
-  /** Get category list. */
-  getCategories?(): Promise<string[]>;
-}
-
-/** Information about an icon pack. */
-export interface IconPackInfo {
-  /** Pack prefix (e.g. "mdi", "lucide"). */
-  prefix: string;
-  /** Pack name. */
-  name: string;
-  /** Number of icons in the pack. */
-  total: number;
-  /** Author info. */
-  author?: { name: string; url?: string };
-  /** License. */
-  license?: IconLicense;
-  /** Category. */
-  category?: string;
+  /** Explicit capability flags — test these instead of optional methods. */
+  capabilities: readonly IconProviderCapability[];
+  /** Search for icons matching a query (normalized by the caller). */
+  search(query: string, options?: IconProviderSearchOptions): Promise<IconSearchPage>;
+  /** Fetch the SVG for an icon. Returns null when the icon is missing. */
+  getSvg(
+    descriptor: IconSourceDescriptor,
+    options?: IconProviderSearchOptions,
+  ): Promise<string | null>;
+  /** Batch icon data for previews (best-effort; may fall back per-icon). */
+  getIconData?(
+    descriptors: IconSourceDescriptor[],
+    options?: IconProviderSearchOptions,
+  ): Promise<Array<{ descriptor: IconSourceDescriptor; svg: string | null }>>;
+  /** List available packs. */
+  getPacks?(options?: IconProviderSearchOptions): Promise<IconPackInfo[]>;
+  /** Browse the icons of one pack (paginated). */
+  getPackIcons?(prefix: string, options?: IconProviderSearchOptions): Promise<IconSearchPage>;
+  /** Keyword suggestions for a partial query. */
+  getKeywords?(query: string, options?: IconProviderSearchOptions): Promise<string[]>;
+  /** Last-modified timestamps for cache invalidation. */
+  getLastModified?(
+    prefixes: string[],
+    options?: IconProviderSearchOptions,
+  ): Promise<Record<string, number>>;
 }
 
 // ---------------------------------------------------------------------------
-// IconProviderRegistry
+// Registry
 // ---------------------------------------------------------------------------
 
-/**
- * Registry for icon providers. Manages multiple providers and provides
- * unified search across all enabled sources.
- */
 export class IconProviderRegistry {
   private providers = new Map<string, IconProvider>();
+  private initialized = false;
+  private ensureProvidersFn: (() => void) | null = null;
 
+  /** True once the built-in provider registration callback has run. */
+  get isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  get providerIds(): string[] {
+    return Array.from(this.providers.keys());
+  }
+
+  /**
+   * Idempotent provider registration. Re-registering the same id replaces
+   * the previous instance (safe under hot reload).
+   */
   register(provider: IconProvider): void {
     this.providers.set(provider.id, provider);
   }
@@ -178,68 +283,281 @@ export class IconProviderRegistry {
   }
 
   getEnabled(): IconProvider[] {
-    return this.getAll().filter((p) => p.enabled);
+    return this.getAll().filter((p) => p.enabled !== false);
   }
 
   /**
-   * Search across all enabled providers in parallel.
-   * Results are merged, deduplicated by icon ID, and ranked.
+   * Run the registration callback exactly once. Components may call this
+   * before the first search; it is deterministic and import-order safe.
    */
-  async search(query: string, options?: IconProviderSearchOptions): Promise<IconProviderResult[]> {
+  ensureProviders(fn: () => void): void {
+    if (this.initialized) return;
+    this.initialized = true;
+    this.ensureProvidersFn = fn;
+    fn();
+  }
+
+  /** Re-run the registration callback (hot reload / window remount). */
+  reinitialize(): void {
+    this.initialized = false;
+    if (this.ensureProvidersFn) this.ensureProvidersFn();
+    this.initialized = true;
+  }
+
+  /** Clear all providers and reset initialization state (tests). */
+  reset(): void {
+    this.providers.clear();
+    this.initialized = false;
+    this.ensureProvidersFn = null;
+  }
+
+  /**
+   * Search across all enabled providers in parallel. Results are merged,
+   * deduplicated by canonical id, and ranked. An empty registry produces a
+   * structured `registry-empty` error instead of silently returning zero
+   * results.
+   */
+  async search(query: string, options?: IconProviderSearchOptions): Promise<IconSearchPage> {
     const enabled = this.getEnabled();
-    if (enabled.length === 0) return [];
+    if (enabled.length === 0) {
+      throw new IconProviderError(
+        'No icon providers are registered — icon search is unavailable',
+        'registry-empty',
+        '',
+      );
+    }
 
     const results = await Promise.allSettled(enabled.map((p) => p.search(query, options)));
 
-    const all: IconProviderResult[] = [];
+    const all: IconSourceDescriptor[] = [];
+    const failures: IconProviderError[] = [];
+    let total = 0;
+    let start = 0;
+    let exhausted = true;
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        all.push(...result.value);
+        all.push(...result.value.items);
+        total += result.value.total;
+        start = Math.max(start, result.value.start);
+        exhausted = exhausted && result.value.exhausted;
+      } else if (result.reason instanceof IconProviderError) {
+        failures.push(result.reason);
+      } else if (result.reason instanceof Error) {
+        failures.push(
+          new IconProviderError(result.reason.message, 'network-error', enabled[0]?.id ?? ''),
+        );
       }
     }
 
-    return this.deduplicateResults(all);
-  }
-
-  /**
-   * Fetch SVG for a specific icon from its provider.
-   */
-  async getSvg(iconId: string, style?: IconStyle): Promise<string | null> {
-    // Icon IDs are in format "prefix:iconName"
-    const colonIdx = iconId.indexOf(':');
-    if (colonIdx < 0) return null;
-    // Find the provider that handles this prefix
-    for (const provider of this.getEnabled()) {
-      const svg = await provider.getSvg(iconId, style);
-      if (svg) return svg;
+    // When every provider failed, surface the failure instead of silently
+    // returning zero results.
+    if (all.length === 0 && failures.length > 0 && failures.length === enabled.length) {
+      const codes = new Set(failures.map((f) => f.code));
+      const code: IconProviderErrorCode = codes.has('timeout')
+        ? 'timeout'
+        : codes.has('csp-blocked')
+          ? 'csp-blocked'
+          : codes.has('invalid-response') || codes.has('response-too-large')
+            ? 'invalid-response'
+            : 'network-error';
+      throw new IconProviderError(
+        failures.map((f) => f.message).join('; '),
+        code,
+        failures[0]?.providerId ?? '',
+      );
     }
-    return null;
+
+    const deduped = this.deduplicateResults(all);
+    return { items: deduped, total, start, exhausted };
   }
 
-  private deduplicateResults(results: IconProviderResult[]): IconProviderResult[] {
-    const seen = new Map<string, IconProviderResult>();
+  /** Fetch SVG for a descriptor from its owning provider. */
+  async getSvg(
+    descriptor: IconSourceDescriptor,
+    options?: IconProviderSearchOptions,
+  ): Promise<string | null> {
+    const provider = this.providers.get(descriptor.providerId);
+    if (!provider) {
+      throw new IconProviderError(
+        `No provider registered for "${descriptor.providerId}"`,
+        'provider-unavailable',
+        descriptor.providerId,
+      );
+    }
+    return provider.getSvg(descriptor, options);
+  }
+
+  /** Batch icon data across descriptors, grouped by provider. */
+  async getIconData(
+    descriptors: IconSourceDescriptor[],
+    options?: IconProviderSearchOptions,
+  ): Promise<Map<string, string>> {
+    const out = new Map<string, string>();
+    const byProvider = new Map<string, IconSourceDescriptor[]>();
+    for (const d of descriptors) {
+      const list = byProvider.get(d.providerId) ?? [];
+      list.push(d);
+      byProvider.set(d.providerId, list);
+    }
+    await Promise.all(
+      Array.from(byProvider.entries()).map(async ([providerId, items]) => {
+        const provider = this.providers.get(providerId);
+        if (!provider) return;
+        try {
+          if (provider.getIconData) {
+            const results = await provider.getIconData(items, options);
+            for (const r of results) {
+              if (r.svg) out.set(r.descriptor.canonicalId, r.svg);
+            }
+          } else {
+            await Promise.all(
+              items.map(async (item) => {
+                const svg = await provider.getSvg(item, options);
+                if (svg) out.set(item.canonicalId, svg);
+              }),
+            );
+          }
+        } catch {
+          // Batch is best-effort; individual acquisition reports errors.
+        }
+      }),
+    );
+    return out;
+  }
+
+  /** List packs from all providers that support browsing. */
+  async getPacks(): Promise<IconPackInfo[]> {
+    const enabled = this.getEnabled();
+    const results = await Promise.allSettled(
+      enabled
+        .filter((p) => p.getPacks && p.capabilities.includes('browse-collections'))
+        .map((p) => p.getPacks!()),
+    );
+    const packs: IconPackInfo[] = [];
+    for (const result of results) {
+      if (result.status === 'fulfilled') packs.push(...result.value);
+    }
+    return packs;
+  }
+
+  private deduplicateResults(results: IconSourceDescriptor[]): IconSourceDescriptor[] {
+    const seen = new Map<string, IconSourceDescriptor>();
     for (const r of results) {
-      const existing = seen.get(r.id);
+      const existing = seen.get(r.canonicalId);
       if (!existing) {
-        seen.set(r.id, r);
+        seen.set(r.canonicalId, r);
       } else if (r.styles.length > existing.styles.length) {
-        // Prefer the entry with more style info
-        seen.set(r.id, r);
+        // Prefer the entry with more style info.
+        seen.set(r.canonicalId, r);
       }
     }
     return Array.from(seen.values());
   }
 }
 
-/** Singleton registry instance. */
-export const iconProviderRegistry = new IconProviderRegistry();
+// ---------------------------------------------------------------------------
+// Query normalization (shared by online + local search)
+// ---------------------------------------------------------------------------
+
+/** Case, punctuation, and space normalization shared by all search paths. */
+export function normalizeIconQuery(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[\s_\-./\\]+/g, ' ')
+    .trim();
+}
+
+/** Common synonyms folded into the normalized query token set. */
+export const ICON_SEARCH_SYNONYMS: Readonly<Record<string, string[]>> = {
+  trash: ['delete', 'bin', 'remove'],
+  delete: ['trash', 'bin', 'remove'],
+  settings: ['gear', 'cog', 'preferences'],
+  gear: ['cog', 'settings'],
+  cog: ['gear', 'settings'],
+  user: ['account', 'profile', 'person'],
+  account: ['user', 'profile', 'person'],
+  person: ['user', 'account', 'profile'],
+  arrowleft: ['arrow left', 'chevron-left', 'back'],
+  arrowright: ['arrow right', 'chevron-right', 'forward'],
+  arrowdown: ['arrow down', 'chevron-down'],
+  arrowup: ['arrow up', 'chevron-up'],
+  close: ['x', 'cancel', 'dismiss'],
+  exit: ['logout', 'sign-out'],
+  refresh: ['reload', 'sync'],
+  plus: ['add', 'new'],
+  edit: ['pencil', 'pen'],
+  camera: ['photo', 'picture'],
+  image: ['photo', 'picture'],
+  send: ['paper-plane'],
+  menu: ['hamburger', 'list'],
+};
+
+/** Expand a normalized query into tokens + synonym tokens for matching. */
+export function expandSearchTokens(rawQuery: string): string[] {
+  const tokens = normalizeIconQuery(rawQuery).split(' ');
+  const out = new Set<string>();
+  for (const token of tokens) {
+    if (!token) continue;
+    out.add(token);
+    const syns = ICON_SEARCH_SYNONYMS[token];
+    if (syns) {
+      for (const s of syns) {
+        out.add(normalizeIconQuery(s));
+        for (const part of s.split(' ')) out.add(part);
+      }
+    }
+  }
+  return Array.from(out);
+}
+
+/** Match a descriptor's name/aliases/keywords against an expanded query. */
+export function descriptorMatchesQuery(
+  descriptor: Pick<IconSourceDescriptor, 'name' | 'aliases' | 'keywords' | 'categories'>,
+  rawQuery: string,
+): boolean {
+  const haystack =
+    normalizeIconQuery(descriptor.name) +
+    ' ' +
+    descriptor.aliases.map(normalizeIconQuery).join(' ') +
+    ' ' +
+    descriptor.keywords.map(normalizeIconQuery).join(' ') +
+    ' ' +
+    descriptor.categories.map(normalizeIconQuery).join(' ');
+
+  const baseTokens = normalizeIconQuery(rawQuery).split(' ').filter(Boolean);
+  if (baseTokens.length === 0) return true;
+  // Every literal query token must appear (e.g. "arrow left").
+  if (baseTokens.every((t) => haystack.includes(t))) return true;
+  // Single-concept queries additionally match through synonym expansion
+  // ("settings" finds gear/cog; "trash" finds delete/bin).
+  if (baseTokens.length === 1) {
+    return expandSearchTokens(rawQuery).some((t) => haystack.includes(t));
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Global registry
+// ---------------------------------------------------------------------------
+
+let globalRegistry: IconProviderRegistry | null = null;
+
+/**
+ * Get the global icon provider registry, creating it on first use. The
+ * registry instance is stable across hot reloads; `resetIconProviderRegistry`
+ * replaces it (tests).
+ */
+export function getIconProviderRegistry(): IconProviderRegistry {
+  if (!globalRegistry) globalRegistry = new IconProviderRegistry();
+  return globalRegistry;
+}
 
 /** Register an icon provider with the global registry. */
 export function registerIconProvider(provider: IconProvider): void {
-  iconProviderRegistry.register(provider);
+  getIconProviderRegistry().register(provider);
 }
 
-/** Get the global icon provider registry. */
-export function getIconProviderRegistry(): IconProviderRegistry {
-  return iconProviderRegistry;
+/** Replace the global registry (tests). */
+export function resetIconProviderRegistry(): void {
+  globalRegistry = null;
 }

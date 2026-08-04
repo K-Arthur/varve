@@ -11,6 +11,7 @@ function categoryFromShortcut(cat: string): ActionCategory {
   if (lc === 'object') return 'object';
   if (lc === 'arrange') return 'arrange';
   if (lc === 'tools') return 'tools';
+  if (lc === 'insert') return 'insert';
   return 'help';
 }
 
@@ -62,6 +63,7 @@ export function registerEditorActions(
   const menuActions = [
     ['new', 'New Document', 'file'],
     ['findReplace', 'Find and Replace', 'edit'],
+    ['insertIcon', 'Insert Icon…', 'insert'],
     ['textBold', 'Bold', 'text'],
     ['textItalic', 'Italic', 'text'],
     ['textUnderline', 'Underline', 'text'],
