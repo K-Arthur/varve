@@ -1,6 +1,6 @@
-# Strata — Distribution Channel Decision Matrix
+# Varve — Distribution Channel Decision Matrix
 
-**Date:** 2026-08-03
+**Date:** 2026-08-03 (last updated 2026-08-04)
 **Constraint:** solo developer, CAD $200 total budget, no signing assets, no domain, no Mac.
 
 The design goal is the **smallest maintainable release surface**. Every channel added is a
@@ -60,7 +60,7 @@ Company developer accounts
 accessed 2026-08-03; page last updated 2026-07-17). This replaces the long-standing USD $19
 individual / $99 company fees.
 
-Store submissions are **re-signed by Microsoft**, so a Store-distributed Strata gets:
+Store submissions are **re-signed by Microsoft**, so a Store-distributed Varve gets:
 
 - no SmartScreen warning,
 - a trusted publisher identity,
@@ -74,7 +74,7 @@ accrues download history.
 **Two caveats, stated because they affect the choice:**
 
 1. The **Individual** account type is documented for developers whose distribution is *"not in
-   relation to their business, trade, or profession"* — hobbyist/non-commercial. If Strata is
+   relation to their business, trade, or profession"* — hobbyist/non-commercial. If Varve is
    intended to be sold later, a **Company** account is the correct type. Company registration
    is also free but requires either a D-U-N-S number or business documents, plus a work email
    **on a domain you own** — which makes the domain purchase a dependency of the commercial path.
@@ -119,39 +119,47 @@ the membership.
 
 | Channel | Why rejected |
 |---|---|
-| **Mac App Store** | Requires full App Sandbox. Strata needs arbitrary-path document read/write (`resolve_user_path` spans the home directory) and shells out to `lp`/`lpstat` for printing (`print_macos.rs`). Both are sandbox-hostile. Months of entitlement work for an app that cannot yet be tested on macOS at all |
-| **Snap** | Strict confinement breaks CUPS printer enumeration and system font discovery — two features Strata is specifically built around. Classic confinement needs manual review. AppImage delivers the same "works everywhere" property with none of this |
+| **Mac App Store** | Requires full App Sandbox. Varve needs arbitrary-path document read/write (`resolve_user_path` spans the home directory) and shells out to `lp`/`lpstat` for printing (`print_macos.rs`). Both are sandbox-hostile. Months of entitlement work for an app that cannot yet be tested on macOS at all |
+| **Snap** | Strict confinement breaks CUPS printer enumeration and system font discovery — two features Varve is specifically built around. Classic confinement needs manual review. AppImage delivers the same "works everywhere" property with none of this |
 | **itch.io** | Excellent for games; a professional print/design tool is not its audience. Adds a storefront to maintain for near-zero relevant discovery |
 | **Self-hosted apt/rpm repository** | GPG key management, repo metadata signing, hosting, and mirror hygiene — full package-maintainer overhead to serve users who can already download a `.deb` |
-| **Flathub *now*** | Genuinely the best long-term Linux channel — trusted, sandboxed, auto-updating, great discovery. Rejected only for *first* release: the review cycle is weeks, sandbox permissions for printing and font access need real work, and `packaging/flatpak/dev.strata.desktop.yml` has never been validated. Target v0.2 |
+| **Flathub *now*** | Genuinely the best long-term Linux channel — trusted, sandboxed, auto-updating, great discovery. Rejected only for *first* release: the review cycle is weeks, sandbox permissions for printing and font access need real work, and `packaging/flatpak/dev.varve.desktop.yml` has never been validated. Target v0.2 |
 
 ---
 
 ## 5. Sequencing
 
-| Stage | Channels | Trigger |
-|---|---|---|
-| **0 — Private beta** | Direct AppImage to a handful of testers | Once RB-1…RB-4 are fixed |
-| **1 — Public alpha** | GitHub Releases (AppImage/deb/rpm) + website download page | Linux smoke tests pass on 2 non-Arch distros |
-| **2 — Windows alpha** | Add unsigned NSIS to the same release | First green Windows CI build + a Windows VM smoke test |
-| **3 — Beta** | Add Microsoft Store; consider AUR `-bin` | Store account approved, MSIX builds |
-| **4 — Stable** | Add Flathub; macOS only if a Mac exists | Revenue or validated demand |
+| Stage | Channels | Trigger | Status |
+|---|---|---|---|
+| **0 — Private beta** | Direct AppImage to a handful of testers | Once RB-1…RB-4 are fixed | **Ready** — all RB blockers fixed and verified |
+| **1 — Public alpha** | GitHub Releases (AppImage/deb/rpm) + website download page | Linux smoke tests pass on 2 non-Arch distros | **Next** — container install-tests pass on ubuntu:22.04 + fedora:38; GUI launch on a VM still pending |
+| **2 — Windows alpha** | Add unsigned NSIS to the same release | First green Windows CI build + a Windows VM smoke test | Waiting on first green Windows build |
+| **3 — Beta** | Add Microsoft Store; consider AUR `-bin` | Store account approved, MSIX builds | Deferred |
+| **4 — Stable** | Add Flathub; macOS only if a Mac exists | Revenue or validated demand | Deferred |
+
+**Status snapshot 2026-08-04:** repo public, Pages live at
+`k-arthur.github.io/varve`, CI unmetered, Linux packaging verified in
+containers, Model Supply Chain gate fixed. The alpha is blocked only by
+the GUI-launch-on-VM smoke test and a first green three-OS CI run.
 
 ---
 
 ## 6. Analytics and privacy
 
-**Recommendation: ship with no analytics at all.**
+**Decision: ship with no analytics at all. Implemented 2026-08-04.**
 
-`apps/website/src/layouts/Layout.astro:40` currently hardcodes Plausible. Plausible is
-privacy-respecting but **paid** (~USD $9/mo), and it is pointed at `strata.design`, a domain
-that is not owned — so it costs money and collects nothing.
+`apps/website/src/layouts/Layout.astro` previously hardcoded the Plausible
+script, pointed at `strata.design` — a domain not owned, so it cost money and
+collected nothing. Analytics is now opt-in behind the `ANALYTICS_DOMAIN` build
+env var (empty by default, so the script tag and its CSP allowances are
+omitted entirely from production builds). Privacy policy updated to match.
 
 GitHub Releases already reports per-asset download counts via the API for free. That is the
 only metric that matters at alpha ("did anyone download it, and which platform"), and it
 requires no third-party script, no cookie banner, and no privacy-policy exposure.
 
-Make analytics opt-in behind an env var so the code path survives without the cost.
+To enable analytics later, set `ANALYTICS_DOMAIN` in the deploy workflow — no
+source change needed.
 
 ---
 
@@ -167,4 +175,5 @@ repository owner as an explicit decision:
 | Azure Artifact Signing | Paid Azure subscription, identity validation | Defer — Store path is free |
 | Domain purchase | Payment | See budget plan; defer to Scenario B trigger |
 | ~~Making the repository public~~ | — | **Done 2026-08-04.** Secret-audited first; CI and Pages are now free |
+| ~~Enabling GitHub Pages~~ | — | **Done 2026-08-04.** `build_type=workflow`; site at `https://k-arthur.github.io/varve/` |
 | Publishing any release | Public distribution | All release automation lands as **draft**; publishing stays manual |
