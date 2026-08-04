@@ -63,8 +63,13 @@ cannot reproduce. Revisit when there is hardware.
 ### Compatibility risks that a CachyOS build does not prove
 
 CachyOS ships glibc 2.44 and WebKitGTK 2.52.5 — both far newer than the compatibility baseline.
-A binary linked against glibc 2.44 **will not run** on Ubuntu 22.04 (glibc 2.35). This is why
-release artifacts must be built on `ubuntu-latest` in CI, never shipped from this workstation.
+**Measured, not assumed:** a locally-built `.deb` installed into `ubuntu:22.04` reports
+`version 'GLIBC_2.39' not found` and refuses to exec (`just verify-packages`).
+
+The floor is whatever the linker actually referenced — 2.39 here, not the host's 2.44. That
+still excludes Ubuntu 22.04 (2.35), Debian 12 (2.36) and Fedora 38 (2.37), and it is why
+release artifacts are built on the **`ubuntu-22.04`** runner rather than `ubuntu-latest`
+(which is 24.04 / glibc 2.39 and would reproduce the same exclusion).
 
 Untested and needing a VM pass before Tier 2 is claimed:
 
