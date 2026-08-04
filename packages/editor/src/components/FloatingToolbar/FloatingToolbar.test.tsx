@@ -56,6 +56,11 @@ describe('FloatingToolbar — per-mode tool adaptation', () => {
 
   it('moves full brush configuration into a keyboard-accessible tool-options popover', async () => {
     renderInMode('drawing');
+    // The workspace switch is asynchronous (requestWorkspaceSwitch). Wait for
+    // it to land — Smudge only renders once drawing mode is active — or its
+    // tool reset closes the popover mid-test (see ToolOptionsPopover's
+    // close-on-tool-change effect), making the Brush button unreachable.
+    await screen.findByLabelText('Smudge');
     fireEvent.click(screen.getByLabelText('Paint Brush'));
 
     const options = screen.getByRole('button', { name: 'Tool options' });
