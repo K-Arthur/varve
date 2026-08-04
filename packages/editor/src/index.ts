@@ -1,6 +1,15 @@
 export { ErrorBoundary } from './components/ErrorBoundary';
 export type { EditorContextValue, EditorState, SessionMeta, ToolId } from './context';
 export { EditorProvider, useEditor } from './context';
+export type { CrashCenterProps, CrashTestHooks } from './crash';
+export {
+  CrashCenter,
+  currentDocumentSchemaVersion,
+  installCrashTestHooks,
+  openPrivacySettings,
+  PrivacyDiagnosticsSection,
+  SafeModeScreen,
+} from './crash';
 export type { PackageExportResult, PackageManifest } from './packageExport';
 export { buildPackageExport } from './packageExport';
 export type {

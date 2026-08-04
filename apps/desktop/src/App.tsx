@@ -1,4 +1,12 @@
-import { afterFirstVisiblePaint, type OpenFileRequest, Shell, useStartup } from '@varve/editor';
+import {
+  afterFirstVisiblePaint,
+  CrashCenter,
+  currentDocumentSchemaVersion,
+  installCrashTestHooks,
+  type OpenFileRequest,
+  Shell,
+  useStartup,
+} from '@varve/editor';
 import { HomeShell } from '@varve/home';
 import { detectPlatform, type FileEntry } from '@varve/platform';
 import { StartupLoader, TooltipProvider } from '@varve/ui';
@@ -170,6 +178,19 @@ export function App() {
     minHeight: 0,
   });
 
+  // Move focus to the newly visible surface on view switch so keyboard and
+  // screen-reader users are not dropped to <body> (WCAG 2.4.3 Focus Order).
+  useEffect(() => {
+    if (!editorMounted) return;
+    requestAnimationFrame(() => {
+      const target =
+        view === 'editor'
+          ? document.getElementById('editor-main')
+          : document.getElementById('home-main');
+      target?.focus();
+    });
+  }, [view, editorMounted]);
+
   return (
     <TooltipProvider>
       {showLoader && (
@@ -180,6 +201,14 @@ export function App() {
           simplified={capabilities.shouldSimplify}
         />
       )}
+      <CrashCenter
+        platformKind={platform.kind}
+        readUncleanShutdown={() => localStorage.getItem('strata-clean-shutdown') !== 'true'}
+        documentSchemaVersion={currentDocumentSchemaVersion()}
+        onControllerReady={(controller) => {
+          installCrashTestHooks(controller);
+        }}
+      />
       <div
         style={{
           display: 'flex',
