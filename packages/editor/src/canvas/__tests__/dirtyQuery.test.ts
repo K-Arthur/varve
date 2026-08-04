@@ -1,3 +1,12 @@
+import {
+  buildParentIndexMap,
+  createDocument,
+  type Document,
+  makeFrameNode,
+  makeGroupNode,
+  makeShapeNode,
+  type SceneNode,
+} from '@strata/scene';
 import { describe, expect, it } from 'vitest';
 import {
   expandReplayDependencies,
@@ -5,15 +14,6 @@ import {
   rectsIntersectAny,
   worldRectsToScreen,
 } from '../dirtyQuery';
-import {
-  buildParentIndexMap,
-  createDocument,
-  makeFrameNode,
-  makeGroupNode,
-  makeShapeNode,
-  type Document,
-  type SceneNode,
-} from '@strata/scene';
 
 function buildDoc(nodes: SceneNode[], roots: string[]): Document {
   const document = createDocument('query', true);
@@ -29,10 +29,7 @@ const rect = (x: number, y: number, w: number, h: number) => ({ x, y, w, h });
 describe('rectsIntersectAny', () => {
   it('detects intersection with any of several rects', () => {
     expect(
-      rectsIntersectAny(
-        rect(0, 0, 10, 10),
-        [rect(100, 100, 10, 10), rect(5, 5, 10, 10)],
-      ),
+      rectsIntersectAny(rect(0, 0, 10, 10), [rect(100, 100, 10, 10), rect(5, 5, 10, 10)]),
     ).toBe(true);
     expect(rectsIntersectAny(rect(0, 0, 10, 10), [rect(20, 20, 5, 5)])).toBe(false);
   });
@@ -196,26 +193,14 @@ describe('worldRectsToScreen', () => {
   const identity = (wx: number, wy: number): readonly [number, number] => [wx, wy];
 
   it('maps and clamps rects to the viewport with a margin', () => {
-    const result = worldRectsToScreen(
-      [rect(10, 10, 20, 20)],
-      identity,
-      1600,
-      1000,
-      40,
-    );
+    const result = worldRectsToScreen([rect(10, 10, 20, 20)], identity, 1600, 1000, 40);
     expect(result).toHaveLength(1);
     // floor(10 − 40) clamped to 0; ceil(30 + 40) = 70.
     expect(result[0]).toEqual({ x: 0, y: 0, w: 70, h: 70 });
   });
 
   it('clamps to the viewport edges', () => {
-    const result = worldRectsToScreen(
-      [rect(1580, 20, 100, 30)],
-      identity,
-      1600,
-      1000,
-      40,
-    );
+    const result = worldRectsToScreen([rect(1580, 20, 100, 30)], identity, 1600, 1000, 40);
     expect(result[0]).toEqual({ x: 1540, y: 0, w: 60, h: 90 });
   });
 

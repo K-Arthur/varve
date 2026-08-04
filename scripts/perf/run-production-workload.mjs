@@ -484,11 +484,21 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
   // failure mode: the welcome dialog re-opened over the canvas after the
   // fixture apply and swallowed every pointer event).
   const pointerWorkloads = new Set([
-    'single-drag', 'multi-drag', 'marquee-select', 'resize', 'rotate',
-    'alt-drag', 'nudge', 'layer-visibility', 'pan', 'zoom',
+    'single-drag',
+    'multi-drag',
+    'marquee-select',
+    'resize',
+    'rotate',
+    'alt-drag',
+    'nudge',
+    'layer-visibility',
+    'pan',
+    'zoom',
   ]);
   if (pointerWorkloads.has(workload) && !(await ensureCanvasHitTarget(page, dragTarget))) {
-    throw new Error(`drag target (${dragTarget.x}, ${dragTarget.y}) does not hit the content canvas`);
+    throw new Error(
+      `drag target (${dragTarget.x}, ${dragTarget.y}) does not hit the content canvas`,
+    );
   }
 
   switch (workload) {
@@ -578,7 +588,9 @@ async function driveWorkload(page, box, workload, iteration, dragTarget) {
     case 'undo-redo': {
       // Focus the canvas so the keyboard shortcuts reach its handler (the
       // global shortcut path is not traced).
-      await page.locator('canvas.editor-canvas__content-layer').click({ position: { x: 300, y: 200 } });
+      await page
+        .locator('canvas.editor-canvas__content-layer')
+        .click({ position: { x: 300, y: 200 } });
       await page.waitForTimeout(80);
       for (let i = 0; i < 4; i++) {
         await page.keyboard.press('Control+z');

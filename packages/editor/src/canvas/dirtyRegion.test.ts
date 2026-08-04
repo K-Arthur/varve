@@ -48,14 +48,8 @@ describe('computeDocumentDirtyRegion', () => {
 
   it('produces a partial region for a top-level z-order reorder', () => {
     let before = createDocument('Dirty', true);
-    before = addNode(
-      before,
-      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
-    );
-    before = addNode(
-      before,
-      makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
-    );
+    before = addNode(before, makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }));
+    before = addNode(before, makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }));
     // Reorder: b moves in front of a (paint order swap).
     const after = { ...before, rootChildren: ['b', 'a'] };
     const dirty = computeDocumentDirtyRegion(before, after);
@@ -91,14 +85,8 @@ describe('computeDocumentDirtyRegion', () => {
 
   it('keeps z-order changes partial even when combined with a leaf edit', () => {
     let before = createDocument('Dirty', true);
-    before = addNode(
-      before,
-      makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
-    );
-    before = addNode(
-      before,
-      makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }),
-    );
+    before = addNode(before, makeShapeNode('a', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }));
+    before = addNode(before, makeShapeNode('b', { kind: 'rect', x: 0, y: 0, w: 20, h: 10 }));
     const a = before.nodes.a!;
     const after = {
       ...before,
