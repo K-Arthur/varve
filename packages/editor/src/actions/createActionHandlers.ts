@@ -9,6 +9,7 @@ import { harmonizeSpacing as applyHarmonize } from '../intelligence/spacingHarmo
 export interface ActionHandlerCallbacks {
   onOpenFile?: () => void;
   onImportFile?: () => void;
+  onInsertIcon?: () => void;
   onBackToHome?: () => void;
   onOpenSettings?: () => void;
   onStartTour?: () => void;
@@ -104,6 +105,7 @@ export function createActionHandlers(
     home: () => cb.onBackToHome?.(),
     settings: () => cb.onOpenSettings?.(),
     reopenLast: () => cb.onReopenLast?.(),
+    insertIcon: () => cb.onInsertIcon?.(),
 
     // ── View / Zoom ──
     zoomReset: () => e.zoomTo(1),

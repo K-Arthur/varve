@@ -282,6 +282,11 @@ export const SHORTCUT_DEFS = {
     label: 'Toggle Codegen Panel',
     category: 'View',
   },
+  insertIcon: {
+    binding: { key: 'i', ctrl: true, alt: true, shift: true },
+    label: 'Insert Icon\u2026',
+    category: 'Insert',
+  },
   toggleLogoPanel: {
     binding: { key: 'l', ctrl: true, alt: true, shift: true },
     label: 'Toggle Logo Panel',

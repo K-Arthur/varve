@@ -35,6 +35,29 @@ export interface DocumentIconAsset {
   createdAt: number;
   updatedAt: number;
   hash: string;
+  // -------------------------------------------------------------------------
+  // Provenance (optional, added 2026-08-04 — old documents load unchanged)
+  // -------------------------------------------------------------------------
+  /** SPDX identifier of the pack licence (e.g. "Apache-2.0"), when known. */
+  spdxId?: string;
+  /** URL of the full licence text. */
+  licenceUrl?: string;
+  /** Attribution text required by the licence, when applicable. */
+  attributionText?: string;
+  /** Pack author name. */
+  author?: string;
+  /** URL to the icon source (author/pack page). */
+  sourceUrl?: string;
+  /** Pack version at retrieval time. */
+  sourceVersion?: string;
+  /** Unix ms when the icon data was retrieved. */
+  retrievedAt?: number;
+  /** Sanitizer/normalizer version that produced the embedded SVG. */
+  sanitizerVersion?: string;
+  /** Globally stable provider id:pack:name identifier. */
+  canonicalId?: string;
+  /** monotone vs multicolor palette. */
+  paletteType?: 'monotone' | 'multicolor';
 }
 
 export interface IconOverrides {
@@ -55,6 +78,20 @@ export interface IconInsertOptions {
   y?: number;
   asComponent?: boolean;
   overrides?: IconOverrides;
+}
+
+/** Provenance fields accepted at creation (all optional). */
+export interface IconProvenance {
+  spdxId?: string;
+  licenceUrl?: string;
+  attributionText?: string;
+  author?: string;
+  sourceUrl?: string;
+  sourceVersion?: string;
+  retrievedAt?: number;
+  sanitizerVersion?: string;
+  canonicalId?: string;
+  paletteType?: 'monotone' | 'multicolor';
 }
 
 function generateId(): string {
@@ -82,6 +119,7 @@ export function createDocumentIconAsset(
     tags?: string[];
     viewBox?: string;
     storageMode?: IconStorageMode;
+    provenance?: IconProvenance;
   } = {},
 ): DocumentIconAsset {
   const now = Date.now();
@@ -105,6 +143,7 @@ export function createDocumentIconAsset(
     createdAt: now,
     updatedAt: now,
     hash: hashSvg(svg),
+    ...(options.provenance ?? {}),
   };
 }
 
@@ -179,6 +218,32 @@ export function validateIconAsset(asset: unknown): string | null {
   }
   if (raw.instanceNodeIds !== undefined && !Array.isArray(raw.instanceNodeIds)) {
     return 'Icon asset instanceNodeIds must be an array';
+  }
+  // Optional provenance fields: loose type checks only.
+  for (const key of [
+    'spdxId',
+    'licenceUrl',
+    'attributionText',
+    'author',
+    'sourceUrl',
+    'sourceVersion',
+    'canonicalId',
+  ] as const) {
+    if (raw[key] !== undefined && typeof raw[key] !== 'string') {
+      return `Icon asset ${key} must be a string`;
+    }
+  }
+  for (const key of ['retrievedAt'] as const) {
+    if (raw[key] !== undefined && typeof raw[key] !== 'number') {
+      return `Icon asset ${key} must be a number`;
+    }
+  }
+  if (
+    raw.paletteType !== undefined &&
+    raw.paletteType !== 'monotone' &&
+    raw.paletteType !== 'multicolor'
+  ) {
+    return 'Icon asset paletteType must be "monotone" or "multicolor"';
   }
   return null;
 }

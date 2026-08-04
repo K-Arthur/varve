@@ -2,13 +2,9 @@
  * IconSection — controls for a selected document icon node.
  *
  * Shows when a single selected node carries an `iconAssetId` reference.
- * Provides: name/provider/licence/attribution provenance, replace (opens the
- * icon browser in replace mode), and detach (converts to plain editable
- * nodes while preserving geometry).
- *
- * Research basis: Figma component instance controls, image-fill provenance
- * panels in design tools (licence + attribution must be visible before
- * export decisions).
+ * Provides: provenance (name, pack, source, SPDX licence, attribution),
+ * replace (opens the icon browser in replace mode), detach (converts to
+ * plain editable nodes while preserving geometry), and licence warnings.
  */
 
 import type { SceneNode } from '@varve/scene';
@@ -24,6 +20,9 @@ export function IconSection({ node }: { node: SceneNode }) {
 
   if (!node.iconAssetId) return null;
 
+  const spdx = asset?.spdxId ?? asset?.licence;
+  const attributionRequired = Boolean(asset?.attributionText || asset?.attribution);
+
   return (
     <DisclosureSection title="Icon" sectionId="icon">
       <div className="insp-icon">
@@ -34,12 +33,61 @@ export function IconSection({ node }: { node: SceneNode }) {
             {asset.providerId ? ` · ${asset.providerId}` : ''}
           </div>
         )}
-        {asset?.licence && <div className="insp-icon__meta">Licence: {asset.licence}</div>}
-        {asset?.attribution && (
+        {asset?.canonicalId && <div className="insp-icon__meta">{asset.canonicalId}</div>}
+        {spdx && (
+          <div className="insp-icon__meta">
+            Licence: {spdx}
+            {asset?.licenceUrl && (
+              <>
+                {' — '}
+                <a
+                  href={asset.licenceUrl}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="insp-icon__link"
+                >
+                  terms
+                </a>
+              </>
+            )}
+          </div>
+        )}
+        {!spdx && (
+          <div className="insp-icon__warn">
+            Licence unknown — verify before commercial redistribution.
+          </div>
+        )}
+        {asset?.attributionText && (
+          <div className="insp-icon__meta">Attribution: {asset.attributionText}</div>
+        )}
+        {asset?.attribution && !asset.attributionText && (
           <div className="insp-icon__meta">Attribution: {asset.attribution}</div>
+        )}
+        {asset?.author && <div className="insp-icon__meta">Author: {asset.author}</div>}
+        {asset?.sourceUrl && (
+          <div className="insp-icon__meta">
+            Source:{' '}
+            <a
+              href={asset.sourceUrl}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="insp-icon__link"
+            >
+              {asset.sourceUrl.replace(/^https?:\/\//, '').slice(0, 40)}
+            </a>
+          </div>
+        )}
+        {asset?.paletteType === 'multicolor' && (
+          <div className="insp-icon__meta">Multicolour — recolouring is limited.</div>
         )}
         {asset?.storageMode === 'linked' && (
           <div className="insp-icon__meta">Linked — checks for provider updates.</div>
+        )}
+        {attributionRequired && (
+          <div className="insp-icon__note">
+            This icon requires attribution in distributed work. It is included in the document
+            attribution report at export time.
+          </div>
         )}
         <div className="insp-icon__actions">
           <Button variant="secondary" size="sm" onClick={() => setReplacing(true)}>
@@ -55,7 +103,7 @@ export function IconSection({ node }: { node: SceneNode }) {
         </div>
         <div className="insp-icon__hint">
           Icons are embedded in the document — they stay available offline and survive provider
-          outages.
+          outages. Replacing keeps the icon's size, position, rotation, and effects.
         </div>
       </div>
       <IconBrowserDialog
