@@ -19,11 +19,35 @@ export const PANEL_LIMITS = {
   inspector: { min: 240, max: 600 },
 } as const;
 
+/** Minimum width the canvas column keeps; panels are clamped so the canvas
+ *  never falls below this (WCAG 1.4.10 reflow / usability). */
+export const CANVAS_MIN_WIDTH = 320;
+
 export type PanelSide = keyof typeof PANEL_LIMITS;
 
 export function clampPanelWidth(side: PanelSide, width: number): number {
   const { min, max } = PANEL_LIMITS[side];
   return Math.min(max, Math.max(min, Math.round(width)));
+}
+
+/** Default width the CSS clamp() custom property produces at a viewport. */
+export function defaultPanelWidth(side: PanelSide, viewport: number): number {
+  // Mirrors tokens.css: --sidebar-width: clamp(14rem, 12rem + 8vw, 18rem);
+  // --inspector-width: clamp(15rem, 13rem + 8vw, 20rem);
+  if (side === 'layers') return Math.min(288, Math.max(224, 192 + viewport * 0.08));
+  return Math.min(320, Math.max(240, 208 + viewport * 0.08));
+}
+
+/** Clamp a panel width so the canvas column keeps CANVAS_MIN_WIDTH. */
+export function clampPanelWidthToViewport(
+  side: PanelSide,
+  width: number,
+  otherWidth: number,
+  viewport: number,
+): number {
+  const min = PANEL_LIMITS[side].min;
+  const available = Math.max(min, viewport - CANVAS_MIN_WIDTH - otherWidth);
+  return Math.min(clampPanelWidth(side, width), available);
 }
 
 /** Hook owning both panel widths (persisted in editor settings);
@@ -35,17 +59,36 @@ export function usePanelWidths(): {
 } {
   const [widths, setWidths] = useState<{ layers: number | null; inspector: number | null }>(() => {
     const { leftPanelWidth, rightPanelWidth } = loadSettings().panel;
+    const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
+    const layersSaved = leftPanelWidth != null ? clampPanelWidth('layers', leftPanelWidth) : null;
+    const inspectorSaved =
+      rightPanelWidth != null ? clampPanelWidth('inspector', rightPanelWidth) : null;
+    const otherLayers = inspectorSaved ?? defaultPanelWidth('inspector', viewport);
+    const otherInspector = layersSaved ?? defaultPanelWidth('layers', viewport);
     return {
-      layers: leftPanelWidth != null ? clampPanelWidth('layers', leftPanelWidth) : null,
-      inspector: rightPanelWidth != null ? clampPanelWidth('inspector', rightPanelWidth) : null,
+      layers:
+        layersSaved != null
+          ? clampPanelWidthToViewport('layers', layersSaved, otherLayers, viewport)
+          : null,
+      inspector:
+        inspectorSaved != null
+          ? clampPanelWidthToViewport('inspector', inspectorSaved, otherInspector, viewport)
+          : null,
     };
   });
 
   const setWidth = useCallback((side: PanelSide, width: number | null) => {
-    const clamped = width === null ? null : clampPanelWidth(side, width);
-    setWidths((prev) => ({ ...prev, [side]: clamped }));
-    updateSettings({
-      panel: side === 'layers' ? { leftPanelWidth: clamped } : { rightPanelWidth: clamped },
+    setWidths((prev) => {
+      const otherSaved = side === 'layers' ? prev.inspector : prev.layers;
+      const viewport = typeof window !== 'undefined' ? window.innerWidth : 1440;
+      const otherWidth =
+        otherSaved ?? defaultPanelWidth(side === 'layers' ? 'inspector' : 'layers', viewport);
+      const clamped =
+        width === null ? null : clampPanelWidthToViewport(side, width, otherWidth, viewport);
+      updateSettings({
+        panel: side === 'layers' ? { leftPanelWidth: clamped } : { rightPanelWidth: clamped },
+      });
+      return { ...prev, [side]: clamped };
     });
   }, []);
 

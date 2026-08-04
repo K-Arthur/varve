@@ -840,6 +840,13 @@
   opacity: 1;
 }
 
+/* Touch devices have no hover to reveal the drag handle (WCAG 2.5.8). */
+@media (any-hover: none) {
+  .layers-row__drag-handle {
+    opacity: 1;
+  }
+}
+
 .layers-row__drag-handle:active {
   cursor: grabbing;
 }
