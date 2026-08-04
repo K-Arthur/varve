@@ -1,15 +1,22 @@
 /**
- * Tauri desktop: close the native splash window and reveal the main window.
- * Browser builds no-op — there is no native splash to manage.
+ * Tauri desktop: bring the main window forward once the app has mounted.
  *
- * Research: https://v2.tauri.app/learn/splashscreen/ (accessed 2026-07-13)
+ * There is no longer a native splash window. It kept `main` hidden until the
+ * frontend asked for it, which meant any startup failure left the user on an
+ * unclosable splash with no error — so the branded boot screen now lives in
+ * index.html inside the main window instead, and shows a readable error if
+ * startup fails.
+ *
+ * This is kept because showing an already-visible window is a harmless no-op
+ * and it correctly focuses the window when the app is launched by opening a
+ * .strata file. Browser builds no-op.
  */
 
 import { isTauriRuntime } from '@strata/platform';
 
 /**
- * Close the native splashscreen and show the main window.
- * Safe to call multiple times; failures are logged, not thrown.
+ * Show and focus the main window. Idempotent; failures are logged, not thrown —
+ * a focus failure must never be able to stop startup.
  */
 export async function revealMainWindow(): Promise<void> {
   if (!isTauriRuntime()) return;
