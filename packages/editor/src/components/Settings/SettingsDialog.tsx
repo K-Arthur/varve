@@ -83,7 +83,7 @@ export function SettingsDialog({
       updateSection('appearance', { theme: theme as ThemeMode });
       if (theme !== 'system') {
         setTheme(theme as 'light' | 'dark' | 'high-contrast');
-        localStorage.setItem('strata-theme', theme);
+        localStorage.setItem('varve-theme', theme);
       } else {
         // "System" = remove explicit data-theme so CSS @media (prefers-color-scheme) takes over
         delete document.documentElement.dataset.theme;
@@ -97,7 +97,7 @@ export function SettingsDialog({
   const handleReset = useCallback(() => {
     resetSettings();
     setTheme('light');
-    localStorage.setItem('strata-theme', 'light');
+    localStorage.setItem('varve-theme', 'light');
     bumpThemeRevision();
   }, [resetSettings]);
 

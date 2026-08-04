@@ -1,5 +1,14 @@
+import { migrateLegacyIndexedDb } from '@varve/platform';
 import type { FileLocator, RecentEntry } from './types';
-import { IDB_NAME, IDB_STORE, MAX_ENTRIES, SCHEMA_KEY } from './types';
+import { IDB_NAME, IDB_STORE, LEGACY_IDB_NAME, MAX_ENTRIES, SCHEMA_KEY } from './types';
+
+let handleDbMigrated = false;
+
+async function ensureHandleDbMigrated(): Promise<void> {
+  if (handleDbMigrated) return;
+  handleDbMigrated = true;
+  await migrateLegacyIndexedDb(LEGACY_IDB_NAME, IDB_NAME, [IDB_STORE]);
+}
 
 const changeListeners = new Set<() => void>();
 
@@ -133,7 +142,10 @@ function openHandleDb(): Promise<IDBDatabase> {
         db.createObjectStore(IDB_STORE);
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      void ensureHandleDbMigrated().then(() => resolve(db));
+    };
     req.onerror = () => reject(req.error);
   });
 }

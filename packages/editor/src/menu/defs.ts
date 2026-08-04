@@ -1613,7 +1613,8 @@ export function getHelpMenu(runAction: (id: string) => void): MenuItemDef[] {
         try {
           if (
             typeof localStorage !== 'undefined' &&
-            localStorage.getItem('strata-install-desktop-dismissed') === 'true'
+            (localStorage.getItem('varve-install-desktop-dismissed') ??
+              localStorage.getItem('strata-install-desktop-dismissed')) === 'true'
           )
             return false;
         } catch {

@@ -6522,7 +6522,7 @@ export function EditorProvider({
         // navigator.clipboard.read() for menu-triggered pastes, then to a
         // native OS clipboard read on Tauri for WebKitGTK/Wayland.
         const unified = await readClipboardUnifiedWithFallback(platform);
-        const strataData = unified.strataData;
+        const varveData = unified.varveData;
 
         const importInputs = unified.importItems.map((item): ImportFileInput => {
           if (typeof item.data === 'string') {
@@ -6555,7 +6555,7 @@ export function EditorProvider({
             })),
           ) ?? [];
 
-        if (!strataData && importResults.length === 0) return;
+        if (!varveData && importResults.length === 0) return;
 
         setState((s) => {
           undoStackRef.current = [...undoStackRef.current.slice(-50), s.document];
@@ -6565,19 +6565,19 @@ export function EditorProvider({
           let doc = s.document;
           const newIds: NodeId[] = [];
 
-          if (strataData) {
+          if (varveData) {
             const tempNodes: Record<string, SceneNode> = {};
-            for (const node of strataData.nodes) {
+            for (const node of varveData.nodes) {
               tempNodes[node.id] = node;
             }
             const tempDoc: Document = {
               ...doc,
               nodes: tempNodes,
-              ...(strataData.rasterMaskAssets
-                ? { rasterMaskAssets: strataData.rasterMaskAssets }
+              ...(varveData.rasterMaskAssets
+                ? { rasterMaskAssets: varveData.rasterMaskAssets }
                 : {}),
-              ...(strataData.assets ? { assets: strataData.assets } : {}),
-              ...(strataData.iconAssets ? { iconAssets: strataData.iconAssets } : {}),
+              ...(varveData.assets ? { assets: varveData.assets } : {}),
+              ...(varveData.iconAssets ? { iconAssets: varveData.iconAssets } : {}),
             };
             // copySelected()/cutSelected() serialize each selected node plus
             // its full descendant subtree (gatherSubtreeNodes), so a node
@@ -6585,12 +6585,12 @@ export function EditorProvider({
             // an independent paste target — only the roots of the original
             // selection should become new top-level pastes.
             const childIds = new Set<NodeId>();
-            for (const node of strataData.nodes) {
+            for (const node of varveData.nodes) {
               if (isContainer(node)) {
                 for (const childId of node.children) childIds.add(childId);
               }
             }
-            for (const node of strataData.nodes) {
+            for (const node of varveData.nodes) {
               if (childIds.has(node.id)) continue;
               // insertImportedSubtree deep-clones from tempDoc (handling
               // containers and leaves alike), merges every cloned descendant
@@ -6642,7 +6642,7 @@ export function EditorProvider({
           return { ...s, document: doc, selection: newIds };
         });
 
-        const totalCount = (strataData?.nodes.length ?? 0) + importResults.length;
+        const totalCount = (varveData?.nodes.length ?? 0) + importResults.length;
         if (totalCount > 0) {
           const failed = importReport?.failureCount ?? 0;
           announcerRef.current?.announce(

@@ -33,7 +33,7 @@ test.describe('Application startup', () => {
   test('home loads with branded loader setting enabled', async ({ page }) => {
     await page.addInitScript(() => {
       localStorage.setItem(
-        'strata-editor-settings',
+        'varve-editor-settings',
         JSON.stringify({
           startup: { showBrandedLoader: true },
         }),

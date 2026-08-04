@@ -3,7 +3,7 @@
  * Write the website's release data from a generated release manifest.
  *
  * Replaces the hand-maintained apps/website/public/releases.json, whose sizes
- * ("~200 MB"), version ("0.0.0") and AUR command ("yay -S strata-desktop", a
+ * ("~200 MB"), version ("0.0.0") and AUR command ("yay -S varve-desktop", a
  * package that does not exist) were all guesses that nothing kept true — and
  * which the download page never actually read anyway.
  *
@@ -14,7 +14,7 @@
  *   node scripts/release/update-website-manifest.mjs \
  *     --manifest dist/release/release-manifest.json \
  *     --tag v0.1.0 \
- *     [--repo K-Arthur/Strata]
+ *     [--repo K-Arthur/varve]
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
