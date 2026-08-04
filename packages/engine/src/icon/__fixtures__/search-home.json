@@ -1,0 +1,281 @@
+{
+  "icons": [
+    "material-symbols:home",
+    "material-symbols:home-outline",
+    "material-symbols:home-outline-rounded",
+    "material-symbols:home-rounded",
+    "material-symbols-light:home",
+    "material-symbols-light:home-outline",
+    "material-symbols-light:home-outline-rounded",
+    "material-symbols-light:home-rounded",
+    "ic:baseline-home",
+    "ic:outline-home",
+    "ic:round-home",
+    "ic:sharp-home",
+    "ic:twotone-home",
+    "mdi:home",
+    "mdi:home-outline",
+    "mdi-light:home",
+    "line-md:home",
+    "line-md:home-twotone",
+    "solar:home-bold",
+    "solar:home-bold-duotone",
+    "solar:home-broken",
+    "solar:home-line-duotone",
+    "solar:home-linear",
+    "solar:home-outline"
+  ],
+  "total": 24,
+  "limit": 32,
+  "start": 0,
+  "collections": {
+    "material-symbols": {
+      "name": "Material Symbols",
+      "total": 15585,
+      "author": {
+        "name": "Google",
+        "url": "https://github.com/google/material-design-icons"
+      },
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/google/material-design-icons/blob/master/LICENSE"
+      },
+      "samples": [
+        "downloading",
+        "privacy-tip",
+        "filter-drama-outline",
+        "assignment-ind",
+        "monitoring",
+        "desktop-access-disabled-outline-sharp"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": ["Has Padding"],
+      "palette": false
+    },
+    "material-symbols-light": {
+      "name": "Material Symbols Light",
+      "total": 15650,
+      "author": {
+        "name": "Google",
+        "url": "https://github.com/google/material-design-icons"
+      },
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/google/material-design-icons/blob/master/LICENSE"
+      },
+      "samples": [
+        "downloading",
+        "privacy-tip",
+        "filter-drama-outline",
+        "assignment-ind",
+        "monitoring",
+        "desktop-access-disabled-outline-sharp"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": ["Precise Shapes", "Has Padding"],
+      "palette": false
+    },
+    "ic": {
+      "name": "Google Material Icons",
+      "total": 10955,
+      "version": "1.0.32",
+      "author": {
+        "name": "Material Design Authors",
+        "url": "https://github.com/material-icons/material-icons"
+      },
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/material-icons/material-icons/blob/master/LICENSE"
+      },
+      "samples": [
+        "baseline-notifications-active",
+        "outline-person-outline",
+        "twotone-videocam-off",
+        "sharp-flash-on",
+        "baseline-volume-mute",
+        "twotone-battery-20"
+      ],
+      "height": 24,
+      "category": "Material",
+      "palette": false
+    },
+    "mdi": {
+      "name": "Material Design Icons",
+      "total": 7447,
+      "author": {
+        "name": "Pictogrammers",
+        "url": "https://github.com/Templarian/MaterialDesign"
+      },
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/Templarian/MaterialDesign/blob/master/LICENSE"
+      },
+      "samples": [
+        "account-check",
+        "bell-alert-outline",
+        "calendar-edit",
+        "skip-previous",
+        "home-variant",
+        "lock-open-outline"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": ["Precise Shapes", "Has Padding"],
+      "palette": false
+    },
+    "mdi-light": {
+      "name": "Material Design Light",
+      "total": 284,
+      "author": {
+        "name": "Pictogrammers",
+        "url": "https://github.com/Templarian/MaterialDesignLight"
+      },
+      "license": {
+        "title": "Open Font License",
+        "spdx": "OFL-1.1",
+        "url": "https://github.com/Templarian/MaterialDesignLight/blob/master/LICENSE.md"
+      },
+      "samples": ["cart", "bell", "login", "skip-previous", "home", "lock-open"],
+      "height": 24,
+      "category": "Material",
+      "tags": ["Precise Shapes", "Has Padding"],
+      "palette": false
+    },
+    "line-md": {
+      "name": "Material Line Icons",
+      "total": 1218,
+      "version": "3.0.5",
+      "author": {
+        "name": "Vjacheslav Trushkin",
+        "url": "https://github.com/cyberalien/line-md"
+      },
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/cyberalien/line-md/blob/main/license.txt"
+      },
+      "samples": [
+        "loading-twotone-loop",
+        "beer-alt-twotone-loop",
+        "image-twotone",
+        "account",
+        "cloud-alt-upload-twotone-loop",
+        "cog-loop"
+      ],
+      "height": 24,
+      "category": "Material",
+      "tags": ["Precise Shapes", "Has Padding", "Uses Stroke", "Contains Animations"],
+      "palette": false
+    },
+    "solar": {
+      "name": "Solar",
+      "total": 7401,
+      "author": {
+        "name": "480 Design",
+        "url": "https://www.figma.com/community/file/1166831539721848736"
+      },
+      "license": {
+        "title": "CC BY 4.0",
+        "spdx": "CC-BY-4.0",
+        "url": "https://creativecommons.org/licenses/by/4.0/"
+      },
+      "samples": [
+        "magnifer-zoom-out-broken",
+        "armchair-2-bold-duotone",
+        "traffic-economy-line-duotone",
+        "user-rounded-bold-duotone",
+        "soundwave-linear",
+        "hamburger-menu-broken"
+      ],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": ["Has Padding", "Uses Stroke"],
+      "palette": false
+    },
+    "tabler": {
+      "name": "Tabler Icons",
+      "total": 6184,
+      "version": "3.46.0",
+      "author": {
+        "name": "Pawe\u0142 Kuna",
+        "url": "https://github.com/tabler/tabler-icons"
+      },
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/tabler/tabler-icons/blob/master/LICENSE"
+      },
+      "samples": ["alien", "device-desktop", "photo", "chevron-right", "check", "square-root"],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": ["Precise Shapes", "Has Padding", "Uses Stroke"],
+      "palette": false
+    },
+    "boxicons": {
+      "name": "Boxicons",
+      "total": 3768,
+      "version": "1.0.5",
+      "author": {
+        "name": "Boxicons",
+        "url": "https://github.com/box-icons/boxicons-core"
+      },
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/box-icons/boxicons-core/blob/main/LICENSE"
+      },
+      "samples": ["clock-2-filled", "desk", "battery-filled", "crop", "crypto-coin-filled", "scan"],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": ["Precise Shapes", "Has Padding"],
+      "palette": false
+    },
+    "ri": {
+      "name": "Remix Icon",
+      "total": 3188,
+      "version": "4.8.0",
+      "author": {
+        "name": "Remix Design",
+        "url": "https://github.com/cyberalien/RemixIcon"
+      },
+      "license": {
+        "title": "Apache 2.0",
+        "spdx": "Apache-2.0",
+        "url": "https://github.com/cyberalien/RemixIcon/blob/master/License"
+      },
+      "samples": ["lock-2-line", "mark-pen-fill", "moon-line", "filter-2-fill", "text", "add-line"],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": ["Precise Shapes", "Has Padding"],
+      "palette": false
+    },
+    "mynaui": {
+      "name": "Myna UI Icons",
+      "total": 2620,
+      "author": {
+        "name": "Praveen Juge",
+        "url": "https://github.com/praveenjuge/mynaui-icons"
+      },
+      "license": {
+        "title": "MIT",
+        "spdx": "MIT",
+        "url": "https://github.com/praveenjuge/mynaui-icons/blob/main/LICENSE"
+      },
+      "samples": ["signal", "power", "tree", "cart", "filter", "cog-three"],
+      "height": 24,
+      "category": "UI 24px",
+      "tags": ["Has Padding", "Uses Stroke"],
+      "palette": false
+    }
+  },
+  "request": {
+    "query": "home",
+    "limit": "3"
+  }
+}
