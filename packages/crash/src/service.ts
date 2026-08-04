@@ -297,6 +297,14 @@ export class CrashReportService {
     return report;
   }
 
+  async attachContact(id: string, contact: string): Promise<CrashReport | null> {
+    const report = await this.deps.queue.get(id);
+    if (!report) return null;
+    report.userContact = contact.slice(0, LIMITS.maxContactLength) || undefined;
+    await this.persist(report);
+    return report;
+  }
+
   async setAttachmentIncluded(
     id: string,
     index: number,

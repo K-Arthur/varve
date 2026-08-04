@@ -56,6 +56,14 @@ function ortWasmDevPlugin() {
 export default defineConfig({
   define: {
     __VARVE_ASSET_BASE__: JSON.stringify(process.env.VITE_BASE_URL ?? '/'),
+    // Release stamp for crash reports. Unset in dev; production CI sets it
+    // from the tag/channel. Never contains secrets.
+    __VARVE_RELEASE__: JSON.stringify({
+      appVersion: process.env.VARVE_APP_VERSION ?? '0.1.0',
+      buildChannel: process.env.VARVE_BUILD_CHANNEL ?? 'dev',
+      releaseId: process.env.VARVE_RELEASE_ID ?? undefined,
+      gitCommit: process.env.VARVE_GIT_COMMIT ?? undefined,
+    }),
   },
   base: process.env.VITE_BASE_URL ?? '/',
   plugins: [react(), ortWasmDevPlugin()],

@@ -184,12 +184,31 @@ function ShellInner({
   const [inspectorVisible, setInspectorVisible] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<
-    'general' | 'appearance' | 'shortcuts' | 'export' | 'models' | 'collab' | 'ai' | 'about'
+    | 'general'
+    | 'appearance'
+    | 'shortcuts'
+    | 'export'
+    | 'models'
+    | 'collab'
+    | 'ai'
+    | 'privacy'
+    | 'about'
   >('general');
   const exportLayerRef = useRef<ExportLayerHandle | null>(null);
   const findReplaceLayerRef = useRef<FindReplaceLayerHandle | null>(null);
   const onboardingLayerRef = useRef<OnboardingLayerHandle | null>(null);
   const { shellStyle, widths, setWidth } = usePanelWidths();
+
+  // Crash-center deep link: "Privacy and diagnostics settings" in the crash
+  // dialogs opens this dialog on the privacy section.
+  useEffect(() => {
+    const openPrivacy = () => {
+      setSettingsSection('privacy');
+      setSettingsOpen(true);
+    };
+    window.addEventListener('varve:open-privacy-settings', openPrivacy);
+    return () => window.removeEventListener('varve:open-privacy-settings', openPrivacy);
+  }, []);
 
   // Register all actions into the ActionRegistry.
   // NOTE: registerEditorActions MUST run first so its handlers take
@@ -283,6 +302,9 @@ function ShellInner({
         }`}
         style={gridStyle}
       >
+        <a href="#editor-main" className="editor-shell__skip-link">
+          Skip to canvas
+        </a>
         {!distractionFreeMode && (
           <Menubar
             onBackToHome={onBackToHome}
@@ -318,12 +340,14 @@ function ShellInner({
           </Tooltip>
         )}
         <SelectionBreadcrumb />
-        <ErrorBoundary>
-          <CanvasArea
-            canvasContainerRef={canvasContainerRef}
-            onContextMenu={handleCanvasContextMenu}
-          />
-        </ErrorBoundary>
+        <main className="editor-shell__main" style={{ display: 'contents' }}>
+          <ErrorBoundary>
+            <CanvasArea
+              canvasContainerRef={canvasContainerRef}
+              onContextMenu={handleCanvasContextMenu}
+            />
+          </ErrorBoundary>
+        </main>
         <MissingFontController />
         <CollabCursorOverlay
           users={collabUsers}

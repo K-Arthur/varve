@@ -8,6 +8,7 @@ export type SettingsSection =
   | 'models'
   | 'collab'
   | 'ai'
+  | 'privacy'
   | 'about';
 export type SettingsSectionLabel =
   | 'General'
