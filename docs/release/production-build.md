@@ -10,14 +10,40 @@ usually because it needs hardware we do not have).
 
 ---
 
-## 0. The one thing to know first
+## 0. The one thing to know first — MEASURED
 
-**Do not ship a Linux package built on this machine.**
+**Do not ship a Linux package built on this machine.** This is no longer an
+assumption; it was tested.
 
-CachyOS has glibc 2.44. A binary linked against it will not start on the Ubuntu
-22.04 compatibility baseline (glibc 2.35), and the AppImage bundler copies *this
-host's* system libraries into the bundle. Local packages are for smoke-testing
-only; release artifacts come from `ubuntu-latest` in `.github/workflows/release.yml`.
+Installing the locally-built `.deb` into a clean `ubuntu:22.04` container
+(`just verify-packages`) gives:
+
+```
+glibc available on Ubuntu 22.04 : 2.35
+glibc required by the binary    : GLIBC_2.39
+
+/usr/bin/strata-desktop: /lib/x86_64-linux-gnu/libc.so.6:
+    version `GLIBC_2.39' not found (required by /usr/bin/strata-desktop)
+```
+
+The binary refuses to exec. Note the floor is **2.39, not 2.44** — a binary
+inherits the highest glibc symbol version it actually references, not the
+host's full version.
+
+**This also changed the CI runner.** `ubuntu-latest` is Ubuntu 24.04, which is
+glibc 2.39 — building there produces exactly the same floor and silently
+excludes Ubuntu 22.04 LTS, Debian 12 and Fedora 38, while the docs claimed 22.04
+support. `release.yml` now builds Linux artifacts on **`ubuntu-22.04`**, which
+sets the floor at 2.35.
+
+| Distro | glibc | Built on CachyOS / ubuntu-latest | Built on ubuntu-22.04 |
+|---|---|---|---|
+| Ubuntu 22.04 LTS | 2.35 | ✗ | ✓ |
+| Debian 12 | 2.36 | ✗ | ✓ |
+| Fedora 38 | 2.37 | ✗ | ✓ |
+| Ubuntu 24.04 LTS | 2.39 | ✓ | ✓ |
+
+Local packages are for smoke-testing only.
 
 ---
 
@@ -186,7 +212,8 @@ node scripts/release/collect-artifacts.mjs \
 node scripts/release/verify-artifacts.mjs --dir dist/release --expect-version 0.1.0
 ```
 
-Artifacts are renamed to `Strata-<version>-<os>-<arch>.<ext>`, hashed, and
+Artifacts are renamed to `<Product>-<version>-<os>-<arch>.<ext>` (the product name
+is read from `tauri.conf.json`, so it follows a rename), hashed, and
 described in `dist/release/release-manifest.json` + `SHA256SUMS.txt`.
 
 Independent check (this is what a user runs):
