@@ -30,6 +30,7 @@ describe('Inspector feature ownership', () => {
       'typography',
       'canvas-background',
       'document-color',
+      'document-proof',
       'document-grid',
       'isometric-grid',
     ]);
