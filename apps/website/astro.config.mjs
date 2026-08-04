@@ -16,7 +16,7 @@ import { defineConfig } from 'astro/config';
  * source change is needed.
  */
 const SITE_URL = process.env.SITE_URL ?? 'https://k-arthur.github.io';
-const SITE_BASE = process.env.SITE_BASE ?? '/Strata';
+const SITE_BASE = process.env.SITE_BASE ?? '/varve';
 
 export default defineConfig({
   integrations: [react(), tailwind()],

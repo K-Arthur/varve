@@ -289,7 +289,7 @@ if (!isMain) {
     );
     if (!pids.length) {
       console.error(
-        'webkit-profile: no running Strata session found.\n' +
+        'webkit-profile: no running Varve session found.\n' +
           'Launch the release GUI first (the workload must run in a real window):\n' +
           '  ./target/release/strata\n' +
           'then warm it up and re-run with --record.',
@@ -367,7 +367,7 @@ if (!isMain) {
     const target = processes.webProcess[0] ?? processes.host[0];
     if (!target) {
       console.error(
-        'webkit-profile: no running Strata session found. Launch ./target/release/strata first.',
+        'webkit-profile: no running Varve session found. Launch ./target/release/strata first.',
       );
       process.exit(4);
     }

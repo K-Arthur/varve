@@ -118,7 +118,7 @@ describe('Tooltip', () => {
     const trigger = screen.getByRole('button', { name: 'Trigger' });
     fireEvent.focus(trigger);
     const tooltip = screen.getByRole('tooltip');
-    const shortcut = tooltip.querySelector('.strata-tip__shortcut');
+    const shortcut = tooltip.querySelector('.varve-tip__shortcut');
     expect(shortcut).toBeInTheDocument();
     expect(shortcut).toHaveTextContent('V');
   });

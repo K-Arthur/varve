@@ -68,7 +68,7 @@ function createClipboardEventWithFiles(files: File[]): ClipboardEvent {
   return { type: 'paste', clipboardData: dt } as ClipboardEvent;
 }
 
-function createClipboardEventWithStrataNodes(nodes: unknown[]): ClipboardEvent {
+function createClipboardEventWithVarveNodes(nodes: unknown[]): ClipboardEvent {
   const json = JSON.stringify({ nodes });
   const dt = {
     files: createFileList([]),
@@ -281,10 +281,10 @@ describe('Editor file open — camera fits content far from world origin', () =>
   });
 });
 
-describe('Editor native clipboard paste (Strata-format data)', () => {
+describe('Editor native clipboard paste (Varve-format data)', () => {
   it('pastes a plain shape node so it is visible via activePageNodes, not just doc.nodes', async () => {
     const shape = makeShapeNode('src-1', { kind: 'rect', x: 0, y: 0, w: 10, h: 10 });
-    captureClipboardEvent(createClipboardEventWithStrataNodes([shape]));
+    captureClipboardEvent(createClipboardEventWithVarveNodes([shape]));
 
     let ctx: ReturnType<typeof useEditor> | undefined;
     function Test() {
@@ -326,7 +326,7 @@ describe('Editor native clipboard paste (Strata-format data)', () => {
     // Matches what copySelected() now serializes: the selected node plus its
     // full descendant subtree (gatherSubtreeNodes), not just the root — a
     // paste handler that only reads the root would drop this child entirely.
-    captureClipboardEvent(createClipboardEventWithStrataNodes([group, child]));
+    captureClipboardEvent(createClipboardEventWithVarveNodes([group, child]));
 
     let ctx: ReturnType<typeof useEditor> | undefined;
     function Test() {

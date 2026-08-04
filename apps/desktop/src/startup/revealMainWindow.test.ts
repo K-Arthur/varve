@@ -32,16 +32,16 @@ describe('revealMainWindow', () => {
 
   it('dismissBootFallback removes the boot fallback element', () => {
     const el = document.createElement('div');
-    el.id = 'strata-boot-fallback';
+    el.id = 'varve-boot-fallback';
     document.body.appendChild(el);
     dismissBootFallback();
-    expect(document.getElementById('strata-boot-fallback')).toBeNull();
+    expect(document.getElementById('varve-boot-fallback')).toBeNull();
   });
 
   it('dismissBootFallback removes fallback before root element is visible', () => {
     // Simulate the real main.tsx sequence: dismiss first, then create root
     const bootEl = document.createElement('div');
-    bootEl.id = 'strata-boot-fallback';
+    bootEl.id = 'varve-boot-fallback';
     document.body.prepend(bootEl);
     const rootEl = document.createElement('div');
     rootEl.id = 'root';
@@ -50,7 +50,7 @@ describe('revealMainWindow', () => {
     // Before React mounts, the boot fallback should be removed
     dismissBootFallback();
 
-    expect(document.getElementById('strata-boot-fallback')).toBeNull();
+    expect(document.getElementById('varve-boot-fallback')).toBeNull();
     // root must still be present for createRoot
     expect(document.getElementById('root')).not.toBeNull();
   });

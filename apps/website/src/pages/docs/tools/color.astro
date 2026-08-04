@@ -2,7 +2,7 @@
 import Layout from '../../../layouts/Layout.astro';
 ---
 
-<Layout title="Color & Effects — Strata">
+<Layout title="Color & Effects — Varve">
   <div class="container-custom">
     <div class="docs-page">
       <nav class="breadcrumb">
@@ -11,13 +11,13 @@ import Layout from '../../../layouts/Layout.astro';
 
       <h1>Color & Effects</h1>
       <p class="docs-intro">
-        Strata provides a professional fill system with support for solid colors, gradients, and image fills, plus a comprehensive effects engine for shadows, blurs, and glows. The color system uses <strong>ManagedColor</strong> as its canonical type, supporting RGB, CMYK, Grayscale, and Spot color modes.
+        Varve provides a professional fill system with support for solid colors, gradients, and image fills, plus a comprehensive effects engine for shadows, blurs, and glows. The color system uses <strong>ManagedColor</strong> as its canonical type, supporting RGB, CMYK, Grayscale, and Spot color modes.
       </p>
 
       <section class="docs-section">
         <h2>Color Model</h2>
         <p>
-          All colors in Strata are represented as <strong>ManagedColor</strong>, a discriminated union that supports four color modes:
+          All colors in Varve are represented as <strong>ManagedColor</strong>, a discriminated union that supports four color modes:
         </p>
         <ul>
           <li><strong>RGB</strong> — Standard sRGB color with 8-bit channels (0-255)</li>
@@ -33,7 +33,7 @@ import Layout from '../../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Color Conversion</h2>
         <p>
-          Strata includes a full analytical color conversion pipeline (no ICC files needed for basic operations):
+          Varve includes a full analytical color conversion pipeline (no ICC files needed for basic operations):
         </p>
         <ul>
           <li>sRGB &harr; Linear RGB &harr; XYZ &harr; CIELAB &harr; Oklab &harr; CMYK</li>
@@ -41,7 +41,7 @@ import Layout from '../../../layouts/Layout.astro';
           <li>Gamut mapping via binary-search chroma reduction</li>
         </ul>
         <p>
-          For print production, Strata also supports ICC-profile-aware conversion with bundled profiles for common RGB and CMYK standards (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP).
+          For print production, Varve also supports ICC-profile-aware conversion with bundled profiles for common RGB and CMYK standards (sRGB, Adobe RGB, Fogra39, GRACoL, SWOP).
         </p>
       </section>
 
@@ -56,7 +56,7 @@ import Layout from '../../../layouts/Layout.astro';
         </p>
         <h3>Gradient Fill</h3>
         <p>
-          Strata supports four gradient types:
+          Varve supports four gradient types:
         </p>
         <ul>
           <li><strong>Linear</strong> — Color transitions along a line with configurable angle (0-360&deg;)</li>
@@ -69,7 +69,7 @@ import Layout from '../../../layouts/Layout.astro';
         </p>
         <h3>Image Fill</h3>
         <p>
-          Fill a shape with a raster image. Strata's ImageCache handles async loading with LRU eviction (max 200 entries). The fill respects the shape's bounds and can be scaled via the <code>imageFit</code> property (cover, contain, fill).
+          Fill a shape with a raster image. Varve's ImageCache handles async loading with LRU eviction (max 200 entries). The fill respects the shape's bounds and can be scaled via the <code>imageFit</code> property (cover, contain, fill).
         </p>
       </section>
 
@@ -91,7 +91,7 @@ import Layout from '../../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Effects</h2>
         <p>
-          Strata's effects engine supports multiple effects per node, each with independent blend mode and opacity:
+          Varve's effects engine supports multiple effects per node, each with independent blend mode and opacity:
         </p>
         <ul>
           <li><strong>Drop Shadow</strong> — Offset shadow with configurable blur, spread, and color. Renders using the canvas shadow API with proper per-effect blend mode isolation.</li>
@@ -106,7 +106,7 @@ import Layout from '../../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Blend Modes</h2>
         <p>
-          Strata supports 18 blend modes, applied per-fill and per-effect:
+          Varve supports 18 blend modes, applied per-fill and per-effect:
         </p>
         <ul>
           <li><strong>Normal</strong> — Standard alpha compositing</li>
@@ -129,7 +129,7 @@ import Layout from '../../../layouts/Layout.astro';
       <section class="docs-section">
         <h2>Color Mode Switching</h2>
         <p>
-          Documents can be switched between RGB, CMYK, and Grayscale color modes. When switching, Strata converts all document colors using analytical conversion math. This is useful for preparing designs for both screen and print output.
+          Documents can be switched between RGB, CMYK, and Grayscale color modes. When switching, Varve converts all document colors using analytical conversion math. This is useful for preparing designs for both screen and print output.
         </p>
       </section>
 

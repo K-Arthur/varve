@@ -13,9 +13,6 @@ export type { IconName, IconProps } from './Icon';
 export { Icon } from './Icon';
 export type { SolidIconName, SolidIconProps } from './SolidIcon';
 export { SolidIcon } from './SolidIcon';
-export type { StrataLogoProps } from './StrataLogo';
-export { StrataLogo } from './StrataLogo';
-
 /** Semantic icon registry — the canonical API for internal UI icons. */
 export type {
   IconFamily,
@@ -34,6 +31,8 @@ export {
   SemanticIcon,
   validateSemanticIconNames,
 } from './semantic';
+export type { VarveLogoProps } from './VarveLogo';
+export { VarveLogo } from './VarveLogo';
 
 import type { IconName } from './Icon';
 import type { SolidIconName } from './SolidIcon';

@@ -97,22 +97,22 @@ export function Slider({
   const valueText = formatValue ? formatValue(value) : `${value}`;
 
   return (
-    <fieldset className={`strata-slider${disabled ? ' strata-slider--disabled' : ''}`}>
-      <legend className="strata-slider__legend" id={`${id}-label`}>
+    <fieldset className={`varve-slider${disabled ? ' varve-slider--disabled' : ''}`}>
+      <legend className="varve-slider__legend" id={`${id}-label`}>
         {label}
       </legend>
-      <div className="strata-slider__row">
+      <div className="varve-slider__row">
         {/* biome-ignore lint/a11y/noStaticElementInteractions: presentational track; keyboard handled by slider thumb */}
         <div
           ref={trackRef}
-          className="strata-slider__track"
+          className="varve-slider__track"
           role="presentation"
           onClick={handleTrackClick}
         >
-          <div className="strata-slider__fill" style={{ width: `${fraction * 100}%` }} />
+          <div className="varve-slider__fill" style={{ width: `${fraction * 100}%` }} />
           <div
             ref={thumbRef}
-            className="strata-slider__thumb"
+            className="varve-slider__thumb"
             role="slider"
             tabIndex={disabled ? -1 : 0}
             aria-labelledby={`${id}-label`}
@@ -126,7 +126,7 @@ export function Slider({
             style={{ left: `${fraction * 100}%` }}
           />
         </div>
-        <output className="strata-slider__value" htmlFor={`${id}-label`}>
+        <output className="varve-slider__value" htmlFor={`${id}-label`}>
           {valueText}
         </output>
       </div>

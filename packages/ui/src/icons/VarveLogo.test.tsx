@@ -3,23 +3,23 @@
  */
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { StrataLogo } from './StrataLogo';
+import { VarveLogo } from './VarveLogo';
 
-describe('StrataLogo', () => {
+describe('VarveLogo', () => {
   it('renders the full variant with aria-hidden by default', () => {
-    const { container } = render(<StrataLogo />);
+    const { container } = render(<VarveLogo />);
     const svg = container.querySelector('svg');
     expect(svg).toBeDefined();
     expect(svg?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('renders with accessible label when label prop is set', () => {
-    render(<StrataLogo label="Strata" />);
-    expect(screen.getByRole('img', { name: 'Strata' })).toBeDefined();
+    render(<VarveLogo label="Varve" />);
+    expect(screen.getByRole('img', { name: 'Varve' })).toBeDefined();
   });
 
   it('uses parallelogram polygons in symbolic variant (not rounded rects)', () => {
-    const { container } = render(<StrataLogo symbolic />);
+    const { container } = render(<VarveLogo symbolic />);
     const polygons = container.querySelectorAll('polygon');
     expect(polygons.length).toBe(3);
     // Each polygon should have 4 coordinates (parallelogram)
@@ -38,13 +38,13 @@ describe('StrataLogo', () => {
   });
 
   it('renders full variant with path elements (brand logo)', () => {
-    const { container } = render(<StrataLogo />);
+    const { container } = render(<VarveLogo />);
     const paths = container.querySelectorAll('path');
     expect(paths.length).toBe(3);
   });
 
   it('accepts custom size', () => {
-    const { container } = render(<StrataLogo size={32} />);
+    const { container } = render(<VarveLogo size={32} />);
     const svg = container.querySelector('svg');
     expect(svg?.getAttribute('width')).toBe('32');
     expect(svg?.getAttribute('height')).toBe('32');

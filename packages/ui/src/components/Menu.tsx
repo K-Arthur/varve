@@ -475,7 +475,7 @@ function MenuInternal({
 
   const renderedItems = displayItems.map((entry) => {
     if (isSeparator(entry)) {
-      return <hr key={entry.id} role="presentation" className="strata-menu__sep" />;
+      return <hr key={entry.id} role="presentation" className="varve-menu__sep" />;
     }
 
     focusableCounter++;
@@ -491,7 +491,7 @@ function MenuInternal({
           aria-checked={entry.checked}
           disabled={entry.disabled}
           aria-disabled={entry.disabled || undefined}
-          className="strata-menu__item"
+          className="varve-menu__item"
           tabIndex={isCurrent ? 0 : -1}
           data-focusable-idx={idx}
           onClick={() => {
@@ -501,11 +501,11 @@ function MenuInternal({
             if (!entry.disabled) setFocusIdx(idx);
           }}
         >
-          <span className="strata-menu__indicator">
+          <span className="varve-menu__indicator">
             {entry.checked ? <Icon name="Check" size="0.85em" /> : ''}
           </span>
           <span>{entry.label}</span>
-          {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
+          {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
         </button>
       );
     }
@@ -519,7 +519,7 @@ function MenuInternal({
           aria-checked={entry.checked}
           disabled={entry.disabled}
           aria-disabled={entry.disabled || undefined}
-          className="strata-menu__item"
+          className="varve-menu__item"
           tabIndex={isCurrent ? 0 : -1}
           data-focusable-idx={idx}
           onClick={() => {
@@ -529,7 +529,7 @@ function MenuInternal({
             if (!entry.disabled) setFocusIdx(idx);
           }}
         >
-          <span className="strata-menu__indicator">
+          <span className="varve-menu__indicator">
             {entry.checked ? (
               <svg
                 width="10"
@@ -555,7 +555,7 @@ function MenuInternal({
             )}
           </span>
           <span>{entry.label}</span>
-          {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
+          {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
         </button>
       );
     }
@@ -563,7 +563,7 @@ function MenuInternal({
     if (isSubmenuItem(entry)) {
       const submenuOpen = openSubmenu === entry.id;
       return (
-        <div key={entry.id} className="strata-menu__item-wrapper">
+        <div key={entry.id} className="varve-menu__item-wrapper">
           <button
             type="button"
             role="menuitem"
@@ -571,7 +571,7 @@ function MenuInternal({
             aria-expanded={submenuOpen || undefined}
             disabled={entry.disabled}
             aria-disabled={entry.disabled || undefined}
-            className="strata-menu__item"
+            className="varve-menu__item"
             tabIndex={isCurrent ? 0 : -1}
             data-focusable-idx={idx}
             onMouseEnter={() => {
@@ -589,8 +589,8 @@ function MenuInternal({
             }}
           >
             <span>{entry.label}</span>
-            {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
-            <span className="strata-menu__submenu-arrow">▸</span>
+            {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
+            <span className="varve-menu__submenu-arrow">▸</span>
           </button>
           {submenuOpen && open && (
             <MenuInternal
@@ -600,7 +600,7 @@ function MenuInternal({
               closeAll={closeAll}
               label={`${itemLabel(entry)} submenu`}
               level={level + 1}
-              menuClassName="strata-menu strata-menu__submenu"
+              menuClassName="varve-menu varve-menu__submenu"
               topTabHandler={handleTopTab}
             />
           )}
@@ -615,7 +615,7 @@ function MenuInternal({
         role="menuitem"
         disabled={entry.disabled}
         aria-disabled={entry.disabled || undefined}
-        className="strata-menu__item"
+        className="varve-menu__item"
         tabIndex={isCurrent ? 0 : -1}
         data-focusable-idx={idx}
         onClick={() => {
@@ -629,8 +629,8 @@ function MenuInternal({
         }}
       >
         <span>{entry.label}</span>
-        {entry.dialog && <span className="strata-menu__ellipsis">&hellip;</span>}
-        {entry.badge ? <span className="strata-menu__badge">{entry.badge}</span> : null}
+        {entry.dialog && <span className="varve-menu__ellipsis">&hellip;</span>}
+        {entry.badge ? <span className="varve-menu__badge">{entry.badge}</span> : null}
       </button>
     );
   });
@@ -655,7 +655,7 @@ function MenuInternal({
         <button
           type="button"
           role="menuitem"
-          className="strata-menu__item strata-menu__show-more"
+          className="varve-menu__item varve-menu__show-more"
           tabIndex={showMoreIdx === focusIdx ? 0 : -1}
           data-focusable-idx={showMoreIdx}
           onMouseEnter={() => setFocusIdx(showMoreIdx)}
@@ -685,7 +685,7 @@ export function Menu({ items, triggerRef, open, onClose, label }: MenuProps) {
         label={label}
         level={0}
         triggerRef={triggerRef}
-        menuClassName="strata-menu strata-menu--portaled"
+        menuClassName="varve-menu varve-menu--portaled"
       />
     </FloatingPortal>
   );
@@ -728,7 +728,7 @@ export function ContextMenu({
       closeAll={onClose}
       label={label}
       level={0}
-      menuClassName="strata-ctxmenu"
+      menuClassName="varve-ctxmenu"
       menuStyle={{
         position: 'fixed',
         left: position.x,

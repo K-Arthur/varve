@@ -2271,7 +2271,7 @@
   max-height: 80vh;
 }
 
-.version-history .strata-dialog__body {
+.version-history .varve-dialog__body {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);

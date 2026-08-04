@@ -1,5 +1,5 @@
 /**
- * Strata token audit (Strata plan §6 / §7 gate).
+ * Varve token audit (Strata plan §6 / §7 gate).
  *
  * Verifies every contrast pair in CONTRAST_PAIRS passes its WCAG 2.2 grade in
  * EVERY theme (light, dark, high-contrast). Exits non-zero on any failure,

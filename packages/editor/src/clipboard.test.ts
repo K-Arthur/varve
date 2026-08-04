@@ -129,7 +129,7 @@ describe('readFromClipboardEvent', () => {
     expect(result.importItems).toHaveLength(0);
   });
 
-  it('reads Strata JSON from clipboardData.getData', async () => {
+  it('reads Varve JSON from clipboardData.getData', async () => {
     const strataJson = JSON.stringify({
       nodes: [{ id: 'n1', kind: 'shape', shape: { kind: 'rect', x: 0, y: 0, w: 100, h: 100 } }],
     });
@@ -273,7 +273,7 @@ describe('readFromClipboardEvent', () => {
     expect(result.strataData?.rasterMaskAssets?.[maskAsset.id]).toEqual(maskAsset);
   });
 
-  it('writes image and raster-mask assets into the Strata clipboard payload', async () => {
+  it('writes image and raster-mask assets into the Varve clipboard payload', async () => {
     const node = {
       id: 'image-1',
       name: 'Image',

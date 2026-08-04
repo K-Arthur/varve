@@ -1,6 +1,6 @@
 # Canvas / render performance scripts
 
-Developer tooling for measuring and gating Strata's canvas and render pipeline.
+Developer tooling for measuring and gating Varve.s canvas and render pipeline.
 All scripts are Node ESM and use Playwright's bundled Chromium against a local
 dev server.
 

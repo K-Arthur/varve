@@ -204,7 +204,7 @@ export const MENU_LABELS: Readonly<Record<string, string>> = {
   'menu.help.whatIsThis': "What's This?",
   'menu.help.startTour': 'Start Tour',
   'menu.help.installDesktopApp': 'Install Desktop App',
-  'menu.help.about': 'About Strata',
+  'menu.help.about': 'About Varve',
 };
 
 const MENU_KEY_PREFIX = 'menu.';

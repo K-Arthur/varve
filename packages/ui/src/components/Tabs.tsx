@@ -86,12 +86,12 @@ function TabsInner<T extends string>({
   );
 
   return (
-    <div className="strata-tabs">
+    <div className="varve-tabs">
       <div
         ref={tablistRef}
         role="tablist"
         aria-label={label}
-        className="strata-tablist"
+        className="varve-tablist"
         onKeyDown={handleKeyDown}
       >
         {tabs.map((tab, i) => {
@@ -107,7 +107,7 @@ function TabsInner<T extends string>({
               aria-selected={isActive}
               aria-controls={panelId}
               tabIndex={i === activeIndex ? 0 : -1}
-              className="strata-tab"
+              className="varve-tab"
               onClick={() => onTabChange(tab.value)}
             >
               {tab.icon && <Icon name={tab.icon} label={undefined} size="0.95em" />}
@@ -127,7 +127,7 @@ function TabsInner<T extends string>({
             role="tabpanel"
             aria-labelledby={tabId}
             hidden={!isActive}
-            className="strata-tabpanel"
+            className="varve-tabpanel"
           >
             {isActive ? (childrenArray[i] ?? null) : null}
           </div>

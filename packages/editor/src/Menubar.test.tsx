@@ -445,7 +445,7 @@ describe('Menubar menu structure', () => {
     const menu = document.body.querySelector('.editor-menubar__menu') as HTMLElement;
     expect(within(menu).getByRole('menuitem', { name: /Contextual Help/ })).toBeTruthy();
     expect(within(menu).getByRole('menuitem', { name: /Help Center/ })).toBeTruthy();
-    expect(within(menu).getByRole('menuitem', { name: /About Strata/ })).toBeTruthy();
+    expect(within(menu).getByRole('menuitem', { name: /About Varve/ })).toBeTruthy();
   });
 });
 

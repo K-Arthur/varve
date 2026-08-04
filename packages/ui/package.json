@@ -2,7 +2,7 @@
   "name": "@varve/ui",
   "version": "0.0.0",
   "private": true,
-  "description": "Strata design-system primitives: tokens, themes, icons, and APG-pattern components.",
+  "description": "Varve design-system primitives: tokens, themes, icons, and APG-pattern components.",
   "type": "module",
   "exports": {
     ".": {

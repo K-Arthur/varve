@@ -86,7 +86,7 @@ export function registerEditorActions(
     ['auditDocument', 'Audit Document', 'object'],
     ['whatIsThis', 'What Is This?', 'help'],
     ['startTour', 'Start Tour', 'help'],
-    ['about', 'About Strata', 'help'],
+    ['about', 'About Varve', 'help'],
   ] as const satisfies ReadonlyArray<readonly [string, string, ActionCategory]>;
   for (const [id, label, category] of menuActions) {
     const handler = handlers[id];

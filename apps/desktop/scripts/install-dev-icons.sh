@@ -4,7 +4,7 @@
 # ~/.local/share/applications/<app_id>.desktop → Icon= → hicolor theme.
 #
 # Usage (from repo root): just install-dev-icons
-# Master art: packages/ui/src/icons/strata-app-icon.svg (via hicolor ladder)
+# Master art: packages/ui/src/icons/varve-app-icon.svg (via hicolor ladder)
 
 set -euo pipefail
 
@@ -67,7 +67,7 @@ cp -f "$DESKTOP_SRC" "$APPS_DIR/${APP_ID}.desktop"
 # Alias for Cargo binary app_id fallback (strata-desktop) — NoDisplay so menus stay single.
 {
   echo "[Desktop Entry]"
-  echo "Name=Strata"
+  echo "Name=Varve"
   echo "GenericName=Design Tool"
   echo "Comment=Local-first, cross-platform design suite"
   echo "Exec=strata-desktop %F"

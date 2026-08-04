@@ -146,7 +146,7 @@ export function ImportPreview({ validation, onConfirm, onCancel }: ImportPreview
           </button>
         </div>
 
-        <div role="status" aria-live="polite" className="strata-visually-hidden">
+        <div role="status" aria-live="polite" className="varve-visually-hidden">
           {validation.valid
             ? `Ready to import ${validation.format} with ${validation.estimatedNodeCount} nodes`
             : 'This file cannot be imported'}

@@ -1,8 +1,8 @@
-# Strata Brand Guide
+# Varve Brand Guide
 
 ## 1. Concept Statement
 
-"Strata" is the plural of the Latin *stratum* ("a spread layer"), the dominant association being geological cross-sections — layered rock exposed at the surface, each band a distinct age and composition. This maps directly to the design-tool concept of *document layers*.
+"Varve" is the plural of the Latin *stratum* ("a spread layer"), the dominant association being geological cross-sections — layered rock exposed at the surface, each band a distinct age and composition. This maps directly to the design-tool concept of *document layers*.
 
 The mark shows **three parallelogram strata planes** all tilted in the same direction, each cascading 8 px to the right of the one above it. The consistent tilt reads as unified geological layering (not a list or alignment guide); the rightward cascade reads as depth and directionality — layers exposed progressively as you dig. The combined silhouette is a staircase, not a rectangle, making it immediately distinct at every size.
 
@@ -100,7 +100,7 @@ Teal → `#878787` (lum 52.7 %), Sandstone → `#6B6B6B` (lum 42.2 %), Terracott
 - **ViewBox:** `0 14 156 164`
 - **Mark centred:** `translate(14,0)` → geometric centre x = 78; text centre x ≈ 78.4 ✓
 - **Gap mark-bottom → text-cap:** 21 px (≈ 2.5 U)
-- **Text baseline:** y = 158; no descenders in "Strata" ✓
+- **Text baseline:** y = 158; no descenders in "Varve" ✓
 
 ### Clear-space rule
 Minimum clear-space = **1× the height of the mark** (76 px at 128-px scale) on all four sides of the mark-only asset. For lockups, use the lockup bounding box.
@@ -223,4 +223,4 @@ Requires: `rsvg-convert` (librsvg), `magick` (ImageMagick ≥ 7), Tauri CLI in `
 ```bash
 just install-dev-icons
 ```
-This installs `~/.local/share/applications/dev.strata.desktop.desktop` + hicolor icons so Plasma resolves the Strata icon instead of the Wayland logo.
+This installs `~/.local/share/applications/dev.strata.desktop.desktop` + hicolor icons so Plasma resolves the Varve icon instead of the Wayland logo.

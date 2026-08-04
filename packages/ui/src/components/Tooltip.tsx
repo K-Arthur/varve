@@ -4,7 +4,7 @@
  * Research basis: ARIA Authoring Practices Guide — Tooltip pattern
  *   https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/
  *
- * Design goals for Strata's dense professional canvas app:
+ * Design goals for Varve's dense professional canvas app:
  * - Portaled rendering to document.body to escape overflow:hidden ancestors.
  * - Warm-up timing via TooltipProvider (faster adjacent tooltips in toolbars).
  * - aria-describedby is placed on the actual focusable trigger, not a wrapper.
@@ -472,8 +472,8 @@ export function Tooltip({
       ref={tooltipRef}
       id={tooltipId}
       role="tooltip"
-      className="strata-tooltip"
-      data-strata-tooltip=""
+      className="varve-tooltip"
+      data-varve-tooltip=""
       style={{
         left: posStyle?.left ?? 0,
         top: posStyle?.top ?? 0,
@@ -482,10 +482,10 @@ export function Tooltip({
       onPointerEnter={onTooltipPointerEnter}
       onPointerLeave={onTooltipPointerLeave}
     >
-      <span className="strata-tooltip__body">{tooltipContent}</span>
+      <span className="varve-tooltip__body">{tooltipContent}</span>
       {shortcut && !disabledReason && (
         <span
-          className="strata-tip__shortcut"
+          className="varve-tip__shortcut"
           role="status"
           aria-label={`Keyboard shortcut: ${shortcut}`}
         >
@@ -506,7 +506,7 @@ export function Tooltip({
         {...baseTriggerProps}
         ref={triggerRef as React.Ref<HTMLSpanElement>}
         tabIndex={tabIndexProp ?? 0}
-        className="strata-tooltip-trigger"
+        className="varve-tooltip-trigger"
         style={{ display: 'inline-flex' }}
       >
         {children}
@@ -558,7 +558,7 @@ export function Tooltip({
       {...hoverTriggerHandlers}
       {...baseTriggerProps}
       ref={triggerRef as React.Ref<HTMLSpanElement>}
-      className="strata-tooltip-trigger"
+      className="varve-tooltip-trigger"
       style={{ display: 'inline-flex' }}
     >
       {children}

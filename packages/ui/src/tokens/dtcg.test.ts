@@ -78,7 +78,7 @@ describe('DTCG Export — Full Document', () => {
   it('includes version and description', () => {
     const doc = dtcgExport();
     expect(doc.$version).toBe('1.0');
-    expect(doc.$description).toContain('Strata');
+    expect(doc.$description).toContain('Varve');
     expect(doc.color).toBeDefined();
   });
 });
