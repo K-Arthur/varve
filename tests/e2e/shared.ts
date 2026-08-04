@@ -17,11 +17,11 @@ export async function navigateToEditor(page: Page, path = '/') {
   await newBtn.click({ force: true, timeout: 15000 });
   await page
     .locator('dialog[open]')
-    .getByRole('button', { name: /^create$/i })
+    .getByRole('button', { name: /^create design$/i })
     .waitFor({ timeout: 5000 });
   await page
     .locator('dialog[open]')
-    .getByRole('button', { name: /^create$/i })
+    .getByRole('button', { name: /^create design$/i })
     .click({ timeout: 10000 });
   await page.locator('.layers-panel').waitFor({ timeout: 15000 });
 
