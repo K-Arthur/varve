@@ -239,7 +239,17 @@ export function HomeShell({
     newFile: useCallback(() => setNewFileOpen(true), []),
     openFromDisk: useCallback(async () => {
       const result = await platform.openDocumentFromDisk();
-      if (result) onOpenFile(result.entry);
+      if (result) {
+        const entry = result.entry;
+        // Persist the store copy (with the resolved disk path) so the
+        // editor's File → Save writes back to the original location
+        // (Figma/Photoshop behavior), not just the app store.
+        if (result.filePath) {
+          entry.filePath = result.filePath;
+        }
+        await platform.upsertFile(entry, result.documentJson).catch(() => undefined);
+        onOpenFile(entry);
+      }
     }, [platform, onOpenFile]),
     templates: useCallback(() => view.setSection('templates'), [view]),
     closeDialog: useCallback(() => {
@@ -860,7 +870,11 @@ export function HomeShell({
             onNewFile={() => setNewFileOpen(true)}
             onOpenFromDisk={async () => {
               const result = await platform.openDocumentFromDisk();
-              if (result) onOpenFile(result.entry);
+              if (result) {
+                if (result.filePath) result.entry.filePath = result.filePath;
+                await platform.upsertFile(result.entry, result.documentJson).catch(() => undefined);
+                onOpenFile(result.entry);
+              }
             }}
             kindFilter={view.state.filter.kinds}
             pinnedOnly={view.state.filter.pinnedOnly}
