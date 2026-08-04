@@ -5,7 +5,7 @@
  * Run: node scripts/ci-debug.test.mjs
  */
 import assert from 'node:assert';
-import { extractFailures, isFailureLine, rankLine } from './ci-debug.mjs';
+import { classifyJobFailure, extractFailures, isFailureLine, rankLine } from './ci-debug.mjs';
 
 function assertTrue(condition, message) {
   if (!condition) {
@@ -75,5 +75,42 @@ assertTrue(
   'snippet should include failing line',
 );
 assertTrue(hits[0].snippet.includes('at some_function'), 'context should include following line');
+
+// Job classification: billing-blocked jobs never start and have zero steps.
+const billingAnnotations = [
+  {
+    annotation_level: 'failure',
+    message:
+      'The job was not started because recent account payments have failed or your spending limit needs to be increased. Please check the Billing & plans section in your settings',
+  },
+];
+assert.strictEqual(
+  classifyJobFailure({ conclusion: 'failure', steps: [] }, billingAnnotations),
+  'billing-block',
+  'zero-step failed job with billing annotation is a billing block',
+);
+assert.strictEqual(
+  classifyJobFailure({ conclusion: 'failure', steps: [] }, []),
+  'never-started',
+  'zero-step failed job without annotation is never-started',
+);
+assert.strictEqual(
+  classifyJobFailure(
+    { conclusion: 'failure', steps: [{ name: 'cargo clippy', conclusion: 'failure' }] },
+    billingAnnotations,
+  ),
+  'real-failure',
+  'failed job with steps is a real failure even with billing annotations',
+);
+assert.strictEqual(
+  classifyJobFailure({ conclusion: 'success', steps: [] }, []),
+  null,
+  'successful jobs are not classified',
+);
+assert.strictEqual(
+  classifyJobFailure({ conclusion: 'skipped', steps: [] }, []),
+  null,
+  'skipped jobs are not classified',
+);
 
 console.log('ci-debug extraction tests passed.');
