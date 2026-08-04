@@ -127,9 +127,6 @@ jobs:
       - name: Rust tests
         run: cargo test --workspace --all-targets
 
-      - name: Rust tests (desktop)
-        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
-
       - name: Token gate
         if: runner.os == 'Linux'
         run: pnpm audit:tokens
@@ -147,6 +144,20 @@ jobs:
       - name: Build frontend
         run: pnpm build
         working-directory: apps/desktop
+
+      # Must run after "Build frontend". Anything that compiles the desktop
+      # crate expands `tauri::generate_context!()`, which reads tauri.conf.json
+      # and hard-fails if `frontendDist` ("../dist") is absent:
+      #
+      #   error: proc macro panicked
+      #     = help: message: The `frontendDist` configuration is set to
+      #             `"../dist"` but this path doesn't exist
+      #
+      # This step used to sit above the frontend build and failed on all three
+      # runners for that reason. It went unnoticed because earlier steps in the
+      # job errored first, so the ordering was never actually exercised.
+      - name: Rust tests (desktop)
+        run: cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml --features custom-protocol
 
       # Compile-and-link check, not a packaging run. `--no-bundle` skips the
       # installer generation (AppImage tooling download, WiX, DMG staging),
