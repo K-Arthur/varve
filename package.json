@@ -36,7 +36,11 @@
     "ci:health": "node scripts/ci-health.mjs",
     "ci:local": "bash scripts/ci-local-run.sh",
     "lint:css": "stylelint \"packages/ui/src/**/*.css\"",
-    "lint:css:all": "stylelint \"**/*.css\""
+    "lint:css:all": "stylelint \"**/*.css\"",
+    "build:website": "pnpm --filter @varve/website build",
+    "build:website:root": "cd apps/website && SITE_URL=https://varve.example SITE_BASE=/ astro build --outDir dist-root",
+    "test:website": "vitest run apps/website/src/test",
+    "test:website:e2e": "pnpm build:website && pnpm build:website:root && playwright test -c playwright.website.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

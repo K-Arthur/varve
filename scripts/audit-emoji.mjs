@@ -38,6 +38,7 @@ const SKIP_DIRS = new Set([
   'node_modules',
   'target',
   'dist',
+  'dist-root',
   '.next',
   '.git',
   'coverage',
