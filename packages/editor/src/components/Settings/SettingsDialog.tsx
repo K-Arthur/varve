@@ -1,5 +1,13 @@
 import { managedColorToCss } from '@varve/shared';
-import { Button, Dialog, NumberInput, Select, Tooltip, TooltipProvider } from '@varve/ui';
+import {
+  Button,
+  Dialog,
+  NumberInput,
+  Select,
+  Tooltip,
+  TooltipProvider,
+  VarveLogo,
+} from '@varve/ui';
 import { getTheme, setTheme } from '@varve/ui/tokens';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { bumpThemeRevision, getBackupService, useEditor } from '../../context';
@@ -355,7 +363,7 @@ function ShortcutsSection({ onOpenPalette }: { onOpenPalette: () => void }) {
       <p className="settings-hint">
         {reserved.target === 'browser'
           ? 'These shortcuts are owned by the browser and cannot be overridden in the web build.'
-          : 'Strata desktop can register app shortcuts via Tauri; these remain reserved by the OS.'}
+          : 'Varve desktop can register app shortcuts via Tauri; these remain reserved by the OS.'}
       </p>
       <table className="settings-shortcuts-table">
         <thead>
@@ -485,6 +493,9 @@ function AboutSection() {
     <div className="settings-section">
       <h3 className="settings-section__title">About Varve</h3>
       <div className="settings-about">
+        <div className="settings-about__brand" aria-hidden>
+          <VarveLogo size={56} />
+        </div>
         <div className="settings-about__row">
           <span className="settings-about__key">Version</span>
           <span className="settings-about__value">Developer Preview</span>
