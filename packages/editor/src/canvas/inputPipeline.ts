@@ -43,6 +43,8 @@ export interface UseCanvasInputsOptions {
   editor: {
     setCursorPos: (pos: { x: number; y: number } | null) => void;
     setPan: (pan: { x: number; y: number }) => void;
+    /** Relative scroll; resolves against the newest pan, not a snapshot. */
+    panBy: (dx: number, dy: number) => void;
     setSelection: (id: NodeId | null) => void;
     exitIsolation: () => void;
     announceOperation: (op: string, detail: string) => void;
@@ -334,8 +336,7 @@ export function useCanvasInputs({
                   stopAutoPan();
                   return;
                 }
-                const s = stateRef.current;
-                editor.setPan({ x: s.pan.x + v.x, y: s.pan.y + v.y });
+                editor.panBy(v.x, v.y);
                 scheduleCanvasFrame(frameKey, 'input', tick);
               };
               scheduleCanvasFrame(frameKey, 'input', tick);
@@ -432,7 +433,6 @@ export function useCanvasInputs({
       if (inertiaRef.current.active) return;
       inertiaRef.current.active = true;
       const tick = () => {
-        const s = stateRef.current;
         const v = inertiaRef.current;
         if (Math.abs(v.vx) < INERTIA_THRESHOLD && Math.abs(v.vy) < INERTIA_THRESHOLD) {
           v.active = false;
@@ -440,7 +440,9 @@ export function useCanvasInputs({
           v.vy = 0;
           return;
         }
-        editor.setPan({ x: s.pan.x + v.vx, y: s.pan.y + v.vy });
+        // Relative, so a frame that runs before React commits the previous
+        // step still advances the scroll instead of re-applying it.
+        editor.panBy(v.vx, v.vy);
         v.vx *= INERTIA_FRICTION;
         v.vy *= INERTIA_FRICTION;
         scheduleCanvasFrame(inertiaFrameKey, 'input', tick);
@@ -494,12 +496,16 @@ export function useCanvasInputs({
         cancelInertia();
         return;
       }
+      // Relative pan: several wheel events can be delivered in one task, all
+      // before React commits. Resolving each against `s.pan` would make every
+      // event in the burst compute the same destination, dropping all but the
+      // last delta and making a fast scroll travel a fraction of its distance.
       if (action.shiftHeld) {
-        editor.setPan({ x: s.pan.x + action.deltaX, y: s.pan.y });
+        editor.panBy(action.deltaX, 0);
         cancelInertia();
         return;
       }
-      editor.setPan({ x: s.pan.x + action.deltaX, y: s.pan.y + action.deltaY });
+      editor.panBy(action.deltaX, action.deltaY);
       if (action.applyInertia) {
         inertiaRef.current.vx = inertiaRef.current.vx * 0.4 + action.deltaX * 0.6;
         inertiaRef.current.vy = inertiaRef.current.vy * 0.4 + action.deltaY * 0.6;
