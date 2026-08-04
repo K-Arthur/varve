@@ -19,6 +19,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { productSlug, repoSlug } from './product.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const OUT = join(repoRoot, 'apps/website/src/data/release-manifest.json');
@@ -29,22 +30,22 @@ function parseArgs(argv) {
   return args;
 }
 
-const FORMAT_COPY = {
+const formatCopy = (product) => ({
   appimage: {
     title: 'AppImage',
     blurb: 'Single file, runs on any x86-64 Linux. No install, no root.',
     caveat: 'Requires FUSE2. On systems without it, run with --appimage-extract-and-run.',
-    install: 'chmod +x Strata-*.AppImage && ./Strata-*.AppImage',
+    install: `chmod +x ${product}-*.AppImage && ./${product}-*.AppImage`,
   },
   deb: {
     title: 'Debian package',
     blurb: 'For Debian 12+ and Ubuntu 22.04+.',
-    install: 'sudo apt install ./Strata-*.deb',
+    install: `sudo apt install ./${product}-*.deb`,
   },
   rpm: {
     title: 'RPM package',
     blurb: 'For Fedora and RHEL-based distributions.',
-    install: 'sudo dnf install ./Strata-*.rpm',
+    install: `sudo dnf install ./${product}-*.rpm`,
   },
   nsis: {
     title: 'Windows installer',
@@ -63,19 +64,21 @@ const FORMAT_COPY = {
     blurb: 'Apple Silicon.',
     caveat:
       'Unsigned and not notarised: macOS will refuse to open it. Use System Settings > Privacy & Security > Open Anyway. Do not disable Gatekeeper.',
-    install: 'Open the .dmg and drag Strata to Applications',
+    install: `Open the .dmg and drag ${product} to Applications`,
   },
-};
+});
 
 function main() {
   const args = parseArgs(process.argv.slice(2));
-  const repo = args.repo ?? 'K-Arthur/Strata';
+  const repo = args.repo ?? repoSlug();
   const tag = args.tag;
   if (!tag) throw new Error('--tag is required (e.g. --tag v0.1.0)');
 
   const manifest = JSON.parse(readFileSync(resolve(repoRoot, args.manifest), 'utf-8'));
   const base = `https://github.com/${repo}/releases/download/${tag}`;
 
+  const product = productSlug();
+  const FORMAT_COPY = formatCopy(product);
   const platforms = {};
   for (const artifact of manifest.artifacts) {
     platforms[artifact.os] ??= [];
@@ -105,7 +108,7 @@ function main() {
     notarized: manifest.notarized === true,
     releaseUrl: `https://github.com/${repo}/releases/tag/${tag}`,
     checksumsUrl: `${base}/SHA256SUMS.txt`,
-    sbomUrl: `${base}/strata-${manifest.version}-sbom.cdx.json`,
+    sbomUrl: `${base}/${productSlug().toLowerCase()}-${manifest.version}-sbom.cdx.json`,
     platforms,
   };
 
