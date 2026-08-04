@@ -46,7 +46,11 @@ export class MemoryRecoveryStorage implements RecoveryStorage {
 }
 
 export class IndexedDbRecoveryStorage implements RecoveryStorage {
-  private dbName = 'strata-recovery';
+  /** Live DB name. Recovery sessions are recovered-from or deleted within
+   *  seconds of an app crash, so a one-time copy of the legacy database
+   *  (strata-recovery) keeps pre-rename crash sessions discoverable. */
+  private dbName = 'varve-recovery';
+  private legacyDbName = 'strata-recovery';
   private storeName = 'sessions';
 
   private async db(): Promise<IDBDatabase> {
@@ -60,7 +64,73 @@ export class IndexedDbRecoveryStorage implements RecoveryStorage {
     });
   }
 
+  /** Copy any legacy pre-rename sessions into the live database once, so
+   *  crash recovery survives the rename. Idempotent: the legacy DB is only
+   *  read; it is never deleted (rollback to an old build keeps working). */
+  private async migrateLegacy(): Promise<void> {
+    try {
+      const legacy = indexedDB.open(this.legacyDbName, 1);
+      const legacyDb = await new Promise<IDBDatabase | null>((resolve) => {
+        legacy.onupgradeneeded = () => {
+          // Never mutate the legacy schema.
+          legacy.transaction?.abort();
+        };
+        legacy.onsuccess = () => resolve(legacy.result);
+        legacy.onerror = () => resolve(null);
+      });
+      if (!legacyDb) return;
+      try {
+        const tx = legacyDb.transaction('sessions', 'readonly');
+        const store = tx.objectStore('sessions');
+        const keysReq = store.getAllKeys();
+        const valuesReq = store.getAll();
+        await Promise.all([
+          new Promise<void>((resolve, reject) => {
+            keysReq.onsuccess = () => resolve();
+            keysReq.onerror = () => reject(keysReq.error);
+          }),
+          new Promise<void>((resolve, reject) => {
+            valuesReq.onsuccess = () => resolve();
+            valuesReq.onerror = () => reject(valuesReq.error);
+          }),
+        ]);
+        const live = await this.db();
+        const liveTx = live.transaction(this.storeName, 'readwrite');
+        const liveStore = liveTx.objectStore(this.storeName);
+        const keys = keysReq.result as IDBValidKey[];
+        const values = valuesReq.result as string[];
+        keys.forEach((key, i) => {
+          // Only fill missing keys — never overwrite a newer session.
+          const existing = liveTx.objectStore(this.storeName).get(key);
+          existing.onsuccess = () => {
+            if (existing.result == null && values[i] != null) {
+              liveStore.put(values[i] as string, key);
+            }
+          };
+        });
+        await new Promise<void>((resolve, reject) => {
+          liveTx.oncomplete = () => resolve();
+          liveTx.onerror = () => reject(liveTx.error);
+        });
+      } finally {
+        legacyDb.close();
+      }
+    } catch {
+      // Best-effort migration only.
+    }
+  }
+
+  private async ensureMigrated(): Promise<void> {
+    if (!this.migrationDone) {
+      this.migrationDone = true;
+      await this.migrateLegacy();
+    }
+  }
+
+  private migrationDone = false;
+
   async save(key: string, data: string): Promise<void> {
+    await this.ensureMigrated();
     const db = await this.db();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');
@@ -71,6 +141,7 @@ export class IndexedDbRecoveryStorage implements RecoveryStorage {
   }
 
   async load(key: string): Promise<string | null> {
+    await this.ensureMigrated();
     const db = await this.db();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readonly');
@@ -81,6 +152,7 @@ export class IndexedDbRecoveryStorage implements RecoveryStorage {
   }
 
   async list(): Promise<string[]> {
+    await this.ensureMigrated();
     const db = await this.db();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readonly');
@@ -91,6 +163,7 @@ export class IndexedDbRecoveryStorage implements RecoveryStorage {
   }
 
   async delete(key: string): Promise<void> {
+    await this.ensureMigrated();
     const db = await this.db();
     return new Promise((resolve, reject) => {
       const tx = db.transaction(this.storeName, 'readwrite');

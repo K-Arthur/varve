@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  shared-mime-info definition for Strata documents.
+  shared-mime-info definitions for Varve documents.
 
   tauri.conf.json's `fileAssociations` makes Tauri write
-  `MimeType=application/x-strata` into the .desktop entry, but it does not
-  emit this file — and without it no desktop environment ever learns that
-  `*.strata` means `application/x-strata`. The association therefore looked
-  configured while double-clicking a document did nothing.
+  `MimeType=application/x-varve;application/x-strata` into the .desktop
+  entry, but it does not emit this file — and without it no desktop
+  environment ever learns that `*.varve` means `application/x-varve` or
+  that `*.strata` means `application/x-strata`. The association therefore
+  looked configured while double-clicking a document did nothing.
 
   Installed to /usr/share/mime/packages/ by the deb and rpm bundles. The
   post-install `update-mime-database` run is handled by the packaging tooling
@@ -14,17 +15,26 @@
       sudo update-mime-database /usr/share/mime
 -->
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
-  <mime-type type="application/x-strata">
+  <mime-type type="application/x-varve">
     <comment>Varve design document</comment>
-    <comment xml:lang="en-GB">Strata design document</comment>
-    <glob pattern="*.strata"/>
+    <glob pattern="*.varve"/>
     <icon name="dev.varve.desktop"/>
     <generic-icon name="image-x-generic"/>
     <!--
       Documents are JSON (see packages/platform/src/tauri.ts — the save dialog
       writes the native JSON format), so declare the supertype. This gives
-      sensible fallback behaviour in file managers that do not know Strata.
+      sensible fallback behaviour in file managers that do not know Varve.
     -->
+    <sub-class-of type="application/json"/>
+    <magic priority="40">
+      <match type="string" value="{&quot;varve&quot;" offset="0:64"/>
+    </magic>
+  </mime-type>
+  <mime-type type="application/x-strata">
+    <comment>Varve design document (legacy Strata format)</comment>
+    <glob pattern="*.strata"/>
+    <icon name="dev.varve.desktop"/>
+    <generic-icon name="image-x-generic"/>
     <sub-class-of type="application/json"/>
     <magic priority="40">
       <match type="string" value="{&quot;strata&quot;" offset="0:64"/>

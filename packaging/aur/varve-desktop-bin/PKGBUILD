@@ -79,12 +79,17 @@ package() {
     cp -a usr/share/icons "${pkgdir}/usr/share/icons"
   fi
 
-  # MIME type for .strata documents, so double-click opens the app.
+  # MIME types for .varve and .strata documents, so double-click opens the app.
   install -Dm644 /dev/stdin "${pkgdir}/usr/share/mime/packages/dev.varve.desktop.xml" <<'MIME'
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
-  <mime-type type="application/x-strata">
+  <mime-type type="application/x-varve">
     <comment>Varve design document</comment>
+    <glob pattern="*.varve"/>
+    <icon name="dev.varve.desktop"/>
+  </mime-type>
+  <mime-type type="application/x-strata">
+    <comment>Varve design document (legacy Strata format)</comment>
     <glob pattern="*.strata"/>
     <icon name="dev.varve.desktop"/>
   </mime-type>
@@ -92,7 +97,7 @@ package() {
 MIME
 
   install -Dm644 /dev/stdin "${pkgdir}/usr/share/doc/${pkgname}/README" <<'DOC'
-Varve stores documents as .strata files and keeps everything on your machine.
+Varve stores documents as .varve files (legacy .strata files stay openable) and keeps everything on your machine.
 
 This build is not code-signed. Verify your download against the published
 SHA256SUMS.txt at https://github.com/K-Arthur/varve/releases

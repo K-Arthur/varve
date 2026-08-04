@@ -9,6 +9,10 @@ interface QueuedFile {
   name: string;
   kind: FileKind;
   size: number;
+  /** Raw file content for native-format documents (.varve/.strata) — kept
+   *  verbatim so imports preserve the original document instead of a
+   *  blank placeholder. */
+  text?: string;
   status: 'queued' | 'importing' | 'done' | 'error';
   error?: string;
 }
@@ -40,6 +44,7 @@ export function BulkImportDialog({
       .filter((f) => {
         const ext = f.name.split('.').pop()?.toLowerCase();
         return [
+          'varve',
           'strata',
           'fig',
           'svg',
@@ -60,7 +65,22 @@ export function BulkImportDialog({
         kind: detectFileKind(f.name),
         size: f.size,
         status: 'queued' as const,
-      }));
+        // Read native documents eagerly so a later import failure can
+        // never silently replace them with a blank placeholder.
+        ...(detectFileKind(f.name) === 'strata' ? { text: '' } : {}),
+      }))
+      .map((q) => {
+        if (q.kind !== 'strata') return q;
+        const file = Array.from(fileList).find((f) => f.name === q.name);
+        if (!file) return q;
+        void file
+          .text()
+          .then((text) => {
+            setFiles((prev) => prev.map((pf) => (pf.id === q.id ? { ...pf, text } : pf)));
+          })
+          .catch(() => undefined);
+        return q;
+      });
     setFiles((prev) => [...prev, ...newFiles]);
   }, []);
 
@@ -108,10 +128,24 @@ export function BulkImportDialog({
 
       try {
         const now = Date.now();
+        // Native documents carry their real display name inside the JSON;
+        // use it so imports keep the author's naming (filename may differ).
+        let displayName = stripExtension(f.name);
+        if (f.kind === 'strata' && f.text) {
+          try {
+            const parsed = JSON.parse(f.text) as { name?: unknown };
+            if (typeof parsed.name === 'string' && parsed.name.trim()) {
+              displayName = parsed.name;
+            }
+          } catch {
+            // Malformed native document — keep the filename-derived name.
+          }
+        }
         const entry: FileEntry = {
           id: f.id,
-          name: stripExtension(f.name),
+          name: displayName,
           kind: f.kind,
+          filePath: undefined,
           projectId: DRAFTS_ID,
           createdAt: now,
           updatedAt: now,
@@ -122,14 +156,20 @@ export function BulkImportDialog({
           ordering: '',
           contentHash: contentHash(f.name),
         };
-        const json = serializeDoc({
-          id: f.id,
-          name: stripExtension(f.name),
-          rootChildren: [],
-          nodes: {},
-          components: {},
-          nextId: 1,
-        });
+        // Native-format documents keep their original content; other kinds
+        // fall back to a blank placeholder (their real import is a later
+        // parse/convert step).
+        const json =
+          f.kind === 'strata' && f.text
+            ? f.text
+            : serializeDoc({
+                id: f.id,
+                name: stripExtension(f.name),
+                rootChildren: [],
+                nodes: {},
+                components: {},
+                nextId: 1,
+              });
         await platform.upsertFile(entry, json);
         setFiles((prev) =>
           prev.map((pf) => (pf.id === f.id ? { ...pf, status: 'done' as const } : pf)),
@@ -186,7 +226,7 @@ export function BulkImportDialog({
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".strata,.fig,.svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd"
+                accept=".varve,.strata,.fig,.svg,.png,.jpg,.jpeg,.webp,.gif,.pdf,.ai,.eps,.psd"
                 style={{ display: 'none' }}
                 onChange={handleFileInput}
               />

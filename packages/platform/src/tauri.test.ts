@@ -81,7 +81,13 @@ describe('createTauriPlatform', () => {
     if (!saveCall) throw new Error('Expected plugin:dialog|save invoke');
     const saveArgs = saveCall[1] as { options?: Record<string, unknown> };
     expect(saveArgs.options).toBeDefined();
-    expect((saveArgs.options as Record<string, unknown>).defaultPath).toBe('test.strata');
+    // New saves default to the canonical .varve extension.
+    expect((saveArgs.options as Record<string, unknown>).defaultPath).toBe('test.varve');
+    // Both extensions are offered to the user.
+    const filters = (saveArgs.options as Record<string, unknown>).filters as Array<{
+      extensions: string[];
+    }>;
+    expect(filters[0]?.extensions).toEqual(['varve', 'strata']);
   });
 
   it('chooses one export folder and writes safe relative files beneath it', async () => {

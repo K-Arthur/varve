@@ -2210,7 +2210,11 @@ pub fn run() {
                             let has_document_ext = event
                                 .paths
                                 .iter()
-                                .any(|p| p.extension().map(|e| e == "strata").unwrap_or(false));
+                                .any(|p| {
+                                    p.extension()
+                                        .map(|e| e == "varve" || e == "strata")
+                                        .unwrap_or(false)
+                                });
                             if has_document_ext {
                                 let _ = tx.send(());
                             }
