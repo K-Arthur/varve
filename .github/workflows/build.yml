@@ -34,20 +34,20 @@ jobs:
       - name: Upload wasm artifact
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-wasm-release
+          name: varve-wasm-release
           path: apps/desktop/public/wasm/
 
   # Which runners this event is allowed to use.
   #
-  # This repository is private, so Actions minutes are metered — and macOS bills
-  # at 10x and Windows at 2x the Linux rate. Running a full three-OS Tauri
-  # release bundle on every push and PR was realistically 400-600 billed minutes
-  # per event, enough to exhaust a Free account's monthly allowance in about
-  # three pushes (docs/release/release-readiness-audit.md H-5).
+  # The repository is public (2026-08-04), so GitHub-hosted runners are free and
+  # unmetered — this is no longer about the bill. It is kept because a full
+  # three-OS Tauri build on every PR costs 30-60 minutes of wall-clock feedback
+  # for signal that a Linux build already gives, and because macOS and Windows
+  # runners are a shared, queue-limited resource.
   #
-  # Pull requests get the Linux gate only. The expensive runners are reserved for
-  # pushes to the default branch and manual dispatch, where the extra signal is
-  # actually worth paying for. Release artifacts come from release.yml, not here.
+  # Pull requests get the Linux gate only. The other runners are reserved for
+  # pushes to the default branch and manual dispatch. Release artifacts come from
+  # release.yml, not here.
   plan:
     name: Plan runners
     runs-on: ubuntu-latest
@@ -141,7 +141,7 @@ jobs:
       - name: Download wasm artifact
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
-          name: strata-wasm-release
+          name: varve-wasm-release
           path: apps/desktop/public/wasm/
 
       - name: Build frontend
@@ -171,7 +171,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
         with:
-          name: strata-debug-${{ matrix.os }}-${{ github.run_id }}
+          name: varve-debug-${{ matrix.os }}-${{ github.run_id }}
           path: ci-debug-report.md
           if-no-files-found: ignore
 
