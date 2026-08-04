@@ -22,30 +22,34 @@
         "resizable": true,
         "decorations": false,
         "shadow": true,
-        "visible": false,
+        "visible": true,
         "dragDropEnabled": true
-      },
-      {
-        "label": "splashscreen",
-        "title": "Strata",
-        "url": "splashscreen.html",
-        "width": 360,
-        "height": 280,
-        "decorations": false,
-        "center": true,
-        "resizable": false,
-        "skipTaskbar": true,
-        "alwaysOnTop": true,
-        "shadow": false
       }
     ],
     "security": {
       "csp": {
-        "default-src": ["'self'"],
-        "script-src": ["'self'", "'wasm-unsafe-eval'", "blob:"],
-        "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "blob:", "https:"],
-        "font-src": ["'self'", "data:"],
+        "default-src": [
+          "'self'"
+        ],
+        "script-src": [
+          "'self'",
+          "'wasm-unsafe-eval'",
+          "blob:"
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'"
+        ],
+        "img-src": [
+          "'self'",
+          "data:",
+          "blob:",
+          "https:"
+        ],
+        "font-src": [
+          "'self'",
+          "data:"
+        ],
         "connect-src": [
           "'self'",
           "ipc:",
@@ -58,20 +62,53 @@
           "https://*.huggingface.co",
           "https://*.hf.co"
         ],
-        "worker-src": ["'self'"],
-        "media-src": ["'self'", "blob:", "data:"],
-        "object-src": ["'none'"],
-        "frame-src": ["'none'"],
-        "base-uri": ["'self'"],
-        "form-action": ["'none'"],
-        "manifest-src": ["'self'"]
+        "worker-src": [
+          "'self'"
+        ],
+        "media-src": [
+          "'self'",
+          "blob:",
+          "data:"
+        ],
+        "object-src": [
+          "'none'"
+        ],
+        "frame-src": [
+          "'none'"
+        ],
+        "base-uri": [
+          "'self'"
+        ],
+        "form-action": [
+          "'none'"
+        ],
+        "manifest-src": [
+          "'self'"
+        ]
       },
       "devCsp": {
-        "default-src": ["'self'"],
-        "script-src": ["'self'", "'wasm-unsafe-eval'", "blob:"],
-        "style-src": ["'self'", "'unsafe-inline'"],
-        "img-src": ["'self'", "data:", "blob:", "https:"],
-        "font-src": ["'self'", "data:"],
+        "default-src": [
+          "'self'"
+        ],
+        "script-src": [
+          "'self'",
+          "'wasm-unsafe-eval'",
+          "blob:"
+        ],
+        "style-src": [
+          "'self'",
+          "'unsafe-inline'"
+        ],
+        "img-src": [
+          "'self'",
+          "data:",
+          "blob:",
+          "https:"
+        ],
+        "font-src": [
+          "'self'",
+          "data:"
+        ],
         "connect-src": [
           "'self'",
           "ipc:",
@@ -85,24 +122,52 @@
           "https://*.huggingface.co",
           "https://*.hf.co"
         ],
-        "worker-src": ["'self'"],
-        "media-src": ["'self'", "blob:", "data:"],
-        "object-src": ["'none'"],
-        "frame-src": ["'none'"],
-        "base-uri": ["'self'"],
-        "form-action": ["'none'"],
-        "manifest-src": ["'self'"]
+        "worker-src": [
+          "'self'"
+        ],
+        "media-src": [
+          "'self'",
+          "blob:",
+          "data:"
+        ],
+        "object-src": [
+          "'none'"
+        ],
+        "frame-src": [
+          "'none'"
+        ],
+        "base-uri": [
+          "'self'"
+        ],
+        "form-action": [
+          "'none'"
+        ],
+        "manifest-src": [
+          "'self'"
+        ]
       },
-      "capabilities": ["default"]
+      "capabilities": [
+        "default"
+      ]
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "deb", "rpm", "nsis", "dmg"],
-    "resources": ["onnxruntime-libs/**/*"],
+    "targets": [
+      "appimage",
+      "deb",
+      "rpm",
+      "nsis",
+      "dmg"
+    ],
+    "resources": [
+      "onnxruntime-libs/**/*"
+    ],
     "fileAssociations": [
       {
-        "ext": ["strata"],
+        "ext": [
+          "strata"
+        ],
         "name": "Strata Document",
         "description": "Strata design document",
         "mimeType": "application/x-strata",
@@ -157,11 +222,19 @@
           "/usr/share/icons/hicolor/512x512/apps/dev.strata.desktop.png": "icons/hicolor/512x512/apps/dev.strata.desktop.png",
           "/usr/share/icons/hicolor/1024x1024/apps/dev.strata.desktop.png": "icons/hicolor/1024x1024/apps/dev.strata.desktop.png",
           "/usr/share/icons/hicolor/scalable/apps/dev.strata.desktop.svg": "icons/hicolor/scalable/apps/dev.strata.desktop.svg",
-          "/usr/share/icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg"
+          "/usr/share/icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg",
+          "/usr/share/mime/packages/dev.strata.desktop.xml": "linux/dev.strata.desktop.xml"
         }
       },
       "rpm": {
-        "depends": ["webkit2gtk4.1", "gtk3", "glib2", "librsvg2", "openssl", "fontconfig"],
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "glib2",
+          "librsvg2",
+          "openssl",
+          "fontconfig"
+        ],
         "epoch": 0,
         "desktopTemplate": "linux/dev.strata.desktop.desktop",
         "files": {
@@ -177,7 +250,8 @@
           "/usr/share/icons/hicolor/512x512/apps/dev.strata.desktop.png": "icons/hicolor/512x512/apps/dev.strata.desktop.png",
           "/usr/share/icons/hicolor/1024x1024/apps/dev.strata.desktop.png": "icons/hicolor/1024x1024/apps/dev.strata.desktop.png",
           "/usr/share/icons/hicolor/scalable/apps/dev.strata.desktop.svg": "icons/hicolor/scalable/apps/dev.strata.desktop.svg",
-          "/usr/share/icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg"
+          "/usr/share/icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg": "icons/hicolor/symbolic/apps/dev.strata.desktop-symbolic.svg",
+          "/usr/share/mime/packages/dev.strata.desktop.xml": "linux/dev.strata.desktop.xml"
         }
       }
     },
@@ -191,7 +265,9 @@
         "type": "offlineInstaller"
       },
       "wix": {
-        "language": ["en-US"]
+        "language": [
+          "en-US"
+        ]
       },
       "nsis": {}
     }
