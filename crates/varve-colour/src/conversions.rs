@@ -282,9 +282,7 @@ pub fn rgb_to_cmyk_icc(
 /// - Spot: use process fallback CMYK → RGB, or black if no fallback.
 pub fn engine_color_rgba(color: &varve_core::EngineColor) -> (u8, u8, u8, u8) {
     match color {
-        varve_core::EngineColor::Rgb { r, g, b, a, .. } => {
-            (*r as u8, *g as u8, *b as u8, *a as u8)
-        }
+        varve_core::EngineColor::Rgb { r, g, b, a, .. } => (*r as u8, *g as u8, *b as u8, *a as u8),
         varve_core::EngineColor::Cmyk { c, m, y, k, a, .. } => {
             let rc = 1.0 - (c / 255.0);
             let rm = 1.0 - (m / 255.0);
