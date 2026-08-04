@@ -352,6 +352,26 @@
   max-width: 32rem;
   width: min(90vw, 32rem);
   box-shadow: var(--shadow-lg);
+  /* Structured modal layout: fixed header, scrollable body, sticky footer.
+     max-height keeps the dialog inside the viewport on small screens; the
+     body scrolls instead of the dialog growing past the window edge.
+
+     `display: flex` is scoped to [open] deliberately: the UA stylesheet
+     hides closed dialogs via `dialog:not([open]) { display: none }`, and
+     ANY author `display` declaration overrides that UA rule regardless of
+     specificity. Unscoped `display: flex` would leave a closed (but
+     always-mounted) dialog visible and intercepting pointer events — the
+     same trap documented for .varve-dialog--settings in editor.css. */
+  max-height: min(calc(100vh - 2rem), 42rem);
+}
+.varve-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.varve-dialog--lg {
+  width: min(92vw, 52rem);
+  max-width: min(92vw, 52rem);
+  max-height: min(calc(100vh - 2rem), 46rem);
 }
 .varve-dialog::backdrop {
   background: var(--elevation-scrim);
@@ -361,12 +381,17 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-4) var(--space-4) 0;
+  flex-shrink: 0;
 }
 .varve-dialog__title {
   font-family: var(--font-display);
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .varve-dialog__close {
   background: none;
@@ -383,6 +408,18 @@
 }
 .varve-dialog__body {
   padding: var(--space-4);
+  min-height: 0;
+  overflow-y: auto;
+}
+.varve-dialog__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-raised);
 }
 .varve-dialog__desc {
   margin: 0 0 var(--space-4);
@@ -1196,6 +1233,10 @@
   cursor: ew-resize;
   outline: none;
 }
+.insp-num__input:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 1px;
+}
 .insp-num__input:focus-visible,
 .insp-num__input:focus {
   border-color: var(--color-interactive-default);
@@ -1562,6 +1603,10 @@
   font-size: var(--font-size-sm);
   outline: none;
 }
+.varve-input__field:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
+}
 .varve-input--sm .varve-input__field {
   height: var(--space-4);
 }
@@ -1602,6 +1647,10 @@
   resize: vertical;
   outline: none;
   transition: border-color var(--duration-quick) var(--ease-standard);
+}
+.varve-textarea__field:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: 2px;
 }
 .varve-textarea--focused .varve-textarea__field {
   border-color: var(--color-interactive-default);

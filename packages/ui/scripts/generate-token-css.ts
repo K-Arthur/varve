@@ -241,6 +241,17 @@ ${SURFACE_ALIASES}
   }
 }
 
+/* High-contrast via system preference (prefers-contrast) when no explicit
+ * in-app [data-theme] choice. Declared after the dark block so it wins when
+ * both preferences apply. */
+@media (prefers-contrast: more) {
+  :root:not([data-theme]) {
+${colorBlock('high-contrast')}
+${HC_ELEVATION}
+${SURFACE_ALIASES}
+  }
+}
+
 /* High-contrast honors the OS forced-colors mode using system color keywords. */
 @media (forced-colors: active) {
   :root:not([data-theme="high-contrast"]) {
