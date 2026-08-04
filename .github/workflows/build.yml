@@ -37,14 +37,39 @@ jobs:
           name: strata-wasm-release
           path: apps/desktop/public/wasm/
 
+  # Which runners this event is allowed to use.
+  #
+  # This repository is private, so Actions minutes are metered — and macOS bills
+  # at 10x and Windows at 2x the Linux rate. Running a full three-OS Tauri
+  # release bundle on every push and PR was realistically 400-600 billed minutes
+  # per event, enough to exhaust a Free account's monthly allowance in about
+  # three pushes (docs/release/release-readiness-audit.md H-5).
+  #
+  # Pull requests get the Linux gate only. The expensive runners are reserved for
+  # pushes to the default branch and manual dispatch, where the extra signal is
+  # actually worth paying for. Release artifacts come from release.yml, not here.
+  plan:
+    name: Plan runners
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo 'matrix={"os":["ubuntu-latest"]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"os":["ubuntu-latest","macos-latest","windows-latest"]}' >> "$GITHUB_OUTPUT"
+          fi
+
   build:
     name: Build (${{ matrix.os }})
-    needs: build-wasm
+    needs: [build-wasm, plan]
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -123,8 +148,14 @@ jobs:
         run: pnpm build
         working-directory: apps/desktop
 
-      - name: Tauri build (release)
-        run: pnpm tauri build --ci --features custom-protocol
+      # Compile-and-link check, not a packaging run. `--no-bundle` skips the
+      # installer generation (AppImage tooling download, WiX, DMG staging),
+      # which is the slow half and is not what this workflow is for — release
+      # artifacts are built by release.yml from a tag. This keeps the signal
+      # that the Rust side still compiles and links on every OS, at roughly
+      # half the runner minutes.
+      - name: Tauri build (release, no bundle)
+        run: pnpm tauri build --ci --no-bundle --features custom-protocol
         working-directory: apps/desktop
 
       - name: Build test binary (debug + wdio features)
@@ -144,9 +175,6 @@ jobs:
           path: ci-debug-report.md
           if-no-files-found: ignore
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08
-        with:
-          name: strata-${{ matrix.os }}
-          path: apps/desktop/src-tauri/target/release/bundle/
-          if-no-files-found: warn
+      # No bundle directory is produced here any more (see --no-bundle above);
+      # this workflow proves the build compiles, release.yml produces the
+      # installers. Nothing to upload.

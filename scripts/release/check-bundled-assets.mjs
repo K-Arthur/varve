@@ -62,6 +62,31 @@ function pointerDetails(path) {
   };
 }
 
+/**
+ * Extract `id` -> `bundled` from the engine's model catalog.
+ *
+ * Regex rather than a TS parse: this script must run before any build step, on
+ * a bare Node with nothing compiled. The catalog entries are plain object
+ * literals with one `id:` and one `bundled:` each, so a per-entry scan is
+ * reliable enough for a consistency check — and a false positive here fails
+ * loudly rather than silently, which is the correct direction to be wrong in.
+ */
+function catalogBundledFlags() {
+  const path = join(repoRoot, 'packages/engine/src/inference/modelCatalog.ts');
+  if (!existsSync(path)) return new Map();
+
+  const text = readFileSync(path, 'utf-8');
+  const flags = new Map();
+  // Split on `id: '...'` so each chunk is one catalog entry.
+  const entries = text.split(/^\s*id:\s*'/m).slice(1);
+  for (const entry of entries) {
+    const id = entry.slice(0, entry.indexOf("'"));
+    const bundled = entry.match(/^\s*bundled:\s*(true|false)/m)?.[1];
+    if (id && bundled) flags.set(id, bundled === 'true');
+  }
+  return flags;
+}
+
 function main() {
   const checkDist = process.argv.includes('--dist');
   const problems = [];
@@ -73,6 +98,26 @@ function main() {
     : [];
   const bundledFilenames = new Set(models.filter((m) => m.bundled).map((m) => m.filename));
   const knownFilenames = new Map(models.map((m) => [m.filename, m]));
+
+  // Two independent sources of truth describe what ships: the runtime manifest
+  // read by the app, and the engine's compile-time catalog. When they disagree,
+  // one of them is wrong about roughly a gigabyte of installer payload — and
+  // which one wins depends on which code path runs first. Fail on the
+  // disagreement itself rather than guessing.
+  const catalog = catalogBundledFlags();
+  for (const model of models) {
+    if (!catalog.has(model.id)) continue;
+    const catalogSaysBundled = catalog.get(model.id);
+    if (catalogSaysBundled !== Boolean(model.bundled)) {
+      problems.push(
+        `Model '${model.id}' is marked bundled=${Boolean(model.bundled)} in ` +
+          `apps/desktop/public/models/manifest.json but bundled=${catalogSaysBundled} in ` +
+          'packages/engine/src/inference/modelCatalog.ts.\n' +
+          '      These must agree — they decide whether the weights ship in the installer.\n' +
+          '      Reconcile them before releasing.',
+      );
+    }
+  }
 
   const roots = [PUBLIC_MODELS, ...(checkDist ? [DIST_MODELS] : [])];
 

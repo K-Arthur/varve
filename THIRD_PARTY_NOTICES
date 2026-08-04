@@ -149,6 +149,27 @@ realesr-general-x4v3-int8.onnx (BSD-3-Clause, derived)
   Licensed under BSD 3-Clause License.
   Bundled with the application.
 
+font-classify.onnx (MIT)
+  Source: https://huggingface.co/storia/font-classify-onnx
+  EfficientNet-B3 finetuned on 3,473 Google Fonts.
+  Licensed under MIT License.
+  Bundled with the application.
+  Powers the font identification feature.
+
+ddcolor.onnx / ddcolor-tiny.onnx (Apache-2.0)
+  Source: DDColor (https://github.com/piddnad/DDColor)
+  Copyright (c) DAMO Academy, Alibaba Group
+  Licensed under Apache License 2.0.
+  Exported to ONNX from the official weights; see tools/ddcolor-export/.
+  Powers AI colorization of grayscale images.
+
+  NOTE: whether these two ship inside the installer is currently
+  inconsistent between apps/desktop/public/models/manifest.json and
+  packages/engine/src/inference/modelCatalog.ts. They are attributed here
+  because over-attribution is harmless and omission is not. See
+  docs/release/release-readiness-audit.md (RB-1) — this must be reconciled
+  before release, since it is a ~1.2 GB difference in installer size.
+
 -----------------------------------------------------------------------------
 Native ONNX Runtime Libraries
 -----------------------------------------------------------------------------
