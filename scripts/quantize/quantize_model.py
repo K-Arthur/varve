@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-INT8 dynamic quantization pipeline for Strata's bundled ONNX models.
+INT8 dynamic quantization pipeline for Varve's bundled ONNX models.
 
 Produces validated, provenance-annotated INT8 artifacts from canonical FP32
 sources. Never overwrites the original model. Each generated artifact carries
@@ -307,7 +307,7 @@ def quantize_all(output_dir: Path = OUTPUT_DIR) -> list[QuantizationReport]:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="INT8 dynamic quantization for Strata ONNX models",
+        description="INT8 dynamic quantization for Varve ONNX models",
         epilog="Example: python3 quantize_model.py --model u2netp --weight-type QInt8 --per-channel",
     )
     parser.add_argument(

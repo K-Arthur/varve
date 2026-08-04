@@ -4,7 +4,7 @@ import type { APIRoute } from 'astro';
  * Generate the sitemap from the actual page files and the configured site URL.
  *
  * This replaces a hand-maintained public/sitemap.xml that listed 28 absolute
- * URLs under https://strata.design — a domain that is not owned. Every entry
+ * URLs under the Pages site for the varve repository. Every entry
  * pointed at a host that does not resolve, and nothing kept the list in step
  * with the pages that exist.
  *

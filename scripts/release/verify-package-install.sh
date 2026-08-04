@@ -80,7 +80,7 @@ find_artifact() {
   find "${BUNDLE_DIR}" -maxdepth 2 -name "$1" -type f 2>/dev/null | head -1
 }
 
-# Tauri names bundles with a space ("Strata Desktop_0.1.0_amd64.deb"). podman's
+# Tauri names bundles with a space ("Varve_0.1.0_amd64.deb"). podman's
 # -v argument parser rejects that outright ("names must match [a-zA-Z0-9]..."),
 # so stage a space-free copy rather than fighting the quoting.
 STAGE="$(mktemp -d)"
@@ -141,7 +141,7 @@ if [ -n "$BIN" ]; then
 fi
 
 for f in /usr/share/applications/*.desktop; do [ -e "$f" ] && say desktop-entry "$(basename "$f")"; done
-[ -e /usr/share/mime/packages/dev.strata.desktop.xml ] && say mime PASS || say mime MISSING
+[ -e /usr/share/mime/packages/dev.varve.desktop.xml ] && say mime PASS || say mime MISSING
 ls /usr/share/icons/hicolor/*/apps/*.png >/dev/null 2>&1 && say icons PASS || say icons MISSING
 
 PKG=$(dpkg-deb -f /tmp/pkg.deb Package)
@@ -197,7 +197,7 @@ if [ -n "$BIN" ]; then
 fi
 
 ls /usr/share/applications/*.desktop >/dev/null 2>&1 && say desktop-entry PASS || say desktop-entry MISSING
-[ -e /usr/share/mime/packages/dev.strata.desktop.xml ] && say mime PASS || say mime MISSING
+[ -e /usr/share/mime/packages/dev.varve.desktop.xml ] && say mime PASS || say mime MISSING
 
 dnf remove -y -q "$PKG" >/dev/null 2>&1 && say uninstall PASS || say uninstall FAIL
 CONTAINER

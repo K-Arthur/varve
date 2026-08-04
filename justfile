@@ -98,7 +98,7 @@ generate-icons:
     bash apps/desktop/build-icons.sh
 
 # Install FreeDesktop .desktop + hicolor icons for tauri:dev on Wayland/KDE
-# so Plasma resolves the Strata icon instead of the Wayland logo.
+# so Plasma resolves the Varve icon instead of the Wayland logo.
 install-dev-icons:
     bash apps/desktop/scripts/install-dev-icons.sh
 
@@ -164,7 +164,7 @@ validate-workflows-staged:
 # Every bundled system library on a current Arch host has `.relr.dyn`, so the
 # strip step fails for all of them and linuxdeploy aborts with the unhelpful
 # "failed to run linuxdeploy". Skipping the strip costs almost nothing: the
-# Strata binary is already stripped by [profile.release] strip = true, and
+# Varve binary is already stripped by [profile.release] strip = true, and
 # distro libraries ship stripped.
 #
 # IMPORTANT: an AppImage built here is for local smoke-testing only. It bundles

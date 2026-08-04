@@ -274,13 +274,13 @@ test.describe('Content-Aware Fill dialog', () => {
 
   test('opens the CAF dialog from editor state', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await expect(dialog).toBeVisible();
   });
 
   test('dialog renders with correct title and controls', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await expect(dialog).toBeVisible();
 
     await expect(dialog.locator('#caf-dialog-title')).toContainText('Content-Aware Fill');
@@ -311,7 +311,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
   test('quality mode selection works', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
 
     // Fast is default (its wrapper label gets the --active class)
     await expect(dialog.locator('.caf-dialog__quality-btn--active')).toHaveCount(1);
@@ -335,7 +335,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
   test('Cancel button closes the dialog without changes', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await expect(dialog).toBeVisible();
     await paintMaskStroke(page);
 
@@ -346,7 +346,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
   test('Close button (X) closes the dialog', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await expect(dialog).toBeVisible();
 
     await dialog.locator('.strata-dialog__close').click();
@@ -356,7 +356,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
   test('Brush size slider adjusts brush value', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
 
     const brushLabel = dialog.locator('label[for="caf-dialog-brush"]');
     await expect(brushLabel).toContainText('28');
@@ -431,7 +431,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
     // Apply the result
     await applyBtn.click();
-    await page.locator('dialog.strata-dialog--caf[open]').waitFor({
+    await page.locator('dialog.varve-dialog--caf[open]').waitFor({
       state: 'hidden',
       timeout: 5000,
     });
@@ -458,7 +458,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
     const layerCountBefore = await page.getByRole('treeitem').count();
     await applyBtn.click();
-    await page.locator('dialog.strata-dialog--caf[open]').waitFor({
+    await page.locator('dialog.varve-dialog--caf[open]').waitFor({
       state: 'hidden',
       timeout: 5000,
     });
@@ -472,7 +472,7 @@ test.describe('Content-Aware Fill dialog', () => {
 
   test('reopens the CAF dialog after closing', async ({ page }) => {
     await triggerCafDialog(page, nodeId);
-    const dialog = page.locator('dialog.strata-dialog--caf[open]');
+    const dialog = page.locator('dialog.varve-dialog--caf[open]');
     await expect(dialog).toBeVisible();
 
     // Close via Cancel

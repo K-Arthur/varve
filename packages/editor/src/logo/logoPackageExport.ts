@@ -389,7 +389,7 @@ export async function buildLogoPackage(
 
   const manifest = {
     name: brandName,
-    generatedBy: 'strata-logo-package',
+    generatedBy: 'varve-logo-package',
     version: 2,
     generatedAt: new Date().toISOString(),
     concepts: conceptFolders.map((c) => c.name),

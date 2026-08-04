@@ -1,3 +1,5 @@
+import { migrateLegacyIndexedDb } from '@varve/platform';
+
 /**
  * Font storage — persists downloaded font files across sessions.
  *
@@ -21,7 +23,8 @@ export interface StoredFontRecord {
   licenseName?: string;
 }
 
-const DB_NAME = 'strata-fonts';
+const DB_NAME = 'varve-fonts';
+const LEGACY_DB_NAME = 'strata-fonts';
 const DB_VERSION = 1;
 const STORE_NAME = 'fonts';
 
@@ -34,7 +37,10 @@ function openDb(): Promise<IDBDatabase> {
         db.createObjectStore(STORE_NAME, { keyPath: 'family' });
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      void migrateLegacyIndexedDb(LEGACY_DB_NAME, DB_NAME, [STORE_NAME]).then(() => resolve(db));
+    };
     req.onerror = () => reject(req.error);
   });
 }

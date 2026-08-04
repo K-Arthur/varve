@@ -1,7 +1,7 @@
 # DDColor ONNX Export — Reproducible Conversion Recipe
 
 This directory documents the reproducible conversion of the official DDColor
-weights to ONNX format for use in Strata's colorization pipeline.
+weights to ONNX format for use in Varve's colorization pipeline.
 
 ## Source
 
@@ -22,7 +22,7 @@ weights to ONNX format for use in Strata's colorization pipeline.
 | Python | 3.10.x |
 | PyTorch | 2.1.x |
 | ONNX | 1.14.x |
-| ONNX Runtime | 1.17.x (must match Strata's runtime) |
+| ONNX Runtime | 1.17.x (must match Varve's runtime) |
 | onnxsim | 0.4.x |
 | Opset | 12 |
 
@@ -91,6 +91,6 @@ See `LICENSE` in the DDColor repo.
 
 The HuggingFace community upload `Diogo122333/ddcolor-512-fp16-v6.onnx` was
 evaluated and rejected: it has no model card, no stated license, no provenance,
-and no conversion script. Per Strata's acquisition policy we do not ship
+and no conversion script. Per Varve's acquisition policy we do not ship
 untrusted third-party binaries. This recipe produces a verifiable artifact from
 the official Apache-2.0 source instead.
