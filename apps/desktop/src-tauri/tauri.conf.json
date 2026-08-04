@@ -92,8 +92,17 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["appimage", "deb", "rpm", "nsis", "dmg"],
     "resources": ["onnxruntime-libs/**/*"],
+    "fileAssociations": [
+      {
+        "ext": ["strata"],
+        "name": "Strata Document",
+        "description": "Strata design document",
+        "mimeType": "application/x-strata",
+        "role": "Editor"
+      }
+    ],
     "publisher": "K-Arthur (Strata Founder)",
     "homepage": "https://github.com/K-Arthur/Strata",
     "copyright": "Copyright 2024-2026 K-Arthur — FSL-1.1-MIT",
