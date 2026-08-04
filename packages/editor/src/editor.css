@@ -400,6 +400,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 220px;
+  min-width: 0;
   display: block;
   text-align: center;
   border: none;
@@ -1157,21 +1158,37 @@
   fill: var(--color-surface);
 }
 
-/* ── Center section (mode switcher + doc name) ── */
+/* ── Center section (document identity) ──
+ * In normal flex flow (not absolutely positioned) so the title truncates
+ * with an ellipsis instead of overlapping the workspace controls: the
+ * center claims the flexible middle, and the controls sit in the remaining
+ * space with min-width: 0 so they can never collide. */
 .editor-menubar__center {
   display: flex;
   align-items: center;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: 40%;
+  justify-content: center;
+  flex: 1 1 auto;
   min-width: 0;
+  padding: 0 var(--space-2);
 }
 
-/* Workspace switcher — icon+label segmented control in the menubar.
- * Moderate border-radius (8px) for a balanced straight/rounded aesthetic.
- * Active state uses accent color for clear mode indication across all themes. */
-.editor-menubar__workspace {
+/* WorkspaceTabs — responsive priority-based workspace switcher. Tabs are
+ * shown in WORKSPACE_OVERFLOW_ORDER; modes that don't fit move to the
+ * "More" overflow menu (see workspaceOverflow.ts). The active mode is
+ * always visible. The wrapper is flex:1 so it claims the space between the
+ * menus and the undo/redo/zoom controls — stable width that the layout
+ * math measures against (never the content-sized strip). */
+.workspace-tabs {
+  display: flex;
+  align-items: center;
+  /* flex-basis 0: the wrapper's width is decided by the flex layout (space
+     before undo/redo/zoom), never by its own tab content. */
+  flex: 1 1 0;
+  min-width: 0;
+  justify-content: flex-end;
+}
+
+.workspace-tabs__strip {
   display: flex;
   align-items: center;
   gap: var(--space-05);
@@ -1179,16 +1196,18 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   padding: var(--space-05);
-  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
-.editor-menubar__workspace-btn {
+.workspace-tabs__tab {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   font-size: var(--font-size-2xs);
   font-weight: var(--font-weight-medium);
-  padding: var(--space-1) var(--space-2);
+  height: 1.75rem;
+  padding: 0 var(--space-2);
   border: none;
   border-radius: var(--radius-sm);
   background: none;
@@ -1197,38 +1216,63 @@
   white-space: nowrap;
   transition:
     background var(--duration-fast) var(--ease-default),
-    color var(--duration-fast) var(--ease-default),
-    box-shadow var(--duration-fast) var(--ease-default);
+    color var(--duration-fast) var(--ease-default);
 }
 
-.editor-menubar__workspace-btn-label {
-  /* Labels drop at narrow widths — the icon plus tooltip/aria-label still
-   * identify the mode; see the narrow-window media query below. */
+.workspace-tabs__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 6.5rem;
 }
 
-.editor-menubar__workspace-btn:hover {
+.workspace-tabs__tab:hover {
   color: var(--color-text-primary);
   background: var(--color-interactive-hover);
 }
 
-.editor-menubar__workspace-btn--active {
+.workspace-tabs__tab--active {
   background: var(--color-interactive-default);
   color: var(--color-text-on-accent);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
 }
 
-.editor-menubar__workspace-btn:focus-visible {
+.workspace-tabs__tab:focus-visible {
   outline: 2px solid var(--color-interactive-focus-ring);
   outline-offset: -2px;
 }
 
-@media (max-width: 900px) {
-  .editor-menubar__workspace-btn-label {
-    display: none;
-  }
-  .editor-menubar__workspace-btn {
-    padding: var(--space-05) var(--space-1);
-  }
+.workspace-tabs__divider {
+  width: 1px;
+  height: 1rem;
+  background: var(--color-border-subtle);
+  flex-shrink: 0;
+}
+
+.workspace-tabs__more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background var(--duration-fast) var(--ease-default),
+    color var(--duration-fast) var(--ease-default);
+}
+
+.workspace-tabs__more:hover,
+.workspace-tabs__more--open {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+
+.workspace-tabs__more:focus-visible {
+  outline: 2px solid var(--color-interactive-focus-ring);
+  outline-offset: -2px;
 }
 
 /* ── Docs name in menubar ── */
@@ -1266,7 +1310,12 @@
   display: flex;
   align-items: center;
   gap: var(--space-1);
-  margin-left: auto;
+  /* Grows to fill the space right of the title segment; the workspace tabs
+     wrapper inside absorbs the flexible remainder (flex: 1 1 0), so the
+     tabs' available width is flex-determined — never content-determined,
+     which would collapse the overflow measurement in a feedback loop. */
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .editor-menubar__zoom {
