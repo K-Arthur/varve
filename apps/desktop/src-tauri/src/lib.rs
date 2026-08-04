@@ -1,3 +1,4 @@
+mod crash;
 mod font;
 mod font_storage;
 mod menu;
@@ -12,10 +13,10 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{LazyLock, Mutex};
-use varve_core::Point;
 use tauri::ipc::Response;
 use tauri::Emitter;
 use tauri::Manager;
+use varve_core::Point;
 
 use varve_bridge::{convert_engine_nodes, IpcSceneNode};
 
@@ -192,8 +193,12 @@ fn resolve_user_path(raw: &str) -> Result<std::path::PathBuf, String> {
             };
             ancestor = parent;
         }
-        let mut resolved = std::fs::canonicalize(ancestor)
-            .map_err(|e| format!("Failed to resolve existing ancestor {}: {e}", ancestor.display()))?;
+        let mut resolved = std::fs::canonicalize(ancestor).map_err(|e| {
+            format!(
+                "Failed to resolve existing ancestor {}: {e}",
+                ancestor.display()
+            )
+        })?;
         for component in suffix.into_iter().rev() {
             resolved.push(component);
         }
@@ -245,8 +250,13 @@ fn write_file_atomic(path: &std::path::Path, data: &[u8]) -> Result<(), String> 
     file.sync_all()
         .map_err(|e| format!("Failed to flush temp file: {e}"))?;
     drop(file);
-    std::fs::rename(&tmp, path)
-        .map_err(|e| format!("Failed to rename {} -> {}: {e}", tmp.display(), path.display()))?;
+    std::fs::rename(&tmp, path).map_err(|e| {
+        format!(
+            "Failed to rename {} -> {}: {e}",
+            tmp.display(),
+            path.display()
+        )
+    })?;
     Ok(())
 }
 
@@ -1209,9 +1219,7 @@ fn trace_image(
         max_paths: 1000,
         compound_holes: true,
     };
-    Ok(varve_trace::trace_to_beziers(
-        &pixels, width, height, &opts,
-    ))
+    Ok(varve_trace::trace_to_beziers(&pixels, width, height, &opts))
 }
 
 // ── PDF export ─────────────────────────────────────────
@@ -1437,12 +1445,10 @@ fn shape_text_command(
     _state: tauri::State<'_, varve_sync::DocumentStore>,
     request_json: String,
 ) -> Result<String, String> {
-    let request: varve_print::shaper::ShapeRequest =
-        serde_json::from_str(&request_json)
-            .map_err(|e| format!("Shape request parse error: {e}"))?;
+    let request: varve_print::shaper::ShapeRequest = serde_json::from_str(&request_json)
+        .map_err(|e| format!("Shape request parse error: {e}"))?;
     let result = varve_print::shaper::shape_text(&request)?;
-    serde_json::to_string(&result)
-        .map_err(|e| format!("Shape result serialize error: {e}"))
+    serde_json::to_string(&result).map_err(|e| format!("Shape result serialize error: {e}"))
 }
 
 #[tauri::command]
@@ -1955,7 +1961,8 @@ fn write_model_file(app: tauri::AppHandle, model_id: String, data: Vec<u8>) -> R
 fn delete_model_file(app: tauri::AppHandle, model_id: String) -> Result<(), String> {
     let path = model_dir(&app)?.join(&model_id);
     if path.exists() {
-        std::fs::remove_file(&path).map_err(|e| format!("Failed to delete model file {model_id}: {e}"))
+        std::fs::remove_file(&path)
+            .map_err(|e| format!("Failed to delete model file {model_id}: {e}"))
     } else {
         Ok(())
     }
@@ -1966,7 +1973,9 @@ fn list_model_files(app: tauri::AppHandle) -> Result<Vec<String>, String> {
     let dir = model_dir(&app)?;
     let mut ids = Vec::new();
     if dir.exists() {
-        for entry in std::fs::read_dir(&dir).map_err(|e| format!("Failed to read models dir: {e}"))? {
+        for entry in
+            std::fs::read_dir(&dir).map_err(|e| format!("Failed to read models dir: {e}"))?
+        {
             let entry = entry.map_err(|e| format!("Failed to read entry: {e}"))?;
             if entry.file_type().map(|t| t.is_file()).unwrap_or(false) {
                 ids.push(entry.file_name().to_string_lossy().to_string());
@@ -2141,6 +2150,10 @@ pub fn run() {
             let data_dir = app.path().app_data_dir().expect("no app data dir");
             migrate_legacy_data_dir(&data_dir);
             std::fs::create_dir_all(&data_dir).expect("create data dir");
+            // Native crash capture: panic hook + sandboxed report filesystem.
+            // Deliberately before any other subsystem — a panic later still
+            // lands an emergency record.
+            crash::install(data_dir.as_path());
             let db_path = data_dir.join("documents.db");
             let store = varve_sync::DocumentStore::new(&db_path).expect("init document store");
             app.manage(store);
@@ -2221,6 +2234,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            crash::crash_write_report,
+            crash::crash_list_reports,
+            crash::crash_read_report,
+            crash::crash_delete_report,
             menu::build_native_menu,
             menu::update_native_menu_state,
             build_render_ir,
@@ -2731,7 +2748,10 @@ mod tests {
             "pageWidth": 300.0, "pageHeight": 200.0, "bleedMm": 0.0, "includeCropMarks": false,
         }))
         .expect("parse plain");
-        assert!(plain.marks_geometry().is_none(), "no marks or bleed → no geometry");
+        assert!(
+            plain.marks_geometry().is_none(),
+            "no marks or bleed → no geometry"
+        );
 
         // Bleed alone (no crop marks) must still produce geometry so the bleed
         // box is applied — otherwise bleed is silently dropped.
@@ -3274,7 +3294,10 @@ mod tests {
 
         let resolved = resolve_user_path(target.to_str().expect("utf8 path"))
             .expect("not-yet-existing path under an existing temp ancestor should resolve");
-        assert!(resolved.ends_with("subdir/brand-new.txt") || resolved.ends_with("subdir\\brand-new.txt"));
+        assert!(
+            resolved.ends_with("subdir/brand-new.txt")
+                || resolved.ends_with("subdir\\brand-new.txt")
+        );
 
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -3289,7 +3312,10 @@ mod tests {
         // doesn't (e.g. some minimal containers), the "does not exist"
         // path is exercised instead — both are acceptable rejections here,
         // the point is that it must never resolve successfully.
-        assert!(err.is_err(), "/etc/passwd must never resolve as an allowed path");
+        assert!(
+            err.is_err(),
+            "/etc/passwd must never resolve as an allowed path"
+        );
     }
 
     #[test]
@@ -3451,7 +3477,10 @@ mod tests {
 
         // An older build still points at the legacy directory. If migration
         // moved instead of copied, downgrading would lose everything.
-        assert!(legacy.join("documents.db").exists(), "legacy data was removed");
+        assert!(
+            legacy.join("documents.db").exists(),
+            "legacy data was removed"
+        );
 
         let _ = std::fs::remove_dir_all(&root);
     }
@@ -3549,7 +3578,10 @@ mod tests {
 
         copy_dir_all(&src, &dst).expect("copy should succeed");
 
-        assert_eq!(std::fs::read(dst.join("top.txt")).expect("read top"), b"top");
+        assert_eq!(
+            std::fs::read(dst.join("top.txt")).expect("read top"),
+            b"top"
+        );
         assert_eq!(
             std::fs::read(dst.join("a").join("b").join("deep.txt")).expect("read deep"),
             b"deep"
@@ -3563,8 +3595,15 @@ mod tests {
         // cfg! makes this a per-platform constant; on the three we ship, a base
         // must resolve or the migration silently never runs.
         let base = legacy_data_base();
-        if cfg!(any(target_os = "linux", target_os = "macos", target_os = "windows")) {
-            assert!(base.is_some(), "no legacy data base on a supported platform");
+        if cfg!(any(
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        )) {
+            assert!(
+                base.is_some(),
+                "no legacy data base on a supported platform"
+            );
         }
     }
 }
